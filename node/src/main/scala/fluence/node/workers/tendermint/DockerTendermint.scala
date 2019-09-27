@@ -140,10 +140,9 @@ object DockerTendermint {
 
       tm ← Tendermint.make[F](workerDocker.producer.name, DockerTendermint.RpcPort, tendermintPath, websocketConfig)
 
-    } yield
-      TendermintBlockProducer(
-        tm,
-        DockerIO[F].checkContainer(container).leftMap(identity[EffectError])
-      ).extend(container)
+    } yield TendermintBlockProducer(
+      tm,
+      DockerIO[F].checkContainer(container).leftMap(identity[EffectError])
+    ).extend(container)
 
 }

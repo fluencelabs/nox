@@ -111,12 +111,11 @@ object MasterPool {
 
           responder ← WorkerResponder.make(producer, machine)
 
-        } yield
-          Worker(
-            app.id,
-            machine,
-            producer,
-            machine.command[PeersControl[F]] :: responder :: HNil
+        } yield Worker(
+          app.id,
+          machine,
+          producer,
+          machine.command[PeersControl[F]] :: responder :: HNil
         )
 
     WorkersPool[F, Resources[F], Companions[F]] { (app, l) ⇒

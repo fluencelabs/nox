@@ -24,34 +24,22 @@ import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.profunctor._
-import fluence.bp.uploading.BlockUploading
-import fluence.codec.{CodecError, PureCodec}
-import fluence.crypto.KeyPair
+import fluence.codec
+import fluence.codec.{CodecError, MonadicalEitherArrow, PureCodec}
+import fluence.crypto.Crypto.Hasher
+import fluence.crypto.{CryptoError, KeyPair}
 import fluence.crypto.eddsa.Ed25519
 import fluence.crypto.hash.CryptoHashers
 import fluence.effects.docker.DockerIO
-import fluence.effects.ipfs.IpfsUploader
-import fluence.effects.kvstore.{KVStore, RocksDBStore}
-import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
-import fluence.effects.tendermint.block.history.Receipt
-import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.effects.{Backoff, EffectError}
-import fluence.kad.Kademlia
 import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.UriContact
-import fluence.kad.http.dht.{DhtHttp, DhtHttpNode}
 import fluence.kad.http.{KademliaHttp, KademliaHttpNode}
 import fluence.kad.protocol.Key
 import fluence.log.{Log, LogFactory}
-import fluence.node.code.CodeCarrier
-import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
-import fluence.node.workers.{WorkerDocker, WorkerFiles, WorkersPorts}
-import fluence.node.workers.pool.DockerWorkersPool
-import fluence.node.workers.tendermint.config.ConfigTemplate
-import fluence.worker.eth.EthApp
 
 import scala.language.higherKinds
 
@@ -80,16 +68,16 @@ object MasterNodeApp extends IOApp {
             // Run master node and status server
             (for {
               implicit0(sttp: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
+              implicit0(dockerIO: DockerIO[IO]) ← DockerIO.make[IO]()
 
-              implicit0(dockerIO: DockerIO[F]) ← DockerIO.make[F]()
               conf ← Resource.liftF(Configuration.init[IO](masterConf))
               kad ← kademlia(conf.rootPath, masterConf.kademlia)
-              node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
-            } yield (kad.http, rDht.http, node)).use {
-              case (kadHttp, rDhtHttp, node) ⇒
+              node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, kad.kademlia)
+            } yield (kad.http, node)).use {
+              case (kadHttp, node) ⇒
                 (for {
                   _ ← Log.resource[IO].debug(s"Eth contract config: ${masterConf.contract}")
-                  server ← masterHttp(masterConf, node, kadHttp, rDhtHttp)
+                  server ← masterHttp(masterConf, node, kadHttp)
                 } yield server).use { server =>
                   log.info("Http api server has started on: " + server.address) *> node.run
                 }
@@ -105,28 +93,6 @@ object MasterNodeApp extends IOApp {
       }
   }
 
-  private def ipfsUploader(conf: RemoteStorageConfig)(implicit sttp: SttpStreamEffect[IO]) =
-    IpfsUploader[IO](conf.ipfs.address, conf.enabled, conf.ipfs.readTimeout)
-
-  private def dockerWorkersPool(
-    rootPath: Path,
-    appReceiptStorage: Long ⇒ Resource[IO, ReceiptStorage[IO]],
-    conf: MasterConfig
-  )(implicit sttp: SttpStreamEffect[IO], log: Log[IO], dio: DockerIO[IO], backoff: Backoff[EffectError]) =
-    for {
-      blockUploading <- BlockUploading(conf.blockUploadingEnabled, ipfsUploader(conf.remoteStorage))
-      pool <- DockerWorkersPool.make(
-        conf.ports.minPort,
-        conf.ports.maxPort,
-        rootPath,
-        appReceiptStorage,
-        conf.logLevel,
-        conf.websocket,
-        // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
-        blockUploading
-      )
-    } yield pool
-
   private def kademlia(rootPath: Path, conf: KademliaConfig)(implicit sttp: SttpEffect[IO], log: Log[IO]) =
     Resource
       .liftF(Configuration.readTendermintKeyPair(rootPath))
@@ -138,9 +104,10 @@ object MasterNodeApp extends IOApp {
             keyPair,
             rootPath, {
               // Lift Crypto errors for PureCodec errors
-              val sha256 = PureCodec.fromOtherFunc(
-                CryptoHashers.Sha256
-              )(err ⇒ CodecError("Crypto error when building Kademlia Key for Node[UriContact]", Some(err)))
+              val sha256: codec.PureCodec.Func[Array[Byte], Array[Byte]] =
+                PureCodec.fromOtherFunc[CryptoError, Array[Byte], Array[Byte]](
+                  CryptoHashers.Sha256
+                )(err ⇒ CodecError("Crypto error when building Kademlia Key for Node[UriContact]", Some(err)))
 
               new UriContact.NodeCodec(
                 // We have tendermint's node_id in the Fluence Smart Contract now, which is first 20 bytes of sha256 of the public key
@@ -151,14 +118,13 @@ object MasterNodeApp extends IOApp {
                   .lmap[KeyPair.Public](_.bytes) >>> Key.sha1
               )
             }
-        )
+          )
       )
 
   private def masterHttp(
     masterConf: MasterConfig,
     node: MasterNode[IO, UriContact],
-    kademliaHttp: KademliaHttp[IO, UriContact],
-    receiptDhtHttp: DhtHttp[IO]
+    kademliaHttp: KademliaHttp[IO, UriContact]
   )(implicit log: Log[IO], lf: LogFactory[IO]) =
     StatusAggregator
       .make(masterConf, node)
@@ -170,7 +136,7 @@ object MasterNodeApp extends IOApp {
             statusAggregator,
             node.pool,
             kademliaHttp,
-            receiptDhtHttp :: Nil
-        )
+            Nil
+          )
       )
 }

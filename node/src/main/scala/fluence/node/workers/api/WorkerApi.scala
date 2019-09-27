@@ -23,10 +23,9 @@ import fluence.bp.api.BlockProducer
 import fluence.bp.tx.{Tx, TxResponse}
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
 import fluence.log.Log
-import fluence.node.workers.{Worker, WorkersPorts}
+import fluence.node.workers.WorkersPorts
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.statemachine.api.StateMachine
-import fluence.worker.Worker
 import fluence.worker.responder.WorkerResponder
 import fluence.worker.responder.repeat.SubscriptionKey
 import fluence.worker.responder.resp.AwaitedResponse
@@ -118,7 +117,7 @@ object WorkerApi {
           .value
 
     override def p2pPort()(implicit log: Log[F]): F[Short] =
-      log.trace(s"Worker p2pPort") as p2pPort.port
+      log.trace(s"Worker p2pPort") *> p2pPort.port
 
     override def sendTx(tx: Array[Byte])(
       implicit log: Log[F]
@@ -151,9 +150,11 @@ object WorkerApi {
       }
   }
 
-  def apply[F[_]: Concurrent](producer: BlockProducer[F],
-                              responder: WorkerResponder[F],
-                              machine: StateMachine[F],
-                              p2pPort: WorkersPorts.P2pPort[F]): WorkerApi[F] =
-    new Impl[F](producer, responder, machine)
+  def apply[F[_]: Concurrent](
+    producer: BlockProducer[F],
+    responder: WorkerResponder[F],
+    machine: StateMachine[F],
+    p2pPort: WorkersPorts.P2pPort[F]
+  ): WorkerApi[F] =
+    new Impl[F](producer, responder, machine, p2pPort)
 }

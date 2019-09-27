@@ -71,7 +71,7 @@ object WorkerDocker {
             logLevel,
             Component(producerName, producerDocker),
             Component(machineName, machineDocker)
-        )
+          )
       )
   }
 }

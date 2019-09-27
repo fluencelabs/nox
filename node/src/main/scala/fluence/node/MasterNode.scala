@@ -17,32 +17,32 @@
 package fluence.node
 import java.nio.file._
 
-import cats.{Applicative, Monad, Parallel}
 import cats.effect._
 import cats.effect.syntax.effect._
+import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Applicative, Monad, Parallel}
 import fluence.bp.uploading.BlockUploading
-import fluence.effects.{Backoff, EffectError}
-import fluence.effects.castore.StoreError
+import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
-import fluence.effects.ipfs.{IpfsStore, IpfsUploader}
-import fluence.effects.kvstore.{KVStore, RocksDBStore}
+import fluence.effects.ipfs.IpfsUploader
+import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
-import fluence.effects.swarm.SwarmStore
+import fluence.effects.{Backoff, EffectError}
 import fluence.kad.Kademlia
 import fluence.log.{Log, LogFactory}
-import fluence.node.MasterNodeApp.{ipfsUploader, portsStore}
-import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCarrier}
+import fluence.node.code.CodeCarrier
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
-import fluence.node.workers.{WorkerDocker, WorkerFiles, WorkersPorts}
 import fluence.node.workers.tendermint.config.ConfigTemplate
+import fluence.node.workers.{WorkerDocker, WorkerFiles, WorkersPorts}
 import fluence.statemachine.api.command.PeersControl
-import fluence.worker.eth.{EthApp, StorageType}
+import fluence.worker.WorkerStage
+import fluence.worker.eth.EthApp
 
 import scala.language.{higherKinds, postfixOps}
 
@@ -87,7 +87,8 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
             .semiflatMap(
               _.dropPeer(vk).valueOr(e ⇒ log.error(s"Unexpected error while dropping peer", e))
             )
-            .valueOr(st ⇒ log.error(s"No available worker for $appId: it's on stage $st"))
+            .valueOr((st: WorkerStage) ⇒ log.error(s"No available worker for $appId: it's on stage $st"))
+            .void
         }
 
       case NewBlockReceived(_) ⇒
@@ -131,7 +132,6 @@ object MasterNode {
   def make[F[_]: ConcurrentEffect: ContextShift: Timer: Log: LogFactory: Parallel: DockerIO: SttpStreamEffect, C](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
-    pool: MasterPool.Type[F],
     kademlia: Kademlia[F, C]
   )(
     implicit
@@ -156,7 +156,18 @@ object MasterNode {
   private def workersPool[F[_]: ConcurrentEffect: Parallel: ContextShift: Timer: Log: DockerIO: SttpStreamEffect: SttpEffect](
     conf: MasterConfig,
     rootPath: Path
-  )(implicit backoff: Backoff[EffectError]) =
+  )(implicit backoff: Backoff[EffectError]) = {
+    // TODO: hide codecs somewhere, incapsulate
+    // TODO use better serialization, check for errors
+    implicit val stringCodec: PureCodec[String, Array[Byte]] = PureCodec
+      .liftB[String, Array[Byte]](_.getBytes(), bs ⇒ new String(bs))
+
+    implicit val longCodec: PureCodec[Array[Byte], Long] = PureCodec[Array[Byte], String] andThen PureCodec
+      .liftB[String, Long](_.toLong, _.toString)
+
+    implicit val shortCodec: PureCodec[Array[Byte], Short] = PureCodec[Array[Byte], String] andThen PureCodec
+      .liftB[String, Short](_.toShort, _.toString)
+
     for {
       portsStore ← RocksDBStore.make[F, Long, Short](rootPath.resolve("p2p-ports-db").toString)
       ports ← WorkersPorts.make[F](conf.ports.minPort, conf.ports.maxPort, portsStore)
@@ -168,7 +179,7 @@ object MasterNode {
           conf.worker,
           conf.dockerStopTimeout,
           conf.logLevel
-      )
+        )
       codeCarrier ← Resource.pure(CodeCarrier[F](conf.remoteStorage))
       workerFiles = WorkerFiles(rootPath, codeCarrier)
       receiptStorage = (app: EthApp) ⇒ ReceiptStorage.local(app.id, rootPath)
@@ -179,4 +190,5 @@ object MasterNode {
         MasterPool[F](ports, workerDocker, workerFiles, receiptStorage, blockUploading, conf.websocket, configTemplate)
       )
     } yield pool
+  }
 }

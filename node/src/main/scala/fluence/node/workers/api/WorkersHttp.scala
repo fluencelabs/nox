@@ -21,35 +21,25 @@ import cats.effect.{Concurrent, Sync}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.bp.api.BlockProducer
 import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http._
 import fluence.log.{Log, LogFactory}
 import fluence.node.MasterPool
-import fluence.node.workers.{Worker, WorkersPorts}
-import fluence.node.workers.pool.WorkersPool
+import fluence.node.workers.WorkersPorts
 import fluence.worker.WorkerStage
 import fluence.worker.responder.WorkerResponder
-import fluence.worker.responder.resp.{
-  OkResponse,
-  PendingResponse,
-  RpcErrorResponse,
-  RpcTxAwaitError,
-  TimedOutResponse,
-  TxInvalidError,
-  TxParsingError
-}
+import fluence.worker.responder.resp._
 import fs2.concurrent.Queue
+import io.circe.syntax._
+import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder
 import org.http4s.websocket.WebSocketFrame
 import org.http4s.websocket.WebSocketFrame.{Close, Text}
 import org.http4s.{EntityEncoder, HttpRoutes, Response}
-import io.circe.syntax._
-import org.http4s.circe._
 
-import scala.language.higherKinds
 import scala.concurrent.duration._
+import scala.language.higherKinds
 
 object WorkersHttp {
 
