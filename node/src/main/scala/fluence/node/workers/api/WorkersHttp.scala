@@ -125,8 +125,6 @@ object WorkersHttp {
 
     def wrongStageMsg(appId: Long, stage: WorkerStage) = s"Worker for $appId can't serve RPC: it is in stage $stage"
 
-//    def withWorker(appId: Long)(fn: Worker[F, MasterPool.Companions[F] ⇒ F[Response[F]])
-
     def withApi(appId: Long)(fn: WorkerApi[F] => F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
       api(appId).value.flatMap {
         case Left(stage) =>
