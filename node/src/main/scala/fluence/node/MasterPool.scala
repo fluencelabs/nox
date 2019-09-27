@@ -44,7 +44,7 @@ object MasterPool {
   case class CodePath(path: String)
 
   type Resources[F[_]] = WorkerFiles.Paths[F] :: WorkersPorts.P2pPort[F] :: HNil
-  type Companions[F[_]] = PeersControl[F] ::  WorkerResponder[F] :: HNil
+  type Companions[F[_]] = PeersControl[F] :: WorkerResponder[F] :: HNil
 
   def resources[F[_]: Monad: Timer](
     app: EthApp,
@@ -52,15 +52,14 @@ object MasterPool {
     files: WorkerFiles[F]
   )(implicit backoff: Backoff[EffectError]): WorkerResource[F, Resources[F]] =
     (
-    files(app),
+      files(app),
       ports.workerResource(app.id)
-      ).mapN(_ :: _ :: HNil)
+    ).mapN(_ :: _ :: HNil)
 
   def apply[F[_]: Parallel: Timer: ConcurrentEffect: DockerIO: LiftIO: ContextShift](
     ports: WorkersPorts[F],
     workerDocker: EthApp ⇒ Resource[F, WorkerDocker],
     files: WorkerFiles[F],
-
     // TODO make them companions/resources?
     receiptStorage: Resource[F, ReceiptStorage[F]],
     blockUploading: BlockUploading[F],

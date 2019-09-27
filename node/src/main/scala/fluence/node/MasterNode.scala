@@ -66,8 +66,6 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
   masterNodeContainerId: Option[String]
 )(implicit backoff: Backoff[EffectError]) {
 
-
-
   /**
    * Runs app worker on a pool
    *
@@ -93,11 +91,12 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
 
       case DropPeerWorker(appId, vk) ⇒
         Log[F].scope("app" -> appId.toString, "key" -> vk.toHex) { implicit log: Log[F] =>
-           pool.getCompanion[PeersControl[F]](appId)
+          pool
+            .getCompanion[PeersControl[F]](appId)
             .semiflatMap(
               _.dropPeer(vk).valueOr(e ⇒ log.error(s"Unexpected error while dropping peer", e))
             )
-             .valueOr(st ⇒ log.error(s"No available worker for $appId: it's on stage $st"))
+            .valueOr(st ⇒ log.error(s"No available worker for $appId: it's on stage $st"))
         }
 
       case NewBlockReceived(_) ⇒
@@ -159,11 +158,13 @@ object MasterNode {
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
 
-    pool ← Resource.liftF(MasterPool(
-      ports,
-      ???,
-      new WorkerFiles[F](rootPath, codeCarrier)
-    ))
+      pool ← Resource.liftF(
+        MasterPool(
+          ports,
+          ???,
+          new WorkerFiles[F](rootPath, codeCarrier)
+        )
+      )
     } yield MasterNode[F, C](
       masterConfig,
       nodeConfig,

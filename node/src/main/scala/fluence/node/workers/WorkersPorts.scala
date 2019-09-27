@@ -137,12 +137,14 @@ class WorkersPorts[F[_]: Monad] private (
         EitherT.rightT(None)
     }
 
-  def workerResource(appId: Long)(implicit backoff: Backoff[EffectError], timer: Timer[F]): WorkerResource[F, P2pPort[F]] =
+  def workerResource(
+    appId: Long
+  )(implicit backoff: Backoff[EffectError], timer: Timer[F]): WorkerResource[F, P2pPort[F]] =
     new WorkerResource[F, P2pPort[F]] {
       override def prepare()(implicit log: Log[F]): F[P2pPort[F]] =
         P2pPort(
           // TODO make it NICE
-            backoff(allocate(appId).leftMap(_ ⇒ new EffectError {}))
+          backoff(allocate(appId).leftMap(_ ⇒ new EffectError {}))
         ).pure[F]
 
       override def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit] =
