@@ -86,7 +86,7 @@ object DockerTendermint {
    */
   private def dockerCommand(
     masterNodeContainerId: Option[String],
-    params: WorkerDocker.Component,
+    component: WorkerDocker.Component,
     tendermintPath: Path,
     network: DockerNetwork,
     p2pPort: Short
@@ -95,10 +95,10 @@ object DockerTendermint {
       .build()
       .user("0") // TODO should only work when running from docker?
       .option("-e", s"""TMHOME=$tendermintPath""")
-      .option("--name", params.name)
+      .option("--name", component.name)
       .option("--network", network.name)
       .port(p2pPort, P2pPort)
-      .limits(params.limits)
+      .limits(component.docker.limits)
 
     (masterNodeContainerId match {
       case Some(id) =>
@@ -106,7 +106,7 @@ object DockerTendermint {
           .option("--volumes-from", id)
       case None =>
         dockerParams
-    }).prepared(params.image).daemonRun("node")
+    }).prepared(component.docker.image).daemonRun("node")
   }
 
   /**
@@ -140,9 +140,10 @@ object DockerTendermint {
 
       tm ← Tendermint.make[F](workerDocker.producer.name, DockerTendermint.RpcPort, tendermintPath, websocketConfig)
 
-    } yield TendermintBlockProducer(
-      tm,
-      DockerIO[F].checkContainer(container).leftMap(identity[EffectError])
-    ).extend(container)
+    } yield
+      TendermintBlockProducer(
+        tm,
+        DockerIO[F].checkContainer(container).leftMap(identity[EffectError])
+      ).extend(container)
 
 }

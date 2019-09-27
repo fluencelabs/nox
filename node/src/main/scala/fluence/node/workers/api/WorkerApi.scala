@@ -19,12 +19,15 @@ package fluence.node.workers.api
 import cats.effect.Concurrent
 import cats.syntax.apply._
 import cats.syntax.functor._
+import fluence.bp.api.BlockProducer
 import fluence.bp.tx.{Tx, TxResponse}
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
 import fluence.log.Log
-import fluence.node.workers.Worker
+import fluence.node.workers.{Worker, WorkersPorts}
 import fluence.node.workers.api.websocket.WorkerWebsocket
+import fluence.statemachine.api.StateMachine
 import fluence.worker.Worker
+import fluence.worker.responder.WorkerResponder
 import fluence.worker.responder.repeat.SubscriptionKey
 import fluence.worker.responder.resp.AwaitedResponse
 
@@ -95,7 +98,12 @@ trait WorkerApi[F[_]] {
 
 object WorkerApi {
 
-  class Impl[F[_]: Concurrent](worker: Worker[F]) extends WorkerApi[F] {
+  class Impl[F[_]: Concurrent](
+    producer: BlockProducer[F],
+    responder: WorkerResponder[F],
+    machine: StateMachine[F],
+    p2pPort: WorkersPorts.P2pPort[F]
+  ) extends WorkerApi[F] {
 
     override def query(
       data: Option[String],
@@ -103,29 +111,28 @@ object WorkerApi {
       id: Option[String]
     )(implicit log: Log[F]): F[Either[RpcError, String]] =
       log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
-        worker.withServices(_.machine)(
-          _.query(path)
-            .leftMap(e ⇒ RpcRequestFailed(e): RpcError)
-            .map(_.toResponseString(id.getOrElse("dontcare")))
-            .value
-        )
+        machine
+          .query(path)
+          .leftMap(e ⇒ RpcRequestFailed(e): RpcError)
+          .map(_.toResponseString(id.getOrElse("dontcare")))
+          .value
 
     override def p2pPort()(implicit log: Log[F]): F[Short] =
-      log.trace(s"Worker p2pPort") as worker.p2pPort
+      log.trace(s"Worker p2pPort") as p2pPort.port
 
     override def sendTx(tx: Array[Byte])(
       implicit log: Log[F]
     ): F[Either[RpcError, TxResponse]] =
       log.scope("tx") { implicit log ⇒
         log.debug(s"TendermintRpc broadcastTxSync request") *>
-          worker.withServices(_.producer)(_.sendTx(tx).leftMap[RpcError](RpcRequestFailed(_)).value)
+          producer.sendTx(tx).leftMap[RpcError](RpcRequestFailed(_)).value
       }
 
     override def sendTxAwaitResponse(tx: Array[Byte])(
       implicit log: Log[F]
     ): F[AwaitedResponse.OrError] =
       log.scope("txWait") { implicit log ⇒
-        worker.withServices(_.responder.sendAndWait)(_.sendTxAwaitResponse(tx).value)
+        responder.sendAndWait.sendTxAwaitResponse(tx).value
       }
 
     override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] =
@@ -135,18 +142,18 @@ object WorkerApi {
       implicit log: Log[F]
     ): F[fs2.Stream[F, AwaitedResponse.OrError]] =
       log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
-        worker.withServices(_.responder.onEveryBlock)(
-          _.subscribe(key, tx)
-        )
+        responder.onEveryBlock.subscribe(key, tx)
       }
 
     override def unsubscribe(key: SubscriptionKey)(implicit log: Log[F]): F[Boolean] =
       log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
-        worker.withServices(_.responder.onEveryBlock)(
-          _.unsubscribe(key)
-        )
+        responder.onEveryBlock.unsubscribe(key)
       }
   }
 
-  def apply[F[_]: Concurrent](worker: Worker[F]): WorkerApi[F] = new Impl[F](worker)
+  def apply[F[_]: Concurrent](producer: BlockProducer[F],
+                              responder: WorkerResponder[F],
+                              machine: StateMachine[F],
+                              p2pPort: WorkersPorts.P2pPort[F]): WorkerApi[F] =
+    new Impl[F](producer, responder, machine)
 }

@@ -21,12 +21,15 @@ import cats.effect.{Concurrent, Sync}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.bp.api.BlockProducer
 import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http._
 import fluence.log.{Log, LogFactory}
 import fluence.node.MasterPool
-import fluence.node.workers.Worker
+import fluence.node.workers.{Worker, WorkersPorts}
 import fluence.node.workers.pool.WorkersPool
+import fluence.worker.WorkerStage
+import fluence.worker.responder.WorkerResponder
 import fluence.worker.responder.resp.{
   OkResponse,
   PendingResponse,
@@ -117,17 +120,26 @@ object WorkersHttp {
     object QueryId extends OptionalQueryParamDecoderMatcher[String]("id")
     object QueryWait extends OptionalQueryParamDecoderMatcher[Int]("wait")
 
-//    def withWorker(appId: Long)(fn: Worker[F] => F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
-//      pool.getWorker(appId).flatMap {
-//        case None =>
-//          log.debug(s"RPC Requested app $appId, but there's no such worker in the pool") *>
-//            NotFound("App not found on the node")
-//        case Some(worker) =>
-//          fn(worker)
-//      }
-//
-//    def withApi(appId: Long)(fn: WorkerApi[F] ⇒ F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
-//      withWorker(appId)(w ⇒ fn(WorkerApi(w)))
+    def api(appId: Long) =
+      for {
+        worker ← pool.getWorker(appId)
+        producer = worker.producer
+        machine = worker.machine
+        responder ← pool.getCompanion[WorkerResponder[F]](appId)
+        p2pPort ← pool
+          .getResources(appId)
+          .map(_.select[WorkersPorts.P2pPort[F]])
+          .toRight[WorkerStage](WorkerStage.NotInitialized) // TODO: How to go from OptionT to EitherT nicer?
+      } yield WorkerApi(producer, responder, machine, p2pPort)
+
+    def withApi(appId: Long)(fn: WorkerApi[F] => F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
+      api(appId).value.flatMap {
+        case Left(stage) =>
+          log.debug(s"Worker for $appId can't serve RPC: it is in stage $stage") *>
+            NotFound(s"Worker for $appId can't serve RPC: it is in stage $stage")
+        case Right(api) =>
+          fn(api)
+      }
 
     // Routes comes there
     HttpRoutes.of {
