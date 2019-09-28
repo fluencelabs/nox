@@ -8,10 +8,10 @@
   "scripts": {
     "test": "mocha -r ts-node/register src/**/*.spec.ts",
     "build": "webpack",
-    "package:build": "tsc",
+    "package:build": "NODE_ENV=production webpack && tsc",
     "start:dev": "webpack-dev-server",
     "typechain:generate": "typechain --target=web3-1.0.0 '../bootstrap/contracts/compiled/*.abi'",
-    "prepare": "npm run compile-sol --prefix ../bootstrap/ && npm run typechain:generate && cp ../bootstrap/contracts/compiled/Network.abi src/Network.json && tsc && webpack --mode production"
+    "prepare": "npm run compile-sol --prefix ../bootstrap/ && npm run typechain:generate && cp ../bootstrap/contracts/compiled/Network.abi src/Network.json && tsc && webpack"
   },
   "repository": {
     "type": "git",
