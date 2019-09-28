@@ -4,16 +4,12 @@ const webpack = require('webpack');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
 const { CheckerPlugin } = require('awesome-typescript-loader');
 
-module.exports = {
+const production = (process.env.NODE_ENV === 'production');
+
+const config = {
     entry: {
         app: ['./src/fluence.ts']
     },
-    devtool: 'inline-source-map',
-    devServer: {
-        contentBase: './bundle',
-        hot: true
-    },
-    mode: 'development',
     module: {
         rules: [
             {
@@ -37,7 +33,23 @@ module.exports = {
     plugins: [
         new CleanWebpackPlugin(['bundle']),
         new CheckerPlugin(),
-        new HtmlWebpackPlugin(),
-        new webpack.HotModuleReplacementPlugin()
     ]
 };
+
+if (production) {
+    config.mode = 'production';
+} else {
+    config.mode = 'development';
+    config.devtool = 'inline-source-map';
+    config.devServer = {
+        contentBase: './bundle',
+        hot: true
+    };
+    config.plugins = [
+        ...config.plugins,
+        new HtmlWebpackPlugin(),
+        new webpack.HotModuleReplacementPlugin()
+    ];
+}
+
+module.exports = config;
