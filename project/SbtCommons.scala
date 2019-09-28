@@ -38,16 +38,14 @@ object SbtCommons {
       "-Xms4G",
       "-Xmx4G",
       "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
-      "-XX:+UseMembar",
-      "-XX:ErrorFile=./hs_error.log"
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
     ),
     javaOptions in IntegrationTest ++= Seq(
       "-XX:MaxMetaspaceSize=4G",
       "-Xms4G",
       "-Xmx4G",
       "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
     ),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
   ) ++ kindProjector
@@ -73,7 +71,7 @@ object SbtCommons {
 
           val projectRoot = file("").getAbsolutePath
           val frankFolder = s"$projectRoot/vm/frank"
-          val compileCmd = s"cargo +nightly-2019-09-23 build -vv --manifest-path $frankFolder/Cargo.toml --release"
+          val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
 
           assert((compileCmd !) == 0, "Frank VM compilation failed")
         })
@@ -114,11 +112,48 @@ object SbtCommons {
         .value
     )
 
+  def prepareNodeTest(): Seq[Def.Setting[_]] =
+    Seq(
+      publishArtifact := false,
+      test            := (test in Test).dependsOn(compile).value,
+      compile := (compile in Compile)
+        .dependsOn(Def.task {
+          System.getProperty("os.name").toLowerCase match {
+              // in case of MacOS it needs to download library from bintray
+            case mac if mac.contains("mac")  => {
+              // by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
+              val resourcesPath =
+                if (System.getProperty("user.dir").endsWith("/vm"))
+                  // assuming that library has already built
+                  System.getProperty("user.dir") + "/frank/target/release"
+                else
+                  System.getProperty("user.dir") + "/vm/frank/target/release"
+
+              val log = streams.value.log
+              val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
+
+              log.info(s"Dowloading libfrank from $libfrankUrl to $resourcesPath")
+
+              // -nc prevents downloading if file already exists
+              val libfrankDownloadRet = s"wget -nc $libfrankUrl -O $resourcesPath/libfank.so" !
+
+              // wget returns 0 of file was downloaded and 1 if file already exists
+              assert(libfrankDownloadRet == 0 || libfrankDownloadRet == 1, s"Download failed: $libfrankUrl")
+            }
+            // in case of *nix simply does nothing
+            case linux if linux.contains("linux") => ()
+            case osName => throw new RuntimeException(s"$osName is unsupported, only *nix and MacOS OS are supported now")
+          }
+
+        })
+        .value
+    )
+
   val docker = taskKey[Unit]("Build docker image")
 
   private val buildContract = Def.task {
     val log = streams.value.log
-    log.info(s"Generating java wrapper for smart contracct")
+    log.info(s"Generating java wrapper for smart contract")
 
     val projectRoot = file("").getAbsolutePath
     val bootstrapFolder = file(s"$projectRoot/bootstrap")

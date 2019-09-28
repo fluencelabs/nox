@@ -5,7 +5,6 @@ version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 license = "Apache-2.0"
-build = "build.rs"
 keywords = ["fluence", "webassembly", "wasmer", "execution environment"]
 categories = ["webassembly"]
 repository = "https://github.com/fluencelabs/fluence/tree/master/vm/frank"
@@ -21,16 +20,13 @@ name = "frank"
 path = "src/main.rs"
 
 [dependencies]
-wasmer-runtime = {version = "0.6.0", features = ["singlepass"]}
+wasmer-runtime = {git = "http://github.com/fluencelabs/wasmer", branch = "clif_jni_hardering"}
 jni = "0.13.1"
 failure = "0.1.5"
 lazy_static = "1.4.0"
 sha2 = "0.8.0"
 clap = "2.33.0"
 exitfailure = "0.5.1"
-
-[build-dependencies]
-java-locator = "0.1.1"
 
 [profile.release]
 opt-level = 3

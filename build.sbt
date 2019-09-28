@@ -381,6 +381,11 @@ lazy val `log` = project
   )
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `frank-prepare` = (project in file("vm/frank/target/frank-prepare"))
+  .settings(
+    prepareNodeTest()
+  )
+
 lazy val `node` = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
@@ -408,6 +413,7 @@ lazy val `node` = project
       .dependsOn(docker in Test)
       .dependsOn((docker in Test) in `statemachine-docker`)
       .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(compile in `frank-prepare`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
     // add classes from Test to dependencyClasspath of IntegrationTest, so it is possible to share Eventually trait
