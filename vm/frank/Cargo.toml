@@ -4,8 +4,11 @@ description = "Virtual machine based on Wasmer for the Fluence network"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2018"
-keywords = ["fluence", "webassembly", "wasmer", "execution environment"]
 license = "Apache-2.0"
+build = "build.rs"
+keywords = ["fluence", "webassembly", "wasmer", "execution environment"]
+categories = ["webassembly"]
+repository = "https://github.com/fluencelabs/fluence/tree/master/vm/frank"
 maintenance = { status = "actively-developed" }
 
 [lib]
@@ -25,6 +28,9 @@ lazy_static = "1.4.0"
 sha2 = "0.8.0"
 clap = "2.33.0"
 exitfailure = "0.5.1"
+
+[build-dependencies]
+java-locator = "0.1.1"
 
 [profile.release]
 opt-level = 3
