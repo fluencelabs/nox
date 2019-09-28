@@ -135,7 +135,7 @@ object SbtCommons {
               log.info(s"Dowloading libfrank from $libfrankUrl to $resourcesPath")
 
               // -nc prevents downloading if file already exists
-              val libfrankDownloadRet = s"wget -nc $libfrankUrl -O $resourcesPath/libfank.so" !
+              val libfrankDownloadRet = s"wget -nc $libfrankUrl -O $resourcesPath/libfrank.so" !
 
               // wget returns 0 of file was downloaded and 1 if file already exists
               assert(libfrankDownloadRet == 0 || libfrankDownloadRet == 1, s"Download failed: $libfrankUrl")
