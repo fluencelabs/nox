@@ -10,7 +10,7 @@ commons
 
 lazy val `vm-frank` = (project in file("vm/frank"))
   .settings(
-    compileFrankVM()
+    compileFrankVMSettings()
   )
 
 lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
@@ -107,6 +107,11 @@ lazy val `statemachine-abci` = (project in file("statemachine/abci"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-api`)
 
+lazy val `worker-vm-prepare` = (project in file("vm/frank/target/frank-prepare"))
+  .settings(
+    prepareWorkerVM()
+  )
+
 lazy val `statemachine-docker` = (project in file("statemachine/docker"))
   .settings(
     commons,
@@ -118,7 +123,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
     parallelExecution in Test         := false,
-    assembly := assembly.dependsOn(compile in `vm-frank`).value,
+    assembly                          := assembly.dependsOn(compile in `worker-vm-prepare`).value,
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { assembly.value; runCmd("make worker-test") }
   )
@@ -381,11 +386,6 @@ lazy val `log` = project
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `frank-prepare` = (project in file("vm/frank/target/frank-prepare"))
-  .settings(
-    prepareNodeTest()
-  )
-
 lazy val `node` = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
@@ -413,7 +413,6 @@ lazy val `node` = project
       .dependsOn(docker in Test)
       .dependsOn((docker in Test) in `statemachine-docker`)
       .dependsOn(compile in `vm-llamadb`)
-      .dependsOn(compile in `frank-prepare`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
     // add classes from Test to dependencyClasspath of IntegrationTest, so it is possible to share Eventually trait

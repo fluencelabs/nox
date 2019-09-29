@@ -60,7 +60,15 @@ object SbtCommons {
       oldStrategy(x)
   }: String => MergeStrategy)
 
-  def compileFrankVM(): Seq[Def.Setting[_]] =
+  def compileFrank() = {
+    val projectRoot = file("").getAbsolutePath
+    val frankFolder = s"$projectRoot/vm/frank"
+    val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
+
+    assert((compileCmd !) == 0, "Frank VM compilation failed")
+  }
+
+  def compileFrankVMSettings(): Seq[Def.Setting[_]] =
     Seq(
       publishArtifact := false,
       test            := (test in Test).dependsOn(compile).value,
@@ -69,11 +77,7 @@ object SbtCommons {
           val log = streams.value.log
           log.info(s"Compiling Frank VM")
 
-          val projectRoot = file("").getAbsolutePath
-          val frankFolder = s"$projectRoot/vm/frank"
-          val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
-
-          assert((compileCmd !) == 0, "Frank VM compilation failed")
+          compileFrank()
         })
         .value
     )
@@ -112,12 +116,13 @@ object SbtCommons {
         .value
     )
 
-  def prepareNodeTest(): Seq[Def.Setting[_]] =
+  def prepareWorkerVM(): Seq[Def.Setting[_]] =
     Seq(
       publishArtifact := false,
       test            := (test in Test).dependsOn(compile).value,
       compile := (compile in Compile)
         .dependsOn(Def.task {
+          println(s"OS is ${System.getProperty("os.name").toLowerCase}")
           System.getProperty("os.name").toLowerCase match {
               // in case of MacOS it needs to download library from bintray
             case mac if mac.contains("mac")  => {
@@ -141,7 +146,7 @@ object SbtCommons {
               assert(libfrankDownloadRet == 0 || libfrankDownloadRet == 1, s"Download failed: $libfrankUrl")
             }
             // in case of *nix simply does nothing
-            case linux if linux.contains("linux") => ()
+            case linux if linux.contains("linux") => compileFrank()
             case osName => throw new RuntimeException(s"$osName is unsupported, only *nix and MacOS OS are supported now")
           }
 
