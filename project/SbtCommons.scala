@@ -104,13 +104,13 @@ object SbtCommons {
   }
 
   def download(uri: String, target: sbt.File)(implicit log: ManagedLogger): Unit = {
-    if (!target.isFile) throw new RuntimeException(s"$target should be a path to a file")
+    if (!target.getParentFile.exists()) target.getParentFile.mkdirs()
     if (!target.exists()) {
       val path = target.absolutePath
       log.info(s"Downloading $uri to $path")
       assert(
-        s"curl -sL --create-dirs $uri -o $path".! == 0,
-        s"Download failed. From $uri to $path"
+        s"wget $uri -O $path".! == 0,
+        s"Download from $uri to $path failed. Note that target should be a path to a file, not a directory."
       )
     }
   }
