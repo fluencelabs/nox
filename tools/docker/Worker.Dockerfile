@@ -13,7 +13,7 @@ COPY . /fluence
 WORKDIR /fluence
 RUN apt-get update
 RUN apt install -y build-essential gcc curl
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-09-23
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-09-23 && echo $PATH && sleep 11
 RUN sbt statemachine-docker/assembly
 
 ############## Copy jar from local fs for tests, master-node.jar should be prebuilt
