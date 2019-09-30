@@ -35,7 +35,7 @@ import scala.language.higherKinds
 // TODO this is the configuration for what? why so many fields are taken from MasterConfig? could we simplify?
 case class Configuration(
   rootPath: Path,
-  nodeConfig: NodeConfig
+  validatorPublicKey: ValidatorPublicKey
 )
 
 object Configuration {
@@ -44,14 +44,10 @@ object Configuration {
   def init[F[_]: LiftIO: DockerIO: Monad: Log](masterConfig: MasterConfig): F[Configuration] =
     for {
       rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F]
-      (nodeId, validatorKey) <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
-      nodeConfig = NodeConfig(
-        validatorKey,
-        nodeId
-      )
+      (validatorKey) <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
     } yield Configuration(
       rootPath,
-      nodeConfig
+      validatorKey
     )
 
   /**
@@ -78,7 +74,7 @@ object Configuration {
     masterContainerId: Option[String],
     rootPath: Path,
     tmDockerConfig: DockerConfig
-  ): F[(String, ValidatorPublicKey)] = {
+  ): F[ValidatorPublicKey] = {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
     def execTendermintCmd(cmd: String, uid: String): F[String] =
@@ -110,7 +106,7 @@ object Configuration {
       validatorRaw <- execTendermintCmd("show_validator", uid)
       validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorPublicKey])).to[F]
       _ <- Log[F].info(s"Validator PubKey: ${validator.value}")
-    } yield (nodeId, validator)
+    } yield nodeId
   }
 
   /**

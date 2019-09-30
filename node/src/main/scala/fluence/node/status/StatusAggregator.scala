@@ -63,14 +63,13 @@ case class StatusAggregator[F[_]: Timer: Concurrent](
               )
               .map(ctx.app.id → _)
         )
-    } yield
-      MasterStatus(
-        config.endpoints.ip.getHostAddress,
-        currentTime - startTimeMillis,
-        workerInfos.size,
-        workerInfos,
-        config
-      )
+    } yield MasterStatus(
+      config.endpoints.ip.getHostAddress,
+      currentTime - startTimeMillis,
+      workerInfos.size,
+      workerInfos,
+      config
+    )
 
   /**
    * Just an expected Ethereum state -- a granular accessor

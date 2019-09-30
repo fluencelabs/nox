@@ -32,12 +32,12 @@ import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.{Backoff, EffectError}
-import fluence.kad.Kademlia
 import fluence.log.{Log, LogFactory}
 import fluence.node.code.CodeCarrier
 import fluence.node.config.storage.RemoteStorageConfig
-import fluence.node.config.{MasterConfig, NodeConfig}
+import fluence.node.config.MasterConfig
 import fluence.node.eth._
+import fluence.node.workers.tendermint.ValidatorPublicKey
 import fluence.node.workers.tendermint.config.ConfigTemplate
 import fluence.node.workers.{WorkerDocker, WorkerFiles, WorkersPorts}
 import fluence.statemachine.api.command.PeersControl
@@ -126,12 +126,12 @@ object MasterNode {
    * Makes the MasterNode resource for the given config
    *
    * @param masterConfig MasterConfig
-   * @param nodeConfig NodeConfig
+   * @param validatorKey public key of the node
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
   def make[F[_]: ConcurrentEffect: ContextShift: Timer: Log: LogFactory: Parallel: DockerIO: SttpStreamEffect, C](
     masterConfig: MasterConfig,
-    nodeConfig: NodeConfig
+    validatorKey: ValidatorPublicKey
   )(
     implicit
     backoff: Backoff[EffectError]
@@ -141,7 +141,7 @@ object MasterNode {
 
       _ ← Log.resource[F].debug("-> going to create nodeEth")
 
-      nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
+      nodeEth ← NodeEth[F](validatorKey.toByteVector, ethClient, masterConfig.contract)
 
       rootPath <- Resource.liftF(IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F])
 
