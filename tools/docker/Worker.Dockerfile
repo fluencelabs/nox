@@ -7,12 +7,9 @@
 ARG environment=production
 
 ############## Build for production
-# TODO: use custom image with sbt + rust
 FROM fluencelabs/rust-sbt:nightly-2019-09-23 as production
-USER root
 COPY . /fluence
 WORKDIR /fluence
-# ENV PATH="/root/.cargo/bin:${PATH}"
 RUN --mount=type=cache,target=/root/.ivy2\
     --mount=type=cache,target=/root/.sbt\
     --mount=type=cache,target=/root/.cargo\
