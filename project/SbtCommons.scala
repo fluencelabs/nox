@@ -2,6 +2,7 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys.{javaOptions, _}
+import sbt.Scoped.AnyInitTask
 import sbt.internal.util.ManagedLogger
 import sbt.{Def, addCompilerPlugin, taskKey, _}
 import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
@@ -102,6 +103,12 @@ object SbtCommons {
       case os                         => throw new RuntimeException(s"$os is unsupported, only *nix and MacOS OS are supported now")
     }
   }
+
+  def itDepends[T](on: TaskKey[T])(tasks: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[Task[T]]] =
+    configs.map(c ⇒ (on in c) := (on in c).dependsOn(tasks: _*).value)
+
+  def itDepends[T](on: InputKey[T])(tasks: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[InputTask[T]]] =
+    configs.map(c ⇒ (on in c) := (on in c).dependsOn(tasks: _*).evaluated)
 
   /**
    * Downloads a file from uri to specified target

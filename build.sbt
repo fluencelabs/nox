@@ -1,5 +1,6 @@
 import SbtCommons._
 import VmSbt._
+import sbt.Scoped.AnyInitTask
 
 import scala.sys.process._
 
@@ -23,14 +24,11 @@ lazy val `vm` = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
-    compileFrank                := compileFrankTask.value,
-    downloadLlama               := downloadLlama(resourceDirectory in IntegrationTest).value,
-//    compile in Compile          := (compile in Compile).dependsOn(compileFrank).value,
-//    compile in Test             := (compile in Test).dependsOn(compileFrank).value,
-//    compile in IntegrationTest  := (compile in IntegrationTest).dependsOn(compileFrank).dependsOn(compileFrank).value,
-    test in IntegrationTest     := (test in IntegrationTest).dependsOn(downloadLlama).dependsOn(compileFrank).value,
-    testOnly in IntegrationTest := (testOnly in IntegrationTest).dependsOn(downloadLlama).dependsOn(compileFrank).evaluated
+    compileFrank  := compileFrankTask.value,
+    downloadLlama := downloadLlama(resourceDirectory in IntegrationTest).value,
   )
+  .settings(itDepends(test)(downloadLlama, compileFrank)(Test, IntegrationTest): _*)
+  .settings(itDepends(testOnly)(downloadLlama, compileFrank)(Test, IntegrationTest): _*)
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
@@ -113,8 +111,8 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     parallelExecution in Test         := false,
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { assembly.value; runCmd("make worker-test") },
-    assembly                          := assembly.dependsOn(makeFrankSoLib(`vm` / baseDirectory)).value,
-    compile in Test                   := (compile in Test).dependsOn(downloadLlama(`vm` / IntegrationTest / resourceDirectory)).value
+    assembly                          := assembly.dependsOn(makeFrankSoLib(baseDirectory in `vm`)).value,
+    compile in Test                   := (compile in Test).dependsOn(downloadLlama(`resourceDirectory in IntegrationTest in vm`)).value
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
@@ -392,18 +390,6 @@ lazy val `node` = project
       scalaTest
     ),
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
-    testOnly in IntegrationTest := (testOnly in IntegrationTest)
-      .dependsOn(docker in Test)
-      .dependsOn((docker in Test) in `statemachine-docker`)
-      .dependsOn(downloadLlama(`vm` / IntegrationTest / resourceDirectory))
-      .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
-      .evaluated,
-    test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(docker in Test)
-      .dependsOn((docker in Test) in `statemachine-docker`)
-      .dependsOn(downloadLlama(`vm` / IntegrationTest / resourceDirectory))
-      .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
-      .value,
     // add classes from Test to dependencyClasspath of IntegrationTest, so it is possible to share Eventually trait
     dependencyClasspath in IntegrationTest := (dependencyClasspath in IntegrationTest).value ++ (exportedProducts in Test).value,
     mainClass in assembly                  := Some("fluence.node.MasterNodeApp"),
@@ -412,6 +398,16 @@ lazy val `node` = project
     docker                                 := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                         := { assembly.value; runCmd("make node-test") }
   )
+  .settings({
+    val tasks = Seq[AnyInitTask](
+      docker in Test,
+      docker in Test in `statemachine-docker`,
+      downloadLlama(resourceDirectory in IntegrationTest in `vm`),
+      compile in IntegrationTest
+    )
+    itDepends(test)(tasks: _*)(IntegrationTest) ++
+      itDepends(testOnly)(tasks: _*)(IntegrationTest)
+  }: _*)
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(
