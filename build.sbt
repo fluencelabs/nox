@@ -23,7 +23,8 @@ lazy val `vm` = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
-    compile := (compile in Compile).dependsOn(compileFrankTask).value,
+    compile in Compile := (compile in Compile).dependsOn(compileFrankTask).value,
+    compile in Test := (compile in Test).dependsOn(compileFrankTask).value,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(downloadLlama(resourceDirectory in Compile))
       .value
@@ -115,6 +116,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     parallelExecution in Test         := false,
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { assembly.value; runCmd("make worker-test") },
+    assembly                          := assembly.dependsOn(compile in `worker-vm-prepare`).value,
     compile in Test                   := (compile in Test).dependsOn(downloadLlama(`vm` / Compile / resourceDirectory)).value
   )
   .enablePlugins(AutomateHeaderPlugin)
