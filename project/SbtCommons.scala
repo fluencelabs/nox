@@ -106,10 +106,12 @@ object SbtCommons {
   def download(uri: String, target: sbt.File)(implicit log: ManagedLogger): Unit = {
     val path = target.absolutePath
     log.info(s"Downloading $uri to $path")
-    assert(
-      s"curl -sC - --create-dirs $uri -o $path".! == 0,
-      s"Download failed. From $uri to $path"
-    )
+    if (!target.exists()) {
+      assert(
+        s"curl -sLC - --create-dirs $uri -o $path".! == 0,
+        s"Download failed. From $uri to $path"
+      )
+    }
   }
 
   /* Common deps */
