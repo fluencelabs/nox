@@ -9,11 +9,6 @@ commons
 
 /* Projects */
 
-lazy val `vm-frank` = (project in file("vm/frank"))
-  .settings(
-    frankVMSettings()
-  )
-
 lazy val `vm` = (project in file("vm"))
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
@@ -28,11 +23,12 @@ lazy val `vm` = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
+    compile := (compile in Compile).dependsOn(compileFrankTask).value,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(downloadLlama(resourceDirectory in Compile))
       .value
   )
-  .dependsOn(`log`, `vm-frank`)
+  .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `statemachine` = (project in file("statemachine"))

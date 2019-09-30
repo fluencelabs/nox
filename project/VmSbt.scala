@@ -20,13 +20,6 @@ object VmSbt {
     compileFrank()
   }
 
-  def frankVMSettings(): Seq[Def.Setting[_]] =
-    Seq(
-      publishArtifact := false,
-      test            := (test in Test).dependsOn(compile).value,
-      compile         := (compile in Compile).dependsOn(compileFrankTask).value
-    )
-
   def downloadLlama(resourcesDir: SettingKey[sbt.File]) = Def.task {
     val log = streams.value.log
     val resourcesPath = resourcesDir.value
