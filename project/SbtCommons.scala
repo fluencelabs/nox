@@ -94,6 +94,14 @@ object SbtCommons {
     }
   }
 
+  def foldNixMac(nix: ⇒ Unit, mac: ⇒ Unit): Unit = {
+    System.getProperty("os.name").toLowerCase match {
+      case os if os.contains("linux") => nix
+      case os if os.contains("mac")   => mac
+      case os                         => throw new RuntimeException(s"$os is unsupported, only *nix and MacOS OS are supported now")
+    }
+  }
+
   /* Common deps */
 
   val catsVersion = "2.0.0"

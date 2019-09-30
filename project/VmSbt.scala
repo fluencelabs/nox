@@ -1,5 +1,7 @@
 import sbt.Keys.{compile, publishArtifact, streams, test}
+import sbt.internal.util.ManagedLogger
 import sbt.{Def, file, _}
+import SbtCommons.foldNixMac
 
 import scala.sys.process._
 
@@ -25,7 +27,7 @@ object VmSbt {
       compile         := (compile in Compile).dependsOn(compileFrankTask).value
     )
 
-  def downloadLlamaTask(resourcesDir: SettingKey[sbt.File]) = Def.task {
+  def downloadLlama(resourcesDir: SettingKey[sbt.File]) = Def.task {
     val log = streams.value.log
     val resourcesPath = resourcesDir.value
     val llamadbUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db.wasm"
@@ -42,32 +44,24 @@ object VmSbt {
     assert(llamadbPreparedDownloadRet == 0, s"Download failed: $llamadbPreparedUrl")
   }
 
+  def downloadFrankSo(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
+    val soPath = (vmDirectory / "frank" / "target" / "release" / "libfrank.so").absolutePath
+    val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
+    val libfrankDownloadRet = s"wget -qc $libfrankUrl -O $soPath" ! // -c skips downloading if file exists
+
+    log.info(s"Downloading libfrank from $libfrankUrl to $soPath")
+    assert(libfrankDownloadRet == 0, s"Download failed: $libfrankUrl")
+  }
+
   def prepareWorkerVM(vmDirectory: sbt.File): Seq[Def.Setting[_]] =
     Seq(
       publishArtifact := false,
-      test            := (test in Test).dependsOn(compile).value,
       compile := (compile in Compile)
         .dependsOn(Def.task {
-          val log = streams.value.log
-          val os = System.getProperty("os.name").toLowerCase
-          log.info(s"OS is $os")
+          implicit val log = streams.value.log
 
-          os match {
-            // on MacOS, download library from bintray
-            case os if os.contains("mac") =>
-              val soPath = vmDirectory / "frank" / "target" / "release" / "libfrank.so"
-              val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
-              log.info(s"Downloading libfrank from $libfrankUrl to $soPath")
-              val libfrankDownloadRet = s"wget -qc $libfrankUrl -O $soPath" ! // -c skips downloading if file exists
-
-              assert(libfrankDownloadRet == 0, s"Download failed: $libfrankUrl")
-
-            // on *nix, compile frank to .so
-            case os if os.contains("linux") => compileFrank()
-
-            case os =>
-              throw new RuntimeException(s"$os is unsupported, only *nix and MacOS OS are supported now")
-          }
+          // on *nix, compile frank to .so; on MacOS, download library from bintray
+          foldNixMac(nix = compileFrank(), mac = downloadFrankSo(vmDirectory))
         })
         .value
     )
