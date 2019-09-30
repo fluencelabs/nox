@@ -7,18 +7,16 @@ import scala.sys.process._
 
 object VmSbt {
 
-  def compileFrank(): Unit = {
+  def compileFrank()(implicit log: ManagedLogger): Unit = {
     val projectRoot = file("").getAbsolutePath
     val frankFolder = s"$projectRoot/vm/frank"
     val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
 
+    log.info(s"Compiling Frank VM")
     assert((compileCmd !) == 0, "Frank VM compilation failed")
   }
 
-  val compileFrankTask: Def.Initialize[Task[Unit]] = Def.task {
-    streams.value.log.info(s"Compiling Frank VM")
-    compileFrank()
-  }
+  val compileFrankTask: Def.Initialize[Task[Unit]] = Def.task { compileFrank()(streams.value.log) }
 
   def downloadLlama(resourcesDir: SettingKey[sbt.File]) = Def.task {
     val log = streams.value.log
