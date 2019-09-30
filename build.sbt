@@ -24,7 +24,7 @@ lazy val `vm` = (project in file("vm"))
       mockito
     ),
     compile in Compile := (compile in Compile).dependsOn(compileFrankTask).value,
-    compile in Test := (compile in Test).dependsOn(compileFrankTask).value,
+    compile in Test    := (compile in Test).dependsOn(compileFrankTask).value,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(downloadLlama(resourceDirectory in Compile))
       .value
@@ -117,7 +117,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { assembly.value; runCmd("make worker-test") },
     assembly                          := assembly.dependsOn(compile in `worker-vm-prepare`).value,
-    compile in Test                   := (compile in Test).dependsOn(downloadLlama(`vm` / Compile / resourceDirectory)).value
+    compile in Test                   := (compile in Test).dependsOn(downloadLlama(`vm` / IntegrationTest / resourceDirectory)).value
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
@@ -398,13 +398,13 @@ lazy val `node` = project
     testOnly in IntegrationTest := (testOnly in IntegrationTest)
       .dependsOn(docker in Test)
       .dependsOn((docker in Test) in `statemachine-docker`)
-      .dependsOn(downloadLlama(`vm` / Compile / resourceDirectory))
+      .dependsOn(downloadLlama(`vm` / IntegrationTest / resourceDirectory))
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .evaluated,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(docker in Test)
       .dependsOn((docker in Test) in `statemachine-docker`)
-      .dependsOn(downloadLlama(`vm` / Compile / resourceDirectory))
+      .dependsOn(downloadLlama(`vm` / IntegrationTest / resourceDirectory))
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
     // add classes from Test to dependencyClasspath of IntegrationTest, so it is possible to share Eventually trait
