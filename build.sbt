@@ -14,11 +14,6 @@ lazy val `vm-frank` = (project in file("vm/frank"))
     frankVMSettings()
   )
 
-lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
-  .settings(
-    downloadLlamadb()
-  )
-
 lazy val `vm` = (project in file("vm"))
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
@@ -33,13 +28,11 @@ lazy val `vm` = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
-    compile in Compile := (compile in Compile)
-      .dependsOn(compile in `vm-frank`).value,
     test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(downloadLlamaTask(resourceDirectory in Compile))
       .value
   )
-  .dependsOn(`log`)
+  .dependsOn(`log`, `vm-frank`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `statemachine` = (project in file("statemachine"))
@@ -110,7 +103,7 @@ lazy val `statemachine-abci` = (project in file("statemachine/abci"))
 
 lazy val `worker-vm-prepare` = (project in file("vm/frank/target/frank-prepare"))
   .settings(
-    prepareWorkerVM()
+    prepareWorkerVM(`vm`.base)
   )
 
 lazy val `statemachine-docker` = (project in file("statemachine/docker"))
@@ -125,10 +118,11 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     test in assembly                  := {},
     parallelExecution in Test         := false,
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
-    docker in Test                    := { assembly.value; runCmd("make worker-test") }
+    docker in Test                    := { assembly.value; runCmd("make worker-test") },
+    compile in Test                   := (compile in Test).dependsOn(downloadLlamaTask(`vm` / Compile / resourceDirectory)).value
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test, `vm-llamadb`)
+  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
 
 lazy val `statemachine-docker-client` = (project in file("statemachine/docker-client"))
   .settings(
@@ -406,13 +400,13 @@ lazy val `node` = project
     testOnly in IntegrationTest := (testOnly in IntegrationTest)
       .dependsOn(docker in Test)
       .dependsOn((docker in Test) in `statemachine-docker`)
-      .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(downloadLlamaTask(`vm` / Compile / resourceDirectory))
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .evaluated,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(docker in Test)
       .dependsOn((docker in Test) in `statemachine-docker`)
-      .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(downloadLlamaTask(`vm` / Compile / resourceDirectory))
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
     // add classes from Test to dependencyClasspath of IntegrationTest, so it is possible to share Eventually trait
