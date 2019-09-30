@@ -42,10 +42,9 @@ matrix:
         - export BUILDKIT_HOST=tcp://0.0.0.0:1234
       before_script:
         - docker pull tendermint/tendermint:v0.32.2
-        - wget -qnc https://github.com/web3j/web3j/releases/download/v4.5.0/web3j-4.5.0.tar -O- | sudo tar -C /usr --strip-components=1 -x
+        - wget -qc https://github.com/web3j/web3j/releases/download/v4.5.0/web3j-4.5.0.tar -O- | sudo tar -C /usr --strip-components=1 -x
       script:
         - export TRAVIS=true
-        - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M compile
-        - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION vm/it:testOnly *LlamadbInstrumentedIntegrationTest
+        - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M compile test:compile it:compile
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION it:test
       if: branch = master OR type = pull_request

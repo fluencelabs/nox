@@ -25,11 +25,11 @@ lazy val `vm` = (project in file("vm"))
     ),
     compileFrank                := compileFrankTask.value,
     downloadLlama               := downloadLlama(resourceDirectory in IntegrationTest).value,
-    compile in Compile          := (compile in Compile).dependsOn(compileFrank).value,
-    compile in Test             := (compile in Test).dependsOn(compileFrank).value,
-    compile in IntegrationTest  := (compile in IntegrationTest).dependsOn(compileFrank).value,
-    test in IntegrationTest     := (test in IntegrationTest).dependsOn(downloadLlama).value,
-    testOnly in IntegrationTest := (testOnly in IntegrationTest).dependsOn(downloadLlama).evaluated
+//    compile in Compile          := (compile in Compile).dependsOn(compileFrank).value,
+//    compile in Test             := (compile in Test).dependsOn(compileFrank).value,
+//    compile in IntegrationTest  := (compile in IntegrationTest).dependsOn(compileFrank).dependsOn(compileFrank).value,
+    test in IntegrationTest     := (test in IntegrationTest).dependsOn(downloadLlama).dependsOn(compileFrank).value,
+    testOnly in IntegrationTest := (testOnly in IntegrationTest).dependsOn(downloadLlama).dependsOn(compileFrank).evaluated
   )
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
