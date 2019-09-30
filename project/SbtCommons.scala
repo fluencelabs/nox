@@ -109,7 +109,7 @@ object SbtCommons {
       val path = target.absolutePath
       log.info(s"Downloading $uri to $path")
       assert(
-        s"curl -sLC - --create-dirs $uri -o $path".! == 0,
+        s"curl -sL --create-dirs $uri -o $path".! == 0,
         s"Download failed. From $uri to $path"
       )
     }
