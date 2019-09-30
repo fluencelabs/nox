@@ -29,6 +29,8 @@ FROM openjdk:8-jre-alpine
 VOLUME /worker
 COPY --from=build /fluence/statemachine/docker/worker /worker
 COPY --from=build /fluence/statemachine/docker/target/scala-2.12/statemachine.jar /statemachine.jar
-COPY --from=build /fluence/vm/frank/target/release/libfrank.so /native/x86_64-linux/libfrank.so
+COPY --from=build /fluence/vm/frank/target/release/libfrank.so /usr/lib/libfrank.so
+# this is needed for some binaries (e.g. libfrank) to run properly on alpine linux since they need libc and alpine uses musl
+RUN ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2
 
 ENTRYPOINT ["sh", "/worker/run.sh", "/statemachine.jar"]
