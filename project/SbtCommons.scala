@@ -104,9 +104,10 @@ object SbtCommons {
   }
 
   def download(uri: String, target: sbt.File)(implicit log: ManagedLogger): Unit = {
-    val path = target.absolutePath
-    log.info(s"Downloading $uri to $path")
+    if (!target.isFile) throw new RuntimeException(s"$target should be a path to a file")
     if (!target.exists()) {
+      val path = target.absolutePath
+      log.info(s"Downloading $uri to $path")
       assert(
         s"curl -sLC - --create-dirs $uri -o $path".! == 0,
         s"Download failed. From $uri to $path"
