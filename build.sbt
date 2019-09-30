@@ -23,12 +23,13 @@ lazy val `vm` = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
-    compileFrank := compileFrankTask.value,
-    compile in Compile := (compile in Compile).dependsOn(compileFrank).value,
-    compile in Test    := (compile in Test).dependsOn(compileFrank).value,
-    test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(downloadLlama(resourceDirectory in Compile))
-      .value
+    compileFrank                := compileFrankTask.value,
+    downloadLlama               := downloadLlama(resourceDirectory in IntegrationTest).value,
+    compile in Compile          := (compile in Compile).dependsOn(compileFrank).value,
+    compile in Test             := (compile in Test).dependsOn(compileFrank).value,
+    compile in IntegrationTest  := (compile in IntegrationTest).dependsOn(compileFrank).value,
+    test in IntegrationTest     := (test in IntegrationTest).dependsOn(downloadLlama).value,
+    testOnly in IntegrationTest := (testOnly in IntegrationTest).dependsOn(downloadLlama).evaluated
   )
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)

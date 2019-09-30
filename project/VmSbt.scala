@@ -7,6 +7,7 @@ import scala.sys.process._
 
 object VmSbt {
   val compileFrank = TaskKey[Unit]("compiles frank")
+  val downloadLlama = TaskKey[Unit]("downloads llamadb .wasm files")
   val compileFrankTask: Def.Initialize[Task[Unit]] = Def.task { compileFrank()(streams.value.log) }
 
   private def compileFrank()(implicit log: ManagedLogger): Unit = {
