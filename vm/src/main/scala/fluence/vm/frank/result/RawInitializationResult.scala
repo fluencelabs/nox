@@ -21,4 +21,4 @@ package fluence.vm.frank.result
  *
  * @param error represent various initialization errors, None - no error occurred
  */
-case class RawInitializationResult(error: Option[String])
+final case class RawInitializationResult(error: Option[String], expectsEth: Boolean)

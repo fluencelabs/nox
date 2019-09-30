@@ -27,6 +27,7 @@ lazy_static = "1.4.0"
 sha2 = "0.8.0"
 clap = "2.33.0"
 exitfailure = "0.5.1"
+boolinator = "2.4.0"
 
 [profile.release]
 opt-level = 3

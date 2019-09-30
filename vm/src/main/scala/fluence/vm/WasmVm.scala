@@ -96,7 +96,8 @@ object WasmVm {
       )
 
     } yield new FrankWasmVm(
-      vmRunnerInvoker
+      vmRunnerInvoker,
+      initializationResult.expectsEth
     )
 
 }

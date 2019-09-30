@@ -14,8 +14,17 @@
  * limitations under the License.
  */
 
-/// Command-line tool intended to test Frank VM.
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 
+/// Command-line tool intended to test Frank VM.
 mod config;
 mod errors;
 mod frank;
@@ -73,7 +82,7 @@ fn main() -> Result<(), ExitFailure> {
 
             let _ = Frank::new(&in_module_path, config)
                 .map_err(|err| panic!(format!("{}", err)))
-                .and_then(|mut executor| executor.invoke(invoke_arg.as_bytes()))
+                .and_then(|mut executor| executor.0.invoke(invoke_arg.as_bytes()))
                 .map_err(|err| panic!(format!("{}", err)))
                 .map(|result| {
                     let outcome_copy = result.outcome.clone();
@@ -89,6 +98,6 @@ fn main() -> Result<(), ExitFailure> {
             Ok(())
         }
 
-        c => Err(err_msg(format!("Unexpected command: {}", c.0)))?,
+        c => Err(err_msg(format!("Unexpected command: {}", c.0)).into()),
     }
 }

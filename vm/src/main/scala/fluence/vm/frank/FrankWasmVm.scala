@@ -34,7 +34,8 @@ import scala.language.higherKinds
  * linearization is the task of the caller side.'''
  */
 class FrankWasmVm(
-  vmRunnerInvoker: FrankAdapter
+  private val vmRunnerInvoker: FrankAdapter,
+  val expectsEth: Boolean
 ) extends WasmVm {
 
   override def invoke[F[_]: LiftIO: Monad](
@@ -61,6 +62,4 @@ class FrankWasmVm(
       case RawStateComputationResult(None, state) ⇒
         ByteVector(state).asRight[StateComputationError]
     }
-
-  val expectsEth: Boolean = false
 }
