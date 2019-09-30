@@ -23,7 +23,7 @@ import scala.io.Source
 import scala.language.higherKinds
 
 trait TendermintSetup {
-  protected def heightFromTendermintStatus(host: String, port: Short, appId: Long): IO[TendermintStatus] = IO {
+  protected def tendermintStatus(host: String, port: Short, appId: Long): IO[TendermintStatus] = IO {
     import io.circe.parser.parse
     val url = s"http://$host:$port/apps/$appId/status/tendermint"
     val source = {

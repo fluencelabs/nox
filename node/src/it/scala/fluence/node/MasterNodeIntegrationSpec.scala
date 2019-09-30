@@ -31,6 +31,7 @@ import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.MasterStatus
 import org.scalatest.{Timer => _, _}
 import eth.FluenceContractTestOps._
+import fluence.effects.ethclient.helpers.Web3jConverters
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
 import fluence.effects.testkit.Timed
@@ -150,17 +151,31 @@ class MasterNodeIntegrationSpec
         ethState1 <- getEthState(basePort)
         ethState2 <- getEthState(master2Port)
 
-        _ <- contract.addNode[IO](ethState1.validatorKey, status1.ip, basePort, 1).attempt
-        _ <- contract.addNode[IO](ethState2.validatorKey, status2.ip, master2Port, 1).attempt
+        _ <- contract
+          .addNode[IO](Web3jConverters.base64ToBytes32(ethState1.validatorKey.toBase64),
+                       "",
+                       false,
+                       status1.ip,
+                       basePort,
+                       1)
+          .attempt
+        _ <- contract
+          .addNode[IO](Web3jConverters.base64ToBytes32(ethState2.validatorKey.toBase64),
+                       "",
+                       false,
+                       status2.ip,
+                       master2Port,
+                       1)
+          .attempt
         blockNumber <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
         _ ← log.info("Added App at block: " + blockNumber + ", now going to wait for two workers")
 
         _ <- eventually[IO](
           for {
-            status0 <- heightFromTendermintStatus("localhost", basePort, lastAppId)
+            status0 <- tendermintStatus("localhost", basePort, lastAppId)
             _ ← log.info(s"c1s0 === " + status0.sync_info.latest_block_height)
-            status1 <- heightFromTendermintStatus("localhost", master2Port, lastAppId)
+            status1 <- tendermintStatus("localhost", master2Port, lastAppId)
             _ ← log.info(s"c1s1 === " + status1.sync_info.latest_block_height)
           } yield {
             status0.sync_info.latest_block_height should be >= 2L

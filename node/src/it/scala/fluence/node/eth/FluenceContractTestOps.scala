@@ -21,7 +21,6 @@ import cats.effect.{LiftIO, Timer}
 import cats.syntax.functor._
 import fluence.effects.ethclient.helpers.Web3jConverters.{nodeAddressToBytes24, stringToBytes32}
 import fluence.effects.ethclient.syntax._
-import fluence.node.config.NodeConfig
 import fluence.node.workers.tendermint.ValidatorPublicKey
 import fluence.worker.eth.StorageType
 import fluence.worker.eth.StorageType.StorageType
@@ -42,7 +41,7 @@ object FluenceContractTestOps {
      * @return The block number where transaction has been mined
      */
     def addNode[F[_]: LiftIO: Timer: Monad](
-      validatorKey: ValidatorPublicKey,
+      validatorKey: Bytes32,
       nodeAddressHex: String,
       isPrivate: Boolean,
       nodeIP: String,
@@ -51,7 +50,7 @@ object FluenceContractTestOps {
     ): F[BigInt] =
       contract
         .addNode(
-          validatorKey.toBytes32,
+          validatorKey,
           nodeAddressToBytes24(nodeIP, nodeAddressHex),
           new Uint16(apiPort),
           new Uint16(capacity),

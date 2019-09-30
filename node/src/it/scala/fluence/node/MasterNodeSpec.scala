@@ -21,18 +21,14 @@ import java.util.Base64
 
 import cats.Apply
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
-import fluence.codec.PureCodec
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
-import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
-import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.testkit.Timed
 import fluence.effects.{Backoff, EffectError}
 import fluence.kad.Kademlia
@@ -43,8 +39,8 @@ import fluence.kad.protocol.{Key, Node}
 import fluence.log.Log.Aux
 import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
-import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
-import fluence.node.eth.FluenceContract
+import fluence.node.config.{FluenceContractConfig, MasterConfig}
+import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.tendermint.ValidatorPublicKey
@@ -82,14 +78,23 @@ class MasterNodeSpec
     } yield resp.unsafeBody).value.flatMap(r => IO.fromEither(r.flatMap(_.left.map(_.error))))
   }
 
+  def getEthState(statusPort: Short)(implicit sttpBackend: SttpEffect[IO]): IO[NodeEthState] = {
+    import NodeEthState._
+    (for {
+      resp <- sttp.response(asJson[NodeEthState]).get(uri"http://127.0.0.1:$statusPort/status/eth").send()
+    } yield resp.unsafeBody).value.flatMap(r => IO.fromEither(r.flatMap(_.left.map(_.error))))
+  }
+
   private val masterConf = MasterConfig
     .load()
     .unsafeRunSync()
     .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
+  private val nodeAddress = "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc="
+
   private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
-  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact], NodeConfig, Kademlia[IO, UriContact])] =
+  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact], ValidatorPublicKey, Kademlia[IO, UriContact])] =
     for {
       implicit0(sttpB: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
 
@@ -107,28 +112,23 @@ class MasterNodeSpec
         nodeCodec
       )
 
-      implicit0(dockerIO: DockerIO[Id]) <- DockerIO.make[IO]()
+      implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
 
-      nodeConf = NodeConfig(
-        ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
-        "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=",
-        masterConf.worker,
-        masterConf.tendermint
-      )
+      publicKey = ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5)))
 
-      node ← MasterNode.make[IO, UriContact](masterConf, nodeConf)
+      node ← MasterNode.make[IO, UriContact](masterConf, publicKey)
 
       agg ← StatusAggregator.make[IO](masterConf, node)
       _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
-    } yield (sttpB, node, nodeConf, kad.kademlia)
+    } yield (sttpB, node, publicKey, kad.kademlia)
 
   def fiberResource[F[_]: Concurrent: Log, A](f: F[A]): Resource[F, Unit] =
     Resource.make(Concurrent[F].start(f))(_.cancel).void
 
   def runningNode(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
-  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact], NodeConfig, Kademlia[IO, UriContact])] =
+  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact], ValidatorPublicKey, Kademlia[IO, UriContact])] =
     nodeResource(port, seeds).flatMap {
       case res @ (_, n, _, _) ⇒ fiberResource(n.run).as(res)
     }
@@ -159,7 +159,7 @@ class MasterNodeSpec
       implicit val log: Log[IO] = logFactory.init("spec", "apps").unsafeRunSync()
 
       (runningNode(), EthClient.make[IO]()).tupled.use {
-        case ((sttpB, node, nodeConfig, _), ethClient) ⇒
+        case ((sttpB, node, publicKey, _), ethClient) ⇒
           implicit val s = sttpB
 
           val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
@@ -168,15 +168,10 @@ class MasterNodeSpec
           val contractConfig = FluenceContractConfig(owner, contractAddress)
 
           val contract = FluenceContract(ethClient, contractConfig)
-          masterConf.ethereum
 
           for {
-            _ ← contract.addNode[IO](nodeConfig.validatorKey,
-                                     nodeConfig.nodeAddress,
-                                     nodeConfig.isPrivate,
-                                     masterConf.endpoints.ip.getHostAddress,
-                                     10,
-                                     10)
+            _ ← contract
+              .addNode[IO](publicKey.toBytes32, nodeAddress, false, masterConf.endpoints.ip.getHostAddress, 10, 10)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 15.seconds)
 
