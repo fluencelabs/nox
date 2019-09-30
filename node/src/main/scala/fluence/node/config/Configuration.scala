@@ -106,7 +106,7 @@ object Configuration {
       validatorRaw <- execTendermintCmd("show_validator", uid)
       validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorPublicKey])).to[F]
       _ <- Log[F].info(s"Validator PubKey: ${validator.value}")
-    } yield nodeId
+    } yield validator
   }
 
   /**

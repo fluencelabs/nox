@@ -147,22 +147,24 @@ class MasterNodeIntegrationSpec
       for {
         status1 <- getStatus(basePort).map(_.toTry.get)
         status2 <- getStatus(master2Port).map(_.toTry.get)
+        ethState1 <- getEthState(basePort)
+        ethState2 <- getEthState(master2Port)
 
-        _ <- contract.addNode[IO](status1.nodeConfig, status1.ip, basePort, 1).attempt
-        _ <- contract.addNode[IO](status2.nodeConfig, status2.ip, master2Port, 1).attempt
+        _ <- contract.addNode[IO](ethState1.validatorKey, status1.ip, basePort, 1).attempt
+        _ <- contract.addNode[IO](ethState2.validatorKey, status2.ip, master2Port, 1).attempt
         blockNumber <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
         _ ← log.info("Added App at block: " + blockNumber + ", now going to wait for two workers")
 
         _ <- eventually[IO](
           for {
-            c1s0 <- heightFromTendermintStatus("localhost", basePort, lastAppId)
-            _ ← log.info(s"c1s0 === " + c1s0)
-            c1s1 <- heightFromTendermintStatus("localhost", master2Port, lastAppId)
-            _ ← log.info(s"c1s1 === " + c1s1)
+            status0 <- heightFromTendermintStatus("localhost", basePort, lastAppId)
+            _ ← log.info(s"c1s0 === " + status0.sync_info.latest_block_height)
+            status1 <- heightFromTendermintStatus("localhost", master2Port, lastAppId)
+            _ ← log.info(s"c1s1 === " + status1.sync_info.latest_block_height)
           } yield {
-            c1s0.value should be >= 2L
-            c1s1.value should be >= 2L
+            status0.sync_info.latest_block_height should be >= 2L
+            status1.sync_info.latest_block_height should be >= 2L
           },
           maxWait = 90.seconds
         )

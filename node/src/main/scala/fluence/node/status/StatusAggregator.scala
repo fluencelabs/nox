@@ -67,8 +67,7 @@ case class StatusAggregator[F[_]: Timer: Concurrent](
       config.endpoints.ip.getHostAddress,
       currentTime - startTimeMillis,
       workerInfos.size,
-      workerInfos,
-      config
+      workerInfos
     )
 
   /**

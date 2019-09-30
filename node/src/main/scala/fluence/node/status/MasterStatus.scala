@@ -34,23 +34,15 @@ import scala.language.postfixOps
  * @param uptime working time of master node
  * @param numberOfWorkers number of registered workers
  * @param workers info about workers
- * @param config config file
  */
 case class MasterStatus(
   ip: String,
   uptime: Long,
   numberOfWorkers: Int,
-  workers: List[(Long, WorkerStatus)],
-  config: MasterConfig
+  workers: List[(Long, WorkerStatus)]
 )
 
 object MasterStatus {
-  private implicit val encodeEthTx: Encoder[Transaction] = deriveEncoder
-  private implicit val encodeEthBlock: Encoder[Block] = deriveEncoder
-  private implicit val encodeByteVector: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
-  private implicit val encodeFiniteDuration: Encoder[FiniteDuration] = Encoder.encodeLong.contramap(_.toSeconds)
-
-  private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
   private implicit val encodeStatusTuple: Encoder[(Long, WorkerStatus)] = {
     case (appId: Long, status: WorkerStatus) ⇒
       Json.obj(
@@ -60,16 +52,6 @@ object MasterStatus {
   }
 
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
-
-// Used for tests
-  private implicit val decodeEthTx: Decoder[Transaction] = deriveDecoder
-  private implicit val decodeEthBlock: Decoder[Block] = deriveDecoder
-  private implicit val decodeByteVector: Decoder[ByteVector] =
-    Decoder.decodeString.flatMap(
-      ByteVector.fromHex(_).fold(Decoder.failedWithMessage[ByteVector]("Not a hex"))(Decoder.const)
-    )
-  private implicit val decodeFiniteDuration: Decoder[FiniteDuration] = Decoder.decodeLong.map(_ seconds)
-  private implicit val keyDecoderByteVector: KeyDecoder[ByteVector] = KeyDecoder.instance(ByteVector.fromHex(_))
 
   implicit val decodeMasterState: Decoder[MasterStatus] = deriveDecoder
 }

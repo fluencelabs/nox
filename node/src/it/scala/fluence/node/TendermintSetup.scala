@@ -17,14 +17,13 @@
 package fluence.node
 
 import cats.effect._
+import fluence.effects.tendermint.rpc.response.TendermintStatus
 
 import scala.io.Source
 import scala.language.higherKinds
-import scala.util.Try
 
 trait TendermintSetup {
-  protected def heightFromTendermintStatus(host: String, port: Short, appId: Long): IO[Option[Long]] = IO {
-    import io.circe.Json
+  protected def heightFromTendermintStatus(host: String, port: Short, appId: Long): IO[TendermintStatus] = IO {
     import io.circe.parser.parse
     val url = s"http://$host:$port/apps/$appId/status/tendermint"
     val source = {
@@ -33,16 +32,7 @@ trait TendermintSetup {
       s.close()
       src
     }
-    val height = parse(source)
-      .getOrElse(Json.Null)
-      .asObject
-      .flatMap(_("result"))
-      .flatMap(_.asObject)
-      .flatMap(_("sync_info"))
-      .flatMap(_.asObject)
-      .flatMap(_("latest_block_height"))
-      .flatMap(_.asString)
-      .flatMap(x => Try(x.toLong).toOption)
-    height
+
+    parse(source).right.get.as[TendermintStatus].right.get
   }
 }
