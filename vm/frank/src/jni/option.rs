@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use jni::objects::{JObject, JValue};
 /// Defines functions to construct the Scala Option[String] objects by calling the apply method:
 ///
 /// ```
@@ -21,9 +22,7 @@
 ///    return Option$.MODULE$.apply(var0);
 /// }
 /// ```
-
 use jni::JNIEnv;
-use jni::objects::{JObject, JValue};
 
 /// creates Scala None value
 pub fn create_none_value<'a>(env: &JNIEnv<'a>) -> JValue<'a> {

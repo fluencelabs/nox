@@ -16,7 +16,6 @@
 
 /// Defines functions used to construct result of the VM invocation for the Scala part.
 /// Corresponding case classes could be found in vm/src/main/scala/fluence/vm/frank/result.
-
 use crate::frank_result::FrankResult;
 use crate::jni::option::*;
 use jni::objects::{JObject, JValue};
@@ -24,20 +23,24 @@ use jni::JNIEnv;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Sha256};
 
 /// Creates RawInitializationResult object for the Scala part.
-pub fn create_initialization_result<'a>(env: &JNIEnv<'a>, error: Option<String>) -> JObject<'a> {
+pub fn create_initialization_result<'a>(
+    env: &JNIEnv<'a>,
+    error: Option<String>,
+    expects_eths: bool,
+) -> JObject<'a> {
     let error_value = match error {
         Some(err) => create_some_value(&env, err),
         None => create_none_value(&env),
     };
 
-    // public static RawInitializationResult apply(final Option error) {
+    // public static RawInitializationResult apply(final Option error, final Boolean expects_eth) {
     //   return RawInitializationResult$.MODULE$.apply(var0);
     // }
     env.call_static_method(
         "fluence/vm/frank/result/RawInitializationResult",
         "apply",
-        "(Lscala/Option;)Lfluence/vm/frank/result/RawInitializationResult;",
-        &[error_value],
+        "(Lscala/Option;Z)Lfluence/vm/frank/result/RawInitializationResult;",
+        &[error_value, JValue::from(expects_eths)],
     )
     .expect("jni: couldn't allocate a new RawInitializationResult object")
     .l()

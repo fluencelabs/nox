@@ -16,7 +16,6 @@
 
 /// Defines export functions that will be accessible from the Scala part.
 
-use jni::JNIEnv;
 use crate::config::Config;
 use crate::errors::FrankError;
 use crate::frank::{Frank, FRANK};
@@ -24,6 +23,7 @@ use crate::frank_result::FrankResult;
 use crate::jni::jni_results::*;
 use jni::objects::{JClass, JObject, JString};
 use jni::sys::jbyteArray;
+use jni::JNIEnv;
 use sha2::digest::generic_array::GenericArray;
 
 /// Initializes Frank virtual machine.
@@ -38,19 +38,19 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
         env: &JNIEnv<'a>,
         module_path: JString,
         config: JObject,
-    ) -> Result<(), FrankError> {
+    ) -> Result<(bool), FrankError> {
         let file_name: String = env.get_string(module_path)?.into();
         let config = Config::new(&env, config)?;
-        let executor = Box::new(Frank::new(&file_name, config)?);
+        let frank = Frank::new(&file_name, config)?;
 
-        unsafe { FRANK = Some(executor) };
+        unsafe { FRANK = Some(Box::new(frank.0)) };
 
-        Ok(())
+        Ok(frank.1)
     }
 
     match initialize(&env, module_path, config) {
-        Ok(_) => create_initialization_result(&env, None),
-        Err(err) => create_initialization_result(&env, Some(format!("{}", err))),
+        Ok(expects_eths) => create_initialization_result(&env, None, expects_eths),
+        Err(err) => create_initialization_result(&env, Some(format!("{}", err)), false),
     }
 }
 

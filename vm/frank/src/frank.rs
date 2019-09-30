@@ -19,8 +19,7 @@ use crate::errors::FrankError;
 use crate::frank_result::FrankResult;
 use crate::modules::env_module::EnvModule;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
-use std::ffi::c_void;
-use std::fs;
+use std::{ffi::c_void, fs};
 use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
 
 pub struct Frank {
@@ -28,11 +27,15 @@ pub struct Frank {
     config: Box<Config>,
 }
 
-// Waiting for https://github.com/wasmerio/wasmer/issues/748 to be landed in Wasmer.
+// Waiting for new release of Wasmer with https://github.com/wasmerio/wasmer/issues/748.
 // It will allow to use lazy_static here. thread_local isn't suitable in our case because
 // it is difficult to guarantee that jni code will be called on the same thead context
 // every time from the Scala part.
 pub static mut FRANK: Option<Box<Frank>> = None;
+
+// A little hack: exporting functions with this name means that this module expects Ethereum blocks.
+// Will be changed in the future.
+const ETH_FUNC_NAME: &str = "expects_eth";
 
 impl Frank {
     /// Writes given value on the given address.
@@ -42,9 +45,9 @@ impl Frank {
         for (byte_id, cell) in memory.view::<u8>()[address as usize..(address + value.len())]
             .iter()
             .enumerate()
-            {
-                cell.set(value[byte_id]);
-            }
+        {
+            cell.set(value[byte_id]);
+        }
 
         Ok(())
     }
@@ -56,7 +59,7 @@ impl Frank {
         let mut result_size: usize = 0;
 
         for (byte_id, cell) in memory.view::<u8>()[address..address + 4].iter().enumerate() {
-            result_size |= (cell.get() as usize) << 8 * byte_id;
+            result_size |= (cell.get() as usize) << (8 * byte_id);
         }
 
         let mut result = Vec::<u8>::with_capacity(result_size);
@@ -77,7 +80,8 @@ impl Frank {
 
     /// Calls allocate function exported from the main module.
     fn call_allocate_func(&self, size: i32) -> Result<i32, FrankError> {
-        let allocate_func: Func<(i32), (i32)> = self.instance.func(&self.config.allocate_function_name)?;
+        let allocate_func: Func<(i32), (i32)> =
+            self.instance.func(&self.config.allocate_function_name)?;
         let result = allocate_func.call(size)?;
         Ok(result)
     }
@@ -133,7 +137,7 @@ impl Frank {
     }
 
     /// Creates a new virtual machine executor.
-    pub fn new(module_path: &str, config: Box<Config>) -> Result<Self, FrankError> {
+    pub fn new(module_path: &str, config: Box<Config>) -> Result<(Self, bool), FrankError> {
         let wasm_code = fs::read(module_path)?;
 
         let env_state = move || {
@@ -161,7 +165,9 @@ impl Frank {
         };
 
         let instance = Box::new(instantiate(&wasm_code, &import_objects)?);
-        Ok(Self { instance, config })
+        let expects_eth = instance.func::<(i32, i32), ()>(ETH_FUNC_NAME).is_ok();
+
+        Ok((Self { instance, config }, expects_eth))
     }
 }
 
