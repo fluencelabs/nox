@@ -19,13 +19,11 @@ object VmSbt {
   val compileFrankTask: Def.Initialize[Task[Unit]] = Def.task { compileFrank()(streams.value.log) }
 
   def downloadLlama(resourcesDir: SettingKey[sbt.File]) = Def.task {
-    val log = streams.value.log
+    implicit val log = streams.value.log
     val resourcesPath = resourcesDir.value
     val llamadbUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db.wasm"
     val llamadbPreparedUrl =
       "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db_prepared.wasm"
-
-    log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
 
     download(llamadbUrl, resourcesPath / "llama_db.wasm")
     download(llamadbPreparedUrl, resourcesPath / "llama_db_prepared.wasm")
@@ -35,7 +33,6 @@ object VmSbt {
     val soPath = vmDirectory / "frank" / "target" / "release" / "libfrank.so"
     val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
 
-    log.info(s"Downloading libfrank from $libfrankUrl to $soPath")
     download(libfrankUrl, soPath)
   }
 

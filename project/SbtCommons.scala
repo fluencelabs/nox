@@ -2,6 +2,7 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys.{javaOptions, _}
+import sbt.internal.util.ManagedLogger
 import sbt.{Def, addCompilerPlugin, taskKey, _}
 import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
 import sbtassembly.{MergeStrategy, PathList}
@@ -102,10 +103,14 @@ object SbtCommons {
     }
   }
 
-  def download(uri: String, target: sbt.File): Unit = assert(
-    s"curl -sC - --create-dirs $uri -o ${target.absolutePath}".! == 0,
-    s"Download failed. From $uri to ${target.absolutePath}"
-  )
+  def download(uri: String, target: sbt.File)(implicit log: ManagedLogger): Unit = {
+    val path = target.absolutePath
+    log.info(s"Downloading $uri to $path")
+    assert(
+      s"curl -sC - --create-dirs $uri -o $path".! == 0,
+      s"Download failed. From $uri to $path"
+    )
+  }
 
   /* Common deps */
 
