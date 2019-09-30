@@ -6,8 +6,10 @@ import SbtCommons.{download, foldNixMac}
 import scala.sys.process._
 
 object VmSbt {
+  val compileFrank = TaskKey[Unit]("compiles frank")
+  val compileFrankTask: Def.Initialize[Task[Unit]] = Def.task { compileFrank()(streams.value.log) }
 
-  def compileFrank()(implicit log: ManagedLogger): Unit = {
+  private def compileFrank()(implicit log: ManagedLogger): Unit = {
     val projectRoot = file("").getAbsolutePath
     val frankFolder = s"$projectRoot/vm/frank"
     val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
@@ -16,7 +18,12 @@ object VmSbt {
     assert((compileCmd !) == 0, "Frank VM compilation failed")
   }
 
-  val compileFrankTask: Def.Initialize[Task[Unit]] = Def.task { compileFrank()(streams.value.log) }
+  private def downloadFrankSo(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
+    val soPath = vmDirectory / "frank" / "target" / "release" / "libfrank.so"
+    val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
+
+    download(libfrankUrl, soPath)
+  }
 
   def downloadLlama(resourcesDir: SettingKey[sbt.File]) = Def.task {
     implicit val log = streams.value.log
@@ -29,23 +36,10 @@ object VmSbt {
     download(llamadbPreparedUrl, resourcesPath / "llama_db_prepared.wasm")
   }
 
-  def downloadFrankSo(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
-    val soPath = vmDirectory / "frank" / "target" / "release" / "libfrank.so"
-    val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
+  def makeFrankSoLib(vmDirectory: SettingKey[sbt.File]) = Def.task {
+    implicit val log = streams.value.log
 
-    download(libfrankUrl, soPath)
+    // on *nix, compile frank to .so; on MacOS, download library from bintray
+    foldNixMac(nix = compileFrank(), mac = downloadFrankSo(vmDirectory.value))
   }
-
-  def prepareWorkerVM(vmDirectory: sbt.File): Seq[Def.Setting[_]] =
-    Seq(
-      publishArtifact := false,
-      compile := (compile in Compile)
-        .dependsOn(Def.task {
-          implicit val log = streams.value.log
-
-          // on *nix, compile frank to .so; on MacOS, download library from bintray
-          foldNixMac(nix = compileFrank(), mac = downloadFrankSo(vmDirectory))
-        })
-        .value
-    )
 }

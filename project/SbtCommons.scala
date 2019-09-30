@@ -117,6 +117,8 @@ object SbtCommons {
         s"wget -q $uri -O $path".! == 0,
         s"Download from $uri to $path failed. Note that target should be a path to a file, not a directory."
       )
+    } else {
+      log.info(s"${target.getName} already exists, won't download.")
     }
   }
 
