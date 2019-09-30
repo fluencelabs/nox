@@ -63,15 +63,13 @@ case class StatusAggregator[F[_]: Timer: Concurrent](
               )
               .map(ctx.app.id → _)
         )
-      ethState ← masterNode.nodeEth.expectedState
     } yield
       MasterStatus(
         config.endpoints.ip.getHostAddress,
         currentTime - startTimeMillis,
         workerInfos.size,
         workerInfos,
-        config,
-        ethState
+        config
       )
 
   /**

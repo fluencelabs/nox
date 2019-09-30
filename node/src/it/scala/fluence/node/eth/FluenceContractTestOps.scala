@@ -22,6 +22,7 @@ import cats.syntax.functor._
 import fluence.effects.ethclient.helpers.Web3jConverters.{nodeAddressToBytes24, stringToBytes32}
 import fluence.effects.ethclient.syntax._
 import fluence.node.config.NodeConfig
+import fluence.node.workers.tendermint.ValidatorPublicKey
 import fluence.worker.eth.StorageType
 import fluence.worker.eth.StorageType.StorageType
 import org.web3j.abi.datatypes.generated._
@@ -37,23 +38,24 @@ object FluenceContractTestOps {
      * Register the node in the contract.
      * TODO check permissions, Ethereum public key should match
      *
-     * @param nodeConfig Node to add
      * @tparam F Effect
      * @return The block number where transaction has been mined
      */
     def addNode[F[_]: LiftIO: Timer: Monad](
-      nodeConfig: NodeConfig,
+      validatorKey: ValidatorPublicKey,
+      nodeAddressHex: String,
+      isPrivate: Boolean,
       nodeIP: String,
       apiPort: Short,
       capacity: Short
     ): F[BigInt] =
       contract
         .addNode(
-          nodeConfig.validatorKey.toBytes32,
-          nodeAddressToBytes24(nodeIP, nodeConfig.nodeAddress),
+          validatorKey.toBytes32,
+          nodeAddressToBytes24(nodeIP, nodeAddressHex),
           new Uint16(apiPort),
           new Uint16(capacity),
-          new Bool(nodeConfig.isPrivate)
+          new Bool(isPrivate)
         )
         .callUntilSuccess[F]
         .map(_.getBlockNumber)

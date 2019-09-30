@@ -16,11 +16,16 @@
 
 package fluence.node.eth
 
+import java.net.InetAddress
+
 import cats.{Applicative, Monad}
 import cats.data.StateT
 import cats.syntax.functor._
 import fluence.effects.ethclient.data.Block
-import fluence.worker.eth.EthApp
+import fluence.worker.eth.StorageType.StorageType
+import fluence.worker.eth.{Cluster, EthApp, StorageRef, StorageType, WorkerPeer}
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -42,6 +47,23 @@ case class NodeEthState(
 )
 
 object NodeEthState {
+
+  private implicit val encodeCluster: Encoder[Cluster] = deriveEncoder
+  private implicit val encodeStorageType: Encoder[StorageType] = Encoder.encodeEnumeration(StorageType)
+  private implicit val encodeInetAddress: Encoder[InetAddress] = Encoder.encodeString.contramap(_.getHostName)
+  private implicit val encodeWorkerPeer: Encoder[WorkerPeer] = deriveEncoder
+  private implicit val encodeApp: Encoder[EthApp] = deriveEncoder
+  private implicit val encodeStorageRef: Encoder[StorageRef] = deriveEncoder
+  implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
+
+  private implicit val decodeCluster: Decoder[Cluster] = deriveDecoder
+  private implicit val decodeStorageType: Decoder[StorageType] = Decoder.decodeEnumeration(StorageType)
+  private implicit val decodeInetAddress: Decoder[InetAddress] = Decoder.decodeString.map(InetAddress.getByName)
+  private implicit val decodeApp: Decoder[EthApp] = deriveDecoder
+  private implicit val decodeWorkerPeer: Decoder[WorkerPeer] = deriveDecoder
+  private implicit val decodeStorageRef: Decoder[StorageRef] = deriveDecoder
+  implicit val decodeNodeEthState: Decoder[NodeEthState] = deriveDecoder
+
   private type State[F[_]] =
     StateT[F, NodeEthState, Seq[NodeEthEvent]]
 
@@ -77,7 +99,7 @@ object NodeEthState {
           nodesToApps = app.cluster.workers.map(_.validatorKey).foldLeft(s.nodesToApps) {
             case (acc, nodeId) ⇒ acc.updated(nodeId, acc.getOrElse(nodeId, Set.empty) + app.id)
           }
-        )
+      )
     ).as(RunAppWorker(app) :: Nil)
 
   /**

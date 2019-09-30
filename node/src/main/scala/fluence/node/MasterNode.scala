@@ -131,8 +131,7 @@ object MasterNode {
    */
   def make[F[_]: ConcurrentEffect: ContextShift: Timer: Log: LogFactory: Parallel: DockerIO: SttpStreamEffect, C](
     masterConfig: MasterConfig,
-    nodeConfig: NodeConfig,
-    kademlia: Kademlia[F, C]
+    nodeConfig: NodeConfig
   )(
     implicit
     backoff: Backoff[EffectError]

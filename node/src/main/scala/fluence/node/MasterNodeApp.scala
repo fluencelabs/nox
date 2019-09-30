@@ -72,7 +72,7 @@ object MasterNodeApp extends IOApp {
 
               conf ← Resource.liftF(Configuration.init[IO](masterConf))
               kad ← kademlia(conf.rootPath, masterConf.kademlia)
-              node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, kad.kademlia)
+              node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig)
             } yield (kad.http, node)).use {
               case (kadHttp, node) ⇒
                 (for {

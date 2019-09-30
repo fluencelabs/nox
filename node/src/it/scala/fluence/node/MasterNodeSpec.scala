@@ -28,16 +28,20 @@ import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
 import fluence.codec.PureCodec
 import fluence.crypto.eddsa.Ed25519
+import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
 import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.testkit.Timed
 import fluence.effects.{Backoff, EffectError}
+import fluence.kad.Kademlia
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
 import fluence.kad.http.KademliaHttpNode
 import fluence.kad.protocol.{Key, Node}
+import fluence.log.Log.Aux
+import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
@@ -57,17 +61,17 @@ class MasterNodeSpec
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val logFactory = LogFactory.forPrintln[IO](Log.Trace)
+  implicit private val logFactory: LogFactory.Aux[IO, PrintlnLogAppender[IO]] = LogFactory.forPrintln[IO](Log.Trace)
 
   implicit private val backoff: Backoff[EffectError] = Backoff.default
 
   override protected def beforeAll(): Unit = {
-    implicit val log = logFactory.init("before").unsafeRunSync()
+    implicit val log: Aux[IO, PrintlnLogAppender[IO]] = logFactory.init("before").unsafeRunSync()
     wireupContract()
   }
 
   override protected def afterAll(): Unit = {
-    implicit val log = logFactory.init("after").unsafeRunSync()
+    implicit val log: Aux[IO, PrintlnLogAppender[IO]] = logFactory.init("after").unsafeRunSync()
     killGanache()
   }
 
@@ -85,7 +89,7 @@ class MasterNodeSpec
 
   private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
-  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact])] =
+  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact], NodeConfig, Kademlia[IO, UriContact])] =
     for {
       implicit0(sttpB: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
 
@@ -103,12 +107,7 @@ class MasterNodeSpec
         nodeCodec
       )
 
-      implicit0(wn: PureCodec.Func[Node[UriContact], String]) = nodeCodec.writeNode
-
-      bref ← Resource.liftF(Ref.of[IO, Option[BlockManifest]](None))
-      bstore ← Resource.liftF(KVReceiptStorage.makeInMemory[IO](1).allocated.map(_._1))
-
-      pool ← TestWorkersPool.make[IO](bref, bstore)
+      implicit0(dockerIO: DockerIO[Id]) <- DockerIO.make[IO]()
 
       nodeConf = NodeConfig(
         ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
@@ -117,19 +116,21 @@ class MasterNodeSpec
         masterConf.tendermint
       )
 
-      node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
+      node ← MasterNode.make[IO, UriContact](masterConf, nodeConf)
 
       agg ← StatusAggregator.make[IO](masterConf, node)
       _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
-    } yield (sttpB, node)
+    } yield (sttpB, node, nodeConf, kad.kademlia)
 
   def fiberResource[F[_]: Concurrent: Log, A](f: F[A]): Resource[F, Unit] =
     Resource.make(Concurrent[F].start(f))(_.cancel).void
 
-  def runningNode(port: Short = 5789, seeds: Seq[String] = Seq.empty)(implicit log: Log[IO]) =
+  def runningNode(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
+    implicit log: Log[IO]
+  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact], NodeConfig, Kademlia[IO, UriContact])] =
     nodeResource(port, seeds).flatMap {
-      case res @ (_, n) ⇒ fiberResource(n.run).as(res)
+      case res @ (_, n, _, _) ⇒ fiberResource(n.run).as(res)
     }
 
   "MasterNode" should {
@@ -137,8 +138,8 @@ class MasterNodeSpec
       implicit val log: Log[IO] = logFactory.init("spec", "status").unsafeRunSync()
 
       runningNode().use {
-        case (sttpB, _) ⇒
-          implicit val s = sttpB
+        case (sttpB, _, _, _) ⇒
+          implicit val s: SttpStreamEffect[IO] = sttpB
           log.debug("Going to run the node").unsafeRunSync()
 
           eventually[IO](
@@ -158,7 +159,7 @@ class MasterNodeSpec
       implicit val log: Log[IO] = logFactory.init("spec", "apps").unsafeRunSync()
 
       (runningNode(), EthClient.make[IO]()).tupled.use {
-        case ((sttpB, node), ethClient) ⇒
+        case ((sttpB, node, nodeConfig, _), ethClient) ⇒
           implicit val s = sttpB
 
           val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
@@ -167,24 +168,30 @@ class MasterNodeSpec
           val contractConfig = FluenceContractConfig(owner, contractAddress)
 
           val contract = FluenceContract(ethClient, contractConfig)
+          masterConf.ethereum
 
           for {
-            _ ← contract.addNode[IO](node.nodeConfig, masterConf.endpoints.ip.getHostAddress, 10, 10)
+            _ ← contract.addNode[IO](nodeConfig.validatorKey,
+                                     nodeConfig.nodeAddress,
+                                     nodeConfig.isPrivate,
+                                     masterConf.endpoints.ip.getHostAddress,
+                                     10,
+                                     10)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
-            _ ← eventually[IO](node.pool.getAll.map(_.size shouldBe 1), 100.millis, 15.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 15.seconds)
 
-            id0 ← node.pool.getAll.map(_.head.appId)
+            id0 ← node.pool.listAll().map(_.head.app.id)
 
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
-            _ ← eventually[IO](node.pool.getAll.map(_.size shouldBe 2), 100.millis, 15.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 2), 100.millis, 15.seconds)
 
             _ ← contract.deleteApp[IO](id0)
-            _ ← eventually[IO](node.pool.getAll.map(_.size shouldBe 1), 100.millis, 15.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 15.seconds)
 
-            id1 ← node.pool.getAll.map(_.head.appId)
+            id1 ← node.pool.listAll().map(_.head.app.id)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← contract.deleteApp[IO](id1)
-            _ ← eventually[IO](node.pool.getAll.map(_.size shouldBe 1), 100.millis, 15.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 15.seconds)
 
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
@@ -194,12 +201,12 @@ class MasterNodeSpec
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
 
-            _ ← eventually[IO](node.pool.getAll.map(_.size shouldBe 8), 100.millis, 15.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 8), 100.millis, 15.seconds)
 
-            id2 ← node.pool.getAll.map(_.last.appId)
+            id2 ← node.pool.listAll().map(_.last.app.id)
             _ ← contract.deleteApp[IO](id2)
 
-            _ ← eventually[IO](node.pool.getAll.map(_.size shouldBe 7), 100.millis, 15.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 7), 100.millis, 15.seconds)
 
           } yield ()
       }.unsafeRunSync()
@@ -209,21 +216,21 @@ class MasterNodeSpec
       implicit val log: Log[IO] = logFactory.init("spec", "kad", Log.Trace).unsafeRunSync()
 
       runningNode().flatMap {
-        case (s, mn) ⇒
-          val seed = mn.kademlia.ownContact.map(_.contact.toString).unsafeRunSync()
+        case (s, mn, _, kademlia) ⇒
+          val seed = kademlia.ownContact.map(_.contact.toString).unsafeRunSync()
 
           implicit val ss = s
           eventually[IO](
             sttp.post(uri"http://127.0.0.1:5789/kad/ping").send().value.map(_.flatMap(_.body).right.get shouldBe seed)
           )
 
-          runningNode(5679, seed :: Nil).map(_._2 -> mn)
+          runningNode(5679, seed :: Nil).map(_._4 -> kademlia)
       }.use {
-        case (mn1, mn0) ⇒
+        case (kad1, kad0) ⇒
           eventually(
             Apply[IO].map2(
-              mn1.kademlia.findNode(mn0.kademlia.nodeKey, 2),
-              mn0.kademlia.findNode(mn1.kademlia.nodeKey, 2)
+              kad1.findNode(kad0.nodeKey, 2),
+              kad0.findNode(kad1.nodeKey, 2)
             ) {
               case (f1, f0) ⇒
                 f1 shouldBe defined

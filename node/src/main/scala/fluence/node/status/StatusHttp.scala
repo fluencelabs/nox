@@ -25,6 +25,7 @@ import org.http4s.HttpRoutes
 import cats.syntax.applicativeError._
 import fluence.log.{Log, LogFactory}
 import io.circe.syntax._
+import io.circe.Encoder
 import org.http4s.dsl._
 import org.http4s.dsl.impl.OptionalQueryParamDecoderMatcher
 
@@ -40,48 +41,52 @@ object StatusHttp {
   /**
    * Master status' routes.
    *
-   * @param sm Status aggregator
    * @param dsl Http4s DSL to build routes with
    */
   def routes[F[_]: Sync: Parallel: LogFactory](
-    sm: StatusAggregator[F],
+    statusAggregator: StatusAggregator[F],
     defaultTimeout: FiniteDuration = DefaultTimeout
   )(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._
+
+    def statusToResponse[S](status: S)(implicit encoder: Encoder[S], log: Log[F]) = {
+      Sync[F].delay(status.asJson.spaces2).attempt.flatMap {
+        case Left(e) =>
+          log.error(s"Status cannot be serialized to JSON. Status: $status", e) *>
+            InternalServerError("JSON generation errored, please try again")
+        case Right(json) =>
+          Ok(json)
+      }
+    }
 
     val maxTimeout = defaultTimeout * 20
 
     HttpRoutes
       .of[F] {
         case GET -> Root :? Timeout(t) =>
-          (for {
+          for {
             implicit0(log: Log[F]) ← LogFactory[F].init("http", "status")
-            status <- sm.getStatus(t.map(_.seconds).filter(_ < maxTimeout).getOrElse(defaultTimeout))
-            maybeJson <- Sync[F].delay(status.asJson.spaces2).attempt
-          } yield (log, status, maybeJson)).flatMap {
-            case (log, status, Left(e)) ⇒
-              log.error(s"Status cannot be serialized to JSON. Status: $status", e) *>
-                InternalServerError("JSON generation errored, please try again")
+            status <- statusAggregator.getStatus(t.map(_.seconds).filter(_ < maxTimeout).getOrElse(defaultTimeout))
+            response <- statusToResponse(status)
+          } yield response
 
-            case (_, _, Right(json)) ⇒
-              Ok(json)
-          }
+        case GET -> Root / "config" ⇒
+          import fluence.node.config.MasterConfig.encodeMasterConfig
+
+          for {
+            implicit0(log: Log[F]) ← LogFactory[F].init("http", "status/config")
+            config = statusAggregator.config
+            response <- statusToResponse(config)
+          } yield response
 
         case GET -> Root / "eth" ⇒
-          import MasterStatus.encodeNodeEthState
+          import fluence.node.eth.NodeEthState.encodeNodeEthState
 
-          (for {
+          for {
             implicit0(log: Log[F]) ← LogFactory[F].init("http", "status/eth")
-            ethState ← sm.expectedEthState
-            maybeJson ← Sync[F].delay(ethState.asJson.spaces2).attempt
-          } yield (log, ethState, maybeJson)).flatMap {
-            case (log, ethState, Left(e)) ⇒
-              log.error(s"Eth state cannot be serialized to JSON. Eth state: $ethState", e) *>
-                InternalServerError("JSON generation errored, please try again")
-
-            case (_, _, Right(json)) ⇒
-              Ok(json)
-          }
+            ethState ← statusAggregator.expectedEthState
+            response <- statusToResponse(ethState)
+          } yield response
       }
   }
 }

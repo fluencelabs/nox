@@ -24,13 +24,13 @@ import cats.syntax.functor._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.log.Log
-import fluence.node.workers.pool.WorkersPool
-import fluence.node.workers.Worker
+import fluence.worker.Worker
+import shapeless.HList
 
 import scala.language.higherKinds
 
-class TestWorkersPool[F[_]: Concurrent](
-  workers: MVar[F, Map[Long, Worker[F]]],
+class TestWorkersPool[F[_]: Concurrent, CS <: HList](
+  workers: MVar[F, Map[Long, Worker[F, CS]]],
   servicesBuilder: Long => WorkerServices[F]
 ) extends WorkersPool[F] {
 

@@ -47,9 +47,7 @@ object Configuration {
       (nodeId, validatorKey) <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
       nodeConfig = NodeConfig(
         validatorKey,
-        nodeId,
-        masterConfig.worker,
-        masterConfig.tendermint
+        nodeId
       )
     } yield Configuration(
       rootPath,
