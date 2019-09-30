@@ -1,7 +1,7 @@
 import sbt.Keys.{compile, publishArtifact, streams, test}
 import sbt.internal.util.ManagedLogger
 import sbt.{Def, file, _}
-import SbtCommons.foldNixMac
+import SbtCommons.{download, foldNixMac}
 
 import scala.sys.process._
 
@@ -36,21 +36,16 @@ object VmSbt {
 
     log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
 
-    // -c prevents downloading if file already exists
-    val llamadbDownloadRet = s"wget -qc $llamadbUrl -O $resourcesPath/llama_db.wasm" !
-    val llamadbPreparedDownloadRet = s"wget -qc $llamadbPreparedUrl -O $resourcesPath/llama_db_prepared.wasm" !
-
-    assert(llamadbDownloadRet == 0, s"Download failed: $llamadbUrl")
-    assert(llamadbPreparedDownloadRet == 0, s"Download failed: $llamadbPreparedUrl")
+    download(llamadbUrl, resourcesPath / "llama_db.wasm")
+    download(llamadbPreparedUrl, resourcesPath / "llama_db_prepared.wasm")
   }
 
   def downloadFrankSo(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
-    val soPath = (vmDirectory / "frank" / "target" / "release" / "libfrank.so").absolutePath
+    val soPath = vmDirectory / "frank" / "target" / "release" / "libfrank.so"
     val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
-    val libfrankDownloadRet = s"wget -qc $libfrankUrl -O $soPath" ! // -c skips downloading if file exists
 
     log.info(s"Downloading libfrank from $libfrankUrl to $soPath")
-    assert(libfrankDownloadRet == 0, s"Download failed: $libfrankUrl")
+    download(libfrankUrl, soPath)
   }
 
   def prepareWorkerVM(vmDirectory: sbt.File): Seq[Def.Setting[_]] =

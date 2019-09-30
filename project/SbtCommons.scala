@@ -102,6 +102,11 @@ object SbtCommons {
     }
   }
 
+  def download(uri: String, target: sbt.File): Unit = assert(
+    s"curl -sC - --create-dirs $uri -o ${target.absolutePath}".! == 0,
+    s"Download failed. From $uri to ${target.absolutePath}"
+  )
+
   /* Common deps */
 
   val catsVersion = "2.0.0"
