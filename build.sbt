@@ -112,7 +112,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { assembly.value; runCmd("make worker-test") },
     assembly                          := assembly.dependsOn(makeFrankSoLib(baseDirectory in `vm`)).value,
-    compile in Test                   := (compile in Test).dependsOn(downloadLlama(`resourceDirectory in IntegrationTest in vm`)).value
+    compile in Test                   := (compile in Test).dependsOn(downloadLlama(resourceDirectory in IntegrationTest in `vm`)).value
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
