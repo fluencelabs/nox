@@ -70,10 +70,10 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
           for {
             m <- txMap.get
             h <- heightRef.get
-          } yield m
-            .get(path)
-            .map(QueryResponse(h, _, QueryCode.Ok, ""))
-            .toRight(TestErrorNoSuchTx(path))
+          } yield
+            m.get(path)
+              .map(QueryResponse(h, _, QueryCode.Ok, ""))
+              .toRight(TestErrorNoSuchTx(path))
         )
 
       override def status()(implicit log: Log[IO]): EitherT[IO, EffectError, StateMachineStatus] =
@@ -100,8 +100,7 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
   private val onEveryBlock = for {
     machine <- machineF
     producer <- producer(machine)
-    worker = Worker(0L, machine, producer)
-    awaitResponses <- AwaitResponses.make(worker)
+    awaitResponses <- AwaitResponses.make(producer, machine)
     sendAndWait = SendAndWait(producer, awaitResponses)
     onEveryBlock <- RepeatOnEveryBlock.make(producer, sendAndWait)
   } yield (onEveryBlock, producer: BlockProducer.AuxB[IO, SimpleBlock])

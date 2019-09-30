@@ -18,7 +18,7 @@ package fluence.node.status
 import java.net.InetAddress
 
 import fluence.effects.ethclient.data.{Block, Transaction}
-import fluence.node.config.{MasterConfig, NodeConfig}
+import fluence.node.config.MasterConfig
 import fluence.node.eth.NodeEthState
 import fluence.worker.WorkerStatus
 import fluence.worker.eth.StorageType.StorageType

@@ -86,8 +86,7 @@ class SendAndWaitSpec extends WordSpec with Matchers with BeforeAndAfterAll with
     for {
       machine <- Resource.liftF(IO(embdeddedStateMachine(processTxResponse, queryResponse)))
       producer <- producer(machine)
-      worker = Worker(0L, machine, producer)
-      awaitResponses <- AwaitResponses.make(worker, maxBlockTries)
+      awaitResponses <- AwaitResponses.make(producer, machine, maxBlockTries)
       sendAndWait = SendAndWait(producer, awaitResponses)
     } yield (sendAndWait, producer: BlockProducer.AuxB[IO, SimpleBlock])
 

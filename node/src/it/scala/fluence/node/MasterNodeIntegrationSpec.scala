@@ -114,7 +114,7 @@ class MasterNodeIntegrationSpec
       getStatus(statusPort).map {
         case Right(st) =>
           st.workers.headOption.flatMap {
-            case w: WorkerStatus if w.isOperating =>
+            case (_, w: WorkerStatus) if w.isOperating =>
               Some(w)
             case _ ⇒
               log.debug("Trying to get WorkerRunning, but it is not healthy in status: " + st).unsafeRunSync()
