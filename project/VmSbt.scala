@@ -5,26 +5,20 @@ import scala.sys.process._
 
 object VmSbt {
 
-  def compileFrank(): Unit = {
+  def compileFrank: Def.Initialize[Task[Unit]] = Def.task {
     val projectRoot = file("").getAbsolutePath
     val frankFolder = s"$projectRoot/vm/frank"
     val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
 
+    streams.value.log.info(s"Compiling Frank VM")
     assert((compileCmd !) == 0, "Frank VM compilation failed")
   }
 
-  def compileFrankVMSettings(): Seq[Def.Setting[_]] =
+  def frankVMSettings(): Seq[Def.Setting[_]] =
     Seq(
       publishArtifact := false,
       test            := (test in Test).dependsOn(compile).value,
-      compile := (compile in Compile)
-        .dependsOn(Def.task {
-          val log = streams.value.log
-          log.info(s"Compiling Frank VM")
-
-          compileFrank()
-        })
-        .value
+      compile         := (compile in Compile).dependsOn(compileFrank).value
     )
 
   def downloadLlamadb(): Seq[Def.Setting[_]] =
@@ -91,7 +85,7 @@ object VmSbt {
               assert(libfrankDownloadRet == 0 || libfrankDownloadRet == 1, s"Download failed: $libfrankUrl")
             }
             // in case of *nix simply does nothing
-            case linux if linux.contains("linux") => compileFrank()
+            case linux if linux.contains("linux") => compileFrank.value
             case osName =>
               throw new RuntimeException(s"$osName is unsupported, only *nix and MacOS OS are supported now")
           }

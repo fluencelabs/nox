@@ -11,7 +11,7 @@ commons
 
 lazy val `vm-frank` = (project in file("vm/frank"))
   .settings(
-    compileFrankVMSettings()
+    frankVMSettings()
   )
 
 lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
