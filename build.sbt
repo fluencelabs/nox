@@ -116,7 +116,6 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     downloadLlama                     := downloadLlama(resourceDirectory in IntegrationTest in `vm`).value,
     itDepends(test)(downloadLlama, compileFrank)(Test),
     itDepends(testOnly)(downloadLlama, compileFrank)(Test),
-//    test in Test                      := (compile in Test).dependsOn(downloadLlama(resourceDirectory in IntegrationTest in `vm`)).value,
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
@@ -400,18 +399,21 @@ lazy val `node` = project
     assemblyJarName in assembly            := "master-node.jar",
     test in assembly                       := {},
     docker                                 := { runCmd(s"make worker TAG=v${version.value}") },
-    docker in Test                         := { assembly.value; runCmd("make node-test") }
+    docker in Test                         := { assembly.value; runCmd("make node-test") },
+    downloadLlama                          := downloadLlama(resourceDirectory in IntegrationTest in `vm`).value
   )
-  .settings({
-    val tasks = Seq[AnyInitTask](
-      docker in Test,
-      docker in Test in `statemachine-docker`,
-      downloadLlama(resourceDirectory in IntegrationTest in `vm`),
-      compile in IntegrationTest
-    )
-    itDepends(test)(tasks: _*)(IntegrationTest) ++
-      itDepends(testOnly)(tasks: _*)(IntegrationTest)
-  }: _*)
+  .settings(
+    {
+      val tasks = Seq[AnyInitTask](
+        docker in Test,
+        docker in Test in `statemachine-docker`,
+        downloadLlama,
+        compile in IntegrationTest
+      )
+      itDepends(test)(tasks: _*)(IntegrationTest) ++
+        itDepends(testOnly)(tasks: _*)(IntegrationTest)
+    }: _*
+  )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(
