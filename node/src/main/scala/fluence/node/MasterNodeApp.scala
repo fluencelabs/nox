@@ -25,8 +25,7 @@ import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.profunctor._
 import fluence.codec
-import fluence.codec.{CodecError, MonadicalEitherArrow, PureCodec}
-import fluence.crypto.Crypto.Hasher
+import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.{CryptoError, KeyPair}
 import fluence.crypto.eddsa.Ed25519
 import fluence.crypto.hash.CryptoHashers
@@ -39,6 +38,7 @@ import fluence.kad.http.{KademliaHttp, KademliaHttpNode}
 import fluence.kad.protocol.Key
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{Configuration, MasterConfig}
+import fluence.node.eth.NodeEth
 import fluence.node.status.StatusAggregator
 
 import scala.language.higherKinds
@@ -72,12 +72,15 @@ object MasterNodeApp extends IOApp {
 
               conf ← Resource.liftF(Configuration.init[IO](masterConf))
               kad ← kademlia(conf.rootPath, masterConf.kademlia)
-              node ← MasterNode.make[IO, UriContact](masterConf, conf.validatorPublicKey)
-            } yield (kad.http, node)).use {
-              case (kadHttp, node) ⇒
+
+              pool ← MasterPool.docker[IO](masterConf, conf.rootPath)
+
+              node ← MasterNode.make(masterConf, conf.validatorPublicKey, pool)
+            } yield (kad.http, pool, node)).use {
+              case (kadHttp, pool, node) ⇒
                 (for {
                   _ ← Log.resource[IO].debug(s"Eth contract config: ${masterConf.contract}")
-                  server ← masterHttp(masterConf, node, kadHttp)
+                  server ← masterHttp(masterConf, pool, node.nodeEth, kadHttp)
                 } yield server).use { server =>
                   log.info("Http api server has started on: " + server.address) *> node.run
                 }
@@ -123,18 +126,19 @@ object MasterNodeApp extends IOApp {
 
   private def masterHttp(
     masterConf: MasterConfig,
-    node: MasterNode[IO, UriContact],
+    pool: MasterPool.Type[IO],
+    nodeEth: NodeEth[IO],
     kademliaHttp: KademliaHttp[IO, UriContact]
   )(implicit log: Log[IO], lf: LogFactory[IO]) =
     StatusAggregator
-      .make(masterConf, node)
+      .make(masterConf, pool, nodeEth)
       .flatMap(
         statusAggregator =>
-          MasterHttp.make[IO, UriContact](
+          MasterHttp.make(
             "0.0.0.0",
             masterConf.httpApi.port.toShort,
             statusAggregator,
-            node.pool,
+            pool,
             kademliaHttp,
             Nil
           )

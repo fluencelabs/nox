@@ -117,10 +117,13 @@ class MasterNodeSpec
 
       publicKey = ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5)))
 
-      node ← MasterNode.make[IO, UriContact](masterConf, publicKey)
+      // TODO: make embedded pool that fits into MasterNode instead
+      pool ← MasterPool.docker[IO](masterConf, Paths.get(masterConf.rootPath))
 
-      agg ← StatusAggregator.make[IO](masterConf, node)
-      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
+      node ← MasterNode.make(masterConf, publicKey, pool)
+
+      agg ← StatusAggregator.make[IO](masterConf, pool, node.nodeEth)
+      _ ← MasterHttp.make("127.0.0.1", port, agg, pool, kad.http)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
     } yield (sttpB, node, publicKey, kad.kademlia)
 

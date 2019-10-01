@@ -16,17 +16,25 @@
 
 package fluence.node
 
+import java.nio.file.Path
+
 import cats.{Monad, Parallel}
 import cats.effect.{ConcurrentEffect, ContextShift, LiftIO, Resource, Timer}
 import cats.syntax.apply._
+import cats.syntax.compose._
 import fluence.bp.api.DialPeers
 import fluence.bp.uploading.BlockUploading
+import fluence.codec.PureCodec
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
+import fluence.effects.ipfs.IpfsUploader
+import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
-import fluence.effects.sttp.SttpEffect
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.Log
+import fluence.node.code.CodeCarrier
+import fluence.node.config.MasterConfig
 import fluence.node.workers.{WorkerBlockManifests, WorkerDocker, WorkerFiles, WorkerP2pConnectivity, WorkersPorts}
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.config.ConfigTemplate
@@ -56,7 +64,53 @@ object MasterPool {
       ports.workerResource(app.id)
     ).mapN((f, p) ⇒ f :: p :: HNil)
 
-  def apply[F[_]: Parallel: Timer: ConcurrentEffect: DockerIO: LiftIO: ContextShift](
+  def docker[F[_]: ConcurrentEffect: Parallel: ContextShift: Timer: Log: DockerIO: SttpStreamEffect](
+    conf: MasterConfig,
+    rootPath: Path
+  )(implicit backoff: Backoff[EffectError]): Resource[F, Type[F]] = {
+    // TODO: hide codecs somewhere, incapsulate
+    // TODO use better serialization, check for errors
+    implicit val stringCodec: PureCodec[String, Array[Byte]] = PureCodec
+      .liftB[String, Array[Byte]](_.getBytes(), bs ⇒ new String(bs))
+
+    implicit val longCodec: PureCodec[Array[Byte], Long] = PureCodec[Array[Byte], String] andThen PureCodec
+      .liftB[String, Long](_.toLong, _.toString)
+
+    implicit val shortCodec: PureCodec[Array[Byte], Short] = PureCodec[Array[Byte], String] andThen PureCodec
+      .liftB[String, Short](_.toShort, _.toString)
+
+    for {
+      portsStore ← RocksDBStore.make[F, Long, Short](rootPath.resolve("p2p-ports-db").toString)
+      ports ← WorkersPorts.make[F](conf.ports.minPort, conf.ports.maxPort, portsStore)
+      workerDocker = (app: EthApp) ⇒
+        WorkerDocker[F](
+          app,
+          conf.masterContainerId,
+          conf.tendermint,
+          conf.worker,
+          conf.dockerStopTimeout,
+          conf.logLevel
+        )
+      codeCarrier ← Resource.pure(CodeCarrier[F](conf.remoteStorage))
+      workerFiles = WorkerFiles(rootPath, codeCarrier)
+      receiptStorage = (app: EthApp) ⇒ ReceiptStorage.local(app.id, rootPath)
+      blockUploading ← BlockUploading[F](
+        conf.blockUploadingEnabled,
+        IpfsUploader[F](
+          conf.remoteStorage.ipfs.address,
+          conf.remoteStorage.enabled,
+          conf.remoteStorage.ipfs.readTimeout
+        )
+      )
+      configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, conf.tendermintConfig))
+
+      pool <- Resource.liftF(
+        applyDocker(ports, workerDocker, workerFiles, receiptStorage, blockUploading, conf.websocket, configTemplate)
+      )
+    } yield pool
+  }
+
+  private def applyDocker[F[_]: Parallel: Timer: ConcurrentEffect: DockerIO: LiftIO: ContextShift](
     ports: WorkersPorts[F],
     workerDocker: EthApp ⇒ Resource[F, WorkerDocker],
     files: WorkerFiles[F],

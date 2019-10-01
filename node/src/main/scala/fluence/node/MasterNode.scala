@@ -15,34 +15,24 @@
  */
 
 package fluence.node
-import java.nio.file._
 
 import cats.effect._
 import cats.effect.syntax.effect._
-import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{Applicative, Monad, Parallel}
-import fluence.bp.uploading.BlockUploading
-import fluence.codec.PureCodec
+import cats.{Applicative, Parallel}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
-import fluence.effects.ipfs.IpfsUploader
-import fluence.effects.kvstore.RocksDBStore
-import fluence.effects.receipt.storage.ReceiptStorage
-import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
+import fluence.effects.sttp.SttpStreamEffect
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
-import fluence.node.code.CodeCarrier
-import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.MasterConfig
 import fluence.node.eth._
 import fluence.node.workers.tendermint.ValidatorPublicKey
-import fluence.node.workers.tendermint.config.ConfigTemplate
-import fluence.node.workers.{WorkerDocker, WorkerFiles, WorkersPorts}
 import fluence.statemachine.api.command.PeersControl
-import fluence.worker.WorkerStage
+import fluence.worker.{WorkerStage, WorkersPool}
 import fluence.worker.eth.EthApp
+import shapeless._
 
 import scala.language.{higherKinds, postfixOps}
 
@@ -52,17 +42,17 @@ import scala.language.{higherKinds, postfixOps}
  * @param nodeEth Ethereum adapter
  * @param pool Workers pool to launch workers in
  */
-case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
+case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, CS <: HList](
   nodeEth: NodeEth[F],
-  pool: MasterPool.Type[F]
-)(implicit backoff: Backoff[EffectError]) {
+  pool: WorkersPool[F, _, CS]
+)(implicit backoff: Backoff[EffectError], pc: ops.hlist.Selector[CS, PeersControl[F]]) {
 
   /**
    * Runs app worker on a pool
    *
    * @param app App description
    */
-  def runAppWorker(app: EthApp): F[Unit] =
+  private def runAppWorker(app: EthApp): F[Unit] =
     for {
       implicit0(log: Log[F]) ← LogFactory[F].init("app", app.id.toString)
       _ ← log.info("Running worker")
@@ -72,7 +62,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
   /**
    * Runs the appropriate effect for each incoming NodeEthEvent, keeping it untouched
    */
-  def handleEthEvent(implicit log: Log[F]): fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
+  private def handleEthEvent(implicit log: Log[F]): fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
     _.evalTap {
       case RunAppWorker(app) ⇒
         runAppWorker(app)
@@ -129,65 +119,21 @@ object MasterNode {
    * @param validatorKey public key of the node
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: ContextShift: Timer: Log: LogFactory: Parallel: DockerIO: SttpStreamEffect, C](
+  def make[F[_]: ConcurrentEffect: ContextShift: Timer: Log: LogFactory: Parallel: DockerIO: SttpStreamEffect, CS <: HList](
     masterConfig: MasterConfig,
-    validatorKey: ValidatorPublicKey
+    validatorKey: ValidatorPublicKey,
+    workersPool: WorkersPool[F, _, CS]
   )(
     implicit
-    backoff: Backoff[EffectError]
-  ): Resource[F, MasterNode[F, C]] =
+    backoff: Backoff[EffectError],
+    peersControl: ops.hlist.Selector[CS, PeersControl[F]]
+  ): Resource[F, MasterNode[F, CS]] =
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
 
       _ ← Log.resource[F].debug("-> going to create nodeEth")
 
       nodeEth ← NodeEth[F](validatorKey.toByteVector, ethClient, masterConfig.contract)
+    } yield new MasterNode[F, CS](nodeEth, workersPool)
 
-      rootPath <- Resource.liftF(IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F])
-
-      workersPool ← workersPool(masterConfig, rootPath)
-
-    } yield MasterNode[F, C](nodeEth, workersPool)
-
-  private def ipfsUploader[F[_]: Monad](conf: RemoteStorageConfig)(implicit sttp: SttpStreamEffect[F]) =
-    IpfsUploader[F](conf.ipfs.address, conf.enabled, conf.ipfs.readTimeout)
-
-  private def workersPool[F[_]: ConcurrentEffect: Parallel: ContextShift: Timer: Log: DockerIO: SttpStreamEffect: SttpEffect](
-    conf: MasterConfig,
-    rootPath: Path
-  )(implicit backoff: Backoff[EffectError]) = {
-    // TODO: hide codecs somewhere, incapsulate
-    // TODO use better serialization, check for errors
-    implicit val stringCodec: PureCodec[String, Array[Byte]] = PureCodec
-      .liftB[String, Array[Byte]](_.getBytes(), bs ⇒ new String(bs))
-
-    implicit val longCodec: PureCodec[Array[Byte], Long] = PureCodec[Array[Byte], String] andThen PureCodec
-      .liftB[String, Long](_.toLong, _.toString)
-
-    implicit val shortCodec: PureCodec[Array[Byte], Short] = PureCodec[Array[Byte], String] andThen PureCodec
-      .liftB[String, Short](_.toShort, _.toString)
-
-    for {
-      portsStore ← RocksDBStore.make[F, Long, Short](rootPath.resolve("p2p-ports-db").toString)
-      ports ← WorkersPorts.make[F](conf.ports.minPort, conf.ports.maxPort, portsStore)
-      workerDocker = (app: EthApp) ⇒
-        WorkerDocker[F](
-          app,
-          conf.masterContainerId,
-          conf.tendermint,
-          conf.worker,
-          conf.dockerStopTimeout,
-          conf.logLevel
-      )
-      codeCarrier ← Resource.pure(CodeCarrier[F](conf.remoteStorage))
-      workerFiles = WorkerFiles(rootPath, codeCarrier)
-      receiptStorage = (app: EthApp) ⇒ ReceiptStorage.local(app.id, rootPath)
-      blockUploading ← BlockUploading[F](conf.blockUploadingEnabled, ipfsUploader(conf.remoteStorage))
-      configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, conf.tendermintConfig))
-
-      pool <- Resource.liftF(
-        MasterPool[F](ports, workerDocker, workerFiles, receiptStorage, blockUploading, conf.websocket, configTemplate)
-      )
-    } yield pool
-  }
 }

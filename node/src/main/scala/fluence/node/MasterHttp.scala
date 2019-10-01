@@ -23,12 +23,16 @@ import fluence.kad.http.KademliaHttp
 import fluence.kad.http.dht.DhtHttp
 import fluence.log.LogFactory
 import fluence.node.status.{StatusAggregator, StatusHttp}
+import fluence.node.workers.WorkersPorts
 import fluence.node.workers.api.WorkersHttp
+import fluence.worker.WorkersPool
+import fluence.worker.responder.WorkerResponder
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.blaze._
 import org.http4s.server.middleware.{CORS, CORSConfig}
 import org.http4s.server.{Router, Server}
 import org.http4s.{HttpApp, Request, Response, Status}
+import shapeless._
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -50,19 +54,22 @@ object MasterHttp {
    * @param agg Status Aggregator
    * @param pool Workers Pool
    */
-  def make[F[_]: Parallel: Timer: ConcurrentEffect: LogFactory, C](
+  def make[F[_]: Parallel: Timer: ConcurrentEffect: LogFactory, RS <: HList, CS <: HList](
     host: String,
     port: Short,
     agg: StatusAggregator[F],
-    pool: MasterPool.Type[F],
-    kad: KademliaHttp[F, C],
+    pool: WorkersPool[F, RS, CS],
+    kad: KademliaHttp[F, _],
     dht: List[DhtHttp[F]] = Nil
+  )(
+    implicit p2p: ops.hlist.Selector[RS, WorkersPorts.P2pPort[F]],
+    resp: ops.hlist.Selector[CS, WorkerResponder[F]]
   ): Resource[F, Server[F]] = {
-    implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
+    implicit val dsl: Http4sDsl[F] = Http4sDsl[F]
 
     val routes = Router[F](
       ("/status" -> StatusHttp.routes[F](agg)) ::
-        ("/apps" -> WorkersHttp.routes[F](pool)) ::
+        ("/apps" -> WorkersHttp.routes(pool)) ::
         ("/kad" -> kad.routes()) ::
         dht.map(dhtHttp ⇒ dhtHttp.prefix -> dhtHttp.routes()): _*
     )

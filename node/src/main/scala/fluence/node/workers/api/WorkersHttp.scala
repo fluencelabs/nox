@@ -24,9 +24,8 @@ import cats.{Monad, Parallel}
 import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http._
 import fluence.log.{Log, LogFactory}
-import fluence.node.MasterPool
 import fluence.node.workers.WorkersPorts
-import fluence.worker.WorkerStage
+import fluence.worker.{WorkerStage, WorkersPool}
 import fluence.worker.responder.WorkerResponder
 import fluence.worker.responder.resp._
 import fs2.concurrent.Queue
@@ -37,6 +36,7 @@ import org.http4s.server.websocket.WebSocketBuilder
 import org.http4s.websocket.WebSocketFrame
 import org.http4s.websocket.WebSocketFrame.{Close, Text}
 import org.http4s.{EntityEncoder, HttpRoutes, Response}
+import shapeless._
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -100,8 +100,12 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory: Concurrent: Timer: Parallel](pool: MasterPool.Type[F])(
-    implicit dsl: Http4sDsl[F]
+  def routes[F[_]: Sync: LogFactory: Concurrent: Timer: Parallel, RS <: HList, CS <: HList](
+    pool: WorkersPool[F, RS, CS]
+  )(
+    implicit dsl: Http4sDsl[F],
+    p2p: ops.hlist.Selector[RS, WorkersPorts.P2pPort[F]],
+    resp: ops.hlist.Selector[CS, WorkerResponder[F]]
   ): HttpRoutes[F] = {
     import dsl._
 

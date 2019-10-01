@@ -16,18 +16,16 @@
 
 package fluence.node.status
 
-import cats.{Monad, Parallel}
+import cats.Parallel
 import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.applicative._
-import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.instances.list._
 import fluence.log.Log
-import fluence.node.MasterNode
 import fluence.node.config.MasterConfig
-import fluence.node.eth.NodeEthState
-import fluence.worker.{WorkerNotAllocated, WorkerStatus}
+import fluence.node.eth.{NodeEth, NodeEthState}
+import fluence.worker.{WorkerNotAllocated, WorkerStatus, WorkersPool}
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -36,11 +34,11 @@ import scala.language.higherKinds
  * The manager that able to get information about master node and all workers.
  *
  * @param config config file about a master node
- * @param masterNode initialized master node
  */
 case class StatusAggregator[F[_]: Timer: Concurrent](
   config: MasterConfig,
-  masterNode: MasterNode[F, _],
+  pool: WorkersPool[F, _, _],
+  nodeEth: NodeEth[F],
   startTimeMillis: Long
 ) {
 
@@ -52,7 +50,7 @@ case class StatusAggregator[F[_]: Timer: Concurrent](
   def getStatus(statusTimeout: FiniteDuration)(implicit P: Parallel[F], log: Log[F]): F[MasterStatus] =
     for {
       currentTime ← Clock[F].monotonic(MILLISECONDS)
-      workers ← masterNode.pool.listAll()
+      workers ← pool.listAll()
       workerInfos <- Parallel
         .parTraverse(workers)(
           ctx ⇒
@@ -73,8 +71,8 @@ case class StatusAggregator[F[_]: Timer: Concurrent](
   /**
    * Just an expected Ethereum state -- a granular accessor
    */
-  def expectedEthState: F[NodeEthState] =
-    masterNode.nodeEth.expectedState
+  val expectedEthState: F[NodeEthState] =
+    nodeEth.expectedState
 }
 
 object StatusAggregator {
@@ -83,17 +81,17 @@ object StatusAggregator {
    * Makes a StatusAggregator, lifted into Resource.
    *
    * @param masterConfig Master config
-   * @param masterNode Master node to fetch status from
    */
   def make[F[_]: Timer: ContextShift: Concurrent: Log](
     masterConfig: MasterConfig,
-    masterNode: MasterNode[F, _]
+    pool: WorkersPool[F, _, _],
+    nodeEth: NodeEth[F]
   ): Resource[F, StatusAggregator[F]] =
     Resource.liftF(
       for {
         startTimeMillis ← Clock[F].realTime(MILLISECONDS)
         _ ← Log[F].debug("Start time millis: " + startTimeMillis)
-      } yield StatusAggregator(masterConfig, masterNode, startTimeMillis)
+      } yield StatusAggregator(masterConfig, pool, nodeEth, startTimeMillis)
     )
 
 }
