@@ -110,10 +110,12 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     test in assembly                  := {},
     parallelExecution in Test         := false,
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
-    docker in Test                    := { assembly.value; runCmd("make worker-test") },
-    assembly                          := assembly.dependsOn(makeFrankSoLib(baseDirectory in `vm`)).value,
+    docker in Test                    := { runCmd("make worker-test") },
     compileFrank                      := compileFrankTask.value,
     downloadLlama                     := downloadLlama(resourceDirectory in IntegrationTest in `vm`).value,
+    // TODO: makeFrankSoLib could call compileFrankTask, so the latter will be called twice: 1. assembly 2. test[Only]
+    itDepends(assembly)(makeFrankSoLib(baseDirectory in `vm`))(Compile),
+    itDepends(docker)(assembly)(Test),
     itDepends(test)(downloadLlama, compileFrank)(Test),
     itDepends(testOnly)(downloadLlama, compileFrank)(Test),
   )

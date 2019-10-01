@@ -107,11 +107,11 @@ object SbtCommons {
     }
   }
 
-  def itDepends[T](on: TaskKey[T])(tasks: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[Task[T]]] =
-    configs.map(c ⇒ (on in c) := (on in c).dependsOn(tasks: _*).value)
+  def itDepends[T](task: TaskKey[T])(on: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[Task[T]]] =
+    configs.map(c ⇒ (task in c) := (task in c).dependsOn(on: _*).value)
 
-  def itDepends[T](on: InputKey[T])(tasks: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[InputTask[T]]] =
-    configs.map(c ⇒ (on in c) := (on in c).dependsOn(tasks: _*).evaluated)
+  def itDepends[T](task: InputKey[T])(on: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[InputTask[T]]] =
+    configs.map(c ⇒ (task in c) := (task in c).dependsOn(on: _*).evaluated)
 
   /**
    * Downloads a file from uri to specified target
