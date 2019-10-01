@@ -41,7 +41,6 @@ object VmSbt {
     implicit val log = streams.value.log
 
     // on *nix, compile frank to .so; on MacOS, download library from bintray
-//    foldNixMac(nix = compileFrank(), mac = downloadFrankSo(vmDirectory.value))
-    foldNixMac(nix = downloadFrankSo(vmDirectory.value), mac = downloadFrankSo(vmDirectory.value))
+    foldNixMac(nix = compileFrank(), mac = downloadFrankSo(vmDirectory.value))
   }
 }
