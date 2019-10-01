@@ -99,7 +99,7 @@ object SbtCommons {
     }
   }
 
-  def foldNixMac(nix: ⇒ Unit, mac: ⇒ Unit): Unit = {
+  def foldNixMac[T](nix: ⇒ T, mac: ⇒ T): T = {
     System.getProperty("os.name").toLowerCase match {
       case os if os.contains("linux") => nix
       case os if os.contains("mac")   => mac

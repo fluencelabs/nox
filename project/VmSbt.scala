@@ -8,16 +8,21 @@ import scala.sys.process._
 object VmSbt {
   val compileFrank = TaskKey[Unit]("compileFrank")
   val downloadLlama = TaskKey[Unit]("downloadLlama")
-  val makeFrank = TaskKey[Unit]("makeFrank")
-  val compileFrankTask: Def.Initialize[Task[Unit]] = Def.task { compileFrank()(streams.value.log) }
+  val makeFrankSo = TaskKey[Unit]("makeFrank")
 
-  private def compileFrank()(implicit log: ManagedLogger): Unit = {
-    val projectRoot = file("").getAbsolutePath
-    val frankFolder = s"$projectRoot/vm/frank"
-    val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
+  private def doCompileFrank(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
+    val frankFolder = vmDirectory / "frank"
+    val libName = foldNixMac("libfrank.so", "libfrank.dylib")
+    val libPath = frankFolder / "target" / "release" / libName
+    if (libPath.exists()) {
+      log.info("libfrank.so already exists, won't compile")
+    } else {
+      val compileCmd =
+        s"cargo +nightly-2019-09-23 build --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
 
-    log.info(s"Compiling Frank VM")
-    assert((compileCmd !) == 0, "Frank VM compilation failed")
+      log.info(s"Compiling Frank VM")
+      assert((compileCmd !) == 0, "Frank VM compilation failed")
+    }
   }
 
   private def downloadFrankSo(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
@@ -25,6 +30,10 @@ object VmSbt {
     val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
 
     download(libfrankUrl, soPath)
+  }
+
+  def compileFrank(vmDirectory: SettingKey[sbt.File]) = Def.task {
+    doCompileFrank(vmDirectory.value)(streams.value.log)
   }
 
   def downloadLlama(resourcesDir: SettingKey[sbt.File]) = Def.task {
@@ -42,7 +51,7 @@ object VmSbt {
     implicit val log = streams.value.log
 
     // on *nix, compile frank to .so; on MacOS, download library from bintray
-//    foldNixMac(nix = compileFrank(), mac = downloadFrankSo(vmDirectory.value))
+//    foldNixMac(nix = doCompileFrank(vmDirectory.value), mac = downloadFrankSo(vmDirectory.value))
     foldNixMac(nix = downloadFrankSo(vmDirectory.value), mac = downloadFrankSo(vmDirectory.value))
   }
 }

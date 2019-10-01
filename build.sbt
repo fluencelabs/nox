@@ -6,9 +6,9 @@ import scala.sys.process._
 
 name := "fluence"
 
-ThisBuild / compileFrank  := compileFrankTask.value
+ThisBuild / makeFrankSo   := makeFrankSoLib(`vm` / Compile / baseDirectory).value
 ThisBuild / downloadLlama := downloadLlama(`vm` / IntegrationTest / resourceDirectory).value
-ThisBuild / makeFrank     := makeFrankSoLib(`vm` / Compile / baseDirectory).value
+ThisBuild / compileFrank  := compileFrank(`vm` / Compile / baseDirectory).value
 
 commons
 
@@ -114,10 +114,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { runCmd("make worker-test") },
     docker in Test                    := (docker in Test).dependsOn(assembly).value,
-    assembly                          := assembly.dependsOn(makeFrank).value,
-    // TODO: makeFrankSoLib could call compileFrankTask, so the latter will be called twice: 1. assembly 2. test[Only]
-    /*//    itDepends(assembly)(makeFrank)(Compile),
-//    itDepends(docker)(assembly)(Test),*/
+    assembly                          := assembly.dependsOn(makeFrankSo).value,
     itDepends(test)(downloadLlama, compileFrank)(Test),
     itDepends(testOnly)(downloadLlama, compileFrank)(Test),
   )
