@@ -6,9 +6,9 @@ import scala.sys.process._
 
 name := "fluence"
 
-ThisBuild / makeFrankSo   := makeFrankSoLib(`vm` / Compile / baseDirectory).value
 ThisBuild / downloadLlama := downloadLlama(`vm` / IntegrationTest / resourceDirectory).value
 ThisBuild / compileFrank  := compileFrank(`vm` / Compile / baseDirectory).value
+ThisBuild / makeFrankSo   := makeFrankSo(`vm` / Compile / baseDirectory).value
 
 commons
 

@@ -15,7 +15,7 @@ object VmSbt {
     val libName = foldNixMac("libfrank.so", "libfrank.dylib")
     val libPath = frankFolder / "target" / "release" / libName
     if (libPath.exists()) {
-      log.info("libfrank.so already exists, won't compile")
+      log.info(s"$libName already exists, won't compile")
     } else {
       val compileCmd =
         s"cargo +nightly-2019-09-23 build --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
@@ -25,7 +25,7 @@ object VmSbt {
     }
   }
 
-  private def downloadFrankSo(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
+  def downloadFrankSo(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
     val soPath = vmDirectory / "frank" / "target" / "release" / "libfrank.so"
     val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
 
@@ -47,11 +47,13 @@ object VmSbt {
     download(llamadbPreparedUrl, resourcesPath / "llama_db_prepared.wasm")
   }
 
-  def makeFrankSoLib(vmDirectory: SettingKey[sbt.File]) = Def.task {
-    implicit val log = streams.value.log
-
-    // on *nix, compile frank to .so; on MacOS, download library from bintray
-    foldNixMac(nix = doCompileFrank(vmDirectory.value), mac = downloadFrankSo(vmDirectory.value))
-//    foldNixMac(nix = downloadFrankSo(vmDirectory.value), mac = downloadFrankSo(vmDirectory.value))
+  def makeFrankSo(vmDirectory: SettingKey[sbt.File]) = Def.taskDyn {
+    if (foldNixMac(true, false)) {
+      ThisBuild / compileFrank
+    } else {
+      Def.task {
+        downloadFrankSo(vmDirectory.value)(streams.value.log)
+      }
+    }
   }
 }
