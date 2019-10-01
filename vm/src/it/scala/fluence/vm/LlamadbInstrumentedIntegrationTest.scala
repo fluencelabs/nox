@@ -31,8 +31,6 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
   override val llamadbFilePath: String = getModuleDirPrefix() + "/src/it/resources/llama_db_prepared.wasm"
 
-  println(s"Llamadb file path: $llamadbFilePath")
-
   private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
 
