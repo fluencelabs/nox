@@ -111,7 +111,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     parallelExecution in Test         := false,
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { runCmd("make worker-test") },
-    docker in Test                    := (docker in Test).dependsOn(assembly),
+    docker in Test                    := (docker in Test).dependsOn(assembly).value,
     compileFrank                      := compileFrankTask.value,
     downloadLlama                     := downloadLlama(resourceDirectory in IntegrationTest in `vm`).value,
     assembly                          := assembly.dependsOn(makeFrankSoLib(baseDirectory in `vm`)).value,
