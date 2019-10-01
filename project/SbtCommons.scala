@@ -88,7 +88,7 @@ object SbtCommons {
 
     val projectRoot = file("").getAbsolutePath
     val bootstrapFolder = file(s"$projectRoot/bootstrap")
-    val generateCmd = "npm install && npm run generate-all"
+    val generateCmd = "npm run generate-all"
     log.info(s"running $generateCmd in $bootstrapFolder")
 
     val exitCode = Process(generateCmd, cwd = bootstrapFolder).!
