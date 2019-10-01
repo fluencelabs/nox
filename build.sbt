@@ -6,6 +6,10 @@ import scala.sys.process._
 
 name := "fluence"
 
+ThisBuild / compileFrank  := compileFrankTask.value
+ThisBuild / downloadLlama := downloadLlama(`vm` / IntegrationTest / resourceDirectory).value
+ThisBuild / makeFrank     := makeFrankSoLib(`vm` / Compile / baseDirectory).value
+
 commons
 
 /* Projects */
@@ -24,8 +28,6 @@ lazy val `vm` = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
-    compileFrank  := compileFrankTask.value,
-    downloadLlama := downloadLlama(resourceDirectory in IntegrationTest).value,
   )
   .settings(itDepends(test)(downloadLlama, compileFrank)(Test, IntegrationTest): _*)
   .settings(itDepends(testOnly)(downloadLlama, compileFrank)(Test, IntegrationTest): _*)
@@ -112,12 +114,10 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { runCmd("make worker-test") },
     docker in Test                    := (docker in Test).dependsOn(assembly).value,
-    compileFrank                      := compileFrankTask.value,
-    downloadLlama                     := downloadLlama(resourceDirectory in IntegrationTest in `vm`).value,
-    assembly                          := assembly.dependsOn(makeFrankSoLib(baseDirectory in `vm`)).value,
+    assembly                          := assembly.dependsOn(makeFrank).value,
     // TODO: makeFrankSoLib could call compileFrankTask, so the latter will be called twice: 1. assembly 2. test[Only]
-//    itDepends(assembly)(makeFrankSoLib(baseDirectory in `vm`))(Compile),
-//    itDepends(docker)(assembly)(Test),
+    /*//    itDepends(assembly)(makeFrank)(Compile),
+//    itDepends(docker)(assembly)(Test),*/
     itDepends(test)(downloadLlama, compileFrank)(Test),
     itDepends(testOnly)(downloadLlama, compileFrank)(Test),
   )
@@ -402,9 +402,9 @@ lazy val `node` = project
     mainClass in assembly                  := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly            := "master-node.jar",
     test in assembly                       := {},
-    docker                                 := { runCmd(s"make worker TAG=v${version.value}") },
-    docker in Test                         := { assembly.value; runCmd("make node-test") },
-    downloadLlama                          := downloadLlama(resourceDirectory in IntegrationTest in `vm`).value
+    docker                                 := { runCmd(s"make node TAG=v${version.value}") },
+    docker in Test                         := { runCmd("make node-test") },
+    docker in Test                         := (docker in Test).dependsOn(assembly).value,
   )
   .settings(
     {

@@ -6,8 +6,9 @@ import SbtCommons.{download, foldNixMac}
 import scala.sys.process._
 
 object VmSbt {
-  val compileFrank = TaskKey[Unit]("compiles frank")
-  val downloadLlama = TaskKey[Unit]("downloads llamadb .wasm files")
+  val compileFrank = TaskKey[Unit]("compileFrank")
+  val downloadLlama = TaskKey[Unit]("downloadLlama")
+  val makeFrank = TaskKey[Unit]("makeFrank")
   val compileFrankTask: Def.Initialize[Task[Unit]] = Def.task { compileFrank()(streams.value.log) }
 
   private def compileFrank()(implicit log: ManagedLogger): Unit = {
