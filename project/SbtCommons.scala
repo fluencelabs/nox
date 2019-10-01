@@ -66,18 +66,25 @@ object SbtCommons {
 
   private val buildContract = Def.task {
     val log = streams.value.log
+    def run(cmd: String) = {
+      log.info(s"running $cmd in $bootstrapFolder")
+
+      val exitCode = Process(generateCmd, cwd = bootstrapFolder).!
+      assert(
+        exitCode == 0,
+        "Generating java wrapper or contract compilation failed"
+      )
+    }
+
     log.info(s"Generating java wrapper for smart contract")
 
     val projectRoot = file("").getAbsolutePath
     val bootstrapFolder = file(s"$projectRoot/bootstrap")
-    val generateCmd = "npm install && npm run generate-all"
-    log.info(s"running $generateCmd in $bootstrapFolder")
+    val installCmd = "npm install"
+    val generateCmd = "npm run generate-all"
 
-    val exitCode = Process(generateCmd, cwd = bootstrapFolder).!
-    assert(
-      exitCode == 0,
-      "Generating java wrapper or contract compilation failed"
-    )
+    run(installCmd)
+    run(generateCmd)
   }
 
   def buildContractBeforeDocker(): Seq[Def.Setting[_]] =
