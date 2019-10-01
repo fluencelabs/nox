@@ -178,7 +178,7 @@ object MasterNode {
           conf.worker,
           conf.dockerStopTimeout,
           conf.logLevel
-        )
+      )
       codeCarrier ← Resource.pure(CodeCarrier[F](conf.remoteStorage))
       workerFiles = WorkerFiles(rootPath, codeCarrier)
       receiptStorage = (app: EthApp) ⇒ ReceiptStorage.local(app.id, rootPath)

@@ -84,7 +84,7 @@ class MasterNodeIntegrationSpec
   }
 
   def getEthState(statusPort: Short)(implicit sttpBackend: Sttp): IO[NodeEthState] = {
-    import MasterStatus._
+    import NodeEthState._
     for {
       resp <- sttp.response(asJson[NodeEthState]).get(uri"http://127.0.0.1:$statusPort/status/eth").send()
     } yield {
@@ -143,6 +143,7 @@ class MasterNodeIntegrationSpec
     val contractConfig = FluenceContractConfig(owner, contractAddress)
 
     def runTwoWorkers(basePort: Short)(implicit ethClient: EthClient, sttp: Sttp): IO[Unit] = {
+
       val contract = FluenceContract(ethClient, contractConfig)
       val master2Port = (basePort + 1).toShort
       for {
@@ -152,16 +153,16 @@ class MasterNodeIntegrationSpec
         ethState2 <- getEthState(master2Port)
 
         _ <- contract
-          .addNode[IO](Web3jConverters.base64ToBytes32(ethState1.validatorKey.toBase64),
-                       "",
+          .addNode[IO](ethState1.validatorKey.toBase64,
+                       "99d76509fe9cb6e8cd5fc6497819eeabb2498106",
                        false,
                        status1.ip,
                        basePort,
                        1)
           .attempt
         _ <- contract
-          .addNode[IO](Web3jConverters.base64ToBytes32(ethState2.validatorKey.toBase64),
-                       "",
+          .addNode[IO](ethState2.validatorKey.toBase64,
+                       "1ef149b8ca80086350397bb6a02f2a172d013309",
                        false,
                        status2.ip,
                        master2Port,
@@ -249,6 +250,7 @@ class MasterNodeIntegrationSpec
         case (e, s) =>
           runTwoWorkers(basePort)(e, s).flatMap(_ ⇒ IO("docker ps".!!))
       }.flatMap { psOutput ⇒
+        println("CONTAINERS: " + psOutput)
         psOutput should include("worker")
         // Check that once masters are stopped, workers do not exist
         eventually(IO("docker ps -a".!! should not include "worker"))

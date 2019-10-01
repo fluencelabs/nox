@@ -44,7 +44,7 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
-import fluence.node.workers.{Worker, WorkerBlockManifests}
+import fluence.node.workers.WorkerBlockManifests
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker

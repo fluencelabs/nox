@@ -85,10 +85,9 @@ class MasterNodeSpec
     } yield resp.unsafeBody).value.flatMap(r => IO.fromEither(r.flatMap(_.left.map(_.error))))
   }
 
-  private val masterConf = MasterConfig
+  private val masterConfF = MasterConfig
     .load()
-    .unsafeRunSync()
-    .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
+    .map(_.copy(rootPath = Files.createTempDirectory("masternodespec").toString))
 
   private val nodeAddress = "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc="
 
@@ -99,6 +98,8 @@ class MasterNodeSpec
       implicit0(sttpB: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
 
       nodeCodec = new UriContact.NodeCodec(Key.fromPublicKey)
+
+      masterConf <- Resource.liftF(masterConfF)
 
       kad ← KademliaHttpNode.make[IO](
         KademliaConfig(
@@ -170,18 +171,26 @@ class MasterNodeSpec
           val contract = FluenceContract(ethClient, contractConfig)
 
           for {
+            masterConf <- masterConfF
             _ ← contract
-              .addNode[IO](publicKey.toBytes32, nodeAddress, false, masterConf.endpoints.ip.getHostAddress, 10, 10)
+              .addNode[IO](
+                publicKey.toByteVector.toBase64,
+                nodeAddress,
+                false,
+                masterConf.endpoints.ip.getHostAddress,
+                10,
+                10
+              )
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 15.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 25.seconds)
 
             id0 ← node.pool.listAll().map(_.head.app.id)
 
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 2), 100.millis, 15.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 2), 100.millis, 25.seconds)
 
             _ ← contract.deleteApp[IO](id0)
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 15.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 25.seconds)
 
             id1 ← node.pool.listAll().map(_.head.app.id)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
