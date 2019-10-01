@@ -26,6 +26,7 @@ import fluence.log.Log
 import fluence.node.config.MasterConfig
 import fluence.node.eth.{NodeEth, NodeEthState}
 import fluence.worker.{WorkerNotAllocated, WorkerStatus, WorkersPool}
+import shapeless.HList
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -37,7 +38,7 @@ import scala.language.higherKinds
  */
 case class StatusAggregator[F[_]: Timer: Concurrent](
   config: MasterConfig,
-  pool: WorkersPool[F, _, _],
+  pool: WorkersPool[F, _, _ <: HList],
   nodeEth: NodeEth[F],
   startTimeMillis: Long
 ) {
@@ -84,7 +85,7 @@ object StatusAggregator {
    */
   def make[F[_]: Timer: ContextShift: Concurrent: Log](
     masterConfig: MasterConfig,
-    pool: WorkersPool[F, _, _],
+    pool: WorkersPool[F, _, _ <: HList],
     nodeEth: NodeEth[F]
   ): Resource[F, StatusAggregator[F]] =
     Resource.liftF(
