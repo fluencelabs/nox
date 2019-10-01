@@ -18,6 +18,7 @@ package fluence.statemachine.state
 
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
+import cats.effect.Sync
 import fluence.log.Log
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.vm.WasmVmOperationInvoker
@@ -32,7 +33,7 @@ object StateMachineVm {
    *
    * @param moduleFiles module filenames with VM code
    */
-  private[statemachine] def apply[F[_]: Monad: Log](
+  private[statemachine] def apply[F[_]: Sync: Log](
     moduleFiles: NonEmptyList[String]
   ): EitherT[F, StateMachineError, WasmVm] =
     WasmVm[F](moduleFiles).leftMap(WasmVmOperationInvoker.convertToStateMachineError)

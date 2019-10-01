@@ -17,7 +17,7 @@
 package fluence.vm
 
 import cats.data.{EitherT, NonEmptyList}
-import cats.effect.LiftIO
+import cats.effect.{LiftIO, Sync}
 import cats.Monad
 import com.typesafe.config.{Config, ConfigFactory}
 import fluence.log.Log
@@ -75,7 +75,7 @@ object WasmVm {
    * @param inFiles input files in wasm or wast format
    * @param configNamespace a path of config in 'lightbend/config terms, please see reference.conf
    */
-  def apply[F[_]: Monad: Log](
+  def apply[F[_]: Sync: Log](
     inFiles: NonEmptyList[String],
     configNamespace: String = "fluence.vm.client",
     conf: ⇒ Config = ConfigFactory.load()
@@ -85,9 +85,9 @@ object WasmVm {
       config ← VmConfig.readT[F](configNamespace, conf)
 
       _ ← Log.eitherT[F, InitializationError].info("WasmVm: configs read...")
-      vmRunnerInvoker = new FrankAdapter()
 
-      initializationResult = vmRunnerInvoker.initialize(inFiles.head, config)
+      vmRunnerInvoker <- EitherT.right(Sync[F].delay(new FrankAdapter()))
+      initializationResult <- EitherT.right(Sync[F].delay(vmRunnerInvoker.initialize(inFiles.head, config)))
 
       _ ← EitherT.cond(
         initializationResult.error.isEmpty,
