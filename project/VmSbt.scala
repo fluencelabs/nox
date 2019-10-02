@@ -1,7 +1,7 @@
-import sbt.Keys.{compile, publishArtifact, streams, test}
-import sbt.internal.util.ManagedLogger
-import sbt.{Def, file, _}
 import SbtCommons.{download, foldNixMac}
+import sbt.Keys.streams
+import sbt.internal.util.ManagedLogger
+import sbt.{Def, _}
 
 import scala.sys.process._
 
@@ -17,9 +17,8 @@ object VmSbt {
     if (libPath.exists()) {
       log.info(s"$libName already exists, won't compile")
     } else {
-      s"cat ${frankFolder.absolutePath}/Cargo.toml".!
       val compileCmd =
-        s"cargo +nightly-2019-09-23 -v build --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
+        s"cargo +nightly-2019-09-23 build --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
 
       log.info(s"Compiling Frank VM")
       assert((compileCmd !) == 0, "Frank VM compilation failed")

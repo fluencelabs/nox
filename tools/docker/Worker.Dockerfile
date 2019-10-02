@@ -20,7 +20,6 @@ RUN --mount=type=cache,target=/root/.ivy2\
 ############## Copy jar from local fs for tests, master-node.jar should be prebuilt
 FROM alpine as test
 COPY . /fluence
-RUN ls -Rlah /fluence/vm/frank
 
 ############## Aux dynamic stage, could be either test or production
 FROM $environment as build

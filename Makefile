@@ -39,7 +39,7 @@ worker-test: WORK-bctl-test
 endif
 
 # $* becomes what matched by % in `%-bctl-test`, i.e., NODE or WORK
-%-bctl-test: ;ls -Rlah vm/frank; buildctl build \
+%-bctl-test: ;buildctl build \
              --frontend dockerfile.v0 \
              --local context=. \
              --local dockerfile=$(DIR) \
