@@ -79,7 +79,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         .right
         .get
 
-      parsedResponse.info shouldBe txResponse
+      parsedResponse.info shouldBe txResponse.info
     }
 
 //    "return a correct error on transaction" in {
