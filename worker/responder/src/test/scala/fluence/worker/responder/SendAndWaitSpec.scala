@@ -19,7 +19,7 @@ package fluence.worker.responder
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import fluence.bp.api.BlockProducer
+import fluence.bp.api.{BlockProducer, BlockStream}
 import fluence.bp.embedded.{EmbeddedBlockProducer, SimpleBlock}
 import fluence.bp.tx.{TxCode, TxResponse}
 import fluence.effects.{Backoff, EffectError}
@@ -86,9 +86,10 @@ class SendAndWaitSpec extends WordSpec with Matchers with BeforeAndAfterAll with
     for {
       machine <- Resource.liftF(IO(embdeddedStateMachine(processTxResponse, queryResponse)))
       producer <- producer(machine)
-      awaitResponses <- AwaitResponses.make(producer, machine, maxBlockTries)
+      blockStream = producer.command[BlockStream[IO, SimpleBlock]]
+      awaitResponses <- AwaitResponses.make(blockStream, machine, maxBlockTries)
       sendAndWait = SendAndWait(producer, awaitResponses)
-    } yield (sendAndWait, producer: BlockProducer.AuxB[IO, SimpleBlock])
+    } yield (sendAndWait, producer: BlockProducer[IO])
 
   private def tx(nonce: Int) =
     s"""|asdf/$nonce
@@ -99,7 +100,7 @@ class SendAndWaitSpec extends WordSpec with Matchers with BeforeAndAfterAll with
 
   def request(txCustom: Option[String] = None)(
     implicit log: Log[IO]
-  ): ((SendAndWait[IO], BlockProducer.AuxB[IO, SimpleBlock])) => IO[Either[TxAwaitError, AwaitedResponse]] = {
+  ): ((SendAndWait[IO], BlockProducer[IO])) => IO[Either[TxAwaitError, AwaitedResponse]] = {
     case (sendAndWait, blockProducer) =>
       produceBlocks(blockProducer) >>= { fiber =>
         sendAndWait.sendTxAwaitResponse(txCustom.getOrElse(tx(0)).getBytes()).value.flatTap(_ => fiber.cancel)

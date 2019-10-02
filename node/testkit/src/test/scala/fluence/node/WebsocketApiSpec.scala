@@ -16,37 +16,29 @@
 
 package fluence.node
 
-import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, IO, Timer}
 import cats.syntax.applicative._
 import cats.syntax.either._
-import cats.instances.either._
 import cats.syntax.flatMap._
-import fluence.bp.tx
-import fluence.bp.tx.{Tx, TxCode, TxResponse}
-import fluence.effects.tendermint.block.data.Header
-import fluence.effects.tendermint.block.history.BlockManifest
-import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
+import fluence.bp.tx.{TxCode, TxResponse}
+import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.effects.testkit.Timed
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WebsocketRequests.{TxRequest, WebsocketRequest}
 import fluence.node.workers.api.websocket.WebsocketResponses.{ErrorResponse, WebsocketResponse}
 import fluence.node.workers.api.websocket.WorkerWebsocket
-import fluence.worker.responder.resp.AwaitedResponse.OrError
-import fluence.worker.responder.resp._
 import io.circe.parser.parse
 import io.circe.syntax._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
-import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 import scala.language.higherKinds
 
 class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll with Timed {
   import fluence.bp
   import fluence.node.workers.api.websocket.{WebsocketResponses ⇒ WSR}
+  import WSR.WebsocketResponse._
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -56,16 +48,6 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   def websocketApi(workerApi: WorkerApi[IO]) = WorkerWebsocket[IO](workerApi)
 
   "Weboscket API" should {
-    /*
-    case TxRequest(tx, requestId) =>
-    case QueryRequest(path, data, id, requestId) =>
-    case TxWaitRequest(tx, requestId) =>
-    case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
-    case SubscribeRequest(requestId, subscriptionId, tx) =>
-    case UnsubscribeRequest(requestId, subscriptionId, tx) =>
-
-     */
-
     "return an error if cannot parse a request" in {
       val request = "some incorrect request"
       val response = websocketApi(new TestWorkerApi[IO]()).unsafeRunSync().processRequest(request).unsafeRunSync()

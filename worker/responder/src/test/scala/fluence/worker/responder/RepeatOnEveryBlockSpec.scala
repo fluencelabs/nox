@@ -24,7 +24,7 @@ import cats.syntax.traverse._
 import cats.instances.list._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
-import fluence.bp.api.BlockProducer
+import fluence.bp.api.{BlockProducer, BlockStream}
 import fluence.bp.embedded.{EmbeddedBlockProducer, SimpleBlock}
 import fluence.bp.tx.{Tx, TxCode, TxResponse}
 import fluence.effects.{Backoff, EffectError}
@@ -100,10 +100,11 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
   private val onEveryBlock = for {
     machine <- machineF
     producer <- producer(machine)
-    awaitResponses <- AwaitResponses.make(producer, machine)
+    blockStream = producer.command[BlockStream[IO, SimpleBlock]]
+    awaitResponses <- AwaitResponses.make(blockStream, machine)
     sendAndWait = SendAndWait(producer, awaitResponses)
-    onEveryBlock <- RepeatOnEveryBlock.make(producer, sendAndWait)
-  } yield (onEveryBlock, producer: BlockProducer.AuxB[IO, SimpleBlock])
+    onEveryBlock <- RepeatOnEveryBlock.make(blockStream, sendAndWait)
+  } yield (onEveryBlock, producer: BlockProducer[IO])
 
   "on every block" should {
     "receive tx result" in {

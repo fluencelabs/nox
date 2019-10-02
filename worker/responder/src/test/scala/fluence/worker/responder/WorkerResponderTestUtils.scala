@@ -34,18 +34,18 @@ object WorkerResponderTestUtils {
     sessionId.map(sid => Tx(Tx.Head(sid, 0), Tx.Data(body.getBytes)).generateTx())
   def right[T](v: IO[T]): EitherT[IO, EffectError, T] = EitherT.right[EffectError](v)
 
-  def sendTx(producer: BlockProducer.AuxB[IO, SimpleBlock], tx: String)(
+  def sendTx(producer: BlockProducer[IO], tx: String)(
     implicit log: Log[IO]
   ): EitherT[IO, EffectError, TxResponse] =
     right(genTx(tx)).flatMap(producer.sendTx)
 
   def produceBlock(
-    producer: BlockProducer.AuxB[IO, SimpleBlock]
+    producer: BlockProducer[IO]
   )(implicit log: Log[IO]): EitherT[IO, EffectError, TxResponse] =
     sendTx(producer, tx = "single tx produces block on embedded block producer")
 
   def produceBlocks(
-    producer: BlockProducer.AuxB[IO, SimpleBlock]
+    producer: BlockProducer[IO]
   )(implicit log: Log[IO], contextShift: ContextShift[IO]): IO[Fiber[IO, Unit]] =
     Concurrent[IO].start(
       fs2

@@ -60,15 +60,14 @@ object ControlledBlockUploading {
         EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
     }
 
-    def subscribeNewBlock(lastKnownHeight: Long) =
-      fs2.Stream.eval(state.update(_.subscribe(lastKnownHeight))) >> fs2.Stream.emits(blocks)
+    val blockStream = ControlledBlockStream(blocks, state)
 
     val receiptStorage = ControlledReceiptStorage(appId, storedReceipts)
     val onUploaded: (BlockManifest, Receipt) ⇒ F[Unit] = (_, _) => Applicative[F].unit
 
     BlockUploading(enabled = true, ipfs)
       .flatMap(
-        _.start(appId, receiptStorage, subscribeNewBlock, receiptBus, onUploaded)
+        _.start(appId, receiptStorage, blockStream, receiptBus, onUploaded)
       )
       .as(state)
   }
