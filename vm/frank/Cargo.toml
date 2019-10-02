@@ -13,7 +13,7 @@ maintenance = { status = "actively-developed" }
 [lib]
 name = "frank"
 path = "src/lib.rs"
-crate-type = ["staticlib"]
+crate-type = ["cdylib"]
 
 [[bin]]
 name = "frank"
