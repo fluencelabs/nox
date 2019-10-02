@@ -567,6 +567,7 @@ lazy val `node-testkit` = (project in file("node/testkit"))
     `node`           % "test->test",
     `node`           % "test->it",
     `statemachine`   % "test->test",
-    `tendermint-rpc` % "test->test"
+    `tendermint-rpc` % "test->test",
+    `worker-responder` % "test->test"
   )
   .enablePlugins(AutomateHeaderPlugin)
