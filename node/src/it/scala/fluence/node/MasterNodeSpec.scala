@@ -242,10 +242,10 @@ class MasterNodeSpec
             _ ← contract.deleteApp[IO](id0)
             _ ← eventually[IO](checkDestroyed(node.pool, id0), 100.millis, 25.seconds)
 
-            id1 ← node.pool.listAll().map(_.head.app.id)
+            id1 ← node.pool.listAll().map(_.filter(_.app.id != id0).head.app.id)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← contract.deleteApp[IO](id1)
-            _ ← eventually[IO](checkDestroyed(node.pool, id1))
+            _ ← eventually[IO](checkDestroyed(node.pool, id1), 100.millis, 25.seconds)
 
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
