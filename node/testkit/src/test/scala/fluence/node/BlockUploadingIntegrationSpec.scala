@@ -27,35 +27,28 @@ import cats.instances.list._
 import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.traverse._
+import fluence.bp.api.BlockStream
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.castore.StoreError
-import fluence.effects.docker.DockerIO
-import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.ipfs.{IpfsData, IpfsUploader}
 import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
-import fluence.effects.tendermint.rpc.http.{RpcError, RpcHttpError, TendermintHttpRpc}
-import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, TestTendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.tendermint.{block, rpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
-import fluence.node.config.DockerConfig
-import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
-import fluence.node.workers.WorkerBlockManifests
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.vm.InvocationResult
 import fluence.effects.testkit.Timed
-import fluence.bp.tx.{TxCode, TxResponse}
-import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
+import fluence.bp.tx.{Tx, TxCode, TxResponse}
+import fluence.bp.uploading.BlockUploading
+import fluence.statemachine.api.command.ReceiptBus
 import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fluence.worker.eth.{Cluster, EthApp, StorageRef, StorageType, WorkerPeer}
-import fluence.worker.responder.SendAndWait
-import fluence.worker.responder.repeat.RepeatOnEveryBlock
 import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse
@@ -77,24 +70,10 @@ class BlockUploadingIntegrationSpec extends WordSpec with Timed with Matchers wi
   private val rootPath = Paths.get("/tmp")
 
   val appId = 1L
-  val p2pPort = 10001.toShort
   val description = "worker #1"
   val workerPeer = WorkerPeer(ByteVector.empty, "", 25000.toShort, InetAddress.getLocalHost, 0)
   val cluster = Cluster(currentTime.millis, Vector.empty, workerPeer)
   val app = EthApp(123L, StorageRef(ByteVector.empty, StorageType.Ipfs), cluster)
-  val dockerConfig = DockerConfig(DockerImage("fluencelabs/worker", "v0.2.0"), DockerLimits(None, None, None))
-  val tmDockerConfig = DockerConfig(DockerImage("tendermint/tendermint", "v0.32.0"), DockerLimits(None, None, None))
-  val tmConfig = TendermintConfig("info", 0, 0, 0, 0L, false, false, false, p2pPort, Seq.empty)
-  val configTemplate = ConfigTemplate[IO](rootPath, tmConfig).unsafeRunSync()
-  val params = WorkerParams(app, rootPath, rootPath, None, dockerConfig, tmDockerConfig, configTemplate)
-
-  val dockerIO = DockerIO.make[IO]()
-
-  val tendermintRpc = new TestTendermintRpc {
-    override def block(height: Long, id: String): EitherT[IO, RpcError, Block] = {
-      EitherT.leftT(RpcHttpError(777, "Block wasn't provided intentionally, for tests purpose"): RpcError)
-    }
-  }
 
   implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] = {
     val bva = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
@@ -134,8 +113,10 @@ class BlockUploadingIntegrationSpec extends WordSpec with Timed with Matchers wi
             implicit log: Log[IO]
           ): EitherT[IO, ReceiptStorageError, Unit] =
             EitherT.pure(())
+
           override def get(height: Long)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Option[Receipt]] =
             EitherT.pure(None)
+
           override def retrieve(from: Option[Long], to: Option[Long])(
             implicit log: Log[IO]
           ): fs2.Stream[IO, (Long, Receipt)] =
@@ -148,41 +129,22 @@ class BlockUploadingIntegrationSpec extends WordSpec with Timed with Matchers wi
         }
       }
 
-      val workerServices: WorkerServices[IO] = new WorkerServices[IO] {
-
-        private def rpc = new TestTendermintWebsocketRpc[IO] {
-          override val websocketConfig: WebsocketConfig = WebsocketConfig()
-
-          override def subscribeNewBlock(
-            lastKnownHeight: Long
-          )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
+      BlockUploading[IO](
+        enabled = true,
+        ipfs
+      ).map(_.start(
+        appId,
+        receiptStorage(appId),
+        new BlockStream[IO, Block]{
+          override def freshBlocks(implicit log: Log[IO]): fs2.Stream[IO, Block] =
             blocksQ.dequeue
-        }
 
-        override def tendermintRpc: TendermintHttpRpc[IO] = rpc
-        override def tendermintWRpc: TendermintWebsocketRpc[IO] = rpc
-
-        override val receiptBus: ReceiptBus[IO] = bus
-
-        override def status(timeout: FiniteDuration): IO[WorkerStatus] =
-          IO.raiseError(new NotImplementedError("def status worker status"))
-
-        override def blockManifests: WorkerBlockManifests[IO] =
-          new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
-
-        override def waitResponseService: SendAndWait[IO] =
-          throw new NotImplementedError("def requestResponder")
-
-        override def peersControl: PeersControl[IO] = throw new NotImplementedError("def peersControl")
-
-        override def perBlockTxExecutor: RepeatOnEveryBlock[IO] =
-          throw new NotImplementedError("def storedProcedureExecutor")
-      }
-
-      val worker: Resource[IO, Worker[IO]] =
-        Worker.make[IO](appId, p2pPort, description, IO(workerServices), (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
-
-      worker.flatMap(worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(appId, workerServices)))
+          override def blocksSince(height: Long)(implicit log: Log[IO]): fs2.Stream[IO, Block] =
+            blocksQ.dequeue.filter(_.header.height >= height)
+        },
+        bus,
+        (_, _) ⇒ IO.unit
+      ))
     }
 
   private def singleBlock(height: Long, txs: List[ByteVector]) = {
