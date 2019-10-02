@@ -43,11 +43,13 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
   // sbt defaults user directory to submodule directory
   // while Idea defaults to project root
-  private val moduleDirPrefix = if (System.getProperty("user.dir").endsWith("/statemachine")) "../" else "./"
-  private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
+  private val moduleDirPrefix =
+    if (System.getProperty("user.dir").endsWith("/statemachine/docker")) s"${System.getProperty("user.dir")}/../../"
+    else s"${System.getProperty("user.dir")}/../"
+  private val llamadbPath = moduleDirPrefix + "vm/src/it/resources/llama_db.wasm"
   private val config = StateMachineConfig(
     8,
-    moduleFiles,
+    llamadbPath :: Nil,
     "OFF",
     26661,
     HttpConfig("localhost", 26657),
@@ -58,7 +60,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
   val machine = EmbeddedStateMachine
     .init[IO](
-      NonEmptyList.fromList(moduleFiles).get,
+      NonEmptyList.one(llamadbPath),
       config.blockUploadingEnabled
     )
     .map(_.extend[PeersControl[IO]](peersBackend))
@@ -89,7 +91,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     val builtQuery = RequestQuery.newBuilder().setHeight(height).setPath(query).setProve(false).build()
     val response = abciHandler.requestQuery(builtQuery)
     response.getCode match {
-      case code if code == TxCode.OK.id => Right(ByteVector(response.getValue.toByteArray).toHex)
+      case code if code == TxCode.OK.id => Right(new String(response.getValue.toByteArray))
       case _                            => Left((response.getCode, response.getInfo))
     }
   }
@@ -100,23 +102,23 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   def tx(session: String, order: Long, payload: String): String =
     s"$session/$order\n$payload"
 
-  def littleEndian4ByteHex(number: Int): String =
-    Integer.toString(number, 16).reverse.padTo(8, '0').grouped(2).map(_.reverse).mkString.toUpperCase
-
   "State machine" should {
     val session = "157A0E"
     val tx0 = tx(
       session,
       0,
-      "()"
+      "CREATE TABLE Users(id INT, name TEXT, age INT)"
     )
     val tx1 = tx(
       session,
       1,
-      "()"
+      "INSERT INTO Users VALUES(1, 'Monad', 23)," +
+        "(2, 'Applicative Functor', 19)," +
+        "(3, 'Free Monad', 31)," +
+        "(4, 'Tagless Final', 25)"
     )
-    val tx2 = tx(session, 2, "()")
-    val tx3 = tx(session, 3, "()")
+    val tx2 = tx(session, 2, "SELECT COUNT(*) FROM Users")
+    val tx3 = tx(session, 3, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
     val tx0Result = s"$session/0"
     val tx1Result = s"$session/1"
     val tx2Result = s"$session/2"
@@ -159,8 +161,8 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
 //      latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
 
-      sendQuery(tx1Result) shouldBe Right(littleEndian4ByteHex(2))
-      sendQuery(tx3Result) shouldBe Right(littleEndian4ByteHex(4))
+      sendQuery(tx1Result) shouldBe Right("rows inserted: 4")
+      sendQuery(tx3Result) shouldBe Right("_0, _1, _2, _3, _4\n1, 4, 4, 98, 24.5")
 
 //      latestCommittedHeight shouldBe 5
 //      latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
@@ -180,7 +182,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
       sendCommit()
 
-      sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
+      sendQuery(tx0Result) shouldBe Right("table created")
       sendQuery(tx1Result).left.get._1 shouldBe QueryCode.Pending.id
       sendQuery(tx2Result).left.get._1 shouldBe QueryCode.Pending.id
       sendQuery(tx3Result).left.get._1 shouldBe QueryCode.Pending.id
@@ -193,10 +195,11 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
       sendCommit()
 
-      sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
-      sendQuery(tx1Result) shouldBe Right(littleEndian4ByteHex(2))
-      sendQuery(tx2Result) shouldBe Right(littleEndian4ByteHex(3))
-      sendQuery(tx3Result) shouldBe Right(littleEndian4ByteHex(4))
+      sendQuery(tx0Result) shouldBe Right("table created")
+      sendQuery(tx1Result) shouldBe Right("rows inserted: 4")
+      sendQuery(tx2Result) shouldBe Right("_0\n4")
+      sendQuery(tx3Result) shouldBe Right("_0, _1, _2, _3, _4\n1, 4, 4, 98, 24.5")
+
     }
 
     "ignore duplicated tx" in {
@@ -227,7 +230,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
 //      sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))
 
-      sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
+      sendQuery(tx0Result) shouldBe Right("table created")
     }
   }
 }

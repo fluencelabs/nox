@@ -18,7 +18,7 @@ package fluence.statemachine
 
 import cats.{Functor, Monad}
 import cats.data.{EitherT, NonEmptyList}
-import cats.effect.ConcurrentEffect
+import cats.effect.{ConcurrentEffect, Sync}
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.apply._
@@ -34,7 +34,6 @@ import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fluence.statemachine.state.StateService
 import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
-import fluence.vm.wasm.MemoryHasher
 import shapeless._
 
 import scala.language.higherKinds
@@ -106,8 +105,8 @@ object EmbeddedStateMachine {
    *
    * @param moduleFiles module filenames with VM code
    */
-  private def buildVm[F[_]: Monad: Log](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
+  private def buildVm[F[_]: Sync: Log](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
     Log.eitherT[F, StateMachineError].info("Loading VM modules from " + moduleFiles) >>
-      WasmVm[F](moduleFiles, MemoryHasher[F]).leftMap(WasmVmOperationInvoker.convertToStateMachineError) <*
+      WasmVm[F](moduleFiles).leftMap(WasmVmOperationInvoker.convertToStateMachineError) <*
       Log.eitherT[F, StateMachineError].info("VM instantiated")
 }

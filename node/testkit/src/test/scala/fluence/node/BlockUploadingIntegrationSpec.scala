@@ -132,19 +132,21 @@ class BlockUploadingIntegrationSpec extends WordSpec with Timed with Matchers wi
       BlockUploading[IO](
         enabled = true,
         ipfs
-      ).map(_.start(
-        appId,
-        receiptStorage(appId),
-        new BlockStream[IO, Block]{
-          override def freshBlocks(implicit log: Log[IO]): fs2.Stream[IO, Block] =
-            blocksQ.dequeue
+      ).map(
+        _.start(
+          appId,
+          receiptStorage(appId),
+          new BlockStream[IO, Block] {
+            override def freshBlocks(implicit log: Log[IO]): fs2.Stream[IO, Block] =
+              blocksQ.dequeue
 
-          override def blocksSince(height: Long)(implicit log: Log[IO]): fs2.Stream[IO, Block] =
-            blocksQ.dequeue.filter(_.header.height >= height)
-        },
-        bus,
-        (_, _) ⇒ IO.unit
-      ))
+            override def blocksSince(height: Long)(implicit log: Log[IO]): fs2.Stream[IO, Block] =
+              blocksQ.dequeue.filter(_.header.height >= height)
+          },
+          bus,
+          (_, _) ⇒ IO.unit
+        )
+      )
     }
 
   private def singleBlock(height: Long, txs: List[ByteVector]) = {

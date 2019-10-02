@@ -16,14 +16,12 @@
 
 package fluence.vm.config
 
-import cats.Monad
 import cats.data.EitherT
+import cats.Monad
+import cats.syntax.either._
 import com.typesafe.config.Config
-import fluence.vm.VmError.InternalVmError
-import fluence.vm.VmError.WasmVmError.ApplyError
-import fluence.vm.utils.safelyRunThrowable
-import net.ceedubs.ficus.Ficus._
-import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+import fluence.vm.error.InitializationError
+
 import scala.language.higherKinds
 
 /**
@@ -44,46 +42,27 @@ case class MainModuleConfig(
 )
 
 /**
- * Environment module settings.
- *
- * @param name a name of the environment module
- * @param spentGasFunctionName a name of the function that returns spent gas
- * @param clearStateFunction a name of the function that clears a state of the environment module
- */
-case class EnvModuleConfig(
-  name: String,
-  spentGasFunctionName: String,
-  clearStateFunction: String
-)
-
-/**
  * WasmVm settings.
  *
- * @param defaultMaxMemPages the maximum count of memory pages when a module doesn't say
- * @param specTestEnabled if true, registers the spec test harness as 'spectest'
- * @param loggerModuleEnabled if set, registers the logger Wasm module as 'logger'
+ * @param memPagesCount the maximum count of memory pages when a module doesn't say
+ * @param loggerEnabled if set, registers the logger Wasm module with name 'logger'
  * @param chunkSize a size of the memory chunks, that memory will be split into
  * @param mainModuleConfig settings for the main module
- * @param envModuleConfig settings for the environment module
  */
 case class VmConfig(
-  defaultMaxMemPages: Int,
-  specTestEnabled: Boolean,
-  loggerModuleEnabled: Boolean,
+  memPagesCount: Int,
+  loggerEnabled: Boolean,
   chunkSize: Int,
-  mainModuleConfig: MainModuleConfig,
-  envModuleConfig: EnvModuleConfig
+  mainModuleConfig: MainModuleConfig
 )
 
 object VmConfig {
+  import net.ceedubs.ficus.Ficus._
+  import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 
-  def readT[F[_]: Monad](namespace: String, conf: ⇒ Config): EitherT[F, ApplyError, VmConfig] =
-    safelyRunThrowable(
-      conf.getConfig(namespace).as[VmConfig],
-      e ⇒
-        InternalVmError(
-          s"Unable to read a config for the namespace=$namespace",
-          Some(e)
-        )
-    )
+  def readT[F[_]: Monad](namespace: String, conf: ⇒ Config): EitherT[F, InitializationError, VmConfig] = {
+    EitherT
+      .fromEither[F](Either.catchNonFatal(conf.getConfig(namespace).as[VmConfig]))
+      .leftMap(e ⇒ InitializationError("Unable to parse the virtual machine config " + e))
+  }
 }

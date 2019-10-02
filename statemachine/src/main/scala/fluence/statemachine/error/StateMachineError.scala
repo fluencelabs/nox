@@ -15,7 +15,7 @@
  */
 
 package fluence.statemachine.error
-import fluence.vm.VmError
+import fluence.vm.error.VmError
 
 /**
  * Base trait for errors occurred in State machine.
@@ -43,7 +43,7 @@ case class PayloadParseError(override val code: String, override val message: St
  * @param vmError caught [[VmError]]
  */
 case class VmRuntimeError(override val code: String, override val message: String, vmError: VmError)
-    extends StateMachineError(code, message, Some(vmError))
+    extends StateMachineError(code, message, None)
 
 /**
  * Corresponds to errors occurred during State machine config loading.

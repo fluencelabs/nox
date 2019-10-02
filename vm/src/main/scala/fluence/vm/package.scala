@@ -17,6 +17,7 @@
 package fluence
 import cats.Functor
 import cats.data.EitherT
+import fluence.vm.error.VmError
 
 import scala.language.higherKinds
 
@@ -28,6 +29,12 @@ package object vm {
       eitherT.leftMap { e: VmError ⇒
         e
       }
+    }
+  }
+
+  object eitherT {
+    implicit class EitherTOps[F[_]: Functor, A, B](ef: F[Either[A, B]]) {
+      def eitherT: EitherT[F, A, B] = EitherT(ef)
     }
   }
 

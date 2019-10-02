@@ -1,7 +1,9 @@
 import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
-import sbt.Keys._
+import sbt.Keys.{javaOptions, _}
+import sbt.Scoped.AnyInitTask
+import sbt.internal.util.ManagedLogger
 import sbt.{Def, addCompilerPlugin, taskKey, _}
 import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
 import sbtassembly.{MergeStrategy, PathList}
@@ -20,7 +22,7 @@ object SbtCommons {
   val commons = Seq(
     scalaV,
     version                              := "0.3.0",
-    fork in Test                         := false,
+    fork in Test                         := true,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
     parallelExecution in IntegrationTest := false,
@@ -33,6 +35,20 @@ object SbtCommons {
     scalafmtOnCompile := true,
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
     scalacOptions ++= Seq("-Ypartial-unification", "-deprecation"),
+    javaOptions in Test ++= Seq(
+      "-XX:MaxMetaspaceSize=4G",
+      "-Xms4G",
+      "-Xmx4G",
+      "-Xss6M",
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
+    ),
+    javaOptions in IntegrationTest ++= Seq(
+      "-XX:MaxMetaspaceSize=4G",
+      "-Xms4G",
+      "-Xmx4G",
+      "-Xss6M",
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
+    ),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
   ) ++ kindProjector
 
@@ -46,56 +62,25 @@ object SbtCommons {
       oldStrategy(x)
   }: String => MergeStrategy)
 
-  def downloadLlamadb(): Seq[Def.Setting[_]] =
-    Seq(
-      publishArtifact := false,
-      test            := (test in Test).dependsOn(compile).value,
-      compile := (compile in Compile)
-        .dependsOn(Def.task {
-          // by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
-          val resourcesPath =
-            if (System.getProperty("user.dir").endsWith("/vm"))
-              System.getProperty("user.dir") + "/src/it/resources/"
-            else
-              System.getProperty("user.dir") + "/vm/src/it/resources/"
-
-          val log = streams.value.log
-          val llamadbUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db.wasm"
-          val llamadbPreparedUrl =
-            "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db_prepared.wasm"
-
-          log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
-
-          // -nc prevents downloading if file already exists
-          val llamadbDownloadRet = s"wget -nc $llamadbUrl -O $resourcesPath/llama_db.wasm" !
-          val llamadbPreparedDownloadRet = s"wget -nc $llamadbPreparedUrl -O $resourcesPath/llama_db_prepared.wasm" !
-
-          // wget returns 0 of file was downloaded and 1 if file already exists
-          assert(llamadbDownloadRet == 0 || llamadbDownloadRet == 1, s"Download failed: $llamadbUrl")
-          assert(
-            llamadbPreparedDownloadRet == 0 || llamadbPreparedDownloadRet == 1,
-            s"Download failed: $llamadbPreparedUrl"
-          )
-        })
-        .value
-    )
-
   val docker = taskKey[Unit]("Build docker image")
 
   private val buildContract = Def.task {
     val log = streams.value.log
-    log.info(s"Generating java wrapper for smart contracct")
+    log.info(s"Generating java wrapper for smart contract")
 
-    val projectRoot = file("").getAbsolutePath
-    val bootstrapFolder = file(s"$projectRoot/bootstrap")
-    val generateCmd = "npm run generate-all"
-    log.info(s"running $generateCmd in $bootstrapFolder")
+    def run(cmd: String) = {
+      val projectRoot = file("").getAbsolutePath
+      val bootstrapFolder = file(s"$projectRoot/bootstrap")
+      log.info(s"running $cmd in $bootstrapFolder")
 
-    val exitCode = Process(generateCmd, cwd = bootstrapFolder).!
-    assert(
-      exitCode == 0,
-      "Generating java wrapper or contract compilation failed"
-    )
+      assert(
+        Process(cmd, cwd = bootstrapFolder).! == 0,
+        "Generating java wrapper or contract compilation failed"
+      )
+    }
+
+    run("npm install")
+    run("npm run generate-all")
   }
 
   def buildContractBeforeDocker(): Seq[Def.Setting[_]] =
@@ -114,9 +99,40 @@ object SbtCommons {
     }
   }
 
-  /* Common deps */
+  def foldNixMac[T](nix: ⇒ T, mac: ⇒ T): T = {
+    System.getProperty("os.name").toLowerCase match {
+      case os if os.contains("linux") => nix
+      case os if os.contains("mac")   => mac
+      case os                         => throw new RuntimeException(s"$os is unsupported, only *nix and MacOS OS are supported now")
+    }
+  }
 
-  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.10-fl"
+  def itDepends[T](task: TaskKey[T])(on: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[Task[T]]] =
+    configs.map(c ⇒ (task in c) := (task in c).dependsOn(on: _*).value)
+
+  def itDepends[T](task: InputKey[T])(on: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[InputTask[T]]] =
+    configs.map(c ⇒ (task in c) := (task in c).dependsOn(on: _*).evaluated)
+
+  /**
+   * Downloads a file from uri to specified target
+   * @param target Target path. Should be a regular file, can't be directory because `wget -O`
+   *               only works with regular files. You will need `wget -P` for directory target.
+   */
+  def download(uri: String, target: sbt.File)(implicit log: ManagedLogger): Unit = {
+    if (!target.getParentFile.exists()) target.getParentFile.mkdirs()
+    if (!target.exists()) {
+      val path = target.absolutePath
+      log.info(s"Downloading $uri to $path")
+      assert(
+        s"wget -q $uri -O $path".! == 0,
+        s"Download from $uri to $path failed. Note that target should be a path to a file, not a directory."
+      )
+    } else {
+      log.info(s"${target.getName} already exists, won't download.")
+    }
+  }
+
+  /* Common deps */
 
   val catsVersion = "2.0.0"
   val cats = "org.typelevel" %% "cats-core" % catsVersion
