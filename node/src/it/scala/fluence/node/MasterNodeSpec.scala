@@ -226,7 +226,6 @@ class MasterNodeSpec
               .addNode[IO](
                 publicKey.toByteVector.toBase64,
                 nodeAddress,
-                false,
                 masterConf.endpoints.ip.getHostAddress,
                 10,
                 10

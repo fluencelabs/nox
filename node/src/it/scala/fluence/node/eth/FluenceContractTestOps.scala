@@ -38,13 +38,12 @@ object FluenceContractTestOps {
      * Register the node in the contract.
      * TODO check permissions, Ethereum public key should match
      *
-     * @tparam F Effect
+     * @param nodeAddressHex p2p ID for this node. Basically first 20 bytes of p2p peer SHA256(PubKey)
      * @return The block number where transaction has been mined
      */
     def addNode[F[_]: LiftIO: Timer: Monad](
       validatorKey: String,
       nodeAddressHex: String,
-      isPrivate: Boolean,
       nodeIP: String,
       apiPort: Short,
       capacity: Short
@@ -55,7 +54,7 @@ object FluenceContractTestOps {
           nodeAddressToBytes24(nodeIP, nodeAddressHex),
           new Uint16(apiPort),
           new Uint16(capacity),
-          new Bool(isPrivate)
+          new Bool(false)
         )
         .callUntilSuccess[F]
         .map(_.getBlockNumber)
