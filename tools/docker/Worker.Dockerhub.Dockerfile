@@ -4,8 +4,7 @@
 ARG environment=production
 
 ############## Build for production
-FROM mozilla/sbt as production
-USER root
+FROM fluencelabs/rust-sbt:nightly-2019-09-23 as production
 COPY . /fluence
 WORKDIR /fluence
 RUN sbt statemachine-docker/assembly
@@ -22,4 +21,6 @@ FROM openjdk:8-jre-alpine
 VOLUME /worker
 COPY --from=build /fluence/statemachine/docker/worker /worker
 COPY --from=build /fluence/statemachine/docker/target/scala-2.12/statemachine.jar /statemachine.jar
+COPY --from=build /fluence/vm/frank/target/release/libfrank.so /native/x86_64-linux/libfrank.so
+
 ENTRYPOINT ["sh", "/worker/run.sh", "/statemachine.jar"]

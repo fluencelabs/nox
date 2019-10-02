@@ -29,7 +29,7 @@ import cats.syntax.functor._
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp._
 import fluence.codec.PureCodec
-import fluence.Eventually
+import fluence.Timed
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ethclient.EthClient
@@ -55,7 +55,7 @@ import scala.concurrent.duration._
 import scala.language.higherKinds
 
 class MasterNodeSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Eventually with GanacheSetup {
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Timed with GanacheSetup {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)

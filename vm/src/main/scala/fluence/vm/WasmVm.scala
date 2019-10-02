@@ -16,31 +16,16 @@
 
 package fluence.vm
 
-import asmble.cli.Invoke
-import asmble.cli.ScriptCommand.ScriptArgs
-import asmble.run.jvm.Module.{Compiled, Native}
-import asmble.run.jvm.ScriptContext
-import asmble.util.Logger
 import cats.data.{EitherT, NonEmptyList}
-import cats.effect.LiftIO
-import cats.{Monad, Traverse}
-import cats.instances.list._
-import cats.syntax.either._
+import cats.effect.{LiftIO, Sync}
+import cats.Monad
 import com.typesafe.config.{Config, ConfigFactory}
-import fluence.crypto.Crypto
-import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
-import fluence.merkle.TrackingMemoryBuffer
-import fluence.vm.VmError.{InitializationError, NoSuchModuleError}
-import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.wasm.{module, MemoryHasher}
 import fluence.vm.config.VmConfig
-import fluence.vm.utils.safelyRunThrowable
-import fluence.vm.wasm.module.{EnvModule, MainWasmModule, WasmModule}
+import fluence.vm.error.{InitializationError, InvocationError, StateComputationError}
+import fluence.vm.frank.{FrankAdapter, FrankWasmVm}
 import scodec.bits.ByteVector
 
-import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
-import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
 import scala.language.higherKinds
 
 /**
@@ -58,7 +43,7 @@ trait WasmVm {
    */
   def invoke[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte] = Array.emptyByteArray
-  ): EitherT[F, InvokeError, InvocationResult]
+  ): EitherT[F, InvocationError, InvocationResult]
 
   /**
    * Returns hash of all significant inner state of this VM. This function calculates
@@ -69,7 +54,7 @@ trait WasmVm {
    * }}}
    * '''Note!''' It's very expensive operation, try to avoid frequent use.
    */
-  def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
+  def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, StateComputationError, ByteVector]
 
   /**
    * Temporary way to pass a flag from userland (the WASM file) to the Node, denotes whether an app
@@ -80,6 +65,8 @@ trait WasmVm {
 }
 
 object WasmVm {
+  val javaLibPath: String = System.getProperty("java.library.path")
+  println(s"java.library.path = $javaLibPath")
 
   /**
    * Main method factory for building VM.
@@ -87,156 +74,30 @@ object WasmVm {
    *
    * @param inFiles input files in wasm or wast format
    * @param configNamespace a path of config in 'lightbend/config terms, please see reference.conf
-   * @param memoryHasher a hash function provider for calculating memory's hash
-   * @param cryptoHasher a hash function provider for module state hash calculation
    */
-  def apply[F[_]: Monad: Log](
+  def apply[F[_]: Sync: Log](
     inFiles: NonEmptyList[String],
-    memoryHasher: MemoryHasher.Builder[F],
     configNamespace: String = "fluence.vm.client",
-    cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
     conf: ⇒ Config = ConfigFactory.load()
-  ): EitherT[F, ApplyError, WasmVm] =
+  ): EitherT[F, InitializationError, WasmVm] =
     for {
       // reading config
       config ← VmConfig.readT[F](configNamespace, conf)
 
-      _ ← Log.eitherT[F, ApplyError].info("WasmVm: configs read...")
+      _ ← Log.eitherT[F, InitializationError].info("WasmVm: configs read...")
 
-      // Compiling Wasm modules to JVM bytecode and registering derived classes
-      // in the Asmble engine. Every Wasm module is compiled to exactly one JVM class.
-      scriptCxt ← safelyRunThrowable[F, ScriptContext, ApplyError](
-        prepareContext(inFiles, config),
-        err ⇒
-          InitializationError(
-            s"Preparing execution context before execution was failed for $inFiles.",
-            Some(err)
-          ): ApplyError
+      vmRunnerInvoker <- EitherT.right(Sync[F].delay(new FrankAdapter()))
+      initializationResult <- EitherT.right(Sync[F].delay(vmRunnerInvoker.initialize(inFiles.head, config)))
+
+      _ ← EitherT.cond(
+        initializationResult.error.isEmpty,
+        (),
+        InitializationError(initializationResult.error.get)
       )
 
-      _ ← Log.eitherT[F, ApplyError].info("WasmVm: scriptCtx prepared...")
-
-      (mainModule, envModule, sideModules) ← initializeModules(scriptCxt, config, memoryHasher)
-
-      _ ← Log.eitherT[F, ApplyError].info("WasmVm: modules initialized")
-    } yield new AsmbleWasmVm(
-      mainModule,
-      envModule,
-      sideModules,
-      cryptoHasher
+    } yield new FrankWasmVm(
+      vmRunnerInvoker,
+      initializationResult.expectsEth
     )
-
-  /**
-   * Returns [[ScriptContext]] - context for uploaded Wasm modules.
-   * Compiles Wasm modules to JVM bytecode and registering derived classes
-   * in the Asmble engine. Every Wasm module is compiled to exactly one JVM class.
-   */
-  private def prepareContext(
-    inFiles: NonEmptyList[String],
-    config: VmConfig
-  ): ScriptContext = {
-    val invoke = new Invoke()
-    // TODO: in future common logger for this project should be used
-    val logger = new Logger.Print(Logger.Level.WARN)
-    invoke.setLogger(logger)
-
-    invoke.prepareContext(
-      new ScriptArgs(
-        inFiles.toList,
-        Nil, // registrations
-        false, // disableAutoRegister
-        config.specTestEnabled,
-        config.defaultMaxMemPages,
-        config.loggerModuleEnabled,
-        (capacity: Int) ⇒ TrackingMemoryBuffer.allocateDirect(capacity, config.chunkSize)
-      )
-    )
-  }
-
-  /**
-   * This method initializes every module and builds a module index. The index is actually a map where the key is a
-   * string "Some(moduleName)" and value is a [[WasmFunction]] instance. Module name can be "None" if the module
-   * name wasn't specified (note that it also can be empty).
-   */
-  private def initializeModules[F[_]: Monad](
-    ctx: ScriptContext,
-    config: VmConfig,
-    memoryHasher: MemoryHasher.Builder[F]
-  ): EitherT[F, ApplyError, (MainWasmModule, EnvModule, Seq[WasmModule])] =
-    for {
-
-      rawEnvModule ← EitherT.cond[F](
-        ctx.getRegistrations.containsKey(config.envModuleConfig.name),
-        ctx.getRegistrations.get(config.envModuleConfig.name),
-        NoSuchModuleError(
-          s"Asmble doesn't provide the environment module with name=${config.envModuleConfig.name} (perhaps you are using the old version)"
-        ): ApplyError
-      )
-
-      nativeModule <- EitherT.fromEither[F](rawEnvModule match {
-        case m: Native => m.asRight
-        case _ =>
-          NoSuchModuleError(
-            s"Environment module ${config.envModuleConfig.name} was found, but it isn't a Native module"
-          ).asLeft
-      })
-
-      envModule ← EnvModule[F](
-        nativeModule,
-        ctx,
-        config.envModuleConfig.spentGasFunctionName,
-        config.envModuleConfig.clearStateFunction
-      )
-
-      modulesCount = ctx.getModules.size()
-
-      (mainModule, sideModules) ← Traverse[List]
-        .foldLeftM[EitherT[F, ApplyError, ?], Compiled, (Option[MainWasmModule], List[WasmModule])](
-          ctx.getModules.toList,
-          (None, Nil)
-        ) {
-          // the main module almost always doesn't have name section (in config it is represented by None)
-          // also if there is only one module provided, it is considered as the main regardless of its name.
-          case ((None, sideModules), moduleDescription)
-              if Option(moduleDescription.getName) == config.mainModuleConfig.name || modulesCount == 1 ⇒
-            for {
-              mainModule ← MainWasmModule(
-                moduleDescription,
-                ctx,
-                memoryHasher,
-                config.mainModuleConfig.allocateFunctionName,
-                config.mainModuleConfig.deallocateFunctionName,
-                config.mainModuleConfig.invokeFunctionName
-              )
-            } yield (Some(mainModule), sideModules)
-
-          // check for the uniqueness of the main module
-          case ((Some(_), _), moduleDescription) if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
-            EitherT.leftT(
-              InitializationError(
-                s"""There should be only one main module (main module is a module without name section)"""
-              )
-            )
-
-          // side modules
-          case ((mainModule, sideModules), moduleDescription) ⇒
-            for {
-              module ← module.WasmModule(
-                moduleDescription,
-                ctx,
-                memoryHasher
-              )
-            } yield (mainModule, sideModules :+ module)
-
-        }
-        .flatMap[ApplyError, (MainWasmModule, Seq[WasmModule])] {
-          case (Some(mainModule), sideModules) ⇒ EitherT.pure[F, ApplyError]((mainModule, sideModules))
-          case _ ⇒
-            EitherT.leftT(
-              InitializationError(s"Please add the main module (module without name section) to the supplied modules"): ApplyError
-            )
-        }
-
-    } yield (mainModule, envModule, sideModules)
 
 }

@@ -18,7 +18,9 @@ package fluence.vm
 
 import cats.data.EitherT
 import cats.effect.IO
+import fluence.vm.error.VmError
 import org.scalatest.EitherValues
+import fluence.vm.Utils.getModuleDirPrefix
 
 import scala.language.{higherKinds, implicitConversions}
 
@@ -30,7 +32,7 @@ trait LlamadbIntegrationTestInterface extends AppIntegrationTest with EitherValu
   protected def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, InvocationResult] =
     for {
       result ← vm.invoke[IO](sql.getBytes())
-      _ ← vm.getVmState[IO].toVmError
+      _ ← vm.computeVmState[IO].toVmError
     } yield result
 
   protected def createTestTable(vm: WasmVm): EitherT[IO, VmError, InvocationResult] =

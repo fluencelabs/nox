@@ -8,7 +8,7 @@ just_jdk: &jdk_image
 rc: &rc
   restore_cache:
     keys:
-      - sbtcache003-{{ checksum "build.sbt" }}
+      - sbtcache004-{{ checksum "build.sbt" }}
 
 sc: &sc
   save_cache:
@@ -19,13 +19,13 @@ sc: &sc
       - bootstrap/node_modules
       - ~/.cargo
       - ~/.rustup
-    key: sbtcache003-{{ checksum "build.sbt" }}
+    key: sbtcache004-{{ checksum "build.sbt" }}
 
 rustup: &rustup
   - run: |
-      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-03-10
-      ~/.cargo/bin/rustup toolchain install nightly-2019-03-10 # in case some other toolchain was already installed
-      ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-03-10
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-09-23
+      ~/.cargo/bin/rustup toolchain install nightly-2019-09-23 # in case some other toolchain was already installed
+      ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-09-23
 
 version: 2
 jobs:
@@ -36,8 +36,9 @@ jobs:
       - checkout
       - <<: *rc
       - <<: *rustup
-      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-XX:MaxMetaspaceSize=4096M -Xms5120M -Xmx5120M -Xss6M" sbt -v clean test:compile
-      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-XX:MaxMetaspaceSize=4096M -Xms5120M -Xmx5120M -Xss6M" sbt -v test
+      - run: PATH="$PATH:$HOME/.cargo/bin" SBT_OPTS="-XX:MaxMetaspaceSize=4096M -Xms5120M -Xmx5120M -Xss6M" sbt -v clean test:compile
+      # LD_LIBRARY_PATH is needed because setting java.library.path with javaOptions isn't working for CircleCI
+      - run: PATH="$PATH:$HOME/.cargo/bin" LD_LIBRARY_PATH="$HOME/project/vm/frank/target/release" sbt -v test
       - <<: *sc
 
   backend sdk:
@@ -50,12 +51,12 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
+            - backendsdk01-{{ checksum "backend-sdk/Cargo.toml" }}
       - run: | #TODO: enable 'stable' and 'beta' once `allocator_api` becomes stable
           cd backend-sdk/
-          rustup toolchain install nightly-2019-03-10
-          rustup default nightly-2019-03-10
-          rustup override set nightly-2019-03-10
+          rustup toolchain install nightly-2019-09-23
+          rustup default nightly-2019-09-23
+          rustup override set nightly-2019-09-23
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt
           rustup component add clippy
@@ -67,7 +68,7 @@ jobs:
           paths:
             - ~/.cargo
             - ~/.rustup
-          key: backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
+          key: backendsdk01-{{ checksum "backend-sdk/Cargo.toml" }}
 
   smart contract:
     docker:

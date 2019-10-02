@@ -38,11 +38,11 @@ export interface BroadcastTxSyncResponse {
 
 export function parseResponse(res: any): BroadcastTxSyncResponse {
      try {
-         const bResponse = res.data.result;
+         const bResponse = res.result;
          bResponse.data = fromHex(bResponse.data);
          return bResponse;
      } catch (e) {
-         throw new Error(`Cannot parse the response because of an error: ${JSON.stringify(e)}\n Response: ${JSON.stringify(res)}`);
+         throw new Error(`Cannot parse the response because of an error: ${e}\n Response: ${JSON.stringify(res)}`);
      }
 }
 
@@ -75,7 +75,7 @@ export class TendermintClient {
 
         const response = await this.client.txWaitResponse(request.payload);
 
-        return await TendermintClient.parseQueryResponse(request.path, response);
+        return await TendermintClient.parseQueryResponse(some(request.path), response.data);
     }
 
     /**
@@ -89,37 +89,37 @@ export class TendermintClient {
 
         const abciQueryResult = await this.client.abciQuery(path);
 
-        return TendermintClient.parseQueryResponse(path, abciQueryResult)
+        return TendermintClient.parseQueryResponse(some(path), abciQueryResult.data)
     }
 
-    static async parseQueryResponse(path: string, unparsedResponse: AxiosResponse<TendermintJsonRpcResponse<AbciQueryResult>>): Promise<Option<Result>> {
-        if (!unparsedResponse.data || !unparsedResponse.data.result || !unparsedResponse.data.result.response) {
-            if (unparsedResponse.data.error) {
-                return Promise.reject(error(ErrorType.TendermintError, `The cluster returned an error. Head: ${path}, response: ${JSON.stringify(unparsedResponse.data)}`, path));
+    static parseQueryResponse(path: Option<string>, unparsedResponse: TendermintJsonRpcResponse<AbciQueryResult>): Option<Result> {
+        if (!unparsedResponse || !unparsedResponse.result || !unparsedResponse.result.response) {
+            if (unparsedResponse.error) {
+                throw error(ErrorType.TendermintError, `The cluster returned an error. Head: ${path}, response: ${JSON.stringify(unparsedResponse)}`, path);
             }
-            return Promise.reject(error(ErrorType.MalformedError, `Cannot find 'response' field in a query response. Head: ${path}, response: ${JSON.stringify(unparsedResponse.data)}`, path));
+            throw error(ErrorType.MalformedError, `Cannot find 'response' field in a query response. Head: ${path}, response: ${JSON.stringify(unparsedResponse)}`, path);
         }
 
-        const response = unparsedResponse.data.result.response;
+        const response = unparsedResponse.result.response;
 
         switch (response.code) {
             case undefined:
             case 0: {
                 if (!response.value) {
-                    return Promise.reject(error(ErrorType.ParsingError, `Error: no value on response: ${JSON.stringify(response)}`, path));
+                    throw error(ErrorType.ParsingError, `Error: no value on response: ${JSON.stringify(response)}`, path);
                 }
 
                 try {
                     return some(new Result(toByteArray(response.value)));
                 } catch (e) {
-                    return Promise.reject(error(ErrorType.ParsingError, `Error on parsing value from response: ${JSON.stringify(response)} err:  ${e}`, path));
+                    throw error(ErrorType.ParsingError, `Error on parsing value from response: ${JSON.stringify(response)} err:  ${e}`, path);
                 }
             }
             case 1: {
-                return Promise.reject(error(ErrorType.ParsingError, `Cannot parse headers: ${response.info}`, path));
+                throw error(ErrorType.ParsingError, `Cannot parse headers: ${response.info}`, path);
             }
             case 2: {
-                return Promise.reject(error(ErrorType.TendermintError, `Request is dropped: ${response.info}`, path));
+                throw error(ErrorType.TendermintError, `Request is dropped: ${response.info}`, path);
             }
             case 3:
             case 4: {
@@ -127,7 +127,7 @@ export class TendermintClient {
                 return none;
             }
             default: {
-                return Promise.reject(error(ErrorType.InternalError, `unknown code ${response.code} response: ${JSON.stringify(response)}`, path));
+                throw error(ErrorType.InternalError, `unknown code ${response.code} response: ${JSON.stringify(response)}`, path);
             }
         }
     }
