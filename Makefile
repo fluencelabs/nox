@@ -68,4 +68,16 @@ push-worker:     ;docker push $(WORK_IMG)
 # Build jars
 jars:            ;sbt node/assembly statemachine-docker/assembly
 
-.PHONY: node node-test worker worker-test dashboard %-bctl-test deploy
+######### Service containers #########
+TOOLCHAIN ?= nightly-2019-09-23
+RS_IMG     = fluencelabs/rust-sbt:$(TOOLCHAIN)
+RS_FILE    = $(DIR)/SbtRust.Dockerfile
+BUILD_ARG  = --build-arg TOOLCHAIN=$(TOOLCHAIN)
+
+rust-sbt:  ;$(BUILD) -t $(RS_IMG) $(BUILD_ARG) -f $(RS_FILE) .
+rs-push:   rust-sbt; docker push $(RS_IMG)
+
+######### Dashboard #########
+run-dash:  ;cd dashboard; npm run watch
+
+.PHONY: node node-test worker worker-test dashboard %-bctl-test deploy rust-sbt rs-push
