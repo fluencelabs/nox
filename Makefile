@@ -28,7 +28,7 @@ worker:      ;$(BUILD)         -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
 dashboard:   ;$(BUILD)         -t $(DASH_IMG) -f $(DIR)/$(DASH_FILE) .
 ifeq ($(TRAVIS), false)
 node-test:   ;$(BUILD) $(TEST) -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
-worker-test: ;$(BUILD) $(TEST) -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
+worker-test: ;$(BUILD) $(TEST) -t $(WORK_IMG) --progress=plain -f $(DIR)/$(WORK_FILE) .
 endif
 
 # Using buildctl here because TravisCI doesn't support BuildKit
@@ -38,7 +38,7 @@ node-test:   NODE-bctl-test
 worker-test: WORK-bctl-test
 endif
 
-# $* becomes what matched by % in `%-bctl-test`: NODE or WORK
+# $* becomes what matched by % in `%-bctl-test`, i.e., NODE or WORK
 %-bctl-test: ;buildctl build \
              --frontend dockerfile.v0 \
              --local context=. \
@@ -68,4 +68,13 @@ push-worker:     ;docker push $(WORK_IMG)
 # Build jars
 jars:            ;sbt node/assembly statemachine-docker/assembly
 
-.PHONY: node node-test worker worker-test dashboard %-bctl-test deploy
+######### Service containers #########
+TOOLCHAIN ?= nightly-2019-09-23
+RS_IMG     = fluencelabs/rust-sbt:$(TOOLCHAIN)
+RS_FILE    = $(DIR)/SbtRust.Dockerfile
+BUILD_ARG  = --build-arg TOOLCHAIN=$(TOOLCHAIN)
+
+rust-sbt:  ;$(BUILD) -t $(RS_IMG) $(BUILD_ARG) -f $(RS_FILE) .
+rs-push:   rust-sbt; docker push $(RS_IMG)
+
+.PHONY: node node-test worker worker-test dashboard %-bctl-test deploy rust-sbt rs-push

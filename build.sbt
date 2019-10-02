@@ -1,22 +1,18 @@
 import SbtCommons._
+import VmSbt._
+import sbt.Scoped.AnyInitTask
 
 import scala.sys.process._
 
 name := "fluence"
 
+ThisBuild / downloadLlama := downloadLlama(`vm` / IntegrationTest / resourceDirectory).value
+ThisBuild / compileFrank  := compileFrank(`vm` / Compile / baseDirectory).value
+ThisBuild / makeFrankSo   := makeFrankSo(`vm` / Compile / baseDirectory).value
+
 commons
 
 /* Projects */
-
-lazy val `vm-frank` = (project in file("vm/frank"))
-  .settings(
-    compileFrankVMSettings()
-  )
-
-lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
-  .settings(
-    downloadLlamadb()
-  )
 
 lazy val `vm` = (project in file("vm"))
   .configs(IntegrationTest)
@@ -32,12 +28,9 @@ lazy val `vm` = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
-    compile in Compile := (compile in Compile)
-      .dependsOn(compile in `vm-frank`).value,
-    test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(compile in `vm-llamadb`)
-      .value
   )
+  .settings(itDepends(test)(downloadLlama, compileFrank)(Test, IntegrationTest): _*)
+  .settings(itDepends(testOnly)(downloadLlama, compileFrank)(Test, IntegrationTest): _*)
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
@@ -107,11 +100,6 @@ lazy val `statemachine-abci` = (project in file("statemachine/abci"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-api`)
 
-lazy val `worker-vm-prepare` = (project in file("vm/frank/target/frank-prepare"))
-  .settings(
-    prepareWorkerVM()
-  )
-
 lazy val `statemachine-docker` = (project in file("statemachine/docker"))
   .settings(
     commons,
@@ -123,12 +111,15 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
     parallelExecution in Test         := false,
-    assembly                          := assembly.dependsOn(compile in `worker-vm-prepare`).value,
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
-    docker in Test                    := { assembly.value; runCmd("make worker-test") }
+    docker in Test                    := { runCmd("make worker-test") },
+    docker in Test                    := (docker in Test).dependsOn(assembly).value,
+    assembly                          := assembly.dependsOn(makeFrankSo).value,
+    itDepends(test)(downloadLlama, compileFrank)(Test),
+    itDepends(testOnly)(downloadLlama, compileFrank)(Test),
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test, `vm-llamadb`)
+  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
 
 lazy val `statemachine-docker-client` = (project in file("statemachine/docker-client"))
   .settings(
@@ -403,25 +394,26 @@ lazy val `node` = project
       scalaTest
     ),
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
-    testOnly in IntegrationTest := (testOnly in IntegrationTest)
-      .dependsOn(docker in Test)
-      .dependsOn((docker in Test) in `statemachine-docker`)
-      .dependsOn(compile in `vm-llamadb`)
-      .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
-      .evaluated,
-    test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(docker in Test)
-      .dependsOn((docker in Test) in `statemachine-docker`)
-      .dependsOn(compile in `vm-llamadb`)
-      .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
-      .value,
     // add classes from Test to dependencyClasspath of IntegrationTest, so it is possible to share Eventually trait
     dependencyClasspath in IntegrationTest := (dependencyClasspath in IntegrationTest).value ++ (exportedProducts in Test).value,
     mainClass in assembly                  := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly            := "master-node.jar",
     test in assembly                       := {},
-    docker                                 := { runCmd(s"make worker TAG=v${version.value}") },
-    docker in Test                         := { assembly.value; runCmd("make node-test") }
+    docker                                 := { runCmd(s"make node TAG=v${version.value}") },
+    docker in Test                         := { runCmd("make node-test") },
+    docker in Test                         := (docker in Test).dependsOn(assembly).value,
+  )
+  .settings(
+    {
+      val tasks = Seq[AnyInitTask](
+        docker in Test,
+        docker in Test in `statemachine-docker`,
+        downloadLlama,
+        compile in IntegrationTest
+      )
+      itDepends(test)(tasks: _*)(IntegrationTest) ++
+        itDepends(testOnly)(tasks: _*)(IntegrationTest)
+    }: _*
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin)

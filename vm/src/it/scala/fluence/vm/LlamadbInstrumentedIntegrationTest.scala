@@ -29,8 +29,7 @@ import fluence.vm.Utils.getModuleDirPrefix
 // and it would be difficult to update them in each test
 class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface {
 
-  override val llamadbFilePath: String = getModuleDirPrefix() +
-    "/src/it/resources/llama_db_prepared.wasm"
+  override val llamadbFilePath: String = getModuleDirPrefix() + "/src/it/resources/llama_db_prepared.wasm"
 
   private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()

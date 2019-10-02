@@ -55,7 +55,7 @@ class MasterNodeIntegrationSpec
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   implicit private val log: Log[IO] =
-    LogFactory.forPrintln[IO](Log.Error).init("MasterNodeIntegrationSpec").unsafeRunSync()
+    LogFactory.forPrintln[IO](Log.Info).init("MasterNodeIntegrationSpec").unsafeRunSync()
 
   private val sttpResource: Resource[IO, SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
