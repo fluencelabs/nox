@@ -40,7 +40,7 @@ import fluence.effects.tendermint.{block, rpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.error.StateMachineError
-import fluence.statemachine.state.{MachineState, StateService}
+import fluence.statemachine.state.{MachineState, StateService, StateServiceImpl}
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.vm.InvocationResult
 import fluence.effects.testkit.Timed
@@ -95,7 +95,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Timed with Matchers wi
 
     for {
       state ← Ref.of[IO, MachineState](MachineState())
-      abci = new StateService[IO](state, vmInvoker, backend)
+      abci = new StateServiceImpl[IO](state, vmInvoker, backend)
     } yield (abci, state)
   }
 
