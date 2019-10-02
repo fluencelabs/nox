@@ -14,28 +14,12 @@
  * limitations under the License.
  */
 
-package fluence
-import cats.Functor
-import cats.data.EitherT
-import fluence.vm.error.VmError
+package fluence.vm.frank.result
 
-import scala.language.higherKinds
-
-package object vm {
-
-  implicit class VmErrorMapper[F[_]: Functor, E <: VmError, T](eitherT: EitherT[F, E, T]) {
-
-    def toVmError: EitherT[F, VmError, T] = {
-      eitherT.leftMap { e: VmError ⇒
-        e
-      }
-    }
-  }
-
-  object eitherT {
-    implicit class EitherTOps[F[_]: Functor, A, B](ef: F[Either[A, B]]) {
-      def eitherT: EitherT[F, A, B] = EitherT(ef)
-    }
-  }
-
-}
+/**
+ * Represents raw JNI result of FrankAdapter::computeVmState invoking.
+ *
+ * @param error represent various initialization errors, None - no error occurred
+ * @param state computed state of Frank VM, valid only if no error occurred (error == None)
+ */
+final case class RawStateComputationResult(error: Option[String], state: Array[Byte])

@@ -20,7 +20,8 @@ import cats.Monad
 import cats.data.EitherT
 import cats.effect.LiftIO
 import fluence.statemachine.error.{StateMachineError, VmRuntimeError}
-import fluence.vm.{InvocationResult, VmError, WasmVm}
+import fluence.vm.error.VmError
+import fluence.vm.{InvocationResult, WasmVm}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -49,7 +50,7 @@ class WasmVmOperationInvoker[F[_]: LiftIO: Monad](vm: WasmVm) extends VmOperatio
    *
    */
   def vmStateHash(): EitherT[F, StateMachineError, ByteVector] =
-    vm.getVmState.leftMap(WasmVmOperationInvoker.convertToStateMachineError)
+    vm.computeVmState.leftMap(WasmVmOperationInvoker.convertToStateMachineError)
 }
 
 object WasmVmOperationInvoker {
@@ -61,5 +62,5 @@ object WasmVmOperationInvoker {
    * @param vmError error returned from VM
    */
   def convertToStateMachineError(vmError: VmError): StateMachineError =
-    VmRuntimeError(vmError.getClass.getSimpleName, vmError.getMessage, vmError)
+    VmRuntimeError(vmError.getClass.getSimpleName, vmError.message, vmError)
 }

@@ -22,12 +22,6 @@ import org.scalatest.{Assertion, EitherValues, Matchers, OptionValues, WordSpec}
 
 trait AppIntegrationTest extends WordSpec with Matchers with OptionValues with EitherValues {
 
-  protected def getModuleDirPrefix(): String =
-    if (System.getProperty("user.dir").endsWith("/vm"))
-      System.getProperty("user.dir")
-    else
-      System.getProperty("user.dir") + "/vm/"
-
   protected def checkTestResult(result: InvocationResult, expectedString: String): Assertion = {
     val resultAsString = new String(result.output)
     resultAsString should startWith(expectedString)

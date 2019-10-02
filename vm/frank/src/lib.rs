@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,28 +14,19 @@
  * limitations under the License.
  */
 
-package fluence
-import cats.Functor
-import cats.data.EitherT
-import fluence.vm.error.VmError
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 
-import scala.language.higherKinds
-
-package object vm {
-
-  implicit class VmErrorMapper[F[_]: Functor, E <: VmError, T](eitherT: EitherT[F, E, T]) {
-
-    def toVmError: EitherT[F, VmError, T] = {
-      eitherT.leftMap { e: VmError ⇒
-        e
-      }
-    }
-  }
-
-  object eitherT {
-    implicit class EitherTOps[F[_]: Functor, A, B](ef: F[Either[A, B]]) {
-      def eitherT: EitherT[F, A, B] = EitherT(ef)
-    }
-  }
-
-}
+mod config;
+mod errors;
+mod frank;
+mod frank_result;
+mod jni;
+mod modules;

@@ -19,18 +19,17 @@ package fluence.vm
 import cats.data.NonEmptyList
 import cats.effect.{IO, Timer}
 import fluence.log.{Log, LogFactory}
-import fluence.vm.wasm.MemoryHasher
 
 import scala.concurrent.ExecutionContext
 import scala.language.{higherKinds, implicitConversions}
+import fluence.vm.Utils.getModuleDirPrefix
 
-// TODO: to run this test from IDE It needs to build vm-llamadb project explicitly at first
+// TODO: to run this test from IDE It needs to download vm-llamadb project explicitly at first
 // this test is separated from the main LlamadbIntegrationTest because gas price for each instruction could be changed
 // and it would be difficult to update them in each test
 class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface {
 
-  override val llamadbFilePath: String = getModuleDirPrefix() +
-    "/src/it/resources/llama_db_prepared.wasm"
+  override val llamadbFilePath: String = getModuleDirPrefix() + "/src/it/resources/llama_db_prepared.wasm"
 
   private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
@@ -39,8 +38,8 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
     "be able to instantiate" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
-        state ← vm.getVmState[IO].toVmError
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
+        state ← vm.computeVmState[IO].toVmError
       } yield {
         state should not be None
 
@@ -50,12 +49,12 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
     "be able to create table and insert to it" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
         createResult ← createTestTable(vm)
 
       } yield {
         checkTestResult(createResult, "rows inserted")
-        createResult.spentGas should equal(349L)
+        createResult.spentGas should equal(527599L)
 
       }).success()
 
@@ -63,7 +62,7 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
     "be able to select records" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
         createResult ← createTestTable(vm)
         emptySelectResult ← executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
         selectAllResult ← executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
@@ -87,10 +86,10 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
             "    (column-field :source-id 0 :column-offset 1)))"
         )
 
-        createResult.spentGas should equal(349L)
-        emptySelectResult.spentGas should equal(349L)
-        selectAllResult.spentGas should equal(219L)
-        explainResult.spentGas should equal(219L)
+        createResult.spentGas should equal(527599L)
+        emptySelectResult.spentGas should equal(370143L)
+        selectAllResult.spentGas should equal(754557L)
+        explainResult.spentGas should equal(387359L)
 
       }).success()
 
@@ -98,16 +97,16 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
     "be able to launch VM with 2 GiB memory and a lot of data inserts" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), MemoryHasher[IO], "fluence.vm.client.2Gb")
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.2Gb")
         _ ← createTestTable(vm)
 
-        // trying to insert 30 time by ~200 KiB
+        // trying to insert 30 times by ~200 KiB
         _ = for (_ ← 1 to 30) yield { executeInsert(vm, 200) }.value.unsafeRunSync
         insertResult ← executeInsert(vm, 1)
 
       } yield {
         checkTestResult(insertResult, "rows inserted")
-        insertResult.spentGas should equal(304L)
+        insertResult.spentGas should equal(1469167L)
 
       }).success()
     }

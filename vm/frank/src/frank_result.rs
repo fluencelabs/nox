@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,28 +14,29 @@
  * limitations under the License.
  */
 
-package fluence
-import cats.Functor
-import cats.data.EitherT
-import fluence.vm.error.VmError
+#[derive(Clone, Debug, PartialEq)]
+pub struct FrankResult {
+    pub outcome: Vec<u8>,
+    pub spent_gas: i64,
+    pub eic: i64,
+}
 
-import scala.language.higherKinds
-
-package object vm {
-
-  implicit class VmErrorMapper[F[_]: Functor, E <: VmError, T](eitherT: EitherT[F, E, T]) {
-
-    def toVmError: EitherT[F, VmError, T] = {
-      eitherT.leftMap { e: VmError ⇒
-        e
-      }
+impl FrankResult {
+    pub fn new(outcome: Vec<u8>, spent_gas: i64, eic: i64) -> Self {
+        Self {
+            outcome,
+            spent_gas,
+            eic,
+        }
     }
-  }
+}
 
-  object eitherT {
-    implicit class EitherTOps[F[_]: Functor, A, B](ef: F[Either[A, B]]) {
-      def eitherT: EitherT[F, A, B] = EitherT(ef)
+impl Default for FrankResult {
+    fn default() -> Self {
+        Self {
+            outcome: Vec::new(),
+            spent_gas: 0,
+            eic: 0,
+        }
     }
-  }
-
 }
