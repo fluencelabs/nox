@@ -16,8 +16,12 @@ import shapeless.{ops, HList}
 
 import scala.language.higherKinds
 
-object HttpBackend {
+object TestHttpServer {
 
+  /**
+   * Http server with status and kademlia services.
+   *
+   */
   def make[F[_]: Parallel: Timer: ConcurrentEffect: LogFactory, RS <: HList](
     host: String,
     port: Short,
