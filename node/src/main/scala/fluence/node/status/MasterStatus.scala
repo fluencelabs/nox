@@ -16,15 +16,11 @@
 
 package fluence.node.status
 
-import fluence.effects.ethclient.data.{Block, Transaction}
-import fluence.node.config.MasterConfig
 import fluence.worker.WorkerStatus
 import io.circe.generic.semiauto._
-import io.circe.{Decoder, Encoder, Json, KeyDecoder, KeyEncoder}
-import scodec.bits.ByteVector
 import io.circe.syntax._
+import io.circe.{Decoder, Encoder, HCursor, Json}
 
-import scala.concurrent.duration._
 import scala.language.postfixOps
 
 /**
@@ -50,6 +46,12 @@ object MasterStatus {
         ("status", status.asJson)
       )
   }
+
+  private implicit val decodeStatusTuple: Decoder[(Long, WorkerStatus)] = (c: HCursor) =>
+    for {
+      appId ← c.downField("appId").as[Long]
+      status ← c.downField("status").as[WorkerStatus]
+    } yield (appId, status)
 
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
 

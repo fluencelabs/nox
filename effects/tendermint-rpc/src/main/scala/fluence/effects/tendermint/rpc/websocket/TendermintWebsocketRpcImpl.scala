@@ -80,8 +80,8 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer](
     backoff: Backoff[EffectError] = Backoff.default
   ): fs2.Stream[F, Block] = {
     // Start accepting and/or loading blocks from next to already-known block if defined,
-    // or from last height known by block producer, otherwise
-    val startFrom = lastKnownHeight.map(_ + 1).fold(getLastHeight)(_.pure[F])
+    // or from next to last height known by block producer, otherwise
+    val startFrom = lastKnownHeight.fold(getLastHeight)(_.pure[F]).map(_ + 1)
 
     val logSubscribe = traceBU(s"subscribed on NewBlock. startFrom: $startFrom")
     val subscribeS = fs2.Stream.resource(subscribe("NewBlock")).evalTap(_ => logSubscribe)

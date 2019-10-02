@@ -17,15 +17,15 @@
 package fluence.node
 
 import cats.effect._
-import fluence.effects.tendermint.rpc.response.TendermintStatus
+import fluence.worker.WorkerStatus
 
 import scala.io.Source
 import scala.language.higherKinds
 
-trait TendermintSetup {
-  protected def tendermintStatus(host: String, port: Short, appId: Long): IO[TendermintStatus] = IO {
+trait GetWorkerStatus {
+  protected def getWorkerStatus(host: String, port: Short, appId: Long): IO[WorkerStatus] = IO {
     import io.circe.parser.parse
-    val url = s"http://$host:$port/apps/$appId/status/tendermint"
+    val url = s"http://$host:$port/apps/$appId/status"
     val source = {
       val s = Source.fromURL(url)
       val src = s.mkString
@@ -33,6 +33,6 @@ trait TendermintSetup {
       src
     }
 
-    parse(source).right.get.as[TendermintStatus].right.get
+    parse(source).right.get.as[WorkerStatus].right.get
   }
 }

@@ -50,7 +50,7 @@ import scala.sys.process._
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Timed with TendermintSetup
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Timed with GetWorkerStatus
     with GanacheSetup with DockerSetup {
 
   type Sttp = SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]
@@ -177,13 +177,13 @@ class MasterNodeIntegrationSpec
 
         _ <- eventually[IO](
           for {
-            status0 <- tendermintStatus("localhost", master1Port, lastAppId)
-            _ ← log.info(s"c1s0 === " + status0.sync_info.latest_block_height)
-            status1 <- tendermintStatus("localhost", master2Port, lastAppId)
-            _ ← log.info(s"c1s1 === " + status1.sync_info.latest_block_height)
+            status1 <- getWorkerStatus("localhost", master1Port, lastAppId)
+            _ ← log.info(s"worker1 status: $status1")
+            status2 <- getWorkerStatus("localhost", master2Port, lastAppId)
+            _ ← log.info(s"worker2 status: $status2")
           } yield {
-            status0.sync_info.latest_block_height should be >= 2L
-            status1.sync_info.latest_block_height should be >= 2L
+            status1.isOperating shouldBe true
+            status2.isOperating shouldBe true
           },
           maxWait = 90.seconds
         )

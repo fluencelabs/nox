@@ -110,13 +110,7 @@ private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent, B: TxsBloc
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
 
         pollingStream = blockStream.freshBlocks
-          .evalTap(
-            b =>
-              log.debug(
-                s"got block ${TxsBlock[B]
-                  .height(b)} nonEmptyBlock: ${nonEmptyBlock(b)} ${TxsBlock[B].txs(b).map(_.takeWhile(_ != '\n'.toByte).decodeUtf8).mkString(", ")}"
-              )
-          )
+          .evalTap(b => log.debug(s"got block ${TxsBlock[B].height(b)}"))
           .filter(nonEmptyBlock)
           .evalMap(_ => processSubscriptions())
         _ <- MakeResource.concurrentStream(pollingStream)
