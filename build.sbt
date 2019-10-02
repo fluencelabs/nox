@@ -504,9 +504,9 @@ lazy val `block-uploading` = project
     `statemachine-api`,
     `receipt-storage`,
     `resources-effects`,
-    `effects-testkit` % Test,
-    `tendermint-rpc` % "test->test",
-    `tendermint-block` % "test->test",
+    `effects-testkit`  % Test,
+    `tendermint-rpc`   % "test->test",
+    `tendermint-block` % "test->test"
   )
 
 lazy val `node` = project
@@ -559,6 +559,9 @@ lazy val `node` = project
     `tendermint-rpc`,
     `tendermint-rpc`           % "test->test",
     `tendermint-rpc`           % "it->test",
+    `statemachine`             % "it->test",
+    `block-producer-embedded`  % "it->test",
+    `statemachine-abci`        % "it->test",
     `tendermint-block`         % "test->test",
     `tendermint-block-history` % "test->test",
     `worker-responder`,

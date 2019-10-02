@@ -28,6 +28,7 @@ import com.softwaremill.sttp.circe.asJson
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
+import fluence.effects.kvstore.MVarKVStore
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.testkit.Timed
 import fluence.effects.{Backoff, EffectError}
@@ -35,14 +36,15 @@ import fluence.kad.Kademlia
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
 import fluence.kad.http.KademliaHttpNode
-import fluence.kad.protocol.{Key, Node}
+import fluence.kad.protocol.Key
 import fluence.log.Log.Aux
 import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{FluenceContractConfig, MasterConfig}
-import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.eth.FluenceContractTestOps._
+import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.{MasterStatus, StatusAggregator}
+import fluence.node.workers.WorkersPorts
 import fluence.node.workers.tendermint.ValidatorPublicKey
 import org.scalatest.{Timer => _, _}
 import scodec.bits.ByteVector
@@ -93,13 +95,23 @@ class MasterNodeSpec
 
   private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
-  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact], ValidatorPublicKey, Kademlia[IO, UriContact])] =
+  ): Resource[
+    IO,
+    (SttpStreamEffect[IO],
+     MasterNode[IO, EmbeddedWorkerPool.Companions[IO]],
+     ValidatorPublicKey,
+     Kademlia[IO, UriContact])
+  ] =
     for {
       implicit0(sttpB: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
 
       nodeCodec = new UriContact.NodeCodec(Key.fromPublicKey)
 
       masterConf <- Resource.liftF(masterConfF)
+      implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
+
+      portsStore ← MVarKVStore.make[IO, Long, Short]()
+      ports ← WorkersPorts.make[IO](masterConf.ports.minPort, masterConf.ports.maxPort, portsStore)
 
       kad ← KademliaHttpNode.make[IO](
         KademliaConfig(
@@ -113,17 +125,15 @@ class MasterNodeSpec
         nodeCodec
       )
 
-      implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
-
       publicKey = ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5)))
 
       // TODO: make embedded pool that fits into MasterNode instead
-      pool ← MasterPool.docker[IO](masterConf, Paths.get(masterConf.rootPath))
+      pool ← Resource.liftF(EmbeddedWorkerPool.embedded[IO](ports))
 
       node ← MasterNode.make(masterConf, publicKey, pool)
 
       agg ← StatusAggregator.make[IO](masterConf, pool, node.nodeEth)
-      _ ← MasterHttp.make("127.0.0.1", port, agg, pool, kad.http)
+      _ ← HttpBackend.make("127.0.0.1", port, agg, kad.http)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
     } yield (sttpB, node, publicKey, kad.kademlia)
 
@@ -132,7 +142,11 @@ class MasterNodeSpec
 
   def runningNode(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
-  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact], ValidatorPublicKey, Kademlia[IO, UriContact])] =
+  ): Resource[IO,
+              (SttpStreamEffect[IO],
+               MasterNode[IO, EmbeddedWorkerPool.Companions[IO]],
+               ValidatorPublicKey,
+               Kademlia[IO, UriContact])] =
     nodeResource(port, seeds).flatMap {
       case res @ (_, n, _, _) ⇒ fiberResource(n.run).as(res)
     }
@@ -193,7 +207,7 @@ class MasterNodeSpec
             _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 2), 100.millis, 25.seconds)
 
             _ ← contract.deleteApp[IO](id0)
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 25.seconds)
+            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 65.seconds)
 
             id1 ← node.pool.listAll().map(_.head.app.id)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)

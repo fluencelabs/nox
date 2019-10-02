@@ -43,17 +43,15 @@ object WorkerDocker {
   )
 
   def apply[F[_]: Monad: DockerIO: Log](
-    app: EthApp,
+    networkName: String,
+    machineName: String,
+    producerName: String,
     masterNodeContainerId: Option[String],
     producerDocker: DockerConfig,
     machineDocker: DockerConfig,
     stopTimeout: FiniteDuration,
     logLevel: Log.Level
   ): Resource[F, WorkerDocker] = {
-    val networkName = s"app_${app.id}_${app.cluster.currentWorker.index}"
-    val machineName = s"sm_${app.id}_${app.cluster.currentWorker.index}"
-    val producerName = s"bp_${app.id}_${app.cluster.currentWorker.index}"
-
     DockerNetwork
       .make(networkName)
       .flatTap(

@@ -85,13 +85,15 @@ object MasterPool {
       ports ← WorkersPorts.make[F](conf.ports.minPort, conf.ports.maxPort, portsStore)
       workerDocker = (app: EthApp) ⇒
         WorkerDocker[F](
-          app,
+          s"app_${app.id}_${app.cluster.currentWorker.index}",
+          s"sm_${app.id}_${app.cluster.currentWorker.index}",
+          s"bp_${app.id}_${app.cluster.currentWorker.index}",
           conf.masterContainerId,
           conf.tendermint,
           conf.worker,
           conf.dockerStopTimeout,
           conf.logLevel
-        )
+      )
       codeCarrier ← Resource.pure(CodeCarrier[F](conf.remoteStorage))
       workerFiles = WorkerFiles(rootPath, codeCarrier)
       receiptStorage = (app: EthApp) ⇒ ReceiptStorage.local(app.id, rootPath)
@@ -166,11 +168,12 @@ object MasterPool {
 
           responder ← WorkerResponder.make[F, producer.Commands, Block](producer, machine)
 
-        } yield Worker(
-          app.id,
-          machine,
-          producer,
-          machine.command[PeersControl[F]] :: responder :: HNil
+        } yield
+          Worker(
+            app.id,
+            machine,
+            producer,
+            machine.command[PeersControl[F]] :: responder :: HNil
         )
 
     WorkersPool[F, Resources[F], Companions[F]] { (app, l) ⇒
