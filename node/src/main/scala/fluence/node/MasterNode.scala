@@ -55,7 +55,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, CS <: HList](
   private def runAppWorker(app: EthApp): F[Unit] =
     for {
       implicit0(log: Log[F]) ← LogFactory[F].init("app", app.id.toString)
-      _ ← log.info("Running worker")
+      _ ← log.info(s"Running worker")
       _ <- pool.run(app)
     } yield ()
 

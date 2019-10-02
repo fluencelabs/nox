@@ -5,22 +5,35 @@ import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.bp.embedded.EmbeddedBlockProducer
+import fluence.bp.tx.TxResponse
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.workers.WorkersPorts
 import fluence.statemachine.EmbeddedStateMachine
 import fluence.statemachine.abci.peers.PeersControlBackend
 import fluence.statemachine.api.command.PeersControl
+import fluence.statemachine.api.data.{StateHash, StateMachineStatus}
+import fluence.statemachine.api.query.QueryResponse
+import fluence.statemachine.receiptbus.ReceiptBusBackend
+import fluence.statemachine.state.StateService
 import fluence.worker.eth.EthApp
 import fluence.worker.{Worker, WorkerContext, WorkersPool}
 import shapeless.{::, HNil}
+import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import scala.language.higherKinds
 
-object EmbeddedWorkerPool {
+class TestStateService[F[_]] extends StateService[F] {
+  override def stateHash: F[StateHash] = throw new NotImplementedError("def stateHash")
+  override def commit(implicit log: Log[F]): F[StateHash] = throw new NotImplementedError("def commit")
+  override def query(path: String): F[QueryResponse] = throw new NotImplementedError("def path")
+  override def deliverTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
+    throw new NotImplementedError("def deliverTx")
+  override def checkTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
+    throw new NotImplementedError("def checkTx")
+}
 
-  private val moduleDirPrefix = if (System.getProperty("user.dir").endsWith("/statemachine")) "../" else "./"
-  private val moduleFiles = List("counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
+object EmbeddedWorkerPool {
 
   type Resources[F[_]] = WorkersPorts.P2pPort[F] :: HNil
   type Companions[F[_]] = PeersControl[F] :: HNil
@@ -34,10 +47,10 @@ object EmbeddedWorkerPool {
       Resource.liftF(
         for {
           backend <- PeersControlBackend[F].map(a => a: PeersControl[F])
-          machine <- EmbeddedStateMachine
-            .init(NonEmptyList.fromList(moduleFiles).get, true)
-            .value
-            .map(_.right.get.extend(backend))
+          receiptBus ← ReceiptBusBackend[F](false)
+          machine = EmbeddedStateMachine(receiptBus,
+                                         new TestStateService[F](),
+                                         StateMachineStatus(false, StateHash.empty)).extend(backend)
           producer <- EmbeddedBlockProducer(machine)
         } yield
           Worker(

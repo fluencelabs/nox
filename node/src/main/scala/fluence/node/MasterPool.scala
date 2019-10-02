@@ -93,7 +93,7 @@ object MasterPool {
           conf.worker,
           conf.dockerStopTimeout,
           conf.logLevel
-      )
+        )
       codeCarrier ← Resource.pure(CodeCarrier[F](conf.remoteStorage))
       workerFiles = WorkerFiles(rootPath, codeCarrier)
       receiptStorage = (app: EthApp) ⇒ ReceiptStorage.local(app.id, rootPath)
@@ -168,12 +168,11 @@ object MasterPool {
 
           responder ← WorkerResponder.make[F, producer.Commands, Block](producer, machine)
 
-        } yield
-          Worker(
-            app.id,
-            machine,
-            producer,
-            machine.command[PeersControl[F]] :: responder :: HNil
+        } yield Worker(
+          app.id,
+          machine,
+          producer,
+          machine.command[PeersControl[F]] :: responder :: HNil
         )
 
     WorkersPool[F, Resources[F], Companions[F]] { (app, l) ⇒

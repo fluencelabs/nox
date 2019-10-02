@@ -28,7 +28,7 @@ import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.data.BlockReceipt
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.receiptbus.ReceiptBusBackend
-import fluence.statemachine.state.{MachineState, StateService}
+import fluence.statemachine.state.{MachineState, StateService, StateServiceImpl}
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.vm.InvocationResult
 import org.scalatest.{Matchers, WordSpec}
@@ -86,7 +86,7 @@ class StateServiceSpec extends WordSpec with Matchers {
         for {
           state ← Ref.of[IO, MachineState](MachineState())
           txCounter <- Ref.of[IO, Int](0)
-          service = new StateService[IO](state, vmInvoker, receiptBus)
+          service = new StateServiceImpl[IO](state, vmInvoker, receiptBus)
         } yield (service, ref, state, txCounter)
       }
       .flatMap(identity)

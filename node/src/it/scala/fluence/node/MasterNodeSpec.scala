@@ -19,10 +19,12 @@ package fluence.node
 import java.nio.file.{Files, Paths}
 import java.util.Base64
 
-import cats.Apply
+import cats.{Apply, Traverse}
 import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
+import cats.syntax.traverse._
+import cats.instances.list._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
 import fluence.crypto.eddsa.Ed25519
@@ -46,6 +48,8 @@ import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.WorkersPorts
 import fluence.node.workers.tendermint.ValidatorPublicKey
+import fluence.worker.WorkerStage.{Destroyed, FullyAllocated}
+import fluence.worker.WorkersPool
 import org.scalatest.{Timer => _, _}
 import scodec.bits.ByteVector
 
@@ -151,6 +155,35 @@ class MasterNodeSpec
       case res @ (_, n, _, _) ⇒ fiberResource(n.run).as(res)
     }
 
+  private def checkDestroyed[A, B <: shapeless.HList](pool: WorkersPool[IO, A, B], appId: Long): IO[Unit] = {
+    pool
+      .get(appId)
+      .value
+      .flatMap {
+        case Some(w) =>
+          w.stage.map {
+            case Destroyed => true
+            case _         => false
+          }
+        case None => IO(false)
+      }
+      .map(_ shouldBe true)
+  }
+
+  private def checkAlive[A, B <: shapeless.HList](pool: WorkersPool[IO, A, B], number: Int): IO[Unit] = {
+    pool
+      .listAll()
+      .map(l => l.map(_.stage))
+      .flatMap(l => Traverse[List].traverse(l)(identity))
+      .map {
+        _.filter {
+          case FullyAllocated => true
+          case _              => false
+        }
+      }
+      .map(_.size shouldBe number)
+  }
+
   "MasterNode" should {
     "provide status" in {
       implicit val log: Log[IO] = logFactory.init("spec", "status").unsafeRunSync()
@@ -199,20 +232,20 @@ class MasterNodeSpec
                 10
               )
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 25.seconds)
+            _ ← eventually[IO](checkAlive(node.pool, 1), 100.millis, 25.seconds)
 
             id0 ← node.pool.listAll().map(_.head.app.id)
 
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 2), 100.millis, 25.seconds)
+            _ ← eventually[IO](checkAlive(node.pool, 2), 100.millis, 25.seconds)
 
             _ ← contract.deleteApp[IO](id0)
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 65.seconds)
+            _ ← eventually[IO](checkDestroyed(node.pool, id0), 100.millis, 25.seconds)
 
             id1 ← node.pool.listAll().map(_.head.app.id)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← contract.deleteApp[IO](id1)
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 1), 100.millis, 15.seconds)
+            _ ← eventually[IO](checkDestroyed(node.pool, id1))
 
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
@@ -222,12 +255,12 @@ class MasterNodeSpec
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
 
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 8), 100.millis, 15.seconds)
+            _ ← eventually[IO](checkAlive(node.pool, 8), 100.millis, 25.seconds)
 
             id2 ← node.pool.listAll().map(_.last.app.id)
             _ ← contract.deleteApp[IO](id2)
 
-            _ ← eventually[IO](node.pool.listAll().map(_.size shouldBe 7), 100.millis, 15.seconds)
+            _ ← eventually[IO](checkAlive(node.pool, 7), 100.millis, 15.seconds)
 
           } yield ()
       }.unsafeRunSync()
