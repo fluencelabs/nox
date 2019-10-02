@@ -80,4 +80,4 @@ rs-push:   rust-sbt; docker push $(RS_IMG)
 ######### Dashboard #########
 run-dash:  ;cd dashboard; npm run watch
 
-.PHONY: node node-test worker worker-test dashboard %-bctl-test deploy rust-sbt rs-push
+.PHONY: node node-test worker worker-test dashboard %-bctl-test deploy rust-sbt rs-push run-dash
