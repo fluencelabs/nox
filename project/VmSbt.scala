@@ -19,7 +19,7 @@ object VmSbt {
     } else {
       s"cat ${frankFolder.absolutePath}/Cargo.toml".!
       val compileCmd =
-        s"cargo -v +nightly-2019-09-23 build --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
+        s"cargo +nightly-2019-09-23 -v build --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
 
       log.info(s"Compiling Frank VM")
       assert((compileCmd !) == 0, "Frank VM compilation failed")
