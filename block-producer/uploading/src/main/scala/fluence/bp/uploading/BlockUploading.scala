@@ -20,6 +20,7 @@ import cats.data.Chain
 import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.applicative._
+import fluence.bp.api.BlockStream
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpStreamEffect
@@ -53,7 +54,7 @@ trait BlockUploading[F[_]] {
   def start(
     appId: Long,
     receiptStorage: ReceiptStorage[F],
-    subscribeNewBlock: Long ⇒ fs2.Stream[F, Block],
+    blockStream: BlockStream[F, Block],
     receiptBus: ReceiptBus[F],
     onUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit]

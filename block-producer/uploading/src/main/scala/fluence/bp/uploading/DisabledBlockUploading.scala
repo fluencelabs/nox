@@ -18,6 +18,7 @@ package fluence.bp.uploading
 
 import cats.Applicative
 import cats.effect.Resource
+import fluence.bp.api.BlockStream
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
@@ -42,7 +43,7 @@ class DisabledBlockUploading[F[_]: Applicative] extends BlockUploading[F] {
   override def start(
     appId: Long,
     receiptStorage: ReceiptStorage[F],
-    subscribeNewBlock: Long => fs2.Stream[F, Block],
+    blockStream: BlockStream[F, Block],
     receiptBus: ReceiptBus[F],
     onUploaded: (BlockManifest, Receipt) => F[Unit]
   )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit] = Resource.pure(())

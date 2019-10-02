@@ -19,7 +19,7 @@ import java.nio.file.Path
 
 import cats.data.EitherT
 import cats.effect._
-import fluence.bp.api.{BlockProducer, DialPeers}
+import fluence.bp.api.{BlockProducer, BlockStream, DialPeers}
 import fluence.bp.tendermint.{Tendermint, TendermintBlockProducer}
 import fluence.effects.EffectError
 import fluence.effects.docker._
@@ -121,7 +121,7 @@ object DockerTendermint {
     workerDocker: WorkerDocker,
     p2pPort: Short,
     websocketConfig: WebsocketConfig
-  ): Resource[F, BlockProducer.Aux[F, Block, DockerContainer :: DialPeers[F] :: HNil]] =
+  ): Resource[F, BlockProducer.Aux[F, DockerContainer :: BlockStream[F, Block] :: DialPeers[F] :: HNil]] =
     for {
       // TODO make it WorkerResource
       _ ← Resource.liftF(

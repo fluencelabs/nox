@@ -21,7 +21,7 @@ import cats.data.EitherT
 import cats.effect.Concurrent
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.bp.api.{BlockProducer, BlockProducerStatus}
+import fluence.bp.api.{BlockProducer, BlockProducerStatus, BlockStream}
 import fluence.bp.tx.TxResponse
 import fluence.effects.EffectError
 import fluence.log.Log
@@ -36,7 +36,6 @@ class EmbeddedBlockProducer[F[_]: Monad](
   txProcessor: TxProcessor[F],
   blocksTopic: fs2.concurrent.Topic[F, Option[SimpleBlock]]
 ) extends BlockProducer[F] {
-  override type Block = SimpleBlock
 
   /**
    * Product (HList) of all types to access Command side of this block producer.
@@ -47,15 +46,6 @@ class EmbeddedBlockProducer[F[_]: Monad](
    * Implementations for the command side
    */
   override protected val commands: Commands = HNil
-
-  /**
-   * Stream of blocks, starting with the given height
-   *
-   * @param fromHeight All newer blocks shall appear in the stream
-   * @return Stream of blocks
-   */
-  override def blockStream(fromHeight: Option[Long])(implicit log: Log[F]): fs2.Stream[F, Block] =
-    fromHeight.foldLeft(blocksTopic.subscribe(1).unNone) { case (s, h) => s.filter(_.height >= h) }
 
   /**
    * Send (asynchronously) a transaction to the block producer, so that it should later get into a block
@@ -87,9 +77,16 @@ object EmbeddedBlockProducer {
     machine: StateMachine.Aux[F, C]
   )(
     implicit txp: ops.hlist.Selector[C, TxProcessor[F]]
-  ): F[BlockProducer.Aux[F, SimpleBlock, HNil]] =
+  ): F[BlockProducer.Aux[F, BlockStream[F, SimpleBlock] :: HNil]] =
     for {
       blocksTopic <- fs2.concurrent.Topic[F, Option[SimpleBlock]](None)
     } yield new EmbeddedBlockProducer[F](machine.command[TxProcessor[F]], blocksTopic)
+      .extend(new BlockStream[F, SimpleBlock] {
+        override def freshBlocks(implicit log: Log[F]): fs2.Stream[F, SimpleBlock] =
+          blocksTopic.subscribe(1).unNone
+
+        override def blocksSince(height: Long)(implicit log: Log[F]): fs2.Stream[F, SimpleBlock] =
+          blocksTopic.subscribe(Int.MaxValue).unNone.filter(_.height >= height)
+      })
 
 }

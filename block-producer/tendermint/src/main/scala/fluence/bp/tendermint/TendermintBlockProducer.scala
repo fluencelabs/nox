@@ -20,10 +20,11 @@ import cats.Monad
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.data.EitherT
-import fluence.bp.api.{BlockProducer, BlockProducerStatus, DialPeers}
+import fluence.bp.api.{BlockProducer, BlockProducerStatus, BlockStream, DialPeers}
 import fluence.bp.tx.TxResponse
 import fluence.effects.EffectError
 import fluence.effects.tendermint.block.data
+import fluence.effects.tendermint.block.data.Block
 import fluence.log.Log
 import shapeless._
 
@@ -33,7 +34,6 @@ class TendermintBlockProducer[F[_]: Monad](
   tendermint: Tendermint[F],
   checkStatus: EitherT[F, EffectError, _]
 ) extends BlockProducer[F] {
-  override type Block = data.Block
 
   /**
    * Product (HList) of all types to access Command side of this block producer.
@@ -44,15 +44,6 @@ class TendermintBlockProducer[F[_]: Monad](
    * Implementations for the command side
    */
   override protected val commands: HNil = HNil
-
-  /**
-   * Stream of blocks, starting with the given height
-   *
-   * @param fromHeight All newer blocks shall appear in the stream
-   * @return Stream of blocks
-   */
-  override def blockStream(fromHeight: Option[Long])(implicit log: Log[F]): fs2.Stream[F, Block] =
-    tendermint.wrpc.subscribeNewBlock(fromHeight)
 
   /**
    * Send (asynchronously) a transaction to the block producer, so that it should later get into a block
@@ -80,9 +71,9 @@ object TendermintBlockProducer {
   def apply[F[_]: Monad](
     tendermint: Tendermint[F],
     checkStatus: EitherT[F, EffectError, _]
-  ): BlockProducer.Aux[F, data.Block, DialPeers[F] :: HNil] =
+  ): BlockProducer.Aux[F, BlockStream[F, data.Block] :: DialPeers[F] :: HNil] =
     new TendermintBlockProducer[F](tendermint, checkStatus)
-      .extend(new DialPeers[F] {
+      .extend[DialPeers[F]](new DialPeers[F] {
         override def dialPeers(peers: Seq[String])(implicit log: Log[F]): EitherT[F, EffectError, Unit] =
           tendermint.rpc
             .unsafeDialPeers(peers, persistent = true)
@@ -90,4 +81,13 @@ object TendermintBlockProducer {
             .flatTap(s ⇒ Log.eitherT[F, EffectError].debug(s"Tendermint unsafeDialPeers replied: $s"))
             .void
       })
+      .extend[BlockStream[F, data.Block]](
+        new BlockStream[F, data.Block] {
+          override def freshBlocks(implicit log: Log[F]): fs2.Stream[F, Block] =
+            tendermint.wrpc.subscribeNewBlock(None)
+
+          override def blocksSince(height: Long)(implicit log: Log[F]): fs2.Stream[F, Block] =
+            tendermint.wrpc.subscribeNewBlock(Some(height))
+        }
+      )
 }

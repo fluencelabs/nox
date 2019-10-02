@@ -22,7 +22,7 @@ import cats.{Monad, Parallel}
 import cats.effect.{ConcurrentEffect, ContextShift, LiftIO, Resource, Timer}
 import cats.syntax.apply._
 import cats.syntax.compose._
-import fluence.bp.api.DialPeers
+import fluence.bp.api.{BlockStream, DialPeers}
 import fluence.bp.uploading.BlockUploading
 import fluence.codec.PureCodec
 import fluence.effects.{Backoff, EffectError}
@@ -31,6 +31,7 @@ import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
+import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.Log
 import fluence.node.code.CodeCarrier
@@ -45,7 +46,7 @@ import fluence.worker.eth.EthApp
 import fluence.worker.responder.WorkerResponder
 import shapeless._
 
-import scala.language.higherKinds
+import scala.language.{higherKinds, reflectiveCalls}
 
 object MasterPool {
 
@@ -158,12 +159,12 @@ object MasterPool {
           _ ← blockUploading.start(
             app.id,
             manifests.receiptStorage,
-            h ⇒ producer.blockStream(Some(h)),
+            producer.command[BlockStream[F, Block]],
             machine.command[ReceiptBus[F]],
             manifests.onUploaded
           )
 
-          responder ← WorkerResponder.make(producer, machine)
+          responder ← WorkerResponder.make[F, producer.Commands, Block](producer, machine)
 
         } yield Worker(
           app.id,

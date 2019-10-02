@@ -17,7 +17,7 @@
 package fluence.worker.responder.repeat
 
 import cats.effect.{Concurrent, Resource, Timer}
-import fluence.bp.api.BlockProducer
+import fluence.bp.api.{BlockProducer, BlockStream}
 import fluence.bp.tx.{Tx, TxsBlock}
 import fluence.effects.resources.MakeResource
 import fluence.effects.{Backoff, EffectError}
@@ -52,16 +52,16 @@ object RepeatOnEveryBlock {
 
   /**
    *
-   * @param producer websocket service to subscribe for a new blocks
+   * @param blockStream websocket service to subscribe for a new blocks
    * @param sendAndWait for transaction execution
    */
   def make[F[_]: Timer: Concurrent: Log, B: TxsBlock](
-    producer: BlockProducer.AuxB[F, B],
+    blockStream: BlockStream[F, B],
     sendAndWait: SendAndWait[F]
   )(implicit backoff: Backoff[EffectError]): Resource[F, RepeatOnEveryBlock[F]] =
     for {
       subs <- MakeResource.refOf[F, Map[String, Subscription[F]]](Map.empty)
-      instance = new RepeatOnEveryBlockImpl[F, B](subs, producer, sendAndWait)
+      instance = new RepeatOnEveryBlockImpl[F, B](subs, blockStream, sendAndWait)
       _ ← instance.start()
     } yield instance
 }

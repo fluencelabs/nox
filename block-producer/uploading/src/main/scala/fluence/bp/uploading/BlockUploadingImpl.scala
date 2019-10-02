@@ -24,6 +24,7 @@ import cats.syntax.apply._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.bp.api.BlockStream
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.resources.MakeResource
 import fluence.effects.tendermint.block.data.Block
@@ -54,10 +55,10 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
   // TODO: separate block uploading into replay and usual block processing parts, so replay could be handled without a need
   //  for RPC and WRPC. Should be possible to handle block replay, wait until Tendermint started RPC, and then
   //  connect to Websocket and create blockstore after everything is initialized
-  def start(
+  override def start(
     appId: Long,
     receiptStorage: ReceiptStorage[F],
-    subscribeNewBlock: Long ⇒ fs2.Stream[F, Block],
+    blockStream: BlockStream[F, Block],
     receiptBus: ReceiptBus[F],
     onUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] =
@@ -68,7 +69,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         appId,
         lastManifestReceipt,
         receiptStorage,
-        subscribeNewBlock,
+        blockStream.blocksSince,
         receiptBus,
         onUploaded
       )

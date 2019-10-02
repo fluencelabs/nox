@@ -22,21 +22,20 @@ import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.bp.api.BlockProducer
+import fluence.bp.api.{BlockProducer, BlockStream}
 import fluence.bp.tx.{Tx, TxsBlock}
 import fluence.effects.resources.MakeResource
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.query.QueryCode
-import fluence.worker.Worker
 import fluence.worker.responder.resp._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
-  producer: BlockProducer.AuxB[F, B],
+  blockStream: BlockStream[F, B],
   machine: StateMachine[F],
   subscribesRef: Ref[F, Map[Tx.Head, ResponsePromise[F]]],
   maxBlocksTries: Int
@@ -65,8 +64,8 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
     log.scope("awaitResponses") { implicit log =>
       for {
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
-        blockStream = producer.blockStream(fromHeight = None)
-        pollingStream = blockStream
+
+        pollingStream = blockStream.freshBlocks
           .evalTap(
             b =>
               log.debug(
@@ -178,7 +177,7 @@ object AwaitResponses {
   val MaxBlocksTries = 10
 
   def make[F[_]: Parallel: Concurrent: Log: Timer, B: TxsBlock](
-    producer: BlockProducer.AuxB[F, B],
+    blockStream: BlockStream[F, B],
     machine: StateMachine[F],
     maxTries: Int = MaxBlocksTries
   )(
@@ -186,6 +185,6 @@ object AwaitResponses {
   ): Resource[F, AwaitResponses[F, B]] =
     MakeResource
       .refOf(Map.empty[Tx.Head, ResponsePromise[F]])
-      .map(new AwaitResponses[F, B](producer, machine, _, maxTries))
+      .map(new AwaitResponses[F, B](blockStream, machine, _, maxTries))
       .flatTap(_.start())
 }

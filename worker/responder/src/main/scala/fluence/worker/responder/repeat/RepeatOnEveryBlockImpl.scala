@@ -23,13 +23,13 @@ import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.traverse._
-import fluence.bp.api.BlockProducer
+import fluence.bp.api.BlockStream
 import fluence.bp.tx.{Tx, TxsBlock}
 import fluence.effects.resources.MakeResource
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.worker.responder.resp.{AwaitedResponse, TxAwaitError}
-import fluence.worker.responder.{AwaitResponses, SendAndWait}
+import fluence.worker.responder.SendAndWait
 import fs2.concurrent.{SignallingRef, Topic}
 import scodec.bits.ByteVector
 
@@ -38,7 +38,7 @@ import scala.util.Random
 
 private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent, B: TxsBlock](
   subscriptions: Ref[F, Map[String, Subscription[F]]],
-  producer: BlockProducer.AuxB[F, B],
+  blockStream: BlockStream[F, B],
   waitResponseService: SendAndWait[F]
 )(
   implicit backoff: Backoff[EffectError]
@@ -108,8 +108,8 @@ private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent, B: TxsBloc
     log.scope("startBlockTxExecutor") { implicit log =>
       for {
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
-        blockStream = producer.blockStream(fromHeight = None)
-        pollingStream = blockStream
+
+        pollingStream = blockStream.freshBlocks
           .evalTap(
             b =>
               log.debug(
