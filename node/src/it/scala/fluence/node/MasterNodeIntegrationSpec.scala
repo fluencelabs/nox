@@ -145,11 +145,12 @@ class MasterNodeIntegrationSpec
     def runTwoWorkers(basePort: Short)(implicit ethClient: EthClient, sttp: Sttp): IO[Unit] = {
 
       val contract = FluenceContract(ethClient, contractConfig)
+      val master1Port = basePort
       val master2Port = (basePort + 1).toShort
       for {
-        status1 <- getStatus(basePort).map(_.toTry.get)
+        status1 <- getStatus(master1Port).map(_.toTry.get)
         status2 <- getStatus(master2Port).map(_.toTry.get)
-        ethState1 <- getEthState(basePort)
+        ethState1 <- getEthState(master1Port)
         ethState2 <- getEthState(master2Port)
 
         _ <- contract
@@ -157,7 +158,7 @@ class MasterNodeIntegrationSpec
                        "99d76509fe9cb6e8cd5fc6497819eeabb2498106",
                        false,
                        status1.ip,
-                       basePort,
+                       master1Port,
                        1)
           .attempt
         _ <- contract
@@ -174,7 +175,7 @@ class MasterNodeIntegrationSpec
 
         _ <- eventually[IO](
           for {
-            status0 <- tendermintStatus("localhost", basePort, lastAppId)
+            status0 <- tendermintStatus("localhost", master1Port, lastAppId)
             _ ← log.info(s"c1s0 === " + status0.sync_info.latest_block_height)
             status1 <- tendermintStatus("localhost", master2Port, lastAppId)
             _ ← log.info(s"c1s1 === " + status1.sync_info.latest_block_height)
