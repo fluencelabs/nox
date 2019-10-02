@@ -19,21 +19,49 @@ package fluence.worker
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
-sealed abstract class WorkerStage(val hasWorker: Boolean = false)
+/**
+ * Represents [[Worker]]'s lifecycle
+ *
+ * @param running Whether Worker is running or not
+ */
+sealed abstract class WorkerStage(val running: Boolean = false)
 
 object WorkerStage {
 
+  /**
+   * Default stage for a freshly created [[WorkerContext]]
+   */
   case object NotInitialized extends WorkerStage()
 
+  /**
+   * Asynchronous initialization of [[Worker]] has been started
+   */
   case object InitializationStarted extends WorkerStage()
 
+  /**
+   * Worker is ready, all companions launched successfully
+   */
   case object FullyAllocated extends WorkerStage(true)
 
+  /**
+   * [[WorkerContext.stop]] is triggered
+   */
   case object Stopping extends WorkerStage()
 
-  // TODO can restart here
+  /**
+   * Worker is stopped and is unable to handle requests
+   * TODO can restart here
+   */
   case object Stopped extends WorkerStage()
+
+  /**
+   * [[WorkerContext.destroy()]] is triggered: going to [[WorkerResource.destroy()]]
+   */
   case object Destroying extends WorkerStage()
+
+  /**
+   * Worker is destroyed completely, there's no way to reuse it
+   */
   case object Destroyed extends WorkerStage()
 
   implicit val encoder: Encoder[WorkerStage] = deriveEncoder

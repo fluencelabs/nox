@@ -35,8 +35,16 @@ import scala.language.higherKinds
  * @tparam T Resource type. Note: resource should be provided ASAP, with no fiber blocking. If you need, run a concurrent process.
  */
 trait WorkerResource[F[_], T] {
+
+  /**
+   * Launch resource preparation and get its worker-specific instance of T.
+   * Implementation must be idempotent.
+   */
   def prepare()(implicit log: Log[F]): F[T]
 
+  /**
+   * Destroy (clean up, deallocate, release) the resource
+   */
   def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit]
 }
 

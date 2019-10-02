@@ -31,6 +31,21 @@ import shapeless._
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
+/**
+ * Worker is a composition of [[BlockProducer]] and corresponding [[StateMachine]].
+ * Producer represents Command (Write) side, while Machine is a Read Model (Query side).
+ * As for particular block producers and state machines we could have different specific services,
+ * think of blockstore or consensus management, list of Companions is also introduced.
+ * These Companions are built with access to internals of producer and machine, then acting as a facade for a
+ * worker-associated logic and state changes.
+ *
+ * @param appId Application ID
+ * @param companions Worker-specific companion services
+ * @param machine State machine -- read model
+ * @param producer Block producer -- write model
+ * @tparam F Effect
+ * @tparam CS Companions type
+ */
 abstract class Worker[F[_], CS <: HList](
 // TODO why should we need it?
   val appId: Long,
@@ -40,12 +55,30 @@ abstract class Worker[F[_], CS <: HList](
 ) {
   self ⇒
 
+  /**
+   * Pick a companion of this Worker
+   *
+   * @tparam C Companion type
+   */
   def companion[C](implicit c: ops.hlist.Selector[CS, C]): C = c(companions)
 
+  /**
+   * Fetch the status of this Worker as a whole
+   *
+   * @param timeout Status call fails if not collected within this duration
+   * @return [[WorkerStatus]]
+   */
   def status(
     timeout: FiniteDuration
   )(implicit log: Log[F], timer: Timer[F], c: Concurrent[F], p: Parallel[F]): F[WorkerStatus]
 
+  /**
+   * Map upon Worker's companions.
+   * As we have type boundaries, map function is used instead of Functor implementation.
+   *
+   * @param fn Function to call on companions
+   * @tparam CC Result companions type
+   */
   def map[CC <: HList](fn: CS ⇒ CC): Worker[F, CC] = new Worker[F, CC](appId, fn(companions), machine, producer) {
     override def status(
       timeout: FiniteDuration

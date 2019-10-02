@@ -28,6 +28,15 @@ import shapeless._
 
 import scala.language.higherKinds
 
+/**
+ * WorkerPool represents a state of several running [[Worker]]s, each in its own [[WorkerContext]]
+ *
+ * @param workers Workers state
+ * @param appWorker Function to make a new [[WorkerContext]] for the given [[EthApp]]
+ * @tparam F Effect
+ * @tparam R Resources type, see [[WorkerResource]]
+ * @tparam CS Companions type, see [[Worker.companions]]
+ */
 class WorkersPool[F[_]: Monad, R, CS <: HList](
   workers: Ref[F, Map[Long, WorkerContext[F, R, CS]]],
   appWorker: (EthApp, Log[F]) ⇒ F[WorkerContext[F, R, CS]]

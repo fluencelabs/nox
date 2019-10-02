@@ -39,6 +39,12 @@ import scala.language.higherKinds
  * Context ---- Init ----------------------------------------(may be closed)----------------- Not usable anymore --
  * Resources ------ Prepare ---------------------------------(kept in place)-----X-- Destroy ----------------------
  * Worker ------------------- Allocate ----X---- Deallocate -------------------------------------------------------
+ *
+ * @param stage Fast accessor to current WorkerStage
+ * @param stages Stream of WorkerStage changes, can be instantiated several times
+ * @param app EthApp for which this context is built
+ * @param resources Resources
+ * @param worker Either current non-active WorkerStage, or fully initialized Worker
  */
 abstract class WorkerContext[F[_]: Functor, R, CS <: HList](
   val stage: F[WorkerStage],
@@ -48,6 +54,12 @@ abstract class WorkerContext[F[_]: Functor, R, CS <: HList](
   val worker: EitherT[F, WorkerStage, Worker[F, CS]]
 ) {
 
+  /**
+   * Pick a Worker Companion, if Worker is running, or report current non-active WorkerStage
+   *
+   * @tparam C Companion type
+   * @return WorkerStage if worker is not launched, or Companion instance
+   */
   def companion[C](implicit c: ops.hlist.Selector[CS, C]): EitherT[F, WorkerStage, C] =
     worker.map(_.companion[C])
 
@@ -114,13 +126,13 @@ object WorkerContext {
         app,
         res,
         EitherT(stage.flatMap {
-          case s if s.hasWorker ⇒ workerDef.get.map(_.asRight)
+          case s if s.running ⇒ workerDef.get.map(_.asRight)
           case s ⇒ s.asLeft[Worker[F, CS]].pure[F]
         })
       ) {
         override def stop()(implicit log: Log[F]): F[Unit] =
           stage.flatMap {
-            case s if s.hasWorker ⇒
+            case s if s.running ⇒
               setStage(WorkerStage.Stopping) >>
                 stopDef.get.flatten
             case _ ⇒

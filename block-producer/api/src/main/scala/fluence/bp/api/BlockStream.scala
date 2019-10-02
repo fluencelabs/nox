@@ -20,6 +20,12 @@ import fluence.log.Log
 
 import scala.language.higherKinds
 
+/**
+ * Streams blocks produced by [[BlockProducer]]
+ *
+ * @tparam F Effect
+ * @tparam B Block
+ */
 trait BlockStream[F[_], B] {
 
   def freshBlocks(implicit log: Log[F]): fs2.Stream[F, B]

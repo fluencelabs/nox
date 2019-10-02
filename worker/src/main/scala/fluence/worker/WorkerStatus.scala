@@ -21,15 +21,38 @@ import fluence.statemachine.api.data.StateMachineStatus
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 
+/**
+ * Complete status of all Worker's components, namely State Machine and Block Producer
+ *
+ * @param isOperating Whether Worker is operating or not
+ */
 sealed abstract class WorkerStatus(val isOperating: Boolean)
 
+/**
+ * [[Worker]] is not yet allocated, see current [[WorkerStage]]
+ *
+ * @param stage Current stage
+ */
 case class WorkerNotAllocated(stage: WorkerStage) extends WorkerStatus(false)
 
+/**
+ * One of main [[Worker]]'s components does not respond
+ *
+ * @param machine Either error or status
+ * @param producer Either error or status
+ */
 case class WorkerFailing(
   machine: Either[String, StateMachineStatus],
   producer: Either[String, BlockProducerStatus]
 ) extends WorkerStatus(false)
 
+/**
+ * Worker is operating, all components launched
+ * TODO: check statuses to ensure that components are also OK.
+ *
+ * @param machine Machine status
+ * @param producer Producer status
+ */
 case class WorkerOperating(
   machine: StateMachineStatus,
   producer: BlockProducerStatus

@@ -22,6 +22,11 @@ import fluence.log.Log
 
 import scala.language.higherKinds
 
+/**
+ * Commands BlockProducer to dial particular peers, connect to them, and persist their addresses
+ *
+ * @tparam F Effect
+ */
 trait DialPeers[F[_]] {
   def dialPeers(peers: Seq[String])(implicit log: Log[F]): EitherT[F, EffectError, Unit]
 }
