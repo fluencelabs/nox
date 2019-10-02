@@ -104,7 +104,7 @@ object WorkerContext {
           stop ⇒
             // Wrap the whole Worker/Companions lifecycle with stage-reflecting resource
             Resource.make[F, Unit](
-              setStage(WorkerStage.InitializationStarted)
+              setStage(WorkerStage.InitializationStarted) >> stopDef.complete(stop)
             )(_ ⇒ setStage(WorkerStage.Stopped)) >>
               // Worker allocate function may take a lot of time: it waits for Resources, runs Docker, etc.
               worker(res)
