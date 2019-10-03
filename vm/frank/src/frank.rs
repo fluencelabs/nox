@@ -183,14 +183,14 @@ fn logger_log_message(ctx: &mut Ctx, start: i32, size: i32) {
         }
     };
 
-    if end < memory.size().bytes().0 {
-        println! ("Overflow occurred during logging");
+    if end > memory.size().bytes().0 {
+        println! ("The end of logging message is bigger then the memory right limit");
         return
     }
 
     for byte in memory.view::<u8>()[start as usize .. end].iter().map(Cell::get) {
-            print!("{}", byte);
-        }
+        print!("{}", byte);
+    }
 
     println!();
 }
