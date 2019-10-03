@@ -121,11 +121,7 @@ object WorkersHttp {
         machine = worker.machine
         // TODO: querying pool map several times, could be optimized
         responder ← pool.getCompanion[WorkerResponder[F]](appId)
-        p2pPort ← pool
-          .getResources(appId)
-          .map(_.select[WorkersPorts.P2pPort[F]])
-          .toRight[WorkerStage](WorkerStage.NotInitialized) // TODO: How to go from OptionT to EitherT nicer?
-      } yield WorkerApi(producer, responder, machine, p2pPort)
+      } yield WorkerApi(producer, responder, machine)
 
     def wrongStageMsg(appId: Long, stage: WorkerStage) = s"Worker for $appId can't serve RPC: it is in stage $stage"
 
@@ -187,7 +183,14 @@ object WorkersHttp {
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
         LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
           log.trace(s"Worker p2pPort") *>
-            withApi(appId)(_.p2pPort().map(_.toString).flatMap(Ok(_)))
+            pool
+              .getResources(appId)
+              .map(_.select[WorkersPorts.P2pPort[F]])
+              .value
+              .flatMap {
+                case Some(port) ⇒ Ok(port.toString)
+                case None ⇒ NotFound()
+              }
         }
 
       case req @ POST -> Root / LongVar(appId) / "tx" ⇒

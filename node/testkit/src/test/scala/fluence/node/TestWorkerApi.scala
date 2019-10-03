@@ -18,7 +18,6 @@ package fluence.node
 
 import cats.effect.Concurrent
 import fluence.bp.tx.{Tx, TxResponse}
-import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.api.WorkerApi
@@ -34,9 +33,6 @@ class TestWorkerApi[F[_]: Concurrent]() extends WorkerApi[F] {
     implicit log: Log[F]
   ): F[Either[RpcError, String]] =
     throw new NotImplementedError("TestWorkerApi, method query")
-
-  override def p2pPort()(implicit log: Log[F]): F[Short] =
-    throw new NotImplementedError("TestWorkerApi, method p2pPort")
 
   override def sendTx(tx: Array[Byte])(implicit log: Log[F]): F[Either[RpcError, TxResponse]] =
     throw new NotImplementedError("TestWorkerApi, method sendTx")

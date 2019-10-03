@@ -104,17 +104,18 @@ class WorkerWebsocket[F[_]: Concurrent](
           case Right(txResponse) => TxResponse(requestId, txResponse.asJson.spaces2)
           case Left(error)       => ErrorResponse(requestId, error.getMessage)
         }
+
       case QueryRequest(path, data, id, requestId) =>
         workerApi.query(data, path, id).map {
           case Right(data) => QueryResponse(requestId, data)
           case Left(error) => ErrorResponse(requestId, error.getMessage)
         }
+
       case TxWaitRequest(tx, requestId) =>
         workerApi
           .sendTxAwaitResponse(tx)
           .map(toWebsocketResponse(requestId, _))
 
-      case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
       case SubscribeRequest(requestId, subscriptionId, tx) =>
         val txData = Tx.Data(tx.getBytes())
         val key = SubscriptionKey.generate(subscriptionId, txData)
@@ -134,6 +135,7 @@ class WorkerWebsocket[F[_]: Concurrent](
           case false =>
             (ErrorResponse(requestId, s"Subscription $subscriptionId already exists"): WebsocketResponse).pure[F]
         }
+
       case UnsubscribeRequest(requestId, subscriptionId, tx) =>
         val txData = Tx.Data(tx.getBytes())
         val key = SubscriptionKey.generate(subscriptionId, txData)

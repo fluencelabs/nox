@@ -18,12 +18,10 @@ package fluence.node.workers.api
 
 import cats.effect.Concurrent
 import cats.syntax.apply._
-import cats.syntax.functor._
 import fluence.bp.api.BlockProducer
 import fluence.bp.tx.{Tx, TxResponse}
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
 import fluence.log.Log
-import fluence.node.workers.WorkersPorts
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.statemachine.api.StateMachine
 import fluence.worker.responder.WorkerResponder
@@ -46,12 +44,6 @@ trait WorkerApi[F[_]] {
     path: String,
     id: Option[String]
   )(implicit log: Log[F]): F[Either[RpcError, String]]
-
-  /**
-   * Gets a p2p port of tendermint node.
-   *
-   */
-  def p2pPort()(implicit log: Log[F]): F[Short]
 
   /**
    * Sends transaction to tendermint broadcastTxSync.
@@ -100,8 +92,7 @@ object WorkerApi {
   class Impl[F[_]: Concurrent](
     producer: BlockProducer[F],
     responder: WorkerResponder[F],
-    machine: StateMachine[F],
-    p2pPort: WorkersPorts.P2pPort[F]
+    machine: StateMachine[F]
   ) extends WorkerApi[F] {
 
     override def query(
@@ -115,9 +106,6 @@ object WorkerApi {
           .leftMap(e ⇒ RpcRequestFailed(e): RpcError)
           .map(_.toResponseString(id.getOrElse("dontcare")))
           .value
-
-    override def p2pPort()(implicit log: Log[F]): F[Short] =
-      log.trace(s"Worker p2pPort") *> p2pPort.port
 
     override def sendTx(tx: Array[Byte])(
       implicit log: Log[F]
@@ -153,8 +141,7 @@ object WorkerApi {
   def apply[F[_]: Concurrent](
     producer: BlockProducer[F],
     responder: WorkerResponder[F],
-    machine: StateMachine[F],
-    p2pPort: WorkersPorts.P2pPort[F]
+    machine: StateMachine[F]
   ): WorkerApi[F] =
-    new Impl[F](producer, responder, machine, p2pPort)
+    new Impl[F](producer, responder, machine)
 }
