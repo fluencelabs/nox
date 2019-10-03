@@ -176,7 +176,7 @@ fn logger_log_utf8_string(ctx: &mut Ctx, offset: i32, size: i32) {
     let wasm_ptr = WasmPtr::<u8, Array>::new(offset as _);
     match wasm_ptr.get_utf8_string(ctx.memory(0), size as _) {
         Some(msg) => print!("{}", msg),
-        None => print!("frank logger: overflow occurred during logging"),
+        None => print!("frank logger: incorrect UTF8 string's been supplied to logger"),
     }
 }
 
