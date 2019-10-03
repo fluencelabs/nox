@@ -12,6 +12,7 @@ dependencies = [
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime 0.7.0 (git+http://github.com/fluencelabs/wasmer?branch=clif_jni_hardering)",
+ "wasmer-runtime-core 0.7.0 (git+http://github.com/fluencelabs/wasmer?branch=clif_jni_hardering)",
 ]
 
 [[package]]
