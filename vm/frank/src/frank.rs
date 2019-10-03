@@ -156,7 +156,7 @@ impl Frank {
             // this will enforce Wasmer to register EnvModule in the ctx.data field
             env_state,
             "logger" => {
-                "log_message" => func!(logger_log_message),
+                "log_message" => func!(logger_log_string),
             },
             "env" => {
                 "gas" => func!(update_gas_counter),
@@ -171,8 +171,8 @@ impl Frank {
     }
 }
 
-// prints message of the given size from the given address
-fn logger_log_message(ctx: &mut Ctx, start: i32, size: i32) {
+// Prints utf8 string of the given size from the given address.
+fn logger_log_string(ctx: &mut Ctx, start: i32, size: i32) {
     let memory = ctx.memory(0);
 
     let end: usize = match start.checked_add(size) {
@@ -188,11 +188,13 @@ fn logger_log_message(ctx: &mut Ctx, start: i32, size: i32) {
         return
     }
 
+    let mut raw_msg = Vec::with_capacity(size as usize);
     for byte in memory.view::<u8>()[start as usize .. end].iter().map(Cell::get) {
-        print!("{}", byte);
+        raw_msg.push(byte);
     }
 
-    println!();
+    let msg = String::from_utf8_lossy(&raw_msg);
+    print!("{}", msg);
 }
 
 fn update_gas_counter(ctx: &mut Ctx, spent_gas: i32) {
