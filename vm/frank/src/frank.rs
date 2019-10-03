@@ -21,6 +21,7 @@ use crate::modules::env_module::EnvModule;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
 use std::{ffi::c_void, fs};
 use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
+use std::cell::Cell;
 
 pub struct Frank {
     instance: Box<Instance>,
@@ -155,8 +156,7 @@ impl Frank {
             // this will enforce Wasmer to register EnvModule in the ctx.data field
             env_state,
             "logger" => {
-                "write" => func!(logger_write),
-                "flush" => func!(logger_flush),
+                "print" => func!(logger_log),
             },
             "env" => {
                 "gas" => func!(update_gas_counter),
@@ -171,15 +171,27 @@ impl Frank {
     }
 }
 
-fn logger_write(_ctx: &mut Ctx, byte: i32) {
-    // TODO: since Wasmer has been landed, it is possible to optimize logging
-    // in the Rust backend SDK and here
-    print!("{}", byte);
-}
+// prints message of the given size from the given address
+fn logger_log(ctx: &mut Ctx, start: i32, size: i32) {
+    let memory = ctx.memory(0);
 
-fn logger_flush(_ctx: &mut Ctx) {
-    // TODO: since Wasmer has been landed, it is possible to optimize logging
-    // in the Rust backend SDK and here
+    let end: usize = match start.checked_add(size) {
+        Some(value) => value as usize,
+        None => {
+            println! ("Overflow occurred during logging");
+            return
+        }
+    };
+
+    if end < memory.size().bytes().0 {
+        println! ("Overflow occurred during logging");
+        return
+    }
+
+    for byte in memory.view::<u8>()[start as usize .. end].iter().map(Cell::get) {
+            print!("{}", byte);
+        }
+
     println!();
 }
 

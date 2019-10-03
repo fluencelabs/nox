@@ -154,13 +154,7 @@ impl log::Log for WasmLogger {
             record.args()
         );
 
-        unsafe {
-            for byte in log_msg.as_bytes() {
-                write(i32::from(*byte))
-            }
-        }
-
-        self.flush()
+        log(log_msg.as_ptr() as i32, log_msg.len() as i32);
     }
 
     #[inline]
@@ -169,13 +163,9 @@ impl log::Log for WasmLogger {
     }
 }
 
-/// logger is a module provided by Asmble that can process log messages.
+/// logger is a module provided by a VM that can process log messages.
 #[link(wasm_import_module = "logger")]
 extern "C" {
-
-    /// Writes one byte to the logger inner state.
-    fn write(byte: i32);
-
-    /// Flush logger inner state to a log.
-    fn flush();
+    // Writes a byte string of size bytes that starts from ptr to a logger
+    fn log(ptr: i32, size: i32);
 }
