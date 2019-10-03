@@ -266,7 +266,7 @@ class MasterNodeIntegrationSpec
       }.unsafeRunSync()
     }
 
-    "stop workers on AppDelete event" ignore {
+    "stop workers on AppDelete event" in {
       deleteApp(21000, 21001).unsafeRunSync()
     }
   }
