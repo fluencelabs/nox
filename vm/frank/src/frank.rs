@@ -156,7 +156,7 @@ impl Frank {
             // this will enforce Wasmer to register EnvModule in the ctx.data field
             env_state,
             "logger" => {
-                "print" => func!(logger_log),
+                "log_message" => func!(logger_log_message),
             },
             "env" => {
                 "gas" => func!(update_gas_counter),
@@ -172,7 +172,7 @@ impl Frank {
 }
 
 // prints message of the given size from the given address
-fn logger_log(ctx: &mut Ctx, start: i32, size: i32) {
+fn logger_log_message(ctx: &mut Ctx, start: i32, size: i32) {
     let memory = ctx.memory(0);
 
     let end: usize = match start.checked_add(size) {

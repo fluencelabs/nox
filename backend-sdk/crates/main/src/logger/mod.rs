@@ -154,7 +154,7 @@ impl log::Log for WasmLogger {
             record.args()
         );
 
-        unsafe { log(log_msg.as_ptr() as i32, log_msg.len() as i32) };
+        unsafe { log_message(log_msg.as_ptr() as i32, log_msg.len() as i32) };
     }
 
     // in our case flushing is performed by the VM itself
@@ -166,5 +166,5 @@ impl log::Log for WasmLogger {
 #[link(wasm_import_module = "logger")]
 extern "C" {
     // Writes a byte string of size bytes that starts from ptr to a logger
-    fn log(ptr: i32, size: i32);
+    fn log_message(ptr: i32, size: i32);
 }
