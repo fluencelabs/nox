@@ -106,8 +106,8 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
     "return a correct error on transaction" in {
       val id = "some-id"
-      val error = RpcBodyMalformed(new RuntimeException("some error"))
       val txRequest = "tx-request"
+      val error = RpcBodyMalformed(txRequest, new RuntimeException("some error"))
 
       val request: WebsocketRequest = TxRequest(txRequest.getBytes, id)
       val response = websocketApi(new TestWorkerApi[IO] {
@@ -145,14 +145,14 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       response1.requestId shouldBe id
       response1.data shouldBe txResponse
 
-      val error2 = RpcBodyMalformed(new RuntimeException("some error"))
+      val error2 = RpcBodyMalformed(txRequest, new RuntimeException("some error"))
       val responseApi2 = Right(RpcErrorResponse(Tx.Head("session", 2L), error2))
       val response2 = call(request, responseApi2).asInstanceOf[ErrorResponse]
 
       response2.requestId shouldBe id
       response2.error shouldBe error2.getMessage
 
-      val error3 = RpcBodyMalformed(new RuntimeException("some error"))
+      val error3 = RpcBodyMalformed(txRequest, new RuntimeException("some error"))
       val responseApi3 = Left(RpcTxAwaitError(error3))
       val response3 = call(request, responseApi3).asInstanceOf[ErrorResponse]
 
