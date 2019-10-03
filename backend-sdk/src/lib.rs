@@ -24,7 +24,6 @@
 //!
 #![doc(html_root_url = "https://docs.rs/fluence/0.1.9")]
 #![feature(allocator_api)]
-
 #![deny(
     dead_code,
     nonstandard_style,
