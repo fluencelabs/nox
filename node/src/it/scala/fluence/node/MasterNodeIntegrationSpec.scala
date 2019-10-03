@@ -236,7 +236,10 @@ class MasterNodeIntegrationSpec
               } yield {
                 // Check that workers run no more
                 s1.foreach(println)
+                println("\n\n\n====== MASTER1 =====\n\n\n")
                 println(Console.CYAN + s"docker logs --tail 100 $master1ContainerId".!! + Console.RESET)
+                println("\n\n\n====== MASTER2 =====\n\n\n")
+                println(Console.CYAN + s"docker logs --tail 100 $master2ContainerId".!! + Console.RESET)
                 s1 should not be defined
                 s2 should not be defined
               },
@@ -263,7 +266,7 @@ class MasterNodeIntegrationSpec
     }
 
     "stop workers on AppDelete event" in {
-      deleteApp(31000, 31001).unsafeRunSync()
+      deleteApp(11000, 11001).unsafeRunSync()
     }
   }
 }
