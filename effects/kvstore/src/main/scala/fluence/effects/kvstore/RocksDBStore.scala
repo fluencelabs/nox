@@ -23,6 +23,7 @@ import cats.data.EitherT
 import cats.effect.{ContextShift, IO, LiftIO, Resource}
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
+import cats.instances.either._
 import cats.syntax.functor._
 import cats.{~>, Applicative, Defer, Monad}
 import fluence.codec.PureCodec

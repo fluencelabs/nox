@@ -18,10 +18,11 @@ package fluence.effects.tendermint.block.history.db
 
 import java.nio.file.{Files, Path}
 
-import cats.data.EitherT
+import cats.data.{EitherT, Nested}
 import cats.effect.{ContextShift, LiftIO, Resource, Sync, Timer}
 import cats.instances.either._
 import cats.syntax.applicativeError._
+import cats.syntax.applicative._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -65,7 +66,7 @@ object Blockstore {
    */
   private def createSymlinks[F[_]: Log](
     levelDbDir: Path
-  )(implicit F: Sync[F]) = {
+  )(implicit F: Sync[F]): Resource[F, Either[BlockstoreError, Path]] = {
     import Files.{createSymbolicLink => createSymlink}
 
     def ldbToSst(file: Path) = file.getFileName.toString.replaceFirst(".ldb$", ".sst")
@@ -87,10 +88,22 @@ object Blockstore {
     )(p => F.delay(p.foreach(rmDir)).attempt.void)
   }
 
-  private def rocksDbStore[F[_]: Log: Monad: LiftIO: ContextShift: Defer](p: Path): Resource[F, Blockstore[F]] =
-    RocksDBStore
-      .makeRaw[F](p.toString, createIfMissing = false, readOnly = true)
-      .map(kv => new BlockstoreImpl(kv))
+  // TODO: looks awful, rewrite
+  private def rocksDbStore[F[_]: Sync: Log: Monad: LiftIO: ContextShift: Defer](
+    p: Path
+  ): Resource[F, Either[BlockstoreError, Blockstore[F]]] =
+    Resource
+      .liftF(
+        RocksDBStore
+          .makeRaw[F](p.toString, createIfMissing = false, readOnly = true)
+          .allocated
+          .attempt
+      )
+      .flatMap {
+        case Left(e) ⇒ Resource.pure(OpenDbError(e).asLeft[BlockstoreImpl[F]])
+        case Right((kv, release)) ⇒
+          Resource.make((new BlockstoreImpl(kv): Blockstore[F]).asRight[BlockstoreError].pure[F])(_ ⇒ release)
+      }
 
   // TODO: using MonadError here because caller (DockerWorkerServices) uses it, avoid doing that
   private def raiseLeft[F[_]: Log: Sync, T, E <: Throwable](
@@ -110,11 +123,10 @@ object Blockstore {
     log.scope("blockstore") { implicit log: Log[F] =>
       raiseLeft(
         Monad[Resource[F, *]].tailRecM(tendermintPath.resolve("data").resolve("blockstore.db")) { path =>
-          val storeOrError = for {
-            dbPath <- createSymlinks[F](path)
-            _ <- Log.resource[F].debug(s"Opening DB at $dbPath")
-            store <- Traverse[Either[BlockstoreError, *]].sequence(dbPath.map(rocksDbStore[F]))
-          } yield store
+          val storeOrError = (for {
+            dbPath ← EitherT(createSymlinks(tendermintPath).evalTap(p ⇒ Log[F].debug(s"Opening DB at $p")))
+            store ← EitherT(rocksDbStore[F](dbPath))
+          } yield store).value
 
           storeOrError.evalMap {
             case Left(e: RocksDBException) if Option(e.getStatus).exists(_.getCode == Status.Code.NotFound) =>
@@ -129,7 +141,7 @@ object Blockstore {
                   path.asLeft[Either[Throwable, Blockstore[F]]]
                 )
 
-            case Left(e @ SymlinkCreationError(_: java.nio.file.NoSuchFileException, _)) =>
+            case Left(e @ (SymlinkCreationError(_: java.nio.file.NoSuchFileException, _) | OpenDbError(_))) =>
               Log[F]
                 .warn("Tendermint isn't initialized yet – sleeping 5 sec & trying again", e) >>
                 Timer[F]
