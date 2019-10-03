@@ -134,6 +134,8 @@ object MasterNode {
       _ ← Log.resource[F].debug("-> going to create nodeEth")
 
       nodeEth ← NodeEth[F](validatorKey.toByteVector, ethClient, masterConfig.contract)
+
+      _ ← Log.resource[F].debug("-> nodeEth is created")
     } yield new MasterNode[F, CS](nodeEth, workersPool)
 
 }

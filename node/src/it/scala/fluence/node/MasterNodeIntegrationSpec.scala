@@ -86,10 +86,14 @@ class MasterNodeIntegrationSpec
 
   def getEthState(statusPort: Short)(implicit sttpBackend: Sttp): IO[NodeEthState] = {
     import NodeEthState._
+    println(s"get state from $statusPort")
     for {
-      resp <- sttp.response(asJson[NodeEthState]).get(uri"http://127.0.0.1:$statusPort/status/eth").send()
+      resp <- sttp.response(asJson[NodeEthState]).get(uri"http://127.0.0.1:$statusPort/status/eth").send().attempt
     } yield {
-      resp.unsafeBody.right.get
+      println(Console.RED + resp + Console.RESET)
+      val r = resp.right.get.unsafeBody.right.get
+      println(Console.MAGENTA + r + Console.RESET)
+      r
     }
   }
 
@@ -262,7 +266,7 @@ class MasterNodeIntegrationSpec
       }.unsafeRunSync()
     }
 
-    "stop workers on AppDelete event" in {
+    "stop workers on AppDelete event" ignore {
       deleteApp(21000, 21001).unsafeRunSync()
     }
   }

@@ -16,12 +16,13 @@
 
 package fluence.worker
 
-import cats.Monad
+import cats.{Monad, Parallel}
 import cats.data.{EitherT, OptionT}
-import cats.effect.Sync
+import cats.effect.{Resource, Sync}
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.effect.concurrent.Ref
+import cats.instances.list._
 import fluence.log.Log
 import fluence.worker.eth.EthApp
 import shapeless._
@@ -92,17 +93,25 @@ class WorkersPool[F[_]: Monad, R, CS <: HList](
   def listAll(): F[List[WorkerContext[F, R, CS]]] =
     workers.get.map(_.values.toList)
 
+  /**
+   * Send stop signal to all workers
+   */
+  def stopAll()(implicit log: Log[F], P: Parallel[F]): F[Unit] =
+    listAll().flatMap(Parallel.parTraverse(_)(_.stop).void)
+
 }
 
 object WorkersPool {
 
-  def apply[F[_]: Sync, R, CS <: HList](
+  def make[F[_]: Sync: Parallel: Log, R, CS <: HList](
     appWorkerCtx: (EthApp, Log[F]) ⇒ F[WorkerContext[F, R, CS]]
-  ): F[WorkersPool[F, R, CS]] =
-    Ref
-      .of[F, Map[Long, WorkerContext[F, R, CS]]](Map.empty)
-      .map(
-        new WorkersPool[F, R, CS](_, appWorkerCtx)
-      )
+  ): Resource[F, WorkersPool[F, R, CS]] =
+    Resource.make(
+      Ref
+        .of[F, Map[Long, WorkerContext[F, R, CS]]](Map.empty)
+        .map(
+          new WorkersPool[F, R, CS](_, appWorkerCtx)
+        )
+    )(_.stopAll())
 
 }

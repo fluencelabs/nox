@@ -16,11 +16,9 @@
 
 package fluence.kad.http.dht
 
-import cats.data.EitherT
 import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.kernel.Semigroup
 import cats.syntax.profunctor._
-import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
 import fluence.crypto.Crypto
 import fluence.crypto.hash.CryptoHashers

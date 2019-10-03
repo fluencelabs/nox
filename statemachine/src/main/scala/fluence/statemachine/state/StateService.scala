@@ -41,7 +41,7 @@ import scala.language.higherKinds
 
 /**
  * Wraps all the state and logic required to perform ABCI logic.
- *
+ * TODO there should be the sole implementation, make it class again, never mock
  */
 trait StateService[F[_]] {
 

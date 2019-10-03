@@ -30,10 +30,15 @@ import fluence.crypto.{CryptoError, KeyPair}
 import fluence.crypto.eddsa.Ed25519
 import fluence.crypto.hash.CryptoHashers
 import fluence.effects.docker.DockerIO
+import fluence.effects.kvstore.RocksDBStore
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
+import fluence.effects.tendermint.block.history.Receipt
 import fluence.effects.{Backoff, EffectError}
+import fluence.kad.Kademlia
 import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.UriContact
+import fluence.kad.http.dht.{DhtHttp, DhtHttpNode}
 import fluence.kad.http.{KademliaHttp, KademliaHttpNode}
 import fluence.kad.protocol.Key
 import fluence.log.{Log, LogFactory}
@@ -72,18 +77,21 @@ object MasterNodeApp extends IOApp {
 
               conf ← Resource.liftF(Configuration.init[IO](masterConf))
               kad ← kademlia(conf.rootPath, masterConf.kademlia)
+              rDht ← receiptsDht(conf.rootPath, kad.kademlia)
 
-              pool ← MasterPool.docker[IO](masterConf, conf.rootPath)
+              pool ← MasterPool.docker[IO](
+                masterConf,
+                // TODO ReceiptStorage.dht(_, rDht.dht),
+                ReceiptStorage.local[IO](_, conf.rootPath),
+                conf.rootPath
+              )
 
               node ← MasterNode.make(masterConf, conf.validatorPublicKey, pool)
-            } yield (kad.http, pool, node)).use {
-              case (kadHttp, pool, node) ⇒
-                (for {
-                  _ ← Log.resource[IO].debug(s"Eth contract config: ${masterConf.contract}")
-                  server ← masterHttp(masterConf, pool, node.nodeEth, kadHttp)
-                } yield server).use { server =>
-                  log.info("Http api server has started on: " + server.address) *> node.run
-                }
+
+              server ← masterHttp(masterConf, pool, node.nodeEth, kad.http, rDht.http)
+            } yield (server, node)).use {
+              case (server, node) ⇒
+                log.info("Http api server has started on: " + server.address) *> node.run
             }.guaranteeCase {
               case Canceled =>
                 log.error("MasterNodeApp was canceled")
@@ -124,23 +132,37 @@ object MasterNodeApp extends IOApp {
           )
       )
 
+  private def receiptsDht(
+    rootPath: Path,
+    kad: Kademlia[IO, UriContact]
+  )(implicit sttp: SttpStreamEffect[IO], log: Log[IO]): Resource[IO, DhtHttpNode[IO, Receipt]] =
+    DhtHttpNode.make[IO, Receipt](
+      "dht-receipts",
+      RocksDBStore
+        .makeRaw[IO](rootPath.resolve("dht-receipt-data").toAbsolutePath.toString),
+      RocksDBStore.makeRaw[IO](rootPath.resolve("dht-receipt-meta").toAbsolutePath.toString),
+      kad
+    )
+
   private def masterHttp(
     masterConf: MasterConfig,
     pool: MasterPool.Type[IO],
     nodeEth: NodeEth[IO],
-    kademliaHttp: KademliaHttp[IO, UriContact]
+    kademliaHttp: KademliaHttp[IO, UriContact],
+    receiptDhtHttp: DhtHttp[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]) =
     StatusAggregator
       .make(masterConf, pool, nodeEth)
       .flatMap(
         statusAggregator =>
-          MasterHttp.make(
-            "0.0.0.0",
-            masterConf.httpApi.port.toShort,
-            statusAggregator,
-            pool,
-            kademliaHttp,
-            Nil
-          )
+          Log.resource[IO].info("Going to make MasterHttp") >>
+            MasterHttp.make(
+              "0.0.0.0",
+              masterConf.httpApi.port.toShort,
+              statusAggregator,
+              pool,
+              kademliaHttp,
+              receiptDhtHttp :: Nil
+            )
       )
 }

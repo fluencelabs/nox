@@ -131,8 +131,7 @@ class MasterNodeSpec
 
       publicKey = ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5)))
 
-      // TODO: make embedded pool that fits into MasterNode instead
-      pool ← Resource.liftF(EmbeddedWorkerPool.embedded[IO](ports))
+      pool ← EmbeddedWorkerPool.embedded[IO](ports)
 
       node ← MasterNode.make(masterConf, publicKey, pool)
 

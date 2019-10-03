@@ -67,6 +67,7 @@ object MasterPool {
 
   def docker[F[_]: ConcurrentEffect: Parallel: ContextShift: Timer: Log: DockerIO: SttpStreamEffect](
     conf: MasterConfig,
+    appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
     rootPath: Path
   )(implicit backoff: Backoff[EffectError]): Resource[F, Type[F]] = {
     // TODO: hide codecs somewhere, incapsulate
@@ -83,6 +84,7 @@ object MasterPool {
     for {
       portsStore ← RocksDBStore.make[F, Long, Short](rootPath.resolve("p2p-ports-db").toString)
       ports ← WorkersPorts.make[F](conf.ports.minPort, conf.ports.maxPort, portsStore)
+
       workerDocker = (app: EthApp) ⇒
         WorkerDocker[F](
           s"app_${app.id}_${app.cluster.currentWorker.index}",
@@ -94,9 +96,12 @@ object MasterPool {
           conf.dockerStopTimeout,
           conf.logLevel
         )
+
       codeCarrier ← Resource.pure(CodeCarrier[F](conf.remoteStorage))
       workerFiles = WorkerFiles(rootPath, codeCarrier)
-      receiptStorage = (app: EthApp) ⇒ ReceiptStorage.local(app.id, rootPath)
+
+      // TODO local storage
+      receiptStorage = (app: EthApp) ⇒ appReceiptStorage(app.id)
       blockUploading ← BlockUploading[F](
         conf.blockUploadingEnabled,
         IpfsUploader[F](
@@ -107,13 +112,20 @@ object MasterPool {
       )
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, conf.tendermintConfig))
 
-      pool <- Resource.liftF(
-        applyDocker(ports, workerDocker, workerFiles, receiptStorage, blockUploading, conf.websocket, configTemplate)
+      pool <- makeDocker(
+        ports,
+        workerDocker,
+        workerFiles,
+        receiptStorage,
+        blockUploading,
+        conf.websocket,
+        configTemplate
       )
+
     } yield pool
   }
 
-  private def applyDocker[F[_]: Parallel: Timer: ConcurrentEffect: DockerIO: LiftIO: ContextShift](
+  private def makeDocker[F[_]: Parallel: Timer: ConcurrentEffect: DockerIO: LiftIO: ContextShift](
     ports: WorkersPorts[F],
     workerDocker: EthApp ⇒ Resource[F, WorkerDocker],
     files: WorkerFiles[F],
@@ -122,7 +134,7 @@ object MasterPool {
     blockUploading: BlockUploading[F],
     websocketConfig: WebsocketConfig,
     configTemplate: ConfigTemplate
-  )(implicit backoff: Backoff[EffectError], sttp: SttpEffect[F]): F[Type[F]] = {
+  )(implicit backoff: Backoff[EffectError], sttp: SttpEffect[F], log: Log[F]): Resource[F, Type[F]] = {
 
     type W0 = Worker[F, Companions[F]]
 
@@ -175,7 +187,7 @@ object MasterPool {
           machine.command[PeersControl[F]] :: responder :: HNil
         )
 
-    WorkersPool[F, Resources[F], Companions[F]] { (app, l) ⇒
+    WorkersPool.make[F, Resources[F], Companions[F]] { (app, l) ⇒
       implicit val log: Log[F] = l
       WorkerContext(
         app,

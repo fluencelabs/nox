@@ -1,6 +1,6 @@
 package fluence.node
 
-import cats.data.NonEmptyList
+import cats.Parallel
 import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -19,10 +19,10 @@ import fluence.statemachine.state.StateService
 import fluence.worker.eth.EthApp
 import fluence.worker.{Worker, WorkerContext, WorkersPool}
 import shapeless.{::, HNil}
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import scala.language.higherKinds
 
+// TODO use default StateService with embedded VM, never mock it
 class TestStateService[F[_]] extends StateService[F] {
   override def stateHash: F[StateHash] = throw new NotImplementedError("def stateHash")
   override def commit(implicit log: Log[F]): F[StateHash] = throw new NotImplementedError("def commit")
@@ -38,10 +38,10 @@ object EmbeddedWorkerPool {
   type Resources[F[_]] = WorkersPorts.P2pPort[F] :: HNil
   type Companions[F[_]] = PeersControl[F] :: HNil
 
-  def embedded[F[_]: ConcurrentEffect: Timer](ports: WorkersPorts[F])(
+  def embedded[F[_]: ConcurrentEffect: Timer: Parallel](ports: WorkersPorts[F])(
     implicit backoff: Backoff[EffectError],
     log: Log[F]
-  ): F[WorkersPool[F, Resources[F], Companions[F]]] = {
+  ): Resource[F,WorkersPool[F, Resources[F], Companions[F]]] = {
 
     def embeddedWorker(app: EthApp): Resources[F] ⇒ Resource[F, Worker[F, Companions[F]]] = { res ⇒
       Resource.liftF(
@@ -62,7 +62,7 @@ object EmbeddedWorkerPool {
       )
     }
 
-    WorkersPool[F, Resources[F], Companions[F]] { (app, l) ⇒
+    WorkersPool.make[F, Resources[F], Companions[F]] { (app, l) ⇒
       implicit val log: Log[F] = l
       WorkerContext(
         app,
