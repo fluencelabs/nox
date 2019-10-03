@@ -31,6 +31,7 @@ import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.MasterStatus
 import org.scalatest.{Timer ⇒ _, _}
 import eth.FluenceContractTestOps._
+import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.helpers.Web3jConverters
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
@@ -240,6 +241,7 @@ class MasterNodeIntegrationSpec
               } yield {
                 // Check that workers run no more
                 s1.foreach(println)
+                println(Console.CYAN + s"docker logs --tail 10 $master1ContainerId".!! + Console.RESET)
                 s1 should not be defined
                 s2 should not be defined
               },
