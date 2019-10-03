@@ -23,7 +23,6 @@ import cats.{Apply, Traverse}
 import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
-import cats.syntax.traverse._
 import cats.instances.list._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
@@ -48,10 +47,11 @@ import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.WorkersPorts
 import fluence.node.workers.tendermint.ValidatorPublicKey
-import fluence.worker.WorkerStage.{Destroyed, FullyAllocated}
+import fluence.worker.WorkerStage.Destroyed
 import fluence.worker.WorkersPool
-import org.scalatest.{Timer => _, _}
+import org.scalatest.{Timer ⇒ _, _}
 import scodec.bits.ByteVector
+import shapeless.HList
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -154,32 +154,26 @@ class MasterNodeSpec
       case res @ (_, n, _, _) ⇒ fiberResource(n.run).as(res)
     }
 
-  private def checkDestroyed[A, B <: shapeless.HList](pool: WorkersPool[IO, A, B], appId: Long): IO[Unit] = {
+  private def checkDestroyed(pool: WorkersPool[IO, _, _ <: HList], appId: Long): IO[Unit] = {
     pool
       .get(appId)
       .value
       .flatMap {
         case Some(w) =>
-          w.stage.map {
-            case Destroyed => true
-            case _         => false
-          }
+          w.stage.map(_ == Destroyed)
         case None => IO(false)
       }
       .map(_ shouldBe true)
   }
 
-  private def checkAlive[A, B <: shapeless.HList](pool: WorkersPool[IO, A, B], number: Int): IO[Unit] = {
+  private def checkAlive(pool: WorkersPool[IO, _, _ <: HList], number: Int): IO[Unit] = {
     pool
       .listAll()
-      .map(l => l.map(_.stage))
+      .map(_.map(_.stage))
       .flatMap(l => Traverse[List].traverse(l)(identity))
-      .map {
-        _.filter {
-          case FullyAllocated => true
-          case _              => false
-        }
-      }
+      .map (
+        _.filter(_.running)
+      )
       .map(_.size shouldBe number)
   }
 

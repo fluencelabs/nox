@@ -86,14 +86,10 @@ class MasterNodeIntegrationSpec
 
   def getEthState(statusPort: Short)(implicit sttpBackend: Sttp): IO[NodeEthState] = {
     import NodeEthState._
-    println(s"get state from $statusPort")
     for {
       resp <- sttp.response(asJson[NodeEthState]).get(uri"http://127.0.0.1:$statusPort/status/eth").send().attempt
     } yield {
-      println(Console.RED + resp + Console.RESET)
-      val r = resp.right.get.unsafeBody.right.get
-      println(Console.MAGENTA + r + Console.RESET)
-      r
+      resp.right.get.unsafeBody.right.get
     }
   }
 
@@ -239,9 +235,11 @@ class MasterNodeIntegrationSpec
             _ <- eventually[IO](
               for {
                 s1 <- getStatus1
+                _ ← log.info(s"worker1 status: $s1")
                 s2 <- getStatus2
               } yield {
                 // Check that workers run no more
+                s1.foreach(println)
                 s1 should not be defined
                 s2 should not be defined
               },

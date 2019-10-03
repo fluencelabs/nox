@@ -16,7 +16,7 @@ object SbtCommons {
 
   val kindProjector = Seq(
     resolvers += Resolver.sonatypeRepo("releases"),
-    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
+    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
   )
 
   val commons = Seq(
@@ -176,7 +176,7 @@ object SbtCommons {
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.9"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.11.3"
 
-  val web3jVersion = "4.5.0"
+  val web3jVersion = "4.5.5"
   val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
   val web3jCore = "org.web3j"   % "core"   % web3jVersion
 

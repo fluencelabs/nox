@@ -92,7 +92,10 @@ object WorkerContext {
         stageQueue ← fs2.concurrent.Topic[F, WorkerStage](WorkerStage.NotInitialized)
 
         // Push stage updates to both queue and ref
-        setStage = (s: WorkerStage) ⇒ stageQueue.publish1(s) *> stageRef.set(s)
+        setStage = (s: WorkerStage) ⇒
+          stageQueue.publish1(s) *>
+            stageRef.set(s) *>
+            log.info(s"Worker ${app.id} stage changed to $s")
 
         // We will get Worker, Companions and Stop callback later
         // TODO: if we want context to be restartable, these needs to be Queues?
@@ -133,14 +136,17 @@ object WorkerContext {
         override def stop()(implicit log: Log[F]): F[Unit] =
           stage.flatMap {
             case s if s.running ⇒
-              setStage(WorkerStage.Stopping) >>
+              log.info(s"Stopping worker ${app.id}") >>
+                setStage(WorkerStage.Stopping) >>
                 stopDef.get.flatten
             case _ ⇒
-              ().pure[F]
+              log.debug(s"Worker ${app.id} is already stopped")
           }
 
+        // TODO: if it's already destroyed, we can't return a Fiber
         override def destroy()(implicit log: Log[F]): F[Fiber[F, Unit]] =
-          stop() >>
+          log.info(s"Going to destroy worker ${app.id}") >>
+            stop() >>
             Concurrent[F].start(
               setStage(WorkerStage.Destroying) >>
                 workerResource.destroy().value.void >>
