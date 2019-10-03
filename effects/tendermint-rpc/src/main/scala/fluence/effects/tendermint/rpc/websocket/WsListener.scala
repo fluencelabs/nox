@@ -84,7 +84,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer](
   }.toIO.unsafeRunSync()
 
   private def close(websocket: WebSocket, code: Option[Int], reason: String) = {
-    log.warn(s"Tendermint WRPC: $wsUrl closed ${code.getOrElse(" ")} $reason") >>
+    log.warn(s"Tendermint WRPC: $wsUrl closed ${code.getOrElse("(no code)")} $reason") >>
       disconnected.complete(Disconnected(code, reason)).attempt.void
   }
 

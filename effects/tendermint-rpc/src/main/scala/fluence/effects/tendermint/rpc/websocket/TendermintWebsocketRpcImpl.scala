@@ -207,20 +207,20 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer](
   private def getLastHeight(implicit log: Log[F], backoff: Backoff[EffectError]): F[Long] =
     backoff.retry(
       EitherT.liftF(traceBU("getLastHeight")).leftMap(identity[EffectError]) *>
-        blockstore.getStorageHeight.leftMap(identity[EffectError]).recoverWith {
+        httpRpc.consensusHeight().leftMap(identity[EffectError]).recoverWith {
           case e =>
-            Log.eitherT[F, EffectError].warn(s"Error retrieving last height from blockstore", e) >>
-              httpRpc.consensusHeight().leftMap(identity[EffectError])
+            Log.eitherT[F, EffectError].warn(s"Error retrieving last height from RPC", e) >>
+              blockstore.getStorageHeight.leftMap(identity[EffectError])
         },
       e => log.error("retrieving consensus height", e)
     )
 
   private def getBlock(height: Long)(implicit log: Log[F]) =
     EitherT.liftF(traceBU(s"getBlock $height")).leftMap(identity[EffectError]) *>
-      blockstore.getBlock(height).leftMap(identity[EffectError]).recoverWith {
+      httpRpc.block(height).leftMap(identity[EffectError]).recoverWith {
         case e =>
-          Log.eitherT[F, EffectError].warn(s"Error retrieving block from blockstore $height", e) >>
-            httpRpc.block(height).leftMap(identity[EffectError])
+          Log.eitherT[F, EffectError].warn(s"Error retrieving block from RPC $height", e) >>
+            blockstore.getBlock(height).leftMap(identity[EffectError])
       }
 
   /**
@@ -284,14 +284,12 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer](
           promise <- Deferred[F, WebsocketRpcError]
           // keep connecting until success
           connectSocket = wsHandler(messageAccumulator, queue, promise) >>= socket
-          _ <- log.debug(s"Tendermint WRPC: $wsUrl started connecting")
           websocket <- backoff.retry(connectSocket, logConnectionError)
           _ <- onConnect(websocket)
           // wait until socket disconnects (it may never do)
           error <- promise.get
           // signal tendermint ws is closing
           _ <- close(websocket)
-          _ <- log.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
         } yield ().asLeft // keep tailRecM calling this forever
     )
   }

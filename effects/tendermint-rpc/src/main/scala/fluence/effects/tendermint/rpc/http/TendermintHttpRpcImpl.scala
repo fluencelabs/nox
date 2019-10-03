@@ -56,7 +56,7 @@ case class TendermintHttpRpcImpl[F[_]: Monad: SttpEffect](
     status
       .map(decode[Response[TendermintStatus]])
       .subflatMap[RpcError, TendermintStatus](
-        _.map(_.result).leftMap(RpcBodyMalformed)
+        _.map(_.result).leftMap(RpcBodyMalformed("status", _))
       )
 
   def block(height: Long, id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, Block] =
@@ -170,7 +170,9 @@ case class TendermintHttpRpcImpl[F[_]: Monad: SttpEffect](
   private def postT[T: Decoder](req: RpcRequest)(implicit log: Log[F]): EitherT[F, RpcError, T] = {
     import RpcCallError._
     val request = sttp.post(RpcUri).body(req.toJsonString).response(asJson[Either[RpcCallError, T]])
-    logPost(req) *> sendHandlingErrors(request).subflatMap(_.leftMap(e => RpcBodyMalformed(e.error)).flatMap(identity))
+    logPost(req) *> sendHandlingErrors(request).subflatMap(
+      _.leftMap(e => RpcBodyMalformed(req.toJsonString, e.error)).flatMap(identity)
+    )
   }
 
   private def post(req: RpcRequest)(implicit log: Log[F]): EitherT[F, RpcError, String] = postT[String](req)

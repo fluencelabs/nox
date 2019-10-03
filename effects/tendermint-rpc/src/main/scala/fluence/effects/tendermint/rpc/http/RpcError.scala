@@ -52,9 +52,10 @@ object RpcCallError {
 }
 
 /** Response was received, but it's not possible to parse the response to the desired type */
-case class RpcBodyMalformed(error: Throwable)
-    extends Exception("Tendermint RPC body cannot be parsed", error) with RpcError {
-  override def getMessage: String = s"Tendermint RPC body cannot be parsed: $error: ${error.getMessage}"
+case class RpcBodyMalformed(request: String, error: Throwable)
+    extends Exception(s"Tendermint RPC body cannot be parsed, request: $request", error) with RpcError {
+  override def getMessage: String =
+    s"Tendermint RPC body cannot be parsed, request: $request $error: ${error.getMessage}"
 }
 
 case class RpcBlockParsingFailed(cause: TendermintBlockError, rawBlock: String, height: Long)
