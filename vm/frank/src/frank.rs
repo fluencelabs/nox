@@ -19,9 +19,9 @@ use crate::errors::FrankError;
 use crate::frank_result::FrankResult;
 use crate::modules::env_module::EnvModule;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
+use std::cell::Cell;
 use std::{ffi::c_void, fs};
 use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
-use std::cell::Cell;
 
 pub struct Frank {
     instance: Box<Instance>,
@@ -178,18 +178,21 @@ fn logger_log_string(ctx: &mut Ctx, start: i32, size: i32) {
     let end: usize = match start.checked_add(size) {
         Some(value) => value as usize,
         None => {
-            println! ("Overflow occurred during logging");
-            return
+            println!("frank logger: overflow occurred during logging");
+            return;
         }
     };
 
     if end > memory.size().bytes().0 {
-        println! ("The end of logging message is bigger then the memory right limit");
-        return
+        println!("frank logger: the end of logging message is bigger then the memory right limit");
+        return;
     }
 
     let mut raw_msg = Vec::with_capacity(size as usize);
-    for byte in memory.view::<u8>()[start as usize .. end].iter().map(Cell::get) {
+    for byte in memory.view::<u8>()[start as usize..end]
+        .iter()
+        .map(Cell::get)
+    {
         raw_msg.push(byte);
     }
 
