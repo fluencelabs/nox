@@ -124,7 +124,7 @@ object Blockstore {
       raiseLeft(
         Monad[Resource[F, *]].tailRecM(tendermintPath.resolve("data").resolve("blockstore.db")) { path =>
           val storeOrError = (for {
-            dbPath ← EitherT(createSymlinks(tendermintPath).evalTap(p ⇒ Log[F].debug(s"Opening DB at $p")))
+            dbPath ← EitherT(createSymlinks(path).evalTap(p ⇒ Log[F].debug(s"Opening DB for $path at $p")))
             store ← EitherT(rocksDbStore[F](dbPath))
           } yield store).value
 
