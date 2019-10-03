@@ -180,7 +180,8 @@ class MasterNodeIntegrationSpec
             status1.isOperating shouldBe true
             status2.isOperating shouldBe true
           },
-          maxWait = 90.seconds
+          maxWait = 90.seconds,
+          period = 5.seconds
         )
 
         _ = lastAppId += 1
@@ -239,7 +240,8 @@ class MasterNodeIntegrationSpec
                 s1 should not be defined
                 s2 should not be defined
               },
-              maxWait = 30.seconds
+              maxWait = 90.seconds,
+              period = 5.seconds
             )
           } yield ()
       }
@@ -261,7 +263,7 @@ class MasterNodeIntegrationSpec
     }
 
     "stop workers on AppDelete event" in {
-      deleteApp(21000, 21001).unsafeRunSync()
+      deleteApp(31000, 31001).unsafeRunSync()
     }
   }
 }

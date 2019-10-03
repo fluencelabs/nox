@@ -84,7 +84,7 @@ trait Timed {
           Some(
             s"${prefix}timed out after $timeout" + Option(cause.getMessage).filter(_ => printCause).fold("")(": " + _)
           ),
-        Some(cause),
+        Option(cause),
         pos,
         None,
         Span.convertDurationToSpan(timeout)
