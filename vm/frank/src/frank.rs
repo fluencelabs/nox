@@ -19,9 +19,9 @@ use crate::errors::FrankError;
 use crate::frank_result::FrankResult;
 use crate::modules::env_module::EnvModule;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
-use std::cell::Cell;
 use std::{ffi::c_void, fs};
 use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
+use wasmer_runtime_core::memory::ptr::{WasmPtr, Array};
 
 pub struct Frank {
     instance: Box<Instance>,
@@ -156,7 +156,7 @@ impl Frank {
             // this will enforce Wasmer to register EnvModule in the ctx.data field
             env_state,
             "logger" => {
-                "log_message" => func!(logger_log_string),
+                "log_utf8_string" => func!(logger_log_utf8_string),
             },
             "env" => {
                 "gas" => func!(update_gas_counter),
@@ -171,33 +171,13 @@ impl Frank {
     }
 }
 
-// Prints utf8 string of the given size from the given address.
-fn logger_log_string(ctx: &mut Ctx, start: i32, size: i32) {
-    let memory = ctx.memory(0);
-
-    let end: usize = match start.checked_add(size) {
-        Some(value) => value as usize,
-        None => {
-            println!("frank logger: overflow occurred during logging");
-            return;
-        }
-    };
-
-    if end > memory.size().bytes().0 {
-        println!("frank logger: the end of logging message is bigger then the memory right limit");
-        return;
+// Prints utf8 string of the given size from the given offset.
+fn logger_log_utf8_string(ctx: &mut Ctx, offset: i32, size: i32) {
+    let wasm_ptr = WasmPtr::<u8, Array>::new(offset as _);
+    match wasm_ptr.get_utf8_string(ctx.memory(0), size as _) {
+        Some(msg) => print!("{}", msg),
+        None => print!("frank logger: overflow occurred during logging"),
     }
-
-    let mut raw_msg = Vec::with_capacity(size as usize);
-    for byte in memory.view::<u8>()[start as usize..end]
-        .iter()
-        .map(Cell::get)
-    {
-        raw_msg.push(byte);
-    }
-
-    let msg = String::from_utf8_lossy(&raw_msg);
-    print!("{}", msg);
 }
 
 fn update_gas_counter(ctx: &mut Ctx, spent_gas: i32) {
