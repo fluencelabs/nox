@@ -18,9 +18,11 @@ package fluence.node.workers
 
 import cats.Parallel
 import cats.data.EitherT
+import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Fiber, Resource, Timer}
 import com.softwaremill.sttp._
 import cats.syntax.functor._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.instances.vector._
 import fluence.effects.sttp.syntax._
@@ -32,6 +34,7 @@ import fluence.worker.eth.WorkerPeer
 
 import scala.util.Try
 import scala.language.higherKinds
+import scala.concurrent.duration._
 
 /**
  * Connects a worker to other peers of the cluster
@@ -52,31 +55,41 @@ object WorkerP2pConnectivity {
     appId: Long,
     dialPeers: DialPeers[F],
     peers: Vector[WorkerPeer],
-    backoff: Backoff[EffectError] = Backoff.default
+    onJoined: F[Unit],
+    backoff: Backoff[EffectError]
   )(
     implicit log: Log[F]
   ): F[Fiber[F, Unit]] =
     Log[F].scope("p2p-join") { implicit log: Log[F] =>
-      Concurrent[F].start(
-        Parallel.parTraverse_(peers) { p ⇒
-          // Get p2p port for an app
-          val getPort: EitherT[F, EffectError, Short] = sttp
-            .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/$appId/p2pPort")
-            .send()
-            .decodeBody(v ⇒ Try(v.toShort).toEither)
-            .leftMap[EffectError](identity)
+      val threshold = peers.size * 2 / 3
+      Ref.of[F, Int](peers.size * 2 / 3) >>= { bftRef ⇒
+        Concurrent[F].start(
+          Parallel.parTraverse_(peers) { p ⇒
+            // Get p2p port for an app
+            val getPort: EitherT[F, EffectError, Short] = sttp
+              .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/$appId/p2pPort")
+              .send()
+              .decodeBody(v ⇒ Try(v.toShort).toEither)
+              .leftMap[EffectError](identity)
 
-          Log[F].debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}") >>
-            // Get p2p port, pass it to worker's tendermint
-            backoff(getPort).flatMap { p2pPort ⇒
-              Log[F].trace(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}") >>
-                backoff(
-                  dialPeers
-                    .dialPeers(p.peerAddress(p2pPort) :: Nil)
-                )
+            Log[F].debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}") >>
+              // Get p2p port, pass it to worker's tendermint
+              backoff(getPort).flatMap { p2pPort ⇒
+                Log[F].trace(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}") >>
+                  backoff(
+                    dialPeers
+                      .dialPeers(p.peerAddress(p2pPort) :: Nil)
+                  )
+              } >> bftRef.modify(n ⇒ (n - 1, n - 1)) >>= {
+              case 0 ⇒
+                Log[F].debug(s"Joined to required number of peers") >>
+                  onJoined
+              case n ⇒
+                Log[F].debug(s"Joined to a peer, need $n more peers")
             }
-        }
-      )
+          }
+        )
+      }
     }
 
   /**
@@ -93,8 +106,17 @@ object WorkerP2pConnectivity {
     appId: Long,
     dialPeers: DialPeers[F],
     peers: Vector[WorkerPeer],
-    backoff: Backoff[EffectError] = Backoff.default
+    backoff: Backoff[EffectError] = Backoff(1.second, 3.seconds)
   ): Resource[F, Unit] =
-    Resource.make(join(appId, dialPeers, peers, backoff))(_.cancel).void
+    Resource
+      .make(
+        // Return fiber ASAP to enable cancellation
+        Deferred[F, Unit] >>= (
+          onJoined ⇒ join[F](appId, dialPeers, peers, onJoined.complete(()), backoff).map(_ -> onJoined.get)
+        )
+      )(_._1.cancel)
+      .map(_._2)
+      // Wait for onJoined to complete
+      .flatMap(Resource.liftF(_))
 
 }

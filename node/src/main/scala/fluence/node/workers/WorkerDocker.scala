@@ -22,7 +22,6 @@ import cats.syntax.flatMap._
 import fluence.effects.docker.{DockerContainer, DockerIO, DockerNetwork}
 import fluence.log.Log
 import fluence.node.config.DockerConfig
-import fluence.worker.eth.EthApp
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -51,7 +50,7 @@ object WorkerDocker {
     machineDocker: DockerConfig,
     stopTimeout: FiniteDuration,
     logLevel: Log.Level
-  ): Resource[F, WorkerDocker] = {
+  ): Resource[F, WorkerDocker] =
     DockerNetwork
       .make(networkName)
       .flatTap(
@@ -71,5 +70,4 @@ object WorkerDocker {
             Component(machineName, machineDocker)
           )
       )
-  }
 }

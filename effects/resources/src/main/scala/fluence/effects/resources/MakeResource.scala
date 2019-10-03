@@ -110,8 +110,8 @@ object MakeResource {
    *
    * Example:
    * ```
-   * // start some system, set `onStop` to be called when system is stopped internally (i.e. via API call)
-   * useConcurrently(onStop => startSystem(onStop = onStop))
+   * // start some system, set `doStop` to be called when system is stopped internally (i.e. via API call)
+   * useConcurrently(doStop => startSystem(doStop = doStop))
    * ```
    *
    * @param resource release (stop: F[Unit]) => resource
@@ -129,23 +129,4 @@ object MakeResource {
       )
       _ ← fiberDef.complete(fiber)
     } yield ()
-
-  /**
-   * Allocates resource in (possible concurrent) context, defined by `evalOn` function
-   * Use this when you need to go from Resource[F, T] to Resource[ F, F[T] ] (especially concurrently)
-   *
-   * @param resource Resource to be allocated
-   * @param evalOn Function that evaluates given effect. For example, `identity` or `ContextShift.evalOn(ctx)`
-   * @return Resource that holds promise of result instead of result itself
-   */
-  def allocateOn[F[_]: Concurrent, T](resource: Resource[F, T], evalOn: F[Unit] => F[Unit]): Resource[F, F[T]] =
-    for {
-      deferred <- Resource.liftF(Deferred[F, (T, F[Unit])])
-      // Promise with result
-      resultF = deferred.get.map(_._1)
-      // Will stop resource on evaluation
-      stop = deferred.get.flatMap(_._2)
-      // Allocate resource, evaluating it via `evalOn`; stop resource when it is not needed anymore
-      _ <- Resource.make(evalOn(resource.allocated >>= deferred.complete))(_ => stop)
-    } yield resultF
 }

@@ -22,6 +22,7 @@ import cats.{Monad, Parallel}
 import cats.effect.{ConcurrentEffect, ContextShift, LiftIO, Resource, Timer}
 import cats.syntax.apply._
 import cats.syntax.compose._
+import cats.syntax.applicative._
 import fluence.bp.api.{BlockStream, DialPeers}
 import fluence.bp.uploading.BlockUploading
 import fluence.codec.PureCodec
