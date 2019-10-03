@@ -156,11 +156,6 @@ impl log::Log for WasmLogger {
 
         log(log_msg.as_ptr() as i32, log_msg.len() as i32);
     }
-
-    #[inline]
-    fn flush(&self) {
-        unsafe { flush() };
-    }
 }
 
 /// logger is a module provided by a VM that can process log messages.
