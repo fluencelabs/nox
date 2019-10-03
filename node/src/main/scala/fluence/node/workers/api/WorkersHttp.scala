@@ -186,6 +186,7 @@ object WorkersHttp {
             pool
               .getResources(appId)
               .map(_.select[WorkersPorts.P2pPort[F]])
+              .semiflatMap(_.port)
               .value
               .flatMap {
                 case Some(port) ⇒ Ok(port.toString)
