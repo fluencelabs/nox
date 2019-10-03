@@ -154,7 +154,7 @@ impl log::Log for WasmLogger {
             record.args()
         );
 
-        log(log_msg.as_ptr() as i32, log_msg.len() as i32);
+        unsafe { log(log_msg.as_ptr() as i32, log_msg.len() as i32) };
     }
 
     // in our case flushing is performed by the VM itself
