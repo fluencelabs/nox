@@ -23,6 +23,7 @@ use parity_wasm::elements;
 
 use crate::vm::config::Config;
 use crate::vm::errors::InitializationError;
+use parity_wasm::elements::{MemorySection, MemoryType};
 
 struct ModulePreparator {
     module: elements::Module,
@@ -30,25 +31,32 @@ struct ModulePreparator {
 
 impl<'a> ModulePreparator {
     fn init(module_code: &[u8]) -> Result<Self, InitializationError> {
-        let module = elements::deserialize_buffer(module_code)
-            .map_err(|err| InitializationError::PrepareError(format!("{}", err)))?;
+        let module = elements::deserialize_buffer(module_code)?;
 
         Ok(Self { module })
     }
 
     fn set_mem_pages_count(self, mem_pages_count: u32) -> Self {
-        let builder = builder::from_module(self.module);
-        let memory_builder = builder.memory();
-        let builder = memory_builder.with_min(mem_pages_count).with_max(Some(mem_pages_count)).build();
+        let Self { mut module } = self;
+
+        let mut default_mem_section = MemorySection::default();
+        let mem_section = module.memory_section_mut().unwrap_or_else(|| &mut default_mem_section);
+
+        let entries = mem_section.entries_mut();
+        // currently there could only one memory section - just drop it
+        entries.clear();
+        // and then push a new section with adjusted limits
+        entries.push(MemoryType::new(mem_pages_count, Some(mem_pages_count)));
+
+        let builder = builder::from_module(module);
 
         Self {
-            module: builder.build(),
+            module: builder.build()
         }
     }
 
     fn to_wasm_code(self) -> Result<Vec<u8>, InitializationError> {
-        elements::serialize(self.module)
-            .map_err(|err| InitializationError::PrepareError(format!("{}", err)))
+        elements::serialize(self.module).map_err(Into::into)
     }
 }
 

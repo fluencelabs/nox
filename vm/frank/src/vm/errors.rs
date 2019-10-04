@@ -79,12 +79,6 @@ impl std::fmt::Display for FrankError {
     }
 }
 
-impl From<JNIWrapperError> for FrankError {
-    fn from(err: JNIWrapperError) -> Self {
-        FrankError::JNIError(format!("{}", err))
-    }
-}
-
 impl From<CreationError> for InitializationError {
     fn from(err: CreationError) -> Self {
         InitializationError::WasmerCreationError(format!("{}", err))
@@ -97,9 +91,21 @@ impl From<CompileError> for InitializationError {
     }
 }
 
+impl From<parity_wasm::elements::Error> for InitializationError {
+    fn from(err: parity_wasm::elements::Error) -> Self {
+        InitializationError::PrepareError(format!("{}", err))
+    }
+}
+
 impl From<InitializationError> for FrankError {
     fn from(err: InitializationError) -> Self {
         FrankError::InstantiationError(format!("{}", err))
+    }
+}
+
+impl From<JNIWrapperError> for FrankError {
+    fn from(err: JNIWrapperError) -> Self {
+        FrankError::JNIError(format!("{}", err))
     }
 }
 

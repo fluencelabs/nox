@@ -33,8 +33,8 @@ use crate::vm::config::Config;
 use clap::{App, AppSettings, Arg, SubCommand};
 use exitfailure::ExitFailure;
 use failure::err_msg;
-use vm::frank::Frank;
 use std::fs;
+use vm::frank::Frank;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -76,7 +76,8 @@ fn main() -> Result<(), ExitFailure> {
         ("execute", Some(arg)) => {
             let config = Box::new(Config::default());
             let in_module_path = arg.value_of(IN_MODULE_PATH).unwrap();
-            let wasm_code = fs::read(in_module_path).unwrap_or_else(|err| panic!(format!("{}", err)));
+            let wasm_code =
+                fs::read(in_module_path).unwrap_or_else(|err| panic!(format!("{}", err)));
             let invoke_arg = arg.value_of(INVOKE_ARG).unwrap();
 
             let _ = Frank::new(&wasm_code, config)
