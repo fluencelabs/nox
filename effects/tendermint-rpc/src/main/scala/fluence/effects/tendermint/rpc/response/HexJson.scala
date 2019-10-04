@@ -26,24 +26,24 @@ import io.circe.syntax._
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor}
 import scodec.bits.ByteVector
 
-private[tendermint] case class Base64Json[T](value: T)
+private[tendermint] case class HexJson[T](value: T)
 
-object Base64Json {
+private[tendermint] object HexJson {
 
-  private def base64ToString(str: String) =
+  private def hexToString(str: String) =
     ByteVector
-      .fromBase64Descriptive(str)
-      .leftMap(e ⇒ DecodingFailure(s"Error decoding to base64 from $str: $e", List.empty))
+      .fromHexDescriptive(str)
+      .leftMap(e ⇒ DecodingFailure(s"Error decoding to hex from $str: $e", List.empty))
       .flatMap(
-        _.decodeUtf8.leftMap(e ⇒ DecodingFailure(s"Error decoding $str base64 => bytes => utf8: $e", List.empty))
+        _.decodeUtf8.leftMap(e ⇒ DecodingFailure(s"Error decoding $str hex => bytes => utf8: $e", List.empty))
       )
 
   private def strToJson(str: String) =
     parse(str).leftMap(DecodingFailure.fromThrowable(_, List.empty))
 
-  implicit def decodeResponse[T: Decoder]: Decoder[Base64Json[T]] =
-    (c: HCursor) => (c.as[String] >>= base64ToString >>= strToJson >>= (_.as[T])).map(Base64Json(_))
+  implicit def decodeResponse[T: Decoder]: Decoder[HexJson[T]] =
+    (c: HCursor) => (c.as[String] >>= hexToString >>= strToJson >>= (_.as[T])).map(HexJson(_))
 
-  implicit def encodeResponse[T: Encoder]: Encoder[Base64Json[T]] =
-    (b64: Base64Json[T]) => Base64.getEncoder.encodeToString(b64.value.asJson.noSpaces.getBytes).asJson
+  implicit def encodeResponse[T: Encoder]: Encoder[HexJson[T]] =
+    (b64: HexJson[T]) => Base64.getEncoder.encodeToString(b64.value.asJson.noSpaces.getBytes).asJson
 }

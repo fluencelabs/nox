@@ -26,17 +26,17 @@ import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.socket.TSocket
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
+import fluence.bp.tx._
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.abci.peers.{DropPeer, PeersControlBackend}
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.TxProcessor
 import fluence.statemachine.api.query.QueryResponse
-import fluence.bp.tx._
+import io.circe.syntax._
 import shapeless._
 
 import scala.language.higherKinds
 import scala.util.Try
-import io.circe.syntax._
 
 class AbciHandler[F[_]: Effect: LogFactory] private (
   machine: StateMachine[F],
