@@ -107,13 +107,13 @@ class MasterNodeIntegrationSpec
     } yield (master1, master2)
   }
 
-  def getRunningWorker(statusPort: Short)(implicit sttpBackend: Sttp): IO[Option[WorkerStatus]] =
+  def getRunningWorker(statusPort: Short)(implicit sttpBackend: Sttp): IO[Option[(Long, WorkerStatus)]] =
     IO.suspend {
       getStatus(statusPort).map {
         case Right(st) =>
           st.workers.headOption.flatMap {
-            case (_, w: WorkerStatus) if w.isOperating =>
-              Some(w)
+            case (appId, w: WorkerStatus) if w.isOperating =>
+              Some(appId → w)
             case _ ⇒
               log.debug("Trying to get WorkerRunning, but it is not healthy in status: " + st).unsafeRunSync()
               None
@@ -224,7 +224,7 @@ class MasterNodeIntegrationSpec
             _ = status2 shouldBe defined
             _ ← log.debug("Worker2 running: " + status2)
 
-            appId = 1L
+            appId = status1.get._1
             _ <- contract.deleteApp[IO](appId)
             _ ← log.debug("App deleted from contract")
 
