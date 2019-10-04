@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use crate::config::Config;
-use crate::errors::FrankError;
-use crate::frank_result::FrankResult;
+use crate::vm::config::Config;
+use crate::vm::errors::FrankError;
+use crate::vm::frank_result::FrankResult;
 use crate::modules::env_module::EnvModule;
+
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
 use std::ffi::c_void;
 use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};

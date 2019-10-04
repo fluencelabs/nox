@@ -19,10 +19,10 @@
 // https://github.com/nearprotocol/nearcore/blob/master/runtime/near-vm-runner/src/prepare.rs
 
 use parity_wasm::builder;
-use parity_wasm::elements::{self, MemorySection};
+use parity_wasm::elements;
 
-use crate::config::Config;
-use crate::errors::InitializationError;
+use crate::vm::config::Config;
+use crate::vm::errors::InitializationError;
 
 struct ModulePreparator {
     module: elements::Module,
@@ -37,32 +37,13 @@ impl<'a> ModulePreparator {
     }
 
     fn set_mem_pages_count(self, mem_pages_count: u32) -> Self {
-        let Self { mut module } = self;
-
-        let default_mem_section = &mut MemorySection::default();
-        module
-            .memory_section_mut()
-            .unwrap_or_else(|| default_mem_section)
-            .entries_mut()
-            .pop();
-
-        let new_entry = elements::MemoryType::new(mem_pages_count, Some(mem_pages_count));
-
-        let mut builder = builder::from_module(module);
-        builder.push_import(elements::ImportEntry::new(
-            "env".to_string(),
-            "memory".to_string(),
-            elements::External::Memory(new_entry),
-        ));
+        let builder = builder::from_module(self.module);
+        let memory_builder = builder.memory();
+        let builder = memory_builder.with_min(mem_pages_count).with_max(Some(mem_pages_count)).build();
 
         Self {
             module: builder.build(),
         }
-    }
-
-    fn delete_internal_memory(self) -> Self {
-        // TODO
-        self
     }
 
     fn to_wasm_code(self) -> Result<Vec<u8>, InitializationError> {
@@ -73,7 +54,6 @@ impl<'a> ModulePreparator {
 
 pub fn prepare_module(module: &[u8], config: &Config) -> Result<Vec<u8>, InitializationError> {
     ModulePreparator::init(module)?
-        .delete_internal_memory()
         .set_mem_pages_count(config.mem_pages_count as _)
         .to_wasm_code()
 }

@@ -15,12 +15,12 @@
  */
 
 /// Defines export functions that will be accessible from the Scala part.
-use crate::config::Config;
-use crate::errors::FrankError;
-use crate::frank::{Frank, FRANK};
-use crate::frank_result::FrankResult;
+use crate::vm::config::Config;
+use crate::vm::errors::FrankError;
+use crate::vm::frank::{Frank, FRANK};
+use crate::vm::frank_result::FrankResult;
+use crate::vm::prepare::prepare_module;
 use crate::jni::jni_results::*;
-use crate::prepare::prepare_module;
 
 use jni::objects::{JClass, JObject, JString};
 use jni::sys::jbyteArray;

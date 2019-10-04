@@ -16,7 +16,7 @@
 
 /// Defines functions used to construct result of the VM invocation for the Scala part.
 /// Corresponding case classes could be found in vm/src/main/scala/fluence/vm/frank/result.
-use crate::frank_result::FrankResult;
+use crate::vm::frank_result::FrankResult;
 use crate::jni::option::*;
 use jni::objects::{JObject, JValue};
 use jni::JNIEnv;
