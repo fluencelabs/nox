@@ -19,9 +19,9 @@ use crate::errors::FrankError;
 use crate::frank_result::FrankResult;
 use crate::modules::env_module::EnvModule;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
-use std::{ffi::c_void, fs};
+use std::ffi::c_void;
 use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
-use wasmer_runtime_core::memory::ptr::{WasmPtr, Array};
+use wasmer_runtime_core::memory::ptr::{Array, WasmPtr};
 
 pub struct Frank {
     instance: Box<Instance>,
@@ -130,17 +130,17 @@ impl Frank {
         let memory = self.instance.context_mut().memory(0);
 
         let wasm_ptr = WasmPtr::<u8, Array>::new(0 as _);
-        let raw_mem = wasm_ptr.deref(memory, 0, memory.size().bytes().0 as _).unwrap();
-        let raw_mem: &[u8] = unsafe {std::mem::transmute(raw_mem)};
+        let raw_mem = wasm_ptr
+            .deref(memory, 0, memory.size().bytes().0 as _)
+            .unwrap();
+        let raw_mem: &[u8] = unsafe { std::mem::transmute(raw_mem) };
 
         hasher.input(raw_mem);
         hasher.result()
     }
 
     /// Creates a new virtual machine executor.
-    pub fn new(module_path: &str, config: Box<Config>) -> Result<(Self, bool), FrankError> {
-        let wasm_code = fs::read(module_path)?;
-
+    pub fn new(module: &[u8], config: Box<Config>) -> Result<(Self, bool), FrankError> {
         let env_state = move || {
             // allocate EnvModule on the heap
             let env_module = EnvModule::new();
@@ -164,7 +164,7 @@ impl Frank {
             },
         };
 
-        let instance = Box::new(instantiate(&wasm_code, &import_objects)?);
+        let instance = Box::new(instantiate(module, &import_objects)?);
         let expects_eth = instance.func::<(i32, i32), ()>(ETH_FUNC_NAME).is_ok();
 
         Ok((Self { instance, config }, expects_eth))

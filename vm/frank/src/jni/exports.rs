@@ -15,16 +15,18 @@
  */
 
 /// Defines export functions that will be accessible from the Scala part.
-
 use crate::config::Config;
 use crate::errors::FrankError;
 use crate::frank::{Frank, FRANK};
 use crate::frank_result::FrankResult;
 use crate::jni::jni_results::*;
+use crate::prepare::prepare_module;
+
 use jni::objects::{JClass, JObject, JString};
 use jni::sys::jbyteArray;
 use jni::JNIEnv;
 use sha2::digest::generic_array::GenericArray;
+use std::fs;
 
 /// Initializes Frank virtual machine.
 #[no_mangle]
@@ -39,9 +41,12 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
         module_path: JString,
         config: JObject,
     ) -> Result<(bool), FrankError> {
-        let file_name: String = env.get_string(module_path)?.into();
+        let module_path: String = env.get_string(module_path)?.into();
         let config = Config::new(&env, config)?;
-        let frank = Frank::new(&file_name, config)?;
+
+        let wasm_code = fs::read(module_path)?;
+        let prepared_module = prepare_module(&wasm_code, &config)?;
+        let frank = Frank::new(&prepared_module, config)?;
 
         unsafe { FRANK = Some(Box::new(frank.0)) };
 

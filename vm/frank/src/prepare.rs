@@ -19,74 +19,68 @@
 // https://github.com/nearprotocol/nearcore/blob/master/runtime/near-vm-runner/src/prepare.rs
 
 use parity_wasm::builder;
-use parity_wasm::elements::{self, External, MemorySection, Type};
-use pwasm_utils::{self, rules};
+use parity_wasm::elements::{self, MemorySection};
 
 use crate::config::Config;
 use crate::errors::InitializationError;
 
-struct ModulePreparator<'a> {
+struct ModulePreparator {
     module: elements::Module,
-    config: &'a Config,
 }
 
-impl<'a> ContractModule<'a> {
-    fn init(module_code: &[u8], config: &'a Config) -> Result<Self, InitializationError> {
+impl<'a> ModulePreparator {
+    fn init(module_code: &[u8]) -> Result<Self, InitializationError> {
         let module = elements::deserialize_buffer(module_code)
             .map_err(|err| InitializationError::PrepareError(format!("{}", err)))?;
 
-        Ok(ContractModule { module, config })
+        Ok(Self { module })
     }
 
-    fn standardize_mem(self) -> Self {
-        let Self { mut module, config } = self;
+    fn set_mem_pages_count(self, mem_pages_count: u32) -> Self {
+        let Self { mut module } = self;
 
-        module.memory_section_mut().unwrap_or_default().entries_mut().pop();
+        let default_mem_section = &mut MemorySection::default();
+        module
+            .memory_section_mut()
+            .unwrap_or_else(|| default_mem_section)
+            .entries_mut()
+            .pop();
 
-        let new_entry =
-            elements::MemoryType::new(config.mem_pages_count, Some(config.mem_pages_count));
+        let new_entry = elements::MemoryType::new(mem_pages_count, Some(mem_pages_count));
 
         let mut builder = builder::from_module(module);
-        builder.push_import(
-            elements::ImportEntry::new(
+        builder.push_import(elements::ImportEntry::new(
             "env".to_string(),
             "memory".to_string(),
             elements::External::Memory(new_entry),
         ));
 
-        Self { module: builder.build(), config }
-    }
-
-    fn delete_internal_memory(self) -> Result<Self, InitializationError> {
-        Ok(Self)
-    }
-
-    /*
-        if self.module.memory_section().map_or(false, |ms| !ms.entries().is_empty()) {
-            Err(PrepareError::InternalMemoryDeclared)
-        } else {
-            Ok(self)
+        Self {
+            module: builder.build(),
         }
     }
-    */
 
-    fn into_wasm_code(self) -> Result<Vec<u8>, InitializationError> {
-        elements::serialize(self.module).map_err(|err| InitializationError::PrepareError(format!("{}", err)))
+    fn delete_internal_memory(self) -> Self {
+        if self
+            .module
+            .memory_section()
+            .map_or(false, |ms| !ms.entries().is_empty())
+        {
+            unimplemented!();
+        }
+
+        self
     }
 
-/// Loads the given module given in `original_code`, performs some checks on it and
-/// does some preprocessing.
-///
-/// The checks are:
-///
-/// - module doesn't define an internal memory instance,
-/// - imported memory (if any) doesn't reserve more memory than permitted by the `config`,
-/// - all imported functions from the external environment matches defined by `env` module,
-///
-/// The preprocessing includes injecting code for gas metering and metering the height of stack.
-pub fn prepare_contract(original_code: &[u8], config: &Config) -> Result<Vec<u8>, InitializationError> {
-    ContractModule::init(original_code, config)?
-        .delete_internal_memory()?
-        .standardize_mem()
-        .into_wasm_code()
+    fn to_wasm_code(self) -> Result<Vec<u8>, InitializationError> {
+        elements::serialize(self.module)
+            .map_err(|err| InitializationError::PrepareError(format!("{}", err)))
+    }
+}
+
+pub fn prepare_module(module: &[u8], config: &Config) -> Result<Vec<u8>, InitializationError> {
+    ModulePreparator::init(module)?
+        .delete_internal_memory()
+        .set_mem_pages_count(config.mem_pages_count as _)
+        .to_wasm_code()
 }

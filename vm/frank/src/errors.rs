@@ -57,6 +57,7 @@ impl std::fmt::Display for InitializationError {
         match self {
             InitializationError::WasmerCompileError(msg) => write!(f, "{}", msg),
             InitializationError::WasmerCreationError(msg) => write!(f, "{}", msg),
+            InitializationError::PrepareError(msg) => write!(f, "{}", msg),
         }
     }
 }
