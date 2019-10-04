@@ -76,9 +76,10 @@ object WorkerP2pConnectivity {
               // Get p2p port, pass it to worker's tendermint
               backoff(getPort).flatMap { p2pPort ⇒
                 Log[F].trace(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}") >>
-                  backoff(
+                  backoff.retry(
                     dialPeers
-                      .dialPeers(p.peerAddress(p2pPort) :: Nil)
+                      .dialPeers(p.peerAddress(p2pPort) :: Nil),
+                    e ⇒ log.warn(s"Error dial_peers on ${p.peerAddress(p2pPort)}", e)
                   )
               } >> bftRef.modify(n ⇒ (n - 1, n - 1)) >>= {
               case 0 ⇒

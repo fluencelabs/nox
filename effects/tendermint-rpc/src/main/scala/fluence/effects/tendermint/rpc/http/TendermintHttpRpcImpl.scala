@@ -25,11 +25,10 @@ import com.softwaremill.sttp.circe._
 import fluence.bp.tx.TxResponse
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
+import fluence.effects.tendermint.rpc.response.{Base64Json, Response, TendermintStatus}
 import fluence.log.Log
-import io.circe
-import io.circe.{Decoder, Json}
 import io.circe.parser.decode
+import io.circe.{Decoder, Json}
 
 import scala.language.higherKinds
 
@@ -95,13 +94,13 @@ case class TendermintHttpRpcImpl[F[_]: Monad: SttpEffect](
   def broadcastTxSync(tx: Array[Byte], id: String = "dontcare")(
     implicit log: Log[F]
   ): EitherT[F, RpcError, TxResponse] =
-    postT[TxResponse](
+    postT[Response[Base64Json[TxResponse]]](
       RpcRequest(
         method = "broadcast_tx_sync",
         params = Json.fromString(java.util.Base64.getEncoder.encodeToString(tx)) :: Nil,
         id = id
       )
-    )
+    ).map(_.result.value)
 
   def unsafeDialPeers(
     peers: Seq[String],

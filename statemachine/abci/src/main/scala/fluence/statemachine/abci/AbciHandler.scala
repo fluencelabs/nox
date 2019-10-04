@@ -36,6 +36,7 @@ import shapeless._
 
 import scala.language.higherKinds
 import scala.util.Try
+import io.circe.syntax._
 
 class AbciHandler[F[_]: Effect: LogFactory] private (
   machine: StateMachine[F],
@@ -72,15 +73,13 @@ class AbciHandler[F[_]: Effect: LogFactory] private (
       .checkTx(tx)
       .value
       .flatMap {
-        case Right(resp @ TxResponse(code, info, _)) ⇒
+        case Right(resp) ⇒
           handleTxResponse(tx, resp)
             .map(
               _ =>
                 ResponseCheckTx.newBuilder
-                  .setCode(code.id)
-                  .setInfo(info)
-                  // TODO where it goes?
-                  .setData(ByteString.copyFromUtf8(info))
+                  .setCode(resp.code.id)
+                  .setData(ByteString.copyFromUtf8(resp.asJson.noSpaces))
                   .build
             )
         case Left(err) ⇒
@@ -101,15 +100,13 @@ class AbciHandler[F[_]: Effect: LogFactory] private (
       .processTx(tx)
       .value
       .flatMap {
-        case Right(resp @ TxResponse(code, info, _)) ⇒
+        case Right(resp) ⇒
           handleTxResponse(tx, resp)
             .map(
               _ =>
                 ResponseDeliverTx.newBuilder
-                  .setCode(code.id)
-                  .setInfo(info)
-                  // TODO where it goes?
-                  .setData(ByteString.copyFromUtf8(info))
+                  .setCode(resp.code.id)
+                  .setData(ByteString.copyFromUtf8(resp.asJson.noSpaces))
                   .build
             )
         case Left(err) ⇒
