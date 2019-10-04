@@ -38,6 +38,7 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use exitfailure::ExitFailure;
 use failure::err_msg;
 use frank::Frank;
+use std::fs;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -79,9 +80,10 @@ fn main() -> Result<(), ExitFailure> {
         ("execute", Some(arg)) => {
             let config = Box::new(Config::default());
             let in_module_path = arg.value_of(IN_MODULE_PATH).unwrap();
+            let wasm_code = fs::read(in_module_path).unwrap_or_else(|err| panic!(format!("{}", err)));
             let invoke_arg = arg.value_of(INVOKE_ARG).unwrap();
 
-            let _ = Frank::new(&in_module_path, config)
+            let _ = Frank::new(&wasm_code, config)
                 .map_err(|err| panic!(format!("{}", err)))
                 .and_then(|mut executor| executor.0.invoke(invoke_arg.as_bytes()))
                 .map_err(|err| panic!(format!("{}", err)))

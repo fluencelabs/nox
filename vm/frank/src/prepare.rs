@@ -61,14 +61,7 @@ impl<'a> ModulePreparator {
     }
 
     fn delete_internal_memory(self) -> Self {
-        if self
-            .module
-            .memory_section()
-            .map_or(false, |ms| !ms.entries().is_empty())
-        {
-            unimplemented!();
-        }
-
+        // TODO
         self
     }
 
