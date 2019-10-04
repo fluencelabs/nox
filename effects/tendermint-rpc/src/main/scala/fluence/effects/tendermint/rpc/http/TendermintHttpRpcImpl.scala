@@ -107,14 +107,14 @@ case class TendermintHttpRpcImpl[F[_]: Monad: SttpEffect](
     persistent: Boolean,
     id: String = "dontcare"
   )(implicit log: Log[F]): EitherT[F, RpcError, String] =
-    post(
+    postT[Json](
       RpcRequest(
         method = "dial_peers",
         params =
           Json.arr(peers.map(Json.fromString): _*) :: Json.fromBoolean(persistent) :: Nil,
         id = id
       )
-    )
+    ).map(_.spaces2)
 
   /** Post a `query` request, wait for response, return it unparsed */
   def query(
