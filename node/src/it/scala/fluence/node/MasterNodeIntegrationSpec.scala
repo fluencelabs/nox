@@ -101,8 +101,8 @@ class MasterNodeIntegrationSpec
 
       _ <- Resource liftF eventually[IO](
         checkMasterRunning(master1Port) *> checkMasterRunning(master2Port),
-        maxWait = 45.seconds
-      ) // TODO: 45 seconds is a bit too much for startup; investigate and reduce timeout
+        maxWait = 2.minutes
+      ) // TODO: 2 minutes is a bit too much for startup; investigate and reduce timeout
 
     } yield (master1, master2)
   }
