@@ -31,6 +31,7 @@ mod frank;
 mod frank_result;
 mod jni;
 mod modules;
+mod prepare;
 
 use crate::config::Config;
 use clap::{App, AppSettings, Arg, SubCommand};

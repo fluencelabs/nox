@@ -128,11 +128,11 @@ impl Frank {
         let mut hasher = Sha256::new();
         let memory = self.instance.context_mut().memory(0);
 
-        for cell in memory.view::<u8>()[0 as usize..memory.size().0 as usize].iter() {
-            // it is too slow now and could be optimized when PR with memory will be landed
-            hasher.input(&[cell.get()]);
-        }
+        let wasm_ptr = WasmPtr::<u8, Array>::new(0 as _);
+        let raw_mem = wasm_ptr.deref(memory, 0, memory.size().bytes().0 as _).unwrap();
+        let raw_mem: &[u8] = unsafe {std::mem::transmute(raw_mem)};
 
+        hasher.input(raw_mem);
         hasher.result()
     }
 
