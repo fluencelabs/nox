@@ -18,7 +18,7 @@ object VmSbt {
       log.info(s"$libName already exists, won't compile")
     } else {
       val compileCmd =
-        s"cargo +nightly-2019-09-23 build --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
+        s"cargo +nightly-2019-09-23 build --lib --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
 
       log.info(s"Compiling Frank VM")
       assert((compileCmd !) == 0, "Frank VM compilation failed")

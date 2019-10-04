@@ -21,6 +21,7 @@ use crate::modules::env_module::EnvModule;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
 use std::{ffi::c_void, fs};
 use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
+use wasmer_runtime_core::memory::ptr::{WasmPtr, Array};
 
 pub struct Frank {
     instance: Box<Instance>,
@@ -155,8 +156,7 @@ impl Frank {
             // this will enforce Wasmer to register EnvModule in the ctx.data field
             env_state,
             "logger" => {
-                "write" => func!(logger_write),
-                "flush" => func!(logger_flush),
+                "log_utf8_string" => func!(logger_log_utf8_string),
             },
             "env" => {
                 "gas" => func!(update_gas_counter),
@@ -171,16 +171,13 @@ impl Frank {
     }
 }
 
-fn logger_write(_ctx: &mut Ctx, byte: i32) {
-    // TODO: since Wasmer has been landed, it is possible to optimize logging
-    // in the Rust backend SDK and here
-    print!("{}", byte);
-}
-
-fn logger_flush(_ctx: &mut Ctx) {
-    // TODO: since Wasmer has been landed, it is possible to optimize logging
-    // in the Rust backend SDK and here
-    println!();
+// Prints utf8 string of the given size from the given offset.
+fn logger_log_utf8_string(ctx: &mut Ctx, offset: i32, size: i32) {
+    let wasm_ptr = WasmPtr::<u8, Array>::new(offset as _);
+    match wasm_ptr.get_utf8_string(ctx.memory(0), size as _) {
+        Some(msg) => print!("{}", msg),
+        None => print!("frank logger: incorrect UTF8 string's been supplied to logger"),
+    }
 }
 
 fn update_gas_counter(ctx: &mut Ctx, spent_gas: i32) {

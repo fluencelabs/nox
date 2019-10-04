@@ -21,6 +21,7 @@ path = "src/main.rs"
 
 [dependencies]
 wasmer-runtime = {git = "http://github.com/fluencelabs/wasmer", branch = "clif_jni_hardering"}
+wasmer-runtime-core = {git = "http://github.com/fluencelabs/wasmer", branch = "clif_jni_hardering"}
 jni = "0.13.1"
 failure = "0.1.5"
 lazy_static = "1.4.0"
