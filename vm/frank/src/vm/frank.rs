@@ -155,7 +155,7 @@ impl Frank {
         let raw_mem = wasm_ptr
             .deref(memory, 0, (memory.size().bytes().0 - 1) as _)
             .expect("frank: internal error in compute_vm_state_hash");
-        let raw_mem: &[u8] = unsafe { std::mem::transmute(raw_mem) };
+        let raw_mem: &[u8] = unsafe { &*(raw_mem as *const [std::cell::Cell<u8>] as *const [u8]) };
 
         hasher.input(raw_mem);
         hasher.result()
