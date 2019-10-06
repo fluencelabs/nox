@@ -14,15 +14,36 @@
  * limitations under the License.
  */
 
-use crate::modules::env_module::EnvModule;
-use crate::vm::config::Config;
-use crate::vm::errors::FrankError;
-use crate::vm::frank_result::FrankResult;
+use crate::{
+    modules::env_module::EnvModule,
+    vm::config::Config,
+    vm::errors::FrankError,
+    vm::frank_result::FrankResult,
+};
 
-use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
+use sha2::{
+    digest::generic_array::GenericArray,
+    digest::FixedOutput,
+    Digest,
+    Sha256,
+};
+
 use std::ffi::c_void;
-use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
-use wasmer_runtime_core::memory::ptr::{Array, WasmPtr};
+
+use wasmer_runtime::{
+    func,
+    imports,
+    instantiate,
+    Ctx,
+    Func,
+    Instance
+};
+
+use wasmer_runtime_core::{
+    memory::{
+        ptr::{Array, WasmPtr},
+    },
+};
 
 pub struct Frank {
     instance: Box<Instance>,
@@ -82,12 +103,9 @@ impl Frank {
 
     /// Calls allocate function exported from the main module.
     fn call_allocate_func(&self, size: i32) -> Result<i32, FrankError> {
-        println!("allocate 1, size {}", size);
         let allocate_func: Func<(i32), (i32)> =
             self.instance.func(&self.config.allocate_function_name)?;
-        println!("allocate 2");
         let result = allocate_func.call(size)?;
-        println!("allocate 3");
         Ok(result)
     }
 
@@ -102,34 +120,25 @@ impl Frank {
 
     /// Invokes a main module supplying byte array and expecting byte array with some outcome back.
     pub fn invoke(&mut self, fn_argument: &[u8]) -> Result<FrankResult, FrankError> {
-        println!("invoke 1");
         // renew the state of the registered environment module to track spent gas and eic
         let env: &mut EnvModule =
             unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
         env.renew_state();
 
-        println!("invoke 2");
         // allocate memory for the given argument and write it to memory
         let argument_len = fn_argument.len() as i32;
         let argument_address = if argument_len != 0 {
-            println!("invoke 22");
             let address = self.call_allocate_func(argument_len)?;
-            println!("invoke 33");
             self.write_to_mem(address as usize, fn_argument)?;
-            println!("invoke 44");
             address
         } else {
             0
         };
-        println!("invoke 3");
 
         // invoke a main module, read a result and deallocate it
         let result_address = self.call_invoke_func(argument_address, argument_len)?;
-        println!("invoke 4");
         let result = self.read_result_from_mem(result_address as _)?;
-        println!("invoke 5");
         self.call_deallocate_func(result_address, result.len() as i32)?;
-        println!("invoke 5");
 
         let state = env.get_state();
         Ok(FrankResult::new(result, state.0, state.1))
@@ -179,7 +188,6 @@ impl Frank {
 
         let instance = Box::new(instantiate(module, &import_objects)?);
         let expects_eth = instance.func::<(i32, i32), ()>(ETH_FUNC_NAME).is_ok();
-        println!("memory size is {:X}", instance.context().memory(0).size().bytes().0);
 
         Ok((Self { instance, config }, expects_eth))
     }

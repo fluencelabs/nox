@@ -67,7 +67,6 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
     fn_argument: jbyteArray,
 ) -> JObject<'a> {
     fn invoke(env: &JNIEnv, fn_argument: jbyteArray) -> Result<FrankResult, FrankError> {
-        println!("invoke 1");
         let input_len = env.get_array_length(fn_argument)?;
         let mut input = vec![0; input_len as _];
         env.get_byte_array_region(fn_argument, 0, input.as_mut_slice())?;
@@ -77,7 +76,6 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
             Vec::<u8>::from_raw_parts(input.as_mut_ptr() as *mut u8, input.len(), input.capacity())
         };
         std::mem::forget(input);
-        println!("invoke 2");
 
         unsafe {
             match FRANK {

@@ -23,7 +23,7 @@ use parity_wasm::elements;
 
 use crate::vm::config::Config;
 use crate::vm::errors::InitializationError;
-use parity_wasm::elements::{MemorySection, MemoryType};
+use parity_wasm::elements::{MemorySection, MemoryType, ResizableLimits};
 
 struct ModulePreparator {
     module: elements::Module,
@@ -39,23 +39,34 @@ impl<'a> ModulePreparator {
     fn set_mem_pages_count(self, mem_pages_count: u32) -> Self {
         let Self { mut module } = self;
 
-        let mut default_mem_section = MemorySection::default();
-        let mem_section = module.memory_section_mut().unwrap_or_else(|| &mut default_mem_section);
+        // At now, there is should be only one memory section, so we need to
+        let limits = match module.memory_section_mut() {
+            Some(section) => {
+              match section.entries_mut().pop() {
+                  Some(entry) => *entry.limits(),
+                  None => ResizableLimits::new(0 as _, Some(mem_pages_count))
+              }
+            },
+            None => ResizableLimits::new(0 as _, Some(mem_pages_count))
+        };
 
-        let entries = mem_section.entries_mut();
-        // currently there could only one memory section - just drop it
-        entries.clear();
-        // and then push a new section with adjusted limits
-        entries.push(MemoryType::new(mem_pages_count, Some(mem_pages_count)));
+        let memory_entry = MemoryType::new(limits.initial(), Some(mem_pages_count));
+
+        let mut default_mem_section = MemorySection::default();
+        module
+            .memory_section_mut()
+            .unwrap_or_else(|| &mut default_mem_section)
+            .entries_mut()
+            .push(memory_entry);
 
         let builder = builder::from_module(module);
 
         Self {
-            module: builder.build()
+            module: builder.build(),
         }
     }
 
-    fn to_wasm_code(self) -> Result<Vec<u8>, InitializationError> {
+    fn to_wasm(self) -> Result<Vec<u8>, InitializationError> {
         elements::serialize(self.module).map_err(Into::into)
     }
 }
@@ -63,5 +74,5 @@ impl<'a> ModulePreparator {
 pub fn prepare_module(module: &[u8], config: &Config) -> Result<Vec<u8>, InitializationError> {
     ModulePreparator::init(module)?
         .set_mem_pages_count(config.mem_pages_count as _)
-        .to_wasm_code()
+        .to_wasm()
 }
