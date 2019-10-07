@@ -20,33 +20,45 @@ class SubscriptionStorageSpec extends WordSpec with OptionValues with Matchers {
   implicit private val log: Log.Aux[IO, PrintlnLogAppender[IO]] =
     logFactory.init("SubscriptionStorageSpec", level = Log.Off).unsafeRunTimed(5.seconds).value
 
-  private def createStorageAndSubscription(): (SubscriptionStorage[IO], SubscriptionKey, Tx.Data) = {
-    val storage = SubscriptionStorage[IO]().unsafeRunSync()
-    val tx = "123"
-    val txData = Tx.Data(tx.getBytes())
-    val key = SubscriptionKey.generate("subscriptionId", txData)
-    (storage, key, txData)
+  private def createStorageAndSubscription(): IO[(SubscriptionStorage[IO], SubscriptionKey, Tx.Data)] = {
+    for {
+      storage <- SubscriptionStorage[IO]()
+      tx = "123"
+      txData = Tx.Data(tx.getBytes())
+      key = SubscriptionKey.generate("subscriptionId", txData)
+    } yield (storage, key, txData)
+
   }
 
   "subscription storage" should {
     "return false on adding subscription twice" in {
-      val (storage, key, txData) = createStorageAndSubscription()
-      storage.addSubscription(key, txData).unsafeRunSync() shouldBe true
-      storage.addSubscription(key, txData).unsafeRunSync() shouldBe false
+      (for {
+        (storage, key, txData) <- createStorageAndSubscription()
+        add1Result <- storage.addSubscription(key, txData)
+        _ = add1Result shouldBe true
+        add2Result <- storage.addSubscription(key, txData)
+        _ = add2Result shouldBe false
+      } yield ()).unsafeRunSync()
     }
 
     "return stream after adding subscription and stream" in {
-      val (storage, key, txData) = createStorageAndSubscription()
-      storage.addSubscription(key, txData).unsafeRunSync() shouldBe true
-      storage.addStream(key, fs2.Stream.empty).unsafeRunSync()
-      storage.getSubscriptions.unsafeRunSync().get(key).isDefined shouldBe true
+      (for {
+        (storage, key, txData) <- createStorageAndSubscription()
+        add1Result <- storage.addSubscription(key, txData)
+        _ = add1Result shouldBe true
+        subs <- storage.getSubscriptions
+      } yield subs.get(key).isDefined shouldBe true).unsafeRunSync()
     }
 
     "delete subscription on delete operation" in {
-      val (storage, key, txData) = createStorageAndSubscription()
-      storage.addSubscription(key, txData).unsafeRunSync() shouldBe true
-      storage.deleteSubscription(key).unsafeRunSync()
-      storage.getSubscriptions.unsafeRunSync().get(key).isEmpty shouldBe true
+      (for {
+        (storage, key, txData) <- createStorageAndSubscription()
+        add1Result <- storage.addSubscription(key, txData)
+        _ = add1Result shouldBe true
+        _ <- storage.deleteSubscription(key)
+        subs <- storage.getSubscriptions
+      } yield subs.get(key).isEmpty shouldBe true).unsafeRunSync()
+
     }
   }
 }
