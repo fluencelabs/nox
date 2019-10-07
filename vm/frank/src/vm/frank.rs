@@ -30,9 +30,9 @@ use wasmer_runtime_core::memory::ptr::{Array, WasmPtr};
 pub struct Frank {
     instance: &'static Instance,
 
-    // it is safe to use unwrap() while calling these functions because Option is used here
-    // just to allow partially initialization of the struct. And all Option fields will
-    // really contain Some after invoking Frank::new.
+    // It is safe to use unwrap() while calling these functions because Option is used here
+    // to allow partially initialization of the struct. And all Option fields will contain
+    // Some if invoking Frank::new is succeed.
     allocate: Option<Func<'static, i32, i32>>,
     deallocate: Option<Func<'static, (i32, i32), ()>>,
     invoke: Option<Func<'static, (i32, i32), i32>>,
@@ -41,7 +41,7 @@ pub struct Frank {
 }
 
 impl Drop for Frank {
-    // In normal situation this method should be called only while shutting down
+    // In normal situation this method should be called only while VM shutting down.
     fn drop(&mut self) {
         drop(self.allocate.as_ref());
         drop(self.deallocate.as_ref());
