@@ -25,5 +25,4 @@
 )]
 
 mod jni;
-mod modules;
 mod vm;
