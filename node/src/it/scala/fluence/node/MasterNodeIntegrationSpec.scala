@@ -54,7 +54,7 @@ class MasterNodeIntegrationSpec
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   implicit private val log: Log[IO] =
-    LogFactory.forPrintln[IO](Log.Error).init("MasterNodeIntegrationSpec").unsafeRunSync()
+    LogFactory.forPrintln[IO](Log.Info).init("MasterNodeIntegrationSpec").unsafeRunSync()
 
   private val sttpResource: Resource[IO, SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
@@ -99,9 +99,9 @@ class MasterNodeIntegrationSpec
       master1 <- runMaster(master1Port, "master1", n = 1)
       master2 <- runMaster(master2Port, "master2", n = 2)
 
-      showContainers = IO(println(Console.YELLOW_B) + s"docker ps -a".!! + Console.RESET)
-      showLogs1 = IO(println(Console.CYAN + s"docker logs --tail 100 $master1".!! + Console.RESET))
-      showLogs2 = IO(println(Console.CYAN + s"docker logs --tail 100 $master2".!! + Console.RESET))
+      showContainers = IO(println(Console.CYAN) + "docker ps -a\n" + s"docker ps -a".!! + Console.RESET)
+      showLogs1 = IO(println(Console.CYAN + "master1 logs\n" + s"docker logs --tail 100 $master1".!! + Console.RESET))
+      showLogs2 = IO(println(Console.CYAN + "master2 logs\n" + s"docker logs --tail 100 $master2".!! + Console.RESET))
       _ <- Resource liftF eventually[IO](
         showContainers *> showLogs1 *> showLogs2 *> checkMasterRunning(master1Port) *> checkMasterRunning(master2Port),
         maxWait = 2.minutes
