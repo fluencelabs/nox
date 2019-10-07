@@ -1,7 +1,6 @@
 [package]
 name = "Frank"
-description = "Virtual machine based on Wasmer for the Fluence network"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Fluence Labs"]
 edition = "2018"
 license = "Apache-2.0"
@@ -20,8 +19,7 @@ name = "frank"
 path = "src/main.rs"
 
 [dependencies]
-wasmer-runtime = {git = "http://github.com/fluencelabs/wasmer", branch = "clif_jni_hardering"}
-wasmer-runtime-core = {git = "http://github.com/fluencelabs/wasmer", branch = "clif_jni_hardering"}
+wasmer-runtime-core = "0.8.0"
 jni = "0.13.1"
 failure = "0.1.5"
 lazy_static = "1.4.0"
@@ -31,6 +29,11 @@ exitfailure = "0.5.1"
 boolinator = "2.4.0"
 parity-wasm = "0.40.3"
 pwasm-utils = "0.11.0"
+
+[dependencies.wasmer-runtime]
+version = "0.8.0"
+default-features = false
+features = ["default-backend-singlepass"]
 
 [profile.release]
 opt-level = 3
