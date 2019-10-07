@@ -99,11 +99,11 @@ class MasterNodeIntegrationSpec
       master1 <- runMaster(master1Port, "master1", n = 1)
       master2 <- runMaster(master2Port, "master2", n = 2)
 
-      showContainers = IO(println(Console.CYAN) + "docker ps -a\n" + s"docker ps -a".!! + Console.RESET)
+      showContainers = IO(println(Console.CYAN + "docker ps -a\n" + s"docker ps -a".!! + Console.RESET))
       showLogs1 = IO(println(Console.CYAN + "master1 logs\n" + s"docker logs --tail 100 $master1".!! + Console.RESET))
       showLogs2 = IO(println(Console.CYAN + "master2 logs\n" + s"docker logs --tail 100 $master2".!! + Console.RESET))
       _ <- Resource liftF eventually[IO](
-        showContainers *> showLogs1 *> showLogs2 *> checkMasterRunning(master1Port) *> checkMasterRunning(master2Port),
+        showLogs1 *> showLogs2 *> showContainers *> checkMasterRunning(master1Port) *> checkMasterRunning(master2Port),
         maxWait = 2.minutes
       ) // TODO: 2 minutes is a bit too much for startup; investigate and reduce timeout
 
