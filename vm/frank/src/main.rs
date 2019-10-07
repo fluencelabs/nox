@@ -26,16 +26,16 @@
 
 /// Command-line tool intended to test Frank VM.
 mod jni;
-mod modules;
 mod vm;
 
 use crate::vm::config::Config;
 use crate::vm::prepare::prepare_module;
+use crate::vm::frank::Frank;
+
 use clap::{App, AppSettings, Arg, SubCommand};
 use exitfailure::ExitFailure;
 use failure::err_msg;
 use std::fs;
-use vm::frank::Frank;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");

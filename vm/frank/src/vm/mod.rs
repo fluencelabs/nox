@@ -19,3 +19,4 @@ pub mod errors;
 pub mod frank;
 pub mod frank_result;
 pub mod prepare;
+mod modules;

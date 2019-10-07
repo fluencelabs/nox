@@ -15,7 +15,7 @@
  */
 
 use crate::{
-    modules::env_module::EnvModule,
+    vm::modules::env_module::EnvModule,
     vm::config::Config,
     vm::errors::FrankError,
     vm::frank_result::FrankResult,
@@ -31,8 +31,8 @@ pub struct Frank {
     instance: &'static Instance,
 
     // it is safe to use unwrap() while calling these functions because Option is used here
-    // just to allow partially initialization of the struct. And all Option fields will be
-    // initialized after Frank::new.
+    // just to allow partially initialization of the struct. And all Option fields will
+    // really contain Some after invoking Frank::new.
     allocate: Option<Func<'static, i32, i32>>,
     deallocate: Option<Func<'static, (i32, i32), ()>>,
     invoke: Option<Func<'static, (i32, i32), i32>>,
