@@ -44,23 +44,26 @@ use wasmer_runtime_core::{
         ptr::{Array, WasmPtr},
     },
 };
+use std::pin::Pin;
 
-pub struct Frank {
+pub struct Frank<'a> {
     instance: Box<Instance>,
-    config: Box<Config>,
+    allocate: Option<Func<'a, i32, i32>>,
+    deallocate: Option<Func<'a, (i32, i32), ()>>,
+    invoke: Option<Func<'a, (i32, i32), i32>>,
 }
 
 // Waiting for new release of Wasmer with https://github.com/wasmerio/wasmer/issues/748.
 // It will allow to use lazy_static here. thread_local isn't suitable in our case because
 // it is difficult to guarantee that jni code will be called on the same thead context
 // every time from the Scala part.
-pub static mut FRANK: Option<Box<Frank>> = None;
+pub static mut FRANK: Option<Pin<Box<Frank>>> = None;
 
 // A little hack: exporting functions with this name means that this module expects Ethereum blocks.
 // Will be changed in the future.
 const ETH_FUNC_NAME: &str = "expects_eth";
 
-impl Frank {
+impl Frank<'_> {
     /// Writes given value on the given address.
     fn write_to_mem(&mut self, address: usize, value: &[u8]) -> Result<(), FrankError> {
         let memory = self.instance.context_mut().memory(0);
@@ -93,31 +96,6 @@ impl Frank {
         Ok(result)
     }
 
-    /// Calls invoke function exported from the main module.
-    fn call_invoke_func(&self, addr: i32, len: i32) -> Result<i32, FrankError> {
-        let invoke_func: Func<(i32, i32), (i32)> =
-            self.instance.func(&self.config.invoke_function_name)?;
-        let result = invoke_func.call(addr, len)?;
-        Ok(result)
-    }
-
-    /// Calls allocate function exported from the main module.
-    fn call_allocate_func(&self, size: i32) -> Result<i32, FrankError> {
-        let allocate_func: Func<(i32), (i32)> =
-            self.instance.func(&self.config.allocate_function_name)?;
-        let result = allocate_func.call(size)?;
-        Ok(result)
-    }
-
-    /// Calls deallocate function exported from the main module.
-    fn call_deallocate_func(&self, addr: i32, size: i32) -> Result<(), FrankError> {
-        let deallocate_func: Func<(i32, i32), ()> =
-            self.instance.func(&self.config.deallocate_function_name)?;
-        deallocate_func.call(addr, size)?;
-
-        Ok(())
-    }
-
     /// Invokes a main module supplying byte array and expecting byte array with some outcome back.
     pub fn invoke(&mut self, fn_argument: &[u8]) -> Result<FrankResult, FrankError> {
         // renew the state of the registered environment module to track spent gas and eic
@@ -128,7 +106,7 @@ impl Frank {
         // allocate memory for the given argument and write it to memory
         let argument_len = fn_argument.len() as i32;
         let argument_address = if argument_len != 0 {
-            let address = self.call_allocate_func(argument_len)?;
+            let address = self.allocate.as_ref().unwrap().call(argument_len)?;
             self.write_to_mem(address as usize, fn_argument)?;
             address
         } else {
@@ -136,9 +114,9 @@ impl Frank {
         };
 
         // invoke a main module, read a result and deallocate it
-        let result_address = self.call_invoke_func(argument_address, argument_len)?;
+        let result_address = self.invoke.as_ref().unwrap().call(argument_address, argument_len)?;
         let result = self.read_result_from_mem(result_address as _)?;
-        self.call_deallocate_func(result_address, result.len() as i32)?;
+        self.deallocate.as_ref().unwrap().call(result_address, result.len() as i32)?;
 
         let state = env.get_state();
         Ok(FrankResult::new(result, state.0, state.1))
@@ -162,7 +140,7 @@ impl Frank {
     }
 
     /// Creates a new virtual machine executor.
-    pub fn new(module: &[u8], config: Box<Config>) -> Result<(Self, bool), FrankError> {
+    pub fn new(module: &[u8], config: Box<Config>) -> Result<(Pin<Box<Self>>, bool), FrankError> {
         let env_state = move || {
             // allocate EnvModule on the heap
             let env_module = EnvModule::new();
@@ -186,10 +164,27 @@ impl Frank {
             },
         };
 
-        let instance = Box::new(instantiate(module, &import_objects)?);
-        let expects_eth = instance.func::<(i32, i32), ()>(ETH_FUNC_NAME).is_ok();
+        let mut frank = Box::pin(Self {
+            instance: Box::new(instantiate(module, &import_objects)?),
+            allocate: None,
+            deallocate: None,
+            invoke: None,
+        });
 
-        Ok((Self { instance, config }, expects_eth))
+        let expects_eth = frank.instance.func::<(), ()>(ETH_FUNC_NAME).is_ok();
+        let allocate = Some(&frank.instance.func::<(i32), i32>(&config.allocate_function_name)?);
+        let deallocate = Some(&frank.instance.func::<(i32, i32), ()>(&config.deallocate_function_name)?);
+        let invoke = Some(&frank.instance.func::<(i32, i32), i32>(&config.invoke_function_name)?);
+
+        let frank_ref_1: Pin<&mut Self> = Pin::as_mut(&mut frank);
+        let frank_ref_2: Pin<&mut Self> = Pin::as_mut(&mut frank);
+        let frank_ref_3: Pin<&mut Self> = Pin::as_mut(&mut frank);
+
+        unsafe{ Pin::get_unchecked_mut(frank_ref_1).allocate = *allocate; }
+        unsafe{ Pin::get_unchecked_mut(frank_ref_2).deallocate = *deallocate; }
+        unsafe{ Pin::get_unchecked_mut(frank_ref_3).invoke = *invoke; }
+
+        Ok((frank , expects_eth))
     }
 }
 

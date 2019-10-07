@@ -48,7 +48,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
         let prepared_module = prepare_module(&wasm_code, &config)?;
         let frank = Frank::new(&prepared_module, config)?;
 
-        unsafe { FRANK = Some(Box::new(frank.0)) };
+        unsafe { FRANK = Some(frank.0) };
 
         Ok(frank.1)
     }
