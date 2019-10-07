@@ -44,30 +44,32 @@ object MakeResource {
       .makeCase[F, (Deferred[F, Either[Throwable, Unit]], Fiber[F, Unit], Log[F])](
         for {
           stopDef ← Deferred[F, Either[Throwable, Unit]]
+          _ ← Log[F].info(s"Will start concurrentStream $name")
           streamFiber ← Concurrent[F].start(
             stream.interruptWhen(stopDef).compile.drain
           )
+          _ ← Log[F].info(s"Started concurrentStream $name $streamFiber")
         } yield (stopDef, streamFiber, Log[F].getScoped(name))
       ) {
         case ((stopDef, streamFiber, log), exitCase) ⇒
           (exitCase match {
             case ExitCase.Error(e) ⇒
-              log.error(s"Stopping with error", e) *>
+              log.error(s"Stopping $name with error", e) *>
                 stopDef.complete(Left(e)) *> streamFiber.join
 
             case ExitCase.Canceled ⇒
-              log.warn(s"Stopping due to Cancel") *>
+              log.warn(s"Stopping $name due to Cancel") *>
                 // Notice that we still .join the fiber
                 stopDef.complete(Right(())) *> streamFiber.join
 
             case _ ⇒
-              log.debug(s"Stopping as it's not used anymore") *>
+              log.debug(s"Stopping $name as it's not used anymore") *>
                 stopDef.complete(Right(())) *> streamFiber.join
-          }).flatMap(_ ⇒ log.debug(s"Stopped, fiber joined"))
+          }).flatMap(_ ⇒ log.debug(s"Stopped $name, fiber joined"))
             .handleErrorWith(
               t ⇒
                 // Do not raise errors during cleanup, catch them here to let other resources to clean them up
-                log.error(s"Errored during stop: $t", t)
+                log.error(s"Errored during stop $name: $t", t)
             )
       }
       .void
@@ -102,7 +104,8 @@ object MakeResource {
       }
       .map {
         case (queue, _) ⇒
-          (fn: F[Unit]) ⇒ queue.enqueue1(Some(fn))
+          (fn: F[Unit]) ⇒
+            queue.enqueue1(Some(fn))
       }
 
   /**

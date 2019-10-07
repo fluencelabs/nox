@@ -131,7 +131,8 @@ object MasterNode {
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
 
-      _ ← Log.resource[F].debug("-> going to create nodeEth")
+      _ ← Log.resource[F].debug("-> going to create nodeEth1")
+      _ ← Log.resource[F].debug("-> going to create nodeEth2")
 
       nodeEth ← NodeEth[F](validatorKey.toByteVector, ethClient, masterConfig.contract)
 
