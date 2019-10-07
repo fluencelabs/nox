@@ -41,35 +41,6 @@ jobs:
       - run: PATH="$PATH:$HOME/.cargo/bin" LD_LIBRARY_PATH="$HOME/project/vm/frank/target/release" sbt -v test
       - <<: *sc
 
-  backend sdk:
-    docker:
-      - image: circleci/rust:latest
-    environment:
-      RUST_BACKTRACE: 1
-      RUST_TEST_THREADS: 1
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - backendsdk01-{{ checksum "backend-sdk/Cargo.toml" }}
-      - run: | #TODO: enable 'stable' and 'beta' once `allocator_api` becomes stable
-          cd backend-sdk/
-          rustup toolchain install nightly-2019-09-23
-          rustup default nightly-2019-09-23
-          rustup override set nightly-2019-09-23
-          rustup target add wasm32-unknown-unknown
-          rustup component add rustfmt
-          rustup component add clippy
-          cargo fmt --all -- --check --color always
-          cargo build -v --target wasm32-unknown-unknown --all-features
-          cargo test -v --all-features
-          cargo clippy -v --target wasm32-unknown-unknown
-      - save_cache:
-          paths:
-            - ~/.cargo
-            - ~/.rustup
-          key: backendsdk01-{{ checksum "backend-sdk/Cargo.toml" }}
-
   smart contract:
     docker:
       - image: circleci/node:10.15
@@ -115,5 +86,3 @@ workflows:
       - sbt all tests
       - smart contract
       - js sdk
-      - backend sdk
-
