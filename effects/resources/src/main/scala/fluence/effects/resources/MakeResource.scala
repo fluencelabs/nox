@@ -104,8 +104,7 @@ object MakeResource {
       }
       .map {
         case (queue, _) ⇒
-          (fn: F[Unit]) ⇒
-            queue.enqueue1(Some(fn))
+          (fn: F[Unit]) ⇒ queue.enqueue1(Some(fn))
       }
 
   /**

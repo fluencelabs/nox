@@ -148,7 +148,7 @@ class EthClient private (private val web3: Web3j) {
           // log error
           either.left.toOption.fold(Applicative[F].unit) { e =>
             log.error(s"Cannot decode block from Ethereum", e)
-        }
+          }
       )
       .collect {
         case Right(v) => v
@@ -180,7 +180,7 @@ class EthClient private (private val web3: Web3j) {
           // maybe it's web3j generator's fault
           load(contractAddress, web3, txManager, new DefaultGasProvider)
         }.flatTap(c ⇒ fluence.log.Log[F].info(s"Contract created $c"))
-    )
+      )
 
   /**
    * Make an async request to Ethereum, lifting its response to an async F type.
