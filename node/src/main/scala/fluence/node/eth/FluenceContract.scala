@@ -234,7 +234,7 @@ object FluenceContract {
    * @return FluenceContract instance with web3j contract inside
    */
   def apply[F[_]: Sync: Log](ethClient: EthClient, config: FluenceContractConfig): F[FluenceContract] =
-    Log[F].info("Will execute ethClient.getContract") >>
+    Log[F].info(s"Will execute ethClient.getContract for $config") >>
       ethClient
         .getContract[F, Network](
           config.address,
