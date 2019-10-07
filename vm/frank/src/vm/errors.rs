@@ -19,14 +19,17 @@ use wasmer_runtime::error::{
     CallError, CompileError, CreationError, Error, ResolveError, RuntimeError,
 };
 
-// TODO: more errors to come (when preparation step will be landed)
+// TODO: more errors to come (when preparation step will be completely landed)
 /// Errors related to the preparation (instrumentation and so on) and compilation by Wasmer steps.
-pub enum InstantiationError {
+pub enum InitializationError {
     /// Error that raises during compilation Wasm code by Wasmer.
     WasmerCreationError(String),
 
     /// Error that raises during creation of some Wasm objects (like table and memory) by Wasmer.
     WasmerCompileError(String),
+
+    /// Error that raises on the preparation step.
+    PrepareError(String),
 }
 
 pub enum FrankError {
@@ -49,11 +52,12 @@ pub enum FrankError {
     FrankNotInitialized,
 }
 
-impl std::fmt::Display for InstantiationError {
+impl std::fmt::Display for InitializationError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
-            InstantiationError::WasmerCompileError(msg) => write!(f, "{}", msg),
-            InstantiationError::WasmerCreationError(msg) => write!(f, "{}", msg),
+            InitializationError::WasmerCompileError(msg) => write!(f, "{}", msg),
+            InitializationError::WasmerCreationError(msg) => write!(f, "{}", msg),
+            InitializationError::PrepareError(msg) => write!(f, "{}", msg),
         }
     }
 }
@@ -75,27 +79,33 @@ impl std::fmt::Display for FrankError {
     }
 }
 
+impl From<CreationError> for InitializationError {
+    fn from(err: CreationError) -> Self {
+        InitializationError::WasmerCreationError(format!("{}", err))
+    }
+}
+
+impl From<CompileError> for InitializationError {
+    fn from(err: CompileError) -> Self {
+        InitializationError::WasmerCompileError(format!("{}", err))
+    }
+}
+
+impl From<parity_wasm::elements::Error> for InitializationError {
+    fn from(err: parity_wasm::elements::Error) -> Self {
+        InitializationError::PrepareError(format!("{}", err))
+    }
+}
+
+impl From<InitializationError> for FrankError {
+    fn from(err: InitializationError) -> Self {
+        FrankError::InstantiationError(format!("{}", err))
+    }
+}
+
 impl From<JNIWrapperError> for FrankError {
     fn from(err: JNIWrapperError) -> Self {
         FrankError::JNIError(format!("{}", err))
-    }
-}
-
-impl From<CreationError> for InstantiationError {
-    fn from(err: CreationError) -> Self {
-        InstantiationError::WasmerCreationError(format!("{}", err))
-    }
-}
-
-impl From<CompileError> for InstantiationError {
-    fn from(err: CompileError) -> Self {
-        InstantiationError::WasmerCompileError(format!("{}", err))
-    }
-}
-
-impl From<InstantiationError> for FrankError {
-    fn from(err: InstantiationError) -> Self {
-        FrankError::InstantiationError(format!("{}", err))
     }
 }
 

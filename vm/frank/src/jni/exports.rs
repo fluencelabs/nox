@@ -16,17 +16,30 @@
 
 /// Defines export functions that will be accessible from the Scala part.
 
-use crate::config::Config;
-use crate::errors::FrankError;
-use crate::frank::{Frank, FRANK};
-use crate::frank_result::FrankResult;
 use crate::jni::jni_results::*;
+use crate::vm::config::Config;
+use crate::vm::errors::FrankError;
+use crate::vm::frank::{Frank, FRANK};
+use crate::vm::frank_result::FrankResult;
+use crate::vm::prepare::prepare_module;
+
 use jni::objects::{JClass, JObject, JString};
 use jni::sys::jbyteArray;
 use jni::JNIEnv;
 use sha2::digest::generic_array::GenericArray;
+use std::fs;
 
 /// Initializes Frank virtual machine.
+/// This method is exported to Scala.
+///
+/// Arguments
+///
+/// * env - corresponding java native interface
+/// * _class - represents caller class
+/// * module_path - a path to module that should be loaded to Frank virtual machine
+/// * config - contains some configs that manage module loading and instantiation process
+///
+/// Returns a object of RawInitializationResult case class
 #[no_mangle]
 pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
     env: JNIEnv<'a>,
@@ -39,9 +52,12 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
         module_path: JString,
         config: JObject,
     ) -> Result<(bool), FrankError> {
-        let file_name: String = env.get_string(module_path)?.into();
+        let module_path: String = env.get_string(module_path)?.into();
         let config = Config::new(&env, config)?;
-        let frank = Frank::new(&file_name, config)?;
+
+        let wasm_code = fs::read(module_path)?;
+        let prepared_module = prepare_module(&wasm_code, &config)?;
+        let frank = Frank::new(&prepared_module, config)?;
 
         unsafe { FRANK = Some(Box::new(frank.0)) };
 
@@ -55,6 +71,15 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
 }
 
 /// Invokes the main module entry point function.
+/// This method is exported to Scala.
+///
+/// Arguments
+///
+/// * env - corresponding java native interface
+/// * _class - represents caller class
+/// * fn_argument - an argument for thr main module entry point function
+///
+/// Returns a object of RawInvocationResult case class
 #[no_mangle]
 pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
     env: JNIEnv<'a>,
@@ -89,6 +114,14 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
 }
 
 /// Computes hash of the internal VM state.
+/// This method is exported to Scala.
+///
+/// Arguments
+///
+/// * env - corresponding java native interface
+/// * _class - represents caller class
+///
+/// Returns a object of RawStateComputationResult case class
 #[no_mangle]
 pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_computeVmState<'a>(
     env: JNIEnv<'a>,

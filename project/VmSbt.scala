@@ -12,17 +12,12 @@ object VmSbt {
 
   private def doCompileFrank(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
     val frankFolder = vmDirectory / "frank"
-    val libName = foldNixMac("libfrank.so", "libfrank.dylib")
-    val libPath = frankFolder / "target" / "release" / libName
-    if (libPath.exists()) {
-      log.info(s"$libName already exists, won't compile")
-    } else {
-      val compileCmd =
-        s"cargo +nightly-2019-09-23 build --lib --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
+    val rust_version = "nightly-2019-09-23"
+    val compileCmd =
+      s"cargo +$rust_version build --lib --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
 
-      log.info(s"Compiling Frank VM")
-      assert((compileCmd !) == 0, "Frank VM compilation failed")
-    }
+    log.info(s"Compiling Frank VM")
+    assert((compileCmd !) == 0, "Frank VM compilation failed")
   }
 
   def downloadFrankSo(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {

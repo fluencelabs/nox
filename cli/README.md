@@ -109,7 +109,7 @@ Interesting bits:
 
 NOTE: currently maximum `cluster_size` is limited by `4`. This is to limit resource exhaustion. To use a cluster of larger size, you can [spin up your own nodes](../docs/src/roles/miner.md), and ping to them via `--pin_to` flag. 
 
-Please refer to [Fluence Rust SDK](../backend-sdk/README.md) and [Rust guide](../docs/src/quickstart/rust.md) to get information about developing apps with Fluence.
+Please refer to [Fluence Rust SDK](https://github.com/fluencelabs/rust-sdk/README.md) and [Rust guide](../docs/src/quickstart/rust.md) to get information about developing apps with Fluence.
 
 #### Waiting for an app to be deployed or enqueued
 You can pass `--wait` option to `publish` command, and CLI will wait until transaction is included in a block, and then provide you with information about app deployment status and app id.

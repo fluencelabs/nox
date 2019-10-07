@@ -24,9 +24,5 @@
     unreachable_patterns
 )]
 
-mod config;
-mod errors;
-mod frank;
-mod frank_result;
 mod jni;
-mod modules;
+mod vm;

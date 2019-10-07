@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-//! Notifies the VM that this module expects Ethereum blocks.
-//!
-//! This module contains functions for loading from and storing to memory.
-
-/// A temporary solution to let users configure their ethereum expectations via WASM bytecode:
-/// to enable block uploading via invoke method, just export expects_eth method from the module.
-#[no_mangle]
-pub unsafe fn expects_eth() {}
+pub mod config;
+pub mod errors;
+pub mod frank;
+pub mod frank_result;
+pub mod prepare;
+mod modules;
