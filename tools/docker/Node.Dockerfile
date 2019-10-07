@@ -46,4 +46,4 @@ COPY --from=build  /fluence/node/src/main/resources/docker /
 COPY --from=build  /fluence/node/target/scala-2.12/master-node.jar /master-node.jar
 
 CMD ["java", "-jar", "-Dconfig.file=/master/application.conf", "/master-node.jar"]
-ENTRYPOINT ["sh", "/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
