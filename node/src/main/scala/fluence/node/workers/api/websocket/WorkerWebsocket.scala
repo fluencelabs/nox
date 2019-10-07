@@ -100,7 +100,7 @@ class WorkerWebsocket[F[_]: Concurrent](
   private def callApi(input: WebsocketRequest): F[WebsocketResponse] =
     input match {
       case TxRequest(tx, requestId) =>
-        workerApi.sendTx(tx).map {
+        workerApi.sendTx(tx.getBytes()).map {
           // TODO: check API is correct – TxResponse inside TxResponse
           case Right(txResponse) => TxResponse(requestId, txResponse.asJson.spaces2)
           case Left(error)       => ErrorResponse(requestId, error.getMessage)
@@ -114,7 +114,7 @@ class WorkerWebsocket[F[_]: Concurrent](
 
       case TxWaitRequest(tx, requestId) =>
         workerApi
-          .sendTxAwaitResponse(tx)
+          .sendTxAwaitResponse(tx.getBytes())
           .map(toWebsocketResponse(requestId, _))
 
       case SubscribeRequest(requestId, subscriptionId, tx) =>

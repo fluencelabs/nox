@@ -26,8 +26,8 @@ object WebsocketRequests {
   }
   case class QueryRequest(path: String, data: Option[String], id: Option[String], requestId: String)
       extends WebsocketRequest
-  case class TxRequest(tx: Array[Byte], requestId: String) extends WebsocketRequest
-  case class TxWaitRequest(tx: Array[Byte], requestId: String) extends WebsocketRequest
+  case class TxRequest(tx: String, requestId: String) extends WebsocketRequest
+  case class TxWaitRequest(tx: String, requestId: String) extends WebsocketRequest
   case class SubscribeRequest(requestId: String, subscriptionId: String, tx: String) extends WebsocketRequest
   case class UnsubscribeRequest(requestId: String, subscriptionId: String, tx: String) extends WebsocketRequest
 
