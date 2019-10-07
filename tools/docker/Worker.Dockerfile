@@ -25,7 +25,7 @@ COPY . /fluence
 FROM $environment as build
 
 ############## Build final image
-FROM openjdk:10-jre
+FROM openjdk:10
 VOLUME /worker
 COPY --from=build /fluence/statemachine/docker/worker /worker
 COPY --from=build /fluence/statemachine/docker/target/scala-2.12/statemachine.jar /statemachine.jar
