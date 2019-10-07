@@ -35,43 +35,40 @@ class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey
   def getSubscriptions: F[Map[SubscriptionKey, Value[F]]] = subscriptions.get
 
   /**
-   * Add stream to a subscription.
+   * Add stream to a subscription. Subscription must be marked as being used via [[addSubscription]].
    *
-   * @return false if there is no subscription with such key
+   * @return false if subscription with such key already exists in the map, stating whether operation was successful
    */
-  def addStream(key: SubscriptionKey, stream: fs2.Stream[F, AwaitedResponse.OrError])(
-    implicit log: Log[F]
-  ): F[Boolean] =
+  def addStream(key: SubscriptionKey, stream: fs2.Stream[F, AwaitedResponse.OrError])(implicit log: Log[F]): F[Unit] =
     for {
-      noSub <- subscriptions.modify { subs =>
-        subs.get(key) match {
-          case Some(_) => (subs.updated(key, Some(stream)), false)
-          case None    => (subs, true)
+      subExists <- subscriptions.modify { subs =>
+        if (subs.contains(key)) {
+          (subs.updated(key, Some(stream)), true)
+        } else {
+          (subs, false)
         }
       }
-      _ <- if (noSub) log.warn("Unexpected. There is no subscription for a created stream.") else ().pure[F]
-    } yield noSub
+      _ <- if (!subExists) log.warn("Unexpected. There is no subscription for a created stream.") else ().pure[F]
+    } yield ()
 
   /**
+   * Mark subscription as being used, to mitigate data race possibility
    *
-   * @return false if there is already a subscription with such key
+   * @return false if subscription with such key already exists in the map, stating whether operation was successful
    */
-  def addSubscription(key: SubscriptionKey, tx: Tx.Data)(
-    implicit log: Log[F]
-  ): F[Boolean] =
+  def addSubscription(key: SubscriptionKey, tx: Tx.Data)(implicit log: Log[F]): F[Boolean] =
     for {
-      success <- subscriptions.modify { subs =>
-        subs.get(key) match {
-          case Some(_) => (subs, false)
-          case None =>
-            (subs + (key -> None), true)
+      subExists <- subscriptions.modify { subs =>
+        if (subs.contains(key)) {
+          (subs, true)
+        } else {
+          (subs + (key -> None), false)
         }
       }
-    } yield success
+    } yield !subExists
 
-  def deleteSubscription(key: SubscriptionKey)(
-    implicit log: Log[F]
-  ): F[Unit] = subscriptions.update(_ - key)
+  def deleteSubscription(key: SubscriptionKey)(implicit log: Log[F]): F[Unit] =
+    subscriptions.update(_ - key)
 }
 
 object SubscriptionStorage {

@@ -62,7 +62,7 @@ class WorkerWebsocket[F[_]: Concurrent](
     import cats.syntax.traverse._
     import cats.instances.list._
     for {
-      _ <- log.info("Websocket is closing. Delete all subscriptions.")
+      _ <- log.debug("Websocket is closing. Delete all subscriptions.")
       subs <- subscriptionsStorage.getSubscriptions
       _ <- subs.keys.toList.traverse(workerApi.unsubscribe)
       _ <- outputQueue.enqueue1(None)
@@ -121,7 +121,7 @@ class WorkerWebsocket[F[_]: Concurrent](
         val txData = Tx.Data(tx.getBytes())
         val key = SubscriptionKey.generate(subscriptionId, txData)
         subscriptionsStorage.addSubscription(key, txData).flatMap {
-          case true =>
+          case true => // addSubscription was successful
             workerApi.subscribe(key, txData).flatMap { stream =>
               for {
                 _ <- subscriptionsStorage.addStream(key, stream)
@@ -133,7 +133,7 @@ class WorkerWebsocket[F[_]: Concurrent](
                 )
               } yield SubscribeResponse(requestId): WebsocketResponse
             }
-          case false =>
+          case false => // There already exists a subscription with that id
             (ErrorResponse(requestId, s"Subscription $subscriptionId already exists"): WebsocketResponse).pure[F]
         }
 

@@ -28,8 +28,7 @@ object VmSbt {
   }
 
   def compileFrank(vmDirectory: SettingKey[sbt.File]) = Def.task {
-//    doCompileFrank(vmDirectory.value)(streams.value.log)
-    downloadFrankSo(vmDirectory.value)(streams.value.log)
+    doCompileFrank(vmDirectory.value)(streams.value.log)
   }
 
   def downloadLlama(resourcesDir: SettingKey[sbt.File]) = Def.task {
@@ -44,7 +43,7 @@ object VmSbt {
   }
 
   def makeFrankSo(vmDirectory: SettingKey[sbt.File]) = Def.taskDyn {
-    if (foldNixMac(true, false) || false) {
+    if (foldNixMac(true, false)) {
       ThisBuild / compileFrank
     } else {
       Def.task {

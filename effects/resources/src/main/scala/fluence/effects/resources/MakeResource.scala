@@ -44,11 +44,9 @@ object MakeResource {
       .makeCase[F, (Deferred[F, Either[Throwable, Unit]], Fiber[F, Unit], Log[F])](
         for {
           stopDef ← Deferred[F, Either[Throwable, Unit]]
-          _ ← Log[F].info(s"Will start concurrentStream $name")
           streamFiber ← Concurrent[F].start(
             stream.interruptWhen(stopDef).compile.drain
           )
-          _ ← Log[F].info(s"Started concurrentStream $name $streamFiber")
         } yield (stopDef, streamFiber, Log[F].getScoped(name))
       ) {
         case ((stopDef, streamFiber, log), exitCase) ⇒
@@ -104,7 +102,8 @@ object MakeResource {
       }
       .map {
         case (queue, _) ⇒
-          (fn: F[Unit]) ⇒ queue.enqueue1(Some(fn))
+          (fn: F[Unit]) ⇒
+            queue.enqueue1(Some(fn))
       }
 
   /**

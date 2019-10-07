@@ -148,7 +148,7 @@ class EthClient private (private val web3: Web3j) {
           // log error
           either.left.toOption.fold(Applicative[F].unit) { e =>
             log.error(s"Cannot decode block from Ethereum", e)
-          }
+        }
       )
       .collect {
         case Right(v) => v
@@ -168,19 +168,13 @@ class EthClient private (private val web3: Web3j) {
     userAddress: String,
     load: ContractLoader[T]
   ): F[T] =
-    fluence.log.Log[F].info(s"Will execute getContract for $contractAddress $userAddress") >>
-      Sync[F].delay {
-        new ClientTransactionManager(web3, userAddress)
-      }.flatTap(m ⇒ fluence.log.Log[F].info(s"tx manager created $m")) >>= (
-      txManager ⇒
-        Sync[F].delay {
-
-          // TODO: check contract.isValid and throw an exception
-          // currently it doesn't work because contract's binary code is different after deploy for some unknown reason
-          // maybe it's web3j generator's fault
-          load(contractAddress, web3, txManager, new DefaultGasProvider)
-        }.flatTap(c ⇒ fluence.log.Log[F].info(s"Contract created $c"))
-      )
+    Sync[F].delay {
+      val txManager = new ClientTransactionManager(web3, userAddress)
+      // TODO: check contract.isValid and throw an exception
+      // currently it doesn't work because contract's binary code is different after deploy for some unknown reason
+      // maybe it's web3j generator's fault
+      load(contractAddress, web3, txManager, new DefaultGasProvider)
+    }
 
   /**
    * Make an async request to Ethereum, lifting its response to an async F type.

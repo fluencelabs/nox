@@ -54,7 +54,7 @@ class MasterNodeIntegrationSpec
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   implicit private val log: Log[IO] =
-    LogFactory.forPrintln[IO](Log.Info).init("MasterNodeIntegrationSpec").unsafeRunSync()
+    LogFactory.forPrintln[IO](Log.Error).init("MasterNodeIntegrationSpec").unsafeRunSync()
 
   private val sttpResource: Resource[IO, SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
@@ -101,8 +101,8 @@ class MasterNodeIntegrationSpec
 
       _ <- Resource liftF eventually[IO](
         checkMasterRunning(master1Port) *> checkMasterRunning(master2Port),
-        maxWait = 2.minutes
-      ) // TODO: 2 minutes is a bit too much for startup; investigate and reduce timeout
+        maxWait = 30.seconds
+      ) // TODO: 30 seconds is a bit too much for startup; investigate and reduce timeout
 
     } yield (master1, master2)
   }
