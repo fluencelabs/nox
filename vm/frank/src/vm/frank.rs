@@ -14,14 +14,36 @@
  * limitations under the License.
  */
 
-use crate::config::Config;
-use crate::errors::FrankError;
-use crate::frank_result::FrankResult;
-use crate::modules::env_module::EnvModule;
-use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
-use std::{ffi::c_void, fs};
-use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
-use wasmer_runtime_core::memory::ptr::{WasmPtr, Array};
+use crate::{
+    modules::env_module::EnvModule,
+    vm::config::Config,
+    vm::errors::FrankError,
+    vm::frank_result::FrankResult,
+};
+
+use sha2::{
+    digest::generic_array::GenericArray,
+    digest::FixedOutput,
+    Digest,
+    Sha256,
+};
+
+use std::ffi::c_void;
+
+use wasmer_runtime::{
+    func,
+    imports,
+    instantiate,
+    Ctx,
+    Func,
+    Instance
+};
+
+use wasmer_runtime_core::{
+    memory::{
+        ptr::{Array, WasmPtr},
+    },
+};
 
 pub struct Frank {
     instance: Box<Instance>,
@@ -115,7 +137,7 @@ impl Frank {
 
         // invoke a main module, read a result and deallocate it
         let result_address = self.call_invoke_func(argument_address, argument_len)?;
-        let result = self.read_result_from_mem(result_address as usize)?;
+        let result = self.read_result_from_mem(result_address as _)?;
         self.call_deallocate_func(result_address, result.len() as i32)?;
 
         let state = env.get_state();
@@ -129,18 +151,18 @@ impl Frank {
         let mut hasher = Sha256::new();
         let memory = self.instance.context_mut().memory(0);
 
-        for cell in memory.view::<u8>()[0 as usize..memory.size().0 as usize].iter() {
-            // it is too slow now and could be optimized when PR with memory will be landed
-            hasher.input(&[cell.get()]);
-        }
+        let wasm_ptr = WasmPtr::<u8, Array>::new(0 as _);
+        let raw_mem = wasm_ptr
+            .deref(memory, 0, (memory.size().bytes().0 - 1) as _)
+            .expect("frank: internal error in compute_vm_state_hash");
+        let raw_mem: &[u8] = unsafe { &*(raw_mem as *const [std::cell::Cell<u8>] as *const [u8]) };
 
+        hasher.input(raw_mem);
         hasher.result()
     }
 
     /// Creates a new virtual machine executor.
-    pub fn new(module_path: &str, config: Box<Config>) -> Result<(Self, bool), FrankError> {
-        let wasm_code = fs::read(module_path)?;
-
+    pub fn new(module: &[u8], config: Box<Config>) -> Result<(Self, bool), FrankError> {
         let env_state = move || {
             // allocate EnvModule on the heap
             let env_module = EnvModule::new();
@@ -164,7 +186,7 @@ impl Frank {
             },
         };
 
-        let instance = Box::new(instantiate(&wasm_code, &import_objects)?);
+        let instance = Box::new(instantiate(module, &import_objects)?);
         let expects_eth = instance.func::<(i32, i32), ()>(ETH_FUNC_NAME).is_ok();
 
         Ok((Self { instance, config }, expects_eth))

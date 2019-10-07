@@ -14,16 +14,8 @@
  * limitations under the License.
  */
 
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
-
-mod jni;
-mod modules;
-mod vm;
+pub mod config;
+pub mod errors;
+pub mod frank;
+pub mod frank_result;
+pub mod prepare;

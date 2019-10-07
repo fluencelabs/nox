@@ -65,8 +65,6 @@ trait WasmVm {
 }
 
 object WasmVm {
-  val javaLibPath: String = System.getProperty("java.library.path")
-  println(s"java.library.path = $javaLibPath")
 
   /**
    * Main method factory for building VM.
