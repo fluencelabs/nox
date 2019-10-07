@@ -44,29 +44,38 @@ use wasmer_runtime_core::{
         ptr::{Array, WasmPtr},
     },
 };
-use std::pin::Pin;
 
-pub struct Frank<'a> {
-    instance: Box<Instance>,
-    allocate: Option<Func<'a, i32, i32>>,
-    deallocate: Option<Func<'a, (i32, i32), ()>>,
-    invoke: Option<Func<'a, (i32, i32), i32>>,
+pub struct Frank {
+    instance: &'static Instance,
+    allocate: Option<Func<'static, i32, i32>>,
+    deallocate: Option<Func<'static, (i32, i32), ()>>,
+    invoke: Option<Func<'static, (i32, i32), i32>>,
+}
+
+impl Drop for Frank {
+    // In normal situation this method should be called only during exiting
+    fn drop(&mut self) {
+        drop(self.allocate.as_ref());
+        drop(self.deallocate.as_ref());
+        drop(self.invoke.as_ref());
+        drop(Box::from(self.instance));
+    }
 }
 
 // Waiting for new release of Wasmer with https://github.com/wasmerio/wasmer/issues/748.
 // It will allow to use lazy_static here. thread_local isn't suitable in our case because
 // it is difficult to guarantee that jni code will be called on the same thead context
 // every time from the Scala part.
-pub static mut FRANK: Option<Pin<Box<Frank>>> = None;
+pub static mut FRANK: Option<Box<Frank>> = None;
 
 // A little hack: exporting functions with this name means that this module expects Ethereum blocks.
 // Will be changed in the future.
 const ETH_FUNC_NAME: &str = "expects_eth";
 
-impl Frank<'_> {
+impl Frank {
     /// Writes given value on the given address.
     fn write_to_mem(&mut self, address: usize, value: &[u8]) -> Result<(), FrankError> {
-        let memory = self.instance.context_mut().memory(0);
+        let memory = self.instance.context().memory(0);
 
         for (byte_id, cell) in memory.view::<u8>()[address as usize..(address + value.len())]
             .iter()
@@ -100,7 +109,7 @@ impl Frank<'_> {
     pub fn invoke(&mut self, fn_argument: &[u8]) -> Result<FrankResult, FrankError> {
         // renew the state of the registered environment module to track spent gas and eic
         let env: &mut EnvModule =
-            unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
+            unsafe { &mut *(self.instance.context().data as *mut EnvModule) };
         env.renew_state();
 
         // allocate memory for the given argument and write it to memory
@@ -127,7 +136,7 @@ impl Frank<'_> {
         &mut self,
     ) -> GenericArray<u8, <Sha256 as FixedOutput>::OutputSize> {
         let mut hasher = Sha256::new();
-        let memory = self.instance.context_mut().memory(0);
+        let memory = self.instance.context().memory(0);
 
         let wasm_ptr = WasmPtr::<u8, Array>::new(0 as _);
         let raw_mem = wasm_ptr
@@ -140,7 +149,7 @@ impl Frank<'_> {
     }
 
     /// Creates a new virtual machine executor.
-    pub fn new(module: &[u8], config: Box<Config>) -> Result<(Pin<Box<Self>>, bool), FrankError> {
+    pub fn new(module: &[u8], config: Box<Config>) -> Result<(Self, bool), FrankError> {
         let env_state = move || {
             // allocate EnvModule on the heap
             let env_module = EnvModule::new();
@@ -164,27 +173,15 @@ impl Frank<'_> {
             },
         };
 
-        let mut frank = Box::pin(Self {
-            instance: Box::new(instantiate(module, &import_objects)?),
-            allocate: None,
-            deallocate: None,
-            invoke: None,
-        });
+        let instance: &'static mut Instance = Box::leak(Box::new(instantiate(module, &import_objects)?));
+        let expects_eth = instance.func::<(), ()>(ETH_FUNC_NAME).is_ok();
 
-        let expects_eth = frank.instance.func::<(), ()>(ETH_FUNC_NAME).is_ok();
-        let allocate = Some(&frank.instance.func::<(i32), i32>(&config.allocate_function_name)?);
-        let deallocate = Some(&frank.instance.func::<(i32, i32), ()>(&config.deallocate_function_name)?);
-        let invoke = Some(&frank.instance.func::<(i32, i32), i32>(&config.invoke_function_name)?);
-
-        let frank_ref_1: Pin<&mut Self> = Pin::as_mut(&mut frank);
-        let frank_ref_2: Pin<&mut Self> = Pin::as_mut(&mut frank);
-        let frank_ref_3: Pin<&mut Self> = Pin::as_mut(&mut frank);
-
-        unsafe{ Pin::get_unchecked_mut(frank_ref_1).allocate = *allocate; }
-        unsafe{ Pin::get_unchecked_mut(frank_ref_2).deallocate = *deallocate; }
-        unsafe{ Pin::get_unchecked_mut(frank_ref_3).invoke = *invoke; }
-
-        Ok((frank , expects_eth))
+        Ok((Self {
+         instance,
+         allocate: Some(instance.func::<(i32), i32>(&config.allocate_function_name)?),
+         deallocate: Some(instance.func::<(i32, i32), ()>(&config.deallocate_function_name)?),
+         invoke: Some(instance.func::<(i32, i32), i32>(&config.invoke_function_name)?),
+        }, expects_eth))
     }
 }
 
