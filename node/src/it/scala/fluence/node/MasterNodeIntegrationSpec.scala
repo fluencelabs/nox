@@ -95,7 +95,15 @@ class MasterNodeIntegrationSpec
     master1Port: Short,
     master2Port: Short
   )(implicit sttpBackend: Sttp): Resource[IO, (String, String)] = {
+    val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
+    val owner = "0x4180FC65D613bA7E1a385181a219F1DBfE7Bf11d"
+    val contractConfig = FluenceContractConfig(owner, contractAddress)
     for {
+      ethClient <- EthClient.make[IO]()
+      contract ← Resource liftF FluenceContract[IO](ethClient, contractConfig)
+      _ ← Resource liftF IO(
+        println(Console.MAGENTA + s"CREATED CONTRACT $contract from $contractConfig" + Console.RESET)
+      )
       master1 <- runMaster(master1Port, "master1", n = 1)
       master2 <- runMaster(master2Port, "master2", n = 2)
 
