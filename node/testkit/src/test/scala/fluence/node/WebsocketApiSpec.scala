@@ -84,7 +84,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       val id = "some-id"
       val txResponse = TxResponse(TxCode.OK, "tx-response")
-      val txRequest = "tx-request".getBytes
+      val txRequest = "tx-request"
 
       val request = TxRequest(txRequest, id): WebsocketRequest
       val response = websocketApi(new TestWorkerApi[IO] {
@@ -109,7 +109,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val txRequest = "tx-request"
       val error = RpcBodyMalformed(txRequest, new RuntimeException("some error"))
 
-      val request: WebsocketRequest = TxRequest(txRequest.getBytes, id)
+      val request: WebsocketRequest = TxRequest(txRequest, id)
       val response = websocketApi(new TestWorkerApi[IO] {
         override def sendTx(tx: Array[Byte])(implicit log: Log[IO]): IO[Either[RpcError, TxResponse]] =
           (Left(error): Either[RpcError, TxResponse]).pure[IO]
@@ -136,7 +136,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       }
 
       val txResponse = "response"
-      val request: WebsocketRequest = TxWaitRequest(txRequest.getBytes, id)
+      val request: WebsocketRequest = TxWaitRequest(txRequest, id)
       val head = Tx.Head("session", 1L)
 
       val responseApi1 = Right(OkResponse(head, txResponse))
