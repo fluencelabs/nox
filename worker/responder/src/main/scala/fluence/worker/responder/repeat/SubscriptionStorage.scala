@@ -45,8 +45,8 @@ class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey
     for {
       noSub <- subscriptions.modify { subs =>
         subs.get(key) match {
-          case Some(_) => (subs.updated(key, Some(stream)), true)
-          case None    => (subs, false)
+          case Some(_) => (subs.updated(key, Some(stream)), false)
+          case None    => (subs, true)
         }
       }
       _ <- if (noSub) log.warn("Unexpected. There is no subscription for a created stream.") else ().pure[F]

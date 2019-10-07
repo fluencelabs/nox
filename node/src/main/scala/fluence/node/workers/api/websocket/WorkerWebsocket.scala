@@ -62,6 +62,7 @@ class WorkerWebsocket[F[_]: Concurrent](
     import cats.syntax.traverse._
     import cats.instances.list._
     for {
+      _ <- log.info("Websocket is closing. Delete all subscriptions.")
       subs <- subscriptionsStorage.getSubscriptions
       _ <- subs.keys.toList.traverse(workerApi.unsubscribe)
       _ <- outputQueue.enqueue1(None)
