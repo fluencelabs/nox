@@ -168,7 +168,8 @@ object NodeEth {
     ethClient: EthClient,
     config: FluenceContractConfig
   ): Resource[F, NodeEth[F]] =
-    Resource
-      .liftF(FluenceContract(ethClient, config))
-      .evalTap(fc ⇒ Log[F].info(s"FluenceContract.apply finished $fc")) >>= (apply[F](validatorKey, _))
+    Log.resource[F].info("will execute NodeEth.apply") >>
+      Resource
+        .liftF(FluenceContract(ethClient, config))
+        .evalTap(fc ⇒ Log[F].info(s"FluenceContract.apply finished $fc")) >>= (apply[F](validatorKey, _))
 }
