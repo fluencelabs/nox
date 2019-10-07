@@ -239,7 +239,7 @@ object FluenceContract {
         .getContract[F, Network](
           config.address,
           config.ownerAccount,
-          Network.load
+          (s, w, t, cg) => Network.load(s, w, t, cg)
         )
         .map(contract ⇒ new FluenceContract(ethClient, contract))
 }
