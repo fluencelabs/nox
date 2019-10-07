@@ -18,6 +18,7 @@ package fluence.statemachine.docker
 
 import cats.Monad
 import cats.effect.Resource
+import fluence.effects.EffectError
 import fluence.effects.docker.params.{DockerImage, DockerLimits, DockerParams}
 import fluence.effects.docker.{DockerContainer, DockerIO, DockerNetwork}
 import fluence.effects.sttp.SttpEffect
@@ -27,6 +28,7 @@ import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.client.StateMachineClient
 import shapeless._
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -41,11 +43,11 @@ object DockerStateMachine {
     network: DockerNetwork,
     limits: DockerLimits,
     image: DockerImage,
-    logLevel: Log.Level,
     environment: Map[String, String],
+    logLevel: Log.Level,
     vmCodePath: String,
     volumesFrom: Option[String],
-    stopTimeout: Int
+    stopTimeout: FiniteDuration
   ): Resource[F, StateMachine.Aux[F, DockerContainer :: ReceiptBus[F] :: PeersControl[F] :: HNil]] = {
     val internalMem = limits.memoryMb.map(mem => Math.floor(mem * 0.75).toInt)
 
@@ -65,7 +67,7 @@ object DockerStateMachine {
     DockerIO[F]
       .run(params, stopTimeout)
       .map(
-        StateMachineClient[F](name, RpcPort).extend
+        c ⇒ StateMachineClient[F](name, RpcPort, DockerIO[F].checkContainer(c).leftMap(identity[EffectError])).extend(c)
       )
   }
 

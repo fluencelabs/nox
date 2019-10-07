@@ -16,13 +16,20 @@
 
 package fluence.node.eth
 
+import java.net.InetAddress
+
 import cats.{Applicative, Monad}
 import cats.data.StateT
 import cats.syntax.functor._
-import fluence.effects.ethclient.data.Block
+import fluence.effects.ethclient.data.{Block, Transaction}
+import fluence.worker.eth.StorageType.StorageType
+import fluence.worker.eth.{Cluster, EthApp, StorageRef, StorageType, WorkerPeer}
+import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import scodec.bits.ByteVector
-import state.App
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.language.higherKinds
 
 /**
@@ -35,13 +42,45 @@ import scala.language.higherKinds
  */
 case class NodeEthState(
   validatorKey: ByteVector,
-  apps: Map[Long, App] = Map.empty,
+  apps: Map[Long, EthApp] = Map.empty,
   nodesToApps: Map[ByteVector, Set[Long]] = Map.empty,
   lastBlock: Option[Block] = None,
   contractAppsLoaded: Boolean = false
 )
 
 object NodeEthState {
+
+  private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
+  private implicit val encodeEthTx: Encoder[Transaction] = deriveEncoder
+  private implicit val encodeEthBlock: Encoder[Block] = deriveEncoder
+  private implicit val encodeFiniteDuration: Encoder[FiniteDuration] = Encoder.encodeLong.contramap(_.toSeconds)
+  private implicit val encodeByteVector: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
+  private implicit val encodeStorageType: Encoder[StorageType] = Encoder.encodeEnumeration(StorageType)
+  private implicit val encodeInetAddress: Encoder[InetAddress] = Encoder.encodeString.contramap(_.getHostName)
+  private implicit val encodeWorkerPeer: Encoder[WorkerPeer] = deriveEncoder
+  private implicit val encodeCluster: Encoder[Cluster] = deriveEncoder
+  private implicit val encodeApp: Encoder[EthApp] = deriveEncoder
+  private implicit val encodeStorageRef: Encoder[StorageRef] = deriveEncoder
+  implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
+
+  private implicit val decodeByteVector: Decoder[ByteVector] =
+    Decoder.decodeString.flatMap(
+      ByteVector.fromHex(_).fold(Decoder.failedWithMessage[ByteVector]("Not a hex"))(Decoder.const)
+    )
+
+  // Used for tests
+  private implicit val keyDecoderByteVector: KeyDecoder[ByteVector] = KeyDecoder.instance(ByteVector.fromHex(_))
+  private implicit val decodeEthTx: Decoder[Transaction] = deriveDecoder
+  private implicit val decodeEthBlock: Decoder[Block] = deriveDecoder
+  private implicit val decodeFiniteDuration: Decoder[FiniteDuration] = Decoder.decodeLong.map(_ seconds)
+  private implicit val decodeCluster: Decoder[Cluster] = deriveDecoder
+  private implicit val decodeStorageType: Decoder[StorageType] = Decoder.decodeEnumeration(StorageType)
+  private implicit val decodeInetAddress: Decoder[InetAddress] = Decoder.decodeString.map(InetAddress.getByName)
+  private implicit val decodeApp: Decoder[EthApp] = deriveDecoder
+  private implicit val decodeWorkerPeer: Decoder[WorkerPeer] = deriveDecoder
+  private implicit val decodeStorageRef: Decoder[StorageRef] = deriveDecoder
+  implicit val decodeNodeEthState: Decoder[NodeEthState] = deriveDecoder
+
   private type State[F[_]] =
     StateT[F, NodeEthState, Seq[NodeEthEvent]]
 
@@ -67,7 +106,7 @@ object NodeEthState {
   /**
    * Expresses the state change that should be applied on new App deployment event
    */
-  def onNodeApp[F[_]: Monad](app: App): State[F] =
+  def onNodeApp[F[_]: Monad](app: EthApp): State[F] =
     modify[F](
       s ⇒
         s.copy(
@@ -132,7 +171,7 @@ object NodeEthState {
             appIds // We're collecting the events of removing an app by ourselves, or of dropping the peer of a cluster
               .foldLeft[(NodeEthState, List[NodeEthEvent])]((s.copy(nodesToApps = s.nodesToApps - nodeId), Nil)) {
                 case (acc @ (st, evs), appId) ⇒
-                  def removeNodeFromApp(app: App): App = {
+                  def removeNodeFromApp(app: EthApp): EthApp = {
                     val workers = app.cluster.workers
                     lazy val i = workers.indexWhere(_.validatorKey === nodeId)
 

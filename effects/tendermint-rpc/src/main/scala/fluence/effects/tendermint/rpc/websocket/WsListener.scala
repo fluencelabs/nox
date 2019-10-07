@@ -42,7 +42,7 @@ import scala.language.higherKinds
  * @param queue Queue to send resulting events to
  * @param disconnected Promise, will be completed when websocket signals disconnection
  */
-class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
+class WsListener[F[_]: ConcurrentEffect: Timer](
   wsUrl: String,
   payloadAccumulator: Ref[F, String],
   queue: Queue[F, Event],
@@ -84,7 +84,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
   }.toIO.unsafeRunSync()
 
   private def close(websocket: WebSocket, code: Option[Int], reason: String) = {
-    log.warn(s"Tendermint WRPC: $wsUrl closed ${code.getOrElse(" ")} $reason") >>
+    log.warn(s"Tendermint WRPC: $wsUrl closed ${code.getOrElse("(no code)")} $reason") >>
       disconnected.complete(Disconnected(code, reason)).attempt.void
   }
 
@@ -168,7 +168,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
 
 object WsListener {
 
-  def apply[F[_]: ConcurrentEffect: Timer: ContextShift](
+  def apply[F[_]: ConcurrentEffect: Timer](
     wsUrl: String,
     payloadAccumulator: Ref[F, String],
     queue: Queue[F, Event],

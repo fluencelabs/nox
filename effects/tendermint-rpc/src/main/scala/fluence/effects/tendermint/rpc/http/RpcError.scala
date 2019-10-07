@@ -18,6 +18,8 @@ package fluence.effects.tendermint.rpc.http
 
 import fluence.effects.tendermint.block.errors.TendermintBlockError
 import fluence.effects.{EffectError, WithCause}
+import io.circe.Decoder
+import io.circe.generic.semiauto.deriveDecoder
 
 /** TendermintHttpRpc errors */
 sealed trait RpcError extends EffectError
@@ -26,14 +28,34 @@ sealed trait RpcError extends EffectError
 case class RpcRequestFailed(cause: Throwable)
     extends Exception("Tendermint RPC request failed: " + cause.getMessage, cause) with RpcError
 
-/** Request was successfully made, but response status is not ok */
-case class RpcRequestErrored(statusCode: Int, error: String)
+/** Request was successfully made, but HTTP response status is not ok */
+case class RpcHttpError(statusCode: Int, error: String)
     extends Exception(s"Tendermint RPC request returned error, status=$statusCode, body=$error") with RpcError
 
+/** Request execution returned error */
+case class RpcCallError(code: Int, message: String, data: String) extends RpcError {
+  override def getMessage: String = s"Error on rpc call: code $code message $message data $data"
+}
+
+object RpcCallError {
+  import cats.syntax.either._
+  implicit val errorDecoder: Decoder[RpcCallError] =
+    Decoder.decodeJson.emap(
+      _.hcursor
+        .downField("error")
+        .as[RpcCallError](deriveDecoder[RpcCallError])
+        .leftMap(e => s"Error decoding RpcCallError: $e")
+    )
+
+  implicit def eitherDecoder[A: Decoder]: Decoder[Either[RpcCallError, A]] =
+    errorDecoder.either(implicitly[Decoder[A]])
+}
+
 /** Response was received, but it's not possible to parse the response to the desired type */
-case class RpcBodyMalformed(error: Throwable)
-    extends Exception("Tendermint RPC body cannot be parsed", error) with RpcError {
-  override def getMessage: String = "Tendermint RPC body cannot be parsed: " + error.getMessage
+case class RpcBodyMalformed(request: String, error: Throwable)
+    extends Exception(s"Tendermint RPC body cannot be parsed, request: $request", error) with RpcError {
+  override def getMessage: String =
+    s"Tendermint RPC body cannot be parsed, request: $request $error: ${error.getMessage}"
 }
 
 case class RpcBlockParsingFailed(cause: TendermintBlockError, rawBlock: String, height: Long)

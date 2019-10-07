@@ -59,7 +59,7 @@ lazy val `statemachine-api` = (project in file("statemachine/api"))
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`log`, `effects`)
+  .dependsOn(`log`, `effects`, `block-producer-tx`)
 
 lazy val `statemachine-http` = (project in file("statemachine/http"))
   .settings(
@@ -139,6 +139,29 @@ lazy val `effects` = project
     )
   )
   .dependsOn(`log`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `effects-testkit` = (project in file("effects/testkit"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      fs2,
+      scalaTestCompile
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `resources-effects` = project
+  .in(file("effects/resources"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      fs2
+    )
+  )
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `sttp-effect` = (project in file("effects/sttp"))
@@ -260,7 +283,15 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects`, `sttp-effect`, `tendermint-block`, `log`, `tendermint-block-history`)
+  .dependsOn(
+    `effects`,
+    `sttp-effect`,
+    `tendermint-block`,
+    `log`,
+    `tendermint-block-history`,
+    `block-producer-tx`,
+    `effects-testkit` % Test
+  )
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block` = (project in file("history/tendermint-block"))
@@ -278,7 +309,7 @@ lazy val `tendermint-block` = (project in file("history/tendermint-block"))
       bouncyCastle
     )
   )
-  .dependsOn(`effects`)
+  .dependsOn(`effects`, `block-producer-tx`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block-history` = (project in file("history/tendermint-block-history"))
@@ -313,7 +344,7 @@ lazy val `receipt-storage` = (project in file("history/receipt-storage"))
       scalaTest
     )
   )
-  .dependsOn(`log`, `kvstore`, `tendermint-block-history`, `kademlia`, `kademlia-dht`)
+  .dependsOn(`log`, `kvstore`, `tendermint-block-history`, `kademlia-dht`)
 
 lazy val `kademlia` = project
   .in(file("kademlia"))
@@ -377,6 +408,87 @@ lazy val `log` = project
   )
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `worker` = project
+  .settings(
+    commons
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`statemachine-api`, `block-producer-api`, `resources-effects`, `worker-eth`)
+
+lazy val `worker-responder` = project
+  .in(file("worker/responder"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      scalaTest
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`worker`, `resources-effects`, `block-producer-embedded` % "test->compile")
+
+lazy val `worker-eth` = project
+  .in(file("worker/eth"))
+  .settings(commons)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`ethclient`)
+
+lazy val `block-producer-tx` = project
+  .in(file("block-producer/tx"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      circeGeneric,
+      scodecCore
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`log`)
+
+lazy val `block-producer-api` = project
+  .in(file("block-producer/api"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      fs2
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`log`, `effects`, `block-producer-tx`)
+
+lazy val `block-producer-embedded` = project
+  .in(file("block-producer/embedded"))
+  .settings(
+    commons
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`statemachine-api`, `block-producer-api`)
+
+lazy val `block-producer-tendermint` = project
+  .in(file("block-producer/tendermint"))
+  .settings(commons)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`block-producer-api`, `tendermint-rpc`)
+
+lazy val `block-uploading` = project
+  .in(file("block-producer/uploading"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      scalaTest
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(
+    `block-producer-api`,
+    `statemachine-api`,
+    `receipt-storage`,
+    `resources-effects`,
+    `effects-testkit`  % Test,
+    `tendermint-rpc`   % "test->test",
+    `tendermint-block` % "test->test"
+  )
+
 lazy val `node` = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
@@ -422,18 +534,26 @@ lazy val `node` = project
     `swarm`,
     `ipfs`,
     `statemachine-docker-client`,
+    `block-producer-tendermint`,
     `kvstore`,
     `dockerio`,
     `tendermint-rpc`,
     `tendermint-rpc`           % "test->test",
     `tendermint-rpc`           % "it->test",
+    `statemachine`             % "it->test",
+    `block-producer-embedded`  % "it->test",
+    `statemachine-abci`        % "it->test",
     `tendermint-block`         % "test->test",
     `tendermint-block-history` % "test->test",
+    `worker-responder`,
+    `resources-effects`,
     `sttp-effect`,
     `receipt-storage`,
     `log`,
     `kademlia-http`,
-    `kademlia-testkit` % Test
+    `kademlia-testkit` % Test,
+    `block-uploading`,
+    `effects-testkit` % Test
   )
 
 lazy val `node-testkit` = (project in file("node/testkit"))
@@ -447,6 +567,7 @@ lazy val `node-testkit` = (project in file("node/testkit"))
     `node`           % "test->test",
     `node`           % "test->it",
     `statemachine`   % "test->test",
-    `tendermint-rpc` % "test->test"
+    `tendermint-rpc` % "test->test",
+    `worker-responder` % "test->test"
   )
   .enablePlugins(AutomateHeaderPlugin)

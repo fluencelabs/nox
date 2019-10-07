@@ -57,26 +57,40 @@ trait StateMachine[F[_]] {
    */
   final def command[C](implicit cmd: ops.hlist.Selector[Commands, C]): C = cmd(commands)
 
-  def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse]
-
-  def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus]
-
+  /**
+   * Extend this StateMachine with one more command-side service
+   *
+   * @param cmd Command-side service
+   * @tparam T Service's type
+   * @return Extended StateMachine
+   */
   final def extend[T](cmd: T): StateMachine.Aux[F, T :: Commands] = new StateMachine[F] {
     override type Commands = T :: self.Commands
 
     override protected val commands: Commands = cmd :: self.commands
 
+    // TODO: here we have path as a separate entity, but in processTx it's an opaque byte array
     override def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse] =
       self.query(path)
 
     override def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus] =
       self.status()
   }
+
+  def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse]
+
+  def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus]
 }
 
 object StateMachine {
   type Aux[F[_], C] = StateMachine[F] { type Commands = C }
 
+  /**
+   * Basic type for an empty StateMachine with no command side.
+   * Should be extended with [[StateMachine.extend()]] to become writable.
+   *
+   * @tparam F Effect type
+   */
   abstract class ReadOnly[F[_]] extends StateMachine[F] {
     type Commands = HNil
 

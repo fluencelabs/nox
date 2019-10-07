@@ -36,6 +36,9 @@ case class SymlinkCreationError(cause: Throwable, target: Path) extends Blocksto
 case class RetrievingStorageHeightError(cause: String) extends BlockstoreError {
   override def toString: String = s"RetrievingStorageHeightError: $cause"
 }
+case class OpenDbError(cause: Throwable) extends BlockstoreError with WithCause[Throwable] {
+  override def toString: String = s"OpenDbError: error opening db $cause"
+}
 
 object RetrievingStorageHeightError {
   def apply(cause: Throwable): RetrievingStorageHeightError = new RetrievingStorageHeightError(cause.toString)

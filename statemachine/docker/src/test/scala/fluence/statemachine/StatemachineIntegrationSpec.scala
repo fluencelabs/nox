@@ -20,6 +20,7 @@ import cats.data.NonEmptyList
 import cats.effect.{ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
+import fluence.bp.tx.TxCode
 import fluence.effects.sttp.SttpEffect
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.abci.AbciHandler
@@ -27,7 +28,6 @@ import fluence.statemachine.abci.peers.PeersControlBackend
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.data.BlockReceipt
 import fluence.statemachine.api.query.QueryCode
-import fluence.statemachine.api.tx.TxCode
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 import scodec.bits.ByteVector
 

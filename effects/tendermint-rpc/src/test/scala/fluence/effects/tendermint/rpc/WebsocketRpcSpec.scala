@@ -20,8 +20,8 @@ import cats.effect._
 import cats.syntax.flatMap._
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.log.{Log, LogFactory}
-import fluence.Timed
 import org.http4s.websocket.WebSocketFrame.Text
+import fluence.effects.testkit.Timed
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -45,7 +45,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Timed {
     val resourcesF = for {
       server <- WebsocketServer.make[IO](Port)
       wrpc = new TestWRpc[IO]("127.0.0.1", Port)
-      blocks = wrpc.subscribeNewBlock(0)
+      blocks = wrpc.subscribeNewBlock(Some(0))
     } yield (server, blocks)
 
     def block(height: Long) = Text(TestData.block(height))

@@ -22,17 +22,15 @@ import fluence.log.Log
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
+import fluence.bp.tx.Tx
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
-import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
-import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
-import fluence.statemachine.api.tx.Tx
+import fluence.worker.responder.repeat.{SubscriptionKey, SubscriptionStorage}
+import fluence.worker.responder.resp.{AwaitedResponse, OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
 import io.circe
 import io.circe.parser.parse
 import io.circe.syntax._
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -64,6 +62,7 @@ class WorkerWebsocket[F[_]: Concurrent](
     import cats.syntax.traverse._
     import cats.instances.list._
     for {
+      _ <- log.debug("Websocket is closing. Delete all subscriptions.")
       subs <- subscriptionsStorage.getSubscriptions
       _ <- subs.keys.toList.traverse(workerApi.unsubscribe)
       _ <- outputQueue.enqueue1(None)
@@ -88,7 +87,7 @@ class WorkerWebsocket[F[_]: Concurrent](
     }.map(_.asJson.noSpaces)
   }
 
-  private def toWebsocketResponse(requestId: String, response: TendermintResponse): WebsocketResponse = {
+  private def toWebsocketResponse(requestId: String, response: AwaitedResponse.OrError): WebsocketResponse =
     response match {
       case Right(OkResponse(_, response))    => TxWaitResponse(requestId, response)
       case Right(RpcErrorResponse(_, error)) => ErrorResponse(requestId, error.getMessage)
@@ -97,37 +96,32 @@ class WorkerWebsocket[F[_]: Concurrent](
       case Right(PendingResponse(_)) => ErrorResponse(requestId, s"Unexpected error.")
       case Left(error)               => ErrorResponse(requestId, error.msg)
     }
-  }
 
   private def callApi(input: WebsocketRequest): F[WebsocketResponse] =
     input match {
-      case TxRequest(tx, id, requestId) =>
-        workerApi.sendTx(tx, id).map {
-          case Right(data) => TxResponse(requestId, data)
-          case Left(error) => ErrorResponse(requestId, error.getMessage)
+      case TxRequest(tx, requestId) =>
+        workerApi.sendTx(tx.getBytes()).map {
+          // TODO: check API is correct – TxResponse inside TxResponse
+          case Right(txResponse) => TxResponse(requestId, txResponse.asJson.spaces2)
+          case Left(error)       => ErrorResponse(requestId, error.getMessage)
         }
+
       case QueryRequest(path, data, id, requestId) =>
         workerApi.query(data, path, id).map {
           case Right(data) => QueryResponse(requestId, data)
           case Left(error) => ErrorResponse(requestId, error.getMessage)
         }
-      case TxWaitRequest(tx, id, requestId) =>
+
+      case TxWaitRequest(tx, requestId) =>
         workerApi
-          .sendTxAwaitResponse(tx, id)
+          .sendTxAwaitResponse(tx.getBytes())
           .map(toWebsocketResponse(requestId, _))
-      case LastManifestRequest(requestId) =>
-        workerApi.lastManifest().map(block => LastManifestResponse(requestId, block.map(_.jsonString)))
-      case StatusRequest(requestId) =>
-        workerApi.tendermintStatus().map {
-          case Right(status) => StatusResponse(requestId, status)
-          case Left(error)   => ErrorResponse(requestId, error.getMessage)
-        }
-      case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
+
       case SubscribeRequest(requestId, subscriptionId, tx) =>
         val txData = Tx.Data(tx.getBytes())
         val key = SubscriptionKey.generate(subscriptionId, txData)
         subscriptionsStorage.addSubscription(key, txData).flatMap {
-          case true =>
+          case true => // addSubscription was successful
             workerApi.subscribe(key, txData).flatMap { stream =>
               for {
                 _ <- subscriptionsStorage.addStream(key, stream)
@@ -139,9 +133,10 @@ class WorkerWebsocket[F[_]: Concurrent](
                 )
               } yield SubscribeResponse(requestId): WebsocketResponse
             }
-          case false =>
+          case false => // There already exists a subscription with that id
             (ErrorResponse(requestId, s"Subscription $subscriptionId already exists"): WebsocketResponse).pure[F]
         }
+
       case UnsubscribeRequest(requestId, subscriptionId, tx) =>
         val txData = Tx.Data(tx.getBytes())
         val key = SubscriptionKey.generate(subscriptionId, txData)
@@ -155,22 +150,6 @@ class WorkerWebsocket[F[_]: Concurrent](
 }
 
 object WorkerWebsocket {
-
-  case class SubscriptionKey private (subscriptionId: String, txHash: String)
-
-  object SubscriptionKey {
-
-    /**
-     *
-     * @param tx A transaction, to calculate a hash of it.
-     *           Hash of a transaction is required because of multiple identical subscriptions.
-     */
-    def generate(subscriptionId: String, tx: Tx.Data): SubscriptionKey = {
-      new SubscriptionKey(subscriptionId, ByteVector(tx.value).toHex)
-    }
-  }
-
-  private[websocket] case class Subscription[F[_]](stream: Option[fs2.Stream[F, TendermintResponse]])
 
   def apply[F[_]: Concurrent: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
     for {

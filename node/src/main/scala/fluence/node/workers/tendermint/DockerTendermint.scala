@@ -17,56 +17,24 @@
 package fluence.node.workers.tendermint
 import java.nio.file.Path
 
-import cats.Monad
 import cats.data.EitherT
 import cats.effect._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+import fluence.bp.api.{BlockProducer, BlockStream, DialPeers}
+import fluence.bp.tendermint.{Tendermint, TendermintBlockProducer}
+import fluence.effects.EffectError
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
-import fluence.effects.tendermint.rpc.response.TendermintStatus
+import fluence.effects.sttp.SttpEffect
+import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.Log
 import fluence.node.config.DockerConfig
-import fluence.node.workers.WorkerParams
-import fluence.node.workers.status._
+import fluence.node.workers.WorkerDocker
+import fluence.node.workers.tendermint.config.ConfigTemplate
+import fluence.worker.eth.EthApp
+import shapeless._
 
-import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
-
-/**
- * Tendermint, running within Docker
- *
- * @param container Docker container
- * @param name Docker container's name, to connect to Tendermint via local network
- */
-case class DockerTendermint(
-  container: DockerContainer,
-  name: String
-) {
-
-  /**
-   * Service status for this docker + wrapped Tendermint Http service
-   */
-  def status[F[_]: Concurrent: Timer: DockerIO: Log](
-    rpc: TendermintHttpRpc[F],
-    timeout: FiniteDuration
-  ): F[ServiceStatus[TendermintStatus]] =
-    DockerIO[F]
-      .checkContainer(container)
-      .semiflatMap[ServiceStatus[TendermintStatus]] { d ⇒
-        HttpStatus
-          .timed(
-            rpc.statusParsed.fold[HttpStatus[TendermintStatus]](
-              HttpCheckFailed,
-              HttpCheckStatus(_)
-            ),
-            timeout
-          )
-          .map(s ⇒ ServiceStatus(Right(d), s))
-      }
-      .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Tendermint's Docker container is not launched")))
-}
 
 object DockerTendermint {
   // Internal ports
@@ -117,20 +85,20 @@ object DockerTendermint {
    * Prepare a docker command for a particular Worker's Tendermint container
    */
   private def dockerCommand(
-    params: WorkerParams,
+    masterNodeContainerId: Option[String],
+    component: WorkerDocker.Component,
+    tendermintPath: Path,
     network: DockerNetwork,
     p2pPort: Short
   ): DockerParams.DaemonParams = {
-    import params.{masterNodeContainerId, tendermintPath, tmDockerConfig}
-
     val dockerParams = DockerParams
       .build()
       .user("0") // TODO should only work when running from docker?
       .option("-e", s"""TMHOME=$tendermintPath""")
-      .option("--name", containerName(params))
+      .option("--name", component.name)
       .option("--network", network.name)
       .port(p2pPort, P2pPort)
-      .limits(tmDockerConfig.limits)
+      .limits(component.docker.limits)
 
     (masterNodeContainerId match {
       case Some(id) =>
@@ -138,36 +106,43 @@ object DockerTendermint {
           .option("--volumes-from", id)
       case None =>
         dockerParams
-    }).prepared(tmDockerConfig.image).daemonRun("node")
+    }).prepared(component.docker.image).daemonRun("node")
   }
-
-  /**
-   * Worker's Tendermint container's name
-   */
-  def containerName(params: WorkerParams) =
-    s"${params.appId}_tendermint_${params.currentWorker.index}"
 
   /**
    * Prepare and launch Tendermint container for the given Worker
    *
-   * @param params Worker Params
-   * @param workerName Docker name for the launched Worker (statemachine) container
-   * @param network Worker's network
-   * @param stopTimeout Seconds to wait for graceful stop of the Tendermint container before killing it
    * @return Running container
    */
-  def make[F[_]: DockerIO: LiftIO: Monad: Log](
-    params: WorkerParams,
+  def make[F[_]: DockerIO: LiftIO: ConcurrentEffect: SttpEffect: Timer: ContextShift: Log](
+    app: EthApp,
+    tendermintPath: Path,
+    configTemplate: ConfigTemplate,
+    workerDocker: WorkerDocker,
     p2pPort: Short,
-    workerName: String,
-    network: DockerNetwork,
-    stopTimeout: Int
-  ): Resource[F, DockerTendermint] =
+    websocketConfig: WebsocketConfig
+  ): Resource[F, BlockProducer.Aux[F, DockerContainer :: BlockStream[F, Block] :: DialPeers[F] :: HNil]] =
     for {
+      // TODO make it WorkerResource
       _ ← Resource.liftF(
-        params.configTemplate.writeConfigs(params.app, params.tendermintPath, p2pPort, workerName)
+        configTemplate.writeConfigs(app, tendermintPath, p2pPort, workerDocker.machine.name)
       )
-      container ← DockerIO[F].run(dockerCommand(params, network, p2pPort), stopTimeout)
-    } yield DockerTendermint(container, containerName(params))
+      container ← DockerIO[F].run(
+        dockerCommand(
+          workerDocker.masterContainerId,
+          workerDocker.producer,
+          tendermintPath,
+          workerDocker.network,
+          p2pPort
+        ),
+        workerDocker.stopTimeout
+      )
+
+      tm ← Tendermint.make[F](workerDocker.producer.name, DockerTendermint.RpcPort, tendermintPath, websocketConfig)
+
+    } yield TendermintBlockProducer(
+      tm,
+      DockerIO[F].checkContainer(container).leftMap(identity[EffectError])
+    ).extend(container)
 
 }

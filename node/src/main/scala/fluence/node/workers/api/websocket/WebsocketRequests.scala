@@ -18,7 +18,7 @@ package fluence.node.workers.api.websocket
 
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration
-import io.circe.generic.extras.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.generic.extras.semiauto.{deriveConfiguredDecoder, deriveConfiguredEncoder}
 
 object WebsocketRequests {
   sealed trait WebsocketRequest {
@@ -26,11 +26,8 @@ object WebsocketRequests {
   }
   case class QueryRequest(path: String, data: Option[String], id: Option[String], requestId: String)
       extends WebsocketRequest
-  case class TxRequest(tx: String, id: Option[String], requestId: String) extends WebsocketRequest
-  case class TxWaitRequest(tx: String, id: Option[String], requestId: String) extends WebsocketRequest
-  case class LastManifestRequest(requestId: String) extends WebsocketRequest
-  case class P2pPortRequest(requestId: String) extends WebsocketRequest
-  case class StatusRequest(requestId: String) extends WebsocketRequest
+  case class TxRequest(tx: String, requestId: String) extends WebsocketRequest
+  case class TxWaitRequest(tx: String, requestId: String) extends WebsocketRequest
   case class SubscribeRequest(requestId: String, subscriptionId: String, tx: String) extends WebsocketRequest
   case class UnsubscribeRequest(requestId: String, subscriptionId: String, tx: String) extends WebsocketRequest
 
@@ -38,7 +35,7 @@ object WebsocketRequests {
     implicit val conf: Configuration =
       Configuration.default.withDiscriminator("type").withSnakeCaseConstructorNames.withSnakeCaseMemberNames
 
-    implicit val websocketRequestDecoder: Decoder[WebsocketRequest] = deriveDecoder[WebsocketRequest]
-    implicit val websocketRequestEncoder: Encoder[WebsocketRequest] = deriveEncoder[WebsocketRequest]
+    implicit val websocketRequestDecoder: Decoder[WebsocketRequest] = deriveConfiguredDecoder[WebsocketRequest]
+    implicit val websocketRequestEncoder: Encoder[WebsocketRequest] = deriveConfiguredEncoder[WebsocketRequest]
   }
 }

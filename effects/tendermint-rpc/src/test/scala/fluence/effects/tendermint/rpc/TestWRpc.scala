@@ -39,7 +39,7 @@ class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](host: String,
    * @return Stream of blocks, strictly in order, without any repetitions
    */
   override def subscribeNewBlock(
-    lastKnownHeight: Long
+    lastKnownHeight: Option[Long]
   )(implicit log: Log[F], backoff: Backoff[EffectError]): fs2.Stream[F, Block] = {
     import cats.syntax.flatMap._
     import cats.syntax.functor._

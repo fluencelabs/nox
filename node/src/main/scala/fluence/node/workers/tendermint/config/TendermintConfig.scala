@@ -20,6 +20,8 @@ import java.nio.file.{Files, Path, StandardCopyOption}
 import cats.effect.Sync
 import com.electronwill.nightconfig.core.file.FileConfig
 import fluence.node.workers.tendermint.DockerTendermint
+import fluence.worker.eth
+import fluence.worker.eth.WorkerPeer
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 
@@ -68,8 +70,8 @@ case class TendermintConfig(
    *
    * @param src Path to Tendermint TOML config
    * @param dst Path to save updated Tendermint TOML config
-   * @param workerPeerAddress Tendermint p2p peer address, i.e., [[fluence.node.eth.state.WorkerPeer.peerAddress]]
-   * @param workerIndex Index of current peer among all cluster peers, i.e., [[fluence.node.eth.state.WorkerPeer.index]]
+   * @param workerPeerAddress Tendermint p2p peer address, i.e., [[WorkerPeer.peerAddress]]
+   * @param workerIndex Index of current peer among all cluster peers, i.e., [[eth.WorkerPeer.index]]
    * @param abciHost Host to connect ABCI to
    * @param appId App id, as defined by smart contract
    */

@@ -26,18 +26,17 @@ import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.effects.ethclient.EthClient
 import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.MasterStatus
-import fluence.node.workers.status.WorkerStatus
-import org.scalatest.{Timer => _, _}
+import org.scalatest.{Timer ⇒ _, _}
 import eth.FluenceContractTestOps._
-import fluence.Timed
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
+import fluence.effects.testkit.Timed
+import fluence.worker.WorkerStatus
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 import scala.sys.process._
-import scala.util.Try
 
 /**
  * This test contains a single test method that checks:
@@ -46,7 +45,7 @@ import scala.util.Try
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Timed with TendermintSetup
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Timed with GetWorkerStatus
     with GanacheSetup with DockerSetup {
 
   type Sttp = SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]
@@ -55,7 +54,7 @@ class MasterNodeIntegrationSpec
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   implicit private val log: Log[IO] =
-    LogFactory.forPrintln[IO](Log.Info).init("MasterNodeIntegrationSpec").unsafeRunSync()
+    LogFactory.forPrintln[IO](Log.Error).init("MasterNodeIntegrationSpec").unsafeRunSync()
 
   private val sttpResource: Resource[IO, SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
@@ -81,39 +80,40 @@ class MasterNodeIntegrationSpec
   }
 
   def getEthState(statusPort: Short)(implicit sttpBackend: Sttp): IO[NodeEthState] = {
-    import MasterStatus._
+    import NodeEthState._
     for {
-      resp <- sttp.response(asJson[NodeEthState]).get(uri"http://127.0.0.1:$statusPort/status/eth").send()
+      resp <- sttp.response(asJson[NodeEthState]).get(uri"http://127.0.0.1:$statusPort/status/eth").send().attempt
     } yield {
-      resp.unsafeBody.right.get
+      resp.right.get.unsafeBody.right.get
     }
   }
 
   def checkMasterRunning(statusPort: Short)(implicit sttpBackend: Sttp): IO[Unit] =
     getEthState(statusPort).map(_.contractAppsLoaded shouldBe true)
 
-  def runTwoMasters(basePort: Short)(implicit sttpBackend: Sttp): Resource[IO, Seq[String]] = {
-    val master1Port: Short = basePort
-    val master2Port: Short = (basePort + 1).toShort
+  def runTwoMasters(
+    master1Port: Short,
+    master2Port: Short
+  )(implicit sttpBackend: Sttp): Resource[IO, (String, String)] = {
     for {
       master1 <- runMaster(master1Port, "master1", n = 1)
       master2 <- runMaster(master2Port, "master2", n = 2)
 
       _ <- Resource liftF eventually[IO](
         checkMasterRunning(master1Port) *> checkMasterRunning(master2Port),
-        maxWait = 45.seconds
-      ) // TODO: 45 seconds is a bit too much for startup; investigate and reduce timeout
+        maxWait = 30.seconds
+      ) // TODO: 30 seconds is a bit too much for startup; investigate and reduce timeout
 
-    } yield Seq(master1, master2)
+    } yield (master1, master2)
   }
 
-  def getRunningWorker(statusPort: Short)(implicit sttpBackend: Sttp): IO[Option[WorkerStatus]] =
+  def getRunningWorker(statusPort: Short)(implicit sttpBackend: Sttp): IO[Option[(Long, WorkerStatus)]] =
     IO.suspend {
       getStatus(statusPort).map {
         case Right(st) =>
           st.workers.headOption.flatMap {
-            case w: WorkerStatus if w.isHealthy =>
-              Some(w)
+            case (appId, w: WorkerStatus) if w.isOperating =>
+              Some(appId → w)
             case _ ⇒
               log.debug("Trying to get WorkerRunning, but it is not healthy in status: " + st).unsafeRunSync()
               None
@@ -124,12 +124,21 @@ class MasterNodeIntegrationSpec
       }
     }
 
-  def withEthSttpAndTwoMasters(basePort: Short): Resource[IO, (EthClient, Sttp)] =
+  def withEthSttpAndTwoMasters(
+    master1Port: Short,
+    master2Port: Short
+  ): Resource[IO, (EthClient, Sttp, String, String)] =
     for {
       ethClient <- EthClient.make[IO]()
       implicit0(sttp: Sttp) <- sttpResource
-      _ <- runTwoMasters(basePort)
-    } yield (ethClient, sttp)
+      (master1ContainerId, master2ContainerId) <- runTwoMasters(master1Port, master2Port)
+    } yield (ethClient, sttp, master1ContainerId, master2ContainerId)
+
+  def tendermintNodeId(masterContainerId: String) = {
+    IO(
+      s"docker run --user 0 --rm --volumes-from $masterContainerId -e TMHOME=/master/tendermint tendermint/tendermint:v0.32.2 show_node_id".!!
+    )
+  }
 
   "MasterNodes" should {
     val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
@@ -139,30 +148,40 @@ class MasterNodeIntegrationSpec
 
     val contractConfig = FluenceContractConfig(owner, contractAddress)
 
-    def runTwoWorkers(basePort: Short)(implicit ethClient: EthClient, sttp: Sttp): IO[Unit] = {
-      val contract = FluenceContract(ethClient, contractConfig)
-      val master2Port = (basePort + 1).toShort
-      for {
-        status1 <- getStatus(basePort).map(_.toTry.get)
-        status2 <- getStatus(master2Port).map(_.toTry.get)
+    def runTwoWorkers(
+      master1Port: Short,
+      master2Port: Short,
+      master1ContainerId: String,
+      master2ContainerId: String
+    )(implicit ethClient: EthClient, sttp: Sttp): IO[Unit] = {
 
-        _ <- contract.addNode[IO](status1.nodeConfig, status1.ip, basePort, 1).attempt
-        _ <- contract.addNode[IO](status2.nodeConfig, status2.ip, master2Port, 1).attempt
+      for {
+        contract ← FluenceContract[IO](ethClient, contractConfig)
+        status1 <- getStatus(master1Port).map(_.toTry.get)
+        status2 <- getStatus(master2Port).map(_.toTry.get)
+        validatorKey1 <- getEthState(master1Port).map(_.validatorKey.toBase64)
+        validatorKey2 <- getEthState(master2Port).map(_.validatorKey.toBase64)
+        nodeId1 ← tendermintNodeId(master1ContainerId)
+        nodeId2 ← tendermintNodeId(master2ContainerId)
+
+        _ <- contract.addNode[IO](validatorKey1, nodeId1, status1.ip, master1Port, 1).attempt
+        _ <- contract.addNode[IO](validatorKey2, nodeId2, status2.ip, master2Port, 1).attempt
         blockNumber <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
         _ ← log.info("Added App at block: " + blockNumber + ", now going to wait for two workers")
 
         _ <- eventually[IO](
           for {
-            c1s0 <- heightFromTendermintStatus("localhost", basePort, lastAppId)
-            _ ← log.info(s"c1s0 === " + c1s0)
-            c1s1 <- heightFromTendermintStatus("localhost", master2Port, lastAppId)
-            _ ← log.info(s"c1s1 === " + c1s1)
+            status1 <- getWorkerStatus("localhost", master1Port, lastAppId)
+            _ ← log.info(s"worker1 status: $status1")
+            status2 <- getWorkerStatus("localhost", master2Port, lastAppId)
+            _ ← log.info(s"worker2 status: $status2")
           } yield {
-            c1s0.value should be >= 2L
-            c1s1.value should be >= 2L
+            status1.isOperating shouldBe true
+            status2.isOperating shouldBe true
           },
-          maxWait = 90.seconds
+          maxWait = 90.seconds,
+          period = 5.seconds
         )
 
         _ = lastAppId += 1
@@ -171,8 +190,8 @@ class MasterNodeIntegrationSpec
 
         _ <- eventually[IO](
           for {
-            worker1 <- getRunningWorker(basePort)
-            worker2 <- getRunningWorker((basePort + 1).toShort)
+            worker1 <- getRunningWorker(master1Port)
+            worker2 <- getRunningWorker(master2Port)
           } yield {
             worker1 shouldBe defined
             worker2 shouldBe defined
@@ -182,17 +201,17 @@ class MasterNodeIntegrationSpec
       } yield ()
     }
 
-    def deleteApp(basePort: Short): IO[Unit] =
-      withEthSttpAndTwoMasters(basePort).use {
-        case (ethClient, s) =>
+    def deleteApp(master1Port: Short, master2Port: Short): IO[Unit] =
+      withEthSttpAndTwoMasters(master1Port, master2Port).use {
+        case (ethClient, s, master1ContainerId, master2ContainerId) =>
           log.debug("Prepared two masters for Delete App test").unsafeRunSync()
           implicit val sttp = s
-          val getStatus1 = getRunningWorker(basePort)
-          val getStatus2 = getRunningWorker((basePort + 1).toShort)
-          val contract = FluenceContract(ethClient, contractConfig)
+          val getStatus1 = getRunningWorker(master1Port)
+          val getStatus2 = getRunningWorker(master2Port)
 
           for {
-            _ <- runTwoWorkers(basePort)(ethClient, s)
+            contract ← FluenceContract[IO](ethClient, contractConfig)
+            _ <- runTwoWorkers(master1Port, master2Port, master1ContainerId, master2ContainerId)(ethClient, s)
 
             _ ← log.debug("Two workers should be running")
 
@@ -205,31 +224,40 @@ class MasterNodeIntegrationSpec
             _ = status2 shouldBe defined
             _ ← log.debug("Worker2 running: " + status2)
 
-            appId = status1.value.appId
+            appId = status1.get._1
             _ <- contract.deleteApp[IO](appId)
             _ ← log.debug("App deleted from contract")
 
             _ <- eventually[IO](
               for {
-                s1 <- getRunningWorker(basePort)
-                s2 <- getRunningWorker((basePort + 1).toShort)
+                s1 <- getStatus1
+                _ ← log.info(s"worker1 status: $s1")
+                s2 <- getStatus2
               } yield {
                 // Check that workers run no more
+                s1.foreach(println)
+                println("\n\n\n====== MASTER1 =====\n\n\n")
+                println(Console.CYAN + s"docker logs --tail 100 $master1ContainerId".!! + Console.RESET)
+                println("\n\n\n====== MASTER2 =====\n\n\n")
+                println(Console.CYAN + s"docker logs --tail 100 $master2ContainerId".!! + Console.RESET)
                 s1 should not be defined
                 s2 should not be defined
               },
-              maxWait = 30.seconds
+              maxWait = 90.seconds,
+              period = 5.seconds
             )
           } yield ()
       }
 
     "sync their workers with contract clusters" in {
-      val basePort: Short = 20000
+      val master1Port: Short = 20000
+      val master2Port: Short = 20001
 
-      withEthSttpAndTwoMasters(basePort).use {
-        case (e, s) =>
-          runTwoWorkers(basePort)(e, s).flatMap(_ ⇒ IO("docker ps".!!))
+      withEthSttpAndTwoMasters(master1Port, master2Port).use {
+        case (e, s, m1Id, m2Id) =>
+          runTwoWorkers(master1Port, master2Port, m1Id, m2Id)(e, s).flatMap(_ ⇒ IO("docker ps".!!))
       }.flatMap { psOutput ⇒
+        println("CONTAINERS: " + psOutput)
         psOutput should include("worker")
         // Check that once masters are stopped, workers do not exist
         eventually(IO("docker ps -a".!! should not include "worker"))
@@ -238,7 +266,7 @@ class MasterNodeIntegrationSpec
     }
 
     "stop workers on AppDelete event" in {
-      deleteApp(21000).unsafeRunSync()
+      deleteApp(11000, 11001).unsafeRunSync()
     }
   }
 }
