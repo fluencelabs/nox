@@ -16,13 +16,13 @@
 
 package fluence.node.eth
 
-import cats.{Applicative, Apply, Functor, Monad, Traverse}
 import cats.effect._
 import cats.effect.concurrent.Deferred
+import cats.instances.option._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.apply._
-import cats.instances.option._
+import cats.{Applicative, Apply, Functor, Monad, Traverse}
 import fluence.effects.Backoff
 import fluence.effects.ethclient.Network.{
   APPDELETED_EVENT,
@@ -30,11 +30,11 @@ import fluence.effects.ethclient.Network.{
   AppDeployedEventResponse,
   NODEDELETED_EVENT
 }
-import fluence.effects.ethclient.{EthClient, EthRequestError, Network}
 import fluence.effects.ethclient.syntax._
+import fluence.effects.ethclient.{EthClient, EthRequestError, Network}
 import fluence.log.Log
 import fluence.node.config.FluenceContractConfig
-import fluence.worker.eth.{EthApp ⇒ EthApp, Cluster}
+import fluence.worker.eth.{Cluster, EthApp}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated._
 import org.web3j.abi.datatypes.{DynamicArray, Event}
@@ -233,13 +233,12 @@ object FluenceContract {
    * @param config To lookup addresses
    * @return FluenceContract instance with web3j contract inside
    */
-  def apply(ethClient: EthClient, config: FluenceContractConfig): FluenceContract =
-    new FluenceContract(
-      ethClient,
-      ethClient.getContract[Network](
+  def apply[F[_]: Sync: Log](ethClient: EthClient, config: FluenceContractConfig): F[FluenceContract] =
+    ethClient
+      .getContract[F, Network](
         config.address,
         config.ownerAccount,
         Network.load
       )
-    )
+      .map(contract ⇒ new FluenceContract(ethClient, contract))
 }

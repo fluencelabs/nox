@@ -158,8 +158,8 @@ class MasterNodeIntegrationSpec
       master2ContainerId: String
     )(implicit ethClient: EthClient, sttp: Sttp): IO[Unit] = {
 
-      val contract = FluenceContract(ethClient, contractConfig)
       for {
+        contract ← FluenceContract[IO](ethClient, contractConfig)
         status1 <- getStatus(master1Port).map(_.toTry.get)
         status2 <- getStatus(master2Port).map(_.toTry.get)
         validatorKey1 <- getEthState(master1Port).map(_.validatorKey.toBase64)
@@ -211,9 +211,9 @@ class MasterNodeIntegrationSpec
           implicit val sttp = s
           val getStatus1 = getRunningWorker(master1Port)
           val getStatus2 = getRunningWorker(master2Port)
-          val contract = FluenceContract(ethClient, contractConfig)
 
           for {
+            contract ← FluenceContract[IO](ethClient, contractConfig)
             _ <- runTwoWorkers(master1Port, master2Port, master1ContainerId, master2ContainerId)(ethClient, s)
 
             _ ← log.debug("Two workers should be running")

@@ -171,7 +171,7 @@ class MasterNodeSpec
       .listAll()
       .map(_.map(_.stage))
       .flatMap(l => Traverse[List].traverse(l)(identity))
-      .map (
+      .map(
         _.filter(_.running)
       )
       .map(_.size shouldBe number)
@@ -211,9 +211,8 @@ class MasterNodeSpec
 
           val contractConfig = FluenceContractConfig(owner, contractAddress)
 
-          val contract = FluenceContract(ethClient, contractConfig)
-
           for {
+            contract ← FluenceContract[IO](ethClient, contractConfig)
             masterConf <- masterConfF
             _ ← contract
               .addNode[IO](

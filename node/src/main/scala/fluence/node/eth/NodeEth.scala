@@ -18,6 +18,7 @@ package fluence.node.eth
 
 import cats.data.StateT
 import cats.effect.{ConcurrentEffect, Resource, Timer}
+import cats.syntax.flatMap._
 import cats.syntax.apply._
 import fluence.effects.ethclient.EthClient
 import fluence.effects.ethclient.data.Block
@@ -163,5 +164,5 @@ object NodeEth {
     ethClient: EthClient,
     config: FluenceContractConfig
   ): Resource[F, NodeEth[F]] =
-    apply[F](validatorKey, FluenceContract(ethClient, config))
+    Resource.liftF(FluenceContract(ethClient, config)) >>= (apply[F](validatorKey, _))
 }
