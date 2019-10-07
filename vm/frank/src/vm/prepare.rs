@@ -39,7 +39,8 @@ impl<'a> ModulePreparator {
     fn set_mem_pages_count(self, mem_pages_count: u32) -> Self {
         let Self { mut module } = self;
 
-        // At now, there is should be only one memory section, so we need to
+        // At now, there is could be only one memory section, so
+        // it needs just to extract previous initial page count, delete existing memory section
         let limits = match module.memory_section_mut() {
             Some(section) => {
               match section.entries_mut().pop() {
@@ -53,6 +54,8 @@ impl<'a> ModulePreparator {
         let memory_entry = MemoryType::new(limits.initial(), Some(mem_pages_count));
 
         let mut default_mem_section = MemorySection::default();
+
+        // and create a new one
         module
             .memory_section_mut()
             .unwrap_or_else(|| &mut default_mem_section)
@@ -71,6 +74,10 @@ impl<'a> ModulePreparator {
     }
 }
 
+/// Prepares a Wasm module:
+///   - set memory page count
+///   - TODO: instrument module with gas counter
+///   - TODO: instrument module with eic
 pub fn prepare_module(module: &[u8], config: &Config) -> Result<Vec<u8>, InitializationError> {
     ModulePreparator::init(module)?
         .set_mem_pages_count(config.mem_pages_count as _)
