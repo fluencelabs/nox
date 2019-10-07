@@ -31,4 +31,4 @@ COPY --from=build /fluence/statemachine/docker/worker /worker
 COPY --from=build /fluence/statemachine/docker/target/scala-2.12/statemachine.jar /statemachine.jar
 COPY --from=build /fluence/vm/frank/target/release/libfrank.so /usr/lib/libfrank.so
 
-ENTRYPOINT ["sh", "/worker/run.sh", "/statemachine.jar"]
+ENTRYPOINT ["/worker/run.sh", "/statemachine.jar"]

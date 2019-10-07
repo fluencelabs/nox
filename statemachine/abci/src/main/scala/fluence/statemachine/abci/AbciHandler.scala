@@ -26,12 +26,13 @@ import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.socket.TSocket
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
+import fluence.bp.tx._
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.abci.peers.{DropPeer, PeersControlBackend}
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.TxProcessor
 import fluence.statemachine.api.query.QueryResponse
-import fluence.statemachine.api.tx.{Tx, TxResponse}
+import io.circe.syntax._
 import shapeless._
 
 import scala.language.higherKinds
@@ -72,15 +73,13 @@ class AbciHandler[F[_]: Effect: LogFactory] private (
       .checkTx(tx)
       .value
       .flatMap {
-        case Right(resp @ TxResponse(code, info, _)) ⇒
+        case Right(resp) ⇒
           handleTxResponse(tx, resp)
             .map(
               _ =>
                 ResponseCheckTx.newBuilder
-                  .setCode(code.id)
-                  .setInfo(info)
-                  // TODO where it goes?
-                  .setData(ByteString.copyFromUtf8(info))
+                  .setCode(resp.code.id)
+                  .setData(ByteString.copyFromUtf8(resp.asJson.noSpaces))
                   .build
             )
         case Left(err) ⇒
@@ -101,15 +100,13 @@ class AbciHandler[F[_]: Effect: LogFactory] private (
       .processTx(tx)
       .value
       .flatMap {
-        case Right(resp @ TxResponse(code, info, _)) ⇒
+        case Right(resp) ⇒
           handleTxResponse(tx, resp)
             .map(
               _ =>
                 ResponseDeliverTx.newBuilder
-                  .setCode(code.id)
-                  .setInfo(info)
-                  // TODO where it goes?
-                  .setData(ByteString.copyFromUtf8(info))
+                  .setCode(resp.code.id)
+                  .setData(ByteString.copyFromUtf8(resp.asJson.noSpaces))
                   .build
             )
         case Left(err) ⇒

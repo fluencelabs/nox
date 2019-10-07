@@ -17,10 +17,10 @@
 package fluence.statemachine.api.command
 
 import cats.data.EitherT
+import fluence.bp.tx.TxResponse
 import fluence.effects.EffectError
 import fluence.log.Log
 import fluence.statemachine.api.data.StateHash
-import fluence.statemachine.api.tx.TxResponse
 
 import scala.language.higherKinds
 

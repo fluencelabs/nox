@@ -16,6 +16,7 @@
 
 package fluence.statemachine
 
+import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import fluence.effects.sttp.SttpEffect
 import fluence.log.{Log, LogFactory}
@@ -65,7 +66,7 @@ class ReceiptBusClientSpec extends WordSpec with Matchers with OptionValues {
     val resources = for {
       signals <- backendR
       implicit0(s: SttpEffect[IO]) <- SttpEffect.plainResource[IO]
-      client = StateMachineClient[IO](host, port)
+      client = StateMachineClient[IO](host, port, EitherT.rightT(()))
     } yield (signals, client)
 
     "send blockReceipt" in {

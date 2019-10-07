@@ -18,7 +18,10 @@ package fluence.node.workers.api.websocket
 
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration
+import io.circe.generic.extras.decoding.ConfiguredDecoder
+import io.circe.generic.extras.encoding.ConfiguredAsObjectEncoder
 import io.circe.generic.extras.semiauto._
+import shapeless.Lazy
 
 object WebsocketResponses {
   sealed trait WebsocketResponse {
@@ -28,8 +31,6 @@ object WebsocketResponses {
   case class QueryResponse(requestId: String, data: String) extends WebsocketResponse
   case class TxResponse(requestId: String, data: String) extends WebsocketResponse
   case class TxWaitResponse(requestId: String, data: String) extends WebsocketResponse
-  case class LastManifestResponse(requestId: String, lastManifest: Option[String]) extends WebsocketResponse
-  case class P2pPortResponse(requestId: String, p2pPort: Short) extends WebsocketResponse
   case class StatusResponse(requestId: String, status: String) extends WebsocketResponse
   case class SubscribeResponse(requestId: String) extends WebsocketResponse
   case class UnsubscribeResponse(requestId: String, isOk: Boolean) extends WebsocketResponse
@@ -37,7 +38,16 @@ object WebsocketResponses {
   object WebsocketResponse {
     implicit val conf: Configuration =
       Configuration.default.withDiscriminator("type").withSnakeCaseConstructorNames.withSnakeCaseMemberNames
-    implicit val websocketResponseEncoder: Encoder[WebsocketResponse] = deriveConfiguredEncoder[WebsocketResponse]
-    implicit val websocketResponseDecoder: Decoder[WebsocketResponse] = deriveConfiguredDecoder[WebsocketResponse]
+
+    implicit def websocketResponseEncoder[T <: WebsocketResponse](
+      implicit v: Lazy[ConfiguredAsObjectEncoder[T]]
+    ): Encoder[T] =
+      deriveConfiguredEncoder[T]
+    implicit def websocketResponseDecoder[T <: WebsocketResponse](implicit v: Lazy[ConfiguredDecoder[T]]): Decoder[T] =
+      deriveConfiguredDecoder[T]
+
+    // TODO: why functions aren't enough? Because of <: ?
+    implicit val enc: Encoder[WebsocketResponse] = websocketResponseEncoder[WebsocketResponse]
+    implicit val dec: Decoder[WebsocketResponse] = websocketResponseDecoder[WebsocketResponse]
   }
 }

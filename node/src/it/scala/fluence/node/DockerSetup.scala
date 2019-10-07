@@ -23,6 +23,7 @@ import fluence.effects.docker.DockerIO
 import fluence.effects.docker.params.{DockerImage, DockerParams}
 import fluence.log.Log
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 trait DockerSetup extends OsSetup {
@@ -66,6 +67,7 @@ trait DockerSetup extends OsSetup {
           .run(
             DockerParams
               .build()
+              .option("-e", "LOG_LEVEL=DEBUG")
               .option("-e", s"EXTERNAL_IP=$dockerHost")
               .option("-e", s"ETHEREUM_IP=$ethereumHost")
               .option("-e", s"MIN_PORT=${apiPort + n * 1000}")
@@ -84,7 +86,7 @@ trait DockerSetup extends OsSetup {
               )
               .prepared(DockerImage("fluencelabs/node", "latest"))
               .daemonRun(),
-            20
+            20.seconds
           )
           .map(_.containerId)
       }

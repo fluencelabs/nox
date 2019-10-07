@@ -25,8 +25,8 @@ import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.log.Log
-import fluence.node.eth.state.App
 import fluence.node.workers.tendermint.ValidatorPublicKey
+import fluence.worker.eth.EthApp
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
@@ -65,7 +65,7 @@ private object GenesisConfig {
   /**
    * Prepare GenesisConfig for the given App
    */
-  def apply(app: App): GenesisConfig = {
+  def apply(app: EthApp): GenesisConfig = {
     val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
 

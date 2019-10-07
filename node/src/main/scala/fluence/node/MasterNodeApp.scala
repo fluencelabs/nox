@@ -22,19 +22,19 @@ import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.compose._
-import cats.syntax.profunctor._
 import cats.syntax.flatMap._
+import cats.syntax.profunctor._
+import fluence.codec
 import fluence.codec.{CodecError, PureCodec}
-import fluence.crypto.KeyPair
+import fluence.crypto.{CryptoError, KeyPair}
 import fluence.crypto.eddsa.Ed25519
 import fluence.crypto.hash.CryptoHashers
-import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
-import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.block.history.Receipt
+import fluence.effects.{Backoff, EffectError}
 import fluence.kad.Kademlia
 import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.UriContact
@@ -42,11 +42,9 @@ import fluence.kad.http.dht.{DhtHttp, DhtHttpNode}
 import fluence.kad.http.{KademliaHttp, KademliaHttpNode}
 import fluence.kad.protocol.Key
 import fluence.log.{Log, LogFactory}
-import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{Configuration, MasterConfig}
+import fluence.node.eth.NodeEth
 import fluence.node.status.StatusAggregator
-import fluence.node.workers.pool.DockerWorkersPool
-import fluence.node.workers.tendermint.block.BlockUploading
 
 import scala.language.higherKinds
 
@@ -80,20 +78,20 @@ object MasterNodeApp extends IOApp {
               conf ← Resource.liftF(Configuration.init[IO](masterConf))
               kad ← kademlia(conf.rootPath, masterConf.kademlia)
               rDht ← receiptsDht(conf.rootPath, kad.kademlia)
-              pool ← dockerWorkersPool(
-                conf.rootPath,
-                appId ⇒ ReceiptStorage.local[IO](appId, conf.rootPath),
-                masterConf
+
+              pool ← MasterPool.docker[IO](
+                masterConf,
+                // TODO ReceiptStorage.dht(_, rDht.dht),
+                ReceiptStorage.local[IO](_, conf.rootPath),
+                conf.rootPath
               )
-              node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
-            } yield (kad.http, rDht.http, node)).use {
-              case (kadHttp, rDhtHttp, node) ⇒
-                (for {
-                  _ ← Log.resource[IO].debug(s"Eth contract config: ${masterConf.contract}")
-                  server ← masterHttp(masterConf, node, kadHttp, rDhtHttp)
-                } yield server).use { server =>
-                  log.info("Http api server has started on: " + server.address) *> node.run
-                }
+
+              node ← MasterNode.make(masterConf, conf.validatorPublicKey, pool)
+
+              server ← masterHttp(masterConf, pool, node.nodeEth, kad.http, rDht.http)
+            } yield (server, node)).use {
+              case (server, node) ⇒
+                log.info("Http api server has started on: " + server.address) *> node.run
             }.guaranteeCase {
               case Canceled =>
                 log.error("MasterNodeApp was canceled")
@@ -106,40 +104,6 @@ object MasterNodeApp extends IOApp {
       }
   }
 
-  private def ipfsUploader(conf: RemoteStorageConfig)(implicit sttp: SttpStreamEffect[IO]) =
-    IpfsUploader[IO](conf.ipfs.address, conf.enabled, conf.ipfs.readTimeout)
-
-  private def receiptsDht(
-    rootPath: Path,
-    kad: Kademlia[IO, UriContact]
-  )(implicit sttp: SttpStreamEffect[IO], log: Log[IO]): Resource[IO, DhtHttpNode[IO, Receipt]] =
-    DhtHttpNode.make[IO, Receipt](
-      "dht-receipts",
-      RocksDBStore
-        .makeRaw[IO](rootPath.resolve("dht-receipt-data").toAbsolutePath.toString),
-      RocksDBStore.makeRaw[IO](rootPath.resolve("dht-receipt-meta").toAbsolutePath.toString),
-      kad
-    )
-
-  private def dockerWorkersPool(
-    rootPath: Path,
-    appReceiptStorage: Long ⇒ Resource[IO, ReceiptStorage[IO]],
-    conf: MasterConfig
-  )(implicit sttp: SttpStreamEffect[IO], log: Log[IO], dio: DockerIO[IO], backoff: Backoff[EffectError]) =
-    for {
-      blockUploading <- BlockUploading(conf.blockUploadingEnabled, ipfsUploader(conf.remoteStorage))
-      pool <- DockerWorkersPool.make(
-        conf.ports.minPort,
-        conf.ports.maxPort,
-        rootPath,
-        appReceiptStorage,
-        conf.logLevel,
-        conf.websocket,
-        // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
-        blockUploading
-      )
-    } yield pool
-
   private def kademlia(rootPath: Path, conf: KademliaConfig)(implicit sttp: SttpEffect[IO], log: Log[IO]) =
     Resource
       .liftF(Configuration.readTendermintKeyPair(rootPath))
@@ -151,9 +115,10 @@ object MasterNodeApp extends IOApp {
             keyPair,
             rootPath, {
               // Lift Crypto errors for PureCodec errors
-              val sha256 = PureCodec.fromOtherFunc(
-                CryptoHashers.Sha256
-              )(err ⇒ CodecError("Crypto error when building Kademlia Key for Node[UriContact]", Some(err)))
+              val sha256: codec.PureCodec.Func[Array[Byte], Array[Byte]] =
+                PureCodec.fromOtherFunc[CryptoError, Array[Byte], Array[Byte]](
+                  CryptoHashers.Sha256
+                )(err ⇒ CodecError("Crypto error when building Kademlia Key for Node[UriContact]", Some(err)))
 
               new UriContact.NodeCodec(
                 // We have tendermint's node_id in the Fluence Smart Contract now, which is first 20 bytes of sha256 of the public key
@@ -167,23 +132,37 @@ object MasterNodeApp extends IOApp {
           )
       )
 
+  private def receiptsDht(
+    rootPath: Path,
+    kad: Kademlia[IO, UriContact]
+  )(implicit sttp: SttpStreamEffect[IO], log: Log[IO]): Resource[IO, DhtHttpNode[IO, Receipt]] =
+    DhtHttpNode.make[IO, Receipt](
+      "dht-receipts",
+      RocksDBStore
+        .makeRaw[IO](rootPath.resolve("dht-receipt-data").toAbsolutePath.toString),
+      RocksDBStore.makeRaw[IO](rootPath.resolve("dht-receipt-meta").toAbsolutePath.toString),
+      kad
+    )
+
   private def masterHttp(
     masterConf: MasterConfig,
-    node: MasterNode[IO, UriContact],
+    pool: MasterPool.Type[IO],
+    nodeEth: NodeEth[IO],
     kademliaHttp: KademliaHttp[IO, UriContact],
     receiptDhtHttp: DhtHttp[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]) =
     StatusAggregator
-      .make(masterConf, node)
+      .make(masterConf, pool, nodeEth)
       .flatMap(
         statusAggregator =>
-          MasterHttp.make[IO, UriContact](
-            "0.0.0.0",
-            masterConf.httpApi.port.toShort,
-            statusAggregator,
-            node.pool,
-            kademliaHttp,
-            receiptDhtHttp :: Nil
-          )
+          Log.resource[IO].info("Going to make MasterHttp") >>
+            MasterHttp.make(
+              "0.0.0.0",
+              masterConf.httpApi.port.toShort,
+              statusAggregator,
+              pool,
+              kademliaHttp,
+              receiptDhtHttp :: Nil
+            )
       )
 }

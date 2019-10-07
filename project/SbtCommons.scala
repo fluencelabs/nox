@@ -16,7 +16,7 @@ object SbtCommons {
 
   val kindProjector = Seq(
     resolvers += Resolver.sonatypeRepo("releases"),
-    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
+    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
   )
 
   val commons = Seq(
@@ -151,8 +151,6 @@ object SbtCommons {
 
   val cryptoVersion = "0.0.9"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
-  val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
-  val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
 
   val codecVersion = "0.0.5"
   val codecCore = "one.fluence" %% "codec-core" % codecVersion
@@ -178,7 +176,7 @@ object SbtCommons {
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.9"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.11.3"
 
-  val web3jVersion = "4.5.0"
+  val web3jVersion = "4.5.5"
   val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
   val web3jCore = "org.web3j"   % "core"   % web3jVersion
 
@@ -199,7 +197,8 @@ object SbtCommons {
   val catsTestkit = "org.typelevel"                      %% "cats-testkit"              % catsVersion % Test
   val disciplineScalaTest = "org.typelevel"              %% "discipline-scalatest"      % "1.0.0-M1"  % Test
 
-  val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.8"  % Test
-  val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.8"  % IntegrationTest
+  val scalaTestCompile = "org.scalatest"     %% "scalatest" % "3.0.8"
+  val scalaTest = scalaTestCompile           % Test
+  val scalaIntegrationTest = "org.scalatest" %% "scalatest" % "3.0.8" % IntegrationTest
   val mockito = "org.mockito"                % "mockito-core" % "2.21.0" % Test
 }

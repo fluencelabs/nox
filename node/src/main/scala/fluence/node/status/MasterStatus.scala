@@ -15,18 +15,12 @@
  */
 
 package fluence.node.status
-import java.net.InetAddress
 
-import fluence.effects.ethclient.data.{Block, Transaction}
-import fluence.node.config.{MasterConfig, NodeConfig}
-import fluence.node.eth.NodeEthState
-import fluence.node.eth.state.{Cluster, WorkerPeer}
-import fluence.node.workers.status.WorkerStatus
+import fluence.worker.WorkerStatus
 import io.circe.generic.semiauto._
-import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
-import scodec.bits.ByteVector
+import io.circe.syntax._
+import io.circe.{Decoder, Encoder, HCursor, Json}
 
-import scala.concurrent.duration._
 import scala.language.postfixOps
 
 /**
@@ -36,47 +30,30 @@ import scala.language.postfixOps
  * @param uptime working time of master node
  * @param numberOfWorkers number of registered workers
  * @param workers info about workers
- * @param config config file
- * @param ethState current NodeEthState
  */
 case class MasterStatus(
   ip: String,
   uptime: Long,
-  nodeConfig: NodeConfig,
   numberOfWorkers: Int,
-  workers: List[WorkerStatus],
-  config: MasterConfig,
-  ethState: NodeEthState
+  workers: List[(Long, WorkerStatus)]
 )
 
 object MasterStatus {
-  private implicit val encodeEthTx: Encoder[Transaction] = deriveEncoder
-  private implicit val encodeEthBlock: Encoder[Block] = deriveEncoder
-  private implicit val encodeByteVector: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
-  private implicit val encodeInetAddress: Encoder[InetAddress] = Encoder.encodeString.contramap(_.getHostName)
-  private implicit val encodeWorkerPeer: Encoder[WorkerPeer] = deriveEncoder
-  private implicit val encodeFiniteDuration: Encoder[FiniteDuration] = Encoder.encodeLong.contramap(_.toSeconds)
-  private implicit val encodeCluster: Encoder[Cluster] = deriveEncoder
-  private implicit val encodeApp: Encoder[fluence.node.eth.state.App] = deriveEncoder
-  private implicit val encodeStorageRef: Encoder[fluence.node.eth.state.StorageRef] = deriveEncoder
-  private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
-  implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
+  private implicit val encodeStatusTuple: Encoder[(Long, WorkerStatus)] = {
+    case (appId: Long, status: WorkerStatus) ⇒
+      Json.obj(
+        ("appId", Json.fromLong(appId)),
+        ("status", status.asJson)
+      )
+  }
+
+  private implicit val decodeStatusTuple: Decoder[(Long, WorkerStatus)] = (c: HCursor) =>
+    for {
+      appId ← c.downField("appId").as[Long]
+      status ← c.downField("status").as[WorkerStatus]
+    } yield (appId, status)
+
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
 
-// Used for tests
-  private implicit val decodeEthTx: Decoder[Transaction] = deriveDecoder
-  private implicit val decodeEthBlock: Decoder[Block] = deriveDecoder
-  private implicit val decodeByteVector: Decoder[ByteVector] =
-    Decoder.decodeString.flatMap(
-      ByteVector.fromHex(_).fold(Decoder.failedWithMessage[ByteVector]("Not a hex"))(Decoder.const)
-    )
-  private implicit val decodeInetAddress: Decoder[InetAddress] = Decoder.decodeString.map(InetAddress.getByName)
-  private implicit val decodeWorkerPeer: Decoder[WorkerPeer] = deriveDecoder
-  private implicit val decodeFiniteDuration: Decoder[FiniteDuration] = Decoder.decodeLong.map(_ seconds)
-  private implicit val decodeCluster: Decoder[Cluster] = deriveDecoder
-  private implicit val decodeApp: Decoder[fluence.node.eth.state.App] = deriveDecoder
-  private implicit val decodeStorageRef: Decoder[fluence.node.eth.state.StorageRef] = deriveDecoder
-  private implicit val keyDecoderByteVector: KeyDecoder[ByteVector] = KeyDecoder.instance(ByteVector.fromHex(_))
-  implicit val decodeNodeEthState: Decoder[NodeEthState] = deriveDecoder
   implicit val decodeMasterState: Decoder[MasterStatus] = deriveDecoder
 }

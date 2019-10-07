@@ -19,11 +19,12 @@ package fluence.node.eth
 import cats.Monad
 import cats.effect.{LiftIO, Timer}
 import cats.syntax.functor._
+import fluence.effects.ethclient.helpers.Web3jConverters
 import fluence.effects.ethclient.helpers.Web3jConverters.{nodeAddressToBytes24, stringToBytes32}
 import fluence.effects.ethclient.syntax._
-import fluence.node.config.NodeConfig
-import fluence.node.eth.state.StorageType
-import fluence.node.eth.state.StorageType.StorageType
+import fluence.node.workers.tendermint.ValidatorPublicKey
+import fluence.worker.eth.StorageType
+import fluence.worker.eth.StorageType.StorageType
 import org.web3j.abi.datatypes.generated._
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
 
@@ -37,23 +38,23 @@ object FluenceContractTestOps {
      * Register the node in the contract.
      * TODO check permissions, Ethereum public key should match
      *
-     * @param nodeConfig Node to add
-     * @tparam F Effect
+     * @param nodeAddressHex p2p ID for this node. Basically first 20 bytes of p2p peer SHA256(PubKey)
      * @return The block number where transaction has been mined
      */
     def addNode[F[_]: LiftIO: Timer: Monad](
-      nodeConfig: NodeConfig,
+      validatorKey: String,
+      nodeAddressHex: String,
       nodeIP: String,
       apiPort: Short,
       capacity: Short
     ): F[BigInt] =
       contract
         .addNode(
-          nodeConfig.validatorKey.toBytes32,
-          nodeAddressToBytes24(nodeIP, nodeConfig.nodeAddress),
+          Web3jConverters.base64ToBytes32(validatorKey),
+          nodeAddressToBytes24(nodeIP, nodeAddressHex),
           new Uint16(apiPort),
           new Uint16(capacity),
-          new Bool(nodeConfig.isPrivate)
+          new Bool(false)
         )
         .callUntilSuccess[F]
         .map(_.getBlockNumber)

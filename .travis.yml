@@ -1,7 +1,7 @@
 _scala_fluence_template: &_scala_fluence_template
   language: scala
-  scala: 2.12.8
-  jdk: openjdk8
+  scala: 2.12.9
+  jdk: openjdk10
 
   install:
     - npm install node
@@ -20,6 +20,7 @@ _scala_fluence_template: &_scala_fluence_template
       - $HOME/.sbt/launchers
       - bootstrap/node_modules
       - $HOME/.cargo
+      - $HOME/.rustup
       - vm/src/it/recources/llama_db.wasm
       - vm/src/it/recources/llama_db_prepared.wasm
 
@@ -42,7 +43,7 @@ matrix:
         - export BUILDKIT_HOST=tcp://0.0.0.0:1234
       before_script:
         - docker pull tendermint/tendermint:v0.32.2
-        - wget -qc https://github.com/web3j/web3j/releases/download/v4.5.0/web3j-4.5.0.tar -O- | sudo tar -C /usr --strip-components=1 -x
+        - wget -qc https://github.com/web3j/web3j/releases/download/v4.5.5/web3j-4.5.5.tar -O- | sudo tar -C /usr --strip-components=1 -x
       script:
         - export TRAVIS=true
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M compile test:compile it:compile

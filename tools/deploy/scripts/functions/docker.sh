@@ -30,7 +30,7 @@ function pull_new_images()
 function remove_old_containers()
 {
     echo "Removing workers & tendermints"
-    docker ps -a | grep -E 'tendermint|worker' | awk '{ print $1 }' | xargs docker rm -f &> /dev/null || true
+    docker ps -a | grep -E 'tendermint|worker|bp_|sm_' | awk '{ print $1 }' | xargs docker rm -f &> /dev/null || true
 }
 
 # restarts fluence node; node.yml assumes some environment variables are set
@@ -46,6 +46,6 @@ function restart_node()
 function clean_networks()
 {
     echo "Cleaning networks"
-    docker network ls | grep -E 'fluence|tendermint' | awk '{print $1}' | xargs -I{} docker network disconnect {} fluence-node-1 &> /dev/null || true
+    docker network ls | grep -E 'fluence|tendermint|app_' | awk '{print $1}' | xargs -I{} docker network disconnect {} fluence-node-1 &> /dev/null || true
     docker network prune -f &> /dev/null
 }

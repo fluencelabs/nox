@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.block.data
 
+import fluence.bp.tx.TxsBlock
 import fluence.crypto.hash.CryptoHashers.Sha256
 import fluence.effects.tendermint.block.errors.TendermintBlockError
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
@@ -23,7 +24,7 @@ import fluence.effects.tendermint.block.signature.Merkle
 import io.circe.Json
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
-import proto3.tendermint.{Block => PBlock}
+import proto3.tendermint.{Block ⇒ PBlock}
 
 object Block {
   /* Definitions */
@@ -80,6 +81,12 @@ object Block {
    */
   def apply(blockJson: Json): Either[TendermintBlockError, Block] = {
     ProtobufJson.block(blockJson)
+  }
+
+  implicit object TendermintTxsBlock extends TxsBlock[Block] {
+    override def height(block: Block): Long = block.header.height
+
+    override def txs(block: Block): Seq[ByteVector] = block.data.txs.toList.flatten.map(_.bv)
   }
 }
 

@@ -21,31 +21,38 @@ import cats.effect.{ConcurrentEffect, ContextShift, Timer}
 import cats.syntax.applicative._
 import cats.syntax.either._
 import cats.{Functor, Monad}
+import fluence.bp.tx.TxResponse
 import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.http.{RpcError, TendermintHttpRpc}
 import fluence.effects.tendermint.rpc.response.TendermintStatus
+import fluence.log.Log
 
 import scala.language.higherKinds
 
 class TestHttpRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift] extends TendermintHttpRpc[F] {
-  override def status: EitherT[F, RpcError, String] = throw new NotImplementedError("val status")
+  override def status(implicit log: Log[F]): EitherT[F, RpcError, String] = throw new NotImplementedError("val status")
 
-  override def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
+  override def statusParsed(implicit F: Functor[F], log: Log[F]): EitherT[F, RpcError, TendermintStatus] =
     throw new NotImplementedError("def statusParsed")
 
-  override def block(height: Long, id: String): EitherT[F, RpcError, Block] =
+  override def block(height: Long, id: String)(implicit log: Log[F]): EitherT[F, RpcError, Block] =
     throw new NotImplementedError(s"def block $height")
 
-  override def commit(height: Long, id: String): EitherT[F, RpcError, String] =
+  override def commit(height: Long, id: String)(implicit log: Log[F]): EitherT[F, RpcError, String] =
     throw new NotImplementedError("def commit")
 
-  override def consensusHeight(id: String): EitherT[F, RpcError, Long] = 0L.asRight[RpcError].pure[F].eitherT
+  override def consensusHeight(id: String)(implicit log: Log[F]): EitherT[F, RpcError, Long] =
+    0L.asRight[RpcError].pure[F].eitherT
 
-  override def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
+  def broadcastTxSync(tx: Array[Byte], id: String)(implicit log: Log[F]): EitherT[F, RpcError, TxResponse] =
     throw new NotImplementedError("def broadcastTxSync")
 
-  override def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String): EitherT[F, RpcError, String] =
+  override def unsafeDialPeers(
+    peers: Seq[String],
+    persistent: Boolean,
+    id: String
+  )(implicit log: Log[F]): EitherT[F, RpcError, String] =
     throw new NotImplementedError("def unsafeDialPeers")
 
   override def query(
@@ -54,5 +61,5 @@ class TestHttpRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift] extends Te
     height: Long,
     prove: Boolean,
     id: String
-  ): EitherT[F, RpcError, String] = throw new NotImplementedError("def query")
+  )(implicit log: Log[F]): EitherT[F, RpcError, String] = throw new NotImplementedError("def query")
 }

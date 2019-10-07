@@ -27,7 +27,7 @@ import cats.syntax.functor._
 import fluence.effects.Backoff
 import fluence.effects.castore.StoreError
 import fluence.log.Log
-import fluence.node.eth.state.StorageRef
+import fluence.worker.eth.StorageRef
 
 import scala.language.higherKinds
 

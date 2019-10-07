@@ -38,7 +38,7 @@ class StatusQueryClientSpec extends WordSpec with Matchers with OptionValues {
     implicit val ioTimer: Timer[IO] = IO.timer(global)
     implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-    implicit val logFactory = LogFactory.forPrintln[IO]()
+    implicit val logFactory = LogFactory.forPrintln[IO](Log.Error)
     implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName).unsafeRunSync()
 
     val host = "localhost"
@@ -69,7 +69,7 @@ class StatusQueryClientSpec extends WordSpec with Matchers with OptionValues {
       backend <- backendR
       implicit0(s: SttpEffect[IO]) <- SttpEffect.plainResource[IO]
       client = StateMachineClient
-        .readOnly[IO](host, port)
+        .readOnly[IO](host, port, EitherT.rightT(None))
         .extend[PeersControl[IO]](
           new PeersControlClient[IO](host, port)
         )

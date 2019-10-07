@@ -16,15 +16,17 @@
 
 package fluence.node.status
 
-import cats.{Monad, Parallel}
+import cats.Parallel
 import cats.effect._
 import cats.syntax.functor._
+import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.instances.list._
 import fluence.log.Log
-import fluence.node.MasterNode
 import fluence.node.config.MasterConfig
-import fluence.node.eth.NodeEthState
+import fluence.node.eth.{NodeEth, NodeEthState}
+import fluence.worker.{WorkerNotAllocated, WorkerStatus, WorkersPool}
+import shapeless.HList
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -33,11 +35,11 @@ import scala.language.higherKinds
  * The manager that able to get information about master node and all workers.
  *
  * @param config config file about a master node
- * @param masterNode initialized master node
  */
-case class StatusAggregator[F[_]: Monad: Clock](
+case class StatusAggregator[F[_]: Timer: Concurrent](
   config: MasterConfig,
-  masterNode: MasterNode[F, _],
+  pool: WorkersPool[F, _, _ <: HList],
+  nodeEth: NodeEth[F],
   startTimeMillis: Long
 ) {
 
@@ -49,43 +51,48 @@ case class StatusAggregator[F[_]: Monad: Clock](
   def getStatus(statusTimeout: FiniteDuration)(implicit P: Parallel[F], log: Log[F]): F[MasterStatus] =
     for {
       currentTime ← Clock[F].monotonic(MILLISECONDS)
-      workers ← masterNode.pool.getAll
-      workerInfos ← Parallel.parTraverse(workers)(_.withServices(identity)(_.status(statusTimeout)))
-      ethState ← masterNode.nodeEth.expectedState
+      workers ← pool.listAll()
+      workerInfos <- Parallel
+        .parTraverse(workers)(
+          ctx ⇒
+            ctx.worker
+              .foldF(
+                WorkerNotAllocated(_).pure[F].widen[WorkerStatus],
+                w ⇒ w.status(statusTimeout)
+              )
+              .map(ctx.app.id → _)
+        )
     } yield MasterStatus(
       config.endpoints.ip.getHostAddress,
       currentTime - startTimeMillis,
-      masterNode.nodeConfig,
       workerInfos.size,
-      workerInfos,
-      config,
-      ethState
+      workerInfos
     )
 
   /**
    * Just an expected Ethereum state -- a granular accessor
    */
-  def expectedEthState: F[NodeEthState] =
-    masterNode.nodeEth.expectedState
+  val expectedEthState: F[NodeEthState] =
+    nodeEth.expectedState
 }
 
 object StatusAggregator {
 
   /**
-   * Makes a StatusAggregato9r, lifted into Resource.
+   * Makes a StatusAggregator, lifted into Resource.
    *
    * @param masterConfig Master config
-   * @param masterNode Master node to fetch status from
    */
-  def make[F[_]: Timer: ContextShift: Monad: Log](
+  def make[F[_]: Timer: ContextShift: Concurrent: Log](
     masterConfig: MasterConfig,
-    masterNode: MasterNode[F, _]
+    pool: WorkersPool[F, _, _ <: HList],
+    nodeEth: NodeEth[F]
   ): Resource[F, StatusAggregator[F]] =
     Resource.liftF(
       for {
         startTimeMillis ← Clock[F].realTime(MILLISECONDS)
         _ ← Log[F].debug("Start time millis: " + startTimeMillis)
-      } yield StatusAggregator(masterConfig, masterNode, startTimeMillis)
+      } yield StatusAggregator(masterConfig, pool, nodeEth, startTimeMillis)
     )
 
 }

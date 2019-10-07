@@ -26,13 +26,13 @@ import cats.syntax.functor._
 import cats.syntax.option._
 import cats.syntax.compose._
 import cats.{Applicative, Eval, Monad, Traverse}
+import fluence.bp.tx.{Tx, TxCode, TxResponse}
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
 import fluence.statemachine.api.query.{QueryCode, QueryResponse}
 import fluence.statemachine.api.data.{BlockReceipt, StateHash}
-import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
 import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
@@ -41,31 +41,64 @@ import scala.language.higherKinds
 
 /**
  * Wraps all the state and logic required to perform ABCI logic.
- *
- * @param state See [[MachineState]]
- * @param vm Virtual machine invoker
- * @param receiptBusBackend Communication channel with master node
+ * TODO there should be the sole implementation, make it class again, never mock
  */
-class StateService[F[_]: Monad](
-  state: Ref[F, MachineState],
-  vm: VmOperationInvoker[F],
-  receiptBusBackend: ReceiptBusBackend[F]
-)(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
-
-  // Writes a trace log about block uploading
-  private def traceBU(msg: String)(implicit log: Log[F]) =
-    log.trace(Console.YELLOW + s"BUD: $msg" + Console.RESET)
+trait StateService[F[_]] {
 
   /**
    * Get actual stateHash from the internal state
    */
-  def stateHash: F[StateHash] = state.get.map(_.stateHash)
+  def stateHash: F[StateHash]
 
   /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
    *
    * @return App Hash (with receipt hash applied!)
    */
+  def commit(implicit log: Log[F]): F[StateHash]
+
+  /**
+   * Queries the storage for sessionId/nonce result, or for sessionId status.
+   *
+   * @param path sessionId/nonce or sessionId
+   */
+  def query(path: String): F[QueryResponse]
+
+  /**
+   * Push incoming transaction to be processed on [[commit]].
+   *
+   * @param data Incoming transaction
+   */
+  def deliverTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse]
+
+  /**
+   * Check if transaction is well-formed: [[Tx.readTx()]] must return Some
+   *
+   * @param data Incoming transaction
+   */
+  def checkTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse]
+}
+
+/**
+ * Wraps all the state and logic required to perform ABCI logic.
+ *
+ * @param state See [[MachineState]]
+ * @param vm Virtual machine invoker
+ * @param receiptBusBackend Communication channel with master node
+ */
+class StateServiceImpl[F[_]: Monad](
+  state: Ref[F, MachineState],
+  vm: VmOperationInvoker[F],
+  receiptBusBackend: ReceiptBusBackend[F]
+)(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F])
+    extends StateService[F] {
+
+  // Writes a trace log about block uploading
+  private def traceBU(msg: String)(implicit log: Log[F]) =
+    log.trace(Console.YELLOW + s"BUD: $msg" + Console.RESET)
+
+  def stateHash: F[StateHash] = state.get.map(_.stateHash)
+
   def commit(implicit log: Log[F]): F[StateHash] =
     for {
       // Get current state
@@ -150,11 +183,6 @@ class StateService[F[_]: Monad](
       _ <- log.info(s"$blockHeight commit end")
     } yield stateHash
 
-  /**
-   * Queries the storage for sessionId/nonce result, or for sessionId status.
-   *
-   * @param path sessionId/nonce or sessionId
-   */
   def query(path: String): F[QueryResponse] =
     Tx.readHead(path) match {
       // There's no /nonce part, but path could be a sessionId as a whole
@@ -196,11 +224,6 @@ class StateService[F[_]: Monad](
         }
     }
 
-  /**
-   * Push incoming transaction to be processed on [[commit]].
-   *
-   * @param data Incoming transaction
-   */
   def deliverTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
     Tx.readTx[F](data)
       .semiflatMap { tx =>
@@ -223,11 +246,6 @@ class StateService[F[_]: Monad](
           TxResponse(code, s"$infoMessage\n${tx.head}", Some(height))
       }
 
-  /**
-   * Check if transaction is well-formed: [[Tx.readTx()]] must return Some
-   *
-   * @param data Incoming transaction
-   */
   def checkTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
     Tx.readTx[F](data).value.flatMap {
       case Some(tx) ⇒
@@ -269,6 +287,6 @@ object StateService {
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
         bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
 
-      new StateService[F](state, vm, receiptBusBackend)
+      new StateServiceImpl[F](state, vm, receiptBusBackend)
     }
 }
