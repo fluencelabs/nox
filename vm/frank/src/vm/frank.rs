@@ -21,39 +21,27 @@ use crate::{
     vm::frank_result::FrankResult,
 };
 
-use sha2::{
-    digest::generic_array::GenericArray,
-    digest::FixedOutput,
-    Digest,
-    Sha256,
-};
-
+use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
 use std::ffi::c_void;
-
-use wasmer_runtime::{
-    func,
-    imports,
-    instantiate,
-    Ctx,
-    Func,
-    Instance
-};
-
-use wasmer_runtime_core::{
-    memory::{
-        ptr::{Array, WasmPtr},
-    },
-};
+use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
+use failure::_core::marker::PhantomData;
+use wasmer_runtime_core::memory::ptr::{Array, WasmPtr};
 
 pub struct Frank {
     instance: &'static Instance,
+
+    // it is safe to use unwrap() while calling these functions because Option is used here
+    // just to allow partially initialization of the struct. And all Option fields will be
+    // initialized after Frank::new.
     allocate: Option<Func<'static, i32, i32>>,
     deallocate: Option<Func<'static, (i32, i32), ()>>,
     invoke: Option<Func<'static, (i32, i32), i32>>,
+
+    _tag: PhantomData<&'static Instance>,
 }
 
 impl Drop for Frank {
-    // In normal situation this method should be called only during exiting
+    // In normal situation this method should be called only while shutting down
     fn drop(&mut self) {
         drop(self.allocate.as_ref());
         drop(self.deallocate.as_ref());
@@ -108,8 +96,7 @@ impl Frank {
     /// Invokes a main module supplying byte array and expecting byte array with some outcome back.
     pub fn invoke(&mut self, fn_argument: &[u8]) -> Result<FrankResult, FrankError> {
         // renew the state of the registered environment module to track spent gas and eic
-        let env: &mut EnvModule =
-            unsafe { &mut *(self.instance.context().data as *mut EnvModule) };
+        let env: &mut EnvModule = unsafe { &mut *(self.instance.context().data as *mut EnvModule) };
         env.renew_state();
 
         // allocate memory for the given argument and write it to memory
@@ -123,9 +110,16 @@ impl Frank {
         };
 
         // invoke a main module, read a result and deallocate it
-        let result_address = self.invoke.as_ref().unwrap().call(argument_address, argument_len)?;
+        let result_address = self
+            .invoke
+            .as_ref()
+            .unwrap()
+            .call(argument_address, argument_len)?;
         let result = self.read_result_from_mem(result_address as _)?;
-        self.deallocate.as_ref().unwrap().call(result_address, result.len() as i32)?;
+        self.deallocate
+            .as_ref()
+            .unwrap()
+            .call(result_address, result.len() as i32)?;
 
         let state = env.get_state();
         Ok(FrankResult::new(result, state.0, state.1))
@@ -173,15 +167,22 @@ impl Frank {
             },
         };
 
-        let instance: &'static mut Instance = Box::leak(Box::new(instantiate(module, &import_objects)?));
+        let instance: &'static mut Instance =
+            Box::leak(Box::new(instantiate(module, &import_objects)?));
         let expects_eth = instance.func::<(), ()>(ETH_FUNC_NAME).is_ok();
 
-        Ok((Self {
-         instance,
-         allocate: Some(instance.func::<(i32), i32>(&config.allocate_function_name)?),
-         deallocate: Some(instance.func::<(i32, i32), ()>(&config.deallocate_function_name)?),
-         invoke: Some(instance.func::<(i32, i32), i32>(&config.invoke_function_name)?),
-        }, expects_eth))
+        Ok((
+            Self {
+                instance,
+                allocate: Some(instance.func::<(i32), i32>(&config.allocate_function_name)?),
+                deallocate: Some(
+                    instance.func::<(i32, i32), ()>(&config.deallocate_function_name)?,
+                ),
+                invoke: Some(instance.func::<(i32, i32), i32>(&config.invoke_function_name)?),
+                _tag: PhantomData,
+            },
+            expects_eth,
+        ))
     }
 }
 

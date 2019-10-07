@@ -41,13 +41,11 @@ impl<'a> ModulePreparator {
 
         // At now, there is should be only one memory section, so we need to
         let limits = match module.memory_section_mut() {
-            Some(section) => {
-              match section.entries_mut().pop() {
-                  Some(entry) => *entry.limits(),
-                  None => ResizableLimits::new(0 as _, Some(mem_pages_count))
-              }
+            Some(section) => match section.entries_mut().pop() {
+                Some(entry) => *entry.limits(),
+                None => ResizableLimits::new(0 as _, Some(mem_pages_count)),
             },
-            None => ResizableLimits::new(0 as _, Some(mem_pages_count))
+            None => ResizableLimits::new(0 as _, Some(mem_pages_count)),
         };
 
         let memory_entry = MemoryType::new(limits.initial(), Some(mem_pages_count));

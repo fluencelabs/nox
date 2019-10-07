@@ -30,12 +30,12 @@ mod modules;
 mod vm;
 
 use crate::vm::config::Config;
+use crate::vm::prepare::prepare_module;
 use clap::{App, AppSettings, Arg, SubCommand};
 use exitfailure::ExitFailure;
 use failure::err_msg;
 use std::fs;
 use vm::frank::Frank;
-use crate::vm::prepare::prepare_module;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -79,7 +79,9 @@ fn main() -> Result<(), ExitFailure> {
             let in_module_path = arg.value_of(IN_MODULE_PATH).unwrap();
             let wasm_code =
                 fs::read(in_module_path).unwrap_or_else(|err| panic!(format!("{}", err)));
-            let wasm_code = prepare_module(&wasm_code, &config).map_err(|e| panic!(format!("{}", e))).unwrap();
+            let wasm_code = prepare_module(&wasm_code, &config)
+                .map_err(|e| panic!(format!("{}", e)))
+                .unwrap();
             let invoke_arg = arg.value_of(INVOKE_ARG).unwrap();
 
             let _ = Frank::new(&wasm_code, config)
