@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-use crate::jni::jni_results::*;
 /// Defines export functions that will be accessible from the Scala part.
+
+use crate::jni::jni_results::*;
 use crate::vm::config::Config;
 use crate::vm::errors::FrankError;
 use crate::vm::frank::{Frank, FRANK};
