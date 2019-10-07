@@ -30,6 +30,16 @@ use sha2::digest::generic_array::GenericArray;
 use std::fs;
 
 /// Initializes Frank virtual machine.
+/// This method is exported to Scala.
+///
+/// Arguments
+///
+/// * env - corresponding java native interface
+/// * _class - represents caller class
+/// * module_path - a path to module that should be loaded to Frank virtual machine
+/// * config - contains some configs that manage module loading and instantiation process
+///
+/// Returns a object of RawInitializationResult case class
 #[no_mangle]
 pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
     env: JNIEnv<'a>,
@@ -61,6 +71,15 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
 }
 
 /// Invokes the main module entry point function.
+/// This method is exported to Scala.
+///
+/// Arguments
+///
+/// * env - corresponding java native interface
+/// * _class - represents caller class
+/// * fn_argument - an argument for thr main module entry point function
+///
+/// Returns a object of RawInvocationResult case class
 #[no_mangle]
 pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
     env: JNIEnv<'a>,
@@ -95,6 +114,14 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
 }
 
 /// Computes hash of the internal VM state.
+/// This method is exported to Scala.
+///
+/// Arguments
+///
+/// * env - corresponding java native interface
+/// * _class - represents caller class
+///
+/// Returns a object of RawStateComputationResult case class
 #[no_mangle]
 pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_computeVmState<'a>(
     env: JNIEnv<'a>,
