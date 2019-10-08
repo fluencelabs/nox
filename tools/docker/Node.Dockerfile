@@ -29,7 +29,7 @@ FROM $environment as build
 FROM openjdk:10-jre-slim
 
 # this is needed for some binaries (e.g. rocksdb) to run properly on alpine linux since they need libc and alpine uses musl
-RUN ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2
+# RUN ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2
 
 VOLUME /master
 ENV MIN_PORT 10000
