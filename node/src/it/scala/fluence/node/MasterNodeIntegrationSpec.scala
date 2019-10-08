@@ -186,7 +186,7 @@ class MasterNodeIntegrationSpec
 
         _ = lastAppId += 1
 
-        _ ← log.info("Height equals two for workers, going to get WorkerRunning from Master status")
+        _ ← log.info("Both workers are operating, going to get WorkerRunning from Master status")
 
         _ <- eventually[IO](
           for {
@@ -235,11 +235,6 @@ class MasterNodeIntegrationSpec
                 s2 <- getStatus2
               } yield {
                 // Check that workers run no more
-                s1.foreach(println)
-                println("\n\n\n====== MASTER1 =====\n\n\n")
-                println(Console.CYAN + s"docker logs --tail 100 $master1ContainerId".!! + Console.RESET)
-                println("\n\n\n====== MASTER2 =====\n\n\n")
-                println(Console.CYAN + s"docker logs --tail 100 $master2ContainerId".!! + Console.RESET)
                 s1 should not be defined
                 s2 should not be defined
               },
@@ -257,7 +252,6 @@ class MasterNodeIntegrationSpec
         case (e, s, m1Id, m2Id) =>
           runTwoWorkers(master1Port, master2Port, m1Id, m2Id)(e, s).flatMap(_ ⇒ IO("docker ps".!!))
       }.flatMap { psOutput ⇒
-        println("CONTAINERS: " + psOutput)
         psOutput should include("worker")
         // Check that once masters are stopped, workers do not exist
         eventually(IO("docker ps -a".!! should not include "worker"))

@@ -18,14 +18,14 @@ RUN --mount=type=cache,target=/root/.ivy2\
 
 
 ############## Copy jar from local fs for tests, master-node.jar should be prebuilt
-FROM alpine as test
+FROM scratch as test
 COPY . /fluence
 
 ############## Aux dynamic stage, could be either test or production
 FROM $environment as build
 
 ############## Build final image
-FROM openjdk:10-jre
+FROM openjdk:10-jre-slim
 VOLUME /worker
 COPY --from=build /fluence/statemachine/docker/worker /worker
 COPY --from=build /fluence/statemachine/docker/target/scala-2.12/statemachine.jar /statemachine.jar
