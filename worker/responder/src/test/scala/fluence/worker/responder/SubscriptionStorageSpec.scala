@@ -63,7 +63,7 @@ class SubscriptionStorageSpec extends WordSpec with OptionValues with Matchers {
         add1Result <- storage.addSubscription(key, txData)
         _ = add1Result shouldBe true
         subs <- storage.getSubscriptions
-      } yield subs.get(key).isDefined shouldBe true).unsafeRunSync()
+      } yield subs.get(key) shouldBe defined).unsafeRunSync()
     }
 
     "delete subscription on delete operation" in {
@@ -73,7 +73,7 @@ class SubscriptionStorageSpec extends WordSpec with OptionValues with Matchers {
         _ = add1Result shouldBe true
         _ <- storage.deleteSubscription(key)
         subs <- storage.getSubscriptions
-      } yield subs.get(key).isEmpty shouldBe true).unsafeRunSync()
+      } yield subs.get(key) shouldBe empty).unsafeRunSync()
 
     }
   }
