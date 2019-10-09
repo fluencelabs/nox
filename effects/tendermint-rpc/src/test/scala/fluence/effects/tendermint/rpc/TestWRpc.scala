@@ -18,13 +18,16 @@ package fluence.effects.tendermint.rpc
 
 import cats.Monad
 import cats.effect.concurrent.Deferred
-import cats.effect.{Concurrent, ConcurrentEffect, ContextShift, Timer}
+import cats.effect.{Concurrent, ConcurrentEffect, ContextShift, Sync, Timer}
 import cats.syntax.either._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpcImpl, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](host: String, port: Int)
@@ -41,10 +44,6 @@ class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](host: String,
   override def subscribeNewBlock(
     lastKnownHeight: Option[Long]
   )(implicit log: Log[F], backoff: Backoff[EffectError]): fs2.Stream[F, Block] = {
-    import cats.syntax.flatMap._
-    import cats.syntax.functor._
-
-    import scala.concurrent.duration._
 
     val timeout = 5.seconds
 
@@ -54,6 +53,7 @@ class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](host: String,
         fiber <- Concurrent[F].start(
           Timer[F].sleep(timeout) >>
             Log[F].error(s"subscribeNewBlock timed out after $timeout") >>
+            Sync[F].delay(println(s"ERROR: subscribeNewBlock timed out after $timeout")) >>
             promise.complete(())
         )
       } yield (fiber, promise)

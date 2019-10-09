@@ -83,14 +83,14 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer](
     // or from next to last height known by block producer, otherwise
     val startFrom = lastKnownHeight.fold(getLastHeight)(_.pure[F]).map(_ + 1)
 
-    val logSubscribe = traceBU(s"subscribed on NewBlock. startFrom: $startFrom")
+    val logSubscribe = traceBU(s"subscribed on NewBlock")
     val subscribeS = fs2.Stream.resource(subscribe("NewBlock")).evalTap(_ => logSubscribe)
     // Emit Start to start "offline" block processing, avoiding wait for websocket to connect
     val startEventS = fs2.Stream.emit(Start)
     // Drop first reconnect from websocket to account for startEventS
     val eventsS = startEventS ++ (subscribeS >>= (_.dequeue)).drop(1)
 
-    fs2.Stream.eval(startFrom) >>= (
+    fs2.Stream.eval(startFrom).evalTap(startFrom ⇒ traceBU(s"startFrom: $startFrom")) >>= (
       eventsS
         .evalMapAccumulate(_) {
           // load missing blocks on reconnect (reconnect is always the first event in the queue)
