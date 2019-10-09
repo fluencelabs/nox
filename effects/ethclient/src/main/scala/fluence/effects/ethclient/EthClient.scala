@@ -148,7 +148,7 @@ class EthClient private (private val web3: Web3j) {
           // log error
           either.left.toOption.fold(Applicative[F].unit) { e =>
             log.error(s"Cannot decode block from Ethereum", e)
-        }
+          }
       )
       .collect {
         case Right(v) => v

@@ -79,77 +79,76 @@ object NodeEth {
           contract.ethClient.blockStream[F]() through blockQueue.enqueue,
           name = "ethClient.blockStream"
         )
-    } yield
-      new NodeEth[F] {
-        override val nodeEvents: fs2.Stream[F, NodeEthEvent] = fs2.Stream
-          .eval(
-            contract
-              .getAllNodeApps[F](new Bytes32(validatorKey.toArray))
-          )
-          .flatMap {
-            case (allNodeApps, contractAppsLoaded) ⇒
-              // TODO: make one filter for all kinds of events, instead of making several separate requests https://github.com/fluencelabs/fluence/issues/463
+    } yield new NodeEth[F] {
+      override val nodeEvents: fs2.Stream[F, NodeEthEvent] = fs2.Stream
+        .eval(
+          contract
+            .getAllNodeApps[F](new Bytes32(validatorKey.toArray))
+        )
+        .flatMap {
+          case (allNodeApps, contractAppsLoaded) ⇒
+            // TODO: make one filter for all kinds of events, instead of making several separate requests https://github.com/fluencelabs/fluence/issues/463
 
-              // State changes on a new recognized App that should be deployed on this Node
-              val onNodeAppS = allNodeApps
-                .map(NodeEthState.onNodeApp[F])
+            // State changes on a new recognized App that should be deployed on this Node
+            val onNodeAppS = allNodeApps
+              .map(NodeEthState.onNodeApp[F])
 
-              // State changes on App Deleted event
-              val onAppDeletedS = contract
-                .getAppDeleted[F]
-                .map(_.getValue.longValue())
-                .map(NodeEthState.onAppDeleted[F])
+            // State changes on App Deleted event
+            val onAppDeletedS = contract
+              .getAppDeleted[F]
+              .map(_.getValue.longValue())
+              .map(NodeEthState.onAppDeleted[F])
 
-              // State changes on Node Deleted event
-              val onNodeDeletedS = contract.getNodeDeleted
-                .map(_.getValue)
-                .map(ByteVector(_))
-                .map(NodeEthState.onNodeDeleted[F])
+            // State changes on Node Deleted event
+            val onNodeDeletedS = contract.getNodeDeleted
+              .map(_.getValue)
+              .map(ByteVector(_))
+              .map(NodeEthState.onNodeDeleted[F])
 
-              // State changes on New Block
-              val onNewBlockS = blockQueue.dequeue.map { case (_, block) => block }
-                .map(NodeEthState.onNewBlock[F])
+            // State changes on New Block
+            val onNewBlockS = blockQueue.dequeue.map { case (_, block) => block }
+              .map(NodeEthState.onNewBlock[F])
 
-              // State changes on switch from Apps already stored in the contract to App events
-              val onContractAppsLoaded =
-                fs2.Stream
-                  .eval(contractAppsLoaded)
-                  .as(ContractAppsLoaded)
-                  .map(NodeEthState.onContractAppsLoaded[F])
+            // State changes on switch from Apps already stored in the contract to App events
+            val onContractAppsLoaded =
+              fs2.Stream
+                .eval(contractAppsLoaded)
+                .as(ContractAppsLoaded)
+                .map(NodeEthState.onContractAppsLoaded[F])
 
-              // State changes for all kinds of Ethereum events regarding this node
-              val stream: fs2.Stream[F, StateT[F, NodeEthState, Seq[NodeEthEvent]]] =
-                onNodeAppS merge onAppDeletedS merge onNodeDeletedS merge onNewBlockS merge onContractAppsLoaded
+            // State changes for all kinds of Ethereum events regarding this node
+            val stream: fs2.Stream[F, StateT[F, NodeEthState, Seq[NodeEthEvent]]] =
+              onNodeAppS merge onAppDeletedS merge onNodeDeletedS merge onNewBlockS merge onContractAppsLoaded
 
-              // Note: state is never being read from the Ref,
-              // so no other channels of modifications are allowed
-              // TODO handle reorgs
-              stream
-                .evalMapAccumulate(initialState) {
-                  case (state, mod) ⇒
-                    // Get the new state and a sequence of events, put them to fs2 stream
-                    mod.run(state)
-                }
-                .flatMap {
-                  case (state, events) ⇒
-                    // Save the state to the ref and flatten the events to match the response type
-                    fs2.Stream.eval(stateRef.set(state)) *>
-                      fs2.Stream.chunk(fs2.Chunk.seq(events))
-                }
-          }
+            // Note: state is never being read from the Ref,
+            // so no other channels of modifications are allowed
+            // TODO handle reorgs
+            stream
+              .evalMapAccumulate(initialState) {
+                case (state, mod) ⇒
+                  // Get the new state and a sequence of events, put them to fs2 stream
+                  mod.run(state)
+              }
+              .flatMap {
+                case (state, events) ⇒
+                  // Save the state to the ref and flatten the events to match the response type
+                  fs2.Stream.eval(stateRef.set(state)) *>
+                    fs2.Stream.chunk(fs2.Chunk.seq(events))
+              }
+        }
 
-        /**
-         * Returns the expected node state, how it's built with received Ethereum data
-         */
-        override val expectedState: F[NodeEthState] =
-          stateRef.get
+      /**
+       * Returns the expected node state, how it's built with received Ethereum data
+       */
+      override val expectedState: F[NodeEthState] =
+        stateRef.get
 
-        /**
-         * Stream of raw block json, requires ethClient to be configured to keep raw responses!
-         */
-        override val blocksRaw: fs2.Stream[F, String] =
-          blockQueue.dequeue.map(_._1).unNone
-      }
+      /**
+       * Stream of raw block json, requires ethClient to be configured to keep raw responses!
+       */
+      override val blocksRaw: fs2.Stream[F, String] =
+        blockQueue.dequeue.map(_._1).unNone
+    }
   }
 
   /**
