@@ -1,5 +1,5 @@
 jdk: &jdk
-  image: circleci/openjdk:8-jdk-node
+  image: circleci/openjdk:10-jdk-node
 
 just_jdk: &jdk_image
   docker:
