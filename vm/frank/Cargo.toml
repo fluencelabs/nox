@@ -19,7 +19,6 @@ name = "frank"
 path = "src/main.rs"
 
 [dependencies]
-wasmer-runtime-core = "0.8.0"
 jni = "0.13.1"
 failure = "0.1.5"
 lazy_static = "1.4.0"
@@ -31,9 +30,14 @@ parity-wasm = "0.40.3"
 pwasm-utils = "0.11.0"
 
 [dependencies.wasmer-runtime]
-version = "0.8.0"
+git = "https://github.com/fluencelabs/wasmer"
+branch = "singlepass_jni_hardering"
 default-features = false
 features = ["default-backend-singlepass"]
+
+[dependencies.wasmer-runtime-core]
+git = "https://github.com/fluencelabs/wasmer"
+branch = "singlepass_jni_hardering"
 
 [profile.release]
 opt-level = 3
