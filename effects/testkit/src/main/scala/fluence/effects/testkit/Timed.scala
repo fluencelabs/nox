@@ -70,12 +70,13 @@ trait Timed {
       .attempt
       .map(_.flatten)
       .rethrow
-      .adaptError(adaptError(pos, timeout, prefix = ""))
+      .adaptError(adaptError(pos, timeout, prefix = "", modifyMessage = false))
 
   private def adaptError(
     pos: Position,
     timeout: FiniteDuration,
-    prefix: String = "eventually "
+    prefix: String = "eventually ",
+    modifyMessage: Boolean = true
   ): PartialFunction[Throwable, Throwable] = {
     def testFailed(cause: Throwable, printCause: Boolean = false) = {
       if (printCause) cause.printStackTrace(System.err)
@@ -93,8 +94,9 @@ trait Timed {
 
     {
       case e: TestFailedException =>
-        e.printStackTrace(System.err)
-        e.modifyMessage(m => Some(s"${prefix}timed out after $timeout" + m.fold("")(": " + _)))
+        if (modifyMessage)
+          e.modifyMessage(m => Some(s"${prefix}timed out after $timeout" + m.fold("")(": " + _)))
+        else e
       case e: TimeoutException => testFailed(e)
       case e                   => testFailed(e, printCause = true)
     }
