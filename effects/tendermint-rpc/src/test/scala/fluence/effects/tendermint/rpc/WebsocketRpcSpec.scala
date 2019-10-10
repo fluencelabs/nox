@@ -45,7 +45,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Timed {
     val resourcesF = for {
       server <- WebsocketServer.make[IO](Port)
       wrpc = new TestWRpc[IO]("127.0.0.1", Port)
-      blocks = wrpc.subscribeNewBlock(Some(0))
+      blocks = wrpc.subscribeNewBlock(None)
     } yield (server, blocks)
 
     def block(height: Long) = Text(TestData.block(height))
@@ -57,8 +57,8 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Timed {
             _ <- server.send(block(1))
             _ <- server.send(block(2))
             events <- events.take(2).compile.toList
+            requests <- server.requests().take(1).compile.toList
             _ <- server.close()
-            requests <- server.requests().compile.toList
           } yield {
             requests.count(_.opcode == TextOpCode) shouldBe 1
             events.size shouldBe 2
@@ -66,7 +66,6 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Timed {
             events.tail.head.header.height shouldBe 2L
           }
       }).unsafeRunSync()
-
     }
 
     "receive message after reconnect" in {
@@ -87,6 +86,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Timed {
       }).unsafeRunSync()
     }
 
+    // TODO: This test (if ran in a loop) always fails on 210-th iteration because subscribeNewBlock times out
     "ignore incorrect json messages" in {
       val incorrectMsg = "incorrect"
       val height = 1L
