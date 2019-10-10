@@ -46,7 +46,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   private val moduleDirPrefix =
     if (System.getProperty("user.dir").endsWith("/statemachine/docker")) s"${System.getProperty("user.dir")}/../../"
     else s"${System.getProperty("user.dir")}/../"
-  private val llamadbPath = moduleDirPrefix + "vm/src/it/resources/llama_db.wasm"
+  private val llamadbPath = moduleDirPrefix + "src/it/resources/llama_db.wasm"
   private val config = StateMachineConfig(
     8,
     llamadbPath :: Nil,
