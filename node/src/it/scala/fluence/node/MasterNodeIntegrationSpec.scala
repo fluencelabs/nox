@@ -140,6 +140,13 @@ class MasterNodeIntegrationSpec
     )
   }
 
+  def printContainerLogs(name: String) = IO {
+    println(s"\n\n\t\t==== $name logs ====\n\n")
+    if (s"docker logs --tail 100 $name".! != 0) {
+      println(s"\n\t\tERROR retrieving logs for $name\n")
+    }
+  }
+
   "MasterNodes" should {
     val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
     val owner = "0x4180FC65D613bA7E1a385181a219F1DBfE7Bf11d"
@@ -182,6 +189,13 @@ class MasterNodeIntegrationSpec
           },
           maxWait = 90.seconds,
           period = 5.seconds
+        ).guarantee(
+          printContainerLogs("master1") *>
+            printContainerLogs("master2") *>
+            printContainerLogs("sm_1_0") *>
+            printContainerLogs("sm_1_1") *>
+            printContainerLogs("bp_1_0") *>
+            printContainerLogs("bp_1_1")
         )
 
         _ = lastAppId += 1
