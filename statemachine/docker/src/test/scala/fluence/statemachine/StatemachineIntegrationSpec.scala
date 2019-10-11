@@ -44,9 +44,10 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   // sbt defaults user directory to submodule directory
   // while Idea defaults to project root
   private val moduleDirPrefix =
-    if (System.getProperty("user.dir").endsWith("/statemachine/docker")) s"${System.getProperty("user.dir")}/../../"
-    else s"${System.getProperty("user.dir")}/../"
-  private val llamadbPath = moduleDirPrefix + "src/it/resources/llama_db.wasm"
+    if (System.getProperty("user.dir").endsWith("/statemachine/docker")) s"${System.getProperty("user.dir")}"
+    else s"${System.getProperty("user.dir")}/docker"
+  private val llamadbPath = moduleDirPrefix + "/src/test/resources/llama_db.wasm"
+  println(llamadbPath)
   private val config = StateMachineConfig(
     8,
     llamadbPath :: Nil,
