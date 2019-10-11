@@ -191,17 +191,16 @@ class MasterNodeIntegrationSpec
           },
           maxWait = 90.seconds,
           period = 5.seconds
-        ).attempt
-          .flatTap(
-            _ =>
-              printContainerLogs("master1") *>
-                printContainerLogs("master2") *>
-                printContainerLogs("sm_1_0") *>
-                printContainerLogs("sm_1_1") *>
-                printContainerLogs("bp_1_0") *>
-                printContainerLogs("bp_1_1")
-          )
-          .rethrow
+        ).attempt.flatTap {
+          case Left(e) =>
+            printContainerLogs("master1") *>
+              printContainerLogs("master2") *>
+              printContainerLogs("sm_1_0") *>
+              printContainerLogs("sm_1_1") *>
+              printContainerLogs("bp_1_0") *>
+              printContainerLogs("bp_1_1")
+          case _ => IO.unit
+        }.rethrow
 
         _ = lastAppId += 1
 
