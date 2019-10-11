@@ -20,18 +20,20 @@ import java.nio.ByteBuffer
 
 import cats.effect._
 import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.syntax.monadError._
 import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.effects.ethclient.EthClient
-import fluence.node.eth.{FluenceContract, NodeEthState}
-import fluence.node.status.MasterStatus
-import org.scalatest.{Timer ⇒ _, _}
-import eth.FluenceContractTestOps._
+import fluence.effects.testkit.Timed
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
-import fluence.effects.testkit.Timed
+import fluence.node.eth.FluenceContractTestOps._
+import fluence.node.eth.{FluenceContract, NodeEthState}
+import fluence.node.status.MasterStatus
 import fluence.worker.WorkerStatus
+import org.scalatest.{Timer => _, _}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -189,14 +191,17 @@ class MasterNodeIntegrationSpec
           },
           maxWait = 90.seconds,
           period = 5.seconds
-        ).guarantee(
-          printContainerLogs("master1") *>
-            printContainerLogs("master2") *>
-            printContainerLogs("sm_1_0") *>
-            printContainerLogs("sm_1_1") *>
-            printContainerLogs("bp_1_0") *>
-            printContainerLogs("bp_1_1")
-        )
+        ).attempt
+          .flatTap(
+            _ =>
+              printContainerLogs("master1") *>
+                printContainerLogs("master2") *>
+                printContainerLogs("sm_1_0") *>
+                printContainerLogs("sm_1_1") *>
+                printContainerLogs("bp_1_0") *>
+                printContainerLogs("bp_1_1")
+          )
+          .rethrow
 
         _ = lastAppId += 1
 
