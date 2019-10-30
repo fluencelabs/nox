@@ -91,6 +91,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { runCmd("make worker-test") },
     docker in Test                    := (docker in Test).dependsOn(assembly).value,
+    javaOptions in run += s"-Djava.library.path=/native/x86_64-linux;/native/linux_x86_64;/native/x86_64-darwin;/native/darwin_x86_64",
     itDepends(test)(downloadLlama)(Test),
     itDepends(testOnly)(downloadLlama)(Test),
   )
