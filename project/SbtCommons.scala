@@ -4,6 +4,7 @@ import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys.{javaOptions, _}
 import sbt.Scoped.AnyInitTask
 import sbt.internal.util.ManagedLogger
+import java.io.File
 import sbt.{Def, addCompilerPlugin, taskKey, _}
 import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
 import sbtassembly.{MergeStrategy, PathList}
@@ -50,14 +51,10 @@ object SbtCommons {
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
   ) ++ kindProjector
 
-  import java.io.File
-  import sbtassembly.MergeStrategy
-
   class LinuxNativeMergeStrategy extends MergeStrategy{
-    override def name: String = "Rename /native/linux_x86_64 to /native/x86_64-linux"
+    override def name: String = "Rename native/linux_x86_64 to native/x86_64-linux"
 
     override def apply(tempDir: File, path: String, files: Seq[File]): Either[String, Seq[(File, String)]] = {
-      System.out.println(s"$tempDir, $path, $files")
       Right(files.map(_ -> "native/x86_64-linux/libfrank.so"))
     }
   }
@@ -66,9 +63,7 @@ object SbtCommons {
     // a module definition fails compilation for java 8, just skip it
     case PathList("module-info.class", xs @ _*)  => MergeStrategy.first
     case "META-INF/io.netty.versions.properties" => MergeStrategy.first
-    case PathList("native", "linux_x86_64", "libfrank.so") ⇒
-      System.out.println(s"merge")
-      new LinuxNativeMergeStrategy()
+    case PathList("native", "linux_x86_64", "libfrank.so") => new LinuxNativeMergeStrategy()
     case x =>
       import sbtassembly.AssemblyPlugin.autoImport.assembly
       val oldStrategy = (assemblyMergeStrategy in assembly).value
