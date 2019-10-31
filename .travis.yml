@@ -7,8 +7,6 @@ _scala_fluence_template: &_scala_fluence_template
     - npm install node
     - node --version
     - npm --version
-    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-09-23
-    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-09-23
 
   # These directories are cached to S3 at the end of the build
   cache:
@@ -20,9 +18,6 @@ _scala_fluence_template: &_scala_fluence_template
       - $HOME/.sbt/launchers
       - bootstrap/node_modules
       - $HOME/.cargo
-      - $HOME/.rustup
-      - vm/src/it/recources/llama_db.wasm
-      - vm/src/it/recources/llama_db_prepared.wasm
 
   before_cache:
     # Cleanup the cached directories to avoid unnecessary cache updates

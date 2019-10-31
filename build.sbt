@@ -2,48 +2,25 @@ import SbtCommons._
 import VmSbt._
 import sbt.Scoped.AnyInitTask
 
-import scala.sys.process._
-
 name := "fluence"
 
-ThisBuild / downloadLlama := downloadLlama(`vm` / IntegrationTest / resourceDirectory).value
-ThisBuild / compileFrank  := compileFrank(`vm` / Compile / baseDirectory).value
-ThisBuild / makeFrankSo   := makeFrankSo(`vm` / Compile / baseDirectory).value
+ThisBuild / downloadLlama := downloadLlama(`statemachine-docker` / Test / resourceDirectory).value
 
 commons
 
 /* Projects */
 
-lazy val `vm` = (project in file("vm"))
-  .configs(IntegrationTest)
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      cats,
-      catsEffect,
-      ficus,
-      cryptoHashsign,
-      scalaTest,
-      scalaIntegrationTest,
-      mockito
-    ),
-  )
-  .settings(itDepends(test)(downloadLlama, compileFrank)(Test, IntegrationTest): _*)
-  .settings(itDepends(testOnly)(downloadLlama, compileFrank)(Test, IntegrationTest): _*)
-  .dependsOn(`log`)
-  .enablePlugins(AutomateHeaderPlugin)
-
 lazy val `statemachine` = (project in file("statemachine"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
+      frank,
+      cryptoHashsign,
       scalaTest
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(
-    `vm`,
     `statemachine-api`
   )
 
@@ -114,9 +91,9 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { runCmd("make worker-test") },
     docker in Test                    := (docker in Test).dependsOn(assembly).value,
-    assembly                          := assembly.dependsOn(makeFrankSo).value,
-    itDepends(test)(downloadLlama, compileFrank)(Test),
-    itDepends(testOnly)(downloadLlama, compileFrank)(Test),
+    javaOptions in run += s"-Djava.library.path=/native/x86_64-linux;/native/linux_x86_64;/native/x86_64-darwin;/native/darwin_x86_64",
+    itDepends(test)(downloadLlama)(Test),
+    itDepends(testOnly)(downloadLlama)(Test),
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)

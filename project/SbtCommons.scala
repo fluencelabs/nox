@@ -4,6 +4,7 @@ import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys.{javaOptions, _}
 import sbt.Scoped.AnyInitTask
 import sbt.internal.util.ManagedLogger
+import java.io.File
 import sbt.{Def, addCompilerPlugin, taskKey, _}
 import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
 import sbtassembly.{MergeStrategy, PathList}
@@ -39,23 +40,30 @@ object SbtCommons {
       "-XX:MaxMetaspaceSize=4G",
       "-Xms4G",
       "-Xmx4G",
-      "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
+      "-Xss6M"
     ),
     javaOptions in IntegrationTest ++= Seq(
       "-XX:MaxMetaspaceSize=4G",
       "-Xms4G",
       "-Xmx4G",
-      "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
+      "-Xss6M"
     ),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
   ) ++ kindProjector
+
+  class LinuxNativeMergeStrategy extends MergeStrategy{
+    override def name: String = "Rename native/linux_x86_64 to native/x86_64-linux"
+
+    override def apply(tempDir: File, path: String, files: Seq[File]): Either[String, Seq[(File, String)]] = {
+      Right(files.map(_ -> "native/x86_64-linux/libfrank.so"))
+    }
+  }
 
   val mergeStrategy = Def.setting[String => MergeStrategy]({
     // a module definition fails compilation for java 8, just skip it
     case PathList("module-info.class", xs @ _*)  => MergeStrategy.first
     case "META-INF/io.netty.versions.properties" => MergeStrategy.first
+    case PathList("native", "linux_x86_64", "libfrank.so") => new LinuxNativeMergeStrategy()
     case x =>
       import sbtassembly.AssemblyPlugin.autoImport.assembly
       val oldStrategy = (assemblyMergeStrategy in assembly).value
@@ -99,38 +107,11 @@ object SbtCommons {
     }
   }
 
-  def foldNixMac[T](nix: ⇒ T, mac: ⇒ T): T = {
-    System.getProperty("os.name").toLowerCase match {
-      case os if os.contains("linux") => nix
-      case os if os.contains("mac")   => mac
-      case os                         => throw new RuntimeException(s"$os is unsupported, only *nix and MacOS OS are supported now")
-    }
-  }
-
   def itDepends[T](task: TaskKey[T])(on: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[Task[T]]] =
     configs.map(c ⇒ (task in c) := (task in c).dependsOn(on: _*).value)
 
   def itDepends[T](task: InputKey[T])(on: AnyInitTask*)(configs: Configuration*): Seq[Def.Setting[InputTask[T]]] =
     configs.map(c ⇒ (task in c) := (task in c).dependsOn(on: _*).evaluated)
-
-  /**
-   * Downloads a file from uri to specified target
-   * @param target Target path. Should be a regular file, can't be directory because `wget -O`
-   *               only works with regular files. You will need `wget -P` for directory target.
-   */
-  def download(uri: String, target: sbt.File)(implicit log: ManagedLogger): Unit = {
-    if (!target.getParentFile.exists()) target.getParentFile.mkdirs()
-    if (!target.exists()) {
-      val path = target.absolutePath
-      log.info(s"Downloading $uri to $path")
-      assert(
-        s"wget -q $uri -O $path".! == 0,
-        s"Download from $uri to $path failed. Note that target should be a path to a file, not a directory."
-      )
-    } else {
-      log.info(s"${target.getName} already exists, won't download.")
-    }
-  }
 
   /* Common deps */
 
@@ -154,6 +135,8 @@ object SbtCommons {
 
   val codecVersion = "0.0.5"
   val codecCore = "one.fluence" %% "codec-core" % codecVersion
+
+  val frank = "frank" %% "frank" % "0.1.1"
 
   val sttpVersion = "1.6.3"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion

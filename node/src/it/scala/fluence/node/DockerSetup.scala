@@ -81,7 +81,7 @@ trait DockerSetup extends OsSetup {
               .volume(
                 // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
                 System.getProperty("user.dir")
-                  + "/../vm/src/it/resources/llama_db.wasm",
+                  + "/../statemachine/docker/src/test/resources/llama_db.wasm",
                 "/master/vmcode/vmcode-llamadb/llama_db.wasm"
               )
               .prepared(DockerImage("fluencelabs/node", "latest"))

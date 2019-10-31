@@ -1,4 +1,3 @@
-import SbtCommons.{download, foldNixMac}
 import sbt.Keys.streams
 import sbt.internal.util.ManagedLogger
 import sbt.{Def, _}
@@ -6,49 +5,32 @@ import sbt.{Def, _}
 import scala.sys.process._
 
 object VmSbt {
-  val compileFrank = TaskKey[Unit]("compileFrank")
   val downloadLlama = TaskKey[Unit]("downloadLlama")
-  val makeFrankSo = TaskKey[Unit]("makeFrank")
 
-  private def doCompileFrank(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
-    val frankFolder = vmDirectory / "frank"
-    val rust_version = "nightly-2019-09-23"
-    val compileCmd =
-      s"cargo +$rust_version build --lib --manifest-path ${frankFolder.absolutePath}/Cargo.toml --release"
-
-    log.info(s"Compiling Frank VM")
-    assert((compileCmd !) == 0, "Frank VM compilation failed")
-  }
-
-  def downloadFrankSo(vmDirectory: sbt.File)(implicit log: ManagedLogger): Unit = {
-    val soPath = vmDirectory / "frank" / "target" / "release" / "libfrank.so"
-    val libfrankUrl = "https://dl.bintray.com/fluencelabs/releases/libfrank.so"
-
-    download(libfrankUrl, soPath)
-  }
-
-  def compileFrank(vmDirectory: SettingKey[sbt.File]) = Def.task {
-    doCompileFrank(vmDirectory.value)(streams.value.log)
+  /**
+   * Downloads a file from uri to specified target
+   * @param target Target path. Should be a regular file, can't be directory because `wget -O`
+   *               only works with regular files. You will need `wget -P` for directory target.
+   */
+  private def download(uri: String, target: sbt.File)(implicit log: ManagedLogger): Unit = {
+    if (!target.getParentFile.exists()) target.getParentFile.mkdirs()
+    if (!target.exists()) {
+      val path = target.absolutePath
+      log.info(s"Downloading $uri to $path")
+      assert(
+        s"wget -q $uri -O $path".! == 0,
+        s"Download from $uri to $path failed. Note that target should be a path to a file, not a directory."
+      )
+    } else {
+      log.info(s"${target.getName} already exists, won't download.")
+    }
   }
 
   def downloadLlama(resourcesDir: SettingKey[sbt.File]) = Def.task {
     implicit val log = streams.value.log
     val resourcesPath = resourcesDir.value
     val llamadbUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db.wasm"
-    val llamadbPreparedUrl =
-      "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db_prepared.wasm"
 
     download(llamadbUrl, resourcesPath / "llama_db.wasm")
-    download(llamadbPreparedUrl, resourcesPath / "llama_db_prepared.wasm")
-  }
-
-  def makeFrankSo(vmDirectory: SettingKey[sbt.File]) = Def.taskDyn {
-    if (foldNixMac(true, false)) {
-      ThisBuild / compileFrank
-    } else {
-      Def.task {
-        downloadFrankSo(vmDirectory.value)(streams.value.log)
-      }
-    }
   }
 }
