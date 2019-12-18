@@ -18,30 +18,7 @@ use void::Void;
 // TODO: connect with js
 // TODO: secio
 // TODO: what is webrtcStar? https://github.com/libp2p/js-libp2p/tree/master/examples/libp2p-in-the-browser/1/src
-
-fn build_swarm() -> ExpandedSwarm<
-    impl Transport,
-    Ping<SubstreamRef<Arc<impl StreamMuxer>>>,
-    Void,
-    Result<PingSuccess, PingFailure>,
-    PingHandler<SubstreamRef<Arc<impl StreamMuxer>>>,
-    PingFailure,
-> {
-    // Create a random PeerId
-    let local_key = identity::Keypair::generate_ed25519();
-    let local_peer_id = PeerId::from(local_key.public());
-
-    println!("peer id: {}", local_peer_id);
-
-    // Set up a an encrypted DNS-enabled TCP Transport over the Mplex and Yamux protocols
-    let transport = libp2p::build_development_transport(local_key);
-
-    let behaviour = Ping::new(PingConfig::new().with_keep_alive(true));
-
-    let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
-
-    swarm
-}
+// TODO: refactor out common code (I tried and haven't succeeded: ExpandedSwarm type is a nightmare)
 
 fn serve(port: i32) {
     // Create a random PeerId
