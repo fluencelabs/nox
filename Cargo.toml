@@ -7,6 +7,11 @@ edition = "2018"
 [dependencies]
 futures = "0.1"
 libp2p = { git = "https://github.com/libp2p/rust-libp2p" }
+libp2p-core = { git = "https://github.com/libp2p/rust-libp2p" }
+libp2p-ping = { git = "https://github.com/libp2p/rust-libp2p" }
+libp2p-swarm = { git = "https://github.com/libp2p/rust-libp2p" }
+
+void = "1.0.2"
 names = "0.11"
 tokio = "0.1"
 tokio-stdin-stdout = "0.1"

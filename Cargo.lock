@@ -52,9 +52,13 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "libp2p",
+ "libp2p-core",
+ "libp2p-ping",
+ "libp2p-swarm",
  "names",
  "tokio",
  "tokio-stdin-stdout",
+ "void",
 ]
 
 [[package]]
