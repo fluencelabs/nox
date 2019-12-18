@@ -1,0 +1,23 @@
+{
+  "name": "js-dht-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@nodeutils/defaults-deep": "^1.1.0",
+    "async": "^2.6.1",
+    "cids": "^0.5.3",
+    "libp2p": "^0.23.1",
+    "libp2p-kad-dht": "^0.10.2",
+    "libp2p-mplex": "^0.8.0",
+    "libp2p-secio": "^0.10.0",
+    "libp2p-tcp": "^0.12.1",
+    "peer-info": "^0.14.1",
+    "libp2p-floodsub": "^0.15.0"
+  }
+}
