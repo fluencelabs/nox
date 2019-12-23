@@ -10,20 +10,35 @@ use std::time::Duration;
 
 use base64;
 
+use identity::ed25519;
+use identity::Keypair;
+
 // TODO: connect with js
 // TODO: secio
 // TODO: what is webrtcStar? https://github.com/libp2p/js-libp2p/tree/master/examples/libp2p-in-the-browser/1/src
 // TODO: refactor out common code (I tried and haven't succeeded: ExpandedSwarm type is a nightmare)
 
+const PRIVATE_KEY: &str =
+    "/O5p1cDNIyEkG3VP+LqozM+gArhSXUdWkKz6O+C6Wtr+YihU3lNdGl2iuH37ky2zsjdv/NJDzs11C1Vj0kClzQ==";
+
 fn serve(port: i32) {
     // Create a random PeerId
-    let local_key = identity::Keypair::generate_ed25519();
+    let mut local_key = base64::decode(PRIVATE_KEY).unwrap();
+    let local_key = local_key.as_mut_slice();
+    let local_key = Keypair::Ed25519(ed25519::Keypair::decode(local_key).unwrap());
     let local_peer_id = PeerId::from(local_key.public());
 
     println!("peer id: {}", local_peer_id);
 
     match local_key.public() {
         PublicKey::Ed25519(key) => println!("Public Key: {}", base64::encode(&key.encode())),
+        _ => println!("Key isn't ed25519!!!!!"),
+    }
+
+    match local_key.clone() {
+        identity::Keypair::Ed25519(pair) => {
+            println!("PrivateKey: {}", base64::encode(&pair.encode().to_vec()))
+        }
         _ => println!("Key isn't ed25519!!!!!"),
     }
 
@@ -37,7 +52,7 @@ fn serve(port: i32) {
     // Tell the swarm to listen on all interfaces and a random, OS-assigned port.
     let addr: Multiaddr = format!("/ip4/127.0.0.1/tcp/{}", port).parse().unwrap();
     Swarm::listen_on(&mut swarm, addr.clone()).unwrap();
-    Swarm::add_external_address(&mut swarm, addr.clone());
+    //    Swarm::add_external_address(&mut swarm, addr.clone());
 
     // Use tokio to drive the `Swarm`.
     let mut listening = false;

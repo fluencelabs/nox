@@ -45,7 +45,7 @@ function createNode(callback) {
       });
       node.on('peer:discovery', (peer) => {
         console.log('Discovered:', peer.id.toB58String())
-        node.dial(peer, () => { })
+        // node.dial(peer, () => { })
       })
 
       node.on('peer:connect', (peer) => {
@@ -55,7 +55,8 @@ function createNode(callback) {
     },
     (cb) => {
       console.log("node started");
-      let peer = process.argv[2];
+      // TODO WHY: In Rust it's QmTESkr2vWDCKqiHVsyvf4iRQCBgvNDqBJ6P3yTTDb6haw, in JS it becomes 12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G
+      let peer = "/ip4/127.0.0.1/tcp/30000/p2p/12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G";
       console.log("will dial " + peer)
       node.dial(peer, cb)
     },
