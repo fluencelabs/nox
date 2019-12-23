@@ -15,6 +15,14 @@ const readline = require('readline');
 const Swarm = require('libp2p-switch')
 const once = require('once');
 
+// TODO WHY: In Rust it's QmTESkr2vWDCKqiHVsyvf4iRQCBgvNDqBJ6P3yTTDb6haw, in JS it becomes 12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G
+var RUST_PEER = "/ip4/127.0.0.1/tcp/30000/p2p/12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G";
+
+if (process.argv.length > 2) {
+    RUST_PEER = process.argv[2];
+    console.log("Using peer from argument: ", RUST_PEER);
+}
+
 class MyBundle extends libp2p {
   constructor(_options) {
     const defaults = {
@@ -38,27 +46,33 @@ function createNode(callback) {
       PeerInfo.create().then((pi) => cb(null, pi)).catch((err) => cb(err))
     },
     (peerInfo, cb) => {
-      console.log("Peer created " + peerInfo.id.toB58String());
+      console.log("Local peer created " + peerInfo.id.toB58String());
       peerInfo.multiaddrs.add('/ip4/127.0.0.1/tcp/0');
       node = new MyBundle({
         peerInfo
       });
       node.on('peer:discovery', (peer) => {
-        console.log('Discovered:', peer.id.toB58String())
+        console.log('Discovered peer:', peer.id.toB58String())
         // node.dial(peer, () => { })
-      })
-
+      });
       node.on('peer:connect', (peer) => {
         console.log('Connection established to:', peer.id.toB58String())
-      })
+      });
+      node.on('connection:start', (peerInfo) => {
+          console.log('Connection started to:', peerInfo)
+      });
+      node.on('connection:end', (peerInfo) => {
+        console.log('Connection ended with:', peerInfo)
+      });
+      node.on('error', (err) => {
+          console.error('Node received error:', err);
+      });
       node.start(cb);
     },
     (cb) => {
       console.log("node started");
-      // TODO WHY: In Rust it's QmTESkr2vWDCKqiHVsyvf4iRQCBgvNDqBJ6P3yTTDb6haw, in JS it becomes 12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G
-      let peer = "/ip4/127.0.0.1/tcp/30000/p2p/12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G";
-      console.log("will dial " + peer)
-      node.dial(peer, cb)
+      console.log("will dial " + RUST_PEER);
+      node.dial(RUST_PEER, cb)
     },
     (conn, cb) => {
       console.log("connected " + JSON.stringify(conn));
