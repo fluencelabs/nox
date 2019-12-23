@@ -32,7 +32,7 @@ fn serve(port: i32) {
 
     let behaviour = Ping::new(PingConfig::new().with_keep_alive(true));
 
-    let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
+    let mut swarm = Swarm::new(transport, behaviour, local_peer_id.clone());
 
     // Tell the swarm to listen on all interfaces and a random, OS-assigned port.
     let addr = format!("/ip4/0.0.0.0/tcp/{}", port).parse().unwrap();
@@ -47,7 +47,7 @@ fn serve(port: i32) {
                 Async::Ready(None) | Async::NotReady => {
                     if !listening {
                         if let Some(a) = Swarm::listeners(&swarm).next() {
-                            println!("Listening on {:?}", a);
+                            println!("Listening on {}/p2p/{}", a, local_peer_id);
                             listening = true;
                         }
                     }
@@ -93,6 +93,8 @@ fn dial(addr: &str) {
 }
 
 fn main() {
+    env_logger::init();
+
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 && args[1] == "dial" {
         dial(args[2].as_str())
