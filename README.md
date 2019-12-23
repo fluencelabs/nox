@@ -61,6 +61,26 @@ Error: Dial was aborted
   - Rust as `GgDJRe//Wd35HlaMnP2YXS1Q8YYN+ifMKgp1g0HvbpU`. 
   - Keys are the same, both in base64, JS prefixed it with some info.
   - `echo CAESIBoAyUXv/1nd+R5WjJz9mF0tUPGGDfonzCoKdYNB726V | base64 -D | xxd` will give you a hex dump
+  - Patch `arqada/js/node_modules/libp2p-secio/src/handshake/crypto.js:74`
+    ```  PeerId.createFromPubKey(pubkey.toString('base64'), (err, remoteId) => {
+        if (err) {
+            return callback(err)
+        }
+
+        // If we know who we are dialing to, double check
+        if (state.id.remote) {
+            if (state.id.remote.toB58String() !== remoteId.toB58String()) {
+                return callback(new Error('dialed to the wrong peer, Ids do not match. expected: ' + state.id.remote.toB58String() + ' actual: ' + remoteId.toB58String()))
+            }
+        } else {
+            state.id.remote = remoteId
+        }
+
+        log('1.1 identify - %s - identified remote peer as %s', state.id.local.toB58String(), state.id.remote.toB58String())
+        callback()
+    })
+    ```
+
 - If connect to `12D3KooWBZsTt8cuGMRpEB4biGNRxG6GytBYY3tuGn29JF6RHmwA`, JS and Rust will both hang
   - Rust
     ```
