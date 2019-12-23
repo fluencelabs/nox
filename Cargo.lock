@@ -59,6 +59,7 @@ checksum = "9267dff192e68f3399525901e709a48c1d3982c9c072fa32f2127a0cb0babf14"
 name = "arqada"
 version = "0.1.0"
 dependencies = [
+ "base64 0.11.0",
  "env_logger",
  "futures",
  "libp2p",
@@ -148,6 +149,12 @@ checksum = "0b25d992356d2eb0ed82172f5248873db5560c4721f564b13cb5193bda5e668e"
 dependencies = [
  "byteorder 1.3.2",
 ]
+
+[[package]]
+name = "base64"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
 
 [[package]]
 name = "bitflags"
@@ -1724,7 +1731,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b25a18b1bf7387f0145e7f8324e700805aade3842dd3db2e74e4cdeb4677c09e"
 dependencies = [
- "base64",
+ "base64 0.10.1",
  "log",
  "ring",
  "sct",
@@ -1868,7 +1875,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bceb1a3a15232d013d9a3b7cac9e5ce8e2313f348f01d4bc1097e5e53aa07095"
 dependencies = [
- "base64",
+ "base64 0.10.1",
  "bytes",
  "flate2",
  "futures",

@@ -1,19 +1,14 @@
 use futures::{future, prelude::*};
+use libp2p::identity::PublicKey;
 use libp2p::{
     identity,
     ping::{Ping, PingConfig},
-    PeerId, Swarm, Transport,
+    Multiaddr, PeerId, Swarm,
 };
-use libp2p_core::muxing::StreamMuxer;
-use libp2p_core::muxing::SubstreamRef;
-use libp2p_ping::handler::{PingFailure, PingHandler};
-use libp2p_ping::PingSuccess;
-use libp2p_swarm::{ExpandedSwarm, NetworkBehaviour};
 use std::env;
-use std::str::FromStr;
-use std::sync::Arc;
 use std::time::Duration;
-use void::Void;
+
+use base64;
 
 // TODO: connect with js
 // TODO: secio
@@ -27,6 +22,11 @@ fn serve(port: i32) {
 
     println!("peer id: {}", local_peer_id);
 
+    match local_key.public() {
+        PublicKey::Ed25519(key) => println!("Public Key: {}", base64::encode(&key.encode())),
+        _ => println!("Key isn't ed25519!!!!!"),
+    }
+
     // Set up a an encrypted DNS-enabled TCP Transport over the Mplex and Yamux protocols
     let transport = libp2p::build_development_transport(local_key);
 
@@ -35,8 +35,9 @@ fn serve(port: i32) {
     let mut swarm = Swarm::new(transport, behaviour, local_peer_id.clone());
 
     // Tell the swarm to listen on all interfaces and a random, OS-assigned port.
-    let addr = format!("/ip4/127.0.0.1/tcp/{}", port).parse().unwrap();
-    Swarm::listen_on(&mut swarm, addr).unwrap();
+    let addr: Multiaddr = format!("/ip4/127.0.0.1/tcp/{}", port).parse().unwrap();
+    Swarm::listen_on(&mut swarm, addr.clone()).unwrap();
+    Swarm::add_external_address(&mut swarm, addr.clone());
 
     // Use tokio to drive the `Swarm`.
     let mut listening = false;
@@ -50,7 +51,15 @@ fn serve(port: i32) {
                             println!("Listening on {}/p2p/{}", a, local_peer_id);
                             listening = true;
                         }
+
+                        let ea = Swarm::external_addresses(&swarm).next();
+                        println!("External address: {:?}", ea);
+
+                        println!("Local peer id {}", Swarm::local_peer_id(&swarm));
+                    } else {
+                        println!("something happened in swarm runloop");
                     }
+
                     return Ok(Async::NotReady);
                 }
             }
