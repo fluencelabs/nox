@@ -35,7 +35,7 @@ fn serve(port: i32) {
     let mut swarm = Swarm::new(transport, behaviour, local_peer_id.clone());
 
     // Tell the swarm to listen on all interfaces and a random, OS-assigned port.
-    let addr = format!("/ip4/0.0.0.0/tcp/{}", port).parse().unwrap();
+    let addr = format!("/ip4/127.0.0.1/tcp/{}", port).parse().unwrap();
     Swarm::listen_on(&mut swarm, addr).unwrap();
 
     // Use tokio to drive the `Swarm`.

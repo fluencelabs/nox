@@ -1,10 +1,9 @@
 # arqada
 Pluggable relay infrastructure for p2p-enabled applications. Compatible with YJS, automerge, sync9, etc.
 
-# Run
 ## Rust
 ```bash
-RUST_LOG="libp2p_secio=trace" cargo run
+RUST_LOG="trace,tokio_threadpool=info,tokio_reactor=info,mio=info" cargo run
 ```
 
 It will print something like
