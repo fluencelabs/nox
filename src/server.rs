@@ -18,35 +18,52 @@ const PRIVATE_KEY: &str =
     "/O5p1cDNIyEkG3VP+LqozM+gArhSXUdWkKz6O+C6Wtr+YihU3lNdGl2iuH37ky2zsjdv/NJDzs11C1Vj0kClzQ==";
 
 #[derive(NetworkBehaviour)]
-struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite> {
+struct Network<TSubstream: AsyncRead + AsyncWrite> {
     floodsub: Floodsub<TSubstream>,
     identify: Identify<TSubstream>,
     ping: Ping<TSubstream>,
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEvent>
-    for MyBehaviour<TSubstream>
+    for Network<TSubstream>
 {
     // Called when `floodsub` produces an event.
-    fn inject_event(&mut self, message: FloodsubEvent) {
-        if let FloodsubEvent::Message(message) = message {
-            println!(
+    fn inject_event(&mut self, event: FloodsubEvent) {
+        println!("Received floodsub event {:?}", event);
+
+        match event {
+            // TODO: for some reason, Message isn't passed here
+            //       In logs, message 'HELLO' published by JS for topic '5zKTH5FR' looks like this:
+            //       [2019-12-24T19:17:13Z TRACE libp2p_mplex] Received message: Data { substream_id: 2, endpoint: Dialer, data: b"N\x12L\n\"\x12 8E>\xc8\xc2h\x97\x18\x15\xa9\xce\xd5\x02\xd8\x85\xa5^\xfcU\xafI\xdd>\xacD'\xfe?T4\x15\x87\x12\x06HELLO\n\x1a\x14\x05\xe8\xde\xfah\x1a\xe2\x1fl}M\x8aK\x02\xbb\xcaG\x8f@\x06\"\x085zKTH5FR" }
+            FloodsubEvent::Message(message) => println!(
                 "Received floodsub msg: '{:?}' from {:?}",
                 String::from_utf8_lossy(&message.data),
                 message.source
-            );
-        }
+            ),
+            // Subscribed works
+            FloodsubEvent::Subscribed { peer_id, topic } => {
+                println!("{:?} subscribed to {:?}", peer_id, topic);
+                // TODO: Will always try to reconnect, basically a leak
+                // Nodes in partial view will receive subscriptions
+                self.floodsub.add_node_to_partial_view(peer_id)
+            }
+            FloodsubEvent::Unsubscribed { peer_id, topic } => {
+                println!("{:?} unsubscribed from {:?}", peer_id, topic);
+                // TODO: how to remove node when there's no more subscriptions from it?
+                // self.floodsub.remove_node_from_partial_view(&peer_id)
+            }
+        };
     }
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
-    for MyBehaviour<TSubstream>
+    for Network<TSubstream>
 {
     fn inject_event(&mut self, _event: IdentifyEvent) {}
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
-    for MyBehaviour<TSubstream>
+    for Network<TSubstream>
 {
     fn inject_event(&mut self, _event: PingEvent) {}
 }
@@ -80,13 +97,14 @@ pub fn serve(port: i32) {
     println!("floodsub topic is {:?}", floodsub_topic);
 
     let mut swarm = {
-        let mut behaviour = MyBehaviour {
+        let mut behaviour = Network {
             floodsub: Floodsub::new(local_peer_id.clone()),
             identify: Identify::new("1.0.0".into(), "1.0.0".into(), local_key.public()),
             ping: Ping::new(PingConfig::with_keep_alive(PingConfig::new(), true)),
         };
 
-        behaviour.floodsub.subscribe(floodsub_topic.clone());
+        let result = behaviour.floodsub.subscribe(floodsub_topic.clone());
+        println!("floodsub subscribe {}", result);
         Swarm::new(transport, behaviour, local_peer_id.clone())
     };
 
