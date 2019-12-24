@@ -6,6 +6,7 @@ use libp2p::{
     floodsub::{self, Floodsub, FloodsubEvent},
     identity,
     identity::PublicKey,
+    ping::{Ping, PingConfig, PingEvent},
     swarm::NetworkBehaviourEventProcess,
     tokio_codec::{FramedRead, LinesCodec},
     tokio_io::{AsyncRead, AsyncWrite},
@@ -20,6 +21,7 @@ const PRIVATE_KEY: &str =
 struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite> {
     floodsub: Floodsub<TSubstream>,
     identify: Identify<TSubstream>,
+    ping: Ping<TSubstream>,
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEvent>
@@ -42,6 +44,14 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEv
 {
     fn inject_event(&mut self, _event: IdentifyEvent) {
         //        println!("Received identify event {:?}", event);
+    }
+}
+
+impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
+    for MyBehaviour<TSubstream>
+{
+    fn inject_event(&mut self, _event: PingEvent) {
+        println!("Received {:?}", _event)
     }
 }
 
@@ -77,6 +87,7 @@ pub fn serve(port: i32) {
         let mut behaviour = MyBehaviour {
             floodsub: Floodsub::new(local_peer_id.clone()),
             identify: Identify::new("1.0.0".into(), "1.0.0".into(), local_key.public()),
+            ping: Ping::new(PingConfig::with_keep_alive(PingConfig::new(), true)),
         };
 
         behaviour.floodsub.subscribe(floodsub_topic.clone());

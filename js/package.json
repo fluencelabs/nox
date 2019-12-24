@@ -19,6 +19,7 @@
     "libp2p-tcp": "^0.13.2",
     "peer-info": "^0.16.2",
     "libp2p-floodsub": "^0.18.0",
-    "libp2p-switch": "0.43.0"
+    "libp2p-switch": "0.43.0",
+    "libp2p-ping": "^0.8.5"
   }
 }

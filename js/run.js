@@ -1,19 +1,20 @@
 'use strict'
 
-const libp2p = require('libp2p')
-const TCP = require('libp2p-tcp')
-const Mplex = require('libp2p-mplex')
-const SECIO = require('libp2p-secio')
-const PeerInfo = require('peer-info')
-const FloodSub = require('libp2p-floodsub')
-const CID = require('cids')
-const KadDHT = require('libp2p-kad-dht')
-const defaultsDeep = require('@nodeutils/defaults-deep')
-const waterfall = require('async/waterfall')
-const parallel = require('async/parallel')
+const libp2p = require('libp2p');
+const TCP = require('libp2p-tcp');
+const Mplex = require('libp2p-mplex');
+const SECIO = require('libp2p-secio');
+const PeerInfo = require('peer-info');
+const FloodSub = require('libp2p-floodsub');
+const CID = require('cids');
+const KadDHT = require('libp2p-kad-dht');
+const defaultsDeep = require('@nodeutils/defaults-deep');
+const waterfall = require('async/waterfall');
+const parallel = require('async/parallel');
 const readline = require('readline');
-const Swarm = require('libp2p-switch')
+const Swarm = require('libp2p-switch');
 const once = require('once');
+const Ping = require('libp2p-ping');
 
 // TODO WHY: In Rust it's QmTESkr2vWDCKqiHVsyvf4iRQCBgvNDqBJ6P3yTTDb6haw, in JS it becomes 12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G
 var RUST_PEER = "/ip4/127.0.0.1/tcp/30000/p2p/12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G";
@@ -49,6 +50,11 @@ class MyBundle extends libp2p {
   }
 }
 
+function enablePing(node, peer) {
+    let p = new Ping(node, peer);
+    p.start();
+}
+
 function createNode(callback) {
     let node;
 
@@ -63,12 +69,14 @@ function createNode(callback) {
             node = new MyBundle({
                 peerInfo
             });
+            Ping.mount(node); // Enable this peer to answer Pongs on Pings
             node.on('peer:discovery', (peer) => {
-                console.log('Discovered peer:', peer.id.toB58String())
-                // node.dial(peer, () => { })
+                console.log('Discovered peer:', peer.id.toB58String());
+                return node.dial(peer, () => { enablePing(node, peer) })
             });
             node.on('peer:connect', (peer) => {
-                console.log('Connection established to:', peer.id.toB58String())
+                console.log('Connection established to:', peer.id.toB58String());
+                // return enablePing(node, peer);
             });
             node.on('connection:start', (peerInfo) => {
                 console.log('Connection started to:', peerInfo.id.toB58String())
