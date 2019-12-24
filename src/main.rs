@@ -1,5 +1,9 @@
-use futures::{prelude::*, future};
-use libp2p::{ Multiaddr, identity, PeerId, ping::{Ping, PingConfig}, Swarm };
+use futures::{future, prelude::*};
+use libp2p::{
+    identity,
+    ping::{Ping, PingConfig},
+    Multiaddr, PeerId, Swarm,
+};
 
 // TODO: connect with js
 // TODO: secio
@@ -34,7 +38,7 @@ fn main() {
                             listening = true;
                         }
                     }
-                    return Ok(Async::NotReady)
+                    return Ok(Async::NotReady);
                 }
             }
         }
