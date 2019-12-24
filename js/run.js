@@ -18,6 +18,7 @@ const Ping = require('libp2p-ping');
 
 // TODO WHY: In Rust it's QmTESkr2vWDCKqiHVsyvf4iRQCBgvNDqBJ6P3yTTDb6haw, in JS it becomes 12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G
 var RUST_PEER = "/ip4/127.0.0.1/tcp/30000/p2p/12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G";
+const TOPIC = "5zKTH5FR"; // hash of 'chat'
 
 if (process.argv.length > 2) {
     RUST_PEER = process.argv[2];
@@ -28,7 +29,7 @@ class MyBundle extends libp2p {
   constructor(_options) {
       const defaults = {
           modules: {
-              transport: [TCP], // TODO: try udp?
+              transport: [TCP], // TODO: try udp? try websocket?
               streamMuxer: [Mplex],
               connEncryption: [SECIO],
               pubsub: FloodSub
@@ -72,7 +73,7 @@ function createNode(callback) {
             Ping.mount(node); // Enable this peer to answer Pongs on Pings
             node.on('peer:discovery', (peer) => {
                 console.log('Discovered peer:', peer.id.toB58String());
-                return node.dial(peer, () => { enablePing(node, peer) })
+                // return node.dial(peer, () => { return enablePing(node, peer) })
             });
             node.on('peer:connect', (peer) => {
                 console.log('Connection established to:', peer.id.toB58String());
@@ -96,12 +97,18 @@ function createNode(callback) {
         },
         (cb) => {
             console.log("node dialed");
-            node.pubsub.subscribe("5zKTH5FR", (msg) => {
+            node.pubsub.subscribe(TOPIC, (msg) => {
                 console.log("floodsub received", msg.data.toString(), 'from', msg.from)
             }, {}, cb);
         },
         (cb) => {
             console.log('floodsub subscribed');
+            process.stdin.setEncoding('utf8');
+            process.openStdin().on('data', (chunk) => {
+                let data = chunk.toString();
+                console.log("will send to floodsub", data);
+                node.pubsub.publish(TOPIC, data, (res) => console.log("publish result:", res))
+            });
             cb()
         }
     ], (err) => callback(err, node))

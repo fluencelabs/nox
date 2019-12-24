@@ -9,12 +9,18 @@ mod server;
 // DONE: connect with js
 // DONE: secio
 // DONE: ping; // TODO: make sure every party sends both Pings and Pongs
-// TODO: use webrtcStar? https://github.com/libp2p/js-libp2p/tree/master/examples/libp2p-in-the-browser/1/src
-// TODO: use Go direct webrtc libp2p transport via C ABI?
+// TODO (NOT NOW): use webrtcStar? https://github.com/libp2p/js-libp2p/tree/master/examples/libp2p-in-the-browser/1/src
+// TODO (NOT NOW): use Go direct webrtc libp2p transport via C ABI?
 // TODO: refactor out common code (I tried and haven't succeeded: ExpandedSwarm type is a complex beast)
 // TODO: is it possible to be compatible with JS pubsub strictSigning?
 // TODO: merge circuit relay?
 // TODO: both rust & js should restore lost connection
+// TODO: use websocket instead of tcp
+// TODO: run JS in browser (websocket, not webrtc)
+// TODO: several browsers connecting to several rust nodes
+// TODO: implement our own circuit-relay
+
+// TODO: debug rpc: give me peer list
 
 fn main() {
     env_logger::init();

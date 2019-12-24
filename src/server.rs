@@ -42,17 +42,13 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEv
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
     for MyBehaviour<TSubstream>
 {
-    fn inject_event(&mut self, _event: IdentifyEvent) {
-        //        println!("Received identify event {:?}", event);
-    }
+    fn inject_event(&mut self, _event: IdentifyEvent) {}
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     for MyBehaviour<TSubstream>
 {
-    fn inject_event(&mut self, _event: PingEvent) {
-        println!("Received {:?}", _event)
-    }
+    fn inject_event(&mut self, _event: PingEvent) {}
 }
 
 pub fn serve(port: i32) {
@@ -95,7 +91,7 @@ pub fn serve(port: i32) {
     };
 
     // Tell the swarm to listen on all interfaces and a random, OS-assigned port.
-    let addr: Multiaddr = format!("/ip4/127.0.0.1/tcp/{}", port).parse().unwrap();
+    let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", port).parse().unwrap();
     Swarm::listen_on(&mut swarm, addr.clone()).unwrap();
 
     let stdin = tokio_stdin_stdout::stdin(0);
