@@ -9,6 +9,7 @@ futures = "0.1"
 libp2p = "0.13.1"
 libp2p-core = "0.13.1"
 libp2p-ping = "0.13.1"
+libp2p-identify = "0.13.1"
 libp2p-swarm = "0.3.0"
 
 void = "1.0.2"

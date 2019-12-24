@@ -64,6 +64,7 @@ dependencies = [
  "futures",
  "libp2p",
  "libp2p-core",
+ "libp2p-identify",
  "libp2p-ping",
  "libp2p-swarm",
  "names",

@@ -25,64 +25,83 @@ if (process.argv.length > 2) {
 
 class MyBundle extends libp2p {
   constructor(_options) {
-    const defaults = {
-      modules: {
-        transport: [TCP],
-        streamMuxer: [Mplex],
-        connEncryption: [SECIO], // TODO: [SECIO]
-      },
-    };
+      const defaults = {
+          modules: {
+              transport: [TCP], // TODO: try udp?
+              streamMuxer: [Mplex],
+              connEncryption: [SECIO],
+              pubsub: FloodSub
+          },
+          config: {
+              pubsub: {
+                  enabled: true,
+                  emitSelf: false,
+                  signMessages: false, // Rust doesn't sign floodsub messages
+                  strictSigning: false // Rust doesn't sign floodsub messages
+              },
+              relay: { // Rust doesn't support relay
+                  enabled: false,
+              }
+          }
+      };
 
     super(defaultsDeep(_options, defaults))
   }
 }
 
 function createNode(callback) {
-  let node;
+    let node;
 
-  waterfall([
-    (cb) => {
-      cb = once(cb);
-      PeerInfo.create().then((pi) => cb(null, pi)).catch((err) => cb(err))
-    },
-    (peerInfo, cb) => {
-      console.log("Local peer created " + peerInfo.id.toB58String());
-      peerInfo.multiaddrs.add('/ip4/127.0.0.1/tcp/0');
-      node = new MyBundle({
-        peerInfo
-      });
-      node.on('peer:discovery', (peer) => {
-        console.log('Discovered peer:', peer.id.toB58String())
-        // node.dial(peer, () => { })
-      });
-      node.on('peer:connect', (peer) => {
-        console.log('Connection established to:', peer.id.toB58String())
-      });
-      node.on('connection:start', (peerInfo) => {
-          console.log('Connection started to:', peerInfo)
-      });
-      node.on('connection:end', (peerInfo) => {
-        console.log('Connection ended with:', peerInfo)
-      });
-      node.on('error', (err) => {
-          console.error('Node received error:', err);
-      });
-      node.start(cb);
-    },
-    (cb) => {
-      console.log("node started");
-      console.log("will dial " + RUST_PEER);
-      node.dial(RUST_PEER, cb)
-    },
-    (conn, cb) => {
-      console.log("connected " + JSON.stringify(conn));
-    }
-  ], (err) => callback(err, node))
+    waterfall([
+        (cb) => {
+            cb = once(cb);
+            PeerInfo.create().then((pi) => cb(null, pi)).catch((err) => cb(err))
+        },
+        (peerInfo, cb) => {
+            console.log("Local peer created " + peerInfo.id.toB58String());
+            peerInfo.multiaddrs.add('/ip4/127.0.0.1/tcp/0');
+            node = new MyBundle({
+                peerInfo
+            });
+            node.on('peer:discovery', (peer) => {
+                console.log('Discovered peer:', peer.id.toB58String())
+                // node.dial(peer, () => { })
+            });
+            node.on('peer:connect', (peer) => {
+                console.log('Connection established to:', peer.id.toB58String())
+            });
+            node.on('connection:start', (peerInfo) => {
+                console.log('Connection started to:', peerInfo.id.toB58String())
+            });
+            node.on('connection:end', (peerInfo) => {
+                console.log('Connection ended with:', peerInfo.id.toB58String())
+            });
+            node.on('error', (err) => {
+                console.error('Node received error:', err);
+            });
+            node.start(cb);
+        },
+        (cb) => {
+            console.log("node started");
+            console.log("will dial " + RUST_PEER);
+            node.dial(RUST_PEER, cb)
+        },
+        (cb) => {
+            console.log("node dialed");
+            node.pubsub.subscribe("5zKTH5FR", (msg) => {
+                console.log("floodsub received", msg.data.toString(), 'from', msg.from)
+            }, {}, cb);
+        },
+        (cb) => {
+            console.log('floodsub subscribed');
+            cb()
+        }
+    ], (err) => callback(err, node))
 }
 
 createNode((err) => {
   if (err) {
-    console.log('\nError:', JSON.stringify(err))
+    console.log('\nError:', JSON.stringify(err));
     throw err
   }
 });
