@@ -62,7 +62,10 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEv
     fn inject_event(&mut self, message: FloodsubEvent) {
         if let FloodsubEvent::Message(message) = message {
             let message_data = unsafe { String::from_utf8_unchecked(message.data) };
-            println!("floodsub read message {} from {}", message_data, message.source);
+            println!(
+                "floodsub read message {} from {}",
+                message_data, message.source
+            );
 
             let lines = message_data.split("\n").collect::<Vec<_>>();
 
@@ -103,22 +106,28 @@ fn main() {
                         "get" => {
                             if lines.len() == 2 {
                                 let map = MESSAGE_MAP.lock().unwrap();
-                                println!("value for key {} is {}", lines[1], map[lines[1]]);
+                                match map.get(lines[1]) {
+                                    Some(v) => println!("value for key {} is {}", lines[1], v),
+                                    None => println!("nothing found for key {}", lines[1]),
+                                }
                             } else {
                                 println!("please specify exactly one key");
                             }
-                        },
+                        }
                         "put" => {
                             if lines.len() == 3 {
-                                swarm.floodsub.publish(&floodsub_topic, (lines[1].to_string() + "\n" + lines[2]).as_bytes());
+                                swarm.floodsub.publish(
+                                    &floodsub_topic,
+                                    (lines[1].to_string() + "\n" + lines[2]).as_bytes(),
+                                );
 
                                 let mut map = MESSAGE_MAP.lock().unwrap();
                                 map.insert(lines[1].to_string(), lines[2].to_string());
                             }
-                        },
+                        }
                         _ => {
                             println!("expect only put or get");
-                        },
+                        }
                     }
                 }
                 Async::Ready(None) => panic!("Stdin closed"),
