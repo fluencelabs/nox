@@ -1,3 +1,4 @@
+use crate::transport;
 use base64;
 use futures::{future, prelude::*};
 use identity::ed25519;
@@ -18,10 +19,10 @@ const PRIVATE_KEY: &str =
     "/O5p1cDNIyEkG3VP+LqozM+gArhSXUdWkKz6O+C6Wtr+YihU3lNdGl2iuH37ky2zsjdv/NJDzs11C1Vj0kClzQ==";
 
 #[derive(NetworkBehaviour)]
-struct Network<TSubstream: AsyncRead + AsyncWrite> {
-    floodsub: Floodsub<TSubstream>,
-    identify: Identify<TSubstream>,
-    ping: Ping<TSubstream>,
+pub struct Network<TSubstream: AsyncRead + AsyncWrite> {
+    pub floodsub: Floodsub<TSubstream>,
+    pub identify: Identify<TSubstream>,
+    pub ping: Ping<TSubstream>,
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEvent>
@@ -89,8 +90,8 @@ pub fn serve(port: i32) {
         _ => println!("Key isn't ed25519!!!!!"),
     }
 
-    // Set up a an encrypted DNS-enabled TCP Transport over the Mplex and Yamux protocols
-    let transport = libp2p::build_development_transport(local_key.clone());
+    // mplex + secio
+    let transport = transport::build_mplex(local_key.clone());
 
     // Create a Floodsub topic
     let floodsub_topic = floodsub::TopicBuilder::new("chat").build();

@@ -5,6 +5,7 @@ use server::serve;
 
 mod dialer;
 mod server;
+mod transport;
 
 // DONE: connect with js
 // DONE: secio
