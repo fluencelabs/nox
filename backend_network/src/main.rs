@@ -1,4 +1,4 @@
 #![recursion_limit = "256"]
 
-mod server;
 mod protocol;
+mod server;

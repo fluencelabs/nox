@@ -18,10 +18,9 @@ use std::sync::Mutex;
 lazy_static! {
     static ref MESSAGE_MAP: Mutex<HashMap<String, String>> =
         Mutex::new(HashMap::<String, String>::new());
-
-    static ref PEERS: Mutex<Vec<Peer>>= Mutex::new(HashMap::<String, String>::new());
-
-    static ref CLIENTS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::<String, String>::new());
+    static ref PEERS: Mutex<Vec<Peer>> = Mutex::new(HashMap::<String, String>::new());
+    static ref CLIENTS: Mutex<HashMap<String, String>> =
+        Mutex::new(HashMap::<String, String>::new());
 }
 
 #[derive(NetworkBehaviour)]
@@ -32,7 +31,7 @@ struct FluenceBehaviour<TSubstream: AsyncRead + AsyncWrite> {
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
-for FluenceBehaviour<TSubstream>
+    for FluenceBehaviour<TSubstream>
 {
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
@@ -58,7 +57,7 @@ for FluenceBehaviour<TSubstream>
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEvent>
-for FluenceBehaviour<TSubstream>
+    for FluenceBehaviour<TSubstream>
 {
     // Called when `floodsub` produces an event.
     fn inject_event(&mut self, message: FloodsubEvent) {

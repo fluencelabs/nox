@@ -1,4 +1,1 @@
-use libp2p::{
-    PeerId
-};
-
+use libp2p::PeerId;
