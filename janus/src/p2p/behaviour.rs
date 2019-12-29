@@ -24,7 +24,6 @@ use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{NetworkBehaviour, PeerId};
 use serde_json;
-use smallvec::SmallVec;
 use tokio::prelude::*;
 
 #[derive(NetworkBehaviour)]
@@ -36,7 +35,10 @@ pub struct JanusBehaviour<Substream: AsyncRead + AsyncWrite> {
     floodsub: Floodsub<Substream>,
 
     #[behaviour(ignore)]
-    subscribed_topics: SmallVec<[Topic; 16]>,
+    churn_topic: Topic,
+
+    #[behaviour(ignore)]
+    local_peer_id: PeerId,
 }
 
 impl<Substream: AsyncWrite + AsyncRead> NetworkBehaviourEventProcess<MdnsEvent>
@@ -122,13 +124,12 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
 }
 
 impl<Substream: AsyncRead + AsyncWrite> JanusBehaviour<Substream> {
-    pub fn new(local_peer_id: PeerId, local_public_key: PublicKey) -> Self {
+    pub fn new(local_peer_id: PeerId, local_public_key: PublicKey, churn_topic: Topic) -> Self {
         let mdns = Mdns::new().expect("failed to create mdns");
         let relay = JanusRelayBehaviour::new();
         let ping = Ping::new(PingConfig::new());
-        let floodsub = Floodsub::new(local_peer_id);
+        let floodsub = Floodsub::new(local_peer_id.clone());
         let identity = Identify::new("/janus/1.0.0".into(), "janus".into(), local_public_key);
-        let subscribed_topics = SmallVec::new();
 
         JanusBehaviour {
             mdns,
@@ -136,19 +137,15 @@ impl<Substream: AsyncRead + AsyncWrite> JanusBehaviour<Substream> {
             relay,
             identity,
             floodsub,
-            subscribed_topics,
+            churn_topic,
+            local_peer_id,
         }
-    }
-
-    pub fn subscribe(&mut self, topic: Topic) {
-        self.subscribed_topics.push(topic.clone());
-        self.floodsub.subscribe(topic);
     }
 
     /// Sends peer_id and connected nodes to other network participants
     ///
     /// Currently uses floodsub protocol.
-    pub fn gossip_peer_state(&mut self, local_peer_id: PeerId) {
+    pub fn gossip_peer_state(&mut self) {
         let nodes = self
             .relay
             .connected_nodes()
@@ -157,15 +154,47 @@ impl<Substream: AsyncRead + AsyncWrite> JanusBehaviour<Substream> {
             .collect();
 
         let message = P2PNetworkMessage::PeerConnected {
-            peer: local_peer_id.into_bytes(),
+            peer: self.local_peer_id.clone().into_bytes(),
             nodes,
         };
 
+        self.gossip_network_update(message);
+    }
+
+    pub fn add_connected_node(&mut self, node: PeerId) {
+        self.relay.connected_nodes_mut().insert(node.clone());
+
+        let message = P2PNetworkMessage::NodesConnected {
+            peer: self.local_peer_id.clone().into_bytes(),
+            nodes: vec![node.into_bytes()],
+        };
+
+        self.gossip_network_update(message);
+    }
+
+    pub fn remove_connected_node(&mut self, node: PeerId) {
+        self.relay.connected_nodes_mut().remove(&node);
+
+        let message = P2PNetworkMessage::NodesDisconnected {
+            peer: self.local_peer_id.clone().into_bytes(),
+            nodes: vec![node.into_bytes()],
+        };
+
+        self.gossip_network_update(message);
+    }
+
+    pub fn exit(&mut self) {
+        let message = P2PNetworkMessage::PeerDisconnected {
+            peer: self.local_peer_id.clone().into_bytes(),
+        };
+
+        self.gossip_network_update(message);
+    }
+
+    fn gossip_network_update(&mut self, message: P2PNetworkMessage) {
         let message =
             serde_json::to_vec(&message).expect("failed to convert gossip message to json");
 
-        for topic in self.subscribed_topics.iter() {
-            self.floodsub.publish(topic, message.clone());
-        }
+        self.floodsub.publish(&self.churn_topic, message);
     }
 }

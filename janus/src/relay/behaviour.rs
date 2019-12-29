@@ -77,6 +77,10 @@ impl<Substream> JanusRelayBehaviour<Substream> {
         self.network_state.remove(&peer);
     }
 
+    pub fn connected_nodes_mut(&mut self) -> &mut FnvHashSet<PeerId> {
+        &mut self.connected_nodes
+    }
+
     pub fn connected_nodes(&self) -> Vec<PeerId> {
         self.connected_nodes.iter().cloned().collect::<Vec<_>>()
     }

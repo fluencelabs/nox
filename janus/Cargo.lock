@@ -649,7 +649,6 @@ dependencies = [
  "parity-multiaddr",
  "serde",
  "serde_json",
- "smallvec 1.1.0",
  "tokio",
 ]
 

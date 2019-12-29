@@ -14,16 +14,4 @@
  * limitations under the License.
  */
 
-use serde::{Deserialize, Serialize};
-
-/// This message type intended to describe network topology changing
-/// (adding or removing new peers)
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "action")]
-pub enum P2PNetworkMessage {
-    // TODO: add implementation of serde serialize/deserialize for PeerId
-    PeerConnected { peer: Vec<u8>, nodes: Vec<Vec<u8>> },
-    NodesConnected { peer: Vec<u8>, nodes: Vec<Vec<u8>> },
-    NodesDisconnected { peer: Vec<u8>, nodes: Vec<Vec<u8>> },
-    PeerDisconnected { peer: Vec<u8> },
-}
+pub mod message;

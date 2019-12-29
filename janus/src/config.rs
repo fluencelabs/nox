@@ -15,6 +15,7 @@
  */
 
 use libp2p::core::Multiaddr;
+use libp2p::floodsub;
 use std::time::Duration;
 
 pub struct JanusConfig {
@@ -33,8 +34,8 @@ pub struct JanusConfig {
     /// TODO: Bootstrap nodes to join to the Fluence network.
     pub bootstrap_nodes: Vec<Multiaddr>,
 
-    /// Topics to subscribe at the start.
-    pub topics: Vec<String>,
+    /// Topic with network updates to subscribe at the start.
+    pub churn_topic: floodsub::Topic,
 }
 
 impl Default for JanusConfig {
@@ -45,7 +46,7 @@ impl Default for JanusConfig {
             socket_timeout: Duration::from_secs(20),
             secret_key: None,
             bootstrap_nodes: vec![],
-            topics: vec!["churn".to_string()], // churn topic is needed for a
+            churn_topic: floodsub::TopicBuilder::new("churn").build(),
         }
     }
 }

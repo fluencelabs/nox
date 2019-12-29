@@ -15,5 +15,3 @@ serde_json = "1.0.44"
 
 failure = "0.1.6"
 fnv = "1.0.6"
-
-smallvec = "1.1.0"
