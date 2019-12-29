@@ -20,8 +20,8 @@ mod janus_service;
 mod p2p;
 mod relay;
 
-use janus_service::JanusService;
 use crate::config::JanusConfig;
+use janus_service::JanusService;
 
 fn main() {
     let janus_service = JanusService::new(JanusConfig::default());

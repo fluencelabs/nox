@@ -103,7 +103,7 @@ dist
 # TernJS port file
 .tern-port
 
-/backend_network/target
+/janus/target
 /target
 **/*.rs.bk
 .idea

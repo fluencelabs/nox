@@ -64,15 +64,15 @@ impl JanusService {
 
     pub fn start(mut self) {
         // TODO: maybe return future here
-        let mut listening= false;
-        tokio::run(futures::future::poll_fn( move || -> Result<_, ()> {
+        let mut listening = false;
+        tokio::run(futures::future::poll_fn(move || -> Result<_, ()> {
             loop {
                 let poll = self.swarm.poll().expect("");
                 match poll {
-                    Async::Ready(Some(_)) => {},
+                    Async::Ready(Some(_)) => {}
                     Async::Ready(None) | Async::NotReady => {
                         if listening {
-                            break
+                            break;
                         }
                         if let Some(addr) = Swarm::listeners(&self.swarm).next() {
                             println!("P2P listening on {:?}", addr);
