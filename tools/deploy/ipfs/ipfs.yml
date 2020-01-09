@@ -13,6 +13,29 @@ services:
     networks:
       # connects Fluence Node and IPFS containers
       - decentralized_storage_network
+  
+  ipfs-cluster:
+    container_name: cluster
+    image: ipfs/ipfs-cluster:latest
+    command: -l info daemon 
+    depends_on:
+      - ipfs
+    environment:
+      CLUSTER_PEERNAME: $HOST
+      CLUSTER_SECRET: "somesecret"
+      CLUSTER_IPFSHTTP_NODEMULTIADDRESS: /dns4/ipfs/tcp/5001
+      CLUSTER_CRDT_TRUSTEDPEERS: '*' # Trust all peers in Cluster
+      CLUSTER_RESTAPI_HTTPLISTENMULTIADDRESS: /ip4/0.0.0.0/tcp/9094 # Expose API
+      CLUSTER_MONITORPINGINTERVAL: 2s # Speed up peer discovery
+    ports:
+          # Open API port (allows ipfs-cluster-ctl usage on host)
+          - 9094:9094
+          - 9096:9096 # Cluster IPFS Proxy endpoint
+    volumes:
+      - $HOME/.ipfs/cluster:/data/ipfs-cluster
+    networks:
+      # connects Fluence Node and IPFS containers
+      - decentralized_storage_network
 
 networks:
   decentralized_storage_network:
