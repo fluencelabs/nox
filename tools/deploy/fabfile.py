@@ -19,7 +19,7 @@ from utils      import *
 import json
 
 # Set the username
-env.user = "root"
+env.user = "fluence"
 # Set to False to disable `[ip.ad.dre.ss] out:` prefix
 env.output_prefix = True
 
@@ -114,8 +114,6 @@ def collect_ipfs_cluster_addresses():
 @parallel
 def bootstrap_ipfs_cluster():
     with hide('running', 'output'):
-        # echo "/dns4/cluster1.domain/tcp/9096/ipfs/QmcQ5XvrSQ4DouNkQyQtEoLczbMr6D9bSenGy6WQUCQUBt" 
-        #   >> ~/.ipfs-cluster/peerstore
         PEERSTORE = '~/.ipfs/cluster/peerstore'
         run('rm %s' % PEERSTORE)
         run('touch %s' % PEERSTORE)
