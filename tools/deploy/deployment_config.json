@@ -1,0 +1,33 @@
+{
+  "stage": {
+    "ethereum_ip": "geth.fluence.one",
+    "contract": "0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96",
+    "nodes": {
+      "<ip-addr>": {
+        "owner": "<owner-addr>",
+        "key": "<secret-key>",
+        "api_port": "25000",
+        "capacity": "10"
+      }
+    }
+  },
+  "devnet": {
+    "ipfs": "http://ipfs.fluence.one:5001",
+    "ethereum_ip": "geth.fluence.one",
+    "contract": "0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01",
+    "nodes": {
+      "<ip-addr1>": {
+        "owner": "<owner-addr1>",
+        "key": "<secret-key1>",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "<ip-addr2>": {
+        "owner": "<owner-addr2>",
+        "key": "<secret-key2>",
+        "api_port": "25000",
+        "capacity": "10"
+      }
+    }
+  }
+}
