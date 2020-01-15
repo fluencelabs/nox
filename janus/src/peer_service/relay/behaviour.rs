@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-use crate::relay::message::RelayMessage;
-use crate::relay::protocol::JanusRelay;
+use crate::peer_service::relay::message::RelayMessage;
 use fnv::FnvHashSet;
 use libp2p::{
     core::ConnectedPoint,
@@ -25,18 +24,18 @@ use libp2p::{
     },
     PeerId,
 };
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use tokio::prelude::*;
 
-pub(crate) type NetworkState = HashMap<PeerId, FnvHashSet<PeerId>>;
+type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 
-pub struct JanusRelayBehaviour<Substream> {
+pub struct PeerRelayLayerBehaviour<Substream> {
     // Queue of events to send.
-    events: VecDeque<NetworkBehaviourAction<RelayMessage, ()>>,
+    events: VecDeque<NetworkBehaviourAction<RelayMessage, RelayMessage>>,
 
-    /// Connected to this peer nodes.
+    /// Connected to these peer nodes.
     connected_nodes: FnvHashSet<PeerId>,
 
     /// Current network state of all peers with connected nodes.
@@ -46,7 +45,7 @@ pub struct JanusRelayBehaviour<Substream> {
     marker: PhantomData<Substream>,
 }
 
-impl<Substream> JanusRelayBehaviour<Substream> {
+impl<Substream> PeerRelayLayerBehaviour<Substream> {
     pub fn new() -> Self {
         Self {
             events: VecDeque::new(),
@@ -57,8 +56,7 @@ impl<Substream> JanusRelayBehaviour<Substream> {
     }
 
     pub fn add_new_peer(&mut self, peer: PeerId, nodes: Vec<PeerId>) {
-        self.network_state
-            .insert(peer, FnvHashSet::from_iter(nodes));
+        self.network_state.insert(peer, HashSet::from_iter(nodes));
     }
 
     pub fn add_new_node(&mut self, peer: &PeerId, node: PeerId) {
@@ -77,6 +75,10 @@ impl<Substream> JanusRelayBehaviour<Substream> {
         self.network_state.remove(&peer);
     }
 
+    pub fn network_state(&self) -> &NetworkState {
+        &self.network_state
+    }
+
     pub fn connected_nodes_mut(&mut self) -> &mut FnvHashSet<PeerId> {
         &mut self.connected_nodes
     }
@@ -86,11 +88,11 @@ impl<Substream> JanusRelayBehaviour<Substream> {
     }
 
     pub fn relay(&mut self, relay_message: RelayMessage) {
-        let dst_peer = &relay_message.dst_peer;
-        let dst_peer = PeerId::from_bytes(dst_peer.clone()).unwrap();
-        if !self.connected_nodes.contains(&dst_peer) {
+        let dst_node = &relay_message.dst;
+        let dst_node = PeerId::from_bytes(dst_node.clone()).unwrap();
+        if !self.connected_nodes.contains(&dst_node) {
             for (peer, nodes) in &self.network_state {
-                if nodes.contains(&dst_peer) {
+                if nodes.contains(&dst_node) {
                     self.events.push_back(NetworkBehaviourAction::SendEvent {
                         peer_id: peer.to_owned(),
                         event: relay_message.clone(),
@@ -99,17 +101,15 @@ impl<Substream> JanusRelayBehaviour<Substream> {
             }
         } else {
             // the destination node is connected to our peer - just send message directly to it
-            self.events.push_back(NetworkBehaviourAction::SendEvent {
-                peer_id: dst_peer.to_owned(),
-                event: relay_message,
-            })
+            self.events
+                .push_back(NetworkBehaviourAction::GenerateEvent(relay_message));
         }
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for JanusRelayBehaviour<Substream> {
-    type ProtocolsHandler = OneShotHandler<Substream, JanusRelay, RelayMessage, InnerMessage>;
-    type OutEvent = ();
+impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehaviour<Substream> {
+    type ProtocolsHandler = OneShotHandler<Substream, RelayMessage, RelayMessage, InnerMessage>;
+    type OutEvent = RelayMessage;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()

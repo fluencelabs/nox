@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-use crate::p2p::message::P2PNetworkMessage;
-use crate::relay::behaviour::JanusRelayBehaviour;
+use crate::peer_service::p2p::message::P2PNetworkMessage;
+use crate::peer_service::relay::behaviour::PeerRelayLayerBehaviour;
+use crate::peer_service::relay::message::RelayMessage;
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
@@ -24,13 +25,14 @@ use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{NetworkBehaviour, PeerId};
 use serde_json;
+use std::collections::VecDeque;
 use tokio::prelude::*;
 
 #[derive(NetworkBehaviour)]
-pub struct JanusBehaviour<Substream: AsyncRead + AsyncWrite> {
+pub struct PeerServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
     mdns: Mdns<Substream>,
     ping: Ping<Substream>,
-    relay: JanusRelayBehaviour<Substream>,
+    pub relay: PeerRelayLayerBehaviour<Substream>,
     identity: Identify<Substream>,
     floodsub: Floodsub<Substream>,
 
@@ -39,10 +41,14 @@ pub struct JanusBehaviour<Substream: AsyncRead + AsyncWrite> {
 
     #[behaviour(ignore)]
     local_peer_id: PeerId,
+
+    /// Relay messages that need to served to specified nodes.
+    #[behaviour(ignore)]
+    pub nodes_messages: VecDeque<RelayMessage>,
 }
 
 impl<Substream: AsyncWrite + AsyncRead> NetworkBehaviourEventProcess<MdnsEvent>
-    for JanusBehaviour<Substream>
+    for PeerServiceBehaviour<Substream>
 {
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
@@ -63,26 +69,28 @@ impl<Substream: AsyncWrite + AsyncRead> NetworkBehaviourEventProcess<MdnsEvent>
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<()>
-    for JanusBehaviour<Substream>
+impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<RelayMessage>
+    for PeerServiceBehaviour<Substream>
 {
-    fn inject_event(&mut self, _event: ()) {}
+    fn inject_event(&mut self, event: RelayMessage) {
+        self.nodes_messages.push_back(event);
+    }
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
-    for JanusBehaviour<Substream>
+    for PeerServiceBehaviour<Substream>
 {
     fn inject_event(&mut self, _event: PingEvent) {}
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
-    for JanusBehaviour<Substream>
+    for PeerServiceBehaviour<Substream>
 {
     fn inject_event(&mut self, _event: IdentifyEvent) {}
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEvent>
-    for JanusBehaviour<Substream>
+    for PeerServiceBehaviour<Substream>
 {
     fn inject_event(&mut self, event: FloodsubEvent) {
         match event {
@@ -123,15 +131,17 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> JanusBehaviour<Substream> {
+impl<Substream: AsyncRead + AsyncWrite> PeerServiceBehaviour<Substream> {
     pub fn new(local_peer_id: PeerId, local_public_key: PublicKey, churn_topic: Topic) -> Self {
         let mdns = Mdns::new().expect("failed to create mdns");
-        let relay = JanusRelayBehaviour::new();
+        let relay = PeerRelayLayerBehaviour::new();
         let ping = Ping::new(PingConfig::new());
-        let floodsub = Floodsub::new(local_peer_id.clone());
+        let mut floodsub = Floodsub::new(local_peer_id.clone());
         let identity = Identify::new("/janus/1.0.0".into(), "janus".into(), local_public_key);
 
-        JanusBehaviour {
+        floodsub.subscribe(churn_topic.clone());
+
+        Self {
             mdns,
             ping,
             relay,
@@ -139,6 +149,7 @@ impl<Substream: AsyncRead + AsyncWrite> JanusBehaviour<Substream> {
             floodsub,
             churn_topic,
             local_peer_id,
+            nodes_messages: VecDeque::new(),
         }
     }
 
@@ -197,4 +208,6 @@ impl<Substream: AsyncRead + AsyncWrite> JanusBehaviour<Substream> {
 
         self.floodsub.publish(&self.churn_topic, message);
     }
+
+    // TODO: incapsulate relay and nodes_messages by providing the public method on the p2p level
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-use libp2p::PeerId;
-
-#[derive(Debug, Clone)]
-pub enum NodeEvent {
-    NodeConnected { peer: PeerId },
-    NodeDisconnected { peer: PeerId },
-}
+mod behaviour;
+mod connect_protocol;
+pub mod events;
+pub mod node_service;
+mod transport;

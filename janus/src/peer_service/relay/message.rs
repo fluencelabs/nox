@@ -14,4 +14,11 @@
  * limitations under the License.
  */
 
-pub mod message;
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct RelayMessage {
+    pub src: Vec<u8>,
+    pub dst: Vec<u8>,
+    pub data: Vec<u8>,
+}

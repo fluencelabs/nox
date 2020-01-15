@@ -16,31 +16,40 @@
 
 mod config;
 mod error;
-mod janus_service;
-mod node_handler;
-mod p2p;
-mod relay;
+mod node_service;
+mod peer_service;
 
-use crate::config::JanusConfig;
-use crate::janus_service::JanusService;
-use crate::node_handler::message::NodeEvent;
-use std::{thread, time};
-use tokio::sync::mpsc;
+use crate::node_service::node_service::{start_node_service, NodeService, NodeServiceDescriptor};
+use crate::peer_service::peer_service::{start_peer_service, PeerService};
+use std::thread;
+use std::time;
+use tokio;
 
 fn main() {
-    let janus_service = JanusService::new(JanusConfig::default());
-    let (_node_send, node_recv) = mpsc::unbounded_channel::<NodeEvent>();
     let runtime = tokio::runtime::Runtime::new().expect("failed to create tokio Runtime");
 
-    match janus_service::start_janus(janus_service, node_recv, &runtime.executor()) {
-        Ok(janus_exit) => {
-            println!("Janus has been successfully started");
-            let ten_millis = time::Duration::from_secs(10);
-            thread::sleep(ten_millis);
+    let node_service = NodeService::new(config::NodeServiceConfig::default());
+    let node_service_descriptor: NodeServiceDescriptor =
+        start_node_service(node_service, &runtime.executor())
+            .expect("An error occurred during node service start");
 
-            println!("exiting");
-            janus_exit.send(()).expect("failed Janus exiting");
-        }
-        Err(_) => println!("Error occurred during Janus service starting"),
-    }
+    let peer_service = PeerService::new(config::PeerServiceConfig::default());
+    let peer_service_exit = start_peer_service(
+        peer_service,
+        node_service_descriptor.node_channel_out,
+        node_service_descriptor.node_channel_in,
+        &runtime.executor(),
+    )
+    .expect("An error occured during the peer service start");
+
+    println!("Janus has been successfully started");
+    let ten_millis = time::Duration::from_secs(10);
+    thread::sleep(ten_millis);
+
+    println!("exiting");
+    node_service_descriptor
+        .exit_sender
+        .send(())
+        .expect("failed Janus exiting");
+    peer_service_exit.send(()).expect("failed Janus exiting");
 }

@@ -18,7 +18,7 @@ use libp2p::core::Multiaddr;
 use libp2p::floodsub;
 use std::time::Duration;
 
-pub struct JanusConfig {
+pub struct PeerServiceConfig {
     /// Local port to listen on.
     pub listen_port: u16,
 
@@ -38,15 +38,36 @@ pub struct JanusConfig {
     pub churn_topic: floodsub::Topic,
 }
 
-impl Default for JanusConfig {
+impl Default for PeerServiceConfig {
     fn default() -> Self {
-        JanusConfig {
+        Self {
             listen_port: 7777,
             listen_ip: "127.0.0.1".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             secret_key: None,
             bootstrap_nodes: vec![],
             churn_topic: floodsub::TopicBuilder::new("churn").build(),
+        }
+    }
+}
+
+pub struct NodeServiceConfig {
+    /// Local port to listen on.
+    pub listen_port: u16,
+
+    /// Local ip address to listen on.
+    pub listen_ip: std::net::IpAddr,
+
+    /// Socket timeout for main transport.
+    pub socket_timeout: Duration,
+}
+
+impl Default for NodeServiceConfig {
+    fn default() -> Self {
+        Self {
+            listen_port: 7778,
+            listen_ip: "127.0.0.1".parse().unwrap(),
+            socket_timeout: Duration::from_secs(20),
         }
     }
 }

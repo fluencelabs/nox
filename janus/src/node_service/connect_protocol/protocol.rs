@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 use crate::error::Error;
-use crate::relay::message::RelayMessage;
+use crate::node_service::connect_protocol::messages::{InNodeMessage, OutNodeMessage};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use serde_json;
 use std::{io, iter};
@@ -23,12 +23,9 @@ use tokio::prelude::*;
 
 // 1 Mb
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
-const PROTOCOL_INFO: &[u8] = b"/janus/relay/1.0.0";
+const PROTOCOL_INFO: &[u8] = b"/janus/node/1.0.0";
 
-#[derive(Clone, Debug, Default)]
-pub struct JanusRelay {}
-
-impl UpgradeInfo for JanusRelay {
+impl UpgradeInfo for InNodeMessage {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -37,8 +34,8 @@ impl UpgradeInfo for JanusRelay {
     }
 }
 
-impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for JanusRelay {
-    type Output = RelayMessage;
+impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for InNodeMessage {
+    type Output = InNodeMessage;
     type Error = Error;
     type Future = upgrade::ReadOneThen<
         upgrade::Negotiated<Socket>,
@@ -52,13 +49,13 @@ impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for JanusRelay {
         _info: Self::Info,
     ) -> Self::Future {
         upgrade::read_one_then(socket, MAX_BUF_SIZE, (), |packet, ()| {
-            let relay_message: RelayMessage = serde_json::from_slice(&packet).unwrap();
+            let relay_message: InNodeMessage = serde_json::from_slice(&packet).unwrap();
             Ok(relay_message)
         })
     }
 }
 
-impl UpgradeInfo for RelayMessage {
+impl UpgradeInfo for OutNodeMessage {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -67,7 +64,7 @@ impl UpgradeInfo for RelayMessage {
     }
 }
 
-impl<Socket> OutboundUpgrade<Socket> for RelayMessage
+impl<Socket> OutboundUpgrade<Socket> for OutNodeMessage
 where
     Socket: AsyncRead + AsyncWrite,
 {
@@ -80,7 +77,7 @@ where
         socket: upgrade::Negotiated<Socket>,
         _info: Self::Info,
     ) -> Self::Future {
-        let bytes = serde_json::to_vec(&self).expect("failed to serialize RelayMessage to json");
+        let bytes = serde_json::to_vec(&self).expect("failed to serialize OutNodeMessage to json");
         upgrade::write_one(socket, bytes)
     }
 }

@@ -17,7 +17,7 @@
 use serde::{Deserialize, Serialize};
 
 /// This message type intended to describe network topology changing
-/// (adding or removing new peers)
+/// (adding or removing new peers or nodes)
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "action")]
 pub enum P2PNetworkMessage {
