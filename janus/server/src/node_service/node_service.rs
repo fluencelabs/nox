@@ -49,9 +49,9 @@ impl NodeService {
 
         let mut swarm = {
             let transport = build_transport(local_key.clone(), config.socket_timeout);
-            let behaviour = NodeServiceBehaviour::new(local_peer_id.clone(), local_key.public());
+            let behaviour = NodeServiceBehaviour::new(&local_peer_id, local_key.public());
 
-            Box::new(Swarm::new(transport, behaviour, local_peer_id.clone()))
+            Box::new(Swarm::new(transport, behaviour, local_peer_id))
         };
 
         let mut listen_addr = Multiaddr::from(config.listen_ip);

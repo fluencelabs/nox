@@ -157,11 +157,13 @@ fn peer_service_executor(
             .nodes_messages
             .pop_front()
         {
-            node_service_in.try_send(InNodeServiceEvent::Relay {
-                src: PeerId::from_bytes(e.src).unwrap(),
-                dst: PeerId::from_bytes(e.dst).unwrap(),
-                data: e.data,
-            }).unwrap();
+            node_service_in
+                .try_send(InNodeServiceEvent::Relay {
+                    src: PeerId::from_bytes(e.src).unwrap(),
+                    dst: PeerId::from_bytes(e.dst).unwrap(),
+                    data: e.data,
+                })
+                .unwrap();
         }
 
         Ok(Async::NotReady)

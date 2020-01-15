@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
-pub mod behaviour;
-mod messages;
-mod protocol;
+pub mod config;
+pub mod error;
+pub mod node_service;
+pub mod peer_service;
