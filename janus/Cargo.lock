@@ -645,13 +645,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "501266b7edd0174f8530248f87f99c88fbe60ca4ef3dd486835b8d8d53136f7f"
 
 [[package]]
-name = "janus_client"
+name = "janus-client"
 version = "0.0.1"
 dependencies = [
  "failure",
  "fnv",
  "futures",
- "janus_server",
+ "janus-server",
  "libp2p",
  "parity-multiaddr",
  "serde",
@@ -660,7 +660,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "janus_server"
+name = "janus-server"
 version = "0.0.1"
 dependencies = [
  "failure",

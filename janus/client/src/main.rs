@@ -38,6 +38,13 @@ fn main() {
     let local_peer_id = PeerId::from(local_key.public());
     println!("Local peer id: {:?}", local_peer_id);
 
+    let relay_example = RelayUserInput {
+        dst: "QmNm9NAew7oqitRRP1efai7g1nuvYonSpyBAb2hW5DEqNs".to_string(),
+        message: "hello".to_string(),
+    };
+    let relay_example = serde_json::to_value(relay_example).unwrap();
+    println!("example of a relay message: {}", relay_example.to_string());
+
     let transport = transport::build_transport(local_key.clone(), Duration::from_secs(20));
 
     let mut swarm = {
@@ -70,8 +77,12 @@ fn main() {
                 Async::Ready(Some(line)) => {
                     let relay_user_input: Result<RelayUserInput, _> = serde_json::from_str(&line);
                     if let Ok(input) = relay_user_input {
-                        let dst = PeerId::from_bytes(input.dst.into_bytes()).expect("incorrect peer id supplied");
-                        swarm.node_connect_protocol.relay_message(local_peer_id.clone(), dst, input.message.into());
+                        let dst: PeerId = input.dst.parse().unwrap();
+                        swarm.node_connect_protocol.relay_message(
+                            local_peer_id.clone(),
+                            dst,
+                            input.message.into(),
+                        );
                     } else {
                         println!("incorrect string provided");
                     }
@@ -96,7 +107,7 @@ fn main() {
             }
         }
 
-        if let Some(event) = swarm.nodes_events.pop_front() {
+        if let Some(event) = swarm.pop_out_node_event() {
             println!("{:?}", event);
         }
 

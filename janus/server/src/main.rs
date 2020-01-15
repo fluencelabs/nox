@@ -40,10 +40,10 @@ fn main() {
         node_service_descriptor.node_channel_in,
         &runtime.executor(),
     )
-    .expect("An error occured during the peer service start");
+    .expect("An error occurred during the peer service start");
 
     println!("Janus has been successfully started");
-    let ten_millis = time::Duration::from_secs(10);
+    let ten_millis = time::Duration::from_secs(120);
     thread::sleep(ten_millis);
 
     println!("exiting");

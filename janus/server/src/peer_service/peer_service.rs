@@ -40,6 +40,7 @@ impl PeerService {
     pub fn new(config: PeerServiceConfig) -> Arc<Mutex<Self>> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
+        println!("node service is starting with peer id = {}", local_peer_id);
 
         let mut swarm = {
             let transport = build_transport(local_key.clone(), config.socket_timeout);
@@ -104,19 +105,16 @@ fn peer_service_executor(
                         .unwrap()
                         .swarm
                         .remove_connected_node(node_id),
-                    OutNodeServiceEvent::Relay { src, dst, data } => peer_service
-                        .lock()
-                        .unwrap()
-                        .swarm
-                        .relay
-                        .relay(RelayMessage {
+                    OutNodeServiceEvent::Relay { src, dst, data } => {
+                        peer_service.lock().unwrap().swarm.relay(RelayMessage {
                             src: src.into_bytes(),
                             dst: dst.into_bytes(),
                             data,
-                        }),
+                        })
+                    }
                     OutNodeServiceEvent::GetNetworkState { src } => {
                         let service = peer_service.lock().unwrap();
-                        let network_state = service.swarm.relay.network_state();
+                        let network_state = service.swarm.network_state();
                         let network_state = network_state
                             .iter()
                             .map(|v| v.0.clone())
@@ -150,13 +148,7 @@ fn peer_service_executor(
             }
         }
 
-        if let Some(e) = peer_service
-            .lock()
-            .unwrap()
-            .swarm
-            .nodes_messages
-            .pop_front()
-        {
+        if let Some(e) = peer_service.lock().unwrap().swarm.pop_node_relay_message() {
             node_service_in
                 .try_send(InNodeServiceEvent::Relay {
                     src: PeerId::from_bytes(e.src).unwrap(),

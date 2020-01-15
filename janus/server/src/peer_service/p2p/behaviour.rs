@@ -15,8 +15,10 @@
  */
 
 use crate::peer_service::p2p::message::P2PNetworkMessage;
-use crate::peer_service::relay::behaviour::PeerRelayLayerBehaviour;
-use crate::peer_service::relay::message::RelayMessage;
+use crate::peer_service::relay::{
+    behaviour::{NetworkState, PeerRelayLayerBehaviour},
+    message::RelayMessage,
+};
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
@@ -32,7 +34,7 @@ use tokio::prelude::*;
 pub struct PeerServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
     mdns: Mdns<Substream>,
     ping: Ping<Substream>,
-    pub relay: PeerRelayLayerBehaviour<Substream>,
+    relay: PeerRelayLayerBehaviour<Substream>,
     identity: Identify<Substream>,
     floodsub: Floodsub<Substream>,
 
@@ -44,7 +46,7 @@ pub struct PeerServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
 
     /// Relay messages that need to served to specified nodes.
     #[behaviour(ignore)]
-    pub nodes_messages: VecDeque<RelayMessage>,
+    nodes_messages: VecDeque<RelayMessage>,
 }
 
 impl<Substream: AsyncWrite + AsyncRead> NetworkBehaviourEventProcess<MdnsEvent>
@@ -194,6 +196,18 @@ impl<Substream: AsyncRead + AsyncWrite> PeerServiceBehaviour<Substream> {
         self.gossip_network_update(message);
     }
 
+    pub fn pop_node_relay_message(&mut self) -> Option<RelayMessage> {
+        self.nodes_messages.pop_front()
+    }
+
+    pub fn relay(&mut self, relay_message: RelayMessage) {
+        self.relay.relay(relay_message);
+    }
+
+    pub fn network_state(&self) -> &NetworkState {
+        self.relay.network_state()
+    }
+
     pub fn exit(&mut self) {
         let message = P2PNetworkMessage::PeerDisconnected {
             peer: self.local_peer_id.clone().into_bytes(),
@@ -208,6 +222,4 @@ impl<Substream: AsyncRead + AsyncWrite> PeerServiceBehaviour<Substream> {
 
         self.floodsub.publish(&self.churn_topic, message);
     }
-
-    // TODO: incapsulate relay and nodes_messages by providing the public method on the p2p level
 }

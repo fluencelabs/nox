@@ -46,6 +46,7 @@ impl NodeService {
     pub fn new(config: NodeServiceConfig) -> Arc<Mutex<Self>> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
+        println!("node service is starting with peer id = {}", local_peer_id);
 
         let mut swarm = {
             let transport = build_transport(local_key.clone(), config.socket_timeout);
@@ -134,7 +135,7 @@ fn node_service_executor(
             }
         }
 
-        if let Some(e) = node_service.lock().unwrap().swarm.nodes_events.pop_front() {
+        if let Some(e) = node_service.lock().unwrap().swarm.pop_out_node_event() {
             node_service_out.try_send(e).unwrap();
         }
 

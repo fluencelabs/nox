@@ -1,11 +1,11 @@
 [package]
-name = "janus_client"
+name = "janus-client"
 version = "0.0.1"
 authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-janus_server = { path = "../server" }
+janus-server = { path = "../server" }
 libp2p = "0.13.1"
 parity-multiaddr = "0.6.0"
 tokio = "0.1.22"

@@ -31,7 +31,7 @@ pub struct NodeServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
     pub node_connect_protocol: NodeConnectProtocolBehaviour<Substream>,
 
     #[behaviour(ignore)]
-    pub nodes_events: VecDeque<OutNodeServiceEvent>,
+    nodes_events: VecDeque<OutNodeServiceEvent>,
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<OutNodeServiceEvent>
@@ -70,6 +70,10 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
             node_connect_protocol,
             nodes_events: VecDeque::new(),
         }
+    }
+
+    pub fn pop_out_node_event(&mut self) -> Option<OutNodeServiceEvent> {
+        self.nodes_events.pop_front()
     }
 
     pub fn exit(&mut self) {

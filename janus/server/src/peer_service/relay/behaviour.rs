@@ -29,7 +29,7 @@ use std::iter::FromIterator;
 use std::marker::PhantomData;
 use tokio::prelude::*;
 
-type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
+pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 
 pub struct PeerRelayLayerBehaviour<Substream> {
     // Queue of events to send.

@@ -28,6 +28,7 @@ pub enum InNodeMessage {
     GetNetworkState,
 }
 
+// TODO
 impl Default for InNodeMessage {
     fn default() -> Self {
         InNodeMessage::GetNetworkState

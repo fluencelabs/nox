@@ -1,5 +1,5 @@
 [package]
-name = "janus_server"
+name = "janus-server"
 version = "0.0.1"
 authors = ["Fluence Labs"]
 edition = "2018"
