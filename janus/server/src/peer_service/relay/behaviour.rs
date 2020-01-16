@@ -57,22 +57,42 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
 
     pub fn add_new_peer(&mut self, peer: PeerId, nodes: Vec<PeerId>) {
         self.network_state.insert(peer, HashSet::from_iter(nodes));
+
+        self.print_network_state();
     }
 
     pub fn add_new_node(&mut self, peer: &PeerId, node: PeerId) {
         if let Some(v) = self.network_state.get_mut(peer) {
             v.insert(node);
         }
+
+        self.print_network_state();
     }
 
     pub fn remove_node(&mut self, peer: &PeerId, node: PeerId) {
         if let Some(v) = self.network_state.get_mut(peer) {
             v.remove(&node);
         }
+
+        self.print_network_state();
     }
 
     pub fn remove_peer(&mut self, peer: PeerId) {
         self.network_state.remove(&peer);
+
+        self.print_network_state();
+    }
+
+    fn print_network_state(&self) {
+        trace!("\nNetwork state:");
+        for (k, v) in self.network_state.iter() {
+            trace!("peer {}, connected nodes:", k);
+            for n in v.iter() {
+                trace!("{}", n);
+            }
+        }
+
+        trace!("\n");
     }
 
     pub fn network_state(&self) -> &NetworkState {

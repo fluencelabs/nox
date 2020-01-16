@@ -15,12 +15,12 @@
  */
 
 #[allow(dead_code)]
-
 mod behaviour;
 mod connect_protocol;
 mod transport;
 
 use crate::behaviour::ClientServiceBehaviour;
+use crate::connect_protocol::messages::InMessage;
 use crate::transport::build_transport;
 use env_logger;
 use futures::prelude::*;
@@ -61,21 +61,21 @@ fn main() {
         libp2p::Swarm::new(transport, behaviour, local_peer_id.clone())
     };
 
-    let peer_to_dial: Multiaddr = std::env::args()
+    let relay_peer_addr: Multiaddr = std::env::args()
         .nth(1)
         .expect("multiaddr of relay peer should be provided by the first argument")
         .parse()
         .expect("provided wrong  Multiaddr");
 
-    match libp2p::Swarm::dial_addr(&mut swarm, peer_to_dial.clone()) {
-        Ok(_) => println!("Dialed to {:?}", peer_to_dial),
+    match libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()) {
+        Ok(_) => println!("Dialed to {:?}", relay_peer_addr.clone()),
         Err(e) => {
-            println!("Dial to {:?} failed with {:?}", peer_to_dial, e);
+            println!("Dial to {:?} failed with {:?}", relay_peer_addr.clone(), e);
             return;
         }
     }
 
-    let connected_peer: PeerId = std::env::args()
+    let relay_peer: PeerId = std::env::args()
         .nth(2)
         .expect("peer id should be provided by the second argument")
         .parse()
@@ -91,10 +91,12 @@ fn main() {
                     let relay_user_input: Result<RelayUserInput, _> = serde_json::from_str(&line);
                     if let Ok(input) = relay_user_input {
                         let dst: PeerId = input.dst.parse().unwrap();
-                        swarm.send_message(connected_peer.clone(), dst, input.message.into());
+                        swarm.send_message(relay_peer.clone(), dst, input.message.into());
                     } else {
                         println!("incorrect string provided");
                     }
+
+                    //libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
                 }
                 Async::Ready(None) => panic!("Stdin closed"),
                 Async::NotReady => break,
@@ -111,7 +113,16 @@ fn main() {
         }
 
         if let Some(event) = swarm.pop_out_node_event() {
-            println!("{:?}", event);
+            match event {
+                InMessage::Relay { src, data } => {
+                    let peer_id = PeerId::from_bytes(src).unwrap();
+                    let message = String::from_utf8(data).unwrap();
+                    println!("{}: {}", peer_id, message);
+                }
+                InMessage::NetworkState { state } => println!("network state: {:?}", state),
+            }
+
+            //libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
         }
 
         Ok(Async::NotReady)

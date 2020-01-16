@@ -57,6 +57,10 @@ impl PeerService {
 
         Swarm::listen_on(&mut swarm, listen_addr).unwrap();
 
+        for addr in config.bootstrap_nodes {
+            Swarm::dial_addr(&mut swarm, addr).expect("dialed to bootstrap node failed");
+        }
+
         swarm.gossip_peer_state();
 
         Arc::new(Mutex::new(Self { swarm }))

@@ -43,7 +43,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use tokio;
+use tokio::runtime::Runtime;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -63,7 +63,7 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 3] {
         Arg::with_name(NODE_SERVICE_PORT)
             .takes_value(true)
             .short("np")
-            .default_value("8888")
+            .default_value("9999")
             .help("port that will be used by the node service"),
         Arg::with_name(BOOTSTRAP_NODE)
             .takes_value(true)
@@ -97,6 +97,7 @@ fn make_configs_from_args(
 }
 
 fn start_janus(
+    runtime: &Runtime,
     peer_service_config: PeerServiceConfig,
     node_service_config: NodeServiceConfig,
 ) -> Result<
@@ -107,8 +108,6 @@ fn start_janus(
     std::io::Error,
 > {
     trace!("starting Janus");
-
-    let runtime = tokio::runtime::Runtime::new()?;
 
     let node_service = NodeService::new(node_service_config);
     let node_service_descriptor: NodeServiceDescriptor =
@@ -130,6 +129,8 @@ fn start_janus(
 fn main() -> Result<(), ExitFailure> {
     env_logger::init();
 
+    let runtime = tokio::runtime::Runtime::new()?;
+
     let arg_matches = App::new("Fluence Janus protocol server")
         .version(VERSION)
         .author(AUTHORS)
@@ -139,7 +140,7 @@ fn main() -> Result<(), ExitFailure> {
 
     let (peer_service_config, node_service_config) = make_configs_from_args(arg_matches)?;
     let (peer_service_exit, node_service_exit) =
-        start_janus(peer_service_config, node_service_config)?;
+        start_janus(&runtime, peer_service_config, node_service_config)?;
 
     println!("Janus has been successfully started");
 

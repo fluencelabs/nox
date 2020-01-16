@@ -33,7 +33,7 @@ pub enum OutMessage {
 #[serde(tag = "action")]
 pub enum InMessage {
     /// Message that should be relayed from src node to chosen dst node.
-    Relay { dst: Vec<u8>, data: Vec<u8> },
+    Relay { src: Vec<u8>, data: Vec<u8> },
 
     /// Message contains all peers in the network.
     NetworkState { state: Vec<Vec<u8>> },

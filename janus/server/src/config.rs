@@ -66,7 +66,7 @@ pub struct NodeServiceConfig {
 impl Default for NodeServiceConfig {
     fn default() -> Self {
         Self {
-            listen_port: 8888,
+            listen_port: 9999,
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
         }

@@ -163,10 +163,18 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<SwarmStateE
     fn inject_event(&mut self, event: SwarmStateEvent) {
         match event {
             SwarmStateEvent::Connected(peer) => {
+                trace!(
+                    "peer_service/p2p/behaviour/swarm_state_event: new peer {} connected",
+                    peer
+                );
                 self.floodsub.add_node_to_partial_view(peer.clone());
                 self.relay.add_new_peer(peer, Vec::new());
             }
             SwarmStateEvent::Disconnected(peer) => {
+                trace!(
+                    "peer_service/p2p/behaviour/swarm_state_event: peer {} disconnected",
+                    peer
+                );
                 self.floodsub.remove_node_from_partial_view(&peer);
                 self.relay.remove_peer(peer);
             }
