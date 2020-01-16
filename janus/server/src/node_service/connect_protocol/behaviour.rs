@@ -163,7 +163,7 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
     > {
         if let Some(e) = self.events.pop_front() {
             trace!(
-                "node_service/connect_protocol/behaviour/poll: event {:?} poped",
+                "node_service/connect_protocol/behaviour/poll: event {:?} popped",
                 e
             );
             return Async::Ready(e);

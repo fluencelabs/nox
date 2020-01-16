@@ -67,6 +67,12 @@ fn main() {
         }
     }
 
+    let connected_peer: PeerId = std::env::args()
+        .nth(2)
+        .expect("peer id should be provided by the second argument")
+        .parse()
+        .expect("provided wrong PeerId");
+
     let stdin = tokio_stdin_stdout::stdin(0);
     let mut framed_stdin = FramedRead::new(stdin, LinesCodec::new());
 
@@ -78,7 +84,7 @@ fn main() {
                     if let Ok(input) = relay_user_input {
                         let dst: PeerId = input.dst.parse().unwrap();
                         swarm.node_connect_protocol.relay_message(
-                            local_peer_id.clone(),
+                            connected_peer.clone(),
                             dst,
                             input.message.into(),
                         );

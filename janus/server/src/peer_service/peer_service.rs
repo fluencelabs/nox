@@ -24,13 +24,13 @@ use libp2p::{
     core::muxing::{StreamMuxerBox, SubstreamRef},
     identity, PeerId, Swarm,
 };
+use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
 use serde_json::error;
 use std::sync::{Arc, Mutex};
 use tokio::prelude::*;
 use tokio::runtime::TaskExecutor;
 use tokio::sync::mpsc;
-//use log::trace;
 
 pub struct PeerService {
     pub swarm:
@@ -75,7 +75,7 @@ pub fn start_peer_service(
         peer_service_executor(peer_service.clone(), node_channel_out, node_channel_in)
             .select(exit_receiver.then(|_| Ok(())))
             .then(move |_| {
-                // TODO: log
+                trace!("peer_service/service: shutting down by external cmd");
 
                 // notify network that this node just has been shutdown
                 // TODO: hardering

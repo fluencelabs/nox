@@ -76,7 +76,7 @@ pub fn start_node_service(
         node_service_executor(node_service.clone(), channel_out_1, channel_in_2)
             .select(exit_receiver.then(|_| Ok(())))
             .then(move |_| {
-                // TODO: log
+                trace!("node_service/service: shutting down by external cmd");
 
                 // notify network that this node just has been shutdown
                 // TODO: hardering
