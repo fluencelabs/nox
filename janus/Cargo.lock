@@ -740,11 +740,13 @@ dependencies = [
  "futures",
  "janus-server",
  "libp2p",
+ "log",
  "parity-multiaddr",
  "serde",
  "serde_json",
  "tokio",
  "tokio-stdin-stdout",
+ "void",
 ]
 
 [[package]]

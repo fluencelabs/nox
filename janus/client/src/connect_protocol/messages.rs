@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// Describes network messages from a node to current peer (client -> server).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
-pub enum InNodeMessage {
+pub enum OutMessage {
     /// Represents a message that should be relayed to given dst node.
     Relay { dst: Vec<u8>, data: Vec<u8> },
 
@@ -28,20 +28,19 @@ pub enum InNodeMessage {
     GetNetworkState,
 }
 
-// TODO
-impl Default for InNodeMessage {
-    fn default() -> Self {
-        InNodeMessage::GetNetworkState
-    }
-}
-
 /// Describes network message from current peer to a node (server -> client).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
-pub enum OutNodeMessage {
+pub enum InMessage {
     /// Message that should be relayed from src node to chosen dst node.
-    Relay { src: Vec<u8>, data: Vec<u8> },
+    Relay { dst: Vec<u8>, data: Vec<u8> },
 
     /// Message contains all peers in the network.
     NetworkState { state: Vec<Vec<u8>> },
+}
+
+impl Default for InMessage {
+    fn default() -> Self {
+        InMessage::NetworkState { state: Vec::new() }
+    }
 }

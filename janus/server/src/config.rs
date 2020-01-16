@@ -16,6 +16,7 @@
 
 use libp2p::core::Multiaddr;
 use libp2p::floodsub;
+use std::net::IpAddr;
 use std::time::Duration;
 
 pub struct PeerServiceConfig {
@@ -23,7 +24,7 @@ pub struct PeerServiceConfig {
     pub listen_port: u16,
 
     /// Local ip address to listen on.
-    pub listen_ip: std::net::IpAddr,
+    pub listen_ip: IpAddr,
 
     /// Socket timeout for main transport.
     pub socket_timeout: Duration,
@@ -31,7 +32,7 @@ pub struct PeerServiceConfig {
     /// TODO: Key that will be used during peer id creation.
     pub secret_key: Option<String>,
 
-    /// TODO: Bootstrap nodes to join to the Fluence network.
+    /// Bootstrap nodes to join to the Fluence network.
     pub bootstrap_nodes: Vec<Multiaddr>,
 
     /// Topic with network updates to subscribe at the start.
@@ -56,7 +57,7 @@ pub struct NodeServiceConfig {
     pub listen_port: u16,
 
     /// Local ip address to listen on.
-    pub listen_ip: std::net::IpAddr,
+    pub listen_ip: IpAddr,
 
     /// Socket timeout for main transport.
     pub socket_timeout: Duration,
@@ -65,7 +66,7 @@ pub struct NodeServiceConfig {
 impl Default for NodeServiceConfig {
     fn default() -> Self {
         Self {
-            listen_port: 7780,
+            listen_port: 8888,
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
         }

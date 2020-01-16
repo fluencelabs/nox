@@ -21,14 +21,12 @@ use libp2p::{
     core::Multiaddr,
     swarm::{
         NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, PollParameters, ProtocolsHandler,
-        SubstreamProtocol,
     },
     PeerId,
 };
 use log::trace;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
-use std::time::Duration;
 use tokio::prelude::*;
 
 pub struct NodeConnectProtocolBehaviour<Substream> {
@@ -58,7 +56,7 @@ impl<Substream> NodeConnectProtocolBehaviour<Substream> {
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: dst,
             event: OutNodeMessage::Relay {
-                dst: src.into_bytes(),
+                src: src.into_bytes(),
                 data: message,
             },
         })
@@ -91,10 +89,7 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
     type OutEvent = OutNodeServiceEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        OneShotHandler::new(
-            SubstreamProtocol::new(Default::default()),
-            Duration::from_secs(10),
-        )
+        Default::default()
     }
 
     fn addresses_of_peer(&mut self, _peer_id: &PeerId) -> Vec<Multiaddr> {

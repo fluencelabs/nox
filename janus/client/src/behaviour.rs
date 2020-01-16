@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use crate::node_service::connect_protocol::behaviour::NodeConnectProtocolBehaviour;
-use crate::node_service::events::OutNodeServiceEvent;
+use crate::connect_protocol::behaviour::ClientConnectProtocolBehaviour;
+use crate::connect_protocol::messages::InMessage;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
@@ -25,40 +25,40 @@ use std::collections::VecDeque;
 use tokio::prelude::*;
 
 #[derive(NetworkBehaviour)]
-pub struct NodeServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
+pub struct ClientServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
     ping: Ping<Substream>,
     identity: Identify<Substream>,
-    node_connect_protocol: NodeConnectProtocolBehaviour<Substream>,
+    node_connect_protocol: ClientConnectProtocolBehaviour<Substream>,
 
     #[behaviour(ignore)]
-    nodes_events: VecDeque<OutNodeServiceEvent>,
+    nodes_events: VecDeque<InMessage>,
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<OutNodeServiceEvent>
-    for NodeServiceBehaviour<Substream>
+impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<InMessage>
+    for ClientServiceBehaviour<Substream>
 {
-    fn inject_event(&mut self, event: OutNodeServiceEvent) {
+    fn inject_event(&mut self, event: InMessage) {
         self.nodes_events.push_back(event);
     }
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
-    for NodeServiceBehaviour<Substream>
+    for ClientServiceBehaviour<Substream>
 {
     fn inject_event(&mut self, _event: PingEvent) {}
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
-    for NodeServiceBehaviour<Substream>
+    for ClientServiceBehaviour<Substream>
 {
     fn inject_event(&mut self, _event: IdentifyEvent) {}
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
+impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
     pub fn new(_local_peer_id: &PeerId, local_public_key: PublicKey) -> Self {
         let ping = Ping::new(PingConfig::new());
         let identity = Identify::new("1.0.0".into(), "1.0.0".into(), local_public_key);
-        let node_connect_protocol = NodeConnectProtocolBehaviour::new();
+        let node_connect_protocol = ClientConnectProtocolBehaviour::new();
 
         Self {
             ping,
@@ -68,16 +68,16 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
         }
     }
 
-    pub fn pop_out_node_event(&mut self) -> Option<OutNodeServiceEvent> {
+    pub fn pop_out_node_event(&mut self) -> Option<InMessage> {
         self.nodes_events.pop_front()
     }
 
-    pub fn relay_message(&mut self, src: PeerId, dst: PeerId, message: Vec<u8>) {
-        self.node_connect_protocol.relay_message(src, dst, message);
+    pub fn send_message(&mut self, relay: PeerId, dst: PeerId, message: Vec<u8>) {
+        self.node_connect_protocol.send_message(relay, dst, message);
     }
 
-    pub fn send_network_state(&mut self, dst: PeerId, state: Vec<PeerId>) {
-        self.node_connect_protocol.send_network_state(dst, state);
+    pub fn get_network_state(&mut self, relay: PeerId) {
+        self.node_connect_protocol.get_network_state(relay);
     }
 
     pub fn exit(&mut self) {

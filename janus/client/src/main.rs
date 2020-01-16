@@ -14,15 +14,22 @@
  * limitations under the License.
  */
 
+#[allow(dead_code)]
+
+mod behaviour;
+mod connect_protocol;
+mod transport;
+
+use crate::behaviour::ClientServiceBehaviour;
+use crate::transport::build_transport;
 use env_logger;
 use futures::prelude::*;
-use janus_server::node_service::behaviour::NodeServiceBehaviour;
-use janus_server::node_service::transport;
 use libp2p::{
     identity,
     tokio_codec::{FramedRead, LinesCodec},
     PeerId,
 };
+use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::time::Duration;
@@ -48,22 +55,23 @@ fn main() {
     let relay_example = serde_json::to_value(relay_example).unwrap();
     println!("example of a relay message: {}", relay_example.to_string());
 
-    let transport = transport::build_transport(local_key.clone(), Duration::from_secs(20));
-
     let mut swarm = {
-        let behaviour = NodeServiceBehaviour::new(&local_peer_id, local_key.public());
+        let transport = build_transport(local_key.clone(), Duration::from_secs(20));
+        let behaviour = ClientServiceBehaviour::new(&local_peer_id, local_key.public());
         libp2p::Swarm::new(transport, behaviour, local_peer_id.clone())
     };
 
-    // Reach out to another node if specified
-    if let Some(to_dial) = std::env::args().nth(1) {
-        let dialing = to_dial.clone();
-        match to_dial.parse() {
-            Ok(to_dial) => match libp2p::Swarm::dial_addr(&mut swarm, to_dial) {
-                Ok(_) => println!("Dialed {:?}", dialing),
-                Err(e) => println!("Dial {:?} failed: {:?}", dialing, e),
-            },
-            Err(err) => println!("Failed to parse address to dial: {:?}", err),
+    let peer_to_dial: Multiaddr = std::env::args()
+        .nth(1)
+        .expect("multiaddr of relay peer should be provided by the first argument")
+        .parse()
+        .expect("provided wrong  Multiaddr");
+
+    match libp2p::Swarm::dial_addr(&mut swarm, peer_to_dial.clone()) {
+        Ok(_) => println!("Dialed to {:?}", peer_to_dial),
+        Err(e) => {
+            println!("Dial to {:?} failed with {:?}", peer_to_dial, e);
+            return;
         }
     }
 
@@ -83,11 +91,7 @@ fn main() {
                     let relay_user_input: Result<RelayUserInput, _> = serde_json::from_str(&line);
                     if let Ok(input) = relay_user_input {
                         let dst: PeerId = input.dst.parse().unwrap();
-                        swarm.node_connect_protocol.relay_message(
-                            connected_peer.clone(),
-                            dst,
-                            input.message.into(),
-                        );
+                        swarm.send_message(connected_peer.clone(), dst, input.message.into());
                     } else {
                         println!("incorrect string provided");
                     }

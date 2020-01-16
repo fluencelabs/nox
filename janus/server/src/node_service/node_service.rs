@@ -105,14 +105,12 @@ fn node_service_executor(
         loop {
             match node_service_in.poll() {
                 Ok(Async::Ready(Some(e))) => match e {
-                    InNodeServiceEvent::Relay { src, dst, data } => node_service
-                        .swarm
-                        .node_connect_protocol
-                        .relay_message(src, dst, data),
-                    InNodeServiceEvent::NetworkState { dst, state } => node_service
-                        .swarm
-                        .node_connect_protocol
-                        .send_network_state(dst, state),
+                    InNodeServiceEvent::Relay { src, dst, data } => {
+                        node_service.swarm.relay_message(src, dst, data)
+                    }
+                    InNodeServiceEvent::NetworkState { dst, state } => {
+                        node_service.swarm.send_network_state(dst, state)
+                    }
                 },
                 Ok(Async::NotReady) => break,
                 Ok(Async::Ready(None)) => {
