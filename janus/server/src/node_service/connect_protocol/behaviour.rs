@@ -25,6 +25,7 @@ use libp2p::{
     },
     PeerId,
 };
+use log::trace;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::time::Duration;
@@ -32,7 +33,7 @@ use tokio::prelude::*;
 
 pub struct NodeConnectProtocolBehaviour<Substream> {
     /// Queue of received network messages from connected nodes
-    /// that need to be performed during polling.
+    /// that need to be handled during polling.
     events: VecDeque<NetworkBehaviourAction<OutNodeMessage, OutNodeServiceEvent>>,
 
     /// Pin generic.
@@ -48,16 +49,28 @@ impl<Substream> NodeConnectProtocolBehaviour<Substream> {
     }
 
     pub fn relay_message(&mut self, src: PeerId, dst: PeerId, message: Vec<u8>) {
+        trace!(
+            "node_service/connect_protocol/behaviour: relaying message {:?} to {:?}",
+            message,
+            dst
+        );
+
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: dst,
             event: OutNodeMessage::Relay {
-                src: src.into_bytes(),
+                dst: src.into_bytes(),
                 data: message,
             },
         })
     }
 
     pub fn send_network_state(&mut self, dst: PeerId, state: Vec<PeerId>) {
+        trace!(
+            "node_service/connect_protocol/behaviour: sending network state {:?} to {:?}",
+            state,
+            dst
+        );
+
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: dst,
             event: OutNodeMessage::NetworkState {
@@ -89,6 +102,11 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
     }
 
     fn inject_connected(&mut self, node_id: PeerId, _cp: ConnectedPoint) {
+        trace!(
+            "node_service/connect_protocol/inject_connected: new node {:?} joined",
+            node_id
+        );
+
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
             OutNodeServiceEvent::NodeConnected {
                 node_id: node_id.clone(),
@@ -97,6 +115,11 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
     }
 
     fn inject_disconnected(&mut self, node_id: &PeerId, _cp: ConnectedPoint) {
+        trace!(
+            "node_service/connect_protocol/inject_disconnected: node {:?} disconnected",
+            node_id
+        );
+
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
             OutNodeServiceEvent::NodeDisconnected {
                 node_id: node_id.clone(),
@@ -105,6 +128,11 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
     }
 
     fn inject_node_event(&mut self, source: PeerId, event: InnerMessage) {
+        trace!(
+            "node_service/connect_protocol/inject_node_event: new event {:?} received",
+            event
+        );
+
         match event {
             InnerMessage::Rx(m) => match m {
                 InNodeMessage::Relay { dst, data } => self.events.push_back(
@@ -134,6 +162,10 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
         >,
     > {
         if let Some(e) = self.events.pop_front() {
+            trace!(
+                "node_service/connect_protocol/behaviour/poll: event {:?} poped",
+                e
+            );
             return Async::Ready(e);
         };
 

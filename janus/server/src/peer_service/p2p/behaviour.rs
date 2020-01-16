@@ -22,21 +22,24 @@ use crate::peer_service::relay::{
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
-use libp2p::mdns::{Mdns, MdnsEvent};
+//use libp2p::mdns::{Mdns, MdnsEvent};
+use crate::peer_service::p2p::swarm_state_behaviour::{SwarmStateBehaviour, SwarmStateEvent};
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{NetworkBehaviour, PeerId};
+use log::trace;
 use serde_json;
 use std::collections::VecDeque;
 use tokio::prelude::*;
 
 #[derive(NetworkBehaviour)]
 pub struct PeerServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
-    mdns: Mdns<Substream>,
+    //    mdns: Mdns<Substream>,
     ping: Ping<Substream>,
     relay: PeerRelayLayerBehaviour<Substream>,
     identity: Identify<Substream>,
     floodsub: Floodsub<Substream>,
+    swarm_state: SwarmStateBehaviour<Substream>,
 
     #[behaviour(ignore)]
     churn_topic: Topic,
@@ -49,12 +52,14 @@ pub struct PeerServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
     nodes_messages: VecDeque<RelayMessage>,
 }
 
+/*
 impl<Substream: AsyncWrite + AsyncRead> NetworkBehaviourEventProcess<MdnsEvent>
     for PeerServiceBehaviour<Substream>
 {
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
             MdnsEvent::Discovered(list) => {
+                println!("peer_service/behaviour/mdns: {:?} peers discovered", list);
                 for (peer, _addr) in list {
                     // trace
                     self.floodsub.add_node_to_partial_view(peer);
@@ -70,6 +75,7 @@ impl<Substream: AsyncWrite + AsyncRead> NetworkBehaviourEventProcess<MdnsEvent>
         }
     }
 }
+*/
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<RelayMessage>
     for PeerServiceBehaviour<Substream>
@@ -100,19 +106,35 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
                 let p2p_message = serde_json::from_slice(&message.data).unwrap();
                 match p2p_message {
                     P2PNetworkMessage::PeerConnected { peer, nodes } => {
+                        let peer = PeerId::from_bytes(peer).unwrap();
+                        trace!(
+                            "peer_service/p2p/behaviour/floodsub: new peer {} connected",
+                            peer
+                        );
+
                         let nodes = nodes
                             .iter()
                             .cloned()
                             .map(|node| PeerId::from_bytes(node).unwrap())
                             .collect();
-                        self.relay
-                            .add_new_peer(PeerId::from_bytes(peer).unwrap(), nodes);
+                        self.relay.add_new_peer(peer, nodes);
                     }
                     P2PNetworkMessage::PeerDisconnected { peer } => {
-                        self.relay.remove_peer(PeerId::from_bytes(peer).unwrap());
+                        let peer = PeerId::from_bytes(peer).unwrap();
+                        trace!(
+                            "peer_service/p2p/behaviour/floodsub: new peer {} connected",
+                            peer
+                        );
+
+                        self.relay.remove_peer(peer);
                     }
                     P2PNetworkMessage::NodesConnected { peer, nodes } => {
                         let peer = PeerId::from_bytes(peer.clone()).unwrap();
+                        trace!(
+                            "peer_service/p2p/behaviour/floodsub: new nodes connected to peer {}",
+                            peer
+                        );
+
                         for node in nodes {
                             self.relay
                                 .add_new_node(&peer, PeerId::from_bytes(node).unwrap());
@@ -120,6 +142,8 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
                     }
                     P2PNetworkMessage::NodesDisconnected { peer, nodes } => {
                         let peer = PeerId::from_bytes(peer.clone()).unwrap();
+                        trace!("peer_service/p2p/behaviour/floodsub: some nodes disconnected from peer {}", peer);
+
                         for node in nodes {
                             self.relay
                                 .remove_node(&peer, PeerId::from_bytes(node).unwrap());
@@ -133,22 +157,41 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
     }
 }
 
+impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<SwarmStateEvent>
+    for PeerServiceBehaviour<Substream>
+{
+    fn inject_event(&mut self, event: SwarmStateEvent) {
+        match event {
+            SwarmStateEvent::Connected(peer) => {
+                self.floodsub.add_node_to_partial_view(peer.clone());
+                self.relay.add_new_peer(peer, Vec::new());
+            }
+            SwarmStateEvent::Disconnected(peer) => {
+                self.floodsub.remove_node_from_partial_view(&peer);
+                self.relay.remove_peer(peer);
+            }
+        }
+    }
+}
+
 impl<Substream: AsyncRead + AsyncWrite> PeerServiceBehaviour<Substream> {
     pub fn new(local_peer_id: PeerId, local_public_key: PublicKey, churn_topic: Topic) -> Self {
-        let mdns = Mdns::new().expect("failed to create mdns");
+        //        let mdns = Mdns::new().expect("failed to create mdns");
         let relay = PeerRelayLayerBehaviour::new();
         let ping = Ping::new(PingConfig::new());
         let mut floodsub = Floodsub::new(local_peer_id.clone());
         let identity = Identify::new("/janus/1.0.0".into(), "janus".into(), local_public_key);
+        let swarm_state = SwarmStateBehaviour::new();
 
         floodsub.subscribe(churn_topic.clone());
 
         Self {
-            mdns,
+            //            mdns,
             ping,
             relay,
             identity,
             floodsub,
+            swarm_state,
             churn_topic,
             local_peer_id,
             nodes_messages: VecDeque::new(),
@@ -175,6 +218,8 @@ impl<Substream: AsyncRead + AsyncWrite> PeerServiceBehaviour<Substream> {
     }
 
     pub fn add_connected_node(&mut self, node: PeerId) {
+        trace!("peer_service/p2p/behaviour: add connected node {:?}", node);
+
         self.relay.connected_nodes_mut().insert(node.clone());
 
         let message = P2PNetworkMessage::NodesConnected {
@@ -186,6 +231,11 @@ impl<Substream: AsyncRead + AsyncWrite> PeerServiceBehaviour<Substream> {
     }
 
     pub fn remove_connected_node(&mut self, node: PeerId) {
+        trace!(
+            "peer_service/p2p/behaviour: remove connected node {:?}",
+            node
+        );
+
         self.relay.connected_nodes_mut().remove(&node);
 
         let message = P2PNetworkMessage::NodesDisconnected {

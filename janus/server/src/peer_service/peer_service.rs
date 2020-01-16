@@ -30,6 +30,7 @@ use std::sync::{Arc, Mutex};
 use tokio::prelude::*;
 use tokio::runtime::TaskExecutor;
 use tokio::sync::mpsc;
+//use log::trace;
 
 pub struct PeerService {
     pub swarm:
@@ -40,7 +41,7 @@ impl PeerService {
     pub fn new(config: PeerServiceConfig) -> Arc<Mutex<Self>> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
-        println!("node service is starting with peer id = {}", local_peer_id);
+        println!("peer service is starting with peer id = {}", local_peer_id);
 
         let mut swarm = {
             let transport = build_transport(local_key.clone(), config.socket_timeout);
@@ -149,6 +150,8 @@ fn peer_service_executor(
         }
 
         if let Some(e) = peer_service.lock().unwrap().swarm.pop_node_relay_message() {
+            println!("peer_service/poll: sending {:?} to node_service", e);
+
             node_service_in
                 .try_send(InNodeServiceEvent::Relay {
                     src: PeerId::from_bytes(e.src).unwrap(),

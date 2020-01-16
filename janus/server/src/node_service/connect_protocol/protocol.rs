@@ -17,6 +17,7 @@
 use crate::error::Error;
 use crate::node_service::connect_protocol::messages::{InNodeMessage, OutNodeMessage};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
+use log::trace;
 use serde_json;
 use std::{io, iter};
 use tokio::prelude::*;
@@ -50,6 +51,11 @@ impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for InNodeMessage {
     ) -> Self::Future {
         upgrade::read_one_then(socket, MAX_BUF_SIZE, (), |packet, ()| {
             let relay_message: InNodeMessage = serde_json::from_slice(&packet).unwrap();
+            trace!(
+                "node_service/connect_protocol/upgrade_inbound: received a new relay message {:?}",
+                relay_message
+            );
+
             Ok(relay_message)
         })
     }
@@ -77,6 +83,11 @@ where
         socket: upgrade::Negotiated<Socket>,
         _info: Self::Info,
     ) -> Self::Future {
+        trace!(
+            "node_service/connect_protocol/upgrade_outbound: sending a new network message: {:?}",
+            self
+        );
+
         let bytes = serde_json::to_vec(&self).expect("failed to serialize OutNodeMessage to json");
         upgrade::write_one(socket, bytes)
     }

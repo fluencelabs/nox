@@ -9,6 +9,7 @@ janus-server = { path = "../server" }
 libp2p = "0.13.1"
 parity-multiaddr = "0.6.0"
 tokio = "0.1.22"
+tokio-stdin-stdout = "0.1"
 futures = "0.1.29"
 
 serde = { version = "1.0.104", features = ["derive"] }
@@ -16,3 +17,5 @@ serde_json = "1.0.44"
 
 failure = "0.1.6"
 fnv = "1.0.6"
+bs58 = "0.3.0"
+env_logger = "0.7.1"

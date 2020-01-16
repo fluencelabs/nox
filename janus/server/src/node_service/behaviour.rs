@@ -57,11 +57,7 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEve
 impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
     pub fn new(_local_peer_id: &PeerId, local_public_key: PublicKey) -> Self {
         let ping = Ping::new(PingConfig::new());
-        let identity = Identify::new(
-            "/janus/node_connect/1.0.0".into(),
-            "janus".into(),
-            local_public_key,
-        );
+        let identity = Identify::new("1.0.0".into(), "1.0.0".into(), local_public_key);
         let node_connect_protocol = NodeConnectProtocolBehaviour::new();
 
         Self {

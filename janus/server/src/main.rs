@@ -14,6 +14,16 @@
  * limitations under the License.
  */
 
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
+
 mod config;
 mod error;
 mod node_service;
@@ -21,11 +31,16 @@ mod peer_service;
 
 use crate::node_service::node_service::{start_node_service, NodeService, NodeServiceDescriptor};
 use crate::peer_service::peer_service::{start_peer_service, PeerService};
+use env_logger;
+use log::trace;
 use std::thread;
 use std::time;
 use tokio;
 
 fn main() {
+    env_logger::init();
+    trace!("trace level of logging is activated");
+
     let runtime = tokio::runtime::Runtime::new().expect("failed to create tokio Runtime");
 
     let node_service = NodeService::new(config::NodeServiceConfig::default());
@@ -43,7 +58,7 @@ fn main() {
     .expect("An error occurred during the peer service start");
 
     println!("Janus has been successfully started");
-    let ten_millis = time::Duration::from_secs(120);
+    let ten_millis = time::Duration::from_secs(5 * 60);
     thread::sleep(ten_millis);
 
     println!("exiting");

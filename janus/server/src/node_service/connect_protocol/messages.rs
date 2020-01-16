@@ -40,7 +40,7 @@ impl Default for InNodeMessage {
 #[serde(tag = "action")]
 pub enum OutNodeMessage {
     /// Message that should be relayed from src node to chosen dst node.
-    Relay { src: Vec<u8>, data: Vec<u8> },
+    Relay { dst: Vec<u8>, data: Vec<u8> },
 
     /// Message contains all peers in the network.
     NetworkState { state: Vec<Vec<u8>> },

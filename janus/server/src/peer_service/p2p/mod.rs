@@ -16,4 +16,5 @@
 
 pub mod behaviour;
 mod message;
+mod swarm_state_behaviour;
 pub mod transport;

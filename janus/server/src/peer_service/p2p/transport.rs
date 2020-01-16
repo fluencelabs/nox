@@ -16,6 +16,7 @@
 
 use libp2p::{
     core::{self, muxing::StreamMuxerBox, transport::boxed::Boxed},
+    dns::DnsConfig,
     identity::Keypair,
     mplex::MplexConfig,
     secio::SecioConfig,
@@ -33,8 +34,7 @@ pub(crate) type PeerServiceTransport = Boxed<(PeerId, StreamMuxerBox), Error>;
 /// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
 /// the multiplexing layer.
 pub fn build_transport(keys: Keypair, socket_timeout: Duration) -> PeerServiceTransport {
-    TcpConfig::new()
-        .nodelay(true)
+    DnsConfig::new(TcpConfig::new().nodelay(true))
         .upgrade(core::upgrade::Version::V1)
         .authenticate(SecioConfig::new(keys))
         .multiplex(

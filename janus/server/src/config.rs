@@ -42,7 +42,7 @@ impl Default for PeerServiceConfig {
     fn default() -> Self {
         Self {
             listen_port: 7777,
-            listen_ip: "127.0.0.1".parse().unwrap(),
+            listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             secret_key: None,
             bootstrap_nodes: vec![],
@@ -65,8 +65,8 @@ pub struct NodeServiceConfig {
 impl Default for NodeServiceConfig {
     fn default() -> Self {
         Self {
-            listen_port: 7778,
-            listen_ip: "127.0.0.1".parse().unwrap(),
+            listen_port: 7780,
+            listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
         }
     }

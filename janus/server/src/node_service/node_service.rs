@@ -25,6 +25,7 @@ use libp2p::{
     core::muxing::{StreamMuxerBox, SubstreamRef},
     identity, PeerId, Swarm,
 };
+use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
 use std::sync::{Arc, Mutex};
 use tokio::prelude::*;
@@ -57,7 +58,6 @@ impl NodeService {
 
         let mut listen_addr = Multiaddr::from(config.listen_ip);
         listen_addr.push(Protocol::Tcp(config.listen_port));
-
         Swarm::listen_on(&mut swarm, listen_addr).unwrap();
 
         Arc::new(Mutex::new(Self { swarm }))
@@ -98,18 +98,18 @@ fn node_service_executor(
     mut node_service_out: mpsc::UnboundedSender<OutNodeServiceEvent>,
 ) -> impl futures::Future<Item = (), Error = ()> {
     futures::future::poll_fn(move || -> Result<_, ()> {
+        let mut node_service = node_service
+            .lock()
+            .expect("node_service couldn't be unlocked");
+
         loop {
             match node_service_in.poll() {
                 Ok(Async::Ready(Some(e))) => match e {
                     InNodeServiceEvent::Relay { src, dst, data } => node_service
-                        .lock()
-                        .unwrap()
                         .swarm
                         .node_connect_protocol
                         .relay_message(src, dst, data),
                     InNodeServiceEvent::NetworkState { dst, state } => node_service
-                        .lock()
-                        .unwrap()
                         .swarm
                         .node_connect_protocol
                         .send_network_state(dst, state),
@@ -127,15 +127,19 @@ fn node_service_executor(
         }
 
         loop {
-            match node_service.lock().unwrap().swarm.poll() {
-                Ok(Async::Ready(Some(_))) => {}
+            match node_service.swarm.poll() {
+                Ok(Async::Ready(Some(e))) => {
+                    trace!("node_service/poll: received {:?} event", e);
+                }
                 Ok(Async::Ready(None)) => unreachable!("stream never ends"),
                 Ok(Async::NotReady) => break,
                 Err(_) => break,
             }
         }
 
-        if let Some(e) = node_service.lock().unwrap().swarm.pop_out_node_event() {
+        if let Some(e) = node_service.swarm.pop_out_node_event() {
+            trace!("node_service/poll: sending {:?} to peer_service", e);
+
             node_service_out.try_send(e).unwrap();
         }
 

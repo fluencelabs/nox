@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+use env_logger;
 use futures::prelude::*;
 use janus_server::node_service::behaviour::NodeServiceBehaviour;
 use janus_server::node_service::transport;
 use libp2p::{
     identity,
     tokio_codec::{FramedRead, LinesCodec},
-    PeerId, Swarm,
+    PeerId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -34,6 +35,8 @@ struct RelayUserInput {
 }
 
 fn main() {
+    env_logger::init();
+
     let local_key = identity::Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
     println!("Local peer id: {:?}", local_peer_id);
@@ -64,13 +67,9 @@ fn main() {
         }
     }
 
-    let stdin = tokio::io::stdin();
+    let stdin = tokio_stdin_stdout::stdin(0);
     let mut framed_stdin = FramedRead::new(stdin, LinesCodec::new());
 
-    libp2p::Swarm::listen_on(&mut swarm, "/ip4/0.0.0.0/tcp/7779".parse().unwrap()).unwrap();
-
-    // Kick it off
-    let mut listening = false;
     tokio::run(futures::future::poll_fn(move || -> Result<_, ()> {
         loop {
             match framed_stdin.poll().expect("Error while polling stdin") {
@@ -96,12 +95,6 @@ fn main() {
             match swarm.poll().expect("Error while polling swarm") {
                 Async::Ready(Some(_)) => {}
                 Async::Ready(None) | Async::NotReady => {
-                    if !listening {
-                        if let Some(a) = Swarm::listeners(&swarm).next() {
-                            println!("Listening on {:?}", a);
-                            listening = true;
-                        }
-                    }
                     break;
                 }
             }
