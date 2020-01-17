@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::events::{InMessage, OutMessage};
+use crate::connect_protocol::events::{InEvent, OutMessage};
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -26,12 +27,12 @@ use libp2p::{
 use log::trace;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
-use tokio::prelude::*;
+use std::task::{Context, Poll};
 
 pub struct ClientConnectProtocolBehaviour<Substream> {
     /// Queue of received network messages from connected nodes
     /// that need to be handled during polling.
-    events: VecDeque<NetworkBehaviourAction<OutMessage, InMessage>>,
+    events: VecDeque<NetworkBehaviourAction<OutMessage, InEvent>>,
 
     /// Pin generic.
     marker: PhantomData<Substream>,
@@ -72,11 +73,12 @@ impl<Substream> ClientConnectProtocolBehaviour<Substream> {
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
-    for ClientConnectProtocolBehaviour<Substream>
+impl<Substream> NetworkBehaviour for ClientConnectProtocolBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    type ProtocolsHandler = OneShotHandler<Substream, InMessage, OutMessage, InnerMessage>;
-    type OutEvent = InMessage;
+    type ProtocolsHandler = OneShotHandler<Substream, InEvent, OutMessage, InnerMessage>;
+    type OutEvent = InEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()
@@ -103,8 +105,9 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
 
     fn poll(
         &mut self,
+        _: &mut Context,
         _: &mut impl PollParameters,
-    ) -> Async<
+    ) -> Poll<
         NetworkBehaviourAction<
             <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
             Self::OutEvent,
@@ -112,10 +115,10 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
     > {
         if let Some(e) = self.events.pop_front() {
             trace!("client: event {:?} popped", e);
-            return Async::Ready(e);
+            return Poll::Ready(e);
         };
 
-        Async::NotReady
+        Poll::Pending
     }
 }
 
@@ -123,15 +126,15 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
 #[derive(Debug)]
 pub enum InnerMessage {
     /// Message has been received from a remote.
-    Rx(InMessage),
+    Rx(InEvent),
 
     /// RelayMessage has been sent
     Tx,
 }
 
-impl From<InMessage> for InnerMessage {
+impl From<InEvent> for InnerMessage {
     #[inline]
-    fn from(in_message: InMessage) -> InnerMessage {
+    fn from(in_message: InEvent) -> InnerMessage {
         InnerMessage::Rx(in_message)
     }
 }

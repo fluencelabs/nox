@@ -15,14 +15,14 @@
  */
 
 use crate::connect_protocol::behaviour::ClientConnectProtocolBehaviour;
-use crate::connect_protocol::events::InMessage;
+use crate::connect_protocol::events::InEvent;
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{NetworkBehaviour, PeerId};
 use std::collections::VecDeque;
-use tokio::prelude::*;
 
 #[derive(NetworkBehaviour)]
 pub struct ClientServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
@@ -31,13 +31,13 @@ pub struct ClientServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
     node_connect_protocol: ClientConnectProtocolBehaviour<Substream>,
 
     #[behaviour(ignore)]
-    nodes_events: VecDeque<InMessage>,
+    nodes_events: VecDeque<InEvent>,
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<InMessage>
+impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<InEvent>
     for ClientServiceBehaviour<Substream>
 {
-    fn inject_event(&mut self, event: InMessage) {
+    fn inject_event(&mut self, event: InEvent) {
         self.nodes_events.push_back(event);
     }
 }
@@ -68,7 +68,7 @@ impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
         }
     }
 
-    pub fn pop_out_node_event(&mut self) -> Option<InMessage> {
+    pub fn pop_out_node_event(&mut self) -> Option<InEvent> {
         self.nodes_events.pop_front()
     }
 

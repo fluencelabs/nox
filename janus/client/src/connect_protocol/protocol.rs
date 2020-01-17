@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::events::{InMessage, OutMessage};
+use crate::connect_protocol::events::{InEvent, OutMessage};
+use futures::prelude::*;
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
 use serde_json;
-use std::{io, iter};
-use tokio::prelude::*;
+use std::pin::Pin;
+use std::iter;
 
 // 1 Mb
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/janus/peer/1.0.0";
 
-impl UpgradeInfo for InMessage {
+impl UpgradeInfo for InEvent {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -34,25 +35,23 @@ impl UpgradeInfo for InMessage {
     }
 }
 
-impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for InMessage {
-    type Output = InMessage;
+impl<Socket> InboundUpgrade<Socket> for InEvent
+where
+    Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
+    type Output = InEvent;
     type Error = failure::Error;
-    type Future = upgrade::ReadOneThen<
-        upgrade::Negotiated<Socket>,
-        (),
-        fn(Vec<u8>, ()) -> Result<Self::Output, Self::Error>,
-    >;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(
         self,
-        socket: upgrade::Negotiated<Socket>,
-        _info: Self::Info,
+        mut socket: upgrade::Negotiated<Socket>,
+        _: Self::Info,
     ) -> Self::Future {
-        upgrade::read_one_then(socket, MAX_BUF_SIZE, (), |packet, ()| {
-            let relay_message: InMessage = serde_json::from_slice(&packet).unwrap();
-            trace!("client: received a new relay message {:?}", relay_message);
-
-            Ok(relay_message)
+        Box::pin(async move {
+            let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
+            let relay_event: InEvent = serde_json::from_slice(&packet).unwrap();
+            Ok(relay_event)
         })
     }
 }
@@ -68,20 +67,25 @@ impl UpgradeInfo for OutMessage {
 
 impl<Socket> OutboundUpgrade<Socket> for OutMessage
 where
-    Socket: AsyncRead + AsyncWrite,
+    Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     type Output = ();
-    type Error = io::Error;
-    type Future = upgrade::WriteOne<upgrade::Negotiated<Socket>>;
+    type Error = upgrade::ReadOneError;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_outbound(
         self,
-        socket: upgrade::Negotiated<Socket>,
-        _info: Self::Info,
+        mut socket: upgrade::Negotiated<Socket>,
+        _: Self::Info,
     ) -> Self::Future {
         trace!("client: sending a new network message: {:?}", self);
 
-        let bytes = serde_json::to_vec(&self).expect("failed to serialize OutNodeMessage to json");
-        upgrade::write_one(socket, bytes)
+        Box::pin(async move {
+            let bytes =
+                serde_json::to_vec(&self).expect("failed to serialize OutNodeMessage to json");
+            upgrade::write_one(&mut socket, bytes).await?;
+
+            Ok(())
+        })
     }
 }

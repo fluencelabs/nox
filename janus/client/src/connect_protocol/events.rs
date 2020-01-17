@@ -31,7 +31,7 @@ pub enum OutMessage {
 /// Describes network message from current peer to a node (server -> client).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
-pub enum InMessage {
+pub enum InEvent {
     /// Message that should be relayed from src node to chosen dst node.
     Relay { src_id: Vec<u8>, data: Vec<u8> },
 
@@ -39,8 +39,8 @@ pub enum InMessage {
     NetworkState { state: Vec<Vec<u8>> },
 }
 
-impl Default for InMessage {
+impl Default for InEvent {
     fn default() -> Self {
-        InMessage::NetworkState { state: Vec::new() }
+        InEvent::NetworkState { state: Vec::new() }
     }
 }

@@ -20,19 +20,20 @@ mod connect_protocol;
 mod transport;
 
 use crate::behaviour::ClientServiceBehaviour;
-use crate::connect_protocol::events::InMessage;
+use crate::connect_protocol::events::InEvent;
 use crate::transport::build_transport;
+use async_std::{io, task};
 use env_logger;
-use futures::prelude::*;
-use libp2p::{
-    identity,
-    tokio_codec::{FramedRead, LinesCodec},
-    PeerId,
-};
+use futures::{future, prelude::*};
+use libp2p::{identity, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::time::Duration;
+use std::{
+    error::Error,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 // user input for relaying (just a json now)
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -41,7 +42,7 @@ struct RelayUserInput {
     message: String,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
     let local_key = identity::Keypair::generate_ed25519();
@@ -71,7 +72,6 @@ fn main() {
         Ok(_) => println!("Dialed to {:?}", relay_peer_addr.clone()),
         Err(e) => {
             println!("Dial to {:?} failed with {:?}", relay_peer_addr.clone(), e);
-            return;
         }
     }
 
@@ -81,13 +81,12 @@ fn main() {
         .parse()
         .expect("provided wrong PeerId");
 
-    let stdin = tokio_stdin_stdout::stdin(0);
-    let mut framed_stdin = FramedRead::new(stdin, LinesCodec::new());
+    let mut stdin = io::BufReader::new(io::stdin()).lines();
 
-    tokio::run(futures::future::poll_fn(move || -> Result<_, ()> {
+    task::block_on(future::poll_fn(move |cx: &mut Context| {
         loop {
-            match framed_stdin.poll().expect("Error while polling stdin") {
-                Async::Ready(Some(line)) => {
+            match stdin.try_poll_next_unpin(cx)? {
+                Poll::Ready(Some(line)) => {
                     let relay_user_input: Result<RelayUserInput, _> = serde_json::from_str(&line);
                     if let Ok(input) = relay_user_input {
                         let dst: PeerId = input.dst.parse().unwrap();
@@ -98,33 +97,32 @@ fn main() {
 
                     libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
                 }
-                Async::Ready(None) => panic!("Stdin closed"),
-                Async::NotReady => break,
+                Poll::Ready(None) => panic!("Stdin closed"),
+                Poll::Pending => break,
             };
         }
 
         loop {
-            match swarm.poll().expect("Error while polling swarm") {
-                Async::Ready(Some(_)) => {}
-                Async::Ready(None) | Async::NotReady => {
-                    break;
-                }
+            match swarm.poll_next_unpin(cx) {
+                Poll::Ready(Some(e)) => println!("event received {:?}", e),
+                Poll::Ready(None) => return Poll::Ready(Ok(())),
+                Poll::Pending => break,
             }
         }
 
         if let Some(event) = swarm.pop_out_node_event() {
             match event {
-                InMessage::Relay { src_id, data } => {
+                InEvent::Relay { src_id, data } => {
                     let peer_id = PeerId::from_bytes(src_id).unwrap();
                     let message = String::from_utf8(data).unwrap();
                     println!("{}: {}", peer_id, message);
                 }
-                InMessage::NetworkState { state } => println!("network state: {:?}", state),
+                InEvent::NetworkState { state } => println!("network state: {:?}", state),
             }
 
             libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
         }
 
-        Ok(Async::NotReady)
-    }));
+        Poll::Pending
+    }))
 }
