@@ -243,14 +243,14 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
         self.relay.network_state()
     }
 
-/*    pub fn exit(&mut self) {
-        let message = P2PNetworkEvents::NodeDisconnected {
-            node_id: self.local_node_id.clone().into_bytes(),
-        };
+    /*    pub fn exit(&mut self) {
+            let message = P2PNetworkEvents::NodeDisconnected {
+                node_id: self.local_node_id.clone().into_bytes(),
+            };
 
-        self.gossip_network_update(message);
-    }
-*/
+            self.gossip_network_update(message);
+        }
+    */
 
     fn gossip_network_update(&mut self, message: P2PNetworkEvents) {
         let message =
