@@ -49,7 +49,7 @@ fn main() {
     println!("Local peer id: {:?}", local_peer_id);
 
     let relay_example = RelayUserInput {
-        dst: "QmNm9NAew7oqitRRP1efai7g1nuvYonSpyBAb2hW5DEqNs".to_string(),
+        dst: local_peer_id.to_string(),
         message: "hello".to_string(),
     };
     let relay_example = serde_json::to_value(relay_example).unwrap();

@@ -27,6 +27,7 @@ use libp2p::{
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
+use log::trace;
 use tokio::prelude::*;
 
 pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
