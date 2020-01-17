@@ -24,7 +24,7 @@ use libp2p::{
     },
     PeerId,
 };
-//use log::trace;
+use log::trace;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
@@ -92,15 +92,17 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
 
     /// Prints the whole network state. Just for debug purposes.
     fn print_network_state(&self) {
-        println!("\nNetwork state:");
-        for (k, v) in self.network_state.iter() {
-            println!("peer {}, connected nodes:", k);
-            for n in v.iter() {
-                println!("{}", n);
+        trace!("\nNetwork state:");
+        for (node_id, peer_ids) in self.network_state.iter() {
+            trace!("node {}, connected peers:", node_id);
+            for peer_id in peer_ids.iter() {
+                trace!("{}", peer_id);
             }
         }
-
-        println!("\n");
+        trace!("current node, connected peers:");
+        for peer_id in self.connected_peers() {
+            trace!("{}", peer_id);
+        }
     }
 
     pub fn network_state(&self) -> &NetworkState {
@@ -119,7 +121,7 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     pub fn relay(&mut self, relay_message: RelayEvent) {
         let dst_peer_id = PeerId::from_bytes(relay_message.dst_id.clone()).unwrap();
 
-        println!(
+        trace!(
             "node_service/relay/behaviour: relaying data to {}",
             dst_peer_id
         );
@@ -136,12 +138,10 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
                     peer_id: node.to_owned(),
                     event: relay_message,
                 });
-                println!("node_service/relay/behaviour;: found destination node");
 
                 return;
             }
         }
-        // the destination node is connected to our peer - just send message directly to it
     }
 }
 
