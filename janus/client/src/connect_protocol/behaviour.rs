@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::events::{InEvent, OutMessage};
+use crate::connect_protocol::events::{InEvent, OutEvent};
 use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
@@ -32,7 +32,7 @@ use std::task::{Context, Poll};
 pub struct ClientConnectProtocolBehaviour<Substream> {
     /// Queue of received network messages from connected nodes
     /// that need to be handled during polling.
-    events: VecDeque<NetworkBehaviourAction<OutMessage, InEvent>>,
+    events: VecDeque<NetworkBehaviourAction<OutEvent, InEvent>>,
 
     /// Pin generic.
     marker: PhantomData<Substream>,
@@ -56,7 +56,7 @@ impl<Substream> ClientConnectProtocolBehaviour<Substream> {
 
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: relay,
-            event: OutMessage::Relay {
+            event: OutEvent::Relay {
                 dst_id: dst.into_bytes(),
                 data: message,
             },
@@ -68,7 +68,7 @@ impl<Substream> ClientConnectProtocolBehaviour<Substream> {
 
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: relay,
-            event: OutMessage::GetNetworkState,
+            event: OutEvent::GetNetworkState,
         })
     }
 }
@@ -77,7 +77,7 @@ impl<Substream> NetworkBehaviour for ClientConnectProtocolBehaviour<Substream>
 where
     Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    type ProtocolsHandler = OneShotHandler<Substream, InEvent, OutMessage, InnerMessage>;
+    type ProtocolsHandler = OneShotHandler<Substream, InEvent, OutEvent, InnerMessage>;
     type OutEvent = InEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {

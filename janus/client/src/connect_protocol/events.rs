@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// Describes network messages from a node to current peer (client -> server).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
-pub enum OutMessage {
+pub enum OutEvent {
     /// Represents a message that should be relayed to given dst node.
     Relay { dst_id: Vec<u8>, data: Vec<u8> },
 

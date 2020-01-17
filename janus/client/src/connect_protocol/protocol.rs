@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::events::{InEvent, OutMessage};
+use crate::connect_protocol::events::{InEvent, OutEvent};
 use futures::prelude::*;
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
@@ -56,7 +56,7 @@ where
     }
 }
 
-impl UpgradeInfo for OutMessage {
+impl UpgradeInfo for OutEvent {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -65,7 +65,7 @@ impl UpgradeInfo for OutMessage {
     }
 }
 
-impl<Socket> OutboundUpgrade<Socket> for OutMessage
+impl<Socket> OutboundUpgrade<Socket> for OutEvent
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
