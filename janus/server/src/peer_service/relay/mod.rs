@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+/// The main responsibility of this layer is to contain the whole network state and routes
+/// incoming RelayMessage requests according to it.
 pub mod behaviour;
 pub mod message;
 pub mod protocol;

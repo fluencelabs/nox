@@ -24,16 +24,20 @@ use libp2p::{
     },
     PeerId,
 };
+use log::trace;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use log::trace;
 use tokio::prelude::*;
 
 pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 
+/// Behaviour of the Relay layer. Contains the whole network state with connected nodes to this
+/// peer. Produces RelayMessage in event (in terms of libp2p) to libp2p internals if a message
+/// should be relayed to other peer and out event if a message should be relayed to a node connected
+/// to this peer.
 pub struct PeerRelayLayerBehaviour<Substream> {
-    // Queue of events to send.
+    // Queue of events that has to be sent to nodes connected to this peer.
     events: VecDeque<NetworkBehaviourAction<RelayMessage, RelayMessage>>,
 
     /// Connected to these peer nodes.
@@ -56,12 +60,21 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         }
     }
 
+    /// Adds a new peer with provided peer id and a list of connected nodes to the network state.
     pub fn add_new_peer(&mut self, peer: PeerId, nodes: Vec<PeerId>) {
         self.network_state.insert(peer, HashSet::from_iter(nodes));
 
         self.print_network_state();
     }
 
+    /// Removes peer with provided peer id from the network state.
+    pub fn remove_peer(&mut self, peer: PeerId) {
+        self.network_state.remove(&peer);
+
+        self.print_network_state();
+    }
+
+    /// Adds a new node with provided peer id connected to given peer to the network state.
     pub fn add_new_node(&mut self, peer: &PeerId, node: PeerId) {
         if let Some(v) = self.network_state.get_mut(peer) {
             v.insert(node);
@@ -70,6 +83,7 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         self.print_network_state();
     }
 
+    /// Removes node with provided peer id connected to given peer from the network state.
     pub fn remove_node(&mut self, peer: &PeerId, node: PeerId) {
         if let Some(v) = self.network_state.get_mut(peer) {
             v.remove(&node);
@@ -78,12 +92,7 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         self.print_network_state();
     }
 
-    pub fn remove_peer(&mut self, peer: PeerId) {
-        self.network_state.remove(&peer);
-
-        self.print_network_state();
-    }
-
+    /// Prints the whole network state. Just for debug purposes.
     fn print_network_state(&self) {
         trace!("\nNetwork state:");
         for (k, v) in self.network_state.iter() {
@@ -108,6 +117,7 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         self.connected_nodes.iter().cloned().collect::<Vec<_>>()
     }
 
+    /// Relays given message to the given node according to the current network state.
     pub fn relay(&mut self, relay_message: RelayMessage) {
         let dst_node = &relay_message.dst;
         let dst_node = PeerId::from_bytes(dst_node.clone()).unwrap();
@@ -129,6 +139,7 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehaviour<Substream> {
+    // use simple one shot handler
     type ProtocolsHandler = OneShotHandler<Substream, RelayMessage, RelayMessage, InnerMessage>;
     type OutEvent = RelayMessage;
 
@@ -160,6 +171,7 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehav
             Self::OutEvent,
         >,
     > {
+        // events contains RelayMessage events that just need to promoted to the upper level
         if let Some(event) = self.events.pop_front() {
             return Async::Ready(event);
         }

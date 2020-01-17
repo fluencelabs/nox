@@ -22,7 +22,6 @@ use crate::peer_service::relay::{
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
-//use libp2p::mdns::{Mdns, MdnsEvent};
 use crate::peer_service::p2p::swarm_state_behaviour::{SwarmStateBehaviour, SwarmStateEvent};
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::NetworkBehaviourEventProcess;
@@ -32,9 +31,10 @@ use serde_json;
 use std::collections::VecDeque;
 use tokio::prelude::*;
 
+/// Behaviour of the p2p layer that is responsible for keeping the network state actual and rules
+/// all other protocols of the Janus.
 #[derive(NetworkBehaviour)]
 pub struct PeerServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
-    //    mdns: Mdns<Substream>,
     ping: Ping<Substream>,
     relay: PeerRelayLayerBehaviour<Substream>,
     identity: Identify<Substream>,
@@ -51,31 +51,6 @@ pub struct PeerServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
     #[behaviour(ignore)]
     nodes_messages: VecDeque<RelayMessage>,
 }
-
-/*
-impl<Substream: AsyncWrite + AsyncRead> NetworkBehaviourEventProcess<MdnsEvent>
-    for PeerServiceBehaviour<Substream>
-{
-    fn inject_event(&mut self, event: MdnsEvent) {
-        match event {
-            MdnsEvent::Discovered(list) => {
-                println!("peer_service/behaviour/mdns: {:?} peers discovered", list);
-                for (peer, _addr) in list {
-                    // trace
-                    self.floodsub.add_node_to_partial_view(peer);
-                }
-            }
-            MdnsEvent::Expired(list) => {
-                for (peer, _) in list {
-                    if !self.mdns.has_node(&peer) {
-                        self.floodsub.remove_node_from_partial_view(&peer);
-                    }
-                }
-            }
-        }
-    }
-}
-*/
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<RelayMessage>
     for PeerServiceBehaviour<Substream>
@@ -184,7 +159,6 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<SwarmStateE
 
 impl<Substream: AsyncRead + AsyncWrite> PeerServiceBehaviour<Substream> {
     pub fn new(local_peer_id: PeerId, local_public_key: PublicKey, churn_topic: Topic) -> Self {
-        //        let mdns = Mdns::new().expect("failed to create mdns");
         let relay = PeerRelayLayerBehaviour::new();
         let ping = Ping::new(PingConfig::new());
         let mut floodsub = Floodsub::new(local_peer_id.clone());
@@ -194,7 +168,6 @@ impl<Substream: AsyncRead + AsyncWrite> PeerServiceBehaviour<Substream> {
         floodsub.subscribe(churn_topic.clone());
 
         Self {
-            //            mdns,
             ping,
             relay,
             identity,

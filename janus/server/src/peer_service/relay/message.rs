@@ -16,6 +16,7 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Relay message is just a data that need to be relayed from src node to dst node.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct RelayMessage {
     pub src: Vec<u8>,

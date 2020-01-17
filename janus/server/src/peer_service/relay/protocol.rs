@@ -36,6 +36,7 @@ impl UpgradeInfo for RelayMessage {
 
 impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for RelayMessage {
     type Output = RelayMessage;
+    // TODO: refactor error types
     type Error = Error;
     type Future = upgrade::ReadOneThen<
         upgrade::Negotiated<Socket>,

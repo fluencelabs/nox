@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/// The main responsibility of the p2p layer of Janus is to keep the network state updated.
+/// At the moment, it uses floodsub for that - all peers are subscribed to the same topic and
+/// notifies each other about any change on their side (like adding/removing new nodes). In future
+/// should be refactored to smth more scalable (like gossipsub when it will be merged).
 pub mod behaviour;
 mod message;
 mod swarm_state_behaviour;
