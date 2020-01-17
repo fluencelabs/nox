@@ -1,0 +1,31 @@
+[package]
+name = "janus-server"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+libp2p = "0.13.1"
+parity-multiaddr = "0.6.0"
+tokio = "0.1.22"
+futures = "0.1"
+
+serde = { version = "1.0.104", features = ["derive"] }
+serde_json = "1.0.44"
+
+failure = "0.1.6"
+fnv = "1.0.6"
+log = "0.4.8"
+env_logger = "0.7.1"
+void = "1.0.2"
+clap = "2.33.0"
+exitfailure = "0.5.1"
+ctrlc = "3.1.3"
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+debug-assertions = false
+overflow-checks = false
+panic = "abort"
