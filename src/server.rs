@@ -14,7 +14,6 @@ use libp2p::{
     Multiaddr, NetworkBehaviour, PeerId, Swarm,
 };
 use libp2p_identify::{Identify, IdentifyEvent};
-use crate::behaviour::{EventEmittingBehaviour, BehaviourEvent};
 
 const PRIVATE_KEY: &str =
     "/O5p1cDNIyEkG3VP+LqozM+gArhSXUdWkKz6O+C6Wtr+YihU3lNdGl2iuH37ky2zsjdv/NJDzs11C1Vj0kClzQ==";
@@ -23,8 +22,7 @@ const PRIVATE_KEY: &str =
 pub struct Network<TSubstream: AsyncRead + AsyncWrite> {
     pub floodsub: Floodsub<TSubstream>,
     pub identify: Identify<TSubstream>,
-    //    pub ping: Ping<TSubstream>,
-    pub logging: EventEmittingBehaviour<TSubstream>,
+    pub ping: Ping<TSubstream>,
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEvent>
@@ -48,12 +46,12 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEv
                 println!("{:?} subscribed to {:?}", peer_id, topic);
                 // TODO: Will always try to reconnect, basically a leak
                 // Nodes in partial view will receive subscriptions
-//                self.floodsub.add_node_to_partial_view(peer_id)
+                self.floodsub.add_node_to_partial_view(peer_id)
             }
             FloodsubEvent::Unsubscribed { peer_id, topic } => {
                 println!("{:?} unsubscribed from {:?}", peer_id, topic);
                 // TODO: how to remove node when there's no more subscriptions from it?
-//                self.floodsub.remove_node_from_partial_view(&peer_id)
+                // self.floodsub.remove_node_from_partial_view(&peer_id)
             }
         };
     }
@@ -69,21 +67,6 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     for Network<TSubstream>
 {
     fn inject_event(&mut self, _event: PingEvent) {}
-}
-
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<BehaviourEvent> for Network<Substream> {
-    fn inject_event(&mut self, event: BehaviourEvent) {
-        match event {
-            BehaviourEvent::Connected(peer) => {
-                println!("Adding peer {:?} to floodsub view", peer);
-                self.floodsub.add_node_to_partial_view(peer);
-            }
-            BehaviourEvent::Disconnected(peer) => {
-                println!("Removing peer {:?} from floodsub view", peer);
-                self.floodsub.remove_node_from_partial_view(&peer);
-            }
-        }
-    }
 }
 
 pub fn serve(port: i32) {
@@ -118,8 +101,7 @@ pub fn serve(port: i32) {
         let mut behaviour = Network {
             floodsub: Floodsub::new(local_peer_id.clone()),
             identify: Identify::new("1.0.0".into(), "1.0.0".into(), local_key.public()),
-            logging: EventEmittingBehaviour::new()
-            //            ping: Ping::new(PingConfig::with_keep_alive(PingConfig::new(), true)),
+            ping: Ping::new(PingConfig::with_keep_alive(PingConfig::new(), true)),
         };
 
         let result = behaviour.floodsub.subscribe(floodsub_topic.clone());

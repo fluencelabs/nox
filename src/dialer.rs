@@ -1,32 +1,17 @@
-use std::convert::TryInto;
 use std::time::Duration;
 
 use futures::{future, prelude::*};
 use libp2p::{
     floodsub, identity,
-    multihash::Multihash,
-    PeerId,
-    ping::{Ping, PingConfig}, Swarm,
-};
-use libp2p_identify::Identify;
-use tokio::codec::{FramedRead, LinesCodec};
 
-use crate::behaviour::EventEmittingBehaviour;
+    ping::{Ping, PingConfig},
+    PeerId, Swarm,
+};
+
 use crate::server::Network;
 use crate::transport;
-
-fn multihash(s: &str) -> Multihash {
-    Multihash::from_bytes(
-        bs58::decode(s)
-            .into_vec()
-            .expect("Can't decode from base58"),
-    )
-        .expect("Can't decode to multihash")
-}
-
-fn peer_id(s: &str) -> PeerId {
-    multihash(s).try_into().expect("Can't decode to PeerId")
-}
+use libp2p_identify::Identify;
+use tokio::codec::{FramedRead, LinesCodec};
 
 pub fn dial(addr: &str) {
     // Create a random PeerId
@@ -42,23 +27,21 @@ pub fn dial(addr: &str) {
     let floodsub_topic = floodsub::TopicBuilder::new("chat").build();
     println!("floodsub topic is {:?}", floodsub_topic);
 
-    let mut behaviour = Network {
-        floodsub: floodsub::Floodsub::new(local_peer_id.clone()),
-        identify: Identify::new("1.0.0".into(), "1.0.0".into(), local_key.public()),
-        logging: EventEmittingBehaviour::new(),
-        //            ping: Ping::new(PingConfig::with_keep_alive(PingConfig::new(), false)),
-    };
     let mut swarm = {
-        behaviour.floodsub.subscribe(floodsub_topic.clone());
+        let mut behaviour = Network {
+            floodsub: floodsub::Floodsub::new(local_peer_id.clone()),
+            identify: Identify::new("1.0.0".into(), "1.0.0".into(), local_key.public()),
+            ping: Ping::new(PingConfig::with_keep_alive(PingConfig::new(), true)),
+        };
+
+        let result = behaviour.floodsub.subscribe(floodsub_topic.clone());
+        println!("floodsub subscribe {}", result);
         Swarm::new(transport, behaviour, local_peer_id.clone())
     };
 
     let addr = addr.parse().unwrap();
+
     Swarm::dial_addr(&mut swarm, addr).expect("error dialing addr");
-    Swarm::dial(
-        &mut swarm,
-        peer_id("QmTESkr2vWDCKqiHVsyvf4iRQCBgvNDqBJ6P3yTTDb6haw"),
-    );
 
     let stdin = tokio_stdin_stdout::stdin(0);
     let mut framed_stdin = FramedRead::new(stdin, LinesCodec::new());

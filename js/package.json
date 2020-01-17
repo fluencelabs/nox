@@ -2,22 +2,24 @@
   "name": "js-dht-test",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "run.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "MIT",
+  "license": "Apache 2.0",
   "dependencies": {
     "@nodeutils/defaults-deep": "^1.1.0",
-    "async": "^2.6.1",
-    "cids": "^0.5.3",
-    "libp2p": "^0.23.1",
-    "libp2p-kad-dht": "^0.10.2",
-    "libp2p-mplex": "^0.8.0",
-    "libp2p-secio": "^0.10.0",
-    "libp2p-tcp": "^0.12.1",
-    "peer-info": "^0.14.1",
-    "libp2p-floodsub": "^0.15.0"
+    "async": "^3.1.0",
+    "cids": "^0.7.1",
+    "libp2p": "^0.26.2",
+    "libp2p-kad-dht": "^0.15.4",
+    "libp2p-mplex": "^0.8.5",
+    "libp2p-secio": "fluencelabs/js-libp2p-secio#fix/createExchange",
+    "libp2p-tcp": "^0.13.2",
+    "peer-info": "^0.16.2",
+    "libp2p-floodsub": "^0.18.0",
+    "libp2p-switch": "0.43.0",
+    "libp2p-ping": "^0.8.5"
   }
 }

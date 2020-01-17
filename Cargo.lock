@@ -60,7 +60,6 @@ name = "arqada"
 version = "0.1.0"
 dependencies = [
  "base64 0.11.0",
- "bs58",
  "env_logger",
  "futures",
  "libp2p",
