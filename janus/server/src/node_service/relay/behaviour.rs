@@ -125,7 +125,8 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         );
         if self.connected_peers.contains(&dst_peer_id) {
             // the destination node is connected to our peer - just send message directly to it
-            self.events.push_back(NetworkBehaviourAction::GenerateEvent(relay_message));
+            self.events
+                .push_back(NetworkBehaviourAction::GenerateEvent(relay_message));
             return;
         }
 
