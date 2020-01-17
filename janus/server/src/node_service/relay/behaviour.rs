@@ -16,6 +16,7 @@
 
 use crate::node_service::relay::events::RelayEvent;
 use fnv::FnvHashSet;
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -28,7 +29,7 @@ use log::trace;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use tokio::prelude::*;
+use std::task::{Context, Poll};
 
 pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 
@@ -145,7 +146,10 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehaviour<Substream> {
+impl<Substream> NetworkBehaviour for PeerRelayLayerBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
     // use simple one shot handler
     type ProtocolsHandler = OneShotHandler<Substream, RelayEvent, RelayEvent, InnerMessage>;
     type OutEvent = RelayEvent;
@@ -171,8 +175,9 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehav
 
     fn poll(
         &mut self,
+        _: &mut Context,
         _: &mut impl PollParameters,
-    ) -> Async<
+    ) -> Poll<
         NetworkBehaviourAction<
             <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
             Self::OutEvent,
@@ -180,10 +185,10 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehav
     > {
         // events contains RelayMessage events that just need to promoted to the upper level
         if let Some(event) = self.events.pop_front() {
-            return Async::Ready(event);
+            return Poll::Ready(event);
         }
 
-        Async::NotReady
+        Poll::Pending
     }
 }
 

@@ -16,6 +16,7 @@
 
 use crate::peer_service::connect_protocol::events::{InPeerEvent, OutPeerEvent};
 use crate::peer_service::notifications::OutPeerNotification;
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -27,7 +28,7 @@ use libp2p::{
 use log::trace;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
-use tokio::prelude::*;
+use std::task::{Context, Poll};
 
 pub struct PeerConnectProtocolBehaviour<Substream> {
     /// Queue of received network messages from connected peers
@@ -82,8 +83,9 @@ impl<Substream> PeerConnectProtocolBehaviour<Substream> {
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
-    for PeerConnectProtocolBehaviour<Substream>
+impl<Substream> NetworkBehaviour for PeerConnectProtocolBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     type ProtocolsHandler = OneShotHandler<Substream, InPeerEvent, OutPeerEvent, InnerMessage>;
     type OutEvent = OutPeerNotification;
@@ -149,8 +151,9 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
 
     fn poll(
         &mut self,
+        _: &mut Context,
         _: &mut impl PollParameters,
-    ) -> Async<
+    ) -> Poll<
         NetworkBehaviourAction<
             <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
             Self::OutEvent,
@@ -161,10 +164,10 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour
                 "peer_service/connect_protocol/behaviour/poll: event {:?} popped",
                 e
             );
-            return Async::Ready(e);
+            return Poll::Ready(e);
         };
 
-        Async::NotReady
+        Poll::Pending
     }
 }
 

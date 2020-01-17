@@ -1,14 +1,14 @@
 [package]
 name = "janus-server"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p = "0.13.1"
-parity-multiaddr = "0.6.0"
-tokio = "0.1.22"
-futures = "0.1"
+libp2p = "0.14.0-alpha.1"
+parity-multiaddr = "0.7.0"
+futures = "0.3.1"
+async-std = "1.4.0"
 
 serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.44"

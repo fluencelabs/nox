@@ -16,11 +16,11 @@
 
 use crate::error::Error;
 use crate::peer_service::connect_protocol::events::{InPeerEvent, OutPeerEvent};
+use futures::{AsyncRead, AsyncWrite, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
 use serde_json;
-use std::{io, iter};
-use tokio::prelude::*;
+use std::{io, iter, pin::Pin};
 
 // 1 Mb
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
@@ -35,28 +35,29 @@ impl UpgradeInfo for InPeerEvent {
     }
 }
 
-impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for InPeerEvent {
+impl<Socket> InboundUpgrade<Socket> for InPeerEvent
+where
+    Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
     type Output = InPeerEvent;
     type Error = Error;
-    type Future = upgrade::ReadOneThen<
-        upgrade::Negotiated<Socket>,
-        (),
-        fn(Vec<u8>, ()) -> Result<Self::Output, Self::Error>,
-    >;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(
         self,
-        socket: upgrade::Negotiated<Socket>,
-        _info: Self::Info,
+        mut socket: upgrade::Negotiated<Socket>,
+        _: Self::Info,
     ) -> Self::Future {
-        upgrade::read_one_then(socket, MAX_BUF_SIZE, (), |packet, ()| {
-            let relay_message: InPeerEvent = serde_json::from_slice(&packet).unwrap();
+        Box::pin(async move {
+            let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
+            let relay_event: InPeerEvent = serde_json::from_slice(&packet).unwrap();
+
             trace!(
                 "peer_service/connect_protocol/upgrade_inbound: received a new relay message {:?}",
-                relay_message
+                relay_event
             );
 
-            Ok(relay_message)
+            Ok(relay_event)
         })
     }
 }
@@ -72,23 +73,28 @@ impl UpgradeInfo for OutPeerEvent {
 
 impl<Socket> OutboundUpgrade<Socket> for OutPeerEvent
 where
-    Socket: AsyncRead + AsyncWrite,
+    Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     type Output = ();
     type Error = io::Error;
-    type Future = upgrade::WriteOne<upgrade::Negotiated<Socket>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_outbound(
         self,
-        socket: upgrade::Negotiated<Socket>,
-        _info: Self::Info,
+        mut socket: upgrade::Negotiated<Socket>,
+        _: Self::Info,
     ) -> Self::Future {
-        trace!(
-            "peer_service/connect_protocol/upgrade_outbound: sending a new network message: {:?}",
-            self
-        );
+        Box::pin(async move {
+            trace!(
+                "peer_service/connect_protocol/upgrade_outbound: sending a new network message: {:?}",
+                self
+            );
 
-        let bytes = serde_json::to_vec(&self).expect("failed to serialize OutNodeMessage to json");
-        upgrade::write_one(socket, bytes)
+            let bytes =
+                serde_json::to_vec(&self).expect("failed to serialize OutNodeMessage to json");
+            upgrade::write_one(&mut socket, bytes).await?;
+
+            Ok(())
+        })
     }
 }

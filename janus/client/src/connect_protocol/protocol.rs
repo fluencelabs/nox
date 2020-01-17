@@ -15,12 +15,12 @@
  */
 
 use crate::connect_protocol::events::{InEvent, OutEvent};
-use futures::prelude::*;
+use futures::{AsyncRead, AsyncWrite, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
 use serde_json;
-use std::pin::Pin;
 use std::iter;
+use std::pin::Pin;
 
 // 1 Mb
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;

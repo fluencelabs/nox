@@ -20,6 +20,7 @@ use crate::node_service::relay::{
     behaviour::{NetworkState, PeerRelayLayerBehaviour},
     events::RelayEvent,
 };
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
@@ -29,7 +30,6 @@ use libp2p::{NetworkBehaviour, PeerId};
 use log::trace;
 use serde_json;
 use std::collections::VecDeque;
-use tokio::prelude::*;
 
 /// Behaviour of the p2p layer that is responsible for keeping the network state actual and rules
 /// all other protocols of the Janus.
@@ -243,13 +243,14 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
         self.relay.network_state()
     }
 
-    pub fn exit(&mut self) {
+/*    pub fn exit(&mut self) {
         let message = P2PNetworkEvents::NodeDisconnected {
             node_id: self.local_node_id.clone().into_bytes(),
         };
 
         self.gossip_network_update(message);
     }
+*/
 
     fn gossip_network_update(&mut self, message: P2PNetworkEvents) {
         let message =

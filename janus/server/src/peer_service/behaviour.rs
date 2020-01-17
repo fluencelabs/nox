@@ -16,13 +16,13 @@
 
 use crate::peer_service::connect_protocol::behaviour::PeerConnectProtocolBehaviour;
 use crate::peer_service::notifications::OutPeerNotification;
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{NetworkBehaviour, PeerId};
 use std::collections::VecDeque;
-use tokio::prelude::*;
 
 #[derive(NetworkBehaviour)]
 pub struct PeerServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
@@ -80,7 +80,9 @@ impl<Substream: AsyncRead + AsyncWrite> PeerServiceBehaviour<Substream> {
         self.node_connect_protocol.send_network_state(dst, state);
     }
 
+    /*
     pub fn exit(&mut self) {
         unimplemented!();
     }
+    */
 }

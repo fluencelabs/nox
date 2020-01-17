@@ -16,10 +16,11 @@
 
 use crate::error::Error;
 use crate::node_service::relay::events::RelayEvent;
+use futures::{AsyncRead, AsyncWrite, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
+use log::trace;
 use serde_json;
-use std::{io, iter};
-use tokio::prelude::*;
+use std::{io, iter, pin::Pin};
 
 // 1 Mb
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
@@ -34,42 +35,51 @@ impl UpgradeInfo for RelayEvent {
     }
 }
 
-impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for RelayEvent {
+impl<Socket> InboundUpgrade<Socket> for RelayEvent
+where
+    Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
     type Output = RelayEvent;
-    // TODO: refactor error types
     type Error = Error;
-    type Future = upgrade::ReadOneThen<
-        upgrade::Negotiated<Socket>,
-        (),
-        fn(Vec<u8>, ()) -> Result<Self::Output, Self::Error>,
-    >;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(
         self,
-        socket: upgrade::Negotiated<Socket>,
-        _info: Self::Info,
+        mut socket: upgrade::Negotiated<Socket>,
+        _: Self::Info,
     ) -> Self::Future {
-        upgrade::read_one_then(socket, MAX_BUF_SIZE, (), |packet, ()| {
-            let relay_message: RelayEvent = serde_json::from_slice(&packet).unwrap();
-            Ok(relay_message)
+        Box::pin(async move {
+            let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
+            let relay_event: RelayEvent = serde_json::from_slice(&packet).unwrap();
+
+            Ok(relay_event)
         })
     }
 }
 
 impl<Socket> OutboundUpgrade<Socket> for RelayEvent
 where
-    Socket: AsyncRead + AsyncWrite,
+    Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     type Output = ();
     type Error = io::Error;
-    type Future = upgrade::WriteOne<upgrade::Negotiated<Socket>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_outbound(
         self,
-        socket: upgrade::Negotiated<Socket>,
-        _info: Self::Info,
+        mut socket: upgrade::Negotiated<Socket>,
+        _: Self::Info,
     ) -> Self::Future {
-        let bytes = serde_json::to_vec(&self).expect("failed to serialize RelayMessage to json");
-        upgrade::write_one(socket, bytes)
+        Box::pin(async move {
+            trace!(
+                "node_service/relay/upgrade_outbound: sending a new relay network event: {:?}",
+                self
+            );
+
+            let bytes = serde_json::to_vec(&self).expect("failed to serialize RelayEvent to json");
+            upgrade::write_one(&mut socket, bytes).await?;
+
+            Ok(())
+        })
     }
 }
