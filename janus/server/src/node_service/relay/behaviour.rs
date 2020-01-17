@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::node_service::relay::message::RelayMessage;
+use crate::node_service::relay::events::RelayEvent;
 use fnv::FnvHashSet;
 use libp2p::{
     core::ConnectedPoint,
@@ -24,7 +24,7 @@ use libp2p::{
     },
     PeerId,
 };
-use log::trace;
+//use log::trace;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
@@ -36,7 +36,7 @@ pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 /// node. Produces RelayMessage and save in the internal deque to pass then to the libp2p swarm.
 pub struct PeerRelayLayerBehaviour<Substream> {
     // Queue of events to send to the upper level.
-    events: VecDeque<NetworkBehaviourAction<RelayMessage, RelayMessage>>,
+    events: VecDeque<NetworkBehaviourAction<RelayEvent, RelayEvent>>,
 
     /// Connected peers to this node.
     connected_peers: FnvHashSet<PeerId>,
@@ -92,15 +92,15 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
 
     /// Prints the whole network state. Just for debug purposes.
     fn print_network_state(&self) {
-        trace!("\nNetwork state:");
+        println!("\nNetwork state:");
         for (k, v) in self.network_state.iter() {
-            trace!("peer {}, connected nodes:", k);
+            println!("peer {}, connected nodes:", k);
             for n in v.iter() {
-                trace!("{}", n);
+                println!("{}", n);
             }
         }
 
-        trace!("\n");
+        println!("\n");
     }
 
     pub fn network_state(&self) -> &NetworkState {
@@ -116,30 +116,38 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     }
 
     /// Relays given message to the given node according to the current network state.
-    pub fn relay(&mut self, relay_message: RelayMessage) {
+    pub fn relay(&mut self, relay_message: RelayEvent) {
         let dst_peer_id = PeerId::from_bytes(relay_message.dst_id.clone()).unwrap();
-        if !self.connected_peers.contains(&dst_peer_id) {
-            for (node, peers) in &self.network_state {
-                if peers.contains(&dst_peer_id) {
-                    self.events.push_back(NetworkBehaviourAction::SendEvent {
-                        peer_id: node.to_owned(),
-                        event: relay_message,
-                    });
-                    return
-                }
-            }
-        } else {
+
+        println!(
+            "node_service/relay/behaviour: relaying data to {}",
+            dst_peer_id
+        );
+        if self.connected_peers.contains(&dst_peer_id) {
             // the destination node is connected to our peer - just send message directly to it
-            self.events
-                .push_back(NetworkBehaviourAction::GenerateEvent(relay_message));
+            self.events.push_back(NetworkBehaviourAction::GenerateEvent(relay_message));
+            return;
         }
+
+        for (node, peers) in self.network_state.iter() {
+            if peers.contains(&dst_peer_id) {
+                self.events.push_back(NetworkBehaviourAction::SendEvent {
+                    peer_id: node.to_owned(),
+                    event: relay_message,
+                });
+                println!("node_service/relay/behaviour;: found destination node");
+
+                return;
+            }
+        }
+        // the destination node is connected to our peer - just send message directly to it
     }
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehaviour<Substream> {
     // use simple one shot handler
-    type ProtocolsHandler = OneShotHandler<Substream, RelayMessage, RelayMessage, InnerMessage>;
-    type OutEvent = RelayMessage;
+    type ProtocolsHandler = OneShotHandler<Substream, RelayEvent, RelayEvent, InnerMessage>;
+    type OutEvent = RelayEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()
@@ -182,15 +190,15 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehav
 #[derive(Debug)]
 pub enum InnerMessage {
     /// Message has been received from a remote.
-    Rx(RelayMessage),
+    Rx(RelayEvent),
 
     /// RelayMessage has been sent
     Tx,
 }
 
-impl From<RelayMessage> for InnerMessage {
+impl From<RelayEvent> for InnerMessage {
     #[inline]
-    fn from(relay_message: RelayMessage) -> InnerMessage {
+    fn from(relay_message: RelayEvent) -> InnerMessage {
         InnerMessage::Rx(relay_message)
     }
 }

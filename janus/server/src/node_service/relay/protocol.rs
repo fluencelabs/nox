@@ -15,7 +15,7 @@
  */
 
 use crate::error::Error;
-use crate::node_service::relay::message::RelayMessage;
+use crate::node_service::relay::events::RelayEvent;
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use serde_json;
 use std::{io, iter};
@@ -25,7 +25,7 @@ use tokio::prelude::*;
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/janus/relay/1.0.0";
 
-impl UpgradeInfo for RelayMessage {
+impl UpgradeInfo for RelayEvent {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -34,8 +34,8 @@ impl UpgradeInfo for RelayMessage {
     }
 }
 
-impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for RelayMessage {
-    type Output = RelayMessage;
+impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for RelayEvent {
+    type Output = RelayEvent;
     // TODO: refactor error types
     type Error = Error;
     type Future = upgrade::ReadOneThen<
@@ -50,13 +50,13 @@ impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for RelayMessage {
         _info: Self::Info,
     ) -> Self::Future {
         upgrade::read_one_then(socket, MAX_BUF_SIZE, (), |packet, ()| {
-            let relay_message: RelayMessage = serde_json::from_slice(&packet).unwrap();
+            let relay_message: RelayEvent = serde_json::from_slice(&packet).unwrap();
             Ok(relay_message)
         })
     }
 }
 
-impl<Socket> OutboundUpgrade<Socket> for RelayMessage
+impl<Socket> OutboundUpgrade<Socket> for RelayEvent
 where
     Socket: AsyncRead + AsyncWrite,
 {

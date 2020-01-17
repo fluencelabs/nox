@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "action")]
 pub enum OutMessage {
     /// Represents a message that should be relayed to given dst node.
-    Relay { dst: Vec<u8>, data: Vec<u8> },
+    Relay { dst_id: Vec<u8>, data: Vec<u8> },
 
     /// Requests for the network state.
     /// Currently, gives the whole peers in the network, this behaviour will be refactored in future.
@@ -33,7 +33,7 @@ pub enum OutMessage {
 #[serde(tag = "action")]
 pub enum InMessage {
     /// Message that should be relayed from src node to chosen dst node.
-    Relay { src: Vec<u8>, data: Vec<u8> },
+    Relay { src_id: Vec<u8>, data: Vec<u8> },
 
     /// Message contains all peers in the network.
     NetworkState { state: Vec<Vec<u8>> },

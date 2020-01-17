@@ -19,6 +19,6 @@
 /// notifies each other about any change on their side (like adding/removing new peers). In future
 /// should be refactored to smth more scalable (like gossipsub when it will be merged tp libp2p).
 pub mod behaviour;
-mod message;
+mod events;
 mod swarm_state_behaviour;
 pub mod transport;

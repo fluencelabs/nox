@@ -20,7 +20,7 @@ use crate::node_service::{
         behaviour::NodeServiceBehaviour, transport::build_transport,
         transport::NodeServiceTransport,
     },
-    relay::message::RelayMessage,
+    relay::events::RelayEvent,
 };
 use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
 use libp2p::{
@@ -113,13 +113,15 @@ fn node_service_executor(
                         .unwrap()
                         .swarm
                         .remove_connected_peer(peer_id),
-                    OutPeerNotification::Relay { src_id, dst_id, data } => {
-                        peer_service.lock().unwrap().swarm.relay(RelayMessage {
-                            src_id: src_id.into_bytes(),
-                            dst_id: dst_id.into_bytes(),
-                            data,
-                        })
-                    }
+                    OutPeerNotification::Relay {
+                        src_id,
+                        dst_id,
+                        data,
+                    } => peer_service.lock().unwrap().swarm.relay(RelayEvent {
+                        src_id: src_id.into_bytes(),
+                        dst_id: dst_id.into_bytes(),
+                        data,
+                    }),
                     OutPeerNotification::GetNetworkState { src_id } => {
                         let service = peer_service.lock().unwrap();
                         let network_state = service.swarm.network_state();
@@ -157,7 +159,7 @@ fn node_service_executor(
         }
 
         if let Some(e) = peer_service.lock().unwrap().swarm.pop_peer_relay_message() {
-            println!("peer_service/poll: sending {:?} to node_service", e);
+            trace!("node_service/poll: sending {:?} to node_service", e);
 
             peer_service_in
                 .try_send(InPeerNotification::Relay {

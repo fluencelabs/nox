@@ -16,25 +16,10 @@
 
 use serde::{Deserialize, Serialize};
 
-/// This message type intended to describe network topology changing
-/// (adding or removing new nodes or peers)
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "action")]
-pub enum P2PNetworkMessage {
-    // TODO: add implementation of serde serialize/deserialize for PeerId
-    NodeConnected {
-        node_id: Vec<u8>,
-        peer_ids: Vec<Vec<u8>>,
-    },
-    PeersConnected {
-        node_id: Vec<u8>,
-        peer_ids: Vec<Vec<u8>>,
-    },
-    PeersDisconnected {
-        node_id: Vec<u8>,
-        peer_ids: Vec<Vec<u8>>,
-    },
-    NodeDisconnected {
-        node_id: Vec<u8>,
-    },
+/// Relay event is just a data that need to be relayed from a src peer to a dst peer.
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct RelayEvent {
+    pub src_id: Vec<u8>,
+    pub dst_id: Vec<u8>,
+    pub data: Vec<u8>,
 }

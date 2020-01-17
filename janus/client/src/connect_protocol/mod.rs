@@ -15,5 +15,5 @@
  */
 
 pub mod behaviour;
-pub mod messages;
+pub mod events;
 mod protocol;

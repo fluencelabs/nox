@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::messages::{InMessage, OutMessage};
+use crate::connect_protocol::events::{InMessage, OutMessage};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
 use serde_json;
@@ -23,7 +23,7 @@ use tokio::prelude::*;
 
 // 1 Mb
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
-const PROTOCOL_INFO: &[u8] = b"/janus/node/1.0.0";
+const PROTOCOL_INFO: &[u8] = b"/janus/peer/1.0.0";
 
 impl UpgradeInfo for InMessage {
     type Info = &'static [u8];

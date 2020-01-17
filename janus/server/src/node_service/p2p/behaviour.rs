@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-use crate::node_service::p2p::message::P2PNetworkMessage;
+use crate::node_service::p2p::events::P2PNetworkEvents;
 use crate::node_service::p2p::swarm_state_behaviour::{SwarmStateBehaviour, SwarmStateEvent};
 use crate::node_service::relay::{
     behaviour::{NetworkState, PeerRelayLayerBehaviour},
-    message::RelayMessage,
+    events::RelayEvent,
 };
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
 use libp2p::identify::{Identify, IdentifyEvent};
@@ -49,13 +49,13 @@ pub struct NodeServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
 
     /// Relay messages that need to served to specified nodes.
     #[behaviour(ignore)]
-    nodes_messages: VecDeque<RelayMessage>,
+    nodes_messages: VecDeque<RelayEvent>,
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<RelayMessage>
+impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<RelayEvent>
     for NodeServiceBehaviour<Substream>
 {
-    fn inject_event(&mut self, event: RelayMessage) {
+    fn inject_event(&mut self, event: RelayEvent) {
         self.nodes_messages.push_back(event);
     }
 }
@@ -80,7 +80,7 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
             FloodsubEvent::Message(message) => {
                 let p2p_message = serde_json::from_slice(&message.data).unwrap();
                 match p2p_message {
-                    P2PNetworkMessage::NodeConnected { node_id, peer_ids } => {
+                    P2PNetworkEvents::NodeConnected { node_id, peer_ids } => {
                         let node_id = PeerId::from_bytes(node_id).unwrap();
                         trace!(
                             "node_service/p2p/behaviour/floodsub: new node {} connected",
@@ -95,7 +95,7 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
                             .collect();
                         self.relay.add_new_node(node_id, peer_ids);
                     }
-                    P2PNetworkMessage::NodeDisconnected { node_id } => {
+                    P2PNetworkEvents::NodeDisconnected { node_id } => {
                         let node_id = PeerId::from_bytes(node_id).unwrap();
                         trace!(
                             "node_service/p2p/behaviour/floodsub: new node {} connected",
@@ -104,7 +104,7 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
 
                         self.relay.remove_node(&node_id);
                     }
-                    P2PNetworkMessage::PeersConnected { node_id, peer_ids } => {
+                    P2PNetworkEvents::PeersConnected { node_id, peer_ids } => {
                         let node_id = PeerId::from_bytes(node_id).unwrap();
                         trace!(
                             "node_service/p2p/behaviour/floodsub: new peers connected to node {}",
@@ -116,7 +116,7 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
                                 .add_new_peer(&node_id, PeerId::from_bytes(peer_id).unwrap());
                         }
                     }
-                    P2PNetworkMessage::PeersDisconnected { node_id, peer_ids } => {
+                    P2PNetworkEvents::PeersDisconnected { node_id, peer_ids } => {
                         let node_id = PeerId::from_bytes(node_id).unwrap();
                         trace!("node_service/p2p/behaviour/floodsub: some peers disconnected from node {}", node_id);
 
@@ -191,7 +191,7 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
             .map(|peer| peer.as_bytes().to_vec())
             .collect();
 
-        let message = P2PNetworkMessage::NodeConnected {
+        let message = P2PNetworkEvents::NodeConnected {
             node_id: self.local_node_id.clone().into_bytes(),
             peer_ids,
         };
@@ -207,7 +207,7 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
 
         self.relay.connected_peers_mut().insert(peer_id.clone());
 
-        let message = P2PNetworkMessage::PeersConnected {
+        let message = P2PNetworkEvents::PeersConnected {
             node_id: self.local_node_id.clone().into_bytes(),
             peer_ids: vec![peer_id.into_bytes()],
         };
@@ -223,7 +223,7 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
 
         self.relay.connected_peers_mut().remove(&peer_id);
 
-        let message = P2PNetworkMessage::PeersDisconnected {
+        let message = P2PNetworkEvents::PeersDisconnected {
             node_id: self.local_node_id.clone().into_bytes(),
             peer_ids: vec![peer_id.into_bytes()],
         };
@@ -231,11 +231,11 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
         self.gossip_network_update(message);
     }
 
-    pub fn pop_peer_relay_message(&mut self) -> Option<RelayMessage> {
+    pub fn pop_peer_relay_message(&mut self) -> Option<RelayEvent> {
         self.nodes_messages.pop_front()
     }
 
-    pub fn relay(&mut self, relay_message: RelayMessage) {
+    pub fn relay(&mut self, relay_message: RelayEvent) {
         self.relay.relay(relay_message);
     }
 
@@ -244,14 +244,14 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
     }
 
     pub fn exit(&mut self) {
-        let message = P2PNetworkMessage::NodeDisconnected {
+        let message = P2PNetworkEvents::NodeDisconnected {
             node_id: self.local_node_id.clone().into_bytes(),
         };
 
         self.gossip_network_update(message);
     }
 
-    fn gossip_network_update(&mut self, message: P2PNetworkMessage) {
+    fn gossip_network_update(&mut self, message: P2PNetworkEvents) {
         let message =
             serde_json::to_vec(&message).expect("failed to convert gossip message to json");
 

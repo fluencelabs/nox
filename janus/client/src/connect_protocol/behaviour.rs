@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::messages::{InMessage, OutMessage};
+use crate::connect_protocol::events::{InMessage, OutMessage};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -56,7 +56,7 @@ impl<Substream> ClientConnectProtocolBehaviour<Substream> {
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: relay,
             event: OutMessage::Relay {
-                dst: dst.into_bytes(),
+                dst_id: dst.into_bytes(),
                 data: message,
             },
         })

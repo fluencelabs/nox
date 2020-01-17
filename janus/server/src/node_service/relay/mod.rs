@@ -17,5 +17,5 @@
 /// The main responsibility of this layer is to route incoming RelayMessage requests according to
 /// the network state.
 pub mod behaviour;
-pub mod message;
+pub mod events;
 pub mod protocol;

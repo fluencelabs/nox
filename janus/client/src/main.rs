@@ -20,7 +20,7 @@ mod connect_protocol;
 mod transport;
 
 use crate::behaviour::ClientServiceBehaviour;
-use crate::connect_protocol::messages::InMessage;
+use crate::connect_protocol::events::InMessage;
 use crate::transport::build_transport;
 use env_logger;
 use futures::prelude::*;
@@ -46,7 +46,7 @@ fn main() {
 
     let local_key = identity::Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
-    println!("Local peer id: {:?}", local_peer_id);
+    println!("Local peer id: {}", local_peer_id);
 
     let relay_example = RelayUserInput {
         dst: local_peer_id.to_string(),
@@ -96,7 +96,7 @@ fn main() {
                         println!("incorrect string provided");
                     }
 
-                    //libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
+                    libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
                 }
                 Async::Ready(None) => panic!("Stdin closed"),
                 Async::NotReady => break,
@@ -114,15 +114,15 @@ fn main() {
 
         if let Some(event) = swarm.pop_out_node_event() {
             match event {
-                InMessage::Relay { src, data } => {
-                    let peer_id = PeerId::from_bytes(src).unwrap();
+                InMessage::Relay { src_id, data } => {
+                    let peer_id = PeerId::from_bytes(src_id).unwrap();
                     let message = String::from_utf8(data).unwrap();
                     println!("{}: {}", peer_id, message);
                 }
                 InMessage::NetworkState { state } => println!("network state: {:?}", state),
             }
 
-            //libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
+            libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
         }
 
         Ok(Async::NotReady)

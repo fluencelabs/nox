@@ -15,7 +15,7 @@
  */
 
 use crate::connect_protocol::behaviour::ClientConnectProtocolBehaviour;
-use crate::connect_protocol::messages::InMessage;
+use crate::connect_protocol::events::InMessage;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};

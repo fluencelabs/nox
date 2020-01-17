@@ -101,7 +101,11 @@ fn peer_service_executor(
         loop {
             match peer_service_in.poll() {
                 Ok(Async::Ready(Some(e))) => match e {
-                    InPeerNotification::Relay { src_id, dst_id, data } => peer_service
+                    InPeerNotification::Relay {
+                        src_id,
+                        dst_id,
+                        data,
+                    } => peer_service
                         .lock()
                         .unwrap()
                         .swarm
