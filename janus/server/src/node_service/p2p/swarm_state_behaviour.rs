@@ -31,12 +31,15 @@ use void::Void;
 
 #[derive(Debug, Clone)]
 pub enum SwarmStateEvent {
-    Connected(PeerId),
-    Disconnected(PeerId),
+    Connected { id: PeerId },
+    Disconnected { id: PeerId },
 }
 
+/// The main purpose of this behaviour is to emit events about connecting/disconnecting of nodes.
+/// It seems that for rust-libp2p 0.14 it is the easiest way to find out the PeerId while node
+/// connecting and disconnecting.
 pub struct SwarmStateBehaviour<Substream> {
-    // Queue of events to send.
+    // Queue of events to send to the upper level.
     events: VecDeque<NetworkBehaviourAction<Void, SwarmStateEvent>>,
     /// Pin generic.
     marker: PhantomData<Substream>,
@@ -63,25 +66,27 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for SwarmStateBehaviour
         Vec::new()
     }
 
-    fn inject_connected(&mut self, peer_id: PeerId, _cp: ConnectedPoint) {
+    fn inject_connected(&mut self, node_id: PeerId, _cp: ConnectedPoint) {
         trace!(
-            "peer_service/p2p/swarm_state: new peer {} connected",
-            peer_id
+            "node_service/p2p/swarm_state: new node {} connected",
+            node_id
         );
 
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
-            SwarmStateEvent::Connected(peer_id),
+            SwarmStateEvent::Connected { id: node_id },
         ))
     }
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId, _cp: ConnectedPoint) {
+    fn inject_disconnected(&mut self, node_id: &PeerId, _cp: ConnectedPoint) {
         trace!(
-            "peer_service/p2p/swarm_state: peer {} disconnected",
-            peer_id
+            "node_service/p2p/swarm_state: node {} disconnected",
+            node_id
         );
 
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
-            SwarmStateEvent::Disconnected(peer_id.clone()),
+            SwarmStateEvent::Disconnected {
+                id: node_id.to_owned(),
+            },
         ))
     }
 

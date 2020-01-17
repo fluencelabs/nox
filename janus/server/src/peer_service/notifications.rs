@@ -18,35 +18,35 @@ use libp2p::PeerId;
 
 /// Describes inner events from a peer service to a node service.
 #[derive(Clone, Debug)]
-pub enum InNodeServiceEvent {
-    /// Relay message from a src node to a dst node.
+pub enum InPeerNotification {
+    /// Relay message from a src peer to a dst peer.
     Relay {
-        src: PeerId,
-        dst: PeerId,
+        src_id: PeerId,
+        dst_id: PeerId,
         data: Vec<u8>,
     },
 
-    /// Message that represent a current state of the network, should be sent to given dst node.
-    NetworkState { dst: PeerId, state: Vec<PeerId> },
+    /// Message that represent a current state of the network, should be sent to given dst peer.
+    NetworkState { dst_id: PeerId, state: Vec<PeerId> },
 }
 
 /// Describes inner events from a node service to a peer service.
 #[derive(Clone, Debug)]
-pub enum OutNodeServiceEvent {
-    /// Notifies that new node that has been connected.
-    NodeConnected { node_id: PeerId },
+pub enum OutPeerNotification {
+    /// Notifies that new peer that has been connected.
+    PeerConnected { peer_id: PeerId },
 
-    /// Notifies that some node has been disconnected.
-    NodeDisconnected { node_id: PeerId },
+    /// Notifies that some peer has been disconnected.
+    PeerDisconnected { peer_id: PeerId },
 
-    /// Message that should be relayed to other node.
+    /// Message that should be relayed to other peer.
     Relay {
-        src: PeerId,
-        dst: PeerId,
+        src_id: PeerId,
+        dst_id: PeerId,
         data: Vec<u8>,
     },
 
-    /// Requests from given src node for the network state.
-    /// Currently, gives the whole peers in the network, this behaviour will be refactored in future.
-    GetNetworkState { src: PeerId },
+    /// Request from given src peer for the network state.
+    /// Currently, gives the whole nodes in the network, this behaviour will be refactored in future.
+    GetNetworkState { src_id: PeerId },
 }

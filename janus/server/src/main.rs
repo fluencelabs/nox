@@ -30,8 +30,8 @@ mod node_service;
 mod peer_service;
 
 use crate::config::{NodeServiceConfig, PeerServiceConfig};
-use crate::node_service::node_service::{start_node_service, NodeService, NodeServiceDescriptor};
-use crate::peer_service::peer_service::{start_peer_service, PeerService};
+use crate::node_service::node_service::{start_node_service, NodeService};
+use crate::peer_service::peer_service::{start_peer_service, PeerService, PeerServiceDescriptor};
 use clap::{App, Arg, ArgMatches};
 use ctrlc;
 use env_logger;
@@ -58,12 +58,12 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 3] {
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
             .short("pp")
-            .default_value("7777")
+            .default_value("9999")
             .help("port that will be used by the peer service"),
         Arg::with_name(NODE_SERVICE_PORT)
             .takes_value(true)
             .short("np")
-            .default_value("9999")
+            .default_value("7777")
             .help("port that will be used by the node service"),
         Arg::with_name(BOOTSTRAP_NODE)
             .takes_value(true)
@@ -74,9 +74,9 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 3] {
 
 fn make_configs_from_args(
     arg_matches: ArgMatches,
-) -> Result<(PeerServiceConfig, NodeServiceConfig), ExitFailure> {
-    let mut peer_service_config = PeerServiceConfig::default();
+) -> Result<(NodeServiceConfig, PeerServiceConfig), ExitFailure> {
     let mut node_service_config = NodeServiceConfig::default();
+    let mut peer_service_config = PeerServiceConfig::default();
 
     if let Some(peer_port) = arg_matches.value_of(PEER_SERVICE_PORT) {
         let peer_port: u16 = u16::from_str(peer_port)?;
@@ -90,16 +90,16 @@ fn make_configs_from_args(
 
     if let Some(bootstrap_node) = arg_matches.value_of(BOOTSTRAP_NODE) {
         let bootstrap_node = Multiaddr::from_str(bootstrap_node)?;
-        peer_service_config.bootstrap_nodes.push(bootstrap_node);
+        node_service_config.bootstrap_nodes.push(bootstrap_node);
     }
 
-    Ok((peer_service_config, node_service_config))
+    Ok((node_service_config, peer_service_config))
 }
 
 fn start_janus(
     runtime: &Runtime,
-    peer_service_config: PeerServiceConfig,
     node_service_config: NodeServiceConfig,
+    peer_service_config: PeerServiceConfig,
 ) -> Result<
     (
         tokio::sync::oneshot::Sender<()>,
@@ -109,21 +109,21 @@ fn start_janus(
 > {
     trace!("starting Janus");
 
-    let node_service = NodeService::new(node_service_config);
-    let node_service_descriptor: NodeServiceDescriptor =
-        start_node_service(node_service, &runtime.executor())
+    let peer_service = PeerService::new(peer_service_config);
+    let peer_service_descriptor: PeerServiceDescriptor =
+        start_peer_service(peer_service, &runtime.executor())
             .expect("An error occurred during node service start");
 
-    let peer_service = PeerService::new(peer_service_config);
-    let peer_service_exit = start_peer_service(
-        peer_service,
-        node_service_descriptor.node_channel_out,
-        node_service_descriptor.node_channel_in,
+    let node_service = NodeService::new(node_service_config);
+    let node_service_exit = start_node_service(
+        node_service,
+        peer_service_descriptor.peer_channel_out,
+        peer_service_descriptor.peer_channel_in,
         &runtime.executor(),
     )
     .expect("An error occurred during the peer service start");
 
-    Ok((peer_service_exit, node_service_descriptor.exit_sender))
+    Ok((node_service_exit, peer_service_descriptor.exit_sender))
 }
 
 fn main() -> Result<(), ExitFailure> {
@@ -138,9 +138,9 @@ fn main() -> Result<(), ExitFailure> {
         .args(&prepare_args())
         .get_matches();
 
-    let (peer_service_config, node_service_config) = make_configs_from_args(arg_matches)?;
-    let (peer_service_exit, node_service_exit) =
-        start_janus(&runtime, peer_service_config, node_service_config)?;
+    let (node_service_config, peer_service_config) = make_configs_from_args(arg_matches)?;
+    let (node_service_exit, peer_service_exit) =
+        start_janus(&runtime, node_service_config, peer_service_config)?;
 
     println!("Janus has been successfully started");
 
@@ -156,12 +156,14 @@ fn main() -> Result<(), ExitFailure> {
     while running.load(Ordering::SeqCst) {}
 
     println!("shutdown services");
-    node_service_exit
-        .send(())
-        .expect("failed node service exiting");
+
     peer_service_exit
         .send(())
         .expect("failed peer service exiting");
+
+    node_service_exit
+        .send(())
+        .expect("failed node service exiting");
 
     Ok(())
 }

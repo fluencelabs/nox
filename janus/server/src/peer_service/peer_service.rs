@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,18 @@
  */
 
 use crate::config::PeerServiceConfig;
-use crate::node_service::events::{InNodeServiceEvent, OutNodeServiceEvent};
-use crate::peer_service::p2p::{
-    behaviour::PeerServiceBehaviour, transport::build_transport, transport::PeerServiceTransport,
+use crate::peer_service::{
+    behaviour::PeerServiceBehaviour,
+    notifications::{InPeerNotification, OutPeerNotification},
+    transport::build_transport,
+    transport::PeerServiceTransport,
 };
-use crate::peer_service::relay::message::RelayMessage;
 use libp2p::{
     core::muxing::{StreamMuxerBox, SubstreamRef},
     identity, PeerId, Swarm,
 };
 use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
-use serde_json::error;
 use std::sync::{Arc, Mutex};
 use tokio::prelude::*;
 use tokio::runtime::TaskExecutor;
@@ -37,100 +37,80 @@ pub struct PeerService {
         Box<Swarm<PeerServiceTransport, PeerServiceBehaviour<SubstreamRef<Arc<StreamMuxerBox>>>>>,
 }
 
+pub struct PeerServiceDescriptor {
+    pub exit_sender: tokio::sync::oneshot::Sender<()>,
+    pub peer_channel_out: mpsc::UnboundedReceiver<OutPeerNotification>,
+    pub peer_channel_in: mpsc::UnboundedSender<InPeerNotification>,
+}
+
 impl PeerService {
     pub fn new(config: PeerServiceConfig) -> Arc<Mutex<Self>> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
-        println!("peer service is starting with peer id = {}", local_peer_id);
+        println!("peer service is starting with id = {}", local_peer_id);
 
         let mut swarm = {
             let transport = build_transport(local_key.clone(), config.socket_timeout);
-            let churn_topic = config.churn_topic;
-            let behaviour =
-                PeerServiceBehaviour::new(local_peer_id.clone(), local_key.public(), churn_topic);
+            let behaviour = PeerServiceBehaviour::new(&local_peer_id, local_key.public());
 
-            Box::new(Swarm::new(transport, behaviour, local_peer_id.clone()))
+            Box::new(Swarm::new(transport, behaviour, local_peer_id))
         };
 
         let mut listen_addr = Multiaddr::from(config.listen_ip);
         listen_addr.push(Protocol::Tcp(config.listen_port));
-
         Swarm::listen_on(&mut swarm, listen_addr).unwrap();
-
-        for addr in config.bootstrap_nodes {
-            Swarm::dial_addr(&mut swarm, addr).expect("dialed to bootstrap node failed");
-        }
-
-        swarm.gossip_peer_state();
 
         Arc::new(Mutex::new(Self { swarm }))
     }
 }
 
 pub fn start_peer_service(
-    peer_service: Arc<Mutex<PeerService>>,
-    node_channel_out: mpsc::UnboundedReceiver<OutNodeServiceEvent>,
-    node_channel_in: mpsc::UnboundedSender<InNodeServiceEvent>,
+    node_service: Arc<Mutex<PeerService>>,
     executor: &TaskExecutor,
-) -> error::Result<tokio::sync::oneshot::Sender<()>> {
+) -> Result<PeerServiceDescriptor, ()> {
     let (exit_sender, exit_receiver) = tokio::sync::oneshot::channel();
+    let (channel_in_1, channel_out_1) = tokio::sync::mpsc::unbounded_channel();
+    let (channel_in_2, channel_out_2) = tokio::sync::mpsc::unbounded_channel();
 
     executor.spawn(
-        peer_service_executor(peer_service.clone(), node_channel_out, node_channel_in)
+        peer_service_executor(node_service.clone(), channel_out_1, channel_in_2)
             .select(exit_receiver.then(|_| Ok(())))
             .then(move |_| {
                 trace!("peer_service/service: shutting down by external cmd");
 
                 // notify network that this node just has been shutdown
                 // TODO: hardering
-                peer_service.lock().unwrap().swarm.exit();
+                node_service.lock().unwrap().swarm.exit();
                 Ok(())
             }),
     );
 
-    Ok(exit_sender)
+    Ok(PeerServiceDescriptor {
+        exit_sender,
+        peer_channel_in: channel_in_1,
+        peer_channel_out: channel_out_2,
+    })
 }
 
 fn peer_service_executor(
     peer_service: Arc<Mutex<PeerService>>,
-    mut node_service_out: mpsc::UnboundedReceiver<OutNodeServiceEvent>,
-    mut node_service_in: mpsc::UnboundedSender<InNodeServiceEvent>,
+    mut peer_service_in: mpsc::UnboundedReceiver<InPeerNotification>,
+    mut peer_service_out: mpsc::UnboundedSender<OutPeerNotification>,
 ) -> impl futures::Future<Item = (), Error = ()> {
     futures::future::poll_fn(move || -> Result<_, ()> {
         loop {
-            match node_service_out.poll() {
-                Ok(Async::Ready(Some(event))) => match event {
-                    OutNodeServiceEvent::NodeConnected { node_id } => peer_service
+            match peer_service_in.poll() {
+                Ok(Async::Ready(Some(e))) => match e {
+                    InPeerNotification::Relay { src_id, dst_id, data } => peer_service
                         .lock()
                         .unwrap()
                         .swarm
-                        .add_connected_node(node_id),
-                    OutNodeServiceEvent::NodeDisconnected { node_id } => peer_service
+                        .relay_message(src_id, dst_id, data),
+                    InPeerNotification::NetworkState { dst_id, state } => peer_service
                         .lock()
                         .unwrap()
                         .swarm
-                        .remove_connected_node(node_id),
-                    OutNodeServiceEvent::Relay { src, dst, data } => {
-                        peer_service.lock().unwrap().swarm.relay(RelayMessage {
-                            src: src.into_bytes(),
-                            dst: dst.into_bytes(),
-                            data,
-                        })
-                    }
-                    OutNodeServiceEvent::GetNetworkState { src } => {
-                        let service = peer_service.lock().unwrap();
-                        let network_state = service.swarm.network_state();
-                        let network_state = network_state
-                            .iter()
-                            .map(|v| v.0.clone())
-                            .collect::<Vec<PeerId>>();
-                        node_service_in
-                            .try_send(InNodeServiceEvent::NetworkState {
-                                dst: src,
-                                state: network_state,
-                            })
-                            .expect("Failed during send event to the node service");
-                    }
+                        .send_network_state(dst_id, state),
                 },
                 Ok(Async::NotReady) => break,
                 Ok(Async::Ready(None)) => {
@@ -146,23 +126,19 @@ fn peer_service_executor(
 
         loop {
             match peer_service.lock().unwrap().swarm.poll() {
-                Ok(Async::Ready(Some(_))) => {}
+                Ok(Async::Ready(Some(e))) => {
+                    trace!("peer_service/poll: received {:?} event", e);
+                }
                 Ok(Async::Ready(None)) => unreachable!("stream never ends"),
                 Ok(Async::NotReady) => break,
                 Err(_) => break,
             }
         }
 
-        if let Some(e) = peer_service.lock().unwrap().swarm.pop_node_relay_message() {
-            println!("peer_service/poll: sending {:?} to node_service", e);
+        if let Some(e) = peer_service.lock().unwrap().swarm.pop_out_node_event() {
+            trace!("peer_service/poll: sending {:?} to peer_service", e);
 
-            node_service_in
-                .try_send(InNodeServiceEvent::Relay {
-                    src: PeerId::from_bytes(e.src).unwrap(),
-                    dst: PeerId::from_bytes(e.dst).unwrap(),
-                    data: e.data,
-                })
-                .unwrap();
+            peer_service_out.try_send(e).unwrap();
         }
 
         Ok(Async::NotReady)

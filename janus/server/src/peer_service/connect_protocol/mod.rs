@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-/// The main responsibility of this layer is to contain the whole network state and routes
-/// incoming RelayMessage requests according to it.
 pub mod behaviour;
-pub mod message;
-pub mod protocol;
+pub mod events;
+mod protocol;

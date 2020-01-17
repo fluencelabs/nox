@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,21 @@
  */
 
 use crate::config::NodeServiceConfig;
-use crate::node_service::behaviour::NodeServiceBehaviour;
-use crate::node_service::transport::NodeServiceTransport;
 use crate::node_service::{
-    events::{InNodeServiceEvent, OutNodeServiceEvent},
-    transport::build_transport,
+    p2p::{
+        behaviour::NodeServiceBehaviour, transport::build_transport,
+        transport::NodeServiceTransport,
+    },
+    relay::message::RelayMessage,
 };
+use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
 use libp2p::{
     core::muxing::{StreamMuxerBox, SubstreamRef},
     identity, PeerId, Swarm,
 };
 use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
+use serde_json::error;
 use std::sync::{Arc, Mutex};
 use tokio::prelude::*;
 use tokio::runtime::TaskExecutor;
@@ -37,28 +40,31 @@ pub struct NodeService {
         Box<Swarm<NodeServiceTransport, NodeServiceBehaviour<SubstreamRef<Arc<StreamMuxerBox>>>>>,
 }
 
-pub struct NodeServiceDescriptor {
-    pub exit_sender: tokio::sync::oneshot::Sender<()>,
-    pub node_channel_out: mpsc::UnboundedReceiver<OutNodeServiceEvent>,
-    pub node_channel_in: mpsc::UnboundedSender<InNodeServiceEvent>,
-}
-
 impl NodeService {
     pub fn new(config: NodeServiceConfig) -> Arc<Mutex<Self>> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
-        println!("node service is starting with peer id = {}", local_peer_id);
+        println!("node service is starting with id = {}", local_peer_id);
 
         let mut swarm = {
             let transport = build_transport(local_key.clone(), config.socket_timeout);
-            let behaviour = NodeServiceBehaviour::new(&local_peer_id, local_key.public());
+            let churn_topic = config.churn_topic;
+            let behaviour =
+                NodeServiceBehaviour::new(local_peer_id.clone(), local_key.public(), churn_topic);
 
-            Box::new(Swarm::new(transport, behaviour, local_peer_id))
+            Box::new(Swarm::new(transport, behaviour, local_peer_id.clone()))
         };
 
         let mut listen_addr = Multiaddr::from(config.listen_ip);
         listen_addr.push(Protocol::Tcp(config.listen_port));
+
         Swarm::listen_on(&mut swarm, listen_addr).unwrap();
+
+        for addr in config.bootstrap_nodes {
+            Swarm::dial_addr(&mut swarm, addr).expect("dialed to bootstrap node failed");
+        }
+
+        swarm.gossip_peer_state();
 
         Arc::new(Mutex::new(Self { swarm }))
     }
@@ -66,17 +72,17 @@ impl NodeService {
 
 pub fn start_node_service(
     node_service: Arc<Mutex<NodeService>>,
+    peer_channel_out: mpsc::UnboundedReceiver<OutPeerNotification>,
+    peer_channel_in: mpsc::UnboundedSender<InPeerNotification>,
     executor: &TaskExecutor,
-) -> Result<NodeServiceDescriptor, ()> {
+) -> error::Result<tokio::sync::oneshot::Sender<()>> {
     let (exit_sender, exit_receiver) = tokio::sync::oneshot::channel();
-    let (channel_in_1, channel_out_1) = tokio::sync::mpsc::unbounded_channel();
-    let (channel_in_2, channel_out_2) = tokio::sync::mpsc::unbounded_channel();
 
     executor.spawn(
-        node_service_executor(node_service.clone(), channel_out_1, channel_in_2)
+        node_service_executor(node_service.clone(), peer_channel_out, peer_channel_in)
             .select(exit_receiver.then(|_| Ok(())))
             .then(move |_| {
-                trace!("node_service/service: shutting down by external cmd");
+                trace!("peer_service/service: shutting down by external cmd");
 
                 // notify network that this node just has been shutdown
                 // TODO: hardering
@@ -85,32 +91,49 @@ pub fn start_node_service(
             }),
     );
 
-    Ok(NodeServiceDescriptor {
-        exit_sender,
-        node_channel_in: channel_in_1,
-        node_channel_out: channel_out_2,
-    })
+    Ok(exit_sender)
 }
 
 fn node_service_executor(
-    node_service: Arc<Mutex<NodeService>>,
-    mut node_service_in: mpsc::UnboundedReceiver<InNodeServiceEvent>,
-    mut node_service_out: mpsc::UnboundedSender<OutNodeServiceEvent>,
+    peer_service: Arc<Mutex<NodeService>>,
+    mut peer_service_out: mpsc::UnboundedReceiver<OutPeerNotification>,
+    mut peer_service_in: mpsc::UnboundedSender<InPeerNotification>,
 ) -> impl futures::Future<Item = (), Error = ()> {
     futures::future::poll_fn(move || -> Result<_, ()> {
         loop {
-            match node_service_in.poll() {
-                Ok(Async::Ready(Some(e))) => match e {
-                    InNodeServiceEvent::Relay { src, dst, data } => node_service
+            match peer_service_out.poll() {
+                Ok(Async::Ready(Some(event))) => match event {
+                    OutPeerNotification::PeerConnected { peer_id } => peer_service
                         .lock()
                         .unwrap()
                         .swarm
-                        .relay_message(src, dst, data),
-                    InNodeServiceEvent::NetworkState { dst, state } => node_service
+                        .add_connected_peer(peer_id),
+                    OutPeerNotification::PeerDisconnected { peer_id } => peer_service
                         .lock()
                         .unwrap()
                         .swarm
-                        .send_network_state(dst, state),
+                        .remove_connected_peer(peer_id),
+                    OutPeerNotification::Relay { src_id, dst_id, data } => {
+                        peer_service.lock().unwrap().swarm.relay(RelayMessage {
+                            src_id: src_id.into_bytes(),
+                            dst_id: dst_id.into_bytes(),
+                            data,
+                        })
+                    }
+                    OutPeerNotification::GetNetworkState { src_id } => {
+                        let service = peer_service.lock().unwrap();
+                        let network_state = service.swarm.network_state();
+                        let network_state = network_state
+                            .iter()
+                            .map(|v| v.0.clone())
+                            .collect::<Vec<PeerId>>();
+                        peer_service_in
+                            .try_send(InPeerNotification::NetworkState {
+                                dst_id: src_id,
+                                state: network_state,
+                            })
+                            .expect("Failed during send event to the node service");
+                    }
                 },
                 Ok(Async::NotReady) => break,
                 Ok(Async::Ready(None)) => {
@@ -125,20 +148,24 @@ fn node_service_executor(
         }
 
         loop {
-            match node_service.lock().unwrap().swarm.poll() {
-                Ok(Async::Ready(Some(e))) => {
-                    trace!("node_service/poll: received {:?} event", e);
-                }
+            match peer_service.lock().unwrap().swarm.poll() {
+                Ok(Async::Ready(Some(_))) => {}
                 Ok(Async::Ready(None)) => unreachable!("stream never ends"),
                 Ok(Async::NotReady) => break,
                 Err(_) => break,
             }
         }
 
-        if let Some(e) = node_service.lock().unwrap().swarm.pop_out_node_event() {
-            trace!("node_service/poll: sending {:?} to peer_service", e);
+        if let Some(e) = peer_service.lock().unwrap().swarm.pop_peer_relay_message() {
+            println!("peer_service/poll: sending {:?} to node_service", e);
 
-            node_service_out.try_send(e).unwrap();
+            peer_service_in
+                .try_send(InPeerNotification::Relay {
+                    src_id: PeerId::from_bytes(e.src_id).unwrap(),
+                    dst_id: PeerId::from_bytes(e.dst_id).unwrap(),
+                    data: e.data,
+                })
+                .unwrap();
         }
 
         Ok(Async::NotReady)

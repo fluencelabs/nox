@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::peer_service::relay::message::RelayMessage;
+use crate::node_service::relay::message::RelayMessage;
 use fnv::FnvHashSet;
 use libp2p::{
     core::ConnectedPoint,
@@ -32,21 +32,18 @@ use tokio::prelude::*;
 
 pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 
-/// Behaviour of the Relay layer. Contains the whole network state with connected nodes to this
-/// peer. Produces RelayMessage in event (in terms of libp2p) to libp2p internals if a message
-/// should be relayed to other peer and out event if a message should be relayed to a node connected
-/// to this peer.
+/// Behaviour of the Relay layer. Contains the whole network state with connected peers to this
+/// node. Produces RelayMessage and save in the internal deque to pass then to the libp2p swarm.
 pub struct PeerRelayLayerBehaviour<Substream> {
-    // Queue of events that has to be sent to nodes connected to this peer.
+    // Queue of events to send to the upper level.
     events: VecDeque<NetworkBehaviourAction<RelayMessage, RelayMessage>>,
 
-    /// Connected to these peer nodes.
-    connected_nodes: FnvHashSet<PeerId>,
+    /// Connected peers to this node.
+    connected_peers: FnvHashSet<PeerId>,
 
-    /// Current network state of all peers with connected nodes.
+    /// Current network state of all nodes with connected peers.
     network_state: NetworkState,
 
-    /// Pin generic.
     marker: PhantomData<Substream>,
 }
 
@@ -54,39 +51,40 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     pub fn new() -> Self {
         Self {
             events: VecDeque::new(),
-            connected_nodes: FnvHashSet::default(),
+            connected_peers: FnvHashSet::default(),
             network_state: HashMap::new(),
             marker: PhantomData,
         }
     }
 
-    /// Adds a new peer with provided peer id and a list of connected nodes to the network state.
-    pub fn add_new_peer(&mut self, peer: PeerId, nodes: Vec<PeerId>) {
-        self.network_state.insert(peer, HashSet::from_iter(nodes));
+    /// Adds a new node with provided id and a list of connected peers to the network state.
+    pub fn add_new_node(&mut self, node_id: PeerId, peer_ids: Vec<PeerId>) {
+        self.network_state
+            .insert(node_id, HashSet::from_iter(peer_ids));
 
         self.print_network_state();
     }
 
-    /// Removes peer with provided peer id from the network state.
-    pub fn remove_peer(&mut self, peer: PeerId) {
-        self.network_state.remove(&peer);
+    /// Removes node with provided id from the network state.
+    pub fn remove_node(&mut self, node_id: &PeerId) {
+        self.network_state.remove(node_id);
 
         self.print_network_state();
     }
 
-    /// Adds a new node with provided peer id connected to given peer to the network state.
-    pub fn add_new_node(&mut self, peer: &PeerId, node: PeerId) {
-        if let Some(v) = self.network_state.get_mut(peer) {
-            v.insert(node);
+    /// Adds a new peer with provided id connected to given node to the network state.
+    pub fn add_new_peer(&mut self, node_id: &PeerId, peer_id: PeerId) {
+        if let Some(v) = self.network_state.get_mut(node_id) {
+            v.insert(peer_id);
         }
 
         self.print_network_state();
     }
 
-    /// Removes node with provided peer id connected to given peer from the network state.
-    pub fn remove_node(&mut self, peer: &PeerId, node: PeerId) {
-        if let Some(v) = self.network_state.get_mut(peer) {
-            v.remove(&node);
+    /// Removes peer with provided id connected to given node from the network state.
+    pub fn remove_peer(&mut self, node_id: &PeerId, peer_id: &PeerId) {
+        if let Some(v) = self.network_state.get_mut(node_id) {
+            v.remove(peer_id);
         }
 
         self.print_network_state();
@@ -109,25 +107,25 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         &self.network_state
     }
 
-    pub fn connected_nodes_mut(&mut self) -> &mut FnvHashSet<PeerId> {
-        &mut self.connected_nodes
+    pub fn connected_peers_mut(&mut self) -> &mut FnvHashSet<PeerId> {
+        &mut self.connected_peers
     }
 
-    pub fn connected_nodes(&self) -> Vec<PeerId> {
-        self.connected_nodes.iter().cloned().collect::<Vec<_>>()
+    pub fn connected_peers(&self) -> Vec<PeerId> {
+        self.connected_peers.iter().cloned().collect::<Vec<_>>()
     }
 
     /// Relays given message to the given node according to the current network state.
     pub fn relay(&mut self, relay_message: RelayMessage) {
-        let dst_node = &relay_message.dst;
-        let dst_node = PeerId::from_bytes(dst_node.clone()).unwrap();
-        if !self.connected_nodes.contains(&dst_node) {
-            for (peer, nodes) in &self.network_state {
-                if nodes.contains(&dst_node) {
+        let dst_peer_id = PeerId::from_bytes(relay_message.dst_id.clone()).unwrap();
+        if !self.connected_peers.contains(&dst_peer_id) {
+            for (node, peers) in &self.network_state {
+                if peers.contains(&dst_peer_id) {
                     self.events.push_back(NetworkBehaviourAction::SendEvent {
-                        peer_id: peer.to_owned(),
-                        event: relay_message.clone(),
-                    })
+                        peer_id: node.to_owned(),
+                        event: relay_message,
+                    });
+                    return
                 }
             }
         } else {

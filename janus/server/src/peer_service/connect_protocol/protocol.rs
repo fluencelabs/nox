@@ -15,7 +15,7 @@
  */
 
 use crate::error::Error;
-use crate::node_service::connect_protocol::messages::{InNodeMessage, OutNodeMessage};
+use crate::peer_service::connect_protocol::events::{InPeerEvent, OutPeerEvent};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
 use serde_json;
@@ -24,9 +24,9 @@ use tokio::prelude::*;
 
 // 1 Mb
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
-const PROTOCOL_INFO: &[u8] = b"/janus/node/1.0.0";
+const PROTOCOL_INFO: &[u8] = b"/janus/peer/1.0.0";
 
-impl UpgradeInfo for InNodeMessage {
+impl UpgradeInfo for InPeerEvent {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -35,8 +35,8 @@ impl UpgradeInfo for InNodeMessage {
     }
 }
 
-impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for InNodeMessage {
-    type Output = InNodeMessage;
+impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for InPeerEvent {
+    type Output = InPeerEvent;
     type Error = Error;
     type Future = upgrade::ReadOneThen<
         upgrade::Negotiated<Socket>,
@@ -50,9 +50,9 @@ impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for InNodeMessage {
         _info: Self::Info,
     ) -> Self::Future {
         upgrade::read_one_then(socket, MAX_BUF_SIZE, (), |packet, ()| {
-            let relay_message: InNodeMessage = serde_json::from_slice(&packet).unwrap();
+            let relay_message: InPeerEvent = serde_json::from_slice(&packet).unwrap();
             trace!(
-                "node_service/connect_protocol/upgrade_inbound: received a new relay message {:?}",
+                "peer_service/connect_protocol/upgrade_inbound: received a new relay message {:?}",
                 relay_message
             );
 
@@ -61,7 +61,7 @@ impl<Socket: AsyncRead + AsyncWrite> InboundUpgrade<Socket> for InNodeMessage {
     }
 }
 
-impl UpgradeInfo for OutNodeMessage {
+impl UpgradeInfo for OutPeerEvent {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -70,7 +70,7 @@ impl UpgradeInfo for OutNodeMessage {
     }
 }
 
-impl<Socket> OutboundUpgrade<Socket> for OutNodeMessage
+impl<Socket> OutboundUpgrade<Socket> for OutPeerEvent
 where
     Socket: AsyncRead + AsyncWrite,
 {
@@ -84,7 +84,7 @@ where
         _info: Self::Info,
     ) -> Self::Future {
         trace!(
-            "node_service/connect_protocol/upgrade_outbound: sending a new network message: {:?}",
+            "peer_service/connect_protocol/upgrade_outbound: sending a new network message: {:?}",
             self
         );
 

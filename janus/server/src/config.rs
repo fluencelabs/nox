@@ -19,7 +19,7 @@ use libp2p::floodsub;
 use std::net::IpAddr;
 use std::time::Duration;
 
-pub struct PeerServiceConfig {
+pub struct NodeServiceConfig {
     /// Local port to listen on.
     pub listen_port: u16,
 
@@ -39,10 +39,10 @@ pub struct PeerServiceConfig {
     pub churn_topic: floodsub::Topic,
 }
 
-impl Default for PeerServiceConfig {
+impl Default for NodeServiceConfig {
     fn default() -> Self {
         Self {
-            listen_port: 7777,
+            listen_port: 9999,
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             secret_key: None,
@@ -52,7 +52,7 @@ impl Default for PeerServiceConfig {
     }
 }
 
-pub struct NodeServiceConfig {
+pub struct PeerServiceConfig {
     /// Local port to listen on.
     pub listen_port: u16,
 
@@ -63,10 +63,10 @@ pub struct NodeServiceConfig {
     pub socket_timeout: Duration,
 }
 
-impl Default for NodeServiceConfig {
+impl Default for PeerServiceConfig {
     fn default() -> Self {
         Self {
-            listen_port: 9999,
+            listen_port: 7777,
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
         }

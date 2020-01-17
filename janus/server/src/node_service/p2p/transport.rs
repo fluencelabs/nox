@@ -27,13 +27,13 @@ use libp2p::{
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 
-pub(crate) type PeerServiceTransport = Boxed<(PeerId, StreamMuxerBox), Error>;
+pub(crate) type NodeServiceTransport = Boxed<(PeerId, StreamMuxerBox), Error>;
 
 /// Creates transport that is common for all connections.
 ///
 /// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
 /// the multiplexing layer.
-pub fn build_transport(keys: Keypair, socket_timeout: Duration) -> PeerServiceTransport {
+pub fn build_transport(keys: Keypair, socket_timeout: Duration) -> NodeServiceTransport {
     DnsConfig::new(TcpConfig::new().nodelay(true))
         .upgrade(core::upgrade::Version::V1)
         .authenticate(SecioConfig::new(keys))

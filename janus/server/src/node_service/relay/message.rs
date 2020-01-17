@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
-pub mod behaviour;
-pub mod messages;
-mod protocol;
+use serde::{Deserialize, Serialize};
+
+/// Relay message is just a data that need to be relayed from a src peer to a dst peer.
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct RelayMessage {
+    pub src_id: Vec<u8>,
+    pub dst_id: Vec<u8>,
+    pub data: Vec<u8>,
+}

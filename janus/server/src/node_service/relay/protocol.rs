@@ -15,7 +15,7 @@
  */
 
 use crate::error::Error;
-use crate::peer_service::relay::message::RelayMessage;
+use crate::node_service::relay::message::RelayMessage;
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use serde_json;
 use std::{io, iter};
