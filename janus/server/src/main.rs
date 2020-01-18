@@ -14,26 +14,21 @@
  * limitations under the License.
  */
 
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+#![feature(impl_trait_in_bindings)]
 
 mod config;
 mod error;
 mod node_service;
 mod peer_service;
 
-use crate::config::{NodeServiceConfig, PeerServiceConfig};
+use crate::config::{NodeServiceConfig, PeerServiceConfig, WebsocketConfig};
 use crate::node_service::node_service::{start_node_service, NodeService};
 use crate::peer_service::peer_service::{start_peer_service, PeerService, PeerServiceDescriptor};
 use clap::{App, Arg, ArgMatches};
 use ctrlc;
+use async_std::task;
+use futures::channel::{mpsc, oneshot};
+use futures::{future::select, StreamExt};
 use env_logger;
 use exitfailure::ExitFailure;
 use failure::_core::str::FromStr;
@@ -44,6 +39,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use tungstenite::WebSocket;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -96,25 +92,30 @@ fn make_configs_from_args(
     Ok((node_service_config, peer_service_config))
 }
 
-fn start_janus(
+async fn start_janus(
     node_service_config: NodeServiceConfig,
     peer_service_config: PeerServiceConfig,
 ) -> Result<(Sender<()>, Sender<()>), std::io::Error> {
     trace!("starting Janus");
 
-    let peer_service = PeerService::new(peer_service_config);
-    let peer_service_descriptor: PeerServiceDescriptor =
-        start_peer_service(peer_service).expect("An error occurred during node service start");
+    let (channel_in_1, channel_out_1) = mpsc::unbounded();
+    let (channel_in_2, channel_out_2) = mpsc::unbounded();
+
+    let (exit_sender, exit_receiver) = oneshot::channel();
+
+
 
     let node_service = NodeService::new(node_service_config);
     let node_service_exit = start_node_service(
         node_service,
-        peer_service_descriptor.peer_channel_out,
-        peer_service_descriptor.peer_channel_in,
+        channel_out_2,
+        channel_in_1,
     )
     .expect("An error occurred during the peer service start");
 
-    Ok((node_service_exit, peer_service_descriptor.exit_sender))
+    let f = node_service::websocket::websocket::run_websocket(WebsocketConfig::default(), channel_out_1, channel_in_2).await;
+
+    Ok((node_service_exit, exit_sender))
 }
 
 fn main() -> Result<(), ExitFailure> {
@@ -127,9 +128,11 @@ fn main() -> Result<(), ExitFailure> {
         .args(&prepare_args())
         .get_matches();
 
+    println!("Janus is starting...");
+
     let (node_service_config, peer_service_config) = make_configs_from_args(arg_matches)?;
     let (node_service_exit, peer_service_exit) =
-        start_janus(node_service_config, peer_service_config)?;
+        task::block_on(start_janus(node_service_config, peer_service_config))?;
 
     println!("Janus has been successfully started");
 

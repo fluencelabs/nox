@@ -72,3 +72,24 @@ impl Default for PeerServiceConfig {
         }
     }
 }
+
+pub struct WebsocketConfig {
+    /// Local port to listen on.
+    pub listen_port: u16,
+
+    /// Local ip address to listen on.
+    pub listen_ip: IpAddr,
+
+    /// Socket timeout for main transport.
+    pub socket_timeout: Duration,
+}
+
+impl Default for WebsocketConfig {
+    fn default() -> Self {
+        Self {
+            listen_port: 8888,
+            listen_ip: "0.0.0.0".parse().unwrap(),
+            socket_timeout: Duration::from_secs(20),
+        }
+    }
+}
