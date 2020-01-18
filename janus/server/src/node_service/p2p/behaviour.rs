@@ -205,7 +205,7 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
             peer_id
         );
 
-        self.relay.connected_peers_mut().insert(peer_id.clone());
+        self.relay.add_local_peer(peer_id.clone());
 
         let message = P2PNetworkEvents::PeersConnected {
             node_id: self.local_node_id.clone().into_bytes(),
@@ -221,7 +221,7 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
             peer_id
         );
 
-        self.relay.connected_peers_mut().remove(&peer_id);
+        self.relay.remove_local_peer(&peer_id);
 
         let message = P2PNetworkEvents::PeersDisconnected {
             node_id: self.local_node_id.clone().into_bytes(),

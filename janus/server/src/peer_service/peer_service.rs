@@ -22,8 +22,7 @@ use crate::peer_service::{
     transport::PeerServiceTransport,
 };
 use async_std::task;
-use futures::channel::{mpsc, oneshot};
-use futures::{future::select, StreamExt};
+use futures::{channel::mpsc, stream::StreamExt};
 use libp2p::{
     core::muxing::{StreamMuxerBox, SubstreamRef},
     identity, PeerId, Swarm,
@@ -36,12 +35,6 @@ use std::task::{Context, Poll};
 pub struct PeerService {
     pub swarm:
         Box<Swarm<PeerServiceTransport, PeerServiceBehaviour<SubstreamRef<Arc<StreamMuxerBox>>>>>,
-}
-
-pub struct PeerServiceDescriptor {
-    pub exit_sender: oneshot::Sender<()>,
-    pub peer_channel_out: mpsc::UnboundedReceiver<OutPeerNotification>,
-    pub peer_channel_in: mpsc::UnboundedSender<InPeerNotification>,
 }
 
 impl PeerService {
@@ -66,33 +59,14 @@ impl PeerService {
 }
 
 pub fn start_peer_service(
-    node_service: Arc<Mutex<PeerService>>,
-    //    executor: &TaskExecutor,
-) -> Result<PeerServiceDescriptor, ()> {
-    let (exit_sender, exit_receiver) = oneshot::channel();
-    let (channel_in_1, channel_out_1) = mpsc::unbounded();
-    let (channel_in_2, channel_out_2) = mpsc::unbounded();
-
-    task::spawn(select(
-        peer_service_executor(node_service.clone(), channel_out_1, channel_in_2),
-        exit_receiver,
-    ));
-
-    Ok(PeerServiceDescriptor {
-        exit_sender,
-        peer_channel_in: channel_in_1,
-        peer_channel_out: channel_out_2,
-    })
-}
-
-fn peer_service_executor(
     peer_service: Arc<Mutex<PeerService>>,
-    mut peer_service_in: mpsc::UnboundedReceiver<InPeerNotification>,
-    peer_service_out: mpsc::UnboundedSender<OutPeerNotification>,
-) -> impl futures::Future<Output = Result<(), ()>> {
-    futures::future::poll_fn(move |cx: &mut Context| {
+    mut peer_service_in_receiver: mpsc::UnboundedReceiver<InPeerNotification>,
+    peer_service_out_sender: mpsc::UnboundedSender<OutPeerNotification>,
+) -> task::JoinHandle<()> {
+    let handle = task::spawn(futures::future::poll_fn(move |cx: &mut Context| {
+        println!("peer service loop");
         loop {
-            match peer_service_in.poll_next_unpin(cx) {
+            match peer_service_in_receiver.poll_next_unpin(cx) {
                 Poll::Ready(Some(e)) => match e {
                     InPeerNotification::Relay {
                         src_id,
@@ -110,13 +84,19 @@ fn peer_service_executor(
                         .swarm
                         .send_network_state(dst_id, state),
                 },
-                Poll::Pending => break,
+                Poll::Pending => {
+                    println!("pending");
+                    break;
+                }
                 Poll::Ready(None) => {
+                    println!("None");
                     // TODO: propagate error
                     break;
                 }
             }
         }
+
+        println!("before swarm");
 
         loop {
             match peer_service.lock().unwrap().swarm.poll_next_unpin(cx) {
@@ -128,12 +108,18 @@ fn peer_service_executor(
             }
         }
 
+        println!("11");
+
         if let Some(e) = peer_service.lock().unwrap().swarm.pop_out_node_event() {
             trace!("peer_service/poll: sending {:?} to peer_service", e);
 
-            peer_service_out.unbounded_send(e).unwrap();
+            peer_service_out_sender.unbounded_send(e).unwrap();
         }
 
+        println!("2");
+
         Poll::Pending
-    })
+    }));
+
+    handle
 }

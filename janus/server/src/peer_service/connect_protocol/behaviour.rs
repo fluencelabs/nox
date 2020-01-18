@@ -35,7 +35,6 @@ pub struct PeerConnectProtocolBehaviour<Substream> {
     /// that need to be handled during polling.
     events: VecDeque<NetworkBehaviourAction<OutPeerEvent, OutPeerNotification>>,
 
-    /// Pin generic.
     marker: PhantomData<Substream>,
 }
 
@@ -99,7 +98,7 @@ where
     }
 
     fn inject_connected(&mut self, peer_id: PeerId, _cp: ConnectedPoint) {
-        trace!(
+        println!(
             "peer_service/connect_protocol/inject_connected: new peer {} joined",
             peer_id
         );

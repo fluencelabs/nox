@@ -91,27 +91,37 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         self.print_network_state();
     }
 
+    /// Adds a new peer with provided id connected to this peer
+    pub fn add_local_peer(&mut self, peer_id: PeerId) {
+        self.connected_peers.insert(peer_id);
+
+        self.print_network_state();
+    }
+
+    /// Adds a new peer with provided id connected to this peer
+    pub fn remove_local_peer(&mut self, peer_id: &PeerId) {
+        self.connected_peers.remove(&peer_id);
+
+        self.print_network_state();
+    }
+
     /// Prints the whole network state. Just for debug purposes.
     fn print_network_state(&self) {
-        trace!("\nNetwork state:");
+        println!("\nNetwork state:");
         for (node_id, peer_ids) in self.network_state.iter() {
-            trace!("node {}, connected peers:", node_id);
+            println!("node {}, connected peers:", node_id);
             for peer_id in peer_ids.iter() {
-                trace!("{}", peer_id);
+                println!("{}", peer_id);
             }
         }
-        trace!("current node, connected peers:");
+        println!("current node, connected peers:");
         for peer_id in self.connected_peers() {
-            trace!("{}", peer_id);
+            println!("{}", peer_id);
         }
     }
 
     pub fn network_state(&self) -> &NetworkState {
         &self.network_state
-    }
-
-    pub fn connected_peers_mut(&mut self) -> &mut FnvHashSet<PeerId> {
-        &mut self.connected_peers
     }
 
     pub fn connected_peers(&self) -> Vec<PeerId> {
