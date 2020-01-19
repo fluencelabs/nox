@@ -32,7 +32,7 @@ use libp2p::{NetworkBehaviour, PeerId};
 use log::trace;
 use parity_multiaddr::Multiaddr;
 use serde_json;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::str::FromStr;
 
 /// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
@@ -157,7 +157,7 @@ where
                         network_map,
                     } => {
                         if self.initialized {
-                            // pass the intialization step if we have seen the NodesMap event
+                            // pass the intialization step if we have already seen the NodesMap event
                             return;
                         }
                         self.initialized = true;
@@ -185,6 +185,8 @@ where
                                     .collect(),
                             )
                         }
+
+                        self.relay.print_network_state();
                     }
                 }
             }
@@ -208,7 +210,7 @@ where
                 self.floodsub.add_node_to_partial_view(id.clone());
                 self.relay.add_new_node(id, Vec::new());
 
-                let nodes_map: Vec<Vec<String>> = self
+                let node_addrs: Vec<Vec<String>> = self
                     .relay
                     .connected_peers()
                     .iter()
@@ -235,15 +237,15 @@ where
                                 .collect(),
                         )
                     })
-                    .collect::<HashMap<Vec<u8>, HashSet<Vec<u8>>>>();
+                    .collect::<Vec<(Vec<u8>, Vec<Vec<u8>>)>>();
 
                 trace!(
                     "node_service/p2p/behaviour/swarm_state_event: gossip nodes map {:?}",
-                    nodes_map
+                    node_addrs
                 );
 
                 self.gossip_network_update(P2PNetworkEvents::NetworkState {
-                    node_addrs: nodes_map,
+                    node_addrs,
                     network_map,
                 });
             }
@@ -265,7 +267,10 @@ where
 {
     pub fn new(local_peer_id: PeerId, local_public_key: PublicKey, churn_topic: Topic) -> Self {
         let relay = PeerRelayLayerBehaviour::new();
-        let ping = Ping::new(PingConfig::new());
+        let ping = Ping::new(
+            PingConfig::new()
+                .with_max_failures(unsafe { core::num::NonZeroU32::new_unchecked(10) }),
+        );
         let mut floodsub = Floodsub::new(local_peer_id.clone());
         let identity = Identify::new("/janus/p2p/1.0.0".into(), "0.1.0".into(), local_public_key);
         let swarm_state = SwarmStateBehaviour::new();

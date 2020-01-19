@@ -106,7 +106,7 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     }
 
     /// Prints the whole network state. Just for debug purposes.
-    fn print_network_state(&self) {
+    pub fn print_network_state(&self) {
         println!("\nNetwork state:");
         for (node_id, peer_ids) in self.network_state.iter() {
             println!("node {}, connected peers:", node_id);

@@ -15,7 +15,6 @@
  */
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 
 /// This message type is intended to describe network topology changing
 /// (adding or removing new nodes or peers).
@@ -42,6 +41,6 @@ pub enum P2PNetworkEvents {
     /// Send by bootstrap nodes on the first connection.
     NetworkState {
         node_addrs: Vec<Vec<String>>, // each node could have multiple addresses
-        network_map: HashMap<Vec<u8>, HashSet<Vec<u8>>>,
+        network_map: Vec<(Vec<u8>, Vec<Vec<u8>>)>,
     },
 }
