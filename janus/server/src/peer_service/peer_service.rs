@@ -22,7 +22,10 @@ use crate::peer_service::{
     transport::PeerServiceTransport,
 };
 use async_std::task;
-use futures::{channel::mpsc, stream::StreamExt};
+use futures::{
+    channel::{mpsc, oneshot},
+    stream::StreamExt,
+};
 use libp2p::{
     core::muxing::{StreamMuxerBox, SubstreamRef},
     identity, PeerId, Swarm,
@@ -62,54 +65,56 @@ pub fn start_peer_service(
     peer_service: Arc<Mutex<PeerService>>,
     mut peer_service_in_receiver: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_service_out_sender: mpsc::UnboundedSender<OutPeerNotification>,
-) -> task::JoinHandle<()> {
-    let handle = task::spawn(futures::future::poll_fn(move |cx: &mut Context| {
-        println!("peer service loop");
-        loop {
-            match peer_service_in_receiver.poll_next_unpin(cx) {
-                Poll::Ready(Some(e)) => match e {
-                    InPeerNotification::Relay {
-                        src_id,
-                        dst_id,
-                        data,
-                    } => peer_service
-                        .lock()
-                        .unwrap()
-                        .swarm
-                        .relay_message(src_id, dst_id, data),
+) -> oneshot::Sender<()> {
+    let (exit_sender, exit_receiver) = oneshot::channel();
 
-                    InPeerNotification::NetworkState { dst_id, state } => peer_service
-                        .lock()
-                        .unwrap()
-                        .swarm
-                        .send_network_state(dst_id, state),
-                },
-                Poll::Pending => {
-                    println!("pending");
-                    break;
-                }
-                Poll::Ready(None) => {
-                    println!("None");
-                    // TODO: propagate error
-                    break;
+    task::spawn(futures::future::select(
+        futures::future::poll_fn(move |cx: &mut Context| -> Poll<()> {
+            loop {
+                match peer_service_in_receiver.poll_next_unpin(cx) {
+                    Poll::Ready(Some(e)) => match e {
+                        InPeerNotification::Relay {
+                            src_id,
+                            dst_id,
+                            data,
+                        } => peer_service
+                            .lock()
+                            .unwrap()
+                            .swarm
+                            .relay_message(src_id, dst_id, data),
+
+                        InPeerNotification::NetworkState { dst_id, state } => peer_service
+                            .lock()
+                            .unwrap()
+                            .swarm
+                            .send_network_state(dst_id, state),
+                    },
+                    Poll::Pending => {
+                        break;
+                    }
+                    Poll::Ready(None) => {
+                        // TODO: propagate error
+                        break;
+                    }
                 }
             }
-        }
 
-        loop {
-            match peer_service.lock().unwrap().swarm.poll_next_unpin(cx) {
-                Poll::Ready(Some(e)) => {
-                    trace!("peer_service/poll: sending {:?} to peer_service", e);
+            loop {
+                match peer_service.lock().unwrap().swarm.poll_next_unpin(cx) {
+                    Poll::Ready(Some(e)) => {
+                        trace!("peer_service/poll: sending {:?} to peer_service", e);
 
-                    peer_service_out_sender.unbounded_send(e).unwrap();
+                        peer_service_out_sender.unbounded_send(e).unwrap();
+                    }
+                    Poll::Ready(None) => unreachable!("stream never ends"),
+                    Poll::Pending => break,
                 }
-                Poll::Ready(None) => unreachable!("stream never ends"),
-                Poll::Pending => break,
             }
-        }
 
-        Poll::Pending
-    }));
+            Poll::Pending
+        }),
+        exit_receiver,
+    ));
 
-    handle
+    exit_sender
 }

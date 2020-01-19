@@ -98,7 +98,7 @@ where
     }
 
     fn inject_connected(&mut self, peer_id: PeerId, _cp: ConnectedPoint) {
-        println!(
+        trace!(
             "peer_service/connect_protocol/inject_connected: new peer {} joined",
             peer_id
         );

@@ -32,7 +32,7 @@ use libp2p::{NetworkBehaviour, PeerId};
 use log::trace;
 use parity_multiaddr::Multiaddr;
 use serde_json;
-use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::str::FromStr;
 
 /// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
@@ -68,6 +68,10 @@ where
     /// Contains events that need to be propagate to external caller.
     #[behaviour(ignore)]
     events: VecDeque<NetworkBehaviourAction<NodeServiceBehaviourInEvent<Substream>, RelayEvent>>,
+
+    // true, if service've seen NodesMap event
+    #[behaviour(ignore)]
+    initialized: bool,
 }
 
 impl<Substream> NetworkBehaviourEventProcess<RelayEvent> for NodeServiceBehaviour<Substream>
@@ -148,14 +152,39 @@ where
                                 .remove_peer(&node_id, &PeerId::from_bytes(peer).unwrap());
                         }
                     }
-                    P2PNetworkEvents::NodesMap { node_addrs } => {
+                    P2PNetworkEvents::NetworkState {
+                        node_addrs,
+                        network_map,
+                    } => {
+                        if self.initialized {
+                            // pass the intialization step if we have seen the NodesMap event
+                            return;
+                        }
+                        self.initialized = true;
+                        trace!(
+                            "node_service/p2p/behaviour/floodsub: received nodes map event {:?}",
+                            node_addrs
+                        );
+
                         let node_addrs = node_addrs
                             .iter()
                             .flat_map(|addrs| {
                                 addrs.iter().map(|addr| Multiaddr::from_str(addr).unwrap())
                             })
                             .collect();
+
                         self.connect_to_nodes(node_addrs);
+
+                        for (node_id, peers) in network_map {
+                            self.relay.add_new_node(
+                                PeerId::from_bytes(node_id).unwrap(),
+                                peers
+                                    .iter()
+                                    .cloned()
+                                    .map(|peer_id| PeerId::from_bytes(peer_id).unwrap())
+                                    .collect(),
+                            )
+                        }
                     }
                 }
             }
@@ -191,13 +220,31 @@ where
                     })
                     .collect();
 
+                // convert from HashMap<PeerId, HashSet<PeerId>> to HashMap<Vec<u8>, HashSet<Vec<u8>>>
+                let network_map = self
+                    .relay
+                    .network_state()
+                    .iter()
+                    .map(|(node_id, peers)| {
+                        (
+                            node_id.clone().into_bytes(),
+                            peers
+                                .iter()
+                                .cloned()
+                                .map(|peer_id| peer_id.into_bytes())
+                                .collect(),
+                        )
+                    })
+                    .collect::<HashMap<Vec<u8>, HashSet<Vec<u8>>>>();
+
                 trace!(
                     "node_service/p2p/behaviour/swarm_state_event: gossip nodes map {:?}",
                     nodes_map
                 );
 
-                self.gossip_network_update(P2PNetworkEvents::NodesMap {
+                self.gossip_network_update(P2PNetworkEvents::NetworkState {
                     node_addrs: nodes_map,
+                    network_map,
                 });
             }
             SwarmStateEvent::Disconnected { id } => {
@@ -234,6 +281,7 @@ where
             churn_topic,
             local_node_id: local_peer_id,
             events: VecDeque::new(),
+            initialized: false,
         }
     }
 
@@ -319,7 +367,6 @@ where
         }
     }
 
-    #[allow(dead_code)]
     fn custom_poll(
         &mut self,
         _: &mut std::task::Context,

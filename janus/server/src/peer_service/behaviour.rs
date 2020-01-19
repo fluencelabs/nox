@@ -106,7 +106,6 @@ where
     }
     */
 
-    #[allow(dead_code)]
     fn custom_poll(
         &mut self,
         _: &mut std::task::Context,
