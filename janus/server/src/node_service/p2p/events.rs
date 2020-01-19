@@ -16,8 +16,8 @@
 
 use serde::{Deserialize, Serialize};
 
-/// This message type intended to describe network topology changing
-/// (adding or removing new nodes or peers)
+/// This message type is intended to describe network topology changing
+/// (adding or removing new nodes or peers).
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "action")]
 pub enum P2PNetworkEvents {
@@ -36,5 +36,10 @@ pub enum P2PNetworkEvents {
     },
     NodeDisconnected {
         node_id: Vec<u8>,
+    },
+
+    /// Send by bootstrap nodes on the first connection.
+    NodesMap {
+        node_addrs: Vec<Vec<String>>, // each node could have multiple addresses
     },
 }

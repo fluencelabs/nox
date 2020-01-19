@@ -123,22 +123,20 @@ pub fn start_node_service(
 
         loop {
             match node_service.lock().unwrap().swarm.poll_next_unpin(cx) {
-                Poll::Ready(Some(_)) => {}
+                Poll::Ready(Some(e)) => {
+                    trace!("node_service/poll: sending {:?} to node_service", e);
+
+                    peer_service_in_sender
+                        .unbounded_send(InPeerNotification::Relay {
+                            src_id: PeerId::from_bytes(e.src_id).unwrap(),
+                            dst_id: PeerId::from_bytes(e.dst_id).unwrap(),
+                            data: e.data,
+                        })
+                        .unwrap();
+                }
                 Poll::Ready(None) => unreachable!("stream never ends"),
                 Poll::Pending => break,
             }
-        }
-
-        if let Some(e) = node_service.lock().unwrap().swarm.pop_peer_relay_message() {
-            trace!("node_service/poll: sending {:?} to node_service", e);
-
-            peer_service_in_sender
-                .unbounded_send(InPeerNotification::Relay {
-                    src_id: PeerId::from_bytes(e.src_id).unwrap(),
-                    dst_id: PeerId::from_bytes(e.dst_id).unwrap(),
-                    data: e.data,
-                })
-                .unwrap();
         }
 
         println!("node");

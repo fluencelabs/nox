@@ -20,21 +20,39 @@ use crate::node_service::relay::{
     behaviour::{NetworkState, PeerRelayLayerBehaviour},
     events::RelayEvent,
 };
+use futures::task::Poll;
 use futures::{AsyncRead, AsyncWrite};
+use libp2p::core::either::EitherOutput;
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
-use libp2p::swarm::NetworkBehaviourEventProcess;
+use libp2p::swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::{NetworkBehaviour, PeerId};
 use log::trace;
+use parity_multiaddr::Multiaddr;
 use serde_json;
 use std::collections::VecDeque;
+use std::str::FromStr;
+
+/// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
+/// parameter of NetworkBehaviourAction. Should be regenerated each time a set of behaviours
+/// of the NodeServiceBehaviour is changed.
+type NodeServiceBehaviourInEvent<Substream> = EitherOutput<EitherOutput<EitherOutput<EitherOutput
+    <<<<libp2p::ping::Ping<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent,
+    <<<PeerRelayLayerBehaviour<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
+    <<<libp2p::identify::Identify<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
+    <<<libp2p::floodsub::Floodsub<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
+    <<<SwarmStateBehaviour<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>;
 
 /// Behaviour of the p2p layer that is responsible for keeping the network state actual and rules
 /// all other protocols of the Janus.
 #[derive(NetworkBehaviour)]
-pub struct NodeServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
+#[behaviour(poll_method = "custom_poll", out_event = "RelayEvent")]
+pub struct NodeServiceBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     ping: Ping<Substream>,
     relay: PeerRelayLayerBehaviour<Substream>,
     identity: Identify<Substream>,
@@ -47,33 +65,38 @@ pub struct NodeServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
     #[behaviour(ignore)]
     local_node_id: PeerId,
 
-    /// Relay messages that need to served to specified nodes.
+    /// Contains events that need to be propagate to external caller.
     #[behaviour(ignore)]
-    nodes_messages: VecDeque<RelayEvent>,
+    events: VecDeque<NetworkBehaviourAction<NodeServiceBehaviourInEvent<Substream>, RelayEvent>>,
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<RelayEvent>
-    for NodeServiceBehaviour<Substream>
+impl<Substream> NetworkBehaviourEventProcess<RelayEvent> for NodeServiceBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     fn inject_event(&mut self, event: RelayEvent) {
-        self.nodes_messages.push_back(event);
+        self.events
+            .push_back(NetworkBehaviourAction::GenerateEvent(event));
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
-    for NodeServiceBehaviour<Substream>
+impl<Substream> NetworkBehaviourEventProcess<PingEvent> for NodeServiceBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     fn inject_event(&mut self, _event: PingEvent) {}
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
-    for NodeServiceBehaviour<Substream>
+impl<Substream> NetworkBehaviourEventProcess<IdentifyEvent> for NodeServiceBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     fn inject_event(&mut self, _event: IdentifyEvent) {}
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEvent>
-    for NodeServiceBehaviour<Substream>
+impl<Substream> NetworkBehaviourEventProcess<FloodsubEvent> for NodeServiceBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     fn inject_event(&mut self, event: FloodsubEvent) {
         match event {
@@ -125,6 +148,15 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
                                 .remove_peer(&node_id, &PeerId::from_bytes(peer).unwrap());
                         }
                     }
+                    P2PNetworkEvents::NodesMap { node_addrs } => {
+                        let node_addrs = node_addrs
+                            .iter()
+                            .flat_map(|addrs| {
+                                addrs.iter().map(|addr| Multiaddr::from_str(addr).unwrap())
+                            })
+                            .collect();
+                        self.connect_to_nodes(node_addrs);
+                    }
                 }
             }
             FloodsubEvent::Subscribed { .. } => {}
@@ -133,8 +165,9 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEve
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<SwarmStateEvent>
-    for NodeServiceBehaviour<Substream>
+impl<Substream> NetworkBehaviourEventProcess<SwarmStateEvent> for NodeServiceBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     fn inject_event(&mut self, event: SwarmStateEvent) {
         match event {
@@ -145,6 +178,27 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<SwarmStateE
                 );
                 self.floodsub.add_node_to_partial_view(id.clone());
                 self.relay.add_new_node(id, Vec::new());
+
+                let nodes_map: Vec<Vec<String>> = self
+                    .relay
+                    .connected_peers()
+                    .iter()
+                    .map(|peer| {
+                        self.addresses_of_peer(peer)
+                            .iter()
+                            .map(|addr| addr.to_string())
+                            .collect()
+                    })
+                    .collect();
+
+                trace!(
+                    "node_service/p2p/behaviour/swarm_state_event: gossip nodes map {:?}",
+                    nodes_map
+                );
+
+                self.gossip_network_update(P2PNetworkEvents::NodesMap {
+                    node_addrs: nodes_map,
+                });
             }
             SwarmStateEvent::Disconnected { id } => {
                 trace!(
@@ -158,7 +212,10 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<SwarmStateE
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
+impl<Substream> NodeServiceBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     pub fn new(local_peer_id: PeerId, local_public_key: PublicKey, churn_topic: Topic) -> Self {
         let relay = PeerRelayLayerBehaviour::new();
         let ping = Ping::new(PingConfig::new());
@@ -176,7 +233,7 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
             swarm_state,
             churn_topic,
             local_node_id: local_peer_id,
-            nodes_messages: VecDeque::new(),
+            events: VecDeque::new(),
         }
     }
 
@@ -231,10 +288,6 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
         self.gossip_network_update(message);
     }
 
-    pub fn pop_peer_relay_message(&mut self) -> Option<RelayEvent> {
-        self.nodes_messages.pop_front()
-    }
-
     pub fn relay(&mut self, relay_message: RelayEvent) {
         self.relay.relay(relay_message);
     }
@@ -257,5 +310,25 @@ impl<Substream: AsyncRead + AsyncWrite> NodeServiceBehaviour<Substream> {
             serde_json::to_vec(&message).expect("failed to convert gossip message to json");
 
         self.floodsub.publish(&self.churn_topic, message);
+    }
+
+    fn connect_to_nodes(&mut self, node_addrs: Vec<Multiaddr>) {
+        for node_addr in node_addrs {
+            self.events
+                .push_back(NetworkBehaviourAction::DialAddress { address: node_addr })
+        }
+    }
+
+    #[allow(dead_code)]
+    fn custom_poll(
+        &mut self,
+        _: &mut std::task::Context,
+    ) -> Poll<NetworkBehaviourAction<NodeServiceBehaviourInEvent<Substream>, RelayEvent>> {
+        if let Some(event) = self.events.pop_front() {
+            // this events should be consumed during the node service polling
+            return Poll::Ready(event);
+        }
+
+        Poll::Pending
     }
 }

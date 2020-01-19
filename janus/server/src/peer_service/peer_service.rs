@@ -96,27 +96,17 @@ pub fn start_peer_service(
             }
         }
 
-        println!("before swarm");
-
         loop {
             match peer_service.lock().unwrap().swarm.poll_next_unpin(cx) {
                 Poll::Ready(Some(e)) => {
-                    trace!("peer_service/poll: received {:?} event", e);
+                    trace!("peer_service/poll: sending {:?} to peer_service", e);
+
+                    peer_service_out_sender.unbounded_send(e).unwrap();
                 }
                 Poll::Ready(None) => unreachable!("stream never ends"),
                 Poll::Pending => break,
             }
         }
-
-        println!("11");
-
-        if let Some(e) = peer_service.lock().unwrap().swarm.pop_out_node_event() {
-            trace!("peer_service/poll: sending {:?} to peer_service", e);
-
-            peer_service_out_sender.unbounded_send(e).unwrap();
-        }
-
-        println!("2");
 
         Poll::Pending
     }));
