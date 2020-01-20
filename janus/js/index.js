@@ -1,11 +1,18 @@
 
 var socket;
 
+window.getNetwork = function() {
+	let msg = {
+		action: "GetNetworkState"
+	}
+	socket.send(JSON.stringify(msg))
+}
+
 window.sendMsg = function(dst, msg_str) {
 	if (!msg_str) msg_str = "some data"
 	let msg = {
-		action: "RelayIn",
-		dst: dst,
+		action: "Relay",
+		peer_id: dst,
 		data: msg_str
 	}
 	socket.send(JSON.stringify(msg));

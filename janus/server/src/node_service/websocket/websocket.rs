@@ -181,6 +181,7 @@ fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotificat
                         },
 
                     InPeerNotification::NetworkState { dst_id, state } => {
+                        println!("network state: {:?}", state);
                         let peers = peer_map.lock().unwrap();
                         let broadcast_recipients = peers
                             .iter()
