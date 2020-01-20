@@ -104,8 +104,6 @@ async fn start_janus(
 
     let (exit_sender, exit_receiver) = oneshot::channel();
 
-
-
     let node_service = NodeService::new(node_service_config);
     let node_service_exit = start_node_service(
         node_service,

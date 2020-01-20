@@ -21,12 +21,12 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "action")]
 pub enum WebsocketMessage {
     /// Represents a message that should be relayed to given dst node.
-    RelayIn { dst: String, data: String },
-    RelayOut { src: String, data: String },
+    Relay { peer_id: String, data: String },
 
     /// Requests for the network state.
     /// Currently, gives the whole peers in the network, this behaviour will be refactored in future.
     GetNetworkState,
+    NetworkState { peers: Vec<String> }
 }
 
 impl Default for WebsocketMessage {
