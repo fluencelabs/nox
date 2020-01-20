@@ -116,7 +116,10 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream, peer_
 }
 
 fn handle_message(msg: tungstenite::Message, self_peer_id: PeerId, peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
-    let text = msg.to_text().unwrap();
+    let text = match msg.to_text() {
+        Ok(r) => r,
+        Err(e) => return future::err(e)
+    };
 
     println!(
         "Received a message from {}: {}",
