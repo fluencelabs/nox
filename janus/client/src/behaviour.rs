@@ -87,7 +87,10 @@ impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
         self.node_connect_protocol.get_network_state(relay);
     }
 
+    #[allow(dead_code)]
     pub fn exit(&mut self) {
-        unimplemented!();
+        unimplemented!(
+            "need to decide how exactly client should notify the server about disconnecting"
+        );
     }
 }
