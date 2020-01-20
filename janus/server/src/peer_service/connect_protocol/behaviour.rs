@@ -35,7 +35,6 @@ pub struct PeerConnectProtocolBehaviour<Substream> {
     /// that need to be handled during polling.
     events: VecDeque<NetworkBehaviourAction<OutPeerEvent, OutPeerNotification>>,
 
-    /// Pin generic.
     marker: PhantomData<Substream>,
 }
 

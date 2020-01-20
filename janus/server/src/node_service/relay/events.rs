@@ -17,7 +17,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Relay event is just a data that need to be relayed from a src peer to a dst peer.
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 pub struct RelayEvent {
     pub src_id: Vec<u8>,
     pub dst_id: Vec<u8>,

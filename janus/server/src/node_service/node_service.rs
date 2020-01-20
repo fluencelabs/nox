@@ -25,14 +25,13 @@ use crate::node_service::{
 use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
 use async_std::task;
 use futures::channel::{mpsc, oneshot};
-use futures::{future::select, StreamExt};
+use futures::stream::StreamExt;
 use libp2p::{
     core::muxing::{StreamMuxerBox, SubstreamRef},
     identity, PeerId, Swarm,
 };
 use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
-use serde_json::error;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
@@ -73,91 +72,80 @@ impl NodeService {
 
 pub fn start_node_service(
     node_service: Arc<Mutex<NodeService>>,
-    peer_channel_out: mpsc::UnboundedReceiver<OutPeerNotification>,
-    peer_channel_in: mpsc::UnboundedSender<InPeerNotification>,
-    //executor: &TaskExecutor,
-) -> error::Result<oneshot::Sender<()>> {
+    mut peer_service_out_receiver: mpsc::UnboundedReceiver<OutPeerNotification>,
+    peer_service_in_sender: mpsc::UnboundedSender<InPeerNotification>,
+) -> oneshot::Sender<()> {
     let (exit_sender, exit_receiver) = oneshot::channel();
 
-    task::spawn(select(
-        node_service_executor(node_service.clone(), peer_channel_out, peer_channel_in),
+    task::spawn(futures::future::select(
+        futures::future::poll_fn(move |cx: &mut Context| -> Poll<()> {
+            loop {
+                match peer_service_out_receiver.poll_next_unpin(cx) {
+                    Poll::Ready(Some(event)) => match event {
+                        OutPeerNotification::PeerConnected { peer_id } => node_service
+                            .lock()
+                            .unwrap()
+                            .swarm
+                            .add_connected_peer(peer_id),
+                        OutPeerNotification::PeerDisconnected { peer_id } => node_service
+                            .lock()
+                            .unwrap()
+                            .swarm
+                            .remove_connected_peer(peer_id),
+                        OutPeerNotification::Relay {
+                            src_id,
+                            dst_id,
+                            data,
+                        } => node_service.lock().unwrap().swarm.relay(RelayEvent {
+                            src_id: src_id.into_bytes(),
+                            dst_id: dst_id.into_bytes(),
+                            data,
+                        }),
+                        OutPeerNotification::GetNetworkState { src_id } => {
+                            let service = node_service.lock().unwrap();
+                            let network_state = service.swarm.network_state();
+                            let network_state = network_state
+                                .iter()
+                                .map(|v| v.0.clone())
+                                .collect::<Vec<PeerId>>();
+                            peer_service_in_sender
+                                .unbounded_send(InPeerNotification::NetworkState {
+                                    dst_id: src_id,
+                                    state: network_state,
+                                })
+                                .expect("Failed during send event to the node service");
+                        }
+                    },
+                    Poll::Pending => break,
+                    Poll::Ready(None) => {
+                        // TODO: propagate error
+                        break;
+                    }
+                }
+            }
+
+            loop {
+                match node_service.lock().unwrap().swarm.poll_next_unpin(cx) {
+                    Poll::Ready(Some(e)) => {
+                        trace!("node_service/poll: sending {:?} to node_service", e);
+
+                        peer_service_in_sender
+                            .unbounded_send(InPeerNotification::Relay {
+                                src_id: PeerId::from_bytes(e.src_id).unwrap(),
+                                dst_id: PeerId::from_bytes(e.dst_id).unwrap(),
+                                data: e.data,
+                            })
+                            .unwrap();
+                    }
+                    Poll::Ready(None) => unreachable!("stream never ends"),
+                    Poll::Pending => break,
+                }
+            }
+
+            Poll::Pending
+        }),
         exit_receiver,
     ));
 
-    Ok(exit_sender)
-}
-
-fn node_service_executor(
-    peer_service: Arc<Mutex<NodeService>>,
-    mut peer_service_out: mpsc::UnboundedReceiver<OutPeerNotification>,
-    peer_service_in: mpsc::UnboundedSender<InPeerNotification>,
-) -> impl futures::Future<Output = Result<(), ()>> {
-    futures::future::poll_fn(move |cx: &mut Context| {
-        loop {
-            match peer_service_out.poll_next_unpin(cx) {
-                Poll::Ready(Some(event)) => match event {
-                    OutPeerNotification::PeerConnected { peer_id } => peer_service
-                        .lock()
-                        .unwrap()
-                        .swarm
-                        .add_connected_peer(peer_id),
-                    OutPeerNotification::PeerDisconnected { peer_id } => peer_service
-                        .lock()
-                        .unwrap()
-                        .swarm
-                        .remove_connected_peer(peer_id),
-                    OutPeerNotification::Relay {
-                        src_id,
-                        dst_id,
-                        data,
-                    } => peer_service.lock().unwrap().swarm.relay(RelayEvent {
-                        src_id: src_id.into_bytes(),
-                        dst_id: dst_id.into_bytes(),
-                        data,
-                    }),
-                    OutPeerNotification::GetNetworkState { src_id } => {
-                        let service = peer_service.lock().unwrap();
-                        let network_state = service.swarm.network_state();
-                        let network_state = network_state
-                            .iter()
-                            .map(|v| v.0.clone())
-                            .collect::<Vec<PeerId>>();
-                        peer_service_in
-                            .unbounded_send(InPeerNotification::NetworkState {
-                                dst_id: src_id,
-                                state: network_state,
-                            })
-                            .expect("Failed during send event to the node service");
-                    }
-                },
-                Poll::Pending => break,
-                Poll::Ready(None) => {
-                    // TODO: propagate error
-                    break;
-                }
-            }
-        }
-
-        loop {
-            match peer_service.lock().unwrap().swarm.poll_next_unpin(cx) {
-                Poll::Ready(Some(_)) => {}
-                Poll::Ready(None) => unreachable!("stream never ends"),
-                Poll::Pending => break,
-            }
-        }
-
-        if let Some(e) = peer_service.lock().unwrap().swarm.pop_peer_relay_message() {
-            trace!("node_service/poll: sending {:?} to node_service", e);
-
-            peer_service_in
-                .unbounded_send(InPeerNotification::Relay {
-                    src_id: PeerId::from_bytes(e.src_id).unwrap(),
-                    dst_id: PeerId::from_bytes(e.dst_id).unwrap(),
-                    data: e.data,
-                })
-                .unwrap();
-        }
-
-        Poll::Pending
-    })
+    exit_sender
 }

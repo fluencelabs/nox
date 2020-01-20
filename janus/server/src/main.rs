@@ -23,7 +23,8 @@ mod peer_service;
 
 use crate::config::{NodeServiceConfig, PeerServiceConfig, WebsocketConfig};
 use crate::node_service::node_service::{start_node_service, NodeService};
-use crate::peer_service::peer_service::{start_peer_service, PeerService, PeerServiceDescriptor};
+use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
+use crate::peer_service::peer_service::{start_peer_service, PeerService};
 use clap::{App, Arg, ArgMatches};
 use ctrlc;
 use async_std::task;
@@ -32,7 +33,7 @@ use futures::{future::select, StreamExt};
 use env_logger;
 use exitfailure::ExitFailure;
 use failure::_core::str::FromStr;
-use futures::channel::oneshot::Sender;
+use futures::channel::{mpsc, oneshot};
 use log::trace;
 use parity_multiaddr::Multiaddr;
 use std::sync::{
@@ -64,6 +65,7 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 3] {
         Arg::with_name(BOOTSTRAP_NODE)
             .takes_value(true)
             .short("b")
+            .multiple(true)
             .help("bootstrap nodes of the Fluence network"),
     ]
 }
@@ -95,7 +97,7 @@ fn make_configs_from_args(
 async fn start_janus(
     node_service_config: NodeServiceConfig,
     peer_service_config: PeerServiceConfig,
-) -> Result<(Sender<()>, Sender<()>), std::io::Error> {
+) -> Result<(oneshot::Sender<()>, oneshot::Sender<()>), std::io::Error> {
     trace!("starting Janus");
 
     let (channel_in_1, channel_out_1) = mpsc::unbounded();
@@ -149,13 +151,8 @@ fn main() -> Result<(), ExitFailure> {
 
     println!("shutdown services");
 
-    peer_service_exit
-        .send(())
-        .expect("failed peer service exiting");
-
-    node_service_exit
-        .send(())
-        .expect("failed node service exiting");
+    node_service_exit.send(()).unwrap();
+    peer_service_exit.send(()).unwrap();
 
     Ok(())
 }
