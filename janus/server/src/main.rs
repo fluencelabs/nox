@@ -33,7 +33,6 @@ use futures::{future::select, StreamExt};
 use env_logger;
 use exitfailure::ExitFailure;
 use failure::_core::str::FromStr;
-use futures::channel::{mpsc, oneshot};
 use log::trace;
 use parity_multiaddr::Multiaddr;
 use std::sync::{
@@ -112,8 +111,7 @@ async fn start_janus(
         node_service,
         channel_out_2,
         channel_in_1,
-    )
-    .expect("An error occurred during the peer service start");
+    );
 
     let f = node_service::websocket::websocket::run_websocket(WebsocketConfig::default(), channel_out_1, channel_in_2).await;
 

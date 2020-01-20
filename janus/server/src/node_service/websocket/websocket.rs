@@ -32,7 +32,6 @@ use async_std::task;
 use tungstenite::protocol::Message;
 use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
 use crate::config::WebsocketConfig;
-use crate::peer_service::peer_service::PeerServiceDescriptor;
 use crate::node_service::websocket::messages::WebsocketMessage::RelayOut;
 
 type Tx = UnboundedSender<Message>;
