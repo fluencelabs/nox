@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -26,7 +27,7 @@ use libp2p::{
 use log::trace;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
-use tokio::prelude::*;
+use std::task::{Context, Poll};
 use void::Void;
 
 #[derive(Debug, Clone)]
@@ -54,7 +55,10 @@ impl<Substream> SwarmStateBehaviour<Substream> {
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for SwarmStateBehaviour<Substream> {
+impl<Substream> NetworkBehaviour for SwarmStateBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
     type ProtocolsHandler = DummyProtocolsHandler<Substream>;
     type OutEvent = SwarmStateEvent;
 
@@ -94,17 +98,18 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for SwarmStateBehaviour
 
     fn poll(
         &mut self,
+        _: &mut Context,
         _: &mut impl PollParameters,
-    ) -> Async<
+    ) -> Poll<
         NetworkBehaviourAction<
             <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
             Self::OutEvent,
         >,
     > {
         if let Some(event) = self.events.pop_front() {
-            return Async::Ready(event);
+            return Poll::Ready(event);
         }
 
-        Async::NotReady
+        Poll::Pending
     }
 }

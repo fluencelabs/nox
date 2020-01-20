@@ -16,6 +16,7 @@
 
 use crate::node_service::relay::events::RelayEvent;
 use fnv::FnvHashSet;
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -28,7 +29,7 @@ use log::trace;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use tokio::prelude::*;
+use std::task::{Context, Poll};
 
 pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 
@@ -61,15 +62,11 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     pub fn add_new_node(&mut self, node_id: PeerId, peer_ids: Vec<PeerId>) {
         self.network_state
             .insert(node_id, HashSet::from_iter(peer_ids));
-
-        self.print_network_state();
     }
 
     /// Removes node with provided id from the network state.
     pub fn remove_node(&mut self, node_id: &PeerId) {
         self.network_state.remove(node_id);
-
-        self.print_network_state();
     }
 
     /// Adds a new peer with provided id connected to given node to the network state.
@@ -77,8 +74,6 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         if let Some(v) = self.network_state.get_mut(node_id) {
             v.insert(peer_id);
         }
-
-        self.print_network_state();
     }
 
     /// Removes peer with provided id connected to given node from the network state.
@@ -86,31 +81,35 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         if let Some(v) = self.network_state.get_mut(node_id) {
             v.remove(peer_id);
         }
+    }
 
-        self.print_network_state();
+    /// Adds a new peer with provided id connected to this peer
+    pub fn add_local_peer(&mut self, peer_id: PeerId) {
+        self.connected_peers.insert(peer_id);
+    }
+
+    /// Adds a new peer with provided id connected to this peer
+    pub fn remove_local_peer(&mut self, peer_id: &PeerId) {
+        self.connected_peers.remove(&peer_id);
     }
 
     /// Prints the whole network state. Just for debug purposes.
-    fn print_network_state(&self) {
-        trace!("\nNetwork state:");
+    pub fn print_network_state(&self) {
+        println!("\nNetwork state:");
         for (node_id, peer_ids) in self.network_state.iter() {
-            trace!("node {}, connected peers:", node_id);
+            println!("node {}, connected peers:", node_id);
             for peer_id in peer_ids.iter() {
-                trace!("{}", peer_id);
+                println!("{}", peer_id);
             }
         }
-        trace!("current node, connected peers:");
+        println!("current node, connected peers:");
         for peer_id in self.connected_peers() {
-            trace!("{}", peer_id);
+            println!("{}", peer_id);
         }
     }
 
     pub fn network_state(&self) -> &NetworkState {
         &self.network_state
-    }
-
-    pub fn connected_peers_mut(&mut self) -> &mut FnvHashSet<PeerId> {
-        &mut self.connected_peers
     }
 
     pub fn connected_peers(&self) -> Vec<PeerId> {
@@ -145,7 +144,10 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehaviour<Substream> {
+impl<Substream> NetworkBehaviour for PeerRelayLayerBehaviour<Substream>
+where
+    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
     // use simple one shot handler
     type ProtocolsHandler = OneShotHandler<Substream, RelayEvent, RelayEvent, InnerMessage>;
     type OutEvent = RelayEvent;
@@ -171,8 +173,9 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehav
 
     fn poll(
         &mut self,
+        _: &mut Context,
         _: &mut impl PollParameters,
-    ) -> Async<
+    ) -> Poll<
         NetworkBehaviourAction<
             <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
             Self::OutEvent,
@@ -180,10 +183,10 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviour for PeerRelayLayerBehav
     > {
         // events contains RelayMessage events that just need to promoted to the upper level
         if let Some(event) = self.events.pop_front() {
-            return Async::Ready(event);
+            return Poll::Ready(event);
         }
 
-        Async::NotReady
+        Poll::Pending
     }
 }
 

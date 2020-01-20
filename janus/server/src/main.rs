@@ -31,19 +31,20 @@ mod peer_service;
 
 use crate::config::{NodeServiceConfig, PeerServiceConfig};
 use crate::node_service::node_service::{start_node_service, NodeService};
-use crate::peer_service::peer_service::{start_peer_service, PeerService, PeerServiceDescriptor};
+use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
+use crate::peer_service::peer_service::{start_peer_service, PeerService};
 use clap::{App, Arg, ArgMatches};
 use ctrlc;
 use env_logger;
 use exitfailure::ExitFailure;
 use failure::_core::str::FromStr;
+use futures::channel::{mpsc, oneshot};
 use log::trace;
 use parity_multiaddr::Multiaddr;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use tokio::runtime::Runtime;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -68,6 +69,7 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 3] {
         Arg::with_name(BOOTSTRAP_NODE)
             .takes_value(true)
             .short("b")
+            .multiple(true)
             .help("bootstrap nodes of the Fluence network"),
     ]
 }
@@ -97,39 +99,35 @@ fn make_configs_from_args(
 }
 
 fn start_janus(
-    runtime: &Runtime,
     node_service_config: NodeServiceConfig,
     peer_service_config: PeerServiceConfig,
-) -> Result<
-    (
-        tokio::sync::oneshot::Sender<()>,
-        tokio::sync::oneshot::Sender<()>,
-    ),
-    std::io::Error,
-> {
+) -> Result<(oneshot::Sender<()>, oneshot::Sender<()>), std::io::Error> {
     trace!("starting Janus");
 
+    let (peer_service_out_sender, peer_service_out_receiver) =
+        mpsc::unbounded::<OutPeerNotification>();
+    let (peer_service_in_sender, peer_service_in_receiver) =
+        mpsc::unbounded::<InPeerNotification>();
+
     let peer_service = PeerService::new(peer_service_config);
-    let peer_service_descriptor: PeerServiceDescriptor =
-        start_peer_service(peer_service, &runtime.executor())
-            .expect("An error occurred during node service start");
+    let peer_service_exit = start_peer_service(
+        peer_service,
+        peer_service_in_receiver,
+        peer_service_out_sender,
+    );
 
     let node_service = NodeService::new(node_service_config);
     let node_service_exit = start_node_service(
         node_service,
-        peer_service_descriptor.peer_channel_out,
-        peer_service_descriptor.peer_channel_in,
-        &runtime.executor(),
-    )
-    .expect("An error occurred during the peer service start");
+        peer_service_out_receiver,
+        peer_service_in_sender,
+    );
 
-    Ok((node_service_exit, peer_service_descriptor.exit_sender))
+    Ok((node_service_exit, peer_service_exit))
 }
 
 fn main() -> Result<(), ExitFailure> {
     env_logger::init();
-
-    let runtime = tokio::runtime::Runtime::new()?;
 
     let arg_matches = App::new("Fluence Janus protocol server")
         .version(VERSION)
@@ -140,7 +138,7 @@ fn main() -> Result<(), ExitFailure> {
 
     let (node_service_config, peer_service_config) = make_configs_from_args(arg_matches)?;
     let (node_service_exit, peer_service_exit) =
-        start_janus(&runtime, node_service_config, peer_service_config)?;
+        start_janus(node_service_config, peer_service_config)?;
 
     println!("Janus has been successfully started");
 
@@ -157,13 +155,8 @@ fn main() -> Result<(), ExitFailure> {
 
     println!("shutdown services");
 
-    peer_service_exit
-        .send(())
-        .expect("failed peer service exiting");
-
-    node_service_exit
-        .send(())
-        .expect("failed node service exiting");
+    node_service_exit.send(()).unwrap();
+    peer_service_exit.send(()).unwrap();
 
     Ok(())
 }

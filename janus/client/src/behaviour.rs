@@ -15,14 +15,14 @@
  */
 
 use crate::connect_protocol::behaviour::ClientConnectProtocolBehaviour;
-use crate::connect_protocol::events::InMessage;
+use crate::connect_protocol::events::InEvent;
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{NetworkBehaviour, PeerId};
 use std::collections::VecDeque;
-use tokio::prelude::*;
 
 #[derive(NetworkBehaviour)]
 pub struct ClientServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
@@ -31,13 +31,13 @@ pub struct ClientServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
     node_connect_protocol: ClientConnectProtocolBehaviour<Substream>,
 
     #[behaviour(ignore)]
-    nodes_events: VecDeque<InMessage>,
+    nodes_events: VecDeque<InEvent>,
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<InMessage>
+impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<InEvent>
     for ClientServiceBehaviour<Substream>
 {
-    fn inject_event(&mut self, event: InMessage) {
+    fn inject_event(&mut self, event: InEvent) {
         self.nodes_events.push_back(event);
     }
 }
@@ -45,7 +45,11 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<InMessage>
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     for ClientServiceBehaviour<Substream>
 {
-    fn inject_event(&mut self, _event: PingEvent) {}
+    fn inject_event(&mut self, event: PingEvent) {
+        if event.result.is_err() {
+            println!("PING FAILED {:?}", event);
+        }
+    }
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
@@ -56,7 +60,10 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEve
 
 impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
     pub fn new(_local_peer_id: &PeerId, local_public_key: PublicKey) -> Self {
-        let ping = Ping::new(PingConfig::new());
+        let ping = Ping::new(
+            PingConfig::new()
+                .with_max_failures(unsafe { core::num::NonZeroU32::new_unchecked(10) }),
+        );
         let identity = Identify::new("1.0.0".into(), "1.0.0".into(), local_public_key);
         let node_connect_protocol = ClientConnectProtocolBehaviour::new();
 
@@ -68,7 +75,7 @@ impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
         }
     }
 
-    pub fn pop_out_node_event(&mut self) -> Option<InMessage> {
+    pub fn pop_out_node_event(&mut self) -> Option<InEvent> {
         self.nodes_events.pop_front()
     }
 
@@ -80,7 +87,10 @@ impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
         self.node_connect_protocol.get_network_state(relay);
     }
 
+    #[allow(dead_code)]
     pub fn exit(&mut self) {
-        unimplemented!();
+        unimplemented!(
+            "need to decide how exactly client should notify the server about disconnecting"
+        );
     }
 }
