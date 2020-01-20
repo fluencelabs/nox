@@ -45,7 +45,11 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<InEvent>
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     for ClientServiceBehaviour<Substream>
 {
-    fn inject_event(&mut self, _event: PingEvent) {}
+    fn inject_event(&mut self, event: PingEvent) {
+        if event.result.is_err() {
+            println!("PING FAILED {:?}", event);
+        }
+    }
 }
 
 impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>

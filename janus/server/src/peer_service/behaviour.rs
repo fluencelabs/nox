@@ -65,7 +65,11 @@ impl<Substream> NetworkBehaviourEventProcess<PingEvent> for PeerServiceBehaviour
 where
     Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    fn inject_event(&mut self, _event: PingEvent) {}
+    fn inject_event(&mut self, event: PingEvent) {
+        if event.result.is_err() {
+            println!("PING FAILED {:?}", event);
+        }
+    }
 }
 
 impl<Substream> NetworkBehaviourEventProcess<IdentifyEvent> for PeerServiceBehaviour<Substream>
