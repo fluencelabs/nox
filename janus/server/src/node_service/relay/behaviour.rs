@@ -62,15 +62,11 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     pub fn add_new_node(&mut self, node_id: PeerId, peer_ids: Vec<PeerId>) {
         self.network_state
             .insert(node_id, HashSet::from_iter(peer_ids));
-
-        self.print_network_state();
     }
 
     /// Removes node with provided id from the network state.
     pub fn remove_node(&mut self, node_id: &PeerId) {
         self.network_state.remove(node_id);
-
-        self.print_network_state();
     }
 
     /// Adds a new peer with provided id connected to given node to the network state.
@@ -78,8 +74,6 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         if let Some(v) = self.network_state.get_mut(node_id) {
             v.insert(peer_id);
         }
-
-        self.print_network_state();
     }
 
     /// Removes peer with provided id connected to given node from the network state.
@@ -87,22 +81,16 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         if let Some(v) = self.network_state.get_mut(node_id) {
             v.remove(peer_id);
         }
-
-        self.print_network_state();
     }
 
     /// Adds a new peer with provided id connected to this peer
     pub fn add_local_peer(&mut self, peer_id: PeerId) {
         self.connected_peers.insert(peer_id);
-
-        self.print_network_state();
     }
 
     /// Adds a new peer with provided id connected to this peer
     pub fn remove_local_peer(&mut self, peer_id: &PeerId) {
         self.connected_peers.remove(&peer_id);
-
-        self.print_network_state();
     }
 
     /// Prints the whole network state. Just for debug purposes.

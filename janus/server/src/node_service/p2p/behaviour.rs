@@ -121,6 +121,7 @@ where
                             .map(|peer| PeerId::from_bytes(peer).unwrap())
                             .collect();
                         self.relay.add_new_node(node_id, peer_ids);
+                        self.relay.print_network_state();
                     }
                     P2PNetworkEvents::NodeDisconnected { node_id } => {
                         let node_id = PeerId::from_bytes(node_id).unwrap();
@@ -130,6 +131,7 @@ where
                         );
 
                         self.relay.remove_node(&node_id);
+                        self.relay.print_network_state()
                     }
                     P2PNetworkEvents::PeersConnected { node_id, peer_ids } => {
                         let node_id = PeerId::from_bytes(node_id).unwrap();
@@ -142,6 +144,8 @@ where
                             self.relay
                                 .add_new_peer(&node_id, PeerId::from_bytes(peer_id).unwrap());
                         }
+
+                        self.relay.print_network_state();
                     }
                     P2PNetworkEvents::PeersDisconnected { node_id, peer_ids } => {
                         let node_id = PeerId::from_bytes(node_id).unwrap();
@@ -151,6 +155,8 @@ where
                             self.relay
                                 .remove_peer(&node_id, &PeerId::from_bytes(peer).unwrap());
                         }
+
+                        self.relay.print_network_state();
                     }
                     P2PNetworkEvents::NetworkState {
                         node_addrs,
@@ -160,10 +166,12 @@ where
                             // pass the intialization step if we have already seen the NodesMap event
                             return;
                         }
+
                         self.initialized = true;
                         trace!(
-                            "node_service/p2p/behaviour/floodsub: received nodes map event {:?}",
-                            node_addrs
+                            "node_service/p2p/behaviour/floodsub: received nodes map event {:?}, {:?}",
+                            node_addrs,
+                            network_map,
                         );
 
                         let node_addrs = node_addrs
@@ -175,9 +183,14 @@ where
 
                         self.connect_to_nodes(node_addrs);
 
+                        // Vec<(Vec<u8>, Vec<Vec<u8>>)> -> Vec<(PeerId, Vec<PeerId>)>
                         for (node_id, peers) in network_map {
+                            let node_id = PeerId::from_bytes(node_id).unwrap();
+                            if node_id == self.local_node_id {
+                                continue;
+                            }
                             self.relay.add_new_node(
-                                PeerId::from_bytes(node_id).unwrap(),
+                                node_id,
                                 peers
                                     .iter()
                                     .cloned()
@@ -190,7 +203,58 @@ where
                     }
                 }
             }
-            FloodsubEvent::Subscribed { .. } => {}
+            FloodsubEvent::Subscribed { .. } => {
+                // new node is subscribed - send it the whole network map
+                // it is needed because of bootstrap nodes
+                let node_addrs: Vec<Vec<String>> = self
+                    .relay
+                    .connected_peers()
+                    .iter()
+                    .map(|peer| {
+                        self.addresses_of_peer(peer)
+                            .iter()
+                            .map(|addr| addr.to_string())
+                            .collect()
+                    })
+                    .collect();
+
+                // convert from HashMap<PeerId, HashSet<PeerId>> to HashMap<Vec<u8>, HashSet<Vec<u8>>>
+                let mut network_map = self
+                    .relay
+                    .network_state()
+                    .iter()
+                    .map(|(node_id, peers)| {
+                        (
+                            node_id.clone().into_bytes(),
+                            peers
+                                .iter()
+                                .cloned()
+                                .map(|peer_id| peer_id.into_bytes())
+                                .collect(),
+                        )
+                    })
+                    .collect::<Vec<(Vec<u8>, Vec<Vec<u8>>)>>();
+
+                network_map.push((
+                    self.local_node_id.clone().into_bytes(),
+                    self.relay
+                        .connected_peers()
+                        .iter()
+                        .cloned()
+                        .map(|e| e.into_bytes())
+                        .collect(),
+                ));
+
+                trace!(
+                    "node_service/p2p/behaviour/swarm_state_event: gossip nodes map {:?}",
+                    node_addrs
+                );
+
+                self.gossip_network_update(P2PNetworkEvents::NetworkState {
+                    node_addrs,
+                    network_map,
+                });
+            }
             FloodsubEvent::Unsubscribed { .. } => {}
         }
     }
@@ -209,45 +273,6 @@ where
                 );
                 self.floodsub.add_node_to_partial_view(id.clone());
                 self.relay.add_new_node(id, Vec::new());
-
-                let node_addrs: Vec<Vec<String>> = self
-                    .relay
-                    .connected_peers()
-                    .iter()
-                    .map(|peer| {
-                        self.addresses_of_peer(peer)
-                            .iter()
-                            .map(|addr| addr.to_string())
-                            .collect()
-                    })
-                    .collect();
-
-                // convert from HashMap<PeerId, HashSet<PeerId>> to HashMap<Vec<u8>, HashSet<Vec<u8>>>
-                let network_map = self
-                    .relay
-                    .network_state()
-                    .iter()
-                    .map(|(node_id, peers)| {
-                        (
-                            node_id.clone().into_bytes(),
-                            peers
-                                .iter()
-                                .cloned()
-                                .map(|peer_id| peer_id.into_bytes())
-                                .collect(),
-                        )
-                    })
-                    .collect::<Vec<(Vec<u8>, Vec<Vec<u8>>)>>();
-
-                trace!(
-                    "node_service/p2p/behaviour/swarm_state_event: gossip nodes map {:?}",
-                    node_addrs
-                );
-
-                self.gossip_network_update(P2PNetworkEvents::NetworkState {
-                    node_addrs,
-                    network_map,
-                });
             }
             SwarmStateEvent::Disconnected { id } => {
                 trace!(
@@ -316,6 +341,7 @@ where
         );
 
         self.relay.add_local_peer(peer_id.clone());
+        self.relay.print_network_state();
 
         let message = P2PNetworkEvents::PeersConnected {
             node_id: self.local_node_id.clone().into_bytes(),
@@ -332,6 +358,7 @@ where
         );
 
         self.relay.remove_local_peer(&peer_id);
+        self.relay.print_network_state();
 
         let message = P2PNetworkEvents::PeersDisconnected {
             node_id: self.local_node_id.clone().into_bytes(),
