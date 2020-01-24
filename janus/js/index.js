@@ -21,9 +21,10 @@ window.sendMsg = function(dst, msg_str) {
 // QmcYE4o3HCpotey8Xm87ArERDp9KMgagUnjtKBxuA5vcBY
 // QmUz5ziqFiwuPJnUZehrQ3EyzpHjp22FyQRNH9AxRxKPbp
 
-window.connectWs = function(peerId, port) {
+window.connectWs = function(peerId, port, host) {
 	if (!port) port = 8888;
-	socket = new WebSocket(`ws://localhost:${port}/ws?key=${peerId}`);
+	if (!host) host = "localhost";
+	socket = new WebSocket(`ws://${host}:${port}/ws?key=${peerId}`);
 
 	socket.onopen = function() {
 		console.log("Connection established.");
