@@ -380,6 +380,7 @@ where
         self.relay.network_state()
     }
 
+    #[allow(dead_code)]
     pub fn exit(&mut self) {
         unimplemented!("need to decide how exactly NodeDisconnect message will be sent");
     }
