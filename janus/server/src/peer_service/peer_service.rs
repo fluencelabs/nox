@@ -62,10 +62,12 @@ impl PeerService {
 }
 
 pub fn start_peer_service(
-    peer_service: Arc<Mutex<PeerService>>,
+    config: PeerServiceConfig,
     mut peer_service_in_receiver: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_service_out_sender: mpsc::UnboundedSender<OutPeerNotification>,
 ) -> oneshot::Sender<()> {
+    let peer_service = PeerService::new(config);
+
     let (exit_sender, exit_receiver) = oneshot::channel();
 
     task::spawn(futures::future::select(

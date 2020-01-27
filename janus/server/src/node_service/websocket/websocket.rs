@@ -207,9 +207,34 @@ fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotificat
     })
 }
 
-pub async fn run_websocket(config: WebsocketConfig,
-                       mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
-                       peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> Result<(), IoError> {
+fn handle(listener: TcpListener, peer_map: ConnectionMap, peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
+    futures::future::poll_fn(move |cx: &mut Context| {
+        loop {
+            match listener.incoming().poll_next_unpin(cx) {
+                Poll::Ready(Some(r)) => {
+                    match r {
+                        Ok(stream) => {
+                            task::spawn(handle_connection(peer_map.clone(), stream, peer_channel_in.clone()));
+                        },
+                        Err(e) => println!("Error {:?}", e)
+                    }
+
+                },
+                Poll::Pending => break,
+                Poll::Ready(None) => {
+                    // TODO: propagate error
+                    break;
+                }
+            }
+        }
+
+        Poll::Pending
+    })
+}
+
+pub async fn start_peer_service(config: WebsocketConfig,
+                                mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
+                                peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> Result<(), IoError> {
     let addr = format!("{}:{}", config.listen_ip, config.listen_port).to_string();
 
     let peer_map = ConnectionMap::new(Mutex::new(HashMap::new()));
@@ -226,9 +251,8 @@ pub async fn run_websocket(config: WebsocketConfig,
 
     println!("handling incoming messages");
 
-    while let Ok((stream, _addr)) = listener.accept().await {
-        task::spawn(handle_connection(peer_map.clone(), stream, peer_channel_in.clone()));
-    }
+
+    task::spawn(handle(listener, peer_map, peer_channel_in));
 
     println!("accepting connections");
 

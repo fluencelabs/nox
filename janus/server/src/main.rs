@@ -47,15 +47,21 @@ const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 const PEER_SERVICE_PORT: &str = "peer-service-port";
 const NODE_SERVICE_PORT: &str = "node-service-port";
+const WEBSOCKET_PORT: &str = "websocket-port";
 const BOOTSTRAP_NODE: &str = "bootstrap-node";
 
-fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 3] {
+fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 4] {
     [
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
             .short("pp")
             .default_value("9999")
             .help("port that will be used by the peer service"),
+        Arg::with_name(WEBSOCKET_PORT)
+            .takes_value(true)
+            .short("w")
+            .default_value("8888")
+            .help("port that will be used by the websocket service"),
         Arg::with_name(NODE_SERVICE_PORT)
             .takes_value(true)
             .short("np")
@@ -71,9 +77,10 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 3] {
 
 fn make_configs_from_args(
     arg_matches: ArgMatches,
-) -> Result<(NodeServiceConfig, PeerServiceConfig), ExitFailure> {
+) -> Result<(NodeServiceConfig, PeerServiceConfig, WebsocketConfig), ExitFailure> {
     let mut node_service_config = NodeServiceConfig::default();
     let mut peer_service_config = PeerServiceConfig::default();
+    let mut websocket_config = WebsocketConfig::default();
 
     if let Some(peer_port) = arg_matches.value_of(PEER_SERVICE_PORT) {
         let peer_port: u16 = u16::from_str(peer_port)?;
@@ -85,17 +92,23 @@ fn make_configs_from_args(
         node_service_config.listen_port = node_port;
     }
 
+    if let Some(websocket_port) = arg_matches.value_of(WEBSOCKET_PORT) {
+        let websocket_port: u16 = u16::from_str(websocket_port)?;
+        websocket_config.listen_port = websocket_port;
+    }
+
     if let Some(bootstrap_node) = arg_matches.value_of(BOOTSTRAP_NODE) {
         let bootstrap_node = Multiaddr::from_str(bootstrap_node)?;
         node_service_config.bootstrap_nodes.push(bootstrap_node);
     }
 
-    Ok((node_service_config, peer_service_config))
+    Ok((node_service_config, peer_service_config, websocket_config))
 }
 
 async fn start_janus(
     node_service_config: NodeServiceConfig,
     peer_service_config: PeerServiceConfig,
+    websocket_config: WebsocketConfig
 ) -> Result<(oneshot::Sender<()>, oneshot::Sender<()>), std::io::Error> {
     trace!("starting Janus");
 
@@ -111,7 +124,7 @@ async fn start_janus(
         channel_in_1,
     );
 
-    let f = node_service::websocket::websocket::run_websocket(WebsocketConfig::default(), channel_out_1, channel_in_2).await;
+    let f = node_service::websocket::websocket::start_peer_service(websocket_config, channel_out_1, channel_in_2).await;
 
     Ok((node_service_exit, exit_sender))
 }
@@ -128,9 +141,9 @@ fn main() -> Result<(), ExitFailure> {
 
     println!("Janus is starting...");
 
-    let (node_service_config, peer_service_config) = make_configs_from_args(arg_matches)?;
+    let (node_service_config, peer_service_config, websocket_config) = make_configs_from_args(arg_matches)?;
     let (node_service_exit, peer_service_exit) =
-        task::block_on(start_janus(node_service_config, peer_service_config))?;
+        task::block_on(start_janus(node_service_config, peer_service_config, websocket_config))?;
 
     println!("Janus has been successfully started");
 
