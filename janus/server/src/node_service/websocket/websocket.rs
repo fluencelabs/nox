@@ -1,3 +1,19 @@
+/*
+ * Copyright 2020 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -5,6 +21,7 @@ use std::{
 
 use std::str::FromStr;
 use std::task::{Context, Poll};
+use log::{trace, info};
 
 
 use crate::node_service::websocket::messages::WebsocketMessage;
@@ -31,9 +48,10 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
 
     let (peer_id_sender, peer_id_receiver) = oneshot::channel();
 
+    // callback to parse the incoming request, gets peerId from the path
     let callback = |req: &Request| {
-        println!("Received a new ws handshake");
-        println!("The request's path is: {}", req.path);
+        trace!("Received a new ws handshake");
+        trace!("The request's path is: {}", req.path);
 
         // todo
         let index = match req.path.find("key=") {
@@ -64,7 +82,6 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
             }
             Ok(peer) => peer,
         };
-        println!("key: {}", key);
 
         peer_id_sender.send(key.clone()).unwrap();
 
@@ -77,9 +94,9 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
 
     let peer_id = peer_id_receiver.await.unwrap();
 
-    println!("WebSocket connection established: {}", peer_id);
+    info!("WebSocket connection established: {}", peer_id);
 
-    // Insert the write part of this peer to the peer map.
+    // insert the write part of this peer to the peer map.
     let (tx, rx) = unbounded();
     peer_map.lock().unwrap().insert(peer_id.clone(), tx);
 
@@ -98,7 +115,7 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
 
     peer_channel_in.unbounded_send(OutPeerNotification::PeerDisconnected {peer_id: peer_id.clone()}).unwrap();
 
-    println!("{} disconnected", peer_id);
+    info!("{} disconnected", peer_id);
     peer_map.lock().unwrap().remove(&peer_id);
 }
 
@@ -108,7 +125,7 @@ fn handle_message(msg: tungstenite::Message, self_peer_id: PeerId, peer_channel_
         Err(e) => return future::err(e)
     };
 
-    println!(
+    trace!(
         "Received a message from {}: {}",
         self_peer_id,
         text
@@ -116,7 +133,7 @@ fn handle_message(msg: tungstenite::Message, self_peer_id: PeerId, peer_channel_
 
     let wmsg: WebsocketMessage = match serde_json::from_str(text) {
         Err(_) => {
-            println!("Cannot parse message: {}", text);
+            info!("Cannot parse message: {}", text);
             return future::ok(());
         }
         Ok(v) => v,
@@ -167,7 +184,6 @@ fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotificat
                         },
 
                     InPeerNotification::NetworkState { dst_id, state } => {
-                        println!("network state: {:?}", state);
                         let peers = peer_map.lock().unwrap();
                         let broadcast_recipients = peers
                             .iter()
@@ -234,15 +250,15 @@ pub async fn start_peer_service(config: WebsocketConfig,
     let try_socket = TcpListener::bind(&addr).await;
     let listener = try_socket.expect("Failed to bind");
 
-    println!("binding address");
+    trace!("binding address for websocket");
 
     task::spawn(handle_incoming(peer_channel_out, peer_map.clone()));
 
-    println!("handling incoming messages");
+    trace!("handling incoming messages");
 
     task::spawn(future::select(handle_connections(listener, peer_map, peer_channel_in), exit_receiver));
 
-    println!("accepting connections");
+    trace!("accepting connections");
 
     exit_sender
 }
