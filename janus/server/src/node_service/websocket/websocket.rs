@@ -207,7 +207,7 @@ fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotificat
     })
 }
 
-fn handle(listener: TcpListener, peer_map: ConnectionMap, peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
+fn handle_connections(listener: TcpListener, peer_map: ConnectionMap, peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
     futures::future::poll_fn(move |cx: &mut Context| {
         loop {
             match listener.incoming().poll_next_unpin(cx) {
@@ -234,8 +234,10 @@ fn handle(listener: TcpListener, peer_map: ConnectionMap, peer_channel_in: mpsc:
 
 pub async fn start_peer_service(config: WebsocketConfig,
                                 mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
-                                peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> Result<(), IoError> {
+                                peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> oneshot::Sender<()> {
     let addr = format!("{}:{}", config.listen_ip, config.listen_port).to_string();
+
+    let (exit_sender, exit_receiver) = oneshot::channel();
 
     let peer_map = ConnectionMap::new(Mutex::new(HashMap::new()));
 
@@ -245,16 +247,13 @@ pub async fn start_peer_service(config: WebsocketConfig,
 
     println!("binding address");
 
-    let f = handle_incoming(peer_channel_out, peer_map.clone());
-
-    task::spawn(f);
+    task::spawn(handle_incoming(peer_channel_out, peer_map.clone()));
 
     println!("handling incoming messages");
 
-
-    task::spawn(handle(listener, peer_map, peer_channel_in));
+    task::spawn(future::select(handle_connections(listener, peer_map, peer_channel_in), exit_receiver));
 
     println!("accepting connections");
 
-    Ok(())
+    exit_sender
 }

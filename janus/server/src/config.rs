@@ -37,6 +37,8 @@ pub struct NodeServiceConfig {
 
     /// Topic with network updates to subscribe at the start.
     pub churn_topic: floodsub::Topic,
+
+    pub libp2p_client: bool,
 }
 
 impl Default for NodeServiceConfig {
@@ -48,6 +50,7 @@ impl Default for NodeServiceConfig {
             secret_key: None,
             bootstrap_nodes: vec![],
             churn_topic: floodsub::TopicBuilder::new("churn").build(),
+            libp2p_client: false
         }
     }
 }
