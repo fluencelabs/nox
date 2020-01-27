@@ -20,12 +20,7 @@ use tungstenite::http::StatusCode;
 
 use libp2p::PeerId;
 
-use futures::{
-    channel::mpsc::{unbounded, UnboundedSender},
-    future, pin_mut,
-    stream::TryStreamExt,
-    StreamExt,
-};
+use futures::{channel::mpsc::{unbounded, UnboundedSender}, future, pin_mut, stream::TryStreamExt, StreamExt, SinkExt};
 
 use async_std::net::{TcpListener, TcpStream};
 use async_std::task;
@@ -35,10 +30,12 @@ use crate::config::WebsocketConfig;
 
 type Tx = UnboundedSender<Message>;
 type ConnectionMap = Arc<Mutex<HashMap<PeerId, Tx>>>;
-type PeerIdOption = Arc<Mutex<Option<PeerId>>>;
 
-async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream, peer_id_o: PeerIdOption,
+async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
                            peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) {
+
+    let (mut peer_id_sender, peer_id_receiver) = oneshot::channel();
+
     let callback = |req: &Request| {
         println!("Received a new ws handshake");
         println!("The request's path is: {}", req.path);
@@ -74,7 +71,7 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream, peer_
         };
         println!("key: {}", key);
 
-        peer_id_o.lock().unwrap().replace(key.clone());
+        peer_id_sender.send(key.clone()).unwrap();
 
         println!("The request's headers are:");
         for &(ref header, _) in req.headers.iter() {
@@ -88,7 +85,7 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream, peer_
         .await
         .expect("Error during the websocket handshake occurred");
 
-    let peer_id = peer_id_o.lock().unwrap().as_ref().unwrap().clone();
+    let peer_id = peer_id_receiver.await.unwrap();
 
     println!("WebSocket connection established: {}", peer_id);
 
@@ -216,7 +213,6 @@ pub async fn run_websocket(config: WebsocketConfig,
     let addr = format!("{}:{}", config.listen_ip, config.listen_port).to_string();
 
     let peer_map = ConnectionMap::new(Mutex::new(HashMap::new()));
-    let peer_id = Arc::new(Mutex::new(None));
 
     // Create the event loop and TCP listener we'll accept connections on.
     let try_socket = TcpListener::bind(&addr).await;
@@ -231,7 +227,7 @@ pub async fn run_websocket(config: WebsocketConfig,
     println!("handling incoming messages");
 
     while let Ok((stream, _addr)) = listener.accept().await {
-        task::spawn(handle_connection(peer_map.clone(), stream, peer_id.clone(), peer_channel_in.clone()));
+        task::spawn(handle_connection(peer_map.clone(), stream, peer_channel_in.clone()));
     }
 
     println!("accepting connections");
