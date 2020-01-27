@@ -38,6 +38,7 @@ pub struct NodeServiceConfig {
     /// Topic with network updates to subscribe at the start.
     pub churn_topic: floodsub::Topic,
 
+    /// Service will use libp2p as a client
     pub libp2p_client: bool,
 }
 

@@ -107,11 +107,9 @@ where
         self.node_connect_protocol.send_network_state(dst, state);
     }
 
-    /*
     pub fn exit(&mut self) {
-        unimplemented!();
+        unimplemented!("need to decide how exactly NodeDisconnect message will be sent");
     }
-    */
 
     fn custom_poll(
         &mut self,

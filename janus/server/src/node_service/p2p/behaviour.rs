@@ -380,14 +380,9 @@ where
         self.relay.network_state()
     }
 
-    /*    pub fn exit(&mut self) {
-            let message = P2PNetworkEvents::NodeDisconnected {
-                node_id: self.local_node_id.clone().into_bytes(),
-            };
-
-            self.gossip_network_update(message);
-        }
-    */
+    pub fn exit(&mut self) {
+        unimplemented!("need to decide how exactly NodeDisconnect message will be sent");
+    }
 
     fn gossip_network_update(&mut self, message: P2PNetworkEvents) {
         let message =
