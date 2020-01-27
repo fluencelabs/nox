@@ -1,7 +1,5 @@
 use std::{
     collections::HashMap,
-    env,
-    io::Error as IoError,
     sync::{Arc, Mutex},
 };
 
@@ -12,15 +10,12 @@ use std::task::{Context, Poll};
 use crate::node_service::websocket::messages::WebsocketMessage;
 use futures::channel::{mpsc, oneshot};
 
-use serde_json::{Result as SerdeResult, Value};
-use serde::{Serialize, Deserialize};
-
 use tungstenite::handshake::server::{Request, ErrorResponse};
 use tungstenite::http::StatusCode;
 
 use libp2p::PeerId;
 
-use futures::{channel::mpsc::{unbounded, UnboundedSender}, future, pin_mut, stream::TryStreamExt, StreamExt, SinkExt};
+use futures::{channel::mpsc::{unbounded, UnboundedSender}, future, pin_mut, stream::TryStreamExt, StreamExt};
 
 use async_std::net::{TcpListener, TcpStream};
 use async_std::task;
@@ -34,7 +29,7 @@ type ConnectionMap = Arc<Mutex<HashMap<PeerId, Tx>>>;
 async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
                            peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) {
 
-    let (mut peer_id_sender, peer_id_receiver) = oneshot::channel();
+    let (peer_id_sender, peer_id_receiver) = oneshot::channel();
 
     let callback = |req: &Request| {
         println!("Received a new ws handshake");
@@ -72,11 +67,6 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
         println!("key: {}", key);
 
         peer_id_sender.send(key.clone()).unwrap();
-
-        println!("The request's headers are:");
-        for &(ref header, _) in req.headers.iter() {
-            println!("* {}", header);
-        }
 
         Ok(None)
     };
@@ -126,12 +116,11 @@ fn handle_message(msg: tungstenite::Message, self_peer_id: PeerId, peer_channel_
 
     let wmsg: WebsocketMessage = match serde_json::from_str(text) {
         Err(_) => {
-            let err_msg = Message::Text("Cannot parse message.".to_string());
+            println!("Cannot parse message: {}", text);
             return future::ok(());
         }
         Ok(v) => v,
     };
-    println!("wmsg: {:?}", wmsg);
 
     match wmsg {
         WebsocketMessage::Relay{ peer_id, data } => {
@@ -233,7 +222,7 @@ fn handle_connections(listener: TcpListener, peer_map: ConnectionMap, peer_chann
 }
 
 pub async fn start_peer_service(config: WebsocketConfig,
-                                mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
+                                peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
                                 peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> oneshot::Sender<()> {
     let addr = format!("{}:{}", config.listen_ip, config.listen_port).to_string();
 

@@ -14,7 +14,15 @@
  * limitations under the License.
  */
 
-#![feature(impl_trait_in_bindings)]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 
 mod config;
 mod error;
@@ -23,13 +31,10 @@ mod peer_service;
 
 use crate::config::{NodeServiceConfig, PeerServiceConfig, WebsocketConfig};
 use crate::node_service::node_service::{start_node_service, NodeService};
-use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
-use crate::peer_service::peer_service::{start_peer_service, PeerService};
 use clap::{App, Arg, ArgMatches};
 use ctrlc;
 use async_std::task;
 use futures::channel::{mpsc, oneshot};
-use futures::{future::select, StreamExt};
 use env_logger;
 use exitfailure::ExitFailure;
 use failure::_core::str::FromStr;
@@ -39,7 +44,6 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use tungstenite::WebSocket;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -122,7 +126,7 @@ async fn start_janus(
     let (out_sender, out_receiver) = mpsc::unbounded();
     let (in_sender, in_receiver) = mpsc::unbounded();
 
-    let exit_sender = if (node_service_config.libp2p_client.clone()) {
+    let exit_sender = if node_service_config.libp2p_client.clone() {
         peer_service::peer_service::start_peer_service(peer_service_config, out_receiver, in_sender)
     } else {
         node_service::websocket::websocket::start_peer_service(websocket_config, out_receiver, in_sender).await
