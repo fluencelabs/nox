@@ -19,33 +19,38 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use log::{info, trace};
 use std::str::FromStr;
 use std::task::{Context, Poll};
-use log::{trace, info};
-
 
 use crate::peer_service::websocket::events::WebsocketEvent;
 use futures::channel::{mpsc, oneshot};
 
-use tungstenite::handshake::server::{Request, ErrorResponse};
+use tungstenite::handshake::server::{ErrorResponse, Request};
 use tungstenite::http::StatusCode;
 
 use libp2p::PeerId;
 
-use futures::{channel::mpsc::{unbounded, UnboundedSender}, future, pin_mut, stream::TryStreamExt, StreamExt};
+use futures::{
+    channel::mpsc::{unbounded, UnboundedSender},
+    future, pin_mut,
+    stream::TryStreamExt,
+    StreamExt,
+};
 
+use crate::config::WebsocketConfig;
+use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
 use async_std::net::{TcpListener, TcpStream};
 use async_std::task;
 use tungstenite::protocol::Message;
-use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
-use crate::config::WebsocketConfig;
 
-type Tx = UnboundedSender<Message>;
-type ConnectionMap = Arc<Mutex<HashMap<PeerId, Tx>>>;
+type ConnectionMap = Arc<Mutex<HashMap<PeerId, UnboundedSender<Message>>>>;
 
-async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
-                           peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) {
-
+async fn handle_connection(
+    peer_map: ConnectionMap,
+    raw_stream: TcpStream,
+    peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
+) {
     let (peer_id_sender, peer_id_receiver) = oneshot::channel();
 
     // callback to parse the incoming request, gets peerId from the path
@@ -67,8 +72,10 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
             Some(i) => i,
         };
 
+        // size of 'key='
+        let split_size = 4;
         //todo
-        let key = req.path.split_at(index + 4).1;
+        let key = req.path.split_at(index + split_size).1;
 
         let key: PeerId = match PeerId::from_str(key) {
             Err(e) => {
@@ -83,7 +90,7 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
             Ok(peer) => peer,
         };
 
-        peer_id_sender.send(key.clone()).unwrap();
+        peer_id_sender.send(key).unwrap();
 
         Ok(None)
     };
@@ -92,7 +99,9 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
         .await
         .expect("Error during the websocket handshake occurred");
 
-    let peer_id = peer_id_receiver.await.unwrap();
+    let peer_id = peer_id_receiver
+        .await
+        .expect("Cannot get peer_id during the websocket handshake occurred");
 
     info!("WebSocket connection established: {}", peer_id);
 
@@ -102,34 +111,41 @@ async fn handle_connection(peer_map: ConnectionMap, raw_stream: TcpStream,
 
     let (outgoing, incoming) = ws_stream.split();
 
-    peer_channel_in.unbounded_send(OutPeerNotification::PeerConnected {peer_id: peer_id.clone()}).unwrap();
+    peer_channel_in
+        .unbounded_send(OutPeerNotification::PeerConnected {
+            peer_id: peer_id.clone(),
+        })
+        .unwrap();
 
-    let broadcast_incoming = incoming.try_for_each(|msg| {
-        return handle_message(msg, peer_id.clone(), peer_channel_in.clone())
-    });
+    let broadcast_incoming = incoming
+        .try_for_each(|msg| return handle_message(msg, peer_id.clone(), peer_channel_in.clone()));
 
     let receive_from_others = rx.map(Ok).forward(outgoing);
 
     pin_mut!(broadcast_incoming, receive_from_others);
     future::select(broadcast_incoming, receive_from_others).await;
 
-    peer_channel_in.unbounded_send(OutPeerNotification::PeerDisconnected {peer_id: peer_id.clone()}).unwrap();
+    peer_channel_in
+        .unbounded_send(OutPeerNotification::PeerDisconnected {
+            peer_id: peer_id.clone(),
+        })
+        .unwrap();
 
     info!("{} disconnected", peer_id);
     peer_map.lock().unwrap().remove(&peer_id);
 }
 
-fn handle_message(msg: tungstenite::Message, self_peer_id: PeerId, peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
+fn handle_message(
+    msg: tungstenite::Message,
+    self_peer_id: PeerId,
+    peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
+) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
     let text = match msg.to_text() {
         Ok(r) => r,
-        Err(e) => return future::err(e)
+        Err(e) => return future::err(e),
     };
 
-    trace!(
-        "Received a message from {}: {}",
-        self_peer_id,
-        text
-    );
+    trace!("Received a message from {}: {}", self_peer_id, text);
 
     let wmsg: WebsocketEvent = match serde_json::from_str(text) {
         Err(_) => {
@@ -140,22 +156,31 @@ fn handle_message(msg: tungstenite::Message, self_peer_id: PeerId, peer_channel_
     };
 
     match wmsg {
-        WebsocketEvent::Relay{ peer_id, data } => {
+        WebsocketEvent::Relay { peer_id, data } => {
             let dst_peer_id = PeerId::from_str(peer_id.as_str()).unwrap();
-            let msg = OutPeerNotification::Relay {src_id: self_peer_id.clone(), dst_id: dst_peer_id, data: data.into_bytes()};
+            let msg = OutPeerNotification::Relay {
+                src_id: self_peer_id,
+                dst_id: dst_peer_id,
+                data: data.into_bytes(),
+            };
             peer_channel_in.unbounded_send(msg).unwrap();
-        },
+        }
         WebsocketEvent::GetNetworkState => {
-            let msg = OutPeerNotification::GetNetworkState {src_id: self_peer_id.clone()};
+            let msg = OutPeerNotification::GetNetworkState {
+                src_id: self_peer_id.clone(),
+            };
             peer_channel_in.unbounded_send(msg).unwrap();
-        },
+        }
         _ => {}
     }
 
     future::ok(())
 }
 
-fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>, peer_map: ConnectionMap) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
+fn handle_incoming(
+    mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
+    peer_map: ConnectionMap,
+) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
     futures::future::poll_fn(move |cx: &mut Context| {
         loop {
             match peer_channel_out.poll_next_unpin(cx) {
@@ -164,24 +189,23 @@ fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotificat
                         src_id,
                         dst_id,
                         data,
-                    } =>
-                        {
-                            let peers = peer_map.lock().unwrap();
-                            let broadcast_recipients = peers
-                                .iter()
-                                .find(|(peer_addr, _)| peer_addr == &&dst_id)
-                                .map(|(_, ws_sink)| ws_sink);
+                    } => {
+                        let peers = peer_map.lock().unwrap();
+                        let broadcast_recipients = peers
+                            .iter()
+                            .find(|(peer_addr, _)| peer_addr == &&dst_id)
+                            .map(|(_, ws_sink)| ws_sink);
 
-                            for recp in broadcast_recipients {
-                                let msg = WebsocketEvent::Relay {
-                                    peer_id: src_id.to_base58(),
-                                    data: String::from_utf8(data.clone()).unwrap()
-                                };
-                                let msg = serde_json::to_string(&msg).unwrap();
-                                let msg = tungstenite::protocol::Message::Text(msg);
-                                recp.unbounded_send(msg).unwrap();
-                            }
-                        },
+                        for recp in broadcast_recipients {
+                            let msg = WebsocketEvent::Relay {
+                                peer_id: src_id.to_base58(),
+                                data: String::from_utf8(data.clone()).unwrap(),
+                            };
+                            let msg = serde_json::to_string(&msg).unwrap();
+                            let msg = tungstenite::protocol::Message::Text(msg);
+                            recp.unbounded_send(msg).unwrap();
+                        }
+                    }
 
                     InPeerNotification::NetworkState { dst_id, state } => {
                         let peers = peer_map.lock().unwrap();
@@ -192,13 +216,13 @@ fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotificat
 
                         for recp in broadcast_recipients {
                             let msg = WebsocketEvent::NetworkState {
-                                peers: state.iter().map(|p| p.to_base58()).collect()
+                                peers: state.iter().map(|p| p.to_base58()).collect(),
                             };
                             let msg = serde_json::to_string(&msg).unwrap();
                             let msg = tungstenite::protocol::Message::Text(msg);
                             recp.unbounded_send(msg).unwrap();
                         }
-                    },
+                    }
                 },
                 Poll::Pending => break,
                 Poll::Ready(None) => {
@@ -212,18 +236,23 @@ fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotificat
     })
 }
 
-fn handle_connections(listener: TcpListener, peer_map: ConnectionMap, peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
+fn handle_connections(
+    listener: TcpListener,
+    peer_map: ConnectionMap,
+    peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
+) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
     futures::future::poll_fn(move |cx: &mut Context| {
         loop {
             match listener.incoming().poll_next_unpin(cx) {
-                Poll::Ready(Some(r)) => {
-                    match r {
-                        Ok(stream) => {
-                            task::spawn(handle_connection(peer_map.clone(), stream, peer_channel_in.clone()));
-                        },
-                        Err(e) => println!("Error {:?}", e)
+                Poll::Ready(Some(r)) => match r {
+                    Ok(stream) => {
+                        task::spawn(handle_connection(
+                            peer_map.clone(),
+                            stream,
+                            peer_channel_in.clone(),
+                        ));
                     }
-
+                    Err(e) => println!("Error {:?}", e),
                 },
                 Poll::Pending => break,
                 Poll::Ready(None) => {
@@ -237,9 +266,11 @@ fn handle_connections(listener: TcpListener, peer_map: ConnectionMap, peer_chann
     })
 }
 
-pub async fn start_peer_service(config: WebsocketConfig,
-                                peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
-                                peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>) -> oneshot::Sender<()> {
+pub async fn start_peer_service(
+    config: WebsocketConfig,
+    peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
+    peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
+) -> oneshot::Sender<()> {
     let addr = format!("{}:{}", config.listen_ip, config.listen_port).to_string();
 
     let (exit_sender, exit_receiver) = oneshot::channel();
@@ -256,7 +287,10 @@ pub async fn start_peer_service(config: WebsocketConfig,
 
     trace!("handling incoming messages");
 
-    task::spawn(future::select(handle_connections(listener, peer_map, peer_channel_in), exit_receiver));
+    task::spawn(future::select(
+        handle_connections(listener, peer_map, peer_channel_in),
+        exit_receiver,
+    ));
 
     trace!("accepting connections");
 

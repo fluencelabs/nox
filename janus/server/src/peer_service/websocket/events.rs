@@ -29,7 +29,7 @@ pub enum WebsocketEvent {
     GetNetworkState,
 
     /// Response with current network state.
-    NetworkState { peers: Vec<String> }
+    NetworkState { peers: Vec<String> },
 }
 
 impl Default for WebsocketEvent {

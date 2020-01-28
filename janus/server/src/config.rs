@@ -21,7 +21,7 @@ use std::time::Duration;
 
 pub enum ClientType {
     Libp2p,
-    Websocket
+    Websocket,
 }
 
 pub struct NodeServiceConfig {
@@ -56,7 +56,7 @@ impl Default for NodeServiceConfig {
             secret_key: None,
             bootstrap_nodes: vec![],
             churn_topic: floodsub::TopicBuilder::new("churn").build(),
-            client: ClientType::Websocket
+            client: ClientType::Websocket,
         }
     }
 }

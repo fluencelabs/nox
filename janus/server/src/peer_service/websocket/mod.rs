@@ -14,5 +14,5 @@
  * limitations under the License.
  */
 
-pub mod websocket;
 mod events;
+pub mod websocket;
