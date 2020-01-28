@@ -117,7 +117,7 @@ fn make_configs_from_args(
     Ok((node_service_config, peer_service_config, websocket_config))
 }
 
-async fn start_janus(
+fn start_janus(
     node_service_config: NodeServiceConfig,
     peer_service_config: PeerServiceConfig,
     websocket_config: WebsocketConfig,
@@ -134,12 +134,11 @@ async fn start_janus(
             in_sender,
         ),
         ClientType::Websocket => {
-            peer_service::websocket::websocket::start_peer_service(
+            task::block_on(peer_service::websocket::websocket::start_peer_service(
                 websocket_config,
                 out_receiver,
                 in_sender,
-            )
-            .await
+            ))
         }
     };
 
@@ -163,11 +162,8 @@ fn main() -> Result<(), ExitFailure> {
 
     let (node_service_config, peer_service_config, websocket_config) =
         make_configs_from_args(arg_matches)?;
-    let (node_service_exit, peer_service_exit) = task::block_on(start_janus(
-        node_service_config,
-        peer_service_config,
-        websocket_config,
-    ))?;
+    let (node_service_exit, peer_service_exit) =
+        start_janus(node_service_config, peer_service_config, websocket_config)?;
 
     println!("Janus has been successfully started");
 
