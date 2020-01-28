@@ -191,12 +191,12 @@ fn handle_incoming(
                         data,
                     } => {
                         let peers = peer_map.lock().unwrap();
-                        let broadcast_recipients = peers
+                        let recipient = peers
                             .iter()
                             .find(|(peer_addr, _)| peer_addr == &&dst_id)
                             .map(|(_, ws_sink)| ws_sink);
 
-                        for recp in broadcast_recipients {
+                        for recp in recipient {
                             let msg = WebsocketEvent::Relay {
                                 peer_id: src_id.to_base58(),
                                 data: String::from_utf8(data.clone()).unwrap(),
@@ -209,12 +209,12 @@ fn handle_incoming(
 
                     InPeerNotification::NetworkState { dst_id, state } => {
                         let peers = peer_map.lock().unwrap();
-                        let broadcast_recipients = peers
+                        let recipient = peers
                             .iter()
                             .find(|(peer_addr, _)| peer_addr == &&dst_id)
                             .map(|(_, ws_sink)| ws_sink);
 
-                        for recp in broadcast_recipients {
+                        for recp in recipient {
                             let msg = WebsocketEvent::NetworkState {
                                 peers: state.iter().map(|p| p.to_base58()).collect(),
                             };
