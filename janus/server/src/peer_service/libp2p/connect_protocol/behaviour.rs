@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use crate::peer_service::connect_protocol::events::{InPeerEvent, OutPeerEvent};
-use crate::peer_service::notifications::OutPeerNotification;
+use crate::peer_service::libp2p::connect_protocol::events::{InPeerEvent, OutPeerEvent};
+use crate::peer_service::libp2p::notifications::OutPeerNotification;
 use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,

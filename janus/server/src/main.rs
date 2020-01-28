@@ -29,10 +29,9 @@ mod error;
 mod node_service;
 mod peer_service;
 
-use crate::config::{NodeServiceConfig, PeerServiceConfig};
+use crate::config::{ClientType, NodeServiceConfig, PeerServiceConfig, WebsocketConfig};
 use crate::node_service::node_service::{start_node_service, NodeService};
-use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
-use crate::peer_service::peer_service::{start_peer_service, PeerService};
+use async_std::task;
 use clap::{App, Arg, ArgMatches};
 use ctrlc;
 use env_logger;
@@ -52,15 +51,21 @@ const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 const PEER_SERVICE_PORT: &str = "peer-service-port";
 const NODE_SERVICE_PORT: &str = "node-service-port";
+const CLIENT_TYPE: &str = "client-type";
 const BOOTSTRAP_NODE: &str = "bootstrap-node";
 
-fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 3] {
+fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 4] {
     [
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
             .short("pp")
             .default_value("9999")
             .help("port that will be used by the peer service"),
+        Arg::with_name(CLIENT_TYPE)
+            .takes_value(true)
+            .short("c")
+            .default_value("websocket")
+            .help("client's endpoint type: websocket, libp2p"),
         Arg::with_name(NODE_SERVICE_PORT)
             .takes_value(true)
             .short("np")
@@ -76,13 +81,15 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 3] {
 
 fn make_configs_from_args(
     arg_matches: ArgMatches,
-) -> Result<(NodeServiceConfig, PeerServiceConfig), ExitFailure> {
+) -> Result<(NodeServiceConfig, PeerServiceConfig, WebsocketConfig), ExitFailure> {
     let mut node_service_config = NodeServiceConfig::default();
     let mut peer_service_config = PeerServiceConfig::default();
+    let mut websocket_config = WebsocketConfig::default();
 
     if let Some(peer_port) = arg_matches.value_of(PEER_SERVICE_PORT) {
         let peer_port: u16 = u16::from_str(peer_port)?;
         peer_service_config.listen_port = peer_port;
+        websocket_config.listen_port = peer_port;
     }
 
     if let Some(node_port) = arg_matches.value_of(NODE_SERVICE_PORT) {
@@ -90,40 +97,55 @@ fn make_configs_from_args(
         node_service_config.listen_port = node_port;
     }
 
+    if let Some(client_type) = arg_matches.value_of(CLIENT_TYPE) {
+        match client_type {
+            "websocket" => node_service_config.client = ClientType::Websocket,
+            "libp2p" => node_service_config.client = ClientType::Libp2p,
+            _ => {
+                return Err(
+                    failure::err_msg("client type should be 'websocket' or 'libp2p'").into(),
+                )
+            }
+        }
+    }
+
     if let Some(bootstrap_node) = arg_matches.value_of(BOOTSTRAP_NODE) {
         let bootstrap_node = Multiaddr::from_str(bootstrap_node)?;
         node_service_config.bootstrap_nodes.push(bootstrap_node);
     }
 
-    Ok((node_service_config, peer_service_config))
+    Ok((node_service_config, peer_service_config, websocket_config))
 }
 
 fn start_janus(
     node_service_config: NodeServiceConfig,
     peer_service_config: PeerServiceConfig,
+    websocket_config: WebsocketConfig,
 ) -> Result<(oneshot::Sender<()>, oneshot::Sender<()>), std::io::Error> {
     trace!("starting Janus");
 
-    let (peer_service_out_sender, peer_service_out_receiver) =
-        mpsc::unbounded::<OutPeerNotification>();
-    let (peer_service_in_sender, peer_service_in_receiver) =
-        mpsc::unbounded::<InPeerNotification>();
+    let (out_sender, out_receiver) = mpsc::unbounded();
+    let (in_sender, in_receiver) = mpsc::unbounded();
 
-    let peer_service = PeerService::new(peer_service_config);
-    let peer_service_exit = start_peer_service(
-        peer_service,
-        peer_service_in_receiver,
-        peer_service_out_sender,
-    );
+    let exit_sender = match node_service_config.client {
+        ClientType::Libp2p => peer_service::libp2p::peer_service::start_peer_service(
+            peer_service_config,
+            out_receiver,
+            in_sender,
+        ),
+        ClientType::Websocket => {
+            task::block_on(peer_service::websocket::websocket::start_peer_service(
+                websocket_config,
+                out_receiver,
+                in_sender,
+            ))
+        }
+    };
 
     let node_service = NodeService::new(node_service_config);
-    let node_service_exit = start_node_service(
-        node_service,
-        peer_service_out_receiver,
-        peer_service_in_sender,
-    );
+    let node_service_exit = start_node_service(node_service, in_receiver, out_sender);
 
-    Ok((node_service_exit, peer_service_exit))
+    Ok((node_service_exit, exit_sender))
 }
 
 fn main() -> Result<(), ExitFailure> {
@@ -136,9 +158,12 @@ fn main() -> Result<(), ExitFailure> {
         .args(&prepare_args())
         .get_matches();
 
-    let (node_service_config, peer_service_config) = make_configs_from_args(arg_matches)?;
+    println!("Janus is starting...");
+
+    let (node_service_config, peer_service_config, websocket_config) =
+        make_configs_from_args(arg_matches)?;
     let (node_service_exit, peer_service_exit) =
-        start_janus(node_service_config, peer_service_config)?;
+        start_janus(node_service_config, peer_service_config, websocket_config)?;
 
     println!("Janus has been successfully started");
 

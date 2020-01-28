@@ -22,7 +22,7 @@ use crate::node_service::{
     },
     relay::events::RelayEvent,
 };
-use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
+use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
 use async_std::task;
 use futures::channel::{mpsc, oneshot};
 use futures::stream::StreamExt;
@@ -102,6 +102,7 @@ pub fn start_node_service(
                             data,
                         }),
                         OutPeerNotification::GetNetworkState { src_id } => {
+                            trace!("Get GetNetworkState msg from: {:?}", src_id);
                             let service = node_service.lock().unwrap();
                             let network_state = service.swarm.network_state();
                             let network_state = network_state
