@@ -128,7 +128,7 @@ pub fn start_node_service(
             loop {
                 match node_service.lock().unwrap().swarm.poll_next_unpin(cx) {
                     Poll::Ready(Some(e)) => {
-                        trace!("node_service/poll: sending {:?} to node_service", e);
+                        trace!("node_service/poll: sending {:?} to peer_service", e);
 
                         peer_service_in_sender
                             .unbounded_send(InPeerNotification::Relay {

@@ -29,7 +29,7 @@ mod error;
 mod node_service;
 mod peer_service;
 
-use crate::config::{NodeServiceConfig, PeerServiceConfig, WebsocketConfig};
+use crate::config::{NodeServiceConfig, PeerServiceConfig, WebsocketConfig, ClientType};
 use crate::node_service::node_service::{start_node_service, NodeService};
 use clap::{App, Arg, ArgMatches};
 use ctrlc;
@@ -51,24 +51,21 @@ const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 const PEER_SERVICE_PORT: &str = "peer-service-port";
 const NODE_SERVICE_PORT: &str = "node-service-port";
-const WEBSOCKET_PORT: &str = "websocket-port";
-const LIBP2P_CLIENT: &str = "libp2p-client";
+const CLIENT_TYPE: &str = "client-type";
 const BOOTSTRAP_NODE: &str = "bootstrap-node";
 
-fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 5] {
+fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 4] {
     [
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
             .short("pp")
             .default_value("9999")
             .help("port that will be used by the peer service"),
-        Arg::with_name(WEBSOCKET_PORT)
+        Arg::with_name(CLIENT_TYPE)
             .takes_value(true)
-            .short("w")
-            .default_value("8888")
-            .help("port that will be used by the websocket service"),
-        Arg::with_name(LIBP2P_CLIENT)
-            .help("starts libp2p client instead of websocket"),
+            .short("c")
+            .default_value("websocket")
+            .help("client's endpoint type: websocket, libp2p"),
         Arg::with_name(NODE_SERVICE_PORT)
             .takes_value(true)
             .short("np")
@@ -92,6 +89,7 @@ fn make_configs_from_args(
     if let Some(peer_port) = arg_matches.value_of(PEER_SERVICE_PORT) {
         let peer_port: u16 = u16::from_str(peer_port)?;
         peer_service_config.listen_port = peer_port;
+        websocket_config.listen_port = peer_port;
     }
 
     if let Some(node_port) = arg_matches.value_of(NODE_SERVICE_PORT) {
@@ -99,13 +97,13 @@ fn make_configs_from_args(
         node_service_config.listen_port = node_port;
     }
 
-    if let Some(_) = arg_matches.value_of(LIBP2P_CLIENT) {
-        node_service_config.libp2p_client = true;
-    }
+    if let Some(client_type) = arg_matches.value_of(CLIENT_TYPE) {
+        match client_type {
+            "websocket" => node_service_config.client = ClientType::Websocket,
+            "libp2p" => node_service_config.client = ClientType::Libp2p,
+            _ => return Err(failure::err_msg("client type should be 'websocket' or 'libp2p'").into())
+        }
 
-    if let Some(websocket_port) = arg_matches.value_of(WEBSOCKET_PORT) {
-        let websocket_port: u16 = u16::from_str(websocket_port)?;
-        websocket_config.listen_port = websocket_port;
     }
 
     if let Some(bootstrap_node) = arg_matches.value_of(BOOTSTRAP_NODE) {
@@ -126,10 +124,9 @@ async fn start_janus(
     let (out_sender, out_receiver) = mpsc::unbounded();
     let (in_sender, in_receiver) = mpsc::unbounded();
 
-    let exit_sender = if node_service_config.libp2p_client.clone() {
-        peer_service::peer_service::start_peer_service(peer_service_config, out_receiver, in_sender)
-    } else {
-        node_service::websocket::websocket::start_peer_service(websocket_config, out_receiver, in_sender).await
+    let exit_sender = match node_service_config.client {
+        ClientType::Libp2p => peer_service::peer_service::start_peer_service(peer_service_config, out_receiver, in_sender),
+        ClientType::Websocket => node_service::websocket::websocket::start_peer_service(websocket_config, out_receiver, in_sender).await
     };
 
     let node_service = NodeService::new(node_service_config);

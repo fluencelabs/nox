@@ -19,18 +19,21 @@ use serde::{Deserialize, Serialize};
 /// Describes network messages from a node to current peer (client -> server).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
-pub enum WebsocketMessage {
-    /// Represents a message that should be relayed to given dst node.
+pub enum WebsocketEvent {
+    /// Represents an event that should be relayed to a given destination node
+    /// or an event that already relayed and will be sent to a connected client.
     Relay { peer_id: String, data: String },
 
     /// Requests for the network state.
     /// Currently, gives the whole peers in the network, this behaviour will be refactored in future.
     GetNetworkState,
+
+    /// Response with current network state.
     NetworkState { peers: Vec<String> }
 }
 
-impl Default for WebsocketMessage {
+impl Default for WebsocketEvent {
     fn default() -> Self {
-        WebsocketMessage::GetNetworkState
+        WebsocketEvent::GetNetworkState
     }
 }

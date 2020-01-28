@@ -19,6 +19,11 @@ use libp2p::floodsub;
 use std::net::IpAddr;
 use std::time::Duration;
 
+pub enum ClientType {
+    Libp2p,
+    Websocket
+}
+
 pub struct NodeServiceConfig {
     /// Local port to listen on.
     pub listen_port: u16,
@@ -39,7 +44,7 @@ pub struct NodeServiceConfig {
     pub churn_topic: floodsub::Topic,
 
     /// Service will use libp2p as a client
-    pub libp2p_client: bool,
+    pub client: ClientType,
 }
 
 impl Default for NodeServiceConfig {
@@ -51,7 +56,7 @@ impl Default for NodeServiceConfig {
             secret_key: None,
             bootstrap_nodes: vec![],
             churn_topic: floodsub::TopicBuilder::new("churn").build(),
-            libp2p_client: false
+            client: ClientType::Websocket
         }
     }
 }

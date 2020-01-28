@@ -24,7 +24,7 @@ use std::task::{Context, Poll};
 use log::{trace, info};
 
 
-use crate::node_service::websocket::messages::WebsocketMessage;
+use crate::node_service::websocket::events::WebsocketEvent;
 use futures::channel::{mpsc, oneshot};
 
 use tungstenite::handshake::server::{Request, ErrorResponse};
@@ -131,7 +131,7 @@ fn handle_message(msg: tungstenite::Message, self_peer_id: PeerId, peer_channel_
         text
     );
 
-    let wmsg: WebsocketMessage = match serde_json::from_str(text) {
+    let wmsg: WebsocketEvent = match serde_json::from_str(text) {
         Err(_) => {
             info!("Cannot parse message: {}", text);
             return future::ok(());
@@ -140,12 +140,12 @@ fn handle_message(msg: tungstenite::Message, self_peer_id: PeerId, peer_channel_
     };
 
     match wmsg {
-        WebsocketMessage::Relay{ peer_id, data } => {
+        WebsocketEvent::Relay{ peer_id, data } => {
             let dst_peer_id = PeerId::from_str(peer_id.as_str()).unwrap();
             let msg = OutPeerNotification::Relay {src_id: self_peer_id.clone(), dst_id: dst_peer_id, data: data.into_bytes()};
             peer_channel_in.unbounded_send(msg).unwrap();
         },
-        WebsocketMessage::GetNetworkState => {
+        WebsocketEvent::GetNetworkState => {
             let msg = OutPeerNotification::GetNetworkState {src_id: self_peer_id.clone()};
             peer_channel_in.unbounded_send(msg).unwrap();
         },
@@ -173,7 +173,7 @@ fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotificat
                                 .map(|(_, ws_sink)| ws_sink);
 
                             for recp in broadcast_recipients {
-                                let msg = WebsocketMessage::Relay {
+                                let msg = WebsocketEvent::Relay {
                                     peer_id: src_id.to_base58(),
                                     data: String::from_utf8(data.clone()).unwrap()
                                 };
@@ -191,7 +191,7 @@ fn handle_incoming(mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotificat
                             .map(|(_, ws_sink)| ws_sink);
 
                         for recp in broadcast_recipients {
-                            let msg = WebsocketMessage::NetworkState {
+                            let msg = WebsocketEvent::NetworkState {
                                 peers: state.iter().map(|p| p.to_base58()).collect()
                             };
                             let msg = serde_json::to_string(&msg).unwrap();

@@ -15,4 +15,4 @@
  */
 
 pub mod websocket;
-mod messages;
+mod events;
