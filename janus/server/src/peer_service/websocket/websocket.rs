@@ -19,9 +19,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use futures_util::future::FutureExt;
 use log::{info, trace};
 use std::str::FromStr;
-use std::task::{Context, Poll};
 
 use crate::peer_service::websocket::events::WebsocketEvent;
 use futures::channel::{mpsc, oneshot};
@@ -46,7 +46,7 @@ use tungstenite::protocol::Message;
 
 type ConnectionMap = Arc<Mutex<HashMap<PeerId, UnboundedSender<Message>>>>;
 
-async fn handle_connection(
+async fn handle_websocket_connection(
     peer_map: ConnectionMap,
     raw_stream: TcpStream,
     peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
@@ -177,93 +177,71 @@ fn handle_message(
     future::ok(())
 }
 
-fn handle_incoming(
+async fn handle_incoming(
     mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_map: ConnectionMap,
-) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
-    futures::future::poll_fn(move |cx: &mut Context| {
-        loop {
-            match peer_channel_out.poll_next_unpin(cx) {
-                Poll::Ready(Some(e)) => match e {
-                    InPeerNotification::Relay {
-                        src_id,
-                        dst_id,
-                        data,
-                    } => {
-                        let peers = peer_map.lock().unwrap();
-                        let recipient = peers
-                            .iter()
-                            .find(|(peer_addr, _)| peer_addr == &&dst_id)
-                            .map(|(_, ws_sink)| ws_sink);
+) {
+    while let Some(event) = peer_channel_out.next().await {
+        match event {
+            InPeerNotification::Relay {
+                src_id,
+                dst_id,
+                data,
+            } => {
+                let peers = peer_map.lock().unwrap();
+                let recipient = peers
+                    .iter()
+                    .find(|(peer_addr, _)| peer_addr == &&dst_id)
+                    .map(|(_, ws_sink)| ws_sink);
 
-                        for recp in recipient {
-                            let msg = WebsocketEvent::Relay {
-                                peer_id: src_id.to_base58(),
-                                data: String::from_utf8(data.clone()).unwrap(),
-                            };
-                            let msg = serde_json::to_string(&msg).unwrap();
-                            let msg = tungstenite::protocol::Message::Text(msg);
-                            recp.unbounded_send(msg).unwrap();
-                        }
-                    }
+                recipient.map(|recp| {
+                    let msg = WebsocketEvent::Relay {
+                        peer_id: src_id.to_base58(),
+                        data: String::from_utf8(data.clone()).unwrap(),
+                    };
+                    let msg = serde_json::to_string(&msg).unwrap();
+                    let msg = tungstenite::protocol::Message::Text(msg);
+                    recp.unbounded_send(msg).unwrap();
+                });
+            }
 
-                    InPeerNotification::NetworkState { dst_id, state } => {
-                        let peers = peer_map.lock().unwrap();
-                        let recipient = peers
-                            .iter()
-                            .find(|(peer_addr, _)| peer_addr == &&dst_id)
-                            .map(|(_, ws_sink)| ws_sink);
+            InPeerNotification::NetworkState { dst_id, state } => {
+                let peers = peer_map.lock().unwrap();
+                let recipient = peers
+                    .iter()
+                    .find(|(peer_addr, _)| peer_addr == &&dst_id)
+                    .map(|(_, ws_sink)| ws_sink);
 
-                        for recp in recipient {
-                            let msg = WebsocketEvent::NetworkState {
-                                peers: state.iter().map(|p| p.to_base58()).collect(),
-                            };
-                            let msg = serde_json::to_string(&msg).unwrap();
-                            let msg = tungstenite::protocol::Message::Text(msg);
-                            recp.unbounded_send(msg).unwrap();
-                        }
-                    }
-                },
-                Poll::Pending => break,
-                Poll::Ready(None) => {
-                    // TODO: propagate error
-                    break;
-                }
+                recipient.map(|recp| {
+                    let msg = WebsocketEvent::NetworkState {
+                        peers: state.iter().map(|p| p.to_base58()).collect(),
+                    };
+                    let msg = serde_json::to_string(&msg).unwrap();
+                    let msg = tungstenite::protocol::Message::Text(msg);
+                    recp.unbounded_send(msg).unwrap();
+                });
             }
         }
-
-        Poll::Pending
-    })
+    }
 }
 
-fn handle_connections(
+async fn handle_connections(
     listener: TcpListener,
     peer_map: ConnectionMap,
     peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
-) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
-    futures::future::poll_fn(move |cx: &mut Context| {
-        loop {
-            match listener.incoming().poll_next_unpin(cx) {
-                Poll::Ready(Some(r)) => match r {
-                    Ok(stream) => {
-                        task::spawn(handle_connection(
-                            peer_map.clone(),
-                            stream,
-                            peer_channel_in.clone(),
-                        ));
-                    }
-                    Err(e) => println!("Error {:?}", e),
-                },
-                Poll::Pending => break,
-                Poll::Ready(None) => {
-                    // TODO: propagate error
-                    break;
-                }
+) {
+    while let Some(event) = listener.incoming().next().await {
+        match event {
+            Ok(stream) => {
+                task::spawn(handle_websocket_connection(
+                    peer_map.clone(),
+                    stream,
+                    peer_channel_in.clone(),
+                ));
             }
+            Err(e) => println!("Error {:?}", e),
         }
-
-        Poll::Pending
-    })
+    }
 }
 
 pub async fn start_peer_service(
@@ -288,7 +266,7 @@ pub async fn start_peer_service(
     trace!("handling incoming messages");
 
     task::spawn(future::select(
-        handle_connections(listener, peer_map, peer_channel_in),
+        handle_connections(listener, peer_map, peer_channel_in).boxed(),
         exit_receiver,
     ));
 
