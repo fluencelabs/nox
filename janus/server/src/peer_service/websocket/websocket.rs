@@ -46,6 +46,7 @@ use tungstenite::protocol::Message;
 
 type ConnectionMap = Arc<Mutex<HashMap<PeerId, UnboundedSender<Message>>>>;
 
+/// Gets peerId from url path and registers a handler for incoming messages
 async fn handle_websocket_connection(
     peer_map: ConnectionMap,
     raw_stream: TcpStream,
@@ -135,6 +136,7 @@ async fn handle_websocket_connection(
     peer_map.lock().unwrap().remove(&peer_id);
 }
 
+/// Handles incoming messages from websocket
 fn handle_message(
     msg: tungstenite::Message,
     self_peer_id: PeerId,
@@ -147,7 +149,7 @@ fn handle_message(
 
     trace!("Received a message from {}: {}", self_peer_id, text);
 
-    let wmsg: WebsocketEvent = match serde_json::from_str(text) {
+    let websocket_event: WebsocketEvent = match serde_json::from_str(text) {
         Err(_) => {
             info!("Cannot parse message: {}", text);
             return future::ok(());
@@ -155,7 +157,7 @@ fn handle_message(
         Ok(v) => v,
     };
 
-    match wmsg {
+    match websocket_event {
         WebsocketEvent::Relay { peer_id, data } => {
             let dst_peer_id = PeerId::from_str(peer_id.as_str()).unwrap();
             let msg = OutPeerNotification::Relay {
@@ -171,13 +173,16 @@ fn handle_message(
             };
             peer_channel_in.unbounded_send(msg).unwrap();
         }
-        _ => {}
+        m => {
+            trace!("Unexpected event has been received: {:?}", m)
+        }
     }
 
     future::ok(())
 }
 
-async fn handle_incoming(
+/// Handles libp2p events from the node service
+async fn handle_node_service_messages(
     mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_map: ConnectionMap,
 ) {
@@ -225,6 +230,7 @@ async fn handle_incoming(
     }
 }
 
+/// Handles every incoming connection
 async fn handle_connections(
     listener: TcpListener,
     peer_map: ConnectionMap,
@@ -244,6 +250,7 @@ async fn handle_connections(
     }
 }
 
+/// Binds port to establish websocket connections
 pub async fn start_peer_service(
     config: WebsocketConfig,
     peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
@@ -261,7 +268,7 @@ pub async fn start_peer_service(
 
     trace!("binding address for websocket");
 
-    task::spawn(handle_incoming(peer_channel_out, peer_map.clone()));
+    task::spawn(handle_node_service_messages(peer_channel_out, peer_map.clone()));
 
     trace!("handling incoming messages");
 
