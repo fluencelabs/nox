@@ -15,7 +15,7 @@
  */
 
 use crate::config::PeerServiceConfig;
-use crate::peer_service::{
+use crate::peer_service::libp2p::{
     behaviour::PeerServiceBehaviour,
     notifications::{InPeerNotification, OutPeerNotification},
     transport::build_transport,

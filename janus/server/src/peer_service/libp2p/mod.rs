@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
-pub mod node_service;
-mod p2p;
-mod relay;
+pub mod behaviour;
+pub mod connect_protocol;
+pub mod notifications;
+pub mod peer_service;
+pub mod transport;

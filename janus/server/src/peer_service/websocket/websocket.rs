@@ -24,7 +24,7 @@ use std::task::{Context, Poll};
 use log::{trace, info};
 
 
-use crate::node_service::websocket::events::WebsocketEvent;
+use crate::peer_service::websocket::events::WebsocketEvent;
 use futures::channel::{mpsc, oneshot};
 
 use tungstenite::handshake::server::{Request, ErrorResponse};
@@ -37,7 +37,7 @@ use futures::{channel::mpsc::{unbounded, UnboundedSender}, future, pin_mut, stre
 use async_std::net::{TcpListener, TcpStream};
 use async_std::task;
 use tungstenite::protocol::Message;
-use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
+use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
 use crate::config::WebsocketConfig;
 
 type Tx = UnboundedSender<Message>;

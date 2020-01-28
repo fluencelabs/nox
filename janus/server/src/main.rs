@@ -125,8 +125,8 @@ async fn start_janus(
     let (in_sender, in_receiver) = mpsc::unbounded();
 
     let exit_sender = match node_service_config.client {
-        ClientType::Libp2p => peer_service::peer_service::start_peer_service(peer_service_config, out_receiver, in_sender),
-        ClientType::Websocket => node_service::websocket::websocket::start_peer_service(websocket_config, out_receiver, in_sender).await
+        ClientType::Libp2p => peer_service::libp2p::peer_service::start_peer_service(peer_service_config, out_receiver, in_sender),
+        ClientType::Websocket => peer_service::websocket::websocket::start_peer_service(websocket_config, out_receiver, in_sender).await
     };
 
     let node_service = NodeService::new(node_service_config);

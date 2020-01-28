@@ -22,7 +22,7 @@ use crate::node_service::{
     },
     relay::events::RelayEvent,
 };
-use crate::peer_service::notifications::{InPeerNotification, OutPeerNotification};
+use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
 use async_std::task;
 use futures::channel::{mpsc, oneshot};
 use futures::stream::StreamExt;

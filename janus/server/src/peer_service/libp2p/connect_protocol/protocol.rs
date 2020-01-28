@@ -15,7 +15,7 @@
  */
 
 use crate::error::Error;
-use crate::peer_service::connect_protocol::events::{InPeerEvent, OutPeerEvent};
+use crate::peer_service::libp2p::connect_protocol::events::{InPeerEvent, OutPeerEvent};
 use futures::{AsyncRead, AsyncWrite, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
