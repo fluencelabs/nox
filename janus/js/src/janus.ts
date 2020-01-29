@@ -16,7 +16,7 @@
 
 import {genMessage, networkStateMessage} from "./messages";
 
-export let debug = require('debug')('fluence');
+export let debug = require('debug')('janus');
 export let debugI = require('debug');
 
 // debug logs are disabled by default
@@ -53,6 +53,11 @@ export class JanusConnection {
         };
     }
 
+    /**
+     * Sends a message to another peer through janus nodes.
+     * @param destination peer_id of a receiver
+     * @param message
+     */
     public relayMessage(destination: string, message: string) {
         if (!this.connected) {
             console.log("Connection is not established.");
@@ -62,6 +67,9 @@ export class JanusConnection {
         this.socket.send(JSON.stringify(genMessage(destination, message)));
     }
 
+    /**
+     * Gets state of the janus network.
+     */
     public getNetworkState() {
         if (!this.connected) {
             console.log("Connection is not established.");
@@ -72,6 +80,14 @@ export class JanusConnection {
     }
 }
 
+/**
+ * Connects to a janus node.
+ * @param peerId in libp2p format. Example:
+ *                                      QmUz5ziqFiwuPJnUZehrQ3EyzpHjp22FyQRNH9AxRxKPbp
+ *                                      QmcYE4o3HCpotey8Xm87ArERDp9KMgagUnjtKBxuA5vcBY
+ * @param host localhost by default
+ * @param port 9999 by default
+ */
 export function connect(peerId: string, host?: string, port?: number): JanusConnection {
     return new JanusConnection(peerId, host, port)
 }
