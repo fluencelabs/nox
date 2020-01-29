@@ -173,9 +173,7 @@ fn handle_message(
             };
             peer_channel_in.unbounded_send(msg).unwrap();
         }
-        m => {
-            trace!("Unexpected event has been received: {:?}", m)
-        }
+        m => trace!("Unexpected event has been received: {:?}", m),
     }
 
     future::ok(())
@@ -268,7 +266,10 @@ pub async fn start_peer_service(
 
     trace!("binding address for websocket");
 
-    task::spawn(handle_node_service_messages(peer_channel_out, peer_map.clone()));
+    task::spawn(handle_node_service_messages(
+        peer_channel_out,
+        peer_map.clone(),
+    ));
 
     trace!("handling incoming messages");
 

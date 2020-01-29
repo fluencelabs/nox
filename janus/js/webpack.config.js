@@ -1,34 +1,55 @@
 const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const { CheckerPlugin } = require('awesome-typescript-loader');
 
-module.exports = {
+const production = (process.env.NODE_ENV === 'production');
+
+const config = {
+    entry: {
+        app: ['./src/janus.ts']
+    },
+    module: {
+        rules: [
+            {
+                test: /\.tsx?$/,
+                loader: 'awesome-typescript-loader',
+                exclude: /node_modules/
+            }
+        ]
+    },
+    resolve: {
+        extensions: [ '.tsx', '.ts', '.js' ]
+    },
+    output: {
+        filename: 'bundle.js',
+        path: path.resolve(__dirname, 'bundle'),
+        library: 'fluence'
+    },
     node: {
         fs: 'empty'
     },
-    // use index.js as entrypoint
-    entry: {
-        app: ['./index.js']
-    },
-    resolve: {
-        symlinks: true
-    },
-    devServer: {
-        contentBase: './bundle',
-        hot: false,
-        inline: false
-    },
-    mode: "development",
-    // build all code in `bundle.js` in `bundle` directory
-    output: {
-        filename: 'bundle.js',
-        path: path.resolve(__dirname, 'bundle')
-    },
     plugins: [
-        // create `index.html` with imported `bundle.js`
-        new CopyWebpackPlugin([{
-            from: './*.html'
-        }]),
-        new webpack.HotModuleReplacementPlugin()
+        new CleanWebpackPlugin(),
+        new CheckerPlugin(),
     ]
 };
+
+if (production) {
+    config.mode = 'production';
+} else {
+    config.mode = 'development';
+    config.devtool = 'inline-source-map';
+    config.devServer = {
+        contentBase: './bundle',
+        hot: true
+    };
+    config.plugins = [
+        ...config.plugins,
+        new HtmlWebpackPlugin(),
+        new webpack.HotModuleReplacementPlugin()
+    ];
+}
+
+module.exports = config;

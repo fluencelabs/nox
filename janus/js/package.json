@@ -1,32 +1,50 @@
 {
-  "name": "js-rust-websocket",
-  "version": "1.0.0",
-  "description": "",
-  "private": true,
+  "name": "janus",
+  "namespace": "fluence",
+  "version": "0.4.0",
+  "description": "Javascript Client allows you to interact with Janus servers.",
+  "main": "./dist/janus.js",
+  "typings": "./dist/janus.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack",
+    "package:build": "NODE_ENV=production webpack && tsc",
     "start": "webpack-dev-server"
   },
-  "files": [
-    "index.html"
-  ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fluencelabs/frontend-template.git"
+    "url": "https://github.com/fluencelabs/arqada.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "Apache 2.0",
+  "homepage": "https://github.com/fluencelabs/arqada",
   "bugs": {
-    "url": "https://github.com/fluencelabs/frontend-template/issues"
+    "url": "https://github.com/fluencelabs/arqada/issues"
   },
-  "homepage": "https://github.com/fluencelabs/frontend-template#readme",
+  "keywords": [
+    "fluence",
+    "janus",
+    "javascript",
+    "API",
+    "decentralized",
+    "database"
+  ],
+  "author": "Fluence Labs",
+  "authors": [
+    {
+      "name": "Dmitry Shakhtarin",
+      "email": "dmitry.shakhtarin@fluence.one",
+      "url": "https://github.com/DieMyst"
+    }
+  ],
+  "license": "Apache-2.0",
   "devDependencies": {
-    "html-webpack-plugin": "^3.2.0",
-    "webpack": "^4.29.6",
-    "webpack-cli": "^3.3.0",
-    "webpack-dev-server": "^3.2.1",
-    "copy-webpack-plugin": "^4.6.0"
+    "awesome-typescript-loader": "5.2.1",
+    "clean-webpack-plugin": "3.0.0",
+    "html-webpack-plugin": "3.2.0",
+    "typescript": "3.7.5",
+    "webpack": "4.41.5",
+    "webpack-cli": "3.3.10",
+    "webpack-dev-server": "3.10.1"
   },
-  "dependencies": {}
+  "dependencies": {
+    "debug": "4.1.1"
+  }
 }
