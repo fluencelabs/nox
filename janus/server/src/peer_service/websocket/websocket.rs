@@ -20,7 +20,7 @@ use std::{
 };
 
 use futures_util::future::FutureExt;
-use log::{info, trace};
+use log::{error, info, trace};
 use std::str::FromStr;
 
 use crate::peer_service::websocket::events::WebsocketEvent;
@@ -33,9 +33,9 @@ use libp2p::PeerId;
 
 use futures::{
     channel::mpsc::{unbounded, UnboundedSender},
-    future, pin_mut,
+    future, pin_mut, select,
+    stream::StreamExt,
     stream::TryStreamExt,
-    StreamExt,
 };
 
 use crate::config::WebsocketConfig;
@@ -179,106 +179,118 @@ fn handle_message(
     future::ok(())
 }
 
-/// Handles libp2p events from the node service
-async fn handle_node_service_messages(
-    mut peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
-    peer_map: ConnectionMap,
-) {
-    while let Some(event) = peer_channel_out.next().await {
-        match event {
-            InPeerNotification::Relay {
-                src_id,
-                dst_id,
-                data,
-            } => {
-                let peers = peer_map.lock().unwrap();
-                let recipient = peers
-                    .iter()
-                    .find(|(peer_addr, _)| peer_addr == &&dst_id)
-                    .map(|(_, ws_sink)| ws_sink);
+/// Handles libp2p notifications from the node service
+fn handle_node_service_notification(event: InPeerNotification, peer_map: ConnectionMap) {
+    match event {
+        InPeerNotification::Relay {
+            src_id,
+            dst_id,
+            data,
+        } => {
+            let peers = peer_map.lock().unwrap();
+            let recipient = peers
+                .iter()
+                .find(|(peer_addr, _)| peer_addr == &&dst_id)
+                .map(|(_, ws_sink)| ws_sink);
 
-                recipient.map(|recp| {
-                    let msg = WebsocketEvent::Relay {
-                        peer_id: src_id.to_base58(),
-                        data: String::from_utf8(data.clone()).unwrap(),
-                    };
-                    let msg = serde_json::to_string(&msg).unwrap();
-                    let msg = tungstenite::protocol::Message::Text(msg);
-                    recp.unbounded_send(msg).unwrap();
-                });
-            }
+            recipient.map(|recp| {
+                let msg = WebsocketEvent::Relay {
+                    peer_id: src_id.to_base58(),
+                    data: String::from_utf8(data.clone()).unwrap(),
+                };
+                let msg = serde_json::to_string(&msg).unwrap();
+                let msg = tungstenite::protocol::Message::Text(msg);
+                recp.unbounded_send(msg).unwrap();
+            });
+        }
 
-            InPeerNotification::NetworkState { dst_id, state } => {
-                let peers = peer_map.lock().unwrap();
-                let recipient = peers
-                    .iter()
-                    .find(|(peer_addr, _)| peer_addr == &&dst_id)
-                    .map(|(_, ws_sink)| ws_sink);
+        InPeerNotification::NetworkState { dst_id, state } => {
+            let peers = peer_map.lock().unwrap();
+            let recipient = peers
+                .iter()
+                .find(|(peer_addr, _)| peer_addr == &&dst_id)
+                .map(|(_, ws_sink)| ws_sink);
 
-                recipient.map(|recp| {
-                    let msg = WebsocketEvent::NetworkState {
-                        peers: state.iter().map(|p| p.to_base58()).collect(),
-                    };
-                    let msg = serde_json::to_string(&msg).unwrap();
-                    let msg = tungstenite::protocol::Message::Text(msg);
-                    recp.unbounded_send(msg).unwrap();
-                });
-            }
+            recipient.map(|recp| {
+                let msg = WebsocketEvent::NetworkState {
+                    peers: state.iter().map(|p| p.to_base58()).collect(),
+                };
+                let msg = serde_json::to_string(&msg).unwrap();
+                let msg = tungstenite::protocol::Message::Text(msg);
+                recp.unbounded_send(msg).unwrap();
+            });
         }
     }
 }
 
-/// Handles every incoming connection
-async fn handle_connections(
-    listener: TcpListener,
-    peer_map: ConnectionMap,
-    peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
-) {
-    while let Some(event) = listener.incoming().next().await {
-        match event {
-            Ok(stream) => {
-                task::spawn(handle_websocket_connection(
-                    peer_map.clone(),
-                    stream,
-                    peer_channel_in.clone(),
-                ));
-            }
-            Err(e) => println!("Error {:?}", e),
-        }
-    }
-}
-
-/// Binds port to establish websocket connections
-pub async fn start_peer_service(
+/// Binds port to establish websocket connections, runs peer service based on websocket
+pub fn start_peer_service(
     config: WebsocketConfig,
-    peer_channel_out: mpsc::UnboundedReceiver<InPeerNotification>,
-    peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
+    mut peer_channel_in: mpsc::UnboundedReceiver<InPeerNotification>,
+    peer_channel_out: mpsc::UnboundedSender<OutPeerNotification>,
 ) -> oneshot::Sender<()> {
     let addr = format!("{}:{}", config.listen_ip, config.listen_port).to_string();
 
-    let (exit_sender, exit_receiver) = oneshot::channel();
+    trace!("binding address for websocket");
+
+    let try_socket = task::block_on(TcpListener::bind(&addr));
+    let listener = try_socket.expect("Failed to bind");
 
     let peer_map = ConnectionMap::new(Mutex::new(HashMap::new()));
 
+    let (exit_sender, exit_receiver) = oneshot::channel();
+    let mut exit_receiver = exit_receiver.into_stream();
+
     // Create the event loop and TCP listener we'll accept connections on.
-    let try_socket = TcpListener::bind(&addr).await;
-    let listener = try_socket.expect("Failed to bind");
+    task::spawn(async move {
+        let mut incoming = listener.incoming();
+        loop {
+            select! {
+                from_socket = incoming.next().fuse() => {
+                    match from_socket {
+                        Some(Ok(stream)) => {
+                            // spawn a separate async thread for each incoming connection
+                            task::spawn(handle_websocket_connection(
+                                peer_map.clone(),
+                                stream,
+                                peer_channel_out.clone(),
+                            ));
+                        },
 
-    trace!("binding address for websocket");
+                        Some(Err(e)) =>
+                            println!("Error while receiving incoming connection: {:?}", e),
 
-    task::spawn(handle_node_service_messages(
-        peer_channel_out,
-        peer_map.clone(),
-    ));
+                        None => {
+                            error!("websocket/select: incoming has unexpectedly closed");
 
-    trace!("handling incoming messages");
+                            // socket is closed - break the loop
+                            break;
+                        }
+                    }
+                },
 
-    task::spawn(future::select(
-        handle_connections(listener, peer_map, peer_channel_in).boxed(),
-        exit_receiver,
-    ));
+                from_node = peer_channel_in.next().fuse() => {
+                    match from_node {
+                        Some(notification) => handle_node_service_notification(
+                            notification,
+                            peer_map.clone()
+                        ),
 
-    trace!("accepting connections");
+                        None => {
+                            error!("websocket/select: peer_channel_in has unexpectedly closed");
+
+                            // channel is closed - break the loop
+                            break;
+                        }
+                    }
+                },
+
+                _ = exit_receiver.next().fuse() => {
+                    break;
+                },
+            }
+        }
+    });
 
     exit_sender
 }

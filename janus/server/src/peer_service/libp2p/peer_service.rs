@@ -24,16 +24,16 @@ use crate::peer_service::libp2p::{
 use async_std::task;
 use futures::{
     channel::{mpsc, oneshot},
-    stream::StreamExt,
+    select, StreamExt,
 };
+use futures_util::FutureExt;
 use libp2p::{
     core::muxing::{StreamMuxerBox, SubstreamRef},
     identity, PeerId, Swarm,
 };
-use log::trace;
+use log::{error, trace};
 use parity_multiaddr::{Multiaddr, Protocol};
-use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
+use std::sync::Arc;
 
 pub struct PeerService {
     pub swarm:
@@ -41,7 +41,7 @@ pub struct PeerService {
 }
 
 impl PeerService {
-    pub fn new(config: PeerServiceConfig) -> Arc<Mutex<Self>> {
+    pub fn new(config: PeerServiceConfig) -> Self {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
         println!("peer service is starting with id = {}", local_peer_id);
@@ -57,7 +57,7 @@ impl PeerService {
         listen_addr.push(Protocol::Tcp(config.listen_port));
         Swarm::listen_on(&mut swarm, listen_addr).unwrap();
 
-        Arc::new(Mutex::new(Self { swarm }))
+        Self { swarm }
     }
 }
 
@@ -66,57 +66,56 @@ pub fn start_peer_service(
     mut peer_service_in_receiver: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_service_out_sender: mpsc::UnboundedSender<OutPeerNotification>,
 ) -> oneshot::Sender<()> {
-    let peer_service = PeerService::new(config);
+    let mut peer_service = PeerService::new(config);
 
     let (exit_sender, exit_receiver) = oneshot::channel();
+    let mut exit_receiver = exit_receiver.into_stream();
 
-    task::spawn(futures::future::select(
-        futures::future::poll_fn(move |cx: &mut Context| -> Poll<()> {
-            loop {
-                match peer_service_in_receiver.poll_next_unpin(cx) {
-                    Poll::Ready(Some(e)) => match e {
-                        InPeerNotification::Relay {
+    task::spawn(async move {
+        loop {
+            select! {
+                from_node = peer_service_in_receiver.next().fuse() =>
+                    match from_node {
+                        Some(InPeerNotification::Relay {
                             src_id,
                             dst_id,
                             data,
-                        } => peer_service
-                            .lock()
-                            .unwrap()
-                            .swarm
-                            .relay_message(src_id, dst_id, data),
+                        }) => peer_service.swarm.relay_message(src_id, dst_id, data),
 
-                        InPeerNotification::NetworkState { dst_id, state } => peer_service
-                            .lock()
-                            .unwrap()
+                        Some(InPeerNotification::NetworkState { dst_id, state }) => peer_service
                             .swarm
                             .send_network_state(dst_id, state),
+
+                        None => {
+                            error!("peer_service/select: peer_service_in_receiver has unexpectedly closed");
+
+                            // channel is closed - break the loop
+                            break;
+                        }
                     },
-                    Poll::Pending => {
-                        break;
-                    }
-                    Poll::Ready(None) => {
-                        // TODO: propagate error
-                        break;
-                    }
+
+                from_swarm = peer_service.swarm.next().fuse() =>
+                    match from_swarm {
+                        Some(event) => {
+                            trace!("peer_service/poll: sending {:?} to peer_service", event);
+
+                            peer_service_out_sender.unbounded_send(event).unwrap();
+                        },
+
+                        None => {
+                            error!("peer_service/select: swarm stream has unexpectedly ended");
+
+                            // swarm is ended - break the loop
+                            break;
+                        }
+                    },
+
+                _ = exit_receiver.next().fuse() => {
+                    break;
                 }
             }
-
-            loop {
-                match peer_service.lock().unwrap().swarm.poll_next_unpin(cx) {
-                    Poll::Ready(Some(e)) => {
-                        trace!("peer_service/poll: sending {:?} to peer_service", e);
-
-                        peer_service_out_sender.unbounded_send(e).unwrap();
-                    }
-                    Poll::Ready(None) => unreachable!("stream never ends"),
-                    Poll::Pending => break,
-                }
-            }
-
-            Poll::Pending
-        }),
-        exit_receiver,
-    ));
+        }
+    });
 
     exit_sender
 }

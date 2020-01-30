@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#![recursion_limit = "512"]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -31,7 +32,6 @@ mod peer_service;
 
 use crate::config::{ClientType, NodeServiceConfig, PeerServiceConfig, WebsocketConfig};
 use crate::node_service::node_service::{start_node_service, NodeService};
-use async_std::task;
 use clap::{App, Arg, ArgMatches};
 use ctrlc;
 use env_logger;
@@ -133,13 +133,11 @@ fn start_janus(
             out_receiver,
             in_sender,
         ),
-        ClientType::Websocket => {
-            task::block_on(peer_service::websocket::websocket::start_peer_service(
-                websocket_config,
-                out_receiver,
-                in_sender,
-            ))
-        }
+        ClientType::Websocket => peer_service::websocket::websocket::start_peer_service(
+            websocket_config,
+            out_receiver,
+            in_sender,
+        ),
     };
 
     let node_service = NodeService::new(node_service_config);
