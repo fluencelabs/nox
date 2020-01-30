@@ -14,6 +14,7 @@
 
 from __future__ import with_statement
 from fabric.api import *
+from fabric.contrib.files import append
 from utils      import *
 import json
 
@@ -89,10 +90,37 @@ def install_docker():
 def do_deploy_ipfs():
     with hide('running', 'output'):
         put('ipfs/ipfs.yml', './')
-        run('docker-compose -f ./ipfs.yml up -d')
-        output = run('docker-compose -f ./ipfs.yml exec ipfs ipfs id')
-        ipfs_addresses = json.loads(output)['Addresses']
-        return ipfs_addresses
+        with shell_env(HOST = env.host_string):
+            run('docker-compose -f ./ipfs.yml up -d')
+            output = run('docker-compose -f ./ipfs.yml exec ipfs ipfs id')
+            try:
+                ipfs_addresses = json.loads(output)['Addresses']
+                return ipfs_addresses
+            except:
+                puts("ERROR while parsing json from %s" % output)
+                return []
+
+@task
+@parallel
+def collect_ipfs_cluster_addresses():
+    with hide('running', 'output'):
+        output = run('docker-compose -f ./ipfs.yml exec ipfs-cluster ipfs-cluster-ctl id')
+        lines = output.split('\n')
+        cluster_addresses = filter(lambda x: '9096' in x and '127.0.0.1' in x, lines)
+        cluster_addresses = map(lambda x: x.translate(None, '- ').replace("127.0.0.1", env.host_string), cluster_addresses)
+        return cluster_addresses
+
+@task
+@parallel
+def bootstrap_ipfs_cluster():
+    with hide('running', 'output'):
+        PEERSTORE = '~/.ipfs/cluster/peerstore'
+        run('rm %s' % PEERSTORE)
+        run('touch %s' % PEERSTORE)
+        run('chown 1000:users %s' % PEERSTORE)
+        for addr in env.cluster_addresses:
+            run("echo \"%s\" >> ~/.ipfs/cluster/peerstore" % addr)
+        run('docker-compose -f ./ipfs.yml restart ipfs-cluster')
 
 @task
 @parallel
@@ -110,10 +138,12 @@ def deploy_ipfs():
         results = execute(do_deploy_ipfs)
         puts("IPFS: deployed")
         puts("IPFS: interconnecting nodes...")
+        # connect all nodes to bootstrap nodes
         external_addresses = [
-            "/dns4/ipfs1.fluence.one/tcp/1036/ipfs/QmQodFqzJgqHyRDEG4abmMgHEV59AgXJ8foBeKgkazchNL",
+            "/dns4/ipfs1.fluence.one/tcp/4001/ipfs/QmQodFqzJgqHyRDEG4abmMgHEV59AgXJ8foBeKgkazchNL",
             "/dns4/ipfs2.fluence.one/tcp/4001/ipfs/QmT2XFSBkLHPBFyae3o716Hs3qZidFhQrBHvfrMpZwgX7R"
         ]
+        # interconnect all nodes
         for ip, addrs in results.items():
             # filtering external addresses
             external_addresses += list(addr for addr in addrs if ip in addr)
@@ -122,6 +152,13 @@ def deploy_ipfs():
 
         execute(connect_ipfs_nodes)
         puts("IPFS: bootstrap nodes added")
+        
+        puts("IPFS: bootstrapping cluster...")
+        results = execute(collect_ipfs_cluster_addresses)
+        env.cluster_addresses = []
+        for ip, addrs in results.items():
+            env.cluster_addresses += addrs
+        execute(bootstrap_ipfs_cluster)
 
 # usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD,role=slave deploy_netdata
 @task
