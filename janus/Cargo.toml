@@ -1,5 +1,5 @@
 [workspace]
 members = [
     "server",
-    "client",
+    "client/libp2p",
 ]

@@ -82,7 +82,6 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
             v.remove(peer_id);
         }
     }
-
     /// Adds a new peer with provided id connected to this peer
     pub fn add_local_peer(&mut self, peer_id: PeerId) {
         self.connected_peers.insert(peer_id);
@@ -99,13 +98,15 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         for (node_id, peer_ids) in self.network_state.iter() {
             println!("node {}, connected peers:", node_id);
             for peer_id in peer_ids.iter() {
-                println!("{}", peer_id);
+                println!("     {}", peer_id);
             }
         }
         println!("current node, connected peers:");
         for peer_id in self.connected_peers() {
-            println!("{}", peer_id);
+            println!("     {}", peer_id);
         }
+
+        println!();
     }
 
     pub fn network_state(&self) -> &NetworkState {

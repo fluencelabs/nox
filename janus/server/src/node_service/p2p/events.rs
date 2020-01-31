@@ -40,7 +40,7 @@ pub enum P2PNetworkEvents {
 
     /// Send by bootstrap nodes on the first connection.
     NetworkState {
-        node_addrs: Vec<Vec<String>>, // each node could have multiple addresses
-        network_map: Vec<(Vec<u8>, Vec<Vec<u8>>)>,
+        // list of node PeerId, node multiaddrs, peers PeerIds
+        network_map: Vec<(Vec<u8>, Vec<String>, Vec<Vec<u8>>)>,
     },
 }

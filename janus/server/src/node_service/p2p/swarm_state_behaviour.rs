@@ -25,7 +25,8 @@ use libp2p::{
     PeerId,
 };
 use log::trace;
-use std::collections::VecDeque;
+use parity_multiaddr::Protocol;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use void::Void;
@@ -42,14 +43,18 @@ pub enum SwarmStateEvent {
 pub struct SwarmStateBehaviour<Substream> {
     // Queue of events to send to the upper level.
     events: VecDeque<NetworkBehaviourAction<Void, SwarmStateEvent>>,
-    /// Pin generic.
+    addrs: HashMap<PeerId, HashSet<Multiaddr>>,
+    node_service_port: u16,
+
     marker: PhantomData<Substream>,
 }
 
 impl<Substream> SwarmStateBehaviour<Substream> {
-    pub fn new() -> Self {
+    pub fn new(node_service_port: u16) -> Self {
         Self {
             events: VecDeque::new(),
+            addrs: HashMap::new(),
+            node_service_port,
             marker: PhantomData,
         }
     }
@@ -66,19 +71,43 @@ where
         Default::default()
     }
 
-    fn addresses_of_peer(&mut self, _peer_id: &PeerId) -> Vec<Multiaddr> {
-        Vec::new()
+    fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+        self.addrs
+            .get(peer_id)
+            .get_or_insert(&HashSet::new())
+            .iter()
+            // excess copy here - waiting for https://github.com/libp2p/rust-libp2p/issues/1417
+            .map(|addr| addr.clone())
+            .collect::<Vec<Multiaddr>>()
     }
 
-    fn inject_connected(&mut self, node_id: PeerId, _cp: ConnectedPoint) {
-        trace!(
-            "node_service/p2p/swarm_state: new node {} connected",
-            node_id
-        );
+    fn inject_connected(&mut self, node_id: PeerId, cp: ConnectedPoint) {
+        match cp {
+            ConnectedPoint::Listener {
+                local_addr: _local_addr,
+                mut send_back_addr,
+            } => {
+                // replace incoming listener port to the node service port
+                // TODO: check the popped protocol to equal tcp
+                send_back_addr.pop();
+                send_back_addr.push(Protocol::Tcp(self.node_service_port));
+
+                println!(
+                    "node_service/p2p/swarm_state: new node {} connected with multiaddr {:?}",
+                    node_id, send_back_addr
+                );
+
+                self.addrs
+                    .entry(node_id.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(send_back_addr);
+            }
+            ConnectedPoint::Dialer { .. } => {}
+        }
 
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
             SwarmStateEvent::Connected { id: node_id },
-        ))
+        ));
     }
 
     fn inject_disconnected(&mut self, node_id: &PeerId, _cp: ConnectedPoint) {

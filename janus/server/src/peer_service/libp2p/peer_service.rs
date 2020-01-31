@@ -86,12 +86,8 @@ pub fn start_peer_service(
                             .swarm
                             .send_network_state(dst_id, state),
 
-                        None => {
-                            error!("peer_service/select: peer_service_in_receiver has unexpectedly closed");
-
-                            // channel is closed - break the loop
-                            break;
-                        }
+                        // channel is closed when node service was shut down - break the loop
+                        None => break,
                     },
 
                 from_swarm = peer_service.swarm.next().fuse() =>

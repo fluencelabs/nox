@@ -160,7 +160,7 @@ fn main() -> Result<(), ExitFailure> {
 
     let (node_service_config, peer_service_config, websocket_config) =
         make_configs_from_args(arg_matches)?;
-    let (node_service_exit, peer_service_exit) =
+    let (node_service_exit, _peer_service_exit) =
         start_janus(node_service_config, peer_service_config, websocket_config)?;
 
     println!("Janus has been successfully started");
@@ -178,8 +178,8 @@ fn main() -> Result<(), ExitFailure> {
 
     println!("shutdown services");
 
+    // shutting down node service leads to shutting down peer service by canceling the mpsc channel
     node_service_exit.send(()).unwrap();
-    peer_service_exit.send(()).unwrap();
 
     Ok(())
 }

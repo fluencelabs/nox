@@ -276,12 +276,8 @@ pub fn start_peer_service(
                             peer_map.clone()
                         ),
 
-                        None => {
-                            error!("websocket/select: peer_channel_in has unexpectedly closed");
-
-                            // channel is closed - break the loop
-                            break;
-                        }
+                        // channel is closed when node service was shut down - break the loop
+                        None => break,
                     }
                 },
 

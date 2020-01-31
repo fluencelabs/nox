@@ -52,8 +52,12 @@ impl NodeService {
         let mut swarm = {
             let transport = build_transport(local_key.clone(), config.socket_timeout);
             let churn_topic = config.churn_topic;
-            let behaviour =
-                NodeServiceBehaviour::new(local_peer_id.clone(), local_key.public(), churn_topic);
+            let behaviour = NodeServiceBehaviour::new(
+                local_peer_id.clone(),
+                local_key.public(),
+                churn_topic,
+                config.listen_port,
+            );
 
             Box::new(Swarm::new(transport, behaviour, local_peer_id.clone()))
         };
@@ -67,7 +71,7 @@ impl NodeService {
             Swarm::dial_addr(&mut swarm, addr).expect("dialed to bootstrap node failed");
         }
 
-        swarm.gossip_peer_state();
+        swarm.gossip_node_state();
 
         Self { swarm }
     }
@@ -133,12 +137,9 @@ pub fn start_node_service(
                             &peer_service_in_sender,
                         ),
 
-                        None => {
-                            error!("node_service/select: peer_service_out_receiver has unexpectedly closed");
-
-                            // channel is closed - break the loop
-                            break;
-                        }
+                        // channel is closed when peer service was shut down - does nothing
+                        // (node service is main service and could run without peer service)
+                        None => {},
                     }
                 },
 

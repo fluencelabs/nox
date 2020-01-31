@@ -21,7 +21,7 @@ use futures::{AsyncRead, AsyncWrite};
 use libp2p::core::either::EitherOutput;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
-use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
+// use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::{NetworkBehaviour, PeerId};
 use std::collections::VecDeque;
@@ -29,9 +29,8 @@ use std::collections::VecDeque;
 /// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
 /// parameter of NetworkBehaviourAction. Should be regenerated each time a set of behaviours
 /// of the PeerServiceBehaviour is changed.
-type PeerServiceBehaviourInEvent<Substream> = EitherOutput<EitherOutput<
-    <<<libp2p::ping::Ping<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent,
-    <<<libp2p::identify::Identify<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
+type PeerServiceBehaviourInEvent<Substream> = EitherOutput<
+    <<<libp2p::identify::Identify<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent,
     <<<PeerConnectProtocolBehaviour<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>;
 
 #[derive(NetworkBehaviour)]
@@ -40,7 +39,7 @@ pub struct PeerServiceBehaviour<Substream>
 where
     Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    ping: Ping<Substream>,
+    //    ping: Ping<Substream>,
     identity: Identify<Substream>,
     node_connect_protocol: PeerConnectProtocolBehaviour<Substream>,
 
@@ -61,6 +60,7 @@ where
     }
 }
 
+/*
 impl<Substream> NetworkBehaviourEventProcess<PingEvent> for PeerServiceBehaviour<Substream>
 where
     Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
@@ -71,6 +71,7 @@ where
         }
     }
 }
+*/
 
 impl<Substream> NetworkBehaviourEventProcess<IdentifyEvent> for PeerServiceBehaviour<Substream>
 where
@@ -84,15 +85,17 @@ where
     Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     pub fn new(_local_peer_id: &PeerId, local_public_key: PublicKey) -> Self {
+        /*
         let ping = Ping::new(
             PingConfig::new()
                 .with_max_failures(unsafe { core::num::NonZeroU32::new_unchecked(10) }),
         );
+        */
         let identity = Identify::new("1.0.0".into(), "1.0.0".into(), local_public_key);
         let node_connect_protocol = PeerConnectProtocolBehaviour::new();
 
         Self {
-            ping,
+            //            ping,
             identity,
             node_connect_protocol,
             events: VecDeque::new(),
