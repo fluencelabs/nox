@@ -73,9 +73,8 @@ impl<Substream> PeerConnectProtocolBehaviour<Substream> {
             peer_id: dst,
             event: OutPeerEvent::NetworkState {
                 state: state
-                    .iter()
-                    .cloned()
-                    .map(|p| p.into_bytes())
+                    .into_iter()
+                    .map(|node_id| node_id.into_bytes())
                     .collect::<Vec<Vec<u8>>>(),
             },
         })

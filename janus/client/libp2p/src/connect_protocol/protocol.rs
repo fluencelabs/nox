@@ -15,7 +15,7 @@
  */
 
 use crate::connect_protocol::events::{InEvent, OutEvent};
-use futures::{AsyncRead, AsyncWrite, Future};
+use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
 use serde_json;
@@ -51,6 +51,8 @@ where
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
             let relay_event: InEvent = serde_json::from_slice(&packet).unwrap();
+            socket.close().await?;
+
             Ok(relay_event)
         })
     }

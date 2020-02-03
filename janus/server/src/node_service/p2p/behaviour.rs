@@ -32,7 +32,7 @@ use libp2p::{NetworkBehaviour, PeerId};
 use log::{debug, trace};
 use parity_multiaddr::Multiaddr;
 use serde_json;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::str::FromStr;
 
 /// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
@@ -113,7 +113,7 @@ where
                 match p2p_message {
                     P2PNetworkEvents::NodeConnected { node_id, peer_ids } => {
                         // here we are expecting that new node will connect to our by itself,
-                        // because rust- libp2p supports now only one connection between listener
+                        // because rust-libp2p supports now only one connection between listener
                         // and dialer - https://github.com/libp2p/rust-libp2p/issues/912.
                         // It is a poor design, but it seems that there are no other ways now.
                         let node_id = PeerId::from_bytes(node_id).unwrap();
@@ -124,8 +124,7 @@ where
 
                         // converts Vec<Vec<u8>> to Vec<PeerId>
                         let peer_ids = peer_ids
-                            .iter()
-                            .cloned()
+                            .into_iter()
                             .map(|peer| PeerId::from_bytes(peer).unwrap())
                             .collect();
                         self.relay.add_new_node(node_id, peer_ids);
@@ -186,7 +185,7 @@ where
                             }
 
                             if !node_addrs.is_empty() {
-                                // Vec<String> -> Vec<Multiaddr>
+                                // converts Vec<String> to Vec<Multiaddr>
                                 let node_addrs = node_addrs
                                     .iter()
                                     .map(|addr| Multiaddr::from_str(addr).unwrap())
@@ -197,14 +196,13 @@ where
                                     node_id, node_addrs
                                 );
 
-                                self.connect_to_node(node_addrs);
+                                self.connect_to_node(node_id.clone(), node_addrs);
                             }
 
                             self.relay.add_new_node(
                                 node_id,
                                 peers
-                                    .iter()
-                                    .cloned()
+                                    .into_iter()
                                     .map(|peer_id| PeerId::from_bytes(peer_id).unwrap())
                                     .collect(),
                             )
@@ -219,20 +217,19 @@ where
 
                 // new node is subscribed - send to it the whole network map
                 let network_state = self.relay.network_state().clone();
-                // convert from HashMap<PeerId, HashSet<PeerId>> to HashMap<Vec<u8>, HashSet<Vec<u8>>>
+                // convert from HashMap<PeerId, HashSet<PeerId>> to Vec<Vec<u8>, Vec<String>, Vec<Vec<u8>>>
                 let mut network_map = network_state
-                    .iter()
+                    .into_iter()
                     .map(|(node_id, peers)| {
                         (
                             node_id.clone().into_bytes(),
                             self.swarm_state
-                                .addresses_of_peer(node_id)
+                                .addresses_of_peer(&node_id)
                                 .iter()
                                 .map(|addr| addr.to_string())
                                 .collect(),
                             peers
-                                .iter()
-                                .cloned()
+                                .into_iter()
                                 .map(|peer_id| peer_id.into_bytes())
                                 .collect(),
                         )
@@ -397,11 +394,14 @@ where
         self.floodsub.publish(&self.churn_topic, message);
     }
 
-    fn connect_to_node(&mut self, node_addrs: Vec<Multiaddr>) {
-        for node_addr in node_addrs {
-            self.events
-                .push_back(NetworkBehaviourAction::DialAddress { address: node_addr })
-        }
+    fn connect_to_node(&mut self, node_id: PeerId, node_addrs: Vec<Multiaddr>) {
+        use std::iter::FromIterator;
+
+        let addrs = HashSet::from_iter(node_addrs);
+        self.swarm_state.add_node_addresses(node_id.clone(), addrs);
+
+        self.events
+            .push_back(NetworkBehaviourAction::DialPeer { peer_id: node_id })
     }
 
     fn custom_poll(

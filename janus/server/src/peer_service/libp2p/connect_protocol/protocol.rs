@@ -16,7 +16,7 @@
 
 use crate::error::Error;
 use crate::peer_service::libp2p::connect_protocol::events::{InPeerEvent, OutPeerEvent};
-use futures::{AsyncRead, AsyncWrite, Future};
+use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
 use serde_json;
@@ -57,6 +57,7 @@ where
                 relay_event
             );
 
+            socket.close().await?;
             Ok(relay_event)
         })
     }

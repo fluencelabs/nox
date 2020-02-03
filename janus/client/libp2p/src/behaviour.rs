@@ -90,7 +90,7 @@ impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
     #[allow(dead_code)]
     pub fn exit(&mut self) {
         unimplemented!(
-            "need to decide how exactly client should notify the server about disconnecting"
+            "need to decide how exactly a client should notify the server about disconnecting"
         );
     }
 }

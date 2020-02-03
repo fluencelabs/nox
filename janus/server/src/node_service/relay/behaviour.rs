@@ -15,7 +15,6 @@
  */
 
 use crate::node_service::relay::events::RelayEvent;
-use fnv::FnvHashSet;
 use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
@@ -27,7 +26,6 @@ use libp2p::{
 };
 use log::trace;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
 
@@ -40,7 +38,7 @@ pub struct PeerRelayLayerBehaviour<Substream> {
     events: VecDeque<NetworkBehaviourAction<RelayEvent, RelayEvent>>,
 
     /// Connected peers to this node.
-    connected_peers: FnvHashSet<PeerId>,
+    connected_peers: HashSet<PeerId>,
 
     /// Current network state of all nodes with connected peers.
     network_state: NetworkState,
@@ -52,7 +50,7 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     pub fn new() -> Self {
         Self {
             events: VecDeque::new(),
-            connected_peers: FnvHashSet::default(),
+            connected_peers: HashSet::new(),
             network_state: HashMap::new(),
             marker: PhantomData,
         }
@@ -60,6 +58,8 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
 
     /// Adds a new node with provided id and a list of connected peers to the network state.
     pub fn add_new_node(&mut self, node_id: PeerId, peer_ids: Vec<PeerId>) {
+        use std::iter::FromIterator;
+
         self.network_state
             .insert(node_id, HashSet::from_iter(peer_ids));
     }
@@ -113,8 +113,8 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
         &self.network_state
     }
 
-    pub fn connected_peers(&self) -> Vec<PeerId> {
-        self.connected_peers.iter().cloned().collect::<Vec<_>>()
+    pub fn connected_peers(&self) -> &HashSet<PeerId> {
+        &self.connected_peers
     }
 
     /// Relays given message to the given node according to the current network state.

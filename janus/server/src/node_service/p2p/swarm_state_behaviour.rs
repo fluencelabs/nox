@@ -50,6 +50,12 @@ pub struct SwarmStateBehaviour<Substream> {
 }
 
 impl<Substream> SwarmStateBehaviour<Substream> {
+    pub fn add_node_addresses(&mut self, node_id: PeerId, addrs: HashSet<Multiaddr>) {
+        self.addrs.insert(node_id, addrs);
+    }
+}
+
+impl<Substream> SwarmStateBehaviour<Substream> {
     pub fn new(node_service_port: u16) -> Self {
         Self {
             events: VecDeque::new(),

@@ -17,14 +17,13 @@
 #[allow(dead_code)]
 mod behaviour;
 mod connect_protocol;
-mod transport;
 
 use crate::behaviour::ClientServiceBehaviour;
 use crate::connect_protocol::events::InEvent;
-use crate::transport::build_transport;
 use async_std::{io, task};
 use env_logger;
 use futures::{future, prelude::*};
+use janus_server::peer_service::libp2p::transport::build_transport;
 use libp2p::{identity, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
@@ -94,8 +93,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                     } else {
                         println!("incorrect string provided");
                     }
-
-                    libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
                 }
                 Poll::Ready(None) => panic!("Stdin closed"),
                 Poll::Pending => break,
@@ -119,8 +116,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 InEvent::NetworkState { state } => println!("network state: {:?}", state),
             }
-
-            libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()).unwrap();
         }
 
         Poll::Pending
