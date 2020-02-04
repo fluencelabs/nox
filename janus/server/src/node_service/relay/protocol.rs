@@ -43,11 +43,7 @@ where
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
-    fn upgrade_inbound(
-        self,
-        mut socket: upgrade::Negotiated<Socket>,
-        _: Self::Info,
-    ) -> Self::Future {
+    fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
             let relay_event: RelayEvent = serde_json::from_slice(&packet).unwrap();
@@ -66,11 +62,7 @@ where
     type Error = io::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
-    fn upgrade_outbound(
-        self,
-        mut socket: upgrade::Negotiated<Socket>,
-        _: Self::Info,
-    ) -> Self::Future {
+    fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             trace!(
                 "node_service/relay/upgrade_outbound: sending a new relay network event: {:?}",
