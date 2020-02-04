@@ -97,7 +97,7 @@ where
 {
     fn inject_event(&mut self, event: PingEvent) {
         if event.result.is_err() {
-            debug!("ping event failed: {:?}", event);
+            debug!("ping failed with {:?}", event);
         }
     }
 }
@@ -299,7 +299,9 @@ where
         node_service_port: u16,
     ) -> Self {
         let ping = Ping::new(
-            PingConfig::new().with_max_failures(unsafe { std::num::NonZeroU32::new_unchecked(10) }),
+            PingConfig::new()
+                .with_max_failures(unsafe { std::num::NonZeroU32::new_unchecked(10) })
+                .with_keep_alive(true),
         );
         let relay = PeerRelayLayerBehaviour::new();
         let mut floodsub = Floodsub::new(local_peer_id.clone());

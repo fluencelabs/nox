@@ -22,6 +22,7 @@ use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{NetworkBehaviour, PeerId};
+use log::debug;
 use std::collections::VecDeque;
 
 #[derive(NetworkBehaviour)]
@@ -47,7 +48,7 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
 {
     fn inject_event(&mut self, event: PingEvent) {
         if event.result.is_err() {
-            println!("ping failed {:?}", event);
+            debug!("ping failed with {:?}", event);
         }
     }
 }
@@ -62,7 +63,8 @@ impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
     pub fn new(_local_peer_id: &PeerId, local_public_key: PublicKey) -> Self {
         let ping = Ping::new(
             PingConfig::new()
-                .with_max_failures(unsafe { core::num::NonZeroU32::new_unchecked(10) }),
+                .with_max_failures(unsafe { core::num::NonZeroU32::new_unchecked(5) })
+                .with_keep_alive(true),
         );
         let identity = Identify::new("1.0.0".into(), "1.0.0".into(), local_public_key);
         let node_connect_protocol = ClientConnectProtocolBehaviour::new();
