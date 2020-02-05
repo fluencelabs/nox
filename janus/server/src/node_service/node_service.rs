@@ -45,7 +45,10 @@ pub struct NodeService {
 
 impl NodeService {
     pub fn new(config: NodeServiceConfig) -> Self {
-        let local_key = identity::Keypair::generate_ed25519();
+        let local_key = match config.key_pair {
+            Some(kp) => kp,
+            None => identity::Keypair::generate_ed25519(),
+        };
         let local_peer_id = PeerId::from(local_key.public());
         println!("node service is starting with id = {}", local_peer_id);
 

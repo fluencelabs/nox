@@ -998,6 +998,7 @@ version = "0.0.3"
 dependencies = [
  "async-std",
  "async-tungstenite",
+ "base64 0.11.0",
  "clap",
  "ctrlc",
  "env_logger",

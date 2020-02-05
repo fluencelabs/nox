@@ -38,6 +38,8 @@ use env_logger;
 use exitfailure::ExitFailure;
 use failure::_core::str::FromStr;
 use futures::channel::{mpsc, oneshot};
+use libp2p::identity::ed25519;
+use libp2p::identity::Keypair;
 use log::trace;
 use parity_multiaddr::Multiaddr;
 use std::sync::{
@@ -52,9 +54,10 @@ const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 const PEER_SERVICE_PORT: &str = "peer-service-port";
 const NODE_SERVICE_PORT: &str = "node-service-port";
 const CLIENT_TYPE: &str = "client-type";
+const SECRET_KEY: &str = "secret-key";
 const BOOTSTRAP_NODE: &str = "bootstrap-node";
 
-fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 4] {
+fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 5] {
     [
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
@@ -65,6 +68,10 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 4] {
             .takes_value(true)
             .short("c")
             .default_value("websocket")
+            .help("ed25519 secret key in base64 format"),
+        Arg::with_name(SECRET_KEY)
+            .takes_value(true)
+            .short("s")
             .help("client's endpoint type: websocket, libp2p"),
         Arg::with_name(NODE_SERVICE_PORT)
             .takes_value(true)
@@ -107,6 +114,17 @@ fn make_configs_from_args(
                 )
             }
         }
+    }
+
+    if let Some(secret_key_str) = arg_matches.value_of(SECRET_KEY) {
+        let mut key_pair = base64::decode(secret_key_str)
+            .map_err(|_| failure::err_msg("Secret key should be in base64 format."))?;
+        let key_pair = key_pair.as_mut_slice();
+        let key_pair = Keypair::Ed25519(
+            ed25519::Keypair::decode(key_pair)
+                .map_err(|_| failure::err_msg("Invalid secret key format."))?,
+        );
+        node_service_config.key_pair = Some(key_pair);
     }
 
     if let Some(bootstrap_node) = arg_matches.value_of(BOOTSTRAP_NODE) {

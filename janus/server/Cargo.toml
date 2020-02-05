@@ -15,6 +15,7 @@ serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.44"
 
 failure = "0.1.6"
+base64 = "0.11.0"
 fnv = "1.0.6"
 log = "0.4.8"
 env_logger = "0.7.1"
