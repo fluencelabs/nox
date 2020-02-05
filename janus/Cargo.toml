@@ -1,5 +1,5 @@
 [workspace]
 members = [
     "server",
-    "client/libp2p",
+    "client/rust-libp2p",
 ]
