@@ -71,6 +71,9 @@ pub struct PeerServiceConfig {
 
     /// Socket timeout for main transport.
     pub socket_timeout: Duration,
+
+    /// Key that will be used during peer id creation.
+    pub key_pair: Option<Keypair>,
 }
 
 impl Default for PeerServiceConfig {
@@ -79,6 +82,7 @@ impl Default for PeerServiceConfig {
             listen_port: 9999,
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
+            key_pair: None
         }
     }
 }

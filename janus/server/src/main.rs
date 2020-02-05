@@ -55,27 +55,32 @@ const PEER_SERVICE_PORT: &str = "peer-service-port";
 const NODE_SERVICE_PORT: &str = "node-service-port";
 const CLIENT_TYPE: &str = "client-type";
 const SECRET_KEY: &str = "secret-key";
+const PEER_SECRET_KEY: &str = "peer-secret-key";
 const BOOTSTRAP_NODE: &str = "bootstrap-node";
 
-fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 5] {
+fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 6] {
     [
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
-            .short("pp")
+            .short("o")
             .default_value("9999")
             .help("port that will be used by the peer service"),
         Arg::with_name(CLIENT_TYPE)
             .takes_value(true)
             .short("c")
             .default_value("websocket")
-            .help("ed25519 secret key in base64 format"),
+            .help("client's endpoint type: websocket, libp2p"),
         Arg::with_name(SECRET_KEY)
             .takes_value(true)
             .short("s")
-            .help("client's endpoint type: websocket, libp2p"),
+            .help("ed25519 secret key in base64 format"),
+        Arg::with_name(PEER_SECRET_KEY)
+            .takes_value(true)
+            .short("p")
+            .help("ed25519 secret key for peer connection in base64 format"),
         Arg::with_name(NODE_SERVICE_PORT)
             .takes_value(true)
-            .short("np")
+            .short("n")
             .default_value("7777")
             .help("port that will be used by the node service"),
         Arg::with_name(BOOTSTRAP_NODE)
@@ -84,6 +89,17 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 5] {
             .multiple(true)
             .help("bootstrap nodes of the Fluence network"),
     ]
+}
+
+fn decode_key_pair(secret_key_str: &str) -> Result<Keypair, ExitFailure> {
+    let mut key_pair = base64::decode(secret_key_str)
+        .map_err(|_| failure::err_msg("Secret key should be in base64 format."))?;
+    let key_pair = key_pair.as_mut_slice();
+    let key_pair = Keypair::Ed25519(
+        ed25519::Keypair::decode(key_pair)
+            .map_err(|_| failure::err_msg("Invalid secret key format."))?,
+    );
+    Ok(key_pair)
 }
 
 fn make_configs_from_args(
@@ -117,14 +133,11 @@ fn make_configs_from_args(
     }
 
     if let Some(secret_key_str) = arg_matches.value_of(SECRET_KEY) {
-        let mut key_pair = base64::decode(secret_key_str)
-            .map_err(|_| failure::err_msg("Secret key should be in base64 format."))?;
-        let key_pair = key_pair.as_mut_slice();
-        let key_pair = Keypair::Ed25519(
-            ed25519::Keypair::decode(key_pair)
-                .map_err(|_| failure::err_msg("Invalid secret key format."))?,
-        );
-        node_service_config.key_pair = Some(key_pair);
+        node_service_config.key_pair = Some(decode_key_pair(secret_key_str)?);
+    }
+
+    if let Some(secret_key_str) = arg_matches.value_of(PEER_SECRET_KEY) {
+        peer_service_config.key_pair = Some(decode_key_pair(secret_key_str)?);
     }
 
     if let Some(bootstrap_node) = arg_matches.value_of(BOOTSTRAP_NODE) {

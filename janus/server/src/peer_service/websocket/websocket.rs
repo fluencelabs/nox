@@ -51,7 +51,7 @@ async fn handle_websocket_connection(
     peer_map: ConnectionMap,
     raw_stream: TcpStream,
     peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
-) {
+) -> Result<(), ()> {
     let (peer_id_sender, peer_id_receiver) = oneshot::channel();
 
     // callback to parse the incoming request, gets peerId from the path
@@ -97,12 +97,10 @@ async fn handle_websocket_connection(
     };
 
     let ws_stream = async_tungstenite::accept_hdr_async(raw_stream, callback)
-        .await
-        .expect("Error during the websocket handshake occurred");
+        .await.map_err(|_| error!("Error during the websocket handshake occurred"))?;
 
     let peer_id = peer_id_receiver
-        .await
-        .expect("Cannot get peer_id during the websocket handshake occurred");
+        .await.map_err(|_| error!("Cannot get peer_id during the websocket handshake occurred"))?;
 
     info!("WebSocket connection established: {}", peer_id);
 
@@ -134,6 +132,7 @@ async fn handle_websocket_connection(
 
     info!("{} disconnected", peer_id);
     peer_map.lock().unwrap().remove(&peer_id);
+    Ok(())
 }
 
 /// Handles incoming messages from websocket
