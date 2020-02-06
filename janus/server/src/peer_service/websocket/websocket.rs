@@ -197,7 +197,7 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
             if let Some(recp) = recipient {
                 let msg = WebsocketEvent::Relay {
                     peer_id: src_id.to_base58(),
-                    data: String::from_utf8(data.clone()).unwrap(),
+                    data: String::from_utf8(data).unwrap(),
                 };
                 let msg = serde_json::to_string(&msg).unwrap();
                 let msg = tungstenite::protocol::Message::Text(msg);

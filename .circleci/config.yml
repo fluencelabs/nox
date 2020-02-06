@@ -1,6 +1,8 @@
 version: 2
 jobs:
   janus:
+    docker:
+      - image: circleci/rust:latest
     environment:
       RUST_BACKTRACE: 1
       RUST_TEST_THREADS: 1
@@ -19,9 +21,16 @@ jobs:
           cargo fmt --all -- --check --color always
           cargo build -v --all-features
           cargo test -v --all-features
-          cargo clippy -v
+          cargo clippy -v -- -A clippy::mutable_key_type
       - save_cache:
           paths:
             - ~/.cargo
             - ~/.rustup
           key: janus01-{{ checksum "janus/server/Cargo.toml" }}
+
+workflows:
+  version: 2
+  arqada:
+    jobs:
+      - janus
+
