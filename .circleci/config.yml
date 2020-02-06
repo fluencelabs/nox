@@ -1,0 +1,27 @@
+version: 2
+jobs:
+  janus:
+    environment:
+      RUST_BACKTRACE: 1
+      RUST_TEST_THREADS: 1
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - janus01-{{ checksum "janus/server/Cargo.toml" }}
+      - run: |
+          cd janus/
+          rustup toolchain install nightly-2020-01-16
+          rustup default nightly-2020-01-16
+          rustup override set nightly-2020-01-16
+          rustup component add rustfmt
+          rustup component add clippy
+          cargo fmt --all -- --check --color always
+          cargo build -v --all-features
+          cargo test -v --all-features
+          cargo clippy -v
+      - save_cache:
+          paths:
+            - ~/.cargo
+            - ~/.rustup
+          key: janus01-{{ checksum "janus/server/Cargo.toml" }}

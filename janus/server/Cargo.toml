@@ -29,6 +29,9 @@ async-tungstenite = "0.3.1"
 version = "0.9.2"
 default-features = false
 
+[dev-dependencies]
+rand = "0.7.3"
+
 [profile.release]
 opt-level = 3
 debug = false

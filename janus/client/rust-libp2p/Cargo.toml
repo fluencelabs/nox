@@ -20,3 +20,14 @@ bs58 = "0.3.0"
 log = "0.4.8"
 env_logger = "0.7.1"
 void = "1.0.2"
+
+[dev-dependencies]
+rand = "0.7.3"
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+debug-assertions = false
+overflow-checks = false
+panic = "abort"

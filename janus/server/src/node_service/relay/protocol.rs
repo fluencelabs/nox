@@ -76,3 +76,63 @@ where
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RelayEvent;
+    use futures::prelude::*;
+    use libp2p::core::{
+        multiaddr::multiaddr,
+        transport::{memory::MemoryTransport, ListenerEvent, Transport},
+        upgrade,
+    };
+    use rand::{thread_rng, Rng};
+
+    #[test]
+    fn oneshot_channel_test() {
+        let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
+        let mut listener = MemoryTransport.listen_on(mem_addr).unwrap();
+
+        let listener_addr =
+            if let Some(Some(Ok(ListenerEvent::NewAddress(a)))) = listener.next().now_or_never() {
+                a
+            } else {
+                panic!("MemoryTransport not listening on an address!");
+            };
+
+        async_std::task::spawn(async move {
+            let listener_event = listener.next().await.unwrap();
+            let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
+            let conn = listener_upgrade.await.unwrap();
+            let relay_event = upgrade::apply_inbound(
+                conn,
+                RelayEvent {
+                    src_id: vec![],
+                    dst_id: vec![],
+                    data: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+            assert_eq!(relay_event.src_id, vec![0, 0xFF]);
+            assert_eq!(relay_event.dst_id, vec![0, 0xFF]);
+            assert_eq!(relay_event.data, vec![116, 101, 115, 116]);
+        });
+
+        async_std::task::block_on(async move {
+            let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
+            upgrade::apply_outbound(
+                c,
+                RelayEvent {
+                    src_id: vec![0, 0xFF],
+                    dst_id: vec![0, 0xFF],
+                    data: "test".to_string().into_bytes(),
+                },
+                upgrade::Version::V1,
+            )
+            .await
+            .unwrap();
+        });
+    }
+}

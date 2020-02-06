@@ -39,8 +39,7 @@ use env_logger;
 use exitfailure::ExitFailure;
 use failure::_core::str::FromStr;
 use futures::channel::{mpsc, oneshot};
-use libp2p::identity::ed25519;
-use libp2p::identity::Keypair;
+use libp2p::identity::{ed25519, Keypair};
 use log::trace;
 use parity_multiaddr::Multiaddr;
 use std::sync::{
