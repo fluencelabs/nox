@@ -13,19 +13,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![recursion_limit = "512"]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
 
-/// Janus libp2p client uses several functions from the server side.
-pub mod config;
-pub mod error;
-pub mod misc;
-pub mod peer_service;
+pub mod macros;

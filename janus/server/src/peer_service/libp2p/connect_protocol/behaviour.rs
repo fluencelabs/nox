@@ -14,22 +14,21 @@
  * limitations under the License.
  */
 
+use crate::event_polling;
 use crate::peer_service::libp2p::connect_protocol::events::{InPeerEvent, OutPeerEvent};
 use crate::peer_service::libp2p::notifications::OutPeerNotification;
 use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
-    swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, PollParameters, ProtocolsHandler,
-    },
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, ProtocolsHandler},
     PeerId,
 };
 use log::trace;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
-use std::task::{Context, Poll};
 
+#[derive(Default)]
 pub struct PeerConnectProtocolBehaviour<Substream> {
     /// Queue of received network messages from connected peers
     /// that need to be handled during polling.
@@ -103,9 +102,7 @@ where
         );
 
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
-            OutPeerNotification::PeerConnected {
-                peer_id: peer_id.clone(),
-            },
+            OutPeerNotification::PeerConnected { peer_id },
         ));
     }
 
@@ -147,26 +144,12 @@ where
         }
     }
 
-    fn poll(
-        &mut self,
-        _: &mut Context,
-        _: &mut impl PollParameters,
-    ) -> Poll<
-        NetworkBehaviourAction<
-            <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
-            Self::OutEvent,
-        >,
-    > {
-        if let Some(e) = self.events.pop_front() {
-            trace!(
-                "peer_service/connect_protocol/behaviour/poll: event {:?} popped",
-                e
-            );
-            return Poll::Ready(e);
-        };
-
-        Poll::Pending
-    }
+    // produces OutPeerNotification events
+    event_polling!(
+        poll,
+        events,
+        NetworkBehaviourAction<<Self::ProtocolsHandler as ProtocolsHandler>::InEvent, Self::OutEvent>
+    );
 }
 
 /// Transmission between the OneShotHandler message type and the InNodeMessage message type.

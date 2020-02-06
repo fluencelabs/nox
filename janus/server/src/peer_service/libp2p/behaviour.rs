@@ -114,6 +114,8 @@ where
         unimplemented!("need to decide how exactly NodeDisconnect message will be sent");
     }
 
+    // waiting for https://github.com/libp2p/rust-libp2p/issues/1431 to replace this function with
+    // the event_polling macro
     fn custom_poll(
         &mut self,
         _: &mut std::task::Context,

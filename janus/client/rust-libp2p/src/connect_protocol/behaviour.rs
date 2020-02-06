@@ -16,18 +16,16 @@
 
 use crate::connect_protocol::events::{InEvent, OutEvent};
 use futures::{AsyncRead, AsyncWrite};
+use janus_server::event_polling;
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
-    swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, PollParameters, ProtocolsHandler,
-    },
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, ProtocolsHandler},
     PeerId,
 };
 use log::trace;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
-use std::task::{Context, Poll};
 
 pub struct ClientConnectProtocolBehaviour<Substream> {
     /// Queue of received network messages from connected nodes
@@ -103,23 +101,12 @@ where
         }
     }
 
-    fn poll(
-        &mut self,
-        _: &mut Context,
-        _: &mut impl PollParameters,
-    ) -> Poll<
-        NetworkBehaviourAction<
-            <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
-            Self::OutEvent,
-        >,
-    > {
-        if let Some(e) = self.events.pop_front() {
-            trace!("client: event {:?} popped", e);
-            return Poll::Ready(e);
-        };
-
-        Poll::Pending
-    }
+    // produces InEvent events
+    event_polling!(
+        poll,
+        events,
+        NetworkBehaviourAction<<Self::ProtocolsHandler as ProtocolsHandler>::InEvent, Self::OutEvent>
+    );
 }
 
 /// Transmission between the OneShotHandler message type and the InNodeMessage message type.

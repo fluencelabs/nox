@@ -13,19 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![recursion_limit = "512"]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
 
-/// Janus libp2p client uses several functions from the server side.
-pub mod config;
-pub mod error;
-pub mod misc;
-pub mod peer_service;
+// https://github.com/rust-lang/rust/issues/57966#issuecomment-461077932
+#[macro_export]
+macro_rules! event_polling {
+    ($func_name:ident, $event_field_name:ident, $poll_type:ty) => {
+        fn $func_name(
+            &mut self,
+            _: &mut std::task::Context,
+            _: &mut impl libp2p::swarm::PollParameters,
+        ) -> std::task::Poll<$poll_type> {
+            use std::task::Poll;
+
+            if let Some(event) = self.$event_field_name.pop_front() {
+                return Poll::Ready(event);
+            }
+
+            Poll::Pending
+        }
+    };
+}

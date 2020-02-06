@@ -85,6 +85,7 @@ impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
         self.node_connect_protocol.send_message(relay, dst, message);
     }
 
+    #[allow(dead_code)]
     pub fn get_network_state(&mut self, relay: PeerId) {
         self.node_connect_protocol.get_network_state(relay);
     }

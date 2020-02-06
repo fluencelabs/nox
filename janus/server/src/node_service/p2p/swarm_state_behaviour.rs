@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+use crate::event_polling;
 use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
     swarm::{
         protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction,
-        PollParameters, ProtocolsHandler,
+        ProtocolsHandler,
     },
     PeerId,
 };
@@ -28,7 +29,6 @@ use log::trace;
 use parity_multiaddr::Protocol;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::marker::PhantomData;
-use std::task::{Context, Poll};
 use void::Void;
 
 #[derive(Debug, Clone)]
@@ -83,7 +83,8 @@ where
             .get_or_insert(&HashSet::new())
             .iter()
             // excess copy here - waiting for https://github.com/libp2p/rust-libp2p/issues/1417
-            .map(|addr| addr.clone())
+            .cloned()
+            .map(|addr| addr)
             .collect::<Vec<Multiaddr>>()
     }
 
@@ -131,20 +132,10 @@ where
 
     fn inject_node_event(&mut self, _source: PeerId, _event: Void) {}
 
-    fn poll(
-        &mut self,
-        _: &mut Context,
-        _: &mut impl PollParameters,
-    ) -> Poll<
-        NetworkBehaviourAction<
-            <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
-            Self::OutEvent,
-        >,
-    > {
-        if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(event);
-        }
-
-        Poll::Pending
-    }
+    // produces SwarmStateEvent
+    event_polling!(
+        poll,
+        events,
+        NetworkBehaviourAction<<Self::ProtocolsHandler as ProtocolsHandler>::InEvent, Self::OutEvent>
+    );
 }

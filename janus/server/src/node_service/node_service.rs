@@ -62,7 +62,7 @@ impl NodeService {
                 config.listen_port,
             );
 
-            Box::new(Swarm::new(transport, behaviour, local_peer_id.clone()))
+            Box::new(Swarm::new(transport, behaviour, local_peer_id))
         };
 
         let mut listen_addr = Multiaddr::from(config.listen_ip);

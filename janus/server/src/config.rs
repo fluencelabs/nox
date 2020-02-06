@@ -82,7 +82,7 @@ impl Default for PeerServiceConfig {
             listen_port: 9999,
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
-            key_pair: None
+            key_pair: None,
         }
     }
 }

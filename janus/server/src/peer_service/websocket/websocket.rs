@@ -97,10 +97,12 @@ async fn handle_websocket_connection(
     };
 
     let ws_stream = async_tungstenite::accept_hdr_async(raw_stream, callback)
-        .await.map_err(|_| error!("Error during the websocket handshake occurred"))?;
+        .await
+        .map_err(|_| error!("Error during the websocket handshake occurred"))?;
 
     let peer_id = peer_id_receiver
-        .await.map_err(|_| error!("Cannot get peer_id during the websocket handshake occurred"))?;
+        .await
+        .map_err(|_| error!("Cannot get peer_id during the websocket handshake occurred"))?;
 
     info!("WebSocket connection established: {}", peer_id);
 
@@ -116,8 +118,8 @@ async fn handle_websocket_connection(
         })
         .unwrap();
 
-    let broadcast_incoming = incoming
-        .try_for_each(|msg| return handle_message(msg, peer_id.clone(), peer_channel_in.clone()));
+    let broadcast_incoming =
+        incoming.try_for_each(|msg| handle_message(msg, peer_id.clone(), peer_channel_in.clone()));
 
     let receive_from_others = rx.map(Ok).forward(outgoing);
 
@@ -168,7 +170,7 @@ fn handle_message(
         }
         WebsocketEvent::GetNetworkState => {
             let msg = OutPeerNotification::GetNetworkState {
-                src_id: self_peer_id.clone(),
+                src_id: self_peer_id,
             };
             peer_channel_in.unbounded_send(msg).unwrap();
         }
@@ -192,7 +194,7 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
                 .find(|(peer_addr, _)| peer_addr == &&dst_id)
                 .map(|(_, ws_sink)| ws_sink);
 
-            recipient.map(|recp| {
+            if let Some(recp) = recipient {
                 let msg = WebsocketEvent::Relay {
                     peer_id: src_id.to_base58(),
                     data: String::from_utf8(data.clone()).unwrap(),
@@ -200,7 +202,7 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
                 let msg = serde_json::to_string(&msg).unwrap();
                 let msg = tungstenite::protocol::Message::Text(msg);
                 recp.unbounded_send(msg).unwrap();
-            });
+            };
         }
 
         InPeerNotification::NetworkState { dst_id, state } => {
@@ -210,14 +212,14 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
                 .find(|(peer_addr, _)| peer_addr == &&dst_id)
                 .map(|(_, ws_sink)| ws_sink);
 
-            recipient.map(|recp| {
+            if let Some(recp) = recipient {
                 let msg = WebsocketEvent::NetworkState {
                     peers: state.iter().map(|p| p.to_base58()).collect(),
                 };
                 let msg = serde_json::to_string(&msg).unwrap();
                 let msg = tungstenite::protocol::Message::Text(msg);
                 recp.unbounded_send(msg).unwrap();
-            });
+            };
         }
     }
 }
@@ -228,7 +230,7 @@ pub fn start_peer_service(
     mut peer_channel_in: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_channel_out: mpsc::UnboundedSender<OutPeerNotification>,
 ) -> oneshot::Sender<()> {
-    let addr = format!("{}:{}", config.listen_ip, config.listen_port).to_string();
+    let addr = format!("{}:{}", config.listen_ip, config.listen_port);
 
     trace!("binding address for websocket");
 

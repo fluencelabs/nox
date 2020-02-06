@@ -14,7 +14,15 @@
  * limitations under the License.
  */
 
-#[allow(dead_code)]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 mod behaviour;
 mod connect_protocol;
 
@@ -58,7 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut swarm = {
         let transport = build_transport(local_key.clone(), Duration::from_secs(20));
         let behaviour = ClientServiceBehaviour::new(&local_peer_id, local_key.public());
-        libp2p::Swarm::new(transport, behaviour, local_peer_id.clone())
+        libp2p::Swarm::new(transport, behaviour, local_peer_id)
     };
 
     let relay_peer_addr: Multiaddr = std::env::args()
@@ -68,9 +76,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .expect("provided wrong  Multiaddr");
 
     match libp2p::Swarm::dial_addr(&mut swarm, relay_peer_addr.clone()) {
-        Ok(_) => println!("Dialed to {:?}", relay_peer_addr.clone()),
+        Ok(_) => println!("Dialed to {:?}", relay_peer_addr),
         Err(e) => {
-            println!("Dial to {:?} failed with {:?}", relay_peer_addr.clone(), e);
+            println!("Dial to {:?} failed with {:?}", relay_peer_addr, e);
         }
     }
 

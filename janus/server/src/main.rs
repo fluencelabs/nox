@@ -27,6 +27,7 @@
 
 mod config;
 mod error;
+mod misc;
 mod node_service;
 mod peer_service;
 

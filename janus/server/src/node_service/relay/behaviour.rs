@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
+use crate::event_polling;
 use crate::node_service::relay::events::RelayEvent;
 use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
-    swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, PollParameters, ProtocolsHandler,
-    },
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, ProtocolsHandler},
     PeerId,
 };
 use log::trace;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::marker::PhantomData;
-use std::task::{Context, Poll};
 
 pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 
@@ -172,23 +170,12 @@ where
         }
     }
 
-    fn poll(
-        &mut self,
-        _: &mut Context,
-        _: &mut impl PollParameters,
-    ) -> Poll<
-        NetworkBehaviourAction<
-            <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
-            Self::OutEvent,
-        >,
-    > {
-        // events contains RelayMessage events that just need to promoted to the upper level
-        if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(event);
-        }
-
-        Poll::Pending
-    }
+    // produces RelayMessage events
+    event_polling!(
+        poll,
+        events,
+        NetworkBehaviourAction<<Self::ProtocolsHandler as ProtocolsHandler>::InEvent, Self::OutEvent>
+    );
 }
 
 /// Transmission between the OneShotHandler message type and the JanusRelay message type.
