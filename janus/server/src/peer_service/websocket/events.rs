@@ -22,7 +22,14 @@ use serde::{Deserialize, Serialize};
 pub enum WebsocketEvent {
     /// Represents an event that should be relayed to a given destination node
     /// or an event that already relayed and will be sent to a connected client.
-    Relay { peer_id: String, data: String },
+    Relay {
+        peer_id: String,
+        data: String,
+        /// the public key of the message's author
+        /// todo should be not in a relay event, but in some authorization process
+        p_key: String,
+        signature: String,
+    },
 
     /// Requests for the network state.
     /// Currently, gives the whole peers in the network, this behaviour will be refactored in future.
@@ -30,6 +37,9 @@ pub enum WebsocketEvent {
 
     /// Response with current network state.
     NetworkState { peers: Vec<String> },
+
+    /// Send message when error occurred
+    Error { err_msg: String },
 }
 
 impl Default for WebsocketEvent {

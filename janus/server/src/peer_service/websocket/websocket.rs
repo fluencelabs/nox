@@ -26,6 +26,8 @@ use std::str::FromStr;
 use crate::peer_service::websocket::events::WebsocketEvent;
 use futures::channel::{mpsc, oneshot};
 
+use faster_hex::hex_decode;
+use sodiumoxide::crypto;
 use tungstenite::handshake::server::{ErrorResponse, Request};
 use tungstenite::http::StatusCode;
 
@@ -108,7 +110,8 @@ async fn handle_websocket_connection(
 
     // insert the write part of this peer to the peer map.
     let (tx, rx) = unbounded();
-    peer_map.lock().unwrap().insert(peer_id.clone(), tx);
+
+    peer_map.lock().unwrap().insert(peer_id.clone(), tx.clone());
 
     let (outgoing, incoming) = ws_stream.split();
 
@@ -118,8 +121,9 @@ async fn handle_websocket_connection(
         })
         .unwrap();
 
-    let broadcast_incoming =
-        incoming.try_for_each(|msg| handle_message(msg, peer_id.clone(), peer_channel_in.clone()));
+    let broadcast_incoming = incoming.try_for_each(|msg| {
+        handle_message(msg, peer_id.clone(), peer_channel_in.clone(), tx.clone())
+    });
 
     let receive_from_others = rx.map(Ok).forward(outgoing);
 
@@ -137,11 +141,53 @@ async fn handle_websocket_connection(
     Ok(())
 }
 
+fn to_websocket_message(event: WebsocketEvent) -> tungstenite::protocol::Message {
+    let msg = serde_json::to_string(&event).unwrap();
+    tungstenite::protocol::Message::Text(msg)
+}
+
+fn hex_decode_str(hex: &str) -> Result<Vec<u8>, String> {
+    let hex_bytes = hex.as_bytes();
+    if hex_bytes.len() % 2 != 0 {
+        return Err("Incorrect hex length. Must be a multiple of 2.".to_string());
+    }
+    let mut bytes = vec![0; hex_bytes.len() / 2];
+    match hex_decode(hex_bytes, &mut bytes) {
+        Ok(_) => Ok(bytes),
+        Err(err) => Err(format!("{}", err)),
+    }
+}
+
+/// Check that signature for data is correct for current public key
+// todo: check that hash of data is equals with the signature data part
+fn check_signature(pk_hex: &str, signature_hex: &str, _data: &str) -> bool {
+    let pk_bytes = match hex_decode_str(pk_hex) {
+        Ok(b) => b,
+        Err(err_msg) => {
+            info!("Error on decoding public key: {}", err_msg);
+            return false;
+        }
+    };
+    let mut pk = crypto::sign::PublicKey([0u8; 32]);
+    pk.0.copy_from_slice(&pk_bytes);
+
+    let signature = match hex_decode_str(signature_hex) {
+        Ok(b) => b,
+        Err(err_msg) => {
+            info!("Error on decoding signature: {}", err_msg);
+            return false;
+        }
+    };
+
+    crypto::sign::verify(&signature, &pk).is_ok()
+}
+
 /// Handles incoming messages from websocket
 fn handle_message(
     msg: tungstenite::Message,
     self_peer_id: PeerId,
     peer_channel_in: mpsc::UnboundedSender<OutPeerNotification>,
+    message_out: mpsc::UnboundedSender<Message>,
 ) -> impl futures::Future<Output = Result<(), tungstenite::error::Error>> {
     let text = match msg.to_text() {
         Ok(r) => r,
@@ -152,20 +198,43 @@ fn handle_message(
 
     let websocket_event: WebsocketEvent = match serde_json::from_str(text) {
         Err(_) => {
-            info!("Cannot parse message: {}", text);
+            let err_msg = format!("Cannot parse message: {}", text);
+            info!("{}", err_msg);
+            let event = WebsocketEvent::Error { err_msg };
+            let msg = to_websocket_message(event);
+            message_out.unbounded_send(msg).unwrap();
             return future::ok(());
         }
         Ok(v) => v,
     };
 
     match websocket_event {
-        WebsocketEvent::Relay { peer_id, data } => {
+        WebsocketEvent::Relay {
+            peer_id,
+            data,
+            p_key,
+            signature,
+        } => {
             let dst_peer_id = PeerId::from_str(peer_id.as_str()).unwrap();
+
+            if !check_signature(&p_key, &signature, &data) {
+                // signature check failed - send error and exit from the handler
+                let err_msg = "Signature does not match message.";
+                let event = WebsocketEvent::Error {
+                    err_msg: err_msg.to_string(),
+                };
+                let msg = to_websocket_message(event);
+                message_out.unbounded_send(msg).unwrap();
+
+                return future::ok(());
+            }
+
             let msg = OutPeerNotification::Relay {
                 src_id: self_peer_id,
                 dst_id: dst_peer_id,
                 data: data.into_bytes(),
             };
+
             peer_channel_in.unbounded_send(msg).unwrap();
         }
         WebsocketEvent::GetNetworkState => {
@@ -195,12 +264,13 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
                 .map(|(_, ws_sink)| ws_sink);
 
             if let Some(recp) = recipient {
-                let msg = WebsocketEvent::Relay {
+                let event = WebsocketEvent::Relay {
                     peer_id: src_id.to_base58(),
                     data: String::from_utf8(data).unwrap(),
+                    p_key: "".to_string(),
+                    signature: "".to_string(),
                 };
-                let msg = serde_json::to_string(&msg).unwrap();
-                let msg = tungstenite::protocol::Message::Text(msg);
+                let msg = to_websocket_message(event);
                 recp.unbounded_send(msg).unwrap();
             };
         }
@@ -213,11 +283,10 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
                 .map(|(_, ws_sink)| ws_sink);
 
             if let Some(recp) = recipient {
-                let msg = WebsocketEvent::NetworkState {
+                let event = WebsocketEvent::NetworkState {
                     peers: state.iter().map(|p| p.to_base58()).collect(),
                 };
-                let msg = serde_json::to_string(&msg).unwrap();
-                let msg = tungstenite::protocol::Message::Text(msg);
+                let msg = to_websocket_message(event);
                 recp.unbounded_send(msg).unwrap();
             };
         }

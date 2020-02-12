@@ -15,6 +15,14 @@
  */
 
 import {genMessage, networkStateMessage} from "./messages";
+import nacl, {SignKeyPair} from "tweetnacl";
+let wasm_utils: { decode(s: string): Uint8Array; encode(data: Uint8Array): string; sha3_256(input: Uint8Array): Uint8Array; keccak_256(input: Uint8Array): Uint8Array };
+
+(async () => {
+    wasm_utils = await import("../utils-wasm/pkg");
+})();
+
+
 
 export let debug = require('debug')('janus');
 export let debugI = require('debug');
@@ -34,8 +42,17 @@ export class JanusConnection {
 
     readonly socket: WebSocket;
     private connected: boolean;
+    private kp: SignKeyPair;
 
-    constructor(peerId: string, host?: string, port?: number) {
+    constructor(peerId: string, host?: string, port?: number, seed?: string) {
+
+        if (seed) {
+            this.kp = nacl.sign.keyPair.fromSeed(Uint8Array.from(Buffer.from(seed, 'hex')));
+        } else {
+            this.kp = nacl.sign.keyPair()
+        }
+
+
         if (!port) port = 9999;
         if (!host) host = "localhost";
         this.socket = new WebSocket(`ws://${host}:${port}/ws?key=${peerId}`);
@@ -64,7 +81,13 @@ export class JanusConnection {
             return;
         }
 
-        this.socket.send(JSON.stringify(genMessage(destination, message)));
+        let hash = wasm_utils.sha3_256(new TextEncoder().encode(message));
+        console.log(this.kp.publicKey.byteLength);
+        let pkHex = wasm_utils.encode(this.kp.publicKey);
+
+        let signature = wasm_utils.encode(nacl.sign(hash, this.kp.secretKey));
+
+        this.socket.send(JSON.stringify(genMessage(destination, message, pkHex, signature)));
     }
 
     /**

@@ -3,3 +3,6 @@ members = [
     "server",
     "client/rust-libp2p",
 ]
+exclude = [
+    "client/js-websocket/utils-wasm",
+]

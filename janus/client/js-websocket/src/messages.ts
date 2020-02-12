@@ -17,14 +17,18 @@
 interface Relay {
     action: string,
     peer_id: string,
-    data: string
+    data: string,
+    p_key: string,
+    signature: string
 }
 
-export function genMessage(peerId: string, data: string): Relay {
+export function genMessage(peerId: string, data: string, p_key: string, sign: string): Relay {
     return {
         action: "Relay",
         peer_id: peerId,
-        data: data
+        data: data,
+        p_key: p_key,
+        signature: sign
     }
 }
 

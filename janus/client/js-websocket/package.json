@@ -6,6 +6,7 @@
   "main": "./dist/janus.js",
   "typings": "./dist/janus.d.ts",
   "scripts": {
+    "build-wasm": "wasm-pack build utils-wasm/",
     "build": "webpack",
     "package:build": "NODE_ENV=production webpack && tsc",
     "start": "webpack-dev-server"
@@ -36,15 +37,16 @@
   ],
   "license": "Apache-2.0",
   "devDependencies": {
-    "awesome-typescript-loader": "5.2.1",
+    "ts-loader": "6.2.1",
     "clean-webpack-plugin": "3.0.0",
     "html-webpack-plugin": "3.2.0",
-    "typescript": "3.7.5",
+    "typescript": "3.8.1-rc",
     "webpack": "4.41.5",
     "webpack-cli": "3.3.10",
     "webpack-dev-server": "3.10.1"
   },
   "dependencies": {
-    "debug": "4.1.1"
+    "debug": "4.1.1",
+    "tweetnacl": "^1.0.2"
   }
 }

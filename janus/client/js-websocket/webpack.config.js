@@ -2,7 +2,6 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
-const { CheckerPlugin } = require('awesome-typescript-loader');
 
 const production = (process.env.NODE_ENV === 'production');
 
@@ -14,13 +13,17 @@ const config = {
         rules: [
             {
                 test: /\.tsx?$/,
-                loader: 'awesome-typescript-loader',
+                loader: 'ts-loader',
                 exclude: /node_modules/
+            },
+            {
+                test: /\.wasm$/,
+                type: "webassembly/experimental"
             }
         ]
     },
     resolve: {
-        extensions: [ '.tsx', '.ts', '.js' ]
+        extensions: [ '.tsx', '.ts', '.js', '.wasm' ]
     },
     output: {
         filename: 'bundle.js',
@@ -32,7 +35,6 @@ const config = {
     },
     plugins: [
         new CleanWebpackPlugin(),
-        new CheckerPlugin(),
     ]
 };
 
