@@ -227,7 +227,7 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
 /// Binds port to establish websocket connections, runs peer service based on websocket
 pub fn start_peer_service(
     config: WebsocketConfig,
-    mut peer_channel_in: mpsc::UnboundedReceiver<InPeerNotification>,
+    peer_channel_in: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_channel_out: mpsc::UnboundedSender<OutPeerNotification>,
 ) -> oneshot::Sender<()> {
     let addr = format!("{}:{}", config.listen_ip, config.listen_port);
@@ -240,14 +240,17 @@ pub fn start_peer_service(
     let peer_map = ConnectionMap::new(Mutex::new(HashMap::new()));
 
     let (exit_sender, exit_receiver) = oneshot::channel();
-    let mut exit_receiver = exit_receiver.into_stream();
 
     // Create the event loop and TCP listener we'll accept connections on.
     task::spawn(async move {
-        let mut incoming = listener.incoming();
+        //fusing streams
+        let mut incoming = listener.incoming().fuse();
+        let mut peer_channel_in = peer_channel_in.fuse();
+        let mut exit_receiver = exit_receiver.into_stream().fuse();
+
         loop {
             select! {
-                from_socket = incoming.next().fuse() => {
+                from_socket = incoming.next() => {
                     match from_socket {
                         Some(Ok(stream)) => {
                             // spawn a separate async thread for each incoming connection
@@ -270,7 +273,7 @@ pub fn start_peer_service(
                     }
                 },
 
-                from_node = peer_channel_in.next().fuse() => {
+                from_node = peer_channel_in.next() => {
                     match from_node {
                         Some(notification) => handle_node_service_notification(
                             notification,
@@ -282,7 +285,7 @@ pub fn start_peer_service(
                     }
                 },
 
-                _ = exit_receiver.next().fuse() => {
+                _ = exit_receiver.next() => {
                     break;
                 },
             }

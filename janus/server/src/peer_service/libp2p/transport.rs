@@ -30,7 +30,7 @@ pub(crate) type PeerServiceTransport = Boxed<(PeerId, StreamMuxerBox), Error>;
 
 /// Creates transport that is common for all connections.
 ///
-/// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
+/// Transport is based on TCP with SECIO as the encryption layer and MPLEX or YAMUX as
 /// the multiplexing layer.
 pub fn build_transport(keys: Keypair, socket_timeout: Duration) -> PeerServiceTransport {
     TcpConfig::new()

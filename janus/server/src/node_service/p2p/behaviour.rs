@@ -69,7 +69,7 @@ where
     #[behaviour(ignore)]
     events: VecDeque<NetworkBehaviourAction<NodeServiceBehaviourInEvent<Substream>, RelayEvent>>,
 
-    // true, if service've seen NodesMap event
+    // true, if a service's seen NodesMap event
     #[behaviour(ignore)]
     initialized: bool,
 }
@@ -191,9 +191,10 @@ where
                                     .map(|addr| Multiaddr::from_str(addr).unwrap())
                                     .collect();
 
-                                println!(
+                                trace!(
                                     "connect to node with peer id = {} and multiaddrs = {:?}",
-                                    node_id, node_addrs
+                                    node_id,
+                                    node_addrs
                                 );
 
                                 self.connect_to_node(node_id.clone(), node_addrs);
@@ -267,7 +268,7 @@ where
     fn inject_event(&mut self, event: SwarmStateEvent) {
         match event {
             SwarmStateEvent::Connected { id } => {
-                println!(
+                trace!(
                     "node_service/p2p/behaviour/swarm_state_event: new node {} connected",
                     id
                 );
@@ -276,7 +277,7 @@ where
                 self.relay.print_network_state();
             }
             SwarmStateEvent::Disconnected { id } => {
-                println!(
+                trace!(
                     "node_service/p2p/behaviour/swarm_state_event: node {} disconnected",
                     id
                 );
@@ -343,7 +344,7 @@ where
     }
 
     pub fn add_connected_peer(&mut self, peer_id: PeerId) {
-        println!(
+        trace!(
             "node_service/p2p/behaviour: add connected peer {:?}",
             peer_id
         );
@@ -360,7 +361,7 @@ where
     }
 
     pub fn remove_connected_peer(&mut self, peer_id: PeerId) {
-        println!(
+        trace!(
             "node_service/p2p/behaviour: remove connected peer {:?}",
             peer_id
         );

@@ -31,7 +31,7 @@ use libp2p::{
     core::muxing::{StreamMuxerBox, SubstreamRef},
     identity, PeerId, Swarm,
 };
-use log::{error, trace};
+use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
 use std::sync::Arc;
 
@@ -66,50 +66,44 @@ impl PeerService {
 
 pub fn start_peer_service(
     config: PeerServiceConfig,
-    mut peer_service_in_receiver: mpsc::UnboundedReceiver<InPeerNotification>,
+    peer_service_in_receiver: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_service_out_sender: mpsc::UnboundedSender<OutPeerNotification>,
 ) -> oneshot::Sender<()> {
-    let mut peer_service = PeerService::new(config);
-
+    let peer_service = PeerService::new(config);
     let (exit_sender, exit_receiver) = oneshot::channel();
-    let mut exit_receiver = exit_receiver.into_stream();
 
     task::spawn(async move {
+        //fusing streams
+        let mut peer_service_in_receiver = peer_service_in_receiver.fuse();
+        let mut peer_service_swarm = peer_service.swarm.fuse();
+        let mut exit_receiver = exit_receiver.into_stream().fuse();
+
         loop {
             select! {
-                from_node = peer_service_in_receiver.next().fuse() =>
+                from_node = peer_service_in_receiver.next() =>
                     match from_node {
                         Some(InPeerNotification::Relay {
                             src_id,
                             dst_id,
                             data,
-                        }) => peer_service.swarm.relay_message(src_id, dst_id, data),
+                        }) => peer_service_swarm.get_mut().relay_message(src_id, dst_id, data),
 
-                        Some(InPeerNotification::NetworkState { dst_id, state }) => peer_service
-                            .swarm
-                            .send_network_state(dst_id, state),
+                        Some(InPeerNotification::NetworkState { dst_id, state }) =>
+                            peer_service_swarm
+                             .get_mut()
+                             .send_network_state(dst_id, state),
 
                         // channel is closed when node service was shut down - break the loop
                         None => break,
                     },
 
-                from_swarm = peer_service.swarm.next().fuse() =>
-                    match from_swarm {
-                        Some(event) => {
-                            trace!("peer_service/poll: sending {:?} to peer_service", event);
+                // swarm stream never ends
+                from_swarm = peer_service_swarm.select_next_some() => {
+                    trace!("peer_service/poll: sending {:?} to peer_service", from_swarm);
+                    peer_service_out_sender.unbounded_send(from_swarm).unwrap();
+                },
 
-                            peer_service_out_sender.unbounded_send(event).unwrap();
-                        },
-
-                        None => {
-                            error!("peer_service/select: swarm stream has unexpectedly ended");
-
-                            // swarm is ended - break the loop
-                            break;
-                        }
-                    },
-
-                _ = exit_receiver.next().fuse() => {
+                _ = exit_receiver.next() => {
                     break;
                 }
             }

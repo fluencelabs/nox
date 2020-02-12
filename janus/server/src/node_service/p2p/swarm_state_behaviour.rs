@@ -99,9 +99,10 @@ where
                 send_back_addr.pop();
                 send_back_addr.push(Protocol::Tcp(self.node_service_port));
 
-                println!(
+                trace!(
                     "node_service/p2p/swarm_state: new node {} connected with multiaddr {:?}",
-                    node_id, send_back_addr
+                    node_id,
+                    send_back_addr
                 );
 
                 self.addrs

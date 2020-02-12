@@ -20,11 +20,13 @@ use libp2p::identity::Keypair;
 use std::net::IpAddr;
 use std::time::Duration;
 
+#[derive(Debug, Clone, Copy)]
 pub enum ClientType {
     Libp2p,
     Websocket,
 }
 
+#[derive(Clone)]
 pub struct NodeServiceConfig {
     /// Local port to listen on.
     pub listen_port: u16,
@@ -62,6 +64,7 @@ impl Default for NodeServiceConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct PeerServiceConfig {
     /// Local port to listen on.
     pub listen_port: u16,
@@ -87,6 +90,7 @@ impl Default for PeerServiceConfig {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct WebsocketConfig {
     /// Local port to listen on.
     pub listen_port: u16,

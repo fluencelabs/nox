@@ -32,7 +32,7 @@ mod node_service;
 mod peer_service;
 
 use crate::config::{ClientType, NodeServiceConfig, PeerServiceConfig, WebsocketConfig};
-use crate::node_service::node_service::{start_node_service, NodeService};
+use crate::node_service::node_service::NodeService;
 use clap::{App, Arg, ArgMatches};
 use ctrlc;
 use env_logger;
@@ -172,7 +172,7 @@ fn start_janus(
     };
 
     let node_service = NodeService::new(node_service_config);
-    let node_service_exit = start_node_service(node_service, in_receiver, out_sender);
+    let node_service_exit = node_service.start(in_receiver, out_sender);
 
     Ok((node_service_exit, exit_sender))
 }
