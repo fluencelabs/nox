@@ -1,0 +1,6 @@
+client-type = "websocket"
+peer-service-port = 8888
+node-service-port = 7777
+#secret-key =
+#peer-secret-key =
+#bootstrap-node =

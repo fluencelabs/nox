@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::config::PeerServiceConfig;
+use crate::config::config::Libp2pPeerServiceConfig;
 use crate::peer_service::libp2p::{
     behaviour::PeerServiceBehaviour,
     notifications::{InPeerNotification, OutPeerNotification},
@@ -41,7 +41,7 @@ pub struct PeerService {
 }
 
 impl PeerService {
-    pub fn new(config: PeerServiceConfig) -> Self {
+    pub fn new(config: Libp2pPeerServiceConfig) -> Self {
         let local_key = match config.key_pair {
             Some(kp) => kp,
             None => identity::Keypair::generate_ed25519(),
@@ -65,7 +65,7 @@ impl PeerService {
 }
 
 pub fn start_peer_service(
-    config: PeerServiceConfig,
+    config: Libp2pPeerServiceConfig,
     peer_service_in_receiver: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_service_out_sender: mpsc::UnboundedSender<OutPeerNotification>,
 ) -> oneshot::Sender<()> {

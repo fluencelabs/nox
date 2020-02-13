@@ -40,7 +40,7 @@ use futures::{
     stream::TryStreamExt,
 };
 
-use crate::config::WebsocketConfig;
+use crate::config::config::WebsocketPeerServiceConfig;
 use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
 use async_std::net::{TcpListener, TcpStream};
 use async_std::task;
@@ -295,7 +295,7 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
 
 /// Binds port to establish websocket connections, runs peer service based on websocket
 pub fn start_peer_service(
-    config: WebsocketConfig,
+    config: WebsocketPeerServiceConfig,
     peer_channel_in: mpsc::UnboundedReceiver<InPeerNotification>,
     peer_channel_out: mpsc::UnboundedSender<OutPeerNotification>,
 ) -> oneshot::Sender<()> {

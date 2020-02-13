@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::config::NodeServiceConfig;
+use crate::config::config::NodeServiceConfig;
 use crate::node_service::{
     p2p::{
         behaviour::NodeServiceBehaviour, transport::build_transport,
