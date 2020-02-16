@@ -73,7 +73,7 @@ impl Default for NodeServiceConfig {
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             bootstrap_nodes: vec![],
-            churn_topic: floodsub::TopicBuilder::new("churn").build(),
+            churn_topic: floodsub::Topic::new("churn"),
             client: ClientType::Websocket,
             key_pair: None,
         }

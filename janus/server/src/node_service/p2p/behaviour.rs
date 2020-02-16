@@ -38,26 +38,23 @@ use std::str::FromStr;
 /// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
 /// parameter of NetworkBehaviourAction. Should be regenerated each time a set of behaviours
 /// of the NodeServiceBehaviour is changed.
-type NodeServiceBehaviourInEvent<Substream> = EitherOutput<EitherOutput<EitherOutput<EitherOutput
-    <<<<libp2p::ping::Ping<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent,
-    <<<PeerRelayLayerBehaviour<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
-    <<<libp2p::identify::Identify<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
-    <<<libp2p::floodsub::Floodsub<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
-    <<<SwarmStateBehaviour<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>;
+type NodeServiceBehaviourInEvent = EitherOutput<EitherOutput<EitherOutput<EitherOutput
+    <<<<libp2p::ping::Ping as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent,
+    <<<PeerRelayLayerBehaviour as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
+    <<<libp2p::identify::Identify as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
+    <<<libp2p::floodsub::Floodsub as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
+    <<<SwarmStateBehaviour as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>;
 
 /// Behaviour of the p2p layer that is responsible for keeping the network state actual and rules
 /// all other protocols of the Janus.
 #[derive(NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll", out_event = "RelayEvent")]
-pub struct NodeServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
-    ping: Ping<Substream>,
-    relay: PeerRelayLayerBehaviour<Substream>,
-    identity: Identify<Substream>,
-    floodsub: Floodsub<Substream>,
-    swarm_state: SwarmStateBehaviour<Substream>,
+pub struct NodeServiceBehaviour {
+    ping: Ping,
+    relay: PeerRelayLayerBehaviour,
+    identity: Identify,
+    floodsub: Floodsub,
+    swarm_state: SwarmStateBehaviour,
 
     #[behaviour(ignore)]
     churn_topic: Topic,
@@ -67,34 +64,25 @@ where
 
     /// Contains events that need to be propagate to external caller.
     #[behaviour(ignore)]
-    events: VecDeque<NetworkBehaviourAction<NodeServiceBehaviourInEvent<Substream>, RelayEvent>>,
+    events: VecDeque<NetworkBehaviourAction<NodeServiceBehaviourInEvent, RelayEvent>>,
 
     // true, if a service's seen NodesMap event
     #[behaviour(ignore)]
     initialized: bool,
 }
 
-impl<Substream> NetworkBehaviourEventProcess<RelayEvent> for NodeServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
+impl NetworkBehaviourEventProcess<RelayEvent> for NodeServiceBehaviour {
     fn inject_event(&mut self, event: RelayEvent) {
         self.events
             .push_back(NetworkBehaviourAction::GenerateEvent(event));
     }
 }
 
-impl<Substream> NetworkBehaviourEventProcess<IdentifyEvent> for NodeServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
+impl NetworkBehaviourEventProcess<IdentifyEvent> for NodeServiceBehaviour {
     fn inject_event(&mut self, _event: IdentifyEvent) {}
 }
 
-impl<Substream> NetworkBehaviourEventProcess<PingEvent> for NodeServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
+impl NetworkBehaviourEventProcess<PingEvent> for NodeServiceBehaviour {
     fn inject_event(&mut self, event: PingEvent) {
         if event.result.is_err() {
             debug!("ping failed with {:?}", event);
@@ -102,10 +90,7 @@ where
     }
 }
 
-impl<Substream> NetworkBehaviourEventProcess<FloodsubEvent> for NodeServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
+impl NetworkBehaviourEventProcess<FloodsubEvent> for NodeServiceBehaviour {
     fn inject_event(&mut self, event: FloodsubEvent) {
         match event {
             FloodsubEvent::Message(message) => {
@@ -261,10 +246,7 @@ where
     }
 }
 
-impl<Substream> NetworkBehaviourEventProcess<SwarmStateEvent> for NodeServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
+impl NetworkBehaviourEventProcess<SwarmStateEvent> for NodeServiceBehaviour {
     fn inject_event(&mut self, event: SwarmStateEvent) {
         match event {
             SwarmStateEvent::Connected { id } => {
@@ -289,10 +271,7 @@ where
     }
 }
 
-impl<Substream> NodeServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
+impl NodeServiceBehaviour {
     pub fn new(
         local_peer_id: PeerId,
         local_public_key: PublicKey,
@@ -412,7 +391,7 @@ where
     fn custom_poll(
         &mut self,
         _: &mut std::task::Context,
-    ) -> Poll<NetworkBehaviourAction<NodeServiceBehaviourInEvent<Substream>, RelayEvent>> {
+    ) -> Poll<NetworkBehaviourAction<NodeServiceBehaviourInEvent, RelayEvent>> {
         if let Some(event) = self.events.pop_front() {
             // this events should be consumed during the node service polling
             return Poll::Ready(event);

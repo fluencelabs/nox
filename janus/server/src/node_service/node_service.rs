@@ -34,8 +34,7 @@ use libp2p::{
 use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
 
-type NodeServiceSwarm =
-    Swarm<NodeServiceTransport, NodeServiceBehaviour<SubstreamRef<std::sync::Arc<StreamMuxerBox>>>>;
+type NodeServiceSwarm = Swarm<NodeServiceTransport, NodeServiceBehaviour>;
 
 pub struct NodeService {
     pub swarm: Box<NodeServiceSwarm>,

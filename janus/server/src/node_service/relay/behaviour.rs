@@ -31,7 +31,7 @@ pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 
 /// Behaviour of the Relay layer. Contains the whole network state with connected peers to this
 /// node. Produces RelayMessage and save in the internal deque to pass then to the libp2p swarm.
-pub struct PeerRelayLayerBehaviour<Substream> {
+pub struct PeerRelayLayerBehaviour {
     // Queue of events to send to the upper level.
     events: VecDeque<NetworkBehaviourAction<RelayEvent, RelayEvent>>,
 
@@ -40,11 +40,9 @@ pub struct PeerRelayLayerBehaviour<Substream> {
 
     /// Current network state of all nodes with connected peers.
     network_state: NetworkState,
-
-    marker: PhantomData<Substream>,
 }
 
-impl<Substream> PeerRelayLayerBehaviour<Substream> {
+impl PeerRelayLayerBehaviour {
     pub fn new() -> Self {
         Self {
             events: VecDeque::new(),
@@ -143,12 +141,9 @@ impl<Substream> PeerRelayLayerBehaviour<Substream> {
     }
 }
 
-impl<Substream> NetworkBehaviour for PeerRelayLayerBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-{
+impl NetworkBehaviour for PeerRelayLayerBehaviour {
     // use simple one shot handler
-    type ProtocolsHandler = OneShotHandler<Substream, RelayEvent, RelayEvent, InnerMessage>;
+    type ProtocolsHandler = OneShotHandler<RelayEvent, RelayEvent, InnerMessage>;
     type OutEvent = RelayEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
