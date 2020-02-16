@@ -16,7 +16,6 @@
 
 use crate::event_polling;
 use crate::node_service::relay::events::RelayEvent;
-use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -25,7 +24,6 @@ use libp2p::{
 };
 use log::trace;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::marker::PhantomData;
 
 pub(crate) type NetworkState = HashMap<PeerId, HashSet<PeerId>>;
 
@@ -48,7 +46,6 @@ impl PeerRelayLayerBehaviour {
             events: VecDeque::new(),
             connected_peers: HashSet::new(),
             network_state: HashMap::new(),
-            marker: PhantomData,
         }
     }
 
@@ -62,20 +59,20 @@ impl PeerRelayLayerBehaviour {
 
     /// Removes node with provided id from the network state.
     pub fn remove_node(&mut self, node_id: &PeerId) {
-        self.network_state.remove(node_id);
+        self.network_state.remove(node_id.as_bytes());
     }
 
     /// Adds a new peer with provided id connected to given node to the network state.
     pub fn add_new_peer(&mut self, node_id: &PeerId, peer_id: PeerId) {
-        if let Some(v) = self.network_state.get_mut(node_id) {
+        if let Some(v) = self.network_state.get_mut(node_id.as_bytes()) {
             v.insert(peer_id);
         }
     }
 
     /// Removes peer with provided id connected to given node from the network state.
     pub fn remove_peer(&mut self, node_id: &PeerId, peer_id: &PeerId) {
-        if let Some(v) = self.network_state.get_mut(node_id) {
-            v.remove(peer_id);
+        if let Some(v) = self.network_state.get_mut(node_id.as_bytes()) {
+            v.remove(peer_id.as_bytes());
         }
     }
     /// Adds a new peer with provided id connected to this peer
@@ -85,7 +82,7 @@ impl PeerRelayLayerBehaviour {
 
     /// Adds a new peer with provided id connected to this peer
     pub fn remove_local_peer(&mut self, peer_id: &PeerId) {
-        self.connected_peers.remove(&peer_id);
+        self.connected_peers.remove(peer_id.as_bytes());
     }
 
     /// Prints the whole network state. Just for debug purposes.
@@ -121,7 +118,7 @@ impl PeerRelayLayerBehaviour {
             "node_service/relay/behaviour: relaying data to {}",
             dst_peer_id
         );
-        if self.connected_peers.contains(&dst_peer_id) {
+        if self.connected_peers.contains(dst_peer_id.as_bytes()) {
             // the destination node is connected to our peer - just send message directly to it
             self.events
                 .push_back(NetworkBehaviourAction::GenerateEvent(relay_message));
@@ -129,7 +126,7 @@ impl PeerRelayLayerBehaviour {
         }
 
         for (node, peers) in self.network_state.iter() {
-            if peers.contains(&dst_peer_id) {
+            if peers.contains(dst_peer_id.as_bytes()) {
                 self.events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id: node.to_owned(),
                     event: relay_message,

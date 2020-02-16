@@ -16,7 +16,6 @@
 
 use crate::connect_protocol::behaviour::ClientConnectProtocolBehaviour;
 use crate::connect_protocol::events::InEvent;
-use futures::{AsyncRead, AsyncWrite};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
@@ -26,25 +25,25 @@ use log::debug;
 use std::collections::VecDeque;
 
 #[derive(NetworkBehaviour)]
-pub struct ClientServiceBehaviour<Substream: AsyncRead + AsyncWrite> {
-    ping: Ping<Substream>,
-    identity: Identify<Substream>,
-    node_connect_protocol: ClientConnectProtocolBehaviour<Substream>,
+pub struct ClientServiceBehaviour {
+    ping: Ping,
+    identity: Identify,
+    node_connect_protocol: ClientConnectProtocolBehaviour,
 
     #[behaviour(ignore)]
     nodes_events: VecDeque<InEvent>,
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<InEvent>
-    for ClientServiceBehaviour<Substream>
+impl NetworkBehaviourEventProcess<InEvent>
+    for ClientServiceBehaviour
 {
     fn inject_event(&mut self, event: InEvent) {
         self.nodes_events.push_back(event);
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
-    for ClientServiceBehaviour<Substream>
+impl NetworkBehaviourEventProcess<PingEvent>
+    for ClientServiceBehaviour
 {
     fn inject_event(&mut self, event: PingEvent) {
         if event.result.is_err() {
@@ -53,13 +52,13 @@ impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     }
 }
 
-impl<Substream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
-    for ClientServiceBehaviour<Substream>
+impl NetworkBehaviourEventProcess<IdentifyEvent>
+    for ClientServiceBehaviour
 {
     fn inject_event(&mut self, _event: IdentifyEvent) {}
 }
 
-impl<Substream: AsyncRead + AsyncWrite> ClientServiceBehaviour<Substream> {
+impl ClientServiceBehaviour {
     pub fn new(_local_peer_id: &PeerId, local_public_key: PublicKey) -> Self {
         let ping = Ping::new(
             PingConfig::new()

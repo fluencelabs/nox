@@ -15,7 +15,6 @@
  */
 
 use crate::event_polling;
-use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -28,7 +27,6 @@ use libp2p::{
 use log::trace;
 use parity_multiaddr::Protocol;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::marker::PhantomData;
 use void::Void;
 
 #[derive(Debug, Clone)]
@@ -59,7 +57,6 @@ impl SwarmStateBehaviour {
             events: VecDeque::new(),
             addrs: HashMap::new(),
             node_service_port,
-            marker: PhantomData,
         }
     }
 }

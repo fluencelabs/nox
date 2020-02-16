@@ -16,7 +16,7 @@
 
 use crate::peer_service::libp2p::connect_protocol::behaviour::PeerConnectProtocolBehaviour;
 use crate::peer_service::libp2p::notifications::OutPeerNotification;
-use futures::task::Poll;
+use crate::event_polling;
 use libp2p::core::either::EitherOutput;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
@@ -95,17 +95,10 @@ impl PeerServiceBehaviour {
         unimplemented!("need to decide how exactly NodeDisconnect message will be sent");
     }
 
-    // waiting for https://github.com/libp2p/rust-libp2p/issues/1431 to replace this function with
-    // the event_polling macro
-    fn custom_poll(
-        &mut self,
-        _: &mut std::task::Context,
-    ) -> Poll<NetworkBehaviourAction<PeerServiceBehaviourInEvent, OutPeerNotification>> {
-        if let Some(event) = self.events.pop_front() {
-            // this events should be consumed during the peer_service polling
-            return Poll::Ready(event);
-        }
-
-        Poll::Pending
-    }
+    // produces OutPeerNotification events
+    event_polling!(
+        custom_poll,
+        events,
+        NetworkBehaviourAction<PeerServiceBehaviourInEvent, OutPeerNotification>
+    );
 }

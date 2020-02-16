@@ -20,8 +20,7 @@ use crate::node_service::relay::{
     behaviour::{NetworkState, PeerRelayLayerBehaviour},
     events::RelayEvent,
 };
-use futures::task::Poll;
-use futures::{AsyncRead, AsyncWrite};
+use crate::event_polling;
 use libp2p::core::either::EitherOutput;
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
 use libp2p::identify::{Identify, IdentifyEvent};
@@ -373,7 +372,7 @@ impl NodeServiceBehaviour {
         let message =
             serde_json::to_vec(&message).expect("failed to convert gossip message to json");
 
-        self.floodsub.publish(&self.churn_topic, message);
+        self.floodsub.publish(self.churn_topic.clone(), message);
     }
 
     fn connect_to_node(&mut self, node_id: PeerId, node_addrs: Vec<Multiaddr>) {
@@ -386,17 +385,10 @@ impl NodeServiceBehaviour {
             .push_back(NetworkBehaviourAction::DialPeer { peer_id: node_id })
     }
 
-    // waiting for https://github.com/libp2p/rust-libp2p/issues/1431 to replace this function with
-    // the event_polling macro
-    fn custom_poll(
-        &mut self,
-        _: &mut std::task::Context,
-    ) -> Poll<NetworkBehaviourAction<NodeServiceBehaviourInEvent, RelayEvent>> {
-        if let Some(event) = self.events.pop_front() {
-            // this events should be consumed during the node service polling
-            return Poll::Ready(event);
-        }
-
-        Poll::Pending
-    }
+    // produces RelayEvent
+    event_polling!(
+        custom_poll,
+        events,
+        NetworkBehaviourAction<NodeServiceBehaviourInEvent, RelayEvent>
+    );
 }

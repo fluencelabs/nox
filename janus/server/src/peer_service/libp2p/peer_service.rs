@@ -19,7 +19,6 @@ use crate::peer_service::libp2p::{
     behaviour::PeerServiceBehaviour,
     notifications::{InPeerNotification, OutPeerNotification},
     transport::build_transport,
-    transport::PeerServiceTransport,
 };
 use async_std::task;
 use futures::{
@@ -32,7 +31,7 @@ use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
 
 pub struct PeerService {
-    pub swarm: Box<Swarm<PeerServiceTransport, PeerServiceBehaviour>>,
+    pub swarm: Box<Swarm<PeerServiceBehaviour>>,
 }
 
 impl PeerService {

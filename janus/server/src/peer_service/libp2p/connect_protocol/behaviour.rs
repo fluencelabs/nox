@@ -25,7 +25,6 @@ use libp2p::{
 };
 use log::trace;
 use std::collections::VecDeque;
-use std::marker::PhantomData;
 
 #[derive(Default)]
 pub struct PeerConnectProtocolBehaviour {
@@ -38,7 +37,6 @@ impl PeerConnectProtocolBehaviour {
     pub fn new() -> Self {
         Self {
             events: VecDeque::new(),
-            marker: PhantomData,
         }
     }
 
