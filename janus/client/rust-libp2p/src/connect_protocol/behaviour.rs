@@ -65,8 +65,7 @@ impl ClientConnectProtocolBehaviour {
     }
 }
 
-impl NetworkBehaviour for ClientConnectProtocolBehaviour
-{
+impl NetworkBehaviour for ClientConnectProtocolBehaviour {
     type ProtocolsHandler = OneShotHandler<InEvent, OutEvent, InnerMessage>;
     type OutEvent = InEvent;
 

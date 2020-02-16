@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+use crate::event_polling;
 use crate::peer_service::libp2p::connect_protocol::behaviour::PeerConnectProtocolBehaviour;
 use crate::peer_service::libp2p::notifications::OutPeerNotification;
-use crate::event_polling;
 use libp2p::core::either::EitherOutput;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;

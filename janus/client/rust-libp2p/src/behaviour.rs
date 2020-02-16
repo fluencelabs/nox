@@ -34,17 +34,13 @@ pub struct ClientServiceBehaviour {
     nodes_events: VecDeque<InEvent>,
 }
 
-impl NetworkBehaviourEventProcess<InEvent>
-    for ClientServiceBehaviour
-{
+impl NetworkBehaviourEventProcess<InEvent> for ClientServiceBehaviour {
     fn inject_event(&mut self, event: InEvent) {
         self.nodes_events.push_back(event);
     }
 }
 
-impl NetworkBehaviourEventProcess<PingEvent>
-    for ClientServiceBehaviour
-{
+impl NetworkBehaviourEventProcess<PingEvent> for ClientServiceBehaviour {
     fn inject_event(&mut self, event: PingEvent) {
         if event.result.is_err() {
             debug!("ping failed with {:?}", event);
@@ -52,9 +48,7 @@ impl NetworkBehaviourEventProcess<PingEvent>
     }
 }
 
-impl NetworkBehaviourEventProcess<IdentifyEvent>
-    for ClientServiceBehaviour
-{
+impl NetworkBehaviourEventProcess<IdentifyEvent> for ClientServiceBehaviour {
     fn inject_event(&mut self, _event: IdentifyEvent) {}
 }
 

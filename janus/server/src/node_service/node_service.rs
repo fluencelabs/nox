@@ -16,9 +16,7 @@
 
 use crate::config::config::NodeServiceConfig;
 use crate::node_service::{
-    p2p::{
-        behaviour::NodeServiceBehaviour, transport::build_transport,
-    },
+    p2p::{behaviour::NodeServiceBehaviour, transport::build_transport},
     relay::events::RelayEvent,
 };
 use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
@@ -26,9 +24,7 @@ use async_std::task;
 use futures::channel::{mpsc, oneshot};
 use futures::{select, stream::StreamExt};
 use futures_util::future::FutureExt;
-use libp2p::{
-    identity, PeerId, Swarm,
-};
+use libp2p::{identity, PeerId, Swarm};
 use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
 

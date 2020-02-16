@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+use crate::event_polling;
 use crate::node_service::p2p::events::P2PNetworkEvents;
 use crate::node_service::p2p::swarm_state_behaviour::{SwarmStateBehaviour, SwarmStateEvent};
 use crate::node_service::relay::{
     behaviour::{NetworkState, PeerRelayLayerBehaviour},
     events::RelayEvent,
 };
-use crate::event_polling;
 use libp2p::core::either::EitherOutput;
 use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
 use libp2p::identify::{Identify, IdentifyEvent};
