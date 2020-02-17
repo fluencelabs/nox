@@ -14,25 +14,30 @@
  * limitations under the License.
  */
 
+mod floodsub;
+mod identity;
+mod ping;
+mod relay;
+mod swarm_state;
+
 use crate::event_polling;
 use crate::node_service::p2p::events::P2PNetworkEvents;
-use crate::node_service::p2p::swarm_state_behaviour::{SwarmStateBehaviour, SwarmStateEvent};
+use crate::node_service::p2p::swarm_state_behaviour::SwarmStateBehaviour;
 use crate::node_service::relay::{
     behaviour::{NetworkState, PeerRelayLayerBehaviour},
     events::RelayEvent,
 };
 use libp2p::core::either::EitherOutput;
-use libp2p::floodsub::{Floodsub, FloodsubEvent, Topic};
-use libp2p::identify::{Identify, IdentifyEvent};
+use libp2p::floodsub::{Floodsub, Topic};
+use libp2p::identify::Identify;
 use libp2p::identity::PublicKey;
-use libp2p::ping::{Ping, PingConfig, PingEvent};
-use libp2p::swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess};
+use libp2p::ping::{Ping, PingConfig};
+use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{NetworkBehaviour, PeerId};
-use log::{debug, trace};
+use log::trace;
 use parity_multiaddr::Multiaddr;
 use serde_json;
 use std::collections::{HashSet, VecDeque};
-use std::str::FromStr;
 
 /// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
 /// parameter of NetworkBehaviourAction. Should be regenerated each time a set of behaviours
@@ -68,206 +73,6 @@ pub struct NodeServiceBehaviour {
     // true, if a service's seen NodesMap event
     #[behaviour(ignore)]
     initialized: bool,
-}
-
-impl NetworkBehaviourEventProcess<RelayEvent> for NodeServiceBehaviour {
-    fn inject_event(&mut self, event: RelayEvent) {
-        self.events
-            .push_back(NetworkBehaviourAction::GenerateEvent(event));
-    }
-}
-
-impl NetworkBehaviourEventProcess<IdentifyEvent> for NodeServiceBehaviour {
-    fn inject_event(&mut self, _event: IdentifyEvent) {}
-}
-
-impl NetworkBehaviourEventProcess<PingEvent> for NodeServiceBehaviour {
-    fn inject_event(&mut self, event: PingEvent) {
-        if event.result.is_err() {
-            debug!("ping failed with {:?}", event);
-        }
-    }
-}
-
-impl NetworkBehaviourEventProcess<FloodsubEvent> for NodeServiceBehaviour {
-    fn inject_event(&mut self, event: FloodsubEvent) {
-        match event {
-            FloodsubEvent::Message(message) => {
-                let p2p_message = serde_json::from_slice(&message.data).unwrap();
-                match p2p_message {
-                    P2PNetworkEvents::NodeConnected { node_id, peer_ids } => {
-                        // here we are expecting that new node will connect to our by itself,
-                        // because rust-libp2p supports now only one connection between listener
-                        // and dialer - https://github.com/libp2p/rust-libp2p/issues/912.
-                        // It is a poor design, but it seems that there are no other ways now.
-                        let node_id = PeerId::from_bytes(node_id).unwrap();
-                        trace!(
-                            "node_service/p2p/behaviour/floodsub: new node {} connected",
-                            node_id
-                        );
-
-                        // converts Vec<Vec<u8>> to Vec<PeerId>
-                        let peer_ids = peer_ids
-                            .into_iter()
-                            .map(|peer| PeerId::from_bytes(peer).unwrap())
-                            .collect();
-                        self.relay.add_new_node(node_id, peer_ids);
-                        self.relay.print_network_state();
-                    }
-
-                    P2PNetworkEvents::NodeDisconnected { node_id } => {
-                        let node_id = PeerId::from_bytes(node_id).unwrap();
-                        trace!(
-                            "node_service/p2p/behaviour/floodsub: new node {} connected",
-                            node_id
-                        );
-
-                        self.relay.remove_node(&node_id);
-                        self.relay.print_network_state()
-                    }
-
-                    P2PNetworkEvents::PeersConnected { node_id, peer_ids } => {
-                        let node_id = PeerId::from_bytes(node_id).unwrap();
-                        trace!(
-                            "node_service/p2p/behaviour/floodsub: new peers connected to node {}",
-                            node_id
-                        );
-
-                        for peer_id in peer_ids {
-                            self.relay
-                                .add_new_peer(&node_id, PeerId::from_bytes(peer_id).unwrap());
-                        }
-
-                        self.relay.print_network_state();
-                    }
-
-                    P2PNetworkEvents::PeersDisconnected { node_id, peer_ids } => {
-                        let node_id = PeerId::from_bytes(node_id).unwrap();
-                        trace!("node_service/p2p/behaviour/floodsub: some peers disconnected from node {}", node_id);
-
-                        for peer in peer_ids {
-                            self.relay
-                                .remove_peer(&node_id, &PeerId::from_bytes(peer).unwrap());
-                        }
-
-                        self.relay.print_network_state();
-                    }
-
-                    P2PNetworkEvents::NetworkState { network_map } => {
-                        if self.initialized {
-                            // pass the initialization step if we have already seen the NodesMap event
-                            return;
-                        }
-
-                        self.initialized = true;
-
-                        for (node_id, node_addrs, peers) in network_map {
-                            let node_id = PeerId::from_bytes(node_id).unwrap();
-                            if node_id == self.local_node_id {
-                                // pass current node
-                                continue;
-                            }
-
-                            if !node_addrs.is_empty() {
-                                // converts Vec<String> to Vec<Multiaddr>
-                                let node_addrs = node_addrs
-                                    .iter()
-                                    .map(|addr| Multiaddr::from_str(addr).unwrap())
-                                    .collect();
-
-                                trace!(
-                                    "connect to node with peer id = {} and multiaddrs = {:?}",
-                                    node_id,
-                                    node_addrs
-                                );
-
-                                self.connect_to_node(node_id.clone(), node_addrs);
-                            }
-
-                            self.relay.add_new_node(
-                                node_id,
-                                peers
-                                    .into_iter()
-                                    .map(|peer_id| PeerId::from_bytes(peer_id).unwrap())
-                                    .collect(),
-                            )
-                        }
-
-                        self.relay.print_network_state();
-                    }
-                }
-            }
-            FloodsubEvent::Subscribed { .. } => {
-                trace!("new node subscribed - send to it the whole network state");
-
-                // new node is subscribed - send to it the whole network map
-                let network_state = self.relay.network_state().clone();
-                // convert from HashMap<PeerId, HashSet<PeerId>> to Vec<Vec<u8>, Vec<String>, Vec<Vec<u8>>>
-                let mut network_map = network_state
-                    .into_iter()
-                    .map(|(node_id, peers)| {
-                        (
-                            node_id.clone().into_bytes(),
-                            self.swarm_state
-                                .addresses_of_peer(&node_id)
-                                .iter()
-                                .map(|addr| addr.to_string())
-                                .collect(),
-                            peers
-                                .into_iter()
-                                .map(|peer_id| peer_id.into_bytes())
-                                .collect(),
-                        )
-                    })
-                    .collect::<Vec<(Vec<u8>, Vec<String>, Vec<Vec<u8>>)>>();
-
-                // add id and peers of the local node
-                network_map.push((
-                    self.local_node_id.clone().into_bytes(),
-                    Vec::new(),
-                    self.relay
-                        .connected_peers()
-                        .iter()
-                        .cloned()
-                        .map(|e| e.into_bytes())
-                        .collect(),
-                ));
-
-                trace!(
-                    "node_service/p2p/behaviour/swarm_state_event: gossip nodes map {:?}",
-                    network_map
-                );
-
-                self.gossip_network_update(P2PNetworkEvents::NetworkState { network_map });
-            }
-            FloodsubEvent::Unsubscribed { .. } => {}
-        }
-    }
-}
-
-impl NetworkBehaviourEventProcess<SwarmStateEvent> for NodeServiceBehaviour {
-    fn inject_event(&mut self, event: SwarmStateEvent) {
-        match event {
-            SwarmStateEvent::Connected { id } => {
-                trace!(
-                    "node_service/p2p/behaviour/swarm_state_event: new node {} connected",
-                    id
-                );
-                self.floodsub.add_node_to_partial_view(id.clone());
-                self.relay.add_new_node(id, Vec::new());
-                self.relay.print_network_state();
-            }
-            SwarmStateEvent::Disconnected { id } => {
-                trace!(
-                    "node_service/p2p/behaviour/swarm_state_event: node {} disconnected",
-                    id
-                );
-                self.floodsub.remove_node_from_partial_view(&id);
-                self.relay.remove_node(&id);
-                self.relay.print_network_state();
-            }
-        }
-    }
 }
 
 impl NodeServiceBehaviour {
