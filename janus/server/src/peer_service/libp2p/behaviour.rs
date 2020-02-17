@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+use crate::event_polling;
 use crate::peer_service::libp2p::connect_protocol::behaviour::PeerConnectProtocolBehaviour;
 use crate::peer_service::libp2p::notifications::OutPeerNotification;
-use futures::task::Poll;
-use futures::{AsyncRead, AsyncWrite};
 use libp2p::core::either::EitherOutput;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
@@ -30,42 +29,30 @@ use std::collections::VecDeque;
 /// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
 /// parameter of NetworkBehaviourAction. Should be regenerated each time a set of behaviours
 /// of the PeerServiceBehaviour is changed.
-type PeerServiceBehaviourInEvent<Substream> = EitherOutput<EitherOutput<
-    <<<libp2p::ping::Ping<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent,
-    <<<libp2p::identify::Identify<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
-    <<<PeerConnectProtocolBehaviour<Substream> as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>;
+type PeerServiceBehaviourInEvent = EitherOutput<EitherOutput<
+    <<<libp2p::ping::Ping as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent,
+    <<<libp2p::identify::Identify as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
+    <<<PeerConnectProtocolBehaviour as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll", out_event = "OutPeerNotification")]
-pub struct PeerServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-{
-    ping: Ping<Substream>,
-    identity: Identify<Substream>,
-    node_connect_protocol: PeerConnectProtocolBehaviour<Substream>,
+pub struct PeerServiceBehaviour {
+    ping: Ping,
+    identity: Identify,
+    node_connect_protocol: PeerConnectProtocolBehaviour,
 
     #[behaviour(ignore)]
-    events: VecDeque<
-        NetworkBehaviourAction<PeerServiceBehaviourInEvent<Substream>, OutPeerNotification>,
-    >,
+    events: VecDeque<NetworkBehaviourAction<PeerServiceBehaviourInEvent, OutPeerNotification>>,
 }
 
-impl<Substream> NetworkBehaviourEventProcess<OutPeerNotification>
-    for PeerServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-{
+impl NetworkBehaviourEventProcess<OutPeerNotification> for PeerServiceBehaviour {
     fn inject_event(&mut self, event: OutPeerNotification) {
         self.events
             .push_back(NetworkBehaviourAction::GenerateEvent(event));
     }
 }
 
-impl<Substream> NetworkBehaviourEventProcess<PingEvent> for PeerServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-{
+impl NetworkBehaviourEventProcess<PingEvent> for PeerServiceBehaviour {
     fn inject_event(&mut self, event: PingEvent) {
         if event.result.is_err() {
             debug!("ping failed with {:?}", event);
@@ -73,17 +60,11 @@ where
     }
 }
 
-impl<Substream> NetworkBehaviourEventProcess<IdentifyEvent> for PeerServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-{
+impl NetworkBehaviourEventProcess<IdentifyEvent> for PeerServiceBehaviour {
     fn inject_event(&mut self, _event: IdentifyEvent) {}
 }
 
-impl<Substream> PeerServiceBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-{
+impl PeerServiceBehaviour {
     pub fn new(_local_peer_id: &PeerId, local_public_key: PublicKey) -> Self {
         let ping = Ping::new(
             PingConfig::new()
@@ -114,18 +95,10 @@ where
         unimplemented!("need to decide how exactly NodeDisconnect message will be sent");
     }
 
-    // waiting for https://github.com/libp2p/rust-libp2p/issues/1431 to replace this function with
-    // the event_polling macro
-    fn custom_poll(
-        &mut self,
-        _: &mut std::task::Context,
-    ) -> Poll<NetworkBehaviourAction<PeerServiceBehaviourInEvent<Substream>, OutPeerNotification>>
-    {
-        if let Some(event) = self.events.pop_front() {
-            // this events should be consumed during the peer_service polling
-            return Poll::Ready(event);
-        }
-
-        Poll::Pending
-    }
+    // produces OutPeerNotification events
+    event_polling!(
+        custom_poll,
+        events,
+        NetworkBehaviourAction<PeerServiceBehaviourInEvent, OutPeerNotification>
+    );
 }

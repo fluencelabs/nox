@@ -15,7 +15,6 @@
  */
 
 use crate::connect_protocol::events::{InEvent, OutEvent};
-use futures::{AsyncRead, AsyncWrite};
 use janus_server::event_polling;
 use libp2p::{
     core::ConnectedPoint,
@@ -25,22 +24,17 @@ use libp2p::{
 };
 use log::trace;
 use std::collections::VecDeque;
-use std::marker::PhantomData;
 
-pub struct ClientConnectProtocolBehaviour<Substream> {
+pub struct ClientConnectProtocolBehaviour {
     /// Queue of received network messages from connected nodes
     /// that need to be handled during polling.
     events: VecDeque<NetworkBehaviourAction<OutEvent, InEvent>>,
-
-    /// Pin generic.
-    marker: PhantomData<Substream>,
 }
 
-impl<Substream> ClientConnectProtocolBehaviour<Substream> {
+impl ClientConnectProtocolBehaviour {
     pub fn new() -> Self {
         Self {
             events: VecDeque::new(),
-            marker: PhantomData,
         }
     }
 
@@ -71,11 +65,8 @@ impl<Substream> ClientConnectProtocolBehaviour<Substream> {
     }
 }
 
-impl<Substream> NetworkBehaviour for ClientConnectProtocolBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-{
-    type ProtocolsHandler = OneShotHandler<Substream, InEvent, OutEvent, InnerMessage>;
+impl NetworkBehaviour for ClientConnectProtocolBehaviour {
+    type ProtocolsHandler = OneShotHandler<InEvent, OutEvent, InnerMessage>;
     type OutEvent = InEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {

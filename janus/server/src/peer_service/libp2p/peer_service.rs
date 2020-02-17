@@ -19,7 +19,6 @@ use crate::peer_service::libp2p::{
     behaviour::PeerServiceBehaviour,
     notifications::{InPeerNotification, OutPeerNotification},
     transport::build_transport,
-    transport::PeerServiceTransport,
 };
 use async_std::task;
 use futures::{
@@ -27,17 +26,12 @@ use futures::{
     select, StreamExt,
 };
 use futures_util::FutureExt;
-use libp2p::{
-    core::muxing::{StreamMuxerBox, SubstreamRef},
-    identity, PeerId, Swarm,
-};
+use libp2p::{identity, PeerId, Swarm};
 use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
-use std::sync::Arc;
 
 pub struct PeerService {
-    pub swarm:
-        Box<Swarm<PeerServiceTransport, PeerServiceBehaviour<SubstreamRef<Arc<StreamMuxerBox>>>>>,
+    pub swarm: Box<Swarm<PeerServiceBehaviour>>,
 }
 
 impl PeerService {

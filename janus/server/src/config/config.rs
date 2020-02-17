@@ -73,7 +73,7 @@ impl Default for NodeServiceConfig {
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             bootstrap_nodes: vec![],
-            churn_topic: floodsub::TopicBuilder::new("churn").build(),
+            churn_topic: floodsub::Topic::new("churn"),
             client: ClientType::Websocket,
             key_pair: None,
         }
@@ -151,7 +151,7 @@ pub fn gen_config(
     let merge_by_name = |name| {
         arg_matches
             .value_of(name)
-            .or(config_from_file.get(name).map(|s| s.as_ref()))
+            .or_else(|| config_from_file.get(name).map(|s| s.as_ref()))
     };
 
     if let Some(peer_port) = merge_by_name(PEER_SERVICE_PORT) {
@@ -170,9 +170,9 @@ pub fn gen_config(
             "websocket" => node_service_config.client = ClientType::Websocket,
             "libp2p" => node_service_config.client = ClientType::Libp2p,
             _ => {
-                return Err(
-                    failure::err_msg("client type should be 'websocket' or 'libp2p'").into(),
-                )
+                return Err(failure::err_msg(
+                    "client type should be 'websocket' or 'libp2p'",
+                ))
             }
         }
     }
@@ -191,8 +191,8 @@ pub fn gen_config(
     };
 
     Ok(JanusConfig {
-        node_service_config: node_service_config,
-        peer_service_config: peer_service_config,
-        websocket_config: websocket_config,
+        node_service_config,
+        peer_service_config,
+        websocket_config,
     })
 }

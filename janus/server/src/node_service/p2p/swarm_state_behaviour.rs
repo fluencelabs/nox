@@ -15,7 +15,6 @@
  */
 
 use crate::event_polling;
-use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -28,7 +27,6 @@ use libp2p::{
 use log::trace;
 use parity_multiaddr::Protocol;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::marker::PhantomData;
 use void::Void;
 
 #[derive(Debug, Clone)]
@@ -40,37 +38,31 @@ pub enum SwarmStateEvent {
 /// The main purpose of this behaviour is to emit events about connecting/disconnecting of nodes.
 /// It seems that for rust-libp2p 0.14 it is the easiest way to find out the PeerId while node
 /// connecting and disconnecting.
-pub struct SwarmStateBehaviour<Substream> {
+pub struct SwarmStateBehaviour {
     // Queue of events to send to the upper level.
     events: VecDeque<NetworkBehaviourAction<Void, SwarmStateEvent>>,
     addrs: HashMap<PeerId, HashSet<Multiaddr>>,
     node_service_port: u16,
-
-    marker: PhantomData<Substream>,
 }
 
-impl<Substream> SwarmStateBehaviour<Substream> {
+impl SwarmStateBehaviour {
     pub fn add_node_addresses(&mut self, node_id: PeerId, addrs: HashSet<Multiaddr>) {
         self.addrs.insert(node_id, addrs);
     }
 }
 
-impl<Substream> SwarmStateBehaviour<Substream> {
+impl SwarmStateBehaviour {
     pub fn new(node_service_port: u16) -> Self {
         Self {
             events: VecDeque::new(),
             addrs: HashMap::new(),
             node_service_port,
-            marker: PhantomData,
         }
     }
 }
 
-impl<Substream> NetworkBehaviour for SwarmStateBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-{
-    type ProtocolsHandler = DummyProtocolsHandler<Substream>;
+impl NetworkBehaviour for SwarmStateBehaviour {
+    type ProtocolsHandler = DummyProtocolsHandler;
     type OutEvent = SwarmStateEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {

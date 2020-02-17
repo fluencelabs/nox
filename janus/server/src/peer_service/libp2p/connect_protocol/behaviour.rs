@@ -17,7 +17,6 @@
 use crate::event_polling;
 use crate::peer_service::libp2p::connect_protocol::events::{InPeerEvent, OutPeerEvent};
 use crate::peer_service::libp2p::notifications::OutPeerNotification;
-use futures::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -26,22 +25,18 @@ use libp2p::{
 };
 use log::trace;
 use std::collections::VecDeque;
-use std::marker::PhantomData;
 
 #[derive(Default)]
-pub struct PeerConnectProtocolBehaviour<Substream> {
+pub struct PeerConnectProtocolBehaviour {
     /// Queue of received network messages from connected peers
     /// that need to be handled during polling.
     events: VecDeque<NetworkBehaviourAction<OutPeerEvent, OutPeerNotification>>,
-
-    marker: PhantomData<Substream>,
 }
 
-impl<Substream> PeerConnectProtocolBehaviour<Substream> {
+impl PeerConnectProtocolBehaviour {
     pub fn new() -> Self {
         Self {
             events: VecDeque::new(),
-            marker: PhantomData,
         }
     }
 
@@ -80,11 +75,8 @@ impl<Substream> PeerConnectProtocolBehaviour<Substream> {
     }
 }
 
-impl<Substream> NetworkBehaviour for PeerConnectProtocolBehaviour<Substream>
-where
-    Substream: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-{
-    type ProtocolsHandler = OneShotHandler<Substream, InPeerEvent, OutPeerEvent, InnerMessage>;
+impl NetworkBehaviour for PeerConnectProtocolBehaviour {
+    type ProtocolsHandler = OneShotHandler<InPeerEvent, OutPeerEvent, InnerMessage>;
     type OutEvent = OutPeerNotification;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {

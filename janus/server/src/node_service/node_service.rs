@@ -16,10 +16,7 @@
 
 use crate::config::config::NodeServiceConfig;
 use crate::node_service::{
-    p2p::{
-        behaviour::NodeServiceBehaviour, transport::build_transport,
-        transport::NodeServiceTransport,
-    },
+    p2p::{behaviour::NodeServiceBehaviour, transport::build_transport},
     relay::events::RelayEvent,
 };
 use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
@@ -27,15 +24,11 @@ use async_std::task;
 use futures::channel::{mpsc, oneshot};
 use futures::{select, stream::StreamExt};
 use futures_util::future::FutureExt;
-use libp2p::{
-    core::muxing::{StreamMuxerBox, SubstreamRef},
-    identity, PeerId, Swarm,
-};
+use libp2p::{identity, PeerId, Swarm};
 use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
 
-type NodeServiceSwarm =
-    Swarm<NodeServiceTransport, NodeServiceBehaviour<SubstreamRef<std::sync::Arc<StreamMuxerBox>>>>;
+type NodeServiceSwarm = Swarm<NodeServiceBehaviour>;
 
 pub struct NodeService {
     pub swarm: Box<NodeServiceSwarm>,
@@ -102,13 +95,13 @@ impl NodeService {
                     from_swarm = node_service_swarm.select_next_some() => {
                         trace!("node_service/select: sending {:?} to peer_service", from_swarm);
 
-                            peer_service_in_sender
-                                .unbounded_send(InPeerNotification::Relay {
-                                    src_id: PeerId::from_bytes(from_swarm.src_id).unwrap(),
-                                    dst_id: PeerId::from_bytes(from_swarm.dst_id).unwrap(),
-                                    data: from_swarm.data,
-                                })
-                                .unwrap();
+                        peer_service_in_sender
+                            .unbounded_send(InPeerNotification::Relay {
+                                src_id: PeerId::from_bytes(from_swarm.src_id).unwrap(),
+                                dst_id: PeerId::from_bytes(from_swarm.dst_id).unwrap(),
+                                data: from_swarm.data,
+                            })
+                            .unwrap();
                     },
 
                     _ = exit_receiver.next() => {
