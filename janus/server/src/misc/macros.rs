@@ -15,7 +15,7 @@
  */
 
 #[macro_export] // https://github.com/rust-lang/rust/issues/57966#issuecomment-461077932
-/// Intended to simplify simple polling functions that just return internal events from
+/// Intended to simplify simple polling functions that just return internal events from a
 /// internal queue.
 macro_rules! event_polling {
     ($func_name:ident, $event_field_name:ident, $poll_type:ty) => {
