@@ -66,6 +66,11 @@ impl NodeService {
         Self { swarm, config }
     }
 
+    /// Starts node service
+    /// * `peer_service_out_receiver` – channel for receiving notifications from peer service to node service
+    ///
+    /// * `peer_service_in_sender` – channel for sending notifications from node service to peer service,
+    ///                              currently only for returning NetworkState in response to GetNetworkState
     pub fn start(
         mut self,
         peer_service_out_receiver: mpsc::UnboundedReceiver<OutPeerNotification>,
@@ -78,6 +83,7 @@ impl NodeService {
         task::spawn(async move {
             // fusing streams
             let mut peer_service_out_receiver = peer_service_out_receiver.fuse();
+            // stream of RelayEvents
             let mut node_service_swarm = self.swarm.fuse();
             let mut exit_receiver = exit_receiver.into_stream().fuse();
 
@@ -92,6 +98,7 @@ impl NodeService {
                     },
 
                     // swarm stream never ends
+                    // from_swarm is a RelayEvent
                     from_swarm = node_service_swarm.select_next_some() => {
                         trace!("node_service/select: sending {:?} to peer_service", from_swarm);
 

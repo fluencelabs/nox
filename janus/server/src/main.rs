@@ -56,7 +56,12 @@ fn start_janus(
 ) -> Result<(oneshot::Sender<()>, oneshot::Sender<()>), std::io::Error> {
     trace!("starting Janus");
 
+    // out_sender – to send events from node service to peer service
+    // out_receiver – to receive these events in peer service
     let (out_sender, out_receiver) = mpsc::unbounded();
+
+    // in_sender – to send events from peer service to node service
+    // in_receiver – to receive these events in node service
     let (in_sender, in_receiver) = mpsc::unbounded();
 
     let exit_sender = match config.node_service_config.client {

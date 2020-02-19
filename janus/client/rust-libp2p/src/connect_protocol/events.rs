@@ -16,7 +16,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Describes network messages from a node to current peer (client -> server).
+/// Describes network messages from a peer to current node (client -> server).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
 pub enum OutEvent {
@@ -28,7 +28,7 @@ pub enum OutEvent {
     GetNetworkState,
 }
 
-/// Describes network message from current peer to a node (server -> client).
+/// Describes network message from current node to a peer (server -> client).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
 pub enum InEvent {

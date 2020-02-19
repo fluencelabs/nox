@@ -27,31 +27,28 @@ use crate::node_service::relay::{
     behaviour::{NetworkState, PeerRelayLayerBehaviour},
     events::RelayEvent,
 };
-use libp2p::core::either::EitherOutput;
 use libp2p::floodsub::{Floodsub, Topic};
 use libp2p::identify::Identify;
 use libp2p::identity::PublicKey;
 use libp2p::ping::{Ping, PingConfig};
+use libp2p::swarm::IntoProtocolsHandler;
+use libp2p::swarm::NetworkBehaviour;
 use libp2p::swarm::NetworkBehaviourAction;
-use libp2p::{NetworkBehaviour, PeerId};
+use libp2p::PeerId;
 use log::trace;
 use parity_multiaddr::Multiaddr;
 use serde_json;
 use std::collections::{HashSet, VecDeque};
 
-/// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
-/// parameter of NetworkBehaviourAction. Should be regenerated each time a set of behaviours
-/// of the NodeServiceBehaviour is changed.
-type NodeServiceBehaviourInEvent = EitherOutput<EitherOutput<EitherOutput<EitherOutput
-    <<<<libp2p::ping::Ping as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent,
-    <<<PeerRelayLayerBehaviour as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
-    <<<libp2p::identify::Identify as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
-    <<<libp2p::floodsub::Floodsub as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
-    <<<SwarmStateBehaviour as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>;
+type PH = <NodeServiceBehaviour as NetworkBehaviour>::ProtocolsHandler;
+type PHH = <PH as IntoProtocolsHandler>::Handler;
+type InEvent = <PHH as ::libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent;
+type OutEvent = <NodeServiceBehaviour as NetworkBehaviour>::OutEvent;
+type SwarmEventType = NetworkBehaviourAction<InEvent, OutEvent>;
 
 /// Behaviour of the p2p layer that is responsible for keeping the network state actual and rules
 /// all other protocols of the Janus.
-#[derive(NetworkBehaviour)]
+#[derive(libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll", out_event = "RelayEvent")]
 pub struct NodeServiceBehaviour {
     ping: Ping,
@@ -68,7 +65,7 @@ pub struct NodeServiceBehaviour {
 
     /// Contains events that need to be propagate to external caller.
     #[behaviour(ignore)]
-    events: VecDeque<NetworkBehaviourAction<NodeServiceBehaviourInEvent, RelayEvent>>,
+    events: VecDeque<SwarmEventType>,
 
     // true, if a service's seen NodesMap event
     #[behaviour(ignore)]
@@ -170,7 +167,7 @@ impl NodeServiceBehaviour {
 
     #[allow(dead_code)]
     pub fn exit(&mut self) {
-        unimplemented!("need to decide how exactly NodeDisconnect message will be send");
+        unimplemented!("need to decide how exactly NodeDisconnect message will be sent");
     }
 
     fn gossip_network_update(&mut self, message: P2PNetworkEvents) {
@@ -191,9 +188,5 @@ impl NodeServiceBehaviour {
     }
 
     // produces RelayEvent
-    event_polling!(
-        custom_poll,
-        events,
-        NetworkBehaviourAction<NodeServiceBehaviourInEvent, RelayEvent>
-    );
+    event_polling!(custom_poll, events, SwarmEventType);
 }

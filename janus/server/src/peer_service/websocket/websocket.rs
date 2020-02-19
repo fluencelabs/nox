@@ -294,6 +294,8 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
 }
 
 /// Binds port to establish websocket connections, runs peer service based on websocket
+/// * `peer_channel_in` – channel to receive events from node service
+/// * `peer_channel_out` – channel to send events to node service
 pub fn start_peer_service(
     config: WebsocketPeerServiceConfig,
     peer_channel_in: mpsc::UnboundedReceiver<InPeerNotification>,

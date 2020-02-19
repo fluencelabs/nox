@@ -16,7 +16,8 @@
 
 use libp2p::PeerId;
 
-/// Describes inner events from a peer service to a node service.
+/// Describes inner events from a node service to a peer service
+/// (INcoming for peer service, hence InPeerNotification).
 #[derive(Clone, Debug, PartialEq)]
 pub enum InPeerNotification {
     /// Relay message from a src peer to a dst peer.
@@ -30,7 +31,8 @@ pub enum InPeerNotification {
     NetworkState { dst_id: PeerId, state: Vec<PeerId> },
 }
 
-/// Describes inner events from a node service to a peer service.
+/// Describes inner events from peer service to node service
+/// (out of peer service, hence OutPeerNotification).
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutPeerNotification {
     /// Notifies that new peer that has been connected.
