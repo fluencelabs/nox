@@ -67,9 +67,11 @@ pub fn start_peer_service(
     let (exit_sender, exit_receiver) = oneshot::channel();
 
     task::spawn(async move {
+        // stream of OutPeerNotifications
+        let mut peer_service_swarm = peer_service.swarm;
+
         //fusing streams
         let mut peer_service_in_receiver = peer_service_in_receiver.fuse();
-        let mut peer_service_swarm = peer_service.swarm.fuse();
         let mut exit_receiver = exit_receiver.into_stream().fuse();
 
         loop {
@@ -80,11 +82,10 @@ pub fn start_peer_service(
                             src_id,
                             dst_id,
                             data,
-                        }) => peer_service_swarm.get_mut().relay_message(src_id, dst_id, data),
+                        }) => peer_service_swarm.relay_message(src_id, dst_id, data),
 
                         Some(InPeerNotification::NetworkState { dst_id, state }) =>
                             peer_service_swarm
-                             .get_mut()
                              .send_network_state(dst_id, state),
 
                         // channel is closed when node service was shut down - break the loop

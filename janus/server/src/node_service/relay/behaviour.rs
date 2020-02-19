@@ -59,20 +59,20 @@ impl PeerRelayLayerBehaviour {
 
     /// Removes node with provided id from the network state.
     pub fn remove_node(&mut self, node_id: &PeerId) {
-        self.network_state.remove(node_id.as_bytes());
+        self.network_state.remove(node_id);
     }
 
     /// Adds a new peer with provided id connected to given node to the network state.
     pub fn add_new_peer(&mut self, node_id: &PeerId, peer_id: PeerId) {
-        if let Some(v) = self.network_state.get_mut(node_id.as_bytes()) {
+        if let Some(v) = self.network_state.get_mut(node_id) {
             v.insert(peer_id);
         }
     }
 
     /// Removes peer with provided id connected to given node from the network state.
     pub fn remove_peer(&mut self, node_id: &PeerId, peer_id: &PeerId) {
-        if let Some(v) = self.network_state.get_mut(node_id.as_bytes()) {
-            v.remove(peer_id.as_bytes());
+        if let Some(v) = self.network_state.get_mut(node_id) {
+            v.remove(peer_id);
         }
     }
     /// Adds a new peer with provided id connected to this peer
@@ -82,7 +82,7 @@ impl PeerRelayLayerBehaviour {
 
     /// Adds a new peer with provided id connected to this peer
     pub fn remove_local_peer(&mut self, peer_id: &PeerId) {
-        self.connected_peers.remove(peer_id.as_bytes());
+        self.connected_peers.remove(peer_id);
     }
 
     /// Prints the whole network state. Just for debug purposes.
@@ -118,7 +118,7 @@ impl PeerRelayLayerBehaviour {
             "node_service/relay/behaviour: relaying data to {}",
             dst_peer_id
         );
-        if self.connected_peers.contains(dst_peer_id.as_bytes()) {
+        if self.connected_peers.contains(&dst_peer_id) {
             // the destination node is connected to our peer - just send message directly to it
             self.events
                 .push_back(NetworkBehaviourAction::GenerateEvent(relay_message));
@@ -126,7 +126,7 @@ impl PeerRelayLayerBehaviour {
         }
 
         for (node, peers) in self.network_state.iter() {
-            if peers.contains(dst_peer_id.as_bytes()) {
+            if peers.contains(&dst_peer_id) {
                 self.events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id: node.to_owned(),
                     event: relay_message,

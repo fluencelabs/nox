@@ -20,19 +20,17 @@ mod ping;
 mod relay;
 mod swarm_state;
 
-use crate::event_polling;
 use crate::node_service::p2p::events::P2PNetworkEvents;
 use crate::node_service::p2p::swarm_state_behaviour::SwarmStateBehaviour;
 use crate::node_service::relay::{
     behaviour::{NetworkState, PeerRelayLayerBehaviour},
     events::RelayEvent,
 };
+use crate::{event_polling, generate_swarm_event_type};
 use libp2p::floodsub::{Floodsub, Topic};
 use libp2p::identify::Identify;
 use libp2p::identity::PublicKey;
 use libp2p::ping::{Ping, PingConfig};
-use libp2p::swarm::IntoProtocolsHandler;
-use libp2p::swarm::NetworkBehaviour;
 use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::PeerId;
 use log::trace;
@@ -40,11 +38,7 @@ use parity_multiaddr::Multiaddr;
 use serde_json;
 use std::collections::{HashSet, VecDeque};
 
-type PH = <NodeServiceBehaviour as NetworkBehaviour>::ProtocolsHandler;
-type PHH = <PH as IntoProtocolsHandler>::Handler;
-type InEvent = <PHH as ::libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent;
-type OutEvent = <NodeServiceBehaviour as NetworkBehaviour>::OutEvent;
-type SwarmEventType = NetworkBehaviourAction<InEvent, OutEvent>;
+type SwarmEventType = generate_swarm_event_type!(NodeServiceBehaviour);
 
 /// Behaviour of the p2p layer that is responsible for keeping the network state actual and rules
 /// all other protocols of the Janus.

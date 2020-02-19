@@ -34,3 +34,16 @@ macro_rules! event_polling {
         }
     };
 }
+
+#[macro_export] // https://github.com/rust-lang/rust/issues/57966#issuecomment-461077932
+/// Generates a type of events produced by Swarm by its name
+macro_rules! generate_swarm_event_type {
+    ($swarm_type_name:ty) => {
+        ::libp2p::swarm::NetworkBehaviourAction<
+                <<<$swarm_type_name as ::libp2p::swarm::NetworkBehaviour>::ProtocolsHandler
+                    as ::libp2p::swarm::IntoProtocolsHandler>::Handler
+                    as ::libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent, // InEvent
+                <$swarm_type_name as ::libp2p::swarm::NetworkBehaviour>::OutEvent // OutEvent
+            >
+    }
+}

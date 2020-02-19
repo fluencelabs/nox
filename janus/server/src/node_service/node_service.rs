@@ -81,17 +81,18 @@ impl NodeService {
         self.prepare_node();
 
         task::spawn(async move {
+            // stream of RelayEvents
+            let mut node_service_swarm = self.swarm;
+
             // fusing streams
             let mut peer_service_out_receiver = peer_service_out_receiver.fuse();
-            // stream of RelayEvents
-            let mut node_service_swarm = self.swarm.fuse();
             let mut exit_receiver = exit_receiver.into_stream().fuse();
 
             loop {
                 select! {
                     from_peer = peer_service_out_receiver.next() => {
                         NodeService::handle_peer_notification(
-                            node_service_swarm.get_mut(),
+                            &mut node_service_swarm,
                             from_peer,
                             &peer_service_in_sender,
                         )

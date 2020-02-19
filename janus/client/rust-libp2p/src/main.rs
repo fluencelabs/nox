@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#![recursion_limit = "512"]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -30,17 +31,14 @@ use crate::behaviour::ClientServiceBehaviour;
 use crate::connect_protocol::events::InEvent;
 use async_std::{io, task};
 use env_logger;
-use futures::{future, prelude::*};
+use futures::prelude::*;
+use futures::{select, stream::StreamExt};
 use janus_server::peer_service::libp2p::transport::build_transport;
 use libp2p::{identity, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{
-    error::Error,
-    task::{Context, Poll},
-    time::Duration,
-};
+use std::{error::Error, time::Duration};
 
 // user input for relaying (just a json now)
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -88,44 +86,37 @@ fn main() -> Result<(), Box<dyn Error>> {
         .parse()
         .expect("provided wrong PeerId");
 
-    let mut stdin = io::BufReader::new(io::stdin()).lines();
+    task::block_on(async move {
+        let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
-    task::block_on(future::poll_fn(move |cx: &mut Context| {
         loop {
-            match stdin.try_poll_next_unpin(cx)? {
-                Poll::Ready(Some(line)) => {
-                    let relay_user_input: Result<RelayUserInput, _> = serde_json::from_str(&line);
-                    if let Ok(input) = relay_user_input {
-                        let dst: PeerId = input.dst.parse().unwrap();
-                        swarm.send_message(relay_peer.clone(), dst, input.message.into());
-                    } else {
-                        println!("incorrect string provided");
+            select!(
+            from_stdin = stdin.select_next_some() => {
+                match from_stdin {
+                    Ok(line) => {
+                        let relay_user_input: Result<RelayUserInput, _> = serde_json::from_str(&line);
+                        if let Ok(input) = relay_user_input {
+                            let dst: PeerId = input.dst.parse().unwrap();
+                            swarm.send_message(relay_peer.clone(), dst, input.message.into());
+                        } else {
+                            println!("incorrect string provided");
+                        }
                     }
+                    Err(_) => panic!("Stdin closed"),
                 }
-                Poll::Ready(None) => panic!("Stdin closed"),
-                Poll::Pending => break,
-            };
-        }
+            },
 
-        loop {
-            match swarm.poll_next_unpin(cx) {
-                Poll::Ready(Some(e)) => println!("event received {:?}", e),
-                Poll::Ready(None) => return Poll::Ready(Ok(())),
-                Poll::Pending => break,
-            }
-        }
-
-        if let Some(event) = swarm.pop_out_node_event() {
-            match event {
-                InEvent::Relay { src_id, data } => {
-                    let peer_id = PeerId::from_bytes(src_id).unwrap();
-                    let message = String::from_utf8(data).unwrap();
-                    println!("{}: {}", peer_id, message);
+            // swarm never ends
+            from_swarm = swarm.select_next_some() => {
+                match from_swarm {
+                    InEvent::Relay { src_id, data } => {
+                        let peer_id = PeerId::from_bytes(src_id).unwrap();
+                        let message = String::from_utf8(data).unwrap();
+                        println!("{}: {}", peer_id, message);
+                    }
+                    InEvent::NetworkState { state } => println!("network state: {:?}", state),
                 }
-                InEvent::NetworkState { state } => println!("network state: {:?}", state),
-            }
+            })
         }
-
-        Poll::Pending
-    }))
+    })
 }

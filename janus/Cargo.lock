@@ -1168,9 +1168,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a58becf0b9585fcfbb8215bbe6e6ac187fcc180fd1026925ca180c845aa5a6e8"
+checksum = "f6bf152b510950e1030f2d3dcca5f0b4017892be50348a15fd3eec8b90c826fb"
 dependencies = [
  "bytes 0.5.4",
  "futures 0.3.2",
@@ -1329,9 +1329,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-kad"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2efcff2af085e8181c421f68fe9c2b0a067379d146731925b3ac8f8e605c458"
+checksum = "76c260a92309112fff855ab2bd8f26c246c1dd380b87021abe61358dedb9748d"
 dependencies = [
  "arrayvec 0.5.1",
  "bytes 0.5.4",
@@ -1462,9 +1462,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-secio"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec00eb9a3404ed76a0e14f637edcaa7f2b4a27a16884da4a56f2f21e166c2843"
+checksum = "1219e9ecb4945d7331a05f5ffe96a1f6e28051bfa1223d4c60353c251de0354e"
 dependencies = [
  "aes-ctr",
  "ctr",
@@ -1492,9 +1492,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1e9f4fb84a4bfe3d3a361c1fbcd4af017ba68f0a46a77bfbcc48bf8a456d6ef"
+checksum = "275471e7c0e88ae004660866cd54f603bd8bd1f4caef541a27f50dd8640c4d4c"
 dependencies = [
  "futures 0.3.2",
  "libp2p-core",
@@ -1533,9 +1533,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-wasm-ext"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39703653caa36f4afd0def39cc49a3ac0fa1d4289ca1802e417af03e4f5ef950"
+checksum = "7d40c95ac1a9b7fb7770616e4165f34559885337f3be485b32acdd085261be3a"
 dependencies = [
  "futures 0.3.2",
  "js-sys",

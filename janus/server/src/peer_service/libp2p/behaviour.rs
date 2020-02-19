@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use crate::event_polling;
 use crate::peer_service::libp2p::connect_protocol::behaviour::PeerConnectProtocolBehaviour;
 use crate::peer_service::libp2p::notifications::OutPeerNotification;
-use libp2p::core::either::EitherOutput;
+use crate::{event_polling, generate_swarm_event_type};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
@@ -26,13 +25,7 @@ use libp2p::{NetworkBehaviour, PeerId};
 use log::debug;
 use std::collections::VecDeque;
 
-/// This type is constructed inside NetworkBehaviour proc macro and represents the InEvent type
-/// parameter of NetworkBehaviourAction. Should be regenerated each time a set of behaviours
-/// of the PeerServiceBehaviour is changed.
-type PeerServiceBehaviourInEvent = EitherOutput<EitherOutput<
-    <<<libp2p::ping::Ping as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent,
-    <<<libp2p::identify::Identify as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>,
-    <<<PeerConnectProtocolBehaviour as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler as libp2p::swarm::protocols_handler::IntoProtocolsHandler>::Handler as libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent>;
+type SwarmEventType = generate_swarm_event_type!(PeerServiceBehaviour);
 
 #[derive(NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll", out_event = "OutPeerNotification")]
@@ -42,7 +35,7 @@ pub struct PeerServiceBehaviour {
     node_connect_protocol: PeerConnectProtocolBehaviour,
 
     #[behaviour(ignore)]
-    events: VecDeque<NetworkBehaviourAction<PeerServiceBehaviourInEvent, OutPeerNotification>>,
+    events: VecDeque<SwarmEventType>,
 }
 
 impl NetworkBehaviourEventProcess<OutPeerNotification> for PeerServiceBehaviour {
@@ -96,9 +89,5 @@ impl PeerServiceBehaviour {
     }
 
     // produces OutPeerNotification events
-    event_polling!(
-        custom_poll,
-        events,
-        NetworkBehaviourAction<PeerServiceBehaviourInEvent, OutPeerNotification>
-    );
+    event_polling!(custom_poll, events, SwarmEventType);
 }

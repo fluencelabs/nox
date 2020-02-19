@@ -16,27 +16,32 @@
 
 use crate::connect_protocol::behaviour::ClientConnectProtocolBehaviour;
 use crate::connect_protocol::events::InEvent;
+use janus_server::{event_polling, generate_swarm_event_type};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
-use libp2p::swarm::NetworkBehaviourEventProcess;
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::{NetworkBehaviour, PeerId};
 use log::debug;
 use std::collections::VecDeque;
 
+type SwarmEventType = generate_swarm_event_type!(ClientServiceBehaviour);
+
 #[derive(NetworkBehaviour)]
+#[behaviour(poll_method = "custom_poll", out_event = "InEvent")]
 pub struct ClientServiceBehaviour {
     ping: Ping,
     identity: Identify,
     node_connect_protocol: ClientConnectProtocolBehaviour,
 
     #[behaviour(ignore)]
-    nodes_events: VecDeque<InEvent>,
+    events: VecDeque<SwarmEventType>,
 }
 
 impl NetworkBehaviourEventProcess<InEvent> for ClientServiceBehaviour {
     fn inject_event(&mut self, event: InEvent) {
-        self.nodes_events.push_back(event);
+        self.events
+            .push_back(NetworkBehaviourAction::GenerateEvent(event));
     }
 }
 
@@ -66,17 +71,16 @@ impl ClientServiceBehaviour {
             ping,
             identity,
             node_connect_protocol,
-            nodes_events: VecDeque::new(),
+            events: VecDeque::new(),
         }
-    }
-
-    pub fn pop_out_node_event(&mut self) -> Option<InEvent> {
-        self.nodes_events.pop_front()
     }
 
     pub fn send_message(&mut self, relay: PeerId, dst: PeerId, message: Vec<u8>) {
         self.node_connect_protocol.send_message(relay, dst, message);
     }
+
+    // produces InEvent
+    event_polling!(custom_poll, events, SwarmEventType);
 
     #[allow(dead_code)]
     pub fn get_network_state(&mut self, relay: PeerId) {
