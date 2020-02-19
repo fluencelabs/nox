@@ -30,6 +30,7 @@ mod error;
 mod misc;
 mod node_service;
 mod peer_service;
+mod trust;
 
 use crate::config::config::{ClientType, JanusConfig};
 use crate::node_service::node_service::NodeService;
