@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
-pub mod node_service;
+pub use node_service::NodeService;
+
+mod node_service;
 mod p2p;
-mod relay;
+pub mod relay;

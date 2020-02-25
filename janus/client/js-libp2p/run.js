@@ -1,122 +1,99 @@
 'use strict'
 
-const libp2p = require('libp2p');
-const TCP = require('libp2p-tcp');
-const Mplex = require('libp2p-mplex');
-const SECIO = require('libp2p-secio');
-const PeerInfo = require('peer-info');
-const FloodSub = require('libp2p-floodsub');
-const CID = require('cids');
-const KadDHT = require('libp2p-kad-dht');
-const defaultsDeep = require('@nodeutils/defaults-deep');
-const waterfall = require('async/waterfall');
-const parallel = require('async/parallel');
-const readline = require('readline');
-const Swarm = require('libp2p-switch');
-const once = require('once');
-const Ping = require('libp2p-ping');
+const Libp2p = require('libp2p')
+const TCP = require('libp2p-tcp')
+const Mplex = require('libp2p-mplex')
+const SECIO = require('libp2p-secio')
+const PeerInfo = require('peer-info')
+const pipe = require('it-pipe')
+const lp = require('it-length-prefixed')
+const peer_id = require('peer-id')
 
-// TODO WHY: In Rust it's QmTESkr2vWDCKqiHVsyvf4iRQCBgvNDqBJ6P3yTTDb6haw, in JS it becomes 12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G
-var RUST_PEER = "/ip4/127.0.0.1/tcp/30000/p2p/12D3KooWSwNXzEeGjgwEocRJBzbdoDqxbz3LdrwgSuKmKeGvbM4G";
-const TOPIC = "5zKTH5FR"; // hash of 'chat'
+const protocol_name = '/janus/peer/1.0.0';
 
-if (process.argv.length > 2) {
-    RUST_PEER = process.argv[2];
-    console.log("Using peer from argument: ", RUST_PEER);
-}
-
-class MyBundle extends libp2p {
-  constructor(_options) {
-      const defaults = {
-          modules: {
-              transport: [TCP], // TODO: try udp? try websocket?
-              streamMuxer: [Mplex],
-              connEncryption: [SECIO],
-              pubsub: FloodSub
-          },
-          config: {
-              pubsub: {
-                  enabled: true,
-                  emitSelf: false,
-                  signMessages: false, // Rust doesn't sign floodsub messages
-                  strictSigning: false // Rust doesn't sign floodsub messages
-              },
-              relay: { // Rust doesn't support relay
-                  enabled: false,
-              }
-          }
-      };
-
-    super(defaultsDeep(_options, defaults))
-  }
-}
-
-function enablePing(node, peer) {
-    let p = new Ping(node, peer);
-    p.start();
-}
-
-function createNode(callback) {
-    let node;
-
-    waterfall([
-        (cb) => {
-            cb = once(cb);
-            PeerInfo.create().then((pi) => cb(null, pi)).catch((err) => cb(err))
-        },
-        (peerInfo, cb) => {
-            console.log("Local peer created " + peerInfo.id.toB58String());
-            peerInfo.multiaddrs.add('/ip4/127.0.0.1/tcp/0');
-            node = new MyBundle({
-                peerInfo
-            });
-            Ping.mount(node); // Enable this peer to answer Pongs on Pings
-            node.on('peer:discovery', (peer) => {
-                console.log('Discovered peer:', peer.id.toB58String());
-                // return node.dial(peer, () => { return enablePing(node, peer) })
-            });
-            node.on('peer:connect', (peer) => {
-                console.log('Connection established to:', peer.id.toB58String());
-                // return enablePing(node, peer);
-            });
-            node.on('connection:start', (peerInfo) => {
-                console.log('Connection started to:', peerInfo.id.toB58String())
-            });
-            node.on('connection:end', (peerInfo) => {
-                console.log('Connection ended with:', peerInfo.id.toB58String())
-            });
-            node.on('error', (err) => {
-                console.error('Node received error:', err);
-            });
-            node.start(cb);
-        },
-        (cb) => {
-            console.log("node started");
-            console.log("will dial " + RUST_PEER);
-            node.dial(RUST_PEER, cb)
-        },
-        (cb) => {
-            console.log("node dialed");
-            node.pubsub.subscribe(TOPIC, (msg) => {
-                console.log("floodsub received", msg.data.toString(), 'from', msg.from)
-            }, {}, cb);
-        },
-        (cb) => {
-            console.log('floodsub subscribed');
-            process.stdin.setEncoding('utf8');
-            process.openStdin().on('data', (chunk) => {
-                let data = chunk.toString();
-                console.log("will send to floodsub", data);
-                node.pubsub.publish(TOPIC, data, (res) => console.log("publish result:", res))
-            });
-            cb()
+const createNode = async () => {
+    const peer_info = await PeerInfo.create();
+    //peer_info.multiaddrs.add('/ip4/127.0.0.1/tcp/5555');
+    const node = await Libp2p.create({
+        peer_info,
+        modules: {
+            transport: [TCP],
+            streamMuxer: [Mplex],
+            connEncryption: [SECIO],
         }
-    ], (err) => callback(err, node))
+    });
+
+    await node.start();
+    return [node, peer_info]
+};
+
+var NODE_ADDR = "/ip4/127.0.0.1/tcp/9999";
+var NODE_PEER_ID = "";
+if (process.argv.length > 2) {
+    NODE_ADDR = process.argv[2];
+    NODE_PEER_ID = process.argv[3]
 }
 
-createNode((err) => {
-  if (err) {
-    console.log('\nError:', JSON.stringify(err));
-    throw err
-  }
-});
+NODE_ADDR = NODE_ADDR + "/p2p/" + NODE_PEER_ID;
+console.log("connecting to ", NODE_ADDR);
+
+function make_relay_message(input) {
+    const parsed_input = JSON.parse(input);
+    const dst_peer_id = peer_id.createFromB58String(parsed_input.dst);
+    return JSON.stringify({
+        action: "Relay",
+        // TODO: maybe not so effective way of getting the internal data field of Buffer
+        dst_id: dst_peer_id.toBytes().toJSON().data,
+        data: parsed_input.message.split('').map (function (c) { return c.charCodeAt (0); })
+    });
+}
+
+;(async () => {
+    const [ [node, peer_info] ] = await Promise.all([createNode()]);
+
+    console.log("dialing to the node");
+    await node.dial(NODE_ADDR);
+
+    // TODO: id for peer_info doesn't match the one from the rust side
+    console.log("example of a relay message {\"dst\": \"" + peer_info.id.toB58String() + "\", \"message\": \"hello\"}");
+
+    // adjust the listener
+    await node.handle(protocol_name, ({ stream }) => {
+        pipe(
+            stream.source,
+            lp.decode(),
+            async function (source) {
+                for await (const msg of source) {
+                    try {
+                        let msg_decoded = JSON.parse(msg);
+                        let src_peer_id = peer_id.createFromBytes(Buffer.from(msg_decoded.src_id));
+                        console.log(src_peer_id.toB58String() + ": " + msg_decoded.data);
+                    } catch(e) {
+                        console.log("error on handling a new incoming message: " + e);
+                    }
+                }
+            }
+        )
+    });
+
+    process.stdin.on("data", async function (event) {
+        var relay_message;
+        try {
+            relay_message = make_relay_message(event);
+        } catch (e) {
+            console.log("incorrect string provided");
+            return;
+        }
+
+        // need to dial each time - there is the OneShotHandler handler on the rust side
+        const { stream } = await node.dialProtocol(NODE_ADDR, protocol_name)
+        console.log("relaying " + relay_message);
+
+        pipe(
+            [relay_message],
+            // at first, make a message varint
+            lp.encode(),
+            stream.sink,
+        )
+    });
+})();

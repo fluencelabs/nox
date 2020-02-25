@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::peer_service::libp2p::connect_protocol::behaviour::PeerConnectProtocolBehaviour;
+use crate::peer_service::libp2p::connect_protocol::behaviour::PeerConnectBehaviour;
 use crate::peer_service::libp2p::notifications::OutPeerNotification;
 use crate::{event_polling, generate_swarm_event_type};
 use libp2p::identify::{Identify, IdentifyEvent};
@@ -32,7 +32,7 @@ type SwarmEventType = generate_swarm_event_type!(PeerServiceBehaviour);
 pub struct PeerServiceBehaviour {
     ping: Ping,
     identity: Identify,
-    node_connect_protocol: PeerConnectProtocolBehaviour,
+    peers: PeerConnectBehaviour,
 
     #[behaviour(ignore)]
     events: VecDeque<SwarmEventType>,
@@ -65,22 +65,18 @@ impl PeerServiceBehaviour {
                 .with_keep_alive(true),
         );
         let identity = Identify::new("1.0.0".into(), "1.0.0".into(), local_public_key);
-        let node_connect_protocol = PeerConnectProtocolBehaviour::new();
+        let node_connect_protocol = PeerConnectBehaviour::new();
 
         Self {
             ping,
             identity,
-            node_connect_protocol,
+            peers: node_connect_protocol,
             events: VecDeque::new(),
         }
     }
 
     pub fn relay_message(&mut self, src: PeerId, dst: PeerId, message: Vec<u8>) {
-        self.node_connect_protocol.relay_message(src, dst, message);
-    }
-
-    pub fn send_network_state(&mut self, dst: PeerId, state: Vec<PeerId>) {
-        self.node_connect_protocol.send_network_state(dst, state);
+        self.peers.relay_message(src, dst, message);
     }
 
     #[allow(dead_code)]

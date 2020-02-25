@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,27 +25,31 @@
     unreachable_patterns
 )]
 
+extern crate config as fileconfig;
+
+use std::collections::HashMap;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+
+use clap::App;
+use ctrlc;
+use env_logger;
+use exitfailure::ExitFailure;
+use futures::channel::{mpsc, oneshot};
+use log::trace;
+
+use crate::config::config::{ClientType, JanusConfig};
+use crate::node_service::NodeService;
+use crate::peer_service::{libp2p, websocket};
+
 mod config;
 mod error;
 mod misc;
 mod node_service;
 mod peer_service;
 mod trust;
-
-use crate::config::config::{ClientType, JanusConfig};
-use crate::node_service::node_service::NodeService;
-use clap::App;
-use ctrlc;
-use std::collections::HashMap;
-extern crate config as fileconfig;
-use env_logger;
-use exitfailure::ExitFailure;
-use futures::channel::{mpsc, oneshot};
-use log::trace;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -65,16 +69,12 @@ fn start_janus(
     let (in_sender, in_receiver) = mpsc::unbounded();
 
     let exit_sender = match config.node_service_config.client {
-        ClientType::Libp2p => peer_service::libp2p::peer_service::start_peer_service(
-            config.peer_service_config,
-            out_receiver,
-            in_sender,
-        ),
-        ClientType::Websocket => peer_service::websocket::websocket::start_peer_service(
-            config.websocket_config,
-            out_receiver,
-            in_sender,
-        ),
+        ClientType::Libp2p => {
+            libp2p::start_peer_service(config.peer_service_config, out_receiver, in_sender)
+        }
+        ClientType::Websocket => {
+            websocket::start_peer_service(config.websocket_config, out_receiver, in_sender)
+        }
     };
 
     let node_service = NodeService::new(config.node_service_config);

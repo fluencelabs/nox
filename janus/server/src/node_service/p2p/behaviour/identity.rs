@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,24 @@
  */
 
 use crate::node_service::p2p::behaviour::NodeServiceBehaviour;
+use crate::node_service::relay::Relay;
 use libp2p::identify::IdentifyEvent;
 use libp2p::swarm::NetworkBehaviourEventProcess;
 
+/// Network address information is exchanged via Identify protocol.
+/// That information is passed to relay, so nodes know each other's addresses
 impl NetworkBehaviourEventProcess<IdentifyEvent> for NodeServiceBehaviour {
-    fn inject_event(&mut self, _event: IdentifyEvent) {}
+    fn inject_event(&mut self, event: IdentifyEvent) {
+        match event {
+            IdentifyEvent::Received { peer_id, info, .. } => {
+                self.relay.add_node_addresses(&peer_id, info.listen_addrs)
+            }
+
+            // TODO: handle error?
+            IdentifyEvent::Error { .. } => {}
+
+            // We don't care about Sent identification info
+            IdentifyEvent::Sent { .. } => {}
+        }
+    }
 }

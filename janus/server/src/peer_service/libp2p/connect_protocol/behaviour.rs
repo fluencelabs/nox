@@ -15,25 +15,28 @@
  */
 
 use crate::event_polling;
+use crate::generate_swarm_event_type;
 use crate::peer_service::libp2p::connect_protocol::events::{InPeerEvent, OutPeerEvent};
 use crate::peer_service::libp2p::notifications::OutPeerNotification;
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
-    swarm::{NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, ProtocolsHandler},
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, OneShotHandler},
     PeerId,
 };
 use log::trace;
 use std::collections::VecDeque;
 
+type SwarmEventType = generate_swarm_event_type!(PeerConnectBehaviour);
+
 #[derive(Default)]
-pub struct PeerConnectProtocolBehaviour {
+pub struct PeerConnectBehaviour {
     /// Queue of received network messages from connected peers
     /// that need to be handled during polling.
-    events: VecDeque<NetworkBehaviourAction<OutPeerEvent, OutPeerNotification>>,
+    events: VecDeque<SwarmEventType>,
 }
 
-impl PeerConnectProtocolBehaviour {
+impl PeerConnectBehaviour {
     pub fn new() -> Self {
         Self {
             events: VecDeque::new(),
@@ -55,27 +58,9 @@ impl PeerConnectProtocolBehaviour {
             },
         })
     }
-
-    pub fn send_network_state(&mut self, dst: PeerId, state: Vec<PeerId>) {
-        trace!(
-            "peer_service/connect_protocol/behaviour: sending network state {:?} to {:?}",
-            state,
-            dst
-        );
-
-        self.events.push_back(NetworkBehaviourAction::SendEvent {
-            peer_id: dst,
-            event: OutPeerEvent::NetworkState {
-                state: state
-                    .into_iter()
-                    .map(|node_id| node_id.into_bytes())
-                    .collect::<Vec<Vec<u8>>>(),
-            },
-        })
-    }
 }
 
-impl NetworkBehaviour for PeerConnectProtocolBehaviour {
+impl NetworkBehaviour for PeerConnectBehaviour {
     type ProtocolsHandler = OneShotHandler<InPeerEvent, OutPeerEvent, InnerMessage>;
     type OutEvent = OutPeerNotification;
 
@@ -126,22 +111,14 @@ impl NetworkBehaviour for PeerConnectProtocolBehaviour {
                         data,
                     }),
                 ),
-                InPeerEvent::GetNetworkState => {
-                    self.events.push_back(NetworkBehaviourAction::GenerateEvent(
-                        OutPeerNotification::GetNetworkState { src_id: source },
-                    ))
-                }
+                InPeerEvent::Upgrade => {}
             },
             InnerMessage::Tx => {}
         }
     }
 
     // produces OutPeerNotification events
-    event_polling!(
-        poll,
-        events,
-        NetworkBehaviourAction<<Self::ProtocolsHandler as ProtocolsHandler>::InEvent, Self::OutEvent>
-    );
+    event_polling!(poll, events, SwarmEventType);
 }
 
 /// Transmission between the OneShotHandler message type and the InNodeMessage message type.

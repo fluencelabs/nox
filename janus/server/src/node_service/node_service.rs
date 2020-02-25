@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,32 @@
  * limitations under the License.
  */
 
-use crate::config::config::NodeServiceConfig;
-use crate::node_service::{
-    p2p::{behaviour::NodeServiceBehaviour, transport::build_transport},
-    relay::events::RelayEvent,
-};
-use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
+use std::io;
+
 use async_std::task;
 use futures::channel::{mpsc, oneshot};
+use futures::stream::FusedStream;
 use futures::{select, stream::StreamExt};
 use futures_util::future::FutureExt;
-use libp2p::{identity, PeerId, Swarm};
-use log::trace;
+use libp2p::{identity, PeerId, Swarm, TransportError};
+use log::{error, trace};
 use parity_multiaddr::{Multiaddr, Protocol};
+
+use crate::config::config::NodeServiceConfig;
+use crate::node_service::{
+    p2p::{build_transport, NodeServiceBehaviour},
+    relay::RelayEvent,
+};
+use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
 
 type NodeServiceSwarm = Swarm<NodeServiceBehaviour>;
 
+/// Responsibilities:
+/// - Command swarm to listen for other nodes
+/// - Handle events from peers and send them to swarm
+/// - Proxy events from swarm to peer service
 pub struct NodeService {
-    pub swarm: Box<NodeServiceSwarm>,
+    swarm: Box<NodeServiceSwarm>,
     config: NodeServiceConfig,
 }
 
@@ -39,7 +47,6 @@ impl NodeService {
     pub fn new(config: NodeServiceConfig) -> Self {
         let NodeServiceConfig {
             socket_timeout,
-            churn_topic,
             key_pair,
             ..
         } = config.clone();
@@ -53,12 +60,7 @@ impl NodeService {
 
         let swarm = {
             let transport = build_transport(local_key.clone(), socket_timeout);
-            let behaviour = NodeServiceBehaviour::new(
-                local_peer_id.clone(),
-                local_key.public(),
-                churn_topic,
-                config.listen_port,
-            );
+            let behaviour = NodeServiceBehaviour::new(local_peer_id.clone(), local_key.public());
 
             Box::new(Swarm::new(transport, behaviour, local_peer_id))
         };
@@ -67,10 +69,8 @@ impl NodeService {
     }
 
     /// Starts node service
-    /// * `peer_service_out_receiver` – channel for receiving notifications from peer service to node service
-    ///
-    /// * `peer_service_in_sender` – channel for sending notifications from node service to peer service,
-    ///                              currently only for returning NetworkState in response to GetNetworkState
+    /// * `peer_service_out_receiver`   – channel for receiving notifications from peer service to node service
+    /// * `peer_service_in_sender`      – channel for sending notifications from node service to peer service
     pub fn start(
         mut self,
         peer_service_out_receiver: mpsc::UnboundedReceiver<OutPeerNotification>,
@@ -78,69 +78,90 @@ impl NodeService {
     ) -> oneshot::Sender<()> {
         let (exit_sender, exit_receiver) = oneshot::channel();
 
-        self.prepare_node();
+        self.listen().expect("Error on starting listener");
+        self.bootstrap();
 
-        task::spawn(async move {
-            // stream of RelayEvents
-            let mut node_service_swarm = self.swarm;
-
-            // fusing streams
-            let mut peer_service_out_receiver = peer_service_out_receiver.fuse();
-            let mut exit_receiver = exit_receiver.into_stream().fuse();
-
-            loop {
-                select! {
-                    from_peer = peer_service_out_receiver.next() => {
-                        NodeService::handle_peer_notification(
-                            &mut node_service_swarm,
-                            from_peer,
-                            &peer_service_in_sender,
-                        )
-                    },
-
-                    // swarm stream never ends
-                    // from_swarm is a RelayEvent
-                    from_swarm = node_service_swarm.select_next_some() => {
-                        trace!("node_service/select: sending {:?} to peer_service", from_swarm);
-
-                        peer_service_in_sender
-                            .unbounded_send(InPeerNotification::Relay {
-                                src_id: PeerId::from_bytes(from_swarm.src_id).unwrap(),
-                                dst_id: PeerId::from_bytes(from_swarm.dst_id).unwrap(),
-                                data: from_swarm.data,
-                            })
-                            .unwrap();
-                    },
-
-                    _ = exit_receiver.next() => {
-                        break
-                    }
-                }
-            }
-        });
+        task::spawn(self.run_events_coordination(
+            peer_service_in_sender,
+            peer_service_out_receiver.fuse(),
+            exit_receiver.into_stream().fuse(),
+        ));
 
         exit_sender
     }
 
-    /// Prepares node before running.
-    ///
-    /// Preparing includes these steps:
-    ///  - running swarm listener on address from the config
-    ///  - dialing to bootstrap nodes
-    ///  - gossiping node state
+    /// Starts node service listener
     #[inline]
-    fn prepare_node(&mut self) {
+    fn listen(&mut self) -> Result<(), TransportError<io::Error>> {
         let mut listen_addr = Multiaddr::from(self.config.listen_ip);
         listen_addr.push(Protocol::Tcp(self.config.listen_port));
 
-        Swarm::listen_on(&mut self.swarm, listen_addr).unwrap();
+        Swarm::listen_on(&mut self.swarm, listen_addr).map(|_| ())
+    }
 
+    /// Dials bootstrap nodes, and then commands swarm to bootstrap itself
+    #[inline]
+    fn bootstrap(&mut self) {
         for addr in &self.config.bootstrap_nodes {
-            Swarm::dial_addr(&mut self.swarm, addr.clone())
-                .expect("dialed to bootstrap node failed");
+            let dial_result = Swarm::dial_addr(&mut self.swarm, addr.clone());
+
+            if let Err(err) = dial_result {
+                error!("Error dialing {}: {}", addr, err)
+            }
         }
 
-        self.swarm.gossip_node_state();
+        self.swarm.bootstrap();
+    }
+
+    /// Runs a loop which coordinates events:
+    /// peer service => swarm
+    /// swarm        => peer service
+    ///
+    /// Stops when message is received on `exit_receiver`
+    #[inline]
+    async fn run_events_coordination<U, T>(
+        self,
+        peer_service_channel: mpsc::UnboundedSender<InPeerNotification>,
+        mut peer_service_notices: T,
+        mut exit: U,
+    ) -> std::result::Result<(), oneshot::Canceled>
+    where
+        T: Unpin + FusedStream<Item = OutPeerNotification>,
+        U: Unpin + FusedStream,
+    {
+        // stream of RelayEvents
+        let mut swarm = self.swarm;
+
+        loop {
+            select! {
+                // Notice from peer service => swarm
+                from_peer = peer_service_notices.next() => {
+                    NodeService::handle_peer_notification(
+                        &mut swarm,
+                        from_peer,
+                    )
+                },
+
+                // swarm stream never ends
+                // RelayEvent from swarm => peer_service
+                from_swarm = swarm.select_next_some() => {
+                    trace!("node_service/select: sending {:?} to peer_service", from_swarm);
+
+                    peer_service_channel
+                        .unbounded_send(InPeerNotification::Relay {
+                            src_id: PeerId::from_bytes(from_swarm.src_id).unwrap(),
+                            dst_id: PeerId::from_bytes(from_swarm.dst_id).unwrap(),
+                            data: from_swarm.data,
+                        })
+                        .unwrap();
+                },
+
+                // If any msg received on `exit`, then stop the loop
+                _ = exit.next() => {
+                    break Ok(())
+                }
+            }
+        }
     }
 
     /// Handles notifications from a peer service.
@@ -148,15 +169,12 @@ impl NodeService {
     fn handle_peer_notification(
         swarm: &mut NodeServiceSwarm,
         notification: Option<OutPeerNotification>,
-        peer_service_in_sender: &mpsc::UnboundedSender<InPeerNotification>,
     ) {
         match notification {
-            Some(OutPeerNotification::PeerConnected { peer_id }) => {
-                swarm.add_connected_peer(peer_id)
-            }
+            Some(OutPeerNotification::PeerConnected { peer_id }) => swarm.add_local_peer(peer_id),
 
             Some(OutPeerNotification::PeerDisconnected { peer_id }) => {
-                swarm.remove_connected_peer(peer_id)
+                swarm.remove_local_peer(peer_id)
             }
 
             Some(OutPeerNotification::Relay {
@@ -168,21 +186,6 @@ impl NodeService {
                 dst_id: dst_id.into_bytes(),
                 data,
             }),
-
-            Some(OutPeerNotification::GetNetworkState { src_id }) => {
-                let network_state = swarm.network_state();
-                let network_state = network_state
-                    .iter()
-                    .map(|v| v.0.clone())
-                    .collect::<Vec<PeerId>>();
-
-                peer_service_in_sender
-                    .unbounded_send(InPeerNotification::NetworkState {
-                        dst_id: src_id,
-                        state: network_state,
-                    })
-                    .expect("Failed during send event to the node service");
-            }
 
             // channel is closed when peer service was shut down - does nothing
             // (node service is main service and could run without peer service)

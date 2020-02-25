@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Relay event is just a data that need to be relayed from a src peer to a dst peer.
+/// Relay event is just a data that need to be relayed from a peer of `src_id` to a peer of `dst_id`.
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 pub struct RelayEvent {
+    // TODO: use PeerId instead of Vec<u8>. Currently it's blocked by implementing serde traits.
     pub src_id: Vec<u8>,
+    // TODO: use PeerId instead of Vec<u8>. Currently it's blocked by implementing serde traits.
     pub dst_id: Vec<u8>,
     pub data: Vec<u8>,
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 use crate::error::Error;
-use crate::node_service::relay::events::RelayEvent;
+use crate::node_service::relay::RelayEvent;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;

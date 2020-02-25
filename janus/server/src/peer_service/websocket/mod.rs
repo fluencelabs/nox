@@ -14,5 +14,7 @@
  * limitations under the License.
  */
 
+pub use websocket::start_peer_service;
+
 mod events;
-pub mod websocket;
+mod websocket;

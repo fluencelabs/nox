@@ -26,9 +26,6 @@ pub enum InPeerNotification {
         dst_id: PeerId,
         data: Vec<u8>,
     },
-
-    /// Message that represent a current state of the network, should be sent to given dst peer.
-    NetworkState { dst_id: PeerId, state: Vec<PeerId> },
 }
 
 /// Describes inner events from peer service to node service
@@ -47,8 +44,4 @@ pub enum OutPeerNotification {
         dst_id: PeerId,
         data: Vec<u8>,
     },
-
-    /// Request from given src peer for the network state.
-    /// Currently, gives the whole nodes in the network, this behaviour will be refactored in future.
-    GetNetworkState { src_id: PeerId },
 }

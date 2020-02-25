@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-pub mod behaviour;
-pub mod connect_protocol;
+pub use peer_service::start_peer_service;
+pub use transport::build_transport;
+
 pub mod notifications;
-pub mod peer_service;
-pub mod transport;
+
+mod behaviour;
+mod connect_protocol;
+mod peer_service;
+mod transport;

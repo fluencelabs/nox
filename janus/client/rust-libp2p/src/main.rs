@@ -24,21 +24,25 @@
     unused_unsafe,
     unreachable_patterns
 )]
-mod behaviour;
-mod connect_protocol;
 
-use crate::behaviour::ClientServiceBehaviour;
-use crate::connect_protocol::events::InEvent;
+use std::{error::Error, time::Duration};
+
 use async_std::{io, task};
 use env_logger;
 use futures::prelude::*;
 use futures::{select, stream::StreamExt};
-use janus_server::peer_service::libp2p::transport::build_transport;
 use libp2p::{identity, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{error::Error, time::Duration};
+
+use janus_server::peer_service::libp2p::build_transport;
+
+use crate::behaviour::ClientServiceBehaviour;
+use crate::connect_protocol::events::InEvent;
+
+mod behaviour;
+mod connect_protocol;
 
 // user input for relaying (just a json now)
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -114,7 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         let message = String::from_utf8(data).unwrap();
                         println!("{}: {}", peer_id, message);
                     }
-                    InEvent::NetworkState { state } => println!("network state: {:?}", state),
+                    InEvent::Upgrade => log::trace!("Upgraded? //TODO: remove that variant")
                 }
             })
         }

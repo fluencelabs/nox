@@ -6,9 +6,9 @@ release: ;cargo build --release
 
 test: ;cargo test
 
-server: ;cargo run -p janus-server -- -b ${BOOTSTRAP_NODE}
+server: ;cargo run -p janus-server -- -c libp2p -b ${BOOTSTRAP_NODE}
 
-server-debug: ;RUST_LOG="trace,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info" cargo run -p janus-server -- -b ${BOOTSTRAP_NODE}
+server-debug: ;RUST_LOG="trace,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info" cargo run -p janus-server -- -c libp2p -b ${BOOTSTRAP_NODE}
 
 client: ;cargo run -p janus-client -- ${args}
 

@@ -14,13 +14,24 @@
  * limitations under the License.
  */
 
-use crate::node_service::p2p::behaviour::NodeServiceBehaviour;
 use crate::node_service::relay::RelayEvent;
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 
-impl NetworkBehaviourEventProcess<RelayEvent> for NodeServiceBehaviour {
-    fn inject_event(&mut self, event: RelayEvent) {
-        self.events
-            .push_back(NetworkBehaviourAction::GenerateEvent(event));
-    }
+use libp2p::PeerId;
+use parity_multiaddr::Multiaddr;
+
+pub trait Relay {
+    /// New network address for a connected node is found, add it
+    fn add_node_addresses(&mut self, node_id: &PeerId, addresses: Vec<Multiaddr>);
+
+    /// New peer is connected locally, store it
+    fn add_local_peer(&mut self, peer_id: PeerId);
+
+    /// Locally connected peer has disconnected
+    fn remove_local_peer(&mut self, peer_id: &PeerId);
+
+    /// Instructs node to bootstrap itself: walk through Kademlia or gossip NodeConnected, whatever
+    fn bootstrap(&mut self);
+
+    /// Relays event to specified destination
+    fn relay(&mut self, event: RelayEvent);
 }

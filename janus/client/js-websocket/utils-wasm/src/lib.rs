@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use faster_hex::{hex_string, hex_decode};
+use faster_hex::{hex_decode, hex_string};
 use sha3::digest::Digest;
-use sha3::{Sha3_256, Keccak256};
+use sha3::{Keccak256, Sha3_256};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

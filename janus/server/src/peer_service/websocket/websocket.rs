@@ -237,12 +237,7 @@ fn handle_message(
 
             peer_channel_in.unbounded_send(msg).unwrap();
         }
-        WebsocketEvent::GetNetworkState => {
-            let msg = OutPeerNotification::GetNetworkState {
-                src_id: self_peer_id,
-            };
-            peer_channel_in.unbounded_send(msg).unwrap();
-        }
+
         m => trace!("Unexpected event has been received: {:?}", m),
     }
 
@@ -269,22 +264,6 @@ fn handle_node_service_notification(event: InPeerNotification, peer_map: Connect
                     data: String::from_utf8(data).unwrap(),
                     p_key: "".to_string(),
                     signature: "".to_string(),
-                };
-                let msg = to_websocket_message(event);
-                recp.unbounded_send(msg).unwrap();
-            };
-        }
-
-        InPeerNotification::NetworkState { dst_id, state } => {
-            let peers = peer_map.lock().unwrap();
-            let recipient = peers
-                .iter()
-                .find(|(peer_addr, _)| peer_addr == &&dst_id)
-                .map(|(_, ws_sink)| ws_sink);
-
-            if let Some(recp) = recipient {
-                let event = WebsocketEvent::NetworkState {
-                    peers: state.iter().map(|p| p.to_base58()).collect(),
                 };
                 let msg = to_websocket_message(event);
                 recp.unbounded_send(msg).unwrap();

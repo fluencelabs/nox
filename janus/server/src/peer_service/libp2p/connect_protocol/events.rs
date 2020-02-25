@@ -21,17 +21,18 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "action")]
 pub enum InPeerEvent {
     /// Represents a message that should be relayed to given dst peer.
-    Relay { dst_id: Vec<u8>, data: Vec<u8> },
-
-    /// Requests for the network state.
-    /// Currently, gives the whole nodes in the network, this behaviour will be refactored in future.
-    GetNetworkState,
+    Relay {
+        dst_id: Vec<u8>,
+        data: Vec<u8>,
+    },
+    // TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
+    Upgrade,
 }
 
-// TODO
+// TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
 impl Default for InPeerEvent {
     fn default() -> Self {
-        InPeerEvent::GetNetworkState
+        InPeerEvent::Upgrade
     }
 }
 
@@ -41,7 +42,4 @@ impl Default for InPeerEvent {
 pub enum OutPeerEvent {
     /// Message that should be relayed from src peer to chosen dst peer.
     Relay { src_id: Vec<u8>, data: Vec<u8> },
-
-    /// Message that contains all nodes in the network.
-    NetworkState { state: Vec<Vec<u8>> },
 }

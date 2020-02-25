@@ -31,19 +31,17 @@ pub enum WebsocketEvent {
         signature: String,
     },
 
-    /// Requests for the network state.
-    /// Currently, gives the whole peers in the network, this behaviour will be refactored in future.
-    GetNetworkState,
-
-    /// Response with current network state.
-    NetworkState { peers: Vec<String> },
-
     /// Send message when error occurred
-    Error { err_msg: String },
+    Error {
+        err_msg: String,
+    },
+    // TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
+    Upgrade,
 }
 
+// TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
 impl Default for WebsocketEvent {
     fn default() -> Self {
-        WebsocketEvent::GetNetworkState
+        WebsocketEvent::Upgrade
     }
 }

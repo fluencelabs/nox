@@ -58,6 +58,9 @@ impl PeerService {
     }
 }
 
+/// Binds port to establish libp2p connections, runs peer service based on libp2p
+/// * `peer_service_in_receiver` – channel to receive events from node service
+/// * `peer_service_out_sender` – channel to send events to node service
 pub fn start_peer_service(
     config: Libp2pPeerServiceConfig,
     peer_service_in_receiver: mpsc::UnboundedReceiver<InPeerNotification>,
@@ -83,10 +86,6 @@ pub fn start_peer_service(
                             dst_id,
                             data,
                         }) => peer_service_swarm.relay_message(src_id, dst_id, data),
-
-                        Some(InPeerNotification::NetworkState { dst_id, state }) =>
-                            peer_service_swarm
-                             .send_network_state(dst_id, state),
 
                         // channel is closed when node service was shut down - break the loop
                         None => break,

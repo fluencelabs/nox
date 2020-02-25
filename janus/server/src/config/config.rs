@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 use clap::ArgMatches;
 use failure::_core::str::FromStr;
 use libp2p::core::Multiaddr;
-use libp2p::floodsub;
 use libp2p::identity::{ed25519, Keypair};
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -56,9 +55,6 @@ pub struct NodeServiceConfig {
     /// Bootstrap nodes to join to the Fluence network.
     pub bootstrap_nodes: Vec<Multiaddr>,
 
-    /// Topic with network updates to subscribe at the start.
-    pub churn_topic: floodsub::Topic,
-
     /// Service will use libp2p as a client.
     pub client: ClientType,
 
@@ -73,7 +69,6 @@ impl Default for NodeServiceConfig {
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             bootstrap_nodes: vec![],
-            churn_topic: floodsub::Topic::new("churn"),
             client: ClientType::Websocket,
             key_pair: None,
         }

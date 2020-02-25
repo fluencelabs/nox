@@ -79,18 +79,13 @@ impl ClientServiceBehaviour {
         self.node_connect_protocol.send_message(relay, dst, message);
     }
 
-    // produces InEvent
-    event_polling!(custom_poll, events, SwarmEventType);
-
-    #[allow(dead_code)]
-    pub fn get_network_state(&mut self, relay: PeerId) {
-        self.node_connect_protocol.get_network_state(relay);
-    }
-
     #[allow(dead_code)]
     pub fn exit(&mut self) {
         unimplemented!(
             "need to decide how exactly a client should notify the server about disconnecting"
         );
     }
+
+    // produces InEvent
+    event_polling!(custom_poll, events, SwarmEventType);
 }

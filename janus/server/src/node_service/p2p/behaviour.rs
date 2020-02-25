@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,171 +14,90 @@
  * limitations under the License.
  */
 
-mod floodsub;
+use std::collections::VecDeque;
+
+use libp2p::identify::Identify;
+use libp2p::identity::PublicKey;
+
+use libp2p::ping::{Ping, PingConfig};
+
+use libp2p::PeerId;
+use log::trace;
+
+use crate::event_polling;
+use crate::generate_swarm_event_type;
+
+use crate::node_service::relay::KademliaRelay;
+use crate::node_service::relay::Relay;
+use crate::node_service::relay::RelayEvent;
+
 mod identity;
 mod ping;
 mod relay;
-mod swarm_state;
-
-use crate::node_service::p2p::events::P2PNetworkEvents;
-use crate::node_service::p2p::swarm_state_behaviour::SwarmStateBehaviour;
-use crate::node_service::relay::{
-    behaviour::{NetworkState, PeerRelayLayerBehaviour},
-    events::RelayEvent,
-};
-use crate::{event_polling, generate_swarm_event_type};
-use libp2p::floodsub::{Floodsub, Topic};
-use libp2p::identify::Identify;
-use libp2p::identity::PublicKey;
-use libp2p::ping::{Ping, PingConfig};
-use libp2p::swarm::NetworkBehaviourAction;
-use libp2p::PeerId;
-use log::trace;
-use parity_multiaddr::Multiaddr;
-use serde_json;
-use std::collections::{HashSet, VecDeque};
 
 type SwarmEventType = generate_swarm_event_type!(NodeServiceBehaviour);
 
-/// Behaviour of the p2p layer that is responsible for keeping the network state actual and rules
-/// all other protocols of the Janus.
-#[derive(libp2p::NetworkBehaviour)]
+/// Coordinates protocols, so they can cooperate
+#[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll", out_event = "RelayEvent")]
 pub struct NodeServiceBehaviour {
     ping: Ping,
-    relay: PeerRelayLayerBehaviour,
+    relay: KademliaRelay,
     identity: Identify,
-    floodsub: Floodsub,
-    swarm_state: SwarmStateBehaviour,
-
-    #[behaviour(ignore)]
-    churn_topic: Topic,
-
-    #[behaviour(ignore)]
-    local_node_id: PeerId,
 
     /// Contains events that need to be propagate to external caller.
     #[behaviour(ignore)]
     events: VecDeque<SwarmEventType>,
-
-    // true, if a service's seen NodesMap event
-    #[behaviour(ignore)]
-    initialized: bool,
 }
 
 impl NodeServiceBehaviour {
-    pub fn new(
-        local_peer_id: PeerId,
-        local_public_key: PublicKey,
-        churn_topic: Topic,
-        node_service_port: u16,
-    ) -> Self {
+    pub fn new(local_peer_id: PeerId, local_public_key: PublicKey) -> Self {
         let ping = Ping::new(
             PingConfig::new()
                 .with_max_failures(unsafe { std::num::NonZeroU32::new_unchecked(10) })
                 .with_keep_alive(true),
         );
-        let relay = PeerRelayLayerBehaviour::new();
-        let mut floodsub = Floodsub::new(local_peer_id.clone());
+        let relay = KademliaRelay::new(local_peer_id);
         let identity = Identify::new("/janus/p2p/1.0.0".into(), "0.1.0".into(), local_public_key);
-        let swarm_state = SwarmStateBehaviour::new(node_service_port);
-
-        floodsub.subscribe(churn_topic.clone());
 
         Self {
             ping,
             relay,
             identity,
-            floodsub,
-            swarm_state,
-            churn_topic,
-            local_node_id: local_peer_id,
             events: VecDeque::new(),
-            initialized: false,
         }
     }
 
-    /// Sends peer_id and connected nodes to other network participants
-    ///
-    /// Currently uses floodsub protocol.
-    pub fn gossip_node_state(&mut self) {
-        let peer_ids = self
-            .relay
-            .connected_peers()
-            .iter()
-            .map(|peer| peer.as_bytes().to_vec())
-            .collect();
-
-        let message = P2PNetworkEvents::NodeConnected {
-            node_id: self.local_node_id.clone().into_bytes(),
-            peer_ids,
-        };
-
-        self.gossip_network_update(message);
+    /// Bootstraps the node. Currently, tells Kademlia to run bootstrapping lookup.
+    pub fn bootstrap(&mut self) {
+        self.relay.bootstrap();
     }
 
-    pub fn add_connected_peer(&mut self, peer_id: PeerId) {
+    pub fn add_local_peer(&mut self, peer_id: PeerId) {
         trace!(
             "node_service/p2p/behaviour: add connected peer {:?}",
             peer_id
         );
 
-        self.relay.add_local_peer(peer_id.clone());
-        self.relay.print_network_state();
-
-        let message = P2PNetworkEvents::PeersConnected {
-            node_id: self.local_node_id.clone().into_bytes(),
-            peer_ids: vec![peer_id.into_bytes()],
-        };
-
-        self.gossip_network_update(message);
+        self.relay.add_local_peer(peer_id);
     }
 
-    pub fn remove_connected_peer(&mut self, peer_id: PeerId) {
+    pub fn remove_local_peer(&mut self, peer_id: PeerId) {
         trace!(
             "node_service/p2p/behaviour: remove connected peer {:?}",
             peer_id
         );
 
         self.relay.remove_local_peer(&peer_id);
-        self.relay.print_network_state();
-
-        let message = P2PNetworkEvents::PeersDisconnected {
-            node_id: self.local_node_id.clone().into_bytes(),
-            peer_ids: vec![peer_id.into_bytes()],
-        };
-
-        self.gossip_network_update(message);
     }
 
     pub fn relay(&mut self, relay_message: RelayEvent) {
         self.relay.relay(relay_message);
     }
 
-    pub fn network_state(&self) -> &NetworkState {
-        self.relay.network_state()
-    }
-
     #[allow(dead_code)]
     pub fn exit(&mut self) {
         unimplemented!("need to decide how exactly NodeDisconnect message will be sent");
-    }
-
-    fn gossip_network_update(&mut self, message: P2PNetworkEvents) {
-        let message =
-            serde_json::to_vec(&message).expect("failed to convert gossip message to json");
-
-        self.floodsub.publish(self.churn_topic.clone(), message);
-    }
-
-    fn connect_to_node(&mut self, node_id: PeerId, node_addrs: Vec<Multiaddr>) {
-        use std::iter::FromIterator;
-
-        let addrs = HashSet::from_iter(node_addrs);
-        self.swarm_state.add_node_addresses(node_id.clone(), addrs);
-
-        self.events
-            .push_back(NetworkBehaviourAction::DialPeer { peer_id: node_id })
     }
 
     // produces RelayEvent

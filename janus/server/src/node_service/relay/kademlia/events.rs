@@ -14,8 +14,27 @@
  * limitations under the License.
  */
 
-mod behaviour;
-mod transport;
+use crate::node_service::relay::RelayEvent;
 
-pub use behaviour::NodeServiceBehaviour;
-pub use transport::build_transport;
+// TODO: get rid of InnerMessage by augmenting relay event
+#[derive(Debug)]
+pub enum InnerMessage {
+    Relay(RelayEvent),
+    // This is needed because UpgradeOutbound states OutType = ()
+    Sent,
+}
+
+impl From<RelayEvent> for InnerMessage {
+    #[inline]
+    fn from(event: RelayEvent) -> Self {
+        InnerMessage::Relay(event)
+    }
+}
+
+// TODO: Why, where is it needed? Is it really "sent", or has some other meaning? Wtf? :(
+impl From<()> for InnerMessage {
+    #[inline]
+    fn from(_: ()) -> Self {
+        InnerMessage::Sent
+    }
+}

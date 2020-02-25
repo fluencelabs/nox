@@ -15,20 +15,22 @@
  */
 
 use crate::connect_protocol::events::{InEvent, OutEvent};
-use janus_server::event_polling;
+use janus_server::{event_polling, generate_swarm_event_type};
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
-    swarm::{NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, ProtocolsHandler},
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, OneShotHandler},
     PeerId,
 };
 use log::trace;
 use std::collections::VecDeque;
 
+type SwarmEventType = generate_swarm_event_type!(ClientConnectProtocolBehaviour);
+
 pub struct ClientConnectProtocolBehaviour {
     /// Queue of received network messages from connected nodes
     /// that need to be handled during polling.
-    events: VecDeque<NetworkBehaviourAction<OutEvent, InEvent>>,
+    events: VecDeque<SwarmEventType>,
 }
 
 impl ClientConnectProtocolBehaviour {
@@ -52,15 +54,6 @@ impl ClientConnectProtocolBehaviour {
                 dst_id: dst.into_bytes(),
                 data: message,
             },
-        })
-    }
-
-    pub fn get_network_state(&mut self, relay: PeerId) {
-        trace!("client: getting network state from {:?}", relay);
-
-        self.events.push_back(NetworkBehaviourAction::SendEvent {
-            peer_id: relay,
-            event: OutEvent::GetNetworkState,
         })
     }
 }
@@ -93,11 +86,7 @@ impl NetworkBehaviour for ClientConnectProtocolBehaviour {
     }
 
     // produces InEvent events
-    event_polling!(
-        poll,
-        events,
-        NetworkBehaviourAction<<Self::ProtocolsHandler as ProtocolsHandler>::InEvent, Self::OutEvent>
-    );
+    event_polling!(poll, events, SwarmEventType);
 }
 
 /// Transmission between the OneShotHandler message type and the InNodeMessage message type.
