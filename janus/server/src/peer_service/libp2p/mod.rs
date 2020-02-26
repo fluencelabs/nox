@@ -17,7 +17,7 @@
 pub use peer_service::start_peer_service;
 pub use transport::build_transport;
 
-pub mod notifications;
+pub mod events;
 
 mod behaviour;
 mod connect_protocol;

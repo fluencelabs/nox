@@ -17,21 +17,21 @@
 use libp2p::PeerId;
 
 /// Describes inner events from a node service to a peer service
-/// (INcoming for peer service, hence InPeerNotification).
 #[derive(Clone, Debug, PartialEq)]
-pub enum InPeerNotification {
-    /// Relay message from a src peer to a dst peer.
-    Relay {
+pub enum ToPeerMsg {
+    /// Deliver data from to a dst peer.
+    Deliver {
+        // Peer that sent the data
         src_id: PeerId,
+        // Peer that should receive the data
         dst_id: PeerId,
         data: Vec<u8>,
     },
 }
 
 /// Describes inner events from peer service to node service
-/// (out of peer service, hence OutPeerNotification).
 #[derive(Clone, Debug, PartialEq)]
-pub enum OutPeerNotification {
+pub enum ToNodeMsg {
     /// Notifies that new peer that has been connected.
     PeerConnected { peer_id: PeerId },
 

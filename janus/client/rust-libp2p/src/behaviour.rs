@@ -15,7 +15,7 @@
  */
 
 use crate::connect_protocol::behaviour::ClientConnectProtocolBehaviour;
-use crate::connect_protocol::events::InEvent;
+use crate::connect_protocol::events::ToPeerEvent;
 use janus_server::{event_polling, generate_swarm_event_type};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
@@ -28,7 +28,7 @@ use std::collections::VecDeque;
 type SwarmEventType = generate_swarm_event_type!(ClientServiceBehaviour);
 
 #[derive(NetworkBehaviour)]
-#[behaviour(poll_method = "custom_poll", out_event = "InEvent")]
+#[behaviour(poll_method = "custom_poll", out_event = "ToPeerEvent")]
 pub struct ClientServiceBehaviour {
     ping: Ping,
     identity: Identify,
@@ -38,8 +38,8 @@ pub struct ClientServiceBehaviour {
     events: VecDeque<SwarmEventType>,
 }
 
-impl NetworkBehaviourEventProcess<InEvent> for ClientServiceBehaviour {
-    fn inject_event(&mut self, event: InEvent) {
+impl NetworkBehaviourEventProcess<ToPeerEvent> for ClientServiceBehaviour {
+    fn inject_event(&mut self, event: ToPeerEvent) {
         self.events
             .push_back(NetworkBehaviourAction::GenerateEvent(event));
     }
@@ -86,6 +86,6 @@ impl ClientServiceBehaviour {
         );
     }
 
-    // produces InEvent
+    // produces ToPeerEvent
     event_polling!(custom_poll, events, SwarmEventType);
 }

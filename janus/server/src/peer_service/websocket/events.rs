@@ -32,9 +32,7 @@ pub enum WebsocketEvent {
     },
 
     /// Send message when error occurred
-    Error {
-        err_msg: String,
-    },
+    Error(String),
     // TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
     Upgrade,
 }

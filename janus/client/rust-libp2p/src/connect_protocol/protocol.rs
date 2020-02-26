@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::events::{InEvent, OutEvent};
+use crate::connect_protocol::events::{ToNodeEvent, ToPeerEvent};
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
@@ -26,7 +26,7 @@ use std::pin::Pin;
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/janus/peer/1.0.0";
 
-impl UpgradeInfo for InEvent {
+impl UpgradeInfo for ToPeerEvent {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -35,18 +35,18 @@ impl UpgradeInfo for InEvent {
     }
 }
 
-impl<Socket> InboundUpgrade<Socket> for InEvent
+impl<Socket> InboundUpgrade<Socket> for ToPeerEvent
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    type Output = InEvent;
+    type Output = ToPeerEvent;
     type Error = failure::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
-            let relay_event: InEvent = serde_json::from_slice(&packet).unwrap();
+            let relay_event: ToPeerEvent = serde_json::from_slice(&packet).unwrap();
             socket.close().await?;
 
             Ok(relay_event)
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl UpgradeInfo for OutEvent {
+impl UpgradeInfo for ToNodeEvent {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -63,7 +63,7 @@ impl UpgradeInfo for OutEvent {
     }
 }
 
-impl<Socket> OutboundUpgrade<Socket> for OutEvent
+impl<Socket> OutboundUpgrade<Socket> for ToNodeEvent
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {

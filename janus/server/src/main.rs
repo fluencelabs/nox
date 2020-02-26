@@ -55,32 +55,34 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
+// Returns tuple of (node_service_exit_outlet, peer_service_exit_outlet)
 fn start_janus(
     config: JanusConfig,
 ) -> Result<(oneshot::Sender<()>, oneshot::Sender<()>), std::io::Error> {
     trace!("starting Janus");
 
-    // out_sender – to send events from node service to peer service
-    // out_receiver – to receive these events in peer service
-    let (out_sender, out_receiver) = mpsc::unbounded();
+    // peer_outlet  – to send events from node service to peer service
+    // peer_inlet   – to receive these events in peer service
+    let (peer_outlet, peer_inlet) = mpsc::unbounded();
 
-    // in_sender – to send events from peer service to node service
-    // in_receiver – to receive these events in node service
-    let (in_sender, in_receiver) = mpsc::unbounded();
+    // node_outlet  – to send events from peer service to node service
+    // node_inlet   – to receive these events in node service
+    let (node_outlet, node_inlet) = mpsc::unbounded();
 
-    let exit_sender = match config.node_service_config.client {
+    let peer_service_exit_outlet = match config.node_service_config.client {
         ClientType::Libp2p => {
-            libp2p::start_peer_service(config.peer_service_config, out_receiver, in_sender)
+            libp2p::start_peer_service(config.peer_service_config, peer_inlet, node_outlet)
         }
         ClientType::Websocket => {
-            websocket::start_peer_service(config.websocket_config, out_receiver, in_sender)
+            websocket::start_peer_service(config.websocket_config, peer_inlet, node_outlet)
         }
     };
 
     let node_service = NodeService::new(config.node_service_config);
-    let node_service_exit = node_service.start(in_receiver, out_sender);
+    let node_service_exit_outlet = node_service.start(node_inlet, peer_outlet);
 
-    Ok((node_service_exit, exit_sender))
+    // TODO: abstract away into Janus struct / trait
+    Ok((node_service_exit_outlet, peer_service_exit_outlet))
 }
 
 fn main() -> Result<(), ExitFailure> {
@@ -103,7 +105,7 @@ fn main() -> Result<(), ExitFailure> {
 
     println!("Janus is starting...");
 
-    let (node_service_exit, _peer_service_exit) = start_janus(config)?;
+    let (node_service_exit_outlet, _peer_service_exit_outlet) = start_janus(config)?;
 
     println!("Janus has been successfully started");
 
@@ -121,7 +123,7 @@ fn main() -> Result<(), ExitFailure> {
     println!("shutdown services");
 
     // shutting down node service leads to shutting down peer service by canceling the mpsc channel
-    node_service_exit.send(()).unwrap();
+    node_service_exit_outlet.send(()).unwrap();
 
     Ok(())
 }

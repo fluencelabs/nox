@@ -30,7 +30,7 @@ use crate::node_service::{
     p2p::{build_transport, NodeServiceBehaviour},
     relay::RelayEvent,
 };
-use crate::peer_service::libp2p::notifications::{InPeerNotification, OutPeerNotification};
+use crate::peer_service::libp2p::events::{ToNodeMsg, ToPeerMsg};
 
 type NodeServiceSwarm = Swarm<NodeServiceBehaviour>;
 
@@ -69,12 +69,12 @@ impl NodeService {
     }
 
     /// Starts node service
-    /// * `peer_service_out_receiver`   – channel for receiving notifications from peer service to node service
-    /// * `peer_service_in_sender`      – channel for sending notifications from node service to peer service
+    /// * `node_inlet`   – channel for receiving events from peer service to node service
+    /// * `peer_outlet`  – channel for sending events from node service to peer service
     pub fn start(
         mut self,
-        peer_service_out_receiver: mpsc::UnboundedReceiver<OutPeerNotification>,
-        peer_service_in_sender: mpsc::UnboundedSender<InPeerNotification>,
+        node_inlet: mpsc::UnboundedReceiver<ToNodeMsg>,
+        peer_outlet: mpsc::UnboundedSender<ToPeerMsg>,
     ) -> oneshot::Sender<()> {
         let (exit_sender, exit_receiver) = oneshot::channel();
 
@@ -82,8 +82,8 @@ impl NodeService {
         self.bootstrap();
 
         task::spawn(self.run_events_coordination(
-            peer_service_in_sender,
-            peer_service_out_receiver.fuse(),
+            peer_outlet,
+            node_inlet.fuse(),
             exit_receiver.into_stream().fuse(),
         ));
 
@@ -118,15 +118,16 @@ impl NodeService {
     /// swarm        => peer service
     ///
     /// Stops when message is received on `exit_receiver`
+    // TODO: will move swarm to heap or to stack, call @voronovm!
     #[inline]
     async fn run_events_coordination<U, T>(
         self,
-        peer_service_channel: mpsc::UnboundedSender<InPeerNotification>,
-        mut peer_service_notices: T,
+        peer_outlet: mpsc::UnboundedSender<ToPeerMsg>,
+        mut node_incoming_events: T,
         mut exit: U,
     ) -> std::result::Result<(), oneshot::Canceled>
     where
-        T: Unpin + FusedStream<Item = OutPeerNotification>,
+        T: Unpin + FusedStream<Item = ToNodeMsg>,
         U: Unpin + FusedStream,
     {
         // stream of RelayEvents
@@ -135,8 +136,8 @@ impl NodeService {
         loop {
             select! {
                 // Notice from peer service => swarm
-                from_peer = peer_service_notices.next() => {
-                    NodeService::handle_peer_notification(
+                from_peer = node_incoming_events.next() => {
+                    NodeService::handle_peer_event(
                         &mut swarm,
                         from_peer,
                     )
@@ -144,14 +145,14 @@ impl NodeService {
 
                 // swarm stream never ends
                 // RelayEvent from swarm => peer_service
-                from_swarm = swarm.select_next_some() => {
-                    trace!("node_service/select: sending {:?} to peer_service", from_swarm);
+                from_node = swarm.select_next_some() => {
+                    trace!("node_service/select: sending {:?} to peer_service", from_node);
 
-                    peer_service_channel
-                        .unbounded_send(InPeerNotification::Relay {
-                            src_id: PeerId::from_bytes(from_swarm.src_id).unwrap(),
-                            dst_id: PeerId::from_bytes(from_swarm.dst_id).unwrap(),
-                            data: from_swarm.data,
+                    peer_outlet
+                        .unbounded_send(ToPeerMsg::Deliver {
+                            src_id: PeerId::from_bytes(from_node.src_id).unwrap(),
+                            dst_id: PeerId::from_bytes(from_node.dst_id).unwrap(),
+                            data: from_node.data,
                         })
                         .unwrap();
                 },
@@ -164,20 +165,15 @@ impl NodeService {
         }
     }
 
-    /// Handles notifications from a peer service.
+    /// Handles events from a peer service.
     #[inline]
-    fn handle_peer_notification(
-        swarm: &mut NodeServiceSwarm,
-        notification: Option<OutPeerNotification>,
-    ) {
-        match notification {
-            Some(OutPeerNotification::PeerConnected { peer_id }) => swarm.add_local_peer(peer_id),
+    fn handle_peer_event(swarm: &mut NodeServiceSwarm, event: Option<ToNodeMsg>) {
+        match event {
+            Some(ToNodeMsg::PeerConnected { peer_id }) => swarm.add_local_peer(peer_id),
 
-            Some(OutPeerNotification::PeerDisconnected { peer_id }) => {
-                swarm.remove_local_peer(peer_id)
-            }
+            Some(ToNodeMsg::PeerDisconnected { peer_id }) => swarm.remove_local_peer(peer_id),
 
-            Some(OutPeerNotification::Relay {
+            Some(ToNodeMsg::Relay {
                 src_id,
                 dst_id,
                 data,

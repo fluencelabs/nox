@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::events::{InEvent, OutEvent};
+use crate::connect_protocol::events::{ToNodeEvent, ToPeerEvent};
 use janus_server::{event_polling, generate_swarm_event_type};
 use libp2p::{
     core::ConnectedPoint,
@@ -50,7 +50,7 @@ impl ClientConnectProtocolBehaviour {
 
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: relay,
-            event: OutEvent::Relay {
+            event: ToNodeEvent::Relay {
                 dst_id: dst.into_bytes(),
                 data: message,
             },
@@ -59,8 +59,8 @@ impl ClientConnectProtocolBehaviour {
 }
 
 impl NetworkBehaviour for ClientConnectProtocolBehaviour {
-    type ProtocolsHandler = OneShotHandler<InEvent, OutEvent, InnerMessage>;
-    type OutEvent = InEvent;
+    type ProtocolsHandler = OneShotHandler<ToPeerEvent, ToNodeEvent, InnerMessage>;
+    type OutEvent = ToPeerEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()
@@ -85,7 +85,7 @@ impl NetworkBehaviour for ClientConnectProtocolBehaviour {
         }
     }
 
-    // produces InEvent events
+    // produces ToPeerEvent events
     event_polling!(poll, events, SwarmEventType);
 }
 
@@ -93,15 +93,15 @@ impl NetworkBehaviour for ClientConnectProtocolBehaviour {
 #[derive(Debug)]
 pub enum InnerMessage {
     /// Message has been received from a remote.
-    Rx(InEvent),
+    Rx(ToPeerEvent),
 
     /// RelayMessage has been sent
     Tx,
 }
 
-impl From<InEvent> for InnerMessage {
+impl From<ToPeerEvent> for InnerMessage {
     #[inline]
-    fn from(in_message: InEvent) -> InnerMessage {
+    fn from(in_message: ToPeerEvent) -> InnerMessage {
         InnerMessage::Rx(in_message)
     }
 }

@@ -15,7 +15,7 @@
  */
 
 use crate::peer_service::libp2p::connect_protocol::behaviour::PeerConnectBehaviour;
-use crate::peer_service::libp2p::notifications::OutPeerNotification;
+use crate::peer_service::libp2p::events::ToNodeMsg;
 use crate::{event_polling, generate_swarm_event_type};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
@@ -28,7 +28,7 @@ use std::collections::VecDeque;
 type SwarmEventType = generate_swarm_event_type!(PeerServiceBehaviour);
 
 #[derive(NetworkBehaviour)]
-#[behaviour(poll_method = "custom_poll", out_event = "OutPeerNotification")]
+#[behaviour(poll_method = "custom_poll", out_event = "ToNodeMsg")]
 pub struct PeerServiceBehaviour {
     ping: Ping,
     identity: Identify,
@@ -38,8 +38,8 @@ pub struct PeerServiceBehaviour {
     events: VecDeque<SwarmEventType>,
 }
 
-impl NetworkBehaviourEventProcess<OutPeerNotification> for PeerServiceBehaviour {
-    fn inject_event(&mut self, event: OutPeerNotification) {
+impl NetworkBehaviourEventProcess<ToNodeMsg> for PeerServiceBehaviour {
+    fn inject_event(&mut self, event: ToNodeMsg) {
         self.events
             .push_back(NetworkBehaviourAction::GenerateEvent(event));
     }
@@ -76,7 +76,7 @@ impl PeerServiceBehaviour {
     }
 
     pub fn relay_message(&mut self, src: PeerId, dst: PeerId, message: Vec<u8>) {
-        self.peers.relay_message(src, dst, message);
+        self.peers.deliver_data(src, dst, message);
     }
 
     #[allow(dead_code)]
@@ -84,6 +84,6 @@ impl PeerServiceBehaviour {
         unimplemented!("need to decide how exactly NodeDisconnect message will be sent");
     }
 
-    // produces OutPeerNotification events
+    // produces ToNodeMsg events
     event_polling!(custom_poll, events, SwarmEventType);
 }

@@ -39,7 +39,7 @@ use serde_json;
 use janus_server::peer_service::libp2p::build_transport;
 
 use crate::behaviour::ClientServiceBehaviour;
-use crate::connect_protocol::events::InEvent;
+use crate::connect_protocol::events::ToPeerEvent;
 
 mod behaviour;
 mod connect_protocol;
@@ -113,12 +113,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             // swarm never ends
             from_swarm = swarm.select_next_some() => {
                 match from_swarm {
-                    InEvent::Relay { src_id, data } => {
+                    ToPeerEvent::Deliver { src_id, data } => {
                         let peer_id = PeerId::from_bytes(src_id).unwrap();
                         let message = String::from_utf8(data).unwrap();
                         println!("{}: {}", peer_id, message);
                     }
-                    InEvent::Upgrade => log::trace!("Upgraded? //TODO: remove that variant")
+                    ToPeerEvent::Upgrade => log::trace!("Upgraded? //TODO: remove that variant")
                 }
             })
         }

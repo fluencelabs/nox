@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// Describes network messages from a peer to current node (client -> server).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
-pub enum OutEvent {
+pub enum ToNodeEvent {
     /// Represents a message that should be relayed to given dst node.
     Relay { dst_id: Vec<u8>, data: Vec<u8> },
 }
@@ -27,9 +27,9 @@ pub enum OutEvent {
 /// Describes network message from current node to a peer (server -> client).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
-pub enum InEvent {
+pub enum ToPeerEvent {
     /// Message that should be relayed from src node to chosen dst node.
-    Relay {
+    Deliver {
         src_id: Vec<u8>,
         data: Vec<u8>,
     },
@@ -38,8 +38,8 @@ pub enum InEvent {
 }
 
 // TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
-impl Default for InEvent {
+impl Default for ToPeerEvent {
     fn default() -> Self {
-        InEvent::Upgrade
+        ToPeerEvent::Upgrade
     }
 }

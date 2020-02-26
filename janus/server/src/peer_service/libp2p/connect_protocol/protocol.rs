@@ -15,7 +15,7 @@
  */
 
 use crate::error::Error;
-use crate::peer_service::libp2p::connect_protocol::events::{InPeerEvent, OutPeerEvent};
+use crate::peer_service::libp2p::connect_protocol::events::{ToNodeNetworkMsg, ToPeerNetworkMsg};
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
@@ -26,7 +26,7 @@ use std::{io, iter, pin::Pin};
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/janus/peer/1.0.0";
 
-impl UpgradeInfo for InPeerEvent {
+impl UpgradeInfo for ToNodeNetworkMsg {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -35,18 +35,18 @@ impl UpgradeInfo for InPeerEvent {
     }
 }
 
-impl<Socket> InboundUpgrade<Socket> for InPeerEvent
+impl<Socket> InboundUpgrade<Socket> for ToNodeNetworkMsg
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    type Output = InPeerEvent;
+    type Output = ToNodeNetworkMsg;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
-            let relay_event: InPeerEvent = serde_json::from_slice(&packet).unwrap();
+            let relay_event: ToNodeNetworkMsg = serde_json::from_slice(&packet).unwrap();
 
             trace!(
                 "peer_service/connect_protocol/upgrade_inbound: received a new relay message {:?}",
@@ -59,7 +59,7 @@ where
     }
 }
 
-impl UpgradeInfo for OutPeerEvent {
+impl UpgradeInfo for ToPeerNetworkMsg {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -68,7 +68,7 @@ impl UpgradeInfo for OutPeerEvent {
     }
 }
 
-impl<Socket> OutboundUpgrade<Socket> for OutPeerEvent
+impl<Socket> OutboundUpgrade<Socket> for ToPeerNetworkMsg
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {

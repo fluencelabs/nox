@@ -16,8 +16,8 @@
 
 use crate::event_polling;
 use crate::generate_swarm_event_type;
-use crate::peer_service::libp2p::connect_protocol::events::{InPeerEvent, OutPeerEvent};
-use crate::peer_service::libp2p::notifications::OutPeerNotification;
+use crate::peer_service::libp2p::connect_protocol::events::{ToNodeNetworkMsg, ToPeerNetworkMsg};
+use crate::peer_service::libp2p::events::ToNodeMsg;
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -43,26 +43,26 @@ impl PeerConnectBehaviour {
         }
     }
 
-    pub fn relay_message(&mut self, src: PeerId, dst: PeerId, message: Vec<u8>) {
+    pub fn deliver_data(&mut self, src: PeerId, dst: PeerId, data: Vec<u8>) {
         trace!(
-            "peer_service/connect_protocol/behaviour: relaying message {:?} to {:?}",
-            message,
+            "peer_service/connect_protocol/behaviour: delivering data {:?} to {:?}",
+            data,
             dst
         );
 
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: dst,
-            event: OutPeerEvent::Relay {
+            event: ToPeerNetworkMsg::Deliver {
                 src_id: src.into_bytes(),
-                data: message,
+                data,
             },
         })
     }
 }
 
 impl NetworkBehaviour for PeerConnectBehaviour {
-    type ProtocolsHandler = OneShotHandler<InPeerEvent, OutPeerEvent, InnerMessage>;
-    type OutEvent = OutPeerNotification;
+    type ProtocolsHandler = OneShotHandler<ToNodeNetworkMsg, ToPeerNetworkMsg, InnerMessage>;
+    type OutEvent = ToNodeMsg;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()
@@ -79,7 +79,7 @@ impl NetworkBehaviour for PeerConnectBehaviour {
         );
 
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
-            OutPeerNotification::PeerConnected { peer_id },
+            ToNodeMsg::PeerConnected { peer_id },
         ));
     }
 
@@ -90,7 +90,7 @@ impl NetworkBehaviour for PeerConnectBehaviour {
         );
 
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
-            OutPeerNotification::PeerDisconnected {
+            ToNodeMsg::PeerDisconnected {
                 peer_id: peer_id.clone(),
             },
         ));
@@ -104,20 +104,21 @@ impl NetworkBehaviour for PeerConnectBehaviour {
 
         match event {
             InnerMessage::Rx(m) => match m {
-                InPeerEvent::Relay { dst_id, data } => self.events.push_back(
-                    NetworkBehaviourAction::GenerateEvent(OutPeerNotification::Relay {
-                        src_id: source,
-                        dst_id: PeerId::from_bytes(dst_id).unwrap(),
-                        data,
-                    }),
-                ),
-                InPeerEvent::Upgrade => {}
+                ToNodeNetworkMsg::Relay { dst_id, data } => {
+                    self.events
+                        .push_back(NetworkBehaviourAction::GenerateEvent(ToNodeMsg::Relay {
+                            src_id: source,
+                            dst_id: PeerId::from_bytes(dst_id).unwrap(),
+                            data,
+                        }))
+                }
+                ToNodeNetworkMsg::Upgrade => {}
             },
             InnerMessage::Tx => {}
         }
     }
 
-    // produces OutPeerNotification events
+    // produces ToNodeMsg events
     event_polling!(poll, events, SwarmEventType);
 }
 
@@ -125,15 +126,15 @@ impl NetworkBehaviour for PeerConnectBehaviour {
 #[derive(Debug)]
 pub enum InnerMessage {
     /// Message has been received from a remote.
-    Rx(InPeerEvent),
+    Rx(ToNodeNetworkMsg),
 
     /// RelayMessage has been sent
     Tx,
 }
 
-impl From<InPeerEvent> for InnerMessage {
+impl From<ToNodeNetworkMsg> for InnerMessage {
     #[inline]
-    fn from(in_node_message: InPeerEvent) -> InnerMessage {
+    fn from(in_node_message: ToNodeNetworkMsg) -> InnerMessage {
         InnerMessage::Rx(in_node_message)
     }
 }
