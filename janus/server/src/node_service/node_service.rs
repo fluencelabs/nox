@@ -81,7 +81,8 @@ impl NodeService {
         self.listen().expect("Error on starting listener");
         self.bootstrap();
 
-        task::spawn(self.run_events_coordination(
+        task::spawn(NodeService::run_events_coordination(
+            self.swarm,
             peer_outlet,
             node_inlet.fuse(),
             exit_receiver.into_stream().fuse(),
@@ -90,7 +91,7 @@ impl NodeService {
         exit_sender
     }
 
-    /// Starts node service listener
+    /// Starts node service listener.
     #[inline]
     fn listen(&mut self) -> Result<(), TransportError<io::Error>> {
         let mut listen_addr = Multiaddr::from(self.config.listen_ip);
@@ -99,7 +100,7 @@ impl NodeService {
         Swarm::listen_on(&mut self.swarm, listen_addr).map(|_| ())
     }
 
-    /// Dials bootstrap nodes, and then commands swarm to bootstrap itself
+    /// Dials bootstrap nodes, and then commands swarm to bootstrap itself.
     #[inline]
     fn bootstrap(&mut self) {
         for addr in &self.config.bootstrap_nodes {
@@ -117,26 +118,21 @@ impl NodeService {
     /// peer service => swarm
     /// swarm        => peer service
     ///
-    /// Stops when message is received on `exit_receiver`
-    // TODO: will move swarm to heap or to stack, call @voronovm!
+    /// Stops when a message is received on `exit_receiver`.
     #[inline]
     async fn run_events_coordination<U, T>(
-        self,
+        mut swarm: Box<NodeServiceSwarm>,
         peer_outlet: mpsc::UnboundedSender<ToPeerMsg>,
-        mut node_incoming_events: T,
+        mut node_incoming_event_stream: T,
         mut exit: U,
-    ) -> std::result::Result<(), oneshot::Canceled>
-    where
+    ) where
         T: Unpin + FusedStream<Item = ToNodeMsg>,
         U: Unpin + FusedStream,
     {
-        // stream of RelayEvents
-        let mut swarm = self.swarm;
-
         loop {
             select! {
                 // Notice from peer service => swarm
-                from_peer = node_incoming_events.next() => {
+                from_peer = node_incoming_event_stream.next() => {
                     NodeService::handle_peer_event(
                         &mut swarm,
                         from_peer,
@@ -159,7 +155,7 @@ impl NodeService {
 
                 // If any msg received on `exit`, then stop the loop
                 _ = exit.next() => {
-                    break Ok(())
+                    break
                 }
             }
         }
