@@ -25,7 +25,8 @@ env_logger = "0.7.1"
 void = "1.0.2"
 clap = "2.33.0"
 exitfailure = "0.5.1"
-ctrlc = "3.1.3"
+# the termination feature allows to handle both SIGTERM and SIGINT
+ctrlc = {version = "3.1.4", features = ["termination"]}
 async-tungstenite = "0.3.1"
 
 [dependencies.tungstenite]

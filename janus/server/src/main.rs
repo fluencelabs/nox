@@ -38,10 +38,6 @@ use futures::channel::{mpsc, oneshot};
 use log::trace;
 
 use std::collections::HashMap;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
 
 mod config;
 mod error;
@@ -69,7 +65,7 @@ fn main() -> Result<(), ExitFailure> {
     let janus = start_janus(janus_config)?;
 
     println!("Janus has been successfully started.\nWaiting for Ctrl-C for exit");
-    wait_ctrc(std::time::Duration::from_secs(2));
+    block_until_ctrlc();
 
     println!("shutdown services");
     janus.stop();
@@ -125,20 +121,22 @@ fn start_janus(config: JanusConfig) -> Result<impl Stoppable, std::io::Error> {
     })
 }
 
-// waits for Ctrl+C pressing on a keyboard
-// sleeps sleep_interval between checking of Ctrl+C being pressed
-fn wait_ctrc(sleep_interval: std::time::Duration) {
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
+// blocks until either SIGINT(Ctrl+C) or SIGTERM signals received
+fn block_until_ctrlc() {
+    let (ctrlc_inlet, ctrlc_outlet) = oneshot::channel();
+    let ctrlc_inlet = std::cell::RefCell::new(Some(ctrlc_inlet));
 
     ctrlc::set_handler(move || {
-        r.store(false, Ordering::SeqCst);
+        ctrlc_inlet
+            .borrow_mut()
+            .take()
+            .expect("ctrlc_inlet must be set")
+            .send(())
+            .expect("sending shutdown signal failed");
     })
-    .expect("Error setting Ctrl-C handler");
+    .expect("Error while setting ctrlc handler");
 
-    while running.load(Ordering::SeqCst) {
-        std::thread::sleep(sleep_interval);
-    }
+    async_std::task::block_on(ctrlc_outlet).expect("exit oneshot failed");
 }
 
 // generates config from arguments and a config file
