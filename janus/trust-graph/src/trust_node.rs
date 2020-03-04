@@ -1,0 +1,192 @@
+/*
+ * Copyright 2019 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use crate::public_key_hashable::PublicKeyHashable;
+use crate::revoke::Revoke;
+use crate::trust::Trust;
+use failure::_core::time::Duration;
+use libp2p_core::identity::ed25519::PublicKey;
+use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+enum TrustRelations {
+    AuthRel(Auth),
+    RevokeRel(Revoke),
+}
+
+/// Represents who give a certificate
+#[derive(Debug, Clone)]
+pub struct Auth {
+    /// proof of this authorization
+    pub trust: Trust,
+    /// the issuer of this authorization
+    pub issued_by: PublicKey,
+}
+
+/// An element of trust graph that store relations (trust or revoke)
+/// that given by some owners of public keys.
+#[derive(Debug)]
+pub struct TrustNode {
+    /// identity key of this element
+    pub pk: PublicKey,
+
+    /// one public key could be authorized or revoked by multiple certificates
+    trust_relations: HashMap<PublicKeyHashable, TrustRelations>,
+
+    /// for maintain
+    pub verified_at: Duration,
+}
+
+#[allow(dead_code)]
+impl TrustNode {
+    pub fn new(pk: PublicKey, verified_at: Duration) -> Self {
+        Self {
+            pk,
+            trust_relations: HashMap::new(),
+            verified_at,
+        }
+    }
+
+    pub fn get_auth(&self, pk: PublicKey) -> Option<Auth> {
+        match self.trust_relations.get(&pk.into()) {
+            Some(TrustRelations::AuthRel(auth)) => Some(auth.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn get_revoke(&self, pk: PublicKey) -> Option<Revoke> {
+        match self.trust_relations.get(&pk.into()) {
+            Some(TrustRelations::RevokeRel(rev)) => Some(rev.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn authorizations(&self) -> impl Iterator<Item = Auth> + '_ {
+        self.trust_relations.values().filter_map(|tr| {
+            if let TrustRelations::AuthRel(auth) = tr {
+                Some(auth.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn revocations(&self) -> impl Iterator<Item = Revoke> + '_ {
+        self.trust_relations.values().filter_map(|tr| {
+            if let TrustRelations::RevokeRel(revoke) = tr {
+                Some(revoke.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Adds authorization. If the trust node already has this authorization,
+    /// add auth with later expiration date.
+    pub fn authorize(&mut self, auth: Auth) {
+        let issued_by: PublicKeyHashable = auth.issued_by.clone().into();
+
+        match self.trust_relations.get(&issued_by) {
+            Some(TrustRelations::AuthRel(existed_auth)) => {
+                if existed_auth.trust.issued_at < auth.trust.issued_at {
+                    self.insert(issued_by, TrustRelations::AuthRel(auth))
+                }
+            }
+            Some(TrustRelations::RevokeRel(revoke)) => {
+                if revoke.revoked_at < auth.trust.issued_at {
+                    self.insert(issued_by, TrustRelations::AuthRel(auth))
+                }
+            }
+            None => self.insert(issued_by, TrustRelations::AuthRel(auth)),
+        };
+    }
+
+    // insert new trust relation, ignore if there is another one with same public key
+    fn insert(&mut self, pk: PublicKeyHashable, tr: TrustRelations) {
+        self.trust_relations.insert(pk, tr);
+    }
+
+    pub fn revoke(&mut self, revoke: Revoke) {
+        let revoked_by: PublicKeyHashable = revoke.revoked_by.clone().into();
+
+        match self.trust_relations.get(&revoked_by) {
+            Some(TrustRelations::AuthRel(auth)) => {
+                if auth.trust.issued_at < revoke.revoked_at {
+                    self.insert(revoked_by, TrustRelations::RevokeRel(revoke))
+                }
+            }
+            Some(TrustRelations::RevokeRel(existed_revoke)) => {
+                if existed_revoke.revoked_at < revoke.revoked_at {
+                    self.insert(revoked_by, TrustRelations::RevokeRel(revoke))
+                }
+            }
+            None => self.insert(revoked_by, TrustRelations::RevokeRel(revoke)),
+        };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::key_pair::KeyPair;
+    use std::time::Duration;
+
+    #[test]
+    fn test_auth_and_revoke_trust_node() {
+        let kp = KeyPair::generate();
+
+        let now = Duration::new(50, 0);
+        let past = Duration::new(5, 0);
+        let future = Duration::new(500, 0);
+
+        let mut trust_node = TrustNode {
+            pk: kp.show_public_key().clone(),
+            trust_relations: HashMap::new(),
+            verified_at: now,
+        };
+
+        let truster = KeyPair::generate();
+
+        let revoke = Revoke::create(&truster, kp.show_public_key(), now);
+
+        trust_node.revoke(revoke);
+
+        assert!(trust_node.get_revoke(truster.show_public_key()).is_some());
+
+        let old_trust = Trust::create(&truster, kp.show_public_key(), Duration::new(60, 0), past);
+
+        let old_auth = Auth {
+            trust: old_trust,
+            issued_by: truster.show_public_key(),
+        };
+
+        trust_node.authorize(old_auth);
+
+        assert!(trust_node.get_revoke(truster.show_public_key()).is_some());
+        assert!(trust_node.get_auth(truster.show_public_key()).is_none());
+
+        let trust = Trust::create(&truster, kp.show_public_key(), Duration::new(60, 0), future);
+        let auth = Auth {
+            trust,
+            issued_by: truster.show_public_key(),
+        };
+
+        trust_node.authorize(auth);
+
+        assert!(trust_node.get_auth(truster.show_public_key()).is_some());
+        assert!(trust_node.get_revoke(truster.show_public_key()).is_none());
+    }
+}

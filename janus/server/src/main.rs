@@ -44,7 +44,6 @@ mod error;
 mod misc;
 mod node_service;
 mod peer_service;
-mod trust;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");

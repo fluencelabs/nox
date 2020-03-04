@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-pub mod macros;
-
 use futures::channel::{mpsc, oneshot};
+
+pub mod macros;
 
 /// An input port of actor (aka Akka Inlet).
 /// Could be used to send MsgType messages in the actor.

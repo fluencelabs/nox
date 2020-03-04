@@ -14,7 +14,22 @@
  * limitations under the License.
  */
 
+#![recursion_limit = "512"]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
+
 mod certificate;
 mod key_pair;
+mod misc;
+mod public_key_hashable;
+mod revoke;
 mod trust;
 pub mod trust_graph;
+mod trust_node;

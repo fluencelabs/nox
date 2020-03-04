@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use libp2p::identity::ed25519::{Keypair as Libp2pKeyPair, PublicKey};
-use libp2p::identity::error::DecodingError;
+use libp2p_core::identity::ed25519::{Keypair as Libp2pKeyPair, PublicKey};
+use libp2p_core::identity::error::DecodingError;
 
 pub type Signature = Vec<u8>;
 
@@ -28,7 +28,7 @@ pub struct KeyPair {
 impl KeyPair {
     /// Generate a new Ed25519 keypair.
     #[allow(dead_code)]
-    pub fn generate() -> KeyPair {
+    pub fn generate() -> Self {
         let kp = Libp2pKeyPair::generate();
         kp.into()
     }
