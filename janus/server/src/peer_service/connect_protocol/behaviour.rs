@@ -16,8 +16,8 @@
 
 use crate::event_polling;
 use crate::generate_swarm_event_type;
-use crate::peer_service::libp2p::connect_protocol::events::{ToNodeNetworkMsg, ToPeerNetworkMsg};
-use crate::peer_service::libp2p::events::ToNodeMsg;
+use crate::peer_service::connect_protocol::events::{ToNodeNetworkMsg, ToPeerNetworkMsg};
+use crate::peer_service::events::ToNodeMsg;
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,

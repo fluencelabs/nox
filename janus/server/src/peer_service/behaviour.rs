@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-use crate::peer_service::libp2p::connect_protocol::behaviour::PeerConnectBehaviour;
-use crate::peer_service::libp2p::events::ToNodeMsg;
+use crate::peer_service::connect_protocol::behaviour::PeerConnectBehaviour;
+use crate::peer_service::events::ToNodeMsg;
 use crate::{event_polling, generate_swarm_event_type};
+
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
 use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::{NetworkBehaviour, PeerId};
 use log::debug;
+
 use std::collections::VecDeque;
 
 type SwarmEventType = generate_swarm_event_type!(PeerServiceBehaviour);

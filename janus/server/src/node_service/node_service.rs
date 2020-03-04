@@ -14,23 +14,24 @@
  * limitations under the License.
  */
 
-use std::io;
+use crate::config::config::NodeServiceConfig;
+use crate::misc::{Inlet, Outlet};
+use crate::node_service::{
+    p2p::{build_transport, NodeServiceBehaviour},
+    relay::RelayEvent,
+};
+use crate::peer_service::events::{ToNodeMsg, ToPeerMsg};
 
 use async_std::task;
 use futures::channel::{mpsc, oneshot};
-use futures::stream::FusedStream;
 use futures::{select, stream::StreamExt};
 use futures_util::future::FutureExt;
 use libp2p::{identity, PeerId, Swarm, TransportError};
 use log::{error, trace};
 use parity_multiaddr::{Multiaddr, Protocol};
 
-use crate::config::config::NodeServiceConfig;
-use crate::node_service::{
-    p2p::{build_transport, NodeServiceBehaviour},
-    relay::RelayEvent,
-};
-use crate::peer_service::libp2p::events::{ToNodeMsg, ToPeerMsg};
+use janus_server::misc::{OneshotInlet, OneshotOutlet};
+use std::io;
 
 type NodeServiceSwarm = Swarm<NodeServiceBehaviour>;
 
@@ -39,12 +40,13 @@ type NodeServiceSwarm = Swarm<NodeServiceBehaviour>;
 /// - Handle events from peers and send them to swarm
 /// - Proxy events from swarm to peer service
 pub struct NodeService {
-    swarm: Box<NodeServiceSwarm>,
+    swarm: NodeServiceSwarm,
     config: NodeServiceConfig,
+    inlet: Inlet<ToNodeMsg>,
 }
 
 impl NodeService {
-    pub fn new(config: NodeServiceConfig) -> Self {
+    pub fn new(config: NodeServiceConfig) -> (Box<Self>, Outlet<ToNodeMsg>) {
         let NodeServiceConfig {
             socket_timeout,
             key_pair,
@@ -62,30 +64,31 @@ impl NodeService {
             let transport = build_transport(local_key.clone(), socket_timeout);
             let behaviour = NodeServiceBehaviour::new(local_peer_id.clone(), local_key.public());
 
-            Box::new(Swarm::new(transport, behaviour, local_peer_id))
+            Swarm::new(transport, behaviour, local_peer_id)
         };
 
-        Self { swarm, config }
+        let (outlet, inlet) = mpsc::unbounded();
+        let node_service = Self {
+            swarm,
+            config,
+            inlet,
+        };
+
+        (Box::new(node_service), outlet)
     }
 
     /// Starts node service
-    /// * `node_inlet`   – channel for receiving events from peer service to node service
-    /// * `peer_outlet`  – channel for sending events from node service to peer service
-    pub fn start(
-        mut self,
-        node_inlet: mpsc::UnboundedReceiver<ToNodeMsg>,
-        peer_outlet: mpsc::UnboundedSender<ToPeerMsg>,
-    ) -> oneshot::Sender<()> {
+    /// * `peer_outlet`   – channel to send events to node service from peer service
+    pub fn start(mut self: Box<Self>, peer_outlet: Outlet<ToPeerMsg>) -> OneshotOutlet<()> {
         let (exit_sender, exit_receiver) = oneshot::channel();
 
-        self.listen().expect("Error on starting listener");
+        self.listen().expect("Error on starting node listener");
         self.bootstrap();
 
         task::spawn(NodeService::run_events_coordination(
-            self.swarm,
+            self,
             peer_outlet,
-            node_inlet.fuse(),
-            exit_receiver.into_stream().fuse(),
+            exit_receiver,
         ));
 
         exit_sender
@@ -118,21 +121,21 @@ impl NodeService {
     /// peer service => swarm
     /// swarm        => peer service
     ///
-    /// Stops when a message is received on `exit_receiver`.
+    /// Stops when a message is received on `exit_inlet`.
     #[inline]
-    async fn run_events_coordination<U, T>(
-        mut swarm: Box<NodeServiceSwarm>,
-        peer_outlet: mpsc::UnboundedSender<ToPeerMsg>,
-        mut node_incoming_event_stream: T,
-        mut exit: U,
-    ) where
-        T: Unpin + FusedStream<Item = ToNodeMsg>,
-        U: Unpin + FusedStream,
-    {
+    async fn run_events_coordination(
+        self: Box<Self>,
+        peer_outlet: Outlet<ToPeerMsg>,
+        exit_inlet: OneshotInlet<()>,
+    ) {
+        let mut swarm = self.swarm;
+        let mut node_inlet = self.inlet.fuse();
+        let mut exit_inlet = exit_inlet.into_stream().fuse();
+
         loop {
             select! {
                 // Notice from peer service => swarm
-                from_peer = node_incoming_event_stream.next() => {
+                from_peer = node_inlet.next() => {
                     NodeService::handle_peer_event(
                         &mut swarm,
                         from_peer,
@@ -141,20 +144,20 @@ impl NodeService {
 
                 // swarm stream never ends
                 // RelayEvent from swarm => peer_service
-                from_node = swarm.select_next_some() => {
-                    trace!("node_service/select: sending {:?} to peer_service", from_node);
+                from_swarm = swarm.select_next_some() => {
+                    trace!("node_service/select: sending {:?} to peer_service", from_swarm);
 
                     peer_outlet
                         .unbounded_send(ToPeerMsg::Deliver {
-                            src_id: PeerId::from_bytes(from_node.src_id).unwrap(),
-                            dst_id: PeerId::from_bytes(from_node.dst_id).unwrap(),
-                            data: from_node.data,
+                            src_id: PeerId::from_bytes(from_swarm.src_id).unwrap(),
+                            dst_id: PeerId::from_bytes(from_swarm.dst_id).unwrap(),
+                            data: from_swarm.data,
                         })
                         .unwrap();
                 },
 
                 // If any msg received on `exit`, then stop the loop
-                _ = exit.next() => {
+                _ = exit_inlet.next() => {
                     break
                 }
             }

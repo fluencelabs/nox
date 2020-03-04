@@ -15,11 +15,13 @@
  */
 
 use crate::error::Error;
-use crate::peer_service::libp2p::connect_protocol::events::{ToNodeNetworkMsg, ToPeerNetworkMsg};
+use crate::peer_service::connect_protocol::events::{ToNodeNetworkMsg, ToPeerNetworkMsg};
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
+
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
 use serde_json;
+
 use std::{io, iter, pin::Pin};
 
 // 1 Mb

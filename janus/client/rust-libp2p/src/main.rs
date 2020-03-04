@@ -36,7 +36,7 @@ use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use janus_server::peer_service::libp2p::build_transport;
+use janus_server::peer_service::build_transport;
 
 use crate::behaviour::ClientServiceBehaviour;
 use crate::connect_protocol::events::ToPeerEvent;

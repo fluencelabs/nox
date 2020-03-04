@@ -24,21 +24,13 @@ use std::time::Duration;
 
 pub const PEER_SERVICE_PORT: &str = "peer-service-port";
 pub const NODE_SERVICE_PORT: &str = "node-service-port";
-pub const CLIENT_TYPE: &str = "client-type";
 pub const SECRET_KEY: &str = "secret-key";
 pub const PEER_SECRET_KEY: &str = "peer-secret-key";
 pub const BOOTSTRAP_NODE: &str = "bootstrap-node";
 
 pub struct JanusConfig {
     pub node_service_config: NodeServiceConfig,
-    pub peer_service_config: Libp2pPeerServiceConfig,
-    pub websocket_config: WebsocketPeerServiceConfig,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum ClientType {
-    Libp2p,
-    Websocket,
+    pub peer_service_config: PeerServiceConfig,
 }
 
 #[derive(Clone)]
@@ -55,9 +47,6 @@ pub struct NodeServiceConfig {
     /// Bootstrap nodes to join to the Fluence network.
     pub bootstrap_nodes: Vec<Multiaddr>,
 
-    /// Service will use libp2p as a client.
-    pub client: ClientType,
-
     /// Key that will be used during peer id creation.
     pub key_pair: Option<Keypair>,
 }
@@ -69,14 +58,13 @@ impl Default for NodeServiceConfig {
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             bootstrap_nodes: vec![],
-            client: ClientType::Websocket,
             key_pair: None,
         }
     }
 }
 
 #[derive(Clone)]
-pub struct Libp2pPeerServiceConfig {
+pub struct PeerServiceConfig {
     /// Local port to listen on.
     pub listen_port: u16,
 
@@ -90,35 +78,13 @@ pub struct Libp2pPeerServiceConfig {
     pub key_pair: Option<Keypair>,
 }
 
-impl Default for Libp2pPeerServiceConfig {
+impl Default for PeerServiceConfig {
     fn default() -> Self {
         Self {
             listen_port: 9999,
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             key_pair: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct WebsocketPeerServiceConfig {
-    /// Local port to listen on.
-    pub listen_port: u16,
-
-    /// Local ip address to listen on.
-    pub listen_ip: IpAddr,
-
-    /// Socket timeout for main transport.
-    pub socket_timeout: Duration,
-}
-
-impl Default for WebsocketPeerServiceConfig {
-    fn default() -> Self {
-        Self {
-            listen_port: 8888,
-            listen_ip: "0.0.0.0".parse().unwrap(),
-            socket_timeout: Duration::from_secs(20),
         }
     }
 }
@@ -140,8 +106,7 @@ pub fn generate_config(
     config_from_file: HashMap<String, String>,
 ) -> Result<JanusConfig, failure::Error> {
     let mut node_service_config = NodeServiceConfig::default();
-    let mut peer_service_config = Libp2pPeerServiceConfig::default();
-    let mut websocket_config = WebsocketPeerServiceConfig::default();
+    let mut peer_service_config = PeerServiceConfig::default();
 
     let merge_by_name = |name| {
         arg_matches
@@ -152,24 +117,11 @@ pub fn generate_config(
     if let Some(peer_port) = merge_by_name(PEER_SERVICE_PORT) {
         let peer_port: u16 = u16::from_str(peer_port)?;
         peer_service_config.listen_port = peer_port;
-        websocket_config.listen_port = peer_port;
     }
 
     if let Some(node_port) = merge_by_name(NODE_SERVICE_PORT) {
         let node_port: u16 = u16::from_str(node_port)?;
         node_service_config.listen_port = node_port;
-    }
-
-    if let Some(client_type) = merge_by_name(CLIENT_TYPE) {
-        match client_type {
-            "websocket" => node_service_config.client = ClientType::Websocket,
-            "libp2p" => node_service_config.client = ClientType::Libp2p,
-            _ => {
-                return Err(failure::err_msg(
-                    "client type should be 'websocket' or 'libp2p'",
-                ))
-            }
-        }
     }
 
     if let Some(secret_key_str) = merge_by_name(SECRET_KEY) {
@@ -188,6 +140,5 @@ pub fn generate_config(
     Ok(JanusConfig {
         node_service_config,
         peer_service_config,
-        websocket_config,
     })
 }

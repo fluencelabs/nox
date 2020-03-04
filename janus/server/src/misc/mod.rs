@@ -15,3 +15,21 @@
  */
 
 pub mod macros;
+
+use futures::channel::{mpsc, oneshot};
+
+/// An input port of actor (aka Akka Inlet).
+/// Could be used to send MsgType messages in the actor.
+pub type Inlet<MsgType> = mpsc::UnboundedReceiver<MsgType>;
+
+/// An output port of actor (aka Akka Outlet).
+/// Could be used to receive MsgType messages from the actor.
+pub type Outlet<MsgType> = mpsc::UnboundedSender<MsgType>;
+
+/// An oneshot input port of actor (aka Akka Inlet).
+/// Could be used to gracefully shutting down of the actor.
+pub type OneshotInlet<MsgType> = oneshot::Receiver<MsgType>;
+
+/// An oneshot output port of actor (aka Akka Outlet).
+/// Could be used to gracefully shutting down of the actor.
+pub type OneshotOutlet<MsgType> = oneshot::Sender<MsgType>;

@@ -14,5 +14,12 @@
  * limitations under the License.
  */
 
-pub mod libp2p;
-pub mod websocket;
+pub use peer_service::PeerService;
+pub use transport::build_transport;
+
+pub mod events;
+
+mod behaviour;
+mod connect_protocol;
+mod peer_service;
+mod transport;

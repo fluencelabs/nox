@@ -17,18 +17,13 @@
 use crate::config::config::*;
 use clap::Arg;
 
-pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 6] {
+pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 5] {
     [
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
             .short("o")
             .default_value("9999")
             .help("port that will be used by the peer service"),
-        Arg::with_name(CLIENT_TYPE)
-            .takes_value(true)
-            .short("c")
-            .default_value("websocket")
-            .help("client's endpoint type: websocket, libp2p"),
         Arg::with_name(SECRET_KEY)
             .takes_value(true)
             .short("s")

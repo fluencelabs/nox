@@ -25,16 +25,16 @@
     unreachable_patterns
 )]
 
-use crate::config::config::{ClientType, JanusConfig};
+use crate::config::config::JanusConfig;
 use crate::node_service::NodeService;
-use crate::peer_service::{libp2p, websocket};
+use crate::peer_service::PeerService;
 
 use ::config as fileconfig;
 use clap::{App, ArgMatches};
 use ctrlc;
 use env_logger;
 use exitfailure::ExitFailure;
-use futures::channel::{mpsc, oneshot};
+use futures::channel::oneshot;
 use log::trace;
 
 use std::collections::HashMap;
@@ -81,29 +81,14 @@ trait Stoppable {
 fn start_janus(config: JanusConfig) -> Result<impl Stoppable, std::io::Error> {
     trace!("starting Janus");
 
-    // peer_outlet  – to send events from node service to peer service
-    // peer_inlet   – to receive these events in peer service
-    let (peer_outlet, peer_inlet) = mpsc::unbounded();
+    let (peer_service, peer_outlet) = PeerService::new(config.peer_service_config);
+    let (node_service, node_outlet) = NodeService::new(config.node_service_config);
 
-    // node_outlet  – to send events from peer service to node service
-    // node_inlet   – to receive these events in node service
-    let (node_outlet, node_inlet) = mpsc::unbounded();
-
-    let peer_exit_outlet = match config.node_service_config.client {
-        ClientType::Libp2p => {
-            libp2p::start_peer_service(config.peer_service_config, peer_inlet, node_outlet)
-        }
-        ClientType::Websocket => {
-            websocket::start_peer_service(config.websocket_config, peer_inlet, node_outlet)
-        }
-    };
-
-    let node_service = NodeService::new(config.node_service_config);
-    let node_exit_outlet = node_service.start(node_inlet, peer_outlet);
+    let peer_exit_outlet = peer_service.start(node_outlet);
+    let node_exit_outlet = node_service.start(peer_outlet);
 
     struct Janus {
         node_exit_outlet: oneshot::Sender<()>,
-        #[allow(dead_code)]
         peer_exit_outlet: oneshot::Sender<()>,
     }
 
@@ -123,20 +108,20 @@ fn start_janus(config: JanusConfig) -> Result<impl Stoppable, std::io::Error> {
 
 // blocks until either SIGINT(Ctrl+C) or SIGTERM signals received
 fn block_until_ctrlc() {
-    let (ctrlc_inlet, ctrlc_outlet) = oneshot::channel();
-    let ctrlc_inlet = std::cell::RefCell::new(Some(ctrlc_inlet));
+    let (ctrlc_outlet, ctrlc_inlet) = oneshot::channel();
+    let ctrlc_outlet = std::cell::RefCell::new(Some(ctrlc_outlet));
 
     ctrlc::set_handler(move || {
-        ctrlc_inlet
+        ctrlc_outlet
             .borrow_mut()
             .take()
-            .expect("ctrlc_inlet must be set")
+            .expect("ctrlc_outlet must be set")
             .send(())
             .expect("sending shutdown signal failed");
     })
     .expect("Error while setting ctrlc handler");
 
-    async_std::task::block_on(ctrlc_outlet).expect("exit oneshot failed");
+    async_std::task::block_on(ctrlc_inlet).expect("exit oneshot failed");
 }
 
 // generates config from arguments and a config file
