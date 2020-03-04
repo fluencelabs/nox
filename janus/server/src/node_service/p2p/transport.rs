@@ -15,7 +15,7 @@
  */
 
 use libp2p::{
-    core::{self, muxing::StreamMuxerBox, transport::boxed::Boxed},
+    core::{self, muxing::StreamMuxer},
     identity::Keypair,
     mplex::MplexConfig,
     secio::SecioConfig,
@@ -23,16 +23,30 @@ use libp2p::{
     yamux::Config as YamuxConfig,
     PeerId, Transport,
 };
-use std::io::{Error, ErrorKind};
 use std::time::Duration;
-
-pub(crate) type NodeServiceTransport = Boxed<(PeerId, StreamMuxerBox), Error>;
 
 /// Creates transport that is common for all connections.
 ///
 /// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
 /// the multiplexing layer.
-pub fn build_transport(keys: Keypair, socket_timeout: Duration) -> NodeServiceTransport {
+pub fn build_transport(
+    keys: Keypair,
+    socket_timeout: Duration,
+) -> impl Transport<
+    Output = (
+        PeerId,
+        impl StreamMuxer<
+                OutboundSubstream = impl Send,
+                Substream = impl Send,
+                Error = impl Into<std::io::Error>,
+            > + Send
+            + Sync,
+    ),
+    Error = impl std::error::Error + Send,
+    Listener = impl Send,
+    Dial = impl Send,
+    ListenerUpgrade = impl Send,
+> + Clone {
     TcpConfig::new()
         .nodelay(true)
         .upgrade(core::upgrade::Version::V1)
@@ -43,8 +57,5 @@ pub fn build_transport(keys: Keypair, socket_timeout: Duration) -> NodeServiceTr
                 YamuxConfig::default(),
             ),
         )
-        .map(|(peer, muxer), _| (peer, StreamMuxerBox::new(muxer)))
         .timeout(socket_timeout)
-        .map_err(|err| Error::new(ErrorKind::Other, err))
-        .boxed()
 }

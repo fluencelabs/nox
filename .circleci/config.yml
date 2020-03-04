@@ -13,15 +13,13 @@ jobs:
             - janus01-{{ checksum "janus/server/Cargo.toml" }}
       - run: |
           cd janus/
-          rustup toolchain install nightly-2020-01-16
-          rustup default nightly-2020-01-16
-          rustup override set nightly-2020-01-16
+          rustup toolchain install stable
           rustup component add rustfmt
           rustup component add clippy
           cargo fmt --all -- --check --color always
           cargo build -v --all-features
           cargo test -v --all-features
-          cargo clippy -v -- -A clippy::mutable_key_type
+          cargo clippy -v
       - save_cache:
           paths:
             - ~/.cargo

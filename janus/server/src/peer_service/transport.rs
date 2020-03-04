@@ -25,27 +25,28 @@ use libp2p::{
 
 use std::time::Duration;
 
-pub(crate) type PeerServiceTransport = impl Transport<
-        Output = (
-            PeerId,
-            impl StreamMuxer<
-                    OutboundSubstream = impl Send,
-                    Substream = impl Send,
-                    Error = impl Into<std::io::Error>,
-                > + Send
-                + Sync,
-        ),
-        Error = impl std::error::Error + Send,
-        Listener = impl Send,
-        Dial = impl Send,
-        ListenerUpgrade = impl Send,
-    > + Clone;
-
 /// Creates transport that is common for all connections.
 ///
 /// Transport is based on Websocket over TCP with SECIO as the encryption layer and
 /// MPLEX or YAMUX as the multiplexing layer.
-pub fn build_transport(keys: Keypair, socket_timeout: Duration) -> PeerServiceTransport {
+pub fn build_transport(
+    keys: Keypair,
+    socket_timeout: Duration,
+) -> impl Transport<
+    Output = (
+        PeerId,
+        impl StreamMuxer<
+                OutboundSubstream = impl Send,
+                Substream = impl Send,
+                Error = impl Into<std::io::Error>,
+            > + Send
+            + Sync,
+    ),
+    Error = impl std::error::Error + Send,
+    Listener = impl Send,
+    Dial = impl Send,
+    ListenerUpgrade = impl Send,
+> + Clone {
     let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::websocket::WsConfig::new(libp2p::dns::DnsConfig::new(tcp).unwrap());
     let secio = SecioConfig::new(keys);
