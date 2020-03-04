@@ -3,29 +3,29 @@ Pluggable relay infrastructure for p2p-enabled applications.
 
 ## How to build
 
-```rust
+```bash
 make
 ```
 
 ## How to run
 
 Run server:
-```rust
+```bash
 make server
 ```
 
 Run server with debug logs:
-```rust
+```bash
 make server-debug
 ``` 
 
 Run client:
-```rust
+```bash
 make client
 ```
 
 Run client with debug logs:
-```rust
+```bash
 make client-debug args="multiaddr peer_id"
 ```
 

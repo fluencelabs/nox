@@ -1,24 +1,33 @@
 {
   "name": "fluence-js-libp2p-client",
-  "version": "1.0.0",
-  "description": "a js-libp2p client for the Fluence network",
-  "main": "run.js",
+  "version": "1.0.1",
+  "description": "the browser js-libp2p client for the Fluence network",
+  "main": "src/main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "webpack-dev-server --open ./dist/index.html",
+    "build": "webpack"
   },
-  "author": "Fluence labs",
+  "author": "Fluence Labs",
   "license": "Apache 2.0",
   "dependencies": {
     "@nodeutils/defaults-deep": "^1.1.0",
-    "async": "^3.1.1",
+    "async": "^3.2.0",
     "cids": "^0.7.3",
+    "it-length-prefixed": "^3.0.0",
+    "it-pipe": "^1.1.0",
     "libp2p": "^0.27.3",
     "libp2p-mplex": "^0.9.4",
-    "libp2p-secio": "fluencelabs/js-libp2p-secio#fix/no_peer_check",
-    "libp2p-tcp": "^0.14.3",
-    "peer-info": "^0.17.5",
     "libp2p-ping": "^0.8.5",
+    "libp2p-secio": "fluencelabs/js-libp2p-secio#fix/no_peer_check",
+    "libp2p-tcp": "^0.14.4",
+    "libp2p-websockets": "^0.13.5",
     "peer-id": "^0.13.9",
-    "it-pipe": "^1.1.0"
+    "peer-info": "^0.17.5"
+  },
+  "devDependencies": {
+    "webpack": "^4.41.6",
+    "webpack-dev-server": "^3.8.0",
+    "webpack-cli": "^3.1.2"
   }
 }

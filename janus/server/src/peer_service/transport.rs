@@ -15,37 +15,48 @@
  */
 
 use libp2p::{
-    core::{self, muxing::StreamMuxerBox, transport::boxed::Boxed},
+    core::{self, muxing::StreamMuxer},
     identity::Keypair,
     mplex::MplexConfig,
     secio::SecioConfig,
-    tcp::TcpConfig,
     yamux::Config as YamuxConfig,
     PeerId, Transport,
 };
 
-use std::io::{Error, ErrorKind};
 use std::time::Duration;
 
-pub(crate) type PeerServiceTransport = Boxed<(PeerId, StreamMuxerBox), Error>;
+pub(crate) type PeerServiceTransport = impl Transport<
+        Output = (
+            PeerId,
+            impl StreamMuxer<
+                    OutboundSubstream = impl Send,
+                    Substream = impl Send,
+                    Error = impl Into<std::io::Error>,
+                > + Send
+                + Sync,
+        ),
+        Error = impl std::error::Error + Send,
+        Listener = impl Send,
+        Dial = impl Send,
+        ListenerUpgrade = impl Send,
+    > + Clone;
 
 /// Creates transport that is common for all connections.
 ///
-/// Transport is based on TCP with SECIO as the encryption layer and MPLEX or YAMUX as
-/// the multiplexing layer.
+/// Transport is based on Websocket over TCP with SECIO as the encryption layer and
+/// MPLEX or YAMUX as the multiplexing layer.
 pub fn build_transport(keys: Keypair, socket_timeout: Duration) -> PeerServiceTransport {
-    TcpConfig::new()
-        .nodelay(true)
-        .upgrade(core::upgrade::Version::V1)
-        .authenticate(SecioConfig::new(keys))
+    let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
+    let transport = libp2p::websocket::WsConfig::new(libp2p::dns::DnsConfig::new(tcp).unwrap());
+    let secio = SecioConfig::new(keys);
+    transport
+        .upgrade(libp2p::core::upgrade::Version::V1)
+        .authenticate(secio)
         .multiplex(
             core::upgrade::SelectUpgrade::<MplexConfig, YamuxConfig>::new(
                 MplexConfig::default(),
                 YamuxConfig::default(),
             ),
         )
-        .map(|(peer, muxer), _| (peer, StreamMuxerBox::new(muxer)))
         .timeout(socket_timeout)
-        .map_err(|err| Error::new(ErrorKind::Other, err))
-        .boxed()
 }

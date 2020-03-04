@@ -100,6 +100,7 @@ impl PeerService {
     fn listen(&mut self) -> Result<(), TransportError<io::Error>> {
         let mut listen_addr = Multiaddr::from(self.config.listen_ip);
         listen_addr.push(Protocol::Tcp(self.config.listen_port));
+        listen_addr.push(Protocol::Ws(std::borrow::Cow::Borrowed("/")));
 
         Swarm::listen_on(&mut self.swarm, listen_addr).map(|_| ())
     }
