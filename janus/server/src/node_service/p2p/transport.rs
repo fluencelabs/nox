@@ -17,7 +17,6 @@
 use libp2p::{
     core::{self, muxing::StreamMuxer},
     identity::Keypair,
-    mplex::MplexConfig,
     secio::SecioConfig,
     tcp::TcpConfig,
     yamux::Config as YamuxConfig,
@@ -51,11 +50,6 @@ pub fn build_transport(
         .nodelay(true)
         .upgrade(core::upgrade::Version::V1)
         .authenticate(SecioConfig::new(keys))
-        .multiplex(
-            core::upgrade::SelectUpgrade::<MplexConfig, YamuxConfig>::new(
-                MplexConfig::default(),
-                YamuxConfig::default(),
-            ),
-        )
+        .multiplex(YamuxConfig::default())
         .timeout(socket_timeout)
 }

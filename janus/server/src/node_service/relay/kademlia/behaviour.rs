@@ -32,7 +32,7 @@ use libp2p::swarm::OneShotHandler;
 use libp2p::swarm::PollParameters;
 use libp2p::swarm::ProtocolsHandler;
 use libp2p::PeerId;
-use log::error;
+use log::{debug, error, trace};
 
 use crate::node_service::relay::kademlia::{KademliaRelay, SwarmEventType};
 use crate::node_service::relay::{
@@ -71,7 +71,10 @@ impl NetworkBehaviour for KademliaRelay {
 
         match event {
             First(InnerMessage::Relay(relay)) => self.relay(relay),
-            Second(kademlia_event) => self.kademlia.inject_node_event(source, kademlia_event),
+            Second(kademlia_event) => {
+                trace!("Kademlia: {:?}", kademlia_event);
+                self.kademlia.inject_node_event(source, kademlia_event)
+            }
             _ => {}
         }
     }
@@ -113,6 +116,8 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for KademliaRelay {
     fn inject_event(&mut self, event: KademliaEvent) {
         use libp2p::kad::GetProvidersOk;
         use KademliaEvent::GetProvidersResult;
+
+        debug!("Kademlia inject: {:?}", event);
 
         // TODO: handle GetProvidersErr
         if let GetProvidersResult(Ok(GetProvidersOk { key, providers, .. })) = event {

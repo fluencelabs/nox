@@ -24,13 +24,14 @@ use libp2p::kad::Kademlia;
 use libp2p::kad::KademliaConfig;
 use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::PeerId;
-use log::trace;
+use log::{debug, error};
 
 // Reimport
 pub use behaviour::*;
 
 use crate::generate_swarm_event_type;
 use crate::node_service::relay::RelayEvent;
+use failure::_core::time::Duration;
 
 mod behaviour;
 mod events;
@@ -56,7 +57,9 @@ pub struct KademliaRelay {
 // TODO: move public methods to a trait
 impl KademliaRelay {
     pub fn new(peer_id: PeerId) -> Self {
-        let cfg = KademliaConfig::default();
+        let mut cfg = KademliaConfig::default();
+        cfg.set_query_timeout(Duration::from_secs(5))
+            .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap());
         let store = MemoryStore::new(peer_id.clone());
 
         Self {
@@ -68,20 +71,26 @@ impl KademliaRelay {
     }
 
     /// Try to relay `event` to a locally connected peer
-    /// Returns `true` if peer was found locally, `false` otherwise
-    pub fn relay_local(&mut self, event: RelayEvent) -> bool {
+    /// Returns `Some(event)` if peer was not found locally, `None` otherwise
+    pub fn relay_local(&mut self, event: RelayEvent) -> Option<RelayEvent> {
         use libp2p::swarm::NetworkBehaviourAction::GenerateEvent;
 
-        if let Ok(dst_id) = PeerId::from_bytes(event.dst_id.clone()) {
-            if !self.peers.contains(&dst_id) {
-                // We were asked to relay a message to the local peer we don't have a connection to
-                return false;
+        match PeerId::from_bytes(event.dst_id.clone()) {
+            Ok(dst_peer) => {
+                if !self.peers.contains(&dst_peer) {
+                    // We were asked to relay a message to the local peer we don't have a connection to
+                    return Some(event);
+                }
+                debug!("relay local to {}", dst_peer.to_base58());
+                self.events.push_back(GenerateEvent(event));
+            }
+            Err(_err) => {
+                error!("Error parsing PeerId from dst_id");
+                return Some(event); // TODO: return error to the src_id
             }
         }
 
-        self.events.push_back(GenerateEvent(event));
-
-        true
+        None
     }
 
     /// Enqueue `event` to be sent, and start looking for nodes providing destination peer
@@ -89,16 +98,18 @@ impl KademliaRelay {
     pub fn relay_remote(&mut self, event: RelayEvent) {
         let dst_id = event.dst_id.clone();
         // TODO: Get rid of this Result or escalate error
-        let peer_id: PeerId = dst_id.try_into().expect("dst_id is not a correct PeerId");
+        let dst_peer: PeerId = dst_id.try_into().expect("dst_id is not a correct PeerId");
+
+        debug!("relay remote to {}", dst_peer.to_base58());
 
         self.messages
-            .entry(peer_id.clone())
+            .entry(dst_peer.clone())
             .or_insert_with(VecDeque::new)
             .push_back(event);
 
         // TODO: move peer_id => base58 => bytes serialization to a separate trait
         // base58 string is used here to mitigate equality issues of PeerId byte representation
-        let key = peer_id.to_base58().as_bytes().to_vec().into();
+        let key = dst_peer.to_base58().as_bytes().to_vec().into();
         self.kademlia.get_providers(key);
     }
 
@@ -106,7 +117,7 @@ impl KademliaRelay {
     /// Schedules a recurring task; usually called on when new peer connected locally
     /// TODO: currently doesn't work on network of 2 nodes, works only on 3+
     pub fn announce_peer(&mut self, peer_id: PeerId) {
-        trace!("Announcing peer {}", peer_id.to_base58());
+        debug!("Announcing peer {}", peer_id.to_base58());
 
         let key: KademliaKey = peer_id.to_base58().as_bytes().to_vec().into();
         self.kademlia.start_providing(key);
@@ -116,7 +127,7 @@ impl KademliaRelay {
 
     /// Reverse of `announce_peer`: stop announcing the `peer_id`. Usually called on peer disconnection.
     pub fn bury_peer(&mut self, peer_id: &PeerId) {
-        trace!("Buried peer {}", peer_id.to_base58());
+        debug!("Buried peer {}", peer_id.to_base58());
 
         self.peers.remove(peer_id);
 
@@ -130,9 +141,16 @@ impl KademliaRelay {
             if let Some(msg_queue) = self.messages.get_mut(&dst) {
                 let events = msg_queue
                     .drain(..) // NOTE: clears out the queue
-                    .map(|event| NetworkBehaviourAction::SendEvent {
-                        peer_id: node.clone(),
-                        event: EitherOutput::First(event),
+                    .map(|event| {
+                        debug!(
+                            "Relaying to peer {:?} via node {}",
+                            dst.to_base58(),
+                            node.to_base58()
+                        );
+                        NetworkBehaviourAction::SendEvent {
+                            peer_id: node.clone(),
+                            event: EitherOutput::First(event),
+                        }
                     });
                 self.events.extend(events);
             }

@@ -105,8 +105,9 @@ impl TrustGraph {
     fn weight_inner(
         &self,
         pk: PublicKey,
-        mut marked: HashSet<PublicKeyHashable>,
+        marked: HashSet<PublicKeyHashable>,
     ) -> (Option<Weight>, HashSet<PublicKeyHashable>) {
+        let mut marked = marked;
         marked.insert(pk.clone().into());
         match self.nodes.get(&pk.clone().into()) {
             Some(node) => {

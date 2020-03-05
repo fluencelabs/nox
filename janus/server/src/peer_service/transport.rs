@@ -15,11 +15,7 @@
  */
 
 use libp2p::{
-    core::{self, muxing::StreamMuxer},
-    identity::Keypair,
-    mplex::MplexConfig,
-    secio::SecioConfig,
-    yamux::Config as YamuxConfig,
+    core::muxing::StreamMuxer, identity::Keypair, secio::SecioConfig, yamux::Config as YamuxConfig,
     PeerId, Transport,
 };
 
@@ -48,16 +44,15 @@ pub fn build_transport(
     ListenerUpgrade = impl Send,
 > + Clone {
     let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
-    let transport = libp2p::websocket::WsConfig::new(libp2p::dns::DnsConfig::new(tcp).unwrap());
+    let transport = libp2p::websocket::WsConfig::new(
+        // libp2p::dns::DnsConfig::new(tcp).expect("Can't build DnsConfig"),
+        tcp,
+    );
     let secio = SecioConfig::new(keys);
+
     transport
         .upgrade(libp2p::core::upgrade::Version::V1)
         .authenticate(secio)
-        .multiplex(
-            core::upgrade::SelectUpgrade::<MplexConfig, YamuxConfig>::new(
-                MplexConfig::default(),
-                YamuxConfig::default(),
-            ),
-        )
+        .multiplex(YamuxConfig::default())
         .timeout(socket_timeout)
 }

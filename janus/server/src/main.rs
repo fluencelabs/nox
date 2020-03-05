@@ -41,7 +41,7 @@ use std::collections::HashMap;
 
 mod config;
 mod error;
-mod misc;
+pub mod misc;
 mod node_service;
 mod peer_service;
 

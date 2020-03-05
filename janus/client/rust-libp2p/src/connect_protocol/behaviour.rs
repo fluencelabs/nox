@@ -42,7 +42,7 @@ impl ClientConnectProtocolBehaviour {
 
     pub fn send_message(&mut self, relay: PeerId, dst: PeerId, message: Vec<u8>) {
         trace!(
-            "client: sending message {:?} to {:?}  by relay peer {:?}",
+            "client: sending message {:?} to {:?} via relay peer {:?}",
             message,
             dst,
             relay
