@@ -49,7 +49,7 @@ impl KeyPair {
 
     /// Get the public key of this keypair.
     #[allow(dead_code)]
-    pub fn show_public_key(&self) -> PublicKey {
+    pub fn public_key(&self) -> PublicKey {
         self.key_pair.public()
     }
 
@@ -59,8 +59,12 @@ impl KeyPair {
     }
 
     /// Verify the Ed25519 signature on a message using the public key.
-    pub fn verify(pk: &PublicKey, msg: &[u8], signature: &[u8]) -> bool {
-        pk.verify(msg, signature)
+    pub fn verify(pk: &PublicKey, msg: &[u8], signature: &[u8]) -> Result<(), String> {
+        if pk.verify(msg, signature) {
+            return Ok(());
+        }
+
+        Err("Signature is not valid.".to_string())
     }
 }
 

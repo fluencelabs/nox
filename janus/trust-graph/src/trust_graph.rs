@@ -19,6 +19,8 @@ use crate::public_key_hashable::PublicKeyHashable;
 use crate::revoke::Revoke;
 use crate::trust_node::{Auth, TrustNode};
 use libp2p_core::identity::ed25519::PublicKey;
+use std::collections::hash_map::Entry;
+use std::collections::hash_map::Entry::Occupied;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::time::Duration;
@@ -60,12 +62,12 @@ impl TrustGraph {
         let chain = cert.chain;
 
         let root_trust = &chain[0];
-        let root_pk: PublicKeyHashable = root_trust.pk.clone().into();
+        let root_pk: PublicKeyHashable = root_trust.issued_for.clone().into();
 
         match self.nodes.get_mut(&root_pk) {
             Some(_) => {}
             None => {
-                let trust_node = TrustNode::new(root_trust.pk.clone(), cur_time);
+                let trust_node = TrustNode::new(root_trust.issued_for.clone(), cur_time);
                 self.nodes.insert(root_pk, trust_node);
             }
         }
@@ -73,21 +75,20 @@ impl TrustGraph {
         let mut previous_trust = root_trust;
 
         for trust in chain.iter().skip(1) {
-            let pk = trust.pk.clone().into();
+            let pk = trust.issued_for.clone().into();
 
-            // TODO fix it
             let auth = Auth {
                 trust: trust.clone(),
-                issued_by: previous_trust.pk.clone(),
+                issued_by: previous_trust.issued_for.clone(),
             };
 
             match self.nodes.get_mut(&pk) {
-                Some(node) => {
-                    node.authorize(auth);
+                Some(trust_node) => {
+                    trust_node.update_auth(auth);
                 }
                 None => {
-                    let mut trust_node = TrustNode::new(root_trust.pk.clone(), cur_time);
-                    trust_node.authorize(auth);
+                    let mut trust_node = TrustNode::new(root_trust.issued_for.clone(), cur_time);
+                    trust_node.update_auth(auth);
                     self.nodes.insert(pk, trust_node);
                 }
             }
@@ -99,25 +100,26 @@ impl TrustGraph {
     }
 
     /// Calculates weight for a public key, ignore nodes, that already marked as passed.
+    /// Returns weight (if none, this public key doesn't have a path to trusted root nodes)
+    /// and a set of visited nodes.
     /// TODO do it non-recursive
     /// TODO handle non-direct revocations
     /// TODO split it with a certificate exporting and a weight calculation from certificate
     fn weight_inner(
         &self,
         pk: PublicKey,
-        marked: HashSet<PublicKeyHashable>,
-    ) -> (Option<Weight>, HashSet<PublicKeyHashable>) {
-        let mut marked = marked;
+        marked: &mut HashSet<PublicKeyHashable>,
+    ) -> Option<Weight> {
         marked.insert(pk.clone().into());
         match self.nodes.get(&pk.clone().into()) {
             Some(node) => {
                 let auths: Vec<Auth> = node.authorizations().collect();
                 // TODO root node could be with authorizations
                 if auths.is_empty() {
-                    // if there is no authorized by and this node is not a root node - it is revoked, so, no weight
+                    // if there is no auth for this node and this node is not a root node - it is revoked, so, no weight
                     match self.root_weights.get(&pk.into()) {
-                        Some(root_weight) => (Some(*root_weight), marked),
-                        None => (None, marked),
+                        Some(root_weight) => Some(*root_weight),
+                        None => None,
                     }
                 } else {
                     let mut max_weight = None;
@@ -125,22 +127,18 @@ impl TrustGraph {
                     for auth_by in auths {
                         if !marked.contains(&auth_by.issued_by.clone().into()) {
                             // TODO do the search without recursion
-                            let (weight_op, marked_res) =
-                                self.weight_inner(auth_by.issued_by, marked.clone());
+                            let weight_op = self.weight_inner(auth_by.issued_by, marked);
                             if let Some(w) = weight_op {
                                 if max_weight.is_none() || max_weight.unwrap() > w {
                                     max_weight = Some(w)
                                 }
                             }
-                            for m in marked_res {
-                                marked.insert(m);
-                            }
                         }
                     }
-                    (max_weight.map(|w| w + 1), marked)
+                    max_weight.map(|w| w + 1)
                 }
             }
-            None => (None, marked),
+            None => None,
         }
     }
 
@@ -148,8 +146,8 @@ impl TrustGraph {
     /// Returns None if there is no such public key
     /// or some trust between this key and a root key is revoked.
     pub fn weight(&self, pk: PublicKey) -> Option<Weight> {
-        let result = self.weight_inner(pk, HashSet::new());
-        result.0
+        let mut visited = HashSet::new();
+        self.weight_inner(pk, &mut visited)
     }
 
     /// Mark public key as revoked.
@@ -158,14 +156,12 @@ impl TrustGraph {
 
         let pk: PublicKeyHashable = revoke.pk.clone().into();
 
-        match self.nodes.remove(&pk) {
-            Some(mut trust_node) => {
-                Revoke::verify(&revoke)?;
-                trust_node.revoke(revoke);
-                self.nodes.insert(pk, trust_node);
+        match self.nodes.entry(pk) {
+            Occupied(mut entry) => {
+                entry.get_mut().update_revoke(revoke);
                 Ok(())
             }
-            None => Err("There is no trust with such PublicKey".to_string()),
+            Entry::Vacant(_) => Err("There is no trust with such PublicKey".to_string()),
         }
     }
 
@@ -197,7 +193,7 @@ mod tests {
             second_kp.clone(),
             Certificate::issue_root(
                 &root_kp,
-                second_kp.show_public_key(),
+                second_kp.public_key(),
                 cur_time.checked_add(one_minute()).unwrap(),
                 cur_time,
             ),
@@ -214,12 +210,8 @@ mod tests {
         let root_kp = KeyPair::generate();
         let second_kp = KeyPair::generate();
 
-        let mut cert = Certificate::issue_root(
-            &root_kp,
-            second_kp.show_public_key(),
-            expiration,
-            current_time(),
-        );
+        let mut cert =
+            Certificate::issue_root(&root_kp, second_kp.public_key(), expiration, current_time());
 
         let mut key_pairs = vec![root_kp, second_kp];
 
@@ -228,7 +220,7 @@ mod tests {
             let previous_kp = &key_pairs[idx - 1];
             cert = Certificate::issue(
                 &previous_kp,
-                kp.show_public_key(),
+                kp.public_key(),
                 &cert,
                 expiration,
                 current_time().checked_sub(Duration::new(60, 0)).unwrap(),
@@ -300,28 +292,28 @@ mod tests {
             generate_cert_with_len_and_expiration(10, predefined2, far_far_future);
 
         let mut roots = HashMap::new();
-        let root1_pk = key_pairs1[0].show_public_key();
-        let root2_pk = key_pairs2[0].show_public_key();
+        let root1_pk = key_pairs1[0].public_key();
+        let root2_pk = key_pairs2[0].public_key();
         roots.insert(root1_pk.into(), 1);
         roots.insert(root2_pk.into(), 0);
 
         let mut graph = TrustGraph::new(roots);
         graph.add(cert1, cur_time).unwrap();
 
-        let node2 = graph.get(key_pair2.show_public_key()).unwrap();
+        let node2 = graph.get(key_pair2.public_key()).unwrap();
         let auth_by_kp1 = node2
             .authorizations()
-            .find(|a| a.issued_by == key_pair1.show_public_key())
+            .find(|a| a.issued_by == key_pair1.public_key())
             .unwrap();
 
         assert_eq!(auth_by_kp1.trust.expires_at, far_future);
 
         graph.add(cert2, cur_time).unwrap();
 
-        let node2 = graph.get(key_pair2.show_public_key()).unwrap();
+        let node2 = graph.get(key_pair2.public_key()).unwrap();
         let auth_by_kp1 = node2
             .authorizations()
-            .find(|a| a.issued_by == key_pair1.show_public_key())
+            .find(|a| a.issued_by == key_pair1.public_key())
             .unwrap();
 
         assert_eq!(auth_by_kp1.trust.expires_at, far_far_future);
@@ -333,22 +325,22 @@ mod tests {
         let last_trust = cert1.chain[9].clone();
 
         let mut roots = HashMap::new();
-        let root_pk = key_pairs[0].show_public_key();
+        let root_pk = key_pairs[0].public_key();
         roots.insert(root_pk.into(), 1);
 
         let mut graph = TrustGraph::new(roots);
         graph.add(cert1, current_time()).unwrap();
 
-        let w1 = graph.weight(key_pairs[0].show_public_key()).unwrap();
+        let w1 = graph.weight(key_pairs[0].public_key()).unwrap();
         assert_eq!(w1, 1);
 
-        let w2 = graph.weight(key_pairs[1].show_public_key()).unwrap();
+        let w2 = graph.weight(key_pairs[1].public_key()).unwrap();
         assert_eq!(w2, 2);
 
-        let w3 = graph.weight(key_pairs[9].show_public_key()).unwrap();
+        let w3 = graph.weight(key_pairs[9].public_key()).unwrap();
         assert_eq!(w3, 10);
 
-        let node = graph.get(key_pairs[9].show_public_key()).unwrap();
+        let node = graph.get(key_pairs[9].public_key()).unwrap();
         let auths: Vec<Auth> = node.authorizations().collect();
 
         assert_eq!(auths.len(), 1);
@@ -376,35 +368,27 @@ mod tests {
         let (key_pairs2, cert2) = generate_cert_with_len(10, predefined2);
 
         let mut roots = HashMap::new();
-        let root1_pk = key_pairs1[0].show_public_key();
-        let root2_pk = key_pairs2[0].show_public_key();
+        let root1_pk = key_pairs1[0].public_key();
+        let root2_pk = key_pairs2[0].public_key();
         roots.insert(root1_pk.into(), 1);
         roots.insert(root2_pk.into(), 0);
         let mut graph = TrustGraph::new(roots);
 
-        let last_pk1 = cert1.chain[9].pk.clone();
-        let last_pk2 = cert2.chain[9].pk.clone();
+        let last_pk1 = cert1.chain[9].issued_for.clone();
+        let last_pk2 = cert2.chain[9].issued_for.clone();
 
         graph.add(cert1, current_time()).unwrap();
         graph.add(cert2, current_time()).unwrap();
 
-        let revoke1 = Revoke::create(
-            &key_pairs1[3],
-            key_pairs1[4].show_public_key(),
-            current_time(),
-        );
+        let revoke1 = Revoke::create(&key_pairs1[3], key_pairs1[4].public_key(), current_time());
         graph.revoke(revoke1).unwrap();
-        let revoke2 = Revoke::create(
-            &key_pairs2[5],
-            key_pairs2[6].show_public_key(),
-            current_time(),
-        );
+        let revoke2 = Revoke::create(&key_pairs2[5], key_pairs2[6].public_key(), current_time());
         graph.revoke(revoke2).unwrap();
 
-        let w1 = graph.weight(key_pair1.show_public_key()).unwrap();
+        let w1 = graph.weight(key_pair1.public_key()).unwrap();
         // all upper trusts are revoked for this public key
-        let w2 = graph.weight(key_pair2.show_public_key());
-        let w3 = graph.weight(key_pair3.show_public_key()).unwrap();
+        let w2 = graph.weight(key_pair2.public_key());
+        let w3 = graph.weight(key_pair3.public_key()).unwrap();
         let w_last1 = graph.weight(last_pk1).unwrap();
         let w_last2 = graph.weight(last_pk2).unwrap();
 

@@ -22,9 +22,9 @@ use libp2p_core::identity::ed25519::PublicKey;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-enum TrustRelations {
-    AuthRel(Auth),
-    RevokeRel(Revoke),
+enum TrustRelation {
+    Auth(Auth),
+    Revoke(Revoke),
 }
 
 /// Represents who give a certificate
@@ -44,7 +44,7 @@ pub struct TrustNode {
     pub pk: PublicKey,
 
     /// one public key could be authorized or revoked by multiple certificates
-    trust_relations: HashMap<PublicKeyHashable, TrustRelations>,
+    trust_relations: HashMap<PublicKeyHashable, TrustRelation>,
 
     /// for maintain
     pub verified_at: Duration,
@@ -62,21 +62,21 @@ impl TrustNode {
 
     pub fn get_auth(&self, pk: PublicKey) -> Option<Auth> {
         match self.trust_relations.get(&pk.into()) {
-            Some(TrustRelations::AuthRel(auth)) => Some(auth.clone()),
+            Some(TrustRelation::Auth(auth)) => Some(auth.clone()),
             _ => None,
         }
     }
 
     pub fn get_revoke(&self, pk: PublicKey) -> Option<Revoke> {
         match self.trust_relations.get(&pk.into()) {
-            Some(TrustRelations::RevokeRel(rev)) => Some(rev.clone()),
+            Some(TrustRelation::Revoke(rev)) => Some(rev.clone()),
             _ => None,
         }
     }
 
     pub fn authorizations(&self) -> impl Iterator<Item = Auth> + '_ {
         self.trust_relations.values().filter_map(|tr| {
-            if let TrustRelations::AuthRel(auth) = tr {
+            if let TrustRelation::Auth(auth) = tr {
                 Some(auth.clone())
             } else {
                 None
@@ -86,7 +86,7 @@ impl TrustNode {
 
     pub fn revocations(&self) -> impl Iterator<Item = Revoke> + '_ {
         self.trust_relations.values().filter_map(|tr| {
-            if let TrustRelations::RevokeRel(revoke) = tr {
+            if let TrustRelation::Revoke(revoke) = tr {
                 Some(revoke.clone())
             } else {
                 None
@@ -96,53 +96,54 @@ impl TrustNode {
 
     /// Adds authorization. If the trust node already has this authorization,
     /// add auth with later expiration date.
-    pub fn authorize(&mut self, auth: Auth) {
+    pub fn update_auth(&mut self, auth: Auth) {
         let issued_by: PublicKeyHashable = auth.issued_by.clone().into();
+        let issued_at = auth.trust.issued_at;
 
-        match self.trust_relations.get(&issued_by) {
-            Some(TrustRelations::AuthRel(existed_auth)) => {
-                if existed_auth.trust.issued_at < auth.trust.issued_at {
-                    self.insert(issued_by, TrustRelations::AuthRel(auth))
-                }
-            }
-            Some(TrustRelations::RevokeRel(revoke)) => {
-                if revoke.revoked_at < auth.trust.issued_at {
-                    self.insert(issued_by, TrustRelations::AuthRel(auth))
-                }
-            }
-            None => self.insert(issued_by, TrustRelations::AuthRel(auth)),
-        };
+        self.update_relation(TrustRelation::Auth(auth), issued_at, issued_by);
     }
 
     // insert new trust relation, ignore if there is another one with same public key
-    fn insert(&mut self, pk: PublicKeyHashable, tr: TrustRelations) {
+    fn insert(&mut self, pk: PublicKeyHashable, tr: TrustRelation) {
         self.trust_relations.insert(pk, tr);
     }
 
-    pub fn revoke(&mut self, revoke: Revoke) {
-        let revoked_by: PublicKeyHashable = revoke.revoked_by.clone().into();
-
+    fn update_relation(
+        &mut self,
+        relation: TrustRelation,
+        revoked_at: Duration,
+        revoked_by: PublicKeyHashable,
+    ) {
         match self.trust_relations.get(&revoked_by) {
-            Some(TrustRelations::AuthRel(auth)) => {
-                if auth.trust.issued_at < revoke.revoked_at {
-                    self.insert(revoked_by, TrustRelations::RevokeRel(revoke))
+            Some(TrustRelation::Auth(auth)) => {
+                if auth.trust.issued_at < revoked_at {
+                    self.insert(revoked_by, relation)
                 }
             }
-            Some(TrustRelations::RevokeRel(existed_revoke)) => {
-                if existed_revoke.revoked_at < revoke.revoked_at {
-                    self.insert(revoked_by, TrustRelations::RevokeRel(revoke))
+            Some(TrustRelation::Revoke(existed_revoke)) => {
+                if existed_revoke.revoked_at < revoked_at {
+                    self.insert(revoked_by, relation)
                 }
             }
-            None => self.insert(revoked_by, TrustRelations::RevokeRel(revoke)),
+            None => self.insert(revoked_by, relation),
         };
+    }
+
+    pub fn update_revoke(&mut self, revoke: Revoke) {
+        let revoked_at = revoke.revoked_at;
+        let revoked_by = revoke.revoked_by.clone().into();
+
+        self.update_relation(TrustRelation::Revoke(revoke), revoked_at, revoked_by);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::key_pair::KeyPair;
     use std::time::Duration;
+
+    use crate::key_pair::KeyPair;
+
+    use super::*;
 
     #[test]
     fn test_auth_and_revoke_trust_node() {
@@ -153,40 +154,40 @@ mod tests {
         let future = Duration::new(500, 0);
 
         let mut trust_node = TrustNode {
-            pk: kp.show_public_key().clone(),
+            pk: kp.public_key().clone(),
             trust_relations: HashMap::new(),
             verified_at: now,
         };
 
         let truster = KeyPair::generate();
 
-        let revoke = Revoke::create(&truster, kp.show_public_key(), now);
+        let revoke = Revoke::create(&truster, kp.public_key(), now);
 
-        trust_node.revoke(revoke);
+        trust_node.update_revoke(revoke);
 
-        assert!(trust_node.get_revoke(truster.show_public_key()).is_some());
+        assert!(trust_node.get_revoke(truster.public_key()).is_some());
 
-        let old_trust = Trust::create(&truster, kp.show_public_key(), Duration::new(60, 0), past);
+        let old_trust = Trust::create(&truster, kp.public_key(), Duration::new(60, 0), past);
 
         let old_auth = Auth {
             trust: old_trust,
-            issued_by: truster.show_public_key(),
+            issued_by: truster.public_key(),
         };
 
-        trust_node.authorize(old_auth);
+        trust_node.update_auth(old_auth);
 
-        assert!(trust_node.get_revoke(truster.show_public_key()).is_some());
-        assert!(trust_node.get_auth(truster.show_public_key()).is_none());
+        assert!(trust_node.get_revoke(truster.public_key()).is_some());
+        assert!(trust_node.get_auth(truster.public_key()).is_none());
 
-        let trust = Trust::create(&truster, kp.show_public_key(), Duration::new(60, 0), future);
+        let trust = Trust::create(&truster, kp.public_key(), Duration::new(60, 0), future);
         let auth = Auth {
             trust,
-            issued_by: truster.show_public_key(),
+            issued_by: truster.public_key(),
         };
 
-        trust_node.authorize(auth);
+        trust_node.update_auth(auth);
 
-        assert!(trust_node.get_auth(truster.show_public_key()).is_some());
-        assert!(trust_node.get_revoke(truster.show_public_key()).is_none());
+        assert!(trust_node.get_auth(truster.public_key()).is_some());
+        assert!(trust_node.get_revoke(truster.public_key()).is_none());
     }
 }

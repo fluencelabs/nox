@@ -53,13 +53,13 @@ impl Revoke {
     /// Creates new revocation signed by a revoker.
     #[allow(dead_code)]
     pub fn create(revoker: &KeyPair, to_revoke: PublicKey, revoked_at: Duration) -> Self {
-        let msg = Revoke::msg_to_sign(to_revoke.clone(), revoked_at);
+        let msg = Revoke::signature_bytes(&to_revoke, revoked_at);
         let signature = revoker.sign(&msg);
 
-        Revoke::new(to_revoke, revoker.show_public_key(), revoked_at, signature)
+        Revoke::new(to_revoke, revoker.public_key(), revoked_at, signature)
     }
 
-    fn msg_to_sign(pk: PublicKey, revoked_at: Duration) -> Vec<u8> {
+    fn signature_bytes(pk: &PublicKey, revoked_at: Duration) -> Vec<u8> {
         let mut msg = Vec::with_capacity(PUBLIC_KEY_LEN + EXPIRATION_LEN);
         msg.extend_from_slice(&pk.encode());
         msg.extend_from_slice(&(revoked_at.as_millis() as u64).to_le_bytes());
@@ -69,7 +69,7 @@ impl Revoke {
 
     /// Verifies that revocation is cryptographically correct.
     pub fn verify(revoke: &Revoke) -> Result<(), String> {
-        let msg = Revoke::msg_to_sign(revoke.pk.clone(), revoke.revoked_at);
+        let msg = Revoke::signature_bytes(&revoke.pk, revoke.revoked_at);
 
         if !revoke
             .revoked_by
@@ -94,7 +94,7 @@ mod tests {
 
         let duration = Duration::new(100, 0);
 
-        let revoke = Revoke::create(&revoker, to_revoke.show_public_key(), duration);
+        let revoke = Revoke::create(&revoker, to_revoke.public_key(), duration);
 
         assert_eq!(Revoke::verify(&revoke).is_ok(), true);
     }
@@ -106,12 +106,12 @@ mod tests {
 
         let duration = Duration::new(100, 0);
 
-        let revoke = Revoke::create(&revoker, to_revoke.show_public_key(), duration);
+        let revoke = Revoke::create(&revoker, to_revoke.public_key(), duration);
 
         let duration2 = Duration::new(95, 0);
         let corrupted_revoke = Revoke::new(
-            to_revoke.show_public_key(),
-            revoker.show_public_key(),
+            to_revoke.public_key(),
+            revoker.public_key(),
             duration2,
             revoke.signature,
         );
