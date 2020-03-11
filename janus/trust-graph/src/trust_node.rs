@@ -74,20 +74,20 @@ impl TrustNode {
         }
     }
 
-    pub fn authorizations(&self) -> impl Iterator<Item = Auth> + '_ {
+    pub fn authorizations(&self) -> impl Iterator<Item = &Auth> + '_ {
         self.trust_relations.values().filter_map(|tr| {
             if let TrustRelation::Auth(auth) = tr {
-                Some(auth.clone())
+                Some(auth)
             } else {
                 None
             }
         })
     }
 
-    pub fn revocations(&self) -> impl Iterator<Item = Revoke> + '_ {
+    pub fn revocations(&self) -> impl Iterator<Item = &Revoke> + '_ {
         self.trust_relations.values().filter_map(|tr| {
             if let TrustRelation::Revoke(revoke) = tr {
-                Some(revoke.clone())
+                Some(revoke)
             } else {
                 None
             }

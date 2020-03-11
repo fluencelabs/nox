@@ -33,6 +33,10 @@ pub struct Certificate {
 }
 
 impl Certificate {
+    pub fn new_unverified(chain: Vec<Trust>) -> Self {
+        Self { chain }
+    }
+
     /// Creates new certificate with root trust (self-signed public key) from a key pair.
     #[allow(dead_code)]
     pub fn issue_root(
@@ -109,8 +113,8 @@ impl Certificate {
     ) -> Result<(), String> {
         let chain = &cert.chain;
 
-        if chain.len() < 2 {
-            return Err("The certificate must have at least 2 trusts".to_string());
+        if chain.is_empty() {
+            return Err("The certificate must have at least 1 trust".to_string());
         }
 
         // check root trust and its existence in trusted roots list

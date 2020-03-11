@@ -17,11 +17,12 @@
 use crate::certificate::Certificate;
 use crate::public_key_hashable::PublicKeyHashable;
 use crate::revoke::Revoke;
+use crate::trust::Trust;
 use crate::trust_node::{Auth, TrustNode};
 use libp2p_core::identity::ed25519::PublicKey;
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::Entry::Occupied;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 use std::time::Duration;
 
@@ -67,7 +68,12 @@ impl TrustGraph {
         match self.nodes.get_mut(&root_pk) {
             Some(_) => {}
             None => {
-                let trust_node = TrustNode::new(root_trust.issued_for.clone(), cur_time);
+                let mut trust_node = TrustNode::new(root_trust.issued_for.clone(), cur_time);
+                let root_auth = Auth {
+                    trust: root_trust.clone(),
+                    issued_by: root_trust.issued_for.clone(),
+                };
+                trust_node.update_auth(root_auth);
                 self.nodes.insert(root_pk, trust_node);
             }
         }
@@ -99,55 +105,111 @@ impl TrustGraph {
         Ok(())
     }
 
-    /// Calculates weight for a public key, ignore nodes, that already marked as passed.
-    /// Returns weight (if none, this public key doesn't have a path to trusted root nodes)
-    /// and a set of visited nodes.
-    /// TODO do it non-recursive
-    /// TODO handle non-direct revocations
-    /// TODO split it with a certificate exporting and a weight calculation from certificate
-    fn weight_inner(
-        &self,
-        pk: PublicKey,
-        marked: &mut HashSet<PublicKeyHashable>,
-    ) -> Option<Weight> {
-        marked.insert(pk.clone().into());
-        match self.nodes.get(&pk.clone().into()) {
-            Some(node) => {
-                let auths: Vec<Auth> = node.authorizations().collect();
-                // TODO root node could be with authorizations
-                if auths.is_empty() {
-                    // if there is no auth for this node and this node is not a root node - it is revoked, so, no weight
-                    match self.root_weights.get(&pk.into()) {
-                        Some(root_weight) => Some(*root_weight),
-                        None => None,
-                    }
-                } else {
-                    let mut max_weight = None;
-
-                    for auth_by in auths {
-                        if !marked.contains(&auth_by.issued_by.clone().into()) {
-                            // TODO do the search without recursion
-                            let weight_op = self.weight_inner(auth_by.issued_by, marked);
-                            if let Some(w) = weight_op {
-                                if max_weight.is_none() || max_weight.unwrap() > w {
-                                    max_weight = Some(w)
-                                }
-                            }
-                        }
-                    }
-                    max_weight.map(|w| w + 1)
-                }
-            }
-            None => None,
-        }
-    }
-
     /// Get the maximum weight of trust for one public key.
     /// Returns None if there is no such public key
     /// or some trust between this key and a root key is revoked.
+    /// TODO handle non-direct revocations
     pub fn weight(&self, pk: PublicKey) -> Option<Weight> {
-        let mut visited = HashSet::new();
-        self.weight_inner(pk, &mut visited)
+        let roots: Vec<PublicKey> = self
+            .root_weights
+            .keys()
+            .map(|pk| pk.clone().into())
+            .collect();
+
+        // get all possible certificates from the given public key to all roots in the graph
+        let certs = self.get_all_certs(pk, roots.as_slice());
+
+        // if there are no certificates for the given public key, there is no info about this public key
+        // or some elements of possible certificate chains was revoked
+        if certs.is_empty() {
+            return None;
+        }
+
+        let mut weight = std::u32::MAX;
+
+        for cert in certs {
+            let root_weight = *self
+                .root_weights
+                .get(&cert.chain[0].issued_for.clone().into())
+                // The error is unreachable.
+                .unwrap();
+
+            // certificate weight = root weight + 1 * every other element in the chain
+            // (except root, so the formula is `root weight + chain length - 1`)
+            weight = std::cmp::min(weight, root_weight + cert.chain.len() as u32 - 1)
+        }
+
+        Some(weight)
+    }
+
+    /// BF search for all converging paths (chains) in the graph
+    /// TODO could be optimized with closure, that will calculate the weight on the fly
+    /// TODO or store auths to build certificates
+    fn bf_search_paths(&self, node: &TrustNode, roots: &[PublicKey]) -> Vec<Vec<Auth>> {
+        // queue to collect all chains in the trust graph (each chain is a path in the trust graph)
+        let mut chains_queue: VecDeque<Vec<Auth>> = VecDeque::new();
+
+        let node_auths: Vec<Auth> = node.authorizations().cloned().collect();
+        // put all auth in the queue as the first possible paths through the graph
+        for auth in node_auths {
+            chains_queue.push_back(vec![auth]);
+        }
+
+        // List of all chains that converge (terminate) to known roots
+        let mut terminated_chains: Vec<Vec<Auth>> = Vec::new();
+
+        while !chains_queue.is_empty() {
+            let cur_chain = chains_queue.pop_front().unwrap();
+            // The error is unreachable. `cur_chain` is always have at least one element.
+            let last = cur_chain.last().unwrap();
+
+            let auths: Vec<Auth> = self
+                .nodes
+                .get(&last.issued_by.clone().into())
+                // The error is unreachable. There cannot be paths without any nodes after adding verified certificates.
+                .unwrap()
+                .authorizations()
+                .cloned()
+                .collect();
+
+            for auth in auths {
+                // if there is auth, that we not visited in the current chain, copy chain and append this auth
+                if !cur_chain
+                    .iter()
+                    .any(|a| a.trust.issued_for == auth.issued_by)
+                {
+                    let mut new_chain = cur_chain.clone();
+                    new_chain.push(auth);
+                    chains_queue.push_back(new_chain);
+                }
+            }
+
+            if roots.contains(&last.trust.issued_for) {
+                terminated_chains.push(cur_chain);
+            }
+        }
+
+        terminated_chains
+    }
+
+    /// Get all possible certificates where `issued_for` will be the last element of the chain
+    /// and one of the destinations is the root of this chain.
+    pub fn get_all_certs(&self, issued_for: PublicKey, roots: &[PublicKey]) -> Vec<Certificate> {
+        // get all auths (edges) for issued public key
+        let issued_for_node = self.nodes.get(&issued_for.into());
+
+        match issued_for_node {
+            Some(node) => self
+                .bf_search_paths(node, roots)
+                .iter()
+                .map(|auths| {
+                    let trusts: Vec<Trust> =
+                        auths.iter().map(|auth| auth.trust.clone()).rev().collect();
+                    Certificate::new_unverified(trusts)
+                })
+                .collect(),
+            None => return Vec::new(),
+        }
     }
 
     /// Mark public key as revoked.
@@ -233,7 +295,6 @@ mod tests {
         (key_pairs, cert)
     }
 
-    #[allow(dead_code)]
     fn generate_cert_with_len(
         len: usize,
         predefined: HashMap<usize, KeyPair>,
@@ -341,7 +402,7 @@ mod tests {
         assert_eq!(w3, 10);
 
         let node = graph.get(key_pairs[9].public_key()).unwrap();
-        let auths: Vec<Auth> = node.authorizations().collect();
+        let auths: Vec<&Auth> = node.authorizations().collect();
 
         assert_eq!(auths.len(), 1);
         assert_eq!(auths[0].trust, last_trust);
@@ -397,5 +458,81 @@ mod tests {
         assert_eq!(w3, 5);
         assert_eq!(w_last1, 7);
         assert_eq!(w_last2, 6);
+    }
+
+    #[test]
+    fn test_get_one_cert() {
+        let (key_pairs, cert) = generate_cert_with_len(5, HashMap::new());
+
+        let mut roots = HashMap::new();
+        let root1_pk = key_pairs[0].public_key();
+        roots.insert(root1_pk.clone().into(), 1);
+
+        let mut graph = TrustGraph::new(roots);
+
+        graph.add(cert.clone(), current_time()).unwrap();
+
+        let certs = graph.get_all_certs(key_pairs.last().unwrap().public_key(), &[root1_pk]);
+
+        assert_eq!(certs.len(), 1);
+        assert_eq!(certs[0], cert);
+    }
+
+    #[test]
+    fn test_find_certs() {
+        let key_pair1 = KeyPair::generate();
+        let key_pair2 = KeyPair::generate();
+        let key_pair3 = KeyPair::generate();
+
+        let mut predefined1 = HashMap::new();
+        predefined1.insert(2, key_pair1.clone());
+        predefined1.insert(3, key_pair2.clone());
+        predefined1.insert(4, key_pair3.clone());
+
+        let (key_pairs1, cert1) = generate_cert_with_len(5, predefined1);
+
+        let mut predefined2 = HashMap::new();
+        predefined2.insert(4, key_pair1.clone());
+        predefined2.insert(3, key_pair2.clone());
+        predefined2.insert(2, key_pair3.clone());
+
+        let (key_pairs2, cert2) = generate_cert_with_len(5, predefined2);
+
+        let mut predefined3 = HashMap::new();
+        predefined3.insert(3, key_pair1.clone());
+        predefined3.insert(4, key_pair2.clone());
+        predefined3.insert(2, key_pair3.clone());
+
+        let (key_pairs3, cert3) = generate_cert_with_len(5, predefined3);
+
+        let mut roots = HashMap::new();
+        let root1_pk = key_pairs1[0].public_key();
+        let root2_pk = key_pairs2[0].public_key();
+        let root3_pk = key_pairs3[0].public_key();
+        roots.insert(root1_pk.clone().into(), 1);
+        roots.insert(root2_pk.clone().into(), 0);
+        roots.insert(root3_pk.clone().into(), 0);
+        let mut graph = TrustGraph::new(roots);
+
+        graph.add(cert1.clone(), current_time()).unwrap();
+        graph.add(cert2.clone(), current_time()).unwrap();
+        graph.add(cert3.clone(), current_time()).unwrap();
+
+        let roots_values = [root1_pk, root2_pk, root3_pk];
+
+        let certs1 = graph.get_all_certs(key_pair1.public_key(), &roots_values);
+        let lenghts1: Vec<usize> = certs1.iter().map(|c| c.chain.len()).collect();
+        let check_lenghts1: Vec<usize> = vec![3, 4, 4, 5, 5];
+        assert_eq!(lenghts1, check_lenghts1);
+
+        let certs2 = graph.get_all_certs(key_pair2.public_key(), &roots_values);
+        let lenghts2: Vec<usize> = certs2.iter().map(|c| c.chain.len()).collect();
+        let check_lenghts2: Vec<usize> = vec![4, 4, 4, 5, 5];
+        assert_eq!(lenghts2, check_lenghts2);
+
+        let certs3 = graph.get_all_certs(key_pair3.public_key(), &roots_values);
+        let lenghts3: Vec<usize> = certs3.iter().map(|c| c.chain.len()).collect();
+        let check_lenghts3: Vec<usize> = vec![3, 3, 5];
+        assert_eq!(lenghts3, check_lenghts3);
     }
 }
