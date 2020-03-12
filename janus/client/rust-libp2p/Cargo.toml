@@ -27,6 +27,8 @@ bencher = "0.1.5"
 
 [dev-dependencies]
 rand = "0.7.3"
+reqwest = "0.10.4"
+tokio = { version = "0.2.13", features = ["full", "macros"] }
 
 [profile.release]
 opt-level = 3
