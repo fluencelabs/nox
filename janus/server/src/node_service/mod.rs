@@ -16,6 +16,7 @@
 
 pub use node_service::NodeService;
 
+#[allow(clippy::module_inception)]
 mod node_service;
 mod p2p;
 pub mod relay;

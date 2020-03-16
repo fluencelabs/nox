@@ -25,6 +25,7 @@ use serde_json;
 use std::{io, iter, pin::Pin};
 
 // 1 Mb
+#[allow(clippy::identity_op)]
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/janus/peer/1.0.0";
 
@@ -43,20 +44,21 @@ where
 {
     type Output = ToNodeNetworkMsg;
     type Error = Error;
+    #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
-            let relay_event: ToNodeNetworkMsg = serde_json::from_slice(&packet).unwrap();
+            let msg: ToNodeNetworkMsg = serde_json::from_slice(&packet).unwrap();
 
             trace!(
-                "peer_service/connect_protocol/upgrade_inbound: received a new relay message {:?}",
-                relay_event
+                "peer_service/connect_protocol/upgrade_inbound: received new message {:?}",
+                msg
             );
 
             socket.close().await?;
-            Ok(relay_event)
+            Ok(msg)
         })
     }
 }
@@ -76,6 +78,7 @@ where
 {
     type Output = ();
     type Error = io::Error;
+    #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {

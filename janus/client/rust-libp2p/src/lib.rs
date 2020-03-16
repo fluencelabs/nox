@@ -27,4 +27,10 @@
 
 mod behaviour;
 pub mod client;
+mod command;
 mod connect_protocol;
+mod message;
+mod relay_api;
+
+pub use command::{Command, TextCommand};
+pub use message::Message;

@@ -17,7 +17,7 @@
 use crate::event_polling;
 use crate::generate_swarm_event_type;
 use crate::peer_service::connect_protocol::events::{ToNodeNetworkMsg, ToPeerNetworkMsg};
-use crate::peer_service::events::ToNodeMsg;
+use crate::peer_service::messages::ToNodeMsg;
 use libp2p::{
     core::ConnectedPoint,
     core::Multiaddr,
@@ -25,6 +25,7 @@ use libp2p::{
     PeerId,
 };
 use log::trace;
+use parity_multihash::Multihash;
 use std::collections::VecDeque;
 
 type SwarmEventType = generate_swarm_event_type!(PeerConnectBehaviour);
@@ -44,19 +45,52 @@ impl PeerConnectBehaviour {
     }
 
     pub fn deliver_data(&mut self, src: PeerId, dst: PeerId, data: Vec<u8>) {
-        trace!(
-            "peer_service/connect_protocol/behaviour: delivering data {:?} to {:?}",
-            data,
-            dst
-        );
-
-        self.events.push_back(NetworkBehaviourAction::SendEvent {
-            peer_id: dst,
-            event: ToPeerNetworkMsg::Deliver {
+        self.send_event(
+            dst,
+            ToPeerNetworkMsg::Deliver {
                 src_id: src.into_bytes(),
                 data,
             },
-        })
+        );
+    }
+
+    /// Deliver FindProviders result to connected peer
+    /// `client_id` peer id of the client issued a request
+    /// `peer_id` key to find providers for
+    /// `providers` list of addresses and peer ids of providers
+    pub fn deliver_providers(
+        &mut self,
+        client_id: PeerId,
+        key: Multihash,
+        providers: Vec<(Multiaddr, PeerId)>,
+    ) {
+        self.send_event(
+            client_id.clone(),
+            ToPeerNetworkMsg::Providers {
+                client_id: client_id.into_bytes(),
+                key: key.into_bytes(),
+                providers: providers
+                    .into_iter()
+                    .map(|(addr, id)| (addr, id.into_bytes()))
+                    .collect(),
+            },
+        )
+    }
+
+    fn send_event(&mut self, peer_id: PeerId, event: ToPeerNetworkMsg) {
+        trace!(
+            "peer_service/connect_protocol/behaviour: delivering event {:?} to {:?}",
+            event,
+            peer_id
+        );
+
+        self.events
+            .push_back(NetworkBehaviourAction::SendEvent { peer_id, event })
+    }
+
+    fn enqueue_event(&mut self, event: ToNodeMsg) {
+        self.events
+            .push_back(NetworkBehaviourAction::GenerateEvent(event))
     }
 }
 
@@ -104,13 +138,19 @@ impl NetworkBehaviour for PeerConnectBehaviour {
 
         match event {
             InnerMessage::Rx(m) => match m {
-                ToNodeNetworkMsg::Relay { dst_id, data } => {
-                    self.events
-                        .push_back(NetworkBehaviourAction::GenerateEvent(ToNodeMsg::Relay {
-                            src_id: source,
-                            dst_id: PeerId::from_bytes(dst_id).unwrap(),
-                            data,
-                        }))
+                ToNodeNetworkMsg::Relay { dst_id, data } => self.enqueue_event(ToNodeMsg::Relay {
+                    src_id: source,
+                    dst_id: PeerId::from_bytes(dst_id).unwrap(),
+                    data,
+                }),
+                ToNodeNetworkMsg::Provide { key } => {
+                    self.enqueue_event(ToNodeMsg::Provide(Multihash::from_bytes(key).unwrap()))
+                }
+                ToNodeNetworkMsg::FindProviders { client_id, key } => {
+                    self.enqueue_event(ToNodeMsg::FindProviders {
+                        client_id: PeerId::from_bytes(client_id).unwrap(),
+                        key: Multihash::from_bytes(key).unwrap(),
+                    })
                 }
                 ToNodeNetworkMsg::Upgrade => {}
             },

@@ -26,24 +26,18 @@
 )]
 
 use janus_client::client::Client;
-use janus_client::client::Message;
 
 use async_std::{io, task};
 use env_logger;
 use futures::prelude::*;
 use futures::{select, stream::StreamExt};
+use janus_client::TextCommand;
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
-use serde::{Deserialize, Serialize};
+use parity_multihash::{Hash, Multihash};
 use serde_json;
+use std::convert::TryInto;
 use std::error::Error;
-
-// user input for relaying (just a json now)
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-struct RelayUserInput {
-    dst: String,
-    message: String,
-}
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
@@ -73,10 +67,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 from_stdin = stdin.select_next_some() => {
                     match from_stdin {
                         Ok(line) => {
-                            let relay_user_input: Result<RelayUserInput, _> = serde_json::from_str(&line);
-                            if let Ok(input) = relay_user_input {
-                                let dst: PeerId = input.dst.parse().unwrap();
-                                client.send(Message::new(dst, input.message.into()));
+                            let cmd: Result<TextCommand, _> = serde_json::from_str(&line);
+                            if let Ok(cmd) = cmd {
+                                client.send(cmd.try_into().unwrap());
                             } else {
                                 println!("incorrect string provided");
                             }
@@ -86,10 +79,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 },
                 incoming = client.receive_one() => {
                     match incoming {
-                        Some(Message { peer_id, data }) => {
-                            println!("{}: {}", peer_id.to_base58(), data);
-                        }
-                        None => break,
+                        Some(msg) => println!("Received {}", msg),
+                        None => break
                     }
                 }
             )
@@ -100,10 +91,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn print_example(peer_id: &PeerId) {
-    let relay_example = RelayUserInput {
+    fn show(cmd: TextCommand) {
+        println!("{}", serde_json::to_value(cmd).unwrap());
+    }
+
+    let relay_example = TextCommand::Relay {
         dst: peer_id.to_string(),
         message: "hello".to_string(),
     };
-    let relay_example = serde_json::to_value(relay_example).unwrap();
-    println!("example of a relay message: {}", relay_example.to_string());
+
+    let rnd = bs58::encode(Multihash::random(Hash::SHA2256)).into_string();
+    let provide_example = TextCommand::Provide { key: rnd.clone() };
+    let find_example = TextCommand::FindProviders { key: rnd };
+
+    println!("possible messages:");
+    show(relay_example);
+    show(provide_example);
+    show(find_example);
+    println!("\n")
 }

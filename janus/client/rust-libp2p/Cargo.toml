@@ -8,6 +8,7 @@ edition = "2018"
 janus-server = { path = "../../server" }
 libp2p = "0.16.2"
 parity-multiaddr = "0.7.3"
+parity-multihash = "0.2.3"
 async-std = "1.5.0"
 futures = "0.3.4"
 futures-util = "0.3.4"
@@ -30,10 +31,3 @@ rand = "0.7.3"
 reqwest = "0.10.4"
 tokio = { version = "0.2.13", features = ["full", "macros"] }
 
-[profile.release]
-opt-level = 3
-debug = false
-lto = true
-debug-assertions = false
-overflow-checks = false
-panic = "abort"

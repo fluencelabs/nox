@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+pub use connect_protocol::events::MultihashBytes;
 pub use peer_service::PeerService;
 pub use transport::build_transport;
 
-pub mod events;
+pub mod messages;
 
 mod behaviour;
 mod connect_protocol;
+#[allow(clippy::module_inception)]
 mod peer_service;
 mod transport;

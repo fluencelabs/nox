@@ -20,10 +20,3 @@ exitfailure = "0.5.1"
 [dev-dependencies]
 rand = "0.7.3"
 
-[profile.release]
-opt-level = 3
-debug = false
-lto = true
-debug-assertions = false
-overflow-checks = false
-panic = "abort"

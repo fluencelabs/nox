@@ -17,7 +17,7 @@
 pub mod constants;
 
 use crate::constants::NODES;
-use janus_client::client::{Client, Message};
+use janus_client::client::Client;
 
 use async_std::future::timeout;
 use async_std::task;
@@ -28,6 +28,7 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use bencher::stats::Stats;
 use futures::channel::mpsc::TrySendError;
 use itertools::Itertools;
+use janus_client::{Command, Message};
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use std::error::Error;
@@ -205,17 +206,17 @@ async fn send_and_wait(
     client2: &mut Client,
     stat: &mpsc::UnboundedSender<Action>,
 ) -> Result<(), TrySendError<Action>> {
-    client1.send(Message::new(
-        client2.peer_id.clone(),
-        now().as_millis().to_string(),
-    ));
+    client1.send(Command::Relay {
+        dst: client2.peer_id.clone(),
+        data: now().as_millis().to_string(),
+    });
 
     stat.unbounded_send(Action::Sent)?;
 
     // TODO: move timeout to arguments
     let result = timeout(Duration::from_secs(5), client2.receive_one()).await;
     match result {
-        Ok(Some(Message { data, .. })) => {
+        Ok(Some(Message::Incoming { data, .. })) => {
             let sent = Duration::from_millis(
                 data.parse()
                     .expect(format!("Can't parse duration from {}", data).as_str()),

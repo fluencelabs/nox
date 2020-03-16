@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,13 @@
  * limitations under the License.
  */
 
-pub mod args;
-#[allow(clippy::module_inception)]
-pub mod config;
+use libp2p::PeerId;
+use parity_multihash::Multihash;
+
+// TODO: move to some package
+// TODO: separate into RelayApi & DhtApi
+pub trait RelayApi {
+    fn relay_message(&mut self, src: PeerId, dst: PeerId, message: Vec<u8>);
+    fn provide(&mut self, relay: PeerId, key: Multihash);
+    fn find_providers(&mut self, relay: PeerId, client_id: PeerId, key: Multihash);
+}

@@ -18,7 +18,7 @@ use crate::config::config::PeerServiceConfig;
 use crate::misc::{Inlet, OneshotInlet, OneshotOutlet, Outlet};
 use crate::peer_service::{
     behaviour::PeerServiceBehaviour,
-    events::{ToNodeMsg, ToPeerMsg},
+    messages::{ToNodeMsg, ToPeerMsg},
     transport::build_transport,
 };
 
@@ -33,6 +33,7 @@ use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
 
 use std::io;
+use std::ops::DerefMut;
 
 // TODO: code of peer service is very similar to node service -
 // maybe it is worth to introduce a new trait?
@@ -120,16 +121,29 @@ impl PeerService {
         let mut peer_inlet = self.inlet.fuse();
         let mut exit_inlet = exit_inlet.into_stream().fuse();
 
+        fn handle_from_node<S: DerefMut<Target = PeerServiceBehaviour>>(
+            swarm: &mut S,
+            msg: ToPeerMsg,
+        ) {
+            match msg {
+                ToPeerMsg::Deliver {
+                    src_id,
+                    dst_id,
+                    data,
+                } => swarm.deliver_data(src_id, dst_id, data),
+                ToPeerMsg::Providers {
+                    client_id,
+                    key,
+                    providers,
+                } => swarm.deliver_providers(client_id, key, providers),
+            }
+        }
+
         loop {
             select! {
                 from_node = peer_inlet.next() =>
                     match from_node {
-                        Some(ToPeerMsg::Deliver {
-                            src_id,
-                            dst_id,
-                            data,
-                        }) => swarm.relay_message(src_id, dst_id, data),
-
+                        Some(msg) => handle_from_node(&mut swarm, msg),
                         // channel is closed when node service was shut down - break the loop
                         None => break,
                     },

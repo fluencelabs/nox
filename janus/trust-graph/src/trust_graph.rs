@@ -208,7 +208,7 @@ impl TrustGraph {
                     Certificate::new_unverified(trusts)
                 })
                 .collect(),
-            None => return Vec::new(),
+            None => Vec::new(),
         }
     }
 

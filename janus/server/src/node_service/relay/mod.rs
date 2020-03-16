@@ -17,8 +17,11 @@
 mod events;
 mod kademlia;
 mod protocol;
+mod provider;
+#[allow(clippy::module_inception)]
 mod relay;
 
-pub use events::RelayEvent;
+pub use events::RelayMessage;
 pub use kademlia::KademliaRelay;
+pub use provider::Provider;
 pub use relay::Relay;

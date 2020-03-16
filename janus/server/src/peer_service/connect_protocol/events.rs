@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
+
+pub type PeerIdBytes = Vec<u8>;
+pub type MultihashBytes = Vec<u8>;
 
 /// Describes network messages from a peer to current node (client -> server).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,8 +26,17 @@ use serde::{Deserialize, Serialize};
 pub enum ToNodeNetworkMsg {
     /// Represents a message that should be relayed to given dst peer.
     Relay {
-        dst_id: Vec<u8>,
-        data: Vec<u8>,
+        dst_id: PeerIdBytes,
+        data: PeerIdBytes,
+    },
+    Provide {
+        key: MultihashBytes,
+    },
+    FindProviders {
+        /// PeerId of the client who requested providers
+        client_id: PeerIdBytes,
+        /// Key to find providers for
+        key: MultihashBytes,
     },
     // TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
     Upgrade,
@@ -41,5 +54,15 @@ impl Default for ToNodeNetworkMsg {
 #[serde(tag = "action")]
 pub enum ToPeerNetworkMsg {
     /// Message that should be relayed from src peer to chosen dst peer.
-    Deliver { src_id: Vec<u8>, data: Vec<u8> },
+    Deliver {
+        src_id: PeerIdBytes,
+        data: PeerIdBytes,
+    },
+    Providers {
+        /// PeerId of the client who requested providers
+        client_id: PeerIdBytes,
+        /// Key to find providers for
+        key: MultihashBytes,
+        providers: Vec<(Multiaddr, PeerIdBytes)>,
+    },
 }

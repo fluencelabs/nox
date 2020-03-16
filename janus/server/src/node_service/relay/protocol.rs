@@ -15,7 +15,7 @@
  */
 
 use crate::error::Error;
-use crate::node_service::relay::RelayEvent;
+use crate::node_service::relay::RelayMessage;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
@@ -23,10 +23,11 @@ use serde_json;
 use std::{io, iter, pin::Pin};
 
 // 1 Mb
+#[allow(clippy::identity_op)]
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/janus/relay/1.0.0";
 
-impl UpgradeInfo for RelayEvent {
+impl UpgradeInfo for RelayMessage {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -35,18 +36,19 @@ impl UpgradeInfo for RelayEvent {
     }
 }
 
-impl<Socket> InboundUpgrade<Socket> for RelayEvent
+impl<Socket> InboundUpgrade<Socket> for RelayMessage
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    type Output = RelayEvent;
+    type Output = RelayMessage;
     type Error = Error;
+    #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
-            let relay_event: RelayEvent = serde_json::from_slice(&packet).unwrap();
+            let relay_event: RelayMessage = serde_json::from_slice(&packet).unwrap();
             socket.close().await?;
 
             Ok(relay_event)
@@ -54,12 +56,13 @@ where
     }
 }
 
-impl<Socket> OutboundUpgrade<Socket> for RelayEvent
+impl<Socket> OutboundUpgrade<Socket> for RelayMessage
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     type Output = ();
     type Error = io::Error;
+    #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
@@ -79,7 +82,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::RelayEvent;
+    use super::RelayMessage;
     use futures::prelude::*;
     use libp2p::core::{
         multiaddr::multiaddr,
@@ -106,7 +109,7 @@ mod tests {
             let conn = listener_upgrade.await.unwrap();
             let relay_event = upgrade::apply_inbound(
                 conn,
-                RelayEvent {
+                RelayMessage {
                     src_id: vec![],
                     dst_id: vec![],
                     data: vec![],
@@ -124,7 +127,7 @@ mod tests {
             let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
             upgrade::apply_outbound(
                 c,
-                RelayEvent {
+                RelayMessage {
                     src_id: vec![0, 0xFF],
                     dst_id: vec![0, 0xFF],
                     data: "test".to_string().into_bytes(),

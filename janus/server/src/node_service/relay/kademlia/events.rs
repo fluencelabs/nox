@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-use crate::node_service::relay::RelayEvent;
+use crate::node_service::relay::RelayMessage;
 
 // TODO: get rid of InnerMessage by augmenting relay event
 #[derive(Debug)]
 pub enum InnerMessage {
-    Relay(RelayEvent),
+    Relay(RelayMessage),
     // This is needed because UpgradeOutbound states OutType = ()
     Sent,
 }
 
-impl From<RelayEvent> for InnerMessage {
+impl From<RelayMessage> for InnerMessage {
     #[inline]
-    fn from(event: RelayEvent) -> Self {
+    fn from(event: RelayMessage) -> Self {
         InnerMessage::Relay(event)
     }
 }

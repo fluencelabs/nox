@@ -14,14 +14,30 @@
  * limitations under the License.
  */
 
+use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
+
+pub type PeerIdBytes = Vec<u8>;
+pub type MultihashBytes = Vec<u8>;
 
 /// Describes network messages from a peer to current node (client -> server).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
 pub enum ToNodeEvent {
     /// Represents a message that should be relayed to given dst node.
-    Relay { dst_id: Vec<u8>, data: Vec<u8> },
+    Relay {
+        dst_id: PeerIdBytes,
+        data: PeerIdBytes,
+    },
+    Provide {
+        key: MultihashBytes,
+    },
+    FindProviders {
+        /// PeerId of the client who requested providers
+        client_id: PeerIdBytes,
+        /// Key to find providers for
+        key: MultihashBytes,
+    },
 }
 
 /// Describes network message from current node to a peer (server -> client).
@@ -30,8 +46,16 @@ pub enum ToNodeEvent {
 pub enum ToPeerEvent {
     /// Message that should be relayed from src node to chosen dst node.
     Deliver {
-        src_id: Vec<u8>,
-        data: Vec<u8>,
+        src_id: PeerIdBytes,
+        data: PeerIdBytes,
+    },
+    /// Found providers for a given peer id
+    Providers {
+        /// PeerId of the client who requested providers
+        client_id: PeerIdBytes,
+        /// Key to find providers for
+        key: MultihashBytes,
+        providers: Vec<(Multiaddr, PeerIdBytes)>,
     },
     // TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
     Upgrade,

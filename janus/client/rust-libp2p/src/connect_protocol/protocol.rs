@@ -23,6 +23,7 @@ use std::iter;
 use std::pin::Pin;
 
 // 1 Mb
+#[allow(clippy::identity_op)]
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/janus/peer/1.0.0";
 
@@ -41,6 +42,7 @@ where
 {
     type Output = ToPeerEvent;
     type Error = failure::Error;
+    #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
@@ -69,6 +71,7 @@ where
 {
     type Output = ();
     type Error = upgrade::ReadOneError;
+    #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {

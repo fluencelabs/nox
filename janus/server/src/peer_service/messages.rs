@@ -15,6 +15,8 @@
  */
 
 use libp2p::PeerId;
+use parity_multiaddr::Multiaddr;
+use parity_multihash::Multihash;
 
 /// Describes inner events from a node service to a peer service
 #[derive(Clone, Debug, PartialEq)]
@@ -27,21 +29,37 @@ pub enum ToPeerMsg {
         dst_id: PeerId,
         data: Vec<u8>,
     },
+    Providers {
+        client_id: PeerId, // TODO: is it possible to remove that field?
+        key: Multihash,
+        providers: Vec<(Multiaddr, PeerId)>,
+    },
 }
 
 /// Describes inner events from peer service to node service
 #[derive(Clone, Debug, PartialEq)]
 pub enum ToNodeMsg {
     /// Notifies that new peer that has been connected.
-    PeerConnected { peer_id: PeerId },
+    PeerConnected {
+        peer_id: PeerId,
+    },
 
     /// Notifies that some peer has been disconnected.
-    PeerDisconnected { peer_id: PeerId },
+    PeerDisconnected {
+        peer_id: PeerId,
+    },
 
     /// Message that should be relayed to other peer.
     Relay {
         src_id: PeerId,
         dst_id: PeerId,
         data: Vec<u8>,
+    },
+    Provide(Multihash),
+    FindProviders {
+        /// PeerId of the client who requested providers
+        client_id: PeerId,
+        /// Key to find providers for
+        key: Multihash,
     },
 }

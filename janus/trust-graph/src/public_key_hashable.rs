@@ -21,7 +21,7 @@ use std::hash::{Hash, Hasher};
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct PublicKeyHashable(PublicKey);
 
-#[warn(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for PublicKeyHashable {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write(&self.0.encode());

@@ -16,6 +16,7 @@
 
 use crate::connect_protocol::behaviour::ClientConnectProtocolBehaviour;
 use crate::connect_protocol::events::ToPeerEvent;
+use crate::relay_api::RelayApi;
 use janus_server::{event_polling, generate_swarm_event_type};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::identity::PublicKey;
@@ -23,6 +24,7 @@ use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::{NetworkBehaviour, PeerId};
 use log::debug;
+use parity_multihash::Multihash;
 use std::collections::VecDeque;
 
 type SwarmEventType = generate_swarm_event_type!(ClientServiceBehaviour);
@@ -75,10 +77,6 @@ impl ClientServiceBehaviour {
         }
     }
 
-    pub fn send_message(&mut self, relay: PeerId, dst: PeerId, message: Vec<u8>) {
-        self.node_connect_protocol.send_message(relay, dst, message);
-    }
-
     #[allow(dead_code)]
     pub fn exit(&mut self) {
         unimplemented!(
@@ -88,4 +86,20 @@ impl ClientServiceBehaviour {
 
     // produces ToPeerEvent
     event_polling!(custom_poll, events, SwarmEventType);
+}
+
+impl RelayApi for ClientServiceBehaviour {
+    fn relay_message(&mut self, relay: PeerId, dst: PeerId, message: Vec<u8>) {
+        self.node_connect_protocol
+            .relay_message(relay, dst, message);
+    }
+
+    fn provide(&mut self, relay: PeerId, key: Multihash) {
+        self.node_connect_protocol.provide(relay, key);
+    }
+
+    fn find_providers(&mut self, relay: PeerId, client_id: PeerId, key: Multihash) {
+        self.node_connect_protocol
+            .find_providers(relay, client_id, key);
+    }
 }

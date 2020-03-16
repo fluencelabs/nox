@@ -20,7 +20,7 @@ use parity_multiaddr::{Multiaddr, Protocol};
 
 use crate::node_service::relay::KademliaRelay;
 use crate::node_service::relay::Relay;
-use crate::node_service::relay::RelayEvent;
+use crate::node_service::relay::RelayMessage;
 use std::net::IpAddr;
 
 // TODO: use is_global from std::net::ip once it's stable
@@ -73,7 +73,7 @@ impl Relay for KademliaRelay {
         self.kademlia.bootstrap();
     }
 
-    fn relay(&mut self, event: RelayEvent) {
+    fn relay(&mut self, event: RelayMessage) {
         if let Ok(dst) = PeerId::from_bytes(event.dst_id.clone()) {
             debug!("relay event to {}", dst);
         }

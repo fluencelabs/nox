@@ -18,9 +18,9 @@ use crate::config::config::NodeServiceConfig;
 use crate::misc::{Inlet, Outlet};
 use crate::node_service::{
     p2p::{build_transport, NodeServiceBehaviour},
-    relay::RelayEvent,
+    relay::RelayMessage,
 };
-use crate::peer_service::events::{ToNodeMsg, ToPeerMsg};
+use crate::peer_service::messages::{ToNodeMsg, ToPeerMsg};
 
 use async_std::task;
 use futures::channel::{mpsc, oneshot};
@@ -148,11 +148,7 @@ impl NodeService {
                     trace!("node_service/select: sending {:?} to peer_service", from_swarm);
 
                     peer_outlet
-                        .unbounded_send(ToPeerMsg::Deliver {
-                            src_id: PeerId::from_bytes(from_swarm.src_id).unwrap(),
-                            dst_id: PeerId::from_bytes(from_swarm.dst_id).unwrap(),
-                            data: from_swarm.data,
-                        })
+                        .unbounded_send(from_swarm)
                         .unwrap();
                 },
 
@@ -176,11 +172,15 @@ impl NodeService {
                 src_id,
                 dst_id,
                 data,
-            }) => swarm.relay(RelayEvent {
+            }) => swarm.relay(RelayMessage {
                 src_id: src_id.into_bytes(),
                 dst_id: dst_id.into_bytes(),
                 data,
             }),
+            Some(ToNodeMsg::Provide(key)) => swarm.provide(key),
+            Some(ToNodeMsg::FindProviders { client_id, key }) => {
+                swarm.find_providers(client_id, key)
+            }
 
             // channel is closed when peer service was shut down - does nothing
             // (node service is main service and could run without peer service)

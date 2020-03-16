@@ -27,9 +27,12 @@ use log::trace;
 use crate::event_polling;
 use crate::generate_swarm_event_type;
 
-use crate::node_service::relay::KademliaRelay;
 use crate::node_service::relay::Relay;
-use crate::node_service::relay::RelayEvent;
+use crate::node_service::relay::RelayMessage;
+use crate::node_service::relay::{KademliaRelay, Provider};
+use crate::peer_service::messages::ToPeerMsg;
+
+use parity_multihash::Multihash;
 
 mod identity;
 mod ping;
@@ -39,7 +42,7 @@ type SwarmEventType = generate_swarm_event_type!(NodeServiceBehaviour);
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
-#[behaviour(poll_method = "custom_poll", out_event = "RelayEvent")]
+#[behaviour(poll_method = "custom_poll", out_event = "ToPeerMsg")]
 pub struct NodeServiceBehaviour {
     ping: Ping,
     relay: KademliaRelay,
@@ -91,8 +94,16 @@ impl NodeServiceBehaviour {
         self.relay.remove_local_peer(&peer_id);
     }
 
-    pub fn relay(&mut self, relay_message: RelayEvent) {
-        self.relay.relay(relay_message);
+    pub fn relay(&mut self, message: RelayMessage) {
+        self.relay.relay(message);
+    }
+
+    pub fn provide(&mut self, key: Multihash) {
+        self.relay.provide(key)
+    }
+
+    pub fn find_providers(&mut self, client_id: PeerId, key: Multihash) {
+        self.relay.find_providers(client_id, key);
     }
 
     #[allow(dead_code)]

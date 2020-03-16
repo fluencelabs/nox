@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::error::Error;
 use std::task::{Context, Poll};
 
 use libp2p::core::either::EitherOutput;
@@ -32,19 +31,20 @@ use libp2p::swarm::OneShotHandler;
 use libp2p::swarm::PollParameters;
 use libp2p::swarm::ProtocolsHandler;
 use libp2p::PeerId;
-use log::{debug, error, trace};
+use log::{debug, trace};
 
 use crate::node_service::relay::kademlia::{KademliaRelay, SwarmEventType};
 use crate::node_service::relay::{
-    events::RelayEvent, kademlia::events::InnerMessage, relay::Relay,
+    events::RelayMessage, kademlia::events::InnerMessage, relay::Relay,
 };
+use crate::peer_service::messages::ToPeerMsg;
 
 impl NetworkBehaviour for KademliaRelay {
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
-        OneShotHandler<RelayEvent, RelayEvent, InnerMessage>,
+        OneShotHandler<RelayMessage, RelayMessage, InnerMessage>,
         <Kademlia<MemoryStore> as NetworkBehaviour>::ProtocolsHandler,
     >;
-    type OutEvent = RelayEvent;
+    type OutEvent = ToPeerMsg;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         IntoProtocolsHandler::select(Default::default(), self.kademlia.new_handler())
@@ -121,19 +121,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for KademliaRelay {
 
         // TODO: handle GetProvidersErr
         if let GetProvidersResult(Ok(GetProvidersOk { key, providers, .. })) = event {
-            // Parses peer id from serialized base58 string: bytes => utf8 => PeerId
-            // TODO: move peer id serialization to a trait
-            let peer_id =
-                String::from_utf8(key.to_vec()).map_err(|e| Box::new(e) as Box<dyn Error>);
-            let peer_id = peer_id.and_then(|str| str.parse::<PeerId>().map_err(Into::into));
-
-            match peer_id {
-                Ok(peer_id) => self.relay_to_providers(peer_id, providers),
-                Err(e) => error!(
-                    "relay_to_providers: error converting dst to PeerId {:?}",
-                    e.as_ref()
-                ),
-            }
+            self.providers_found(key, providers)
         }
     }
 }

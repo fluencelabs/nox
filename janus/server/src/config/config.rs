@@ -101,6 +101,7 @@ fn decode_key_pair(secret_key_str: &str) -> Result<Keypair, failure::Error> {
 }
 
 /// Generate config with merging arguments and a config file. Arguments are a higher priority then the config file.
+#[allow(clippy::implicit_hasher)]
 pub fn generate_config(
     arg_matches: ArgMatches,
     config_from_file: HashMap<String, String>,

@@ -25,36 +25,30 @@ use futures::future::FusedFuture;
 use futures::stream::Fuse;
 use futures::{select, stream::StreamExt};
 
+use crate::command::Command;
+use crate::message::Message;
+use crate::relay_api::RelayApi;
+
 use libp2p::identity::Keypair;
-use libp2p::{identity, PeerId};
+use libp2p::{identity, PeerId, Swarm};
 use log::trace;
 use parity_multiaddr::Multiaddr;
+use std::convert::TryInto;
 use std::error::Error;
+use std::ops::DerefMut;
 use std::time::Duration;
-
-#[derive(Debug)]
-pub struct Message {
-    pub peer_id: PeerId, // either src or dst
-    pub data: String,
-}
-
-impl Message {
-    pub fn new(peer_id: PeerId, data: String) -> Self {
-        Message { peer_id, data }
-    }
-}
 
 pub struct Client {
     pub key: Keypair,
     pub peer_id: PeerId,
-    /// Channel to send messages to relay node
-    relay_outlet: Outlet<Message>,
+    /// Channel to send commands to relay node
+    relay_outlet: Outlet<Command>,
     /// Stream of messages received from relay node
     client_inlet: Fuse<Inlet<Message>>,
 }
 
 impl Client {
-    fn new(relay_outlet: Outlet<Message>, client_inlet: Inlet<Message>) -> Self {
+    fn new(relay_outlet: Outlet<Command>, client_inlet: Inlet<Message>) -> Self {
         let key = identity::Keypair::generate_ed25519();
         let peer_id = PeerId::from(key.public());
 
@@ -66,12 +60,30 @@ impl Client {
         }
     }
 
-    pub fn send(&self, msg: Message) {
-        self.relay_outlet.unbounded_send(msg).unwrap();
+    pub fn send(&self, cmd: Command) {
+        self.relay_outlet.unbounded_send(cmd).unwrap();
     }
 
     pub fn receive_one(&mut self) -> impl FusedFuture<Output = Option<Message>> + '_ {
         self.client_inlet.next()
+    }
+
+    fn dial(&self, relay: Multiaddr) -> Result<Swarm<ClientServiceBehaviour>, Box<dyn Error>> {
+        let mut swarm = {
+            let transport = build_transport(self.key.clone(), Duration::from_secs(20));
+            let behaviour = ClientServiceBehaviour::new(&self.peer_id, self.key.public());
+            libp2p::Swarm::new(transport, behaviour, self.peer_id.clone())
+        };
+
+        match libp2p::Swarm::dial_addr(&mut swarm, relay.clone()) {
+            Ok(_) => println!("Dialed to {:?}", relay),
+            Err(e) => {
+                println!("Dial to {:?} failed with {:?}", relay, e);
+                return Err(e.into());
+            }
+        }
+
+        Ok(swarm)
     }
 
     pub async fn connect(relay: Multiaddr, relay_id: PeerId) -> Result<Client, Box<dyn Error>> {
@@ -79,22 +91,10 @@ impl Client {
         let (relay_outlet, relay_inlet) = mpsc::unbounded();
 
         let client = Client::new(relay_outlet, client_inlet);
-
-        let mut swarm = {
-            let transport = build_transport(client.key.clone(), Duration::from_secs(20));
-            let behaviour = ClientServiceBehaviour::new(&client.peer_id, client.key.public());
-            libp2p::Swarm::new(transport, behaviour, client.peer_id.clone())
-        };
-
-        match libp2p::Swarm::dial_addr(&mut swarm, relay.clone()) {
-            Ok(_) => println!("Dialed to {:?}", relay),
-            Err(e) => {
-                println!("Dial to {:?} failed with {:?}", relay, e);
-                Err(e)?
-            }
-        }
+        let mut swarm = client.dial(relay)?;
 
         let mut relay_inlet = relay_inlet.fuse();
+        let client_id = client.peer_id.clone();
 
         task::spawn(async move {
             loop {
@@ -102,28 +102,17 @@ impl Client {
                     // Messages that were scheduled via client.send() method
                     to_relay = relay_inlet.next() => {
                         match to_relay {
-                            Some(msg) => {
-                                trace!("Will send to swarm to {}", msg.peer_id.to_base58());
+                            Some(cmd) => {
                                 // Send to relay node
-                                swarm.send_message(relay_id.clone(), msg.peer_id, msg.data.into());
+                                Self::send_to_relay(&mut swarm, relay_id.clone(), client_id.clone(), cmd)
                             }
                             None => {}
                         }
                     }
 
                     // Messages that were received from relay node
-                    from_swarm = swarm.select_next_some() => {
-                        match from_swarm {
-                            ToPeerEvent::Deliver { src_id, data } => {
-                                let peer_id = PeerId::from_bytes(src_id).unwrap();
-                                let data = String::from_utf8(data).unwrap();
-                                trace!("Got msg {} {}", peer_id.to_base58(), data);
-                                let message = Message { peer_id, data };
-                                // Message will be available through client.receive_one
-                                client_outlet.unbounded_send(message).unwrap();
-                            }
-                            ToPeerEvent::Upgrade => {}
-                        }
+                    from_relay = swarm.select_next_some() => {
+                        Self::receive_from_relay(from_relay, &client_outlet)
                     }
 
                     // TODO: implement stop
@@ -134,5 +123,33 @@ impl Client {
 
         // TODO: return client only when connection is established, i.e. wait for an event from swarm
         Ok(client)
+    }
+
+    fn send_to_relay<R: RelayApi, S: DerefMut<Target = R>>(
+        swarm: &mut S,
+        relay: PeerId,
+        client: PeerId,
+        cmd: Command,
+    ) {
+        match cmd {
+            Command::Relay { dst, data } => {
+                trace!("Will send to swarm to {}", dst.to_base58());
+                swarm.relay_message(relay, dst, data.into())
+            }
+            Command::Provide(id) => swarm.provide(relay, id),
+            Command::FindProviders(id) => swarm.find_providers(relay, client, id),
+        }
+    }
+
+    fn receive_from_relay(event: ToPeerEvent, client_outlet: &Outlet<Message>) {
+        let msg: Option<Message> = event
+            .try_into()
+            .expect("Can't parse ToPeerEvent into Message");
+
+        match msg {
+            // Message will be available through client.receive_one
+            Some(msg) => client_outlet.unbounded_send(msg).unwrap(),
+            _ => {}
+        }
     }
 }

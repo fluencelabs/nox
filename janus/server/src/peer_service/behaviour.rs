@@ -15,7 +15,7 @@
  */
 
 use crate::peer_service::connect_protocol::behaviour::PeerConnectBehaviour;
-use crate::peer_service::events::ToNodeMsg;
+use crate::peer_service::messages::ToNodeMsg;
 use crate::{event_polling, generate_swarm_event_type};
 
 use libp2p::identify::{Identify, IdentifyEvent};
@@ -25,6 +25,8 @@ use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::{NetworkBehaviour, PeerId};
 use log::debug;
 
+use parity_multiaddr::Multiaddr;
+use parity_multihash::Multihash;
 use std::collections::VecDeque;
 
 type SwarmEventType = generate_swarm_event_type!(PeerServiceBehaviour);
@@ -77,8 +79,17 @@ impl PeerServiceBehaviour {
         }
     }
 
-    pub fn relay_message(&mut self, src: PeerId, dst: PeerId, message: Vec<u8>) {
-        self.peers.deliver_data(src, dst, message);
+    pub fn deliver_data(&mut self, src: PeerId, dst: PeerId, data: Vec<u8>) {
+        self.peers.deliver_data(src, dst, data);
+    }
+
+    pub fn deliver_providers(
+        &mut self,
+        client_id: PeerId,
+        key: Multihash,
+        providers: Vec<(Multiaddr, PeerId)>,
+    ) {
+        self.peers.deliver_providers(client_id, key, providers)
     }
 
     #[allow(dead_code)]

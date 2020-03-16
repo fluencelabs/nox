@@ -17,15 +17,12 @@
 use std::error::Error;
 use std::time::{Duration, Instant};
 
-use async_std::task;
 use bencher::stats::Stats;
 use futures::stream::FuturesUnordered;
-use futures_util::{FutureExt, StreamExt};
+use futures_util::StreamExt;
 use itertools::{Either, Itertools};
 use reqwest;
-use reqwest::multipart;
 use tokio;
-use tokio::prelude::*;
 
 /*
     Plan:
@@ -65,7 +62,7 @@ async fn request() -> Result<(), Box<dyn Error>> {
                     let resp = reqwest::get(&addr).await;
                     let elapsed = start.elapsed().as_secs_f64();
                     match resp {
-                        Ok(resp) => {
+                        Ok(_) => {
                             // let resp = resp.text().await?;
                             // println!("resp {} elpsd {}", resp, elapsed);
                             return Ok(elapsed);

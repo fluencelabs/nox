@@ -22,22 +22,32 @@ use libp2p::kad::record::Key as KademliaKey;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Kademlia;
 use libp2p::kad::KademliaConfig;
+use libp2p::swarm::NetworkBehaviour;
 use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::PeerId;
-use log::{debug, error};
 
 // Reimport
 pub use behaviour::*;
 
 use crate::generate_swarm_event_type;
-use crate::node_service::relay::RelayEvent;
+use crate::node_service::relay::{Provider, RelayMessage};
+use crate::peer_service::messages::ToPeerMsg;
 use failure::_core::time::Duration;
+use log::{debug, error};
+use parity_multiaddr::Multiaddr;
+use parity_multihash::Multihash;
 
 mod behaviour;
 mod events;
+mod provider;
 mod relay;
 
 type SwarmEventType = generate_swarm_event_type!(KademliaRelay);
+
+enum Promise {
+    Relay(RelayMessage),
+    FindProviders { client_id: PeerId, key: Multihash },
+}
 
 /// Relay based on Kademlia. Responsibilities and mechanics:
 /// - enqueues relay events, then async-ly searches Kademlia for destination nodes and then sends events
@@ -48,8 +58,8 @@ pub struct KademliaRelay {
     events: VecDeque<SwarmEventType>,
     // Underlying Kademlia node
     kademlia: Kademlia<MemoryStore>,
-    // Enqueued RelayEvents, to be sent when providers are found
-    messages: HashMap<PeerId, VecDeque<RelayEvent>>,
+    // Enqueued promises, to be sent when providers are found
+    promises: HashMap<Multihash, VecDeque<Promise>>, // TODO: is Multihash good-enough?
     // Locally connected peers
     peers: HashSet<PeerId>,
 }
@@ -65,52 +75,65 @@ impl KademliaRelay {
         Self {
             events: VecDeque::new(),
             kademlia: Kademlia::with_config(peer_id, store, cfg),
-            messages: HashMap::new(),
+            promises: HashMap::new(),
             peers: HashSet::new(),
         }
     }
 
-    /// Try to relay `event` to a locally connected peer
-    /// Returns `Some(event)` if peer was not found locally, `None` otherwise
-    pub fn relay_local(&mut self, event: RelayEvent) -> Option<RelayEvent> {
-        use libp2p::swarm::NetworkBehaviourAction::GenerateEvent;
-
-        match PeerId::from_bytes(event.dst_id.clone()) {
-            Ok(dst_peer) => {
-                if !self.peers.contains(&dst_peer) {
-                    // We were asked to relay a message to the local peer we don't have a connection to
-                    return Some(event);
-                }
-                debug!("relay local to {}", dst_peer.to_base58());
-                self.events.push_back(GenerateEvent(event));
-            }
-            Err(_err) => {
-                error!("Error parsing PeerId from dst_id");
-                return Some(event); // TODO: return error to the src_id
-            }
-        }
-
-        None
+    fn enqueue(&mut self, key: Multihash, promise: Promise) {
+        self.promises
+            .entry(key)
+            .or_insert_with(VecDeque::new)
+            .push_back(promise);
     }
 
-    /// Enqueue `event` to be sent, and start looking for nodes providing destination peer
+    /// Try to relay `message` to a locally connected peer
+    /// Returns `Some(event)` if peer was not found locally, `None` otherwise
+    pub fn relay_local(&mut self, message: RelayMessage) -> Option<RelayMessage> {
+        use libp2p::swarm::NetworkBehaviourAction::GenerateEvent;
+
+        let deliver: Result<ToPeerMsg, _> = message.clone().try_into();
+
+        // TODO: rewrite in a compact fashion
+        match deliver {
+            Ok(ToPeerMsg::Deliver {
+                dst_id,
+                src_id,
+                data,
+            }) => {
+                if !self.peers.contains(&dst_id) {
+                    // We were asked to relay a message to the local peer we don't have a connection to
+                    Some(message)
+                } else {
+                    debug!("relay local to {}", dst_id.to_base58());
+                    self.events.push_back(GenerateEvent(ToPeerMsg::Deliver {
+                        dst_id,
+                        src_id,
+                        data,
+                    }));
+                    None
+                }
+            }
+            Err(_) => {
+                error!("Error parsing PeerId from dst_id");
+                Some(message) // TODO: return error to the src_id
+            }
+            _ => Some(message),
+        }
+    }
+
+    /// Enqueue `message` to be sent, and start looking for nodes providing destination peer
     /// TODO: self.messages could grow without a limit
-    pub fn relay_remote(&mut self, event: RelayEvent) {
-        let dst_id = event.dst_id.clone();
+    pub fn relay_remote(&mut self, message: RelayMessage) {
+        let dst_id = message.dst_id.clone();
         // TODO: Get rid of this Result or escalate error
         let dst_peer: PeerId = dst_id.try_into().expect("dst_id is not a correct PeerId");
 
         debug!("relay remote to {}", dst_peer.to_base58());
 
-        self.messages
-            .entry(dst_peer.clone())
-            .or_insert_with(VecDeque::new)
-            .push_back(event);
+        self.enqueue(dst_peer.clone().into(), Promise::Relay(message));
 
-        // TODO: move peer_id => base58 => bytes serialization to a separate trait
-        // base58 string is used here to mitigate equality issues of PeerId byte representation
-        let key = dst_peer.to_base58().as_bytes().to_vec().into();
-        self.kademlia.get_providers(key);
+        self.get_providers(dst_peer.into());
     }
 
     /// Announce to network that current node can route messages to peer of addr `peer_id`
@@ -119,8 +142,7 @@ impl KademliaRelay {
     pub fn announce_peer(&mut self, peer_id: PeerId) {
         debug!("Announcing peer {}", peer_id.to_base58());
 
-        let key: KademliaKey = peer_id.to_base58().as_bytes().to_vec().into();
-        self.kademlia.start_providing(key);
+        self.provide(peer_id.clone().into());
 
         self.peers.insert(peer_id);
     }
@@ -135,25 +157,68 @@ impl KademliaRelay {
         self.kademlia.stop_providing(&key);
     }
 
-    /// Once providers for a `dst` peer are found, send enqueued `RelayEvent`s to them
-    pub fn relay_to_providers(&mut self, dst: PeerId, providers: Vec<PeerId>) {
-        for node in providers {
-            if let Some(msg_queue) = self.messages.get_mut(&dst) {
-                let events = msg_queue
-                    .drain(..) // NOTE: clears out the queue
-                    .map(|event| {
-                        debug!(
-                            "Relaying to peer {:?} via node {}",
-                            dst.to_base58(),
-                            node.to_base58()
-                        );
-                        NetworkBehaviourAction::SendEvent {
-                            peer_id: node.clone(),
-                            event: EitherOutput::First(event),
-                        }
-                    });
-                self.events.extend(events);
-            }
+    /// Signals to relay that providers are found, triggering completion of related promises
+    pub fn providers_found(&mut self, key: KademliaKey, providers: Vec<PeerId>) {
+        let key: Multihash = key
+            .to_vec()
+            .try_into()
+            .expect("Can't parse key to multihash");
+
+        let kademlia = &mut self.kademlia;
+
+        if let Some(promises) = self.promises.get_mut(&key) {
+            let events: Vec<SwarmEventType> = promises
+                .drain(..)
+                .map(|promise| match promise {
+                    Promise::Relay(msg) => Self::generate_relay_events(msg, &providers),
+                    Promise::FindProviders { client_id, key } => {
+                        Self::generate_providers_events(kademlia, client_id, key, &providers)
+                    }
+                })
+                .flatten()
+                .collect();
+
+            self.events.extend(events);
         }
+    }
+
+    fn generate_relay_events(message: RelayMessage, providers: &[PeerId]) -> Vec<SwarmEventType> {
+        providers
+            .iter()
+            .map(|node| NetworkBehaviourAction::SendEvent {
+                peer_id: node.clone(),
+                event: EitherOutput::First(message.clone()),
+            })
+            .collect()
+    }
+
+    fn generate_providers_events(
+        kademlia: &mut Kademlia<MemoryStore>,
+        client: PeerId,
+        key: Multihash,
+        providers: &Vec<PeerId>,
+    ) -> Vec<SwarmEventType> {
+        let providers: Vec<(Multiaddr, PeerId)> = providers
+            .into_iter()
+            .map(|id| {
+                kademlia
+                    .addresses_of_peer(&id)
+                    .into_iter()
+                    .map(move |addr| (addr, id.clone()))
+            })
+            .flatten()
+            .collect();
+
+        vec![NetworkBehaviourAction::GenerateEvent(
+            ToPeerMsg::Providers {
+                client_id: client,
+                key,
+                providers,
+            },
+        )]
+    }
+
+    pub fn get_providers(&mut self, key: Multihash) {
+        self.kademlia.get_providers(key.into());
     }
 }

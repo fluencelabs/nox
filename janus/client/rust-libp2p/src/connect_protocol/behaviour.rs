@@ -15,6 +15,7 @@
  */
 
 use crate::connect_protocol::events::{ToNodeEvent, ToPeerEvent};
+use crate::relay_api::RelayApi;
 use janus_server::{event_polling, generate_swarm_event_type};
 use libp2p::{
     core::ConnectedPoint,
@@ -23,6 +24,7 @@ use libp2p::{
     PeerId,
 };
 use log::trace;
+use parity_multihash::Multihash;
 use std::collections::VecDeque;
 
 type SwarmEventType = generate_swarm_event_type!(ClientConnectProtocolBehaviour);
@@ -40,21 +42,48 @@ impl ClientConnectProtocolBehaviour {
         }
     }
 
-    pub fn send_message(&mut self, relay: PeerId, dst: PeerId, message: Vec<u8>) {
+    fn enqueue_event(&mut self, relay: PeerId, event: ToNodeEvent) {
         trace!(
-            "client: sending message {:?} to {:?} via relay peer {:?}",
-            message,
-            dst,
-            relay
+            "client: sending event {:?} to relay node {:?}",
+            event,
+            relay.to_base58()
         );
 
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: relay,
-            event: ToNodeEvent::Relay {
+            event,
+        })
+    }
+}
+
+impl RelayApi for ClientConnectProtocolBehaviour {
+    fn relay_message(&mut self, relay: PeerId, dst: PeerId, message: Vec<u8>) {
+        self.enqueue_event(
+            relay,
+            ToNodeEvent::Relay {
                 dst_id: dst.into_bytes(),
                 data: message,
             },
-        })
+        )
+    }
+
+    fn provide(&mut self, relay: PeerId, key: Multihash) {
+        self.enqueue_event(
+            relay,
+            ToNodeEvent::Provide {
+                key: key.into_bytes(),
+            },
+        )
+    }
+
+    fn find_providers(&mut self, relay: PeerId, client_id: PeerId, key: Multihash) {
+        self.enqueue_event(
+            relay,
+            ToNodeEvent::FindProviders {
+                client_id: client_id.into_bytes(),
+                key: key.into_bytes(),
+            },
+        )
     }
 }
 

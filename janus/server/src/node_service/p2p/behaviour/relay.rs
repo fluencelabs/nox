@@ -15,11 +15,11 @@
  */
 
 use crate::node_service::p2p::behaviour::NodeServiceBehaviour;
-use crate::node_service::relay::RelayEvent;
+use crate::peer_service::messages::ToPeerMsg;
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 
-impl NetworkBehaviourEventProcess<RelayEvent> for NodeServiceBehaviour {
-    fn inject_event(&mut self, event: RelayEvent) {
+impl NetworkBehaviourEventProcess<ToPeerMsg> for NodeServiceBehaviour {
+    fn inject_event(&mut self, event: ToPeerMsg) {
         self.events
             .push_back(NetworkBehaviourAction::GenerateEvent(event));
     }

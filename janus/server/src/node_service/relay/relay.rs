@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::node_service::relay::RelayEvent;
+use crate::node_service::relay::RelayMessage;
 
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
@@ -33,5 +33,5 @@ pub trait Relay {
     fn bootstrap(&mut self);
 
     /// Relays event to specified destination
-    fn relay(&mut self, event: RelayEvent);
+    fn relay(&mut self, event: RelayMessage);
 }
