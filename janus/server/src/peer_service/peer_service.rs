@@ -28,10 +28,11 @@ use futures::{
     select, StreamExt,
 };
 use futures_util::FutureExt;
-use libp2p::{identity, PeerId, Swarm, TransportError};
+use libp2p::{PeerId, Swarm, TransportError};
 use log::trace;
 use parity_multiaddr::{Multiaddr, Protocol};
 
+use libp2p::identity::Keypair;
 use std::io;
 use std::ops::DerefMut;
 
@@ -49,23 +50,15 @@ pub struct PeerService {
 }
 
 impl PeerService {
-    pub fn new(config: PeerServiceConfig) -> (Box<Self>, Outlet<ToPeerMsg>) {
-        let PeerServiceConfig {
-            socket_timeout,
-            key_pair,
-            ..
-        } = config.clone();
+    pub fn new(key_pair: Keypair, config: PeerServiceConfig) -> (Box<Self>, Outlet<ToPeerMsg>) {
+        let PeerServiceConfig { socket_timeout, .. } = config.clone();
 
-        let local_key = match key_pair {
-            Some(kp) => kp,
-            None => identity::Keypair::generate_ed25519(),
-        };
-        let local_peer_id = PeerId::from(local_key.public());
+        let local_peer_id = PeerId::from(key_pair.public());
         println!("peer service is starting with id = {}", local_peer_id);
 
         let swarm = {
-            let transport = build_transport(local_key.clone(), socket_timeout);
-            let behaviour = PeerServiceBehaviour::new(&local_peer_id, local_key.public());
+            let behaviour = PeerServiceBehaviour::new(&local_peer_id, key_pair.public());
+            let transport = build_transport(key_pair, socket_timeout);
 
             Swarm::new(transport, behaviour, local_peer_id)
         };

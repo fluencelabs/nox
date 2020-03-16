@@ -142,6 +142,66 @@ impl Trust {
             issued_at: issued_date,
         })
     }
+
+    fn bs58_str_to_vec(str: &str, field: &str) -> Result<Vec<u8>, String> {
+        bs58::decode(str).into_vec().map_err(|e| {
+            format!(
+                "Cannot decode `{}` from base58 format in the trust '{}': {}",
+                field, str, e
+            )
+        })
+    }
+
+    fn str_to_duration(str: &str, field: &str) -> Result<Duration, String> {
+        let millis = str.parse().map_err(|e| {
+            format!(
+                "Cannot parse `{}` field in the trust '{}': {}",
+                field, str, e
+            )
+        })?;
+        Ok(Duration::from_millis(millis))
+    }
+
+    pub fn convert_from_strings(
+        issued_for: &str,
+        signature: &str,
+        expires_at: &str,
+        issued_at: &str,
+    ) -> Result<Self, String> {
+        // PublicKey
+        let issued_for_bytes = Self::bs58_str_to_vec(issued_for, "issued_for")?;
+        let issued_for = PublicKey::decode(issued_for_bytes.as_slice()).map_err(|e| {
+            format!(
+                "Cannot decode the public key: {} in the trust '{}'",
+                issued_for, e
+            )
+        })?;
+
+        // 64 bytes signature
+        let signature = Self::bs58_str_to_vec(signature, "signature")?;
+
+        // Duration
+        let expires_at = Self::str_to_duration(expires_at, "expires_at")?;
+
+        // Duration
+        let issued_at = Self::str_to_duration(issued_at, "issued_at")?;
+
+        Ok(Trust::new(issued_for, expires_at, issued_at, signature))
+    }
+}
+
+impl ToString for Trust {
+    fn to_string(&self) -> String {
+        let issued_for = bs58::encode(self.issued_for.encode()).into_string();
+        let signature = bs58::encode(self.signature.as_slice()).into_string();
+        let expires_at = (self.expires_at.as_millis() as u64).to_string();
+        let issued_at = (self.issued_at.as_millis() as u64).to_string();
+
+        format!(
+            "{}\n{}\n{}\n{}",
+            issued_for, signature, expires_at, issued_at
+        )
+    }
 }
 
 #[cfg(test)]

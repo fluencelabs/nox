@@ -17,6 +17,7 @@
 use crate::key_pair::KeyPair;
 use crate::trust::{Trust, TRUST_LEN};
 use libp2p_core::identity::ed25519::PublicKey;
+use std::str::FromStr;
 use std::time::Duration;
 
 /// Serialization format of a certificate.
@@ -188,6 +189,56 @@ impl Certificate {
     }
 }
 
+impl ToString for Certificate {
+    fn to_string(&self) -> String {
+        let mut string_lines = Vec::with_capacity(self.chain.len() + 2);
+
+        let format = bs58::encode(FORMAT).into_string();
+        let version = bs58::encode(VERSION).into_string();
+
+        string_lines.push(format);
+        string_lines.push(version);
+
+        for trust in &self.chain {
+            string_lines.push(trust.to_string());
+        }
+
+        format!("{}\n", string_lines.join("\n"))
+    }
+}
+
+impl FromStr for Certificate {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let str_lines: Vec<&str> = s.lines().collect();
+
+        // TODO for future purposes
+        let _format = str_lines[0];
+        let _version = str_lines[1];
+
+        if (str_lines.len() - 2) % 4 != 0 {
+            return Err("Incorrect format of the certificate.".to_string());
+        }
+
+        let num_of_trusts = (str_lines.len() - 2) / 4;
+        let mut trusts = Vec::with_capacity(num_of_trusts);
+
+        for i in (2..str_lines.len()).step_by(4) {
+            let trust = Trust::convert_from_strings(
+                str_lines[i],
+                str_lines[i + 1],
+                str_lines[i + 2],
+                str_lines[i + 3],
+            )?;
+
+            trusts.push(trust);
+        }
+
+        Ok(Self::new_unverified(trusts))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,6 +251,33 @@ mod tests {
 
     pub fn one_minute() -> Duration {
         Duration::new(60, 0)
+    }
+
+    #[test]
+    pub fn test_string_encoding_decoding() {
+        let (_root_kp, second_kp, cert) = generate_root_cert();
+
+        let cur_time = current_time();
+
+        let third_kp = KeyPair::generate();
+
+        let new_cert = Certificate::issue(
+            &second_kp,
+            third_kp.key_pair.public(),
+            &cert,
+            cur_time.checked_add(one_second()).unwrap(),
+            cur_time,
+            cur_time,
+        )
+        .unwrap();
+
+        let serialized = new_cert.to_string();
+        let deserialized = Certificate::from_str(&serialized);
+
+        assert!(deserialized.is_ok());
+        let after_cert = deserialized.unwrap();
+        assert_eq!(&new_cert.chain[0], &after_cert.chain[0]);
+        assert_eq!(&new_cert, &after_cert);
     }
 
     #[test]

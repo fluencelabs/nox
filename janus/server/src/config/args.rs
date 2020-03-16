@@ -17,21 +17,17 @@
 use crate::config::config::*;
 use clap::Arg;
 
-pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 5] {
+pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 4] {
     [
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
             .short("o")
             .default_value("9999")
             .help("port that will be used by the peer service"),
-        Arg::with_name(SECRET_KEY)
+        Arg::with_name(SECRET_KEY_PATH)
             .takes_value(true)
             .short("s")
-            .help("ed25519 secret key in base64 format"),
-        Arg::with_name(PEER_SECRET_KEY)
-            .takes_value(true)
-            .short("p")
-            .help("ed25519 secret key for peer connection in base64 format"),
+            .help("path to ed25519 secret key file"),
         Arg::with_name(NODE_SERVICE_PORT)
             .takes_value(true)
             .short("n")

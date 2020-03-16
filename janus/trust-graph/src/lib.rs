@@ -25,11 +25,11 @@
     unreachable_patterns
 )]
 
-mod certificate;
-mod key_pair;
+pub mod certificate;
+pub mod key_pair;
 mod misc;
 mod public_key_hashable;
-mod revoke;
-mod trust;
+pub mod revoke;
+pub mod trust;
 pub mod trust_graph;
-mod trust_node;
+pub mod trust_node;

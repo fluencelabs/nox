@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use libp2p_core::identity::ed25519::{Keypair as Libp2pKeyPair, PublicKey};
+use libp2p_core::identity::ed25519::{Keypair as Libp2pKeyPair, PublicKey, SecretKey};
 use libp2p_core::identity::error::DecodingError;
 
 pub type Signature = Vec<u8>;
@@ -31,6 +31,11 @@ impl KeyPair {
     pub fn generate() -> Self {
         let kp = Libp2pKeyPair::generate();
         kp.into()
+    }
+
+    pub fn from_bytes(sk_bytes: impl AsMut<[u8]>) -> Result<Self, DecodingError> {
+        let sk = SecretKey::from_bytes(sk_bytes)?;
+        Ok(Libp2pKeyPair::from(sk).into())
     }
 
     /// Encode the keypair into a byte array by concatenating the bytes

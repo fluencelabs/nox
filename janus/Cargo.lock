@@ -1155,6 +1155,7 @@ dependencies = [
  "rand 0.7.3",
  "serde 1.0.104",
  "serde_json",
+ "trust-graph",
 ]
 
 [[package]]
@@ -2983,6 +2984,7 @@ name = "trust-graph"
 version = "0.0.1"
 dependencies = [
  "base64 0.11.0",
+ "bs58",
  "env_logger",
  "exitfailure",
  "failure",

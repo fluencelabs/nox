@@ -26,11 +26,12 @@ use async_std::task;
 use futures::channel::{mpsc, oneshot};
 use futures::{select, stream::StreamExt};
 use futures_util::future::FutureExt;
-use libp2p::{identity, PeerId, Swarm, TransportError};
+use libp2p::{PeerId, Swarm, TransportError};
 use log::{error, trace};
 use parity_multiaddr::{Multiaddr, Protocol};
 
 use janus_server::misc::{OneshotInlet, OneshotOutlet};
+use libp2p::identity::Keypair;
 use std::io;
 
 type NodeServiceSwarm = Swarm<NodeServiceBehaviour>;
@@ -46,23 +47,15 @@ pub struct NodeService {
 }
 
 impl NodeService {
-    pub fn new(config: NodeServiceConfig) -> (Box<Self>, Outlet<ToNodeMsg>) {
-        let NodeServiceConfig {
-            socket_timeout,
-            key_pair,
-            ..
-        } = config.clone();
+    pub fn new(key_pair: Keypair, config: NodeServiceConfig) -> (Box<Self>, Outlet<ToNodeMsg>) {
+        let NodeServiceConfig { socket_timeout, .. } = config.clone();
 
-        let local_key = match key_pair {
-            Some(kp) => kp,
-            None => identity::Keypair::generate_ed25519(),
-        };
-        let local_peer_id = PeerId::from(local_key.public());
+        let local_peer_id = PeerId::from(key_pair.public());
         println!("node service is starting with id = {}", local_peer_id);
 
         let swarm = {
-            let transport = build_transport(local_key.clone(), socket_timeout);
-            let behaviour = NodeServiceBehaviour::new(local_peer_id.clone(), local_key.public());
+            let behaviour = NodeServiceBehaviour::new(local_peer_id.clone(), key_pair.public());
+            let transport = build_transport(key_pair, socket_timeout);
 
             Swarm::new(transport, behaviour, local_peer_id)
         };

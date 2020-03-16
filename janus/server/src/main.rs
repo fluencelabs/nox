@@ -39,8 +39,12 @@ use log::trace;
 
 use std::collections::HashMap;
 
+use libp2p::identity::Keypair;
+
+mod certificate_storage;
 mod config;
 mod error;
+mod key_storage;
 pub mod misc;
 mod node_service;
 mod peer_service;
@@ -80,8 +84,14 @@ trait Stoppable {
 fn start_janus(config: JanusConfig) -> Result<impl Stoppable, std::io::Error> {
     trace!("starting Janus");
 
-    let (peer_service, peer_outlet) = PeerService::new(config.peer_service_config);
-    let (node_service, node_outlet) = NodeService::new(config.node_service_config);
+    let root_key_pair = key_storage::load_or_create_key_pair(config.secret_key_path.as_str())?;
+
+    certificate_storage::init(config.certificate_dir.as_str(), &root_key_pair)?;
+
+    let libp2p_kp = Keypair::Ed25519(root_key_pair.key_pair);
+    let (peer_service, peer_outlet) =
+        PeerService::new(libp2p_kp.clone(), config.peer_service_config);
+    let (node_service, node_outlet) = NodeService::new(libp2p_kp, config.node_service_config);
 
     let peer_exit_outlet = peer_service.start(node_outlet);
     let node_exit_outlet = node_service.start(peer_outlet);

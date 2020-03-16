@@ -24,13 +24,17 @@ use std::time::Duration;
 
 pub const PEER_SERVICE_PORT: &str = "peer-service-port";
 pub const NODE_SERVICE_PORT: &str = "node-service-port";
-pub const SECRET_KEY: &str = "secret-key";
-pub const PEER_SECRET_KEY: &str = "peer-secret-key";
+pub const SECRET_KEY_PATH: &str = "secret-key-path";
 pub const BOOTSTRAP_NODE: &str = "bootstrap-node";
+pub const CERTIFICATE_DIR: &str = "certificate-dir";
 
 pub struct JanusConfig {
     pub node_service_config: NodeServiceConfig,
     pub peer_service_config: PeerServiceConfig,
+    /// Directory, where all certificates are stored.
+    pub certificate_dir: String,
+    /// Path to a secret key.
+    pub secret_key_path: String,
 }
 
 #[derive(Clone)]
@@ -46,9 +50,6 @@ pub struct NodeServiceConfig {
 
     /// Bootstrap nodes to join to the Fluence network.
     pub bootstrap_nodes: Vec<Multiaddr>,
-
-    /// Key that will be used during peer id creation.
-    pub key_pair: Option<Keypair>,
 }
 
 impl Default for NodeServiceConfig {
@@ -58,7 +59,6 @@ impl Default for NodeServiceConfig {
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             bootstrap_nodes: vec![],
-            key_pair: None,
         }
     }
 }
@@ -73,9 +73,6 @@ pub struct PeerServiceConfig {
 
     /// Socket timeout for main transport.
     pub socket_timeout: Duration,
-
-    /// Key that will be used during peer id creation.
-    pub key_pair: Option<Keypair>,
 }
 
 impl Default for PeerServiceConfig {
@@ -84,11 +81,11 @@ impl Default for PeerServiceConfig {
             listen_port: 9999,
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
-            key_pair: None,
         }
     }
 }
 
+#[allow(dead_code)]
 fn decode_key_pair(secret_key_str: &str) -> Result<Keypair, failure::Error> {
     let mut key_pair = base64::decode(secret_key_str)
         .map_err(|_| failure::err_msg("Secret key should be in base64 format."))?;
@@ -125,21 +122,22 @@ pub fn generate_config(
         node_service_config.listen_port = node_port;
     }
 
-    if let Some(secret_key_str) = merge_by_name(SECRET_KEY) {
-        node_service_config.key_pair = Some(decode_key_pair(secret_key_str)?);
-    }
-
-    if let Some(secret_key_str) = merge_by_name(PEER_SECRET_KEY) {
-        peer_service_config.key_pair = Some(decode_key_pair(secret_key_str)?);
-    }
-
     if let Some(bootstrap_node) = merge_by_name(BOOTSTRAP_NODE) {
         let bootstrap_node = Multiaddr::from_str(bootstrap_node)?;
         node_service_config.bootstrap_nodes.push(bootstrap_node);
     };
 
+    let certificate_dir = merge_by_name(CERTIFICATE_DIR)
+        .unwrap_or_else(|| "./.janus/certificates")
+        .to_string();
+    let secret_key_path = merge_by_name(SECRET_KEY_PATH)
+        .unwrap_or_else(|| "./.janus/secretkey")
+        .to_string();
+
     Ok(JanusConfig {
         node_service_config,
         peer_service_config,
+        certificate_dir,
+        secret_key_path,
     })
 }
