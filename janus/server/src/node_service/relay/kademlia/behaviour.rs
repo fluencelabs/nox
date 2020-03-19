@@ -114,13 +114,19 @@ impl NetworkBehaviour for KademliaRelay {
 
 impl NetworkBehaviourEventProcess<KademliaEvent> for KademliaRelay {
     fn inject_event(&mut self, event: KademliaEvent) {
+        use itertools::Itertools;
         use libp2p::kad::GetProvidersOk;
         use KademliaEvent::GetProvidersResult;
 
         debug!("Kademlia inject: {:?}", event);
 
         // TODO: handle GetProvidersErr
-        if let GetProvidersResult(Ok(GetProvidersOk { key, providers, .. })) = event {
+        if let GetProvidersResult(Ok(GetProvidersOk {
+            key, mut providers, ..
+        })) = event
+        {
+            // TODO: move this to libp2p-kad
+            providers = providers.into_iter().unique().collect::<Vec<_>>(); //dedup
             self.providers_found(key, providers)
         }
     }
