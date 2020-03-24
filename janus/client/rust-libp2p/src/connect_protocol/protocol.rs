@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::events::{ToNodeEvent, ToPeerEvent};
+use crate::connect_protocol::messages::{ToNodeNetworkMsg, ToPeerNetworkMsg};
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
-use serde_json;
 use std::iter;
 use std::pin::Pin;
 
@@ -27,7 +26,7 @@ use std::pin::Pin;
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/janus/peer/1.0.0";
 
-impl UpgradeInfo for ToPeerEvent {
+impl UpgradeInfo for ToPeerNetworkMsg {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -36,11 +35,11 @@ impl UpgradeInfo for ToPeerEvent {
     }
 }
 
-impl<Socket> InboundUpgrade<Socket> for ToPeerEvent
+impl<Socket> InboundUpgrade<Socket> for ToPeerNetworkMsg
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    type Output = ToPeerEvent;
+    type Output = ToPeerNetworkMsg;
     type Error = failure::Error;
     #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
@@ -48,7 +47,7 @@ where
     fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
-            let relay_event: ToPeerEvent = serde_json::from_slice(&packet).unwrap();
+            let relay_event: ToPeerNetworkMsg = serde_json::from_slice(&packet).unwrap();
             socket.close().await?;
 
             Ok(relay_event)
@@ -56,7 +55,7 @@ where
     }
 }
 
-impl UpgradeInfo for ToNodeEvent {
+impl UpgradeInfo for ToNodeNetworkMsg {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -65,7 +64,7 @@ impl UpgradeInfo for ToNodeEvent {
     }
 }
 
-impl<Socket> OutboundUpgrade<Socket> for ToNodeEvent
+impl<Socket> OutboundUpgrade<Socket> for ToNodeNetworkMsg
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {

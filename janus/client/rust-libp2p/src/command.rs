@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 
-/// Describes commands sent from client to relay node; also see `ToNodeEvent`
+/// Describes commands sent from client to relay node; also see `ToNodeNetworkMsg`
 #[derive(Debug, Clone)]
 pub enum Command {
     Relay { dst: PeerId, data: String },

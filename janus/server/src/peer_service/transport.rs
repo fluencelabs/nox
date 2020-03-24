@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-use libp2p::{
-    core::muxing::StreamMuxer, identity::Keypair, secio::SecioConfig, yamux::Config as YamuxConfig,
-    PeerId, Transport,
-};
+use libp2p::{core::muxing::StreamMuxer, identity::Keypair, secio::SecioConfig, PeerId, Transport};
 
 use std::time::Duration;
 
@@ -49,10 +46,13 @@ pub fn build_transport(
         tcp,
     );
     let secio = SecioConfig::new(keys);
+    let mut yamux = libp2p::yamux::Config::default();
+
+    yamux.set_max_num_streams(1024 * 1024);
 
     transport
         .upgrade(libp2p::core::upgrade::Version::V1)
         .authenticate(secio)
-        .multiplex(YamuxConfig::default())
+        .multiplex(yamux)
         .timeout(socket_timeout)
 }

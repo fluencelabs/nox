@@ -19,7 +19,6 @@ use libp2p::{
     identity::Keypair,
     secio::SecioConfig,
     tcp::TcpConfig,
-    yamux::Config as YamuxConfig,
     PeerId, Transport,
 };
 use std::time::Duration;
@@ -46,10 +45,13 @@ pub fn build_transport(
     Dial = impl Send,
     ListenerUpgrade = impl Send,
 > + Clone {
+    let mut yamux = libp2p::yamux::Config::default();
+    yamux.set_max_num_streams(1024 * 1024);
+
     TcpConfig::new()
         .nodelay(true)
         .upgrade(core::upgrade::Version::V1)
         .authenticate(SecioConfig::new(keys))
-        .multiplex(YamuxConfig::default())
+        .multiplex(yamux)
         .timeout(socket_timeout)
 }

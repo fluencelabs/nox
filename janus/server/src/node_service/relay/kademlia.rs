@@ -49,6 +49,14 @@ enum Promise {
     FindProviders { client_id: PeerId, key: Multihash },
 }
 
+/// Represents a result of the enqueue_promise operation
+pub enum Enqueued {
+    // promise for such a key has already been in the queue
+    New,
+    // new promise created
+    Existing,
+}
+
 /// Relay based on Kademlia. Responsibilities and mechanics:
 /// - enqueues relay events, then async-ly searches Kademlia for destination nodes and then sends events
 /// - all locally connected peers are stored in memory and periodically announced to Kademlia
@@ -80,11 +88,21 @@ impl KademliaRelay {
         }
     }
 
-    fn enqueue(&mut self, key: Multihash, promise: Promise) {
-        self.promises
-            .entry(key)
-            .or_insert_with(VecDeque::new)
-            .push_back(promise);
+    // returns Enqueued::Existing if there is already promise for such provider
+    fn enqueue_promise(&mut self, key: Multihash, promise: Promise) -> Enqueued {
+        use std::collections::hash_map::Entry;
+        use std::iter::FromIterator;
+
+        match self.promises.entry(key) {
+            Entry::Occupied(mut entry) => {
+                entry.get_mut().push_back(promise);
+                Enqueued::Existing
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(VecDeque::from_iter(std::iter::once(promise)));
+                Enqueued::New
+            }
+        }
     }
 
     /// Try to relay `message` to a locally connected peer
@@ -131,9 +149,12 @@ impl KademliaRelay {
 
         debug!("relay remote to {}", dst_peer.to_base58());
 
-        self.enqueue(dst_peer.clone().into(), Promise::Relay(message));
-
-        self.get_providers(dst_peer.into());
+        if let Enqueued::New =
+            self.enqueue_promise(dst_peer.clone().into(), Promise::Relay(message))
+        {
+            // if there is no providers found in the queue - it needs to explicitly find them
+            self.get_providers(dst_peer.into());
+        }
     }
 
     /// Announce to network that current node can route messages to peer of addr `peer_id`
@@ -196,13 +217,13 @@ impl KademliaRelay {
         kademlia: &mut Kademlia<MemoryStore>,
         client: PeerId,
         key: Multihash,
-        providers: &Vec<PeerId>,
+        providers: &[PeerId],
     ) -> Vec<SwarmEventType> {
         let providers: Vec<(Multiaddr, PeerId)> = providers
-            .into_iter()
+            .iter()
             .map(|id| {
                 kademlia
-                    .addresses_of_peer(&id)
+                    .addresses_of_peer(id)
                     .into_iter()
                     .map(move |addr| (addr, id.clone()))
             })

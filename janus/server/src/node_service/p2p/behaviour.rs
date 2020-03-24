@@ -19,8 +19,6 @@ use std::collections::VecDeque;
 use libp2p::identify::Identify;
 use libp2p::identity::PublicKey;
 
-use libp2p::ping::{Ping, PingConfig};
-
 use libp2p::PeerId;
 use log::trace;
 
@@ -35,7 +33,6 @@ use crate::peer_service::messages::ToPeerMsg;
 use parity_multihash::Multihash;
 
 mod identity;
-mod ping;
 mod relay;
 
 type SwarmEventType = generate_swarm_event_type!(NodeServiceBehaviour);
@@ -44,7 +41,6 @@ type SwarmEventType = generate_swarm_event_type!(NodeServiceBehaviour);
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll", out_event = "ToPeerMsg")]
 pub struct NodeServiceBehaviour {
-    ping: Ping,
     relay: KademliaRelay,
     identity: Identify,
 
@@ -55,16 +51,10 @@ pub struct NodeServiceBehaviour {
 
 impl NodeServiceBehaviour {
     pub fn new(local_peer_id: PeerId, local_public_key: PublicKey) -> Self {
-        let ping = Ping::new(
-            PingConfig::new()
-                .with_max_failures(unsafe { std::num::NonZeroU32::new_unchecked(10) })
-                .with_keep_alive(true),
-        );
         let relay = KademliaRelay::new(local_peer_id);
         let identity = Identify::new("/janus/p2p/1.0.0".into(), "0.1.0".into(), local_public_key);
 
         Self {
-            ping,
             relay,
             identity,
             events: VecDeque::new(),

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::node_service::relay::kademlia::Promise;
+use crate::node_service::relay::kademlia::{Enqueued, Promise};
 use crate::node_service::relay::{KademliaRelay, Provider};
 use libp2p::kad::record::Key;
 use libp2p::PeerId;
@@ -28,14 +28,15 @@ impl Provider for KademliaRelay {
     }
 
     fn find_providers(&mut self, client_id: PeerId, key: Multihash) {
-        self.enqueue(
+        if let Enqueued::New = self.enqueue_promise(
             key.clone(),
             Promise::FindProviders {
                 client_id,
                 key: key.clone(),
             },
-        );
-
-        self.get_providers(key);
+        ) {
+            // if there is no providers found in the queue - it needs to explicitly find them
+            self.get_providers(key);
+        }
     }
 }

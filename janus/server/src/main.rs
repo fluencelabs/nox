@@ -31,8 +31,6 @@ use crate::peer_service::PeerService;
 
 use ::config as fileconfig;
 use clap::{App, ArgMatches};
-use ctrlc;
-use env_logger;
 use exitfailure::ExitFailure;
 use futures::channel::oneshot;
 use log::trace;

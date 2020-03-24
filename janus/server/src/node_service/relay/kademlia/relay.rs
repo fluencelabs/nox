@@ -51,9 +51,9 @@ impl Relay for KademliaRelay {
             })
             .collect();
         trace!(
-            "adding new node {} with {} addresses",
+            "adding new node {} with {:?} addresses",
             node_id.to_base58(),
-            addresses.len()
+            addresses
         );
         for addr in addresses {
             self.kademlia.add_address(node_id, addr);

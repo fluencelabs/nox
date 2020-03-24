@@ -23,10 +23,10 @@ use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use parity_multihash::Multihash;
 
-use crate::connect_protocol::events::ToPeerEvent;
+use crate::connect_protocol::messages::ToPeerNetworkMsg;
 use std::error::Error;
 
-/// Describes message received by client from relay node; also see `ToPeerEvent`
+/// Describes message received by client from relay node; also see `ToPeerNetworkMsg`
 #[derive(Debug, Clone)]
 pub enum Message {
     Incoming {
@@ -65,18 +65,18 @@ impl Display for PeerIdErr<'_> {
     }
 }
 
-impl TryFrom<ToPeerEvent> for Option<Message> {
+impl TryFrom<ToPeerNetworkMsg> for Option<Message> {
     type Error = Box<dyn Error>;
 
-    fn try_from(event: ToPeerEvent) -> Result<Self, Self::Error> {
+    fn try_from(event: ToPeerNetworkMsg) -> Result<Self, Self::Error> {
         match event {
-            ToPeerEvent::Deliver { src_id, data } => {
+            ToPeerNetworkMsg::Deliver { src_id, data } => {
                 let src = PeerId::from_bytes(src_id)
                     .map_err(|_| PeerIdErr("Error parsing src_id to PeerId"))?;
                 let data = String::from_utf8(data)?;
                 Ok(Some(Message::Incoming { src, data }))
             }
-            ToPeerEvent::Providers { key, providers, .. } => {
+            ToPeerNetworkMsg::Providers { key, providers, .. } => {
                 let key = Multihash::from_bytes(key)?;
                 let providers = providers
                     .into_iter()
@@ -85,7 +85,7 @@ impl TryFrom<ToPeerEvent> for Option<Message> {
                     .map_err(|_| PeerIdErr("Error parsing providers to PeerId"))?;
                 Ok(Some(Message::Providers { key, providers }))
             }
-            ToPeerEvent::Upgrade => Ok(None),
+            ToPeerNetworkMsg::Upgrade => Ok(None),
         }
     }
 }

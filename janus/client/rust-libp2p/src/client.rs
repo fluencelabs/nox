@@ -15,7 +15,7 @@
  */
 
 use crate::behaviour::ClientServiceBehaviour;
-use crate::connect_protocol::events::ToPeerEvent;
+use crate::connect_protocol::messages::ToPeerNetworkMsg;
 use janus_server::misc::{Inlet, Outlet};
 use janus_server::peer_service::build_transport;
 
@@ -33,6 +33,7 @@ use libp2p::identity::Keypair;
 use libp2p::{identity, PeerId, Swarm};
 use log::trace;
 use parity_multiaddr::Multiaddr;
+
 use std::convert::TryInto;
 use std::error::Error;
 use std::ops::DerefMut;
@@ -76,7 +77,7 @@ impl Client {
         };
 
         match libp2p::Swarm::dial_addr(&mut swarm, relay.clone()) {
-            Ok(_) => println!("Dialed to {:?}", relay),
+            Ok(_) => println!("{} dialed to {:?}", self.peer_id, relay),
             Err(e) => {
                 println!("Dial to {:?} failed with {:?}", relay, e);
                 return Err(e.into());
@@ -111,9 +112,7 @@ impl Client {
                     }
 
                     // Messages that were received from relay node
-                    from_relay = swarm.select_next_some() => {
-                        Self::receive_from_relay(from_relay, &client_outlet)
-                    }
+                    from_relay = swarm.select_next_some() => Self::receive_from_relay(from_relay, &client_outlet),
 
                     // TODO: implement stop
                     // stop = client.stop
@@ -141,15 +140,14 @@ impl Client {
         }
     }
 
-    fn receive_from_relay(event: ToPeerEvent, client_outlet: &Outlet<Message>) {
+    fn receive_from_relay(event: ToPeerNetworkMsg, client_outlet: &Outlet<Message>) {
         let msg: Option<Message> = event
             .try_into()
-            .expect("Can't parse ToPeerEvent into Message");
+            .expect("Can't parse ToPeerNetworkMsg into Message");
 
-        match msg {
-            // Message will be available through client.receive_one
-            Some(msg) => client_outlet.unbounded_send(msg).unwrap(),
-            _ => {}
+        // Message will be available through client.receive_one
+        if let Some(msg) = msg {
+            client_outlet.unbounded_send(msg).unwrap()
         }
     }
 }

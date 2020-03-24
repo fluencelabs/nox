@@ -19,7 +19,6 @@ use crate::node_service::relay::RelayMessage;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::trace;
-use serde_json;
 use std::{io, iter, pin::Pin};
 
 // 1 Mb

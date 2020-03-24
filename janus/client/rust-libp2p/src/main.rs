@@ -28,14 +28,12 @@
 use janus_client::client::Client;
 
 use async_std::{io, task};
-use env_logger;
 use futures::prelude::*;
 use futures::{select, stream::StreamExt};
 use janus_client::TextCommand;
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use parity_multihash::{Hash, Multihash};
-use serde_json;
 use std::convert::TryInto;
 use std::error::Error;
 

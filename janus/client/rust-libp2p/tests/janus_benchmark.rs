@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#![recursion_limit = "1024"]
 
 pub mod constants;
 
@@ -73,7 +74,7 @@ fn local_nodes() -> Vec<Node> {
 
 type TaskId = usize;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum Action {
     Sent,
     Received(Duration),
@@ -98,6 +99,7 @@ async fn run_measures() -> Result<(), Box<dyn Error>> {
         .into_iter()
         // Take all possible 2-combinations of nodes
         .tuple_combinations()
+        //.take(1)
         // .tuples::<(_, _)>() // uncomment to take only pairs
         // Create & connect clients to a corresponding nodes
         .map(|(a, b)| connect_clients(a, b))
@@ -105,14 +107,18 @@ async fn run_measures() -> Result<(), Box<dyn Error>> {
         .collect::<Vec<_>>();
 
     // Convert Vec of Results to Result of Vec
-    let clients: Vec<_> = clients.await.into_iter().collect::<Result<_, _>>()?;
-    println!("All clients connected. Total pairs: {}", clients.len());
+    let mut clients: Vec<_> = clients.await.into_iter().collect::<Result<_, _>>()?;
+    println!(
+        "All clients connected. Total pairs count: {}",
+        clients.len()
+    );
 
     // TODO: it works only when there's a pause between connection and message sending :( Why?
     task::sleep(Duration::from_millis(1000)).await;
 
+    // convert client pairs to the measure tasks
     let futures: FuturesUnordered<_> = clients
-        .into_iter()
+        .iter_mut()
         .enumerate()
         // Asynchronously run measuring task
         .map(|(i, (a, b))| run_measure(i, a, b, msg_count, stat_outlet.clone()))
@@ -136,7 +142,7 @@ async fn run_measures() -> Result<(), Box<dyn Error>> {
                         Some(s) => {
                             measures.push(s.clone());
                             match s {
-                                Action::Iterated(id, i) => println!("task {} iteration {}", id, i),
+                                Action::Iterated(id, i) => {}, // println!("task {} iteration {}", id, i),
                                 _ => {}
                             }
                         }
@@ -176,23 +182,15 @@ async fn connect_clients(node1: Node, node2: Node) -> Result<(Client, Client), B
 
 async fn run_measure(
     id: TaskId,
-    client1: Client,
-    mut client2: Client,
+    client1: &Client,
+    client2: &mut Client,
     count: u32,
     stat: mpsc::UnboundedSender<Action>,
 ) -> Result<(), TrySendError<Action>> {
     stat.unbounded_send(Action::Started)?;
 
-    let mut i = 0u32;
-    loop {
-        if i >= count {
-            break;
-        }
-
-        i += 1;
-
-        send_and_wait(&client1, &mut client2, &stat).await?;
-
+    for i in 0..count {
+        send_and_wait(client1, client2, &stat).await?;
         stat.unbounded_send(Action::Iterated(id, i))?;
     }
 
@@ -215,15 +213,16 @@ async fn send_and_wait(
 
     // TODO: move timeout to arguments
     let result = timeout(Duration::from_secs(5), client2.receive_one()).await;
+    let now = now();
+
     match result {
         Ok(Some(Message::Incoming { data, .. })) => {
             let sent = Duration::from_millis(
                 data.parse()
                     .expect(format!("Can't parse duration from {}", data).as_str()),
             );
-            let now = now();
+
             let passed = now - sent;
-            // println!("Relay took {} millis", passed.as_millis());
             stat.unbounded_send(Action::Received(passed))?;
         }
         Err(_) => stat.unbounded_send(Action::Timeout)?,

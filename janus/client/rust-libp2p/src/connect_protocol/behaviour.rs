@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connect_protocol::events::{ToNodeEvent, ToPeerEvent};
+use crate::connect_protocol::messages::{ToNodeNetworkMsg, ToPeerNetworkMsg};
 use crate::relay_api::RelayApi;
 use janus_server::{event_polling, generate_swarm_event_type};
 use libp2p::{
@@ -42,7 +42,7 @@ impl ClientConnectProtocolBehaviour {
         }
     }
 
-    fn enqueue_event(&mut self, relay: PeerId, event: ToNodeEvent) {
+    fn enqueue_event(&mut self, relay: PeerId, event: ToNodeNetworkMsg) {
         trace!(
             "client: sending event {:?} to relay node {:?}",
             event,
@@ -60,7 +60,7 @@ impl RelayApi for ClientConnectProtocolBehaviour {
     fn relay_message(&mut self, relay: PeerId, dst: PeerId, message: Vec<u8>) {
         self.enqueue_event(
             relay,
-            ToNodeEvent::Relay {
+            ToNodeNetworkMsg::Relay {
                 dst_id: dst.into_bytes(),
                 data: message,
             },
@@ -70,7 +70,7 @@ impl RelayApi for ClientConnectProtocolBehaviour {
     fn provide(&mut self, relay: PeerId, key: Multihash) {
         self.enqueue_event(
             relay,
-            ToNodeEvent::Provide {
+            ToNodeNetworkMsg::Provide {
                 key: key.into_bytes(),
             },
         )
@@ -79,7 +79,7 @@ impl RelayApi for ClientConnectProtocolBehaviour {
     fn find_providers(&mut self, relay: PeerId, client_id: PeerId, key: Multihash) {
         self.enqueue_event(
             relay,
-            ToNodeEvent::FindProviders {
+            ToNodeNetworkMsg::FindProviders {
                 client_id: client_id.into_bytes(),
                 key: key.into_bytes(),
             },
@@ -88,8 +88,8 @@ impl RelayApi for ClientConnectProtocolBehaviour {
 }
 
 impl NetworkBehaviour for ClientConnectProtocolBehaviour {
-    type ProtocolsHandler = OneShotHandler<ToPeerEvent, ToNodeEvent, InnerMessage>;
-    type OutEvent = ToPeerEvent;
+    type ProtocolsHandler = OneShotHandler<ToPeerNetworkMsg, ToNodeNetworkMsg, InnerMessage>;
+    type OutEvent = ToPeerNetworkMsg;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()
@@ -114,7 +114,7 @@ impl NetworkBehaviour for ClientConnectProtocolBehaviour {
         }
     }
 
-    // produces ToPeerEvent events
+    // produces ToPeerNetworkMsg events
     event_polling!(poll, events, SwarmEventType);
 }
 
@@ -122,15 +122,15 @@ impl NetworkBehaviour for ClientConnectProtocolBehaviour {
 #[derive(Debug)]
 pub enum InnerMessage {
     /// Message has been received from a remote.
-    Rx(ToPeerEvent),
+    Rx(ToPeerNetworkMsg),
 
     /// RelayMessage has been sent
     Tx,
 }
 
-impl From<ToPeerEvent> for InnerMessage {
+impl From<ToPeerNetworkMsg> for InnerMessage {
     #[inline]
-    fn from(in_message: ToPeerEvent) -> InnerMessage {
+    fn from(in_message: ToPeerNetworkMsg) -> InnerMessage {
         InnerMessage::Rx(in_message)
     }
 }

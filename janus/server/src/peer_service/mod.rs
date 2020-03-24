@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-pub use connect_protocol::events::MultihashBytes;
+pub use connect_protocol::messages::MultihashBytes;
 pub use peer_service::PeerService;
 pub use transport::build_transport;
 

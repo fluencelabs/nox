@@ -23,7 +23,7 @@ pub type MultihashBytes = Vec<u8>;
 /// Describes network messages from a peer to current node (client -> server).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
-pub enum ToNodeEvent {
+pub enum ToNodeNetworkMsg {
     /// Represents a message that should be relayed to given dst node.
     Relay {
         dst_id: PeerIdBytes,
@@ -43,7 +43,7 @@ pub enum ToNodeEvent {
 /// Describes network message from current node to a peer (server -> client).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action")]
-pub enum ToPeerEvent {
+pub enum ToPeerNetworkMsg {
     /// Message that should be relayed from src node to chosen dst node.
     Deliver {
         src_id: PeerIdBytes,
@@ -62,8 +62,8 @@ pub enum ToPeerEvent {
 }
 
 // TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
-impl Default for ToPeerEvent {
+impl Default for ToPeerNetworkMsg {
     fn default() -> Self {
-        ToPeerEvent::Upgrade
+        ToPeerNetworkMsg::Upgrade
     }
 }
