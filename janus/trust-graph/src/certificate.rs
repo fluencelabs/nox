@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+use crate::ed25519::PublicKey;
 use crate::key_pair::KeyPair;
 use crate::trust::{Trust, TRUST_LEN};
-use libp2p_core::identity::ed25519::PublicKey;
 use std::str::FromStr;
 use std::time::Duration;
 

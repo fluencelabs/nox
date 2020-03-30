@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-use libp2p_core::identity::ed25519::PublicKey;
+use crate::ed25519::PublicKey;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
 
 /// Wrapper to use PublicKey in HashMap
@@ -51,5 +53,11 @@ impl From<PublicKey> for PublicKeyHashable {
 impl Into<PublicKey> for PublicKeyHashable {
     fn into(self) -> PublicKey {
         self.0
+    }
+}
+
+impl Display for PublicKeyHashable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", bs58::encode(self.0.encode()).into_string())
     }
 }

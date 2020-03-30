@@ -1,6 +1,4 @@
-client-type = "websocket"
-peer-service-port = 8888
-node-service-port = 7777
-#secret-key =
-#peer-secret-key =
-#bootstrap-node =
+[roots]
+72wv5rpg9aQpMBVysew1B3UEc2k6g3Ax1mv1RRrmrXKP = 1
+HQbevkNYMXDErZ5hFYxRBzadWDiP9XPbB9AtwweqCzs6 = 2
+7HLCzYu5kysRoAzhiog4a3inHicTggh5gbPiVJSdrYi6 = 2

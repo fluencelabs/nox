@@ -17,17 +17,31 @@
 use crate::config::config::*;
 use clap::Arg;
 
-pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 4] {
+pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 7] {
     [
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
             .short("o")
             .default_value("9999")
             .help("port that will be used by the peer service"),
-        Arg::with_name(SECRET_KEY_PATH)
+        Arg::with_name(ROOT_KEY_PAIR_PATH)
             .takes_value(true)
             .short("s")
-            .help("path to ed25519 secret key file"),
+            .conflicts_with(ROOT_KEY_PAIR)
+            .help("path to ed25519 key pair file"),
+        Arg::with_name(ROOT_KEY_PAIR)
+            .takes_value(true)
+            .short("k")
+            .conflicts_with(ROOT_KEY_PAIR_PATH)
+            .help("ed25519 key pair in base58"),
+        Arg::with_name(CONFIG_FILE)
+            .takes_value(true)
+            .short("c")
+            .help("TOML configuration file"),
+        Arg::with_name(CERTIFICATE_DIR)
+            .takes_value(true)
+            .short("d")
+            .help("path to certificate dir"),
         Arg::with_name(NODE_SERVICE_PORT)
             .takes_value(true)
             .short("n")

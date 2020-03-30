@@ -7,8 +7,8 @@ edition = "2018"
 [dependencies]
 janus-server = { path = "../../server" }
 libp2p = "0.16.2"
-parity-multiaddr = "0.7.3"
-parity-multihash = "0.2.3"
+parity-multiaddr = "0.7.0"
+multihash ="0.10.0"
 async-std = "1.5.0"
 futures = "0.3.4"
 futures-util = "0.3.4"
@@ -22,6 +22,7 @@ bs58 = "0.3.0"
 log = "0.4.8"
 env_logger = "0.7.1"
 void = "1.0.2"
+rand = "0.7.3"
 
 itertools = "0.9.0"
 bencher = "0.1.5"
@@ -30,4 +31,3 @@ bencher = "0.1.5"
 rand = "0.7.3"
 reqwest = "0.10.4"
 tokio = { version = "0.2.13", features = ["full", "macros"] }
-

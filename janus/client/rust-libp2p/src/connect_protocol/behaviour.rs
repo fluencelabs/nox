@@ -18,13 +18,14 @@ use crate::connect_protocol::messages::{ToNodeNetworkMsg, ToPeerNetworkMsg};
 use crate::relay_api::RelayApi;
 use janus_server::{event_polling, generate_swarm_event_type};
 use libp2p::{
+    core::connection::ConnectionId,
     core::ConnectedPoint,
     core::Multiaddr,
-    swarm::{NetworkBehaviour, NetworkBehaviourAction, OneShotHandler},
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler},
     PeerId,
 };
 use log::trace;
-use parity_multihash::Multihash;
+use multihash::Multihash;
 use std::collections::VecDeque;
 
 type SwarmEventType = generate_swarm_event_type!(ClientConnectProtocolBehaviour);
@@ -49,10 +50,12 @@ impl ClientConnectProtocolBehaviour {
             relay.to_base58()
         );
 
-        self.events.push_back(NetworkBehaviourAction::SendEvent {
-            peer_id: relay,
-            event,
-        })
+        self.events
+            .push_back(NetworkBehaviourAction::NotifyHandler {
+                peer_id: relay,
+                event,
+                handler: NotifyHandler::Any,
+            })
     }
 }
 
@@ -103,7 +106,7 @@ impl NetworkBehaviour for ClientConnectProtocolBehaviour {
 
     fn inject_disconnected(&mut self, _node_id: &PeerId, _cp: ConnectedPoint) {}
 
-    fn inject_node_event(&mut self, _source: PeerId, event: InnerMessage) {
+    fn inject_event(&mut self, _source: PeerId, _: ConnectionId, event: InnerMessage) {
         trace!("client: new event {:?} received", event);
 
         match event {

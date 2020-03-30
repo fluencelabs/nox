@@ -20,8 +20,8 @@ use std::fmt::{Display, Formatter};
 
 use itertools::Itertools;
 use libp2p::PeerId;
+use multihash::Multihash;
 use parity_multiaddr::Multiaddr;
-use parity_multihash::Multihash;
 
 use crate::connect_protocol::messages::ToPeerNetworkMsg;
 use std::error::Error;

@@ -24,6 +24,7 @@ use libp2p::kad::Kademlia;
 use libp2p::kad::KademliaConfig;
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::swarm::NetworkBehaviourAction;
+use libp2p::swarm::NotifyHandler;
 use libp2p::PeerId;
 
 // Reimport
@@ -33,17 +34,23 @@ use crate::generate_swarm_event_type;
 use crate::node_service::relay::{Provider, RelayMessage};
 use crate::peer_service::messages::ToPeerMsg;
 use failure::_core::time::Duration;
+use libp2p::identity::ed25519::{Keypair, PublicKey};
 use log::{debug, error};
 use parity_multiaddr::Multiaddr;
-use parity_multihash::Multihash;
+use trust_graph::TrustGraph;
 
 mod behaviour;
 mod events;
 mod provider;
 mod relay;
+mod safe_multihash;
+
+use multihash::Multihash;
+pub use safe_multihash::SafeMultihash;
 
 type SwarmEventType = generate_swarm_event_type!(KademliaRelay);
 
+#[derive(Debug, Clone)]
 enum Promise {
     Relay(RelayMessage),
     FindProviders { client_id: PeerId, key: Multihash },
@@ -74,15 +81,16 @@ pub struct KademliaRelay {
 
 // TODO: move public methods to a trait
 impl KademliaRelay {
-    pub fn new(peer_id: PeerId) -> Self {
+    pub fn new(kp: Keypair, peer_id: PeerId, root_weights: Vec<(PublicKey, u32)>) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
             .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap());
         let store = MemoryStore::new(peer_id.clone());
+        let trust = TrustGraph::new(root_weights); // TODO: load root certs from FS
 
         Self {
             events: VecDeque::new(),
-            kademlia: Kademlia::with_config(peer_id, store, cfg),
+            kademlia: Kademlia::with_config(kp, peer_id, store, cfg, trust),
             promises: HashMap::new(),
             peers: HashSet::new(),
         }
@@ -103,6 +111,10 @@ impl KademliaRelay {
                 Enqueued::New
             }
         }
+    }
+
+    fn dequeue_promises(&mut self, key: Multihash) -> Option<VecDeque<Promise>> {
+        self.promises.remove_entry(&key).map(|(_, q)| q)
     }
 
     /// Try to relay `message` to a locally connected peer
@@ -154,6 +166,11 @@ impl KademliaRelay {
         {
             // if there is no providers found in the queue - it needs to explicitly find them
             self.get_providers(dst_peer.into());
+        } else {
+            debug!(
+                "Wouldn't call get_providers, there's already a promise for {}",
+                dst_peer.to_base58()
+            );
         }
     }
 
@@ -185,16 +202,17 @@ impl KademliaRelay {
             .try_into()
             .expect("Can't parse key to multihash");
 
-        let kademlia = &mut self.kademlia;
-
-        if let Some(promises) = self.promises.get_mut(&key) {
+        if let Some(mut promises) = self.dequeue_promises(key) {
             let events: Vec<SwarmEventType> = promises
                 .drain(..)
                 .map(|promise| match promise {
                     Promise::Relay(msg) => Self::generate_relay_events(msg, &providers),
-                    Promise::FindProviders { client_id, key } => {
-                        Self::generate_providers_events(kademlia, client_id, key, &providers)
-                    }
+                    Promise::FindProviders { client_id, key } => Self::generate_providers_events(
+                        &mut self.kademlia,
+                        client_id,
+                        key,
+                        &providers,
+                    ),
                 })
                 .flatten()
                 .collect();
@@ -206,9 +224,10 @@ impl KademliaRelay {
     fn generate_relay_events(message: RelayMessage, providers: &[PeerId]) -> Vec<SwarmEventType> {
         providers
             .iter()
-            .map(|node| NetworkBehaviourAction::SendEvent {
+            .map(|node| NetworkBehaviourAction::NotifyHandler {
                 peer_id: node.clone(),
                 event: EitherOutput::First(message.clone()),
+                handler: NotifyHandler::Any,
             })
             .collect()
     }
@@ -239,7 +258,7 @@ impl KademliaRelay {
         )]
     }
 
-    pub fn get_providers(&mut self, key: Multihash) {
+    pub fn get_providers(&mut self, key: SafeMultihash) {
         self.kademlia.get_providers(key.into());
     }
 }

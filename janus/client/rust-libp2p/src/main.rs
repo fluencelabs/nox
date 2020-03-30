@@ -32,8 +32,10 @@ use futures::prelude::*;
 use futures::{select, stream::StreamExt};
 use janus_client::TextCommand;
 use libp2p::PeerId;
+use multihash;
+use multihash::Code;
 use parity_multiaddr::Multiaddr;
-use parity_multihash::{Hash, Multihash};
+use serde_json;
 use std::convert::TryInto;
 use std::error::Error;
 
@@ -98,7 +100,8 @@ fn print_example(peer_id: &PeerId) {
         message: "hello".to_string(),
     };
 
-    let rnd = bs58::encode(Multihash::random(Hash::SHA2256)).into_string();
+    let rnd = rand::random::<[u8; 32]>();
+    let rnd = bs58::encode(multihash::wrap(Code::Sha2_256, &rnd)).into_string();
     let provide_example = TextCommand::Provide { key: rnd.clone() };
     let find_example = TextCommand::FindProviders { key: rnd };
 

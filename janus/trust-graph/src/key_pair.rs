@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use libp2p_core::identity::ed25519::{Keypair as Libp2pKeyPair, PublicKey, SecretKey};
+use crate::ed25519::{Keypair as Libp2pKeyPair, PublicKey, SecretKey};
 use libp2p_core::identity::error::DecodingError;
 
 pub type Signature = Vec<u8>;

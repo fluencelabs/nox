@@ -15,7 +15,7 @@
  */
 
 use libp2p::PeerId;
-use parity_multihash::Multihash;
+use multihash::Multihash;
 use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 use std::error::Error;

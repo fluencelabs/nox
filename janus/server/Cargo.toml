@@ -5,9 +5,10 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
+trust-graph = { version = "0.0.1", path = "../trust-graph" }
 libp2p = "0.16.2"
-parity-multiaddr = "0.7.3"
-parity-multihash = "0.2.3"
+parity-multiaddr = "0.7.0"
+multihash ="0.10.0"
 futures = "0.3.4"
 futures-util = "0.3.4"
 async-std = "1.5.0"
@@ -16,16 +17,16 @@ itertools = "0.9.0"
 
 serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.44"
+bs58 = "0.3.0"
 
 failure = "0.1.6"
-trust-graph = { version = "0.0.1", path = "../trust-graph" }
 base64 = "0.11.0"
 log = "0.4.8"
 env_logger = "0.7.1"
 clap = "2.33.0"
 exitfailure = "0.5.1"
 # the termination feature allows to handle both SIGTERM and SIGINT
-ctrlc = {version = "3.1.4", features = ["termination"]}
+ctrlc = { version = "3.1.4", features = ["termination"] }
 
 [dev-dependencies]
 rand = "0.7.3"

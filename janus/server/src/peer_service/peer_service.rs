@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::config::config::PeerServiceConfig;
+use crate::config::PeerServiceConfig;
 use crate::misc::{Inlet, OneshotInlet, OneshotOutlet, Outlet};
 use crate::peer_service::{
     behaviour::PeerServiceBehaviour,

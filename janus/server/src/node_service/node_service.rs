@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::config::config::NodeServiceConfig;
+use crate::config::NodeServiceConfig;
 use crate::misc::{Inlet, Outlet};
 use crate::node_service::{
     p2p::{build_transport, NodeServiceBehaviour},
@@ -31,7 +31,8 @@ use log::{error, trace};
 use parity_multiaddr::{Multiaddr, Protocol};
 
 use janus_server::misc::{OneshotInlet, OneshotOutlet};
-use libp2p::identity::Keypair;
+use libp2p::identity::ed25519::{self, Keypair};
+use libp2p::identity::PublicKey;
 use std::io;
 
 type NodeServiceSwarm = Swarm<NodeServiceBehaviour>;
@@ -47,14 +48,20 @@ pub struct NodeService {
 }
 
 impl NodeService {
-    pub fn new(key_pair: Keypair, config: NodeServiceConfig) -> (Box<Self>, Outlet<ToNodeMsg>) {
+    pub fn new(
+        key_pair: Keypair,
+        config: NodeServiceConfig,
+        root_weights: Vec<(ed25519::PublicKey, u32)>,
+    ) -> (Box<Self>, Outlet<ToNodeMsg>) {
         let NodeServiceConfig { socket_timeout, .. } = config.clone();
 
-        let local_peer_id = PeerId::from(key_pair.public());
+        let local_peer_id = PeerId::from(PublicKey::Ed25519(key_pair.public()));
         println!("node service is starting with id = {}", local_peer_id);
 
         let swarm = {
-            let behaviour = NodeServiceBehaviour::new(local_peer_id.clone(), key_pair.public());
+            let behaviour =
+                NodeServiceBehaviour::new(key_pair.clone(), local_peer_id.clone(), root_weights);
+            let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
 
             Swarm::new(transport, behaviour, local_peer_id)

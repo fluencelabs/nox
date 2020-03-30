@@ -22,8 +22,8 @@ use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use trust_graph::certificate::Certificate;
-use trust_graph::key_pair::KeyPair;
+use trust_graph::Certificate;
+use trust_graph::KeyPair;
 
 /// Loads all certificates from a disk. Creates a root certificate for key pair if there is no one.
 pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> Result<Vec<Certificate>, Error> {

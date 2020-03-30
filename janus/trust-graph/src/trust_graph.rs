@@ -15,11 +15,11 @@
  */
 
 use crate::certificate::Certificate;
+use crate::ed25519::PublicKey;
 use crate::public_key_hashable::PublicKeyHashable;
 use crate::revoke::Revoke;
 use crate::trust::Trust;
 use crate::trust_node::{Auth, TrustNode};
-use libp2p_core::identity::ed25519::PublicKey;
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::Entry::Occupied;
 use std::collections::{HashMap, VecDeque};
@@ -29,23 +29,27 @@ use std::time::Duration;
 /// for simplicity, we store `n` where Weight = 1/n^2
 type Weight = u32;
 
-/// Graph to effectively calculate weights of certificates and get chains of certificates.
+/// Graph to efficiently calculate weights of certificates and get chains of certificates.
 /// TODO serialization/deserialization
 /// TODO export a certificate from graph
 #[allow(dead_code)]
-#[derive(Debug)]
-struct TrustGraph {
+#[derive(Debug, Default)]
+pub struct TrustGraph {
     // TODO abstract this into a trait with key access methods
+    // TODO: add docs on fields
     nodes: HashMap<PublicKeyHashable, TrustNode>,
     root_weights: HashMap<PublicKeyHashable, Weight>,
 }
 
 #[allow(dead_code)]
 impl TrustGraph {
-    fn new(root_weights: HashMap<PublicKeyHashable, Weight>) -> Self {
+    pub fn new(root_weights: Vec<(PublicKey, Weight)>) -> Self {
         Self {
             nodes: HashMap::new(),
-            root_weights,
+            root_weights: root_weights
+                .into_iter()
+                .map(|(k, w)| (k.into(), w))
+                .collect(),
         }
     }
 
@@ -110,6 +114,10 @@ impl TrustGraph {
     /// or some trust between this key and a root key is revoked.
     /// TODO handle non-direct revocations
     pub fn weight(&self, pk: PublicKey) -> Option<Weight> {
+        if let Some(weight) = self.root_weights.get(&pk.clone().into()) {
+            return Some(*weight);
+        }
+
         let roots: Vec<PublicKey> = self
             .root_weights
             .keys()
@@ -311,7 +319,7 @@ mod tests {
 
         let cur_time = current_time();
 
-        let mut graph = TrustGraph::new(HashMap::new());
+        let mut graph = TrustGraph::default();
         let addition = graph.add(cert, cur_time);
         assert_eq!(addition.is_ok(), false);
     }
@@ -320,13 +328,10 @@ mod tests {
     fn test_add_cert() {
         let (root, _, cert) = generate_root_cert();
 
-        let mut roots = HashMap::new();
-        roots.insert(root.key_pair.public().into(), 0);
+        let mut graph = TrustGraph::default();
+        graph.root_weights.insert(root.key_pair.public().into(), 0);
 
-        let cur_time = current_time();
-
-        let mut graph = TrustGraph::new(roots);
-        let addition = graph.add(cert, cur_time);
+        let addition = graph.add(cert, current_time());
         assert_eq!(addition.is_ok(), true);
     }
 
@@ -352,13 +357,11 @@ mod tests {
         let (key_pairs2, cert2) =
             generate_cert_with_len_and_expiration(10, predefined2, far_far_future);
 
-        let mut roots = HashMap::new();
+        let mut graph = TrustGraph::default();
         let root1_pk = key_pairs1[0].public_key();
         let root2_pk = key_pairs2[0].public_key();
-        roots.insert(root1_pk.into(), 1);
-        roots.insert(root2_pk.into(), 0);
-
-        let mut graph = TrustGraph::new(roots);
+        graph.root_weights.insert(root1_pk.into(), 1);
+        graph.root_weights.insert(root2_pk.into(), 0);
         graph.add(cert1, cur_time).unwrap();
 
         let node2 = graph.get(key_pair2.public_key()).unwrap();
@@ -385,11 +388,11 @@ mod tests {
         let (key_pairs, cert1) = generate_cert_with_len(10, HashMap::new());
         let last_trust = cert1.chain[9].clone();
 
-        let mut roots = HashMap::new();
-        let root_pk = key_pairs[0].public_key();
-        roots.insert(root_pk.into(), 1);
+        let mut graph = TrustGraph::default();
 
-        let mut graph = TrustGraph::new(roots);
+        let root_pk = key_pairs[0].public_key();
+        graph.root_weights.insert(root_pk.into(), 1);
+
         graph.add(cert1, current_time()).unwrap();
 
         let w1 = graph.weight(key_pairs[0].public_key()).unwrap();
@@ -428,12 +431,11 @@ mod tests {
 
         let (key_pairs2, cert2) = generate_cert_with_len(10, predefined2);
 
-        let mut roots = HashMap::new();
+        let mut graph = TrustGraph::default();
         let root1_pk = key_pairs1[0].public_key();
         let root2_pk = key_pairs2[0].public_key();
-        roots.insert(root1_pk.into(), 1);
-        roots.insert(root2_pk.into(), 0);
-        let mut graph = TrustGraph::new(roots);
+        graph.root_weights.insert(root1_pk.into(), 1);
+        graph.root_weights.insert(root2_pk.into(), 0);
 
         let last_pk1 = cert1.chain[9].issued_for.clone();
         let last_pk2 = cert2.chain[9].issued_for.clone();
@@ -464,11 +466,9 @@ mod tests {
     fn test_get_one_cert() {
         let (key_pairs, cert) = generate_cert_with_len(5, HashMap::new());
 
-        let mut roots = HashMap::new();
+        let mut graph = TrustGraph::default();
         let root1_pk = key_pairs[0].public_key();
-        roots.insert(root1_pk.clone().into(), 1);
-
-        let mut graph = TrustGraph::new(roots);
+        graph.root_weights.insert(root1_pk.clone().into(), 1);
 
         graph.add(cert.clone(), current_time()).unwrap();
 
@@ -505,14 +505,13 @@ mod tests {
 
         let (key_pairs3, cert3) = generate_cert_with_len(5, predefined3);
 
-        let mut roots = HashMap::new();
+        let mut graph = TrustGraph::default();
         let root1_pk = key_pairs1[0].public_key();
         let root2_pk = key_pairs2[0].public_key();
         let root3_pk = key_pairs3[0].public_key();
-        roots.insert(root1_pk.clone().into(), 1);
-        roots.insert(root2_pk.clone().into(), 0);
-        roots.insert(root3_pk.clone().into(), 0);
-        let mut graph = TrustGraph::new(roots);
+        graph.root_weights.insert(root1_pk.clone().into(), 1);
+        graph.root_weights.insert(root2_pk.clone().into(), 0);
+        graph.root_weights.insert(root3_pk.clone().into(), 0);
 
         graph.add(cert1.clone(), current_time()).unwrap();
         graph.add(cert2.clone(), current_time()).unwrap();

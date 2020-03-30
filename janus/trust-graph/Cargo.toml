@@ -3,6 +3,8 @@ name = "trust-graph"
 version = "0.0.1"
 authors = ["Fluence Labs"]
 edition = "2018"
+description = "trust graph"
+license = "Apache-2.0"
 
 [dependencies]
 libp2p-core = "0.16.0"
@@ -18,6 +20,7 @@ log = "0.4.8"
 env_logger = "0.7.1"
 exitfailure = "0.5.1"
 
+itertools = "0.9.0"
+
 [dev-dependencies]
 rand = "0.7.3"
-

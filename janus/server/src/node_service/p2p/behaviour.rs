@@ -30,7 +30,8 @@ use crate::node_service::relay::RelayMessage;
 use crate::node_service::relay::{KademliaRelay, Provider};
 use crate::peer_service::messages::ToPeerMsg;
 
-use parity_multihash::Multihash;
+use libp2p::identity::ed25519::{self, Keypair};
+use multihash::Multihash;
 
 mod identity;
 mod relay;
@@ -50,8 +51,13 @@ pub struct NodeServiceBehaviour {
 }
 
 impl NodeServiceBehaviour {
-    pub fn new(local_peer_id: PeerId, local_public_key: PublicKey) -> Self {
-        let relay = KademliaRelay::new(local_peer_id);
+    pub fn new(
+        key_pair: Keypair,
+        local_peer_id: PeerId,
+        root_weights: Vec<(ed25519::PublicKey, u32)>,
+    ) -> Self {
+        let relay = KademliaRelay::new(key_pair.clone(), local_peer_id, root_weights);
+        let local_public_key = PublicKey::Ed25519(key_pair.public());
         let identity = Identify::new("/janus/p2p/1.0.0".into(), "0.1.0".into(), local_public_key);
 
         Self {
@@ -89,11 +95,11 @@ impl NodeServiceBehaviour {
     }
 
     pub fn provide(&mut self, key: Multihash) {
-        self.relay.provide(key)
+        self.relay.provide(key.into())
     }
 
     pub fn find_providers(&mut self, client_id: PeerId, key: Multihash) {
-        self.relay.find_providers(client_id, key);
+        self.relay.find_providers(client_id, key.into());
     }
 
     #[allow(dead_code)]

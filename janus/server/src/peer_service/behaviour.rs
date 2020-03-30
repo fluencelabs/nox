@@ -25,8 +25,8 @@ use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::{NetworkBehaviour, PeerId};
 use log::debug;
 
+use multihash::Multihash;
 use parity_multiaddr::Multiaddr;
-use parity_multihash::Multihash;
 use std::collections::VecDeque;
 
 type SwarmEventType = generate_swarm_event_type!(PeerServiceBehaviour);

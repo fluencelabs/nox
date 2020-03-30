@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+use crate::ed25519::PublicKey;
 use crate::public_key_hashable::PublicKeyHashable;
 use crate::revoke::Revoke;
 use crate::trust::Trust;
 use failure::_core::time::Duration;
-use libp2p_core::identity::ed25519::PublicKey;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]

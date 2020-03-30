@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
-pub mod args;
+mod args;
 #[allow(clippy::module_inception)]
-pub mod config;
+mod config;
+
+pub use self::args::prepare_args;
+pub use self::config::load_config;
+pub use self::config::JanusConfig;
+pub use self::config::NodeServiceConfig;
+pub use self::config::PeerServiceConfig;

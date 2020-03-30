@@ -7,3 +7,11 @@ members = [
 exclude = [
     "client/js-websocket/utils-wasm",
 ]
+
+[patch.crates-io]
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+
+[patch.'ssh://git@github.com/fluencelabs/arqada.git']
+trust-graph = { path = "trust-graph" }

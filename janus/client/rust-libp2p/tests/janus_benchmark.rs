@@ -18,6 +18,7 @@
 pub mod constants;
 
 use crate::constants::NODES;
+
 use janus_client::client::Client;
 
 use async_std::future::timeout;
@@ -34,6 +35,8 @@ use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use std::error::Error;
 use std::time::{Duration, SystemTime};
+
+const MSG_COUNT: u32 = 5u32;
 
 #[derive(Clone)]
 struct Node {
@@ -86,20 +89,17 @@ enum Action {
 
 // cargo test -- --nocapture
 #[test]
-#[ignore]
 pub fn measure_relay_test() {
     task::block_on(run_measures()).unwrap()
 }
 
 async fn run_measures() -> Result<(), Box<dyn Error>> {
-    let msg_count = 100u32;
-
     let (stat_outlet, stat_inlet) = mpsc::unbounded();
     let clients = nodes()
         .into_iter()
         // Take all possible 2-combinations of nodes
         .tuple_combinations()
-        //.take(1)
+        // .take(1)
         // .tuples::<(_, _)>() // uncomment to take only pairs
         // Create & connect clients to a corresponding nodes
         .map(|(a, b)| connect_clients(a, b))
@@ -121,7 +121,7 @@ async fn run_measures() -> Result<(), Box<dyn Error>> {
         .iter_mut()
         .enumerate()
         // Asynchronously run measuring task
-        .map(|(i, (a, b))| run_measure(i, a, b, msg_count, stat_outlet.clone()))
+        .map(|(i, (a, b))| run_measure(i, a, b, MSG_COUNT, stat_outlet.clone()))
         .collect();
     println!("Spawned.");
 
@@ -271,15 +271,17 @@ fn print_measures(measures: &Vec<Action>) {
         timeout,
     );
 
-    println!(
-        "mean\tmedian\tvar\t.75\t.95\t.99\tmax\tmin\n{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-        pp(received.mean()),
-        pp(received.median()),
-        pp(received.var()),
-        pp(received.percentile(75.0)),
-        pp(received.percentile(95.0)),
-        pp(received.percentile(99.0)),
-        pp(received.max()),
-        pp(received.min())
-    );
+    if !received.is_empty() {
+        println!(
+            "mean\tmedian\tvar\t.75\t.95\t.99\tmax\tmin\n{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            pp(received.mean()),
+            pp(received.median()),
+            pp(received.var()),
+            pp(received.percentile(75.0)),
+            pp(received.percentile(95.0)),
+            pp(received.percentile(99.0)),
+            pp(received.max()),
+            pp(received.min())
+        );
+    }
 }

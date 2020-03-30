@@ -17,7 +17,7 @@
 use std::convert::TryInto;
 use std::time::Duration;
 
-use libp2p_core::identity::ed25519::PublicKey;
+use crate::ed25519::PublicKey;
 
 use crate::key_pair::{KeyPair, Signature};
 

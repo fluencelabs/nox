@@ -28,5 +28,6 @@
 /// Janus libp2p client uses several functions from the server side.
 pub mod config;
 pub mod error;
+pub mod key_storage;
 pub mod misc;
 pub mod peer_service;

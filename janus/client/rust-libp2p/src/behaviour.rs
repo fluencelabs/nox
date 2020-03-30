@@ -24,7 +24,7 @@ use libp2p::ping::{handler::PingConfig, Ping, PingEvent};
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::{NetworkBehaviour, PeerId};
 use log::debug;
-use parity_multihash::Multihash;
+use multihash::Multihash;
 use std::collections::VecDeque;
 
 type SwarmEventType = generate_swarm_event_type!(ClientServiceBehaviour);

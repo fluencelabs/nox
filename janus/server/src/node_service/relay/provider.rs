@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+use crate::node_service::relay::kademlia::SafeMultihash;
 use libp2p::PeerId;
-use parity_multihash::Multihash;
 
 pub trait Provider {
-    fn provide(&mut self, key: Multihash);
-    fn find_providers(&mut self, client_id: PeerId, key: Multihash);
+    fn provide(&mut self, key: SafeMultihash);
+    fn find_providers(&mut self, client_id: PeerId, key: SafeMultihash);
 }

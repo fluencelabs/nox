@@ -16,6 +16,7 @@
 
 use std::task::{Context, Poll};
 
+use libp2p::core::connection::ConnectionId;
 use libp2p::core::either::EitherOutput;
 use libp2p::core::ConnectedPoint;
 use libp2p::core::Multiaddr;
@@ -62,9 +63,10 @@ impl NetworkBehaviour for KademliaRelay {
         self.kademlia.inject_disconnected(peer_id, cp);
     }
 
-    fn inject_node_event(
+    fn inject_event(
         &mut self,
         source: PeerId,
+        connection_id: ConnectionId,
         event: <<Self::ProtocolsHandler as IntoProtocolsHandler>::Handler as ProtocolsHandler>::OutEvent,
     ) {
         use EitherOutput::{First, Second};
@@ -73,7 +75,8 @@ impl NetworkBehaviour for KademliaRelay {
             First(InnerMessage::Relay(relay)) => self.relay(relay),
             Second(kademlia_event) => {
                 trace!("Kademlia: {:?}", kademlia_event);
-                self.kademlia.inject_node_event(source, kademlia_event)
+                self.kademlia
+                    .inject_event(source, connection_id, kademlia_event)
             }
             _ => {}
         }
@@ -91,10 +94,15 @@ impl NetworkBehaviour for KademliaRelay {
         loop {
             match self.kademlia.poll(cx, params) {
                 Poll::Ready(GenerateEvent(event)) => NBEP::inject_event(self, event),
-                Poll::Ready(SendEvent { peer_id, event }) => {
-                    return Poll::Ready(SendEvent {
+                Poll::Ready(NotifyHandler {
+                    peer_id,
+                    event,
+                    handler,
+                }) => {
+                    return Poll::Ready(NotifyHandler {
                         peer_id,
                         event: EitherOutput::Second(event),
+                        handler,
                     })
                 }
                 Poll::Ready(DialAddress { address }) => {
@@ -115,19 +123,29 @@ impl NetworkBehaviour for KademliaRelay {
 impl NetworkBehaviourEventProcess<KademliaEvent> for KademliaRelay {
     fn inject_event(&mut self, event: KademliaEvent) {
         use itertools::Itertools;
-        use libp2p::kad::GetProvidersOk;
+        use libp2p::kad::{GetProvidersError, GetProvidersOk};
         use KademliaEvent::GetProvidersResult;
 
         debug!("Kademlia inject: {:?}", event);
 
-        // TODO: handle GetProvidersErr
-        if let GetProvidersResult(Ok(GetProvidersOk {
-            key, mut providers, ..
-        })) = event
-        {
-            // TODO: move this to libp2p-kad
-            providers = providers.into_iter().unique().collect::<Vec<_>>(); //dedup
+        let mut complete_providers = |key, providers: Vec<PeerId>| {
+            let providers = providers.into_iter().unique().collect::<Vec<_>>(); //dedup
             self.providers_found(key, providers)
-        }
+        };
+
+        match event {
+            GetProvidersResult(Ok(GetProvidersOk { key, providers, .. })) => {
+                complete_providers(key, providers)
+            }
+            GetProvidersResult(Err(GetProvidersError::Timeout { key, providers, .. })) => {
+                println!(
+                    "GetProviders for {} timed out with {} providers",
+                    bs58::encode(key.as_ref()).into_string(),
+                    providers.len()
+                );
+                complete_providers(key, providers)
+            }
+            _ => {}
+        };
     }
 }

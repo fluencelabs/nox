@@ -21,6 +21,7 @@ use parity_multiaddr::{Multiaddr, Protocol};
 use crate::node_service::relay::KademliaRelay;
 use crate::node_service::relay::Relay;
 use crate::node_service::relay::RelayMessage;
+use libp2p::identity::ed25519;
 use std::net::IpAddr;
 
 // TODO: use is_global from std::net::ip once it's stable
@@ -39,7 +40,12 @@ fn is_global(ip: IpAddr) -> bool {
 }
 
 impl Relay for KademliaRelay {
-    fn add_node_addresses(&mut self, node_id: &PeerId, addresses: Vec<Multiaddr>) {
+    fn add_node_addresses(
+        &mut self,
+        node_id: &PeerId,
+        addresses: Vec<Multiaddr>,
+        public_key: ed25519::PublicKey,
+    ) {
         let addresses: Vec<Multiaddr> = addresses
             .into_iter()
             .filter(|maddr| {
@@ -56,7 +62,7 @@ impl Relay for KademliaRelay {
             addresses
         );
         for addr in addresses {
-            self.kademlia.add_address(node_id, addr);
+            self.kademlia.add_address(node_id, addr, public_key.clone());
         }
     }
 

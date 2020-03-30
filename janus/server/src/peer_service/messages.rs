@@ -15,8 +15,8 @@
  */
 
 use libp2p::PeerId;
+use multihash::Multihash;
 use parity_multiaddr::Multiaddr;
-use parity_multihash::Multihash;
 
 /// Describes inner events from a node service to a peer service
 #[derive(Clone, Debug, PartialEq)]

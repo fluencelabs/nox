@@ -16,12 +16,18 @@
 
 use crate::node_service::relay::RelayMessage;
 
+use libp2p::identity::ed25519;
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 
 pub trait Relay {
     /// New network address for a connected node is found, add it
-    fn add_node_addresses(&mut self, node_id: &PeerId, addresses: Vec<Multiaddr>);
+    fn add_node_addresses(
+        &mut self,
+        node_id: &PeerId,
+        addresses: Vec<Multiaddr>,
+        public_key: ed25519::PublicKey,
+    );
 
     /// New peer is connected locally, store it
     fn add_local_peer(&mut self, peer_id: PeerId);

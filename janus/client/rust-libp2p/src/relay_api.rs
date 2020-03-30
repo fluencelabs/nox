@@ -15,7 +15,7 @@
  */
 
 use libp2p::PeerId;
-use parity_multihash::Multihash;
+use multihash::Multihash;
 
 // TODO: move to some package
 // TODO: separate into RelayApi & DhtApi

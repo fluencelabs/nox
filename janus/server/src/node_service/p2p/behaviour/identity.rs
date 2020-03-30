@@ -17,6 +17,7 @@
 use crate::node_service::p2p::behaviour::NodeServiceBehaviour;
 use crate::node_service::relay::Relay;
 use libp2p::identify::IdentifyEvent;
+use libp2p::identity::PublicKey;
 use libp2p::swarm::NetworkBehaviourEventProcess;
 
 /// Network address information is exchanged via Identify protocol.
@@ -25,7 +26,15 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NodeServiceBehaviour {
     fn inject_event(&mut self, event: IdentifyEvent) {
         match event {
             IdentifyEvent::Received { peer_id, info, .. } => {
-                self.relay.add_node_addresses(&peer_id, info.listen_addrs)
+                if let PublicKey::Ed25519(public_key) = info.public_key {
+                    self.relay
+                        .add_node_addresses(&peer_id, info.listen_addrs, public_key)
+                } else {
+                    eprintln!(
+                        "Unable to add node {}, public key {:?} is unsupported. Only ed25519 is supported.",
+                        peer_id.to_base58(), info.public_key
+                    );
+                }
             }
 
             // TODO: handle error?
