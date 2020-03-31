@@ -64,29 +64,18 @@ impl RelayApi for ClientConnectProtocolBehaviour {
         self.enqueue_event(
             relay,
             ToNodeNetworkMsg::Relay {
-                dst_id: dst.into_bytes(),
+                dst_id: dst,
                 data: message,
             },
         )
     }
 
     fn provide(&mut self, relay: PeerId, key: Multihash) {
-        self.enqueue_event(
-            relay,
-            ToNodeNetworkMsg::Provide {
-                key: key.into_bytes(),
-            },
-        )
+        self.enqueue_event(relay, ToNodeNetworkMsg::Provide { key })
     }
 
     fn find_providers(&mut self, relay: PeerId, client_id: PeerId, key: Multihash) {
-        self.enqueue_event(
-            relay,
-            ToNodeNetworkMsg::FindProviders {
-                client_id: client_id.into_bytes(),
-                key: key.into_bytes(),
-            },
-        )
+        self.enqueue_event(relay, ToNodeNetworkMsg::FindProviders { client_id, key })
     }
 }
 

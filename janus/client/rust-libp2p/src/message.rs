@@ -71,18 +71,11 @@ impl TryFrom<ToPeerNetworkMsg> for Option<Message> {
     fn try_from(event: ToPeerNetworkMsg) -> Result<Self, Self::Error> {
         match event {
             ToPeerNetworkMsg::Deliver { src_id, data } => {
-                let src = PeerId::from_bytes(src_id)
-                    .map_err(|_| PeerIdErr("Error parsing src_id to PeerId"))?;
                 let data = String::from_utf8(data)?;
-                Ok(Some(Message::Incoming { src, data }))
+                Ok(Some(Message::Incoming { src: src_id, data }))
             }
             ToPeerNetworkMsg::Providers { key, providers, .. } => {
-                let key = Multihash::from_bytes(key)?;
-                let providers = providers
-                    .into_iter()
-                    .map(|(addr, id)| PeerId::from_bytes(id).map(|id| (addr, id)))
-                    .collect::<Result<_, _>>()
-                    .map_err(|_| PeerIdErr("Error parsing providers to PeerId"))?;
+                let key = key;
                 Ok(Some(Message::Providers { key, providers }))
             }
             ToPeerNetworkMsg::Upgrade => Ok(None),

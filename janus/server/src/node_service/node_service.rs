@@ -173,8 +173,8 @@ impl NodeService {
                 dst_id,
                 data,
             }) => swarm.relay(RelayMessage {
-                src_id: src_id.into_bytes(),
-                dst_id: dst_id.into_bytes(),
+                src_id,
+                dst_id,
                 data,
             }),
             Some(ToNodeMsg::Provide(key)) => swarm.provide(key),

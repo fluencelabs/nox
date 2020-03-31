@@ -79,5 +79,6 @@ pub fn load_or_create_key_pair(path: &str) -> Result<KeyPair, Box<dyn std::error
     Err(Error::new(
         ErrorKind::InvalidInput,
         "Path to secret key is a directory.".to_string(),
-    ))?
+    )
+    .into())
 }

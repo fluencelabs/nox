@@ -80,9 +80,7 @@ impl Relay for KademliaRelay {
     }
 
     fn relay(&mut self, event: RelayMessage) {
-        if let Ok(dst) = PeerId::from_bytes(event.dst_id.clone()) {
-            debug!("relay event to {}", dst);
-        }
+        debug!("relay event to {:?}", event.dst_id);
 
         // Try to relay locally
         if let Some(event) = self.relay_local(event) {

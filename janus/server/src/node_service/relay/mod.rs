@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-mod events;
 mod kademlia;
+mod messages;
 mod protocol;
 mod provider;
 #[allow(clippy::module_inception)]
 mod relay;
 
-pub use events::RelayMessage;
 pub use kademlia::KademliaRelay;
+pub use messages::RelayMessage;
 pub use provider::Provider;
 pub use relay::Relay;

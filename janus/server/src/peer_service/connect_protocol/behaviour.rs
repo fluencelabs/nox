@@ -46,13 +46,7 @@ impl PeerConnectBehaviour {
     }
 
     pub fn deliver_data(&mut self, src: PeerId, dst: PeerId, data: Vec<u8>) {
-        self.send_event(
-            dst,
-            ToPeerNetworkMsg::Deliver {
-                src_id: src.into_bytes(),
-                data,
-            },
-        );
+        self.send_event(dst, ToPeerNetworkMsg::Deliver { src_id: src, data });
     }
 
     /// Deliver FindProviders result to connected peer
@@ -68,12 +62,9 @@ impl PeerConnectBehaviour {
         self.send_event(
             client_id.clone(),
             ToPeerNetworkMsg::Providers {
-                client_id: client_id.into_bytes(),
-                key: key.into_bytes(),
-                providers: providers
-                    .into_iter()
-                    .map(|(addr, id)| (addr, id.into_bytes()))
-                    .collect(),
+                client_id,
+                key,
+                providers,
             },
         )
     }
@@ -145,17 +136,12 @@ impl NetworkBehaviour for PeerConnectBehaviour {
             InnerMessage::Rx(m) => match m {
                 ToNodeNetworkMsg::Relay { dst_id, data } => self.enqueue_event(ToNodeMsg::Relay {
                     src_id: source,
-                    dst_id: PeerId::from_bytes(dst_id).unwrap(),
+                    dst_id,
                     data,
                 }),
-                ToNodeNetworkMsg::Provide { key } => {
-                    self.enqueue_event(ToNodeMsg::Provide(Multihash::from_bytes(key).unwrap()))
-                }
+                ToNodeNetworkMsg::Provide { key } => self.enqueue_event(ToNodeMsg::Provide(key)),
                 ToNodeNetworkMsg::FindProviders { client_id, key } => {
-                    self.enqueue_event(ToNodeMsg::FindProviders {
-                        client_id: PeerId::from_bytes(client_id).unwrap(),
-                        key: Multihash::from_bytes(key).unwrap(),
-                    })
+                    self.enqueue_event(ToNodeMsg::FindProviders { client_id, key })
                 }
                 ToNodeNetworkMsg::Upgrade => {}
             },

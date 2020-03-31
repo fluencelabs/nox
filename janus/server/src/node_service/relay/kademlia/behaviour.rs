@@ -36,7 +36,7 @@ use log::{debug, trace};
 
 use crate::node_service::relay::kademlia::{KademliaRelay, SwarmEventType};
 use crate::node_service::relay::{
-    events::RelayMessage, kademlia::events::InnerMessage, relay::Relay,
+    kademlia::events::InnerMessage, messages::RelayMessage, relay::Relay,
 };
 use crate::peer_service::messages::ToPeerMsg;
 

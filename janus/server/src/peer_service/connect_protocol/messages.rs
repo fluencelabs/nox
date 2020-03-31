@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+use crate::misc::{multihash_serializer, peerid_serializer, provider_serializer};
+
+use libp2p::PeerId;
+use multihash::Multihash;
 use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
-
-pub type PeerIdBytes = Vec<u8>;
-pub type MultihashBytes = Vec<u8>;
 
 /// Describes network messages from a peer to current node (client -> server).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,17 +27,21 @@ pub type MultihashBytes = Vec<u8>;
 pub enum ToNodeNetworkMsg {
     /// Represents a message that should be relayed to given dst peer.
     Relay {
-        dst_id: PeerIdBytes,
-        data: PeerIdBytes,
+        #[serde(with = "peerid_serializer")]
+        dst_id: PeerId,
+        data: Vec<u8>,
     },
     Provide {
-        key: MultihashBytes,
+        #[serde(with = "multihash_serializer")]
+        key: Multihash,
     },
     FindProviders {
         /// PeerId of the client who requested providers
-        client_id: PeerIdBytes,
+        #[serde(with = "peerid_serializer")]
+        client_id: PeerId,
         /// Key to find providers for
-        key: MultihashBytes,
+        #[serde(with = "multihash_serializer")]
+        key: Multihash,
     },
     // TODO: remove that. It's necessary for `Default` implementation, which seems semi-required by libp2p
     Upgrade,
@@ -55,14 +60,18 @@ impl Default for ToNodeNetworkMsg {
 pub enum ToPeerNetworkMsg {
     /// Message that should be relayed from src peer to chosen dst peer.
     Deliver {
-        src_id: PeerIdBytes,
-        data: PeerIdBytes,
+        #[serde(with = "peerid_serializer")]
+        src_id: PeerId,
+        data: Vec<u8>,
     },
     Providers {
         /// PeerId of the client who requested providers
-        client_id: PeerIdBytes,
+        #[serde(with = "peerid_serializer")]
+        client_id: PeerId,
         /// Key to find providers for
-        key: MultihashBytes,
-        providers: Vec<(Multiaddr, PeerIdBytes)>,
+        #[serde(with = "multihash_serializer")]
+        key: Multihash,
+        #[serde(with = "provider_serializer")]
+        providers: Vec<(Multiaddr, PeerId)>,
     },
 }

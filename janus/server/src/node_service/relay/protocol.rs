@@ -88,19 +88,26 @@ mod tests {
         transport::{memory::MemoryTransport, ListenerEvent, Transport},
         upgrade,
     };
+    use libp2p::PeerId;
     use rand::{thread_rng, Rng};
 
     #[test]
     fn oneshot_channel_test() {
+        use std::str::FromStr;
+
         let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
         let mut listener = MemoryTransport.listen_on(mem_addr).unwrap();
-
         let listener_addr =
             if let Some(Some(Ok(ListenerEvent::NewAddress(a)))) = listener.next().now_or_never() {
                 a
             } else {
                 panic!("MemoryTransport not listening on an address!");
             };
+
+        let src_id = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
+        let dst_id = PeerId::from_str("Qme4XRbTMzYax1NyKp4dR4NS1bcVkF1Xw3fpWE8J1eCyRe").unwrap();
+        let listener_src_id = src_id.clone();
+        let listener_dst_id = dst_id.clone();
 
         async_std::task::spawn(async move {
             let listener_event = listener.next().await.unwrap();
@@ -109,16 +116,16 @@ mod tests {
             let relay_event = upgrade::apply_inbound(
                 conn,
                 RelayMessage {
-                    src_id: vec![],
-                    dst_id: vec![],
+                    src_id: listener_src_id.clone(),
+                    dst_id: listener_dst_id.clone(),
                     data: vec![],
                 },
             )
             .await
             .unwrap();
 
-            assert_eq!(relay_event.src_id, vec![0, 0xFF]);
-            assert_eq!(relay_event.dst_id, vec![0, 0xFF]);
+            assert_eq!(relay_event.src_id, listener_src_id);
+            assert_eq!(relay_event.dst_id, listener_dst_id);
             assert_eq!(relay_event.data, vec![116, 101, 115, 116]);
         });
 
@@ -127,8 +134,8 @@ mod tests {
             upgrade::apply_outbound(
                 c,
                 RelayMessage {
-                    src_id: vec![0, 0xFF],
-                    dst_id: vec![0, 0xFF],
+                    src_id,
+                    dst_id,
                     data: "test".to_string().into_bytes(),
                 },
                 upgrade::Version::V1,

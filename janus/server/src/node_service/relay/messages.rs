@@ -14,40 +14,40 @@
  * limitations under the License.
  */
 
+use crate::misc::peerid_serializer;
 use crate::peer_service::messages::ToPeerMsg;
+
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
 
 /// Relay event is just a data that need to be relayed from a peer of `src_id` to a peer of `dst_id`.
-#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RelayMessage {
-    // TODO: use PeerId instead of Vec<u8>. Currently it's blocked by implementing serde traits.
-    pub src_id: Vec<u8>,
-    // TODO: use PeerId instead of Vec<u8>. Currently it's blocked by implementing serde traits.
-    pub dst_id: Vec<u8>,
+    #[serde(with = "peerid_serializer")]
+    pub src_id: PeerId,
+    #[serde(with = "peerid_serializer")]
+    pub dst_id: PeerId,
     pub data: Vec<u8>,
 }
 
-impl TryInto<ToPeerMsg> for RelayMessage {
-    type Error = Vec<u8>;
+impl Into<ToPeerMsg> for RelayMessage {
+    fn into(self) -> ToPeerMsg {
+        ToPeerMsg::Deliver {
+            src_id: self.src_id,
+            dst_id: self.dst_id,
+            data: self.data,
+        }
+    }
+}
 
-    fn try_into(self) -> Result<ToPeerMsg, Self::Error> {
-        let RelayMessage {
-            src_id,
-            dst_id,
-            data,
-        } = self;
-
-        let dst_id = PeerId::from_bytes(dst_id);
-        let src_id = PeerId::from_bytes(src_id);
-
-        dst_id.and_then(|dst_id| {
-            Ok(ToPeerMsg::Deliver {
-                src_id: src_id?,
-                dst_id,
-                data,
-            })
-        })
+// this needed only to implement default for libp2p handler
+// and shouldn't be used for other purposes
+impl Default for RelayMessage {
+    fn default() -> Self {
+        RelayMessage {
+            src_id: PeerId::random(),
+            dst_id: PeerId::random(),
+            data: Vec::new(),
+        }
     }
 }

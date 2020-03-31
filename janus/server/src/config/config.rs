@@ -20,7 +20,6 @@ use clap::ArgMatches;
 use failure::_core::str::FromStr;
 use libp2p::core::Multiaddr;
 use libp2p::identity::{ed25519, ed25519::PublicKey, Keypair};
-use std::collections::HashMap;
 use std::error::Error;
 use std::net::IpAddr;
 use std::time::Duration;
@@ -167,14 +166,14 @@ fn load_weights(config: Config) -> Vec<(PublicKey, u32)> {
     fn parse_pk(s: String) -> PublicKey {
         let bytes = bs58::decode(s.clone()) // TODO: excess clone
             .into_vec()
-            .expect(format!("Can't parse base58 from public key {}", s).as_str());
+            .unwrap_or_else(|_| panic!("Can't parse base58 from public key {}", s));
 
         PublicKey::decode(bytes.as_slice()).expect("Can't decode ed25519::PublicKey from bytes")
     }
 
     config
         .get_table(ROOTS)
-        .unwrap_or(HashMap::new())
+        .unwrap_or_default()
         .into_iter()
         .map(|(k, v)| v.into_int().map(|i: i64| (parse_pk(k), i as u32)))
         .collect::<Result<_, _>>()
