@@ -22,6 +22,13 @@ use std::convert::TryFrom;
 // Ought to produce same multihash bytes from both "inlining" and "hashing" PeerId
 #[derive(Hash, Clone, Debug, PartialEq, Eq)]
 pub struct SafeMultihash(Multihash);
+
+impl SafeMultihash {
+    pub fn to_base58(&self) -> String {
+        bs58::encode(self.0.as_bytes()).into_string()
+    }
+}
+
 impl From<PeerId> for SafeMultihash {
     fn from(peer_id: PeerId) -> Self {
         let base58 = peer_id.to_base58();

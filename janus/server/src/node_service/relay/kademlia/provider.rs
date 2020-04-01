@@ -21,6 +21,8 @@ use libp2p::PeerId;
 
 impl Provider for KademliaRelay {
     fn provide(&mut self, key: SafeMultihash) {
+        log::info!("Will provide {}", key.to_base58());
+
         let key: Key = key.into();
 
         self.kademlia.start_providing(key);

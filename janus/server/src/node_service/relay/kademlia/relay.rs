@@ -21,6 +21,7 @@ use parity_multiaddr::{Multiaddr, Protocol};
 use crate::node_service::relay::KademliaRelay;
 use crate::node_service::relay::Relay;
 use crate::node_service::relay::RelayMessage;
+use itertools::Itertools;
 use libp2p::identity::ed25519;
 use std::net::IpAddr;
 
@@ -46,23 +47,42 @@ impl Relay for KademliaRelay {
         addresses: Vec<Multiaddr>,
         public_key: ed25519::PublicKey,
     ) {
-        let addresses: Vec<Multiaddr> = addresses
-            .into_iter()
+        let addresses: Vec<_> = addresses.into_iter().unique().collect();
+        let filtered: Vec<&Multiaddr> = addresses
+            .iter()
             .filter(|maddr| {
                 maddr.iter().any(|p| match p {
                     Protocol::Ip4(addr) => is_global(IpAddr::V4(addr)),
-                    Protocol::Ip6(addr) => is_global(IpAddr::V6(addr)),
+                    // TODO: enable IPv6 when Janus is considered stable enough
+                    Protocol::Ip6(_) => false, /*is_global(IpAddr::V6(addr))*/
                     _ => false,
                 })
             })
             .collect();
+        let addresses = if filtered.is_empty() {
+            // If there's no addresses left after filtering, we are most likely running locally
+            // So take loopback address, and go with it.
+            addresses
+                .iter()
+                .filter(|maddr| {
+                    maddr.iter().any(|p| match p {
+                        Protocol::Ip4(addr) if addr.is_loopback() => true,
+                        _ => false,
+                    })
+                })
+                .collect::<Vec<&Multiaddr>>()
+        } else {
+            filtered
+        };
+
         trace!(
             "adding new node {} with {:?} addresses",
             node_id.to_base58(),
             addresses
         );
         for addr in addresses {
-            self.kademlia.add_address(node_id, addr, public_key.clone());
+            self.kademlia
+                .add_address(node_id, addr.clone(), public_key.clone());
         }
     }
 

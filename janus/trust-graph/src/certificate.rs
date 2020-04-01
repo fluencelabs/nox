@@ -218,7 +218,7 @@ impl FromStr for Certificate {
         let _version = str_lines[1];
 
         if (str_lines.len() - 2) % 4 != 0 {
-            return Err("Incorrect format of the certificate.".to_string());
+            return Err(format!("Incorrect format of the certificate: {}", s));
         }
 
         let num_of_trusts = (str_lines.len() - 2) / 4;
