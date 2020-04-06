@@ -19,7 +19,6 @@ use crate::relay_api::RelayApi;
 use janus_server::{event_polling, generate_swarm_event_type};
 use libp2p::{
     core::connection::ConnectionId,
-    core::ConnectedPoint,
     core::Multiaddr,
     swarm::{NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler},
     PeerId,
@@ -91,9 +90,9 @@ impl NetworkBehaviour for ClientConnectProtocolBehaviour {
         Vec::new()
     }
 
-    fn inject_connected(&mut self, _node_id: PeerId, _cp: ConnectedPoint) {}
+    fn inject_connected(&mut self, _node_id: &PeerId) {}
 
-    fn inject_disconnected(&mut self, _node_id: &PeerId, _cp: ConnectedPoint) {}
+    fn inject_disconnected(&mut self, _node_id: &PeerId) {}
 
     fn inject_event(&mut self, _source: PeerId, _: ConnectionId, event: InnerMessage) {
         trace!("client: new event {:?} received", event);

@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 janus-server = { path = "../../server" }
-libp2p = "0.16.2"
-parity-multiaddr = "0.7.0"
+libp2p = "0.17.0"
+parity-multiaddr = "0.8.0"
 multihash ="0.10.0"
 async-std = "1.5.0"
 futures = "0.3.4"

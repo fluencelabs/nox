@@ -18,7 +18,6 @@ use std::task::{Context, Poll};
 
 use libp2p::core::connection::ConnectionId;
 use libp2p::core::either::EitherOutput;
-use libp2p::core::ConnectedPoint;
 use libp2p::core::Multiaddr;
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::Kademlia;
@@ -55,12 +54,12 @@ impl NetworkBehaviour for KademliaRelay {
         self.kademlia.addresses_of_peer(peer_id)
     }
 
-    fn inject_connected(&mut self, peer_id: PeerId, cp: ConnectedPoint) {
-        self.kademlia.inject_connected(peer_id, cp);
+    fn inject_connected(&mut self, peer_id: &PeerId) {
+        self.kademlia.inject_connected(&peer_id);
     }
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId, cp: ConnectedPoint) {
-        self.kademlia.inject_disconnected(peer_id, cp);
+    fn inject_disconnected(&mut self, peer_id: &PeerId) {
+        self.kademlia.inject_disconnected(peer_id);
     }
 
     fn inject_event(
@@ -111,7 +110,9 @@ impl NetworkBehaviour for KademliaRelay {
                 Poll::Ready(ReportObservedAddr { address }) => {
                     return Poll::Ready(ReportObservedAddr { address })
                 }
-                Poll::Ready(DialPeer { peer_id }) => return Poll::Ready(DialPeer { peer_id }),
+                Poll::Ready(DialPeer { peer_id, condition }) => {
+                    return Poll::Ready(DialPeer { peer_id, condition })
+                }
                 Poll::Pending => break,
             }
         }
@@ -122,20 +123,14 @@ impl NetworkBehaviour for KademliaRelay {
 
 impl NetworkBehaviourEventProcess<KademliaEvent> for KademliaRelay {
     fn inject_event(&mut self, event: KademliaEvent) {
-        use itertools::Itertools;
         use libp2p::kad::{GetProvidersError, GetProvidersOk};
         use KademliaEvent::GetProvidersResult;
 
         debug!("Kademlia inject: {:?}", event);
 
-        let mut complete_providers = |key, providers: Vec<PeerId>| {
-            let providers = providers.into_iter().unique().collect::<Vec<_>>(); //dedup
-            self.providers_found(key, providers)
-        };
-
         match event {
             GetProvidersResult(Ok(GetProvidersOk { key, providers, .. })) => {
-                complete_providers(key, providers)
+                self.providers_found(key, &providers)
             }
             GetProvidersResult(Err(GetProvidersError::Timeout { key, providers, .. })) => {
                 println!(
@@ -143,7 +138,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for KademliaRelay {
                     bs58::encode(key.as_ref()).into_string(),
                     providers.len()
                 );
-                complete_providers(key, providers)
+                self.providers_found(key, &providers)
             }
             _ => {}
         };

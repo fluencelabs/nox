@@ -196,7 +196,7 @@ impl KademliaRelay {
     }
 
     /// Signals to relay that providers are found, triggering completion of related promises
-    pub fn providers_found(&mut self, key: KademliaKey, providers: Vec<PeerId>) {
+    pub fn providers_found(&mut self, key: KademliaKey, providers: &HashSet<PeerId>) {
         let key: Multihash = key
             .to_vec()
             .try_into()
@@ -221,7 +221,10 @@ impl KademliaRelay {
         }
     }
 
-    fn generate_relay_events(message: RelayMessage, providers: &[PeerId]) -> Vec<SwarmEventType> {
+    fn generate_relay_events(
+        message: RelayMessage,
+        providers: &HashSet<PeerId>,
+    ) -> Vec<SwarmEventType> {
         providers
             .iter()
             .map(|node| NetworkBehaviourAction::NotifyHandler {
@@ -236,7 +239,7 @@ impl KademliaRelay {
         kademlia: &mut Kademlia<MemoryStore>,
         client: PeerId,
         key: Multihash,
-        providers: &[PeerId],
+        providers: &HashSet<PeerId>,
     ) -> Vec<SwarmEventType> {
         let providers: Vec<(Multiaddr, PeerId)> = providers
             .iter()

@@ -20,7 +20,6 @@ use crate::peer_service::connect_protocol::messages::{ToNodeNetworkMsg, ToPeerNe
 use crate::peer_service::messages::ToNodeMsg;
 use libp2p::{
     core::connection::ConnectionId,
-    core::ConnectedPoint,
     core::Multiaddr,
     swarm::{NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler},
     PeerId,
@@ -102,18 +101,20 @@ impl NetworkBehaviour for PeerConnectBehaviour {
         Vec::new()
     }
 
-    fn inject_connected(&mut self, peer_id: PeerId, _cp: ConnectedPoint) {
+    fn inject_connected(&mut self, peer_id: &PeerId) {
         trace!(
             "peer_service/connect_protocol/inject_connected: new peer {} joined",
             peer_id
         );
 
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
-            ToNodeMsg::PeerConnected { peer_id },
+            ToNodeMsg::PeerConnected {
+                peer_id: peer_id.clone(),
+            },
         ));
     }
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId, _cp: ConnectedPoint) {
+    fn inject_disconnected(&mut self, peer_id: &PeerId) {
         trace!(
             "peer_service/connect_protocol/inject_disconnected: peer {} disconnected",
             peer_id
