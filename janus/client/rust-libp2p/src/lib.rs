@@ -25,12 +25,8 @@
     unreachable_patterns
 )]
 
-mod behaviour;
 pub mod client;
 mod command;
-mod connect_protocol;
-mod message;
-mod relay_api;
+mod function_call_api;
 
-pub use command::{Command, TextCommand};
-pub use message::Message;
+pub use command::Command;

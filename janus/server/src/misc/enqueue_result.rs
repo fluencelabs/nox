@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-use crate::node_service::p2p::behaviour::NodeServiceBehaviour;
-use crate::peer_service::messages::ToPeerMsg;
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
-
-impl NetworkBehaviourEventProcess<ToPeerMsg> for NodeServiceBehaviour {
-    fn inject_event(&mut self, event: ToPeerMsg) {
-        self.events
-            .push_back(NetworkBehaviourAction::GenerateEvent(event));
-    }
+/// Represents a result of the enqueue_promise operation
+pub enum Enqueued {
+    // promise for such a key has already been in the queue
+    New,
+    // new promise created
+    Existing,
 }

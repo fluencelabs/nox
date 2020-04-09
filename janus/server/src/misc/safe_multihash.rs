@@ -17,6 +17,7 @@
 use libp2p::kad::record::Key;
 use libp2p::PeerId;
 use multihash::Multihash;
+use std::borrow::Borrow;
 use std::convert::TryFrom;
 
 // Ought to produce same multihash bytes from both "inlining" and "hashing" PeerId
@@ -53,6 +54,12 @@ impl Into<Multihash> for SafeMultihash {
 impl From<Multihash> for SafeMultihash {
     fn from(mhash: Multihash) -> Self {
         SafeMultihash(mhash)
+    }
+}
+
+impl Borrow<[u8]> for SafeMultihash {
+    fn borrow(&self) -> &[u8] {
+        self.0.borrow()
     }
 }
 

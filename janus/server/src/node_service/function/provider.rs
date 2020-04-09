@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
+use crate::misc::SafeMultihash;
 use libp2p::PeerId;
-use multihash::Multihash;
 
-// TODO: move to some package
-// TODO: separate into RelayApi & DhtApi
-pub trait RelayApi {
-    fn relay_message(&mut self, src: PeerId, dst: PeerId, message: Vec<u8>);
-    fn provide(&mut self, relay: PeerId, key: Multihash);
-    fn find_providers(&mut self, relay: PeerId, client_id: PeerId, key: Multihash);
+pub trait Provider {
+    fn provide(&mut self, key: SafeMultihash);
+    fn find_providers(&mut self, client_id: PeerId, key: SafeMultihash);
 }

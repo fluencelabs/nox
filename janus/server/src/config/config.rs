@@ -62,6 +62,8 @@ pub struct NodeServiceConfig {
 
     /// Bootstrap nodes to join to the Fluence network.
     pub bootstrap_nodes: Vec<Multiaddr>,
+
+    pub websocket_port: u16,
 }
 
 impl Default for NodeServiceConfig {
@@ -71,6 +73,7 @@ impl Default for NodeServiceConfig {
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             bootstrap_nodes: vec![],
+            websocket_port: 9999,
         }
     }
 }
@@ -126,6 +129,7 @@ fn build_config(arguments: ArgMatches, config: Config) -> Result<JanusConfig, Bo
     if let Some(peer_port) = merge_by_name(PEER_SERVICE_PORT) {
         let peer_port: u16 = u16::from_str(&peer_port)?;
         peer_service_config.listen_port = peer_port;
+        node_service_config.websocket_port = peer_port; // TODO: remove peer service config
     }
 
     if let Some(node_port) = merge_by_name(NODE_SERVICE_PORT) {

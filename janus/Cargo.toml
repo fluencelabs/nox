@@ -2,7 +2,7 @@
 members = [
     "server",
     "client/rust-libp2p",
-    "trust-graph"
+    "trust-graph",
 ]
 exclude = [
     "client/js-websocket/utils-wasm",

@@ -18,7 +18,6 @@ use libp2p::{
     core::{self, muxing::StreamMuxer},
     identity::Keypair,
     secio::SecioConfig,
-    tcp::TcpConfig,
     PeerId, Transport,
 };
 use std::time::Duration;
@@ -28,7 +27,7 @@ use std::time::Duration;
 /// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
 /// the multiplexing layer.
 pub fn build_transport(
-    keys: Keypair,
+    key_pair: Keypair,
     socket_timeout: Duration,
 ) -> impl Transport<
     Output = (
@@ -45,13 +44,24 @@ pub fn build_transport(
     Dial = impl Send,
     ListenerUpgrade = impl Send,
 > + Clone {
-    let mut yamux = libp2p::yamux::Config::default();
-    yamux.set_max_num_streams(1024 * 1024);
+    let multiplex = {
+        let mut mplex = libp2p::mplex::MplexConfig::default();
+        mplex.max_substreams(1024 * 1024);
+        let mut yamux = libp2p::yamux::Config::default();
+        yamux.set_max_num_streams(1024 * 1024);
+        core::upgrade::SelectUpgrade::new(yamux, mplex)
+    };
+    let secio = SecioConfig::new(key_pair);
 
-    TcpConfig::new()
-        .nodelay(true)
+    let transport = {
+        let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
+        let websocket = libp2p::websocket::WsConfig::new(tcp.clone());
+        tcp.or_transport(websocket)
+    };
+
+    transport
         .upgrade(core::upgrade::Version::V1)
-        .authenticate(SecioConfig::new(keys))
-        .multiplex(yamux)
+        .authenticate(secio)
+        .multiplex(multiplex)
         .timeout(socket_timeout)
 }

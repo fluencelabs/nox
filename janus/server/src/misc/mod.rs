@@ -16,8 +16,12 @@
 
 use futures::channel::{mpsc, oneshot};
 
+mod enqueue_result;
 pub mod macros;
 mod peer_id;
+mod promise_queue;
+mod safe_multihash;
+mod waiting_queue;
 
 /// An input port of actor (aka Akka Inlet).
 /// Could be used to send MsgType messages in the actor.
@@ -36,3 +40,6 @@ pub type OneshotInlet<MsgType> = oneshot::Receiver<MsgType>;
 pub type OneshotOutlet<MsgType> = oneshot::Sender<MsgType>;
 
 pub use peer_id::{multihash_serializer, peerid_serializer, provider_serializer};
+pub use promise_queue::PromiseQueue;
+pub use safe_multihash::SafeMultihash;
+pub use waiting_queue::WaitingQueue;

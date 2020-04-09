@@ -14,43 +14,12 @@
  * limitations under the License.
  */
 
-use libp2p::PeerId;
-use multihash::Multihash;
+use janus_server::node_service::function::FunctionCall;
 use serde::{Deserialize, Serialize};
-use std::convert::{TryFrom, TryInto};
-use std::error::Error;
 
 /// Describes commands sent from client to relay node; also see `ToNodeNetworkMsg`
-#[derive(Debug, Clone)]
-pub enum Command {
-    Relay { dst: PeerId, data: String },
-    Provide(Multihash),
-    FindProviders(Multihash),
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "command")]
-pub enum TextCommand {
-    Relay { dst: String, message: String },
-    Provide { key: String },
-    FindProviders { key: String },
-}
-
-impl TryFrom<TextCommand> for Command {
-    type Error = Box<dyn Error>;
-
-    fn try_from(cmd: TextCommand) -> Result<Self, Self::Error> {
-        match cmd {
-            TextCommand::Relay { dst, message } => Ok(Command::Relay {
-                dst: dst.parse()?,
-                data: message,
-            }),
-            TextCommand::Provide { key } => {
-                Ok(Command::Provide(bs58::decode(key).into_vec()?.try_into()?))
-            }
-            TextCommand::FindProviders { key } => Ok(Command::FindProviders(
-                bs58::decode(key).into_vec()?.try_into()?,
-            )),
-        }
-    }
+#[serde(tag = "command", content = "body")]
+pub enum Command {
+    Call { call: FunctionCall },
 }

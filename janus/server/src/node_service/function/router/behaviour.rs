@@ -14,51 +14,53 @@
  * limitations under the License.
  */
 
+use crate::node_service::function::{FunctionRouter, ProtocolMessage, SwarmEventType};
+
+use log::{debug, trace};
+use std::error::Error;
 use std::task::{Context, Poll};
 
-use libp2p::core::connection::ConnectionId;
-use libp2p::core::either::EitherOutput;
-use libp2p::core::Multiaddr;
-use libp2p::kad::record::store::MemoryStore;
-use libp2p::kad::Kademlia;
-use libp2p::kad::KademliaEvent;
-use libp2p::swarm::IntoProtocolsHandler;
-use libp2p::swarm::IntoProtocolsHandlerSelect;
-use libp2p::swarm::NetworkBehaviour;
-use libp2p::swarm::NetworkBehaviourAction;
-use libp2p::swarm::NetworkBehaviourEventProcess;
-use libp2p::swarm::OneShotHandler;
-use libp2p::swarm::PollParameters;
-use libp2p::swarm::ProtocolsHandler;
-use libp2p::PeerId;
-use log::{debug, trace};
-
-use crate::node_service::relay::kademlia::{KademliaRelay, SwarmEventType};
-use crate::node_service::relay::{
-    kademlia::events::InnerMessage, messages::RelayMessage, relay::Relay,
+use libp2p::{
+    core::{
+        connection::{ConnectionId, ListenerId},
+        either::EitherOutput,
+        Multiaddr,
+    },
+    kad::{record::store::MemoryStore, Kademlia, KademliaEvent},
+    swarm::{
+        IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
+        NetworkBehaviourEventProcess, OneShotHandler, PollParameters, ProtocolsHandler,
+    },
+    PeerId,
 };
-use crate::peer_service::messages::ToPeerMsg;
 
-impl NetworkBehaviour for KademliaRelay {
+impl NetworkBehaviour for FunctionRouter {
+    // type ProtocolsHandler = OneShotHandler<ProtocolMessage, ProtocolMessage, ProtocolMessage>;
+
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
-        OneShotHandler<RelayMessage, RelayMessage, InnerMessage>,
+        OneShotHandler<ProtocolMessage, ProtocolMessage, ProtocolMessage>,
         <Kademlia<MemoryStore> as NetworkBehaviour>::ProtocolsHandler,
     >;
-    type OutEvent = ToPeerMsg;
+    type OutEvent = ();
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         IntoProtocolsHandler::select(Default::default(), self.kademlia.new_handler())
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+        log::info!("addresses_of_peer {}", peer_id.to_base58());
         self.kademlia.addresses_of_peer(peer_id)
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        self.kademlia.inject_connected(&peer_id);
+        log::debug!("inject_connected {}", peer_id.to_base58());
+        self.connected(peer_id.clone());
+        self.kademlia.inject_connected(peer_id);
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
+        log::debug!("inject_disconnected {}", peer_id.to_base58());
+        self.disconnected(peer_id);
         self.kademlia.inject_disconnected(peer_id);
     }
 
@@ -71,7 +73,10 @@ impl NetworkBehaviour for KademliaRelay {
         use EitherOutput::{First, Second};
 
         match event {
-            First(InnerMessage::Relay(relay)) => self.relay(relay),
+            First(ProtocolMessage::FunctionCall(call)) => {
+                log::info!("FunctionCall! from {} {:?}", source.to_base58(), call);
+                self.call(call)
+            }
             Second(kademlia_event) => {
                 trace!("Kademlia: {:?}", kademlia_event);
                 self.kademlia
@@ -79,6 +84,36 @@ impl NetworkBehaviour for KademliaRelay {
             }
             _ => {}
         }
+    }
+
+    fn inject_addr_reach_failure(&mut self, p: Option<&PeerId>, a: &Multiaddr, e: &dyn Error) {
+        self.kademlia.inject_addr_reach_failure(p, a, e);
+    }
+
+    fn inject_dial_failure(&mut self, peer_id: &PeerId) {
+        // TODO: clear connected_peers on inject_listener_closed?
+        self.disconnected(peer_id);
+        self.kademlia.inject_dial_failure(peer_id);
+    }
+
+    fn inject_new_listen_addr(&mut self, a: &Multiaddr) {
+        self.kademlia.inject_new_listen_addr(a)
+    }
+
+    fn inject_expired_listen_addr(&mut self, a: &Multiaddr) {
+        self.kademlia.inject_expired_listen_addr(a)
+    }
+
+    fn inject_new_external_addr(&mut self, a: &Multiaddr) {
+        self.kademlia.inject_new_external_addr(a)
+    }
+
+    fn inject_listener_error(&mut self, i: ListenerId, e: &(dyn Error + 'static)) {
+        self.kademlia.inject_listener_error(i, e)
+    }
+
+    fn inject_listener_closed(&mut self, i: ListenerId, reason: Result<(), &std::io::Error>) {
+        self.kademlia.inject_listener_closed(i, reason)
     }
 
     fn poll(&mut self, cx: &mut Context, params: &mut impl PollParameters) -> Poll<SwarmEventType> {
@@ -121,7 +156,7 @@ impl NetworkBehaviour for KademliaRelay {
     }
 }
 
-impl NetworkBehaviourEventProcess<KademliaEvent> for KademliaRelay {
+impl NetworkBehaviourEventProcess<KademliaEvent> for FunctionRouter {
     fn inject_event(&mut self, event: KademliaEvent) {
         use libp2p::kad::{GetProvidersError, GetProvidersOk};
         use KademliaEvent::GetProvidersResult;
@@ -130,7 +165,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for KademliaRelay {
 
         match event {
             GetProvidersResult(Ok(GetProvidersOk { key, providers, .. })) => {
-                self.providers_found(key, &providers)
+                self.providers_found(key, providers)
             }
             GetProvidersResult(Err(GetProvidersError::Timeout { key, providers, .. })) => {
                 println!(
@@ -138,7 +173,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for KademliaRelay {
                     bs58::encode(key.as_ref()).into_string(),
                     providers.len()
                 );
-                self.providers_found(key, &providers)
+                self.providers_found(key, providers)
             }
             _ => {}
         };

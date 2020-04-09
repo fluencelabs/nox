@@ -15,18 +15,17 @@
  */
 
 use crate::error::Error;
-use crate::node_service::relay::RelayMessage;
+use crate::node_service::function::ProtocolMessage;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
-use log::trace;
 use std::{io, iter, pin::Pin};
 
 // 1 Mb
 #[allow(clippy::identity_op)]
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
-const PROTOCOL_INFO: &[u8] = b"/janus/relay/1.0.0";
+const PROTOCOL_INFO: &[u8] = b"/janus/faas/1.0.0";
 
-impl UpgradeInfo for RelayMessage {
+impl UpgradeInfo for ProtocolMessage {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -35,11 +34,11 @@ impl UpgradeInfo for RelayMessage {
     }
 }
 
-impl<Socket> InboundUpgrade<Socket> for RelayMessage
+impl<Socket> InboundUpgrade<Socket> for ProtocolMessage
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    type Output = RelayMessage;
+    type Output = ProtocolMessage;
     type Error = Error;
     #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
@@ -47,15 +46,21 @@ where
     fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
-            let relay_event: RelayMessage = serde_json::from_slice(&packet).unwrap();
+            // TODO: remove that once debugged
+            match String::from_utf8(packet.clone()) {
+                Ok(str) => log::debug!("Got inbound ProtocolMessage: {}", str),
+                Err(err) => log::warn!("Can't parse inbound ProtocolMessage to UTF8 {}", err),
+            }
+
+            let message: ProtocolMessage = serde_json::from_slice(&packet)?;
             socket.close().await?;
 
-            Ok(relay_event)
+            Ok(message)
         })
     }
 }
 
-impl<Socket> OutboundUpgrade<Socket> for RelayMessage
+impl<Socket> OutboundUpgrade<Socket> for ProtocolMessage
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
@@ -66,12 +71,7 @@ where
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
-            trace!(
-                "node_service/relay/upgrade_outbound: sending a new relay network event: {:?}",
-                self
-            );
-
-            let bytes = serde_json::to_vec(&self).expect("failed to serialize RelayEvent to json");
+            let bytes = serde_json::to_vec(&self)?;
             upgrade::write_one(&mut socket, bytes).await?;
 
             Ok(())
@@ -81,20 +81,19 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::RelayMessage;
+    use super::ProtocolMessage;
+    use crate::node_service::function::gen_function_call;
     use futures::prelude::*;
     use libp2p::core::{
         multiaddr::multiaddr,
         transport::{memory::MemoryTransport, ListenerEvent, Transport},
         upgrade,
     };
-    use libp2p::PeerId;
+
     use rand::{thread_rng, Rng};
 
     #[test]
     fn oneshot_channel_test() {
-        use std::str::FromStr;
-
         let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
         let mut listener = MemoryTransport.listen_on(mem_addr).unwrap();
         let listener_addr =
@@ -104,44 +103,25 @@ mod tests {
                 panic!("MemoryTransport not listening on an address!");
             };
 
-        let src_id = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
-        let dst_id = PeerId::from_str("Qme4XRbTMzYax1NyKp4dR4NS1bcVkF1Xw3fpWE8J1eCyRe").unwrap();
-        let listener_src_id = src_id.clone();
-        let listener_dst_id = dst_id.clone();
-
-        async_std::task::spawn(async move {
+        let inbound = async_std::task::spawn(async move {
             let listener_event = listener.next().await.unwrap();
             let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
             let conn = listener_upgrade.await.unwrap();
-            let relay_event = upgrade::apply_inbound(
-                conn,
-                RelayMessage {
-                    src_id: listener_src_id.clone(),
-                    dst_id: listener_dst_id.clone(),
-                    data: vec![],
-                },
-            )
-            .await
-            .unwrap();
-
-            assert_eq!(relay_event.src_id, listener_src_id);
-            assert_eq!(relay_event.dst_id, listener_dst_id);
-            assert_eq!(relay_event.data, vec![116, 101, 115, 116]);
+            let upgrade = ProtocolMessage::Upgrade;
+            upgrade::apply_inbound(conn, upgrade).await.unwrap()
         });
 
-        async_std::task::block_on(async move {
+        let sent_call = async_std::task::block_on(async move {
+            let call = ProtocolMessage::FunctionCall(gen_function_call());
             let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
-            upgrade::apply_outbound(
-                c,
-                RelayMessage {
-                    src_id,
-                    dst_id,
-                    data: "test".to_string().into_bytes(),
-                },
-                upgrade::Version::V1,
-            )
-            .await
-            .unwrap();
+            upgrade::apply_outbound(c, call.clone(), upgrade::Version::V1)
+                .await
+                .unwrap();
+            call
         });
+
+        let received_call = futures::executor::block_on(inbound);
+
+        assert_eq!(sent_call, received_call);
     }
 }

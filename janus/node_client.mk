@@ -22,13 +22,11 @@ node-second:
 
 client-first:
 	./target/debug/janus-client \
-	/ip4/127.0.0.1/tcp/9991/ws \
-	QmSY8FNMuXJNHwAneTHxDks51DcyqQ8TRnpe4b8SF1ZQnh
+	/ip4/104.248.25.59/tcp/9990/ws QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2
 
 client-second:
 	./target/debug/janus-client \
-	/ip4/127.0.0.1/tcp/9992/ws \
-	QmUQTSjNJig8ZEYiodbZEFzTC9WJa9aiX4G9nMaieXhgUF
+	/ip4/104.248.25.59/tcp/9002/ws QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW
 
 node-tmux:
 	cargo update -p libp2p

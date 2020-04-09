@@ -30,13 +30,12 @@ use janus_client::client::Client;
 use async_std::{io, task};
 use futures::prelude::*;
 use futures::{select, stream::StreamExt};
-use janus_client::TextCommand;
+use janus_client::Command;
+use janus_server::node_service::function::{Address, FunctionCall};
 use libp2p::PeerId;
-use multihash;
-use multihash::Code;
+
 use parity_multiaddr::Multiaddr;
 use serde_json;
-use std::convert::TryInto;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -48,17 +47,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         .parse()
         .expect("provided wrong  Multiaddr");
 
-    let relay_id: PeerId = std::env::args()
+    let bootstrap_id: PeerId = std::env::args()
         .nth(2)
         .expect("peer id should be provided by the second argument")
         .parse()
         .expect("provided wrong PeerId");
 
-    let client = Client::connect(relay_addr, relay_id);
+    let client = Client::connect(relay_addr, bootstrap_id.clone());
 
     task::block_on(async move {
-        let mut client = client.await?;
-        print_example(&client.peer_id);
+        let (mut client, _client_task) = client.await?;
+        print_example(&client.peer_id, &bootstrap_id);
 
         let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
@@ -67,9 +66,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 from_stdin = stdin.select_next_some() => {
                     match from_stdin {
                         Ok(line) => {
-                            let cmd: Result<TextCommand, _> = serde_json::from_str(&line);
+                            let cmd: Result<Command, _> = serde_json::from_str(&line);
                             if let Ok(cmd) = cmd {
-                                client.send(cmd.try_into().unwrap());
+                                client.send(cmd);
                             } else {
                                 println!("incorrect string provided");
                             }
@@ -79,35 +78,39 @@ fn main() -> Result<(), Box<dyn Error>> {
                 },
                 incoming = client.receive_one() => {
                     match incoming {
-                        Some(msg) => println!("Received {}", msg),
-                        None => break
+                        Some(msg) => println!("Received {:?}", msg),
+                        None => println!("client closed inlet")
                     }
                 }
             )
         }
 
-        Ok(())
+        // println!("Select stdout finished");
+        // _client_task.await;
+        // Ok(())
     })
 }
 
-fn print_example(peer_id: &PeerId) {
-    fn show(cmd: TextCommand) {
+fn print_example(peer_id: &PeerId, bootstrap: &PeerId) {
+    fn show(cmd: Command) {
         println!("{}", serde_json::to_value(cmd).unwrap());
     }
 
-    let relay_example = TextCommand::Relay {
-        dst: peer_id.to_string(),
-        message: "hello".to_string(),
+    let call_example = Command::Call {
+        call: FunctionCall {
+            uuid: "UUID-1".to_string(),
+            target: Some(Address::Peer {
+                peer: bootstrap.clone(),
+            }),
+            reply_to: Some(Address::Peer {
+                peer: peer_id.clone(),
+            }),
+            arguments: serde_json::Value::Null,
+            name: Some("name!".to_string()),
+        },
     };
 
-    let rnd = rand::random::<[u8; 32]>();
-    let rnd = bs58::encode(multihash::wrap(Code::Sha2_256, &rnd)).into_string();
-    let provide_example = TextCommand::Provide { key: rnd.clone() };
-    let find_example = TextCommand::FindProviders { key: rnd };
-
     println!("possible messages:");
-    show(relay_example);
-    show(provide_example);
-    show(find_example);
+    show(call_example);
     println!("\n")
 }

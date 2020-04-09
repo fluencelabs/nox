@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-use crate::node_service::relay::kademlia::{Enqueued, Promise, SafeMultihash};
-use crate::node_service::relay::{KademliaRelay, Provider};
-use libp2p::kad::record::Key;
-use libp2p::PeerId;
+// use crate::node_service::function::SafeMultihash;
+// use crate::node_service::function::{FunctionRouter, Provider};
+// use libp2p::kad::record::Key;
+// use libp2p::PeerId;
 
-impl Provider for KademliaRelay {
+/*impl Provider for FunctionRouter {
     fn provide(&mut self, key: SafeMultihash) {
         log::info!("Will provide {}", key.to_base58());
 
@@ -40,4 +40,4 @@ impl Provider for KademliaRelay {
             self.get_providers(key);
         }
     }
-}
+}*/

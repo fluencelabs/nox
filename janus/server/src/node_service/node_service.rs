@@ -15,27 +15,22 @@
  */
 
 use crate::config::NodeServiceConfig;
-use crate::misc::{Inlet, Outlet};
-use crate::node_service::{
-    p2p::{build_transport, NodeServiceBehaviour},
-    relay::RelayMessage,
-};
-use crate::peer_service::messages::{ToNodeMsg, ToPeerMsg};
+use crate::misc::OneshotOutlet;
+use crate::node_service::p2p::{build_transport, P2PBehaviour};
 
 use async_std::task;
-use futures::channel::{mpsc, oneshot};
-use futures::{select, stream::StreamExt};
-use futures_util::future::FutureExt;
+use futures::channel::oneshot;
+use futures::stream::StreamExt;
+
 use libp2p::{PeerId, Swarm, TransportError};
-use log::{error, trace};
+use log::error;
 use parity_multiaddr::{Multiaddr, Protocol};
 
-use janus_server::misc::{OneshotInlet, OneshotOutlet};
 use libp2p::identity::ed25519::{self, Keypair};
 use libp2p::identity::PublicKey;
 use std::io;
 
-type NodeServiceSwarm = Swarm<NodeServiceBehaviour>;
+type NodeServiceSwarm = Swarm<P2PBehaviour>;
 
 /// Responsibilities:
 /// - Command swarm to listen for other nodes
@@ -44,7 +39,6 @@ type NodeServiceSwarm = Swarm<NodeServiceBehaviour>;
 pub struct NodeService {
     swarm: NodeServiceSwarm,
     config: NodeServiceConfig,
-    inlet: Inlet<ToNodeMsg>,
 }
 
 impl NodeService {
@@ -52,7 +46,7 @@ impl NodeService {
         key_pair: Keypair,
         config: NodeServiceConfig,
         root_weights: Vec<(ed25519::PublicKey, u32)>,
-    ) -> (Box<Self>, Outlet<ToNodeMsg>) {
+    ) -> Box<Self> {
         let NodeServiceConfig { socket_timeout, .. } = config.clone();
 
         let local_peer_id = PeerId::from(PublicKey::Ed25519(key_pair.public()));
@@ -60,36 +54,31 @@ impl NodeService {
 
         let swarm = {
             let behaviour =
-                NodeServiceBehaviour::new(key_pair.clone(), local_peer_id.clone(), root_weights);
+                P2PBehaviour::new(key_pair.clone(), local_peer_id.clone(), root_weights);
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
 
             Swarm::new(transport, behaviour, local_peer_id)
         };
 
-        let (outlet, inlet) = mpsc::unbounded();
-        let node_service = Self {
-            swarm,
-            config,
-            inlet,
-        };
+        let node_service = Self { swarm, config };
 
-        (Box::new(node_service), outlet)
+        Box::new(node_service)
     }
 
     /// Starts node service
-    /// * `peer_outlet`   – channel to send events to node service from peer service
-    pub fn start(mut self: Box<Self>, peer_outlet: Outlet<ToPeerMsg>) -> OneshotOutlet<()> {
-        let (exit_sender, exit_receiver) = oneshot::channel();
+    pub fn start(mut self: Box<Self>) -> OneshotOutlet<()> {
+        let (exit_sender, _exit_receiver) = oneshot::channel();
 
         self.listen().expect("Error on starting node listener");
         self.bootstrap();
 
-        task::spawn(NodeService::run_events_coordination(
-            self,
-            peer_outlet,
-            exit_receiver,
-        ));
+        task::spawn(async move {
+            loop {
+                self.swarm.select_next_some().await;
+                println!("Сворм делает хоп! Делает пыщ!")
+            }
+        });
 
         exit_sender
     }
@@ -100,7 +89,13 @@ impl NodeService {
         let mut listen_addr = Multiaddr::from(self.config.listen_ip);
         listen_addr.push(Protocol::Tcp(self.config.listen_port));
 
-        Swarm::listen_on(&mut self.swarm, listen_addr).map(|_| ())
+        let mut ws = Multiaddr::from(self.config.listen_ip);
+        ws.push(Protocol::Tcp(self.config.websocket_port));
+        ws.push(Protocol::Ws("/".into()));
+
+        Swarm::listen_on(&mut self.swarm, listen_addr)?;
+        Swarm::listen_on(&mut self.swarm, ws)?;
+        Ok(())
     }
 
     /// Dials bootstrap nodes, and then commands swarm to bootstrap itself.
@@ -114,79 +109,10 @@ impl NodeService {
             }
         }
 
+        if self.config.bootstrap_nodes.is_empty() {
+            log::info!("No bootstrap nodes found. Am I the only one? :(");
+        }
+
         self.swarm.bootstrap();
-    }
-
-    /// Runs a loop which coordinates events:
-    /// peer service => swarm
-    /// swarm        => peer service
-    ///
-    /// Stops when a message is received on `exit_inlet`.
-    #[inline]
-    async fn run_events_coordination(
-        self: Box<Self>,
-        peer_outlet: Outlet<ToPeerMsg>,
-        exit_inlet: OneshotInlet<()>,
-    ) {
-        let mut swarm = self.swarm;
-        let mut node_inlet = self.inlet.fuse();
-        let mut exit_inlet = exit_inlet.into_stream().fuse();
-
-        loop {
-            select! {
-                // Notice from peer service => swarm
-                from_peer = node_inlet.next() => {
-                    NodeService::handle_peer_event(
-                        &mut swarm,
-                        from_peer,
-                    )
-                },
-
-                // swarm stream never ends
-                // RelayEvent from swarm => peer_service
-                from_swarm = swarm.select_next_some() => {
-                    trace!("node_service/select: sending {:?} to peer_service", from_swarm);
-
-                    peer_outlet
-                        .unbounded_send(from_swarm)
-                        .unwrap();
-                },
-
-                // If any msg received on `exit`, then stop the loop
-                _ = exit_inlet.next() => {
-                    break
-                }
-            }
-        }
-    }
-
-    /// Handles events from a peer service.
-    #[inline]
-    fn handle_peer_event(swarm: &mut NodeServiceSwarm, event: Option<ToNodeMsg>) {
-        match event {
-            Some(ToNodeMsg::PeerConnected { peer_id }) => swarm.add_local_peer(peer_id),
-
-            Some(ToNodeMsg::PeerDisconnected { peer_id }) => swarm.remove_local_peer(peer_id),
-
-            Some(ToNodeMsg::Relay {
-                src_id,
-                dst_id,
-                data,
-            }) => swarm.relay(RelayMessage {
-                src_id,
-                dst_id,
-                data,
-            }),
-            Some(ToNodeMsg::Provide(key)) => swarm.provide(key),
-            Some(ToNodeMsg::FindProviders { client_id, key }) => {
-                swarm.find_providers(client_id, key)
-            }
-
-            // channel is closed when peer service was shut down - does nothing
-            // (node service is main service and could run without peer service)
-            None => {
-                trace!("trying to poll closed channel from the peer service");
-            }
-        }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,15 @@
  * limitations under the License.
  */
 
-mod behaviour;
-mod transport;
+use janus_server::node_service::function::FunctionCall;
+use janus_server::node_service::P2PBehaviour;
 
-pub use behaviour::NodeServiceBehaviour;
-pub use transport::build_transport;
+pub trait FunctionCallApi {
+    fn call(&mut self, call: FunctionCall);
+}
+
+impl FunctionCallApi for P2PBehaviour {
+    fn call(&mut self, call: FunctionCall) {
+        self.call(call)
+    }
+}

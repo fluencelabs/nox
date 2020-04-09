@@ -14,33 +14,18 @@
  * limitations under the License.
  */
 
+/*
+
 use libp2p::PeerId;
 use log::{debug, trace};
 use parity_multiaddr::{Multiaddr, Protocol};
 
-use crate::node_service::relay::KademliaRelay;
-use crate::node_service::relay::Relay;
-use crate::node_service::relay::RelayMessage;
+use crate::node_service::function::FunctionRouter;
 use itertools::Itertools;
 use libp2p::identity::ed25519;
 use std::net::IpAddr;
 
-// TODO: use is_global from std::net::ip once it's stable
-fn is_global(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(addr) => {
-            !addr.is_private()
-                && !addr.is_loopback()
-                && !addr.is_link_local()
-                && !addr.is_broadcast()
-                && !addr.is_documentation()
-                && !addr.is_unspecified()
-        }
-        IpAddr::V6(addr) => !addr.is_loopback() && !addr.is_unspecified(),
-    }
-}
-
-impl Relay for KademliaRelay {
+impl Relay for FunctionRouter {
     fn add_node_addresses(
         &mut self,
         node_id: &PeerId,
@@ -109,3 +94,4 @@ impl Relay for KademliaRelay {
         }
     }
 }
+*/
