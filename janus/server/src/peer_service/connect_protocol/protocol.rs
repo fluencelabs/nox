@@ -51,11 +51,6 @@ where
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
             let msg: ToNodeNetworkMsg = serde_json::from_slice(&packet).unwrap();
 
-            trace!(
-                "peer_service/connect_protocol/upgrade_inbound: received new message {:?}",
-                msg
-            );
-
             socket.close().await?;
             Ok(msg)
         })

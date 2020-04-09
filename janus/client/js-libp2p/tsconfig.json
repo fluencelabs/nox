@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "typeRoots": [
+      "./node_modules/@types",
+      "./node_modules/libp2p-ts/types",
+      "./types"
+    ],
+    "target": "esnext",
+    "module": "commonjs",
+    "pretty": true,
+    "declaration": true,
+    "strict": true,
+    "strictNullChecks": false,
+    "esModuleInterop": true
+  },
+  "include": ["src/**/*"]
+}
