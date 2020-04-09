@@ -61,21 +61,21 @@ export function createPeerAddress(peer: string): Peer {
 export function parseAddressObj(json: any): Address {
     switch (json.type) {
         case "Relay":
-            if (typeof json.relay !== "string") throw `there is no 'relay' field in json.\n${json}`;
-            if (typeof json.client !== "string") throw `there is no 'client' field in json.\n${json}`;
+            if (typeof json.relay !== "string") throw `there is no 'relay' field in json.\n${JSON.stringify(json)}`;
+            if (typeof json.client !== "string") throw `there is no 'client' field in json.\n${JSON.stringify(json)}`;
 
             return createRelayAddress(json.relay, json.client);
         case "Service":
-            if (typeof json.service !== "string") throw `there is no 'service' field in json.\n${json}`;
+            if (typeof json.service !== "string") throw `there is no 'service' field in json.\n${JSON.stringify(json)}`;
             return createServiceAddress(json.service);
         case "Peer":
-            if (typeof json.peer !== "string") throw `there is no 'peer' field in json.\n${json}`;
+            if (typeof json.peer !== "string") throw `there is no 'peer' field in json.\n${JSON.stringify(json)}`;
 
             return createPeerAddress(json.peer);
         case undefined:
-            throw `there is no 'type' field in json.\n${json}`;
+            throw `there is no 'type' field in json.\n${JSON.stringify(json)}`;
         default:
-            throw `'type' field should be only 'relay|service|peer' in json.\n${json}`;
+            throw `'type' field should be only 'relay|service|peer' in json.\n${JSON.stringify(json)}`;
     }
 }
 

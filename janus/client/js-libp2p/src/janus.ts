@@ -60,7 +60,7 @@ export class JanusConnection {
      * Sends a message to register the service.
      */
     async registerService(serviceName: string, fn: (req: any) => object | void) {
-        let regMsg = makeRegisterMessage(serviceName, PeerId.createFromB58String(this.nodePeerId));
+        let regMsg = makeRegisterMessage(serviceName, PeerId.createFromB58String(this.nodePeerId), this.peerSelf);
         await this.sendFunctionCall(regMsg);
 
         this.functions.set(serviceName, fn)
@@ -69,14 +69,14 @@ export class JanusConnection {
     /**
      * Sends a message to unregister the service.
      */
-    async unregisterService(serviceName: string) {
+    /*async unregisterService(serviceName: string) {
         if (this.functions.get(serviceName)) {
             let regMsg = makeRegisterMessage(serviceName, PeerId.createFromB58String(this.nodePeerId));
             await this.sendFunctionCall(regMsg);
 
             this.functions.delete(serviceName)
         }
-    }
+    }*/
 
     /**
      * Makes message with response from function.

@@ -46,8 +46,8 @@ export function parseFunctionCall(str: string): FunctionCall {
     let replyTo: Address;
     if (json.reply_to) replyTo = parseAddressObj(json.reply_to);
 
-    if (json.uuid) throw `there is no 'uuid' field in json.\n${json}`;
-    if (json.target) throw `there is no 'uuid' field in json.\n${json}`;
+    if (!json.uuid) throw `there is no 'uuid' field in json.\n${str}`;
+    if (!json.target) throw `there is no 'uuid' field in json.\n${str}`;
 
     let target = parseAddressObj(json.target);
 
@@ -102,10 +102,11 @@ export function makeCallMessage(functionId: string, args: any, replyTo?: PeerId,
 /**
  * Message to register new service.
  */
-export function makeRegisterMessage(serviceName: string, peerId: PeerId): FunctionCall {
-    let target = createPeerAddress(peerId.toB58String());
+export function makeRegisterMessage(serviceName: string, relayPeerId: PeerId, selfPeerId: PeerId): FunctionCall {
+    let target = createServiceAddress("provide");
+    let replyTo = createRelayAddress(relayPeerId.toB58String(), selfPeerId.toB58String());
 
-    return makeFunctionCall(genUUID(), target, {key: serviceName}, undefined, "register");
+    return makeFunctionCall(genUUID(), target, {service_id: serviceName}, replyTo, "provide service");
 }
 
 export function makeUnregisterMessage(serviceName: string, peerId: PeerId): FunctionCall {
