@@ -26,9 +26,36 @@ jobs:
             - ~/.rustup
           key: janus01-{{ checksum "janus/server/Cargo.toml" }}
 
+  frank:
+    docker:
+      - image: circleci/rust:latest
+    environment:
+      RUST_BACKTRACE: 1
+      # RUST_TEST_THREADS: 1
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - frank01-{{ checksum "frank/Cargo.toml" }}
+      - run: |
+          cd frank/
+          rustup toolchain install stable
+          rustup component add rustfmt
+          rustup component add clippy
+          cargo fmt --all -- --check --color always
+          cargo build -v --all-features
+          cargo test -v --all-features
+          cargo clippy -v
+      - save_cache:
+          paths:
+            - ~/.cargo
+            - ~/.rustup
+          key: frank01-{{ checksum "frank/Cargo.toml" }}
+
 workflows:
   version: 2
   arqada:
     jobs:
       - janus
+      - frank
 

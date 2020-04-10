@@ -1,0 +1,39 @@
+[package]
+name = "Frank"
+description = "Virtual machine based on Wasmer for the Fluence network"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+license = "Apache-2.0"
+keywords = ["fluence", "webassembly", "wasmer", "execution environment"]
+categories = ["webassembly"]
+maintenance = { status = "actively-developed" }
+
+[lib]
+name = "frank"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "frank"
+path = "src/main.rs"
+
+[dependencies]
+wasmer-runtime = {git = "http://github.com/fluencelabs/wasmer"}
+wasmer-runtime-core = {git = "http://github.com/fluencelabs/wasmer"}
+failure = "0.1.7"
+lazy_static = "1.4.0"
+sha2 = "0.8.1"
+clap = "2.33.0"
+exitfailure = "0.5.1"
+boolinator = "2.4.0"
+parity-wasm = "0.41.0"
+pwasm-utils = "0.12.0"
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+debug-assertions = false
+overflow-checks = false
+panic = "abort"
