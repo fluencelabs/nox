@@ -55,4 +55,50 @@ mod test {
         let msg = ProtocolMessage::FunctionCall(gen_function_call());
         check_msg(msg);
     }
+
+    #[test]
+    fn deserialize() {
+        let example1 = r#"
+            {
+                "uuid": "2020-04-09T11:45:54.000Z",
+                "target": {
+                    "service_id": "provide",
+                    "type": "Service"
+                },
+                "reply_to": {
+                    "relay": "QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2",
+                    "client": "QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
+                    "type": "Relay"
+                },
+                "arguments": {
+                    "service_id": "println summa"
+                },
+                "name": "provide service",
+                "action": "FunctionCall"
+            }
+            "#;
+
+        let example2 = r#"
+            {
+                "uuid": "2020-04-09T11:47:42.937Z",
+                "target": {
+                    "service_id": "provide",
+                    "type": "Service"
+                },
+                "reply_to": {
+                    "relay": "QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2",
+                    "client": "QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
+                    "type": "Relay"
+                },
+                "arguments": {
+                    "service_id": "println summa"
+                },
+                "name": "provide service",
+                "action": "FunctionCall"
+            }
+        "#;
+
+        let _msg: ProtocolMessage = serde_json::from_str(example1).unwrap();
+        let _msg: ProtocolMessage = serde_json::from_str(example2).unwrap();
+    }
 }

@@ -31,18 +31,6 @@ pub struct FunctionCall {
     pub name: Option<String>,
 }
 
-impl FunctionCall {
-    pub fn reply(uuid: String, arguments: serde_json::Value) -> Self {
-        FunctionCall {
-            uuid,
-            arguments,
-            target: None,
-            reply_to: None,
-            name: None,
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(tag = "type")]
 pub enum Address {
@@ -53,7 +41,7 @@ pub enum Address {
         client: PeerId,
     },
     Service {
-        service: String,
+        service_id: String,
     },
     Peer {
         #[serde(with = "peerid_serializer")]
@@ -61,8 +49,24 @@ pub enum Address {
     },
 }
 
+impl std::fmt::Display for Address {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Address::Relay { client, relay } => write!(
+                f,
+                "Address [Peer {} via relay {}]",
+                client.to_base58(),
+                relay.to_base58()
+            ),
+            Address::Service { service_id } => write!(f, "Address [Service {}]", service_id),
+            Address::Peer { peer } => write!(f, "Address [Peer {}]", peer),
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod test {
+    use crate::node_service::function::builtin_service::BuiltinService;
     use crate::node_service::function::call::Address;
     use crate::node_service::function::FunctionCall;
     use libp2p::PeerId;
@@ -86,7 +90,7 @@ pub mod test {
         });
 
         check(Address::Service {
-            service: "IPFS.get".to_string(),
+            service_id: "IPFS.get".to_string(),
         });
 
         check(Address::Peer { peer: p1 });
@@ -109,7 +113,7 @@ pub mod test {
         });
 
         let reply_to = Some(Address::Service {
-            service: "TelegramBot".to_string(),
+            service_id: "TelegramBot".to_string(),
         });
 
         let mut arguments = serde_json::Map::new();
@@ -153,21 +157,41 @@ pub mod test {
         }
         */
 
-        let p1 = PeerId::random();
-        let p2 = PeerId::random();
-        let mut arguments = serde_json::Map::new();
-        arguments.insert(
-            "key".to_string(),
-            serde_json::Value::String("QmMyServiceId".to_string()),
-        );
-        let arguments = serde_json::Value::Object(arguments);
+        let ipfs_service = "IPFS.get_QmFile";
+        let (target, arguments) = BuiltinService::DelegateProviding {
+            service_id: ipfs_service.into(),
+        }
+        .into();
+
+        let notebook = PeerId::random();
+        let relay = PeerId::random();
+        let reply_to = Some(Address::Relay {
+            client: notebook,
+            relay,
+        });
+
         let call = FunctionCall {
             uuid: "UUID-1".to_string(),
-            target: Some(Address::Peer { peer: p1 }),
-            reply_to: Some(Address::Peer { peer: p2 }),
+            target: Some(target),
+            reply_to,
             arguments,
             name: None,
         };
-        check_call(call);
+        check_call(call.clone());
+
+        let service_id = match call.target.clone() {
+            Some(Address::Service { service_id }) => service_id,
+            wrong => unreachable!("target should be Some(Address::Service), was {:?}", wrong),
+        };
+
+        match BuiltinService::from(service_id.as_str(), call.arguments) {
+            Some(BuiltinService::DelegateProviding { service_id }) => {
+                assert_eq!(service_id.as_str(), ipfs_service)
+            }
+            wrong => unreachable!(
+                "target should be Some(BuiltinService::DelegateProviding, was {:?}",
+                wrong
+            ),
+        };
     }
 }

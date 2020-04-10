@@ -29,10 +29,11 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for P2PBehaviour {
         match event {
             IdentifyEvent::Received { peer_id, info, .. } => {
                 log::debug!(
-                    "Identify received from {}: protocols: {:?} version: {}",
+                    "Identify received from {}: protocols: {:?} version: {} listen addrs {:?}",
                     peer_id.to_base58(),
                     info.protocols,
                     info.protocol_version,
+                    info.listen_addrs
                 );
                 let supports_kademlia =
                     info.protocols.iter().any(|p| p.contains("/ipfs/kad/1.0.0"));
@@ -72,6 +73,7 @@ fn filter_addresses(addresses: Vec<Multiaddr>) -> Vec<Multiaddr> {
     let exists_global = addresses.iter().any(is_global_maddr);
 
     if !exists_global {
+        log::warn!("No globally-reachable IP addresses found. Are we running on localhost?");
         // If there are no global addresses, we are most likely running locally
         // So take loopback address, and go with it.
         addresses.into_iter().filter(is_local_maddr).collect()

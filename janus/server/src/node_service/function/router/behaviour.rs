@@ -22,7 +22,7 @@ use std::task::{Context, Poll};
 
 use libp2p::{
     core::{
-        connection::{ConnectionId, ListenerId},
+        connection::{ConnectedPoint, ConnectionId, ListenerId},
         either::EitherOutput,
         Multiaddr,
     },
@@ -62,6 +62,16 @@ impl NetworkBehaviour for FunctionRouter {
         log::debug!("inject_disconnected {}", peer_id.to_base58());
         self.disconnected(peer_id);
         self.kademlia.inject_disconnected(peer_id);
+    }
+
+    fn inject_connection_established(&mut self, p: &PeerId, i: &ConnectionId, c: &ConnectedPoint) {
+        log::debug!("connection_established {} {:?} {:?}", p.to_base58(), i, c);
+        self.kademlia.inject_connection_established(p, i, c);
+    }
+
+    fn inject_connection_closed(&mut self, p: &PeerId, i: &ConnectionId, c: &ConnectedPoint) {
+        log::debug!("connection_closed {} {:?} {:?}", p.to_base58(), i, c);
+        self.kademlia.inject_connection_closed(p, i, c)
     }
 
     fn inject_event(

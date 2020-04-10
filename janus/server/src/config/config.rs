@@ -30,6 +30,7 @@ pub const NODE_SERVICE_PORT: &str = "node-service-port";
 pub const ROOT_KEY_PAIR_PATH: &str = "root-key-pair-path";
 pub const ROOT_KEY_PAIR: &str = "root-key-pair";
 pub const BOOTSTRAP_NODE: &str = "bootstrap-node";
+pub const EXTERNAL_ADDR: &str = "external-ipaddr";
 pub const CERTIFICATE_DIR: &str = "certificate-dir";
 pub const CONFIG_FILE: &str = "config-file";
 // Name of the roots section in config
@@ -64,6 +65,8 @@ pub struct NodeServiceConfig {
     pub bootstrap_nodes: Vec<Multiaddr>,
 
     pub websocket_port: u16,
+
+    pub external_address: Option<IpAddr>,
 }
 
 impl Default for NodeServiceConfig {
@@ -74,6 +77,7 @@ impl Default for NodeServiceConfig {
             socket_timeout: Duration::from_secs(20),
             bootstrap_nodes: vec![],
             websocket_port: 9999,
+            external_address: None,
         }
     }
 }
@@ -141,6 +145,11 @@ fn build_config(arguments: ArgMatches, config: Config) -> Result<JanusConfig, Bo
         let bootstrap_node = Multiaddr::from_str(&bootstrap_node)?;
         node_service_config.bootstrap_nodes.push(bootstrap_node);
     };
+
+    if let Some(external_address) = merge_by_name(EXTERNAL_ADDR) {
+        let external_address = IpAddr::from_str(&external_address)?;
+        node_service_config.external_address = Some(external_address);
+    }
 
     let certificate_dir = merge_by_name(CERTIFICATE_DIR).unwrap_or_else(|| DEFAULT_CERT_DIR.into());
 

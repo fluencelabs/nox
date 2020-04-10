@@ -35,7 +35,6 @@ use janus_server::node_service::function::{Address, FunctionCall};
 use libp2p::PeerId;
 
 use parity_multiaddr::Multiaddr;
-use serde_json;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {

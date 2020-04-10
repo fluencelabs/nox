@@ -25,15 +25,14 @@ mod p2p {
 }
 
 pub mod function {
+    mod builtin_service;
+    mod call;
+    mod provider;
     mod router;
-
     mod protocol {
         pub mod message;
         pub mod upgrade;
     }
-
-    mod call;
-    mod provider;
 
     pub use call::{Address, FunctionCall};
     pub use protocol::message::ProtocolMessage;

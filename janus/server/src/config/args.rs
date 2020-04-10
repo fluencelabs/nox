@@ -17,7 +17,7 @@
 use crate::config::config::*;
 use clap::Arg;
 
-pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 7] {
+pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 8] {
     [
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
@@ -52,5 +52,9 @@ pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 7] {
             .short("b")
             .multiple(true)
             .help("bootstrap nodes of the Fluence network"),
+        Arg::with_name(EXTERNAL_ADDR)
+            .takes_value(true)
+            .short("e")
+            .help("external network address to publish as discoverable"),
     ]
 }

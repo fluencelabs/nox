@@ -30,6 +30,8 @@ use libp2p::{
     PeerId,
 };
 
+use crate::node_service::function::builtin_service::BuiltinService;
+use crate::node_service::function::router::Service::Delegated;
 use crate::{
     generate_swarm_event_type,
     misc::{SafeMultihash, WaitingQueue},
@@ -40,36 +42,24 @@ use crate::{
 };
 use failure::_core::time::Duration;
 use parity_multiaddr::Multiaddr;
-use serde::{Deserialize, Serialize};
 use trust_graph::TrustGraph;
 
 mod behaviour;
 mod provider;
-mod relay;
 
 pub type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-enum BuiltinService {
-    Provide { service_id: String },
+#[derive(Debug, Clone)]
+pub enum Service {
+    Delegated { forward_to: Address },
 }
 
-impl BuiltinService {
-    fn from_str(s: &str, arguments: serde_json::Value) -> Option<Self> {
-        match s {
-            "provide" => serde_json::from_value(arguments).ok(),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct LocalService {}
-
+/// Possible waiting states of the FunctionCall
 #[derive(Debug)]
 enum WaitPeer {
+    /// In this state, FunctionCall is waiting for peer to be found in Kademlia
     Found(FunctionCall),
+    /// In this state, FunctionCall is waiting for peer to be connected
     Connected(FunctionCall),
 }
 
@@ -82,24 +72,34 @@ impl WaitPeer {
     }
 }
 
-/// Relay based on Kademlia. Responsibilities and mechanics:
-/// - enqueues relay events, then async-ly searches Kademlia for destination nodes and then sends events
-/// - all locally connected peers are stored in memory and periodically announced to Kademlia
-/// - returns RelayEvent from poll
+/// Router for FunctionCall-s, based on Kademlia.
+/// Workhorses are WaitingQueues, which internally are HashMaps of VecDeque. Those WaitingQueue-s
+///   and their usage resemble state machine (but much uglier), where FunctionCall moves from
+///   one state to another by being moved from one WaitingQueue to another.
+/// Possible scenario is as follows:
+///   1. FunctionCall goes to `wait_provider` queue while router is searching for ServiceId's provider in Kademlia.
+///   2. Once provider is found, FunctionCall is likely to be moved to `wait_peer` wrapped in
+///     `WaitPeer::Found`, meaning that this particular FunctionCall is waiting while
+///     target peer (`FunctionCall::target`) is found in Kademlia.
+///   3. Then, once target peer is found, FunctionCall likely to be reinserted, but now wrapped in
+///     `WaitPeer::Connected`, meaning it is waiting for the target peer to be successfully dialed.
+///   4. Finally, once target peer is routable and connected, the call is sent there.
+///
+/// TODO: Latency. Latency gonna be nuts.
 pub struct FunctionRouter {
     peer_id: PeerId,
-    // Queue of events to send to the upper level.
+    // Queue of events to send to the upper level
     events: VecDeque<SwarmEventType>,
     // Underlying Kademlia node
     kademlia: Kademlia<MemoryStore>,
     // Services provided by this node
     // TODO: health-check local services?
     // TODO: register these services
-    local_services: HashMap<String, LocalService>, // ServiceId -> LocalService
+    local_services: HashMap<String, Service>, // ServiceId -> Service
     // TODO: clear queues on timeout?
     // Calls to services, waiting while provider of the service is found
     wait_provider: WaitingQueue<String, FunctionCall>, // ServiceId -> FunctionCall
-    // Calls that are waiting while peer is found in the Kademlia
+    // Calls that are waiting for target peer of the call to change state (see WaitPeer)
     wait_peer: WaitingQueue<PeerId, WaitPeer>, // PeerId -> FunctionCall
     // TODO: clear connected_peers on inject_listener_closed?
     // Mediated by inject_connected & inject_disconnected
@@ -112,7 +112,7 @@ impl FunctionRouter {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
             .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())
-            .set_connection_idle_timeout(Duration::from_secs(2628000000)); // ~month
+            .set_connection_idle_timeout(Duration::from_secs(2_628_000_000)); // ~month
         let store = MemoryStore::new(peer_id.clone());
         let trust = TrustGraph::new(root_weights);
 
@@ -173,11 +173,21 @@ impl FunctionRouter {
     // ## Service routing
     // ###
     fn send_to_service(&mut self, service: String, call: FunctionCall) {
-        if let Some(builtin) = BuiltinService::from_str(service.as_str(), call.arguments.clone()) {
+        if let Some(builtin) = BuiltinService::from(service.as_str(), call.arguments.clone()) {
             self.execute_builtin(builtin, call)
-        } else if let Some(service) = self.local_services.get(&service) {
-            self.execute_on_service(service, call)
+        } else if let Some(local_service) = self.local_services.get(&service).cloned() {
+            log::info!(
+                "Service {} was found locally. uuid {}",
+                &service,
+                &call.uuid
+            );
+            self.execute_on_service(local_service, call)
         } else {
+            log::info!(
+                "Service {} not found locally. uuid {}",
+                &service,
+                &call.uuid
+            );
             self.find_service_provider(service, call);
         }
     }
@@ -191,15 +201,17 @@ impl FunctionRouter {
 
     // Advance execution for calls waiting for this service: send them to first provider
     pub fn providers_found(&mut self, key: KademliaKey, providers: HashSet<PeerId>) {
-        let key = String::from_utf8(key.as_ref().to_vec())
-            .expect("Can't parse service key from kademlia key");
+        let service_id = String::from_utf8(key.as_ref().to_vec())
+            .expect("Can't parse service_id from kademlia key");
 
-        let mut calls = self.wait_provider.remove(&key).peekable();
+        log::info!("Found {} providers for {}", providers.len(), service_id);
+
+        let mut calls = self.wait_provider.remove(&service_id).peekable();
         // Check if calls are empty without actually advancing iterator
-        if calls.peek().is_none() {
+        if calls.peek().is_none() && !providers.is_empty() {
             log::warn!(
                 "Providers found for {}, but there are no calls waiting for it",
-                key
+                service_id
             );
         }
 
@@ -220,22 +232,34 @@ impl FunctionRouter {
     // ###
 
     // Send call to local service
-    fn execute_on_service(&self, service: &LocalService, call: FunctionCall) {
-        log::info!("Got call for local service {:?}: {:?}", service, call);
-        // TODO: execute start_providing here if service is "provide"
-        unimplemented!("Don't know how to execute service locally")
-    }
-
-    fn execute_builtin(&mut self, service: BuiltinService, call: FunctionCall) {
+    fn execute_on_service(&mut self, service: Service, call: FunctionCall) {
+        log::debug!("Got call for local service {:?}: {:?}", service, call);
         match service {
-            BuiltinService::Provide { service_id } => {
-                println!("Would have published a service {}: {:?}", service_id, call)
+            Delegated { forward_to } => {
+                log::info!("Forwarding service call {} to {}", call.uuid, forward_to);
+                self.send_to(forward_to, call)
             }
         }
     }
 
-    fn execute_locally(&self, call: FunctionCall) {
-        log::info!("Got call {:?}", call);
+    fn execute_builtin(&mut self, service: BuiltinService, call: FunctionCall) {
+        match service {
+            BuiltinService::DelegateProviding { service_id } => {
+                if let Some(forward_to) = call.reply_to.clone() {
+                    self.local_services
+                        .insert(service_id.clone(), Delegated { forward_to });
+                    self.kademlia
+                        .start_providing(service_id.as_bytes().to_vec().into());
+                    println!("Published a service {}: {:?}", service_id, call)
+                } else {
+                    //TODO: self.send_error_on_call()
+                }
+            }
+        }
+    }
+
+    fn handle_local_call(&self, call: FunctionCall) {
+        log::info!("Got call {:?}, don't know what to do with that", call);
     }
 
     // ####
@@ -385,7 +409,7 @@ impl FunctionRouter {
         match address {
             Peer { peer } if self.is_local(&peer) => {
                 log::info!("Executing {} locally", &call.uuid);
-                self.execute_locally(call)
+                self.handle_local_call(call)
             }
             Peer { peer } => {
                 log::info!("Sending {} to {}", &call.uuid, peer.to_base58());
@@ -403,9 +427,9 @@ impl FunctionRouter {
                 log::info!("Forwarding {} to {}", &call.uuid, relay.to_base58());
                 self.send_call(relay, call)
             }
-            Service { service } => {
-                log::info!("Sending {} to service {}", &call.uuid, service);
-                self.send_to_service(service, call)
+            Service { service_id } => {
+                log::info!("Sending {} to service {}", &call.uuid, service_id);
+                self.send_to_service(service_id, call)
             }
         }
     }

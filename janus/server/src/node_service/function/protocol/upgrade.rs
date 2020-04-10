@@ -15,7 +15,7 @@
  */
 
 use crate::error::Error;
-use crate::node_service::function::ProtocolMessage;
+use crate::node_service::function::{FunctionCall, ProtocolMessage};
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use std::{io, iter, pin::Pin};
@@ -43,21 +43,40 @@ where
     #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
-    fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
+    fn upgrade_inbound(self, mut socket: Socket, info: Self::Info) -> Self::Future {
         Box::pin(async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
             // TODO: remove that once debugged
-            match String::from_utf8(packet.clone()) {
+            match std::str::from_utf8(&packet) {
                 Ok(str) => log::debug!("Got inbound ProtocolMessage: {}", str),
                 Err(err) => log::warn!("Can't parse inbound ProtocolMessage to UTF8 {}", err),
             }
 
-            let message: ProtocolMessage = serde_json::from_slice(&packet)?;
-            socket.close().await?;
-
-            Ok(message)
+            match serde_json::from_slice(&packet) {
+                Ok(message) => {
+                    socket.close().await?;
+                    Ok(message)
+                }
+                Err(err) => {
+                    // Generate and send error back through socket
+                    let err_msg = gen_error(&err, &packet);
+                    err_msg.upgrade_outbound(socket, info).await?;
+                    return Err(err.into());
+                }
+            }
         })
     }
+}
+
+fn gen_error<E: std::error::Error>(err: &E, data: &[u8]) -> ProtocolMessage {
+    use serde_json::json;
+    ProtocolMessage::FunctionCall(FunctionCall {
+        uuid: "error".into(),
+        target: None,
+        reply_to: None,
+        arguments: json!({ "data": data }),
+        name: Some(err.to_string()),
+    })
 }
 
 impl<Socket> OutboundUpgrade<Socket> for ProtocolMessage
@@ -71,6 +90,12 @@ where
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
+            // TODO: remove that once debugged
+            match serde_json::to_string(&self) {
+                Ok(str) => log::debug!("Sending outbound ProtocolMessage: {}", str),
+                Err(err) => log::warn!("Can't serialize {:?} to string {}", &self, err),
+            }
+
             let bytes = serde_json::to_vec(&self)?;
             upgrade::write_one(&mut socket, bytes).await?;
 

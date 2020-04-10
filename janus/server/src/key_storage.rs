@@ -17,8 +17,8 @@
 use log::info;
 use std::fs;
 use std::fs::File;
+use std::io::Write;
 use std::io::{Error, ErrorKind};
-use std::io::{Read, Write};
 use std::path::Path;
 use trust_graph::KeyPair;
 
@@ -39,10 +39,7 @@ fn create_new_key_pair(key_path: &Path) -> Result<KeyPair, Error> {
 }
 
 fn read_key_pair_from_file(path: &Path) -> Result<KeyPair, Box<dyn std::error::Error>> {
-    let mut file = File::open(path)?;
-
-    let mut base58 = String::new();
-    file.read_to_string(&mut base58).map_err(|e| {
+    let base58 = fs::read_to_string(path).map_err(|e| {
         std::io::Error::new(
             ErrorKind::InvalidData,
             format!(

@@ -47,12 +47,12 @@ impl NodeService {
         config: NodeServiceConfig,
         root_weights: Vec<(ed25519::PublicKey, u32)>,
     ) -> Box<Self> {
-        let NodeServiceConfig { socket_timeout, .. } = config.clone();
+        let NodeServiceConfig { socket_timeout, .. } = config;
 
         let local_peer_id = PeerId::from(PublicKey::Ed25519(key_pair.public()));
         println!("node service is starting with id = {}", local_peer_id);
 
-        let swarm = {
+        let mut swarm = {
             let behaviour =
                 P2PBehaviour::new(key_pair.clone(), local_peer_id.clone(), root_weights);
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
@@ -60,6 +60,24 @@ impl NodeService {
 
             Swarm::new(transport, behaviour, local_peer_id)
         };
+
+        if let Some(external_address) = config.external_address {
+            let external_tcp = {
+                let mut maddr = Multiaddr::from(external_address);
+                maddr.push(Protocol::Tcp(config.listen_port));
+                maddr
+            };
+
+            let external_ws = {
+                let mut maddr = Multiaddr::from(external_address);
+                maddr.push(Protocol::Tcp(config.websocket_port));
+                maddr.push(Protocol::Ws("/".into()));
+                maddr
+            };
+
+            Swarm::add_external_address(&mut swarm, external_tcp);
+            Swarm::add_external_address(&mut swarm, external_ws);
+        }
 
         let node_service = Self { swarm, config };
 

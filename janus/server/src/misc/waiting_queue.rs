@@ -60,7 +60,7 @@ impl<K: Eq + Hash, V> WaitingQueue<K, V> {
         self.map
             .get_mut(key)
             .map(|queue| {
-                let (keep, remove) = queue.drain(..).into_iter().partition::<Vec<_>, _>(remove);
+                let (keep, remove) = queue.drain(..).partition::<Vec<_>, _>(remove);
                 queue.extend(keep);
                 remove.into_iter()
             })
