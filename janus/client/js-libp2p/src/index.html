@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Janus</title>
+</head>
+<body>
+<h1>Welcome to Fluence</h1>
+
+<div>
+    <span id="connection-status">Connecting</span>
+</div>
+
+<div>
+    <h3>Change server:</h3>
+    <select id="servers-select"></select>
+
+</div>
+
+<div style="margin: 30px">
+    <label for="download-hash">Download by hash</label>
+    <input type="text" id="download-hash">
+    <input type="submit" id="download-submit" value="Download">
+</div>
+
+<div style="margin: 30px">
+
+    <input type="file" id="upload-file" name="filename">
+    <input type="button" id="upload-submit" value="Upload">
+
+</div>
+
+<div style="margin: 30px">
+    <h3>List of uploaded files:</h3>
+    <ul id="list-of-files">
+
+    </ul>
+</div>
+
+</body>
+</html>

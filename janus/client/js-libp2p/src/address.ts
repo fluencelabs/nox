@@ -24,7 +24,7 @@ export interface Relay {
 
 export interface Service {
     type: "Service",
-    service: string
+    service_id: string
 }
 
 export interface Peer {
@@ -42,7 +42,7 @@ export function createRelayAddress(relay: string, client: string): Relay {
 
 export function createServiceAddress(service: string): Service {
     return {
-        service: service,
+        service_id: service,
         type: "Service"
     }
 }
@@ -66,8 +66,8 @@ export function parseAddressObj(json: any): Address {
 
             return createRelayAddress(json.relay, json.client);
         case "Service":
-            if (typeof json.service !== "string") throw `there is no 'service' field in json.\n${JSON.stringify(json)}`;
-            return createServiceAddress(json.service);
+            if (typeof json.service_id !== "string") throw `there is no 'service' field in json.\n${JSON.stringify(json)}`;
+            return createServiceAddress(json.service_id);
         case "Peer":
             if (typeof json.peer !== "string") throw `there is no 'peer' field in json.\n${JSON.stringify(json)}`;
 

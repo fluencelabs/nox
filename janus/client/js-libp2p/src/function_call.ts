@@ -17,9 +17,6 @@
 import {Address, createPeerAddress, createRelayAddress, createServiceAddress, parseAddressObj} from "./address";
 import * as PeerId from "peer-id";
 
-/*
-{ uuid: "123", target: { type: "service", service: "println"}, arguments: "privet omlet" }
- */
 export interface FunctionCall {
     uuid: string,
     target: Address,
@@ -69,44 +66,38 @@ export function genUUID() {
 /**
  * Message to peer through relay
  */
-export function makeRelayMsg(client: PeerId, relay: PeerId, msg: any, replyTo?: PeerId, name?: string): FunctionCall {
+export function makeRelayCall(client: PeerId, relay: PeerId, msg: any, replyTo?: Address, name?: string): FunctionCall {
     let relayAddress = createRelayAddress(relay.toB58String(), client.toB58String());
-    let reply_to;
-    if (replyTo) reply_to = createPeerAddress(replyTo.toB58String());
 
-    return makeFunctionCall(genUUID(), relayAddress, msg, reply_to, name);
+    return makeFunctionCall(genUUID(), relayAddress, msg, replyTo, name);
 }
 
 /**
  * Message to peer
  */
-export function makePeerMsg(client: PeerId, msg: any, replyTo?: PeerId, name?: string): FunctionCall {
+export function makePeerCall(client: PeerId, msg: any, replyTo?: Address, name?: string): FunctionCall {
     let peerAddress = createPeerAddress(client.toB58String());
-    let reply_to;
-    if (replyTo) reply_to = createPeerAddress(replyTo.toB58String());
 
-    return makeFunctionCall(genUUID(), peerAddress, msg, reply_to, name);
+    return makeFunctionCall(genUUID(), peerAddress, msg, replyTo, name);
 }
 
 /**
- * Message to call remote service
+ * Message to call remote service_id
  */
-export function makeCallMessage(functionId: string, args: any, replyTo?: PeerId, name?: string): FunctionCall {
+export function makeCall(functionId: string, args: any, replyTo?: Address, name?: string): FunctionCall {
     let target = createServiceAddress(functionId);
-    let reply_to;
-    if (replyTo) reply_to = createPeerAddress(replyTo.toB58String());
 
-    return makeFunctionCall(genUUID(), target, args, reply_to, name);
+    return makeFunctionCall(genUUID(), target, args, replyTo, name);
 }
 
 /**
- * Message to register new service.
+ * Message to register new service_id.
  */
 export function makeRegisterMessage(serviceName: string, relayPeerId: PeerId, selfPeerId: PeerId): FunctionCall {
     let target = createServiceAddress("provide");
     let replyTo = createRelayAddress(relayPeerId.toB58String(), selfPeerId.toB58String());
 
-    return makeFunctionCall(genUUID(), target, {service_id: serviceName}, replyTo, "provide service");
+    return makeFunctionCall(genUUID(), target, {service_id: serviceName}, replyTo, "provide service_id");
 }
 
 export function makeUnregisterMessage(serviceName: string, peerId: PeerId): FunctionCall {

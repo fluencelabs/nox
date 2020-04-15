@@ -24,7 +24,6 @@ const config = {
     output: {
         filename: 'bundle.js',
         path: path.resolve(__dirname, 'bundle'),
-        library: 'fluence'
     },
     node: {
         fs: 'empty'
@@ -45,7 +44,9 @@ if (production) {
     };
     config.plugins = [
         ...config.plugins,
-        new HtmlWebpackPlugin(),
+        new HtmlWebpackPlugin({
+            template: 'src/index.html'
+        }),
         new webpack.HotModuleReplacementPlugin()
     ];
 }
