@@ -7,26 +7,28 @@ client-debug:
 
 node-bootstrap:
 	RUST_BACKTRACE=1 RUST_LOG="info,janus_server=trace" \
-	./target/debug/janus-server -n 7770 -o 9990 \
-	-k 5uzSH9jWFWJAaG6XdeVKR1ubgd2ca5HjaRd29fXbX3kMyJP8KPkRP3TKwV3S679urWytvpkSS8LXRaTavjF4GPQY
+	cargo run -p janus-server -- -n 7770 -o 9990 \
+	-k wCUPkGaBypwbeuUnmgVyN37j9iavRoqzAkddDUzx3Yir7q1yuTp3H8cdUZERYxeQ8PEiMYcDuiy1DDkfueNh1Y6
 
 node-first:
 	RUST_BACKTRACE=1 RUST_LOG="info,janus_server=trace" \
-	./target/debug/janus-server -n 7771 -o 9991 -b /ip4/127.0.0.1/tcp/7770 \
-	-k 55tL1A8oVXn8VwWG4VXCiurRiBbRokzWnQZSauKnf6TCCtY7bp9m7HUE4JLEB71Sp7oA42mJGhN65AaZ9pCg2FQE
+	cargo run -p janus-server -- -n 7771 -o 9991 -b /ip4/127.0.0.1/tcp/7770 \
+	-k 4pJqYfv3wXUpodE6Bi4wE8bJkpHuFbGcXrdFnT9L29j782ge7jdov7FPrbwnvwjUm4UhK5BvJvAYikCcmvCPVx9s
 
 node-second:
 	RUST_BACKTRACE=1 RUST_LOG="info,janus_server=trace" \
-	./target/debug/janus-server -n 7772 -o 9992 -b /ip4/127.0.0.1/tcp/7770 \
-	-k 2Gs9GH37cwzJoMXgaZa99wjwBHA7HE8fZRxTquyXsCVwQQ7NCyAZRdBfjEc3GHcFoN2VVJiseB4wapqd5ir9H8jB
+	cargo run -p janus-server -- -n 7772 -o 9992 -b /ip4/127.0.0.1/tcp/7770 \
+	-k 2zgzUew3bMSgWcZ34FFS36LiJVkn3YphW2H8TDvL8JF8T4apTDxnm7GRsLppkCNGS5ytAQioxEktYq8Wr8SWAHLv
 
-client-first:
-	./target/debug/janus-client \
-	/ip4/104.248.25.59/tcp/9990/ws QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2
+#/ip4/127.0.0.1/tcp/7770
 
-client-second:
-	./target/debug/janus-client \
-	/ip4/104.248.25.59/tcp/9002/ws QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW
+node-ipfs:
+	RUST_BACKTRACE=1 RUST_LOG="info,janus_server=trace" \
+	cargo run -p janus-server -- -n 7773 -o 9993 -b /ip4/127.0.0.1/tcp/7770 \
+	-k 52WaZJDHFFZbwL177g497ctE7zqbMYMwWpVMewjc1U63tWjFUCNPuzB472UkdZWBykjiNWA8qtLYNAQEqQCcWfoP \
+	--ipfs-multiaddr /dns4/ipfs1.fluence.one/tcp/5001
+
+#	split-window 'sleep 3 && make node-ipfs' \; \
 
 node-tmux:
 	cargo update -p libp2p
@@ -38,9 +40,23 @@ node-tmux:
 	setw synchronize-panes \; \
 	select-layout tiled
 
+client-ipfs:
+	RUST_LOG="trace,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info" \
+	cargo run -p janus-ipfs -- \
+	/ip4/127.0.0.1/tcp/7770 QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2 /dns4/ipfs1.fluence.one/tcp/5001
+
+client-first:
+	cargo run -p janus-client -- \
+	/ip4/127.0.0.1/tcp/7771 QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz
+
+client-second:
+	cargo run -p janus-client -- \
+	/ip4/127.0.0.1/tcp/9992/ws QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW
+
 client-tmux:
 	tmux \
-	new-session  'make client-first' \; \
+	new-session  'make client-ipfs' \; \
+	split-window 'sleep 1 && make client-first' \; \
 	split-window 'sleep 1 && make client-second' \; \
 	select-layout tiled
 

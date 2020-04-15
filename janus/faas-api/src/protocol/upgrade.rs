@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use crate::error::Error;
-use crate::node_service::function::{FunctionCall, ProtocolMessage};
+use crate::{FunctionCall, ProtocolMessage};
+pub use failure::Error;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use std::{io, iter, pin::Pin};
@@ -107,7 +107,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::ProtocolMessage;
-    use crate::node_service::function::gen_function_call;
+    use crate::call_test_utils::gen_function_call;
     use futures::prelude::*;
     use libp2p::core::{
         multiaddr::multiaddr,

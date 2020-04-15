@@ -31,4 +31,3 @@ pub mod error;
 pub mod key_storage;
 pub mod misc;
 pub mod node_service;
-pub use node_service::build_transport;

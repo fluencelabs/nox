@@ -14,12 +14,18 @@
  * limitations under the License.
  */
 
-use janus_server::node_service::function::FunctionCall;
+use faas_api::FunctionCall;
+use janus_libp2p::peerid_serializer;
+use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 /// Describes commands sent from client to relay node; also see `ToNodeNetworkMsg`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "command", content = "body")]
 pub enum Command {
-    Call { call: FunctionCall },
+    Call {
+        #[serde(with = "peerid_serializer")]
+        node: PeerId,
+        call: FunctionCall,
+    },
 }

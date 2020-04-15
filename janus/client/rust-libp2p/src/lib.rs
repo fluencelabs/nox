@@ -25,6 +25,7 @@
     unreachable_patterns
 )]
 
+mod behaviour;
 pub mod client;
 mod command;
 mod function_call_api;

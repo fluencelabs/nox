@@ -28,12 +28,14 @@
 use janus_client::client::Client;
 
 use async_std::{io, task};
+use faas_api::{Address, FunctionCall};
 use futures::prelude::*;
 use futures::{select, stream::StreamExt};
 use janus_client::Command;
-use janus_server::node_service::function::{Address, FunctionCall};
 use libp2p::PeerId;
 
+use ctrlc_adapter::block_until_ctrlc;
+use futures::channel::oneshot;
 use parity_multiaddr::Multiaddr;
 use std::error::Error;
 
@@ -52,59 +54,90 @@ fn main() -> Result<(), Box<dyn Error>> {
         .parse()
         .expect("provided wrong PeerId");
 
-    let client = Client::connect(relay_addr, bootstrap_id.clone());
+    let (exit_sender, exit_receiver) = oneshot::channel::<()>();
 
-    task::block_on(async move {
-        let (mut client, _client_task) = client.await?;
-        print_example(&client.peer_id, &bootstrap_id);
+    let client_task = task::spawn(async move {
+        run_client(exit_receiver, bootstrap_id, relay_addr)
+            .await
+            .expect("Error running client"); // TODO: handle errors
+    });
 
-        let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
+    block_until_ctrlc();
+    exit_sender.send(()).unwrap();
+    task::block_on(client_task);
 
-        loop {
-            select!(
-                from_stdin = stdin.select_next_some() => {
-                    match from_stdin {
-                        Ok(line) => {
-                            let cmd: Result<Command, _> = serde_json::from_str(&line);
-                            if let Ok(cmd) = cmd {
-                                client.send(cmd);
-                            } else {
-                                println!("incorrect string provided");
-                            }
-                        }
-                        Err(_) => panic!("Stdin closed"),
-                    }
-                },
-                incoming = client.receive_one() => {
-                    match incoming {
-                        Some(msg) => println!("Received {:?}", msg),
-                        None => println!("client closed inlet")
-                    }
-                }
-            )
-        }
-
-        // println!("Select stdout finished");
-        // _client_task.await;
-        // Ok(())
-    })
+    Ok(())
 }
 
-fn print_example(peer_id: &PeerId, bootstrap: &PeerId) {
+async fn run_client(
+    exit_receiver: oneshot::Receiver<()>,
+    bootstrap_id: PeerId,
+    relay: Multiaddr,
+) -> Result<(), Box<dyn Error>> {
+    let client = Client::connect(relay, exit_receiver);
+    let (mut client, client_task) = client.await?;
+    print_example(&client.peer_id, bootstrap_id);
+
+    let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
+
+    loop {
+        select!(
+            from_stdin = stdin.select_next_some() => {
+                match from_stdin {
+                    Ok(line) => {
+                        let cmd: Result<Command, _> = serde_json::from_str(&line);
+                        if let Ok(cmd) = cmd {
+                            client.send(cmd);
+                        } else {
+                            println!("incorrect string provided");
+                        }
+                    }
+                    Err(_) => panic!("Stdin closed"),
+                }
+            },
+            incoming = client.receive_one() => {
+                match incoming {
+                    Some(msg) => println!("Received\n{}", serde_json::to_string_pretty(&msg).unwrap()),
+                    None => {
+                        println!("Client closed");
+                        break;
+                    }
+                }
+            }
+        )
+    }
+
+    client_task.await;
+
+    Ok(())
+}
+
+fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
+    use serde_json::json;
+    use std::time::SystemTime;
     fn show(cmd: Command) {
         println!("{}", serde_json::to_value(cmd).unwrap());
     }
 
+    let time = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+        .to_string();
+    let uuid = uuid::Uuid::new_v4().to_string();
+
     let call_example = Command::Call {
+        node: bootstrap.clone(),
         call: FunctionCall {
-            uuid: "UUID-1".to_string(),
-            target: Some(Address::Peer {
-                peer: bootstrap.clone(),
+            uuid,
+            target: Some(Address::Service {
+                service_id: "IPFS.multiaddr".into(),
             }),
-            reply_to: Some(Address::Peer {
-                peer: peer_id.clone(),
+            reply_to: Some(Address::Relay {
+                relay: bootstrap,
+                client: peer_id.clone(),
             }),
-            arguments: serde_json::Value::Null,
+            arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("name!".to_string()),
         },
     };

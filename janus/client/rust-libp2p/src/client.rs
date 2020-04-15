@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-use janus_server::build_transport;
-use janus_server::misc::{Inlet, Outlet};
+use janus_libp2p::{
+    build_transport,
+    types::{Inlet, Outlet},
+};
 
 use async_std::task;
 use futures::channel::mpsc;
+use futures::channel::oneshot;
 use futures::future::FusedFuture;
 use futures::stream::Fuse;
-use futures::{select, stream::StreamExt};
+use futures::{select, stream::StreamExt, FutureExt};
 
 use crate::command::Command;
 
@@ -31,8 +34,9 @@ use parity_multiaddr::Multiaddr;
 
 use crate::function_call_api::FunctionCallApi;
 use async_std::task::JoinHandle;
-use janus_server::node_service::P2PBehaviour;
 
+use crate::behaviour::ClientBehaviour;
+use faas_api::{FunctionCall, ProtocolMessage};
 use std::error::Error;
 use std::ops::DerefMut;
 use std::time::Duration;
@@ -40,14 +44,14 @@ use std::time::Duration;
 pub struct Client {
     pub key_pair: ed25519::Keypair,
     pub peer_id: PeerId,
-    /// Channel to send commands to relay node
+    /// Channel to send commands to node
     relay_outlet: Outlet<Command>,
-    /// Stream of messages received from relay node
-    client_inlet: Fuse<Inlet<Command>>,
+    /// Stream of messages received from node
+    client_inlet: Fuse<Inlet<FunctionCall>>,
 }
 
 impl Client {
-    fn new(relay_outlet: Outlet<Command>, client_inlet: Inlet<Command>) -> Self {
+    fn new(relay_outlet: Outlet<Command>, client_inlet: Inlet<FunctionCall>) -> Self {
         let key = ed25519::Keypair::generate();
         let peer_id = identity::PublicKey::Ed25519(key.public()).into_peer_id();
 
@@ -63,16 +67,15 @@ impl Client {
         self.relay_outlet.unbounded_send(cmd).unwrap();
     }
 
-    pub fn receive_one(&mut self) -> impl FusedFuture<Output = Option<Command>> + '_ {
+    pub fn receive_one(&mut self) -> impl FusedFuture<Output = Option<FunctionCall>> + '_ {
         self.client_inlet.next()
     }
 
-    fn dial(&self, relay: Multiaddr) -> Result<Swarm<P2PBehaviour>, Box<dyn Error>> {
+    fn dial(&self, relay: Multiaddr) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let key_pair = libp2p::identity::Keypair::Ed25519(self.key_pair.clone());
             let transport = build_transport(key_pair, Duration::from_secs(20));
-            let behaviour =
-                P2PBehaviour::new(self.key_pair.clone(), self.peer_id.clone(), Vec::new());
+            let behaviour = ClientBehaviour::default();
             Swarm::new(transport, behaviour, self.peer_id.clone())
         };
 
@@ -89,16 +92,16 @@ impl Client {
 
     pub async fn connect(
         relay: Multiaddr,
-        _relay_id: PeerId,
+        stop: oneshot::Receiver<()>,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        let (_client_outlet, client_inlet) = mpsc::unbounded();
+        let (client_outlet, client_inlet) = mpsc::unbounded();
         let (relay_outlet, relay_inlet) = mpsc::unbounded();
 
         let client = Client::new(relay_outlet, client_inlet);
         let mut swarm = client.dial(relay)?;
 
         let mut relay_inlet = relay_inlet.fuse();
-        let _client_id = client.peer_id.clone();
+        let mut stop = stop.into_stream().fuse();
 
         let task = task::spawn(async move {
             loop {
@@ -107,20 +110,19 @@ impl Client {
                     to_relay = relay_inlet.next() => {
                         match to_relay {
                             Some(cmd) => {
-                                // Send to relay node
-                                Self::send_to_relay(&mut swarm, cmd)
+                                // Send to node
+                                Self::send_to_node(&mut swarm, cmd)
                             }
                             None => {}
                         }
                     }
 
                     // Messages that were received from relay node
-                    wtf = swarm.select_next_some() => {
-                        println!("Swarm returned: {:?}", wtf);
-                    }
+                    from_relay = swarm.select_next_some() => Self::receive_from_relay(from_relay, &client_outlet),
 
-                    // TODO: implement stop
-                    // stop = client.stop
+                    _ = stop.next() => {
+                        break;
+                    }
                 )
             }
         });
@@ -129,9 +131,16 @@ impl Client {
         Ok((client, task))
     }
 
-    fn send_to_relay<R: FunctionCallApi, S: DerefMut<Target = R>>(swarm: &mut S, cmd: Command) {
+    fn send_to_node<R: FunctionCallApi, S: DerefMut<Target = R>>(swarm: &mut S, cmd: Command) {
         match cmd {
-            Command::Call { call } => swarm.call(call),
+            Command::Call { node, call } => swarm.call(node, call),
+        }
+    }
+
+    fn receive_from_relay(msg: ProtocolMessage, client_outlet: &Outlet<FunctionCall>) {
+        // Message will be available through client.receive_one
+        if let ProtocolMessage::FunctionCall(msg) = msg {
+            client_outlet.unbounded_send(msg).unwrap()
         }
     }
 }

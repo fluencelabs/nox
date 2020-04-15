@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-use crate::node_service::function::{FunctionCall, FunctionRouter};
+use crate::node_service::function::FunctionRouter;
+use faas_api::FunctionCall;
+use libp2p::ping::{Ping, PingConfig, PingEvent};
 use libp2p::{
     identify::Identify,
     identity::{ed25519, PublicKey},
@@ -25,10 +27,11 @@ mod identify;
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
-#[behaviour] //, out_event = "ToPeerMsg"
+#[behaviour]
 pub struct P2PBehaviour {
     router: FunctionRouter,
     identity: Identify,
+    ping: Ping,
 }
 
 impl P2PBehaviour {
@@ -40,8 +43,13 @@ impl P2PBehaviour {
         let router = FunctionRouter::new(key_pair.clone(), local_peer_id, root_weights);
         let local_public_key = PublicKey::Ed25519(key_pair.public());
         let identity = Identify::new("/janus/faas/1.0.0".into(), "0.1.0".into(), local_public_key);
+        let ping = Ping::new(PingConfig::new().with_keep_alive(false));
 
-        Self { router, identity }
+        Self {
+            router,
+            identity,
+            ping,
+        }
     }
 
     /// Bootstraps the node. Currently, tells Kademlia to run bootstrapping lookup.
@@ -58,4 +66,8 @@ impl P2PBehaviour {
 
 impl libp2p::swarm::NetworkBehaviourEventProcess<()> for P2PBehaviour {
     fn inject_event(&mut self, _: ()) {}
+}
+
+impl libp2p::swarm::NetworkBehaviourEventProcess<PingEvent> for P2PBehaviour {
+    fn inject_event(&mut self, _: PingEvent) {}
 }

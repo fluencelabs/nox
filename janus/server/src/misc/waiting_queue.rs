@@ -19,11 +19,11 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 
-pub struct WaitingQueue<K, V> {
+pub struct WaitingQueues<K, V> {
     map: HashMap<K, VecDeque<V>>,
 }
 
-impl<K: Eq + Hash, V> WaitingQueue<K, V> {
+impl<K: Eq + Hash, V> WaitingQueues<K, V> {
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),

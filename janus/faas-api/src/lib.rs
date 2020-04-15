@@ -14,16 +14,24 @@
  * limitations under the License.
  */
 
-use crate::behaviour::ClientBehaviour;
-use faas_api::FunctionCall;
-use libp2p::PeerId;
+#![recursion_limit = "512"]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 
-pub trait FunctionCallApi {
-    fn call(&mut self, peer_id: PeerId, call: FunctionCall);
+mod call;
+mod protocol {
+    pub mod message;
+    pub mod upgrade;
 }
 
-impl FunctionCallApi for ClientBehaviour {
-    fn call(&mut self, peer_id: PeerId, call: FunctionCall) {
-        self.call(peer_id, call)
-    }
-}
+pub use call::call_test_utils;
+
+pub use call::{Address, FunctionCall};
+pub use protocol::message::ProtocolMessage;

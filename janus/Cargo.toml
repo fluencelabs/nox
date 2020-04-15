@@ -2,7 +2,11 @@
 members = [
     "server",
     "client/rust-libp2p",
+    "client/janus-ipfs",
     "trust-graph",
+    "crates/libp2p",
+    "crates/ctrlc-adapter",
+    "faas-api"
 ]
 exclude = [
     "client/js-websocket/utils-wasm",

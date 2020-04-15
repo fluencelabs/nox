@@ -1,19 +1,25 @@
 [package]
-name = "trust-graph"
+name = "janus-libp2p"
 version = "0.0.1"
 authors = ["Fluence Labs"]
 edition = "2018"
-description = "trust graph"
-license = "Apache-2.0"
 
 [dependencies]
-libp2p-core = "0.17.0"
+libp2p = "0.17.0"
 parity-multiaddr = "0.8.0"
-serde = { version = "1.0.104", features = ["derive"] }
-bs58 = "0.3.0"
-failure = "0.1.6"
-log = "0.4.8"
+multihash ="0.10.0"
+futures = "0.3.4"
+futures-util = "0.3.4"
+async-std = "1.5.0"
 itertools = "0.9.0"
+
+serde = { version = "1.0.104", features = ["derive"] }
+serde_json = "1.0.44"
+bs58 = "0.3.0"
+
+failure = "0.1.6"
+base64 = "0.11.0"
+log = "0.4.8"
 
 [dev-dependencies]
 rand = "0.7.3"

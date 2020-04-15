@@ -17,8 +17,8 @@
 use crate::config::config::*;
 use clap::Arg;
 
-pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 8] {
-    [
+pub fn prepare_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
+    vec![
         Arg::with_name(PEER_SERVICE_PORT)
             .takes_value(true)
             .short("o")
@@ -56,5 +56,9 @@ pub fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 8] {
             .takes_value(true)
             .short("e")
             .help("external network address to publish as discoverable"),
+        Arg::with_name(IPFS_MULTIADDR)
+            .takes_value(true)
+            .long("ipfs-multiaddr")
+            .help("if passed, IPFS.multiaddr service is registered with given multiaddr"),
     ]
 }

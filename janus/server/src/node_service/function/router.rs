@@ -30,17 +30,12 @@ use libp2p::{
     PeerId,
 };
 
+use crate::misc::{SafeMultihash, WaitingQueues};
 use crate::node_service::function::builtin_service::BuiltinService;
 use crate::node_service::function::router::Service::Delegated;
-use crate::{
-    generate_swarm_event_type,
-    misc::{SafeMultihash, WaitingQueue},
-    node_service::{
-        function::call::{Address, FunctionCall},
-        function::ProtocolMessage,
-    },
-};
+use faas_api::{Address, FunctionCall, ProtocolMessage};
 use failure::_core::time::Duration;
+use janus_libp2p::generate_swarm_event_type;
 use parity_multiaddr::Multiaddr;
 use trust_graph::TrustGraph;
 
@@ -98,9 +93,9 @@ pub struct FunctionRouter {
     local_services: HashMap<String, Service>, // ServiceId -> Service
     // TODO: clear queues on timeout?
     // Calls to services, waiting while provider of the service is found
-    wait_provider: WaitingQueue<String, FunctionCall>, // ServiceId -> FunctionCall
+    wait_provider: WaitingQueues<String, FunctionCall>, // ServiceId -> FunctionCall
     // Calls that are waiting for target peer of the call to change state (see WaitPeer)
-    wait_peer: WaitingQueue<PeerId, WaitPeer>, // PeerId -> FunctionCall
+    wait_peer: WaitingQueues<PeerId, WaitPeer>, // PeerId -> FunctionCall
     // TODO: clear connected_peers on inject_listener_closed?
     // Mediated by inject_connected & inject_disconnected
     connected_peers: HashSet<PeerId>,
@@ -120,27 +115,10 @@ impl FunctionRouter {
             peer_id: peer_id.clone(),
             events: VecDeque::new(),
             kademlia: Kademlia::with_config(kp, peer_id, store, cfg, trust),
-            wait_provider: WaitingQueue::new(),
-            wait_peer: WaitingQueue::new(),
+            wait_provider: WaitingQueues::new(),
+            wait_peer: WaitingQueues::new(),
             local_services: HashMap::new(),
             connected_peers: HashSet::new(),
-        }
-    }
-
-    pub fn add_kad_node(
-        &mut self,
-        node_id: PeerId,
-        addresses: Vec<Multiaddr>,
-        public_key: ed25519::PublicKey,
-    ) {
-        log::trace!(
-            "adding new node {} with {:?} addresses to kademlia",
-            node_id.to_base58(),
-            addresses,
-        );
-        for addr in addresses {
-            self.kademlia
-                .add_address(&node_id, addr.clone(), public_key.clone());
         }
     }
 
@@ -195,6 +173,7 @@ impl FunctionRouter {
     // Look for service providers, enqueue call to wait for providers
     fn find_service_provider(&mut self, service: String, call: FunctionCall) {
         self.wait_provider.enqueue(service.clone(), call);
+        // TODO: don't call get_providers if there are already calls waiting for it
         self.kademlia
             .get_providers(service.as_bytes().to_vec().into());
     }
@@ -216,6 +195,7 @@ impl FunctionRouter {
         }
 
         // TODO: taking only first provider here. Should we send a call to all of them?
+        // TODO: weight providers according to TrustGraph
         if let Some(provider) = providers.into_iter().next() {
             for call in calls {
                 self.send_call(provider.clone(), call);
@@ -225,6 +205,17 @@ impl FunctionRouter {
                 self.send_error_on_call(call, "No providers found".to_string());
             }
         }
+    }
+
+    // Removes all services that are delegated by specified PeerId
+    fn remove_delegated_services(&mut self, delegate: &PeerId) {
+        let delegate = delegate.to_base58();
+
+        self.local_services.retain(|_k, v| match v {
+            Delegated { forward_to } => forward_to
+                .destination_peer()
+                .map_or(false, |p| p.to_base58() == delegate),
+        });
     }
 
     // ####
@@ -246,11 +237,19 @@ impl FunctionRouter {
         match service {
             BuiltinService::DelegateProviding { service_id } => {
                 if let Some(forward_to) = call.reply_to.clone() {
-                    self.local_services
-                        .insert(service_id.clone(), Delegated { forward_to });
+                    let new = Delegated { forward_to };
+                    let replaced = self.local_services.insert(service_id.clone(), new.clone());
+                    if let Some(replaced) = replaced {
+                        log::warn!(
+                            "Replacing service {:?} with {:?} due to call {}",
+                            replaced,
+                            new,
+                            &call.uuid
+                        );
+                    }
                     self.kademlia
                         .start_providing(service_id.as_bytes().to_vec().into());
-                    println!("Published a service {}: {:?}", service_id, call)
+                    log::info!("Published a service {}: {:?}", service_id, call)
                 } else {
                     //TODO: self.send_error_on_call()
                 }
@@ -270,6 +269,7 @@ impl FunctionRouter {
     pub fn search_for_peer(&mut self, peer_id: PeerId, call: FunctionCall) {
         self.wait_peer
             .enqueue(peer_id.clone(), WaitPeer::Found(call));
+        // TODO: don't call get_closest_peers if there are already some calls waiting for it
         self.kademlia
             .get_closest_peers(SafeMultihash::from(peer_id))
     }
@@ -358,9 +358,11 @@ impl FunctionRouter {
         log::info!(
             "Peer disconnected: {}. {} calls left waiting.",
             peer_id.to_base58(),
-            self.wait_peer.count(peer_id)
+            self.wait_peer.count(&peer_id)
         );
         self.connected_peers.remove(peer_id);
+
+        self.remove_delegated_services(peer_id);
 
         // TODO: fail corresponding wait_peers? Though there shouldn't be any
     }
@@ -371,7 +373,7 @@ impl FunctionRouter {
 
     // Whether peer is in the routing table
     fn is_routable(&mut self, peer_id: &PeerId) -> bool {
-        // TODO: Checking is_connected inside is_routable smells...
+        // TODO: Checking `is_connected` inside `is_routable` smells...
         let connected = self.is_connected(peer_id);
 
         let kad = self.kademlia.addresses_of_peer(peer_id);
@@ -478,6 +480,26 @@ impl FunctionRouter {
             self.send_to(reply_to, call)
         } else {
             log::warn!("Can't send error on call {:?}: reply_to is empty", call);
+        }
+    }
+
+    // ####
+    // ## Kademlia
+    // ###
+    pub fn add_kad_node(
+        &mut self,
+        node_id: PeerId,
+        addresses: Vec<Multiaddr>,
+        public_key: ed25519::PublicKey,
+    ) {
+        log::trace!(
+            "adding new node {} with {:?} addresses to kademlia",
+            node_id.to_base58(),
+            addresses,
+        );
+        for addr in addresses {
+            self.kademlia
+                .add_address(&node_id, addr.clone(), public_key.clone());
         }
     }
 }

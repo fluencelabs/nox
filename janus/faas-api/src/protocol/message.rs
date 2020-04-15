@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-use crate::node_service::function::call;
+use crate::FunctionCall;
 use serde::{Deserialize, Serialize};
 
 /// `RawData` could be a byte array, string, `serde_json::Value`, or something like that
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "action")]
 pub enum ProtocolMessage {
-    FunctionCall(call::FunctionCall),
+    FunctionCall(FunctionCall),
     Upgrade,
 }
 
@@ -40,7 +40,8 @@ impl Into<ProtocolMessage> for () {
 
 #[cfg(test)]
 mod test {
-    use crate::node_service::function::{gen_function_call, ProtocolMessage};
+    use crate::call_test_utils::gen_function_call;
+    use crate::ProtocolMessage;
 
     fn check_msg(msg: ProtocolMessage) {
         let str = serde_json::to_string(&msg).unwrap();

@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use crate::node_service::function::{FunctionRouter, ProtocolMessage, SwarmEventType};
+use crate::node_service::function::{FunctionRouter, SwarmEventType};
+use faas_api::ProtocolMessage;
 
 use log::{debug, trace};
 use std::error::Error;

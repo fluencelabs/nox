@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-use crate::behaviour::ClientBehaviour;
-use faas_api::FunctionCall;
-use libp2p::PeerId;
+// blocks until either SIGINT(Ctrl+C) or SIGTERM signals received
+pub fn block_until_ctrlc() {
+    let (ctrlc_outlet, ctrlc_inlet) = futures::channel::oneshot::channel();
+    let ctrlc_outlet = std::cell::RefCell::new(Some(ctrlc_outlet));
 
-pub trait FunctionCallApi {
-    fn call(&mut self, peer_id: PeerId, call: FunctionCall);
-}
+    ctrlc::set_handler(move || {
+        if let Some(outlet) = ctrlc_outlet.borrow_mut().take() {
+            outlet.send(()).expect("sending shutdown signal failed");
+        }
+    })
+    .expect("Error while setting ctrlc handler");
 
-impl FunctionCallApi for ClientBehaviour {
-    fn call(&mut self, peer_id: PeerId, call: FunctionCall) {
-        self.call(peer_id, call)
-    }
+    async_std::task::block_on(ctrlc_inlet).expect("exit oneshot failed");
 }

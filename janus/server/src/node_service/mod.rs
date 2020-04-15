@@ -18,32 +18,19 @@
 mod node_service;
 mod p2p {
     mod behaviour;
-    mod transport;
 
     pub use behaviour::P2PBehaviour;
-    pub use transport::build_transport;
 }
 
 pub mod function {
     mod builtin_service;
-    mod call;
     mod provider;
     mod router;
-    mod protocol {
-        pub mod message;
-        pub mod upgrade;
-    }
 
-    pub use call::{Address, FunctionCall};
-    pub use protocol::message::ProtocolMessage;
     pub use provider::Provider;
     pub use router::FunctionRouter;
     pub(crate) use router::SwarmEventType;
-
-    #[cfg(test)]
-    pub use call::test::gen_function_call;
 }
 
 pub use node_service::NodeService;
-pub use p2p::build_transport;
 pub use p2p::P2PBehaviour;

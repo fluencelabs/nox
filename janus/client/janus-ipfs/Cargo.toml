@@ -1,11 +1,12 @@
 [package]
-name = "janus-client"
-version = "0.0.2"
+name = "janus-ipfs"
+version = "0.0.1"
 authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
 janus-libp2p = { path = "../../crates/libp2p" }
+janus-client = { path = "../rust-libp2p" }
 faas-api = { path = "../../faas-api" }
 ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
 libp2p = "0.17.0"
@@ -23,11 +24,7 @@ log = "0.4.8"
 env_logger = "0.7.1"
 void = "1.0.2"
 rand = "0.7.3"
-uuid = { version = "0.8.1", features = ["v4"] }
 itertools = "0.9.0"
-bencher = "0.1.5"
+uuid = { version = "0.8.1", features = ["serde", "v4"] }
 
 [dev-dependencies]
-rand = "0.7.3"
-reqwest = "0.10.4"
-tokio = { version = "0.2.13", features = ["full", "macros"] }

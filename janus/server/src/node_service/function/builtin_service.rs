@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::node_service::function::Address;
+use faas_api::Address;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,5 +48,37 @@ impl Into<(Address, serde_json::Value)> for BuiltinService {
                 (address, arguments)
             }
         }
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::BuiltinService;
+    use faas_api::call_test_utils::gen_provide_call;
+    use faas_api::Address;
+
+    #[test]
+    fn serialize() {
+        let ipfs_service = "IPFS.get_QmFile";
+        let (target, arguments) = BuiltinService::DelegateProviding {
+            service_id: ipfs_service.into(),
+        }
+        .into();
+        let call = gen_provide_call(target, arguments);
+
+        let service_id = match call.target.clone() {
+            Some(Address::Service { service_id }) => service_id,
+            wrong => unreachable!("target should be Some(Address::Service), was {:?}", wrong),
+        };
+
+        match BuiltinService::from(service_id.as_str(), call.arguments) {
+            Some(BuiltinService::DelegateProviding { service_id }) => {
+                assert_eq!(service_id.as_str(), ipfs_service)
+            }
+            wrong => unreachable!(
+                "target should be Some(BuiltinService::DelegateProviding, was {:?}",
+                wrong
+            ),
+        };
     }
 }

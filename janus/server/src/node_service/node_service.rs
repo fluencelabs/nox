@@ -15,19 +15,21 @@
  */
 
 use crate::config::NodeServiceConfig;
-use crate::misc::OneshotOutlet;
-use crate::node_service::p2p::{build_transport, P2PBehaviour};
+use crate::node_service::p2p::P2PBehaviour;
+use janus_libp2p::{build_transport, types::OneshotOutlet};
 
 use async_std::task;
-use futures::channel::oneshot;
-use futures::stream::StreamExt;
-
-use libp2p::{PeerId, Swarm, TransportError};
+use futures::channel::oneshot::Receiver;
+use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
+use futures_util::future::IntoStream;
+use futures_util::stream::Fuse;
+use libp2p::{
+    identity::ed25519::{self, Keypair},
+    identity::PublicKey,
+    PeerId, Swarm, TransportError,
+};
 use log::error;
 use parity_multiaddr::{Multiaddr, Protocol};
-
-use libp2p::identity::ed25519::{self, Keypair};
-use libp2p::identity::PublicKey;
 use std::io;
 
 type NodeServiceSwarm = Swarm<P2PBehaviour>;
@@ -86,15 +88,20 @@ impl NodeService {
 
     /// Starts node service
     pub fn start(mut self: Box<Self>) -> OneshotOutlet<()> {
-        let (exit_sender, _exit_receiver) = oneshot::channel();
+        let (exit_sender, exit_receiver) = oneshot::channel();
+        let mut exit_receiver: Fuse<IntoStream<Receiver<()>>> = exit_receiver.into_stream().fuse();
 
         self.listen().expect("Error on starting node listener");
         self.bootstrap();
 
         task::spawn(async move {
             loop {
-                self.swarm.select_next_some().await;
-                println!("Сворм делает хоп! Делает пыщ!")
+                select!(
+                    _ = self.swarm.select_next_some() => {},
+                    _ = exit_receiver.next() => {
+                        break
+                    }
+                )
             }
         });
 
