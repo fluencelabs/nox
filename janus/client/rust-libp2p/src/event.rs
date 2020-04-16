@@ -14,23 +14,22 @@
  * limitations under the License.
  */
 
-#![recursion_limit = "512"]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use faas_api::FunctionCall;
+use janus_libp2p::peerid_serializer;
+use libp2p::PeerId;
+use parity_multiaddr::Multiaddr;
+use serde::{Deserialize, Serialize};
 
-mod behaviour;
-mod client;
-mod command;
-mod event;
-mod function_call_api;
-
-pub use client::Client;
-pub use command::ClientCommand;
-pub use event::ClientEvent;
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum ClientEvent {
+    FunctionCall {
+        call: FunctionCall,
+        #[serde(with = "peerid_serializer")]
+        sender: PeerId,
+    },
+    NewConnection {
+        #[serde(with = "peerid_serializer")]
+        peer_id: PeerId,
+        multiaddr: Multiaddr,
+    },
+}

@@ -26,7 +26,7 @@ use futures::future::FusedFuture;
 use futures::stream::Fuse;
 use futures::{select, stream::StreamExt, FutureExt};
 
-use crate::command::Command;
+use crate::command::ClientCommand;
 
 use libp2p::identity::ed25519;
 use libp2p::{identity, PeerId, Swarm};
@@ -36,7 +36,7 @@ use crate::function_call_api::FunctionCallApi;
 use async_std::task::JoinHandle;
 
 use crate::behaviour::ClientBehaviour;
-use faas_api::{FunctionCall, ProtocolMessage};
+use crate::ClientEvent;
 use std::error::Error;
 use std::ops::DerefMut;
 use std::time::Duration;
@@ -45,13 +45,13 @@ pub struct Client {
     pub key_pair: ed25519::Keypair,
     pub peer_id: PeerId,
     /// Channel to send commands to node
-    relay_outlet: Outlet<Command>,
+    relay_outlet: Outlet<ClientCommand>,
     /// Stream of messages received from node
-    client_inlet: Fuse<Inlet<FunctionCall>>,
+    client_inlet: Fuse<Inlet<ClientEvent>>,
 }
 
 impl Client {
-    fn new(relay_outlet: Outlet<Command>, client_inlet: Inlet<FunctionCall>) -> Self {
+    fn new(relay_outlet: Outlet<ClientCommand>, client_inlet: Inlet<ClientEvent>) -> Self {
         let key = ed25519::Keypair::generate();
         let peer_id = identity::PublicKey::Ed25519(key.public()).into_peer_id();
 
@@ -63,11 +63,11 @@ impl Client {
         }
     }
 
-    pub fn send(&self, cmd: Command) {
+    pub fn send(&self, cmd: ClientCommand) {
         self.relay_outlet.unbounded_send(cmd).unwrap();
     }
 
-    pub fn receive_one(&mut self) -> impl FusedFuture<Output = Option<FunctionCall>> + '_ {
+    pub fn receive_one(&mut self) -> impl FusedFuture<Output = Option<ClientEvent>> + '_ {
         self.client_inlet.next()
     }
 
@@ -80,9 +80,9 @@ impl Client {
         };
 
         match Swarm::dial_addr(&mut swarm, relay.clone()) {
-            Ok(_) => println!("{} dialed to {:?}", self.peer_id, relay),
+            Ok(_) => log::info!("{} dialed to {:?}", self.peer_id, relay),
             Err(e) => {
-                println!("Dial to {:?} failed with {:?}", relay, e);
+                log::error!("Dial to {:?} failed with {:?}", relay, e);
                 return Err(e.into());
             }
         }
@@ -131,16 +131,17 @@ impl Client {
         Ok((client, task))
     }
 
-    fn send_to_node<R: FunctionCallApi, S: DerefMut<Target = R>>(swarm: &mut S, cmd: Command) {
+    fn send_to_node<R: FunctionCallApi, S: DerefMut<Target = R>>(
+        swarm: &mut S,
+        cmd: ClientCommand,
+    ) {
         match cmd {
-            Command::Call { node, call } => swarm.call(node, call),
+            ClientCommand::Call { node, call } => swarm.call(node, call),
         }
     }
 
-    fn receive_from_relay(msg: ProtocolMessage, client_outlet: &Outlet<FunctionCall>) {
+    fn receive_from_relay(msg: ClientEvent, client_outlet: &Outlet<ClientEvent>) {
         // Message will be available through client.receive_one
-        if let ProtocolMessage::FunctionCall(msg) = msg {
-            client_outlet.unbounded_send(msg).unwrap()
-        }
+        client_outlet.unbounded_send(msg).unwrap()
     }
 }

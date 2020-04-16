@@ -1,4 +1,8 @@
 target
 **/target
+**/**
+**
 !target/x86_64-unknown-linux-gnu/release/janus-server
-
+!target/x86_64-unknown-linux-gnu/release/janus-ipfs
+!client/janus-ipfs/docker/run_janus_ipfs.sh
+!client/janus-ipfs/docker/wait.sh

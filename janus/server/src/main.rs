@@ -31,7 +31,6 @@ use crate::node_service::NodeService;
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
 use futures::channel::oneshot;
-use libp2p::PeerId;
 use log::trace;
 use std::error::Error;
 
@@ -94,59 +93,16 @@ fn start_janus(config: JanusConfig) -> Result<impl Stoppable, Box<dyn Error>> {
 
     let node_exit_outlet = node_service.start();
 
-    let local_peer_id = PeerId::from(libp2p::identity::PublicKey::Ed25519(key_pair.public()));
-    let ipfs_exit_outlet = start_ipfs_multiaddr(&config, local_peer_id)?;
-
     struct Janus {
         node_exit_outlet: oneshot::Sender<()>,
-        ipfs_exit_outlet: Option<oneshot::Sender<()>>,
     }
 
     impl Stoppable for Janus {
         fn stop(self) {
             // shutting down node service leads to shutting down peer service by canceling the mpsc channel
             self.node_exit_outlet.send(()).unwrap();
-            if let Some(exit) = self.ipfs_exit_outlet {
-                exit.send(()).unwrap()
-            }
         }
     }
 
-    Ok(Janus {
-        node_exit_outlet,
-        ipfs_exit_outlet,
-    })
-}
-
-fn start_ipfs_multiaddr(
-    config: &JanusConfig,
-    bootstrap_id: PeerId,
-) -> Result<Option<oneshot::Sender<()>>, Box<dyn Error>> {
-    if let Some(maddr) = &config.ipfs_multiaddr {
-        // TODO: if listen_ip != 0.0.0.0, use it
-        let bootstrap = format!(
-            "/ip4/127.0.0.1/tcp/{}",
-            config.node_service_config.listen_port
-        )
-        .parse()?;
-
-        let maddr = maddr.clone();
-        let (exit_sender, exit_receiver) = oneshot::channel();
-        async_std::task::spawn(async move {
-            match janus_ipfs::run_ipfs_multiaddr_service(
-                bootstrap,
-                bootstrap_id,
-                maddr,
-                exit_receiver,
-            )
-            .await
-            {
-                Err(e) => log::error!("Error while running IPFS.multiaddr: {:?}", e),
-                _ => log::info!("IPFS.multiaddr started"),
-            }
-        });
-        Ok(Some(exit_sender))
-    } else {
-        Ok(None)
-    }
+    Ok(Janus { node_exit_outlet })
 }

@@ -25,11 +25,10 @@
     unreachable_patterns
 )]
 
-use async_std::task;
 use faas_api::{Address, FunctionCall};
 use futures::channel::oneshot;
 use futures::{channel::oneshot::Receiver, select, FutureExt, StreamExt};
-use janus_client::{client::Client, Command};
+use janus_client::{Client, ClientCommand, ClientEvent};
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use serde_json::json;
@@ -85,43 +84,53 @@ fn message_id() -> String {
 
 pub async fn run_ipfs_multiaddr_service(
     bootstrap: Multiaddr,
-    bootstrap_id: PeerId,
     ipfs: Multiaddr,
     stop: Receiver<()>,
 ) -> Result<(), Box<dyn Error>> {
     let (exit_sender, exit_receiver) = oneshot::channel::<()>();
-    let (mut client, client_task) = Client::connect(bootstrap, exit_receiver).await?;
-
-    // TODO: wait for inject_connected in client
-    task::sleep(Duration::from_secs(5)).await;
-
-    let call = register_call(client.peer_id.clone(), IPFS_SERVICE)?;
-    log::info!(
-        "Sending register call to {}: {:?}",
-        bootstrap_id.to_base58(),
-        &call
-    );
-    client.send(Command::Call {
-        node: bootstrap_id.clone(),
-        call,
-    });
+    let (mut client, client_task) = Client::connect(bootstrap.clone(), exit_receiver).await?;
 
     let mut stop = stop.into_stream().fuse();
+
+    let mut bootstrap_id: Option<PeerId> = None;
 
     loop {
         select!(
             incoming = client.receive_one() => {
                 match incoming {
-                    Some(FunctionCall {
-                        target: Some(Address::Service { service_id }),
-                        reply_to: Some(reply_to),
-                        arguments, ..
+                    Some(ClientEvent::FunctionCall {
+                        call: FunctionCall {
+                            target: Some(Address::Service { service_id }),
+                            reply_to: Some(reply_to),
+                            arguments, ..
+                        },
+                        sender
                     }) if service_id.as_str() == IPFS_SERVICE => {
-                        log::info!("Got call for {}, asking node to reply to {:?}", IPFS_SERVICE, reply_to);
+                        log::info!(
+                            "Got call for {} from {}, asking node to reply to {:?}",
+                            IPFS_SERVICE, sender.to_base58(), reply_to
+                        );
                         let msg_id = arguments.get("msg_id").and_then(|v| v.as_str());
                         let call = multiaddr_call(client.peer_id.clone(), reply_to, msg_id, &ipfs);
-                        client.send(Command::Call { node: bootstrap_id.clone(), call })
+                        if let Some(node) = bootstrap_id.clone() {
+                            client.send(ClientCommand::Call { node, call })
+                        } else {
+                            log::warn!("Can't send {} reply: bootstrap hasn't connected yed", IPFS_SERVICE);
+                        }
                     },
+                    Some(ClientEvent::NewConnection { peer_id, multiaddr }) if &multiaddr == &bootstrap => {
+                        let call = register_call(client.peer_id.clone(), IPFS_SERVICE)?;
+                        log::info!(
+                            "Bootstrap connected, will sleep and send register call there: {:?}",
+                            &call
+                        );
+                        async_std::task::sleep(Duration::from_secs(5)).await;
+                        bootstrap_id = Some(peer_id.clone());
+                        client.send(ClientCommand::Call {
+                            node: peer_id,
+                            call,
+                        });
+                    }
                     Some(msg) => log::info!("Received msg {:?}, ignoring", msg),
                     None => {
                         log::warn!("Client closed");

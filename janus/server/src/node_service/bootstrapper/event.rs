@@ -14,23 +14,24 @@
  * limitations under the License.
  */
 
-#![recursion_limit = "512"]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use libp2p::PeerId;
+use parity_multiaddr::Multiaddr;
 
-mod behaviour;
-mod client;
-mod command;
-mod event;
-mod function_call_api;
+#[derive(Debug, Clone)]
+pub enum BootstrapperEvent {
+    BootstrapConnected {
+        peer_id: PeerId,
+        multiaddr: Multiaddr,
+    },
 
-pub use client::Client;
-pub use command::ClientCommand;
-pub use event::ClientEvent;
+    BootstrapDisconnected {
+        peer_id: PeerId,
+        multiaddr: Multiaddr,
+    },
+
+    ReachFailure {
+        peer_id: Option<PeerId>,
+        multiaddr: Multiaddr,
+        error: String,
+    },
+}

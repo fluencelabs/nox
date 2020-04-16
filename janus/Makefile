@@ -21,11 +21,17 @@ server-debug:
 clean:
 	cargo clean
 
-BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-docker: ;
+cross-build:
 	cargo update -p libp2p
 	cross build --release --target x86_64-unknown-linux-gnu
+
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+JI_DOCKERFILE=./client/janus-ipfs/docker/Dockerfile
+JI_TAG=${BRANCH}-with-ipfs-multiaddr
+docker: cross-build
 	docker build -t folexflu/janus:${BRANCH} .
 	docker push folexflu/janus:${BRANCH}
+	docker build -t folexflu/janus:${JI_TAG} -f ${JI_DOCKERFILE} .
+	docker push folexflu/janus:${JI_TAG}
 
 .PHONY: server server-debug docker clean test release

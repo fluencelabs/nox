@@ -32,5 +32,13 @@ pub mod function {
     pub(crate) use router::SwarmEventType;
 }
 
+mod bootstrapper {
+    pub mod behaviour;
+    pub mod event;
+}
+
+pub(crate) use bootstrapper::behaviour::Bootstrapper;
+pub(crate) use bootstrapper::event::BootstrapperEvent;
+
 pub use node_service::NodeService;
 pub use p2p::P2PBehaviour;

@@ -31,7 +31,6 @@ pub const ROOT_KEY_PAIR_PATH: &str = "root-key-pair-path";
 pub const ROOT_KEY_PAIR: &str = "root-key-pair";
 pub const BOOTSTRAP_NODE: &str = "bootstrap-node";
 pub const EXTERNAL_ADDR: &str = "external-ipaddr";
-pub const IPFS_MULTIADDR: &str = "ipfs-multiaddr";
 pub const CERTIFICATE_DIR: &str = "certificate-dir";
 pub const CONFIG_FILE: &str = "config-file";
 // Name of the roots section in config
@@ -49,7 +48,6 @@ pub struct JanusConfig {
     /// Path to a secret key.
     pub root_key_pair: KeyPair,
     pub root_weights: Vec<(PublicKey, u32)>,
-    pub ipfs_multiaddr: Option<Multiaddr>,
 }
 
 #[derive(Clone)]
@@ -132,14 +130,6 @@ fn build_config(arguments: ArgMatches, config: Config) -> Result<JanusConfig, Bo
             .or_else(|| config.get_str(name).ok())
     };
 
-    let ipfs_multiaddr = {
-        if let Some(maddr) = merge_by_name(IPFS_MULTIADDR) {
-            Some(maddr.parse::<Multiaddr>()?)
-        } else {
-            None
-        }
-    };
-
     if let Some(peer_port) = merge_by_name(PEER_SERVICE_PORT) {
         let peer_port: u16 = u16::from_str(&peer_port)?;
         peer_service_config.listen_port = peer_port;
@@ -182,7 +172,6 @@ fn build_config(arguments: ArgMatches, config: Config) -> Result<JanusConfig, Bo
         certificate_dir,
         root_key_pair,
         root_weights,
-        ipfs_multiaddr,
     })
 }
 
@@ -212,7 +201,7 @@ pub fn load_config(arguments: ArgMatches) -> Result<JanusConfig, Box<dyn Error>>
 
     println!("Loading config from {}", config_file);
     let mut config = Config::default();
-    config.merge(File::with_name(config_file).required(true))?;
+    config.merge(File::with_name(config_file).required(false))?;
 
     build_config(arguments, config)
 }

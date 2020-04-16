@@ -167,7 +167,7 @@ impl NetworkBehaviour for FunctionRouter {
     }
 }
 
-impl NetworkBehaviourEventProcess<KademliaEvent> for FunctionRouter {
+impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRouter {
     fn inject_event(&mut self, event: KademliaEvent) {
         use libp2p::kad::{GetProvidersError, GetProvidersOk};
         use KademliaEvent::GetProvidersResult;

@@ -55,8 +55,12 @@ impl NodeService {
         println!("node service is starting with id = {}", local_peer_id);
 
         let mut swarm = {
-            let behaviour =
-                P2PBehaviour::new(key_pair.clone(), local_peer_id.clone(), root_weights);
+            let behaviour = P2PBehaviour::new(
+                key_pair.clone(),
+                local_peer_id.clone(),
+                root_weights,
+                config.bootstrap_nodes.clone(),
+            );
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
 
@@ -137,7 +141,5 @@ impl NodeService {
         if self.config.bootstrap_nodes.is_empty() {
             log::info!("No bootstrap nodes found. Am I the only one? :(");
         }
-
-        self.swarm.bootstrap();
     }
 }

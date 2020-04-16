@@ -16,6 +16,7 @@
 
 use libp2p::{
     core::{self, muxing::StreamMuxer},
+    dns,
     identity::Keypair,
     secio::SecioConfig,
     PeerId, Transport,
@@ -55,6 +56,7 @@ pub fn build_transport(
 
     let transport = {
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
+        let tcp = dns::DnsConfig::new(tcp).expect("Can't build DNS");
         let websocket = libp2p::websocket::WsConfig::new(tcp.clone());
         tcp.or_transport(websocket)
     };

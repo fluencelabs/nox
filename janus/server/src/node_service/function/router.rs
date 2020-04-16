@@ -364,7 +364,10 @@ impl FunctionRouter {
 
         self.remove_delegated_services(peer_id);
 
-        // TODO: fail corresponding wait_peers? Though there shouldn't be any
+        let waiting_calls = self.wait_peer.remove(peer_id);
+        for waiting in waiting_calls.into_iter() {
+            self.send_error_on_call(waiting.call(), "Peer disconnected".into());
+        }
     }
 
     fn is_connected(&self, peer_id: &PeerId) -> bool {
@@ -501,5 +504,9 @@ impl FunctionRouter {
             self.kademlia
                 .add_address(&node_id, addr.clone(), public_key.clone());
         }
+    }
+
+    pub fn bootstrap(&mut self) {
+        self.kademlia.bootstrap()
     }
 }

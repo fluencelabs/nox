@@ -56,9 +56,5 @@ pub fn prepare_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .takes_value(true)
             .short("e")
             .help("external network address to publish as discoverable"),
-        Arg::with_name(IPFS_MULTIADDR)
-            .takes_value(true)
-            .long("ipfs-multiaddr")
-            .help("if passed, IPFS.multiaddr service is registered with given multiaddr"),
     ]
 }

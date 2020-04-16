@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 /// Describes commands sent from client to relay node; also see `ToNodeNetworkMsg`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "command", content = "body")]
-pub enum Command {
+pub enum ClientCommand {
     Call {
         #[serde(with = "peerid_serializer")]
         node: PeerId,
