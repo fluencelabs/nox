@@ -211,10 +211,21 @@ impl FunctionRouter {
     fn remove_delegated_services(&mut self, delegate: &PeerId) {
         let delegate = delegate.to_base58();
 
-        self.local_services.retain(|_k, v| match v {
-            Delegated { forward_to } => forward_to
-                .destination_peer()
-                .map_or(false, |p| p.to_base58() == delegate),
+        self.local_services.retain(|k, v| match v {
+            Delegated { forward_to } => {
+                let to_delegate = forward_to
+                    .destination_peer()
+                    .map_or(false, |p| p.to_base58() == delegate);
+                if to_delegate {
+                    log::info!(
+                        "Removing delegated service {}. forward_to: {:?}, delegate: {}",
+                        k,
+                        forward_to,
+                        delegate
+                    );
+                }
+                !to_delegate
+            }
         });
     }
 
