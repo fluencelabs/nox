@@ -16,7 +16,7 @@
 
 #![recursion_limit = "512"]
 #![deny(
-    dead_code,
+    // dead_code,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -25,9 +25,49 @@
     unreachable_patterns
 )]
 
-/// Janus libp2p client uses several functions from the server side.
-pub mod config;
-pub mod error;
-pub mod key_storage;
-pub mod misc;
-pub mod node_service;
+pub mod config {
+    mod args;
+    mod janus_config;
+    mod keys;
+
+    pub mod certificates;
+
+    pub use self::args::create_args;
+    pub use self::janus_config::load_config;
+    pub use self::janus_config::JanusConfig;
+    pub use self::janus_config::ServerConfig;
+}
+
+mod server;
+mod behaviour {
+    mod bootstrapper;
+    mod identify;
+    mod server_behaviour;
+
+    pub use server_behaviour::ServerBehaviour;
+}
+
+mod function {
+    mod builtin_service;
+    mod router;
+    mod router_behaviour;
+    mod waiting_queues;
+
+    pub use router::FunctionRouter;
+    pub use router::SwarmEventType;
+}
+
+mod bootstrapper {
+    mod behaviour;
+    mod event;
+
+    pub use behaviour::Bootstrapper;
+    pub use event::BootstrapperEvent;
+}
+
+pub(crate) use bootstrapper::Bootstrapper;
+pub(crate) use bootstrapper::BootstrapperEvent;
+pub(crate) use function::FunctionRouter;
+
+// pub use behaviour::ServerBehaviour;
+pub use server::Server;

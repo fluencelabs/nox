@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use crate::node_service::{BootstrapperEvent, P2PBehaviour};
+use super::server_behaviour::ServerBehaviour;
+use crate::BootstrapperEvent;
 use libp2p::swarm::NetworkBehaviourEventProcess;
 
-impl NetworkBehaviourEventProcess<BootstrapperEvent> for P2PBehaviour {
+impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
     fn inject_event(&mut self, event: BootstrapperEvent) {
         match event {
             BootstrapperEvent::BootstrapConnected { peer_id, .. } => {
@@ -25,7 +26,7 @@ impl NetworkBehaviourEventProcess<BootstrapperEvent> for P2PBehaviour {
                     "Bootstrap connected {}, triggering bootstrap procedure",
                     peer_id.to_base58()
                 );
-                self.router.bootstrap()
+                self.bootstrap()
             }
             BootstrapperEvent::BootstrapDisconnected { peer_id, multiaddr } => {
                 log::info!(

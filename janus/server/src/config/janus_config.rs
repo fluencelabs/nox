@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-use crate::key_storage;
+use super::keys::{decode_key_pair, load_or_create_key_pair};
 use ::config::{Config, File};
 use clap::ArgMatches;
 use failure::_core::str::FromStr;
-use libp2p::core::Multiaddr;
-use libp2p::identity::{ed25519, ed25519::PublicKey, Keypair};
-use std::error::Error;
-use std::net::IpAddr;
-use std::time::Duration;
+use libp2p::{core::Multiaddr, identity::ed25519::PublicKey};
+use std::{error::Error, net::IpAddr, time::Duration};
 use trust_graph::KeyPair;
 
-pub const PEER_SERVICE_PORT: &str = "peer-service-port";
-pub const NODE_SERVICE_PORT: &str = "node-service-port";
+pub const WEBSOCKET_PORT: &str = "websocket-port";
+pub const TCP_PORT: &str = "tcp-port";
 pub const ROOT_KEY_PAIR_PATH: &str = "root-key-pair-path";
 pub const ROOT_KEY_PAIR: &str = "root-key-pair";
 pub const BOOTSTRAP_NODE: &str = "bootstrap-node";
@@ -41,8 +38,7 @@ pub const DEFAULT_KEY_DIR: &str = "./.janus/secret_key";
 pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
 
 pub struct JanusConfig {
-    pub node_service_config: NodeServiceConfig,
-    pub peer_service_config: PeerServiceConfig,
+    pub server_config: ServerConfig,
     /// Directory, where all certificates are stored.
     pub certificate_dir: String,
     /// Path to a secret key.
@@ -51,28 +47,30 @@ pub struct JanusConfig {
 }
 
 #[derive(Clone)]
-pub struct NodeServiceConfig {
-    /// Local port to listen on.
-    pub listen_port: u16,
+pub struct ServerConfig {
+    /// For TCP connections
+    pub tcp_port: u16,
 
-    /// Local ip address to listen on.
+    /// Local ip address to listen on
     pub listen_ip: IpAddr,
 
-    /// Socket timeout for main transport.
+    /// Socket timeout for main transport
     pub socket_timeout: Duration,
 
-    /// Bootstrap nodes to join to the Fluence network.
+    /// Bootstrap nodes to join to the Fluence network
     pub bootstrap_nodes: Vec<Multiaddr>,
 
+    /// For ws connections
     pub websocket_port: u16,
 
+    /// External address to advertise via identify protocol
     pub external_address: Option<IpAddr>,
 }
 
-impl Default for NodeServiceConfig {
+impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            listen_port: 7777,
+            tcp_port: 7777,
             listen_ip: "0.0.0.0".parse().unwrap(),
             socket_timeout: Duration::from_secs(20),
             bootstrap_nodes: vec![],
@@ -82,46 +80,11 @@ impl Default for NodeServiceConfig {
     }
 }
 
-#[derive(Clone)]
-pub struct PeerServiceConfig {
-    /// Local port to listen on.
-    pub listen_port: u16,
-
-    /// Local ip address to listen on.
-    pub listen_ip: IpAddr,
-
-    /// Socket timeout for main transport.
-    pub socket_timeout: Duration,
-}
-
-impl Default for PeerServiceConfig {
-    fn default() -> Self {
-        Self {
-            listen_port: 9999,
-            listen_ip: "0.0.0.0".parse().unwrap(),
-            socket_timeout: Duration::from_secs(20),
-        }
-    }
-}
-
-#[allow(dead_code)]
-fn decode_key_pair(secret_key_str: &str) -> Result<Keypair, failure::Error> {
-    let mut key_pair = base64::decode(secret_key_str)
-        .map_err(|_| failure::err_msg("Secret key should be in base64 format."))?;
-    let key_pair = key_pair.as_mut_slice();
-    let key_pair = Keypair::Ed25519(
-        ed25519::Keypair::decode(key_pair)
-            .map_err(|_| failure::err_msg("Invalid secret key format."))?,
-    );
-    Ok(key_pair)
-}
-
 /// Build `JanusConfig` by merging arguments and a config file.
 /// Arguments have higher priority than config file.
 #[allow(clippy::implicit_hasher)]
 fn build_config(arguments: ArgMatches, config: Config) -> Result<JanusConfig, Box<dyn Error>> {
-    let mut node_service_config = NodeServiceConfig::default();
-    let mut peer_service_config = PeerServiceConfig::default();
+    let mut server_config = ServerConfig::default();
 
     let merge_by_name = |name| {
         arguments
@@ -130,45 +93,43 @@ fn build_config(arguments: ArgMatches, config: Config) -> Result<JanusConfig, Bo
             .or_else(|| config.get_str(name).ok())
     };
 
-    if let Some(peer_port) = merge_by_name(PEER_SERVICE_PORT) {
-        let peer_port: u16 = u16::from_str(&peer_port)?;
-        peer_service_config.listen_port = peer_port;
-        node_service_config.websocket_port = peer_port; // TODO: remove peer service config
+    if let Some(ws_port) = merge_by_name(WEBSOCKET_PORT) {
+        let peer_port: u16 = u16::from_str(&ws_port)?;
+        server_config.websocket_port = peer_port;
     }
 
-    if let Some(node_port) = merge_by_name(NODE_SERVICE_PORT) {
-        let node_port: u16 = u16::from_str(&node_port)?;
-        node_service_config.listen_port = node_port;
+    if let Some(tcp_port) = merge_by_name(TCP_PORT) {
+        let node_port: u16 = u16::from_str(&tcp_port)?;
+        server_config.tcp_port = node_port;
     }
 
     if let Some(bootstrap_node) = merge_by_name(BOOTSTRAP_NODE) {
         let bootstrap_node = Multiaddr::from_str(&bootstrap_node)?;
-        node_service_config.bootstrap_nodes.push(bootstrap_node);
+        server_config.bootstrap_nodes.push(bootstrap_node);
     };
 
     if let Some(external_address) = merge_by_name(EXTERNAL_ADDR) {
         let external_address = IpAddr::from_str(&external_address)?;
-        node_service_config.external_address = Some(external_address);
+        server_config.external_address = Some(external_address);
     }
 
     let certificate_dir = merge_by_name(CERTIFICATE_DIR).unwrap_or_else(|| DEFAULT_CERT_DIR.into());
 
     let root_key_pair = {
         if let Some(key_pair_b58) = arguments.value_of(ROOT_KEY_PAIR) {
-            key_storage::decode_key_pair(key_pair_b58.to_string())?
+            decode_key_pair(key_pair_b58.to_string())?
         } else {
             let secret_key_path =
                 merge_by_name(ROOT_KEY_PAIR_PATH).unwrap_or_else(|| DEFAULT_KEY_DIR.into());
             // TODO: it's not ok to CREATE key pair here, but it's OK to load it.
-            key_storage::load_or_create_key_pair(&secret_key_path)?
+            load_or_create_key_pair(&secret_key_path)?
         }
     };
 
     let root_weights = load_weights(config);
 
     Ok(JanusConfig {
-        node_service_config,
-        peer_service_config,
+        server_config,
         certificate_dir,
         root_key_pair,
         root_weights,
@@ -199,7 +160,7 @@ pub fn load_config(arguments: ArgMatches) -> Result<JanusConfig, Box<dyn Error>>
         .value_of(CONFIG_FILE)
         .unwrap_or(DEFAULT_CONFIG_FILE);
 
-    println!("Loading config from {}", config_file);
+    log::info!("Loading config from {}", config_file);
     let mut config = Config::default();
     config.merge(File::with_name(config_file).required(false))?;
 

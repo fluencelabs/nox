@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use crate::node_service::function::FunctionRouter;
-use crate::node_service::Bootstrapper;
+use crate::Bootstrapper;
+use crate::FunctionRouter;
 
-use faas_api::FunctionCall;
 use janus_libp2p::{event_polling, generate_swarm_event_type};
 use libp2p::{
     identify::Identify,
@@ -28,24 +27,21 @@ use libp2p::{
 use parity_multiaddr::Multiaddr;
 use std::collections::VecDeque;
 
-mod bootstrapper;
-mod identify;
-
-pub type SwarmEventType = generate_swarm_event_type!(P2PBehaviour);
+pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll")]
-pub struct P2PBehaviour {
+pub struct ServerBehaviour {
     bootstrapper: Bootstrapper,
-    router: FunctionRouter,
+    pub(super) router: FunctionRouter,
     identity: Identify,
     ping: Ping,
     #[behaviour(ignore)]
     events: VecDeque<SwarmEventType>,
 }
 
-impl P2PBehaviour {
+impl ServerBehaviour {
     pub fn new(
         key_pair: ed25519::Keypair,
         local_peer_id: PeerId,
@@ -68,26 +64,27 @@ impl P2PBehaviour {
     }
 
     /// Bootstraps the node. Currently, does nothing.
-    pub fn bootstrap(&mut self) {
+    pub fn dial_bootstrap_nodes(&mut self) {
         // TODO: how to avoid collect?
-        let bootstraps: Vec<_> = self.bootstrapper.bootstrap_nodes.iter().cloned().collect();
-        for maddr in bootstraps {
+        let bootstrap_nodes: Vec<_> = self.bootstrapper.bootstrap_nodes.iter().cloned().collect();
+        if bootstrap_nodes.is_empty() {
+            log::warn!("No bootstrap nodes found. Am I the only one? :(");
+        }
+        for maddr in bootstrap_nodes {
             self.dial(maddr)
         }
     }
 
-    pub fn call(&mut self, call: FunctionCall) {
-        self.router.call(call)
+    pub fn bootstrap(&mut self) {
+        self.router.bootstrap()
     }
 
-    fn dial(&mut self, maddr: Multiaddr) {
+    pub(super) fn dial(&mut self, maddr: Multiaddr) {
         self.events
-            .push_back(libp2p::swarm::NetworkBehaviourAction::DialAddress {
-                address: maddr.clone(),
-            })
+            .push_back(libp2p::swarm::NetworkBehaviourAction::DialAddress { address: maddr })
     }
 
-    fn dial_peer(&mut self, peer_id: PeerId) {
+    pub(super) fn dial_peer(&mut self, peer_id: PeerId) {
         self.events
             .push_back(libp2p::swarm::NetworkBehaviourAction::DialPeer {
                 peer_id,
@@ -98,10 +95,10 @@ impl P2PBehaviour {
     event_polling!(custom_poll, events, SwarmEventType);
 }
 
-impl libp2p::swarm::NetworkBehaviourEventProcess<()> for P2PBehaviour {
+impl libp2p::swarm::NetworkBehaviourEventProcess<()> for ServerBehaviour {
     fn inject_event(&mut self, _: ()) {}
 }
 
-impl libp2p::swarm::NetworkBehaviourEventProcess<PingEvent> for P2PBehaviour {
+impl libp2p::swarm::NetworkBehaviourEventProcess<PingEvent> for ServerBehaviour {
     fn inject_event(&mut self, _: PingEvent) {}
 }

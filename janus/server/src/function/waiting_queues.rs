@@ -14,16 +14,24 @@
  * limitations under the License.
  */
 
-use crate::misc::enqueue_result::Enqueued;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
+
+/// Represents a result of the enqueue_promise operation
+pub enum Enqueued {
+    // promise for such a key has already been in the queue
+    New,
+    // new promise created
+    Existing,
+}
 
 pub struct WaitingQueues<K, V> {
     map: HashMap<K, VecDeque<V>>,
 }
 
 impl<K: Eq + Hash, V> WaitingQueues<K, V> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
@@ -60,7 +68,7 @@ impl<K: Eq + Hash, V> WaitingQueues<K, V> {
         self.map
             .get_mut(key)
             .map(|queue| {
-                let (keep, remove) = queue.drain(..).partition::<Vec<_>, _>(remove);
+                let (remove, keep) = queue.drain(..).partition::<Vec<_>, _>(remove);
                 queue.extend(keep);
                 remove.into_iter()
             })
@@ -71,5 +79,38 @@ impl<K: Eq + Hash, V> WaitingQueues<K, V> {
     // Returns number of items on key `k`. Useful for debug lofs.
     pub fn count(&self, key: &K) -> usize {
         self.map.get(key).map_or(0, |q| q.len())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::function::waiting_queues::WaitingQueues;
+
+    #[test]
+    fn remove_with() {
+        let mut q: WaitingQueues<String, String> = WaitingQueues::new();
+
+        let k = "key".to_string();
+        let len = 10;
+
+        for i in 0..len {
+            q.enqueue(k.clone(), format!("value_bad_{}", i));
+            q.enqueue(k.clone(), format!("value_good_{}", i));
+        }
+
+        let removed: Vec<_> = q.remove_with(&k, |v| v.contains("bad")).collect();
+
+        assert_eq!(removed.len(), len);
+        assert!(
+            removed.iter().all(|v| v.contains("bad")),
+            "all removed elements should be bad"
+        );
+
+        let remaining = q.map.get(&k).unwrap().iter().collect::<Vec<_>>();
+        assert_eq!(remaining.len(), len);
+        assert!(
+            remaining.iter().all(|v| v.contains("good")),
+            "all remaining elements should be good"
+        );
     }
 }

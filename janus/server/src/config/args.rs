@@ -14,16 +14,21 @@
  * limitations under the License.
  */
 
-use crate::config::config::*;
+use crate::config::janus_config::*;
 use clap::Arg;
 
-pub fn prepare_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
+pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
     vec![
-        Arg::with_name(PEER_SERVICE_PORT)
+        Arg::with_name(TCP_PORT)
             .takes_value(true)
-            .short("o")
+            .short("t")
+            .default_value("7777")
+            .help("tcp port"),
+        Arg::with_name(WEBSOCKET_PORT)
+            .takes_value(true)
+            .short("w")
             .default_value("9999")
-            .help("port that will be used by the peer service"),
+            .help("websocket port"),
         Arg::with_name(ROOT_KEY_PAIR_PATH)
             .takes_value(true)
             .short("s")
@@ -42,11 +47,6 @@ pub fn prepare_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .takes_value(true)
             .short("d")
             .help("path to certificate dir"),
-        Arg::with_name(NODE_SERVICE_PORT)
-            .takes_value(true)
-            .short("n")
-            .default_value("7777")
-            .help("port that will be used by the node service"),
         Arg::with_name(BOOTSTRAP_NODE)
             .takes_value(true)
             .short("b")

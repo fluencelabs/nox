@@ -25,6 +25,7 @@
     unreachable_patterns
 )]
 
+use async_timer::Interval;
 use faas_api::{Address, FunctionCall};
 use futures::channel::oneshot;
 use futures::{channel::oneshot::Receiver, select, FutureExt, StreamExt};
@@ -38,7 +39,7 @@ use uuid::Uuid;
 
 const IPFS_SERVICE: &str = "IPFS.multiaddr";
 
-fn register_call(client: PeerId, service_id: &str) -> Result<FunctionCall, Box<dyn Error>> {
+fn register_call(client: PeerId, service_id: &str) -> FunctionCall {
     let target = Some(Address::Service {
         service_id: "provide".into(),
     });
@@ -47,16 +48,17 @@ fn register_call(client: PeerId, service_id: &str) -> Result<FunctionCall, Box<d
     let uuid = message_id();
     let name = Some(format!("Delegate provide service {}", service_id));
 
-    Ok(FunctionCall {
+    FunctionCall {
         uuid,
         target,
         reply_to,
         arguments,
         name,
-    })
+    }
 }
 
 fn multiaddr_call(
+    bootstrap_id: PeerId,
     client: PeerId,
     reply_to: Address,
     msg_id: Option<&str>,
@@ -64,7 +66,10 @@ fn multiaddr_call(
 ) -> FunctionCall {
     let target = Some(reply_to);
     let arguments = json!({ "multiaddr": multiaddr.to_string(), "msg_id": msg_id });
-    let reply_to = Some(Address::Peer { peer: client });
+    let reply_to = Some(Address::Relay {
+        client,
+        relay: bootstrap_id,
+    });
     let uuid = message_id();
     let name = Some("Reply on IPFS.multiaddr".to_string());
 
@@ -94,6 +99,11 @@ pub async fn run_ipfs_multiaddr_service(
 
     let mut bootstrap_id: Option<PeerId> = None;
 
+    // Will publish service 10 times, each 10 seconds
+    let mut periodic = Interval::platform_new(Duration::from_secs(10))
+        .take(10)
+        .fuse();
+
     loop {
         select!(
             incoming = client.receive_one() => {
@@ -111,7 +121,7 @@ pub async fn run_ipfs_multiaddr_service(
                             IPFS_SERVICE, sender.to_base58(), reply_to
                         );
                         let msg_id = arguments.get("msg_id").and_then(|v| v.as_str());
-                        let call = multiaddr_call(client.peer_id.clone(), reply_to, msg_id, &ipfs);
+                        let call = multiaddr_call(bootstrap_id.clone().unwrap(), client.peer_id.clone(), reply_to, msg_id, &ipfs);
                         if let Some(node) = bootstrap_id.clone() {
                             client.send(ClientCommand::Call { node, call })
                         } else {
@@ -119,17 +129,8 @@ pub async fn run_ipfs_multiaddr_service(
                         }
                     },
                     Some(ClientEvent::NewConnection { peer_id, multiaddr }) if &multiaddr == &bootstrap => {
-                        let call = register_call(client.peer_id.clone(), IPFS_SERVICE)?;
-                        log::info!(
-                            "Bootstrap connected, will sleep and send register call there: {:?}",
-                            &call
-                        );
-                        async_std::task::sleep(Duration::from_secs(5)).await;
+                        log::info!("Bootstrap connected, will send register call",);
                         bootstrap_id = Some(peer_id.clone());
-                        client.send(ClientCommand::Call {
-                            node: peer_id,
-                            call,
-                        });
                     }
                     Some(msg) => log::info!("Received msg {:?}, ignoring", msg),
                     None => {
@@ -138,6 +139,17 @@ pub async fn run_ipfs_multiaddr_service(
                     }
                 }
             },
+            _ = periodic.next() => {
+                if let Some(peer_id) = bootstrap_id.clone() {
+                    let call = register_call(client.peer_id.clone(), IPFS_SERVICE);
+                    log::info!("Sending register call {:?}", call);
+
+                    client.send(ClientCommand::Call {
+                        node: peer_id,
+                        call,
+                    });
+                }
+            }
             _ = stop.next() => {
                 log::info!("Will stop");
                 exit_sender.send(()).unwrap();

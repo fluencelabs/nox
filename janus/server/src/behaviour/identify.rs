@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::node_service::p2p::behaviour::P2PBehaviour;
+use super::ServerBehaviour;
 use itertools::Itertools;
 use libp2p::identify::IdentifyEvent;
 use libp2p::identity::PublicKey;
@@ -24,7 +24,7 @@ use std::net::IpAddr;
 
 /// Network address information is exchanged via Identify protocol.
 /// That information is passed to relay, so nodes know each other's addresses
-impl NetworkBehaviourEventProcess<IdentifyEvent> for P2PBehaviour {
+impl NetworkBehaviourEventProcess<IdentifyEvent> for ServerBehaviour {
     fn inject_event(&mut self, event: IdentifyEvent) {
         match event {
             IdentifyEvent::Received { peer_id, info, .. } => {

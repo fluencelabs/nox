@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use crate::node_service::function::{FunctionRouter, SwarmEventType};
+use super::{FunctionRouter, SwarmEventType};
 use faas_api::ProtocolMessage;
 
-use log::{debug, trace};
 use std::error::Error;
 use std::task::{Context, Poll};
 
@@ -36,8 +35,6 @@ use libp2p::{
 };
 
 impl NetworkBehaviour for FunctionRouter {
-    // type ProtocolsHandler = OneShotHandler<ProtocolMessage, ProtocolMessage, ProtocolMessage>;
-
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
         OneShotHandler<ProtocolMessage, ProtocolMessage, ProtocolMessage>,
         <Kademlia<MemoryStore> as NetworkBehaviour>::ProtocolsHandler,
@@ -89,7 +86,7 @@ impl NetworkBehaviour for FunctionRouter {
                 self.call(call)
             }
             Second(kademlia_event) => {
-                trace!("Kademlia: {:?}", kademlia_event);
+                log::trace!("Kademlia: {:?}", kademlia_event);
                 self.kademlia
                     .inject_event(source, connection_id, kademlia_event)
             }
@@ -170,22 +167,23 @@ impl NetworkBehaviour for FunctionRouter {
 impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRouter {
     fn inject_event(&mut self, event: KademliaEvent) {
         use libp2p::kad::{GetProvidersError, GetProvidersOk};
-        use KademliaEvent::GetProvidersResult;
+        use KademliaEvent::{GetClosestPeersResult, GetProvidersResult};
 
-        debug!("Kademlia inject: {:?}", event);
+        log::debug!("Kademlia inject: {:?}", event);
 
         match event {
             GetProvidersResult(Ok(GetProvidersOk { key, providers, .. })) => {
                 self.providers_found(key, providers)
             }
             GetProvidersResult(Err(GetProvidersError::Timeout { key, providers, .. })) => {
-                println!(
+                log::warn!(
                     "GetProviders for {} timed out with {} providers",
                     bs58::encode(key.as_ref()).into_string(),
                     providers.len()
                 );
                 self.providers_found(key, providers)
             }
+            GetClosestPeersResult(result) => self.found_closest(result),
             _ => {}
         };
     }

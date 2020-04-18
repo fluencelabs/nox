@@ -35,12 +35,11 @@ use std::io::Write;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::builder()
-        .default_format()
         .format(|buf, record| {
             writeln!(
                 buf,
                 "[{} {} {} JI]: {}",
-                buf.timestamp_seconds(),
+                buf.timestamp_micros(),
                 record.level(),
                 record.module_path().unwrap_or_default(),
                 record.args()

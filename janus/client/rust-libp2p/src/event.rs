@@ -21,6 +21,7 @@ use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum ClientEvent {
     FunctionCall {
         call: FunctionCall,

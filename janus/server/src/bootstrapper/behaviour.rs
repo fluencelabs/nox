@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::node_service::bootstrapper::event::BootstrapperEvent;
+use crate::bootstrapper::event::BootstrapperEvent;
 use janus_libp2p::{event_polling, generate_swarm_event_type};
 use libp2p::core::connection::{ConnectedPoint, ConnectionId};
 use libp2p::swarm::{
@@ -29,6 +29,7 @@ pub type SwarmEventType = generate_swarm_event_type!(Bootstrapper);
 
 pub struct Bootstrapper {
     pub bootstrap_nodes: HashSet<Multiaddr>,
+    bootstrap_peers: HashSet<PeerId>,
     events: VecDeque<SwarmEventType>,
 }
 
@@ -36,6 +37,7 @@ impl Bootstrapper {
     pub fn new(bootstrap_nodes: Vec<Multiaddr>) -> Self {
         Self {
             bootstrap_nodes: bootstrap_nodes.into_iter().collect(),
+            bootstrap_peers: Default::default(),
             events: Default::default(),
         }
     }
@@ -73,7 +75,14 @@ impl NetworkBehaviour for Bootstrapper {
             ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
         };
 
-        if self.bootstrap_nodes.contains(maddr) {
+        log::debug!(
+            "connection established with {} {:?}",
+            peer_id.to_base58(),
+            maddr
+        );
+
+        if self.bootstrap_nodes.contains(maddr) || self.bootstrap_peers.contains(peer_id) {
+            self.bootstrap_peers.insert(peer_id.clone());
             self.push_event(BootstrapperEvent::BootstrapConnected {
                 peer_id: peer_id.clone(),
                 multiaddr: maddr.clone(),
@@ -92,7 +101,7 @@ impl NetworkBehaviour for Bootstrapper {
             ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
         };
 
-        if self.bootstrap_nodes.contains(maddr) {
+        if self.bootstrap_nodes.contains(maddr) || self.bootstrap_peers.contains(peer_id) {
             self.push_event(BootstrapperEvent::BootstrapDisconnected {
                 peer_id: peer_id.clone(),
                 multiaddr: maddr.clone(),
@@ -108,7 +117,10 @@ impl NetworkBehaviour for Bootstrapper {
         maddr: &Multiaddr,
         error: &dyn Error,
     ) {
-        if self.bootstrap_nodes.contains(maddr) {
+        let is_bootstrap = self.bootstrap_nodes.contains(maddr)
+            || peer_id.map_or(false, |id| self.bootstrap_peers.contains(id));
+
+        if is_bootstrap {
             self.push_event(BootstrapperEvent::ReachFailure {
                 peer_id: peer_id.cloned(),
                 multiaddr: maddr.clone(),

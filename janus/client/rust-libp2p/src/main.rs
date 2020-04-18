@@ -35,7 +35,7 @@ use parity_multiaddr::Multiaddr;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+    env_logger::builder().format_timestamp_micros().init();
 
     let relay_addr: Multiaddr = std::env::args()
         .nth(1)
@@ -110,31 +110,67 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
     fn show(cmd: ClientCommand) {
         println!("{}", serde_json::to_value(cmd).unwrap());
     }
+    fn uuid() -> String {
+        uuid::Uuid::new_v4().to_string()
+    }
 
     let time = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_millis()
         .to_string();
-    let uuid = uuid::Uuid::new_v4().to_string();
 
-    let call_example = ClientCommand::Call {
+    let call_multiaddr = ClientCommand::Call {
         node: bootstrap.clone(),
         call: FunctionCall {
-            uuid,
+            uuid: uuid(),
             target: Some(Address::Service {
                 service_id: "IPFS.multiaddr".into(),
             }),
             reply_to: Some(Address::Relay {
-                relay: bootstrap,
+                relay: bootstrap.clone(),
                 client: peer_id.clone(),
             }),
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
-            name: Some("name!".to_string()),
+            name: Some("call multiaddr".to_string()),
+        },
+    };
+
+    let register_ipfs_get = ClientCommand::Call {
+        node: bootstrap.clone(),
+        call: FunctionCall {
+            uuid: uuid(),
+            target: Some(Address::Service {
+                service_id: "provide".into(),
+            }),
+            reply_to: Some(Address::Relay {
+                relay: bootstrap.clone(),
+                client: peer_id.clone(),
+            }),
+            arguments: json!({ "service_id": "IPFS.get_QmFile3", "msg_id": time }),
+            name: Some("register service".to_string()),
+        },
+    };
+
+    let call_ipfs_get = ClientCommand::Call {
+        node: bootstrap.clone(),
+        call: FunctionCall {
+            uuid: uuid(),
+            target: Some(Address::Service {
+                service_id: "IPFS.get_QmFile3".into(),
+            }),
+            reply_to: Some(Address::Relay {
+                relay: bootstrap.clone(),
+                client: peer_id.clone(),
+            }),
+            arguments: serde_json::Value::Null,
+            name: Some("call ipfs get".to_string()),
         },
     };
 
     println!("possible messages:");
-    show(call_example);
+    show(call_multiaddr);
+    show(register_ipfs_get);
+    show(call_ipfs_get);
     println!("\n")
 }

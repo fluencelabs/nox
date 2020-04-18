@@ -32,13 +32,13 @@ node-tmux:
 	select-layout tiled
 
 client-ipfs:
-	${DEBUG_ENV} cargo run -p janus-ipfs --  /ip4/127.0.0.1/tcp/9990/ws /dns4/ipfs1.fluence.one/tcp/5001
+	${DEBUG_ENV} cargo run -p janus-ipfs -- /ip4/127.0.0.1/tcp/9990/ws /dns4/ipfs1.fluence.one/tcp/5001
 
 client-first:
-	${DEBUG_ENV} cargo run -p janus-client -- /ip4/127.0.0.1/tcp/9001/ws
+	${DEBUG_ENV} cargo run -p janus-client -- /ip4/104.248.25.59/tcp/9001/ws
 
 client-second:
-	${DEBUG_ENV} cargo run -p janus-client -- /ip4/127.0.0.1/tcp/9002/ws
+	${DEBUG_ENV} cargo run -p janus-client -- /ip4/104.248.25.59/tcp/9002/ws
 
 client-tmux:
 	tmux \

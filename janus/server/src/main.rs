@@ -25,45 +25,37 @@
     unreachable_patterns
 )]
 
-use crate::config::JanusConfig;
-use crate::node_service::NodeService;
+use janus_server::config::{certificates, create_args, load_config, JanusConfig};
+use janus_server::Server;
 
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
 use futures::channel::oneshot;
-use log::trace;
 use std::error::Error;
-
-mod certificate_storage;
-mod config;
-mod error;
-pub mod key_storage;
-pub mod misc;
-pub mod node_service;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+    env_logger::builder().format_timestamp_micros().init();
 
     let arg_matches = App::new("Fluence Janus protocol server")
         .version(VERSION)
         .author(AUTHORS)
         .about(DESCRIPTION)
-        .args(config::prepare_args().as_slice())
+        .args(create_args().as_slice())
         .get_matches();
 
-    let janus_config = config::load_config(arg_matches)?;
+    let janus_config = load_config(arg_matches)?;
 
     let janus = start_janus(janus_config)?;
-    println!("Janus has been successfully started.");
+    log::info!("Janus has been successfully started.");
 
-    println!("Waiting for Ctrl-C to exit");
+    log::info!("Waiting for Ctrl-C to exit...");
     block_until_ctrlc();
 
-    println!("shutdown services");
+    log::info!("Shutting down...");
     janus.stop();
 
     Ok(())
@@ -73,21 +65,21 @@ trait Stoppable {
     fn stop(self);
 }
 
-// for stop Janus just call stop() of the result object
+// NOTE: to stop Janus just call Stoppable::stop()
 fn start_janus(config: JanusConfig) -> Result<impl Stoppable, Box<dyn Error>> {
-    trace!("starting Janus");
+    log::trace!("starting Janus");
 
-    certificate_storage::init(config.certificate_dir.as_str(), &config.root_key_pair)?;
+    certificates::init(config.certificate_dir.as_str(), &config.root_key_pair)?;
 
     let key_pair = &config.root_key_pair.key_pair;
-    println!(
+    log::info!(
         "public key = {}",
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
-    let node_service = NodeService::new(
+    let node_service = Server::new(
         key_pair.clone(),
-        config.node_service_config.clone(),
+        config.server_config.clone(),
         config.root_weights.clone(),
     );
 

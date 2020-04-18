@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 /// `RawData` could be a byte array, string, `serde_json::Value`, or something like that
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "action")]
+#[allow(clippy::large_enum_variant)]
 pub enum ProtocolMessage {
     FunctionCall(FunctionCall),
     Upgrade,

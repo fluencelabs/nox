@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
-use std::collections::{HashMap, HashSet, VecDeque};
-
+use super::builtin_service::BuiltinService;
+use super::router::Service::Delegated;
+use super::waiting_queues::WaitingQueues;
+use faas_api::{Address, FunctionCall, ProtocolMessage};
+use failure::_core::time::Duration;
+use janus_libp2p::generate_swarm_event_type;
+use janus_libp2p::SafeMultihash;
 use libp2p::{
     core::either::EitherOutput,
     identity::{
@@ -29,18 +34,9 @@ use libp2p::{
     swarm::{DialPeerCondition, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler},
     PeerId,
 };
-
-use crate::misc::{SafeMultihash, WaitingQueues};
-use crate::node_service::function::builtin_service::BuiltinService;
-use crate::node_service::function::router::Service::Delegated;
-use faas_api::{Address, FunctionCall, ProtocolMessage};
-use failure::_core::time::Duration;
-use janus_libp2p::generate_swarm_event_type;
 use parity_multiaddr::Multiaddr;
+use std::collections::{HashMap, HashSet, VecDeque};
 use trust_graph::TrustGraph;
-
-mod behaviour;
-mod provider;
 
 pub type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 
@@ -84,9 +80,9 @@ impl WaitPeer {
 pub struct FunctionRouter {
     peer_id: PeerId,
     // Queue of events to send to the upper level
-    events: VecDeque<SwarmEventType>,
+    pub(super) events: VecDeque<SwarmEventType>,
     // Underlying Kademlia node
-    kademlia: Kademlia<MemoryStore>,
+    pub(super) kademlia: Kademlia<MemoryStore>,
     // Services provided by this node
     // TODO: health-check local services?
     // TODO: register these services
@@ -183,7 +179,12 @@ impl FunctionRouter {
         let service_id = String::from_utf8(key.as_ref().to_vec())
             .expect("Can't parse service_id from kademlia key");
 
-        log::info!("Found {} providers for {}", providers.len(), service_id);
+        log::info!(
+            "Found {} providers for {}: {:?}",
+            providers.len(),
+            service_id,
+            providers
+        );
 
         let mut calls = self.wait_provider.remove(&service_id).peekable();
         // Check if calls are empty without actually advancing iterator
@@ -246,9 +247,20 @@ impl FunctionRouter {
 
     fn execute_builtin(&mut self, service: BuiltinService, call: FunctionCall) {
         match service {
-            BuiltinService::DelegateProviding { service_id } => {
-                if let Some(forward_to) = call.reply_to.clone() {
-                    let new = Delegated { forward_to };
+            BuiltinService::DelegateProviding { service_id } => match &call.reply_to {
+                // To avoid routing cycle (see https://gist.github.com/folex/61700dd6afa14fbe3d1168e04dfe2661 for bug postmortem)
+                Some(Address::Relay { relay, .. }) if !self.is_local(&relay) => {
+                    log::warn!("Decline to register peer for a different relay: {:?}", call);
+                    self.send_error_on_call(
+                        call,
+                        "declined to register peer for a different relay".into(),
+                    );
+                }
+                // Happy path – registering delegated service. TODO: is it sound to allow forward_to = Address::Service?
+                Some(forward_to) => {
+                    let new = Delegated {
+                        forward_to: forward_to.clone(),
+                    };
                     let replaced = self.local_services.insert(service_id.clone(), new.clone());
                     if let Some(replaced) = replaced {
                         log::warn!(
@@ -261,15 +273,22 @@ impl FunctionRouter {
                     self.kademlia
                         .start_providing(service_id.as_bytes().to_vec().into());
                     log::info!("Published a service {}: {:?}", service_id, call)
-                } else {
-                    //TODO: self.send_error_on_call()
                 }
-            }
+                // If there's no `reply_to`, then we don't know where to forward, so can't register
+                None => {
+                    log::warn!("reply_to was not defined in {:?}", call);
+                    self.send_error_on_call(
+                        call,
+                        "reply_to must be defined when calling 'provide' service".into(),
+                    )
+                }
+            },
         }
     }
 
-    fn handle_local_call(&self, call: FunctionCall) {
+    fn handle_local_call(&mut self, call: FunctionCall) {
         log::info!("Got call {:?}, don't know what to do with that", call);
+        self.send_error_on_call(call, "Don't know how to handle that".to_string())
     }
 
     // ####
@@ -349,7 +368,7 @@ impl FunctionRouter {
         });
     }
 
-    fn connected(&mut self, peer_id: PeerId) {
+    pub(super) fn connected(&mut self, peer_id: PeerId) {
         log::info!("Peer connected: {}", peer_id.to_base58());
         self.connected_peers.insert(peer_id.clone());
 
@@ -365,7 +384,7 @@ impl FunctionRouter {
     }
 
     // TODO: clear connected_peers on inject_listener_closed?
-    fn disconnected(&mut self, peer_id: &PeerId) {
+    pub(super) fn disconnected(&mut self, peer_id: &PeerId) {
         log::info!(
             "Peer disconnected: {}. {} calls left waiting.",
             peer_id.to_base58(),
@@ -487,9 +506,11 @@ impl FunctionRouter {
 
         if let Some(reply_to) = reply_to {
             let call = FunctionCall {
-                reply_to: None, // TODO: sure?
+                target: Some(reply_to.clone()),
                 arguments,
-                ..call
+                reply_to: None, // TODO: sure?
+                uuid: format!("error_{}", call.uuid),
+                name: call.name,
             };
             self.send_to(reply_to, call)
         } else {
