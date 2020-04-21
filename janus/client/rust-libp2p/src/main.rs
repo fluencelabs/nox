@@ -62,10 +62,12 @@ async fn run_client(
     exit_receiver: oneshot::Receiver<()>,
     relay: Multiaddr,
 ) -> Result<(), Box<dyn Error>> {
-    let client = Client::connect(relay, exit_receiver);
+    let client = Client::connect(relay);
     let (mut client, client_task) = client.await?;
 
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
+
+    let mut stop = exit_receiver.into_stream().fuse();
 
     loop {
         select!(
@@ -95,6 +97,10 @@ async fn run_client(
                         break;
                     }
                 }
+            },
+            _ = stop.next() => {
+                client.stop();
+                break;
             }
         )
     }
@@ -160,7 +166,7 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
                 service_id: "IPFS.get_QmFile3".into(),
             }),
             reply_to: Some(Address::Relay {
-                relay: bootstrap.clone(),
+                relay: bootstrap,
                 client: peer_id.clone(),
             }),
             arguments: serde_json::Value::Null,

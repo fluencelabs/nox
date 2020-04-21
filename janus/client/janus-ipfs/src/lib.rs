@@ -27,7 +27,6 @@
 
 use async_timer::Interval;
 use faas_api::{Address, FunctionCall};
-use futures::channel::oneshot;
 use futures::{channel::oneshot::Receiver, select, FutureExt, StreamExt};
 use janus_client::{Client, ClientCommand, ClientEvent};
 use libp2p::PeerId;
@@ -92,8 +91,7 @@ pub async fn run_ipfs_multiaddr_service(
     ipfs: Multiaddr,
     stop: Receiver<()>,
 ) -> Result<(), Box<dyn Error>> {
-    let (exit_sender, exit_receiver) = oneshot::channel::<()>();
-    let (mut client, client_task) = Client::connect(bootstrap.clone(), exit_receiver).await?;
+    let (mut client, client_task) = Client::connect(bootstrap.clone()).await?;
 
     let mut stop = stop.into_stream().fuse();
 
@@ -115,7 +113,7 @@ pub async fn run_ipfs_multiaddr_service(
                             arguments, ..
                         },
                         sender
-                    }) if service_id.as_str() == IPFS_SERVICE => {
+                    }) if service_id == IPFS_SERVICE => {
                         log::info!(
                             "Got call for {} from {}, asking node to reply to {:?}",
                             IPFS_SERVICE, sender.to_base58(), reply_to
@@ -152,7 +150,7 @@ pub async fn run_ipfs_multiaddr_service(
             }
             _ = stop.next() => {
                 log::info!("Will stop");
-                exit_sender.send(()).unwrap();
+                client.stop();
                 break;
             }
         )

@@ -71,9 +71,9 @@ pub mod test {
             wrong => unreachable!("target should be Some(Address::Service), was {:?}", wrong),
         };
 
-        match BuiltinService::from(service_id.as_str(), call.arguments) {
+        match BuiltinService::from(&service_id, call.arguments) {
             Some(BuiltinService::DelegateProviding { service_id }) => {
-                assert_eq!(service_id.as_str(), ipfs_service)
+                assert_eq!(service_id, ipfs_service)
             }
             wrong => unreachable!(
                 "target should be Some(BuiltinService::DelegateProviding, was {:?}",

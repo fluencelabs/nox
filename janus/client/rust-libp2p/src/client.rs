@@ -14,32 +14,25 @@
  * limitations under the License.
  */
 
+use crate::{
+    behaviour::ClientBehaviour, command::ClientCommand, function_call_api::FunctionCallApi,
+    ClientEvent,
+};
+use async_std::{task, task::JoinHandle};
+use futures::{
+    channel::{mpsc, mpsc::TrySendError, oneshot},
+    future::FusedFuture,
+    select,
+    stream::{Fuse, StreamExt},
+    FutureExt,
+};
 use janus_libp2p::{
     build_transport,
-    types::{Inlet, Outlet},
+    types::{Inlet, OneshotOutlet, Outlet},
 };
-
-use async_std::task;
-use futures::channel::mpsc;
-use futures::channel::oneshot;
-use futures::future::FusedFuture;
-use futures::stream::Fuse;
-use futures::{select, stream::StreamExt, FutureExt};
-
-use crate::command::ClientCommand;
-
-use libp2p::identity::ed25519;
-use libp2p::{identity, PeerId, Swarm};
+use libp2p::{identity, identity::ed25519, PeerId, Swarm};
 use parity_multiaddr::Multiaddr;
-
-use crate::function_call_api::FunctionCallApi;
-use async_std::task::JoinHandle;
-
-use crate::behaviour::ClientBehaviour;
-use crate::ClientEvent;
-use std::error::Error;
-use std::ops::DerefMut;
-use std::time::Duration;
+use std::{error::Error, ops::DerefMut, time::Duration};
 
 pub struct Client {
     pub key_pair: ed25519::Keypair,
@@ -48,10 +41,15 @@ pub struct Client {
     relay_outlet: Outlet<ClientCommand>,
     /// Stream of messages received from node
     client_inlet: Fuse<Inlet<ClientEvent>>,
+    stop_outlet: OneshotOutlet<()>,
 }
 
 impl Client {
-    fn new(relay_outlet: Outlet<ClientCommand>, client_inlet: Inlet<ClientEvent>) -> Self {
+    fn new(
+        relay_outlet: Outlet<ClientCommand>,
+        client_inlet: Inlet<ClientEvent>,
+        stop_outlet: OneshotOutlet<()>,
+    ) -> Self {
         let key = ed25519::Keypair::generate();
         let peer_id = identity::PublicKey::Ed25519(key.public()).into_peer_id();
 
@@ -60,15 +58,26 @@ impl Client {
             peer_id,
             relay_outlet,
             client_inlet: client_inlet.fuse(),
+            stop_outlet,
         }
     }
 
     pub fn send(&self, cmd: ClientCommand) {
-        self.relay_outlet.unbounded_send(cmd).unwrap();
+        if let Err(err) = self.relay_outlet.unbounded_send(cmd) {
+            let err_msg = format!("{:?}", err);
+            let msg = err.into_inner();
+            log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
+        }
     }
 
     pub fn receive_one(&mut self) -> impl FusedFuture<Output = Option<ClientEvent>> + '_ {
         self.client_inlet.next()
+    }
+
+    pub fn stop(self) {
+        if self.stop_outlet.send(()).is_err() {
+            log::warn!("Unable to send stop, channel closed")
+        }
     }
 
     fn dial(&self, relay: Multiaddr) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
@@ -90,18 +99,17 @@ impl Client {
         Ok(swarm)
     }
 
-    pub async fn connect(
-        relay: Multiaddr,
-        stop: oneshot::Receiver<()>,
-    ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
+    pub async fn connect(relay: Multiaddr) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::unbounded();
         let (relay_outlet, relay_inlet) = mpsc::unbounded();
 
-        let client = Client::new(relay_outlet, client_inlet);
+        let (stop_outlet, stop_inlet) = oneshot::channel();
+
+        let client = Client::new(relay_outlet, client_inlet, stop_outlet);
         let mut swarm = client.dial(relay)?;
 
         let mut relay_inlet = relay_inlet.fuse();
-        let mut stop = stop.into_stream().fuse();
+        let mut stop = stop_inlet.into_stream().fuse();
 
         let task = task::spawn(async move {
             loop {
@@ -118,9 +126,18 @@ impl Client {
                     }
 
                     // Messages that were received from relay node
-                    from_relay = swarm.select_next_some() => Self::receive_from_relay(from_relay, &client_outlet),
-
+                    from_relay = swarm.select_next_some() => {
+                        match Self::receive_from_node(from_relay, &client_outlet) {
+                            Err(err) => {
+                                let err_msg = format!("{:?}", err);
+                                let msg = err.into_inner();
+                                log::warn!("unable to send {:?} to node: {:?}", msg, err_msg)
+                            },
+                            Ok(_v) => {},
+                        }
+                    },
                     _ = stop.next() => {
+                        drop(swarm); // TODO: is it needed?
                         break;
                     }
                 )
@@ -140,8 +157,11 @@ impl Client {
         }
     }
 
-    fn receive_from_relay(msg: ClientEvent, client_outlet: &Outlet<ClientEvent>) {
+    fn receive_from_node(
+        msg: ClientEvent,
+        client_outlet: &Outlet<ClientEvent>,
+    ) -> Result<(), TrySendError<ClientEvent>> {
         // Message will be available through client.receive_one
-        client_outlet.unbounded_send(msg).unwrap()
+        client_outlet.unbounded_send(msg)
     }
 }

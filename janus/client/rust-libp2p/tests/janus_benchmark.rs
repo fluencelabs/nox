@@ -30,7 +30,7 @@
 // use bencher::stats::Stats;
 // use futures::channel::mpsc::TrySendError;
 // use itertools::Itertools;
-// use janus_client::Command;
+// use janus_client::ClientEvent;
 // use libp2p::PeerId;
 // use parity_multiaddr::Multiaddr;
 // use std::error::Error;
@@ -175,8 +175,8 @@
 //
 // /// Creates 2 clients and connects them to nodes correspondingly
 // async fn connect_clients(node1: Node, node2: Node) -> Result<(Client, Client), Box<dyn Error>> {
-//     let (client1, _) = Client::connect(node1.address, node1.peer_id).await?;
-//     let (client2, _) = Client::connect(node2.address, node2.peer_id).await?;
+//     let (client1, _) = Client::connect(node1.address).await?;
+//     let (client2, _) = Client::connect(node2.address).await?;
 //     Ok((client1, client2))
 // }
 //
@@ -216,11 +216,13 @@
 //     let now = now();
 //
 //     match result {
-//         Ok(Some(Message::Incoming { data, .. })) => {
-//             let sent = Duration::from_millis(
-//                 data.parse()
-//                     .expect(format!("Can't parse duration from {}", data).as_str()),
-//             );
+//         Ok(Some(ClientEvent::FunctionCall { call, sender })) => {
+//             let sent = call
+//                 .arguments
+//                 .get("sent")
+//                 .and_then(|v| v.as_u64())
+//                 .map(Duration::from_millis)
+//                 .expect("parse 'sent' from arguments");
 //
 //             let passed = now - sent;
 //             stat.unbounded_send(Action::Received(passed))?;
