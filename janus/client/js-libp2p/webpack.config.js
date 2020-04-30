@@ -1,5 +1,4 @@
 const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
@@ -40,13 +39,10 @@ if (production) {
     config.devtool = 'inline-source-map';
     config.devServer = {
         contentBase: './bundle',
-        hot: true
+        hot: false
     };
     config.plugins = [
         ...config.plugins,
-        new HtmlWebpackPlugin({
-            template: 'src/index.html'
-        }),
         new webpack.HotModuleReplacementPlugin()
     ];
 }

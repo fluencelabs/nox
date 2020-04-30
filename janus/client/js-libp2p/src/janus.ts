@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,202 +14,297 @@
  * limitations under the License.
  */
 
-import {connect, connectWithKey, JanusConnection} from "./janus_connection";
-import {IpfsMultiaddrService} from "./ipfs_multiaddr_service";
-import {IpfsShowService} from "./ipfs_show_service";
-import {ipfsAdd, ipfsGet} from "./ipfs_service";
-import {FunctionCall, genUUID} from "./function_call";
+import {Address, createRelayAddress} from "./address";
+import {
+    FunctionCall,
+    genUUID,
+    makeCall,
+    makeFunctionCall,
+    makePeerCall, makeRegisterMessage,
+    makeRelayCall,
+    parseFunctionCall
+} from "./function_call";
+import * as PeerId from "peer-id";
+import {Services} from "./services";
+import {Subscriptions} from "./subscriptions";
+import bs58 from "bs58";
+import * as PeerInfo from "peer-info";
+import Websockets from "libp2p-websockets";
+import Mplex from "libp2p-mplex";
+import SECIO from "libp2p-secio";
+import Peer from "libp2p";
+import {decode, encode} from "it-length-prefixed";
+import pipe from "it-pipe";
 
-interface Server {
-    peer: string,
-    ip: string,
-    port: number
+export const PROTOCOL_NAME = '/janus/faas/1.0.0';
+
+enum Status {
+    Initializing = "Initializing",
+    Connected = "Connected",
+    Disconnected = "Disconnected"
 }
 
-function server(peer: string, ip: string, port: number): Server {
-    return {
-        peer: peer,
-        ip: ip,
-        port: port
+export class JanusClient {
+    private readonly host: string;
+    private readonly port: number;
+    private readonly nodePeerId: PeerId;
+    private readonly nodePeerIdStr: string;
+    private readonly selfPeerInfo: PeerInfo;
+    readonly selfPeerIdStr: string;
+    private readonly node: LibP2p;
+    readonly replyToAddress: Address;
+    private readonly address: string;
+
+    // connection status. If `Disconnected`, it cannot be reconnected
+    private status: Status = Status.Initializing;
+
+    private services: Services = new Services();
+
+    private subscriptions: Subscriptions = new Subscriptions();
+
+    private constructor(host: string, port: number, selfPeerInfo: PeerInfo, node: LibP2p, nodePeerId: PeerId) {
+        this.host = host;
+        this.port = port;
+        this.selfPeerInfo = selfPeerInfo;
+        this.selfPeerIdStr = selfPeerInfo.id.toB58String();
+        this.nodePeerId = nodePeerId;
+        this.nodePeerIdStr = nodePeerId.toB58String();
+        this.replyToAddress = createRelayAddress(this.nodePeerIdStr, this.selfPeerIdStr);
+        this.node = node;
+        this.address = `/ip4/${this.host}/tcp/${this.port}/ws/p2p/${this.nodePeerIdStr}`;
     }
-}
 
-const servers = [
+    private async startReceiving() {
+        if (this.status === Status.Initializing) {
+            await this.node.start();
 
-    server("QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz", "134.209.186.43", 9001),
-    server("QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW", "134.209.186.43", 9002),
-    server("QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2", "134.209.186.43", 9990)
-    // server("QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz", "104.248.25.59", 9001),
-    // server("QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW", "104.248.25.59", 9002),
-    // server("QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2", "104.248.25.59", 9990)
-];
+            console.log("dialing to the node with address: " + this.node.peerInfo.id.toB58String());
 
+            await this.node.dial(this.address);
 
-const multiaddrService = "IPFS.multiaddr";
+            let _this = this;
 
-function changeConnectionStatus(status: string) {
-    let statusEl = document.getElementById("connection-status") as HTMLSpanElement;
-    statusEl.innerText = status;
-}
+            this.node.handle([PROTOCOL_NAME], async ({connection, stream}) => {
+                pipe(
+                    stream.source,
+                    decode(),
+                    async function (source: AsyncIterable<string>) {
+                        for await (const msg of source) {
+                            try {
+                                let call = parseFunctionCall(msg);
+                                let response = _this.handleCall(call);
 
-function shortPeerId(peerId: string) {
-    return peerId.substr(0, 4) + "..." + peerId.substr(peerId.length - 4, peerId.length)
-}
-
-function initDownloadButton() {
-    let downloadButton = document.getElementById("download-submit") as HTMLInputElement;
-    downloadButton.onclick = async function(e) {
-        let hashInput = document.getElementById("download-hash") as HTMLInputElement;
-
-        let hash = hashInput.value;
-        let msgId = genUUID() + hash;
-        if (hash && hash.length === 46) {
-            connection.sendServiceCall("IPFS.get_" + hash, {msg_id: msgId}, "peer call IPFS.get_" + hash);
-            connection.subscribe((call: FunctionCall) => {
-                if (call.arguments.msg_id === msgId) {
-
-                    console.log(call.arguments.multiaddr);
-
-                    ipfsGet(call.arguments.multiaddr, hash).then(async (bytes) => {
-
-                        const blob = new Blob([bytes], {type: "application/octet-stream"});
-                        const link = document.createElement('a');
-                        link.href = window.URL.createObjectURL(blob);
-                        link.download = hash;
-                        link.click();
-
-                    }).catch((er) => {
-                        console.log("ERROR");
-                        console.log(er);
-                    });
-
-                    return true;
-                }
+                                // send a response if it exists, do nothing otherwise
+                                if (response) {
+                                    await _this.sendFunctionCall(response);
+                                }
+                            } catch(e) {
+                                console.log("error on handling a new incoming message: " + e);
+                            }
+                        }
+                    }
+                )
             });
+
+            this.status = Status.Connected;
+        } else {
+            throw `can't start receiving. Status: ${this.status}`;
         }
-    };
-}
-
-function initUploadButton() {
-    let uploadButton = document.getElementById("upload-submit") as HTMLInputElement;
-    uploadButton.onclick = async function(e) {
-        let fileEl = document.getElementById("upload-file") as HTMLInputElement;
-        let file = fileEl.files[0] as File;
-        let reader = new FileReader();
-        reader.readAsArrayBuffer(file);
-
-        reader.onload = async function() {
-
-            let arrayBuffer = this.result as ArrayBuffer;
-            let array = new Uint8Array(arrayBuffer);
-
-            let service = new IpfsShowService(connection, array, multiaddrService);
-
-            console.log(new TextDecoder("utf-8").decode(array));
-
-            let serviceName = await service.getName();
-            let hash = await service.getHash();
-            console.log("service name: " + serviceName);
-            await connection.registerService(serviceName, service.service());
-
-            let ul = document.getElementById("list-of-files");
-            let li = document.createElement("li");
-            li.appendChild(document.createTextNode(hash));
-            ul.appendChild(li);
-
-        };
-    };
-}
-
-function initServersList(initNumber: number) {
-    let serversListEl = document.getElementById("servers-select") as HTMLSelectElement;
-
-    for (let i in servers) {
-        let server = { ...servers[i] };
-        let option = document.createElement("option") as HTMLOptionElement;
-        server.peer = shortPeerId(server.peer);
-        option.innerText = JSON.stringify(server);
-        option.value = i;
-        if (initNumber === parseInt(i)) {
-            option.selected = true;
-        }
-        serversListEl.add(option);
     }
 
-    serversListEl.onchange = function (e) {
-        let optionNumber = (e.target as any).value;
-        reconnect(servers[optionNumber]);
-    };
-}
-
-async function createMultiaddrService() {
-    let con = await connectWithKey(1, "QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW", "104.248.25.59", 9002);
-    let service = new IpfsMultiaddrService(con, "/dns4/ipfs1.fluence.one/tcp/5001");
-    await con.registerService(multiaddrService, service.service());
-}
-
-async function createPeer(serviceName: string) {
-    let con = await connectWithKey(2, "QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz", "104.248.25.59", 9001);
-
-    await con.sendServiceCall(serviceName, {}, "peer call IPFS.get_...")
-}
-
-async function createShowService() {
-    let con = await connectWithKey(3, "QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2", "104.248.25.59", 9990);
-
-    let service = new IpfsShowService(con, Buffer.from("12333333333333333333"), multiaddrService);
-
-    let serviceName = await service.getName();
-    console.log("service name: " + serviceName);
-    await con.registerService(serviceName, service.service());
-}
-
-async function checkIPFS() {
-    // let multiaddr = '/ip4/127.0.0.1/tcp/5001';
-    let multiaddr = '/dns4/ipfs1.fluence.one/tcp/5001';
-
-    let f: any = await ipfsAdd(multiaddr, new Uint8Array([1,2,3,4]));
-    let res = await ipfsGet(multiaddr, f.path);
-
-    console.log(res);
-}
-
-async function reconnect(server: Server) {
-
-    if (connection) {
-        await connection.disconnect();
-        changeConnectionStatus("Connecting...");
+    /**
+     * Makes message with response from function. Without reply_to field.
+     */
+    private static responseCall(target: Address, args: any): FunctionCall {
+        return makeFunctionCall(genUUID(), target, args, undefined, "response");
     }
 
-    connection = await connect(server.peer, server.ip, server.port);
+    /**
+     * Sends remote service_id call.
+     */
+    async sendServiceCall(serviceName: string, args: any, name?: string) {
+        let regMsg = makeCall(serviceName, args, this.replyToAddress, name);
+        await this.sendFunctionCall(regMsg);
+    }
 
-    changeConnectionStatus("Connected");
+    /**
+     * Sends custom message to the peer.
+     */
+    async sendPeerCall(peer: string, msg: any, name?: string) {
+        let regMsg = makePeerCall(PeerId.createFromB58String(peer), msg, this.replyToAddress, name);
+        await this.sendFunctionCall(regMsg);
+    }
+
+    /**
+     * Sends custom message to the peer through relay.
+     */
+    async sendRelayCall(peer: string, relay: string, msg: any, name?: string) {
+        let regMsg = makeRelayCall(PeerId.createFromB58String(peer), PeerId.createFromB58String(relay), msg, this.replyToAddress, name);
+        await this.sendFunctionCall(regMsg);
+    }
+
+    /**
+     * Send FunctionCall to the connected node.
+     */
+    async sendFunctionCall(call: FunctionCall) {
+        this.checkConnection();
+
+        console.log("send function call:");
+        console.log(call);
+
+        // create outgoing substream
+        const conn = await this.node.dialProtocol(this.address, PROTOCOL_NAME) as {stream: Stream; protocol: string};
+
+        pipe(
+            [JSON.stringify(call)],
+            // at first, make a message varint
+            encode(),
+            conn.stream.sink,
+        );
+    }
+
+    /**
+     * Handle incoming call.
+     * If FunctionCall returns - we should send it as a response.
+     */
+    handleCall(call: FunctionCall): FunctionCall | undefined {
+        console.log("FunctionCall received:");
+        console.log(call);
+
+        // if other side return an error - handle it
+        // TODO do it in the protocol
+        /*if (call.arguments.error) {
+            this.handleError(call);
+        } else {
+
+        }*/
+
+        let target = call.target;
+        // TODO switch to multiaddress
+        switch (target.type) {
+            case "Service":
+                try {
+                    // call of the service, service should handle response sending, error handling, requests to other services
+                    let applied = this.services.applyToService(target.service_id, call);
+
+                    // if the request hasn't been applied, there is no such service. Return an error.
+                    if (!applied) {
+                        console.log(`there is no service ${target.service_id}`);
+                        return JanusClient.responseCall(call.reply_to, { reason: `there is no such service`, msg: call });
+                    }
+                } catch (e) {
+                    // if service throw an error, return it to the sender
+                    return JanusClient.responseCall(call.reply_to, { reason: `error on execution: ${e}`, msg: call });
+                }
+
+                return undefined;
+            case "Relay":
+                if (target.client === this.selfPeerIdStr) {
+                    console.log(`relay message: ${call}`);
+                    this.subscriptions.applyToSubscriptions(call)
+                } else {
+                    console.log(`this relay message is not for me: ${call}`)
+                }
+                return undefined;
+            case "Peer":
+                if (target.peer === this.selfPeerIdStr) {
+                    console.log(`peer message: ${call}`);
+                    this.subscriptions.applyToSubscriptions(call)
+                } else {
+                    console.log(`this peer message is not for me: ${call}`)
+                }
+                return undefined;
+        }
+    }
+
+    checkConnection() {
+        if (this.status !== Status.Connected) {
+            throw `connection is in ${this.status} state`
+        }
+    }
+
+    /**
+     * Sends a message to register the service_id.
+     */
+    async registerService(serviceName: string, fn: (req: FunctionCall) => void) {
+        this.checkConnection();
+        let regMsg = makeRegisterMessage(serviceName, this.nodePeerId, this.selfPeerInfo.id);
+        await this.sendFunctionCall(regMsg);
+
+        this.services.addService(serviceName, fn, regMsg)
+    }
+
+    // subscribe new hook for every incoming call, to handle in-service responses and other different cases
+    // the hook will be deleted if it will return `true`
+    subscribe(f: (call: FunctionCall) => (boolean | undefined)) {
+        this.checkConnection();
+        this.subscriptions.subscribe(f)
+    }
+
+    /**
+     * Sends a message to unregister the service_id.
+     */
+    async unregisterService(serviceName: string) {
+        if (this.services.deleteService(serviceName)) {
+            // TODO unregister in fluence network when it will be supported
+            // let regMsg = makeRegisterMessage(serviceName, PeerId.createFromB58String(this.nodePeerId));
+            // await this.sendFunctionCall(regMsg);
+        }
+    }
+
+    async disconnect() {
+        await this.node.stop();
+        this.status = Status.Disconnected;
+    }
+
+    static async connect(nodePeerId: string, host?: string, port?: number, privateKey?: string) {
+
+        if (!host) {
+            host = "localhost"
+        }
+
+        if (!port) {
+            port = 9999
+        }
+
+        let peerInfo;
+        if (privateKey) {
+            let peerId = await PeerId.createFromPrivKey(bs58.decode(privateKey));
+            peerInfo = await PeerInfo.create(peerId);
+        } else {
+            // generate new private key
+            peerInfo = await PeerInfo.create();
+        }
+
+        const node = await Peer.create({
+            peerInfo,
+            config: {},
+            modules: {
+                transport: [Websockets],
+                streamMuxer: [Mplex],
+                connEncryption: [SECIO],
+                peerDiscovery: []
+            },
+        });
+
+        let connection = new JanusClient(host, port, peerInfo, node, PeerId.createFromB58String(nodePeerId));
+
+        await connection.startReceiving();
+
+        return connection;
+    }
 }
 
-window.onload = async function () {
-    let serverNum = Math.floor(Math.random() * servers.length);
-
-    initServersList(serverNum);
-
-    let server = servers[serverNum];
-    console.log("SERVER: " + JSON.stringify(server));
-    connection = await connect(server.peer, server.ip, server.port);
-    changeConnectionStatus("Connected");
-
-    initDownloadButton();
-    initUploadButton();
-
-};
-
-let connection: JanusConnection;
-
-
-if (window && typeof window !== undefined) {
-    (<any>window).connect = connect;
-    (<any>window).connectWithKey = connectWithKey;
-    (<any>window).createMultiaddrService = createMultiaddrService;
-    (<any>window).createPeer = createPeer;
-    (<any>window).createShowService = createShowService;
-    (<any>window).checkIPFS = checkIPFS;
+/**
+ * Connects to a janus node.
+ * @param peerId in libp2p format. Example:
+ *                                      QmUz5ziqFiwuPJnUZehrQ3EyzpHjp22FyQRNH9AxRxKPbp
+ *                                      QmcYE4o3HCpotey8Xm87ArERDp9KMgagUnjtKBxuA5vcBY
+ * @param host localhost by default
+ * @param port 9999 by default
+ * @param privateKey in base58, will create new private key and peerId if empty
+ */
+export async function connect(peerId: string, host?: string, port?: number, privateKey?: string): Promise<JanusClient> {
+    return await JanusClient.connect(peerId, host, port, privateKey)
 }
 

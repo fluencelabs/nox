@@ -5,13 +5,26 @@
       "./node_modules/libp2p-ts/types",
       "./types"
     ],
+    "outDir": "./dist/",
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "strictFunctionTypes": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "pretty": true,
     "target": "esnext",
     "module": "commonjs",
-    "pretty": true,
+    "moduleResolution": "node",
     "declaration": true,
     "strict": true,
     "strictNullChecks": false,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "baseUrl": "."
   },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "bundle"
+  ],
   "include": ["src/**/*"]
 }
