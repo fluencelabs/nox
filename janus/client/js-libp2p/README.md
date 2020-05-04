@@ -13,63 +13,80 @@ npm install
 
 Shows how to register and call new service in Fluence network
 
-```javascript
-const {genUUID} = require("janus-beta/dist/function_call");
-const JanusClient = require("janus-beta/dist/janus");
-const {makeFunctionCall} = require("janus-beta/dist/function_call");
-
-async function calculateSum() {
-
-    // connect to two different nodes
-    let con1 = await JanusClient.connect("QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz", "104.248.25.59", 9001);
-    let con2 = await JanusClient.connect("QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW", "104.248.25.59", 9002);
-
-    // service name that we will register with one connection and call with another
-    let serviceName = "sum-calculator";
-
-    // register service that will add two numbers and send a response with calculation result
-    await con1.registerService(serviceName, async (req) => {
-        console.log("message received");
-        console.log(req);
-
-        console.log("send response");
-
-        let response = makeFunctionCall(genUUID(), req.reply_to, {msgId: req.arguments.msgId, result: req.arguments.one + req.arguments.two});
-        console.log(response);
-
-        await con1.sendFunctionCall(response);
-    });
-
-
-    // msgId is to identify response
-    let msgId = "calculate-it-for-me";
-
-    let req = {one: 12, two: 23, msgId: msgId};
-
-    // send call to `sum-calculator` service with two numbers
-    await con2.sendServiceCall(serviceName, req, "calculator request");
-
-    let resultPromise = new Promise((resolve, reject) => {
-        // subscribe for responses, to handle response
-        con2.subscribe((call) => {
-            if (call.arguments.msgId && call.arguments.msgId === msgId) {
-                console.log("response received!");
-
-                resolve(call.arguments.result);
-                return true;
-            }
-            return false;
-        });
-    });
-
-    let result = await resultPromise;
-    console.log(`calculation result is: ${result}`);
+```typescript
+interface Server {
+    peer: string,
+    ip: string,
+    port: number
 }
 
-(async () => {
-    await calculateSum().catch((e) => {
-        console.log(e)
-    });
-})();
+function server(peer: string, ip: string, port: number): Server {
+    return {
+        peer: peer,
+        ip: ip,
+        port: port
+    }
+}
+
+const servers = [
+    // /ip4/134.209.186.43/tcp/7001 /ip4/134.209.186.43/tcp/9001/ws QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz
+    // /ip4/134.209.186.43/tcp/7002 /ip4/134.209.186.43/tcp/9002/ws QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW
+    // /ip4/134.209.186.43/tcp/7003 /ip4/134.209.186.43/tcp/9003/ws QmSTTTbAu6fa5aT8MjWN922Y8As29KTqBwvvp7CyrC2S6D
+    // /ip4/134.209.186.43/tcp/7004 /ip4/134.209.186.43/tcp/9004/ws QmUGQ2ikgcbJUVyaxBPDSWLNUMDo2hDvE9TdRNJY21Eqde
+    // /ip4/134.209.186.43/tcp/7005 /ip4/134.209.186.43/tcp/9005/ws Qmdqrm4iHuHPzgeTkWxC8KRj1voWzKDq8MUG115uH2WVSs
+    server("QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz", "134.209.186.43", 9001),
+    server("QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW", "134.209.186.43", 9002),
+    server("QmSTTTbAu6fa5aT8MjWN922Y8As29KTqBwvvp7CyrC2S6D", "134.209.186.43", 9003)
+];
+
+// Shows how to register and call new service in Fluence network
+export async function testCalculator() {
+    let key1 = await Janus.generatePeerId();
+        let key2 = await Janus.generatePeerId();
+    
+        // connect to two different nodes
+        let cl1 = await Janus.connect("QmSTTTbAu6fa5aT8MjWN922Y8As29KTqBwvvp7CyrC2S6D", "134.209.186.43", 9003, key1);
+        let cl2 = await Janus.connect("QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW", "134.209.186.43", 9002, key2);
+    
+        // service name that we will register with one connection and call with another
+        let serviceId = "sum-calculator-" + genUUID();
+    
+        // register service that will add two numbers and send a response with calculation result
+        await cl1.registerService(serviceId, async (req) => {
+            console.log("message received");
+            console.log(req);
+    
+            console.log("send response");
+    
+            let message = {msgId: req.arguments.msgId, result: req.arguments.one + req.arguments.two};
+    
+            await cl1.sendMessage(req.reply_to, message);
+        });
+    
+    
+        // msgId is to identify response
+        let msgId = "calculate-it-for-me";
+    
+        let req = {one: 12, two: 23, msgId: msgId};
+    
+    
+        let predicate: (args: any) => boolean | undefined = (args: any) => args.msgId && args.msgId === msgId;
+    
+        // send call to `sum-calculator` service with two numbers
+        let response = await cl2.sendServiceCallWaitResponse(serviceId, req, predicate);
+    
+        let result = response.result;
+        console.log(`calculation result is: ${result}`);
+    
+        await cl1.connect("QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz", "134.209.186.43", 9001);       
+    
+        // send call to `sum-calculator` service with two numbers
+        await cl2.sendServiceCall(serviceId, req, "calculator request");
+    
+        let response2 = await cl2.sendServiceCallWaitResponse(serviceId, req, predicate);
+    
+        let result2 = await response2.result;
+        console.log(`calculation result AFTER RECONNECT is: ${result2}`);
+}
 ```
 

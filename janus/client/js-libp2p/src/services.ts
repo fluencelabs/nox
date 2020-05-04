@@ -22,7 +22,7 @@ export class Services {
 
     constructor() {}
 
-    addService(serviceId: string, callback: (req: FunctionCall) => void, registerCall: FunctionCall): void {
+    addService(serviceId: string, callback: (req: FunctionCall) => void): void {
         this.services.set(serviceId, callback);
     }
 

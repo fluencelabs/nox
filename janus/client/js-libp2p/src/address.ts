@@ -14,73 +14,109 @@
  * limitations under the License.
  */
 
-export type Address = Relay | Service | Peer
-
-export interface Relay {
-    type: "Relay",
-    relay: string,
-    client: string
+export interface Address {
+    protocols: Protocol[]
 }
 
-export interface Service {
-    type: "Service",
-    service_id: string
+export interface Protocol {
+    protocol: ProtocolType,
+    value?: string
 }
 
-export interface Peer {
-    type: "Peer",
-    peer: string
+export enum ProtocolType {
+    Service = "service",
+    Peer = "peer",
+    Client = "client"
 }
 
-export function createRelayAddress(relay: string, client: string): Relay {
-    return {
-        relay: relay,
-        client: client,
-        type: "Relay"
+export function addressToString(address: Address): string {
+    let addressStr = "fluence:";
+
+    for (let addr of address.protocols) {
+        addressStr = addressStr + "/" + addr.protocol;
+        if (addr.value) {
+            addressStr = addressStr + "/" + addr.value;
+        }
     }
+
+    return addressStr;
 }
 
-export function createServiceAddress(service: string): Service {
-    return {
-        service_id: service,
-        type: "Service"
+function protocolWithValue(protocol: ProtocolType, protocolIterator: IterableIterator<[number, string]>): Protocol {
+
+    let protocolValue = protocolIterator.next().value;
+
+    if (!protocolValue || !protocolValue[1]) {
+        throw Error(`protocol '${protocol}' should be with a value`)
     }
+
+    return {protocol: protocol, value: protocolValue[1]};
 }
 
-export function createPeerAddress(peer: string): Peer {
-    return {
-        type: "Peer",
-        peer: peer
-    }
-}
 
-/**
- * Check if all fields in json exist. It depends on type of address.
- * @param json
- */
-export function parseAddressObj(json: any): Address {
-    switch (json.type) {
-        case "Relay":
-            if (typeof json.relay !== "string") throw `there is no 'relay' field in json.\n${JSON.stringify(json)}`;
-            if (typeof json.client !== "string") throw `there is no 'client' field in json.\n${JSON.stringify(json)}`;
+export function parseProtocol(protocol: string, protocolIterator: IterableIterator<[number, string]>): Protocol {
+    protocol = protocol.toLocaleLowerCase();
 
-            return createRelayAddress(json.relay, json.client);
-        case "Service":
-            if (typeof json.service_id !== "string") throw `there is no 'service' field in json.\n${JSON.stringify(json)}`;
-            return createServiceAddress(json.service_id);
-        case "Peer":
-            if (typeof json.peer !== "string") throw `there is no 'peer' field in json.\n${JSON.stringify(json)}`;
-
-            return createPeerAddress(json.peer);
-        case undefined:
-            throw `there is no 'type' field in json.\n${JSON.stringify(json)}`;
+    switch (protocol) {
+        case ProtocolType.Service:
+            return protocolWithValue(protocol, protocolIterator);
+        case ProtocolType.Client:
+            return protocolWithValue(protocol, protocolIterator);
+        case ProtocolType.Peer:
+            return protocolWithValue(protocol, protocolIterator);
         default:
-            throw `'type' field should be only 'relay|service|peer' in json.\n${JSON.stringify(json)}`;
+            throw Error("cannot parse protocol. Should be 'service|peer|client'");
+    }
+
+}
+
+export function createRelayAddress(relay: string, client: string): Address {
+    let protocols = [{protocol: ProtocolType.Peer, value: relay}, {protocol: ProtocolType.Client, value: client}];
+
+    return {
+        protocols: protocols
+    }
+}
+
+export function createServiceAddress(service: string): Address {
+
+    let protocol = { protocol: ProtocolType.Service, value: service };
+
+    return {
+        protocols: [protocol]
+    }
+}
+
+export function createPeerAddress(peer: string): Address {
+    let protocol = { protocol: ProtocolType.Peer, value: peer };
+
+    return {
+        protocols: [protocol]
     }
 }
 
 export function parseAddress(str: string): Address {
-    let json = JSON.parse(str);
+    str = str.replace("fluence:", "");
 
-    return parseAddressObj(json);
+    // delete leading slashes
+    str = str.replace(/^\/+/, '');
+
+    let parts = str.split("/");
+    if (parts.length < 1) {
+        throw Error("address parts should not be empty")
+    }
+
+    let protocols: Protocol[] = [];
+    let partsEntries: IterableIterator<[number, string]> = parts.entries();
+
+    while(true) {
+        let result = partsEntries.next();
+        if (result.done) break;
+        let protocol = parseProtocol(result.value[1], partsEntries);
+        protocols.push(protocol);
+    }
+
+    return {
+        protocols: protocols
+    }
 }

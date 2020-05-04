@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-import {Address, createPeerAddress, createRelayAddress, createServiceAddress, parseAddressObj} from "./address";
+import {
+    createPeerAddress,
+    createRelayAddress,
+    createServiceAddress,
+    Address, addressToString, parseAddress
+} from "./address";
 import * as PeerId from "peer-id";
 
 export interface FunctionCall {
@@ -26,7 +31,20 @@ export interface FunctionCall {
     action: "FunctionCall"
 }
 
+export function callToString(call: FunctionCall) {
+    let obj: any = {...call};
+
+    if (obj.reply_to) {
+        obj.reply_to = addressToString(obj.reply_to);
+    }
+
+    obj.target = addressToString(obj.target);
+
+    return JSON.stringify(obj)
+}
+
 export function makeFunctionCall(uuid: string, target: Address, args: object, replyTo?: Address, name?: string): FunctionCall {
+
     return {
         uuid: uuid,
         target: target,
@@ -39,14 +57,15 @@ export function makeFunctionCall(uuid: string, target: Address, args: object, re
 
 export function parseFunctionCall(str: string): FunctionCall {
     let json = JSON.parse(str);
+    console.log(JSON.stringify(json, undefined, 2));
 
     let replyTo: Address;
-    if (json.reply_to) replyTo = parseAddressObj(json.reply_to);
+    if (json.reply_to) replyTo = parseAddress(json.reply_to);
 
-    if (!json.uuid) throw `there is no 'uuid' field in json.\n${str}`;
-    if (!json.target) throw `there is no 'uuid' field in json.\n${str}`;
+    if (!json.uuid) throw Error(`there is no 'uuid' field in json.\n${str}`);
+    if (!json.target) throw Error(`there is no 'uuid' field in json.\n${str}`);
 
-    let target = parseAddressObj(json.target);
+    let target = parseAddress(json.target);
 
     return {
         uuid: json.uuid,
@@ -93,15 +112,15 @@ export function makeCall(functionId: string, args: any, replyTo?: Address, name?
 /**
  * Message to register new service_id.
  */
-export function makeRegisterMessage(serviceName: string, relayPeerId: PeerId, selfPeerId: PeerId): FunctionCall {
+export function makeRegisterMessage(serviceId: string, relayPeerId: PeerId, selfPeerId: PeerId): FunctionCall {
     let target = createServiceAddress("provide");
     let replyTo = createRelayAddress(relayPeerId.toB58String(), selfPeerId.toB58String());
 
-    return makeFunctionCall(genUUID(), target, {service_id: serviceName}, replyTo, "provide service_id");
+    return makeFunctionCall(genUUID(), target, {service_id: serviceId}, replyTo, "provide service_id");
 }
 
-export function makeUnregisterMessage(serviceName: string, peerId: PeerId): FunctionCall {
+export function makeUnregisterMessage(serviceId: string, peerId: PeerId): FunctionCall {
     let target = createPeerAddress(peerId.toB58String());
 
-    return makeFunctionCall(genUUID(), target, {key: serviceName}, undefined, "unregister");
+    return makeFunctionCall(genUUID(), target, {key: serviceId}, undefined, "unregister");
 }
