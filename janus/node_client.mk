@@ -21,6 +21,10 @@ node-second:
 	cargo run -p janus-server -- -t 7772 -w 9992 -b /ip4/127.0.0.1/tcp/7770 \
 	-k 2zgzUew3bMSgWcZ34FFS36LiJVkn3YphW2H8TDvL8JF8T4apTDxnm7GRsLppkCNGS5ytAQioxEktYq8Wr8SWAHLv
 
+janus-ipfs:
+	RUST_BACKTRACE=1 ${DEBUG_ENV} \
+	cargo run -p janus-ipfs /ip4/127.0.0.1/tcp/7770 /dns4/ipfs2.fluence.one/tcp/5001
+
 node-tmux:
 	cargo update -p libp2p
 	cargo build

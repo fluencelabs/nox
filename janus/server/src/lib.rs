@@ -22,8 +22,8 @@
  *   SOFTWARE.
  */
 
-#![allow(clippy::mutable_key_type)]
 #![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -58,10 +58,9 @@ mod behaviour {
 
 mod function {
     mod builtin_service;
-    mod dht;
+    mod dht_names;
     mod execution;
     mod peers;
-    mod provider_record;
     mod router;
     mod router_behaviour;
     mod services;
@@ -80,6 +79,8 @@ mod bootstrapper {
 }
 
 pub mod kademlia {
+    #![allow(clippy::mutable_key_type)]
+
     pub mod memory_store;
     pub mod record;
 
@@ -92,3 +93,6 @@ pub(crate) use bootstrapper::BootstrapperEvent;
 pub(crate) use function::FunctionRouter;
 
 pub use server::Server;
+
+// #[cfg(any(tests, test))]
+pub use behaviour::ServerBehaviour;

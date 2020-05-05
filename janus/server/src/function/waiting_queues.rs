@@ -28,9 +28,9 @@ use std::hash::Hash;
 
 /// Represents a result of the enqueue_promise operation
 pub enum Enqueued {
-    // promise for such a key has already been in the queue
-    New,
     // new promise created
+    New,
+    // promise for such a key has already been in the queue
     Existing,
 }
 

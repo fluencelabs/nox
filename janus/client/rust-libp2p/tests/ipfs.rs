@@ -29,8 +29,6 @@ use bencher::stats::Stats;
 use futures::stream::FuturesUnordered;
 use futures_util::StreamExt;
 use itertools::{Either, Itertools};
-use reqwest;
-use tokio;
 
 /*
     Plan:
@@ -40,9 +38,7 @@ use tokio;
 */
 
 // List of addresses (ip:port) of IPFS nodes
-const NODES: [&str; 0] = [
-    // ip:port
-];
+const NODES: [&str; 0] = [];
 
 const FILES: [&str; 5] = [
     "QmdytmR4wULMd3SLo6ePF4s3WcRHWcpnJZ7bHhoj3QB13v",

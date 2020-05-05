@@ -23,7 +23,7 @@
  */
 
 use config::{Config, File};
-use faas_api::{Address, FunctionCall};
+use faas_api::{relay, service, FunctionCall, Protocol};
 use janus_client::{Client, ClientCommand, ClientEvent};
 use janus_libp2p::peerid_serializer;
 use libp2p::PeerId;
@@ -51,7 +51,7 @@ impl Service {
 
         let name = generator.next().unwrap();
         #[rustfmt::skip]
-        let name = name.split("-").next().unwrap().chars().take(10).collect::<String>();
+        let name = name.split('-').next().unwrap().chars().take(10).collect::<String>();
 
         let id: String = format!("{:?}-{}", period, name);
         Self { id, period, node }
@@ -140,7 +140,7 @@ fn endurance() {
             }
 
             loop {
-                let mut periodic = interval(service.period.clone());
+                let mut periodic = interval(service.period);
                 (&mut periodic).await;
 
                 provider.send(registration(service.node.peer_id.clone(), provider.peer_id.clone(), service.id.clone()));
@@ -238,9 +238,10 @@ async fn wait_call(client: &mut Client, expected_service: &Service) -> Waiting<F
         match timeout(RECEIVE_TIMEOUT, client.receive_one()).await {
             Ok(Some(ClientEvent::FunctionCall { call, sender })) => {
                 debug_assert_eq!(&sender, &expected_service.node.peer_id);
+                let protocols = call.target.as_ref().map(|addr| addr.protocols());
                 debug_assert!(matches!(
-                    &call.target,
-                    Some(Address::Service { service_id }) if service_id.as_str() == expected_service.id.as_str()
+                    &protocols.as_deref(),
+                    Some([Protocol::Service(service_id)]) if service_id == &expected_service.id
                 ));
                 break Waiting::Ok(call);
             }
@@ -260,7 +261,7 @@ fn service_call(node: PeerId, service_id: String) -> ClientCommand {
         node,
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(Address::Service { service_id }),
+            target: Some(service!(service_id)),
             reply_to: None,
             arguments: serde_json::Value::Null,
             name: Some("call service".into()),
@@ -275,13 +276,8 @@ fn registration(node: PeerId, client: PeerId, service_id: String) -> ClientComma
         node: node.clone(),
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(Address::Service {
-                service_id: "provide".into(),
-            }),
-            reply_to: Some(Address::Relay {
-                relay: node,
-                client,
-            }),
+            target: Some(service!("provide")),
+            reply_to: Some(relay!(node, client)),
             arguments: json!({ "service_id": service_id }),
             name: Some("registration".into()),
         },

@@ -24,18 +24,24 @@
 
 use super::router::WaitPeer;
 use super::FunctionRouter;
-use faas_api::FunctionCall;
+use faas_api::{FunctionCall, Protocol};
 use janus_libp2p::SafeMultihash;
 use libp2p::{
-    kad::{GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult},
     swarm::{DialPeerCondition, NetworkBehaviour, NetworkBehaviourAction},
     PeerId,
 };
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) enum PeerStatus {
+    Connected = 3000, // Connected is better than Routable
+    Routable = 2000,  // Router is better than None
+    Unknown = 1000,   // Unknown is bottom
+}
+
 // Contains methods related to searching for and connecting to peers
 impl FunctionRouter {
     // Look for peer in Kademlia, enqueue call to wait for result
-    pub(super) fn search_for_peer(&mut self, peer_id: PeerId, call: FunctionCall) {
+    pub(super) fn search_then_send(&mut self, peer_id: PeerId, call: FunctionCall) {
         self.wait_peer
             .enqueue(peer_id.clone(), WaitPeer::Found(call));
         // TODO: don't call get_closest_peers if there are already some calls waiting for it
@@ -43,30 +49,14 @@ impl FunctionRouter {
             .get_closest_peers(SafeMultihash::from(peer_id))
     }
 
-    // Take all calls waiting for this peer to be found, and send them
-    pub(super) fn found_closest(&mut self, result: GetClosestPeersResult) {
-        let (key, peers) = match result {
-            Ok(GetClosestPeersOk { key, peers }) => (key, peers),
-            Err(GetClosestPeersError::Timeout { key, peers }) => {
-                let will_try = if !peers.is_empty() {
-                    " Will try to send calls anyway"
-                } else {
-                    ""
-                };
-                log::error!(
-                    "Timed out while finding closest peer {}. Found only {} peers.{}",
-                    bs58::encode(&key).into_string(),
-                    peers.len(),
-                    will_try
-                );
-                (key, peers)
-            }
-        };
+    // Send all calls waiting for this peer to be found
+    pub(super) fn found_closest(&mut self, key: Vec<u8>) {
+        use PeerStatus as ExpectedStatus;
 
         let peer_id = match PeerId::from_bytes(key) {
             Err(err) => {
-                log::error!(
-                    "Can't parse peer id from GetClosestPeersResult key: {}",
+                log::warn!(
+                    "Found closest peers for invalid key {}: not a PeerId",
                     bs58::encode(err).into_string()
                 );
                 return;
@@ -74,46 +64,28 @@ impl FunctionRouter {
             Ok(peer_id) => peer_id,
         };
 
-        let calls = self
-            .wait_peer
-            .remove_with(&peer_id, |wp| matches!(wp, WaitPeer::Found(_)));
-        // TODO: is `peers.contains` necessary? Not sure
-        // Check if peer is in the routing table.
-        let routable = peers.contains(&peer_id) || self.is_routable(&peer_id);
-        if routable {
-            for call in calls {
-                // Send the message once peer is connected
-                self.send_to_routable(peer_id.clone(), call.call())
-            }
-        } else {
-            for call in calls {
-                // Report error
-                self.send_error_on_call(
-                    call.call(),
-                    "Peer wasn't found via GetClosestPeers".to_string(),
-                )
-            }
+        let calls = self.wait_peer.remove_with(&peer_id, |wp| wp.found());
+        for call in calls {
+            self.send_to(peer_id.clone(), ExpectedStatus::Routable, call.into())
         }
     }
 
-    pub(super) fn connect(&mut self, peer_id: PeerId, call: FunctionCall) {
-        self.wait_peer
-            .enqueue(peer_id.clone(), WaitPeer::Connected(call));
+    pub(super) fn connect_then_send(&mut self, peer_id: PeerId, call: FunctionCall) {
+        use DialPeerCondition::Disconnected as condition; // o_O you can do that?!
+        use NetworkBehaviourAction::DialPeer;
+        use WaitPeer::Connected;
+
+        self.wait_peer.enqueue(peer_id.clone(), Connected(call));
 
         log::info!("Dialing {}", peer_id.to_base58());
-        self.events.push_back(NetworkBehaviourAction::DialPeer {
-            peer_id,
-            condition: DialPeerCondition::Disconnected,
-        });
+        self.events.push_back(DialPeer { peer_id, condition });
     }
 
     pub(super) fn connected(&mut self, peer_id: PeerId) {
         log::info!("Peer connected: {}", peer_id.to_base58());
         self.connected_peers.insert(peer_id.clone());
 
-        let waiting = self
-            .wait_peer
-            .remove_with(&peer_id, |wp| matches!(wp, WaitPeer::Connected(_)));
+        let waiting = self.wait_peer.remove_with(&peer_id, |wp| wp.connected());
 
         // TODO: leave move or remove move from closure?
         waiting.for_each(move |wp| match wp {
@@ -131,11 +103,11 @@ impl FunctionRouter {
         );
         self.connected_peers.remove(peer_id);
 
-        self.remove_delegated_services(peer_id);
+        self.remove_halted_names(peer_id);
 
         let waiting_calls = self.wait_peer.remove(peer_id);
         for waiting in waiting_calls.into_iter() {
-            self.send_error_on_call(waiting.call(), "Peer disconnected".into());
+            self.send_error_on_call(waiting.into(), "Peer disconnected".into());
         }
     }
 
@@ -162,14 +134,52 @@ impl FunctionRouter {
 
     // Whether given peer id is equal to ours
     pub(super) fn is_local(&self, peer_id: &PeerId) -> bool {
-        let me = self.peer_id.to_base58();
-        let they = peer_id.to_base58();
-        if me == they {
-            log::debug!("{} is ME! (equals to {})", they, me);
+        let local = self.peer_id.to_base58();
+        let other = peer_id.to_base58();
+        if local == other {
+            log::debug!("{} is LOCAL", other);
             true
         } else {
-            log::debug!("{} is THEM! (not equal to {})", they, me);
+            log::debug!("{} is REMOTE", other);
             false
         }
+    }
+
+    pub(super) fn search_for_client(&mut self, client: PeerId, _call: FunctionCall) {
+        self.resolve_name(Protocol::Client(client).into())
+    }
+
+    pub(super) fn peer_status(&mut self, peer: &PeerId) -> PeerStatus {
+        use PeerStatus::*;
+
+        if self.is_connected(peer) {
+            Connected
+        } else if self.is_routable(peer) {
+            Routable
+        } else {
+            Unknown
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expected_status() {
+        use PeerStatus::*;
+
+        assert!(Connected > Unknown);
+        assert!(Connected > Routable);
+        assert_eq!(Connected, Connected);
+
+        assert!(Routable > Unknown);
+        assert!(Routable < Connected);
+        assert_eq!(Routable, Routable);
+
+        assert!(Unknown < Connected);
+        assert!(Unknown < Routable);
+        assert_eq!(Unknown, Unknown);
     }
 }

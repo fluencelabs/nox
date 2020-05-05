@@ -71,7 +71,7 @@ impl ServerBehaviour {
         }
     }
 
-    /// Bootstraps the node. Currently, does nothing.
+    /// Dials bootstrap nodes
     pub fn dial_bootstrap_nodes(&mut self) {
         // TODO: how to avoid collect?
         let bootstrap_nodes: Vec<_> = self.bootstrapper.bootstrap_nodes.iter().cloned().collect();

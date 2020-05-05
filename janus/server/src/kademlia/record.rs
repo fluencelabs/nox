@@ -79,7 +79,7 @@ pub fn expand_record_set(
     }
 }
 
-pub fn reduce_record_set(key: Key, set: HashSet<Record>) -> Record {
+pub fn reduce_record_set<S: std::hash::BuildHasher>(key: Key, set: HashSet<Record, S>) -> Record {
     debug_assert!(!set.is_empty(), "record set can't be empty here");
 
     let mut record = Record {

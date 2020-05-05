@@ -23,9 +23,10 @@
  */
 
 use super::builtin_service::BuiltinService;
-use super::router::Service::Delegated;
+//use super::router::Service::Delegated;
 use super::FunctionRouter;
-use faas_api::{Address, FunctionCall};
+use crate::function::waiting_queues::Enqueued;
+use faas_api::{Address, FunctionCall, Protocol};
 use libp2p::PeerId;
 use std::collections::HashSet;
 
@@ -33,107 +34,123 @@ impl FunctionRouter {
     // ####
     // ## Service routing
     // ###
-    pub(super) fn send_to_service(&mut self, service: String, call: FunctionCall) {
-        if let Some(builtin) = BuiltinService::from(service.as_str(), call.arguments.clone()) {
+
+    pub(super) fn service_available_locally(&self, service: &Protocol) -> bool {
+        BuiltinService::is_builtin(service) || self.provided_names.contains_key(&service.into())
+    }
+
+    pub(super) fn pass_to_local_service(&mut self, name: Address, mut call: FunctionCall) {
+        if let Some(builtin) = BuiltinService::from(&name, call.arguments.clone()) {
             self.execute_builtin(builtin, call)
-        } else if let Some(local_service) = self.local_services.get(&service).cloned() {
-            log::info!(
-                "Service {} was found locally. uuid {}",
-                &service,
-                &call.uuid
-            );
-            self.execute_on_service(local_service, call)
+        } else if let Some(provider) = self.provided_names.get(&name).cloned() {
+            log::info!("Service {} was found locally. uuid {}", &name, &call.uuid);
+            log::info!("Forwarding service call {} to {}", call.uuid, provider);
+            call.target = Some(
+                call.target
+                    .map_or(provider.clone(), |target| provider.extend(&target)),
+            ); // TODO: write tests on that, it's a very complex decision
+            self.call(call);
         } else {
-            log::info!(
-                "Service {} not found locally. uuid {}",
-                &service,
-                &call.uuid
-            );
-            self.find_service_provider(service, call);
+            let err_msg = "unroutable message: no local provider found for target".to_string();
+            log::warn!("Error on {}: {}", &call.uuid, err_msg);
+            self.send_error_on_call(call, err_msg);
         }
     }
 
     // Look for service providers, enqueue call to wait for providers
-    pub(super) fn find_service_provider(&mut self, service: String, call: FunctionCall) {
-        self.wait_provider.enqueue(service.clone(), call);
-        // TODO: don't call get_providers if there are already calls waiting for it
-        self.get_providers(service)
-    }
-
-    // Advance execution for calls waiting for this service: send them to first provider
-    pub fn providers_found(&mut self, service_id: &str, providers: HashSet<Address>) {
-        if providers.is_empty() {
-            self.provider_search_failed(service_id, "zero providers found");
+    pub(super) fn find_service_provider(&mut self, name: Address, call: FunctionCall) {
+        log::info!("Finding service provider for {}, call: {:?}", name, call);
+        if let Enqueued::New = self.wait_name_resolved.enqueue(name.clone(), call) {
+            // won't call get_providers if there are already calls waiting for it
+            self.resolve_name(name)
         } else {
-            self.provider_search_succeeded(service_id, providers)
+            log::debug!(
+                "won't call resolve_name because there are already promises waiting for {}",
+                name
+            )
         }
     }
 
-    fn provider_search_succeeded(&mut self, service_id: &str, providers: HashSet<Address>) {
+    // Advance execution for calls waiting for this service: send them to first provider
+    pub fn providers_found(&mut self, name: &Address, providers: HashSet<Address>) {
+        if providers.is_empty() {
+            self.provider_search_failed(name, "zero providers found");
+        } else {
+            self.provider_search_succeeded(name, providers)
+        }
+    }
+
+    fn provider_search_succeeded(&mut self, name: &Address, providers: HashSet<Address>) {
         log::info!(
-            "Found {} providers for service {}: {:?}",
+            "Found {} providers for name {}: {:?}",
             providers.len(),
-            service_id,
+            name,
             providers
         );
-        let mut calls = self.wait_provider.remove(&service_id.into()).peekable();
+        let mut calls = self.wait_name_resolved.remove(&name).peekable();
         // Check if calls are empty without actually advancing iterator
         if calls.peek().is_none() && !providers.is_empty() {
             log::warn!(
                 "Providers found for {}, but there are no calls waiting for it",
-                service_id
+                name
             );
         }
 
-        // TODO: taking only first provider here. Should we send a call to all of them?
+        // TODO: Sending call to all providers here
         // TODO: weight providers according to TrustGraph
-        let provider = providers.into_iter().next().unwrap();
-        for mut call in calls {
-            call.target = Some(provider.clone());
-            self.send_to(provider.clone(), call);
+        // TODO: implement and use ProviderSelector::All, ProviderSelector::Latest, ProviderSelector::MaxWeight
+        for call in calls {
+            for provider in providers.iter() {
+                let mut call = call.clone();
+                call.target = Some(
+                    call.target
+                        .map_or(provider.clone(), |target| provider.clone().extend(target)),
+                );
+                // TODO: write tests on that, it's a very complex decision
+                // call.target = Some(provider.clone());
+                log::debug!("Sending call to provider {:?}", call);
+                self.call(call);
+            }
         }
     }
 
-    pub(super) fn provider_search_failed(&mut self, service_id: &str, reason: &str) {
-        let mut calls = self.wait_provider.remove(&service_id.into()).peekable();
+    pub(super) fn provider_search_failed(&mut self, name: &Address, reason: &str) {
+        let mut calls = self.wait_name_resolved.remove(name).peekable();
         // Check if calls are empty without actually advancing iterator
         if calls.peek().is_none() {
-            log::warn!(
-                "Failed to find providers for {}: {}; no calls were waiting",
-                service_id,
-                reason
-            );
+            log::warn!("Failed to find providers for {}: {}; 0 calls", name, reason);
             return;
+        } else {
+            log::warn!("Failed to find providers for {}: {}", name, reason);
         }
-
-        log::warn!("Failed to find providers for {}: {}", service_id, reason);
         for call in calls {
             self.send_error_on_call(
                 call,
-                format!("Failed to find providers for {}: {}", service_id, reason),
+                format!("Failed to find providers for {}: {}", name, reason),
             );
         }
     }
 
-    // Removes all services that are delegated by specified PeerId
-    pub(super) fn remove_delegated_services(&mut self, delegate: &PeerId) {
-        let delegate = delegate.to_base58();
+    // Removes all names that resolve to an address containing `resolvee`
+    pub(super) fn remove_halted_names(&mut self, resolvee: &PeerId) {
+        use Protocol::*;
 
-        self.local_services.retain(|k, v| match v {
-            Delegated { forward_to } => {
-                let to_delegate = forward_to
-                    .destination_peer()
-                    .map_or(false, |p| p.to_base58() == delegate);
-                if to_delegate {
-                    log::info!(
-                        "Removing delegated service {}. forward_to: {:?}, delegate: {}",
-                        k,
-                        forward_to,
-                        delegate
-                    );
-                }
-                !to_delegate
+        self.provided_names.retain(|k, v| {
+            let protocols = v.protocols();
+            let halted = protocols.iter().any(|p| match p {
+                Peer(id) if id == resolvee => true,
+                Client(id) if id == resolvee => true,
+                _ => false,
+            });
+            if halted {
+                log::info!(
+                    "Removing halted name {}. forward_to: {} due to peer {} disconnection",
+                    k,
+                    v,
+                    resolvee.to_base58()
+                );
             }
+            !halted
         });
     }
 }

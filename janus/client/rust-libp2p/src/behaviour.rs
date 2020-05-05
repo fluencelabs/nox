@@ -177,7 +177,11 @@ impl NetworkBehaviour for ClientBehaviour {
         });
     }
 
-    fn poll(&mut self, cx: &mut Context, params: &mut impl PollParameters) -> Poll<SwarmEventType> {
+    fn poll(
+        &mut self,
+        cx: &mut Context<'_>,
+        params: &mut impl PollParameters,
+    ) -> Poll<SwarmEventType> {
         // just polling it to the end
         while let Poll::Ready(_) = self.ping.poll(cx, params) {}
 

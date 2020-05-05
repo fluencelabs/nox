@@ -91,7 +91,7 @@ impl Default for ServerConfig {
 /// Build `JanusConfig` by merging arguments and a config file.
 /// Arguments have higher priority than config file.
 #[allow(clippy::implicit_hasher)]
-fn build_config(arguments: ArgMatches, config: Config) -> Result<JanusConfig, Box<dyn Error>> {
+fn build_config(arguments: ArgMatches<'_>, config: Config) -> Result<JanusConfig, Box<dyn Error>> {
     let mut server_config = ServerConfig::default();
 
     let merge_by_name = |name| {
@@ -163,7 +163,7 @@ fn load_weights(config: Config) -> Vec<(PublicKey, u32)> {
 }
 
 // loads config from arguments and a config file
-pub fn load_config(arguments: ArgMatches) -> Result<JanusConfig, Box<dyn Error>> {
+pub fn load_config(arguments: ArgMatches<'_>) -> Result<JanusConfig, Box<dyn Error>> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
         .unwrap_or(DEFAULT_CONFIG_FILE);

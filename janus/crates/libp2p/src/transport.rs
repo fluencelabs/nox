@@ -75,3 +75,35 @@ pub fn build_transport(
         .multiplex(multiplex)
         .timeout(socket_timeout)
 }
+
+pub fn build_memory_transport(
+    key_pair: Keypair,
+) -> impl Transport<
+    Output = (
+        PeerId,
+        impl StreamMuxer<
+                OutboundSubstream = impl Send,
+                Substream = impl Send,
+                Error = impl Into<std::io::Error>,
+            > + Send
+            + Sync,
+    ),
+    Error = impl std::error::Error + Send,
+    Listener = impl Send,
+    Dial = impl Send,
+    ListenerUpgrade = impl Send,
+> + Clone {
+    use libp2p::{
+        core::{muxing::StreamMuxerBox, transport::MemoryTransport, upgrade},
+        plaintext::PlainText2Config,
+        yamux,
+    };
+    MemoryTransport::default()
+        .upgrade(upgrade::Version::V1)
+        .authenticate(PlainText2Config {
+            local_public_key: key_pair.public(),
+        })
+        .multiplex(yamux::Config::default())
+        .map(|(p, m), _| (p, StreamMuxerBox::new(m)))
+        .boxed()
+}

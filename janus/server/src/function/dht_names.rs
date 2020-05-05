@@ -22,20 +22,23 @@
  *   SOFTWARE.
  */
 
-use crate::function::provider_record::{provider_to_record, record_to_provider};
-use crate::function::router::Service;
+#![allow(clippy::mutable_key_type)]
+
+use crate::kademlia;
 use crate::FunctionRouter;
-use libp2p::kad::PutRecordError;
-use libp2p::kad::Quorum;
+use faas_api::Address;
+use libp2p::kad::record::{Key, Record};
+use libp2p::kad::{PutRecordError, Quorum};
 use std::collections::hash_map::Entry;
 use std::collections::HashSet;
-use std::string::FromUtf8Error;
+use std::convert::TryInto;
 
 impl FunctionRouter {
-    pub fn dht_put_failed(&mut self, error: PutRecordError) {
+    pub fn name_resolution_failed(&mut self, error: PutRecordError) {
         use PutRecordError::*;
 
-        let service_id = match Self::service_id(error.key()) {
+        let key: &Key = error.key();
+        let name: Address = match key.try_into() {
             Ok(service_id) => service_id,
             Err(err) => {
                 #[rustfmt::skip]
@@ -51,60 +54,56 @@ impl FunctionRouter {
             _ => None,
         };
 
-        if let Some((n, q)) = n_q {
-            // n >= 50% of required quorum // TODO: is it reasonable?
-            if 2 * n - q > 0 {
+        if let Some((&found, quorum)) = n_q {
+            // found more than 50% of required quorum // TODO: is it reasonable?
+            if found * 2 > quorum {
                 #[rustfmt::skip]
-                log::warn!("DHT.put almost failed, saved {} of {} replicas, but it is good enough", n, q);
+                log::warn!("DHT.put almost failed, saved {} of {} replicas, but it is good enough", found, quorum);
                 return;
             }
         }
 
-        match self.local_services.entry(service_id.clone()) {
+        // Remove failed record, and send an error
+        match self.provided_names.entry(name.clone()) {
             Entry::Occupied(e) => {
-                let service = e.remove();
+                let provider = e.remove();
                 // remove failed record from DHT // TODO: sure need to do that?
                 self.kademlia.remove_record(error.key());
                 let err_msg = format!(
                     "Error while registering service {:?}: DHT.put failed: {:?}",
-                    service, error
+                    provider, error
                 );
                 log::warn!("{}", err_msg);
-                let address = match service {
-                    Service::Delegated { forward_to } => forward_to,
-                };
-                self.send_error(address, err_msg);
+                self.send_error(provider, err_msg);
             }
             Entry::Vacant(_) => {
                 log::warn!(
                     "DHT put failed for service_id {}, but no registered services found",
-                    service_id
+                    name
                 );
             }
         }
     }
 
-    pub fn dht_get_finished(&mut self, result: libp2p::kad::GetRecordResult) {
+    pub fn name_resolved(&mut self, result: libp2p::kad::GetRecordResult) {
         use libp2p::kad::{GetRecordError, GetRecordOk};
 
-        let service_id = match &result {
+        let name = match &result {
             Ok(GetRecordOk { records }) if records.is_empty() => {
-                debug_assert!(
-                    !records.is_empty(),
-                    "Got GetRecordOK, but no records returned"
-                );
+                #[rustfmt::skip]
+                debug_assert!(!records.is_empty(), "Got GetRecordOK, but no records returned");
                 log::error!("Got GetRecordOK, but no records returned, can't send error anywhere. That shouldn't happen");
                 return;
             }
             Ok(GetRecordOk { records }) => {
-                let first = records.first().expect("records aren't empty");
-                Self::service_id(&first.key)
+                let first = records.first().expect("records can't be empty");
+                (&first.key).try_into()
             }
-            Err(err) => Self::service_id(err.key()),
+            Err(err) => err.key().try_into(),
         };
 
-        let service_id = match &service_id {
-            Ok(service_id) => service_id,
+        let name = match &name {
+            Ok(name) => name,
             Err(utf_error) => {
                 log::warn!("Can't parse service_id from dht record: {:?}", utf_error);
                 // TODO: maybe it's a different type of record – handle that
@@ -136,23 +135,23 @@ impl FunctionRouter {
         let records = match records {
             Ok(records) => records,
             Err(err_msg) => {
-                let err_msg = format!("Error on DHT.get for service {}: {}", service_id, err_msg);
+                let err_msg = format!("Error on DHT.get for service {}: {}", name, err_msg);
                 log::warn!("{}", err_msg);
-                self.provider_search_failed(service_id, err_msg.as_str());
+                self.provider_search_failed(name, err_msg.as_str());
                 return;
             }
         };
 
         let records = records
             .into_iter()
-            .flat_map(|rec| match crate::kademlia::expand_record_set(rec) {
+            .flat_map(|rec| match kademlia::expand_record_set(rec) {
                 Ok(Ok(records)) => records,
                 Err(record) => std::iter::once(record).collect::<HashSet<_>>(),
                 Ok(Err(expand_failed)) => {
                     log::warn!(
                         "Can't expand record, skipping: {:?}; service_id {}",
                         expand_failed,
-                        service_id
+                        name
                     );
                     HashSet::new()
                 }
@@ -161,35 +160,30 @@ impl FunctionRouter {
 
         let providers = records
             .into_iter()
-            .flat_map(|rec| match record_to_provider(&rec) {
-                Ok(Service::Delegated { forward_to }) => Some(forward_to),
+            .flat_map(|rec| match rec.value.as_slice().try_into() {
+                Ok(provider) => Some(provider),
                 Err(err) => {
                     log::warn!(
                         "Can't deserialize provider from record {:?}, skipping: {:?}; service {}",
                         rec,
                         err,
-                        service_id,
+                        name,
                     );
                     None
                 }
             })
             .collect::<HashSet<_>>();
 
-        self.providers_found(service_id, providers);
+        self.providers_found(name, providers);
     }
 
-    pub fn get_providers(&mut self, service_id: String) {
+    // Like DNS CNAME record
+    pub(super) fn publish_name(&mut self, name: Address, provider: Address) {
         self.kademlia
-            .get_record(&service_id.as_bytes().to_vec().into(), Quorum::Majority)
+            .put_record(Record::new(name, provider.into()), Quorum::Majority)
     }
 
-    pub fn publish_provider(&mut self, service_id: String, service: &Service) {
-        // TODO: Quorum::All?
-        self.kademlia
-            .put_record(provider_to_record(service_id, service), Quorum::Majority);
-    }
-
-    fn service_id(key: &libp2p::kad::record::Key) -> Result<String, FromUtf8Error> {
-        String::from_utf8(key.as_ref().to_vec())
+    pub(super) fn resolve_name(&mut self, name: Address) {
+        self.kademlia.get_record(&name.into(), Quorum::Majority)
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "faas-api"
-version = "0.0.1"
+version = "0.0.5"
 authors = ["Fluence Labs"]
 edition = "2018"
 
@@ -19,6 +19,8 @@ bs58 = "0.3.0"
 failure = "0.1.6"
 base64 = "0.11.0"
 log = "0.4.8"
+url = { version = "2.1.1", features = ["serde"] }
+once_cell = "1.3.1"
 
 [dev-dependencies]
 rand = "0.7.3"

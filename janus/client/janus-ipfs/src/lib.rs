@@ -23,6 +23,7 @@
  */
 
 #![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -34,24 +35,25 @@
 )]
 
 use async_timer::Interval;
-use faas_api::{Address, FunctionCall};
+use faas_api::{relay, Address, FunctionCall, Protocol};
 use futures::{channel::oneshot::Receiver, select, FutureExt, StreamExt};
 use janus_client::{Client, ClientCommand, ClientEvent};
 use libp2p::PeerId;
+use once_cell::sync::Lazy;
 use parity_multiaddr::Multiaddr;
 use serde_json::json;
 use std::error::Error;
+use std::ops::Deref;
 use std::time::Duration;
 use uuid::Uuid;
 
-const IPFS_SERVICE: &str = "IPFS.multiaddr";
+const IPFS_SERVICE_ID: &str = "IPFS.multiaddr";
+static IPFS_SERVICE: Lazy<Protocol> = Lazy::new(|| Protocol::Service(IPFS_SERVICE_ID.to_string()));
 
-fn register_call(client: PeerId, service_id: &str) -> FunctionCall {
-    let target = Some(Address::Service {
-        service_id: "provide".into(),
-    });
+fn register_call(client: PeerId, relay: PeerId, service_id: &str) -> FunctionCall {
+    let target = Some(Protocol::Service("provide".into()).into());
     let arguments = json!({ "service_id": service_id });
-    let reply_to = Some(Address::Peer { peer: client });
+    let reply_to = Some(relay!(relay, client));
     let uuid = message_id();
     let name = Some(format!("Delegate provide service {}", service_id));
 
@@ -73,10 +75,7 @@ fn multiaddr_call(
 ) -> FunctionCall {
     let target = Some(reply_to);
     let arguments = json!({ "multiaddr": multiaddr.to_string(), "msg_id": msg_id });
-    let reply_to = Some(Address::Relay {
-        client,
-        relay: bootstrap_id,
-    });
+    let reply_to = Some(Address::from(Protocol::Peer(bootstrap_id)).append(Protocol::Peer(client)));
     let uuid = message_id();
     let name = Some("Reply on IPFS.multiaddr".to_string());
 
@@ -116,22 +115,22 @@ pub async fn run_ipfs_multiaddr_service(
                 match incoming {
                     Some(ClientEvent::FunctionCall {
                         call: FunctionCall {
-                            target: Some(Address::Service { service_id }),
+                            target: Some(target),
                             reply_to: Some(reply_to),
                             arguments, ..
                         },
                         sender
-                    }) if service_id == IPFS_SERVICE => {
+                    }) if target.contains(&IPFS_SERVICE) => {
                         log::info!(
                             "Got call for {} from {}, asking node to reply to {:?}",
-                            IPFS_SERVICE, sender.to_base58(), reply_to
+                            IPFS_SERVICE.deref(), sender.to_base58(), reply_to
                         );
                         let msg_id = arguments.get("msg_id").and_then(|v| v.as_str());
                         let call = multiaddr_call(bootstrap_id.clone().unwrap(), client.peer_id.clone(), reply_to, msg_id, &ipfs);
                         if let Some(node) = bootstrap_id.clone() {
                             client.send(ClientCommand::Call { node, call })
                         } else {
-                            log::warn!("Can't send {} reply: bootstrap hasn't connected yed", IPFS_SERVICE);
+                            log::warn!("Can't send {} reply: bootstrap hasn't connected yed", IPFS_SERVICE.deref());
                         }
                     },
                     Some(ClientEvent::NewConnection { peer_id, multiaddr }) if &multiaddr == &bootstrap => {
@@ -146,12 +145,12 @@ pub async fn run_ipfs_multiaddr_service(
                 }
             },
             _ = periodic.next() => {
-                if let Some(peer_id) = bootstrap_id.clone() {
-                    let call = register_call(client.peer_id.clone(), IPFS_SERVICE);
+                if let Some(bootstrap_id) = bootstrap_id.clone() {
+                    let call = register_call(client.peer_id.clone(), bootstrap_id.clone(), IPFS_SERVICE_ID);
                     log::info!("Sending register call {:?}", call);
 
                     client.send(ClientCommand::Call {
-                        node: peer_id,
+                        node: bootstrap_id,
                         call,
                     });
                 }

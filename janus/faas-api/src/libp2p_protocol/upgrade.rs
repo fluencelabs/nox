@@ -115,7 +115,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::ProtocolMessage;
-    use crate::call_test_utils::gen_function_call;
+    use crate::call_test_utils::gen_ipfs_call;
     use futures::prelude::*;
     use libp2p::core::{
         multiaddr::multiaddr,
@@ -145,7 +145,7 @@ mod tests {
         });
 
         let sent_call = async_std::task::block_on(async move {
-            let call = ProtocolMessage::FunctionCall(gen_function_call());
+            let call = ProtocolMessage::FunctionCall(gen_ipfs_call());
             let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
             upgrade::apply_outbound(c, call.clone(), upgrade::Version::V1)
                 .await

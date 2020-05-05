@@ -132,7 +132,11 @@ impl NetworkBehaviour for FunctionRouter {
         self.kademlia.inject_listener_closed(i, reason)
     }
 
-    fn poll(&mut self, cx: &mut Context, params: &mut impl PollParameters) -> Poll<SwarmEventType> {
+    fn poll(
+        &mut self,
+        cx: &mut Context<'_>,
+        params: &mut impl PollParameters,
+    ) -> Poll<SwarmEventType> {
         use NetworkBehaviourAction::*;
         use NetworkBehaviourEventProcess as NBEP;
 
@@ -179,9 +183,15 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRout
         log::debug!("Kademlia inject: {:?}", event);
 
         match event {
-            GetClosestPeersResult(result) => self.found_closest(result),
-            PutRecordResult(Err(err)) => self.dht_put_failed(err),
-            GetRecordResult(result) => self.dht_get_finished(result),
+            GetClosestPeersResult(result) => {
+                let key = match result {
+                    Ok(ok) => ok.key,
+                    Err(err) => err.into_key(),
+                };
+                self.found_closest(key);
+            }
+            PutRecordResult(Err(err)) => self.name_resolution_failed(err),
+            GetRecordResult(result) => self.name_resolved(result),
             _ => {}
         };
     }

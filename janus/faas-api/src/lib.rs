@@ -23,6 +23,7 @@
  */
 
 #![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -33,13 +34,17 @@
     unreachable_patterns
 )]
 
+mod address;
+mod address_protocol;
 mod call;
-mod protocol {
+mod libp2p_protocol {
     pub mod message;
     pub mod upgrade;
 }
 
 pub use call::call_test_utils;
 
-pub use call::{Address, FunctionCall};
-pub use protocol::message::ProtocolMessage;
+pub use address::Address;
+pub use address_protocol::Protocol;
+pub use call::FunctionCall;
+pub use libp2p_protocol::message::ProtocolMessage;

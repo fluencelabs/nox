@@ -155,7 +155,7 @@ impl<'a> RecordStore<'a> for MemoryStore {
         fn(&'a ProviderRecord) -> Cow<'a, ProviderRecord>,
     >;
 
-    fn get(&'a self, k: &Key) -> Option<Cow<Record>> {
+    fn get(&'a self, k: &Key) -> Option<Cow<'_, Record>> {
         // TODO: Performance? Was Cow::Borrowed, now Cow::Owned, and lot's of .clone()'s :(
         self.records
             .get(k)
@@ -444,34 +444,5 @@ mod tests {
             Err(Error::MaxProvidedKeys) => {}
             _ => panic!("Unexpected result"),
         }
-    }
-
-    #[test]
-    fn generate_publisher() {
-        use unsigned_varint::encode;
-        // use libp2p::PeerId;
-        // use multihash::{wrap, Code};
-
-        // let mh = b"record_set_stored_here";
-        // let wrapped = wrap(Code::Identity, mh.to_vec().as_slice());
-        // println!("size {}", mh.len());
-        // let _base58 = bs58::encode(wrapped.as_bytes()).into_string();
-        let mut buf: [u8; 10] = encode::u64_buffer();
-        encode::u64(23, &mut buf);
-        println!("{}", bs58::encode(buf).into_string());
-
-        let base58 = "1UMULTPLExxRECRDSxxSTREDxxHERExx".to_string();
-        println!("{}", base58);
-
-        let bytes = bs58::decode(base58.clone())
-            .into_vec()
-            .expect("spanish spanish");
-        println!("bytes {:?}", bytes.as_slice());
-        let _mhash = Multihash::from_bytes(bytes).expect("inq inq");
-        // let mhash_base58 = bs58::encode(mhash.as_bytes()).into_string();
-        // println!("{} => {}", base58, mhash_base58);
-        //
-        // let peer_id: PeerId = base58.as_str().parse().expect("spanish inquisition");
-        // println!("peer id {:?} {}", &peer_id, peer_id.to_base58());
     }
 }

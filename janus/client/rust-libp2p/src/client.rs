@@ -35,13 +35,25 @@ use futures::{
     FutureExt,
 };
 use janus_libp2p::{
-    build_transport,
+    build_memory_transport, build_transport,
     types::{Inlet, OneshotOutlet, Outlet},
 };
 use libp2p::{identity, identity::ed25519, PeerId, Swarm};
 use parity_multiaddr::Multiaddr;
 use std::{error::Error, ops::DerefMut, time::Duration};
 
+pub enum Transport {
+    Memory,
+    Network,
+}
+
+impl Transport {
+    pub fn is_network(&self) -> bool {
+        matches!(self, Transport::Network)
+    }
+}
+
+#[derive(Debug)]
 pub struct Client {
     pub key_pair: ed25519::Keypair,
     pub peer_id: PeerId,
@@ -71,13 +83,10 @@ impl Client {
     }
 
     pub fn send(&self, cmd: ClientCommand) {
-        match self.relay_outlet.unbounded_send(cmd) {
-            Err(err) => {
-                let err_msg = format!("{:?}", err);
-                let msg = err.into_inner();
-                log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
-            }
-            Ok(_) => {}
+        if let Err(err) = self.relay_outlet.unbounded_send(cmd) {
+            let err_msg = format!("{:?}", err);
+            let msg = err.into_inner();
+            log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
         }
     }
 
@@ -86,18 +95,31 @@ impl Client {
     }
 
     pub fn stop(self) {
-        match self.stop_outlet.send(()) {
-            Ok(_) => {}
-            Err(_) => log::warn!("Unable to send stop, channel closed"),
+        if self.stop_outlet.send(()).is_err() {
+            log::warn!("Unable to send stop, channel closed")
         }
     }
 
-    fn dial(&self, relay: Multiaddr) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
+    fn dial(
+        &self,
+        relay: Multiaddr,
+        transport: Transport,
+    ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let key_pair = libp2p::identity::Keypair::Ed25519(self.key_pair.clone());
-            let transport = build_transport(key_pair, Duration::from_secs(20));
             let behaviour = ClientBehaviour::default();
-            Swarm::new(transport, behaviour, self.peer_id.clone())
+
+            macro_rules! swarm {
+                ($transport:expr) => {{
+                    let transport = $transport;
+                    Swarm::new(transport, behaviour, self.peer_id.clone())
+                }};
+            }
+
+            match transport {
+                Transport::Memory => swarm!(build_memory_transport(key_pair)),
+                Transport::Network => swarm!(build_transport(key_pair, Duration::from_secs(20))),
+            }
         };
 
         match Swarm::dial_addr(&mut swarm, relay.clone()) {
@@ -112,13 +134,20 @@ impl Client {
     }
 
     pub async fn connect(relay: Multiaddr) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
+        Self::connect_with(relay, Transport::Network).await
+    }
+
+    pub async fn connect_with(
+        relay: Multiaddr,
+        transport: Transport,
+    ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::unbounded();
         let (relay_outlet, relay_inlet) = mpsc::unbounded();
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
         let client = Client::new(relay_outlet, client_inlet, stop_outlet);
-        let mut swarm = client.dial(relay)?;
+        let mut swarm = client.dial(relay, transport)?;
 
         let mut relay_inlet = relay_inlet.fuse();
         let mut stop = stop_inlet.into_stream().fuse();
@@ -148,10 +177,7 @@ impl Client {
                             Ok(_v) => {},
                         }
                     },
-                    _ = stop.next() => {
-                        drop(swarm); // TODO: is it needed?
-                        break;
-                    }
+                    _ = stop.next() => break,
                 )
             }
         });

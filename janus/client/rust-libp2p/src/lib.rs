@@ -23,6 +23,7 @@
  */
 
 #![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -39,6 +40,6 @@ mod command;
 mod event;
 mod function_call_api;
 
-pub use client::Client;
+pub use client::{Client, Transport};
 pub use command::ClientCommand;
 pub use event::ClientEvent;

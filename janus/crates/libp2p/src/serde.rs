@@ -125,7 +125,7 @@ pub mod provider_serializer {
         impl<'de> Visitor<'de> for VecVisitor {
             type Value = Vec<(Multiaddr, PeerId)>;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("[Multiaddr, PeerId]")
             }
 

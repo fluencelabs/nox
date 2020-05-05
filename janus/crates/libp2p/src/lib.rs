@@ -23,6 +23,7 @@
  */
 
 #![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -42,4 +43,4 @@ pub mod types;
 pub use self::serde::*;
 pub use macros::*;
 pub use safe_multihash::SafeMultihash;
-pub use transport::build_transport;
+pub use transport::{build_memory_transport, build_transport};

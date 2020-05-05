@@ -49,7 +49,7 @@ impl Into<ProtocolMessage> for () {
 
 #[cfg(test)]
 mod test {
-    use crate::call_test_utils::gen_function_call;
+    use crate::call_test_utils::gen_ipfs_call;
     use crate::ProtocolMessage;
 
     fn check_msg(msg: ProtocolMessage) {
@@ -62,7 +62,7 @@ mod test {
 
     #[test]
     fn protocol_message() {
-        let msg = ProtocolMessage::FunctionCall(gen_function_call());
+        let msg = ProtocolMessage::FunctionCall(gen_ipfs_call());
         check_msg(msg);
     }
 
@@ -71,15 +71,8 @@ mod test {
         let example1 = r#"
             {
                 "uuid": "2020-04-09T11:45:54.000Z",
-                "target": {
-                    "service_id": "provide",
-                    "type": "Service"
-                },
-                "reply_to": {
-                    "relay": "QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2",
-                    "client": "QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
-                    "type": "Relay"
-                },
+                "target": "fluence:/service/provide",
+                "reply_to": "fluence:/peer/QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2/client/QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
                 "arguments": {
                     "service_id": "println summa"
                 },
@@ -91,15 +84,8 @@ mod test {
         let example2 = r#"
             {
                 "uuid": "2020-04-09T11:47:42.937Z",
-                "target": {
-                    "service_id": "provide",
-                    "type": "Service"
-                },
-                "reply_to": {
-                    "relay": "QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2",
-                    "client": "QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
-                    "type": "Relay"
-                },
+                "target": "fluence:/service/provide",
+                "reply_to": "fluence:/peer/QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2/client/QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
                 "arguments": {
                     "service_id": "println summa"
                 },

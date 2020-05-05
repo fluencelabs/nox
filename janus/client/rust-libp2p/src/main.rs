@@ -23,6 +23,7 @@
  */
 
 #![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -35,8 +36,7 @@
 
 use async_std::task;
 use ctrlc_adapter::block_until_ctrlc;
-use faas_api::{Address, FunctionCall};
-use failure::_core::time::Duration;
+use faas_api::{relay, service, FunctionCall};
 use futures::{
     channel::{mpsc, mpsc::UnboundedReceiver, oneshot},
     prelude::*,
@@ -47,6 +47,7 @@ use janus_client::{Client, ClientCommand, ClientEvent};
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use std::error::Error;
+use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::builder().format_timestamp_micros().init();
@@ -135,8 +136,8 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
             let stdin = io::BufReader::new(io::stdin());
             let stream = Deserializer::from_reader(stdin).into_iter::<ClientCommand>();
 
+            // blocking happens in 'for' below
             for cmd in stream {
-                // blocking happens in 'for'
                 cmd_sender.unbounded_send(cmd).expect("send cmd");
                 task::sleep(Duration::from_nanos(10)).await; // return Poll::Pending from future's fn poll
             }
@@ -150,7 +151,7 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
     use serde_json::json;
     use std::time::SystemTime;
     fn show(cmd: ClientCommand) {
-        println!("{}", serde_json::to_value(cmd).unwrap());
+        println!("{}", serde_json::to_string_pretty(&cmd).unwrap());
     }
     fn uuid() -> String {
         uuid::Uuid::new_v4().to_string()
@@ -166,13 +167,8 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
         node: bootstrap.clone(),
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(Address::Service {
-                service_id: "IPFS.multiaddr".into(),
-            }),
-            reply_to: Some(Address::Relay {
-                relay: bootstrap.clone(),
-                client: peer_id.clone(),
-            }),
+            target: Some(service!("IPFS.multiaddr")),
+            reply_to: Some(relay!(bootstrap.clone(), peer_id.clone())),
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call multiaddr".to_string()),
         },
@@ -182,13 +178,8 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
         node: bootstrap.clone(),
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(Address::Service {
-                service_id: "provide".into(),
-            }),
-            reply_to: Some(Address::Relay {
-                relay: bootstrap.clone(),
-                client: peer_id.clone(),
-            }),
+            target: Some(service!("provide")),
+            reply_to: Some(relay!(bootstrap.clone(), peer_id.clone())),
             arguments: json!({ "service_id": "IPFS.get_QmFile3", "msg_id": time }),
             name: Some("register service".to_string()),
         },
@@ -198,13 +189,8 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
         node: bootstrap.clone(),
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(Address::Service {
-                service_id: "IPFS.get_QmFile3".into(),
-            }),
-            reply_to: Some(Address::Relay {
-                relay: bootstrap,
-                client: peer_id.clone(),
-            }),
+            target: Some(service!("IPFS.get_QmFile3")),
+            reply_to: Some(relay!(bootstrap, peer_id.clone())),
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
         },

@@ -23,8 +23,9 @@
  */
 
 use super::waiting_queues::WaitingQueues;
+use crate::function::peers::PeerStatus;
 use crate::kademlia::MemoryStore;
-use faas_api::{Address, FunctionCall, ProtocolMessage};
+use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
 use janus_libp2p::generate_swarm_event_type;
 use libp2p::{
@@ -38,16 +39,10 @@ use libp2p::{
     PeerId,
 };
 use parity_multiaddr::Multiaddr;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use trust_graph::TrustGraph;
 
 pub type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Service {
-    Delegated { forward_to: Address },
-}
 
 /// Possible waiting states of the FunctionCall
 #[derive(Debug)]
@@ -59,7 +54,17 @@ pub(super) enum WaitPeer {
 }
 
 impl WaitPeer {
-    pub fn call(self) -> FunctionCall {
+    pub fn found(&self) -> bool {
+        matches!(self, WaitPeer::Found(_))
+    }
+
+    pub fn connected(&self) -> bool {
+        matches!(self, WaitPeer::Connected(_))
+    }
+}
+
+impl Into<FunctionCall> for WaitPeer {
+    fn into(self) -> FunctionCall {
         match self {
             WaitPeer::Found(call) => call,
             WaitPeer::Connected(call) => call,
@@ -81,6 +86,7 @@ impl WaitPeer {
 ///   4. Finally, once target peer is routable and connected, the call is sent there.
 ///
 /// TODO: Latency. Latency gonna be nuts.
+/// TODO: add metrics-rs
 pub struct FunctionRouter {
     pub(super) peer_id: PeerId,
     // Queue of events to send to the upper level
@@ -89,11 +95,10 @@ pub struct FunctionRouter {
     pub(super) kademlia: Kademlia<MemoryStore>,
     // Services provided by this node
     // TODO: health-check local services?
-    // TODO: register these services
-    pub(super) local_services: HashMap<String, Service>, // ServiceId -> Service
+    pub(super) provided_names: HashMap<Address, Address>, // ServiceId -> (forward_to: Address)
     // TODO: clear queues on timeout?
-    // Calls to services, waiting while provider of the service is found
-    pub(super) wait_provider: WaitingQueues<String, FunctionCall>, // ServiceId -> FunctionCall
+    // Calls that are waiting for address to be name-resolved
+    pub(super) wait_name_resolved: WaitingQueues<Address, FunctionCall>, // Address -> FunctionCall
     // Calls that are waiting for target peer of the call to change state (see WaitPeer)
     pub(super) wait_peer: WaitingQueues<PeerId, WaitPeer>, // PeerId -> FunctionCall
     // TODO: clear connected_peers on inject_listener_closed?
@@ -115,9 +120,9 @@ impl FunctionRouter {
             peer_id: peer_id.clone(),
             events: VecDeque::new(),
             kademlia: Kademlia::with_config(kp, peer_id, store, cfg, trust),
-            wait_provider: WaitingQueues::new(),
+            wait_name_resolved: WaitingQueues::new(),
             wait_peer: WaitingQueues::new(),
-            local_services: HashMap::new(),
+            provided_names: HashMap::new(),
             connected_peers: HashSet::new(),
         }
     }
@@ -125,77 +130,86 @@ impl FunctionRouter {
     // ####
     // ## Entry point
     // ###
-    /*
-         Flow for sending calls is as follows:
-            1) If target is service
-                => if service is local: execute
-                => if remote: find PeerId for service provider in Kademlia, and go to 2)
-            2) If target is relay:
-                => if we are the target relay: set target=client, and go to 3)
-                => else: set target=relay, and go to 3)
-            3) If target is this node:
-                => execute message locally (see `fn execute_locally`)
-            4) If target is peer:
-                => if not in routing table: execute FindNode for PeerId, check if connected
-                => if not connected: execute DialPeer, wait for inject_connected
-                => once connected: send call
-    */
     pub fn call(&mut self, call: FunctionCall) {
-        match &call.target {
-            Some(target) => self.send_to(target.clone(), call),
-            None => self.send_error_on_call(call, "target is not defined".to_string()), // TODO: is this correct?
+        use PeerStatus::*;
+
+        let target = call.target.clone().filter(|t| !t.is_empty()); // TODO: how to avoid .clone() here?
+        let target = match target {
+            Option::Some(target) => target,
+            Option::None => {
+                // send error if target is empty
+                log::error!("Target is not defined on call {:?}", call);
+                self.send_error_on_call(call, "target is not defined or empty".to_string());
+                return;
+            }
+        };
+
+        let mut target = target.iter().peekable();
+        let mut is_local: bool = false;
+        while let Some(address) = target.peek() {
+            use Protocol::*;
+            match address {
+                Peer(id) if self.is_local(&id) => {
+                    target.next(); // Remove ourselves from target address, and continue routing
+                    is_local = true;
+                    continue;
+                }
+                Peer(id) => {
+                    self.send_to(id.clone(), Unknown, call.with_target(target.collect()));
+                    return;
+                }
+                s @ Service(_) if is_local || self.service_available_locally(s) => {
+                    // target will be like: /client/QmClient/service/QmService
+                    self.pass_to_local_service(s.into(), call.with_target(target.collect()));
+                    return;
+                }
+                s @ Service(_) => {
+                    log::info!("{} not found locally. uuid {}", &s, &call.uuid);
+                    self.find_service_provider(s.into(), call.with_target(target.collect()));
+                    return;
+                }
+                Client(id) if is_local => {
+                    self.send_to(id.clone(), Routable, call.with_target(target.collect()));
+                    return;
+                }
+                Client(id) => {
+                    // TODO: what if id == self.local_peer_id?
+                    self.search_for_client(id.clone(), call.with_target(target.collect()));
+                    return;
+                }
+            }
         }
+
+        log::warn!("Invalid target in call {:?}", call);
+        // TODO: this error is not helpful
+        self.send_error_on_call(call, "invalid target in call".into());
     }
 
     // ####
     // ## Sending calls
     // ###
 
-    // Send call to any address
-    pub(super) fn send_to(&mut self, address: Address, call: FunctionCall) {
-        use Address::*;
-        match address {
-            Peer { peer } if self.is_local(&peer) => {
-                log::info!("Executing {} locally", &call.uuid);
-                self.handle_local_call(call)
-            }
-            Peer { peer } => {
-                log::info!("Sending {} to {}", &call.uuid, peer.to_base58());
-                self.send_call(peer, call)
-            }
-            Relay { relay, client } if self.is_local(&relay) => {
-                log::info!(
-                    "Relaying {} to our client {}",
-                    &call.uuid,
-                    client.to_base58()
-                );
-                self.send_call(client, call)
-            }
-            Relay { relay, .. } => {
-                log::info!("Forwarding {} to {}", &call.uuid, relay.to_base58());
-                self.send_call(relay, call)
-            }
-            Service { service_id } => {
-                log::info!("Sending {} to service {}", &call.uuid, service_id);
-                self.send_to_service(service_id, call)
-            }
-        }
-    }
-
     // Schedule sending a call to unknown peer
-    pub(super) fn send_call(&mut self, to: PeerId, call: FunctionCall) {
-        if self.is_routable(&to) {
-            self.send_to_routable(to, call);
-        } else {
-            self.search_for_peer(to, call);
-        }
-    }
+    pub(super) fn send_to(&mut self, to: PeerId, expected: PeerStatus, call: FunctionCall) {
+        use PeerStatus::*;
 
-    pub(super) fn send_to_routable(&mut self, to: PeerId, call: FunctionCall) {
-        if self.is_connected(&to) {
-            self.send_to_connected(to, call)
-        } else {
-            self.connect(to, call)
+        let status = self.peer_status(&to);
+        // Check if peer is in expected (or better) status
+        if status < expected {
+            // TODO: this error is not helpful. Example of helpful error: "Peer wasn't found via GetClosestPeers"
+            //       consider custom errors for different pairs of (status, expected)
+            #[rustfmt::skip]
+            let err_msg = format!("unexpected status. Got {:?} expected {:?}", status, expected);
+            #[rustfmt::skip]
+            log::error!("Can't send call {:?} to peer {}: {}", call, to.to_base58(), err_msg);
+            self.send_error_on_call(call, err_msg);
+            return;
+        }
+
+        match status {
+            Connected => self.send_to_connected(to, call),
+            Routable => self.connect_then_send(to, call),
+            Unknown => self.search_then_send(to, call),
         }
     }
 
@@ -214,18 +228,18 @@ impl FunctionRouter {
     // ###
     pub(super) fn send_error_on_call(&mut self, mut call: FunctionCall, reason: String) {
         use serde_json::json;
-        let arguments = json!({ "reason": reason });
+        let arguments = json!({ "reason": reason, "call": call });
         let reply_to = call.reply_to.take();
 
         if let Some(reply_to) = reply_to {
             let call = FunctionCall {
-                target: Some(reply_to.clone()),
+                target: Some(reply_to),
                 arguments,
                 reply_to: None, // TODO: sure?
                 uuid: format!("error_{}", call.uuid),
                 name: call.name,
             };
-            self.send_to(reply_to, call)
+            self.call(call)
         } else {
             log::warn!("Can't send error on call {:?}: reply_to is empty", call);
         }
@@ -237,13 +251,13 @@ impl FunctionRouter {
         let arguments = json!({ "reason": reason });
         let uuid = Uuid::new_v4().to_string();
         let call = FunctionCall {
-            target: Some(address.clone()),
+            target: Some(address),
             arguments,
             reply_to: None, // TODO: sure?
             uuid: format!("error_{}", uuid),
             name: None,
         };
-        self.send_to(address, call)
+        self.call(call)
     }
 
     // ####
