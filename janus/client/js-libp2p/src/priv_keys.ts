@@ -1,17 +1,25 @@
 /*
- * Copyright 2018 Fluence Labs Limited
+ *   MIT License
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *   Copyright (c) 2020 Fluence Labs Limited
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   Permission is hereby granted, free of charge, to any person obtaining a copy
+ *   of this software and associated documentation files (the "Software"), to deal
+ *   in the Software without restriction, including without limitation the rights
+ *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *   copies of the Software, and to permit persons to whom the Software is
+ *   furnished to do so, subject to the following conditions:
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *   The above copyright notice and this permission notice shall be included in all
+ *   copies or substantial portions of the Software.
+ *
+ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *   SOFTWARE.
  */
 
 export const privKey1 = "XDLjuaVJ2yKQ2zHMmsee5PH9NdyZPsPugHcxxRDs74pq2FKUDZ2H4frHoLtMsoSQTeWB4yfXtUzktcNdd3kJmp9GrruzZ3eTCgkTABizQG5pPYNk3ucjKrREFfCSVvAFZbwvKMA1MLidxYGAytUbnhZVz78nAUErMgvt3FzqgUS848TTwAptpjK2kxcMDYLUpKxPRAkYUBANsCAfyxJeEKGcugKcxwmfxhMGKFod8x54SWhUEJkFZiRpb16T8FTqT97J8EYu4SkkWf3qmvqoRHKFd11CAv8nmKxCt1aW43819ocFSzEPSbcFqt8QpzMf5CmbS9wfooYYAsDcgP2BHUx5hjdPUjWLVkf5c3sz7XvSCKGYkY6Z9ULgcTjiQWCy2hiZSQXmZQ8hT7YnNzVQGk7kfteen1dgUL6m4VTomgCgVCqXz9Qb5fawcpoBrLP8jwnSeNn5vYMhCdUCZoHHAnDLVQn3QwmXNPipH5ApAP7qXwB6nxAM6wefFxUo8fvYkTMFTaMx6CxzYKjE8JMczgNSnqCA7WTjugVtuA6Cuz1Wwu5dxMyar9iNQ8oxDt7TzFZiqUiSwFkFzu5ZUJLHN6pEghe2tqcBhDUi1J8gfeidHrjZL7koZFjMD4BxRs3hZhwisNooaSg9K7G5EQfUfUa19X5mjTyDKUNyBQ2Yp3GeSxpZGz8A9LRMYXkN4FJDFLUbii1VKU1DdGvxRFEGQGnPqXZLxqdrGzpbiYaoMAnsn1hvrq6WzTZjNa8oVetbutmCbUibMVurBwPPufzp7ADxMRHbMWi8ox1z69iRihcbXHdM6wgJrSeSJK5E8WETsfxYxP3JcyNVtHp4Ph3KqrtvvCWJhQFd6cYeYKTphfDFhCtg451ZnGMLusLcnvsmoraR1rLYYupHh8m5E7NSWZwdur9SLoRvDq9etZGqQ1tZp8kJeFG6outwfbyBxKtQV1PDDnVNjEPU3pgJp832g5gmijNKq5ErZZ3ZBGzqVS7pmz7xVP1P9Q1REoprpS9L84i2aoXLRf9GqCSuxfanQWf3kUshocij4auj74RKXfrbxDyox1yWMMq2wRazqvsDG8DgRvkoAshpU84W9znseLBcWHbSqsU2ygTH36BwQM6tEHm4biHbfBDosxKFpJuqAUsREURomQSPBAZ9H4kWNz9jQT1JiSiVHYCPDbjVCN1PND84oPsb7iCcpDhekt4uPs3BP5AVLknEFAbasfKQv6bWjQCLnFf7M96LueYvuGcbw1xfSZJyRVeoN2tLtwv9xezukNWGfyU87tqRr61ZmXvjj1vgZF7HnqDiMMBjwaxJYyddqnUNxsjD7VhGKQrLfJ8S8atHQjDMEbk1L7i3X6MNq5CcZ6Ke8Kg9EaR5yUSCG3eLGgxXBoXbUHDJpmWq74NriaUhixFFuwvEaJHJevRGFyGMrKyWCKRTPycLHPcDxPxQNz5kajg3MEe4BuxMqkKL3DmWf78PQA1xfg4GpRzBbrv5f6pBui3QR4QionvufA4ppTC5ToEmsUw9rXAJ1FK49HPjRshshZxysGXzcdVZdDK5pDwNYPZ1WkHW6dPeSydYM21gMQwQ97rqoNoYMsy7rdAm9CrhS7NZSVmVhFs4akqxNE4omp"

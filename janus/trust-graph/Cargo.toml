@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = ["Fluence Labs"]
 edition = "2018"
 description = "trust graph"
-license = "Apache-2.0"
+license = "MIT"
 
 [dependencies]
 libp2p-core = "0.17.0"
