@@ -7,7 +7,7 @@ description = "trust graph"
 license = "MIT"
 
 [dependencies]
-libp2p-core = "0.17.0"
+libp2p-core = "0.18.0"
 parity-multiaddr = "0.8.0"
 serde = { version = "1.0.104", features = ["derive"] }
 bs58 = "0.3.0"

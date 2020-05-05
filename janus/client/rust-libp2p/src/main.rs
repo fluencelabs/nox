@@ -33,10 +33,16 @@
     unreachable_patterns
 )]
 
-use async_std::{io, task};
+use async_std::task;
 use ctrlc_adapter::block_until_ctrlc;
 use faas_api::{Address, FunctionCall};
-use futures::{channel::oneshot, prelude::*, select, stream::StreamExt};
+use failure::_core::time::Duration;
+use futures::{
+    channel::{mpsc, mpsc::UnboundedReceiver, oneshot},
+    prelude::*,
+    select,
+    stream::StreamExt,
+};
 use janus_client::{Client, ClientCommand, ClientEvent};
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
@@ -60,7 +66,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     block_until_ctrlc();
-    exit_sender.send(()).unwrap();
+    exit_sender
+        .send(())
+        .expect("send exit signal to client task");
     task::block_on(client_task);
 
     Ok(())
@@ -73,24 +81,20 @@ async fn run_client(
     let client = Client::connect(relay);
     let (mut client, client_task) = client.await?;
 
-    let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
+    let stdin_cmds = read_cmds_from_stdin();
 
+    let mut stdin_cmds = stdin_cmds.into_stream().fuse();
     let mut stop = exit_receiver.into_stream().fuse();
 
     loop {
         select!(
-            from_stdin = stdin.select_next_some() => {
-                match from_stdin {
-                    Ok(line) => {
-                        let cmd: Result<ClientCommand, _> = serde_json::from_str(&line);
-                        if let Ok(cmd) = cmd {
-                            client.send(cmd);
-                            print!("\n");
-                        } else {
-                            println!("incorrect string provided\n");
-                        }
-                    }
-                    Err(_) => panic!("Stdin closed"),
+            cmd = stdin_cmds.select_next_some() => {
+                match cmd {
+                    Ok(cmd) => {
+                        client.send(cmd);
+                        print!("\n");
+                    },
+                    Err(e) => println!("incorrect string provided: {:?}", e)
                 }
             },
             incoming = client.receive_one() => {
@@ -116,6 +120,30 @@ async fn run_client(
     client_task.await;
 
     Ok(())
+}
+
+// TODO: it's not clear how and why this all works, so it is possible
+//       that it would BLOCK ALL THE FUTURES in the executor, so
+//       BE CAREFUL
+fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientCommand>> {
+    let (cmd_sender, cmd_recv) = mpsc::unbounded();
+    task::spawn(async move {
+        use serde_json::Deserializer;
+        use std::io; // NOTE: this is synchronous IO
+
+        loop {
+            let stdin = io::BufReader::new(io::stdin());
+            let stream = Deserializer::from_reader(stdin).into_iter::<ClientCommand>();
+
+            for cmd in stream {
+                // blocking happens in 'for'
+                cmd_sender.unbounded_send(cmd).expect("send cmd");
+                task::sleep(Duration::from_nanos(10)).await; // return Poll::Pending from future's fn poll
+            }
+        }
+    });
+
+    cmd_recv
 }
 
 fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
@@ -183,8 +211,11 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
     };
 
     println!("possible messages:");
+    println!("\n### call IPFS.multiaddr");
     show(call_multiaddr);
+    println!("\n### Register IPFS.get service");
     show(register_ipfs_get);
+    println!("\n### Call IPFS.get service");
     show(call_ipfs_get);
     println!("\n")
 }

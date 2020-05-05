@@ -174,24 +174,14 @@ impl NetworkBehaviour for FunctionRouter {
 
 impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRouter {
     fn inject_event(&mut self, event: KademliaEvent) {
-        use libp2p::kad::{GetProvidersError, GetProvidersOk};
-        use KademliaEvent::{GetClosestPeersResult, GetProvidersResult};
+        use KademliaEvent::{GetClosestPeersResult, GetRecordResult, PutRecordResult};
 
         log::debug!("Kademlia inject: {:?}", event);
 
         match event {
-            GetProvidersResult(Ok(GetProvidersOk { key, providers, .. })) => {
-                self.providers_found(key, providers)
-            }
-            GetProvidersResult(Err(GetProvidersError::Timeout { key, providers, .. })) => {
-                log::warn!(
-                    "GetProviders for {} timed out with {} providers",
-                    bs58::encode(key.as_ref()).into_string(),
-                    providers.len()
-                );
-                self.providers_found(key, providers)
-            }
             GetClosestPeersResult(result) => self.found_closest(result),
+            PutRecordResult(Err(err)) => self.dht_put_failed(err),
+            GetRecordResult(result) => self.dht_get_finished(result),
             _ => {}
         };
     }

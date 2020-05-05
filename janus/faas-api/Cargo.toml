@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 trust-graph = { path = "../trust-graph" }
 janus-libp2p = { path = "../crates/libp2p" }
-libp2p = "0.17.0"
+libp2p = "0.18.1"
 parity-multiaddr = "0.8.0"
 multihash ="0.10.0"
 futures = "0.3.4"

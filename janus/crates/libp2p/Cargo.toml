@@ -5,7 +5,7 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p = "0.17.0"
+libp2p = "0.18.1"
 parity-multiaddr = "0.8.0"
 multihash ="0.10.0"
 futures = "0.3.4"

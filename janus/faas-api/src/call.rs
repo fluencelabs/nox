@@ -39,7 +39,7 @@ pub struct FunctionCall {
     pub name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[serde(tag = "type")]
 pub enum Address {
     Relay {

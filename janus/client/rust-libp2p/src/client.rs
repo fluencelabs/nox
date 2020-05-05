@@ -71,10 +71,13 @@ impl Client {
     }
 
     pub fn send(&self, cmd: ClientCommand) {
-        if let Err(err) = self.relay_outlet.unbounded_send(cmd) {
-            let err_msg = format!("{:?}", err);
-            let msg = err.into_inner();
-            log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
+        match self.relay_outlet.unbounded_send(cmd) {
+            Err(err) => {
+                let err_msg = format!("{:?}", err);
+                let msg = err.into_inner();
+                log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
+            }
+            Ok(_) => {}
         }
     }
 
@@ -83,8 +86,9 @@ impl Client {
     }
 
     pub fn stop(self) {
-        if self.stop_outlet.send(()).is_err() {
-            log::warn!("Unable to send stop, channel closed")
+        match self.stop_outlet.send(()) {
+            Ok(_) => {}
+            Err(_) => log::warn!("Unable to send stop, channel closed"),
         }
     }
 

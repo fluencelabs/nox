@@ -8,7 +8,7 @@ edition = "2018"
 janus-libp2p = { path = "../../crates/libp2p" }
 faas-api = { path = "../../faas-api" }
 ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
-libp2p = "0.17.0"
+libp2p = "0.18.1"
 parity-multiaddr = "0.8.0"
 multihash ="0.10.0"
 async-std = "1.5.0"

@@ -240,7 +240,7 @@ async fn wait_call(client: &mut Client, expected_service: &Service) -> Waiting<F
                 debug_assert_eq!(&sender, &expected_service.node.peer_id);
                 debug_assert!(matches!(
                     &call.target,
-                    Some(Address::Service { service_id }) if service_id == &expected_service.id
+                    Some(Address::Service { service_id }) if service_id.as_str() == expected_service.id.as_str()
                 ));
                 break Waiting::Ok(call);
             }
