@@ -201,7 +201,7 @@ impl FunctionRouter {
             #[rustfmt::skip]
             let err_msg = format!("unexpected status. Got {:?} expected {:?}", status, expected);
             #[rustfmt::skip]
-            log::error!("Can't send call {:?} to peer {}: {}", call, to.to_base58(), err_msg);
+            log::error!("Can't send call {:?} to peer {}: {}", call, to, err_msg);
             self.send_error_on_call(call, err_msg);
             return;
         }
@@ -271,7 +271,7 @@ impl FunctionRouter {
     ) {
         log::trace!(
             "adding new node {} with {:?} addresses to kademlia",
-            node_id.to_base58(),
+            node_id,
             addresses,
         );
         for addr in addresses {

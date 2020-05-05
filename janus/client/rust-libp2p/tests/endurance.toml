@@ -1,24 +1,6 @@
 nodes = [
-    { name = "en-1:7010", address = "/ip4/134.122.59.4/tcp/7010", peer_id = "QmeQfiLbVMEeAxS6fGN7PEkCkW7531DNowR4aRmrEZrFdT" },
-    { name = "en-1:7001", address = "/ip4/134.122.59.4/tcp/7001", peer_id = "QmQzy9a2M8diryUHHD2EVn3jpoGgW3yGaP3BFvNSzHzbWa" },
-    { name = "en-1:7002", address = "/ip4/134.122.59.4/tcp/7002", peer_id = "QmeEnzxuVWwi7Y4QEMoiAE9XjrYrrH2xkGEBJJGJJDTJsx" },
-    { name = "en-1:7003", address = "/ip4/134.122.59.4/tcp/7003", peer_id = "Qmf5cgc925MCAVJXGuQv8jVw4a4qXY2M3b1GgFjaWMhJM6" },
-    { name = "en-1:7004", address = "/ip4/134.122.59.4/tcp/7004", peer_id = "QmSR5hjSL5QiJSfCUYttKmL3oDtiVKpwjCgN8xJ49cmyX4" },
-    { name = "en-1:7005", address = "/ip4/134.122.59.4/tcp/7005", peer_id = "QmfScrPx1r1q2yYhjNAaHGsac7SrjUR8mFKVmVovz3vx7A" },
-    { name = "en-1:7006", address = "/ip4/134.122.59.4/tcp/7006", peer_id = "Qmd7gihqKmYgoDm7jdPjcXiLdznjTBJwZCSTdj2wt5VCSZ" },
-    { name = "en-1:7007", address = "/ip4/134.122.59.4/tcp/7007", peer_id = "QmfNfjVCAtJgtVTZFWuNmoaRAciCDtsAnEccknJswev1FR" },
-    { name = "en-1:7008", address = "/ip4/134.122.59.4/tcp/7008", peer_id = "QmPEVosaiAW16MHVMQi99znfMaswey45XhAWcQVPxosxrE" },
-    { name = "en-1:7009", address = "/ip4/134.122.59.4/tcp/7009", peer_id = "QmVCxwU4oZttSj8pgFT9S3j5rFfqodStaLGcP7LWc9cJbs" },
-    { name = "en-2:7010", address = "/ip4/142.93.230.175/tcp/7010", peer_id = "QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz" },
-    { name = "en-2:7001", address = "/ip4/142.93.230.175/tcp/7001", peer_id = "QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW" },
-    { name = "en-2:7002", address = "/ip4/142.93.230.175/tcp/7002", peer_id = "QmSTTTbAu6fa5aT8MjWN922Y8As29KTqBwvvp7CyrC2S6D" },
-    { name = "en-2:7003", address = "/ip4/142.93.230.175/tcp/7003", peer_id = "QmUGQ2ikgcbJUVyaxBPDSWLNUMDo2hDvE9TdRNJY21Eqde" },
-    { name = "en-2:7004", address = "/ip4/142.93.230.175/tcp/7004", peer_id = "Qmdqrm4iHuHPzgeTkWxC8KRj1voWzKDq8MUG115uH2WVSs" },
-    { name = "en-2:7005", address = "/ip4/142.93.230.175/tcp/7005", peer_id = "QmPa8d6gXRpai24fF5WgPebrnZ1AbDezyxN46pW3DTAMKi" },
-    { name = "en-2:7006", address = "/ip4/142.93.230.175/tcp/7006", peer_id = "QmSbTQtXR5WUuZjeTDV6kCE8WJbWFJuGoMAbHJVtcV7v6q" },
-    { name = "en-2:7007", address = "/ip4/142.93.230.175/tcp/7007", peer_id = "QmRdRpFhJQ83VDVy8goN5TrGohBjhLLiCzStWfpeFQL59t" },
-    { name = "en-2:7008", address = "/ip4/142.93.230.175/tcp/7008", peer_id = "Qme5ADrqQaSjXacRT8wpEMRfxiSC6J8bgfe6LiTrsu1ckL" },
-    { name = "en-2:7009", address = "/ip4/142.93.230.175/tcp/7009", peer_id = "QmYFDx8A1NyPnCBr1463TnvkvwJA2q9SUEqtUnkbGbtj1e "}
+    # Example:
+    # { name = "en-09:7010", address = "/ip4/134.209.199.110/tcp/7010", peer_id = "QmccKW7mTPbRHPY2BYyTPDqN7z9Dg7E629mFrND7DsP76U" },
 ]
 
 client_multiplier = 10

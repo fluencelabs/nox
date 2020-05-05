@@ -54,29 +54,29 @@ impl NetworkBehaviour for FunctionRouter {
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        log::info!("addresses_of_peer {}", peer_id.to_base58());
+        log::info!("addresses_of_peer {}", peer_id);
         self.kademlia.addresses_of_peer(peer_id)
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        log::debug!("inject_connected {}", peer_id.to_base58());
+        log::debug!("inject_connected {}", peer_id);
         self.connected(peer_id.clone());
         self.kademlia.inject_connected(peer_id);
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        log::debug!("inject_disconnected {}", peer_id.to_base58());
+        log::debug!("inject_disconnected {}", peer_id);
         self.disconnected(peer_id);
         self.kademlia.inject_disconnected(peer_id);
     }
 
     fn inject_connection_established(&mut self, p: &PeerId, i: &ConnectionId, c: &ConnectedPoint) {
-        log::debug!("connection_established {} {:?} {:?}", p.to_base58(), i, c);
+        log::debug!("connection_established {} {:?} {:?}", p, i, c);
         self.kademlia.inject_connection_established(p, i, c);
     }
 
     fn inject_connection_closed(&mut self, p: &PeerId, i: &ConnectionId, c: &ConnectedPoint) {
-        log::debug!("connection_closed {} {:?} {:?}", p.to_base58(), i, c);
+        log::debug!("connection_closed {} {:?} {:?}", p, i, c);
         self.kademlia.inject_connection_closed(p, i, c)
     }
 
@@ -90,7 +90,7 @@ impl NetworkBehaviour for FunctionRouter {
 
         match event {
             First(ProtocolMessage::FunctionCall(call)) => {
-                log::info!("FunctionCall! from {} {:?}", source.to_base58(), call);
+                log::info!("FunctionCall! from {} {:?}", source, call);
                 self.call(call)
             }
             Second(kademlia_event) => {

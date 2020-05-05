@@ -39,6 +39,23 @@ impl FunctionRouter {
 
         match protocols.as_deref() {
             Some([Peer(id), c @ Client(_), rem @ ..]) if self.is_local(id) => {
+                // TODO: check signature
+                if let Client(c) = c {
+                    let client_has = if c.as_public_key().is_some() {
+                        "client has public key"
+                    } else {
+                        "client doesn't have public key"
+                    };
+
+                    let relay_has = if id.as_public_key().is_some() {
+                        "relay has public key"
+                    } else {
+                        "relay doesn't have public key"
+                    };
+
+                    log::info!("{} and {}", client_has, relay_has);
+                };
+
                 // forward_to ~ /peer/QmLocal/client/QmClient/service/QmService, or more complex
                 let local: Address = Peer(self.peer_id.clone()).into();
                 let provider = local.append(c).append_protos(rem);

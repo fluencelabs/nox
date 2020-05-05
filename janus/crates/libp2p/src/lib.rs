@@ -35,12 +35,10 @@
 )]
 
 mod macros;
-mod safe_multihash;
 mod serde;
 mod transport;
 pub mod types;
 
 pub use self::serde::*;
 pub use macros::*;
-pub use safe_multihash::SafeMultihash;
 pub use transport::{build_memory_transport, build_transport};

@@ -147,7 +147,7 @@ impl FunctionRouter {
                     "Removing halted name {}. forward_to: {} due to peer {} disconnection",
                     k,
                     v,
-                    resolvee.to_base58()
+                    resolvee
                 );
             }
             !halted

@@ -101,7 +101,7 @@ async fn run_client(
             incoming = client.receive_one() => {
                 match incoming {
                     Some(ClientEvent::NewConnection{ peer_id, ..}) => {
-                        log::info!("Connected to {}", peer_id.to_base58());
+                        log::info!("Connected to {}", peer_id);
                         print_example(&client.peer_id, peer_id);
                     }
                     Some(msg) => println!("Received\n{}\n", serde_json::to_string_pretty(&msg).unwrap()),

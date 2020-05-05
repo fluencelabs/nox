@@ -101,7 +101,7 @@ impl NetworkBehaviour for ClientBehaviour {
                 log::warn!(
                     "Someone connected to the client at {:?}. That's strange. {} @ {:?}",
                     local_addr,
-                    peer_id.to_base58(),
+                    peer_id,
                     send_back_addr
                 );
                 send_back_addr
@@ -126,7 +126,7 @@ impl NetworkBehaviour for ClientBehaviour {
             ConnectedPoint::Dialer { address } => {
                 log::warn!(
                     "Disconnected from {} @ {:?}, reconnecting",
-                    peer_id.to_base58(),
+                    peer_id,
                     address
                 );
                 self.events.push_back(NetworkBehaviourAction::DialAddress {
@@ -139,7 +139,7 @@ impl NetworkBehaviour for ClientBehaviour {
             } => {
                 log::warn!(
                     "Peer {} @ {:?} disconnected, was connected to {:?}, won't reconnect",
-                    peer_id.to_base58(),
+                    peer_id,
                     send_back_addr,
                     local_addr
                 );

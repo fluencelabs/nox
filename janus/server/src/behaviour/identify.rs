@@ -38,7 +38,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for ServerBehaviour {
             IdentifyEvent::Received { peer_id, info, .. } => {
                 log::debug!(
                     "Identify received from {}: protocols: {:?} version: {} listen addrs {:?}",
-                    peer_id.to_base58(),
+                    peer_id,
                     info.protocols,
                     info.protocol_version,
                     info.listen_addrs
@@ -54,7 +54,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for ServerBehaviour {
                         log::error!(
                             "Unable to add node {} to kademlia, public key {:?} is not supported. \
                             Only ed25519 is supported. Will fallback to Direct routing.",
-                            peer_id.to_base58(),
+                            peer_id,
                             info.public_key
                         );
                     }
@@ -64,7 +64,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for ServerBehaviour {
 
             // TODO: handle error?
             IdentifyEvent::Error { error, peer_id } => {
-                log::error!("Identify error on {}: {}", peer_id.to_base58(), error);
+                log::error!("Identify error on {}: {}", peer_id, error);
             }
 
             // We don't care about Sent identification info

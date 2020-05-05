@@ -156,6 +156,8 @@ fn call_service() {
 // 4. Provide same service again, via different provider
 // 5. Check that calls to service succeed
 fn provide_disconnect() {
+    enable_logs();
+
     let service_id = "providedisconnect";
 
     let (mut provider, mut consumer) = make_clients().expect("connect clients");
@@ -316,9 +318,9 @@ fn make_clients() -> Result<(ConnectedClient, ConnectedClient)> {
     let (peer_id2, addr2, mut swarm2) = create_swarm(vec![addr1.clone()]);
     let (peer_id3, addr3, mut swarm3) = create_swarm(vec![addr1.clone(), addr2.clone()]);
 
-    log::debug!("peer_id1: {}", peer_id1.to_base58());
-    log::debug!("peer_id2: {}", peer_id2.to_base58());
-    log::debug!("peer_id3: {}", peer_id3.to_base58());
+    log::debug!("peer_id1: {}", peer_id1);
+    log::debug!("peer_id2: {}", peer_id2);
+    log::debug!("peer_id3: {}", peer_id3);
 
     swarm2.dial_bootstrap_nodes();
     swarm3.dial_bootstrap_nodes();

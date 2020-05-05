@@ -32,15 +32,12 @@ impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
             BootstrapperEvent::BootstrapConnected { peer_id, .. } => {
                 log::debug!(
                     "Bootstrap connected {}, triggering bootstrap procedure",
-                    peer_id.to_base58()
+                    peer_id
                 );
                 self.bootstrap()
             }
             BootstrapperEvent::BootstrapDisconnected { peer_id, multiaddr } => {
-                log::info!(
-                    "Bootstrap disconnected {}, reconnecting",
-                    peer_id.to_base58()
-                );
+                log::info!("Bootstrap disconnected {}, reconnecting", peer_id);
                 self.dial(multiaddr);
                 self.dial_peer(peer_id);
             }

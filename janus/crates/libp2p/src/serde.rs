@@ -57,7 +57,9 @@ pub mod peerid_serializer {
     where
         S: Serializer,
     {
-        value.to_base58().serialize(serializer)
+        bs58::encode(value.as_bytes())
+            .into_string()
+            .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
@@ -112,7 +114,7 @@ pub mod provider_serializer {
         let mut seq = serializer.serialize_seq(Some(2 * value.len()))?;
         for (multiaddr, peerid) in value {
             seq.serialize_element(multiaddr)?;
-            seq.serialize_element(&peerid.to_base58())?;
+            seq.serialize_element(&bs58::encode(peerid.as_bytes()).into_string())?;
         }
         seq.end()
     }

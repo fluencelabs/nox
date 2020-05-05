@@ -83,11 +83,7 @@ impl NetworkBehaviour for Bootstrapper {
             ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
         };
 
-        log::debug!(
-            "connection established with {} {:?}",
-            peer_id.to_base58(),
-            maddr
-        );
+        log::debug!("connection established with {} {:?}", peer_id, maddr);
 
         if self.bootstrap_nodes.contains(maddr) || self.bootstrap_peers.contains(peer_id) {
             self.bootstrap_peers.insert(peer_id.clone());

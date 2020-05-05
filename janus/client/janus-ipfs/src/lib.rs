@@ -123,7 +123,7 @@ pub async fn run_ipfs_multiaddr_service(
                     }) if target.contains(&IPFS_SERVICE) => {
                         log::info!(
                             "Got call for {} from {}, asking node to reply to {:?}",
-                            IPFS_SERVICE.deref(), sender.to_base58(), reply_to
+                            IPFS_SERVICE.deref(), sender, reply_to
                         );
                         let msg_id = arguments.get("msg_id").and_then(|v| v.as_str());
                         let call = multiaddr_call(bootstrap_id.clone().unwrap(), client.peer_id.clone(), reply_to, msg_id, &ipfs);

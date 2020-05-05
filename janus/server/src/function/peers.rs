@@ -25,7 +25,6 @@
 use super::router::WaitPeer;
 use super::FunctionRouter;
 use faas_api::{FunctionCall, Protocol};
-use janus_libp2p::SafeMultihash;
 use libp2p::{
     swarm::{DialPeerCondition, NetworkBehaviour, NetworkBehaviourAction},
     PeerId,
@@ -45,8 +44,7 @@ impl FunctionRouter {
         self.wait_peer
             .enqueue(peer_id.clone(), WaitPeer::Found(call));
         // TODO: don't call get_closest_peers if there are already some calls waiting for it
-        self.kademlia
-            .get_closest_peers(SafeMultihash::from(peer_id))
+        self.kademlia.get_closest_peers(peer_id)
     }
 
     // Send all calls waiting for this peer to be found
@@ -77,12 +75,12 @@ impl FunctionRouter {
 
         self.wait_peer.enqueue(peer_id.clone(), Connected(call));
 
-        log::info!("Dialing {}", peer_id.to_base58());
+        log::info!("Dialing {}", peer_id);
         self.events.push_back(DialPeer { peer_id, condition });
     }
 
     pub(super) fn connected(&mut self, peer_id: PeerId) {
-        log::info!("Peer connected: {}", peer_id.to_base58());
+        log::info!("Peer connected: {}", peer_id);
         self.connected_peers.insert(peer_id.clone());
 
         let waiting = self.wait_peer.remove_with(&peer_id, |wp| wp.connected());
@@ -98,7 +96,7 @@ impl FunctionRouter {
     pub(super) fn disconnected(&mut self, peer_id: &PeerId) {
         log::info!(
             "Peer disconnected: {}. {} calls left waiting.",
-            peer_id.to_base58(),
+            peer_id,
             self.wait_peer.count(&peer_id)
         );
         self.connected_peers.remove(peer_id);
@@ -125,7 +123,7 @@ impl FunctionRouter {
 
         log::debug!(
             "peer {} in routing table: Connected? {} Kademlia {:?}",
-            peer_id.to_base58(),
+            peer_id,
             connected,
             kad
         );
@@ -134,13 +132,11 @@ impl FunctionRouter {
 
     // Whether given peer id is equal to ours
     pub(super) fn is_local(&self, peer_id: &PeerId) -> bool {
-        let local = self.peer_id.to_base58();
-        let other = peer_id.to_base58();
-        if local == other {
-            log::debug!("{} is LOCAL", other);
+        if self.peer_id.eq(peer_id) {
+            log::debug!("{} is LOCAL", peer_id);
             true
         } else {
-            log::debug!("{} is REMOTE", other);
+            log::debug!("{} is REMOTE", peer_id);
             false
         }
     }

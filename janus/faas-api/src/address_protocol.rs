@@ -70,8 +70,8 @@ impl Protocol {
         use self::Protocol::*;
         match self {
             Service(id) => ("service", Cow::Borrowed(id)),
-            Peer(id) => ("peer", Cow::Owned(id.to_base58())),
-            Client(id) => ("client", Cow::Owned(id.to_base58())),
+            Peer(id) => ("peer", Cow::Owned(Self::peer_id_to_base58(id))),
+            Client(id) => ("client", Cow::Owned(Self::peer_id_to_base58(id))),
         }
     }
 
@@ -83,6 +83,10 @@ impl Protocol {
         let str = iter.next().ok_or(Error::Empty)?;
         let peer_id: PeerId = str.parse().map_err(|_| Error::InvalidPeerId)?;
         Ok(peer_id)
+    }
+
+    fn peer_id_to_base58(peer_id: &PeerId) -> String {
+        bs58::encode(peer_id.as_bytes()).into_string()
     }
 }
 
