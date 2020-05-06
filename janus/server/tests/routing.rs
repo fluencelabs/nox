@@ -72,7 +72,9 @@ impl ConnectedClient {
     }
 
     pub fn relay_address(&self) -> Address {
-        relay!(self.node.clone(), self.client.peer_id.clone())
+        let addr = relay!(self.node.clone(), self.client.peer_id.clone());
+        let sig = self.client.key_pair.sign(addr.path().as_bytes());
+        addr.append(Protocol::Signature(sig))
     }
 
     pub fn send(&self, call: FunctionCall) {
@@ -142,7 +144,11 @@ fn call_service() {
 
     let to_provider = provider.receive();
 
-    assert_eq!(call_service.uuid, to_provider.uuid);
+    assert_eq!(
+        call_service.uuid, to_provider.uuid,
+        "Got: {:?}",
+        to_provider
+    );
     assert_eq!(
         to_provider.target,
         Some(provider.client_address().extend(service!(service_id)))

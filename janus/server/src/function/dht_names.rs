@@ -24,14 +24,24 @@
 
 #![allow(clippy::mutable_key_type)]
 
+use crate::function::address_signature::{remove_signatures, verify_address, SignatureError};
 use crate::kademlia;
 use crate::FunctionRouter;
-use faas_api::Address;
-use libp2p::kad::record::{Key, Record};
-use libp2p::kad::{PutRecordError, Quorum};
-use std::collections::hash_map::Entry;
-use std::collections::HashSet;
-use std::convert::TryInto;
+use faas_api::{Address, AddressError};
+use libp2p::{
+    kad::record::{Key, Record},
+    kad::{PutRecordError, Quorum},
+};
+use std::{
+    collections::{hash_map::Entry, HashSet},
+    convert::TryInto,
+};
+
+#[derive(Debug)]
+pub enum ProviderError {
+    Deserialization(AddressError),
+    Signature(SignatureError),
+}
 
 impl FunctionRouter {
     pub fn name_resolution_failed(&mut self, error: PutRecordError) {
@@ -160,7 +170,7 @@ impl FunctionRouter {
 
         let providers = records
             .into_iter()
-            .flat_map(|rec| match rec.value.as_slice().try_into() {
+            .flat_map(|rec| match Self::deserialize_provider(&rec) {
                 Ok(provider) => Some(provider),
                 Err(err) => {
                     log::warn!(
@@ -175,6 +185,17 @@ impl FunctionRouter {
             .collect::<HashSet<_>>();
 
         self.providers_found(name, providers);
+    }
+
+    fn deserialize_provider(record: &Record) -> Result<Address, ProviderError> {
+        use ProviderError::*;
+
+        let slice = record.value.as_slice();
+        let address: Address = slice.try_into().map_err(|e| Deserialization(e))?;
+        verify_address(&address).map_err(|e| Signature(e))?;
+        let address = remove_signatures(address);
+
+        Ok(address)
     }
 
     // Like DNS CNAME record

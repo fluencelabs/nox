@@ -22,12 +22,12 @@
  *   SOFTWARE.
  */
 
-use super::address::Error;
+use super::address::AddressError;
 use libp2p::PeerId;
 use std::borrow::Cow;
 use std::str::FromStr;
 
-type Result<T> = core::result::Result<T, Error>;
+type Result<T> = core::result::Result<T, AddressError>;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Protocol {
@@ -37,6 +37,7 @@ pub enum Protocol {
     Peer(PeerId),
     // Peer that's accessible only via relay mechanics
     Client(PeerId),
+    Signature(Vec<u8>),
 }
 
 impl Protocol {
@@ -47,9 +48,9 @@ impl Protocol {
         I: Iterator<Item = &'a str>,
     {
         use self::Protocol::*;
-        match iter.next().ok_or(Error::Empty)? {
+        match iter.next().ok_or(AddressError::Empty)? {
             "service" => {
-                let id = iter.next().ok_or(Error::Empty)?;
+                let id = iter.next().ok_or(AddressError::Empty)?;
                 Ok(Service(id.into()))
             }
             "peer" => {
@@ -60,7 +61,12 @@ impl Protocol {
                 let id = Self::parse_peer_id(iter)?;
                 Ok(Client(id))
             }
-            _ => Err(Error::UnknownProtocol),
+            "signature" => {
+                let sig = iter.next().ok_or(AddressError::Empty)?;
+                let sig = Self::parse_base_58(sig)?;
+                Ok(Signature(sig))
+            }
+            _ => Err(AddressError::UnknownProtocol),
         }
     }
 
@@ -72,6 +78,7 @@ impl Protocol {
             Service(id) => ("service", Cow::Borrowed(id)),
             Peer(id) => ("peer", Cow::Owned(Self::peer_id_to_base58(id))),
             Client(id) => ("client", Cow::Owned(Self::peer_id_to_base58(id))),
+            Signature(sig) => ("signature", Cow::Owned(Self::vec_to_base58(sig))),
         }
     }
 
@@ -80,13 +87,23 @@ impl Protocol {
     where
         I: Iterator<Item = &'a str>,
     {
-        let str = iter.next().ok_or(Error::Empty)?;
-        let peer_id: PeerId = str.parse().map_err(|_| Error::InvalidPeerId)?;
+        let str = iter.next().ok_or(AddressError::Empty)?;
+        let peer_id: PeerId = str.parse().map_err(|_| AddressError::InvalidPeerId)?;
         Ok(peer_id)
+    }
+
+    fn parse_base_58(from: &str) -> Result<Vec<u8>> {
+        bs58::decode(from)
+            .into_vec()
+            .map_err(|_| AddressError::InvalidProtocol)
     }
 
     fn peer_id_to_base58(peer_id: &PeerId) -> String {
         bs58::encode(peer_id.as_bytes()).into_string()
+    }
+
+    fn vec_to_base58(v: &[u8]) -> String {
+        bs58::encode(v).into_string()
     }
 }
 
@@ -98,14 +115,14 @@ impl std::fmt::Display for Protocol {
 }
 
 impl FromStr for Protocol {
-    type Err = Error;
+    type Err = AddressError;
 
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
         let mut parts = s.split('/').peekable();
 
         if Some("") != parts.next() {
             // Protocol must start with `/`
-            return Err(Error::InvalidProtocol);
+            return Err(AddressError::InvalidProtocol);
         }
 
         Protocol::from_iter(parts)

@@ -44,7 +44,7 @@ mod libp2p_protocol {
 
 pub use call::call_test_utils;
 
-pub use address::Address;
+pub use address::{Address, AddressError};
 pub use address_protocol::Protocol;
 pub use call::FunctionCall;
 pub use libp2p_protocol::message::ProtocolMessage;

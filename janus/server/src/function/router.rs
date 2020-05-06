@@ -88,6 +88,9 @@ impl Into<FunctionCall> for WaitPeer {
 /// TODO: Latency. Latency gonna be nuts.
 /// TODO: add metrics-rs
 pub struct FunctionRouter {
+    #[allow(dead_code)]
+    pub(super) keypair: Keypair,
+    // TODO: store peer_id as Lazy::new(|| kp.to_peer_id())?
     pub(super) peer_id: PeerId,
     // Queue of events to send to the upper level
     pub(super) events: VecDeque<SwarmEventType>,
@@ -117,6 +120,7 @@ impl FunctionRouter {
         let trust = TrustGraph::new(root_weights);
 
         Self {
+            keypair: kp.clone(),
             peer_id: peer_id.clone(),
             events: VecDeque::new(),
             kademlia: Kademlia::with_config(kp, peer_id, store, cfg, trust),
@@ -175,6 +179,14 @@ impl FunctionRouter {
                 Client(id) => {
                     // TODO: what if id == self.local_peer_id?
                     self.search_for_client(id.clone(), call.with_target(target.collect()));
+                    return;
+                }
+                Signature(_) => {
+                    self.send_error_on_call(
+                        call,
+                        "Invalid target: expected /peer, /client or /service, got /signature"
+                            .into(),
+                    );
                     return;
                 }
             }

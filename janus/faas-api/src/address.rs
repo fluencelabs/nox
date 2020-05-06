@@ -35,7 +35,7 @@ use url::Url;
 static SCHEME: Lazy<Url> = Lazy::new(|| Url::parse("fluence:/").unwrap());
 
 #[derive(Debug, Clone)]
-pub enum Error {
+pub enum AddressError {
     Empty,
     UnknownProtocol,
     InvalidPeerId,
@@ -151,6 +151,10 @@ impl Address {
     pub fn contains(&self, proto: &Protocol) -> bool {
         self.iter().any(|p| p.eq(proto))
     }
+
+    pub fn path(&self) -> &str {
+        self.0.path()
+    }
 }
 
 impl Borrow<Address> for Protocol {
@@ -178,16 +182,16 @@ impl From<&Protocol> for Address {
 }
 
 impl FromStr for Address {
-    type Err = Error;
+    type Err = AddressError;
 
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
-        let url = SCHEME.join(s).map_err(|_| Error::InvalidUrl)?;
+        let url = SCHEME.join(s).map_err(|_| AddressError::InvalidUrl)?;
         Ok(Address(url))
     }
 }
 
 impl TryFrom<&[u8]> for Address {
-    type Error = Error;
+    type Error = AddressError;
 
     fn try_from(v: &[u8]) -> core::result::Result<Self, Self::Error> {
         let utf8 = String::from_utf8_lossy(v);
@@ -196,7 +200,7 @@ impl TryFrom<&[u8]> for Address {
 }
 
 impl TryFrom<&record::Key> for Address {
-    type Error = Error;
+    type Error = AddressError;
 
     fn try_from(key: &record::Key) -> core::result::Result<Self, Self::Error> {
         key.as_ref().try_into()
@@ -298,9 +302,12 @@ pub mod tests {
 // Builds relay address which looks like this: "/peer/QmRelay/client/QmClient"
 #[macro_export]
 macro_rules! relay {
-    ($relay:expr,$client:expr) => {{
+    ($relay:expr,$client:expr$(,$sig:expr)?) => {{
         let relay = $crate::Address::from($crate::Protocol::Peer($relay));
-        relay.append($crate::Protocol::Client($client))
+        let relay = relay.append($crate::Protocol::Client($client));
+        // Optional line. If sig isn't passed, line isn't inserted
+        $(let relay = relay.append($crate::Protocol::Signature($sig));)?
+        relay
     }};
 }
 

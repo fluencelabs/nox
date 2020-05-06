@@ -22,6 +22,7 @@
  *   SOFTWARE.
  */
 
+use super::address_signature::verify_address;
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
 use faas_api::{Address, FunctionCall, Protocol};
@@ -32,52 +33,42 @@ impl FunctionRouter {
     // ###
 
     pub(super) fn execute_builtin(&mut self, service: BuiltinService, call: FunctionCall) {
+        // TODO: implement more BuiltinServices
         use Protocol::*;
 
         let protocols = call.reply_to.as_ref().map(|addr| addr.protocols());
         let name: Address = service.into();
 
         match protocols.as_deref() {
-            Some([Peer(id), c @ Client(_), rem @ ..]) if self.is_local(id) => {
-                // TODO: check signature
-                if let Client(c) = c {
-                    let client_has = if c.as_public_key().is_some() {
-                        "client has public key"
-                    } else {
-                        "client doesn't have public key"
-                    };
+            Some([Peer(p), cl @ Client(_), sig @ Signature(_), rem @ ..]) if self.is_local(p) => {
+                if let Err(err) = verify_address(call.reply_to.as_ref().unwrap()) {
+                    log::warn!("Service register error {:?}: {:?}", call, err);
+                    self.send_error_on_call(call, format!("signature error: {:?}", err));
+                    return;
+                }
 
-                    let relay_has = if id.as_public_key().is_some() {
-                        "relay has public key"
-                    } else {
-                        "relay doesn't have public key"
-                    };
-
-                    log::info!("{} and {}", client_has, relay_has);
-                };
-
-                // forward_to ~ /peer/QmLocal/client/QmClient/service/QmService, or more complex
                 let local: Address = Peer(self.peer_id.clone()).into();
-                let provider = local.append(c).append_protos(rem);
+                // provider ~ /peer/QmLocal/client/QmClient/service/QmService, or more complex
+                let provider = local.append(cl).append(sig).append_protos(rem);
 
-                #[rustfmt::skip]
                 let replaced = self.provided_names.insert(name.clone(), provider.clone());
                 if let Some(replaced) = replaced {
-                    log::warn!(
-                        "Replaced name {:?} with {:?} due to call {}",
-                        replaced,
-                        provider,
-                        &call.uuid
-                    );
+                    #[rustfmt::skip]
+                    log::warn!("Replaced name {:?} with {:?}, call: {}", replaced, provider, &call.uuid);
                 }
 
                 log::info!("Published a service {}: {:?}", name, call);
                 self.publish_name(name, provider);
             }
-            Some(&[Peer(_), ..]) => {
-                // To avoid routing cycle (see https://gist.github.com/folex/61700dd6afa14fbe3d1168e04dfe2661 for bug postmortem)
+            Some([Peer(p), ..]) if !self.is_local(p) => {
+                // To avoid routing cycle (see discussion https://fluencelabs.slack.com/archives/C8FDH536W/p1588333361404100?thread_ts=1588331102.398600&cid=C8FDH536W)
                 log::warn!("Service register error: non-local relay {:?}", call);
                 self.send_error_on_call(call, "error: non-local relay".into());
+            }
+            Some([Peer(_), Client(_), ..]) => {
+                // Peer is local, but no signature was specified
+                log::warn!("Service register error: missing signature {:?}", call);
+                self.send_error_on_call(call, "error: missing signature".into());
             }
             Some(other) => {
                 let addr = other.iter().collect::<Address>();
@@ -86,11 +77,8 @@ impl FunctionRouter {
             }
             None => {
                 // If there's no `reply_to`, then we don't know where to forward, so can't register
-                log::warn!("reply_to was not defined in {:?}", call);
-                self.send_error_on_call(
-                    call,
-                    "reply_to must be defined when calling 'provide' service".into(),
-                );
+                log::warn!("Service register error: missing reply_to  in {:?}", call);
+                self.send_error_on_call(call, "missing reply_to".into());
             }
         }
     }

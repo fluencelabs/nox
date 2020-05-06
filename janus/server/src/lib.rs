@@ -57,6 +57,7 @@ mod behaviour {
 }
 
 mod function {
+    mod address_signature;
     mod builtin_service;
     mod dht_names;
     mod execution;

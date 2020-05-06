@@ -56,6 +56,7 @@ impl BuiltinService {
 }
 
 impl Into<Address> for BuiltinService {
+    // Convert DelegateProviding into service address
     fn into(self) -> Address {
         let BuiltinService::DelegateProviding { service_id } = self;
         service!(service_id)

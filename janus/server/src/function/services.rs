@@ -96,9 +96,9 @@ impl FunctionRouter {
             );
         }
 
-        // TODO: Sending call to all providers here
+        // TODO: Sending call to all providers here,
+        //       implement and use ProviderSelector::All, ProviderSelector::Latest, ProviderSelector::MaxWeight
         // TODO: weight providers according to TrustGraph
-        // TODO: implement and use ProviderSelector::All, ProviderSelector::Latest, ProviderSelector::MaxWeight
         for call in calls {
             for provider in providers.iter() {
                 let mut call = call.clone();
