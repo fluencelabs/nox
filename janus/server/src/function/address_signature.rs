@@ -15,6 +15,7 @@
  */
 
 use faas_api::{Address, Protocol};
+use libp2p::identity::PublicKey;
 
 #[derive(Debug)]
 pub enum SignatureError {
@@ -23,47 +24,61 @@ pub enum SignatureError {
     UnsupportedAddress,
 }
 
-fn verify_signature(address: Address, sig: &[u8]) -> Result<(), SignatureError> {
+/// Extract client public key from relay address,
+/// return error if it's not a relay address, or
+/// there's no public key in client's PeerId
+fn extract_public_key(address: &Address) -> Result<PublicKey, SignatureError> {
     use Protocol::*;
     use SignatureError::*;
 
     let protocols = address.protocols();
-    let public_key = match protocols.as_slice() {
-        [Peer(_), Client(client)] => client.as_public_key().ok_or(MissingClientPublicKey)?,
+    match protocols.as_slice() {
+        [Peer(_), Client(client)] => client.as_public_key().ok_or(MissingClientPublicKey),
         _ => {
             log::warn!(
                 "Signature verification error {}: not a relay address",
                 address
             );
-            return Err(UnsupportedAddress);
+            Err(UnsupportedAddress)
         }
-    };
+    }
+}
 
-    let path = address.path().as_bytes();
-    if !public_key.verify(path, sig) {
+/// Verify signature of the address path (without schema)
+pub fn verify_signature(addr: &Address, sig: &[u8], pk: &PublicKey) -> Result<(), SignatureError> {
+    use SignatureError::*;
+
+    let path = addr.path().as_bytes();
+    if !pk.verify(path, sig) {
         return Err(InvalidSignature);
     }
 
     Ok(())
 }
 
-// Search through protocols in address, look for signatures, verify signature against all protocols
-// behind signature.
-// NOTE: will return `Ok` if there are no signatures, so it is caller responsibility to handle signature absence.
+/// Search through protocols in address, look for signatures,
+/// verify signature against all protocols behind signature.
+///
+/// NOTE: will return `Ok` if there are no signatures, so it is
+/// a caller responsibility to handle signature absence.
+///
 /// Example 1:
-///     For `[Peer(QmPeer), Client(QmClient), Signature(sig), Peer(QmPeer2), Client(QmClient2), Signature(sig2)]`
+///     For `/peer/QmPeer/client/QmClient/signature/sig/peer/QmPeer2/client/QmClient2/signature/sig2`
 ///     will check both signatures, for `/peer/QmPeer/client/QmClient` and `/peer/QmPeer2/client/QmClient2` addresses
 /// Example 2:
-///     For `[Peer(QmPeer), Client(QmClient), Peer(QmPeer2), Signature(sig)]` will create address
+///     For `/peer/QmPeer/client/QmClient/peer/QmPeer2/signature/sig` will create address
 ///     from first 3 elements: `"/peer/QmPeer/client/QmClient/peer/QmPeer2"`, convert to bytes,
 ///     and verify signature against these bytes.
-/// NOTE: However, only relay addresses are supported as of 0.0.5, so Example 2 will actually
-/// return an error, so it is only for demonstration purposes.
 ///
-pub fn verify_address(address: &Address) -> Result<(), SignatureError> {
+/// EXAMPLE NOTE: However, since only relay addresses are supported as of 0.0.5,
+/// Example 2 will actually return an error, so it is only for demonstration purposes.
+///
+pub fn verify_address_signatures(address: &Address) -> Result<(), SignatureError> {
     address.iter().fold(Ok(Address::empty()), |addr, proto| {
         if let Protocol::Signature(sig) = proto {
-            verify_signature(addr.unwrap(), &sig)?;
+            let address = addr.unwrap();
+            let pk = extract_public_key(&address)?;
+            verify_signature(&address, &sig, &pk)?;
             Ok(Address::empty())
         } else {
             addr.map(|addr| addr.append(proto))
@@ -71,12 +86,4 @@ pub fn verify_address(address: &Address) -> Result<(), SignatureError> {
     })?;
 
     Ok(())
-}
-
-// Filter out all Protocol::Signature protocols, and rebuilds address without them
-pub fn remove_signatures(address: Address) -> Address {
-    address
-        .iter()
-        .filter(|p| !matches!(p, Protocol::Signature(_)))
-        .collect()
 }

@@ -24,10 +24,10 @@
 
 #![allow(clippy::mutable_key_type)]
 
-use crate::function::address_signature::{remove_signatures, verify_address, SignatureError};
+use crate::function::provider_record::ProviderRecord;
 use crate::kademlia;
 use crate::FunctionRouter;
-use faas_api::{Address, AddressError};
+use faas_api::Address;
 use libp2p::{
     kad::record::{Key, Record},
     kad::{PutRecordError, Quorum},
@@ -37,13 +37,14 @@ use std::{
     convert::TryInto,
 };
 
-#[derive(Debug)]
-pub enum ProviderError {
-    Deserialization(AddressError),
-    Signature(SignatureError),
-}
-
 impl FunctionRouter {
+    /// Called when Kademlia failed to execute PutRecord.
+    /// If at least 50% of required quorum was stored in DHT,
+    /// then consider this a non-failure, and proceed as with success.
+    /// Otherwise, consider this a failure, remove failed record from (local) DHT,
+    /// and send error to provider of this name.
+    ///
+    /// Assumes that key is a valid `Address`, logs an error otherwise.
     pub fn name_resolution_failed(&mut self, error: PutRecordError) {
         use PutRecordError::*;
 
@@ -95,9 +96,20 @@ impl FunctionRouter {
         }
     }
 
+    /// Called when Kademlia finished (either with success or a failure)
+    /// executing GetRecord query.
+    /// If GetRecord failed but returned some results, consider it a non-failure,
+    /// and proceed as with success.
+    /// Assume that key is a correct `Address`, log error and exit otherwise.
+    /// Attempt to deserialize `Records` from each `Record` (that is, multiple
+    /// records are stored inside single record), fallback to single `Record`.
+    /// Then deserialize `Address` from each `Record::value` and verify signatures.
+    /// All failed records are skipped over.
     pub fn name_resolved(&mut self, result: libp2p::kad::GetRecordResult) {
         use libp2p::kad::{GetRecordError, GetRecordOk};
+        use GetRecordError::*;
 
+        // Get Address name from record, or return an error
         let name = match &result {
             Ok(GetRecordOk { records }) if records.is_empty() => {
                 #[rustfmt::skip]
@@ -112,36 +124,40 @@ impl FunctionRouter {
             Err(err) => err.key().try_into(),
         };
 
+        // Check name was deserialized, otherwise log error and exit
         let name = match &name {
             Ok(name) => name,
-            Err(utf_error) => {
-                log::warn!("Can't parse service_id from dht record: {:?}", utf_error);
+            Err(err) => {
+                log::warn!("Can't parse Address name from dht record key: {:?}", err);
                 // TODO: maybe it's a different type of record – handle that
                 return;
             }
         };
 
+        #[rustfmt::skip]
+        // Take records from success or failure, return error if there is none
         let records = match result {
             Ok(GetRecordOk { records }) => Ok(records),
             Err(err) => match err {
-                GetRecordError::NotFound { .. } => Err("Record not found".to_string()),
-                GetRecordError::QuorumFailed {
-                    records, quorum, ..
-                } if records.is_empty() => Err(format!(
-                    "Quorum failed (quorum={}), no records returned",
-                    quorum
-                )),
-                GetRecordError::QuorumFailed { records, .. } => Ok(records),
-                GetRecordError::Timeout {
-                    records, quorum, ..
-                } if records.is_empty() => Err(format!(
-                    "Timed out (quorum={}), no records returned",
-                    quorum
-                )),
-                GetRecordError::Timeout { records, .. } => Ok(records),
+                QuorumFailed { records, quorum, .. } => {
+                    if records.is_empty() {
+                        Err(format!("Quorum failed (quorum={}), got 0 records", quorum))
+                    } else {
+                        Ok(records)
+                    }
+                }
+                Timeout { records, quorum, .. } => {
+                    if records.is_empty() {
+                        Err(format!("Timed out (quorum={}), got 0 records", quorum))
+                    } else {
+                        Ok(records)
+                    }
+                }
+                NotFound { .. } => Err("Record not found".into()),
             },
         };
 
+        // Check there are records, and if not – fail provider search
         let records = match records {
             Ok(records) => records,
             Err(err_msg) => {
@@ -152,6 +168,8 @@ impl FunctionRouter {
             }
         };
 
+        // Attempt to deserialize multiple record from each Record (expand),
+        // fallback to single record, skip failed
         let records = records
             .into_iter()
             .flat_map(|rec| match kademlia::expand_record_set(rec) {
@@ -168,9 +186,11 @@ impl FunctionRouter {
             })
             .collect::<HashSet<_>>();
 
+        // Deserialize provider addresses from records (also check signatures on deserialization),
+        // skip failed
         let providers = records
             .into_iter()
-            .flat_map(|rec| match Self::deserialize_provider(&rec) {
+            .flat_map(|rec| match ProviderRecord::deserialize_address(&rec) {
                 Ok(provider) => Some(provider),
                 Err(err) => {
                     log::warn!(
@@ -184,26 +204,18 @@ impl FunctionRouter {
             })
             .collect::<HashSet<_>>();
 
+        // Proceed to send calls to found providers
         self.providers_found(name, providers);
     }
 
-    fn deserialize_provider(record: &Record) -> Result<Address, ProviderError> {
-        use ProviderError::*;
-
-        let slice = record.value.as_slice();
-        let address: Address = slice.try_into().map_err(|e| Deserialization(e))?;
-        verify_address(&address).map_err(|e| Signature(e))?;
-        let address = remove_signatures(address);
-
-        Ok(address)
-    }
-
-    // Like DNS CNAME record
+    /// Publish provider by name to dht. Similar to DNS CNAME.
     pub(super) fn publish_name(&mut self, name: Address, provider: Address) {
+        let record = ProviderRecord::new(provider, &self.keypair);
         self.kademlia
-            .put_record(Record::new(name, provider.into()), Quorum::Majority)
+            .put_record(Record::new(name, record.into()), Quorum::Majority)
     }
 
+    /// Find provider by name, result will eventually be delivered in `name_resolved` function
     pub(super) fn resolve_name(&mut self, name: Address) {
         self.kademlia.get_record(&name.into(), Quorum::Majority)
     }

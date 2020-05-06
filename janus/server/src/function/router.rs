@@ -23,10 +23,12 @@
  */
 
 use super::waiting_queues::WaitingQueues;
+use crate::function::address_signature::verify_address_signatures;
 use crate::function::peers::PeerStatus;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
+use itertools::Itertools;
 use janus_libp2p::generate_swarm_event_type;
 use libp2p::{
     core::either::EitherOutput,
@@ -148,6 +150,13 @@ impl FunctionRouter {
             }
         };
 
+        // TODO: each hop will verify all signatures again. Optimization opportunity!
+        if let Err(e) = verify_address_signatures(&target) {
+            log::error!("invalid signature in target: {:?}, call: {:?}", e, call);
+            self.send_error_on_call(call, format!("invalid signature in target: {:?}", e));
+            return;
+        }
+
         let mut target = target.iter().peekable();
         let mut is_local: bool = false;
         while let Some(address) = target.peek() {
@@ -173,7 +182,22 @@ impl FunctionRouter {
                     return;
                 }
                 Client(id) if is_local => {
-                    self.send_to(id.clone(), Routable, call.with_target(target.collect()));
+                    let id = id.clone();
+                    let client = target.next().unwrap();
+                    // Remove signature from target
+                    match target.next() {
+                        Some(Signature(_)) => {
+                            let target = Address::cons(client, target);
+                            self.send_to(id, Routable, call.with_target(target));
+                        }
+                        other => {
+                            let path = target.join("");
+                            self.send_error_on_call(
+                                call,
+                                format!("expected /signature, got '{:?}' from {}", other, path),
+                            );
+                        }
+                    };
                     return;
                 }
                 Client(id) => {
@@ -231,7 +255,7 @@ impl FunctionRouter {
             .push_back(NetworkBehaviourAction::NotifyHandler {
                 peer_id,
                 event: EitherOutput::First(ProtocolMessage::FunctionCall(call)),
-                handler: NotifyHandler::All,
+                handler: NotifyHandler::Any,
             })
     }
 

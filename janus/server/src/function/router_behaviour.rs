@@ -59,24 +59,26 @@ impl NetworkBehaviour for FunctionRouter {
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        log::debug!("inject_connected {}", peer_id);
+        log::debug!("{} got inject_connected {}", self.peer_id, peer_id);
         self.connected(peer_id.clone());
         self.kademlia.inject_connected(peer_id);
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        log::debug!("inject_disconnected {}", peer_id);
+        log::debug!("{} got inject_disconnected {}", self.peer_id, peer_id);
         self.disconnected(peer_id);
         self.kademlia.inject_disconnected(peer_id);
     }
 
     fn inject_connection_established(&mut self, p: &PeerId, i: &ConnectionId, c: &ConnectedPoint) {
-        log::debug!("connection_established {} {:?} {:?}", p, i, c);
+        #[rustfmt::skip]
+        log::debug!("{} got connection_established {} {:?} {:?}", self.peer_id, p, i, c);
         self.kademlia.inject_connection_established(p, i, c);
     }
 
     fn inject_connection_closed(&mut self, p: &PeerId, i: &ConnectionId, c: &ConnectedPoint) {
-        log::debug!("connection_closed {} {:?} {:?}", p, i, c);
+        #[rustfmt::skip]
+        log::debug!("{} got connection_closed {} {:?} {:?}", self.peer_id, p, i, c);
         self.kademlia.inject_connection_closed(p, i, c)
     }
 
@@ -90,13 +92,14 @@ impl NetworkBehaviour for FunctionRouter {
 
         match event {
             First(ProtocolMessage::FunctionCall(call)) => {
-                log::info!("FunctionCall! from {} {:?}", source, call);
+                #[rustfmt::skip]
+                log::info!("{} got FunctionCall! from {} {:?}", self.peer_id, source, call);
                 self.call(call)
             }
             Second(kademlia_event) => {
-                log::trace!("Kademlia: {:?}", kademlia_event);
-                self.kademlia
-                    .inject_event(source, connection_id, kademlia_event)
+                log::trace!("{} got Kademlia event: {:?}", self.peer_id, kademlia_event);
+                #[rustfmt::skip]
+                self.kademlia.inject_event(source, connection_id, kademlia_event);
             }
             _ => {}
         }

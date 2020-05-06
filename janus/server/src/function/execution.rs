@@ -22,7 +22,7 @@
  *   SOFTWARE.
  */
 
-use super::address_signature::verify_address;
+use super::address_signature::verify_address_signatures;
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
 use faas_api::{Address, FunctionCall, Protocol};
@@ -41,16 +41,19 @@ impl FunctionRouter {
 
         match protocols.as_deref() {
             Some([Peer(p), cl @ Client(_), sig @ Signature(_), rem @ ..]) if self.is_local(p) => {
-                if let Err(err) = verify_address(call.reply_to.as_ref().unwrap()) {
+                // Verify signatures in address
+                if let Err(err) = verify_address_signatures(call.reply_to.as_ref().unwrap()) {
                     log::warn!("Service register error {:?}: {:?}", call, err);
                     self.send_error_on_call(call, format!("signature error: {:?}", err));
                     return;
                 }
 
+                // Build provider address
                 let local: Address = Peer(self.peer_id.clone()).into();
                 // provider ~ /peer/QmLocal/client/QmClient/service/QmService, or more complex
                 let provider = local.append(cl).append(sig).append_protos(rem);
 
+                // Insert provider to local hashmap
                 let replaced = self.provided_names.insert(name.clone(), provider.clone());
                 if let Some(replaced) = replaced {
                     #[rustfmt::skip]

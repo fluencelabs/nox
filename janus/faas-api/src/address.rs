@@ -54,6 +54,16 @@ impl Address {
         Address(SCHEME.clone())
     }
 
+    // Creates address from a protocol and tail of protocols
+    pub fn cons<P, I>(proto: P, protos: I) -> Self
+    where
+        P: Borrow<Protocol>,
+        I: IntoIterator,
+        I::Item: Borrow<Protocol>,
+    {
+        Address::from(proto.borrow()).append_protos(protos)
+    }
+
     // Appends path of `other` to `self`
     pub fn extend<A>(self, other: A) -> Self
     where
@@ -154,18 +164,6 @@ impl Address {
 
     pub fn path(&self) -> &str {
         self.0.path()
-    }
-}
-
-impl Borrow<Address> for Protocol {
-    fn borrow(&self) -> &Address {
-        unimplemented!()
-    }
-}
-
-impl AsRef<Address> for Protocol {
-    fn as_ref(&self) -> &Address {
-        unimplemented!()
     }
 }
 

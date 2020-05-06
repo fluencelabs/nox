@@ -62,6 +62,7 @@ mod function {
     mod dht_names;
     mod execution;
     mod peers;
+    mod provider_record;
     mod router;
     mod router_behaviour;
     mod services;

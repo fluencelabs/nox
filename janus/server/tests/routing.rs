@@ -125,6 +125,16 @@ fn send_call() {
     sender.send(call);
     let received = receiver.receive();
     assert_eq!(received.uuid, uuid);
+
+    // Check there is no more messages
+    let bad = receiver.maybe_receive();
+    assert_eq!(
+        bad,
+        None,
+        "received unexpected message {}, previous was {}",
+        bad.as_ref().unwrap().uuid,
+        received.uuid
+    );
 }
 
 #[test]
@@ -156,14 +166,37 @@ fn call_service() {
 }
 
 #[test]
+fn call_service_reply() {
+    let service_id = "plzreply";
+    let (mut provider, mut consumer) = make_clients().expect("connect clients");
+
+    // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
+    task::block_on(task::sleep(*KAD_TIMEOUT));
+
+    let provide = provide_call(service_id, provider.relay_address());
+    provider.send(provide);
+
+    let call_service = service_call(service_id, consumer.relay_address());
+    consumer.send(call_service.clone());
+
+    let to_provider = provider.receive();
+    assert_eq!(to_provider.reply_to, Some(consumer.relay_address()));
+
+    let reply = reply_call(to_provider.reply_to.unwrap());
+    provider.send(reply.clone());
+
+    let to_consumer = consumer.receive();
+    assert_eq!(reply.uuid, to_consumer.uuid, "Got: {:?}", to_consumer);
+    assert_eq!(to_consumer.target, Some(consumer.client_address()));
+}
+
+#[test]
 // 1. Provide some service
 // 2. Disconnect provider – service becomes unregistered
 // 3. Check that calls to service fail
 // 4. Provide same service again, via different provider
 // 5. Check that calls to service succeed
 fn provide_disconnect() {
-    enable_logs();
-
     let service_id = "providedisconnect";
 
     let (mut provider, mut consumer) = make_clients().expect("connect clients");
@@ -239,6 +272,16 @@ fn service_call(service_id: &str, consumer: Address) -> FunctionCall {
     }
 }
 
+fn reply_call(reply_to: Address) -> FunctionCall {
+    FunctionCall {
+        uuid: uuid(),
+        target: Some(reply_to),
+        reply_to: None,
+        arguments: Value::Null,
+        name: Some("reply".into()),
+    }
+}
+
 fn uuid() -> String {
     Uuid::new_v4().to_string()
 }
@@ -265,7 +308,8 @@ fn enable_logs() {
         .filter(Some("libp2p_kad::kbucket"), Info)
         .filter(Some("libp2p_plaintext"), Info)
         .filter(Some("libp2p_identify::protocol"), Info)
-        .init();
+        .try_init()
+        .ok();
 }
 
 fn connect_client(node_address: Multiaddr) -> Result<ConnectedClient> {
@@ -324,9 +368,9 @@ fn make_clients() -> Result<(ConnectedClient, ConnectedClient)> {
     let (peer_id2, addr2, mut swarm2) = create_swarm(vec![addr1.clone()]);
     let (peer_id3, addr3, mut swarm3) = create_swarm(vec![addr1.clone(), addr2.clone()]);
 
-    log::debug!("peer_id1: {}", peer_id1);
-    log::debug!("peer_id2: {}", peer_id2);
-    log::debug!("peer_id3: {}", peer_id3);
+    log::debug!("peer_id1: {} {:?}", peer_id1, addr1);
+    log::debug!("peer_id2: {} {:?}", peer_id2, addr2);
+    log::debug!("peer_id3: {} {:?}", peer_id3, addr3);
 
     swarm2.dial_bootstrap_nodes();
     swarm3.dial_bootstrap_nodes();

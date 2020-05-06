@@ -38,6 +38,7 @@ use async_timer::Interval;
 use faas_api::{relay, Address, FunctionCall, Protocol};
 use futures::{channel::oneshot::Receiver, select, FutureExt, StreamExt};
 use janus_client::{Client, ClientCommand, ClientEvent};
+use libp2p::identity::ed25519::Keypair;
 use libp2p::PeerId;
 use once_cell::sync::Lazy;
 use parity_multiaddr::Multiaddr;
@@ -50,10 +51,13 @@ use uuid::Uuid;
 const IPFS_SERVICE_ID: &str = "IPFS.multiaddr";
 static IPFS_SERVICE: Lazy<Protocol> = Lazy::new(|| Protocol::Service(IPFS_SERVICE_ID.to_string()));
 
-fn register_call(client: PeerId, relay: PeerId, service_id: &str) -> FunctionCall {
+fn register_call(client: PeerId, relay: PeerId, service_id: &str, kp: &Keypair) -> FunctionCall {
+    let reply_to = relay!(relay, client);
+    let signature = Protocol::Signature(kp.sign(reply_to.path().as_bytes()));
+    let reply_to = Some(reply_to.append(signature));
+
     let target = Some(Protocol::Service("provide".into()).into());
     let arguments = json!({ "service_id": service_id });
-    let reply_to = Some(relay!(relay, client));
     let uuid = message_id();
     let name = Some(format!("Delegate provide service {}", service_id));
 
@@ -72,10 +76,13 @@ fn multiaddr_call(
     reply_to: Address,
     msg_id: Option<&str>,
     multiaddr: &Multiaddr,
+    kp: &Keypair,
 ) -> FunctionCall {
     let target = Some(reply_to);
     let arguments = json!({ "multiaddr": multiaddr.to_string(), "msg_id": msg_id });
-    let reply_to = Some(Address::from(Protocol::Peer(bootstrap_id)).append(Protocol::Peer(client)));
+    let reply_to = relay!(bootstrap_id, client);
+    let signature = Protocol::Signature(kp.sign(reply_to.path().as_bytes()));
+    let reply_to = Some(reply_to.append(signature));
     let uuid = message_id();
     let name = Some("Reply on IPFS.multiaddr".to_string());
 
@@ -126,7 +133,9 @@ pub async fn run_ipfs_multiaddr_service(
                             IPFS_SERVICE.deref(), sender, reply_to
                         );
                         let msg_id = arguments.get("msg_id").and_then(|v| v.as_str());
-                        let call = multiaddr_call(bootstrap_id.clone().unwrap(), client.peer_id.clone(), reply_to, msg_id, &ipfs);
+                        let call = multiaddr_call(
+                            bootstrap_id.clone().unwrap(), client.peer_id.clone(), reply_to, msg_id, &ipfs, &client.key_pair
+                        );
                         if let Some(node) = bootstrap_id.clone() {
                             client.send(ClientCommand::Call { node, call })
                         } else {
@@ -146,7 +155,7 @@ pub async fn run_ipfs_multiaddr_service(
             },
             _ = periodic.next() => {
                 if let Some(bootstrap_id) = bootstrap_id.clone() {
-                    let call = register_call(client.peer_id.clone(), bootstrap_id.clone(), IPFS_SERVICE_ID);
+                    let call = register_call(client.peer_id.clone(), bootstrap_id.clone(), IPFS_SERVICE_ID, &client.key_pair);
                     log::info!("Sending register call {:?}", call);
 
                     client.send(ClientCommand::Call {
