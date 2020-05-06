@@ -22,6 +22,9 @@
  *   SOFTWARE.
  */
 
+import * as PeerId from "peer-id";
+import {encode} from "bs58"
+
 export interface Address {
     protocols: Protocol[]
 }
@@ -34,11 +37,14 @@ export interface Protocol {
 export enum ProtocolType {
     Service = "service",
     Peer = "peer",
+    Signature = "signature",
     Client = "client"
 }
 
+const PROTOCOL = "fluence:";
+
 export function addressToString(address: Address): string {
-    let addressStr = "fluence:";
+    let addressStr = PROTOCOL;
 
     for (let addr of address.protocols) {
         addressStr = addressStr + "/" + addr.protocol;
@@ -72,14 +78,28 @@ export function parseProtocol(protocol: string, protocolIterator: IterableIterat
             return protocolWithValue(protocol, protocolIterator);
         case ProtocolType.Peer:
             return protocolWithValue(protocol, protocolIterator);
+        case ProtocolType.Signature:
+            return protocolWithValue(protocol, protocolIterator);
         default:
-            throw Error("cannot parse protocol. Should be 'service|peer|client'");
+            throw Error("cannot parse protocol. Should be 'service|peer|client|signature'");
     }
 
 }
 
-export function createRelayAddress(relay: string, client: string): Address {
-    let protocols = [{protocol: ProtocolType.Peer, value: relay}, {protocol: ProtocolType.Client, value: client}];
+export async function createRelayAddress(relay: string, peerId: PeerId, withSig: boolean): Promise<Address> {
+
+    let protocols = [
+        {protocol: ProtocolType.Peer, value: relay},
+        {protocol: ProtocolType.Client, value: peerId.toB58String()}
+    ];
+
+    if (withSig) {
+        let str = addressToString({protocols: protocols}).replace(PROTOCOL, "");
+        let signature = await peerId.privKey.sign(Buffer.from(str));
+        let signatureStr = encode(signature);
+
+        protocols.push({protocol: ProtocolType.Signature, value: signatureStr});
+    }
 
     return {
         protocols: protocols
@@ -88,7 +108,7 @@ export function createRelayAddress(relay: string, client: string): Address {
 
 export function createServiceAddress(service: string): Address {
 
-    let protocol = { protocol: ProtocolType.Service, value: service };
+    let protocol = {protocol: ProtocolType.Service, value: service};
 
     return {
         protocols: [protocol]
@@ -96,7 +116,7 @@ export function createServiceAddress(service: string): Address {
 }
 
 export function createPeerAddress(peer: string): Address {
-    let protocol = { protocol: ProtocolType.Peer, value: peer };
+    let protocol = {protocol: ProtocolType.Peer, value: peer};
 
     return {
         protocols: [protocol]
@@ -117,7 +137,7 @@ export function parseAddress(str: string): Address {
     let protocols: Protocol[] = [];
     let partsEntries: IterableIterator<[number, string]> = parts.entries();
 
-    while(true) {
+    while (true) {
         let result = partsEntries.next();
         if (result.done) break;
         let protocol = parseProtocol(result.value[1], partsEntries);

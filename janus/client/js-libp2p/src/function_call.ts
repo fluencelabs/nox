@@ -93,8 +93,8 @@ export function genUUID() {
 /**
  * Message to peer through relay
  */
-export function makeRelayCall(client: PeerId, relay: PeerId, msg: any, replyTo?: Address, name?: string): FunctionCall {
-    let relayAddress = createRelayAddress(relay.toB58String(), client.toB58String());
+export async function makeRelayCall(client: PeerId, relay: PeerId, msg: any, replyTo?: Address, name?: string): Promise<FunctionCall> {
+    let relayAddress = await createRelayAddress(relay.toB58String(), client, false);
 
     return makeFunctionCall(genUUID(), relayAddress, msg, replyTo, name);
 }
@@ -120,9 +120,9 @@ export function makeCall(functionId: string, args: any, replyTo?: Address, name?
 /**
  * Message to register new service_id.
  */
-export function makeRegisterMessage(serviceId: string, relayPeerId: PeerId, selfPeerId: PeerId): FunctionCall {
+export async function makeRegisterMessage(serviceId: string, relayPeerId: PeerId, selfPeerId: PeerId): Promise<FunctionCall> {
     let target = createServiceAddress("provide");
-    let replyTo = createRelayAddress(relayPeerId.toB58String(), selfPeerId.toB58String());
+    let replyTo = await createRelayAddress(relayPeerId.toB58String(), selfPeerId, true);
 
     return makeFunctionCall(genUUID(), target, {service_id: serviceId}, replyTo, "provide service_id");
 }

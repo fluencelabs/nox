@@ -22,7 +22,7 @@
  *   SOFTWARE.
  */
 
-import {Address, ProtocolType} from "./address";
+import {Address, createRelayAddress, ProtocolType} from "./address";
 import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./function_call";
 import * as PeerId from "peer-id";
 import {Services} from "./services";
@@ -197,7 +197,8 @@ export class JanusClient {
         }
 
         let peerId = PeerId.createFromB58String(nodePeerId);
-        let connection = new JanusConnection(host, port, peerId, this.selfPeerInfo, this.handleCall());
+        let relayAddress = await createRelayAddress(nodePeerId, this.selfPeerInfo.id, true);
+        let connection = new JanusConnection(host, port, peerId, this.selfPeerInfo, relayAddress, this.handleCall());
 
         await connection.connect();
 

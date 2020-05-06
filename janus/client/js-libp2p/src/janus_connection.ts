@@ -1,4 +1,28 @@
-import {createRelayAddress, Address} from "./address";
+/*
+ *   MIT License
+ *
+ *   Copyright (c) 2020 Fluence Labs Limited
+ *
+ *   Permission is hereby granted, free of charge, to any person obtaining a copy
+ *   of this software and associated documentation files (the "Software"), to deal
+ *   in the Software without restriction, including without limitation the rights
+ *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *   copies of the Software, and to permit persons to whom the Software is
+ *   furnished to do so, subject to the following conditions:
+ *
+ *   The above copyright notice and this permission notice shall be included in all
+ *   copies or substantial portions of the Software.
+ *
+ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *   SOFTWARE.
+ */
+
+import {Address} from "./address";
 import {
     callToString,
     FunctionCall,
@@ -39,7 +63,7 @@ export class JanusConnection {
     private readonly selfPeerId: string;
     private readonly handleCall: (call: FunctionCall) => FunctionCall | undefined;
 
-    constructor(host: string, port: number, hostPeerId: PeerId, selfPeerInfo: PeerInfo, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
+    constructor(host: string, port: number, hostPeerId: PeerId, selfPeerInfo: PeerInfo, replyToAddress: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
         this.selfPeerInfo = selfPeerInfo;
         this.host = host;
         this.port = port;
@@ -47,7 +71,7 @@ export class JanusConnection {
         this.selfPeerId = selfPeerInfo.id.toB58String();
         this.address = `/ip4/${host}/tcp/${port}/ws/p2p/${hostPeerId}`;
         this.nodePeerId = hostPeerId;
-        this.replyToAddress = createRelayAddress(hostPeerId.toB58String(), this.selfPeerId);
+        this.replyToAddress = replyToAddress
     }
 
     async connect() {
@@ -93,7 +117,7 @@ export class JanusConnection {
      * Sends custom message to the peer through relay.
      */
     async sendRelayCall(peer: string, relay: string, msg: any, name?: string) {
-        let regMsg = makeRelayCall(PeerId.createFromB58String(peer), PeerId.createFromB58String(relay), msg, this.replyToAddress, name);
+        let regMsg = await makeRelayCall(PeerId.createFromB58String(peer), PeerId.createFromB58String(relay), msg, this.replyToAddress, name);
         await this.sendCall(regMsg);
     }
 
@@ -179,7 +203,7 @@ export class JanusConnection {
     }
 
     async registerService(serviceId: string) {
-        let regMsg = makeRegisterMessage(serviceId, this.nodePeerId, this.selfPeerInfo.id);
+        let regMsg = await makeRegisterMessage(serviceId, this.nodePeerId, this.selfPeerInfo.id);
         await this.sendCall(regMsg);
     }
 }
