@@ -1,16 +1,15 @@
 {
-  "name": "janus-beta",
-  "version": "0.0.13",
+  "name": "fluence",
+  "version": "0.4.2",
   "description": "the browser js-libp2p client for the Fluence network",
-  "main": "./dist/janus.js",
-  "typings": "./dist/janus.d.ts",
+  "main": "./dist/fluence.js",
+  "typings": "./dist/fluence.d.ts",
   "scripts": {
     "test": "mocha -r ts-node/register src/**/*.spec.ts",
     "test-ts": "ts-mocha -p tsconfig.json src/**/*.spec.ts",
     "package:build": "NODE_ENV=production webpack && tsc",
     "compile": "tsc",
     "start": "webpack-dev-server",
-    "start-prod": "webpack-dev-server --public janus.fluence.dev:80",
     "build": "webpack"
   },
   "author": "Fluence Labs",
@@ -24,7 +23,7 @@
     "it-pipe": "1.1.0",
     "libp2p": "0.27.4",
     "libp2p-mplex": "0.9.5",
-    "libp2p-secio": "fluencelabs/js-libp2p-secio#fix/no_peer_check",
+    "libp2p-secio": "0.12.5",
     "libp2p-websockets": "0.13.6",
     "peer-id": "0.13.11",
     "peer-info": "0.17.5"

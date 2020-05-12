@@ -51,7 +51,7 @@ enum Status {
     Disconnected = "Disconnected"
 }
 
-export class JanusConnection {
+export class FluenceConnection {
 
     private readonly host: string;
     private readonly port: number;
@@ -160,7 +160,7 @@ export class JanusConnection {
         }
     }
 
-    checkConnectedOrThrow() {
+    private checkConnectedOrThrow() {
         if (this.status !== Status.Connected) {
             throw Error(`connection is in ${this.status} state`)
         }

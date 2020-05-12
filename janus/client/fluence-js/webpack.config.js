@@ -6,7 +6,7 @@ const production = (process.env.NODE_ENV === 'production');
 
 const config = {
     entry: {
-        app: ['./src/janus.ts']
+        app: ['./src/fluence.ts']
     },
     module: {
         rules: [

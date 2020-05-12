@@ -5,12 +5,12 @@ import {
     addressToString,
     parseAddress
 } from "../address";
-import {expect, assert} from 'chai';
+import {expect} from 'chai';
 
 import 'mocha';
 import * as PeerId from "peer-id";
 import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../function_call";
-import Janus from "../janus";
+import Fluence from "../fluence";
 
 describe("Typescript usage suite", () => {
 
@@ -95,49 +95,17 @@ describe("Typescript usage suite", () => {
     });
 });
 
-interface Server {
-    peer: string,
-    ip: string,
-    port: number
-}
-
-function server(peer: string, ip: string, port: number): Server {
-    return {
-        peer: peer,
-        ip: ip,
-        port: port
-    }
-}
-
-const servers = [
-    // /ip4/104.248.25.59/tcp/7001 /ip4/104.248.25.59/tcp/9001/ws 12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9
-    // /ip4/104.248.25.59/tcp/7002 /ip4/104.248.25.59/tcp/9002/ws 12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er
-    // /ip4/104.248.25.59/tcp/7003 /ip4/104.248.25.59/tcp/9003/ws 12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb
-    // /ip4/104.248.25.59/tcp/7004 /ip4/104.248.25.59/tcp/9004/ws 12D3KooWJbJFaZ3k5sNd8DjQgg3aERoKtBAnirEvPV8yp76kEXHB
-    // /ip4/104.248.25.59/tcp/7005 /ip4/104.248.25.59/tcp/9005/ws 12D3KooWCKCeqLPSgMnDjyFsJuWqREDtKNHx1JEBiwaMXhCLNTRb
-    // Bootstrap:
-// /ip4/104.248.25.59/tcp/7770 /ip4/104.248.25.59/tcp/9990/ws 12D3KooWMhVpgfQxBLkQkJed8VFNvgN4iE6MD7xCybb1ZYWW2Gtz
-// Special ones:
-//     /ip4/104.248.25.59/tcp/7100 /ip4/104.248.25.59/tcp/9100/ws 12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM
-    server("QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz", "104.248.25.59", 9001),
-    server("QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW", "104.248.25.59", 9002),
-    server("QmSTTTbAu6fa5aT8MjWN922Y8As29KTqBwvvp7CyrC2S6D", "104.248.25.59", 9003)
-    // /ip4/104.248.25.59/tcp/7001 /ip4/104.248.25.59/tcp/9001/ws QmVL33cyaaGLWHkw5ZwC7WFiq1QATHrBsuJeZ2Zky7nDpz
-    // /ip4/104.248.25.59/tcp/7002 /ip4/104.248.25.59/tcp/9002/ws QmVzDnaPYN12QAYLDbGzvMgso7gbRD9FQqRvGZBfeKDSqW
-    // /ip4/104.248.25.59/tcp/7003 /ip4/104.248.25.59/tcp/9003/ws QmSTTTbAu6fa5aT8MjWN922Y8As29KTqBwvvp7CyrC2S6D
-];
-
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 // Shows how to register and call new service in Fluence network
 export async function testCalculator() {
 
-    let key1 = await Janus.generatePeerId();
-    let key2 = await Janus.generatePeerId();
+    let key1 = await Fluence.generatePeerId();
+    let key2 = await Fluence.generatePeerId();
 
     // connect to two different nodes
-    let cl1 = await Janus.connect("12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", "104.248.25.59", 9003, key1);
-    let cl2 = await Janus.connect("12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", "104.248.25.59", 9002, key2);
+    let cl1 = await Fluence.connect("12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", "104.248.25.59", 9003, key1);
+    let cl2 = await Fluence.connect("12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", "104.248.25.59", 9002, key2);
 
     // service name that we will register with one connection and call with another
     let serviceId = "sum-calculator-" + genUUID();
@@ -151,7 +119,7 @@ export async function testCalculator() {
 
         let message = {msgId: req.arguments.msgId, result: req.arguments.one + req.arguments.two};
 
-        await cl1.sendMessage(req.reply_to, message);
+        await cl1.sendCall(req.reply_to, message);
     });
 
 
@@ -181,3 +149,4 @@ export async function testCalculator() {
     let result2 = await response2.result;
     console.log(`calculation result AFTER RECONNECT is: ${result2}`);
 }
+

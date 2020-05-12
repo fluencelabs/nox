@@ -28,13 +28,13 @@ import * as PeerId from "peer-id";
 import {Services} from "./services";
 import {Subscriptions} from "./subscriptions";
 import * as PeerInfo from "peer-info";
-import {JanusConnection} from "./janus_connection";
+import {FluenceConnection} from "./fluence_connection";
 
-export class JanusClient {
+export class FluenceClient {
     private readonly selfPeerInfo: PeerInfo;
     readonly selfPeerIdStr: string;
 
-    private connection: JanusConnection;
+    private connection: FluenceConnection;
 
     private services: Services = new Services();
 
@@ -46,12 +46,17 @@ export class JanusClient {
     }
 
     /**
-     * Makes message with response from function. Without reply_to field.
+     * Makes call with response from function. Without reply_to field.
      */
     private static responseCall(target: Address, args: any): FunctionCall {
         return makeFunctionCall(genUUID(), target, args, undefined, "response");
     }
 
+    /**
+     * Waits a response that match the predicate.
+     *
+     * @param predicate will be applied to each incoming call until it matches
+     */
     waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
         return new Promise((resolve, reject) => {
             // subscribe for responses, to handle response
@@ -66,12 +71,27 @@ export class JanusClient {
         });
     }
 
-    async sendMessageWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        await this.sendMessage(target, args, true);
+    /**
+     * Send call and wait a response.
+     *
+     * @param target receiver
+     * @param args message in the call
+     * @param predicate will be applied to each incoming call until it matches
+     */
+    async sendCallWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
+        await this.sendCall(target, args, true);
         return this.waitResponse(predicate);
     }
 
-    async sendMessage(target: Address, args: any, reply?: boolean, name?: string) {
+    /**
+     * Send call and forget.
+     *
+     * @param target receiver
+     * @param args message in the call
+     * @param reply add a `replyTo` field or not
+     * @param name common field for debug purposes
+     */
+    async sendCall(target: Address, args: any, reply?: boolean, name?: string) {
         if (this.connection && this.connection.isConnected()) {
             await this.connection.sendFunctionCall(target, args, reply, name);
         } else {
@@ -79,6 +99,13 @@ export class JanusClient {
         }
     }
 
+    /**
+     * Send call to the service.
+     *
+     * @param serviceId
+     * @param args message to the service
+     * @param name common field for debug purposes
+     */
     async sendServiceCall(serviceId: string, args: any, name?: string) {
         if (this.connection && this.connection.isConnected()) {
             await this.connection.sendServiceCall(serviceId, args, name);
@@ -87,6 +114,13 @@ export class JanusClient {
         }
     }
 
+    /**
+     * Send call to the service and wait a response matches predicate.
+     *
+     * @param serviceId
+     * @param args message to the service
+     * @param predicate will be applied to each incoming call until it matches
+     */
     async sendServiceCallWaitResponse(serviceId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
         await this.sendServiceCall(serviceId, args);
         return await this.waitResponse(predicate);
@@ -125,33 +159,33 @@ export class JanusClient {
                         // if the request hasn't been applied, there is no such service. Return an error.
                         if (!applied) {
                             console.log(`there is no service ${lastProtocol.value}`);
-                            return JanusClient.responseCall(call.reply_to, {
+                            return FluenceClient.responseCall(call.reply_to, {
                                 reason: `there is no such service`,
                                 msg: call
                             });
                         }
                     } catch (e) {
                         // if service throw an error, return it to the sender
-                        return JanusClient.responseCall(call.reply_to, {reason: `error on execution: ${e}`, msg: call});
+                        return FluenceClient.responseCall(call.reply_to, {reason: `error on execution: ${e}`, msg: call});
                     }
 
                     return undefined;
                 case ProtocolType.Client:
                     if (lastProtocol.value === _this.selfPeerIdStr) {
-                        console.log(`relay message: ${call}`);
+                        console.log(`relay call: ${call}`);
                         _this.subscriptions.applyToSubscriptions(call)
                     } else {
-                        console.warn(`this relay message is not for me: ${callToString(call)}`);
-                        return JanusClient.responseCall(call.reply_to, {reason: `this relay message is not for me`, msg: call});
+                        console.warn(`this relay call is not for me: ${callToString(call)}`);
+                        return FluenceClient.responseCall(call.reply_to, {reason: `this relay call is not for me`, msg: call});
                     }
                     return undefined;
                 case ProtocolType.Peer:
                     if (lastProtocol.value === this.selfPeerIdStr) {
-                        console.log(`peer message: ${call}`);
+                        console.log(`peer call: ${call}`);
                         _this.subscriptions.applyToSubscriptions(call)
                     } else {
-                        console.warn(`this peer message is not for me: ${callToString(call)}`);
-                        return JanusClient.responseCall(call.reply_to, {reason: `this relay message is not for me`, msg: call});
+                        console.warn(`this peer call is not for me: ${callToString(call)}`);
+                        return FluenceClient.responseCall(call.reply_to, {reason: `this relay call is not for me`, msg: call});
                     }
                     return undefined;
             }
@@ -160,7 +194,7 @@ export class JanusClient {
 
 
     /**
-     * Sends a message to register the service_id.
+     * Sends a call to register the service_id.
      */
     async registerService(serviceId: string, fn: (req: FunctionCall) => void) {
         await this.connection.registerService(serviceId);
@@ -177,7 +211,7 @@ export class JanusClient {
 
 
     /**
-     * Sends a message to unregister the service_id.
+     * Sends a call to unregister the service_id.
      */
     async unregisterService(serviceId: string) {
         if (this.services.deleteService(serviceId)) {
@@ -188,23 +222,32 @@ export class JanusClient {
         }
     }
 
-    async connect(nodePeerId: string, host?: string, port?: number) {
+    /**
+     * Establish a connection to the node. If the connection is already established, disconnect and reregister all services in a new connection.
+     *
+     * @param nodePeerId peer id to identify connection to the node
+     *                   TODO try to avoid it, for now there is no event with node peer id after connection to the node
+     * @param host node address
+     * @param port node port
+     */
+    async connect(nodePeerId: string, host?: string, port?: number): Promise<void> {
 
-        let reregister: boolean = false;
+        let firstConnection: boolean = true;
         if (this.connection) {
-            reregister = true;
+            firstConnection = false;
             await this.connection.disconnect();
         }
 
         let peerId = PeerId.createFromB58String(nodePeerId);
         let relayAddress = await createRelayAddress(nodePeerId, this.selfPeerInfo.id, true);
-        let connection = new JanusConnection(host, port, peerId, this.selfPeerInfo, relayAddress, this.handleCall());
+        let connection = new FluenceConnection(host, port, peerId, this.selfPeerInfo, relayAddress, this.handleCall());
 
         await connection.connect();
 
         this.connection = connection;
 
-        if (reregister) {
+        // if the client already had a connection, it will reregister all services after establishing a new connection.
+        if (!firstConnection) {
             for (let service of this.services.getAllServices().keys()) {
                 await this.connection.registerService(service);
             }
