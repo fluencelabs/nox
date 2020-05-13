@@ -104,8 +104,8 @@ export async function testCalculator() {
     let key2 = await Fluence.generatePeerId();
 
     // connect to two different nodes
-    let cl1 = await Fluence.connect("12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", "104.248.25.59", 9003, key1);
-    let cl2 = await Fluence.connect("12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", "104.248.25.59", 9002, key2);
+    let cl1 = await Fluence.connect("/dns4/104.248.25.59/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", key1);
+    let cl2 = await Fluence.connect("/ip4/104.248.25.59/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
 
     // service name that we will register with one connection and call with another
     let serviceId = "sum-calculator-" + genUUID();
@@ -137,7 +137,7 @@ export async function testCalculator() {
     let result = response.result;
     console.log(`calculation result is: ${result}`);
 
-    await cl1.connect("12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9", "104.248.25.59", 9001);
+    await cl1.connect("/dns4/relay01.fluence.dev/tcp/19001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9");
 
     await delay(1000);
 

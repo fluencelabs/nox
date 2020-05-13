@@ -42,6 +42,7 @@ import SECIO from "libp2p-secio";
 import Peer from "libp2p";
 import {decode, encode} from "it-length-prefixed";
 import pipe from "it-pipe";
+import Multiaddr from "multiaddr";
 
 export const PROTOCOL_NAME = '/janus/faas/1.0.0';
 
@@ -53,23 +54,19 @@ enum Status {
 
 export class FluenceConnection {
 
-    private readonly host: string;
-    private readonly port: number;
     private readonly selfPeerInfo: PeerInfo;
     readonly replyToAddress: Address;
     private node: LibP2p;
-    private readonly address: string;
+    private readonly address: Multiaddr;
     private readonly nodePeerId: PeerId;
     private readonly selfPeerId: string;
     private readonly handleCall: (call: FunctionCall) => FunctionCall | undefined;
 
-    constructor(host: string, port: number, hostPeerId: PeerId, selfPeerInfo: PeerInfo, replyToAddress: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
+    constructor(multiaddr: Multiaddr, hostPeerId: PeerId, selfPeerInfo: PeerInfo, replyToAddress: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
         this.selfPeerInfo = selfPeerInfo;
-        this.host = host;
-        this.port = port;
         this.handleCall = handleCall;
         this.selfPeerId = selfPeerInfo.id.toB58String();
-        this.address = `/ip4/${host}/tcp/${port}/ws/p2p/${hostPeerId}`;
+        this.address = multiaddr;
         this.nodePeerId = hostPeerId;
         this.replyToAddress = replyToAddress
     }

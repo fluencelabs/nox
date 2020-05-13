@@ -26,6 +26,7 @@ import {Address, createRelayAddress, ProtocolType} from "./address";
 import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./function_call";
 import * as PeerId from "peer-id";
 import {Services} from "./services";
+import Multiaddr from "multiaddr"
 import {Subscriptions} from "./subscriptions";
 import * as PeerInfo from "peer-info";
 import {FluenceConnection} from "./fluence_connection";
@@ -226,12 +227,17 @@ export class FluenceClient {
     /**
      * Establish a connection to the node. If the connection is already established, disconnect and reregister all services in a new connection.
      *
-     * @param nodePeerId peer id to identify connection to the node
-     *                   TODO try to avoid it, for now there is no event with node peer id after connection to the node
-     * @param host node address
-     * @param port node port
+     * @param multiaddr
      */
-    async connect(nodePeerId: string, host?: string, port?: number): Promise<void> {
+    async connect(multiaddr: string | Multiaddr): Promise<void> {
+
+        multiaddr = Multiaddr(multiaddr);
+
+        let nodePeerId = multiaddr.getPeerId();
+
+        if (!nodePeerId) {
+            throw Error("'multiaddr' did not contain a valid peer id")
+        }
 
         let firstConnection: boolean = true;
         if (this.connection) {
@@ -241,7 +247,7 @@ export class FluenceClient {
 
         let peerId = PeerId.createFromB58String(nodePeerId);
         let relayAddress = await createRelayAddress(nodePeerId, this.selfPeerInfo.id, true);
-        let connection = new FluenceConnection(host, port, peerId, this.selfPeerInfo, relayAddress, this.handleCall());
+        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerInfo, relayAddress, this.handleCall());
 
         await connection.connect();
 
