@@ -150,6 +150,9 @@ export class FluenceClient {
             // the tail of addresses should be you or your service
             let lastProtocol = target.protocols[target.protocols.length - 1];
 
+            // call all subscriptions for a new call
+            _this.subscriptions.applyToSubscriptions(call);
+
             switch (lastProtocol.protocol) {
                 case ProtocolType.Service:
                     try {
@@ -173,7 +176,6 @@ export class FluenceClient {
                 case ProtocolType.Client:
                     if (lastProtocol.value === _this.selfPeerIdStr) {
                         console.log(`relay call: ${call}`);
-                        _this.subscriptions.applyToSubscriptions(call)
                     } else {
                         console.warn(`this relay call is not for me: ${callToString(call)}`);
                         return FluenceClient.responseCall(call.reply_to, {reason: `this relay call is not for me`, msg: call});
@@ -182,7 +184,6 @@ export class FluenceClient {
                 case ProtocolType.Peer:
                     if (lastProtocol.value === this.selfPeerIdStr) {
                         console.log(`peer call: ${call}`);
-                        _this.subscriptions.applyToSubscriptions(call)
                     } else {
                         console.warn(`this peer call is not for me: ${callToString(call)}`);
                         return FluenceClient.responseCall(call.reply_to, {reason: `this relay call is not for me`, msg: call});
