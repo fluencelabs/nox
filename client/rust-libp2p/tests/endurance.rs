@@ -137,7 +137,7 @@ fn endurance() {
 
                 provider.send(registration(service.node.peer_id.clone(), provider.peer_id.clone(), service.id.clone()));
                 log::info!("{: <14} - Provider sent registration", prefix);
-                task::sleep(Duration::from_secs(5)).await;
+                task::sleep(Duration::from_secs(pause)).await;
 
                 for node in nodes.clone() {
                     let mut consumer = match Client::connect(node.address.clone()).await {

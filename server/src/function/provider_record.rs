@@ -61,14 +61,14 @@ impl ProviderRecord {
         use ProviderError::*;
 
         let provider: ProviderRecord = value.into();
-        let address: Address = provider.address.parse().map_err(|e| Deserialization(e))?;
+        let address: Address = provider.address.parse().map_err(Deserialization)?;
         let public = publisher.as_public_key().ok_or(NoPublisherKey)?;
         let sig = provider.signature.as_slice();
 
         // Verify record author signature
-        verify_signature(&address, sig, &public).map_err(|e| Signature(e))?;
+        verify_signature(&address, sig, &public).map_err(Signature)?;
         // Verify client signatures
-        verify_address_signatures(&address).map_err(|e| Signature(e))?;
+        verify_address_signatures(&address).map_err(Signature)?;
 
         Ok(address)
     }

@@ -43,6 +43,7 @@ pub mod vec {
     use super::*;
     use serde::ser::SerializeSeq;
 
+    #[allow(clippy::ptr_arg)]
     pub fn serialize<S>(value: &Vec<Certificate>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

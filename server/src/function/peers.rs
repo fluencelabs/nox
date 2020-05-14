@@ -81,7 +81,7 @@ impl FunctionRouter {
 
             // Check if any peers found, if not – send error
             if peers.is_empty() {
-                self.send_error_on_call(call.into(), "neighborhood was empty".into());
+                self.send_error_on_call(call, "neighborhood was empty".into());
                 return;
             }
 
