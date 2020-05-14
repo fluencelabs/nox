@@ -19,14 +19,13 @@ use crate::function::address_signature::{
 };
 use faas_api::{Address, AddressError};
 use libp2p::identity::ed25519::Keypair;
-use libp2p::kad::record::Record;
+use libp2p::PeerId;
 use prost::Message;
 
 #[derive(Debug)]
 pub enum ProviderError {
     Deserialization(AddressError),
     Signature(SignatureError),
-    NoPublisher,
     NoPublisherKey,
 }
 
@@ -56,20 +55,14 @@ impl ProviderRecord {
         }
     }
 
-    // Deserialize record to ProviderRecord, verify address and record author's signature.
+    // Deserialize value to ProviderRecord, verify address and record author's signature.
     // Return provider Address.
-    pub fn deserialize_address(record: &Record) -> Result<Address, ProviderError> {
+    pub fn deserialize_address(value: &[u8], publisher: &PeerId) -> Result<Address, ProviderError> {
         use ProviderError::*;
 
-        let value = record.value.as_slice();
         let provider: ProviderRecord = value.into();
         let address: Address = provider.address.parse().map_err(|e| Deserialization(e))?;
-        let public = record
-            .publisher
-            .as_ref()
-            .ok_or(NoPublisher)?
-            .as_public_key()
-            .ok_or(NoPublisherKey)?;
+        let public = publisher.as_public_key().ok_or(NoPublisherKey)?;
         let sig = provider.signature.as_slice();
 
         // Verify record author signature

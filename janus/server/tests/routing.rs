@@ -48,6 +48,7 @@ use libp2p::{
 use log::LevelFilter;
 use once_cell::sync::Lazy;
 use parity_multiaddr::Multiaddr;
+use rand::random;
 use serde_json::{json, Value};
 use std::time::Instant;
 use std::{error::Error, time::Duration};
@@ -243,12 +244,46 @@ fn provide_disconnect() {
 #[test]
 // Receive error when there's not enough nodes to store service in DHT
 fn provide_error() {
-    let mut provider = make_client(vec![]).expect("connect client");
+    let mut provider = make_client().expect("connect client");
     let service_id = "failedservice";
     let provide = provide_call(service_id, provider.relay_address());
     provider.send(provide);
     let error = provider.receive();
     assert!(error.uuid.starts_with("error_"));
+}
+
+// TODO: test on invalid signature
+// TODO: test on missing signature
+
+#[test]
+fn reconnect_provide() {
+    let service_id = "popularservice";
+    let swarms = make_swarms(10);
+    task::block_on(task::sleep(*KAD_TIMEOUT));
+    let consumer = connect_client(swarms[1].1.clone()).expect("connect consumer");
+
+    for _i in 1..100 {
+        for swarm in swarms.iter() {
+            let provider = connect_client(swarm.1.clone()).expect("connect provider");
+            let provide_call = provide_call(service_id, provider.relay_address());
+            provider.send(provide_call);
+            task::block_on(task::sleep(*SHORT_TIMEOUT));
+        }
+    }
+
+    task::block_on(task::sleep(*SHORT_TIMEOUT));
+
+    let mut provider = connect_client(swarms[0].1.clone()).expect("connect provider");
+    let provide_call = provide_call(service_id, provider.relay_address());
+    provider.send(provide_call);
+
+    task::block_on(task::sleep(*KAD_TIMEOUT));
+
+    let call_service = service_call(service_id, consumer.relay_address());
+    consumer.send(call_service.clone());
+
+    let to_provider = provider.receive();
+    assert_eq!(to_provider.uuid, call_service.uuid);
 }
 
 // --- Utility functions ---
@@ -336,11 +371,9 @@ fn connect_client(node_address: Multiaddr) -> Result<ConnectedClient> {
     Ok(task::block_on(timeout(*TIMEOUT, connect))??)
 }
 
-fn make_client(bootstraps: Vec<Multiaddr>) -> Result<ConnectedClient> {
-    let (node, addr1, mut swarm1) = create_swarm(bootstraps);
-    swarm1.dial_bootstrap_nodes();
-
-    task::spawn(async move { swarm1.next().await });
+fn make_client() -> Result<ConnectedClient> {
+    let swarm = make_swarms(3).into_iter().next().unwrap();
+    let CreatedSwarm(node, addr1) = swarm;
 
     let connect = async move {
         let (mut client, _) = Client::connect_with(addr1.clone(), Transport::Memory)
@@ -357,71 +390,57 @@ fn make_client(bootstraps: Vec<Multiaddr>) -> Result<ConnectedClient> {
     Ok(task::block_on(timeout(*TIMEOUT, connect))?)
 }
 
-fn make_clients() -> Result<(ConnectedClient, ConnectedClient)> {
-    use futures_util::FutureExt;
+struct CreatedSwarm(PeerId, Multiaddr);
+fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
+    use futures::stream::FuturesUnordered;
+    use futures_util::StreamExt;
     use libp2p::core::ConnectedPoint::Dialer;
-    use libp2p::swarm::SwarmEvent::{Behaviour, ConnectionEstablished};
+    use libp2p::swarm::SwarmEvent::ConnectionEstablished;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
 
-    let (peer_id1, addr1, mut swarm1) = create_swarm(vec![]);
-    let (peer_id2, addr2, mut swarm2) = create_swarm(vec![addr1.clone()]);
-    let (peer_id3, addr3, mut swarm3) = create_swarm(vec![addr1.clone(), addr2.clone()]);
+    let addrs = (0..n).map(|_| create_maddr()).collect::<Vec<_>>();
 
-    log::debug!("peer_id1: {} {:?}", peer_id1, addr1);
-    log::debug!("peer_id2: {} {:?}", peer_id2, addr2);
-    log::debug!("peer_id3: {} {:?}", peer_id3, addr3);
+    let mut swarms = addrs
+        .iter()
+        .map(|addr| {
+            #[rustfmt::skip]
+            let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
+            let (id, swarm) = create_swarm(addrs, addr.clone());
+            (CreatedSwarm(id, addr.clone()), swarm)
+        })
+        .collect::<Vec<_>>();
 
-    swarm2.dial_bootstrap_nodes();
-    swarm3.dial_bootstrap_nodes();
-    Swarm::dial_addr(&mut swarm1, addr2.clone()).expect("swarm1 dial addr2");
-    Swarm::dial_addr(&mut swarm1, addr3.clone()).expect("swarm1 dial addr3");
-    Swarm::dial_addr(&mut swarm2, addr3).expect("swarm2 dial addr3");
+    #[rustfmt::skip]
+    swarms.iter_mut().for_each(|(_, s)| s.dial_bootstrap_nodes());
+
+    let (infos, mut swarms): (Vec<CreatedSwarm>, Vec<_>) = swarms.into_iter().unzip();
 
     let connected = Arc::new(AtomicUsize::new(0));
     let shared_connected = connected.clone();
     let _swarms_handle = task::spawn(async move {
         let connected = shared_connected;
+        let start = Instant::now();
+        let mut local_start = Instant::now();
         loop {
-            let mut future1 = Swarm::next_event(&mut swarm1).boxed().fuse();
-            let mut future2 = Swarm::next_event(&mut swarm2).boxed().fuse();
-            let mut future3 = Swarm::next_event(&mut swarm3).boxed().fuse();
+            let swarms = swarms
+                .iter_mut()
+                .map(|s| Swarm::next_event(s))
+                .collect::<FuturesUnordered<_>>();
+            let mut swarms = swarms.fuse();
 
             select!(
-                event = future1 => {
-                    match event {
-                        c@ConnectionEstablished { endpoint: Dialer { .. }, .. } => {
-                            log::debug!("event: {:?}", c);
-                            connected.fetch_add(1, Ordering::SeqCst);
-                        },
-                        Behaviour(event) => {
-                            log::debug!("swarm1: behaviour event: {:?}", event)
-                        },
-                        _ => {}
-                    }
-                },
-                event = future2 => {
-                    match event {
-                        c@ConnectionEstablished { endpoint: Dialer { .. }, .. } => {
-                            log::debug!("event: {:?}", c);
-                            connected.fetch_add(1, Ordering::SeqCst);
-                        },
-                        Behaviour(event) => {
-                            log::debug!("swarm2: behaviour event: {:?}", event)
-                        },
-                        _ => {}
-                    }
-                },
-                event = future3 => {
-                    match event {
-                        c@ConnectionEstablished { endpoint: Dialer { .. }, .. } => {
-                            log::debug!("event: {:?}", c);
-                            connected.fetch_add(1, Ordering::SeqCst);
-                        },
-                        Behaviour(event) => {
-                            log::debug!("swarm3: behaviour event: {:?}", event)
-                        },
-                        _ => {}
+                event = swarms.next() => {
+                    if let Some(ConnectionEstablished { endpoint: Dialer { .. }, .. }) = event {
+                        connected.fetch_add(1, Ordering::SeqCst);
+                        let total = connected.load(Ordering::Relaxed);
+                        if total % 10 == 0 {
+                            log::trace!(
+                                "established {: <10} +{: <10} (= {:<5})",
+                                total, format_args!("{:.3}s", start.elapsed().as_secs_f32()), format_args!("{}ms", local_start.elapsed().as_millis())
+                            );
+                            local_start = Instant::now();
+                        }
                     }
                 },
             )
@@ -429,8 +448,17 @@ fn make_clients() -> Result<(ConnectedClient, ConnectedClient)> {
     });
 
     let now = Instant::now();
-    while connected.load(Ordering::SeqCst) < 6 {}
+    while connected.load(Ordering::SeqCst) < (n * (n - 1)) {}
     log::debug!("Connection took {}s", now.elapsed().as_secs_f32());
+
+    infos
+}
+
+fn make_clients() -> Result<(ConnectedClient, ConnectedClient)> {
+    let swarms = make_swarms(3);
+    let mut swarms = swarms.into_iter();
+    let CreatedSwarm(peer_id1, addr1) = swarms.next().expect("get swarm");
+    let CreatedSwarm(peer_id2, addr2) = swarms.next().expect("get swarm");
 
     let connect = async move {
         let (mut first, _) = Client::connect_with(addr1.clone(), Transport::Memory)
@@ -461,9 +489,11 @@ fn make_clients() -> Result<(ConnectedClient, ConnectedClient)> {
     Ok(task::block_on(timeout(*TIMEOUT, connect))?)
 }
 
-fn create_swarm(bootstraps: Vec<Multiaddr>) -> (PeerId, Multiaddr, Swarm<ServerBehaviour>) {
-    use libp2p::{core::multiaddr::Protocol, identity};
-    use rand::random;
+fn create_swarm(
+    bootstraps: Vec<Multiaddr>,
+    listen_on: Multiaddr,
+) -> (PeerId, Swarm<ServerBehaviour>) {
+    use libp2p::identity;
 
     let kp = Keypair::generate();
     let public_key = Ed25519(kp.public());
@@ -477,9 +507,16 @@ fn create_swarm(bootstraps: Vec<Multiaddr>) -> (PeerId, Multiaddr, Swarm<ServerB
 
         Swarm::new(transport, server, peer_id.clone())
     };
+
+    Swarm::listen_on(&mut swarm, listen_on).unwrap();
+
+    (peer_id, swarm)
+}
+
+fn create_maddr() -> Multiaddr {
+    use libp2p::core::multiaddr::Protocol;
+
     let port = 1 + random::<u64>();
     let addr: Multiaddr = Protocol::Memory(port).into();
-    Swarm::listen_on(&mut swarm, addr.clone()).unwrap();
-
-    (peer_id, addr, swarm)
+    addr
 }

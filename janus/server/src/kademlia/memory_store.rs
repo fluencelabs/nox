@@ -51,7 +51,94 @@ use libp2p::PeerId;
 use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::collections::{hash_map, hash_set, HashMap, HashSet};
+use std::hash::Hash;
 use std::iter;
+use std::time::Instant;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MultiRecordKind {
+    // Holds multiple (value, publisher) pairs, merge on insert
+    MultiRecord,
+    // Holds single (value, publisher) pair, replaced on insert
+    // Currently isn't used
+    SimpleRecord,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MultiRecord {
+    /// Key of the record.
+    pub key: Key,
+    /// Map of value to publisher
+    pub values: HashMap<Vec<u8>, PeerId>,
+    /// The expiration time as measured by a local, monotonic clock.
+    pub expires: Option<Instant>,
+    pub kind: MultiRecordKind,
+}
+
+impl MultiRecord {
+    // TODO: this could be simplified with linked hash map
+    /// Merge `right` into the `left`, overwriting existing values,
+    /// and keep up to `max_values` values.
+    /// Values in `right` have higher priority. Intuition behind that is:
+    ///     `right` values are "newer", more recent – they just came from network.
+    ///     And the `left` values we already "had" stored in this MemoryStore.
+    fn merge_maps<K: Hash + Eq, V>(
+        left: &mut HashMap<K, V>,
+        mut right: HashMap<K, V>,
+        max_values: usize,
+    ) {
+        // Remove intersection; these will be overwritten
+        right.keys().for_each(|k| {
+            left.remove(k);
+        });
+
+        // Calculate total number of values.
+        // NOTE: this can be done only after removing the intersection.
+        let total = left.len() + right.len();
+        // Calculate if there will be over `max_values` values
+        let over_limit = total.checked_sub(max_values);
+        if let Some(mut over_limit) = over_limit {
+            // `keep` is a predicate that says whether to keep a record.
+            // It will return 'false' until `over_limit` isn't 0, and decrement `over_limit` each time.
+            // When `over_limit` is 0, there would be only `max_values` values in both maps combined.
+            let mut keep = || {
+                let delete = over_limit > 0;
+                over_limit = over_limit.saturating_sub(1);
+                !delete
+            };
+            // First, remove values from `left`: these have lower priority (they're "older")
+            left.retain(|_, _| keep());
+            // Then, if we're still over limit, remove values from `right`
+            right.retain(|_, _| keep());
+        }
+
+        // Finally add `right` map values to the `left` map
+        left.extend(right);
+    }
+
+    /// Merge `values` and `expires` from `mrec` to `self`.
+    pub fn merge(&mut self, mrec: MultiRecord, max_values: usize) {
+        debug_assert_eq!(self.key, mrec.key);
+
+        Self::merge_maps(&mut self.values, mrec.values, max_values);
+
+        // Take max of expiration times, and set it to `self.expires`.
+        // `None` means the record will never expire.
+        if let Some(current) = self.expires.as_ref() {
+            if mrec.expires.map_or(false, |their| current.le(&their)) {
+                self.expires = mrec.expires;
+            }
+        }
+    }
+
+    /// Return whether this record is of `SimpleRecord` kind
+    pub fn simple(&self) -> bool {
+        match self.kind {
+            MultiRecordKind::SimpleRecord => true,
+            MultiRecordKind::MultiRecord => false,
+        }
+    }
+}
 
 /// In-memory implementation of a `RecordStore`.
 pub struct MemoryStore {
@@ -59,8 +146,8 @@ pub struct MemoryStore {
     local_key: kbucket::Key<PeerId>,
     /// The configuration of the store.
     config: MemoryStoreConfig,
-    /// The stored (regular) records.
-    records: HashMap<Key, HashSet<Record>>,
+    /// The stored records.
+    records: HashMap<Key, MultiRecord>,
     /// The stored provider records.
     providers: HashMap<Key, SmallVec<[ProviderRecord; K_VALUE.get()]>>,
     /// The set of all provider records for the node identified by `local_key`.
@@ -82,6 +169,8 @@ pub struct MemoryStoreConfig {
     /// The maximum number of provider records for which the
     /// local node is the provider.
     pub max_provided_keys: usize,
+    /// The maximum number of values stored in MultiRecord
+    pub max_values_per_multi_record: usize,
 }
 
 impl Default for MemoryStoreConfig {
@@ -91,6 +180,10 @@ impl Default for MemoryStoreConfig {
             max_value_bytes: 65 * 1024,
             max_provided_keys: 1024,
             max_providers_per_key: K_VALUE.get(),
+            // TODO BUG:
+            //  For unknown reason we need to keep record size below 4kb, "10" seems to be a good value for that
+            //  This is because when sending records over 4kb over network, connection closes.
+            max_values_per_multi_record: 10,
         }
     }
 }
@@ -112,37 +205,12 @@ impl MemoryStore {
         }
     }
 
-    /// Retains the records satisfying a predicate.
-    #[allow(dead_code)]
-    pub fn retain<F>(&mut self, mut f: F)
-    where
-        F: FnMut(&Key, &Record) -> bool,
-    {
-        self.records
-            .iter_mut()
-            .map(|(k, set)| set.retain(|v| f(k, v)))
-            .for_each(drop); // exhaust iterator
-    }
-
-    fn reduce_record_set(&self, key: Key, set: HashSet<Record>) -> Record {
-        reduce_record_set(key, set)
-    }
-
-    fn insert(set: &mut HashSet<Record>, record: Record) -> Result<()> {
-        match expand_record_set(record) {
-            Ok(r) => match r {
-                Ok(records) => set.extend(records),
-                Err(e) => {
-                    log::error!("Can't parse multiple records from DHT record: {}", e);
-                    return Err(Error::MaxRecords); // TODO custom error?
-                }
-            },
-            Err(record) => {
-                set.insert(record);
-            }
-        }
-
-        Ok(())
+    // TODO: limit on number of records
+    fn record_to_multirecord(record: Record) -> Result<MultiRecord> {
+        try_to_multirecord(record).map_err(|e| {
+            log::error!("Can't parse multi record from DHT record: {:?}", e);
+            Error::MaxRecords // TODO custom error?
+        })
     }
 }
 
@@ -159,26 +227,41 @@ impl<'a> RecordStore<'a> for MemoryStore {
         // TODO: Performance? Was Cow::Borrowed, now Cow::Owned, and lot's of .clone()'s :(
         self.records
             .get(k)
-            .map(|set| self.reduce_record_set(k.clone(), set.clone()))
+            .map(|set| reduce_multirecord(set.clone()))
             .map(Cow::Owned)
     }
 
     fn put(&'a mut self, r: Record) -> Result<()> {
         if r.value.len() >= self.config.max_value_bytes {
+            log::warn!(
+                "value of record for key {:?} is too large: {}",
+                bs58::encode(r.key).into_string(),
+                r.value.len()
+            );
             return Err(Error::ValueTooLarge);
         }
 
         let num_records = self.records.len();
 
-        match self.records.entry(r.key.clone()) {
-            hash_map::Entry::Occupied(mut e) => Self::insert(e.get_mut(), r)?,
+        let key = r.key.clone();
+        let mrec = Self::record_to_multirecord(r)?;
+
+        match self.records.entry(key) {
+            hash_map::Entry::Occupied(mut e) => {
+                if mrec.simple() {
+                    // Replace if mrec is of simple kind
+                    e.insert(mrec);
+                } else {
+                    // Merge if mrec is of multi kind
+                    e.get_mut()
+                        .merge(mrec, self.config.max_values_per_multi_record)
+                }
+            }
             hash_map::Entry::Vacant(e) => {
                 if num_records >= self.config.max_records {
                     return Err(Error::MaxRecords);
                 }
-                let mut set = HashSet::new();
-                Self::insert(&mut set, r)?;
-                e.insert(set);
+                e.insert(mrec);
             }
         }
 
@@ -186,6 +269,8 @@ impl<'a> RecordStore<'a> for MemoryStore {
     }
 
     fn remove(&'a mut self, k: &Key) {
+        // TODO: removing everything here, for MultiRecord should remove only unexpired?
+        // TODO: Add method 'remove_expired' and use it instead of remove when removing due to ttl
         self.records.remove(k);
     }
 
@@ -193,8 +278,7 @@ impl<'a> RecordStore<'a> for MemoryStore {
         let vec = self
             .records
             .iter()
-            // .cloned() //::<'a, (Key, HashSet<Record>)> // : (Key, HashSet<Record>)
-            .map(|(key, set)| self.reduce_record_set(key.clone(), set.clone()))
+            .map(|(_, mrec)| reduce_multirecord(mrec.clone()))
             .map(Cow::Owned)
             .collect::<Vec<_>>();
 
@@ -310,11 +394,7 @@ mod tests {
             NewRecord(Record {
                 key: NewKey::arbitrary(g).0,
                 value: Vec::arbitrary(g),
-                publisher: if g.gen() {
-                    Some(PeerId::random())
-                } else {
-                    None
-                },
+                publisher: Some(PeerId::random()),
                 expires: if g.gen() {
                     Some(Instant::now() + Duration::from_secs(g.gen_range(0, 60)))
                 } else {
@@ -350,14 +430,14 @@ mod tests {
     fn put_get_remove_record() {
         fn prop(r: NewRecord) {
             let r = r.0;
+            let key = r.key.clone();
             let mut store = MemoryStore::new(PeerId::random());
             assert!(store.put(r.clone()).is_ok());
-            let mut set = HashSet::new();
-            set.insert(r.clone());
-            let reduced = reduce_record_set(r.key.clone(), set);
-            assert_eq!(Some(Cow::Owned(reduced)), store.get(&r.key));
-            store.remove(&r.key);
-            assert!(store.get(&r.key).is_none());
+            let mrec = try_to_multirecord(r).expect("reduce ok");
+            let reduced = reduce_multirecord(mrec);
+            assert_eq!(Some(Cow::Owned(reduced)), store.get(&key));
+            store.remove(&key);
+            assert!(store.get(&key).is_none());
         }
         quickcheck(prop as fn(_))
     }
@@ -443,6 +523,78 @@ mod tests {
         match store.add_provider(rec) {
             Err(Error::MaxProvidedKeys) => {}
             _ => panic!("Unexpected result"),
+        }
+    }
+
+    #[test]
+    // check that `max_values_per_multi_record` holds
+    fn multirecord_limit() {
+        let mut store = MemoryStore::new(PeerId::random());
+        let limit = store.config.max_values_per_multi_record;
+
+        let key: Key = random_multihash().to_vec().into();
+        let rec = || Record {
+            key: key.clone(),
+            value: random_multihash().to_vec(),
+            publisher: Some(PeerId::random()),
+            expires: None,
+        };
+        for _ in 0..limit {
+            store.put(rec()).expect("put success")
+        }
+
+        let check_mrec = |mrec: &MultiRecord| {
+            assert_eq!(mrec.kind, MultiRecordKind::MultiRecord);
+            assert_eq!(mrec.values.len(), limit);
+        };
+
+        let mrec = store.records.get(&key).expect("get record");
+        check_mrec(mrec);
+        for _ in 0..limit {
+            store.put(rec()).expect("put record");
+            let mrec = store.records.get(&key).expect("get record");
+            check_mrec(mrec);
+        }
+    }
+
+    #[test]
+    // check that values inside multirecord are deduplicated
+    fn multirecord_unique_values() {
+        let mut store = MemoryStore::new(PeerId::random());
+
+        let key: Key = random_multihash().to_vec().into();
+        for i in 0..100 {
+            let value = (i % 10).to_string().as_bytes().to_vec();
+            let rec = Record {
+                key: key.clone(),
+                value,
+                publisher: Some(PeerId::random()),
+                expires: None,
+            };
+            store.put(rec).expect("put success");
+        }
+
+        let mrec = store.records.get(&key).expect("get record");
+        assert_eq!(mrec.kind, MultiRecordKind::MultiRecord);
+        assert_eq!(mrec.values.len(), 10);
+
+        let publisher = PeerId::random();
+        for i in 0..10 {
+            let value = i.to_string().as_bytes().to_vec();
+            let rec = Record {
+                key: key.clone(),
+                value,
+                publisher: Some(publisher.clone()),
+                expires: None,
+            };
+            store.put(rec).expect("put success");
+        }
+
+        let mrec = store.records.get(&key).expect("get record");
+        assert_eq!(mrec.kind, MultiRecordKind::MultiRecord);
+        assert_eq!(mrec.values.len(), 10);
+        for p in mrec.values.values() {
+            assert_eq!(p, &publisher);
         }
     }
 }

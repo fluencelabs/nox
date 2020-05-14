@@ -97,7 +97,7 @@ impl NetworkBehaviour for FunctionRouter {
                 self.call(call)
             }
             Second(kademlia_event) => {
-                log::trace!("{} got Kademlia event: {:?}", self.peer_id, kademlia_event);
+                log::debug!("{} got Kademlia event: {:?}", self.peer_id, kademlia_event);
                 #[rustfmt::skip]
                 self.kademlia.inject_event(source, connection_id, kademlia_event);
             }
@@ -193,7 +193,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRout
                 };
                 self.found_closest(key);
             }
-            PutRecordResult(Err(err)) => self.name_resolution_failed(err),
+            PutRecordResult(Err(err)) => self.name_publish_failed(err),
             GetRecordResult(result) => self.name_resolved(result),
             _ => {}
         };

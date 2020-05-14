@@ -32,10 +32,15 @@ use libp2p::{
     kad::record::{Key, Record},
     kad::{PutRecordError, Quorum},
 };
+use std::num::NonZeroUsize;
 use std::{
     collections::{hash_map::Entry, HashSet},
     convert::TryInto,
 };
+
+// TODO: move GET_QUORUM_N to config
+/// Number of nodes required to respond for DHT get operations
+const GET_QUORUM_N: usize = 3;
 
 impl FunctionRouter {
     /// Called when Kademlia failed to execute PutRecord.
@@ -45,7 +50,7 @@ impl FunctionRouter {
     /// and send error to provider of this name.
     ///
     /// Assumes that key is a valid `Address`, logs an error otherwise.
-    pub fn name_resolution_failed(&mut self, error: PutRecordError) {
+    pub fn name_publish_failed(&mut self, error: PutRecordError) {
         use PutRecordError::*;
 
         let key: &Key = error.key();
@@ -161,7 +166,7 @@ impl FunctionRouter {
         let records = match records {
             Ok(records) => records,
             Err(err_msg) => {
-                let err_msg = format!("Error on DHT.get for service {}: {}", name, err_msg);
+                let err_msg = format!("Error on DHT.get for name {}: {}", name, err_msg);
                 log::warn!("{}", err_msg);
                 self.provider_search_failed(name, err_msg.as_str());
                 return;
@@ -172,35 +177,41 @@ impl FunctionRouter {
         // fallback to single record, skip failed
         let records = records
             .into_iter()
-            .flat_map(|rec| match kademlia::expand_record_set(rec) {
-                Ok(Ok(records)) => records,
-                Err(record) => std::iter::once(record).collect::<HashSet<_>>(),
-                Ok(Err(expand_failed)) => {
+            .flat_map(|rec| match kademlia::try_to_multirecord(rec) {
+                Ok(multirec) => Some(multirec),
+                Err(err) => {
                     log::warn!(
-                        "Can't expand record, skipping: {:?}; service_id {}",
-                        expand_failed,
+                        "Can't deserialize multirecord, skipping: {:?}; name {}",
+                        err,
                         name
                     );
-                    HashSet::new()
+                    None
                 }
             })
-            .collect::<HashSet<_>>();
+            .collect::<Vec<_>>();
+
+        log::debug!("Found {} records for name {}", records.len(), name);
 
         // Deserialize provider addresses from records (also check signatures on deserialization),
         // skip failed
         let providers = records
-            .into_iter()
-            .flat_map(|rec| match ProviderRecord::deserialize_address(&rec) {
-                Ok(provider) => Some(provider),
-                Err(err) => {
-                    log::warn!(
-                        "Can't deserialize provider from record {:?}, skipping: {:?}; service {}",
-                        rec,
-                        err,
-                        name,
-                    );
-                    None
-                }
+            .iter()
+            .flat_map(|rec| {
+                rec.values.iter().flat_map(
+                    move |(value, publisher)| {
+                        match ProviderRecord::deserialize_address(value, publisher) {
+                            Ok(provider) => Some(provider),
+                            Err(err) => {
+                                #[rustfmt::skip]
+                                log::warn!(
+                                    "Can't deserialize provider from record {:?}, skipping: {:?}; name {}",
+                                    rec, err, name,
+                                );
+                                None
+                            }
+                        }
+                    },
+                )
             })
             .collect::<HashSet<_>>();
 
@@ -217,6 +228,9 @@ impl FunctionRouter {
 
     /// Find provider by name, result will eventually be delivered in `name_resolved` function
     pub(super) fn resolve_name(&mut self, name: Address) {
-        self.kademlia.get_record(&name.into(), Quorum::Majority)
+        self.kademlia.get_record(
+            &name.into(),
+            Quorum::N(NonZeroUsize::new(GET_QUORUM_N).unwrap()),
+        )
     }
 }

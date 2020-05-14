@@ -13,9 +13,9 @@ exclude = [
 ]
 
 [patch.crates-io]
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "peer_id_topubkey_copy" }
-libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "peer_id_topubkey_copy" }
-parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "peer_id_topubkey_copy" }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "debug_latency" }
+libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "debug_latency" }
+parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "debug_latency" }
 
 [patch.'ssh://git@github.com/fluencelabs/arqada.git']
 trust-graph = { path = "trust-graph" }

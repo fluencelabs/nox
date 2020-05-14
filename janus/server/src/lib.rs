@@ -87,7 +87,7 @@ pub mod kademlia {
     pub mod record;
 
     pub(crate) use memory_store::MemoryStore;
-    pub(crate) use record::expand_record_set;
+    pub(crate) use record::try_to_multirecord;
 }
 
 pub(crate) use bootstrapper::Bootstrapper;
