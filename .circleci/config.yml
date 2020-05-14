@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  janus:
+  fluence:
     docker:
       - image: circleci/rust:latest
     environment:
@@ -10,9 +10,9 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - janus01-{{ checksum "janus/server/Cargo.toml" }}
+            - fluence01-{{ checksum "fluence/server/Cargo.toml" }}
       - run: |
-          cd janus/
+          cd fluence/
           rustup toolchain install stable
           rustup component add rustfmt
           rustup component add clippy
@@ -24,7 +24,7 @@ jobs:
           paths:
             - ~/.cargo
             - ~/.rustup
-          key: janus01-{{ checksum "janus/server/Cargo.toml" }}
+          key: fluence01-{{ checksum "fluence/server/Cargo.toml" }}
 
   frank:
     docker:
@@ -56,6 +56,6 @@ workflows:
   version: 2
   arqada:
     jobs:
-      - janus
+      - fluence
       - frank
 
