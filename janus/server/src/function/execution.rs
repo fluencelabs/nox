@@ -25,19 +25,96 @@
 use super::address_signature::verify_address_signatures;
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
-use faas_api::{Address, FunctionCall, Protocol};
+use faas_api::{service, Address, FunctionCall, Protocol};
+use libp2p::PeerId;
 
 impl FunctionRouter {
     // ####
     // ## Execution
     // ###
 
-    pub(super) fn execute_builtin(&mut self, service: BuiltinService, call: FunctionCall) {
+    /// Execute call on builtin service: "provide" or "certificates"
+    /// `ttl` – time to live, if `0`, "certficiates" service won't send call to neighborhood
+    pub(super) fn execute_builtin(
+        &mut self,
+        service: BuiltinService,
+        call: FunctionCall,
+        ttl: usize,
+    ) {
+        match service {
+            BuiltinService::DelegateProviding { service_id } => {
+                self.provide(service!(service_id), call)
+            }
+            BuiltinService::GetCertificates { peer_id, msg_id } => {
+                self.get_certificates(peer_id, call, msg_id, ttl)
+            }
+        }
+    }
+
+    fn get_certificates(
+        &mut self,
+        peer_id: PeerId,
+        call: FunctionCall,
+        msg_id: Option<String>,
+        ttl: usize,
+    ) {
+        use libp2p::identity::PublicKey;
+        use serde_json::json;
+        use Protocol::Peer;
+
+        #[rustfmt::skip]
+        log::info!("executing certificates service for {}, ttl: {}, call: {:?}", peer_id, ttl, call);
+
+        // Check reply_to is defined
+        let reply_to = if let Some(reply_to) = call.reply_to.clone() {
+            reply_to
+        } else {
+            log::error!("reply_to undefined on {:?}", call);
+            self.send_error_on_call(call, "reply_to is undefined".into());
+            return;
+        };
+
+        // Extract public key from peer_id
+        if let Some(public_key) = peer_id.as_public_key() {
+            if let PublicKey::Ed25519(public_key) = public_key {
+                // Load certificates from trust graph; TODO: are empty roots OK?
+                let certs = self.kademlia.trust.get_all_certs(public_key, &[]);
+                // Serialize certs to string
+                let certs = certs.into_iter().map(|c| c.to_string()).collect::<Vec<_>>();
+                let arguments = json!({"certificates": certs, "msg_id": msg_id });
+                // Build reply
+                let call = FunctionCall {
+                    uuid: Self::uuid(),
+                    target: Some(reply_to),
+                    reply_to: Some(Peer(self.peer_id.clone()).into()),
+                    name: Some("reply on certificates".into()),
+                    arguments,
+                };
+                // Send reply with certificates and msg_id
+                self.call(call);
+            } else {
+                log::error!("unsupported public key: expected ed25519 {:?}", call);
+                self.send_error_on_call(call, "unsupported public key: expected ed25519".into());
+                return;
+            }
+        } else {
+            log::error!("can't extract public key from peer_id {:?}", call);
+            self.send_error_on_call(call, "can't extract public key from peer_id".into());
+            return;
+        }
+
+        // If ttl == 0, don't send to neighborhood
+        if ttl > 0 {
+            // Query closest peers for `peer_id`, then broadcast the call to found neighborhood
+            self.send_to_neighborhood(peer_id, call)
+        }
+    }
+
+    fn provide(&mut self, name: Address, call: FunctionCall) {
         // TODO: implement more BuiltinServices
         use Protocol::*;
 
         let protocols = call.reply_to.as_ref().map(|addr| addr.protocols());
-        let name: Address = service.into();
 
         match protocols.as_deref() {
             Some([Peer(p), cl @ Client(_), sig @ Signature(_), rem @ ..]) if self.is_local(p) => {

@@ -42,7 +42,10 @@ use janus_client::{Client, ClientCommand, ClientEvent, Transport};
 use janus_libp2p::build_memory_transport;
 use janus_server::ServerBehaviour;
 use libp2p::{
-    identity::{ed25519::Keypair, PublicKey::Ed25519},
+    identity::{
+        ed25519::{Keypair, PublicKey},
+        PublicKey::Ed25519,
+    },
     PeerId, Swarm,
 };
 use log::LevelFilter;
@@ -50,8 +53,10 @@ use once_cell::sync::Lazy;
 use parity_multiaddr::Multiaddr;
 use rand::random;
 use serde_json::{json, Value};
-use std::time::Instant;
+use std::str::FromStr;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use std::{error::Error, time::Duration};
+use trust_graph::{Certificate, TrustGraph};
 use uuid::Uuid;
 
 static TIMEOUT: Lazy<Duration> = Lazy::new(|| Duration::from_secs(5));
@@ -286,7 +291,78 @@ fn reconnect_provide() {
     assert_eq!(to_provider.uuid, call_service.uuid);
 }
 
+#[test]
+fn get_certs() {
+    let cert = Certificate::from_str(
+        r#"11
+1111
+GA9VsZa2Cw2RSZWfxWLDXTLnzVssAYPdrkwT1gHaTJEg
+QPdFbzpN94d5tzwV4ATJXXzb31zC7JZ9RbZQ1pbgN3TTDnxuVckCmvbzvPaXYj8Mz7yrL66ATbGGyKqNuDyhXTj
+18446744073709551615
+1589250571718
+D7p1FrGz35dd3jR7PiCT12pAZzxV5PFBcX7GdS9Y8JNb
+61QT8JYsAWXjnmUcjJcuNnBHWfrn9pijJ4mX64sDX4N7Knet5jr2FzELrJZAAV1JDZQnATYpGf7DVhnitcUTqpPr
+1620808171718
+1589250571718
+4cEQ2DYGdAbvgrAP96rmxMQvxk9MwtqCAWtzRrwJTmLy
+xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev1w62vDZ
+1620808171719
+1589250571719"#,
+    )
+    .expect("deserialize cert");
+
+    let first_key = cert.chain.first().unwrap().issued_for.clone();
+    let last_key = cert.chain.last().unwrap().issued_for.clone();
+
+    fn current_time() -> Duration {
+        Duration::from_millis(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+        )
+    }
+
+    let trust = Trust {
+        root_weights: vec![(first_key, 1)],
+        certificates: vec![cert.clone()],
+        cur_time: current_time(),
+    };
+
+    let swarm_count = 5;
+    let swarms = make_swarms_with(swarm_count, |bs, maddr| {
+        create_swarm(bs, maddr, Some(trust.clone()))
+    });
+    task::block_on(task::sleep(*KAD_TIMEOUT));
+    let mut consumer = connect_client(swarms[1].1.clone()).expect("connect consumer");
+    let peer_id = PeerId::from(Ed25519(last_key));
+    let call = certificates_call(peer_id, consumer.relay_address());
+    consumer.send(call.clone());
+
+    // If count is small, all nodes should fit in neighborhood, and all of them should reply
+    for _ in 0..swarm_count {
+        let reply = consumer.receive();
+        assert_eq!(reply.arguments["msg_id"], call.arguments["msg_id"]);
+        let reply_certs = &reply.arguments["certificates"][0]
+            .as_str()
+            .expect("get str cert");
+        let reply_certs = Certificate::from_str(reply_certs).expect("deserialize cert");
+
+        assert_eq!(reply_certs, cert);
+    }
+}
+
 // --- Utility functions ---
+fn certificates_call(peer_id: PeerId, reply_to: Address) -> FunctionCall {
+    FunctionCall {
+        uuid: uuid(),
+        target: Some(service!("certificates")),
+        reply_to: Some(reply_to),
+        arguments: json!({ "peer_id": peer_id.to_string(), "msg_id": uuid() }),
+        name: None,
+    }
+}
+
 fn provide_call(service_id: &str, reply_to: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
@@ -392,6 +468,13 @@ fn make_client() -> Result<ConnectedClient> {
 
 struct CreatedSwarm(PeerId, Multiaddr);
 fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
+    make_swarms_with(n, |bs, maddr| create_swarm(bs, maddr, None))
+}
+
+fn make_swarms_with<F>(n: usize, create_swarm: F) -> Vec<CreatedSwarm>
+where
+    F: Fn(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>),
+{
     use futures::stream::FuturesUnordered;
     use futures_util::StreamExt;
     use libp2p::core::ConnectedPoint::Dialer;
@@ -489,9 +572,17 @@ fn make_clients() -> Result<(ConnectedClient, ConnectedClient)> {
     Ok(task::block_on(timeout(*TIMEOUT, connect))?)
 }
 
+#[derive(Default, Clone)]
+struct Trust {
+    root_weights: Vec<(PublicKey, u32)>,
+    certificates: Vec<Certificate>,
+    cur_time: Duration,
+}
+
 fn create_swarm(
     bootstraps: Vec<Multiaddr>,
     listen_on: Multiaddr,
+    trust: Option<Trust>,
 ) -> (PeerId, Swarm<ServerBehaviour>) {
     use libp2p::identity;
 
@@ -502,7 +593,14 @@ fn create_swarm(
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
 
-        let server = ServerBehaviour::new(kp.clone(), peer_id.clone(), Vec::new(), bootstraps);
+        let root_weights: &[_] = trust.as_ref().map_or(&[], |t| &t.root_weights);
+        let mut trust_graph = TrustGraph::new(root_weights.to_vec());
+        if let Some(trust) = trust {
+            for cert in trust.certificates.into_iter() {
+                trust_graph.add(cert, trust.cur_time).expect("add cert");
+            }
+        }
+        let server = ServerBehaviour::new(kp.clone(), peer_id.clone(), trust_graph, bootstraps);
         let transport = build_memory_transport(Ed25519(kp));
 
         Swarm::new(transport, server, peer_id.clone())

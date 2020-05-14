@@ -39,16 +39,24 @@ pub(super) enum PeerStatus {
 
 // Contains methods related to searching for and connecting to peers
 impl FunctionRouter {
-    // Look for peer in Kademlia, enqueue call to wait for result
+    /// Look for peer in Kademlia, enqueue call to wait for result
     pub(super) fn search_then_send(&mut self, peer_id: PeerId, call: FunctionCall) {
-        self.wait_peer
-            .enqueue(peer_id.clone(), WaitPeer::Found(call));
+        self.query_closest(peer_id, WaitPeer::Routable(call))
+    }
+
+    pub(super) fn send_to_neighborhood(&mut self, peer_id: PeerId, call: FunctionCall) {
+        self.query_closest(peer_id, WaitPeer::Neighborhood(call))
+    }
+
+    /// Query for peers closest to the `peer_id` as DHT key, enqueue call until response
+    fn query_closest(&mut self, peer_id: PeerId, call: WaitPeer) {
+        self.wait_peer.enqueue(peer_id.clone(), call);
         // TODO: don't call get_closest_peers if there are already some calls waiting for it
         self.kademlia.get_closest_peers(peer_id)
     }
 
-    // Send all calls waiting for this peer to be found
-    pub(super) fn found_closest(&mut self, key: Vec<u8>) {
+    /// Send all calls waiting for this peer to be found
+    pub(super) fn found_closest(&mut self, key: Vec<u8>, peers: Vec<PeerId>) {
         use PeerStatus as ExpectedStatus;
 
         let peer_id = match PeerId::from_bytes(key) {
@@ -62,9 +70,41 @@ impl FunctionRouter {
             Ok(peer_id) => peer_id,
         };
 
+        // Forward to `peer_id`
         let calls = self.wait_peer.remove_with(&peer_id, |wp| wp.found());
         for call in calls {
-            self.send_to(peer_id.clone(), ExpectedStatus::Routable, call.into())
+            if peers.is_empty() {
+                // No peers found, send error
+                self.send_error_on_call(call.into(), "peer wasn't found via closest query".into())
+            } else {
+                // Forward calls to `peer_id`, assuming it is now routable
+                self.send_to(peer_id.clone(), ExpectedStatus::Routable, call.into())
+            }
+        }
+
+        // Forward to neighborhood
+        let calls = self.wait_peer.remove_with(&peer_id, |wp| wp.neighborhood());
+        for call in calls {
+            let call: FunctionCall = call.into();
+
+            // Check if any peers found, if not – send error
+            if peers.is_empty() {
+                self.send_error_on_call(call.into(), "neighborhood was empty".into());
+                return;
+            }
+
+            // Forward calls to each peer in neighborhood
+            for peer_id in peers.iter() {
+                let mut call = call.clone();
+                // Modify target: prepend peer
+                let target =
+                    Protocol::Peer(peer_id.clone()) / call.target.take().unwrap_or_default();
+                self.send_to(
+                    peer_id.clone(),
+                    ExpectedStatus::Routable,
+                    call.with_target(target),
+                )
+            }
         }
     }
 
@@ -88,7 +128,7 @@ impl FunctionRouter {
         // TODO: leave move or remove move from closure?
         waiting.for_each(move |wp| match wp {
             WaitPeer::Connected(call) => self.send_to_connected(peer_id.clone(), call),
-            WaitPeer::Found(_) => unreachable!("Can't happen. Just filtered WaitPeer::Connected"),
+            _ => unreachable!("Can't happen. Just filtered WaitPeer::Connected"),
         });
     }
 
@@ -105,7 +145,7 @@ impl FunctionRouter {
 
         let waiting_calls = self.wait_peer.remove(peer_id);
         for waiting in waiting_calls.into_iter() {
-            self.send_error_on_call(waiting.into(), "Peer disconnected".into());
+            self.send_error_on_call(waiting.into(), format!("peer {} disconnected", peer_id));
         }
     }
 
@@ -113,7 +153,7 @@ impl FunctionRouter {
         self.connected_peers.contains(peer_id)
     }
 
-    // Whether peer is in the routing table
+    /// Whether peer is in the routing table
     pub(super) fn is_routable(&mut self, peer_id: &PeerId) -> bool {
         // TODO: Checking `is_connected` inside `is_routable` smells...
         let connected = self.is_connected(peer_id);
@@ -130,7 +170,7 @@ impl FunctionRouter {
         connected || in_kad
     }
 
-    // Whether given peer id is equal to ours
+    /// Whether given peer id is equal to ours
     pub(super) fn is_local(&self, peer_id: &PeerId) -> bool {
         if self.peer_id.eq(peer_id) {
             log::debug!("{} is LOCAL", peer_id);

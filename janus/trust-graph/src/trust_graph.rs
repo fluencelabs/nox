@@ -30,7 +30,7 @@ use crate::trust::Trust;
 use crate::trust_node::{Auth, TrustNode};
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::Entry::Occupied;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 use std::time::Duration;
 
@@ -161,7 +161,11 @@ impl TrustGraph {
     /// BF search for all converging paths (chains) in the graph
     /// TODO could be optimized with closure, that will calculate the weight on the fly
     /// TODO or store auths to build certificates
-    fn bf_search_paths(&self, node: &TrustNode, roots: &[PublicKey]) -> Vec<Vec<Auth>> {
+    fn bf_search_paths(
+        &self,
+        node: &TrustNode,
+        roots: HashSet<&PublicKeyHashable>,
+    ) -> Vec<Vec<Auth>> {
         // queue to collect all chains in the trust graph (each chain is a path in the trust graph)
         let mut chains_queue: VecDeque<Vec<Auth>> = VecDeque::new();
 
@@ -200,7 +204,7 @@ impl TrustGraph {
                 }
             }
 
-            if roots.contains(&last.trust.issued_for) {
+            if roots.contains(last.trust.issued_for.as_ref()) {
                 terminated_chains.push(cur_chain);
             }
         }
@@ -214,11 +218,15 @@ impl TrustGraph {
         // get all auths (edges) for issued public key
         let issued_for_node = self.nodes.get(&issued_for.into());
 
+        let roots = roots.iter().map(|pk| pk.as_ref());
+        let roots = self.root_weights.keys().chain(roots).collect();
+
         match issued_for_node {
             Some(node) => self
                 .bf_search_paths(node, roots)
                 .iter()
                 .map(|auths| {
+                    // TODO: can avoid cloning here by returning &Certificate
                     let trusts: Vec<Trust> =
                         auths.iter().map(|auth| auth.trust.clone()).rev().collect();
                     Certificate::new_unverified(trusts)

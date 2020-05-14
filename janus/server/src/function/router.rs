@@ -32,10 +32,7 @@ use itertools::Itertools;
 use janus_libp2p::generate_swarm_event_type;
 use libp2p::{
     core::either::EitherOutput,
-    identity::{
-        ed25519,
-        ed25519::{Keypair, PublicKey},
-    },
+    identity::{ed25519, ed25519::Keypair},
     kad::{Kademlia, KademliaConfig},
     swarm::{NetworkBehaviourAction, NotifyHandler},
     PeerId,
@@ -43,33 +40,41 @@ use libp2p::{
 use parity_multiaddr::Multiaddr;
 use std::collections::{HashMap, HashSet, VecDeque};
 use trust_graph::TrustGraph;
+use uuid::Uuid;
 
 pub type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 
 /// Possible waiting states of the FunctionCall
 #[derive(Debug)]
 pub(super) enum WaitPeer {
-    /// In this state, FunctionCall is waiting for peer to be found in Kademlia
-    Found(FunctionCall),
-    /// In this state, FunctionCall is waiting for peer to be connected
+    /// Wait for a given peer to become routable via Kademlia and forward call there
+    Routable(FunctionCall),
+    /// Wait for a given peer to become connected and forward call there
     Connected(FunctionCall),
+    /// Get neighbourhood of a given PeerId, and send call to each peer there
+    Neighborhood(FunctionCall),
 }
 
 impl WaitPeer {
     pub fn found(&self) -> bool {
-        matches!(self, WaitPeer::Found(_))
+        matches!(self, WaitPeer::Routable(_))
     }
 
     pub fn connected(&self) -> bool {
         matches!(self, WaitPeer::Connected(_))
+    }
+
+    pub fn neighborhood(&self) -> bool {
+        matches!(self, WaitPeer::Neighborhood(_))
     }
 }
 
 impl Into<FunctionCall> for WaitPeer {
     fn into(self) -> FunctionCall {
         match self {
-            WaitPeer::Found(call) => call,
+            WaitPeer::Routable(call) => call,
             WaitPeer::Connected(call) => call,
+            WaitPeer::Neighborhood(call) => call,
         }
     }
 }
@@ -88,7 +93,7 @@ impl Into<FunctionCall> for WaitPeer {
 ///   4. Finally, once target peer is routable and connected, the call is sent there.
 ///
 /// TODO: Latency. Latency gonna be nuts.
-/// TODO: add metrics-rs
+/// TODO: add metrics-rs (relevant: substrate uses it, and publishes as http-endpoint for prometheus)
 pub struct FunctionRouter {
     #[allow(dead_code)]
     pub(super) keypair: Keypair,
@@ -113,19 +118,18 @@ pub struct FunctionRouter {
 
 // TODO: move public methods to a trait
 impl FunctionRouter {
-    pub fn new(kp: Keypair, peer_id: PeerId, root_weights: Vec<(PublicKey, u32)>) -> Self {
+    pub fn new(kp: Keypair, peer_id: PeerId, trust_graph: TrustGraph) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
             .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())
             .set_connection_idle_timeout(Duration::from_secs(2_628_000_000)); // ~month
         let store = MemoryStore::new(peer_id.clone());
-        let trust = TrustGraph::new(root_weights);
 
         Self {
             keypair: kp.clone(),
             peer_id: peer_id.clone(),
             events: VecDeque::new(),
-            kademlia: Kademlia::with_config(kp, peer_id, store, cfg, trust),
+            kademlia: Kademlia::with_config(kp, peer_id, store, cfg, trust_graph),
             wait_name_resolved: WaitingQueues::new(),
             wait_peer: WaitingQueues::new(),
             provided_names: HashMap::new(),
@@ -172,8 +176,10 @@ impl FunctionRouter {
                     return;
                 }
                 s @ Service(_) if is_local || self.service_available_locally(s) => {
+                    // If targeted to local, terminate locally, don't forward to network
+                    let ttl = if is_local { 0 } else { 1 };
                     // target will be like: /client/QmClient/service/QmService
-                    self.pass_to_local_service(s.into(), call.with_target(target.collect()));
+                    self.pass_to_local_service(s.into(), call.with_target(target.collect()), ttl);
                     return;
                 }
                 s @ Service(_) => {
@@ -281,11 +287,14 @@ impl FunctionRouter {
         }
     }
 
+    pub(super) fn uuid() -> String {
+        Uuid::new_v4().to_string()
+    }
+
     pub(super) fn send_error(&mut self, address: Address, reason: String) {
         use serde_json::json;
-        use uuid::Uuid;
         let arguments = json!({ "reason": reason });
-        let uuid = Uuid::new_v4().to_string();
+        let uuid = Self::uuid();
         let call = FunctionCall {
             target: Some(address),
             arguments,

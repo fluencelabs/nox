@@ -39,9 +39,16 @@ impl FunctionRouter {
         BuiltinService::is_builtin(service) || self.provided_names.contains_key(&service.into())
     }
 
-    pub(super) fn pass_to_local_service(&mut self, name: Address, mut call: FunctionCall) {
+    /// Execute call locally: on builtin service or forward to provided name
+    /// `ttl` – time to live (akin to ICMP ttl), if `0`, execute and drop, don't forward  
+    pub(super) fn pass_to_local_service(
+        &mut self,
+        name: Address,
+        mut call: FunctionCall,
+        ttl: usize,
+    ) {
         if let Some(builtin) = BuiltinService::from(&name, call.arguments.clone()) {
-            self.execute_builtin(builtin, call)
+            self.execute_builtin(builtin, call, ttl)
         } else if let Some(provider) = self.provided_names.get(&name).cloned() {
             log::info!("Service {} was found locally. uuid {}", &name, &call.uuid);
             log::info!("Forwarding service call {} to {}", call.uuid, provider);

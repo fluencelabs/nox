@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
+use std::ops::Div;
 use std::str::FromStr;
 use url::Url;
 
@@ -256,6 +257,58 @@ impl<'a> Iterator for ProtocolsIter<'a> {
     }
 }
 
+impl Default for Address {
+    fn default() -> Self {
+        Address::empty()
+    }
+}
+
+impl Div<Address> for Protocol {
+    type Output = Address;
+
+    fn div(self, rhs: Address) -> Self::Output {
+        rhs.prepend(self)
+    }
+}
+
+impl Div<Protocol> for Address {
+    type Output = Address;
+
+    fn div(self, rhs: Protocol) -> Self::Output {
+        self.append(rhs)
+    }
+}
+
+impl Div<Address> for Address {
+    type Output = Address;
+
+    fn div(self, rhs: Address) -> Self::Output {
+        self.extend(rhs)
+    }
+}
+
+// Builds relay address which looks like this: "/peer/QmRelay/client/QmClient"
+#[macro_export]
+macro_rules! relay {
+    ($relay:expr,$client:expr$(,$sig:expr)?) => {{
+        let relay = $crate::Address::from($crate::Protocol::Peer($relay));
+        let relay = relay.append($crate::Protocol::Client($client));
+        // Optional line. If sig isn't passed, line isn't inserted
+        $(let relay = relay.append($crate::Protocol::Signature($sig));)?
+        relay
+    }};
+}
+
+// Builds service address which looks like this: "/service/ServiceId"
+#[macro_export]
+macro_rules! service {
+    ($service_id:expr) => {{
+        let id = $service_id;
+        // TODO: Will usually clone here, is it ok?
+        $crate::Address::from($crate::Protocol::Service(id.into()))
+    }};
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
@@ -295,26 +348,4 @@ pub mod tests {
             unreachable!()
         };
     }
-}
-
-// Builds relay address which looks like this: "/peer/QmRelay/client/QmClient"
-#[macro_export]
-macro_rules! relay {
-    ($relay:expr,$client:expr$(,$sig:expr)?) => {{
-        let relay = $crate::Address::from($crate::Protocol::Peer($relay));
-        let relay = relay.append($crate::Protocol::Client($client));
-        // Optional line. If sig isn't passed, line isn't inserted
-        $(let relay = relay.append($crate::Protocol::Signature($sig));)?
-        relay
-    }};
-}
-
-// Builds service address which looks like this: "/service/ServiceId"
-#[macro_export]
-macro_rules! service {
-    ($service_id:expr) => {{
-        let id = $service_id;
-        // TODO: Will usually clone here, is it ok?
-        $crate::Address::from($crate::Protocol::Service(id.into()))
-    }};
 }

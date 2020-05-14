@@ -34,6 +34,7 @@ use libp2p::{
 };
 use parity_multiaddr::Multiaddr;
 use std::collections::VecDeque;
+use trust_graph::TrustGraph;
 
 pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
 
@@ -53,10 +54,10 @@ impl ServerBehaviour {
     pub fn new(
         key_pair: ed25519::Keypair,
         local_peer_id: PeerId,
-        root_weights: Vec<(ed25519::PublicKey, u32)>,
+        trust_graph: TrustGraph,
         bootstrap_nodes: Vec<Multiaddr>,
     ) -> Self {
-        let router = FunctionRouter::new(key_pair.clone(), local_peer_id, root_weights);
+        let router = FunctionRouter::new(key_pair.clone(), local_peer_id, trust_graph);
         let local_public_key = PublicKey::Ed25519(key_pair.public());
         let identity = Identify::new("/janus/faas/1.0.0".into(), "0.1.0".into(), local_public_key);
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));

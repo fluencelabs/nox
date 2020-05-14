@@ -254,11 +254,15 @@ mod tests {
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     pub fn one_second() -> Duration {
-        Duration::new(1, 0)
+        Duration::from_secs(1)
     }
 
     pub fn one_minute() -> Duration {
-        Duration::new(60, 0)
+        Duration::from_secs(60)
+    }
+
+    pub fn one_year() -> Duration {
+        Duration::from_secs(31557600)
     }
 
     #[test]
@@ -335,7 +339,7 @@ mod tests {
             Certificate::issue_root(
                 &root_kp,
                 second_kp.public_key(),
-                cur_time.checked_add(one_second()).unwrap(),
+                cur_time.checked_add(one_year()).unwrap(),
                 cur_time,
             ),
         )
@@ -360,12 +364,29 @@ mod tests {
             &second_kp,
             third_kp.key_pair.public(),
             &cert,
-            cur_time.checked_add(one_second()).unwrap(),
+            cur_time.checked_add(one_year()).unwrap(),
             cur_time,
             cur_time,
         );
         assert_eq!(new_cert.is_ok(), true);
         let new_cert = new_cert.unwrap();
+
+        println!(
+            "root_kp:\n\tprivate: {}\n\tpublic: {}",
+            bs58::encode(root_kp.key_pair.secret()).into_string(),
+            bs58::encode(&root_kp.key_pair.public().encode().to_vec()).into_string()
+        );
+        println!(
+            "second_kp:\n\tprivate: {}\n\tpublic: {}",
+            bs58::encode(second_kp.key_pair.secret()).into_string(),
+            bs58::encode(&second_kp.key_pair.public().encode().to_vec()).into_string()
+        );
+        println!(
+            "third_kp:\n\tprivate: {}\n\tpublic: {}",
+            bs58::encode(third_kp.key_pair.secret()).into_string(),
+            bs58::encode(&third_kp.key_pair.public().encode().to_vec()).into_string()
+        );
+        println!("cert is\n{}", new_cert.to_string());
 
         assert_eq!(new_cert.chain.len(), 3);
         assert_eq!(new_cert.chain[0].issued_for, root_kp.public_key());

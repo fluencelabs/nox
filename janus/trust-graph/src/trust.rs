@@ -22,12 +22,11 @@
  *   SOFTWARE.
  */
 
+use crate::ed25519::PublicKey;
+use crate::key_pair::{KeyPair, Signature};
+use derivative::Derivative;
 use std::convert::TryInto;
 use std::time::Duration;
-
-use crate::ed25519::PublicKey;
-
-use crate::key_pair::{KeyPair, Signature};
 
 pub const SIGNATURE_LEN: usize = 64;
 pub const PUBLIC_KEY_LEN: usize = 32;
@@ -37,17 +36,28 @@ pub const TRUST_LEN: usize = SIGNATURE_LEN + PUBLIC_KEY_LEN + EXPIRATION_LEN + I
 
 /// One element in chain of trust in a certificate.
 /// TODO delete pk from Trust (it is already in a trust node)
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq, Derivative)]
+#[derivative(Debug)]
 pub struct Trust {
     /// For whom this certificate is issued
+    #[derivative(Debug(format_with = "show_pubkey"))]
     pub issued_for: PublicKey,
     /// Expiration date of a trust.
     pub expires_at: Duration,
     /// Signature of a previous trust in a chain.
     /// Signature is self-signed if it is a root trust.
+    #[derivative(Debug(format_with = "show_sig"))]
     pub signature: Signature,
     /// Creation time of a trust
     pub issued_at: Duration,
+}
+
+fn show_pubkey(key: &PublicKey, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    write!(f, "{}", bs58::encode(key.encode()).into_string())
+}
+
+fn show_sig(sig: &Signature, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    write!(f, "{}", bs58::encode(sig).into_string())
 }
 
 impl Trust {

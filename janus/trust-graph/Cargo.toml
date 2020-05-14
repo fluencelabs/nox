@@ -14,6 +14,8 @@ bs58 = "0.3.0"
 failure = "0.1.6"
 log = "0.4.8"
 itertools = "0.9.0"
+ref-cast = "1.0.1"
+derivative = "2.1.1"
 
 [dev-dependencies]
 rand = "0.7.3"

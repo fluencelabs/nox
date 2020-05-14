@@ -26,21 +26,37 @@ use faas_api::{
     service, Address,
     Protocol::{self, *},
 };
+use janus_libp2p::peerid_serializer;
+use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BuiltinService {
-    DelegateProviding { service_id: String },
+    DelegateProviding {
+        service_id: String,
+    },
+    GetCertificates {
+        #[serde(with = "peerid_serializer")]
+        peer_id: PeerId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        msg_id: Option<String>,
+    },
 }
 
 impl BuiltinService {
     const PROVIDE: &'static str = "provide";
+    const CERTS: &'static str = "certificates";
 
     // TODO: maybe implement as From<(Address, json::Value)>?
     pub fn from(target: &Address, arguments: serde_json::Value) -> Option<Self> {
         match target.protocols().as_slice() {
             [Service(service_id)] if service_id == Self::PROVIDE => {
+                // expects "service_id" field
+                serde_json::from_value(arguments).ok()
+            }
+            [Service(service_id)] if service_id == Self::CERTS => {
+                // expects "peer_id" & msg_id fields
                 serde_json::from_value(arguments).ok()
             }
             _ => None,
@@ -49,17 +65,9 @@ impl BuiltinService {
 
     pub fn is_builtin(proto: &Protocol) -> bool {
         match proto {
-            Service(service_id) if service_id == Self::PROVIDE => true,
+            Service(service_id) => service_id == Self::PROVIDE || service_id == Self::CERTS,
             _ => false,
         }
-    }
-}
-
-impl Into<Address> for BuiltinService {
-    // Convert DelegateProviding into service address
-    fn into(self) -> Address {
-        let BuiltinService::DelegateProviding { service_id } = self;
-        service!(service_id)
     }
 }
 
@@ -71,6 +79,11 @@ impl Into<(Address, serde_json::Value)> for BuiltinService {
             BuiltinService::DelegateProviding { service_id } => {
                 let address = service!(BuiltinService::PROVIDE);
                 let arguments = json!({ "service_id": service_id });
+                (address, arguments)
+            }
+            BuiltinService::GetCertificates { .. } => {
+                let address = service!(BuiltinService::CERTS);
+                let arguments = json!(self);
                 (address, arguments)
             }
         }

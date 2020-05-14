@@ -38,6 +38,7 @@ use libp2p::{
 };
 use parity_multiaddr::{Multiaddr, Protocol};
 use std::io;
+use trust_graph::TrustGraph;
 
 // TODO: documentation
 pub struct Server {
@@ -56,11 +57,13 @@ impl Server {
         let local_peer_id = PeerId::from(PublicKey::Ed25519(key_pair.public()));
         log::info!("server peer id = {}", local_peer_id);
 
+        let trust_graph = TrustGraph::new(root_weights);
+
         let mut swarm = {
             let behaviour = ServerBehaviour::new(
                 key_pair.clone(),
                 local_peer_id.clone(),
-                root_weights,
+                trust_graph,
                 config.bootstrap_nodes.clone(),
             );
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
