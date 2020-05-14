@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub fn current_time() -> Duration {

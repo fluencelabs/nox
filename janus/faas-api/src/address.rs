@@ -287,6 +287,14 @@ impl Div<Address> for Address {
     }
 }
 
+impl Div<Protocol> for Protocol {
+    type Output = Address;
+
+    fn div(self, rhs: Protocol) -> Self::Output {
+        Address::from(self).append(rhs)
+    }
+}
+
 // Builds relay address which looks like this: "/peer/QmRelay/client/QmClient"
 #[macro_export]
 macro_rules! relay {

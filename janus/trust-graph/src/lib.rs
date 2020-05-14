@@ -35,6 +35,7 @@
 )]
 
 mod certificate;
+pub mod certificate_serde;
 mod key_pair;
 mod misc;
 mod public_key_hashable;
@@ -47,4 +48,5 @@ pub(crate) use libp2p_core::identity::ed25519;
 
 pub use crate::certificate::Certificate;
 pub use crate::key_pair::KeyPair;
+pub use crate::misc::current_time;
 pub use crate::trust_graph::TrustGraph;

@@ -83,7 +83,7 @@ pub mod call_test_utils {
     pub fn gen_provide_call(target: Address, arguments: serde_json::Value) -> FunctionCall {
         let notebook = Protocol::Client(PeerId::random());
         let relay = Protocol::Peer(PeerId::random());
-        let reply_to = Some(Address::from(relay).append(&notebook));
+        let reply_to = Some(relay / notebook);
 
         FunctionCall {
             uuid: "UUID-1".to_string(),

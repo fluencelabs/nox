@@ -36,7 +36,7 @@ pub const TRUST_LEN: usize = SIGNATURE_LEN + PUBLIC_KEY_LEN + EXPIRATION_LEN + I
 
 /// One element in chain of trust in a certificate.
 /// TODO delete pk from Trust (it is already in a trust node)
-#[derive(Clone, PartialEq, Derivative)]
+#[derive(Clone, PartialEq, Derivative, Eq)]
 #[derivative(Debug)]
 pub struct Trust {
     /// For whom this certificate is issued

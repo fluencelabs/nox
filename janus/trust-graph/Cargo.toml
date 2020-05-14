@@ -9,7 +9,7 @@ license = "MIT"
 [dependencies]
 libp2p-core = "0.18.0"
 parity-multiaddr = "0.8.0"
-serde = { version = "1.0.104", features = ["derive"] }
+serde = { version = "1.0.110", features = ["derive"] }
 bs58 = "0.3.0"
 failure = "0.1.6"
 log = "0.4.8"

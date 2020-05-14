@@ -25,29 +25,105 @@
 use super::address_signature::verify_address_signatures;
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
+use crate::function::builtin_service::{AddCertificates, DelegateProviding, GetCertificates};
 use faas_api::{service, Address, FunctionCall, Protocol};
+use itertools::Itertools;
 use libp2p::PeerId;
+use serde_json::json;
+use trust_graph::Certificate;
 
 impl FunctionRouter {
-    // ####
-    // ## Execution
-    // ###
-
     /// Execute call on builtin service: "provide" or "certificates"
-    /// `ttl` – time to live, if `0`, "certficiates" service won't send call to neighborhood
+    /// `ttl` – time to live, if `0`, "certificates" and "add_certificates" services
+    ///  won't send call to neighborhood
     pub(super) fn execute_builtin(
         &mut self,
         service: BuiltinService,
         call: FunctionCall,
         ttl: usize,
     ) {
+        use BuiltinService as BS;
+
         match service {
-            BuiltinService::DelegateProviding { service_id } => {
+            BS::DelegateProviding(DelegateProviding { service_id }) => {
                 self.provide(service!(service_id), call)
             }
-            BuiltinService::GetCertificates { peer_id, msg_id } => {
+            BS::GetCertificates(GetCertificates { peer_id, msg_id }) => {
                 self.get_certificates(peer_id, call, msg_id, ttl)
             }
+            BS::AddCertificates(AddCertificates {
+                peer_id,
+                certificates,
+                msg_id,
+            }) => self.add_certificates(peer_id, certificates, call, msg_id, ttl),
+        }
+    }
+
+    fn add_certificates(
+        &mut self,
+        peer_id: PeerId,
+        certificates: Vec<Certificate>,
+        call: FunctionCall,
+        msg_id: Option<String>,
+        ttl: usize,
+    ) {
+        use Protocol::Peer;
+
+        #[rustfmt::skip]
+        log::info!(
+            "executing add_certificates of {} certs for {}, ttl: {}, call: {:?}", 
+            certificates.len(), peer_id, ttl, call
+        );
+
+        // Calculate current time in Duration
+        let time = trust_graph::current_time();
+        // Add each certificate, and collect errors
+        let errors: Vec<_> = certificates
+            .iter()
+            .flat_map(|cert| {
+                self.kademlia
+                    .trust
+                    .add(cert.clone(), time)
+                    .map_err(|err| (cert, err))
+                    .err()
+            })
+            .collect();
+
+        // If there are any errors, send these errors in a single message
+        if !errors.is_empty() {
+            #[rustfmt::skip]
+            let error = errors.into_iter().map(
+                |(cert, err)| format!("cert error {:?}: {}", cert, err)
+            ).join("\n");
+            #[rustfmt::skip]
+            log::warn!("add_certificates error uuid {}: {} call {:?}", call.uuid, error, call);
+            self.send_error_on_call(call.clone(), error);
+        } else if let Some(reply_to) = call.reply_to.as_ref() {
+            // If there are no errors, send reply marking success
+            log::debug!("add_certificates success uuid {}", call.uuid);
+
+            let status = format!("{} certs added", certificates.len());
+            let arguments = json!({ "msg_id": msg_id, "status": status });
+            // Build reply
+            let call = FunctionCall {
+                uuid: Self::uuid(),
+                target: Some(reply_to.clone()),
+                reply_to: Some(Peer(self.peer_id.clone()).into()),
+                name: Some("reply on add_certificates".into()),
+                arguments,
+            };
+            self.call(call);
+        } else {
+            log::warn!(
+                "add_certificates reply_to is empty {}, can't send reply",
+                call.uuid
+            );
+        }
+
+        // Finally – broadcast that call to the neighborhood if ttl > 0
+        // NOTE: not filtering errors, other nodes may succeed where we failed
+        if ttl > 0 {
+            self.send_to_neighborhood(peer_id, call)
         }
     }
 
@@ -59,7 +135,6 @@ impl FunctionRouter {
         ttl: usize,
     ) {
         use libp2p::identity::PublicKey;
-        use serde_json::json;
         use Protocol::Peer;
 
         #[rustfmt::skip]
@@ -75,8 +150,8 @@ impl FunctionRouter {
         };
 
         // Extract public key from peer_id
-        if let Some(public_key) = peer_id.as_public_key() {
-            if let PublicKey::Ed25519(public_key) = public_key {
+        match peer_id.as_public_key() {
+            Some(PublicKey::Ed25519(public_key)) => {
                 // Load certificates from trust graph; TODO: are empty roots OK?
                 let certs = self.kademlia.trust.get_all_certs(public_key, &[]);
                 // Serialize certs to string
@@ -92,15 +167,19 @@ impl FunctionRouter {
                 };
                 // Send reply with certificates and msg_id
                 self.call(call);
-            } else {
-                log::error!("unsupported public key: expected ed25519 {:?}", call);
+            }
+            Some(pk) => {
+                #[rustfmt::skip]
+                log::error!("unsupported public key: expected ed25519, got {:?} {:?}", pk, call);
                 self.send_error_on_call(call, "unsupported public key: expected ed25519".into());
                 return;
             }
-        } else {
-            log::error!("can't extract public key from peer_id {:?}", call);
-            self.send_error_on_call(call, "can't extract public key from peer_id".into());
-            return;
+
+            None => {
+                log::error!("can't extract public key from peer_id {:?}", call);
+                self.send_error_on_call(call, "can't extract public key from peer_id".into());
+                return;
+            }
         }
 
         // If ttl == 0, don't send to neighborhood
@@ -111,7 +190,6 @@ impl FunctionRouter {
     }
 
     fn provide(&mut self, name: Address, call: FunctionCall) {
-        // TODO: implement more BuiltinServices
         use Protocol::*;
 
         let protocols = call.reply_to.as_ref().map(|addr| addr.protocols());

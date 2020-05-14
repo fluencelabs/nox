@@ -36,7 +36,7 @@ const FORMAT: &[u8; 2] = &[0, 0];
 const VERSION: &[u8; 4] = &[0, 0, 0, 0];
 
 /// Chain of trusts started from self-signed root trust.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Certificate {
     pub chain: Vec<Trust>,
 }
@@ -197,21 +197,14 @@ impl Certificate {
     }
 }
 
-impl ToString for Certificate {
-    fn to_string(&self) -> String {
-        let mut string_lines = Vec::with_capacity(self.chain.len() + 2);
-
-        let format = bs58::encode(FORMAT).into_string();
-        let version = bs58::encode(VERSION).into_string();
-
-        string_lines.push(format);
-        string_lines.push(version);
-
-        for trust in &self.chain {
-            string_lines.push(trust.to_string());
+impl std::fmt::Display for Certificate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}", bs58::encode(FORMAT).into_string())?;
+        writeln!(f, "{}", bs58::encode(VERSION).into_string())?;
+        for trust in self.chain.iter() {
+            writeln!(f, "{}", trust.to_string())?;
         }
-
-        format!("{}\n", string_lines.join("\n"))
+        Ok(())
     }
 }
 
