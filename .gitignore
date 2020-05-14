@@ -103,8 +103,12 @@ dist
 # TernJS port file
 .tern-port
 
-/janus/target
-/target
+
+.fluence/
+target/
+**/target/
 **/*.rs.bk
 .idea
 .DS_Store
+*.iml
+**/*.iml
