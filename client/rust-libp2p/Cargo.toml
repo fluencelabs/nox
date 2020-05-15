@@ -1,0 +1,39 @@
+[package]
+name = "fluence-client"
+version = "0.0.5"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+fluence-libp2p = { path = "../../crates/libp2p" }
+faas-api = { path = "../../faas-api" }
+ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
+libp2p = "0.18.1"
+parity-multiaddr = "0.8.0"
+multihash ="0.10.0"
+async-std = "1.5.0"
+futures = "0.3.4"
+futures-util = "0.3.4"
+serde = { version = "1.0.110", features = ["derive"] }
+serde_json = "1.0.53"
+failure = "0.1.6"
+fnv = "1.0.6"
+bs58 = "0.3.0"
+log = "0.4.8"
+env_logger = "0.7.1"
+void = "1.0.2"
+rand = "0.7.3"
+uuid = { version = "0.8.1", features = ["v4"] }
+itertools = "0.9.0"
+bencher = "0.1.5"
+
+[dev-dependencies]
+rand = "0.7.3"
+reqwest = "0.10.4"
+tokio = { version = "0.2.13", features = ["full", "macros"] }
+multiqueue2 = "0.1.6"
+async-timer = { version = "0.7.3", features = ["stream"] }
+async-std = { version = "1.5.0", features = ["unstable"] }
+names = "0.10.0"
+config = "0.10.1"
+log = { version = "0.4.8", features = ["serde"] }

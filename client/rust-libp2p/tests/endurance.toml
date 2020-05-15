@@ -1,0 +1,8 @@
+nodes = [
+    # Example:
+    # { name = "en-09:7010", address = "/ip4/134.209.199.110/tcp/7010", peer_id = "QmccKW7mTPbRHPY2BYyTPDqN7z9Dg7E629mFrND7DsP76U" },
+]
+
+client_multiplier = 10
+intervals_minutes = [1, 2, 10, 30, 60, 120, 340, 600]
+log_level = "INFO"
