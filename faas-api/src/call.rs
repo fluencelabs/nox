@@ -41,11 +41,12 @@ pub mod call_test_utils {
     use crate::Address;
     use crate::FunctionCall;
     use crate::Protocol;
+    use fluence_libp2p::RandomPeerId;
     use libp2p::PeerId;
 
     pub fn gen_ipfs_call() -> FunctionCall {
-        let relay = PeerId::random();
-        let client = PeerId::random();
+        let relay = RandomPeerId::random();
+        let client = RandomPeerId::random();
         #[rustfmt::skip]
         let reply_to: Option<Address> = Some(
             vec![Protocol::Peer(relay), Protocol::Client(client)].iter().collect(),
@@ -94,13 +95,13 @@ pub mod test {
     use crate::Address;
     use crate::FunctionCall;
     use crate::Protocol;
-    use libp2p::PeerId;
+    use fluence_libp2p::RandomPeerId;
     use serde_json::json;
 
     #[test]
     fn serialize_address() {
-        let p1 = PeerId::random();
-        let p2 = PeerId::random();
+        let p1 = RandomPeerId::random();
+        let p2 = RandomPeerId::random();
 
         fn check(addr: Address) {
             let str = serde_json::to_string(&addr).unwrap();

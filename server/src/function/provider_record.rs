@@ -96,15 +96,15 @@ mod tests {
     use super::*;
     use crate::function::provider_record::ProviderRecord;
     use faas_api::relay;
-    use libp2p::PeerId;
+    use fluence_libp2p::RandomPeerId;
 
     #[test]
     // Serialize, deserialize, check signature
     fn ser_de() {
         let keypair = Keypair::generate();
 
-        let client = PeerId::random();
-        let relay = PeerId::random();
+        let client = RandomPeerId::random();
+        let relay = RandomPeerId::random();
         let address: Address = relay!(relay, client);
 
         let rec = ProviderRecord::new(address.clone(), &keypair);

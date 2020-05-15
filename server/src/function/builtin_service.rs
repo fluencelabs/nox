@@ -111,6 +111,7 @@ pub mod test {
     use super::*;
     use faas_api::call_test_utils::gen_provide_call;
     use faas_api::Protocol;
+    use fluence_libp2p::RandomPeerId;
     use std::str::FromStr;
 
     #[test]
@@ -166,7 +167,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
     #[test]
     fn serialize_add_certs() {
         let certs = vec![get_cert()];
-        let peer_id = PeerId::random();
+        let peer_id = RandomPeerId::random();
         let msg_id = uuid::Uuid::new_v4().to_string();
         let (target, arguments) = BuiltinService::AddCertificates(AddCertificates {
             certificates: certs.clone(),
@@ -196,7 +197,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
     #[test]
     fn serialize_add_certs_only() {
         let certs = vec![get_cert()];
-        let peer_id = PeerId::random();
+        let peer_id = RandomPeerId::random();
         let msg_id = uuid::Uuid::new_v4().to_string();
         let add = AddCertificates {
             certificates: certs.clone(),
@@ -208,5 +209,32 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let deserialized = serde_json::from_str(&string).expect("deserialize");
 
         assert_eq!(add, deserialized);
+    }
+
+    #[test]
+    fn serialize_get_certs() {
+        let peer_id = RandomPeerId::random();
+        let msg_id = uuid::Uuid::new_v4().to_string();
+        let (target, arguments) = BuiltinService::GetCertificates(GetCertificates {
+            peer_id: peer_id.clone(),
+            msg_id: Some(msg_id.clone()),
+        })
+        .into();
+
+        let call = gen_provide_call(target, arguments);
+
+        let _service: GetCertificates =
+            serde_json::from_value(call.arguments.clone()).expect("deserialize");
+
+        let service =
+            BuiltinService::from(&call.target.unwrap(), call.arguments).expect("parse service");
+
+        match service {
+            BuiltinService::GetCertificates(add) => {
+                assert_eq!(add.peer_id, peer_id);
+                assert_eq!(add.msg_id, Some(msg_id));
+            }
+            _ => unreachable!("expected get certificates"),
+        }
     }
 }

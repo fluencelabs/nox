@@ -354,6 +354,7 @@ impl<'a> RecordStore<'a> for MemoryStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fluence_libp2p::RandomPeerId;
     use multihash::{wrap, Code, Multihash};
     use quickcheck::*;
     use rand::Rng;
@@ -400,7 +401,7 @@ mod tests {
         fn arbitrary<G: Gen>(g: &mut G) -> NewProviderRecord {
             NewProviderRecord(ProviderRecord {
                 key: NewKey::arbitrary(g).0,
-                provider: PeerId::random(),
+                provider: RandomPeerId::random(),
                 expires: if g.gen() {
                     Some(Instant::now() + Duration::from_secs(g.gen_range(0, 60)))
                 } else {
@@ -474,7 +475,7 @@ mod tests {
 
     #[test]
     fn provided() {
-        let id = PeerId::random();
+        let id = RandomPeerId::random();
         let mut store = MemoryStore::new(id.clone());
         let key = random_multihash();
         let rec = ProviderRecord::new(key, id.clone());
@@ -491,7 +492,7 @@ mod tests {
     fn update_provider() {
         let mut store = MemoryStore::new(PeerId::random());
         let key = random_multihash();
-        let prv = PeerId::random();
+        let prv = RandomPeerId::random();
         let mut rec = ProviderRecord::new(key, prv);
         assert!(store.add_provider(rec.clone()).is_ok());
         assert_eq!(vec![rec.clone()], store.providers(&rec.key).to_vec());
@@ -505,12 +506,12 @@ mod tests {
         let mut store = MemoryStore::new(PeerId::random());
         for _ in 0..store.config.max_provided_keys {
             let key = random_multihash();
-            let prv = PeerId::random();
+            let prv = RandomPeerId::random();
             let rec = ProviderRecord::new(key, prv);
             let _ = store.add_provider(rec);
         }
         let key = random_multihash();
-        let prv = PeerId::random();
+        let prv = RandomPeerId::random();
         let rec = ProviderRecord::new(key, prv);
         match store.add_provider(rec) {
             Err(Error::MaxProvidedKeys) => {}
@@ -570,7 +571,7 @@ mod tests {
         assert_eq!(mrec.kind, MultiRecordKind::MultiRecord);
         assert_eq!(mrec.values.len(), 10);
 
-        let publisher = PeerId::random();
+        let publisher = RandomPeerId::random();
         for i in 0..10 {
             let value = i.to_string().as_bytes().to_vec();
             let rec = Record {

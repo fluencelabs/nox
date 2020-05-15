@@ -14,25 +14,13 @@
  * limitations under the License.
  */
 
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use libp2p::identity::Keypair;
+use libp2p::PeerId;
 
-mod macros;
-mod random_peer_id;
-mod serde;
-mod transport;
-pub mod types;
-
-pub use self::serde::*;
-pub use macros::*;
-pub use random_peer_id::RandomPeerId;
-pub use transport::{build_memory_transport, build_transport};
+pub struct RandomPeerId();
+impl RandomPeerId {
+    /// Generates PeerId from random Ed25519 key
+    pub fn random() -> PeerId {
+        Keypair::generate_ed25519().public().into_peer_id()
+    }
+}

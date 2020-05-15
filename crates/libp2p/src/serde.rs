@@ -133,6 +133,7 @@ pub mod provider_serializer {
 
 #[cfg(test)]
 mod tests {
+    use crate::RandomPeerId;
     use libp2p::PeerId;
     use serde::{Deserialize, Serialize};
     use std::str::FromStr;
@@ -149,7 +150,7 @@ mod tests {
             peer_id_2: PeerId,
         };
 
-        let peer_id_1 = PeerId::random();
+        let peer_id_1 = RandomPeerId::random();
         let peer_id_2 = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
 
         let test = Test {
@@ -186,7 +187,7 @@ mod tests {
             multihash_2: Multihash,
         };
 
-        let peer_id_1 = PeerId::random();
+        let peer_id_1 = RandomPeerId::random();
         let peer_id_2 = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
 
         let test = Test {
@@ -230,7 +231,7 @@ mod tests {
         ));
 
         for i in 1..=255 {
-            let peer_id = PeerId::random();
+            let peer_id = RandomPeerId::random();
 
             providers.push((Multiaddr::from(Ipv4Addr::new(i, i, i, i)), peer_id.clone()));
             test_peer_ids.push(peer_id);
