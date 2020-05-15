@@ -1,9 +1,0 @@
-dist/
-
-node_modules/
-bundle/
-coverage/
-
-.idea/
-
-npm-debug.log
