@@ -1,0 +1,9 @@
+target
+**/target
+**/**
+**
+!target/x86_64-unknown-linux-gnu/release/fluence-server
+!target/x86_64-unknown-linux-gnu/release/fluence-ipfs
+!target/x86_64-unknown-linux-gnu/release/deps/endurance*
+!client/fluence-ipfs/docker/run_fluence_ipfs.sh
+!client/fluence-ipfs/docker/wait.sh

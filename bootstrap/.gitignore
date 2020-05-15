@@ -1,7 +1,0 @@
-# truffle ignores
-node_modules/
-build
-dist
-
-# ignore .abi & .bin compiled from .sol
-/contracts/compiled/

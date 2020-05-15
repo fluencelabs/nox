@@ -1,83 +1,49 @@
-# Usage:
-# make node TAG=v1.2.3
-# TAG is optional
+include node_client.mk
 
-# tag defaults to latest
-TAG ?= latest
-ENV ?= stage
-# enable docker kit
-KIT      = DOCKER_BUILDKIT=1
-BUILD    = $(KIT) docker build
-QUIET    = --quiet
-TEST_ENV = environment=test
-TEST     = $(QUIET) --build-arg $(TEST_ENV)
-TRAVIS  ?= false
+BOOTSTRAP_NODE=/ip4/207.154.232.92/tcp/7777
 
-DIR       = tools/docker
-NODE_FILE = Node.Dockerfile
-WORK_FILE = Worker.Dockerfile
-DASH_FILE = Dashboard.Dockerfile
+default:
+	cargo build
 
-NODE_IMG = 'fluencelabs/node:$(TAG)'
-WORK_IMG = 'fluencelabs/worker:$(TAG)'
-DASH_IMG = 'fluencelabs/dashboard:$(TAG)'
+release:
+	cargo build --release
 
-######### Build tasks #########
-node:        ;$(BUILD)         -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
-worker:      ;$(BUILD)         -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
-dashboard:   ;$(BUILD)         -t $(DASH_IMG) -f $(DIR)/$(DASH_FILE) .
-ifeq ($(TRAVIS), false)
-node-test:   ;$(BUILD) $(TEST) -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
-worker-test: ;$(BUILD) $(TEST) -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
-endif
+test:
+	cargo test
 
-# Using buildctl here because TravisCI doesn't support BuildKit
-# (see https://travis-ci.community/t/docker-builds-are-broken-if-buildkit-is-used-docker-buildkit-1/2994)
-ifeq ($(TRAVIS), true)
-node-test:   NODE-bctl-test
-worker-test: WORK-bctl-test
-endif
+server:
+	cargo run -p fluence-server -- -b ${BOOTSTRAP_NODE}
 
-# $* becomes what matched by % in `%-bctl-test`: NODE or WORK
-%-bctl-test: ;buildctl build \
-             --frontend dockerfile.v0 \
-             --local context=. \
-             --local dockerfile=$(DIR) \
-             --opt filename=$($*_FILE) \
-             --opt build-arg:$(TEST_ENV) \
-             --output type=docker,name=$($*_IMG) | docker load
+server-debug:
+	RUST_LOG="trace,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info" \
+	cargo run -p fluence-server -- -b ${BOOTSTRAP_NODE}
 
-######### Deployment tasks #########
+clean:
+	cargo clean
 
-# Deploy from existing assembly jars
-deploy-prebuilt: push-local deploy
-# Rebuild jars and deploy
-deploy-rebuild:  jars push-local deploy
-# Build containers in docker build environment
-deploy-clean:    push-clean deploy
-deploy:          ;cd tools/deploy; fab --set environment=$(ENV),image_tag=$(TAG) deploy
+cross-build:
+	cargo update -p libp2p
+	cross build --release --target x86_64-unknown-linux-gnu
 
-push:            push-node push-worker
-# Build containers from existing jars and publish
-push-local:      node-test worker-test; $(MAKE) push
-# Build containers in docker build environment and publish
-push-clean:      node worker; $(MAKE) push
-push-node:       ;docker push $(NODE_IMG)
-push-worker:     ;docker push $(WORK_IMG)
+X86_TARGET=./target/x86_64-unknown-linux-gnu/release
 
-# Build jars
-jars:            ;sbt node/assembly statemachine-docker/assembly
+SERVER_EXE = ${X86_TARGET}/fluence-server
+SERVER=--build-arg local_exe=${SERVER_EXE} --build-arg exe=fluence-server
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+JI_DOCKERFILE=./client/fluence-ipfs/docker/Dockerfile
+JI_TAG=${BRANCH}-with-ipfs-multiaddr
+docker: cross-build
+	docker build ${SERVER} -t folexflu/fluence:${BRANCH} .
+	docker push folexflu/fluence:${BRANCH}
+	docker build -t folexflu/fluence:${JI_TAG} -f ${JI_DOCKERFILE} .
+	docker push folexflu/fluence:${JI_TAG}
 
-######### Service containers #########
-TOOLCHAIN ?= nightly-2019-09-23
-RS_IMG     = fluencelabs/rust-sbt:$(TOOLCHAIN)
-RS_FILE    = $(DIR)/SbtRust.Dockerfile
-BUILD_ARG  = --build-arg TOOLCHAIN=$(TOOLCHAIN)
+ENDURANCE_EXE=$(shell find ${X86_TARGET} -name "endurance*" -perm +111 -type f)
+ENDURANCE=--build-arg exe=endurance --build-arg local_exe=${ENDURANCE_EXE}
+endurance-docker:
+	cargo update -p libp2p
+	cross build --release --target x86_64-unknown-linux-gnu --test endurance
+	docker build ${ENDURANCE} -t folexflu/fluence-endurance:${BRANCH} .
+	docker push folexflu/fluence-endurance:${BRANCH}
 
-rust-sbt:  ;$(BUILD) -t $(RS_IMG) $(BUILD_ARG) -f $(RS_FILE) .
-rs-push:   rust-sbt; docker push $(RS_IMG)
-
-######### Dashboard #########
-run-dash:  ;cd dashboard; npm run watch
-
-.PHONY: node node-test worker worker-test dashboard %-bctl-test deploy rust-sbt rs-push run-dash
+.PHONY: server server-debug docker clean test release
