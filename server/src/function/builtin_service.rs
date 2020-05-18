@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-use faas_api::{
-    service, Address,
-    Protocol::{self, *},
-};
+use faas_api::Protocol::{self, *};
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use trust_graph::{certificate_serde, Certificate};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,6 +59,31 @@ pub enum BuiltinService {
     Identify(Identify),
 }
 
+#[derive(Debug)]
+pub enum Error<'a> {
+    Serde(serde_json::Error),
+    UnknownService(&'a str),
+    InvalidProtocol(&'a Protocol),
+}
+
+impl<'a> From<serde_json::Error> for Error<'a> {
+    fn from(err: serde_json::Error) -> Self {
+        Error::Serde(err)
+    }
+}
+
+impl<'a> Display for Error<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::Serde(serderr) => serderr.fmt(f),
+            Error::UnknownService(s) => write!(f, "unknown builtin service `{}`", s),
+            Error::InvalidProtocol(p) => {
+                write!(f, "invalid protocol: expected /service, got `{}`", p)
+            }
+        }
+    }
+}
+
 impl BuiltinService {
     const PROVIDE: &'static str = "provide";
     const CERTS: &'static str = "certificates";
@@ -69,39 +92,34 @@ impl BuiltinService {
     const SERVICES: [&'static str; 4] =
         [Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY];
 
-    pub fn from(target: &Address, arguments: serde_json::Value) -> Option<Self> {
+    pub fn from<'a>(target: &'a Protocol, arguments: serde_json::Value) -> Result<Self, Error<'a>> {
         // Check it's `/service/ID` and `ID` is one of builtin services
-        let protocols = target.protocols();
-        let service_id = match protocols.as_slice() {
-            [Service(service_id)] => service_id,
-            _ => return None,
+        let service_id = match target {
+            Service(service_id) => service_id,
+            _ => return Err(Error::InvalidProtocol(target)),
         };
 
         let service = match service_id.as_str() {
-            Self::PROVIDE => {
-                BuiltinService::DelegateProviding(serde_json::from_value(arguments).ok()?)
-            }
-            Self::CERTS => BuiltinService::GetCertificates(serde_json::from_value(arguments).ok()?),
-            Self::ADD_CERTS => {
-                BuiltinService::AddCertificates(serde_json::from_value(arguments).ok()?)
-            }
-            Self::IDENTIFY => BuiltinService::Identify(serde_json::from_value(arguments).ok()?),
-            _ => return None,
+            Self::PROVIDE => BuiltinService::DelegateProviding(serde_json::from_value(arguments)?),
+            Self::CERTS => BuiltinService::GetCertificates(serde_json::from_value(arguments)?),
+            Self::ADD_CERTS => BuiltinService::AddCertificates(serde_json::from_value(arguments)?),
+            Self::IDENTIFY => BuiltinService::Identify(serde_json::from_value(arguments)?),
+            s => return Err(Error::UnknownService(s)),
         };
 
-        Some(service)
+        Ok(service)
     }
 
-    pub fn is_builtin(proto: &Protocol) -> bool {
-        match proto {
+    pub fn is_builtin(service: &Protocol) -> bool {
+        match service {
             Service(service_id) => Self::SERVICES.contains(&service_id.as_str()),
             _ => false,
         }
     }
 }
 
-impl Into<(Address, serde_json::Value)> for BuiltinService {
-    fn into(self) -> (Address, serde_json::Value) {
+impl Into<(Protocol, serde_json::Value)> for BuiltinService {
+    fn into(self) -> (Protocol, serde_json::Value) {
         use serde_json::json;
 
         let service_id = match self {
@@ -110,10 +128,10 @@ impl Into<(Address, serde_json::Value)> for BuiltinService {
             BuiltinService::AddCertificates { .. } => BuiltinService::ADD_CERTS,
             BuiltinService::Identify { .. } => BuiltinService::IDENTIFY,
         };
-        let address = service!(service_id);
+        let target = Protocol::Service(service_id.to_string());
         let arguments = json!(self);
 
-        (address, arguments)
+        (target, arguments)
     }
 }
 
@@ -132,10 +150,10 @@ pub mod test {
             service_id: ipfs_service.into(),
         })
         .into();
-        let call = gen_provide_call(target, arguments);
+        let target = &target;
+        let call = gen_provide_call(target.into(), arguments);
 
-        let target = call.target.as_ref().expect("target should be Some");
-        let protocols = target.protocols();
+        let protocols = call.target.as_ref().expect("non empty").protocols();
 
         let service_id = match protocols.as_slice() {
             [Protocol::Service(service_id)] => service_id,
@@ -145,7 +163,7 @@ pub mod test {
         assert_eq!(service_id, "provide");
 
         match BuiltinService::from(target, call.arguments) {
-            Some(BuiltinService::DelegateProviding(DelegateProviding { service_id })) => {
+            Ok(BuiltinService::DelegateProviding(DelegateProviding { service_id })) => {
                 assert_eq!(service_id, ipfs_service)
             }
             wrong => unreachable!(
@@ -187,13 +205,13 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         })
         .into();
 
-        let call = gen_provide_call(target, arguments);
+        let call = gen_provide_call(target.into(), arguments);
 
         let _service: AddCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let service =
-            BuiltinService::from(&call.target.unwrap(), call.arguments).expect("parse service");
+        let target = call.target.unwrap().pop_front().unwrap();
+        let service = BuiltinService::from(&target, call.arguments).unwrap();
 
         match service {
             BuiltinService::AddCertificates(add) => {
@@ -232,13 +250,13 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         })
         .into();
 
-        let call = gen_provide_call(target, arguments);
+        let call = gen_provide_call(target.into(), arguments);
 
         let _service: GetCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let service =
-            BuiltinService::from(&call.target.unwrap(), call.arguments).expect("parse service");
+        let target = call.target.unwrap().pop_front().unwrap();
+        let service = BuiltinService::from(&target, call.arguments).unwrap();
 
         match service {
             BuiltinService::GetCertificates(add) => {
@@ -256,9 +274,9 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
             msg_id: msg_id.clone(),
         })
         .into();
-        let call = gen_provide_call(target, arguments);
-        let service =
-            BuiltinService::from(&call.target.unwrap(), call.arguments).expect("parse service");
+        let call = gen_provide_call(target.into(), arguments);
+        let target = call.target.unwrap().pop_front().unwrap();
+        let service = BuiltinService::from(&target, call.arguments).unwrap();
 
         match service {
             BuiltinService::Identify(identify) => assert_eq!(msg_id, identify.msg_id),
