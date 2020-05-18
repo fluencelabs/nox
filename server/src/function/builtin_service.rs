@@ -256,11 +256,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
             msg_id: msg_id.clone(),
         })
         .into();
-
         let call = gen_provide_call(target, arguments);
-
-        println!("call: {}", serde_json::to_string_pretty(&call).unwrap());
-
         let service =
             BuiltinService::from(&call.target.unwrap(), call.arguments).expect("parse service");
 
