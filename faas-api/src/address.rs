@@ -271,6 +271,26 @@ impl Div<Protocol> for Address {
     }
 }
 
+impl Div<&Protocol> for Address {
+    type Output = Address;
+
+    fn div(self, rhs: &Protocol) -> Self::Output {
+        self.append(rhs)
+    }
+}
+
+impl<I> Div<I> for Address
+where
+    I: IntoIterator,
+    I::Item: Borrow<Protocol>,
+{
+    type Output = Address;
+
+    fn div(self, rhs: I) -> Self::Output {
+        self.append_protos(rhs)
+    }
+}
+
 impl Div<Address> for Address {
     type Output = Address;
 

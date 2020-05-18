@@ -17,9 +17,9 @@
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
-    // dead_code,
+    dead_code,
     nonstandard_style,
-    // unused_imports,
+    unused_imports,
     unused_mut,
     unused_variables,
     unused_unsafe,
@@ -51,6 +51,7 @@ mod behaviour {
 mod function {
     mod address_signature;
     mod builtin_service;
+    mod config;
     mod dht_names;
     mod execution;
     mod peers;
@@ -58,10 +59,12 @@ mod function {
     mod router;
     mod router_behaviour;
     mod services;
+    mod wait_peer;
     mod waiting_queues;
 
-    pub use router::FunctionRouter;
-    pub use router::SwarmEventType;
+    pub(crate) use self::config::RouterConfig;
+    pub(crate) use router::FunctionRouter;
+    pub(crate) use router::SwarmEventType;
 }
 
 mod bootstrapper {
@@ -88,5 +91,4 @@ pub(crate) use function::FunctionRouter;
 
 pub use server::Server;
 
-// #[cfg(any(tests, test))]
 pub use behaviour::ServerBehaviour;

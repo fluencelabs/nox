@@ -46,19 +46,28 @@ pub struct AddCertificates {
     pub msg_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Identify {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BuiltinService {
     DelegateProviding(DelegateProviding),
     GetCertificates(GetCertificates),
     AddCertificates(AddCertificates),
+    Identify(Identify),
 }
 
 impl BuiltinService {
     const PROVIDE: &'static str = "provide";
     const CERTS: &'static str = "certificates";
     const ADD_CERTS: &'static str = "add_certificates";
-    const SERVICES: [&'static str; 3] = [Self::PROVIDE, Self::CERTS, Self::ADD_CERTS];
+    const IDENTIFY: &'static str = "identify";
+    const SERVICES: [&'static str; 4] =
+        [Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY];
 
     pub fn from(target: &Address, arguments: serde_json::Value) -> Option<Self> {
         // Check it's `/service/ID` and `ID` is one of builtin services
@@ -76,6 +85,7 @@ impl BuiltinService {
             Self::ADD_CERTS => {
                 BuiltinService::AddCertificates(serde_json::from_value(arguments).ok()?)
             }
+            Self::IDENTIFY => BuiltinService::Identify(serde_json::from_value(arguments).ok()?),
             _ => return None,
         };
 
@@ -98,6 +108,7 @@ impl Into<(Address, serde_json::Value)> for BuiltinService {
             BuiltinService::DelegateProviding { .. } => BuiltinService::PROVIDE,
             BuiltinService::GetCertificates { .. } => BuiltinService::CERTS,
             BuiltinService::AddCertificates { .. } => BuiltinService::ADD_CERTS,
+            BuiltinService::Identify { .. } => BuiltinService::IDENTIFY,
         };
         let address = service!(service_id);
         let arguments = json!(self);
@@ -200,9 +211,9 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let peer_id = RandomPeerId::random();
         let msg_id = uuid::Uuid::new_v4().to_string();
         let add = AddCertificates {
-            certificates: certs.clone(),
-            peer_id: peer_id.clone(),
-            msg_id: Some(msg_id.clone()),
+            certificates: certs,
+            peer_id,
+            msg_id: Some(msg_id),
         };
 
         let string = serde_json::to_string(&add).expect("serialize");
@@ -235,6 +246,23 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
                 assert_eq!(add.msg_id, Some(msg_id));
             }
             _ => unreachable!("expected get certificates"),
+        }
+    }
+
+    #[test]
+    fn serialize_identify() {
+        let msg_id = Some(uuid::Uuid::new_v4().to_string());
+        let (target, arguments) = BuiltinService::Identify(Identify {
+            msg_id: msg_id.clone(),
+        })
+        .into();
+        let call = gen_provide_call(target, arguments);
+        let service =
+            BuiltinService::from(&call.target.unwrap(), call.arguments).expect("parse service");
+
+        match service {
+            BuiltinService::Identify(identify) => assert_eq!(msg_id, identify.msg_id),
+            _ => unreachable!("expected identify"),
         }
     }
 }

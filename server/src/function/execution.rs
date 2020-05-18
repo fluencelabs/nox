@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-use super::address_signature::verify_address_signatures;
-use super::builtin_service::BuiltinService;
-use super::FunctionRouter;
-use crate::function::builtin_service::{AddCertificates, DelegateProviding, GetCertificates};
+use super::{
+    address_signature::verify_address_signatures,
+    builtin_service::{
+        AddCertificates, BuiltinService, DelegateProviding, GetCertificates, Identify,
+    },
+    FunctionRouter,
+};
 use faas_api::{service, Address, FunctionCall, Protocol};
 use itertools::Itertools;
 use libp2p::PeerId;
@@ -48,7 +51,38 @@ impl FunctionRouter {
                 certificates,
                 msg_id,
             }) => self.add_certificates(peer_id, certificates, call, msg_id, ttl),
+            BS::Identify(Identify { msg_id }) => self.identify(call, msg_id),
         }
+    }
+
+    fn identify(&mut self, call: FunctionCall, msg_id: Option<String>) {
+        log::info!("executing identify, call: {:?}", &call);
+
+        // Check reply_to is defined
+        let reply_to = if let Some(reply_to) = call.reply_to.clone() {
+            reply_to
+        } else {
+            log::error!("reply_to undefined on {:?}", call);
+            self.send_error_on_call(call, "reply_to is undefined".into());
+            return;
+        };
+
+        let addrs: Vec<_> = self
+            .config
+            .external_addresses
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        let arguments = json!({ "msg_id": msg_id, "addresses": addrs });
+        // Build reply
+        let call = FunctionCall {
+            uuid: Self::uuid(),
+            target: Some(reply_to),
+            reply_to: Some(self.config.local_address()),
+            name: Some("reply on identify".into()),
+            arguments,
+        };
+        self.call(call);
     }
 
     fn add_certificates(
@@ -59,8 +93,6 @@ impl FunctionRouter {
         msg_id: Option<String>,
         ttl: usize,
     ) {
-        use Protocol::Peer;
-
         #[rustfmt::skip]
         log::info!(
             "executing add_certificates of {} certs for {}, ttl: {}, call: {:?}", 
@@ -100,7 +132,7 @@ impl FunctionRouter {
             let call = FunctionCall {
                 uuid: Self::uuid(),
                 target: Some(reply_to.clone()),
-                reply_to: Some(Peer(self.peer_id.clone()).into()),
+                reply_to: Some(self.config.local_address()),
                 name: Some("reply on add_certificates".into()),
                 arguments,
             };
@@ -127,7 +159,6 @@ impl FunctionRouter {
         ttl: usize,
     ) {
         use libp2p::identity::PublicKey;
-        use Protocol::Peer;
 
         #[rustfmt::skip]
         log::info!("executing certificates service for {}, ttl: {}, call: {:?}", peer_id, ttl, call);
@@ -153,7 +184,7 @@ impl FunctionRouter {
                 let call = FunctionCall {
                     uuid: Self::uuid(),
                     target: Some(reply_to),
-                    reply_to: Some(Peer(self.peer_id.clone()).into()),
+                    reply_to: Some(self.config.local_address()),
                     name: Some("reply on certificates".into()),
                     arguments,
                 };
@@ -195,10 +226,8 @@ impl FunctionRouter {
                     return;
                 }
 
-                // Build provider address
-                let local: Address = Peer(self.peer_id.clone()).into();
-                // provider ~ /peer/QmLocal/client/QmClient/service/QmService, or more complex
-                let provider = local.append(cl).append(sig).append_protos(rem);
+                // provider ~ /peer/QmLocal/client/QmClient/signature/0xSig/service/QmService, or more complex
+                let provider = self.config.local_address() / cl / sig / rem;
 
                 // Insert provider to local hashmap
                 let replaced = self.provided_names.insert(name.clone(), provider.clone());
