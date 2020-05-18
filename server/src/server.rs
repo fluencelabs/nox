@@ -19,10 +19,7 @@ use crate::config::ServerConfig;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 
 use async_std::task;
-use futures::channel::oneshot::Receiver;
 use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
-use futures_util::future::IntoStream;
-use futures_util::stream::Fuse;
 use libp2p::{
     identity::ed25519::{self, Keypair},
     identity::PublicKey,
@@ -89,8 +86,8 @@ impl Server {
 
     /// Starts node service
     pub fn start(mut self: Box<Self>) -> OneshotOutlet<()> {
-        let (exit_sender, exit_receiver) = oneshot::channel();
-        let mut exit_receiver: Fuse<IntoStream<Receiver<()>>> = exit_receiver.into_stream().fuse();
+        let (exit_outlet, exit_inlet) = oneshot::channel();
+        let mut exit_inlet = exit_inlet.into_stream().fuse();
 
         self.listen().expect("Error on starting node listener");
         self.swarm.dial_bootstrap_nodes();
@@ -99,14 +96,14 @@ impl Server {
             loop {
                 select!(
                     _ = self.swarm.select_next_some() => {},
-                    _ = exit_receiver.next() => {
+                    _ = exit_inlet.next() => {
                         break
                     }
                 )
             }
         });
 
-        exit_sender
+        exit_outlet
     }
 
     /// Starts node service listener.
