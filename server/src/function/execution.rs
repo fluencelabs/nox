@@ -14,10 +14,17 @@
  * limitations under the License.
  */
 
-use super::address_signature::verify_address_signatures;
-use super::builtin_service::BuiltinService;
-use super::FunctionRouter;
-use crate::function::builtin_service::{AddCertificates, DelegateProviding, GetCertificates};
+use super::{
+    address_signature::verify_address_signatures,
+    builtin_service::{
+        BuiltinService,
+        AddCertificates,
+        DelegateProviding,
+        GetCertificates,
+        Identify
+    },
+    FunctionRouter,
+};
 use faas_api::{service, Address, FunctionCall, Protocol};
 use itertools::Itertools;
 use libp2p::PeerId;
@@ -48,7 +55,31 @@ impl FunctionRouter {
                 certificates,
                 msg_id,
             }) => self.add_certificates(peer_id, certificates, call, msg_id, ttl),
+            BS::Identify(Identify { msg_id }) => self.identify(call, msg_id)
         }
+    }
+
+    fn identify(&mut self, call: FunctionCall, msg_id: Option<String>) {
+        log::info("executing identify, call: {:?}", &call);
+
+        // Check reply_to is defined
+        let reply_to = if let Some(reply_to) = call.reply_to.clone() {
+            reply_to
+        } else {
+            log::error!("reply_to undefined on {:?}", call);
+            self.send_error_on_call(call, "reply_to is undefined".into());
+            return;
+        };
+
+        let arguments = json!({ "msg_id": msg_id, "status": status });
+        // Build reply
+        let call = FunctionCall {
+            uuid: Self::uuid(),
+            target: Some(reply_to.clone()),
+            reply_to: Some(Peer(self.peer_id.clone()).into()),
+            name: Some("reply on identify".into()),
+            arguments,
+        };
     }
 
     fn add_certificates(

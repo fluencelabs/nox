@@ -87,24 +87,24 @@ impl Into<FunctionCall> for WaitPeer {
 /// TODO: Latency. Latency gonna be nuts.
 /// TODO: add metrics-rs (relevant: substrate uses it, and publishes as http-endpoint for prometheus)
 pub struct FunctionRouter {
-    #[allow(dead_code)]
+    /// Keypair, currently used to sign DHT records
     pub(super) keypair: Keypair,
     // TODO: store peer_id as Lazy::new(|| kp.to_peer_id())?
     pub(super) peer_id: PeerId,
-    // Queue of events to send to the upper level
+    /// Queue of events to send to the upper level
     pub(super) events: VecDeque<SwarmEventType>,
-    // Underlying Kademlia node
+    /// Underlying Kademlia node
     pub(super) kademlia: Kademlia<MemoryStore>,
-    // Services provided by this node
     // TODO: health-check local services?
-    pub(super) provided_names: HashMap<Address, Address>, // ServiceId -> (forward_to: Address)
+    /// Services provided by this node
+    pub(super) provided_names: HashMap<Address, Address>,
     // TODO: clear queues on timeout?
-    // Calls that are waiting for address to be name-resolved
-    pub(super) wait_name_resolved: WaitingQueues<Address, FunctionCall>, // Address -> FunctionCall
-    // Calls that are waiting for target peer of the call to change state (see WaitPeer)
-    pub(super) wait_peer: WaitingQueues<PeerId, WaitPeer>, // PeerId -> FunctionCall
+    /// Calls that are waiting for address to be name-resolved
+    pub(super) wait_name_resolved: WaitingQueues<Address, FunctionCall>,
+    /// Calls that are waiting for target peer of the call to change state (see WaitPeer)
+    pub(super) wait_peer: WaitingQueues<PeerId, WaitPeer>,
     // TODO: clear connected_peers on inject_listener_closed?
-    // Mediated by inject_connected & inject_disconnected
+    /// Mediated by inject_connected & inject_disconnected
     pub(super) connected_peers: HashSet<PeerId>,
 }
 
@@ -129,9 +129,8 @@ impl FunctionRouter {
         }
     }
 
-    // ####
-    // ## Entry point
-    // ###
+    /// Attempt to send given `call`.
+    /// Verifies all signatures in `call.target`, if there are any
     pub fn call(&mut self, call: FunctionCall) {
         use PeerStatus::*;
 
@@ -219,11 +218,7 @@ impl FunctionRouter {
         self.send_error_on_call(call, "invalid target in call".into());
     }
 
-    // ####
-    // ## Sending calls
-    // ###
-
-    // Schedule sending a call to unknown peer
+    /// Schedule sending a call to unknown peer
     pub(super) fn send_to(&mut self, to: PeerId, expected: PeerStatus, call: FunctionCall) {
         use PeerStatus::*;
 
@@ -247,7 +242,7 @@ impl FunctionRouter {
         }
     }
 
-    // Schedule sending call to the peer, assuming peer is connected
+    /// Schedule sending call to the peer, assuming peer is connected
     pub(super) fn send_to_connected(&mut self, peer_id: PeerId, call: FunctionCall) {
         self.events
             .push_back(NetworkBehaviourAction::NotifyHandler {
@@ -257,15 +252,13 @@ impl FunctionRouter {
             })
     }
 
-    // ####
-    // ## Error handling and sending
-    // ###
+    /// Send call with uuid `error_$uuid` to `call.reply_to`, if it's defined
+    /// Keep `call.name`, put `reason` and `call` in arguments
     pub(super) fn send_error_on_call(&mut self, mut call: FunctionCall, reason: String) {
         use serde_json::json;
         let arguments = json!({ "reason": reason, "call": call });
-        let reply_to = call.reply_to.take();
 
-        if let Some(reply_to) = reply_to {
+        if let Some(reply_to) = call.reply_to.take() {
             let call = FunctionCall {
                 target: Some(reply_to),
                 arguments,
@@ -279,10 +272,12 @@ impl FunctionRouter {
         }
     }
 
+    /// Generate uuid v4
     pub(super) fn uuid() -> String {
         Uuid::new_v4().to_string()
     }
 
+    /// Send error to given `address`. Put `reason` in arguments.
     pub(super) fn send_error(&mut self, address: Address, reason: String) {
         use serde_json::json;
         let arguments = json!({ "reason": reason });
@@ -297,9 +292,8 @@ impl FunctionRouter {
         self.call(call)
     }
 
-    // ####
-    // ## Kademlia
-    // ###
+    /// Add node to kademlia routing table.
+    /// Node is identified by `node_id`, `addresses` and `public_key`
     pub fn add_kad_node(
         &mut self,
         node_id: PeerId,
@@ -317,6 +311,7 @@ impl FunctionRouter {
         }
     }
 
+    /// Run kademlia bootstrap, to advertise ourselves in Kademlia
     pub fn bootstrap(&mut self) {
         self.kademlia.bootstrap()
     }
