@@ -24,7 +24,7 @@ import * as PeerInfo from "peer-info";
 import {FluenceConnection} from "./fluence_connection";
 
 export class FluenceClient {
-    private readonly selfPeerInfo: PeerInfo;
+    readonly selfPeerInfo: PeerInfo;
     readonly selfPeerIdStr: string;
 
     private connection: FluenceConnection;

@@ -162,7 +162,7 @@ export class FluenceConnection {
 
     private async sendCall(call: FunctionCall) {
         let callStr = callToString(call);
-        console.log("send function call: " + callStr);
+        console.log("send function call: " + JSON.stringify(JSON.parse(callStr), undefined, 2));
         console.log(call);
 
         // create outgoing substream

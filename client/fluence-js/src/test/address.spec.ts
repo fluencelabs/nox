@@ -11,6 +11,7 @@ import 'mocha';
 import * as PeerId from "peer-id";
 import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../function_call";
 import Fluence from "../fluence";
+import {CertGiver} from "../trust";
 
 describe("Typescript usage suite", () => {
 
@@ -107,7 +108,10 @@ export async function testCalculator() {
     let cl1 = await Fluence.connect("/dns4/104.248.25.59/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", key1);
     let cl2 = await Fluence.connect("/ip4/104.248.25.59/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
 
-    // service name that we will register with one connection and call with another
+    let certGiver = new CertGiver(cl1);
+    await certGiver.addRootCert();
+//12D3KooWQaG8WygcM3UvCb8UW25mQriD3CE4f3ixpJxThdJHCpmn
+    /*// service name that we will register with one connection and call with another
     let serviceId = "sum-calculator-" + genUUID();
 
     // register service that will add two numbers and send a response with calculation result
@@ -147,6 +151,6 @@ export async function testCalculator() {
     let response2 = await cl2.sendServiceCallWaitResponse(serviceId, req, predicate);
 
     let result2 = await response2.result;
-    console.log(`calculation result AFTER RECONNECT is: ${result2}`);
+    console.log(`calculation result AFTER RECONNECT is: ${result2}`);*/
 }
 
