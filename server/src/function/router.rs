@@ -113,6 +113,7 @@ impl FunctionRouter {
     pub fn new(kp: Keypair, peer_id: PeerId, trust_graph: TrustGraph) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
+            .set_max_packet_size(100*4096*4096)  // 100 Mb
             .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())
             .set_connection_idle_timeout(Duration::from_secs(2_628_000_000)); // ~month
         let store = MemoryStore::new(peer_id.clone());
