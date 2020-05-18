@@ -194,7 +194,7 @@ fn reconnect_provide() {
     sleep(KAD_TIMEOUT);
     let consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
 
-    for _i in 1..10 {
+    for _i in 1..20 {
         for swarm in swarms.iter() {
             let provider = ConnectedClient::connect_to(swarm.1.clone()).expect("connect provider");
             let provide_call = provide_call(service_id, provider.relay_address());

@@ -92,7 +92,6 @@ fn start_fluence(config: FluenceConfig) -> Result<impl Stoppable, Box<dyn Error>
 
     impl Stoppable for Fluence {
         fn stop(self) {
-            // shutting down node service leads to shutting down peer service by canceling the mpsc channel
             self.node_exit_outlet.send(()).unwrap();
         }
     }
