@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+use super::address_signature::verify_address_signatures;
+use super::config::RouterConfig;
+use super::peers::PeerStatus;
+use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
-use crate::function::address_signature::verify_address_signatures;
-use crate::function::peers::PeerStatus;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
@@ -24,7 +26,7 @@ use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
 use libp2p::{
     core::either::EitherOutput,
-    identity::{ed25519, ed25519::Keypair},
+    identity::ed25519,
     kad::{Kademlia, KademliaConfig},
     swarm::{NetworkBehaviourAction, NotifyHandler},
     PeerId,
@@ -34,42 +36,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use trust_graph::TrustGraph;
 use uuid::Uuid;
 
-pub type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
-
-/// Possible waiting states of the FunctionCall
-#[derive(Debug)]
-pub(super) enum WaitPeer {
-    /// Wait for a given peer to become routable via Kademlia and forward call there
-    Routable(FunctionCall),
-    /// Wait for a given peer to become connected and forward call there
-    Connected(FunctionCall),
-    /// Get neighbourhood of a given PeerId, and send call to each peer there
-    Neighborhood(FunctionCall),
-}
-
-impl WaitPeer {
-    pub fn found(&self) -> bool {
-        matches!(self, WaitPeer::Routable(_))
-    }
-
-    pub fn connected(&self) -> bool {
-        matches!(self, WaitPeer::Connected(_))
-    }
-
-    pub fn neighborhood(&self) -> bool {
-        matches!(self, WaitPeer::Neighborhood(_))
-    }
-}
-
-impl Into<FunctionCall> for WaitPeer {
-    fn into(self) -> FunctionCall {
-        match self {
-            WaitPeer::Routable(call) => call,
-            WaitPeer::Connected(call) => call,
-            WaitPeer::Neighborhood(call) => call,
-        }
-    }
-}
+pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 
 /// Router for FunctionCall-s, based on Kademlia.
 /// Workhorses are WaitingQueues, which internally are HashMaps of VecDeque. Those WaitingQueue-s
@@ -87,10 +54,8 @@ impl Into<FunctionCall> for WaitPeer {
 /// TODO: Latency. Latency gonna be nuts.
 /// TODO: add metrics-rs (relevant: substrate uses it, and publishes as http-endpoint for prometheus)
 pub struct FunctionRouter {
-    /// Keypair, currently used to sign DHT records
-    pub(super) keypair: Keypair,
-    // TODO: store peer_id as Lazy::new(|| kp.to_peer_id())?
-    pub(super) peer_id: PeerId,
+    /// Router configuration info: peer id, keypair, listening addresses
+    pub(super) config: RouterConfig,
     /// Queue of events to send to the upper level
     pub(super) events: VecDeque<SwarmEventType>,
     /// Underlying Kademlia node
@@ -110,22 +75,28 @@ pub struct FunctionRouter {
 
 // TODO: move public methods to a trait
 impl FunctionRouter {
-    pub fn new(kp: Keypair, peer_id: PeerId, trust_graph: TrustGraph) -> Self {
+    pub(crate) fn new(config: RouterConfig, trust_graph: TrustGraph) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
             .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())
             .set_connection_idle_timeout(Duration::from_secs(2_628_000_000)); // ~month
-        let store = MemoryStore::new(peer_id.clone());
+        let store = MemoryStore::new(config.peer_id.clone());
+        let kademlia = Kademlia::with_config(
+            config.keypair.clone(),
+            config.peer_id.clone(),
+            store,
+            cfg,
+            trust_graph,
+        );
 
         Self {
-            keypair: kp.clone(),
-            peer_id: peer_id.clone(),
-            events: VecDeque::new(),
-            kademlia: Kademlia::with_config(kp, peer_id, store, cfg, trust_graph),
-            wait_name_resolved: WaitingQueues::new(),
-            wait_peer: WaitingQueues::new(),
-            provided_names: HashMap::new(),
-            connected_peers: HashSet::new(),
+            config,
+            kademlia,
+            events: <_>::default(),
+            wait_name_resolved: <_>::default(),
+            wait_peer: <_>::default(),
+            provided_names: <_>::default(),
+            connected_peers: <_>::default(),
         }
     }
 

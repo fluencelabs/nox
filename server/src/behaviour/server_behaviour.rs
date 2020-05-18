@@ -17,6 +17,7 @@
 use crate::Bootstrapper;
 use crate::FunctionRouter;
 
+use crate::function::RouterConfig;
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
 use libp2p::{
     identify::Identify,
@@ -46,10 +47,12 @@ impl ServerBehaviour {
     pub fn new(
         key_pair: ed25519::Keypair,
         local_peer_id: PeerId,
+        listening_addresses: Vec<Multiaddr>,
         trust_graph: TrustGraph,
         bootstrap_nodes: Vec<Multiaddr>,
     ) -> Self {
-        let router = FunctionRouter::new(key_pair.clone(), local_peer_id, trust_graph);
+        let config = RouterConfig::new(key_pair.clone(), local_peer_id, listening_addresses);
+        let router = FunctionRouter::new(config, trust_graph);
         let local_public_key = PublicKey::Ed25519(key_pair.public());
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),

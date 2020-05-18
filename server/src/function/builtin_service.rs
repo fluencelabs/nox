@@ -49,7 +49,7 @@ pub struct AddCertificates {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Identify {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub msg_id: Option<String>
+    pub msg_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,7 +58,7 @@ pub enum BuiltinService {
     DelegateProviding(DelegateProviding),
     GetCertificates(GetCertificates),
     AddCertificates(AddCertificates),
-    Identify(Identify)
+    Identify(Identify),
 }
 
 impl BuiltinService {
@@ -66,7 +66,8 @@ impl BuiltinService {
     const CERTS: &'static str = "certificates";
     const ADD_CERTS: &'static str = "add_certificates";
     const IDENTIFY: &'static str = "identify";
-    const SERVICES: [&'static str; 4] = [Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY];
+    const SERVICES: [&'static str; 4] =
+        [Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY];
 
     pub fn from(target: &Address, arguments: serde_json::Value) -> Option<Self> {
         // Check it's `/service/ID` and `ID` is one of builtin services
@@ -83,7 +84,7 @@ impl BuiltinService {
             Self::CERTS => BuiltinService::GetCertificates(serde_json::from_value(arguments).ok()?),
             Self::ADD_CERTS => {
                 BuiltinService::AddCertificates(serde_json::from_value(arguments).ok()?)
-            },
+            }
             Self::IDENTIFY => BuiltinService::Identify(serde_json::from_value(arguments).ok()?),
             _ => return None,
         };
@@ -251,7 +252,10 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
     #[test]
     fn serialize_identify() {
         let msg_id = Some(uuid::Uuid::new_v4().to_string());
-        let (target, arguments) = BuiltinService::Identify(Identify { msg_id: msg_id.clone() }).into();
+        let (target, arguments) = BuiltinService::Identify(Identify {
+            msg_id: msg_id.clone(),
+        })
+        .into();
 
         let call = gen_provide_call(target, arguments);
 
@@ -261,9 +265,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
             BuiltinService::from(&call.target.unwrap(), call.arguments).expect("parse service");
 
         match service {
-            BuiltinService::Identify(identify) => {
-                assert_eq!(msg_id, identify.msg_id)
-            }
+            BuiltinService::Identify(identify) => assert_eq!(msg_id, identify.msg_id),
             _ => unreachable!("expected identify"),
         }
     }

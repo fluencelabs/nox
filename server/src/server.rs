@@ -55,6 +55,7 @@ impl Server {
             let behaviour = ServerBehaviour::new(
                 key_pair.clone(),
                 local_peer_id.clone(),
+                config.external_addresses(),
                 trust_graph,
                 config.bootstrap_nodes.clone(),
             );
@@ -64,23 +65,11 @@ impl Server {
             Swarm::new(transport, behaviour, local_peer_id)
         };
 
-        if let Some(external_address) = config.external_address {
-            let external_tcp = {
-                let mut maddr = Multiaddr::from(external_address);
-                maddr.push(Protocol::Tcp(config.tcp_port));
-                maddr
-            };
-
-            let external_ws = {
-                let mut maddr = Multiaddr::from(external_address);
-                maddr.push(Protocol::Tcp(config.websocket_port));
-                maddr.push(Protocol::Ws("/".into()));
-                maddr
-            };
-
-            Swarm::add_external_address(&mut swarm, external_tcp);
-            Swarm::add_external_address(&mut swarm, external_ws);
-        }
+        // Add external addresses to Swarm
+        config
+            .external_addresses()
+            .into_iter()
+            .for_each(|addr| Swarm::add_external_address(&mut swarm, addr));
 
         let node_service = Self { swarm, config };
 

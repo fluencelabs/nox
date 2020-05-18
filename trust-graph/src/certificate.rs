@@ -106,7 +106,6 @@ impl Certificate {
     }
 
     /// Verifies that a certificate is valid and you trust to this certificate.
-    #[allow(dead_code)]
     pub fn verify(
         cert: &Certificate,
         trusted_roots: &[PublicKey],

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use super::router::WaitPeer;
+use super::wait_peer::WaitPeer;
 use super::FunctionRouter;
 use faas_api::{FunctionCall, Protocol};
 use libp2p::{
@@ -164,7 +164,7 @@ impl FunctionRouter {
 
     /// Whether given peer id is equal to ours
     pub(super) fn is_local(&self, peer_id: &PeerId) -> bool {
-        if self.peer_id.eq(peer_id) {
+        if self.config.peer_id.eq(peer_id) {
             log::debug!("{} is LOCAL", peer_id);
             true
         } else {
