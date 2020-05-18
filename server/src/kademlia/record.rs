@@ -180,7 +180,7 @@ pub fn reduce_multirecord(mrec: MultiRecord) -> Record {
     match &mrec.kind {
         MultiRecord => {
             let key = mrec.key.clone();
-            let expires = mrec.expires.clone();
+            let expires = mrec.expires;
 
             let proto: MultiRecordProto = mrec.into();
             let mut value = Vec::with_capacity(proto.encoded_len());
