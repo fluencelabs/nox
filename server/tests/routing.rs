@@ -202,7 +202,6 @@ fn reconnect_provide() {
             sleep(SHORT_TIMEOUT);
         }
     }
-    println!("after main cycle");
 
     sleep(SHORT_TIMEOUT);
 
