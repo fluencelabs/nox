@@ -52,11 +52,6 @@ impl From<MultiRecord> for MultiRecordProto {
             .map(|(v, p)| ValueProto::new(v, p.into_bytes()))
             .collect();
 
-        println!("serializing multi record: values len is {}", values.len());
-
-        let bb = backtrace::Backtrace::new();
-        println!("backtrace is\n{:?}", bb);
-
         let ttl = expires.map(|t| {
             let now = Instant::now();
             if t > now {

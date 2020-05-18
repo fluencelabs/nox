@@ -244,9 +244,6 @@ impl<'a> RecordStore<'a> for MemoryStore {
                     // Replace if mrec is of simple kind
                     e.insert(mrec);
                 } else {
-                    let _tt = backtrace::Backtrace::new();
-                    //println!("max values use is {:?}", tt);
-                    // Merge if mrec is of multi kind
                     e.get_mut()
                         .merge(mrec, self.config.max_values_per_multi_record)
                 }

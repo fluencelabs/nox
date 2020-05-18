@@ -868,7 +868,6 @@ name = "fluence-server"
 version = "0.0.5"
 dependencies = [
  "async-std",
- "backtrace",
  "base64",
  "bs58",
  "clap",
