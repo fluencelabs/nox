@@ -172,9 +172,6 @@ impl Default for MemoryStoreConfig {
             max_value_bytes: 65 * 1024,
             max_provided_keys: 1024,
             max_providers_per_key: K_VALUE.get(),
-            // TODO BUG:
-            //  For unknown reason we need to keep record size below 4kb, "10" seems to be a good value for that
-            //  This is because when sending records over 4kb over network, connection closes.
             max_values_per_multi_record: 100,
         }
     }
