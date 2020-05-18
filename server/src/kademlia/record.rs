@@ -52,6 +52,11 @@ impl From<MultiRecord> for MultiRecordProto {
             .map(|(v, p)| ValueProto::new(v, p.into_bytes()))
             .collect();
 
+        println!("serializing multi record: values len is {}", values.len());
+
+        let bb = backtrace::Backtrace::new();
+        println!("backtrace is\n{:?}", bb);
+
         let ttl = expires.map(|t| {
             let now = Instant::now();
             if t > now {
@@ -63,7 +68,7 @@ impl From<MultiRecord> for MultiRecordProto {
 
         Self {
             // TODO: unneeded copy, could be eliminated
-            key: key.as_ref().to_vec(),
+            key: key.to_vec(),
             values,
             ttl,
         }
@@ -179,20 +184,19 @@ pub fn reduce_multirecord(mrec: MultiRecord) -> Record {
 
     match &mrec.kind {
         MultiRecord => {
-            let mut rec = Record {
-                key: mrec.key.clone(),
-                value: vec![],
-                publisher: Some(MULTIPLE_RECORD_PEER_ID.clone()),
-                expires: mrec.expires,
-            };
+            let key = mrec.key.clone();
+            let expires = mrec.expires.clone();
 
             let proto: MultiRecordProto = mrec.into();
-            let mut buf = Vec::with_capacity(proto.encoded_len());
-            proto.encode(&mut buf).expect("enough capacity");
+            let mut value = Vec::with_capacity(proto.encoded_len());
+            proto.encode(&mut value).expect("enough capacity");
 
-            rec.value = buf;
-
-            rec
+            Record {
+                key,
+                value,
+                publisher: Some(MULTIPLE_RECORD_PEER_ID.clone()),
+                expires,
+            }
         }
         SimpleRecord => {
             let (value, publisher) = mrec
