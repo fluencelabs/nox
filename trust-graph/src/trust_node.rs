@@ -154,7 +154,7 @@ mod tests {
         let future = Duration::new(500, 0);
 
         let mut trust_node = TrustNode {
-            pk: kp.public_key().clone(),
+            pk: kp.public_key(),
             trust_relations: HashMap::new(),
             verified_at: now,
         };

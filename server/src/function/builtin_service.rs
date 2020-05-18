@@ -211,9 +211,9 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let peer_id = RandomPeerId::random();
         let msg_id = uuid::Uuid::new_v4().to_string();
         let add = AddCertificates {
-            certificates: certs.clone(),
-            peer_id: peer_id.clone(),
-            msg_id: Some(msg_id.clone()),
+            certificates: certs,
+            peer_id,
+            msg_id: Some(msg_id),
         };
 
         let string = serde_json::to_string(&add).expect("serialize");

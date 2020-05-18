@@ -109,7 +109,7 @@ fn call_service_reply() {
     provider.send(provide);
 
     let call_service = service_call(service_id, consumer.relay_address());
-    consumer.send(call_service.clone());
+    consumer.send(call_service);
 
     let to_provider = provider.receive();
     assert_eq!(to_provider.reply_to, Some(consumer.relay_address()));
