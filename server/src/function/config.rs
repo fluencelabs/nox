@@ -18,25 +18,27 @@ use faas_api::{Address, Protocol};
 use libp2p::{identity::ed25519::Keypair, PeerId};
 use parity_multiaddr::Multiaddr;
 
+/// Router static info: local peer id, keypair and external addresses
 pub struct RouterConfig {
     /// Keypair, currently used to sign DHT records
     pub(super) keypair: Keypair,
     // TODO: store peer_id as Lazy::new(|| kp.to_peer_id())?
+    /// Peer id of this node
     pub(super) peer_id: PeerId,
     /// Addresses this node is reachable on, used in Identify builtin service
-    pub(super) listening_addresses: Vec<Multiaddr>,
+    pub(super) external_addresses: Vec<Multiaddr>,
 }
 
 impl RouterConfig {
     pub(crate) fn new(
         keypair: Keypair,
         peer_id: PeerId,
-        listening_addresses: Vec<Multiaddr>,
+        external_addresses: Vec<Multiaddr>,
     ) -> Self {
         Self {
             keypair,
             peer_id,
-            listening_addresses,
+            external_addresses,
         }
     }
 

@@ -69,7 +69,7 @@ impl FunctionRouter {
 
         let addrs: Vec<_> = self
             .config
-            .listening_addresses
+            .external_addresses
             .iter()
             .map(ToString::to_string)
             .collect();
