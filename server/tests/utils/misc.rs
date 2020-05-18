@@ -173,14 +173,14 @@ where
         .iter()
         .map(|addr| {
             #[rustfmt::skip]
-                let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
+            let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
             let (id, swarm) = create_swarm(addrs, addr.clone());
             (CreatedSwarm(id, addr.clone()), swarm)
         })
         .collect::<Vec<_>>();
 
     #[rustfmt::skip]
-        swarms.iter_mut().for_each(|(_, s)| s.dial_bootstrap_nodes());
+    swarms.iter_mut().for_each(|(_, s)| s.dial_bootstrap_nodes());
 
     let (infos, mut swarms): (Vec<CreatedSwarm>, Vec<_>) = swarms.into_iter().unzip();
 
@@ -250,7 +250,13 @@ pub(crate) fn create_swarm(
                 trust_graph.add(cert, trust.cur_time).expect("add cert");
             }
         }
-        let server = ServerBehaviour::new(kp.clone(), peer_id.clone(), trust_graph, bootstraps);
+        let server = ServerBehaviour::new(
+            kp.clone(),
+            peer_id.clone(),
+            vec![listen_on.clone()],
+            trust_graph,
+            bootstraps,
+        );
         let transport = build_memory_transport(Ed25519(kp));
 
         Swarm::new(transport, server, peer_id.clone())

@@ -213,7 +213,7 @@ impl FunctionRouter {
 
     /// Publish provider by name to dht. Similar to DNS CNAME.
     pub(super) fn publish_name(&mut self, name: Address, provider: Address) {
-        let record = ProviderRecord::new(provider, &self.keypair);
+        let record = ProviderRecord::new(provider, &self.config.keypair);
         self.kademlia
             .put_record(Record::new(name, record.into()), Quorum::Majority)
     }

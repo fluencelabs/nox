@@ -106,7 +106,6 @@ impl Certificate {
     }
 
     /// Verifies that a certificate is valid and you trust to this certificate.
-    #[allow(dead_code)]
     pub fn verify(
         cert: &Certificate,
         trusted_roots: &[PublicKey],
@@ -247,7 +246,7 @@ mod tests {
     }
 
     pub fn one_year() -> Duration {
-        Duration::from_secs(31557600)
+        Duration::from_secs(31_557_600)
     }
 
     #[test]
@@ -510,7 +509,7 @@ mod tests {
         let trusted_roots = [root_kp.public_key()];
 
         // forged cert
-        let mut bad_chain = cert.chain.clone();
+        let mut bad_chain = cert.chain;
         bad_chain.remove(0);
         let bad_cert = Certificate { chain: bad_chain };
 

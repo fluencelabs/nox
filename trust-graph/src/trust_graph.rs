@@ -521,9 +521,9 @@ mod tests {
         graph.root_weights.insert(root2_pk.clone().into(), 0);
         graph.root_weights.insert(root3_pk.clone().into(), 0);
 
-        graph.add(cert1.clone(), current_time()).unwrap();
-        graph.add(cert2.clone(), current_time()).unwrap();
-        graph.add(cert3.clone(), current_time()).unwrap();
+        graph.add(cert1, current_time()).unwrap();
+        graph.add(cert2, current_time()).unwrap();
+        graph.add(cert3, current_time()).unwrap();
 
         let roots_values = [root1_pk, root2_pk, root3_pk];
 

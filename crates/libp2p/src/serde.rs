@@ -74,8 +74,7 @@ pub mod provider_serializer {
     use std::fmt;
     use std::str::FromStr;
 
-    #[allow(clippy::ptr_arg)]
-    pub fn serialize<S>(value: &Vec<(Multiaddr, PeerId)>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(value: &[(Multiaddr, PeerId)], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {

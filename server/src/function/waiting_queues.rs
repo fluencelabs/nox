@@ -30,8 +30,13 @@ pub struct WaitingQueues<K, V> {
     map: HashMap<K, VecDeque<V>>,
 }
 
+impl<K: Eq + Hash, V> Default for WaitingQueues<K, V> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<K: Eq + Hash, V> WaitingQueues<K, V> {
-    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
