@@ -188,8 +188,6 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
         },
     };
 
-    // let call_identify
-
     println!("Possible messages:");
     println!("\n### call IPFS.multiaddr");
     show(call_multiaddr);
