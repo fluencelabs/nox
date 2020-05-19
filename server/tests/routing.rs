@@ -279,7 +279,6 @@ fn add_certs() {
     let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let peer_id = PeerId::from(Ed25519(last_key));
     let call = add_certificates_call(peer_id, registrar.relay_address(), vec![cert]);
-    println!("call: {}", serde_json::to_string_pretty(&call).unwrap());
     registrar.send(call.clone());
 
     // If count is small, all nodes should fit in neighborhood, and all of them should reply
