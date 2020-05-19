@@ -75,7 +75,7 @@ impl Trust {
         expires_at: Duration,
         issued_at: Duration,
     ) -> Self {
-        let msg = Self::signature_bytes(&issued_for, expires_at, issued_at);
+        let msg = Self::metadata_bytes(&issued_for, expires_at, issued_at);
 
         let signature = issued_by.sign(&msg);
 
@@ -93,14 +93,14 @@ impl Trust {
             return Err("Trust in chain is expired.".to_string());
         }
 
-        let msg = Self::signature_bytes(&trust.issued_for, trust.expires_at, trust.issued_at);
+        let msg = Self::metadata_bytes(&trust.issued_for, trust.expires_at, trust.issued_at);
 
         KeyPair::verify(issued_by, &msg, trust.signature.as_slice())?;
 
         Ok(())
     }
 
-    fn signature_bytes(pk: &PublicKey, expires_at: Duration, issued_at: Duration) -> [u8; 48] {
+    fn metadata_bytes(pk: &PublicKey, expires_at: Duration, issued_at: Duration) -> [u8; 48] {
         let pk_encoded = pk.encode();
         let expires_at_encoded: [u8; EXPIRATION_LEN] = (expires_at.as_millis() as u64).to_le_bytes();
         let issued_at_encoded: [u8; ISSUED_LEN] = (issued_at.as_millis() as u64).to_le_bytes();
@@ -108,7 +108,7 @@ impl Trust {
 
         msg[..PUBLIC_KEY_LEN].clone_from_slice(&pk_encoded[..PUBLIC_KEY_LEN]);
         msg[PUBLIC_KEY_LEN..PUBLIC_KEY_LEN + EXPIRATION_LEN].clone_from_slice(&expires_at_encoded[0..EXPIRATION_LEN]);
-        msg[PUBLIC_KEY_LEN + MSG_LEN].clone_from_slice(&issued_at_encoded[0..ISSUED_LEN]);
+        msg[PUBLIC_KEY_LEN + MSG_LEN..MSG_LEN].clone_from_slice(&issued_at_encoded[0..ISSUED_LEN]);
 
         msg
     }
