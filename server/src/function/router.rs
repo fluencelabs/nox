@@ -285,6 +285,9 @@ impl FunctionRouter {
 
     /// Run kademlia bootstrap, to advertise ourselves in Kademlia
     pub fn bootstrap(&mut self) {
-        self.kademlia.bootstrap()
+        match self.kademlia.bootstrap() {
+            Err(err) => log::warn!("bootstrap failed: {:?}", err),
+            _ => {}
+        }
     }
 }
