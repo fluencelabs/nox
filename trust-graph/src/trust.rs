@@ -20,11 +20,12 @@ use derivative::Derivative;
 use std::convert::TryInto;
 use std::time::Duration;
 
-pub const SIGNATURE_LEN: usize = 64;
-pub const PUBLIC_KEY_LEN: usize = 32;
+pub const SIG_LEN: usize = 64;
+pub const PK_LEN: usize = 32;
 pub const EXPIRATION_LEN: usize = 8;
 pub const ISSUED_LEN: usize = 8;
-pub const TRUST_LEN: usize = SIGNATURE_LEN + PUBLIC_KEY_LEN + EXPIRATION_LEN + ISSUED_LEN;
+pub const METADATA_LEN: usize = PK_LEN + EXPIRATION_LEN + ISSUED_LEN;
+pub const TRUST_LEN: usize = SIG_LEN + PK_LEN + EXPIRATION_LEN + ISSUED_LEN;
 
 /// One element in chain of trust in a certificate.
 /// TODO delete pk from Trust (it is already in a trust node)
@@ -74,7 +75,7 @@ impl Trust {
         expires_at: Duration,
         issued_at: Duration,
     ) -> Self {
-        let msg = Self::signature_bytes(&issued_for, expires_at, issued_at);
+        let msg = Self::metadata_bytes(&issued_for, expires_at, issued_at);
 
         let signature = issued_by.sign(&msg);
 
@@ -92,24 +93,27 @@ impl Trust {
             return Err("Trust in chain is expired.".to_string());
         }
 
-        let msg = Self::signature_bytes(&trust.issued_for, trust.expires_at, trust.issued_at);
+        let msg = Self::metadata_bytes(&trust.issued_for, trust.expires_at, trust.issued_at);
 
         KeyPair::verify(issued_by, &msg, trust.signature.as_slice())?;
 
         Ok(())
     }
 
-    fn signature_bytes(pk: &PublicKey, expires_at: Duration, issued_at: Duration) -> [u8; 48] {
+    fn metadata_bytes(pk: &PublicKey, expires_at: Duration, issued_at: Duration) -> [u8; 48] {
         let pk_encoded = pk.encode();
-        let expires_at_encoded: [u8; 8] = (expires_at.as_millis() as u64).to_le_bytes();
-        let issued_at_encoded: [u8; 8] = (issued_at.as_millis() as u64).to_le_bytes();
-        let mut msg = [0; 48];
+        let expires_at_encoded: [u8; EXPIRATION_LEN] =
+            (expires_at.as_millis() as u64).to_le_bytes();
+        let issued_at_encoded: [u8; ISSUED_LEN] = (issued_at.as_millis() as u64).to_le_bytes();
+        let mut metadata = [0; METADATA_LEN];
 
-        msg[..32].clone_from_slice(&pk_encoded[..32]);
-        msg[33..40].clone_from_slice(&expires_at_encoded[0..7]);
-        msg[41..48].clone_from_slice(&issued_at_encoded[0..7]);
+        metadata[..PK_LEN].clone_from_slice(&pk_encoded[..PK_LEN]);
+        metadata[PK_LEN..PK_LEN + EXPIRATION_LEN]
+            .clone_from_slice(&expires_at_encoded[0..EXPIRATION_LEN]);
+        metadata[PK_LEN + EXPIRATION_LEN..METADATA_LEN]
+            .clone_from_slice(&issued_at_encoded[0..ISSUED_LEN]);
 
-        msg
+        metadata
     }
 
     /// Encode the trust into a byte array
@@ -133,15 +137,14 @@ impl Trust {
             );
         }
 
-        let pk = PublicKey::decode(&arr[0..PUBLIC_KEY_LEN]).map_err(|err| err.to_string())?;
-        let signature = &arr[PUBLIC_KEY_LEN..PUBLIC_KEY_LEN + SIGNATURE_LEN];
+        let pk = PublicKey::decode(&arr[0..PK_LEN]).map_err(|err| err.to_string())?;
+        let signature = &arr[PK_LEN..PK_LEN + SIG_LEN];
 
-        let expiration_bytes =
-            &arr[PUBLIC_KEY_LEN + SIGNATURE_LEN..PUBLIC_KEY_LEN + SIGNATURE_LEN + EXPIRATION_LEN];
+        let expiration_bytes = &arr[PK_LEN + SIG_LEN..PK_LEN + SIG_LEN + EXPIRATION_LEN];
         let expiration_date = u64::from_le_bytes(expiration_bytes.try_into().unwrap());
         let expiration_date = Duration::from_millis(expiration_date);
 
-        let issued_bytes = &arr[PUBLIC_KEY_LEN + SIGNATURE_LEN + EXPIRATION_LEN..TRUST_LEN];
+        let issued_bytes = &arr[PK_LEN + SIG_LEN + EXPIRATION_LEN..TRUST_LEN];
         let issued_date = u64::from_le_bytes(issued_bytes.try_into().unwrap());
         let issued_date = Duration::from_millis(issued_date);
 

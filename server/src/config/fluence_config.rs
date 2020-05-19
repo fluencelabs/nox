@@ -80,6 +80,31 @@ impl Default for ServerConfig {
     }
 }
 
+impl ServerConfig {
+    pub fn external_addresses(&self) -> Vec<Multiaddr> {
+        use parity_multiaddr::Protocol;
+
+        if let Some(external_address) = self.external_address {
+            let external_tcp = {
+                let mut maddr = Multiaddr::from(external_address);
+                maddr.push(Protocol::Tcp(self.tcp_port));
+                maddr
+            };
+
+            let external_ws = {
+                let mut maddr = Multiaddr::from(external_address);
+                maddr.push(Protocol::Tcp(self.websocket_port));
+                maddr.push(Protocol::Ws("/".into()));
+                maddr
+            };
+
+            vec![external_tcp, external_ws]
+        } else {
+            vec![]
+        }
+    }
+}
+
 /// Build `FluenceConfig` by merging arguments and a config file.
 /// Arguments have higher priority than config file.
 #[allow(clippy::implicit_hasher)]

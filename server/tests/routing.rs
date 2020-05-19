@@ -35,8 +35,8 @@ use faas_api::{service, FunctionCall};
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use serde_json::Value;
 use trust_graph::{current_time, Certificate};
-use uuid::Uuid;
 
+use parity_multiaddr::Multiaddr;
 use std::str::FromStr;
 use std::thread::sleep;
 
@@ -45,7 +45,7 @@ use std::thread::sleep;
 fn send_call() {
     let (sender, mut receiver) = ConnectedClient::make_clients().expect("connect clients");
 
-    let uuid = Uuid::new_v4().to_string();
+    let uuid = uuid();
     let call = FunctionCall {
         uuid: uuid.clone(),
         target: Some(receiver.relay_address()),
@@ -109,7 +109,7 @@ fn call_service_reply() {
     provider.send(provide);
 
     let call_service = service_call(service_id, consumer.relay_address());
-    consumer.send(call_service.clone());
+    consumer.send(call_service);
 
     let to_provider = provider.receive();
     assert_eq!(to_provider.reply_to, Some(consumer.relay_address()));
@@ -194,7 +194,7 @@ fn reconnect_provide() {
     sleep(KAD_TIMEOUT);
     let consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
 
-    for _i in 1..10 {
+    for _i in 1..20 {
         for swarm in swarms.iter() {
             let provider = ConnectedClient::connect_to(swarm.1.clone()).expect("connect provider");
             let provide_call = provide_call(service_id, provider.relay_address());
@@ -279,11 +279,47 @@ fn add_certs() {
     let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let peer_id = PeerId::from(Ed25519(last_key));
     let call = add_certificates_call(peer_id, registrar.relay_address(), vec![cert]);
+    println!("call: {}", serde_json::to_string_pretty(&call).unwrap());
     registrar.send(call.clone());
 
     // If count is small, all nodes should fit in neighborhood, and all of them should reply
     for _ in 0..swarm_count {
         let reply = registrar.receive();
         assert_eq!(reply.arguments["msg_id"], call.arguments["msg_id"]);
+    }
+}
+
+#[test]
+fn identify() {
+    use faas_api::Protocol::Peer;
+    use serde_json::json;
+
+    let swarms = make_swarms(5);
+    sleep(KAD_TIMEOUT);
+
+    let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+
+    let mut identify_call = service_call("identify", consumer.relay_address());
+    let msg_id = uuid();
+    identify_call.arguments = json!({ "msg_id": msg_id });
+    consumer.send(identify_call.clone());
+
+    fn check_reply(consumer: &mut ConnectedClient, swarm_addr: &Multiaddr, msg_id: &str) {
+        let reply = consumer.receive();
+        #[rustfmt::skip]
+        let reply_msg_id = reply.arguments.get("msg_id").expect("not empty").as_str().expect("str");
+        assert_eq!(reply_msg_id, msg_id);
+        let addrs = reply.arguments["addresses"].as_array().expect("not empty");
+        assert!(!addrs.is_empty());
+        let addr: Multiaddr = addrs.first().unwrap().as_str().unwrap().parse().unwrap();
+        assert_eq!(&addr, swarm_addr);
+    }
+
+    check_reply(&mut consumer, &swarms[1].1, &msg_id);
+
+    for swarm in swarms {
+        identify_call.target = Some(Peer(swarm.0.clone()) / service!("identify"));
+        consumer.send(identify_call.clone());
+        check_reply(&mut consumer, &swarm.1, &msg_id);
     }
 }

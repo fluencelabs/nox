@@ -172,10 +172,7 @@ impl Default for MemoryStoreConfig {
             max_value_bytes: 65 * 1024,
             max_provided_keys: 1024,
             max_providers_per_key: K_VALUE.get(),
-            // TODO BUG:
-            //  For unknown reason we need to keep record size below 4kb, "10" seems to be a good value for that
-            //  This is because when sending records over 4kb over network, connection closes.
-            max_values_per_multi_record: 10,
+            max_values_per_multi_record: 100,
         }
     }
 }
@@ -219,7 +216,7 @@ impl<'a> RecordStore<'a> for MemoryStore {
         // TODO: Performance? Was Cow::Borrowed, now Cow::Owned, and lot's of .clone()'s :(
         self.records
             .get(k)
-            .map(|set| reduce_multirecord(set.clone()))
+            .map(|mrec| reduce_multirecord(mrec.clone()))
             .map(Cow::Owned)
     }
 
@@ -244,7 +241,6 @@ impl<'a> RecordStore<'a> for MemoryStore {
                     // Replace if mrec is of simple kind
                     e.insert(mrec);
                 } else {
-                    // Merge if mrec is of multi kind
                     e.get_mut()
                         .merge(mrec, self.config.max_values_per_multi_record)
                 }

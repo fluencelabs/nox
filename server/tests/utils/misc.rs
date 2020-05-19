@@ -109,18 +109,19 @@ pub(crate) fn get_cert() -> Certificate {
     Certificate::from_str(
         r#"11
 1111
-GA9VsZa2Cw2RSZWfxWLDXTLnzVssAYPdrkwT1gHaTJEg
-QPdFbzpN94d5tzwV4ATJXXzb31zC7JZ9RbZQ1pbgN3TTDnxuVckCmvbzvPaXYj8Mz7yrL66ATbGGyKqNuDyhXTj
+EqpwyPYjbRbGPcp7Q1UtSnkeCDG9x3JrY96strN4uaXv
+4Td1uTWzqWp1PyUzoUZyvWNjgPWQKpMFDYeqzoAJSXHQtkVispifSrnnqBFM8yFPkgmSHwQ4kTuACBifjoRryvFK
 18446744073709551615
-1589250571718
-D7p1FrGz35dd3jR7PiCT12pAZzxV5PFBcX7GdS9Y8JNb
-61QT8JYsAWXjnmUcjJcuNnBHWfrn9pijJ4mX64sDX4N7Knet5jr2FzELrJZAAV1JDZQnATYpGf7DVhnitcUTqpPr
-1620808171718
-1589250571718
-4cEQ2DYGdAbvgrAP96rmxMQvxk9MwtqCAWtzRrwJTmLy
-xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev1w62vDZ
-1620808171719
-1589250571719"#,
+1589892496362
+DYVjCCtVPnJNEDfRDzYn6a2GKJ6Qn4FNVwDhEAQBvdQS
+3Tt8UxBr2pixgMMbRM4gnJDkX3zH3NnS5q4A5fCj3taMLpS2QathgUqkW4KHysQLeRoGxy3JNVtYEWLsL6kySrqv
+1621450096362
+1589892496362
+HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
+38FUPbDMrrb1FaRoRTsupjqysaH3vvpJJgp9NxLFBjBYoU353bb6LkDZLDsNwvnpVysrs6TdHeZAAe3iXrJuGLkn
+101589892496363
+1589892496363
+"#,
     )
     .expect("deserialize cert")
 }
@@ -173,14 +174,14 @@ where
         .iter()
         .map(|addr| {
             #[rustfmt::skip]
-                let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
+            let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
             let (id, swarm) = create_swarm(addrs, addr.clone());
             (CreatedSwarm(id, addr.clone()), swarm)
         })
         .collect::<Vec<_>>();
 
     #[rustfmt::skip]
-        swarms.iter_mut().for_each(|(_, s)| s.dial_bootstrap_nodes());
+    swarms.iter_mut().for_each(|(_, s)| s.dial_bootstrap_nodes());
 
     let (infos, mut swarms): (Vec<CreatedSwarm>, Vec<_>) = swarms.into_iter().unzip();
 
@@ -250,7 +251,13 @@ pub(crate) fn create_swarm(
                 trust_graph.add(cert, trust.cur_time).expect("add cert");
             }
         }
-        let server = ServerBehaviour::new(kp.clone(), peer_id.clone(), trust_graph, bootstraps);
+        let server = ServerBehaviour::new(
+            kp.clone(),
+            peer_id.clone(),
+            vec![listen_on.clone()],
+            trust_graph,
+            bootstraps,
+        );
         let transport = build_memory_transport(Ed25519(kp));
 
         Swarm::new(transport, server, peer_id.clone())
