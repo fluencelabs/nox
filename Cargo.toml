@@ -17,5 +17,5 @@ libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "libp2p_
 libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "libp2p_0.19.0" }
 parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "libp2p_0.19.0" }
 
-[patch.'ssh://git@github.com/fluencelabs/fluence.git']
+[patch.'https://github.com/fluencelabs/fluence']
 trust-graph = { path = "trust-graph" }
