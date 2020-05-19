@@ -106,8 +106,8 @@ impl Trust {
         let mut msg = [0; 48];
 
         msg[..32].clone_from_slice(&pk_encoded[..32]);
-        msg[33..40].clone_from_slice(&expires_at_encoded[0..7]);
-        msg[41..48].clone_from_slice(&issued_at_encoded[0..7]);
+        msg[32..40].clone_from_slice(&expires_at_encoded[0..8]);
+        msg[40..48].clone_from_slice(&issued_at_encoded[0..8]);
 
         msg
     }
