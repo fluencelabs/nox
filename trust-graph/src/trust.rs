@@ -24,6 +24,7 @@ pub const SIGNATURE_LEN: usize = 64;
 pub const PUBLIC_KEY_LEN: usize = 32;
 pub const EXPIRATION_LEN: usize = 8;
 pub const ISSUED_LEN: usize = 8;
+pub const SIGNATURE_MSG_LEN: usize = PUBLIC_KEY_LEN + EXPIRATION_LEN + ISSUED_LEN;
 pub const TRUST_LEN: usize = SIGNATURE_LEN + PUBLIC_KEY_LEN + EXPIRATION_LEN + ISSUED_LEN;
 
 /// One element in chain of trust in a certificate.
@@ -105,9 +106,9 @@ impl Trust {
         let issued_at_encoded: [u8; 8] = (issued_at.as_millis() as u64).to_le_bytes();
         let mut msg = [0; 48];
 
-        msg[..32].clone_from_slice(&pk_encoded[..32]);
-        msg[32..40].clone_from_slice(&expires_at_encoded[0..8]);
-        msg[40..48].clone_from_slice(&issued_at_encoded[0..8]);
+        msg[..PUBLIC_KEY_LEN].clone_from_slice(&pk_encoded[..PUBLIC_KEY_LEN]);
+        msg[PUBLIC_KEY_LEN..PUBLIC_KEY_LEN + EXPIRATION_LEN].clone_from_slice(&expires_at_encoded[0..EXPIRATION_LEN]);
+        msg[PUBLIC_KEY_LEN + SIGNATURE_MSG_LEN].clone_from_slice(&issued_at_encoded[0..ISSUED_LEN]);
 
         msg
     }
