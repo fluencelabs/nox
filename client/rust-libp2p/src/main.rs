@@ -188,7 +188,7 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
         },
     };
 
-    println!("possible messages:");
+    println!("Possible messages:");
     println!("\n### call IPFS.multiaddr");
     show(call_multiaddr);
     println!("\n### Register IPFS.get service");

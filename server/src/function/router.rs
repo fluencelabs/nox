@@ -142,7 +142,7 @@ impl FunctionRouter {
                     // If targeted to local, terminate locally, don't forward to network
                     let ttl = if is_local { 0 } else { 1 };
                     // target will be like: /client/QmClient/service/QmService
-                    self.pass_to_local_service(s.into(), call.with_target(target.collect()), ttl);
+                    self.pass_to_local_service(s.clone(), call.with_target(target.collect()), ttl);
                     return;
                 }
                 s @ Service(_) => {
