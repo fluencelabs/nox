@@ -24,7 +24,7 @@ pub const SIGNATURE_LEN: usize = 64;
 pub const PUBLIC_KEY_LEN: usize = 32;
 pub const EXPIRATION_LEN: usize = 8;
 pub const ISSUED_LEN: usize = 8;
-pub const SIGNATURE_MSG_LEN: usize = PUBLIC_KEY_LEN + EXPIRATION_LEN + ISSUED_LEN;
+pub const MSG_LEN: usize = PUBLIC_KEY_LEN + EXPIRATION_LEN + ISSUED_LEN;
 pub const TRUST_LEN: usize = SIGNATURE_LEN + PUBLIC_KEY_LEN + EXPIRATION_LEN + ISSUED_LEN;
 
 /// One element in chain of trust in a certificate.
@@ -102,13 +102,13 @@ impl Trust {
 
     fn signature_bytes(pk: &PublicKey, expires_at: Duration, issued_at: Duration) -> [u8; 48] {
         let pk_encoded = pk.encode();
-        let expires_at_encoded: [u8; 8] = (expires_at.as_millis() as u64).to_le_bytes();
-        let issued_at_encoded: [u8; 8] = (issued_at.as_millis() as u64).to_le_bytes();
-        let mut msg = [0; 48];
+        let expires_at_encoded: [u8; EXPIRATION_LEN] = (expires_at.as_millis() as u64).to_le_bytes();
+        let issued_at_encoded: [u8; ISSUED_LEN] = (issued_at.as_millis() as u64).to_le_bytes();
+        let mut msg = [0; MSG_LEN];
 
         msg[..PUBLIC_KEY_LEN].clone_from_slice(&pk_encoded[..PUBLIC_KEY_LEN]);
         msg[PUBLIC_KEY_LEN..PUBLIC_KEY_LEN + EXPIRATION_LEN].clone_from_slice(&expires_at_encoded[0..EXPIRATION_LEN]);
-        msg[PUBLIC_KEY_LEN + SIGNATURE_MSG_LEN].clone_from_slice(&issued_at_encoded[0..ISSUED_LEN]);
+        msg[PUBLIC_KEY_LEN + MSG_LEN].clone_from_slice(&issued_at_encoded[0..ISSUED_LEN]);
 
         msg
     }
