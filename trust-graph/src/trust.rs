@@ -104,13 +104,13 @@ impl Trust {
         let pk_encoded = pk.encode();
         let expires_at_encoded: [u8; EXPIRATION_LEN] = (expires_at.as_millis() as u64).to_le_bytes();
         let issued_at_encoded: [u8; ISSUED_LEN] = (issued_at.as_millis() as u64).to_le_bytes();
-        let mut msg = [0; METADATA_LEN];
+        let mut metadata = [0; METADATA_LEN];
 
-        msg[..PK_LEN].clone_from_slice(&pk_encoded[..PK_LEN]);
-        msg[PK_LEN..PK_LEN + EXPIRATION_LEN].clone_from_slice(&expires_at_encoded[0..EXPIRATION_LEN]);
-        msg[PK_LEN + METADATA_LEN..METADATA_LEN].clone_from_slice(&issued_at_encoded[0..ISSUED_LEN]);
+        metadata[..PK_LEN].clone_from_slice(&pk_encoded[..PK_LEN]);
+        metadata[PK_LEN..PK_LEN + EXPIRATION_LEN].clone_from_slice(&expires_at_encoded[0..EXPIRATION_LEN]);
+        metadata[PK_LEN + METADATA_LEN..METADATA_LEN].clone_from_slice(&issued_at_encoded[0..ISSUED_LEN]);
 
-        msg
+        metadata
     }
 
     /// Encode the trust into a byte array
