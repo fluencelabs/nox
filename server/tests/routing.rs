@@ -31,7 +31,7 @@ mod utils;
 
 use crate::utils::*;
 
-use faas_api::{service, FunctionCall};
+use faas_api::{service, FunctionCall, Protocol};
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use serde_json::Value;
 use trust_graph::{current_time, Certificate};
@@ -67,6 +67,38 @@ fn send_call() {
         bad.as_ref().unwrap().uuid,
         received.uuid
     );
+}
+
+#[test]
+fn invalid_relay_signature() {
+    let (mut sender, receiver) = ConnectedClient::make_clients().expect("connect clients");
+    let target = receiver.relay_address();
+    let target = target
+        .protocols()
+        .into_iter()
+        .map(|p| {
+            if let Protocol::Signature(_) = p {
+                Protocol::Signature(receiver.sign("/incorrect/path".as_bytes()))
+            } else {
+                p
+            }
+        })
+        .collect();
+
+    let uuid = uuid();
+    let call = FunctionCall {
+        uuid: uuid.clone(),
+        target: Some(target),
+        reply_to: Some(sender.relay_address()),
+        name: None,
+        arguments: Value::Null,
+    };
+
+    sender.send(call);
+    let reply = sender.receive();
+    assert!(reply.uuid.starts_with("error_"));
+    let err_msg = reply.arguments["reason"].as_str().expect("reason");
+    assert!(err_msg.contains("invalid signature"));
 }
 
 #[test]
