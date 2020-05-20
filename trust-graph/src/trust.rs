@@ -95,6 +95,13 @@ impl Trust {
 
         let msg = Self::metadata_bytes(&trust.issued_for, trust.expires_at, trust.issued_at);
 
+        println!("{:?}", &msg[0..48]);
+
+        println!("issued by: {:?}", &issued_by.encode()[0..32]);
+
+        //[192, 165, 112, 153, 80, 186, 54, 236, 179, 5, 218, 229, 81, 39, 205, 164, 128, 169, 58, 137, 33, 45, 147, 70, 12, 223, 207, 200, 5, 101, 76, 124, 68, 254, 82, 176, 151, 144, 0, 0, 147, 2, 139, 49, 114, 1, 0, 0]
+        //"192, 165, 112, 153, 80, 186, 54, 236, 179, 5, 218, 229, 81, 39, 205, 164, 128, 169, 58, 137, 33, 45, 147, 70, 12, 223, 207, 200, 5, 101, 76, 124, 68, 254, 82, 176, 151, 144, 0, 0, 147, 2, 139, 49, 114, 1, 0, 0
+
         KeyPair::verify(issued_by, &msg, trust.signature.as_slice())?;
 
         Ok(())
@@ -106,6 +113,8 @@ impl Trust {
             (expires_at.as_millis() as u64).to_le_bytes();
         let issued_at_encoded: [u8; ISSUED_LEN] = (issued_at.as_millis() as u64).to_le_bytes();
         let mut metadata = [0; METADATA_LEN];
+
+        println!("pk encoded: {:?}", &pk_encoded[..32]);
 
         metadata[..PK_LEN].clone_from_slice(&pk_encoded[..PK_LEN]);
         metadata[PK_LEN..PK_LEN + EXPIRATION_LEN]
@@ -181,6 +190,7 @@ impl Trust {
         expires_at: &str,
         issued_at: &str,
     ) -> Result<Self, String> {
+        println!("base58: {:?}", issued_for);
         // PublicKey
         let issued_for_bytes = Self::bs58_str_to_vec(issued_for, "issued_for")?;
         let issued_for = PublicKey::decode(issued_for_bytes.as_slice()).map_err(|e| {
@@ -189,6 +199,11 @@ impl Trust {
                 issued_for, e
             )
         })?;
+
+
+
+        println!("before: {:?}", issued_for_bytes.as_slice());
+        println!("after: {:?}", issued_for.encode());
 
         // 64 bytes signature
         let signature = Self::bs58_str_to_vec(signature, "signature")?;
