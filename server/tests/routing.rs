@@ -304,7 +304,6 @@ fn get_certs() {
     }
 }
 
-// TODO: test on add_certs error
 // TODO: test on get_certs error
 
 #[test]
@@ -335,6 +334,43 @@ fn add_certs() {
         let reply = registrar.receive();
         assert_eq!(reply.arguments["msg_id"], call.arguments["msg_id"]);
     }
+}
+
+#[test]
+fn add_certs_invalid_signature() {
+    let mut cert = get_cert();
+    let first_key = cert.chain.first().unwrap().issued_for.clone();
+    let last_key = cert.chain.last().unwrap().issued_for.clone();
+
+    let trust = Trust {
+        root_weights: vec![(first_key, 1)],
+        certificates: vec![],
+        cur_time: current_time(),
+    };
+
+    let swarm_count = 5;
+    let swarms = make_swarms_with(swarm_count, |bs, maddr| {
+        create_swarm(bs, maddr, Some(trust.clone()))
+    });
+    sleep(KAD_TIMEOUT);
+
+    // invalidate signature in last trust in `cert`
+    let signature = &mut cert.chain.last_mut().unwrap().signature;
+    signature
+        .iter_mut()
+        .map(|b| *b = b.saturating_add(1))
+        .for_each(drop);
+
+    let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let peer_id = PeerId::from(Ed25519(last_key));
+    let call = add_certificates_call(peer_id, registrar.relay_address(), vec![cert]);
+    registrar.send(call.clone());
+
+    // check it's an error
+    let reply = registrar.receive();
+    assert!(reply.uuid.starts_with("error_"));
+    let err_msg = reply.arguments["reason"].as_str().expect("reason");
+    assert!(err_msg.contains("Signature is not valid"));
 }
 
 #[test]
