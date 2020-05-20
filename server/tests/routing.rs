@@ -238,8 +238,6 @@ fn provide_error() {
     assert!(error.uuid.starts_with("error_"));
 }
 
-// TODO: test on missing signature
-
 #[test]
 fn reconnect_provide() {
     let service_id = "popularservice";
