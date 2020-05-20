@@ -236,8 +236,12 @@ impl FunctionRouter {
                     log::warn!("Replaced name {:?} with {:?}, call: {}", replaced, provider, &call.uuid);
                 }
 
+                if let Err(err) = self.publish_name(&name, &provider) {
+                    log::warn!("Service register error {:?} store error: {:?}", call, err);
+                    self.send_error_on_call(call, format!("store error: {:?}", err));
+                    return;
+                }
                 log::info!("Published a service {}: {:?}", name, call);
-                self.publish_name(name, provider);
             }
             Some([Peer(p), ..]) if !self.is_local(p) => {
                 // To avoid routing cycle (see discussion https://fluencelabs.slack.com/archives/C8FDH536W/p1588333361404100?thread_ts=1588331102.398600&cid=C8FDH536W)

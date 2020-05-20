@@ -10,9 +10,9 @@ fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
 faas-api = { path = "../faas-api" }
 fluence-ipfs = { path = "../client/fluence-ipfs" }
-libp2p = "0.18.1"
-parity-multiaddr = "0.8.0"
-multihash ="0.10.0"
+libp2p = "0.19.0"
+parity-multiaddr = "0.9.0"
+multihash ="0.11.0"
 futures = "0.3.4"
 futures-util = "0.3.4"
 async-std = "1.5.0"

@@ -159,13 +159,14 @@ impl FunctionRouter {
                             let target = Address::cons(client, target);
                             self.send_to(id, Routable, call.with_target(target));
                         }
-                        other => {
+                        Some(other) => {
                             let path = target.join("");
                             self.send_error_on_call(
                                 call,
                                 format!("expected /signature, got '{:?}' from {}", other, path),
                             );
                         }
+                        None => self.send_error_on_call(call, "missing relay signature".into()),
                     };
                     return;
                 }
@@ -285,6 +286,9 @@ impl FunctionRouter {
 
     /// Run kademlia bootstrap, to advertise ourselves in Kademlia
     pub fn bootstrap(&mut self) {
-        self.kademlia.bootstrap()
+        match self.kademlia.bootstrap() {
+            Err(err) => log::warn!("bootstrap failed: {:?}", err),
+            _ => {}
+        }
     }
 }

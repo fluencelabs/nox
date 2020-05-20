@@ -44,7 +44,7 @@ impl FunctionRouter {
     fn query_closest(&mut self, peer_id: PeerId, call: WaitPeer) {
         self.wait_peer.enqueue(peer_id.clone(), call);
         // TODO: don't call get_closest_peers if there are already some calls waiting for it
-        self.kademlia.get_closest_peers(peer_id)
+        self.kademlia.get_closest_peers(peer_id);
     }
 
     /// Send all calls waiting for this peer to be found
@@ -173,8 +173,8 @@ impl FunctionRouter {
         }
     }
 
-    pub(super) fn search_for_client(&mut self, client: PeerId, _call: FunctionCall) {
-        self.resolve_name(Protocol::Client(client).into())
+    pub(super) fn search_for_client(&mut self, client: PeerId, call: FunctionCall) {
+        self.find_service_provider(Protocol::Client(client).into(), call)
     }
 
     pub(super) fn peer_status(&mut self, peer: &PeerId) -> PeerStatus {

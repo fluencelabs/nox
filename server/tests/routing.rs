@@ -31,7 +31,7 @@ mod utils;
 
 use crate::utils::*;
 
-use faas_api::{service, FunctionCall};
+use faas_api::{service, FunctionCall, Protocol};
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use serde_json::Value;
 use trust_graph::{current_time, Certificate};
@@ -67,6 +67,60 @@ fn send_call() {
         bad.as_ref().unwrap().uuid,
         received.uuid
     );
+}
+
+#[test]
+fn invalid_relay_signature() {
+    let (mut sender, receiver) = ConnectedClient::make_clients().expect("connect clients");
+    let target = receiver.relay_address();
+    let target = target
+        .protocols()
+        .into_iter()
+        .map(|p| {
+            if let Protocol::Signature(_) = p {
+                Protocol::Signature(receiver.sign("/incorrect/path".as_bytes()))
+            } else {
+                p
+            }
+        })
+        .collect();
+
+    let uuid = uuid();
+    let call = FunctionCall {
+        uuid: uuid.clone(),
+        target: Some(target),
+        reply_to: Some(sender.relay_address()),
+        name: None,
+        arguments: Value::Null,
+    };
+
+    sender.send(call);
+    let reply = sender.receive();
+    assert!(reply.uuid.starts_with("error_"));
+    let err_msg = reply.arguments["reason"].as_str().expect("reason");
+    assert!(err_msg.contains("invalid signature"));
+}
+
+#[test]
+fn missing_relay_signature() {
+    enable_logs();
+    let (mut sender, receiver) = ConnectedClient::make_clients().expect("connect clients");
+    let target = Protocol::Peer(receiver.node.clone()) / receiver.client_address();
+
+    let uuid = uuid();
+    let call = FunctionCall {
+        uuid: uuid.clone(),
+        target: Some(target),
+        reply_to: Some(sender.relay_address()),
+        name: None,
+        arguments: Value::Null,
+    };
+
+    sender.send(call);
+    let reply = sender.receive();
+    assert!(reply.uuid.starts_with("error_"));
+    let err_msg = reply.arguments["reason"].as_str().expect("reason");
+    assert!(err_msg.contains("missing relay signature"));
 }
 
 #[test]
@@ -184,9 +238,6 @@ fn provide_error() {
     assert!(error.uuid.starts_with("error_"));
 }
 
-// TODO: test on invalid signature
-// TODO: test on missing signature
-
 #[test]
 fn reconnect_provide() {
     let service_id = "popularservice";
@@ -253,13 +304,10 @@ fn get_certs() {
     }
 }
 
-// TODO: test on add_certs error
 // TODO: test on get_certs error
 
 #[test]
 fn add_certs() {
-    enable_logs();
-
     let cert = get_cert();
     let first_key = cert.chain.first().unwrap().issued_for.clone();
     let last_key = cert.chain.last().unwrap().issued_for.clone();
@@ -279,7 +327,6 @@ fn add_certs() {
     let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let peer_id = PeerId::from(Ed25519(last_key));
     let call = add_certificates_call(peer_id, registrar.relay_address(), vec![cert]);
-    println!("call: {}", serde_json::to_string_pretty(&call).unwrap());
     registrar.send(call.clone());
 
     // If count is small, all nodes should fit in neighborhood, and all of them should reply
@@ -287,6 +334,40 @@ fn add_certs() {
         let reply = registrar.receive();
         assert_eq!(reply.arguments["msg_id"], call.arguments["msg_id"]);
     }
+}
+
+#[test]
+fn add_certs_invalid_signature() {
+    let mut cert = get_cert();
+    let first_key = cert.chain.first().unwrap().issued_for.clone();
+    let last_key = cert.chain.last().unwrap().issued_for.clone();
+
+    let trust = Trust {
+        root_weights: vec![(first_key, 1)],
+        certificates: vec![],
+        cur_time: current_time(),
+    };
+
+    let swarm_count = 5;
+    let swarms = make_swarms_with(swarm_count, |bs, maddr| {
+        create_swarm(bs, maddr, Some(trust.clone()))
+    });
+    sleep(KAD_TIMEOUT);
+
+    // invalidate signature in last trust in `cert`
+    let signature = &mut cert.chain.last_mut().unwrap().signature;
+    signature.iter_mut().for_each(|b| *b = b.saturating_add(1));
+
+    let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let peer_id = PeerId::from(Ed25519(last_key));
+    let call = add_certificates_call(peer_id, registrar.relay_address(), vec![cert]);
+    registrar.send(call.clone());
+
+    // check it's an error
+    let reply = registrar.receive();
+    assert!(reply.uuid.starts_with("error_"));
+    let err_msg = reply.arguments["reason"].as_str().expect("reason");
+    assert!(err_msg.contains("Signature is not valid"));
 }
 
 #[test]
