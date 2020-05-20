@@ -120,7 +120,7 @@ impl ConnectedClient {
         let sig = self.sign(addr.path().as_bytes());
         addr.append(Protocol::Signature(sig))
     }
-    
+
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
         self.client.key_pair.sign(bytes)
     }

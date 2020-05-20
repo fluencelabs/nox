@@ -359,7 +359,7 @@ fn add_certs_invalid_signature() {
     signature
         .iter_mut()
         .map(|b| *b = b.saturating_add(1))
-        .for_each(drop);
+        .count();
 
     let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let peer_id = PeerId::from(Ed25519(last_key));
