@@ -159,13 +159,14 @@ impl FunctionRouter {
                             let target = Address::cons(client, target);
                             self.send_to(id, Routable, call.with_target(target));
                         }
-                        other => {
+                        Some(other) => {
                             let path = target.join("");
                             self.send_error_on_call(
                                 call,
                                 format!("expected /signature, got '{:?}' from {}", other, path),
                             );
                         }
+                        None => self.send_error_on_call(call, "missing relay signature".into()),
                     };
                     return;
                 }

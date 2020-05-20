@@ -102,6 +102,28 @@ fn invalid_relay_signature() {
 }
 
 #[test]
+fn missing_relay_signature() {
+    enable_logs();
+    let (mut sender, receiver) = ConnectedClient::make_clients().expect("connect clients");
+    let target = Protocol::Peer(receiver.node.clone()) / receiver.client_address();
+
+    let uuid = uuid();
+    let call = FunctionCall {
+        uuid: uuid.clone(),
+        target: Some(target),
+        reply_to: Some(sender.relay_address()),
+        name: None,
+        arguments: Value::Null,
+    };
+
+    sender.send(call);
+    let reply = sender.receive();
+    assert!(reply.uuid.starts_with("error_"));
+    let err_msg = reply.arguments["reason"].as_str().expect("reason");
+    assert!(err_msg.contains("missing relay signature"));
+}
+
+#[test]
 // Provide service, and check that call reach it
 fn call_service() {
     let service_id = "someserviceilike";
@@ -216,7 +238,6 @@ fn provide_error() {
     assert!(error.uuid.starts_with("error_"));
 }
 
-// TODO: test on invalid signature
 // TODO: test on missing signature
 
 #[test]
