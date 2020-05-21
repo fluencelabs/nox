@@ -26,25 +26,21 @@ import {FluenceClient} from "./fluence_client";
 import * as PeerId from "peer-id";
 import {keys} from "libp2p-crypto"
 import {encode, decode} from "bs58"
-import crypto from 'libp2p-crypto';
 import {genUUID} from "./function_call";
-import * as nacl from "tweetnacl";
-import {sha512} from "js-sha512";
-const ed25519 = crypto.keys.supportedKeys.ed25519;
 
 
 const FORMAT = "11";
 const VERSION = "1111";
 
 interface Trust {
-    issuedFor: string,
+    issuedFor: PeerId,
     expiresAt: number,
     signature: string,
     issuedAt: number
 }
 
 function trustToString(trust: Trust): string {
-    return `${trust.issuedFor}\n${trust.signature}\n${trust.expiresAt}\n${trust.issuedAt}`
+    return `${encode(trust.issuedFor.pubKey.marshal())}\n${trust.signature}\n${trust.expiresAt}\n${trust.issuedAt}`
 }
 
 function certificateToString(cert: Certificate): string {
@@ -52,6 +48,18 @@ function certificateToString(cert: Certificate): string {
     return `${FORMAT}\n${VERSION}\n${certStr}`
 }
 
+async function trustFromString(str: string): Promise<Trust> {
+    let lines = str.split("\n");
+    let pubKey = keys.unmarshalPublicKey(decode(lines[0]));
+    let peerId = await PeerId.createFromPubKey(pubKey.marshal());
+
+    return {
+        issuedFor: peerId,
+        signature: lines[1],
+        expiresAt: parseInt(lines[2]),
+        issuedAt: parseInt(lines[3])
+    }
+}
 
 interface Certificate {
     chain: Trust[]
@@ -68,14 +76,8 @@ async function issueRoot(issuedBy: PeerId,
 
     let maxDate = new Date(158981172690500).getTime();
 
-    /*
-    let root_trust = Trust::create(root_kp, root_kp.public_key(), root_expiration, issued_at);
-
-        let trust = Trust::create(root_kp, for_pk, expires_at, issued_at);
-     */
-
     let rootTrust = await createTrust(issuedBy, issuedBy, maxDate, issuedAt);
-    let trust = await createTrust(forPk, issuedBy , expiresAt, issuedAt);
+    let trust = await createTrust(forPk, issuedBy, expiresAt, issuedAt);
 
     let chain = [rootTrust, trust];
 
@@ -89,15 +91,10 @@ async function createTrust(forPk: PeerId, issuedBy: PeerId, expiresAt: number, i
 
     let signature = await issuedBy.privKey.sign(Buffer.from(bytes));
 
-    console.log("check: " + await issuedBy.pubKey.verify(Buffer.from(bytes), Buffer.from(signature)));
-
-
-    let forPkStr = encode(forPk.pubKey.marshal());
-
     let signatureStr = encode(signature);
 
     return {
-        issuedFor: forPkStr,
+        issuedFor: forPk,
         expiresAt: expiresAt,
         signature: signatureStr,
         issuedAt: issuedAt
@@ -117,7 +114,7 @@ async function issue(issuedBy: PeerId,
     let lastTrust = extendCert.chain[extendCert.chain.length - 1];
 
 
-    if (lastTrust.issuedFor !== encode(issuedBy.pubKey.bytes)) {
+    if (lastTrust.issuedFor !== issuedBy) {
         throw Error("Last trust in chain should be same as 'issuedBy'.")
     }
 
@@ -134,15 +131,10 @@ async function issue(issuedBy: PeerId,
 function toSignMessage(pk: PeerId, expiresAt: number, issuedAt: number): Uint8Array {
     let bytes = new Uint8Array(48);
     let pkEncoded = pk.pubKey.marshal();
-    console.log("pkEncoded = " + JSON.stringify(pkEncoded));
+
     bytes.set(pkEncoded, 0);
     bytes.set(numToArray(expiresAt), 32);
     bytes.set(numToArray(issuedAt), 40);
-
-    console.log("pk = " + pk.toB58String());
-
-    console.log("expiresAt = " + JSON.stringify(numToArray(expiresAt)));
-    console.log("issuedAt = " + JSON.stringify(numToArray(issuedAt)));
 
     return bytes
 }
@@ -171,8 +163,8 @@ export class CertGiver {
     async addRootCert() {
 
         let seed = [46, 188, 245, 171, 145, 73, 40, 24, 52, 233, 215, 163, 54, 26, 31, 221, 159, 179, 126, 106, 27, 199, 189, 194, 80, 133, 235, 42, 42, 247, 80, 201];
-        let hash_seed = sha512.arrayBuffer(seed);
-        let hash_seed_sliced = new Uint8Array(hash_seed.slice(0, 32));
+
+        // keys.unmarshalPublicKey()
 
         let privateK = await keys.generateKeyPairFromSeed("Ed25519", Uint8Array.from(seed), 256);
         let peerId = await PeerId.createFromPrivKey(privateK.bytes);
@@ -181,7 +173,7 @@ export class CertGiver {
 
         let issuedAt = new Date();
         let expiresAt = new Date();
-        expiresAt.setDate(new Date().getDate()+1);
+        expiresAt.setDate(new Date().getDate() + 1);
 
         let cert = await issueRoot(peerId, clientKey, expiresAt.getTime(), issuedAt.getTime());
 
@@ -189,8 +181,20 @@ export class CertGiver {
 
         console.log(certStr)
 
-        await this.client.sendServiceCall("add_certificates", { certificates: [certStr], msg_id: genUUID(), peer_id: clientKey.toB58String() });
+        await this.client.sendServiceCall("add_certificates", {
+            certificates: [certStr],
+            msg_id: genUUID(),
+            peer_id: clientKey.toB58String()
+        });
     }
+
+    /*async getCert(peerId: string): Certificate {
+        let msgId = genUUID();
+        let resp = await this.client.sendServiceCallWaitResponse("certificates", {
+            msg_id: msgId,
+            peer_id: peerId
+        }, (args) => args.msg_id && args.msg_id === msgId)
+    }*/
 
 
 }

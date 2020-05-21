@@ -51,7 +51,7 @@ export class FluenceClient {
      * @param predicate will be applied to each incoming call until it matches
      */
     waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve, _) => {
             // subscribe for responses, to handle response
             // TODO if there's no conn, reject
             this.subscribe((args: any, target: Address, replyTo: Address) => {
@@ -162,7 +162,10 @@ export class FluenceClient {
                         }
                     } catch (e) {
                         // if service throw an error, return it to the sender
-                        return FluenceClient.responseCall(call.reply_to, {reason: `error on execution: ${e}`, msg: call});
+                        return FluenceClient.responseCall(call.reply_to, {
+                            reason: `error on execution: ${e}`,
+                            msg: call
+                        });
                     }
 
                     return undefined;
@@ -171,7 +174,10 @@ export class FluenceClient {
                         console.log(`relay call: ${call}`);
                     } else {
                         console.warn(`this relay call is not for me: ${callToString(call)}`);
-                        return FluenceClient.responseCall(call.reply_to, {reason: `this relay call is not for me`, msg: call});
+                        return FluenceClient.responseCall(call.reply_to, {
+                            reason: `this relay call is not for me`,
+                            msg: call
+                        });
                     }
                     return undefined;
                 case ProtocolType.Peer:
@@ -179,7 +185,10 @@ export class FluenceClient {
                         console.log(`peer call: ${call}`);
                     } else {
                         console.warn(`this peer call is not for me: ${callToString(call)}`);
-                        return FluenceClient.responseCall(call.reply_to, {reason: `this relay call is not for me`, msg: call});
+                        return FluenceClient.responseCall(call.reply_to, {
+                            reason: `this relay call is not for me`,
+                            msg: call
+                        });
                     }
                     return undefined;
             }
@@ -201,7 +210,6 @@ export class FluenceClient {
     subscribe(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)) {
         this.subscriptions.subscribe(predicate)
     }
-
 
 
     /**

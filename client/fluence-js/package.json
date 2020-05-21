@@ -26,9 +26,7 @@
     "libp2p-secio": "0.12.5",
     "libp2p-websockets": "0.13.6",
     "peer-id": "0.13.11",
-    "peer-info": "0.17.5",
-    "tweetnacl": "1.0.3",
-    "js-sha512": "0.8.0"
+    "peer-info": "0.17.5"
   },
   "devDependencies": {
     "@types/base64-js": "1.2.5",
