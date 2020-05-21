@@ -25,8 +25,10 @@
 import {FluenceClient} from "./fluence_client";
 import * as PeerId from "peer-id";
 import {keys} from "libp2p-crypto"
-import {encode, decode} from "bs58"
+import {decode, encode} from "bs58"
 import {genUUID} from "./function_call";
+import crypto from 'libp2p-crypto';
+const ed25519 = crypto.keys.supportedKeys.ed25519;
 
 
 const FORMAT = "11";
@@ -43,29 +45,56 @@ function trustToString(trust: Trust): string {
     return `${encode(trust.issuedFor.pubKey.marshal())}\n${trust.signature}\n${trust.expiresAt}\n${trust.issuedAt}`
 }
 
-function certificateToString(cert: Certificate): string {
+export function certificateToString(cert: Certificate): string {
     let certStr = cert.chain.map(t => trustToString(t)).join("\n");
     return `${FORMAT}\n${VERSION}\n${certStr}`
 }
 
-async function trustFromString(str: string): Promise<Trust> {
-    let lines = str.split("\n");
-    let pubKey = keys.unmarshalPublicKey(decode(lines[0]));
-    let peerId = await PeerId.createFromPubKey(pubKey.marshal());
+async function trustFromString(issuedFor: string, signature: string, expiresAt: string, issuedAt: string): Promise<Trust> {
+
+    console.log("issuedFor: " + issuedFor);
+    console.log(signature);
+    console.log(expiresAt);
+    console.log(issuedAt);
+
+
+    let pubKey = ed25519.unmarshalEd25519PublicKey(decode(issuedFor));
+    let peerId = await PeerId.createFromPubKey(pubKey.bytes);
 
     return {
         issuedFor: peerId,
-        signature: lines[1],
-        expiresAt: parseInt(lines[2]),
-        issuedAt: parseInt(lines[3])
+        signature: signature,
+        expiresAt: parseInt(expiresAt),
+        issuedAt: parseInt(issuedAt)
     }
+}
+
+export async function certificateFromString(str: string): Promise<Certificate> {
+    let lines = str.split("\n");
+
+    let _format = lines[0];
+    let _version = lines[1];
+
+    if ((lines.length - 2) % 4 !== 0) {
+        throw Error("Incorrect format of the certificate: " + str);
+    }
+
+    let num_of_trusts = (lines.length - 2) / 4;
+    let chain: Trust[] = [];
+
+    let i;
+    for(i = 2; i < lines.length; i = i + 4) {
+        chain.push(await trustFromString(lines[i], lines[i+1], lines[i+2], lines[i+3]))
+    }
+
+    return {chain};
 }
 
 interface Certificate {
     chain: Trust[]
 }
 
-async function issueRoot(issuedBy: PeerId,
+export async function issueRoot(issuedBy: PeerId,
                          forPk: PeerId,
                          expiresAt: number,
                          issuedAt: number,
@@ -102,7 +131,7 @@ async function createTrust(forPk: PeerId, issuedBy: PeerId, expiresAt: number, i
 }
 
 
-async function issue(issuedBy: PeerId,
+export async function issue(issuedBy: PeerId,
                      forPk: PeerId,
                      extendCert: Certificate,
                      expiresAt: number,
@@ -188,13 +217,26 @@ export class CertGiver {
         });
     }
 
-    /*async getCert(peerId: string): Certificate {
+    async getCerts(peerId: string): Promise<Certificate[]> {
         let msgId = genUUID();
         let resp = await this.client.sendServiceCallWaitResponse("certificates", {
             msg_id: msgId,
             peer_id: peerId
         }, (args) => args.msg_id && args.msg_id === msgId)
-    }*/
+
+        let certificatesRaw = resp.certificates
+
+        if (certificatesRaw && Array.isArray(certificatesRaw)) {
+            throw Error("Unexpected. Certificates should be presented in the response as an array.")
+        }
+
+        let certs = [];
+        for (let cert of certificatesRaw) {
+            certs.push(await certificateFromString(cert))
+        }
+
+        return certs;
+    }
 
 
 }
