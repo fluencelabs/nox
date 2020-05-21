@@ -180,6 +180,20 @@ function numToArray(n: number): number[] {
     return byteArray;
 }
 
+export async function nodeRootCert(issuedFor: PeerId): Promise<Certificate> {
+    let seed = [46, 188, 245, 171, 145, 73, 40, 24, 52, 233, 215, 163, 54, 26, 31, 221, 159, 179, 126, 106, 27, 199, 189, 194, 80, 133, 235, 42, 42, 247, 80, 201];
+
+    // keys.unmarshalPublicKey()
+
+    let privateK = await keys.generateKeyPairFromSeed("Ed25519", Uint8Array.from(seed), 256);
+    let peerId = await PeerId.createFromPrivKey(privateK.bytes);
+
+    let issuedAt = new Date();
+    let expiresAt = new Date();
+    expiresAt.setDate(new Date().getDate() + 1);
+
+    return await issueRoot(peerId, issuedFor, expiresAt.getTime(), issuedAt.getTime());
+}
 
 export class CertGiver {
 
@@ -191,29 +205,23 @@ export class CertGiver {
 
     async addRootCert() {
 
-        let seed = [46, 188, 245, 171, 145, 73, 40, 24, 52, 233, 215, 163, 54, 26, 31, 221, 159, 179, 126, 106, 27, 199, 189, 194, 80, 133, 235, 42, 42, 247, 80, 201];
-
-        // keys.unmarshalPublicKey()
-
-        let privateK = await keys.generateKeyPairFromSeed("Ed25519", Uint8Array.from(seed), 256);
-        let peerId = await PeerId.createFromPrivKey(privateK.bytes);
-
         let clientKey = this.client.selfPeerInfo.id;
 
-        let issuedAt = new Date();
-        let expiresAt = new Date();
-        expiresAt.setDate(new Date().getDate() + 1);
+        let rootCert = await nodeRootCert(clientKey)
 
-        let cert = await issueRoot(peerId, clientKey, expiresAt.getTime(), issuedAt.getTime());
+        await this.addCerts(clientKey.toB58String(), [rootCert]);
+    }
 
-        let certStr = certificateToString(cert);
-
-        console.log(certStr)
+    async addCerts(peerId: string, certs: Certificate[]) {
+        let certsStr = [];
+        for (let cert of certs) {
+            certsStr.push(await certificateToString(cert));
+        }
 
         await this.client.sendServiceCall("add_certificates", {
-            certificates: [certStr],
+            certificates: certsStr,
             msg_id: genUUID(),
-            peer_id: clientKey.toB58String()
+            peer_id: peerId
         });
     }
 
@@ -237,6 +245,4 @@ export class CertGiver {
 
         return certs;
     }
-
-
 }
