@@ -26,6 +26,7 @@ import {FluenceClient} from "../fluence_client";
 import {Certificate, certificateFromString, certificateToString} from "./certificate";
 import {genUUID} from "../function_call";
 
+// The client to interact with the Fluence trust graph API
 export class TrustGraph {
 
     client: FluenceClient;
@@ -34,6 +35,7 @@ export class TrustGraph {
         this.client = client;
     }
 
+    // Publish certificate to Fluence network. It will be published in Kademlia neighbourhood by `peerId` key.
     async publishCertificates(peerId: string, certs: Certificate[]) {
         let certsStr = [];
         for (let cert of certs) {
@@ -47,6 +49,7 @@ export class TrustGraph {
         });
     }
 
+    // Get certificates that stores in Kademlia neighbourhood by `peerId` key.
     async getCertificates(peerId: string): Promise<Certificate[]> {
         let msgId = genUUID();
         let resp = await this.client.sendServiceCallWaitResponse("certificates", {
@@ -55,9 +58,6 @@ export class TrustGraph {
         }, (args) => args.msg_id && args.msg_id === msgId)
 
         let certificatesRaw = resp.certificates
-
-        console.log("parsed:")
-        console.dir(resp)
 
         if (!(certificatesRaw && Array.isArray(certificatesRaw))) {
             console.log(Array.isArray(certificatesRaw))
