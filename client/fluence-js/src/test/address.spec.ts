@@ -11,7 +11,9 @@ import 'mocha';
 import * as PeerId from "peer-id";
 import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../function_call";
 import Fluence from "../fluence";
-import {CertGiver, issue, issueRoot, certificateFromString, certificateToString, nodeRootCert} from "../trust";
+import {certificateFromString, certificateToString, issue} from "../trust/certificate";
+import {TrustGraph} from "../trust/trust_graph";
+import {nodeRootCert} from "../trust/misc";
 
 describe("Typescript usage suite", () => {
 
@@ -109,12 +111,43 @@ describe("Typescript usage suite", () => {
     });
 
     it("integration test", async function () {
-        this.timeout(5000);
+        this.timeout(15000);
+        await testCerts();
         await testCalculator();
     });
 });
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+export async function testCerts() {
+    let key1 = await Fluence.generatePeerId();
+    let key2 = await Fluence.generatePeerId();
+
+    // connect to two different nodes
+    let cl1 = await Fluence.connect("/dns4/104.248.25.59/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", key1);
+    let cl2 = await Fluence.connect("/ip4/104.248.25.59/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
+
+    let certGiver1 = new TrustGraph(cl1);
+    let certGiver2 = new TrustGraph(cl2);
+
+    let issuedAt = new Date();
+    let expiresAt = new Date();
+    expiresAt.setDate(new Date().getDate() + 1);
+
+    let rootCert = await nodeRootCert(key1);
+    let extended = await issue(key1, key2, rootCert, expiresAt.getTime(), issuedAt.getTime());
+
+    await certGiver1.addCerts(key2.toB58String(), [extended]);
+
+    await delay(2000);
+
+    let certs = await certGiver2.getCerts(key2.toB58String());
+
+    expect(certs[0].chain[1].issuedFor.toB58String()).to.be.equal(extended.chain[1].issuedFor.toB58String())
+    expect(certs[0].chain[1].signature).to.be.equal(extended.chain[1].signature)
+    expect(certs[0].chain[1].expiresAt).to.be.equal(extended.chain[1].expiresAt)
+    expect(certs[0].chain[1].issuedAt).to.be.equal(extended.chain[1].issuedAt)
+}
 
 // Shows how to register and call new service in Fluence network
 export async function testCalculator() {
@@ -126,26 +159,8 @@ export async function testCalculator() {
     let cl1 = await Fluence.connect("/dns4/104.248.25.59/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", key1);
     let cl2 = await Fluence.connect("/ip4/104.248.25.59/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
 
-    let certGiver1 = new CertGiver(cl1);
-    let certGiver2 = new CertGiver(cl2);
-
-    let issuedAt = new Date();
-    let expiresAt = new Date();
-    expiresAt.setDate(new Date().getDate() + 1);
-
-    let cert = await nodeRootCert(key1);
-    let extended = await issue(key1, key2, cert, expiresAt.getTime(), issuedAt.getTime());
-
-    await certGiver1.addCerts(key2.toB58String(), [extended]);
-
-    await delay(2000);
-
-    let certs = await certGiver1.getCerts(key2.toB58String());
-
-    console.dir(certs)
-
-//12D3KooWQaG8WygcM3UvCb8UW25mQriD3CE4f3ixpJxThdJHCpmn
-    /*// service name that we will register with one connection and call with another
+    //12D3KooWQaG8WygcM3UvCb8UW25mQriD3CE4f3ixpJxThdJHCpmn
+    // service name that we will register with one connection and call with another
     let serviceId = "sum-calculator-" + genUUID();
 
     // register service that will add two numbers and send a response with calculation result
@@ -185,6 +200,6 @@ export async function testCalculator() {
     let response2 = await cl2.sendServiceCallWaitResponse(serviceId, req, predicate);
 
     let result2 = await response2.result;
-    console.log(`calculation result AFTER RECONNECT is: ${result2}`);*/
+    console.log(`calculation result AFTER RECONNECT is: ${result2}`);
 }
 
