@@ -34,7 +34,7 @@ export class TrustGraph {
         this.client = client;
     }
 
-    async addCerts(peerId: string, certs: Certificate[]) {
+    async publishCertificates(peerId: string, certs: Certificate[]) {
         let certsStr = [];
         for (let cert of certs) {
             certsStr.push(await certificateToString(cert));
@@ -47,7 +47,7 @@ export class TrustGraph {
         });
     }
 
-    async getCerts(peerId: string): Promise<Certificate[]> {
+    async getCertificates(peerId: string): Promise<Certificate[]> {
         let msgId = genUUID();
         let resp = await this.client.sendServiceCallWaitResponse("certificates", {
             msg_id: msgId,

@@ -27,6 +27,7 @@ import {decode, encode} from "bs58"
 import crypto from 'libp2p-crypto';
 const ed25519 = crypto.keys.supportedKeys.ed25519;
 
+// One element in chain of trust in a certificate.
 export interface Trust {
     issuedFor: PeerId,
     expiresAt: number,

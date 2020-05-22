@@ -110,11 +110,12 @@ describe("Typescript usage suite", () => {
         expect(ser).to.be.equal(cert);
     });
 
-    it("integration test", async function () {
+    // uncomment it and run `npm run test` to check service's and certificate's api with Fluence nodes
+    /*it("integration test", async function () {
         this.timeout(15000);
         await testCerts();
         await testCalculator();
-    });
+    });*/
 });
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -132,17 +133,22 @@ export async function testCerts() {
 
     let issuedAt = new Date();
     let expiresAt = new Date();
+    // certificate expires after one day
     expiresAt.setDate(new Date().getDate() + 1);
 
+    // create root certificate for key1 and extend it with key2
     let rootCert = await nodeRootCert(key1);
     let extended = await issue(key1, key2, rootCert, expiresAt.getTime(), issuedAt.getTime());
 
-    await certGiver1.addCerts(key2.toB58String(), [extended]);
+    // publish certificates to Fluence network
+    await certGiver1.publishCertificates(key2.toB58String(), [extended]);
 
     await delay(2000);
 
-    let certs = await certGiver2.getCerts(key2.toB58String());
+    // get certificates from network
+    let certs = await certGiver2.getCertificates(key2.toB58String());
 
+    // root certificate could be different because nodes save trusts with bigger `expiresAt` date and less `issuedAt` date
     expect(certs[0].chain[1].issuedFor.toB58String()).to.be.equal(extended.chain[1].issuedFor.toB58String())
     expect(certs[0].chain[1].signature).to.be.equal(extended.chain[1].signature)
     expect(certs[0].chain[1].expiresAt).to.be.equal(extended.chain[1].expiresAt)
@@ -159,7 +165,6 @@ export async function testCalculator() {
     let cl1 = await Fluence.connect("/dns4/104.248.25.59/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", key1);
     let cl2 = await Fluence.connect("/ip4/104.248.25.59/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
 
-    //12D3KooWQaG8WygcM3UvCb8UW25mQriD3CE4f3ixpJxThdJHCpmn
     // service name that we will register with one connection and call with another
     let serviceId = "sum-calculator-" + genUUID();
 

@@ -29,6 +29,7 @@ const FORMAT = "11";
 const VERSION = "1111";
 
 // TODO verify certificate
+// Chain of trusts started from self-signed root trust.
 export interface Certificate {
     chain: Trust[]
 }
@@ -45,6 +46,7 @@ export async function certificateFromString(str: string): Promise<Certificate> {
         lines.pop()
     }
 
+    // TODO do match different formats and versions
     let _format = lines[0];
     let _version = lines[1];
     console.log("LENGTH: " + lines.length)
@@ -63,6 +65,7 @@ export async function certificateFromString(str: string): Promise<Certificate> {
     return {chain};
 }
 
+// Creates new certificate with root trust (self-signed public key) from a key pair.
 export async function issueRoot(issuedBy: PeerId,
                                 forPk: PeerId,
                                 expiresAt: number,
@@ -84,6 +87,7 @@ export async function issueRoot(issuedBy: PeerId,
     }
 }
 
+// Adds a new trust into chain of trust in certificate.
 export async function issue(issuedBy: PeerId,
                             forPk: PeerId,
                             extendCert: Certificate,
