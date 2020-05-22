@@ -116,20 +116,17 @@ impl Certificate {
         if chain.is_empty() {
             return Err("The certificate must have at least 1 trust".to_string());
         }
-        println!("before root");
+
         // check root trust and its existence in trusted roots list
         let root = &chain[0];
         Trust::verify(root, &root.issued_for, cur_time)?;
-        /*if !trusted_roots.contains(&root.issued_for) {
+        if !trusted_roots.contains(&root.issued_for) {
             return Err("Certificate does not contain a trusted root.".to_string());
-        }*/
-
-        println!("root");
+        }
 
         // check if every element in a chain is not expired and has the correct signature
         for trust_id in (1..chain.len()).rev() {
             let trust = &chain[trust_id];
-            println!("trust id: {}", trust_id);
 
             let trust_giver = &chain[trust_id - 1];
 
@@ -330,27 +327,6 @@ mod tests {
                 cur_time,
             ),
         )
-    }
-
-    #[test]
-    fn test_aalala() {
-        let cert = r#"11
-1111
-5566Dn4ZXXbBK5LJdUsE7L3pG9qdAzdPY47adjzkhEx9
-3HNXpW2cLdqXzf4jz5EhsGEBFkWzuVdBCyxzJUZu2WPVU7kpzPjatcqvdJMjTtcycVAdaV5qh2fCGphSmw8UMBkr
-158981172690500
-1589974723504
-2EvoZAZaGjKWFVdr36F1jphQ5cW7eK3yM16mqEHwQyr7
-4UAJQWzB3nTchBtwARHAhsn7wjdYtqUHojps9xV6JkuLENV8KRiWM3BhQByx5KijumkaNjr7MhHjouLawmiN1A4d
-1590061123504
-1589974723504
-"#;
-
-        let cert1 = Certificate::from_str(cert).unwrap();
-
-        Certificate::verify(&cert1, &[], current_time()).unwrap();
-
-        println!("{}", cert1.chain.len())
     }
 
     #[test]
