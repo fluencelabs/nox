@@ -43,6 +43,7 @@ export async function certificateFromString(str: string): Promise<Certificate> {
     let _version = lines[1];
     console.log("LENGTH: " + lines.length)
 
+    // every trust is 4 lines, certificate lines number without format and version should be divided by 4
     if ((lines.length - 2) % 4 !== 0) {
         throw Error("Incorrect format of the certificate:\n" + str);
     }
@@ -71,7 +72,6 @@ export async function issueRoot(issuedBy: PeerId,
 
     let rootTrust = await createTrust(issuedBy, issuedBy, maxDate, issuedAt);
     let trust = await createTrust(forPk, issuedBy, expiresAt, issuedAt);
-
     let chain = [rootTrust, trust];
 
     return {
@@ -91,13 +91,11 @@ export async function issue(issuedBy: PeerId,
 
     let lastTrust = extendCert.chain[extendCert.chain.length - 1];
 
-
     if (lastTrust.issuedFor !== issuedBy) {
-        throw Error("Last trust in chain should be same as 'issuedBy'.")
+        throw Error("`issuedFor` should be equal to `issuedBy` in the last trust of the chain.")
     }
 
     let trust = await createTrust(forPk, issuedBy, expiresAt, issuedAt);
-
     let chain = [...extendCert.chain];
     chain.push(trust);
 

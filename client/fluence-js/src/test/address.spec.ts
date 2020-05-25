@@ -110,12 +110,12 @@ describe("Typescript usage suite", () => {
         expect(ser).to.be.equal(cert);
     });
 
-    // uncomment it and run `npm run test` to check service's and certificate's api with Fluence nodes
-    /*it("integration test", async function () {
+    // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
+    it("integration test", async function () {
         this.timeout(15000);
         await testCerts();
-        await testCalculator();
-    });*/
+        // await testCalculator();
+    });
 });
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -128,8 +128,8 @@ export async function testCerts() {
     let cl1 = await Fluence.connect("/dns4/104.248.25.59/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", key1);
     let cl2 = await Fluence.connect("/ip4/104.248.25.59/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
 
-    let certGiver1 = new TrustGraph(cl1);
-    let certGiver2 = new TrustGraph(cl2);
+    let trustGraph1 = new TrustGraph(cl1);
+    let trustGraph2 = new TrustGraph(cl2);
 
     let issuedAt = new Date();
     let expiresAt = new Date();
@@ -141,12 +141,10 @@ export async function testCerts() {
     let extended = await issue(key1, key2, rootCert, expiresAt.getTime(), issuedAt.getTime());
 
     // publish certificates to Fluence network
-    await certGiver1.publishCertificates(key2.toB58String(), [extended]);
-
-    await delay(2000);
+    await trustGraph1.publishCertificates(key2.toB58String(), [extended]);
 
     // get certificates from network
-    let certs = await certGiver2.getCertificates(key2.toB58String());
+    let certs = await trustGraph2.getCertificates(key2.toB58String());
 
     // root certificate could be different because nodes save trusts with bigger `expiresAt` date and less `issuedAt` date
     expect(certs[0].chain[1].issuedFor.toB58String()).to.be.equal(extended.chain[1].issuedFor.toB58String())

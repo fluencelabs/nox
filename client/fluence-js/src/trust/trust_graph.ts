@@ -34,11 +34,31 @@ export class TrustGraph {
             certsStr.push(await certificateToString(cert));
         }
 
-        await this.client.sendServiceCall("add_certificates", {
+        let msgId = genUUID()
+
+        let response = await this.client.sendServiceCallWaitResponse("add_certificates", {
             certificates: certsStr,
-            msg_id: genUUID(),
+            msg_id: msgId,
             peer_id: peerId
+        }, (args) => {
+            // check if it is a successful response
+            let isSuccessResponse = args.msg_id && args.msg_id === msgId
+            if (isSuccessResponse) {
+                return true
+            } else {
+                // check if it is an error for this msgId
+                return args.call && args.call.arguments && args.call.arguments.msg_id === msgId
+            }
+
         });
+
+        if (response.reason) {
+            throw Error(response.reason)
+        } else if (response.status) {
+            return response.status
+        } else {
+            throw Error(`Unexpected response: ${response}. Should be 'status' field for a success response or 'reason' field for an error.`)
+        }
     }
 
     // Get certificates that stores in Kademlia neighbourhood by `peerId` key.

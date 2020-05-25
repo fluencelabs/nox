@@ -45,9 +45,7 @@ export async function trustFromString(issuedFor: string, signature: string, expi
 
 export async function createTrust(forPk: PeerId, issuedBy: PeerId, expiresAt: number, issuedAt: number): Promise<Trust> {
     let bytes = toSignMessage(forPk, expiresAt, issuedAt);
-
     let signature = await issuedBy.privKey.sign(Buffer.from(bytes));
-
     let signatureStr = encode(signature);
 
     return {
