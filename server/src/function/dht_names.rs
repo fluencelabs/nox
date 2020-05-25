@@ -56,19 +56,16 @@ impl FunctionRouter {
         };
 
         #[rustfmt::skip]
-        let n_q = match &error {
-            QuorumFailed { num_results, quorum, .. } => Some((num_results, quorum.get())),
-            Timeout { num_results, quorum, .. } => Some((num_results, quorum.get())),
-            _ => None,
+        let (found, quorum) = match &error {
+            QuorumFailed { num_results, quorum, .. } => (num_results, quorum.get()),
+            Timeout { num_results, quorum, .. } => (num_results, quorum.get()),
         };
 
-        if let Some((&found, quorum)) = n_q {
-            // found more than 50% of required quorum // TODO: is it reasonable?
-            if found * 2 > quorum {
-                #[rustfmt::skip]
-                log::warn!("DHT.put almost failed, saved {} of {} replicas, but it is good enough", found, quorum);
-                return;
-            }
+        // found more than 50% of required quorum // TODO: is it reasonable?
+        if found * 2 > quorum {
+            #[rustfmt::skip]
+            log::warn!("DHT.put almost failed, saved {} of {} replicas, but it is good enough", found, quorum);
+            return;
         }
 
         // Remove failed record, and send an error
@@ -212,17 +209,22 @@ impl FunctionRouter {
     }
 
     /// Publish provider by name to dht. Similar to DNS CNAME.
-    pub(super) fn publish_name(&mut self, name: Address, provider: Address) {
+    pub(super) fn publish_name(
+        &mut self,
+        name: &Address,
+        provider: &Address,
+    ) -> Result<(), libp2p::kad::store::Error> {
         let record = ProviderRecord::new(provider, &self.config.keypair);
         self.kademlia
             .put_record(Record::new(name, record.into()), Quorum::Majority)
+            .map(|_| ())
     }
 
     /// Find provider by name, result will eventually be delivered in `name_resolved` function
-    pub(super) fn resolve_name(&mut self, name: Address) {
+    pub(super) fn resolve_name(&mut self, name: &Address) {
         self.kademlia.get_record(
             &name.into(),
             Quorum::N(NonZeroUsize::new(GET_QUORUM_N).unwrap()),
-        )
+        );
     }
 }

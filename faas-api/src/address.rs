@@ -198,13 +198,13 @@ impl TryFrom<&record::Key> for Address {
     }
 }
 
-impl Into<record::Key> for Address {
+impl Into<record::Key> for &Address {
     fn into(self) -> record::Key {
         Into::<Vec<u8>>::into(self).into()
     }
 }
 
-impl Into<Vec<u8>> for Address {
+impl Into<Vec<u8>> for &Address {
     fn into(self) -> Vec<u8> {
         self.to_string().into_bytes()
     }

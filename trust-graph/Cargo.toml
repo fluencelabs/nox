@@ -7,8 +7,8 @@ description = "trust graph"
 license = "Apache 2.0"
 
 [dependencies]
-libp2p-core = "0.18.0"
-parity-multiaddr = "0.8.0"
+libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+parity-multiaddr = "0.9.0"
 serde = { version = "1.0.110", features = ["derive"] }
 bs58 = "0.3.0"
 failure = "0.1.6"

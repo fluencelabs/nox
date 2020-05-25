@@ -74,7 +74,7 @@ impl FunctionRouter {
         log::info!("Finding service provider for {}, call: {:?}", name, call);
         if let Enqueued::New = self.wait_name_resolved.enqueue(name.clone(), call) {
             // won't call get_providers if there are already calls waiting for it
-            self.resolve_name(name)
+            self.resolve_name(&name)
         } else {
             log::debug!(
                 "won't call resolve_name because there are already promises waiting for {}",
