@@ -33,10 +33,12 @@ This will run fluence with a randomly generated key, listening for `ws://` on `9
 
 ### Playground
 If you have `tmux` installed, you can run playground environment:
+
 Run nodes:
 ```bash
 make node-tmux
 ```
+
 And then run clients:
 ```bash
 make client-tmux 
