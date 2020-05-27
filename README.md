@@ -31,6 +31,18 @@ make build
 ```
 This will run fluence with a randomly generated key, listening for `ws://` on `9999`, and for tcp on `7777`.
 
+### Playground
+If you have `tmux` installed, you can run playground environment:
+Run nodes:
+```bash
+make node-tmux
+```
+And then run clients:
+```bash
+make client-tmux 
+```
+Take a look at [node_client.mk](node_client.mk) for more examples.
+
 ## **Contributing**
 
 While the project is a still in the early stage of development, you are welcome to track progress and contribute. At the current moment we don't have detailed instructions on how to join development or which code guidelines to follow. However, you can expect more info to appear soon enough. In the meanwhile, check out the [basic contributing rules](https://github.com/fluencelabs/fluence/blob/trustless_computing/CONTRIBUTING.md).
