@@ -1,5 +1,3 @@
-# Github description
-
 # Fluence Project
 
 ---
