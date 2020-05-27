@@ -8,7 +8,7 @@ edition = "2018"
 fluence-libp2p = { path = "../../crates/libp2p" }
 faas-api = { path = "../../faas-api" }
 ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "weighted_routing" }
 parity-multiaddr = "0.9.0"
 multihash ="0.11.0"
 async-std = "1.5.0"
