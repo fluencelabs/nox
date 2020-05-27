@@ -18,6 +18,9 @@ import * as PeerId from "peer-id";
 import {decode, encode} from "bs58"
 import {keys} from "libp2p-crypto";
 
+/**
+ * @param seed 32 bytes
+ */
 export async function seedToPeerId(seed: string): Promise<PeerId> {
     let seedArr = decode(seed);
 
