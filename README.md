@@ -18,12 +18,15 @@ Fluence protocol aims to empower internet applications with interoperability, re
 ## Run
 ### Prebuilt docker image
 ```bash
-docker run -d --name fluence -v $PWD:/.fluence -e RUST_LOG="info" -p 7777 -p 9999 fluencelabs/fluence -t 7777 -w 9999
+docker run -d --name fluence -v $PWD:/.fluence -e RUST_LOG="info" -p 7777 -p 9999 fluencelabs/fluence
 ```
+Ports will be assigned randomly by your OS.
+
 ### Build from sources
 Install cargo, clone this repo, and then run:
 ```bash
 make build
+
 ./target/release/fluence -t 7777 -w 9999
 ```
 This will run fluence with a randomly generated key, listening for `ws://` on `9999`, and for tcp on `7777`.
