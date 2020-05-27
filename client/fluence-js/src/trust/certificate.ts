@@ -41,7 +41,6 @@ export async function certificateFromString(str: string): Promise<Certificate> {
     // TODO do match different formats and versions
     let _format = lines[0];
     let _version = lines[1];
-    console.log("LENGTH: " + lines.length)
 
     // every trust is 4 lines, certificate lines number without format and version should be divided by 4
     if ((lines.length - 2) % 4 !== 0) {
