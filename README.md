@@ -19,13 +19,18 @@ Fluence protocol aims to empower internet applications with interoperability, re
 
 **Test the live demo** of the [p2p file-sharing](https://relay01.fluence.dev/) app over the Fluence protocol.
 
-## Build
-
-`make docker`
-
 ## Run
-
-## Deploy
+### Prebuilt docker image
+```bash
+docker run -d --name fluence -v $PWD:/.fluence -e RUST_LOG="info" -p 7777 -p 9999 fluencelabs/fluence -t 7777 -w 9999
+```
+### Build from sources
+Install cargo, clone this repo, and then run:
+```bash
+make build
+./target/release/fluence -t 7777 -w 9999
+```
+This will run fluence with a randomly generated key, listening for `ws://` on `9999`, and for tcp on `7777`.
 
 ## **Contributing**
 

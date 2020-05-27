@@ -8,6 +8,8 @@ default:
 release:
 	cargo build --release
 
+build: release
+
 test:
 	cargo test
 
@@ -37,9 +39,11 @@ docker: cross-build
 	docker build ${SERVER} -t fluencelabs/fluence:${BRANCH} .
 	docker build -t fluencelabs/fluence:${IPFS_TAG} -f ${IPFS_DOCKERFILE} .
 
-docker-push: docker
+push:
 	docker push fluencelabs/fluence:${BRANCH}
-    docker push fluencelabs/fluence:${IPFS_TAG}
+	docker push fluencelabs/fluence:${IPFS_TAG}
+
+docker-push: docker push
 
 ENDURANCE_EXE=$(shell find ${X86_TARGET} -name "endurance*" -perm +111 -type f)
 ENDURANCE=--build-arg exe=endurance --build-arg local_exe=${ENDURANCE_EXE}
@@ -49,4 +53,4 @@ endurance-docker:
 	docker build ${ENDURANCE} -t fluencelabs/fluence-endurance:${BRANCH} .
 	docker push fluencelabs/fluence-endurance:${BRANCH}
 
-.PHONY: server server-debug docker docker-push clean test release
+.PHONY: server server-debug docker docker-push clean test release build

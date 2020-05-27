@@ -39,9 +39,12 @@ const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::builder().format_timestamp_micros().init();
+    env_logger::builder()
+        .format_timestamp_micros()
+        .filter_level(log::LevelFilter::Info)
+        .init();
 
-    let arg_matches = App::new("Fluence Fluence protocol server")
+    let arg_matches = App::new("Fluence protocol server")
         .version(VERSION)
         .author(AUTHORS)
         .about(DESCRIPTION)
