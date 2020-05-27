@@ -48,6 +48,7 @@ client-tmux:
 	tmux \
 	new-session  'make client-first' \; \
 	split-window 'sleep 1 && make client-second' \; \
+	split-window 'sleep 1 && make client-ipfs' \; \
 	select-layout tiled
 
 RUST_ENV=RUST_BACKTRACE=1 RUST_LOG="info,libp2p_kad=trace,fluence_server=trace"
