@@ -43,7 +43,10 @@ And then run clients:
 ```bash
 make client-tmux 
 ```
-Take a look at [node_client.mk](node_client.mk) for more examples.
+
+Then simply copy-paste *possible messages* from clients' output to call functions.
+
+Also, take a look at [node_client.mk](node_client.mk) for more examples.
 
 ## **Contributing**
 
