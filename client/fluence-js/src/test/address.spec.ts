@@ -15,7 +15,7 @@ import Fluence from "../fluence";
 import {certificateFromString, certificateToString, issue} from "../trust/certificate";
 import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
-import {peerIdToSeed, seedToPeerId} from "../misc";
+import {peerIdToSeed, seedToPeerId} from "../seed";
 
 describe("Typescript usage suite", () => {
 
