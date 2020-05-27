@@ -129,53 +129,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-macros"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e421d59b24c1feea2496e409b3e0a8de23e5fc130a2ddc0b012e551f3b272bba"
-dependencies = [
- "futures-core-preview",
- "pin-utils",
-]
-
-[[package]]
-name = "async-std"
-version = "0.99.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44501a9f7961bb539b67be0c428b3694e26557046a52759ca7eaf790030a64cc"
-dependencies = [
- "async-macros",
- "async-task 1.3.1",
- "crossbeam-channel 0.3.9",
- "crossbeam-deque",
- "crossbeam-utils 0.6.6",
- "futures-core",
- "futures-io",
- "futures-timer 1.0.3",
- "kv-log-macro",
- "log",
- "memchr",
- "mio",
- "mio-uds",
- "num_cpus",
- "once_cell",
- "pin-project-lite",
- "pin-utils",
- "slab",
-]
-
-[[package]]
 name = "async-std"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a45cee2749d880d7066e328a7e161c7470ced883b2fd000ca4643e9f1dd5083a"
 dependencies = [
- "async-task 3.0.0",
- "crossbeam-utils 0.7.2",
+ "async-task",
+ "crossbeam-utils",
  "futures-channel",
  "futures-core",
  "futures-io",
- "futures-timer 3.0.2",
+ "futures-timer",
  "kv-log-macro",
  "log",
  "memchr",
@@ -186,16 +150,6 @@ dependencies = [
  "slab",
  "smol",
  "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "async-task"
-version = "1.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ac2c016b079e771204030951c366db398864f5026f84a44dafb0ff20f02085d"
-dependencies = [
- "libc",
- "winapi 0.3.8",
 ]
 
 [[package]]
@@ -523,20 +477,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69323bff1fb41c635347b8ead484a5ca6c3f11914d784170b158d8449ab07f8e"
 dependencies = [
  "cfg-if",
- "crossbeam-channel 0.4.2",
+ "crossbeam-channel",
  "crossbeam-deque",
  "crossbeam-epoch",
  "crossbeam-queue",
- "crossbeam-utils 0.7.2",
-]
-
-[[package]]
-name = "crossbeam-channel"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8ec7fcd21571dc78f96cc96243cab8d8f035247c3efd16c687be154c3fa9efa"
-dependencies = [
- "crossbeam-utils 0.6.6",
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -545,7 +490,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cced8691919c02aac3cb0a1bc2e9b73d89e832bf9a06fc579d4e71b68a2da061"
 dependencies = [
- "crossbeam-utils 0.7.2",
+ "crossbeam-utils",
  "maybe-uninit",
 ]
 
@@ -556,7 +501,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f02af974daeee82218205558e51ec8768b48cf524bd01d550abe5573a608285"
 dependencies = [
  "crossbeam-epoch",
- "crossbeam-utils 0.7.2",
+ "crossbeam-utils",
  "maybe-uninit",
 ]
 
@@ -568,7 +513,7 @@ checksum = "058ed274caafc1f60c4997b5fc07bf7dc7cca454af7c6e81edffe5f33f70dace"
 dependencies = [
  "autocfg 1.0.0",
  "cfg-if",
- "crossbeam-utils 0.7.2",
+ "crossbeam-utils",
  "lazy_static",
  "maybe-uninit",
  "memoffset",
@@ -582,17 +527,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c695eeca1e7173472a32221542ae469b3e9aac3a4fc81f7696bcad82029493db"
 dependencies = [
  "cfg-if",
- "crossbeam-utils 0.7.2",
-]
-
-[[package]]
-name = "crossbeam-utils"
-version = "0.6.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04973fa96e96579258a5091af6003abde64af786b860f18622b82e026cca60e6"
-dependencies = [
- "cfg-if",
- "lazy_static",
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -646,7 +581,7 @@ dependencies = [
 name = "ctrlc-adapter"
 version = "0.0.1"
 dependencies = [
- "async-std 1.6.0",
+ "async-std",
  "ctrlc",
  "futures 0.3.5",
 ]
@@ -760,7 +695,7 @@ dependencies = [
 name = "faas-api"
 version = "0.0.5"
 dependencies = [
- "async-std 1.6.0",
+ "async-std",
  "base64",
  "bs58",
  "failure",
@@ -830,7 +765,7 @@ dependencies = [
 name = "fluence-client"
 version = "0.0.5"
 dependencies = [
- "async-std 1.6.0",
+ "async-std",
  "async-timer",
  "bencher",
  "bs58",
@@ -863,7 +798,7 @@ dependencies = [
 name = "fluence-ipfs"
 version = "0.0.1"
 dependencies = [
- "async-std 1.6.0",
+ "async-std",
  "async-timer",
  "bs58",
  "ctrlc-adapter",
@@ -892,7 +827,7 @@ dependencies = [
 name = "fluence-libp2p"
 version = "0.0.1"
 dependencies = [
- "async-std 1.6.0",
+ "async-std",
  "base64",
  "bs58",
  "failure",
@@ -912,7 +847,7 @@ dependencies = [
 name = "fluence-server"
 version = "0.0.5"
 dependencies = [
- "async-std 1.6.0",
+ "async-std",
  "base64",
  "bs58",
  "clap",
@@ -1027,12 +962,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59f5fff90fd5d971f936ad674802482ba441b6f09ba5e15fd8b39145582ca399"
 
 [[package]]
-name = "futures-core-preview"
-version = "0.3.0-alpha.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b35b6263fb1ef523c3056565fa67b1d16f0a8604ff12b11b08c25f28a734c60a"
-
-[[package]]
 name = "futures-executor"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1075,16 +1004,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bdb66b5f09e22019b1ab0830f7785bcea8e7a42148683f99214f73f8ec21a626"
 dependencies = [
  "once_cell",
-]
-
-[[package]]
-name = "futures-timer"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7946248e9429ff093345d3e8fdf4eb0f9b2d79091611c9c14f744971a6f8be45"
-dependencies = [
- "futures-core-preview",
- "pin-utils",
 ]
 
 [[package]]
@@ -1457,14 +1376,13 @@ checksum = "9457b06509d27052635f90d6466700c65095fdf75409b3fbdd903e988b886f49"
 
 [[package]]
 name = "libp2p"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "057eba5432d3e740e313c6e13c9153d0cb76b4f71bfc2e5242ae5bdb7d41af67"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "bytes",
  "futures 0.3.5",
  "lazy_static",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "libp2p-core-derive",
  "libp2p-deflate",
  "libp2p-dns",
@@ -1504,46 +1422,12 @@ dependencies = [
  "either",
  "fnv",
  "futures 0.3.5",
- "futures-timer 3.0.2",
+ "futures-timer",
  "lazy_static",
  "libsecp256k1",
  "log",
  "multihash",
- "multistream-select 0.8.0",
- "parity-multiaddr",
- "parking_lot 0.10.2",
- "pin-project",
- "prost",
- "prost-build",
- "rand 0.7.3",
- "ring",
- "rw-stream-sink",
- "sha2",
- "smallvec 1.4.0",
- "thiserror",
- "unsigned-varint",
- "void",
- "zeroize",
-]
-
-[[package]]
-name = "libp2p-core"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f5e30dcd8cb13a02ad534e214da234eca1595a76b5788b645dfa5c734d2124b"
-dependencies = [
- "asn1_der",
- "bs58",
- "ed25519-dalek",
- "either",
- "fnv",
- "futures 0.3.5",
- "futures-timer 3.0.2",
- "lazy_static",
- "libsecp256k1",
- "log",
- "multihash",
- "multistream-select 0.8.1",
+ "multistream-select",
  "parity-multiaddr",
  "parking_lot 0.10.2",
  "pin-project",
@@ -1562,9 +1446,8 @@ dependencies = [
 
 [[package]]
 name = "libp2p-core-derive"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f09548626b737ed64080fde595e06ce1117795b8b9fc4d2629fa36561c583171"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "quote",
  "syn",
@@ -1572,36 +1455,33 @@ dependencies = [
 
 [[package]]
 name = "libp2p-deflate"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c4acff33f5bfe154bafe14c6c08655d4b1e1736afaca78014111bc1742a2016"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "flate2",
  "futures 0.3.5",
- "libp2p-core 0.19.1",
+ "libp2p-core",
 ]
 
 [[package]]
 name = "libp2p-dns"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cc186d9a941fd0207cf8f08ef225a735e2d7296258f570155e525f6ee732f87"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "futures 0.3.5",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "log",
 ]
 
 [[package]]
 name = "libp2p-floodsub"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6dd8cc558e0edde2d4a423d017efd6b36c1b6bf97f4304c83076895c5edaed8"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "cuckoofilter",
  "fnv",
  "futures 0.3.5",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "libp2p-swarm",
  "prost",
  "prost-build",
@@ -1611,9 +1491,8 @@ dependencies = [
 
 [[package]]
 name = "libp2p-gossipsub"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1675c23765e37ddbf6bf05fb520be8f7df3f5f4981d68f185bb95f9b047c576a"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "base64",
  "byteorder 1.3.4",
@@ -1621,7 +1500,7 @@ dependencies = [
  "fnv",
  "futures 0.3.5",
  "futures_codec",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "libp2p-swarm",
  "log",
  "lru",
@@ -1636,12 +1515,11 @@ dependencies = [
 
 [[package]]
 name = "libp2p-identify"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6438ed8ca240c7635c9caa3be6c5258bc0058553ae97ba81737f04e5d33804f5"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "futures 0.3.5",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "libp2p-swarm",
  "log",
  "prost",
@@ -1653,16 +1531,17 @@ dependencies = [
 [[package]]
 name = "libp2p-kad"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d6c1d5100973527ae70d82687465b17049c1b717a7964de38b8e65000878ff"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "arrayvec 0.5.1",
+ "bs58",
  "bytes",
+ "derivative",
  "either",
  "fnv",
  "futures 0.3.5",
  "futures_codec",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "libp2p-swarm",
  "log",
  "multihash",
@@ -1671,6 +1550,7 @@ dependencies = [
  "rand 0.7.3",
  "sha2",
  "smallvec 1.4.0",
+ "trust-graph",
  "uint",
  "unsigned-varint",
  "void",
@@ -1679,17 +1559,16 @@ dependencies = [
 
 [[package]]
 name = "libp2p-mdns"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51b00163d13f705aae67c427bea0575f8aaf63da6524f9bd4a5a093b8bda0b38"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
- "async-std 0.99.12",
+ "async-std",
  "data-encoding",
  "dns-parser",
  "either",
  "futures 0.3.5",
  "lazy_static",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "libp2p-swarm",
  "log",
  "net2",
@@ -1701,15 +1580,14 @@ dependencies = [
 
 [[package]]
 name = "libp2p-mplex"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ce63313ad4bce2d76e54c292a1293ea47a0ebbe16708f1513fa62184992f53"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "bytes",
  "fnv",
  "futures 0.3.5",
  "futures_codec",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "log",
  "parking_lot 0.10.2",
  "unsigned-varint",
@@ -1718,13 +1596,12 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84fd504e27b0eadd451e06b67694ef714bd8374044e7db339bb0cdb83755ddf4"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "curve25519-dalek",
  "futures 0.3.5",
  "lazy_static",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "log",
  "prost",
  "prost-build",
@@ -1738,12 +1615,11 @@ dependencies = [
 
 [[package]]
 name = "libp2p-ping"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c189cf1dfe4b3f01e2c0fe5e97a6f5df8aeb6f3569e26981015eb7c08015ce5f"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "futures 0.3.5",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "libp2p-swarm",
  "log",
  "rand 0.7.3",
@@ -1754,13 +1630,12 @@ dependencies = [
 [[package]]
 name = "libp2p-plaintext"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad28fe7beaa3e516ee8ba2af8c4f6820f269afa60d661831e879f2afea64f4a0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "bytes",
  "futures 0.3.5",
  "futures_codec",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "log",
  "prost",
  "prost-build",
@@ -1772,8 +1647,7 @@ dependencies = [
 [[package]]
 name = "libp2p-pnet"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dabaa2194e1ce3c51cd78d734dd4c81dc5c7b150b309cbf9029df044034ac261"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "futures 0.3.5",
  "log",
@@ -1785,9 +1659,8 @@ dependencies = [
 
 [[package]]
 name = "libp2p-secio"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b73f0cc119c83a5b619d6d11074a319fdb4aa4daf8088ade00d511418566e28"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "aes-ctr",
  "ctr",
@@ -1795,7 +1668,7 @@ dependencies = [
  "hmac",
  "js-sys",
  "lazy_static",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "log",
  "parity-send-wrapper",
  "pin-project",
@@ -1816,11 +1689,10 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4a8101a0e0d5f04562137a476bf5f5423cd5bdab2f7e43a75909668e63cb102"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "futures 0.3.5",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "log",
  "rand 0.7.3",
  "smallvec 1.4.0",
@@ -1830,41 +1702,38 @@ dependencies = [
 
 [[package]]
 name = "libp2p-tcp"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "309f95fce9bec755eff5406f8b822fd3969990830c2b54f752e1fc181d5ace3e"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
- "async-std 0.99.12",
+ "async-std",
  "futures 0.3.5",
- "futures-timer 3.0.2",
+ "futures-timer",
  "get_if_addrs",
  "ipnet",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "log",
  "socket2",
 ]
 
 [[package]]
 name = "libp2p-uds"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78d51726e063e8d73b103331576bb7e8fad187a3f0c227933a10b3542e2ad3f4"
+version = "0.19.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
- "async-std 0.99.12",
+ "async-std",
  "futures 0.3.5",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "log",
 ]
 
 [[package]]
 name = "libp2p-wasm-ext"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f59fdbb5706f2723ca108c088b1c7a37f735a8c328021f0508007162627e9885"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "futures 0.3.5",
  "js-sys",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "parity-send-wrapper",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -1873,14 +1742,13 @@ dependencies = [
 [[package]]
 name = "libp2p-websocket"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "085fbe4c05c4116c2164ab4d5a521eb6e00516c444f61b3ee9f68c7b1e53580b"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "async-tls",
  "bytes",
  "either",
  "futures 0.3.5",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "log",
  "quicksink",
  "rustls",
@@ -1894,11 +1762,10 @@ dependencies = [
 [[package]]
 name = "libp2p-yamux"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b305d3a8981e68f11c0e17f2d11d5c52fae95e0d7c283f9e462b5b2dab413b2"
+source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
 dependencies = [
  "futures 0.3.5",
- "libp2p-core 0.19.1",
+ "libp2p-core",
  "parking_lot 0.10.2",
  "thiserror",
  "yamux",
@@ -2140,20 +2007,6 @@ dependencies = [
 name = "multistream-select"
 version = "0.8.0"
 source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
-dependencies = [
- "bytes",
- "futures 0.3.5",
- "log",
- "pin-project",
- "smallvec 1.4.0",
- "unsigned-varint",
-]
-
-[[package]]
-name = "multistream-select"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "991c33683908c588b8f2cf66c221d8f390818c1bdcd13fce55208408e027a796"
 dependencies = [
  "bytes",
  "futures 0.3.5",
@@ -2470,7 +2323,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b0deb65f46e873ba8aa7c6a8dbe3f23cb1bf59c339a81a1d56361dde4d66ac8"
 dependencies = [
- "crossbeam-utils 0.7.2",
+ "crossbeam-utils",
  "futures-io",
  "futures-sink",
  "futures-util",
@@ -3227,7 +3080,7 @@ version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "686c634ad1873fffef6aed20f180eede424fbf3bb31802394c90fd7335a661b7"
 dependencies = [
- "async-task 3.0.0",
+ "async-task",
  "crossbeam",
  "futures-io",
  "futures-util",
@@ -3511,7 +3364,7 @@ dependencies = [
  "derivative",
  "failure",
  "itertools 0.9.0",
- "libp2p-core 0.19.0",
+ "libp2p-core",
  "log",
  "parity-multiaddr",
  "rand 0.7.3",
@@ -3943,8 +3796,3 @@ dependencies = [
  "syn",
  "synstructure",
 ]
-
-[[patch.unused]]
-name = "libp2p"
-version = "0.19.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#0bd3d9b6b6d164a260bf969a62d6813f4938466d"
