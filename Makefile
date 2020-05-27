@@ -30,20 +30,23 @@ X86_TARGET=./target/x86_64-unknown-linux-gnu/release
 SERVER_EXE = ${X86_TARGET}/fluence-server
 SERVER=--build-arg local_exe=${SERVER_EXE} --build-arg exe=fluence-server
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-JI_DOCKERFILE=./client/fluence-ipfs/docker/Dockerfile
-JI_TAG=${BRANCH}-with-ipfs-multiaddr
+IPFS_DOCKERFILE=./client/fluence-ipfs/docker/Dockerfile
+IPFS_TAG=${BRANCH}-with-ipfs-multiaddr
+
 docker: cross-build
-	docker build ${SERVER} -t folexflu/fluence:${BRANCH} .
-	docker push folexflu/fluence:${BRANCH}
-	docker build -t folexflu/fluence:${JI_TAG} -f ${JI_DOCKERFILE} .
-	docker push folexflu/fluence:${JI_TAG}
+	docker build ${SERVER} -t fluencelabs/fluence:${BRANCH} .
+	docker build -t fluencelabs/fluence:${IPFS_TAG} -f ${IPFS_DOCKERFILE} .
+
+docker-push: docker
+	docker push fluencelabs/fluence:${BRANCH}
+    docker push fluencelabs/fluence:${IPFS_TAG}
 
 ENDURANCE_EXE=$(shell find ${X86_TARGET} -name "endurance*" -perm +111 -type f)
 ENDURANCE=--build-arg exe=endurance --build-arg local_exe=${ENDURANCE_EXE}
 endurance-docker:
 	cargo update -p libp2p
 	cross build --release --target x86_64-unknown-linux-gnu --test endurance
-	docker build ${ENDURANCE} -t folexflu/fluence-endurance:${BRANCH} .
-	docker push folexflu/fluence-endurance:${BRANCH}
+	docker build ${ENDURANCE} -t fluencelabs/fluence-endurance:${BRANCH} .
+	docker push fluencelabs/fluence-endurance:${BRANCH}
 
-.PHONY: server server-debug docker clean test release
+.PHONY: server server-debug docker docker-push clean test release
