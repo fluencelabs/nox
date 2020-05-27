@@ -8,12 +8,14 @@ import {
 import {expect} from 'chai';
 
 import 'mocha';
+import {decode, encode} from "bs58"
 import * as PeerId from "peer-id";
 import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../function_call";
 import Fluence from "../fluence";
 import {certificateFromString, certificateToString, issue} from "../trust/certificate";
 import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
+import {peerIdToSeed, seedToPeerId} from "../misc";
 
 describe("Typescript usage suite", () => {
 
@@ -92,6 +94,13 @@ describe("Typescript usage suite", () => {
 
     });
 
+    it("should create private key from seed and back", async function () {
+        let seed = [46, 188, 245, 171, 145, 73, 40, 24, 52, 233, 215, 163, 54, 26, 31, 221, 159, 179, 126, 106, 27, 199, 189, 194, 80, 133, 235, 42, 42, 247, 80, 201];
+        let seedStr = encode(seed)
+        let pid = await seedToPeerId(seedStr)
+        expect(peerIdToSeed(pid)).to.be.equal(seedStr)
+    })
+
     it("should serialize and deserialize certificate correctly", async function () {
         let cert = `11
 1111
@@ -111,7 +120,7 @@ describe("Typescript usage suite", () => {
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it("integration test", async function () {
+    it.skip("integration test", async function () {
         this.timeout(15000);
         await testCerts();
         // await testCalculator();
