@@ -32,7 +32,7 @@ make build
 This will run fluence with a randomly generated key, listening for `ws://` on `9999`, and for tcp on `7777`.
 
 ### Playground
-If you have `tmux` installed, you can run playground environment:
+If you have `tmux` installed, you can run local playground environment:
 
 Run nodes:
 ```bash
