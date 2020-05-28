@@ -156,6 +156,7 @@ impl TrustGraph {
             let root_weight = *self
                 .root_weights
                 .get(cert.chain.first()?.issued_for.as_ref())
+                // This panic shouldn't happen // TODO: why?
                 .expect("first trust in chain must be in root_weights");
 
             // certificate weight = root weight + 1 * every other element in the chain
