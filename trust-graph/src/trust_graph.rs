@@ -60,14 +60,15 @@ impl TrustGraph {
     }
 
     /// Certificate is a chain of trusts, add this chain to graph
-    pub fn add(&mut self, cert: Certificate, cur_time: Duration) -> Result<(), String> {
+    pub fn add<C>(&mut self, cert: C, cur_time: Duration) -> Result<(), String>
+    where
+        C: Borrow<Certificate>,
+    {
         let roots: Vec<PublicKey> = self.root_weights.keys().cloned().map(Into::into).collect();
+        Certificate::verify(cert.borrow(), roots.as_slice(), cur_time)?;
 
-        Certificate::verify(&cert, roots.as_slice(), cur_time)?;
-
-        let chain = cert.chain;
-
-        let root_trust = &chain[0];
+        let chain = &cert.borrow().chain;
+        let root_trust = chain.first().ok_or("empty chain")?;
         let root_pk: PublicKeyHashable = root_trust.issued_for.clone().into();
 
         match self.nodes.get_mut(&root_pk) {
@@ -139,7 +140,7 @@ impl TrustGraph {
         for cert in certs {
             let root_weight = *self
                 .root_weights
-                .get(&cert.chain[0].issued_for.clone().into())
+                .get(&cert.chain.first()?.issued_for.clone().into())
                 // The error is unreachable.
                 .unwrap();
 
