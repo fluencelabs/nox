@@ -113,9 +113,6 @@ impl TrustGraph {
     }
 
     /// Get the maximum weight of trust for one public key.
-    /// Returns None if there is no such public key
-    /// or some trust between this key and a root key is revoked.
-    /// TODO handle non-direct revocations
     pub fn weight<P>(&self, pk: P) -> Option<Weight>
     where
         P: Borrow<PublicKey>,
@@ -136,6 +133,9 @@ impl TrustGraph {
     }
 
     /// Calculate weight from given certificates
+    /// Returns None if there is no such public key
+    /// or some trust between this key and a root key is revoked.
+    /// TODO handle non-direct revocations
     pub fn certificates_weight<C, I>(&self, certs: I) -> Option<Weight>
     where
         C: Borrow<Certificate>,
@@ -156,8 +156,7 @@ impl TrustGraph {
             let root_weight = *self
                 .root_weights
                 .get(cert.chain.first()?.issued_for.as_ref())
-                // The error is unreachable.
-                .unwrap();
+                .expect("first trust in chain must be in root_weights");
 
             // certificate weight = root weight + 1 * every other element in the chain
             // (except root, so the formula is `root weight + chain length - 1`)
