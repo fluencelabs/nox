@@ -20,6 +20,7 @@ use crate::public_key_hashable::PublicKeyHashable;
 use crate::revoke::Revoke;
 use crate::trust::Trust;
 use crate::trust_node::{Auth, TrustNode};
+use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::Entry::Occupied;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -206,9 +207,12 @@ impl TrustGraph {
 
     /// Get all possible certificates where `issued_for` will be the last element of the chain
     /// and one of the destinations is the root of this chain.
-    pub fn get_all_certs(&self, issued_for: PublicKey, roots: &[PublicKey]) -> Vec<Certificate> {
+    pub fn get_all_certs<P>(&self, issued_for: P, roots: &[PublicKey]) -> Vec<Certificate>
+    where
+        P: Borrow<PublicKey>,
+    {
         // get all auths (edges) for issued public key
-        let issued_for_node = self.nodes.get(&issued_for.into());
+        let issued_for_node = self.nodes.get(issued_for.borrow().as_ref());
 
         let roots = roots.iter().map(|pk| pk.as_ref());
         let roots = self.root_weights.keys().chain(roots).collect();
