@@ -59,6 +59,7 @@ impl TrustGraph {
         self.nodes.get(&pk.into())
     }
 
+    // TODO: remove cur_time from api, leave it for tests only
     /// Certificate is a chain of trusts, add this chain to graph
     pub fn add<C>(&mut self, cert: C, cur_time: Duration) -> Result<(), String>
     where
@@ -128,7 +129,15 @@ impl TrustGraph {
 
         // get all possible certificates from the given public key to all roots in the graph
         let certs = self.get_all_certs(pk, roots.as_slice());
+        self.certificates_weight(certs)
+    }
 
+    /// Calculate weight from given certificates
+    pub fn certificates_weight<C, I>(&self, certs: I) -> Option<Weight>
+    where
+        C: Borrow<Certificate>,
+        I: IntoIterator<Item = C>,
+    {
         // if there are no certificates for the given public key, there is no info about this public key
         // or some elements of possible certificate chains was revoked
         if certs.is_empty() {
@@ -206,6 +215,7 @@ impl TrustGraph {
         terminated_chains
     }
 
+    // TODO: remove `roots` argument from api, leave it for tests and internal usage only
     /// Get all possible certificates where `issued_for` will be the last element of the chain
     /// and one of the destinations is the root of this chain.
     pub fn get_all_certs<P>(&self, issued_for: P, roots: &[PublicKey]) -> Vec<Certificate>
