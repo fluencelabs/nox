@@ -116,8 +116,11 @@ impl TrustGraph {
     /// Returns None if there is no such public key
     /// or some trust between this key and a root key is revoked.
     /// TODO handle non-direct revocations
-    pub fn weight(&self, pk: PublicKey) -> Option<Weight> {
-        if let Some(weight) = self.root_weights.get(&pk.clone().into()) {
+    pub fn weight<P>(&self, pk: P) -> Option<Weight>
+    where
+        P: Borrow<PublicKey>,
+    {
+        if let Some(weight) = self.root_weights.get(pk.borrow().as_ref()) {
             return Some(*weight);
         }
 
@@ -138,18 +141,21 @@ impl TrustGraph {
         C: Borrow<Certificate>,
         I: IntoIterator<Item = C>,
     {
+        let mut certs = certs.into_iter().peekable();
         // if there are no certificates for the given public key, there is no info about this public key
         // or some elements of possible certificate chains was revoked
-        if certs.is_empty() {
+        if certs.peek().is_none() {
             return None;
         }
 
         let mut weight = std::u32::MAX;
 
         for cert in certs {
+            let cert = cert.borrow();
+
             let root_weight = *self
                 .root_weights
-                .get(&cert.chain.first()?.issued_for.clone().into())
+                .get(cert.chain.first()?.issued_for.as_ref())
                 // The error is unreachable.
                 .unwrap();
 
