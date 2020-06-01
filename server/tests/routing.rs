@@ -185,11 +185,7 @@ fn call_service_reply() {
 fn provide_disconnect() {
     let service_id = "providedisconnect";
 
-    // let (mut provider, mut consumer) = ConnectedClient::make_clients().expect("connect clients");
-    // // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
-    // sleep(KAD_TIMEOUT);
-
-    let swarms = make_swarms(20);
+    let swarms = make_swarms(10);
     sleep(KAD_TIMEOUT);
     let mut consumer = ConnectedClient::connect_to(swarms[3].1.clone()).expect("connect consumer");
     let mut provider = ConnectedClient::connect_to(swarms[4].1.clone()).expect("connect provider");
