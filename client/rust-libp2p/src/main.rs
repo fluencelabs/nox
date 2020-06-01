@@ -31,6 +31,7 @@ use clap::{App, Arg};
 use ctrlc_adapter::block_until_ctrlc;
 use faas_api::{relay, service, FunctionCall};
 use fluence_client::{Client, ClientCommand, ClientEvent};
+use futures::task::Poll;
 use futures::{
     channel::{mpsc, mpsc::UnboundedReceiver, oneshot},
     prelude::*,
@@ -40,7 +41,7 @@ use futures::{
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use std::error::Error;
-use std::time::Duration;
+// use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::builder().format_timestamp_micros().init();
@@ -133,13 +134,24 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
 
         loop {
             let stdin = io::BufReader::new(io::stdin());
-            let stream = Deserializer::from_reader(stdin).into_iter::<ClientCommand>();
+            let mut stream = Deserializer::from_reader(stdin).into_iter().fuse();
 
-            // blocking happens in 'for' below
-            for cmd in stream {
-                cmd_sender.unbounded_send(cmd).expect("send cmd");
-                task::sleep(Duration::from_nanos(10)).await; // return Poll::Pending from future's fn poll
-            }
+            let cmd_sender = cmd_sender.clone();
+            futures::future::poll_fn(|cx| {
+                // Read parsed command from JSON stream (blocking)
+                let cmd = stream.next();
+                if let Some(cmd) = cmd {
+                    // Send command to select! that reads from `cmd_recv`
+                    cmd_sender.unbounded_send(cmd).expect("send cmd");
+                    // Call waker to respawn this future
+                    cx.waker().clone().wake();
+                    return Poll::Pending;
+                } else {
+                    // Return Ready so await below completes
+                    return Poll::Ready(());
+                }
+            })
+            .await;
         }
     });
 
