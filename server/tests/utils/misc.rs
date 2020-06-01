@@ -19,7 +19,6 @@ use faas_api::{service, Address, FunctionCall};
 use fluence_libp2p::build_memory_transport;
 use fluence_server::ServerBehaviour;
 
-use futures::select;
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -183,37 +182,47 @@ where
     #[rustfmt::skip]
     swarms.iter_mut().for_each(|(_, s)| s.dial_bootstrap_nodes());
 
-    let (infos, mut swarms): (Vec<CreatedSwarm>, Vec<_>) = swarms.into_iter().unzip();
+    let (infos, swarms): (Vec<CreatedSwarm>, Vec<_>) = swarms.into_iter().unzip();
 
     let connected = Arc::new(AtomicUsize::new(0));
     let shared_connected = connected.clone();
-    let _swarms_handle = task::spawn(async move {
-        let connected = shared_connected;
+
+    // Run this task in background to poll swarms
+    task::spawn(async move {
         let start = Instant::now();
         let mut local_start = Instant::now();
-        loop {
-            let swarms = swarms
-                .iter_mut()
-                .map(|s| Swarm::next_event(s))
-                .collect::<FuturesUnordered<_>>();
-            let mut swarms = swarms.fuse();
 
-            select!(
-                event = swarms.next() => {
-                    if let Some(ConnectionEstablished { endpoint: Dialer { .. }, .. }) = event {
-                        connected.fetch_add(1, Ordering::SeqCst);
-                        let total = connected.load(Ordering::Relaxed);
-                        if total % 10 == 0 {
-                            log::trace!(
-                                "established {: <10} +{: <10} (= {:<5})",
-                                total, format_args!("{:.3}s", start.elapsed().as_secs_f32()), format_args!("{}ms", local_start.elapsed().as_millis())
-                            );
-                            local_start = Instant::now();
+        swarms
+            .into_iter()
+            .map(|mut s| {
+                let connected = shared_connected.clone();
+                task::spawn(async move {
+                    loop {
+                        let event = s.next_event().await;
+                        if let ConnectionEstablished {
+                            endpoint: Dialer { .. },
+                            ..
+                        } = event
+                        {
+                            connected.fetch_add(1, Ordering::SeqCst);
+                            let total = connected.load(Ordering::Relaxed);
+                            if total % 10 == 0 {
+                                log::trace!(
+                                    "established {: <10} +{: <10} (= {:<5})",
+                                    total,
+                                    format_args!("{:.3}s", start.elapsed().as_secs_f32()),
+                                    format_args!("{}ms", local_start.elapsed().as_millis())
+                                );
+                                local_start = Instant::now();
+                            }
                         }
                     }
-                },
-            )
-        }
+                })
+            })
+            .collect::<FuturesUnordered<_>>()
+            .forward(futures::sink::drain::<()>())
+            .await
+            .expect("drain");
     });
 
     let now = Instant::now();
