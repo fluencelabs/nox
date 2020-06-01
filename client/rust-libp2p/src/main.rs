@@ -27,6 +27,7 @@
 )]
 
 use async_std::task;
+use clap::{App, Arg};
 use ctrlc_adapter::block_until_ctrlc;
 use faas_api::{relay, service, FunctionCall};
 use fluence_client::{Client, ClientCommand, ClientEvent};
@@ -44,11 +45,17 @@ use std::time::Duration;
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::builder().format_timestamp_micros().init();
 
-    let relay_addr: Multiaddr = std::env::args()
-        .nth(1)
-        .expect("multiaddr of relay peer should be provided by the first argument")
+    let args = &[Arg::from_usage("<multiaddr> 'Multiaddr of the Fluence node'").required(true)];
+
+    let arg_matches = App::new("Connect to fluence server")
+        .args(args)
+        .get_matches();
+
+    let relay_addr: Multiaddr = arg_matches
+        .value_of("multiaddr")
+        .expect("multiaddr is required")
         .parse()
-        .expect("provided wrong  Multiaddr");
+        .expect("provided incorrect Multiaddr");
 
     let (exit_sender, exit_receiver) = oneshot::channel::<()>();
 

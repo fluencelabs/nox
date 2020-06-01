@@ -36,9 +36,67 @@ use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use serde_json::Value;
 use trust_graph::{current_time, Certificate};
 
+use fluence_client::Transport;
 use parity_multiaddr::Multiaddr;
 use std::str::FromStr;
 use std::thread::sleep;
+
+#[test]
+fn main() {
+    use async_std::task;
+    // use clap::*;
+    use fluence_server::ServerBehaviour;
+    use libp2p::core::multiaddr::{Multiaddr, Protocol};
+    use libp2p::Swarm;
+    use std::env;
+    use std::net::Ipv4Addr;
+
+    enable_logs();
+
+    // let args = &[
+    //     Arg::from_usage("-c, --count=[COUNT], 'How many nodes to run'").required(true),
+    //     Arg::from_usage(
+    //         "-p, --port=[PORT], 'First port in the range of listening ports (PORT..PORT + COUNT)",
+    //     )
+    //     .required(true),
+    // ];
+    //
+    // let arg_matches = App::new("Run multiple nodes at once")
+    //     .setting(AppSettings::AllowExternalSubcommands)
+    //     .args(args)
+    //     .get_matches();
+
+    // let count = arg_matches.value_of("count").expect("count required");
+    // let count: usize = count.parse().expect("parse count");
+    // let port = arg_matches.value_of("port").expect("port required");
+    // let port = u16::from_str(port).expect("parse port");
+
+    let count: usize = env::var("COUNT")
+        .expect("count required")
+        .parse()
+        .expect("count correct");
+
+    let port: u16 = env::var("PORT")
+        .expect("port required")
+        .parse()
+        .expect("port correct");
+
+    let mut idx = 0;
+
+    fn wtf(bs: Vec<Multiaddr>, maddr: Multiaddr) -> (PeerId, Swarm<ServerBehaviour>) {
+        create_swarm(bs, maddr, None, Transport::Network)
+    }
+
+    make_swarms_with(count, wtf, || {
+        let ip: Ipv4Addr = "127.0.0.1".parse().unwrap();
+        let mut maddr = Multiaddr::from(ip);
+        maddr.push(Protocol::Tcp(port + idx));
+        idx += 1;
+        maddr
+    });
+
+    task::block_on(futures::future::pending::<()>());
+}
 
 #[test]
 // Send calls between clients through relays
@@ -287,9 +345,11 @@ fn get_certs() {
     };
 
     let swarm_count = 5;
-    let swarms = make_swarms_with(swarm_count, |bs, maddr| {
-        create_swarm(bs, maddr, Some(trust.clone()))
-    });
+    let swarms = make_swarms_with(
+        swarm_count,
+        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory),
+        create_memory_maddr,
+    );
     sleep(KAD_TIMEOUT);
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let peer_id = PeerId::from(Ed25519(last_key));
@@ -324,9 +384,11 @@ fn add_certs() {
     };
 
     let swarm_count = 5;
-    let swarms = make_swarms_with(swarm_count, |bs, maddr| {
-        create_swarm(bs, maddr, Some(trust.clone()))
-    });
+    let swarms = make_swarms_with(
+        swarm_count,
+        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory),
+        create_memory_maddr,
+    );
     sleep(KAD_TIMEOUT);
 
     let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
@@ -354,9 +416,11 @@ fn add_certs_invalid_signature() {
     };
 
     let swarm_count = 5;
-    let swarms = make_swarms_with(swarm_count, |bs, maddr| {
-        create_swarm(bs, maddr, Some(trust.clone()))
-    });
+    let swarms = make_swarms_with(
+        swarm_count,
+        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory),
+        create_memory_maddr,
+    );
     sleep(KAD_TIMEOUT);
 
     // invalidate signature in last trust in `cert`

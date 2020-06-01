@@ -16,9 +16,10 @@
 
 use async_std::task;
 use faas_api::{service, Address, FunctionCall};
-use fluence_libp2p::build_memory_transport;
+use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::ServerBehaviour;
 
+use fluence_client::Transport;
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -153,12 +154,21 @@ pub(crate) fn enable_logs() {
 
 pub(crate) struct CreatedSwarm(pub PeerId, pub Multiaddr);
 pub(crate) fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
-    make_swarms_with(n, |bs, maddr| create_swarm(bs, maddr, None))
+    make_swarms_with(
+        n,
+        |bs, maddr| create_swarm(bs, maddr, None, Transport::Memory),
+        create_memory_maddr,
+    )
 }
 
-pub(crate) fn make_swarms_with<F>(n: usize, create_swarm: F) -> Vec<CreatedSwarm>
+pub(crate) fn make_swarms_with<F, M>(
+    n: usize,
+    create_swarm: F,
+    mut create_maddr: M,
+) -> Vec<CreatedSwarm>
 where
     F: Fn(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>),
+    M: FnMut() -> Multiaddr,
 {
     use futures::stream::FuturesUnordered;
     use futures_util::StreamExt;
@@ -243,6 +253,7 @@ pub(crate) fn create_swarm(
     bootstraps: Vec<Multiaddr>,
     listen_on: Multiaddr,
     trust: Option<Trust>,
+    transport: Transport,
 ) -> (PeerId, Swarm<ServerBehaviour>) {
     use libp2p::identity;
 
@@ -267,9 +278,16 @@ pub(crate) fn create_swarm(
             trust_graph,
             bootstraps,
         );
-        let transport = build_memory_transport(Ed25519(kp));
-
-        Swarm::new(transport, server, peer_id.clone())
+        match transport {
+            Transport::Memory => {
+                Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())
+            }
+            Transport::Network => Swarm::new(
+                build_transport(Ed25519(kp), Duration::from_secs(10)),
+                server,
+                peer_id.clone(),
+            ),
+        }
     };
 
     Swarm::listen_on(&mut swarm, listen_on).unwrap();
@@ -277,7 +295,7 @@ pub(crate) fn create_swarm(
     (peer_id, swarm)
 }
 
-fn create_maddr() -> Multiaddr {
+pub fn create_memory_maddr() -> Multiaddr {
     use libp2p::core::multiaddr::Protocol;
 
     let port = 1 + rand::random::<u64>();
