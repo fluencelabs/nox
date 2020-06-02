@@ -116,13 +116,11 @@ impl ConnectedClient {
     }
 
     pub fn relay_address(&self) -> Address {
-        let addr = relay!(self.node.clone(), self.client.peer_id.clone());
-        let sig = self.sign(addr.path().as_bytes());
-        addr.append(Protocol::Signature(sig))
+        self.client.relay_address(self.node.clone())
     }
 
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
-        self.client.key_pair.sign(bytes)
+        self.client.sign(bytes)
     }
 
     pub fn send(&self, call: FunctionCall) {

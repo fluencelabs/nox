@@ -29,7 +29,7 @@
 use async_std::task;
 use clap::{App, Arg};
 use ctrlc_adapter::block_until_ctrlc;
-use faas_api::{relay, service, FunctionCall};
+use faas_api::{service, Address, FunctionCall};
 use fluence_client::{Client, ClientCommand, ClientEvent};
 use futures::task::Poll;
 use futures::{
@@ -102,7 +102,7 @@ async fn run_client(
                 match incoming {
                     Some(ClientEvent::NewConnection{ peer_id, ..}) => {
                         log::info!("Connected to {}", peer_id);
-                        print_example(&client.peer_id, peer_id);
+                        print_example(client.relay_address(peer_id.clone()), peer_id);
                     }
                     Some(msg) => println!("Received\n{}\n", serde_json::to_string_pretty(&msg).unwrap()),
                     None => {
@@ -158,7 +158,7 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
     cmd_recv
 }
 
-fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
+fn print_example(reply_to: Address, bootstrap: PeerId) {
     use serde_json::json;
     use std::time::SystemTime;
     fn show(cmd: ClientCommand) {
@@ -174,12 +174,12 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
         .as_millis()
         .to_string();
 
-    let call_multiaddr = ClientCommand::Call {
+    let call_identify = ClientCommand::Call {
         node: bootstrap.clone(),
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(service!("IPFS.multiaddr")),
-            reply_to: Some(relay!(bootstrap.clone(), peer_id.clone())),
+            target: Some(service!("identify")),
+            reply_to: Some(reply_to.clone()),
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call multiaddr".to_string()),
         },
@@ -190,7 +190,7 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
         call: FunctionCall {
             uuid: uuid(),
             target: Some(service!("provide")),
-            reply_to: Some(relay!(bootstrap.clone(), peer_id.clone())),
+            reply_to: Some(reply_to.clone()),
             arguments: json!({ "service_id": "IPFS.get_QmFile3", "msg_id": time }),
             name: Some("register service".to_string()),
         },
@@ -201,15 +201,15 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
         call: FunctionCall {
             uuid: uuid(),
             target: Some(service!("IPFS.get_QmFile3")),
-            reply_to: Some(relay!(bootstrap, peer_id.clone())),
+            reply_to: Some(reply_to.clone()),
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
         },
     };
 
     println!("Possible messages:");
-    println!("\n### call IPFS.multiaddr");
-    show(call_multiaddr);
+    println!("\n### call identify");
+    show(call_identify);
     println!("\n### Register IPFS.get service");
     show(register_ipfs_get);
     println!("\n### Call IPFS.get service");

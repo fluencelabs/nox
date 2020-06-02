@@ -77,35 +77,51 @@ fn main() {
         .parse()
         .expect("count correct");
 
+    let host: Ipv4Addr = env::var("HOST")
+        .unwrap_or("127.0.0.1".into())
+        .parse()
+        .expect("host correct");
+
     let port: u16 = env::var("PORT")
         .expect("port required")
         .parse()
         .expect("port correct");
 
     // Max number of bootstrap nodes
-    let bs_max: usize = env::var("BS")
+    let bs_max: usize = env::var("BS_MAX")
         .unwrap_or("10".into())
         .parse()
         .expect("bs correct");
 
-    let mut idx = 0;
+    // Boostrap nodes will be HOST:BS_PORT..HOST:BS_PORT+BS_MAX
+    let bs_port: Option<u16> = env::var("BS_PORT")
+        .map(|s| s.parse().expect("bs correct"))
+        .ok();
 
+    fn create_maddr(host: Ipv4Addr, port: u16) -> Multiaddr {
+        let ip: Ipv4Addr = host;
+        let mut maddr = Multiaddr::from(ip);
+        maddr.push(Protocol::Tcp(port));
+        maddr
+    }
+
+    let mut idx = 0;
     let mut rng = thread_rng();
+    let external_bootstraps = bs_port.into_iter().flat_map(|p| {
+        (p..p + bs_max as u16)
+            .map(|p| create_maddr(host, p))
+            .collect::<Vec<_>>()
+    });
 
     make_swarms_with(
         count,
         |bs, maddr| {
-            create_swarm(
-                bs.into_iter().choose_multiple(&mut rng, bs_max),
-                maddr,
-                None,
-                Transport::Network,
-            )
+            let rnd = bs.into_iter().choose_multiple(&mut rng, bs_max);
+            let bs = rnd.into_iter().chain(external_bootstraps.clone()).collect();
+            create_swarm(bs, maddr, None, Transport::Network)
         },
         || {
-            let ip: Ipv4Addr = "127.0.0.1".parse().unwrap();
-            let mut maddr = Multiaddr::from(ip);
-            maddr.push(Protocol::Tcp(port + idx));
+            let maddr = create_maddr(host, port + idx);
             idx += 1;
             maddr
         },

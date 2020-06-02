@@ -19,6 +19,7 @@ use crate::{
     ClientEvent,
 };
 use async_std::{task, task::JoinHandle};
+use faas_api::{relay, Address, Protocol};
 use fluence_libp2p::{
     build_memory_transport, build_transport,
     types::{Inlet, OneshotOutlet, Outlet},
@@ -90,6 +91,16 @@ impl Client {
         if self.stop_outlet.send(()).is_err() {
             log::warn!("Unable to send stop, channel closed")
         }
+    }
+
+    pub fn relay_address(&self, node: PeerId) -> Address {
+        let addr = relay!(node, self.peer_id.clone());
+        let sig = self.sign(addr.path().as_bytes());
+        addr.append(Protocol::Signature(sig))
+    }
+
+    pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
+        self.key_pair.sign(bytes)
     }
 
     fn dial(
