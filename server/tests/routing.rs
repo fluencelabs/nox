@@ -45,9 +45,8 @@ use std::thread::sleep;
 fn main() {
     use async_std::task;
     // use clap::*;
-    use fluence_server::ServerBehaviour;
     use libp2p::core::multiaddr::{Multiaddr, Protocol};
-    use libp2p::Swarm;
+    use rand::prelude::*;
     use std::env;
     use std::net::Ipv4Addr;
 
@@ -83,19 +82,34 @@ fn main() {
         .parse()
         .expect("port correct");
 
+    // Max number of bootstrap nodes
+    let bs_max: usize = env::var("BS")
+        .unwrap_or("10".into())
+        .parse()
+        .expect("bs correct");
+
     let mut idx = 0;
 
-    fn create(bs: Vec<Multiaddr>, maddr: Multiaddr) -> (PeerId, Swarm<ServerBehaviour>) {
-        create_swarm(bs, maddr, None, Transport::Network)
-    }
+    let mut rng = thread_rng();
 
-    make_swarms_with(count, create, || {
-        let ip: Ipv4Addr = "127.0.0.1".parse().unwrap();
-        let mut maddr = Multiaddr::from(ip);
-        maddr.push(Protocol::Tcp(port + idx));
-        idx += 1;
-        maddr
-    });
+    make_swarms_with(
+        count,
+        |bs, maddr| {
+            create_swarm(
+                bs.into_iter().choose_multiple(&mut rng, bs_max),
+                maddr,
+                None,
+                Transport::Network,
+            )
+        },
+        || {
+            let ip: Ipv4Addr = "127.0.0.1".parse().unwrap();
+            let mut maddr = Multiaddr::from(ip);
+            maddr.push(Protocol::Tcp(port + idx));
+            idx += 1;
+            maddr
+        },
+    );
 
     task::block_on(futures::future::pending::<()>());
 }

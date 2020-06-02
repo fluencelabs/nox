@@ -163,11 +163,11 @@ pub(crate) fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
 
 pub(crate) fn make_swarms_with<F, M>(
     n: usize,
-    create_swarm: F,
+    mut create_swarm: F,
     mut create_maddr: M,
 ) -> Vec<CreatedSwarm>
 where
-    F: Fn(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>),
     M: FnMut() -> Multiaddr,
 {
     use futures::stream::FuturesUnordered;
