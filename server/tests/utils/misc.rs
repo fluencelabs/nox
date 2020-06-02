@@ -217,7 +217,7 @@ where
                             connected.fetch_add(1, Ordering::SeqCst);
                             let total = connected.load(Ordering::Relaxed);
                             if total % 10 == 0 {
-                                log::trace!(
+                                log::info!(
                                     "established {: <10} +{: <10} (= {:<5})",
                                     total,
                                     format_args!("{:.3}s", start.elapsed().as_secs_f32()),
@@ -237,7 +237,7 @@ where
 
     let now = Instant::now();
     while connected.load(Ordering::SeqCst) < (n * (n - 1)) {}
-    log::debug!("Connection took {}s", now.elapsed().as_secs_f32());
+    log::info!("Connection took {}s", now.elapsed().as_secs_f32());
 
     infos
 }

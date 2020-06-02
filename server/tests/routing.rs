@@ -51,7 +51,9 @@ fn main() {
     use std::env;
     use std::net::Ipv4Addr;
 
-    enable_logs();
+    // enable_logs();
+
+    env_logger::init();
 
     // let args = &[
     //     Arg::from_usage("-c, --count=[COUNT], 'How many nodes to run'").required(true),
@@ -83,11 +85,11 @@ fn main() {
 
     let mut idx = 0;
 
-    fn wtf(bs: Vec<Multiaddr>, maddr: Multiaddr) -> (PeerId, Swarm<ServerBehaviour>) {
+    fn create(bs: Vec<Multiaddr>, maddr: Multiaddr) -> (PeerId, Swarm<ServerBehaviour>) {
         create_swarm(bs, maddr, None, Transport::Network)
     }
 
-    make_swarms_with(count, wtf, || {
+    make_swarms_with(count, create, || {
         let ip: Ipv4Addr = "127.0.0.1".parse().unwrap();
         let mut maddr = Multiaddr::from(ip);
         maddr.push(Protocol::Tcp(port + idx));

@@ -7,5 +7,5 @@ edition = "2018"
 [dependencies]
 # the termination feature allows to handle both SIGTERM and SIGINT
 ctrlc = { version = "3.1.4", features = ["termination"] }
-async-std = "1.6.0"
+async-std = "1.5.0"
 futures = "0.3.4"
