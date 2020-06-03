@@ -28,20 +28,20 @@ impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
                 );
                 self.bootstrap()
             }
-            BootstrapperEvent::BootstrapDisconnected { peer_id, multiaddr } => {
-                log::info!("Bootstrap disconnected {}, reconnecting", peer_id);
-                self.dial(multiaddr);
-                self.dial_peer(peer_id);
-            }
-            BootstrapperEvent::ReachFailure {
-                multiaddr, error, ..
+            BootstrapperEvent::ReconnectToBootstrap {
+                peer_id,
+                multiaddr,
+                error,
             } => {
-                log::warn!(
-                    "Failed to reach bootstrap at {:?}: {}, reconnecting",
-                    &multiaddr,
-                    error
+                log::info!(
+                    "Bootstrap disconnected {} {}, reconnecting",
+                    peer_id.as_ref().map(|p| p.to_string()).unwrap_or_default(),
+                    error.unwrap_or_default()
                 );
                 self.dial(multiaddr);
+                if let Some(peer_id) = peer_id {
+                    self.dial_peer(peer_id)
+                }
             }
         }
     }

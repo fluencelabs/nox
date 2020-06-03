@@ -18,13 +18,15 @@
 /// Intended to simplify simple polling functions that just return internal events from a
 /// internal queue.
 macro_rules! event_polling {
-    ($func_name:ident, $event_field_name:ident, $poll_type:ty) => {
+    ($func_name:ident, $event_field_name:ident, $poll_type:ty$(, $tick:ident)?) => {
         fn $func_name(
             &mut self,
             _: &mut std::task::Context,
             _: &mut impl libp2p::swarm::PollParameters,
         ) -> std::task::Poll<$poll_type> {
             use std::task::Poll;
+
+            $(self.$tick())?;
 
             if let Some(event) = self.$event_field_name.pop_front() {
                 return Poll::Ready(event);

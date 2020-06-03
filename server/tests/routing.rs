@@ -50,7 +50,7 @@ fn main() {
     use libp2p::core::multiaddr::{Multiaddr, Protocol};
     use rand::prelude::*;
     use std::env;
-    use std::net::Ipv4Addr;
+    use std::net::IpAddr;
 
     env_logger::init();
 
@@ -59,7 +59,7 @@ fn main() {
         .parse()
         .expect("count correct");
 
-    let host: Ipv4Addr = env::var("HOST")
+    let host: IpAddr = env::var("HOST")
         .unwrap_or("127.0.0.1".into())
         .parse()
         .expect("host correct");
@@ -80,9 +80,8 @@ fn main() {
         .map(|s| s.parse().expect("bs correct"))
         .ok();
 
-    fn create_maddr(host: Ipv4Addr, port: u16) -> Multiaddr {
-        let ip: Ipv4Addr = host;
-        let mut maddr = Multiaddr::from(ip);
+    fn create_maddr(host: IpAddr, port: u16) -> Multiaddr {
+        let mut maddr = Multiaddr::from(host);
         maddr.push(Protocol::Tcp(port));
         maddr
     }
@@ -112,7 +111,9 @@ fn main() {
         false,
     );
 
-    task::block_on(Server::start_metrics_endpoint(registry)).expect("Start /metrics endpoint");
+    log::info!("started /metrics at {}:{}", host, port - 1);
+    task::block_on(Server::start_metrics_endpoint(registry, (host, port - 1)))
+        .expect("Start /metrics endpoint");
 }
 
 #[test]

@@ -24,12 +24,17 @@ use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use std::collections::{HashSet, VecDeque};
 use std::error::Error;
+use std::mem;
+use std::time::{Duration, Instant};
 
 pub type SwarmEventType = generate_swarm_event_type!(Bootstrapper);
+// TODO: make it exponential
+static RECONNECT_DELAY: Option<Duration> = Some(Duration::from_millis(1500));
 
 pub struct Bootstrapper {
     pub bootstrap_nodes: HashSet<Multiaddr>,
     bootstrap_peers: HashSet<PeerId>,
+    delayed_events: Vec<(Option<Instant>, SwarmEventType)>,
     events: VecDeque<SwarmEventType>,
 }
 
@@ -38,13 +43,29 @@ impl Bootstrapper {
         Self {
             bootstrap_nodes: bootstrap_nodes.into_iter().collect(),
             bootstrap_peers: Default::default(),
+            delayed_events: Default::default(),
             events: Default::default(),
         }
     }
 
-    fn push_event(&mut self, event: BootstrapperEvent) {
-        self.events
-            .push_back(NetworkBehaviourAction::GenerateEvent(event));
+    fn push_event(&mut self, event: BootstrapperEvent, delay: Option<Duration>) {
+        let event = NetworkBehaviourAction::GenerateEvent(event);
+        let deadline = delay.map(|d| Instant::now() + d);
+        self.delayed_events.push((deadline, event));
+    }
+
+    fn complete_delayed(&mut self) {
+        let now = Instant::now();
+
+        let delayed = mem::replace(&mut self.delayed_events, vec![]);
+
+        let (ready, not_ready) = delayed.into_iter().partition(|(deadline, _)| {
+            let ready = deadline.map(|d| d >= now).unwrap_or(true);
+            ready
+        });
+
+        self.delayed_events = not_ready;
+        self.events = ready.into_iter().map(|(_, e)| e).collect();
     }
 }
 
@@ -79,10 +100,13 @@ impl NetworkBehaviour for Bootstrapper {
 
         if self.bootstrap_nodes.contains(maddr) || self.bootstrap_peers.contains(peer_id) {
             self.bootstrap_peers.insert(peer_id.clone());
-            self.push_event(BootstrapperEvent::BootstrapConnected {
-                peer_id: peer_id.clone(),
-                multiaddr: maddr.clone(),
-            });
+            self.push_event(
+                BootstrapperEvent::BootstrapConnected {
+                    peer_id: peer_id.clone(),
+                    multiaddr: maddr.clone(),
+                },
+                None,
+            );
         }
     }
 
@@ -98,10 +122,14 @@ impl NetworkBehaviour for Bootstrapper {
         };
 
         if self.bootstrap_nodes.contains(maddr) || self.bootstrap_peers.contains(peer_id) {
-            self.push_event(BootstrapperEvent::BootstrapDisconnected {
-                peer_id: peer_id.clone(),
-                multiaddr: maddr.clone(),
-            });
+            self.push_event(
+                BootstrapperEvent::ReconnectToBootstrap {
+                    peer_id: Some(peer_id.clone()),
+                    multiaddr: maddr.clone(),
+                    error: None,
+                },
+                RECONNECT_DELAY,
+            );
         }
     }
 
@@ -117,13 +145,16 @@ impl NetworkBehaviour for Bootstrapper {
             || peer_id.map_or(false, |id| self.bootstrap_peers.contains(id));
 
         if is_bootstrap {
-            self.push_event(BootstrapperEvent::ReachFailure {
-                peer_id: peer_id.cloned(),
-                multiaddr: maddr.clone(),
-                error: format!("{:?}", error),
-            });
+            self.push_event(
+                BootstrapperEvent::ReconnectToBootstrap {
+                    peer_id: peer_id.cloned(),
+                    multiaddr: maddr.clone(),
+                    error: Some(format!("{:?}", error)),
+                },
+                RECONNECT_DELAY,
+            );
         }
     }
 
-    event_polling!(poll, events, SwarmEventType);
+    event_polling!(poll, events, SwarmEventType, complete_delayed);
 }

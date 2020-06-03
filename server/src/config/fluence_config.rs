@@ -65,6 +65,9 @@ pub struct ServerConfig {
 
     /// External address to advertise via identify protocol
     pub external_address: Option<IpAddr>,
+
+    /// Prometheus port
+    pub prometheus_port: u16,
 }
 
 impl Default for ServerConfig {
@@ -76,6 +79,7 @@ impl Default for ServerConfig {
             bootstrap_nodes: vec![],
             websocket_port: 9999,
             external_address: None,
+            prometheus_port: 18080,
         }
     }
 }

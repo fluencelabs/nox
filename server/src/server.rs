@@ -29,6 +29,7 @@ use libp2p::{
 use parity_multiaddr::{Multiaddr, Protocol};
 use prometheus::Registry;
 use std::io;
+use std::net::IpAddr;
 use trust_graph::TrustGraph;
 
 // TODO: documentation
@@ -91,7 +92,11 @@ impl Server {
         self.swarm.dial_bootstrap_nodes();
 
         task::spawn(async move {
-            let mut metrics = Self::start_metrics_endpoint(self.registry).fuse();
+            let mut metrics = Self::start_metrics_endpoint(
+                self.registry,
+                (self.config.listen_ip, self.config.prometheus_port),
+            )
+            .fuse();
             loop {
                 select!(
                     _ = self.swarm.select_next_some() => {},
@@ -106,7 +111,10 @@ impl Server {
         exit_outlet
     }
 
-    pub fn start_metrics_endpoint(registry: Registry) -> BoxFuture<'static, io::Result<()>> {
+    pub fn start_metrics_endpoint(
+        registry: Registry,
+        listen_addr: (IpAddr, u16),
+    ) -> BoxFuture<'static, io::Result<()>> {
         use http_types::{Error, StatusCode::InternalServerError};
         use prometheus::{Encoder, TextEncoder};
 
@@ -132,9 +140,7 @@ impl Server {
                 })
             });
 
-        let endpoint = Box::pin(app.listen("127.0.0.1:8080"));
-        // futures::pin_mut!(endpoint);
-        endpoint
+        Box::pin(app.listen(listen_addr))
     }
 
     /// Starts node service listener.

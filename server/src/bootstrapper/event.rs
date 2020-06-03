@@ -24,14 +24,20 @@ pub enum BootstrapperEvent {
         multiaddr: Multiaddr,
     },
 
-    BootstrapDisconnected {
-        peer_id: PeerId,
-        multiaddr: Multiaddr,
-    },
-
-    ReachFailure {
+    // Command to reconnect to specified bootstrap
+    ReconnectToBootstrap {
         peer_id: Option<PeerId>,
         multiaddr: Multiaddr,
-        error: String,
+        error: Option<String>,
     },
+    // BootstrapDisconnected {
+    //     peer_id: PeerId,
+    //     multiaddr: Multiaddr,
+    // },
+    //
+    // ReachFailure {
+    //     peer_id: Option<PeerId>,
+    //     multiaddr: Multiaddr,
+    //     error: String,
+    // }
 }
