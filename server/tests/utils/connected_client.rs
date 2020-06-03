@@ -15,11 +15,11 @@
  */
 
 use crate::utils::misc::{make_swarms, CreatedSwarm, Result, SHORT_TIMEOUT, TIMEOUT};
-use faas_api::{relay, Address, FunctionCall, Protocol};
+use faas_api::{Address, FunctionCall, Protocol};
 
 use async_std::future::timeout;
 use async_std::task;
-use fluence_client::{Client, ClientCommand, ClientEvent, Transport};
+use fluence_client::{Client, ClientEvent, Transport};
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 
@@ -124,10 +124,7 @@ impl ConnectedClient {
     }
 
     pub fn send(&self, call: FunctionCall) {
-        self.client.send(ClientCommand::Call {
-            node: self.node.clone(),
-            call,
-        })
+        self.client.send(call, self.node.clone())
     }
 
     pub fn receive(&mut self) -> FunctionCall {

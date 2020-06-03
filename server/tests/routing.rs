@@ -117,7 +117,7 @@ fn main() {
         count,
         |bs, maddr| {
             let rnd = bs.into_iter().choose_multiple(&mut rng, bs_max);
-            let bs = rnd.into_iter().chain(external_bootstraps.clone()).collect();
+            let bs: Vec<_> = rnd.into_iter().chain(external_bootstraps.clone()).collect();
             create_swarm(bs, maddr, None, Transport::Network)
         },
         || {

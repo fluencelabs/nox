@@ -87,13 +87,19 @@ async fn run_client(
     let mut stdin_cmds = stdin_cmds.into_stream().fuse();
     let mut stop = exit_receiver.into_stream().fuse();
 
+    let mut node: Option<PeerId> = None;
+
     loop {
         select!(
             cmd = stdin_cmds.select_next_some() => {
                 match cmd {
                     Ok(cmd) => {
-                        client.send(cmd);
-                        print!("\n");
+                        if let Some(node) = &node {
+                            client.send(cmd.into(), node.clone());
+                            print!("\n");
+                        } else {
+                            print!("Not connected yet!");
+                        }
                     },
                     Err(e) => println!("incorrect string provided: {:?}", e)
                 }
@@ -102,7 +108,8 @@ async fn run_client(
                 match incoming {
                     Some(ClientEvent::NewConnection{ peer_id, ..}) => {
                         log::info!("Connected to {}", peer_id);
-                        print_example(client.relay_address(peer_id.clone()), peer_id);
+                        node = Some(peer_id.clone());
+                        print_example(client.relay_address(peer_id.clone()));
                     }
                     Some(msg) => println!("Received\n{}\n", serde_json::to_string_pretty(&msg).unwrap()),
                     None => {
@@ -137,19 +144,22 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
             let mut stream = Deserializer::from_reader(stdin).into_iter().fuse();
 
             let cmd_sender = cmd_sender.clone();
-            futures::future::poll_fn(|cx| {
-                // Read parsed command from JSON stream (blocking)
-                let cmd = stream.next();
-                if let Some(cmd) = cmd {
-                    // Send command to select! that reads from `cmd_recv`
-                    cmd_sender.unbounded_send(cmd).expect("send cmd");
-                    // Call waker to respawn this future
-                    cx.waker().clone().wake();
-                    return Poll::Pending;
-                } else {
-                    // Return Ready so await below completes
-                    return Poll::Ready(());
-                }
+            task::spawn(async move {
+                futures::future::poll_fn(|cx| {
+                    // Read parsed command from JSON stream (blocking)
+                    let cmd = stream.next();
+                    if let Some(cmd) = cmd {
+                        // Send command to select! that reads from `cmd_recv`
+                        cmd_sender.unbounded_send(cmd).expect("send cmd");
+                        // Call waker to respawn this future
+                        cx.waker().clone().wake();
+                        return Poll::Pending;
+                    } else {
+                        // Return Ready so await below completes
+                        return Poll::Ready(());
+                    }
+                })
+                .await;
             })
             .await;
         }
@@ -158,7 +168,7 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
     cmd_recv
 }
 
-fn print_example(reply_to: Address, bootstrap: PeerId) {
+fn print_example(reply_to: Address) {
     use serde_json::json;
     use std::time::SystemTime;
     fn show(cmd: ClientCommand) {
@@ -175,18 +185,16 @@ fn print_example(reply_to: Address, bootstrap: PeerId) {
         .to_string();
 
     let call_identify = ClientCommand::Call {
-        node: bootstrap.clone(),
         call: FunctionCall {
             uuid: uuid(),
             target: Some(service!("identify")),
             reply_to: Some(reply_to.clone()),
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
-            name: Some("call multiaddr".to_string()),
+            name: Some("call identify".to_string()),
         },
     };
 
     let register_ipfs_get = ClientCommand::Call {
-        node: bootstrap.clone(),
         call: FunctionCall {
             uuid: uuid(),
             target: Some(service!("provide")),
@@ -197,7 +205,6 @@ fn print_example(reply_to: Address, bootstrap: PeerId) {
     };
 
     let call_ipfs_get = ClientCommand::Call {
-        node: bootstrap.clone(),
         call: FunctionCall {
             uuid: uuid(),
             target: Some(service!("IPFS.get_QmFile3")),
