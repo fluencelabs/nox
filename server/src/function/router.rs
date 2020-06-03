@@ -32,6 +32,7 @@ use libp2p::{
     PeerId,
 };
 use parity_multiaddr::Multiaddr;
+use prometheus::Registry;
 use std::collections::{HashMap, HashSet, VecDeque};
 use trust_graph::TrustGraph;
 use uuid::Uuid;
@@ -75,20 +76,27 @@ pub struct FunctionRouter {
 
 // TODO: move public methods to a trait
 impl FunctionRouter {
-    pub(crate) fn new(config: RouterConfig, trust_graph: TrustGraph) -> Self {
+    pub(crate) fn new(
+        config: RouterConfig,
+        trust_graph: TrustGraph,
+        registry: Option<&Registry>,
+    ) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
             .set_max_packet_size(100 * 4096 * 4096) // 100 Mb
             .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())
             .set_connection_idle_timeout(Duration::from_secs(2_628_000_000)); // ~month
         let store = MemoryStore::new(config.peer_id.clone());
-        let kademlia = Kademlia::with_config(
+        let mut kademlia = Kademlia::with_config(
             config.keypair.clone(),
             config.peer_id.clone(),
             store,
             cfg,
             trust_graph,
         );
+        if let Some(registry) = registry {
+            kademlia.enable_metrics(registry);
+        }
 
         Self {
             config,

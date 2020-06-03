@@ -19,6 +19,7 @@ use crate::config::ServerConfig;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 
 use async_std::task;
+use futures::future::BoxFuture;
 use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
 use libp2p::{
     identity::ed25519::{self, Keypair},
@@ -26,6 +27,7 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use parity_multiaddr::{Multiaddr, Protocol};
+use prometheus::Registry;
 use std::io;
 use trust_graph::TrustGraph;
 
@@ -33,6 +35,7 @@ use trust_graph::TrustGraph;
 pub struct Server {
     swarm: Swarm<ServerBehaviour>,
     config: ServerConfig,
+    registry: Registry,
 }
 
 impl Server {
@@ -47,6 +50,7 @@ impl Server {
         log::info!("server peer id = {}", local_peer_id);
 
         let trust_graph = TrustGraph::new(root_weights);
+        let registry = Registry::new();
 
         let mut swarm = {
             let behaviour = ServerBehaviour::new(
@@ -55,6 +59,7 @@ impl Server {
                 config.external_addresses(),
                 trust_graph,
                 config.bootstrap_nodes.clone(),
+                Some(&registry),
             );
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
@@ -68,7 +73,11 @@ impl Server {
             .into_iter()
             .for_each(|addr| Swarm::add_external_address(&mut swarm, addr));
 
-        let node_service = Self { swarm, config };
+        let node_service = Self {
+            swarm,
+            config,
+            registry,
+        };
 
         Box::new(node_service)
     }
@@ -82,9 +91,11 @@ impl Server {
         self.swarm.dial_bootstrap_nodes();
 
         task::spawn(async move {
+            let mut metrics = Self::start_metrics_endpoint(self.registry).fuse();
             loop {
                 select!(
                     _ = self.swarm.select_next_some() => {},
+                    _ = metrics => {},
                     _ = exit_inlet.next() => {
                         break
                     }
@@ -93,6 +104,37 @@ impl Server {
         });
 
         exit_outlet
+    }
+
+    pub fn start_metrics_endpoint(registry: Registry) -> BoxFuture<'static, io::Result<()>> {
+        use http_types::{Error, StatusCode::InternalServerError};
+        use prometheus::{Encoder, TextEncoder};
+
+        let mut app = tide::with_state(registry);
+        app.at("/metrics")
+            .get(|req: tide::Request<Registry>| async move {
+                let mut buffer = vec![];
+                let encoder = TextEncoder::new();
+                let metric_families = req.state().gather();
+
+                encoder
+                    .encode(&metric_families, &mut buffer)
+                    .map_err(|err| {
+                        let msg = format!("Error encoding prometheus metrics: {:?}", err);
+                        log::warn!("{}", msg);
+                        Error::from_str(InternalServerError, msg)
+                    })?;
+
+                String::from_utf8(buffer).map_err(|err| {
+                    let msg = format!("Error encoding prometheus metrics: {:?}", err);
+                    log::warn!("{}", msg);
+                    Error::from_str(InternalServerError, msg)
+                })
+            });
+
+        let endpoint = Box::pin(app.listen("127.0.0.1:8080"));
+        // futures::pin_mut!(endpoint);
+        endpoint
     }
 
     /// Starts node service listener.

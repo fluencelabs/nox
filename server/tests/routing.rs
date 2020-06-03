@@ -27,53 +27,35 @@
     unreachable_patterns
 )]
 
-mod utils;
-
-use crate::utils::*;
-
-use faas_api::{service, FunctionCall, Protocol};
-use libp2p::{identity::PublicKey::Ed25519, PeerId};
-use serde_json::Value;
-use trust_graph::{current_time, Certificate};
-
-use fluence_client::Transport;
-use parity_multiaddr::Multiaddr;
 use std::str::FromStr;
 use std::thread::sleep;
+
+use libp2p::{identity::PublicKey::Ed25519, PeerId};
+use parity_multiaddr::Multiaddr;
+use serde_json::Value;
+
+use faas_api::{service, FunctionCall, Protocol};
+use fluence_client::Transport;
+use trust_graph::{current_time, Certificate};
+
+use crate::utils::*;
+use fluence_server::Server;
+use prometheus::Registry;
+
+mod utils;
 
 #[test]
 fn main() {
     use async_std::task;
-    // use clap::*;
     use libp2p::core::multiaddr::{Multiaddr, Protocol};
     use rand::prelude::*;
     use std::env;
     use std::net::Ipv4Addr;
 
-    // enable_logs();
-
     env_logger::init();
 
-    // let args = &[
-    //     Arg::from_usage("-c, --count=[COUNT], 'How many nodes to run'").required(true),
-    //     Arg::from_usage(
-    //         "-p, --port=[PORT], 'First port in the range of listening ports (PORT..PORT + COUNT)",
-    //     )
-    //     .required(true),
-    // ];
-    //
-    // let arg_matches = App::new("Run multiple nodes at once")
-    //     .setting(AppSettings::AllowExternalSubcommands)
-    //     .args(args)
-    //     .get_matches();
-
-    // let count = arg_matches.value_of("count").expect("count required");
-    // let count: usize = count.parse().expect("parse count");
-    // let port = arg_matches.value_of("port").expect("port required");
-    // let port = u16::from_str(port).expect("parse port");
-
     let count: usize = env::var("COUNT")
-        .expect("count required")
+        .unwrap_or("10".into())
         .parse()
         .expect("count correct");
 
@@ -83,7 +65,7 @@ fn main() {
         .expect("host correct");
 
     let port: u16 = env::var("PORT")
-        .expect("port required")
+        .unwrap_or("2000".into())
         .parse()
         .expect("port correct");
 
@@ -105,6 +87,8 @@ fn main() {
         maddr
     }
 
+    let registry = Registry::new();
+
     let mut idx = 0;
     let mut rng = thread_rng();
     let external_bootstraps = bs_port.into_iter().flat_map(|p| {
@@ -118,7 +102,7 @@ fn main() {
         |bs, maddr| {
             let rnd = bs.into_iter().choose_multiple(&mut rng, bs_max);
             let bs: Vec<_> = rnd.into_iter().chain(external_bootstraps.clone()).collect();
-            create_swarm(bs, maddr, None, Transport::Network)
+            create_swarm(bs, maddr, None, Transport::Network, Some(&registry))
         },
         || {
             let maddr = create_maddr(host, port + idx);
@@ -127,7 +111,7 @@ fn main() {
         },
     );
 
-    task::block_on(futures::future::pending::<()>());
+    task::block_on(Server::start_metrics_endpoint(registry)).expect("Start /metrics endpoint");
 }
 
 #[test]
@@ -379,7 +363,7 @@ fn get_certs() {
     let swarm_count = 5;
     let swarms = make_swarms_with(
         swarm_count,
-        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory),
+        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
         create_memory_maddr,
     );
     sleep(KAD_TIMEOUT);
@@ -418,7 +402,7 @@ fn add_certs() {
     let swarm_count = 5;
     let swarms = make_swarms_with(
         swarm_count,
-        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory),
+        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
         create_memory_maddr,
     );
     sleep(KAD_TIMEOUT);
@@ -450,7 +434,7 @@ fn add_certs_invalid_signature() {
     let swarm_count = 5;
     let swarms = make_swarms_with(
         swarm_count,
-        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory),
+        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
         create_memory_maddr,
     );
     sleep(KAD_TIMEOUT);

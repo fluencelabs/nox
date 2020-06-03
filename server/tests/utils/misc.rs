@@ -28,6 +28,7 @@ use libp2p::{
     PeerId, Swarm,
 };
 use parity_multiaddr::Multiaddr;
+use prometheus::Registry;
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use trust_graph::{Certificate, TrustGraph};
@@ -156,7 +157,7 @@ pub(crate) struct CreatedSwarm(pub PeerId, pub Multiaddr);
 pub(crate) fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
     make_swarms_with(
         n,
-        |bs, maddr| create_swarm(bs, maddr, None, Transport::Memory),
+        |bs, maddr| create_swarm(bs, maddr, None, Transport::Memory, None),
         create_memory_maddr,
     )
 }
@@ -254,6 +255,7 @@ pub(crate) fn create_swarm(
     listen_on: Multiaddr,
     trust: Option<Trust>,
     transport: Transport,
+    registry: Option<&Registry>,
 ) -> (PeerId, Swarm<ServerBehaviour>) {
     use libp2p::identity;
 
@@ -277,6 +279,7 @@ pub(crate) fn create_swarm(
             vec![listen_on.clone()],
             trust_graph,
             bootstraps,
+            registry,
         );
         match transport {
             Transport::Memory => {
