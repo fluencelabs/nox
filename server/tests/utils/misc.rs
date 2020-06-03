@@ -159,6 +159,7 @@ pub(crate) fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
         n,
         |bs, maddr| create_swarm(bs, maddr, None, Transport::Memory, None),
         create_memory_maddr,
+        true,
     )
 }
 
@@ -166,6 +167,7 @@ pub(crate) fn make_swarms_with<F, M>(
     n: usize,
     mut create_swarm: F,
     mut create_maddr: M,
+    wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
     F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>),
@@ -236,9 +238,11 @@ where
             .expect("drain");
     });
 
-    let now = Instant::now();
-    while connected.load(Ordering::SeqCst) < (n * (n - 1)) {}
-    log::info!("Connection took {}s", now.elapsed().as_secs_f32());
+    if wait_connected {
+        let now = Instant::now();
+        while connected.load(Ordering::SeqCst) < (n * (n - 1)) {}
+        log::info!("Connection took {}s", now.elapsed().as_secs_f32());
+    }
 
     infos
 }

@@ -109,6 +109,7 @@ fn main() {
             idx += 1;
             maddr
         },
+        false,
     );
 
     task::block_on(Server::start_metrics_endpoint(registry)).expect("Start /metrics endpoint");
@@ -365,6 +366,7 @@ fn get_certs() {
         swarm_count,
         |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
         create_memory_maddr,
+        true,
     );
     sleep(KAD_TIMEOUT);
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
@@ -404,6 +406,7 @@ fn add_certs() {
         swarm_count,
         |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
         create_memory_maddr,
+        true,
     );
     sleep(KAD_TIMEOUT);
 
@@ -436,6 +439,7 @@ fn add_certs_invalid_signature() {
         swarm_count,
         |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
         create_memory_maddr,
+        true,
     );
     sleep(KAD_TIMEOUT);
 
