@@ -13,9 +13,9 @@ exclude = [
 ]
 
 [patch.crates-io]
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "weighted_routing" }
-libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "weighted_routing" }
-parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "weighted_routing" }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "metrics" }
+libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "metrics" }
+parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "metrics" }
 
 [patch.'https://github.com/fluencelabs/fluence']
 trust-graph = { path = "trust-graph" }
