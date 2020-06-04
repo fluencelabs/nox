@@ -143,9 +143,11 @@ impl FunctionRouter {
         }
     }
 
-    // Removes all names that resolve to an address containing `resolvee`
+    /// Removes all names that resolve to an address containing `resolvee`
     pub(super) fn remove_halted_names(&mut self, resolvee: &PeerId) {
         use Protocol::*;
+
+        let mut removed = vec![];
 
         self.provided_names.retain(|k, v| {
             let protocols = v.protocols();
@@ -156,13 +158,19 @@ impl FunctionRouter {
             });
             if halted {
                 log::info!(
-                    "Removing halted name {}. forward_to: {} due to peer {} disconnection",
+                    "Unpublishing halted name {}. forward_to: {} due to peer {} disconnection",
                     k,
                     v,
                     resolvee
                 );
+                // TODO: avoid clone?
+                removed.push(k.clone())
             }
             !halted
         });
+
+        for name in removed {
+            self.unpublish_name(name);
+        }
     }
 }

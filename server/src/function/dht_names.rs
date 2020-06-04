@@ -214,7 +214,7 @@ impl FunctionRouter {
         name: &Address,
         provider: &Address,
     ) -> Result<(), libp2p::kad::store::Error> {
-        let record = ProviderRecord::new(provider, &self.config.keypair);
+        let record = ProviderRecord::signed(provider, &self.config.keypair);
         self.kademlia
             .put_record(Record::new(name, record.into()), Quorum::Majority)
             .map(|_| ())
@@ -226,5 +226,12 @@ impl FunctionRouter {
             &name.into(),
             Quorum::N(NonZeroUsize::new(GET_QUORUM_N).unwrap()),
         );
+    }
+
+    /// Remove ourselves from providers of this record, and replicate this to DHT
+    pub(super) fn unpublish_name(&mut self, name: Address) {
+        let key = (&name).into();
+        self.kademlia.remove_record(&key);
+        self.kademlia.replicate_record(&key)
     }
 }

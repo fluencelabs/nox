@@ -124,11 +124,20 @@ impl MultiRecord {
     }
 
     /// Return whether this record is of `SimpleRecord` kind
-    pub fn simple(&self) -> bool {
+    pub fn is_simple(&self) -> bool {
         match self.kind {
             MultiRecordKind::SimpleRecord => true,
             MultiRecordKind::MultiRecord => false,
         }
+    }
+
+    /// Remove values by specified publisher
+    pub fn remove(&mut self, publisher: &PeerId) {
+        self.values.retain(|_, p| p != publisher)
+    }
+
+    pub fn is_expired(&self, now: Instant) -> bool {
+        self.expires.map_or(false, |t| now >= t)
     }
 }
 
@@ -237,7 +246,7 @@ impl<'a> RecordStore<'a> for MemoryStore {
 
         match self.records.entry(key) {
             hash_map::Entry::Occupied(mut e) => {
-                if mrec.simple() {
+                if mrec.is_simple() {
                     // Replace if mrec is of simple kind
                     e.insert(mrec);
                 } else {
@@ -257,9 +266,15 @@ impl<'a> RecordStore<'a> for MemoryStore {
     }
 
     fn remove(&'a mut self, k: &Key) {
-        // TODO: removing everything here, for MultiRecord should remove only unexpired?
-        // TODO: Add method 'remove_expired' and use it instead of remove when removing due to ttl
-        self.records.remove(k);
+        if let Some(rec) = self.records.get_mut(k) {
+            if rec.is_expired(Instant::now()) {
+                // Whole record expired, remove it
+                self.records.remove(k);
+            } else {
+                // Remove ourselves from multirecord
+                rec.remove(self.local_key.preimage());
+            }
+        }
     }
 
     fn records(&'a self) -> Self::RecordsIter {
