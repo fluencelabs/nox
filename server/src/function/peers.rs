@@ -16,6 +16,7 @@
 
 use super::wait_peer::WaitPeer;
 use super::FunctionRouter;
+use crate::function::waiting_queues::Enqueued;
 use faas_api::{FunctionCall, Protocol};
 use libp2p::{
     swarm::{DialPeerCondition, NetworkBehaviour, NetworkBehaviourAction},
@@ -42,9 +43,10 @@ impl FunctionRouter {
 
     /// Query for peers closest to the `peer_id` as DHT key, enqueue call until response
     fn query_closest(&mut self, peer_id: PeerId, call: WaitPeer) {
-        self.wait_peer.enqueue(peer_id.clone(), call);
-        // TODO: don't call get_closest_peers if there are already some calls waiting for it
-        self.kademlia.get_closest_peers(peer_id);
+        // Don't call get_closest_peers if there are already some calls waiting for it
+        if let Enqueued::New = self.wait_peer.enqueue(peer_id.clone(), call) {
+            self.kademlia.get_closest_peers(peer_id.as_bytes());
+        }
     }
 
     /// Send all calls waiting for this peer to be found
@@ -61,6 +63,11 @@ impl FunctionRouter {
             }
             Ok(peer_id) => peer_id,
         };
+
+        if !peer_id.is_inlining() {
+            // Warn about Qm... PeerId
+            log::warn!("Found closest peers for non-inlining peer id: {}", peer_id);
+        }
 
         // Forward to `peer_id`
         let calls = self.wait_peer.remove_with(&peer_id, |wp| wp.found());
@@ -147,19 +154,12 @@ impl FunctionRouter {
 
     /// Whether peer is in the routing table
     pub(super) fn is_routable(&mut self, peer_id: &PeerId) -> bool {
-        // TODO: Checking `is_connected` inside `is_routable` smells...
-        let connected = self.is_connected(peer_id);
-
-        let kad = self.kademlia.addresses_of_peer(peer_id);
-        let in_kad = !kad.is_empty();
-
-        log::debug!(
-            "peer {} in routing table: Connected? {} Kademlia {:?}",
-            peer_id,
-            connected,
-            kad
-        );
-        connected || in_kad
+        // TODO (only relevant to local clients):
+        //       Is it possible for a client to be routable via swarm, but not via kademlia?
+        //       If so, need to ask swarm if client is routable
+        let in_kad = !self.kademlia.addresses_of_peer(peer_id).is_empty();
+        log::debug!("peer {} in routing table? {:?}", peer_id, in_kad);
+        in_kad
     }
 
     /// Whether given peer id is equal to ours
