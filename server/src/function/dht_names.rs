@@ -232,6 +232,6 @@ impl FunctionRouter {
     pub(super) fn unpublish_name(&mut self, name: Address) {
         let key = (&name).into();
         self.kademlia.remove_record(&key);
-        self.kademlia.replicate_record(&key)
+        self.kademlia.replicate_record(key)
     }
 }
