@@ -20,12 +20,12 @@ use libp2p::swarm::NetworkBehaviourEventProcess;
 
 impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
     fn inject_event(&mut self, event: BootstrapperEvent) {
+        // TODO: do not reconnect to boostraps all the time, make it stop after a few minutes after node was started
+        //       первые 5 минут реконнектишься, потом перестаешь делать это
         match event {
-            BootstrapperEvent::BootstrapConnected { peer_id, .. } => {
-                log::debug!(
-                    "Bootstrap connected {}, triggering bootstrap procedure",
-                    peer_id
-                );
+            BootstrapperEvent::RunBootstrap => {
+                log::debug!("Running bootstrap procedure");
+                // TODO: refactor out "thin bootstrap": only look ourselves in kademlia
                 self.bootstrap()
             }
             BootstrapperEvent::ReconnectToBootstrap {

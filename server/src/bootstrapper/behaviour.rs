@@ -30,12 +30,15 @@ use std::time::{Duration, Instant};
 pub type SwarmEventType = generate_swarm_event_type!(Bootstrapper);
 // TODO: make it exponential
 static RECONNECT_DELAY: Option<Duration> = Some(Duration::from_millis(1500));
+static BOOTSTRAP_DELAY: Duration = Duration::from_millis(10000);
+static BOOTSTRAP_MAX_DELAY: Duration = Duration::from_secs(60);
 
 pub struct Bootstrapper {
     pub bootstrap_nodes: HashSet<Multiaddr>,
     bootstrap_peers: HashSet<PeerId>,
     delayed_events: Vec<(Option<Instant>, SwarmEventType)>,
     events: VecDeque<SwarmEventType>,
+    bootstrap_scheduled: Option<(Instant, Duration)>,
 }
 
 impl Bootstrapper {
@@ -45,6 +48,7 @@ impl Bootstrapper {
             bootstrap_peers: Default::default(),
             delayed_events: Default::default(),
             events: Default::default(),
+            bootstrap_scheduled: None,
         }
     }
 
@@ -54,9 +58,31 @@ impl Bootstrapper {
         self.delayed_events.push((deadline, event));
     }
 
-    fn complete_delayed(&mut self) {
-        let now = Instant::now();
+    /// Schedule sending of `RunBootstrap` event after a `BOOTSTRAP_DELAY`
+    fn schedule_bootstrap(&mut self) {
+        match self.bootstrap_scheduled {
+            Some((scheduled, mut delay)) if delay < BOOTSTRAP_MAX_DELAY => {
+                // Delay bootstrap by `elapsed`
+                delay += scheduled.elapsed()
+            }
+            Some(_) => { /* maximum delay reached */ }
+            mut empty => {
+                empty.replace((Instant::now(), BOOTSTRAP_DELAY));
+            }
+        };
+    }
 
+    /// Send `RunBootstrap` if delay is reached
+    fn trigger_bootstrap(&mut self, now: Instant) {
+        if let Some(&(scheduled, delay)) = self.bootstrap_scheduled.as_ref() {
+            if now >= scheduled + delay {
+                self.push_event(BootstrapperEvent::RunBootstrap, None)
+            }
+        }
+    }
+
+    /// Send delayed events for which delay was reached
+    fn complete_delayed(&mut self, now: Instant) {
         let delayed = mem::replace(&mut self.delayed_events, vec![]);
 
         let (ready, not_ready) = delayed.into_iter().partition(|(deadline, _)| {
@@ -66,6 +92,14 @@ impl Bootstrapper {
 
         self.delayed_events = not_ready;
         self.events = ready.into_iter().map(|(_, e)| e).collect();
+    }
+
+    /// Called on each poll
+    fn on_poll(&mut self) {
+        let now = Instant::now();
+
+        self.complete_delayed(now);
+        self.trigger_bootstrap(now);
     }
 }
 
@@ -100,13 +134,7 @@ impl NetworkBehaviour for Bootstrapper {
 
         if self.bootstrap_nodes.contains(maddr) || self.bootstrap_peers.contains(peer_id) {
             self.bootstrap_peers.insert(peer_id.clone());
-            self.push_event(
-                BootstrapperEvent::BootstrapConnected {
-                    peer_id: peer_id.clone(),
-                    multiaddr: maddr.clone(),
-                },
-                None,
-            );
+            self.schedule_bootstrap();
         }
     }
 
@@ -156,5 +184,5 @@ impl NetworkBehaviour for Bootstrapper {
         }
     }
 
-    event_polling!(poll, events, SwarmEventType, complete_delayed);
+    event_polling!(poll, events, SwarmEventType, on_poll);
 }

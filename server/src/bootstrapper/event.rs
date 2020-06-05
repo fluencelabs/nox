@@ -19,10 +19,7 @@ use parity_multiaddr::Multiaddr;
 
 #[derive(Debug, Clone)]
 pub enum BootstrapperEvent {
-    BootstrapConnected {
-        peer_id: PeerId,
-        multiaddr: Multiaddr,
-    },
+    RunBootstrap,
 
     // Command to reconnect to specified bootstrap
     ReconnectToBootstrap {
@@ -30,14 +27,4 @@ pub enum BootstrapperEvent {
         multiaddr: Multiaddr,
         error: Option<String>,
     },
-    // BootstrapDisconnected {
-    //     peer_id: PeerId,
-    //     multiaddr: Multiaddr,
-    // },
-    //
-    // ReachFailure {
-    //     peer_id: Option<PeerId>,
-    //     multiaddr: Multiaddr,
-    //     error: String,
-    // }
 }

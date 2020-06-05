@@ -27,94 +27,17 @@
     unreachable_patterns
 )]
 
-use std::str::FromStr;
-use std::thread::sleep;
-
+use faas_api::{service, FunctionCall, Protocol};
+use fluence_client::Transport;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde_json::Value;
-
-use faas_api::{service, FunctionCall, Protocol};
-use fluence_client::Transport;
+use std::str::FromStr;
+use std::thread::sleep;
 use trust_graph::{current_time, Certificate};
 
 use crate::utils::*;
-use fluence_server::Server;
-use prometheus::Registry;
-
 mod utils;
-
-#[test]
-fn main() {
-    use async_std::task;
-    use libp2p::core::multiaddr::{Multiaddr, Protocol};
-    use rand::prelude::*;
-    use std::env;
-    use std::net::IpAddr;
-
-    env_logger::init();
-
-    let count: usize = env::var("COUNT")
-        .unwrap_or("10".into())
-        .parse()
-        .expect("count correct");
-
-    let host: IpAddr = env::var("HOST")
-        .unwrap_or("127.0.0.1".into())
-        .parse()
-        .expect("host correct");
-
-    let port: u16 = env::var("PORT")
-        .unwrap_or("2000".into())
-        .parse()
-        .expect("port correct");
-
-    // Max number of bootstrap nodes
-    let bs_max: usize = env::var("BS_MAX")
-        .unwrap_or("10".into())
-        .parse()
-        .expect("bs correct");
-
-    // Boostrap nodes will be HOST:BS_PORT..HOST:BS_PORT+BS_MAX
-    let bs_port: Option<u16> = env::var("BS_PORT")
-        .map(|s| s.parse().expect("bs correct"))
-        .ok();
-
-    fn create_maddr(host: IpAddr, port: u16) -> Multiaddr {
-        let mut maddr = Multiaddr::from(host);
-        maddr.push(Protocol::Tcp(port));
-        maddr
-    }
-
-    let registry = Registry::new();
-
-    let mut idx = 0;
-    let mut rng = thread_rng();
-    let external_bootstraps = bs_port.into_iter().flat_map(|p| {
-        (p..p + bs_max as u16)
-            .map(|p| create_maddr(host, p))
-            .collect::<Vec<_>>()
-    });
-
-    make_swarms_with(
-        count,
-        |bs, maddr| {
-            let rnd = bs.into_iter().choose_multiple(&mut rng, bs_max);
-            let bs: Vec<_> = rnd.into_iter().chain(external_bootstraps.clone()).collect();
-            create_swarm(bs, maddr, None, Transport::Network, Some(&registry))
-        },
-        || {
-            let maddr = create_maddr(host, port + idx);
-            idx += 1;
-            maddr
-        },
-        false,
-    );
-
-    log::info!("started /metrics at {}:{}", host, port - 1);
-    task::block_on(Server::start_metrics_endpoint(registry, (host, port - 1)))
-        .expect("Start /metrics endpoint");
-}
 
 #[test]
 // Send calls between clients through relays
@@ -478,7 +401,7 @@ fn identify() {
     fn check_reply(consumer: &mut ConnectedClient, swarm_addr: &Multiaddr, msg_id: &str) {
         let reply = consumer.receive();
         #[rustfmt::skip]
-        let reply_msg_id = reply.arguments.get("msg_id").expect("not empty").as_str().expect("str");
+            let reply_msg_id = reply.arguments.get("msg_id").expect("not empty").as_str().expect("str");
         assert_eq!(reply_msg_id, msg_id);
         let addrs = reply.arguments["addresses"].as_array().expect("not empty");
         assert!(!addrs.is_empty());
