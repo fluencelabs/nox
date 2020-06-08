@@ -20,6 +20,7 @@ use crate::public_key_hashable::PublicKeyHashable;
 use crate::revoke::Revoke;
 use crate::trust::Trust;
 use crate::trust_node::{Auth, TrustNode};
+use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::Entry::Occupied;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -58,15 +59,17 @@ impl TrustGraph {
         self.nodes.get(&pk.into())
     }
 
+    // TODO: remove cur_time from api, leave it for tests only
     /// Certificate is a chain of trusts, add this chain to graph
-    pub fn add(&mut self, cert: Certificate, cur_time: Duration) -> Result<(), String> {
+    pub fn add<C>(&mut self, cert: C, cur_time: Duration) -> Result<(), String>
+    where
+        C: Borrow<Certificate>,
+    {
         let roots: Vec<PublicKey> = self.root_weights.keys().cloned().map(Into::into).collect();
+        Certificate::verify(cert.borrow(), roots.as_slice(), cur_time)?;
 
-        Certificate::verify(&cert, roots.as_slice(), cur_time)?;
-
-        let chain = cert.chain;
-
-        let root_trust = &chain[0];
+        let chain = &cert.borrow().chain;
+        let root_trust = chain.first().ok_or("empty chain")?;
         let root_pk: PublicKeyHashable = root_trust.issued_for.clone().into();
 
         match self.nodes.get_mut(&root_pk) {
@@ -110,11 +113,11 @@ impl TrustGraph {
     }
 
     /// Get the maximum weight of trust for one public key.
-    /// Returns None if there is no such public key
-    /// or some trust between this key and a root key is revoked.
-    /// TODO handle non-direct revocations
-    pub fn weight(&self, pk: PublicKey) -> Option<Weight> {
-        if let Some(weight) = self.root_weights.get(&pk.clone().into()) {
+    pub fn weight<P>(&self, pk: P) -> Option<Weight>
+    where
+        P: Borrow<PublicKey>,
+    {
+        if let Some(weight) = self.root_weights.get(pk.borrow().as_ref()) {
             return Some(*weight);
         }
 
@@ -126,21 +129,35 @@ impl TrustGraph {
 
         // get all possible certificates from the given public key to all roots in the graph
         let certs = self.get_all_certs(pk, roots.as_slice());
+        self.certificates_weight(certs)
+    }
 
+    /// Calculate weight from given certificates
+    /// Returns None if there is no such public key
+    /// or some trust between this key and a root key is revoked.
+    /// TODO handle non-direct revocations
+    pub fn certificates_weight<C, I>(&self, certs: I) -> Option<Weight>
+    where
+        C: Borrow<Certificate>,
+        I: IntoIterator<Item = C>,
+    {
+        let mut certs = certs.into_iter().peekable();
         // if there are no certificates for the given public key, there is no info about this public key
         // or some elements of possible certificate chains was revoked
-        if certs.is_empty() {
+        if certs.peek().is_none() {
             return None;
         }
 
         let mut weight = std::u32::MAX;
 
         for cert in certs {
+            let cert = cert.borrow();
+
             let root_weight = *self
                 .root_weights
-                .get(&cert.chain[0].issued_for.clone().into())
-                // The error is unreachable.
-                .unwrap();
+                .get(cert.chain.first()?.issued_for.as_ref())
+                // This panic shouldn't happen // TODO: why?
+                .expect("first trust in chain must be in root_weights");
 
             // certificate weight = root weight + 1 * every other element in the chain
             // (except root, so the formula is `root weight + chain length - 1`)
@@ -204,11 +221,15 @@ impl TrustGraph {
         terminated_chains
     }
 
+    // TODO: remove `roots` argument from api, leave it for tests and internal usage only
     /// Get all possible certificates where `issued_for` will be the last element of the chain
     /// and one of the destinations is the root of this chain.
-    pub fn get_all_certs(&self, issued_for: PublicKey, roots: &[PublicKey]) -> Vec<Certificate> {
+    pub fn get_all_certs<P>(&self, issued_for: P, roots: &[PublicKey]) -> Vec<Certificate>
+    where
+        P: Borrow<PublicKey>,
+    {
         // get all auths (edges) for issued public key
-        let issued_for_node = self.nodes.get(&issued_for.into());
+        let issued_for_node = self.nodes.get(issued_for.borrow().as_ref());
 
         let roots = roots.iter().map(|pk| pk.as_ref());
         let roots = self.root_weights.keys().chain(roots).collect();

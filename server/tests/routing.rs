@@ -185,9 +185,10 @@ fn call_service_reply() {
 fn provide_disconnect() {
     let service_id = "providedisconnect";
 
-    let (mut provider, mut consumer) = ConnectedClient::make_clients().expect("connect clients");
-    // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
+    let swarms = make_swarms(10);
     sleep(KAD_TIMEOUT);
+    let mut consumer = ConnectedClient::connect_to(swarms[3].1.clone()).expect("connect consumer");
+    let mut provider = ConnectedClient::connect_to(swarms[4].1.clone()).expect("connect provider");
 
     // Register service
     let provide = provide_call(service_id, provider.relay_address());
@@ -220,7 +221,11 @@ fn provide_disconnect() {
     consumer.send(call_service.clone());
     let to_provider = provider.receive();
 
-    assert_eq!(call_service.uuid, to_provider.uuid);
+    assert_eq!(
+        call_service.uuid, to_provider.uuid,
+        "Got: to_provider: {:#?}\ncall_service: {:#?}",
+        to_provider, call_service
+    );
     assert_eq!(
         to_provider.target,
         Some(provider.client_address().extend(service!(service_id)))
