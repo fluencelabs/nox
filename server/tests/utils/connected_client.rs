@@ -24,14 +24,14 @@ use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 
 #[derive(Debug)]
-pub(crate) struct ConnectedClient {
-    pub(crate) client: Client,
-    pub(crate) node: PeerId,
-    pub(crate) node_address: Multiaddr,
+pub struct ConnectedClient {
+    pub client: Client,
+    pub node: PeerId,
+    pub node_address: Multiaddr,
 }
 
 impl ConnectedClient {
-    pub(crate) fn connect_to(node_address: Multiaddr) -> Result<Self> {
+    pub fn connect_to(node_address: Multiaddr) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
 
@@ -57,7 +57,7 @@ impl ConnectedClient {
         Ok(task::block_on(timeout(TIMEOUT, connect))??)
     }
 
-    pub(crate) fn new() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let swarm = make_swarms(3).into_iter().next().unwrap();
         let CreatedSwarm(node, addr1) = swarm;
 
@@ -76,7 +76,7 @@ impl ConnectedClient {
         Ok(task::block_on(timeout(TIMEOUT, connect))?)
     }
 
-    pub(crate) fn make_clients() -> Result<(Self, Self)> {
+    pub fn make_clients() -> Result<(Self, Self)> {
         let swarms = make_swarms(3);
         let mut swarms = swarms.into_iter();
         let CreatedSwarm(peer_id1, addr1) = swarms.next().expect("get swarm");

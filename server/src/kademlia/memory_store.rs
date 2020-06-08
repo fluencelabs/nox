@@ -117,7 +117,8 @@ impl MultiRecord {
         // Take max of expiration times, and set it to `self.expires`.
         // `None` means the record will never expire.
         if let Some(current) = self.expires.as_ref() {
-            if mrec.expires.map_or(false, |their| current.le(&their)) {
+            // If `mrec.expires` is None, mark current record to never expire
+            if mrec.expires.map_or(true, |their| current.le(&their)) {
                 self.expires = mrec.expires;
             }
         }
@@ -138,6 +139,10 @@ impl MultiRecord {
 
     pub fn is_expired(&self, now: Instant) -> bool {
         self.expires.map_or(false, |t| now >= t)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
     }
 }
 
@@ -273,6 +278,10 @@ impl<'a> RecordStore<'a> for MemoryStore {
             } else {
                 // Remove ourselves from multirecord
                 rec.remove(self.local_key.preimage());
+                if rec.is_empty() {
+                    // If record is now empty, remove it
+                    self.records.remove(k);
+                }
             }
         }
     }
@@ -395,16 +404,35 @@ mod tests {
 
     impl Arbitrary for NewRecord {
         fn arbitrary<G: Gen>(g: &mut G) -> NewRecord {
-            NewRecord(Record {
-                key: NewKey::arbitrary(g).0,
-                value: Vec::arbitrary(g),
-                publisher: Some(PeerId::random()),
-                expires: if g.gen() {
-                    Some(Instant::now() + Duration::from_secs(g.gen_range(0, 60)))
-                } else {
-                    None
-                },
-            })
+            fn gen_rec<G: Gen>(g: &mut G) -> Record {
+                Record {
+                    key: NewKey::arbitrary(g).0,
+                    value: Vec::arbitrary(g),
+                    publisher: Some(PeerId::random()),
+                    expires: if g.gen() {
+                        Some(Instant::now() + Duration::from_secs(g.gen_range(0, 60)))
+                    } else {
+                        None
+                    },
+                }
+            }
+
+            let rec = if g.gen() {
+                gen_rec(g)
+            } else {
+                // 25 chosen without any reason, you can change it up to max_values_per_multi_record
+                let max_values = 25;
+                let mut rec = try_to_multirecord(gen_rec(g)).expect("reduced");
+                for _ in 1..g.gen_range(1, max_values) {
+                    let mut new_rec = try_to_multirecord(gen_rec(g)).expect("reduced");
+                    new_rec.key = rec.key.clone();
+                    rec.merge(new_rec, max_values);
+                }
+
+                reduce_multirecord(rec)
+            };
+
+            NewRecord(rec)
         }
     }
 
@@ -431,17 +459,75 @@ mod tests {
     }
 
     #[test]
-    fn put_get_remove_record() {
+    fn put_get_remove_unexpired_record() {
         fn prop(r: NewRecord) {
             let r = r.0;
-            let key = r.key.clone();
+            let key = &r.key;
+
+            let mut mrec = try_to_multirecord(r.clone()).expect("reduce ok");
+            // Set record to never expire
+            mrec.expires = None;
+            let reduced = reduce_multirecord(mrec.clone());
             let mut store = MemoryStore::new(PeerId::random());
-            assert!(store.put(r.clone()).is_ok());
-            let mrec = try_to_multirecord(r).expect("reduce ok");
-            let reduced = reduce_multirecord(mrec);
-            assert_eq!(Some(Cow::Owned(reduced)), store.get(&key));
-            store.remove(&key);
-            assert!(store.get(&key).is_none());
+            assert!(store.put(reduced.clone()).is_ok());
+
+            let from_store = store.get(key).expect("contains").into_owned();
+            assert_eq!(from_store.key, reduced.key);
+            assert_eq!(from_store.publisher, reduced.publisher);
+            assert_eq!(from_store.expires, reduced.expires);
+
+            store.remove(key);
+            let after_remove = store.get(key);
+
+            let local_values: Vec<_> = mrec
+                .values
+                .values()
+                .filter(|&v| v == store.local_key.preimage())
+                .collect();
+
+            if local_values.len() == mrec.values.len() {
+                // If all values stored in multirecord were published by store.local_key
+                // then record would be removed completely
+                assert_eq!(after_remove, None)
+            } else {
+                // There were non-local values in mrecord, can't be empty
+                let after_remove = after_remove.expect("non empty").into_owned();
+                let after_remove = try_to_multirecord(after_remove).expect("must be a multirecord");
+                // only local values should be deleted
+                assert_eq!(
+                    after_remove.values.len(),
+                    mrec.values.len() - local_values.len(),
+                    "local values must be deleted"
+                );
+            }
+        }
+        quickcheck(prop as fn(_))
+    }
+
+    #[test]
+    fn put_get_remove_expired_record() {
+        fn prop(r: NewRecord) {
+            let r = r.0;
+            let key = &r.key;
+
+            let mut mrec = try_to_multirecord(r.clone()).expect("reduce ok");
+            // Set record to expire right now
+            let now = Instant::now();
+            mrec.expires = Some(now);
+            let reduced = reduce_multirecord(mrec.clone());
+
+            let mut store = MemoryStore::new(PeerId::random());
+            assert!(store.put(reduced.clone()).is_ok());
+
+            let from_store = store.get(key).expect("contains").into_owned();
+
+            assert_eq!(from_store.key, reduced.key);
+            assert_eq!(from_store.publisher, reduced.publisher);
+            // We can't compare expires directly due to serialization quirks
+            assert!(from_store.expires.expect("expires defined") >= now);
+
+            store.remove(key);
+            assert!(store.get(key).is_none());
         }
         quickcheck(prop as fn(_))
     }

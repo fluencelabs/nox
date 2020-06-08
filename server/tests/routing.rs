@@ -102,7 +102,6 @@ fn invalid_relay_signature() {
 
 #[test]
 fn missing_relay_signature() {
-    enable_logs();
     let (mut sender, receiver) = ConnectedClient::make_clients().expect("connect clients");
     let target = Protocol::Peer(receiver.node.clone()) / receiver.client_address();
 
