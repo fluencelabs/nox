@@ -41,7 +41,6 @@ use futures::{
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use std::error::Error;
-// use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::builder().format_timestamp_micros().init();

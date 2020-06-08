@@ -21,7 +21,7 @@ use libp2p::swarm::NetworkBehaviourEventProcess;
 impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
     fn inject_event(&mut self, event: BootstrapperEvent) {
         // TODO: do not reconnect to boostraps all the time, make it stop after a few minutes after node was started
-        //       первые 5 минут реконнектишься, потом перестаешь делать это
+        //       In other words, reconnect first 5 minutes or so, then stop. No reason to treat bootstrap nodes in a special way anymore.
         match event {
             BootstrapperEvent::RunBootstrap => {
                 log::debug!("Running bootstrap procedure");
