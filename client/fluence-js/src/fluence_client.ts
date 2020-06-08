@@ -224,6 +224,10 @@ export class FluenceClient {
         }
     }
 
+    async disconnect(): Promise<void> {
+        return this.connection.disconnect();
+    }
+
     /**
      * Establish a connection to the node. If the connection is already established, disconnect and reregister all services in a new connection.
      *

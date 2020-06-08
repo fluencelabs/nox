@@ -10,7 +10,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - fluence01-{{ checksum "server/Cargo.toml" }}
+            - fluence01-{{ checksum "server/Cargo.lock" }}
       - run: |
           rustup toolchain install stable
           rustup component add rustfmt
@@ -23,7 +23,7 @@ jobs:
           paths:
             - ~/.cargo
             - ~/.rustup
-          key: fluence01-{{ checksum "server/Cargo.toml" }}
+          key: fluence01-{{ checksum "server/Cargo.lock" }}
 
 workflows:
   version: 2
