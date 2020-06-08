@@ -1,0 +1,38 @@
+version: '3.5'
+services:
+  ipfs-1:
+    image: ipfs/go-ipfs:bifrost-latest
+    restart: always
+    ports:
+      - "4001:4001" # IPFS swarm
+      - "5001:5001" # IPFS API
+      - "8080:8080" # HTTP endpoint
+    command: daemon --migrate=true 
+    network: ipfs-1
+
+  ipfs-2:
+    image: ipfs/go-ipfs:bifrost-latest
+    restart: always
+    ports:
+      - "4001:4001" # IPFS swarm
+      - "5001:5001" # IPFS API
+      - "8080:8080" # HTTP endpoint
+    command: daemon --migrate=true 
+    network: ipfs-2
+   
+#      - 8080:8080 # HTTP endpoint
+# environment:
+  # LIBP2P_FORCE_PNET: "1" # TODO: investigate how it works
+  # IPFS_SWARM_KEY: "/key/swarm/psk/1.0.0/\n/base16/\nb7e2fb6d9e182b3e26c224c260a2f28d62f57cb009f5cc8dd59fb3edb5992766"
+  # IPFS_PATH: "~/.ipfs"
+# networks:
+  # connects Fluence Node and IPFS containers
+# - decentralized_storage_network
+
+networks:
+  - ipfs-1:
+  - ipfs-2:
+
+# networks:
+#   decentralized_storage_network:
+#     name: decentralized_storage_network
