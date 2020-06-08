@@ -147,6 +147,7 @@ impl FunctionRouter {
     pub(super) fn remove_halted_names(&mut self, resolvee: &PeerId) {
         use Protocol::*;
 
+        // TODO: use drain_filter once available https://github.com/rust-lang/rust/issues/59618
         let mut removed = vec![];
 
         self.provided_names.retain(|k, v| {
