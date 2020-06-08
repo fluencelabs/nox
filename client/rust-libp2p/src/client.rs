@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-use crate::{
-    behaviour::ClientBehaviour, command::ClientCommand, function_call_api::FunctionCallApi,
-    ClientEvent,
-};
+use crate::{behaviour::ClientBehaviour, function_call_api::FunctionCallApi, ClientEvent};
 use async_std::{task, task::JoinHandle};
+use faas_api::{relay, Address, FunctionCall, Protocol};
 use fluence_libp2p::{
     build_memory_transport, build_transport,
     types::{Inlet, OneshotOutlet, Outlet},
@@ -46,11 +44,17 @@ impl Transport {
 }
 
 #[derive(Debug)]
+struct Command {
+    node: PeerId,
+    call: FunctionCall,
+}
+
+#[derive(Debug)]
 pub struct Client {
     pub key_pair: ed25519::Keypair,
     pub peer_id: PeerId,
     /// Channel to send commands to node
-    relay_outlet: Outlet<ClientCommand>,
+    relay_outlet: Outlet<Command>,
     /// Stream of messages received from node
     client_inlet: Fuse<Inlet<ClientEvent>>,
     stop_outlet: OneshotOutlet<()>,
@@ -58,7 +62,7 @@ pub struct Client {
 
 impl Client {
     fn new(
-        relay_outlet: Outlet<ClientCommand>,
+        relay_outlet: Outlet<Command>,
         client_inlet: Inlet<ClientEvent>,
         stop_outlet: OneshotOutlet<()>,
     ) -> Self {
@@ -74,8 +78,8 @@ impl Client {
         }
     }
 
-    pub fn send(&self, cmd: ClientCommand) {
-        if let Err(err) = self.relay_outlet.unbounded_send(cmd) {
+    pub fn send(&self, call: FunctionCall, node: PeerId) {
+        if let Err(err) = self.relay_outlet.unbounded_send(Command { node, call }) {
             let err_msg = format!("{:?}", err);
             let msg = err.into_inner();
             log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
@@ -90,6 +94,16 @@ impl Client {
         if self.stop_outlet.send(()).is_err() {
             log::warn!("Unable to send stop, channel closed")
         }
+    }
+
+    pub fn relay_address(&self, node: PeerId) -> Address {
+        let addr = relay!(node, self.peer_id.clone());
+        let sig = self.sign(addr.path().as_bytes());
+        addr.append(Protocol::Signature(sig))
+    }
+
+    pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
+        self.key_pair.sign(bytes)
     }
 
     fn dial(
@@ -178,12 +192,9 @@ impl Client {
         Ok((client, task))
     }
 
-    fn send_to_node<R: FunctionCallApi, S: DerefMut<Target = R>>(
-        swarm: &mut S,
-        cmd: ClientCommand,
-    ) {
+    fn send_to_node<R: FunctionCallApi, S: DerefMut<Target = R>>(swarm: &mut S, cmd: Command) {
         match cmd {
-            ClientCommand::Call { node, call } => swarm.call(node, call),
+            Command { node, call } => swarm.call(node, call),
         }
     }
 

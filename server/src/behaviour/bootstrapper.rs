@@ -20,28 +20,28 @@ use libp2p::swarm::NetworkBehaviourEventProcess;
 
 impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
     fn inject_event(&mut self, event: BootstrapperEvent) {
+        // TODO: do not reconnect to boostraps all the time, make it stop after a few minutes after node was started
+        //       In other words, reconnect first 5 minutes or so, then stop. No reason to treat bootstrap nodes in a special way anymore.
         match event {
-            BootstrapperEvent::BootstrapConnected { peer_id, .. } => {
-                log::debug!(
-                    "Bootstrap connected {}, triggering bootstrap procedure",
-                    peer_id
-                );
+            BootstrapperEvent::RunBootstrap => {
+                log::debug!("Running bootstrap procedure");
+                // TODO: refactor out "thin bootstrap": only look ourselves in kademlia
                 self.bootstrap()
             }
-            BootstrapperEvent::BootstrapDisconnected { peer_id, multiaddr } => {
-                log::info!("Bootstrap disconnected {}, reconnecting", peer_id);
-                self.dial(multiaddr);
-                self.dial_peer(peer_id);
-            }
-            BootstrapperEvent::ReachFailure {
-                multiaddr, error, ..
+            BootstrapperEvent::ReconnectToBootstrap {
+                peer_id,
+                multiaddr,
+                error,
             } => {
-                log::warn!(
-                    "Failed to reach bootstrap at {:?}: {}, reconnecting",
-                    &multiaddr,
-                    error
+                log::info!(
+                    "Bootstrap disconnected {} {}, reconnecting",
+                    peer_id.as_ref().map(|p| p.to_string()).unwrap_or_default(),
+                    error.unwrap_or_default()
                 );
                 self.dial(multiaddr);
+                if let Some(peer_id) = peer_id {
+                    self.dial_peer(peer_id)
+                }
             }
         }
     }

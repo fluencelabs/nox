@@ -15,23 +15,23 @@
  */
 
 use crate::utils::misc::{make_swarms, CreatedSwarm, Result, SHORT_TIMEOUT, TIMEOUT};
-use faas_api::{relay, Address, FunctionCall, Protocol};
+use faas_api::{Address, FunctionCall, Protocol};
 
 use async_std::future::timeout;
 use async_std::task;
-use fluence_client::{Client, ClientCommand, ClientEvent, Transport};
+use fluence_client::{Client, ClientEvent, Transport};
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 
 #[derive(Debug)]
-pub(crate) struct ConnectedClient {
-    pub(crate) client: Client,
-    pub(crate) node: PeerId,
-    pub(crate) node_address: Multiaddr,
+pub struct ConnectedClient {
+    pub client: Client,
+    pub node: PeerId,
+    pub node_address: Multiaddr,
 }
 
 impl ConnectedClient {
-    pub(crate) fn connect_to(node_address: Multiaddr) -> Result<Self> {
+    pub fn connect_to(node_address: Multiaddr) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
 
@@ -57,7 +57,7 @@ impl ConnectedClient {
         Ok(task::block_on(timeout(TIMEOUT, connect))??)
     }
 
-    pub(crate) fn new() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let swarm = make_swarms(3).into_iter().next().unwrap();
         let CreatedSwarm(node, addr1) = swarm;
 
@@ -76,7 +76,7 @@ impl ConnectedClient {
         Ok(task::block_on(timeout(TIMEOUT, connect))?)
     }
 
-    pub(crate) fn make_clients() -> Result<(Self, Self)> {
+    pub fn make_clients() -> Result<(Self, Self)> {
         let swarms = make_swarms(3);
         let mut swarms = swarms.into_iter();
         let CreatedSwarm(peer_id1, addr1) = swarms.next().expect("get swarm");
@@ -116,20 +116,15 @@ impl ConnectedClient {
     }
 
     pub fn relay_address(&self) -> Address {
-        let addr = relay!(self.node.clone(), self.client.peer_id.clone());
-        let sig = self.sign(addr.path().as_bytes());
-        addr.append(Protocol::Signature(sig))
+        self.client.relay_address(self.node.clone())
     }
 
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
-        self.client.key_pair.sign(bytes)
+        self.client.sign(bytes)
     }
 
     pub fn send(&self, call: FunctionCall) {
-        self.client.send(ClientCommand::Call {
-            node: self.node.clone(),
-            call,
-        })
+        self.client.send(call, self.node.clone())
     }
 
     pub fn receive(&mut self) -> FunctionCall {

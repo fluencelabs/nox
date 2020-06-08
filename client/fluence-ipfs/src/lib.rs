@@ -28,7 +28,7 @@
 
 use async_timer::Interval;
 use faas_api::{relay, Address, FunctionCall, Protocol};
-use fluence_client::{Client, ClientCommand, ClientEvent};
+use fluence_client::{Client, ClientEvent};
 use futures::{channel::oneshot::Receiver, select, FutureExt, StreamExt};
 use libp2p::identity::ed25519::Keypair;
 use libp2p::PeerId;
@@ -129,7 +129,7 @@ pub async fn run_ipfs_multiaddr_service(
                             bootstrap_id.clone().unwrap(), client.peer_id.clone(), reply_to, msg_id, &ipfs, &client.key_pair
                         );
                         if let Some(node) = bootstrap_id.clone() {
-                            client.send(ClientCommand::Call { node, call })
+                            client.send(call, node)
                         } else {
                             log::warn!("Can't send {} reply: bootstrap hasn't connected yed", IPFS_SERVICE.deref());
                         }
@@ -150,10 +150,7 @@ pub async fn run_ipfs_multiaddr_service(
                     let call = register_call(client.peer_id.clone(), bootstrap_id.clone(), IPFS_SERVICE_ID, &client.key_pair);
                     log::info!("Sending register call {:?}", call);
 
-                    client.send(ClientCommand::Call {
-                        node: bootstrap_id,
-                        call,
-                    });
+                    client.send(call, bootstrap_id);
                 }
             }
             _ = stop.next() => {

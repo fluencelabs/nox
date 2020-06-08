@@ -27,18 +27,17 @@
     unreachable_patterns
 )]
 
-mod utils;
-
-use crate::utils::*;
-
 use faas_api::{service, FunctionCall, Protocol};
+use fluence_client::Transport;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
-use serde_json::Value;
-use trust_graph::{current_time, Certificate};
-
 use parity_multiaddr::Multiaddr;
+use serde_json::Value;
 use std::str::FromStr;
 use std::thread::sleep;
+use trust_graph::{current_time, Certificate};
+
+use crate::utils::*;
+mod utils;
 
 #[test]
 // Send calls between clients through relays
@@ -103,7 +102,6 @@ fn invalid_relay_signature() {
 
 #[test]
 fn missing_relay_signature() {
-    enable_logs();
     let (mut sender, receiver) = ConnectedClient::make_clients().expect("connect clients");
     let target = Protocol::Peer(receiver.node.clone()) / receiver.client_address();
 
@@ -287,9 +285,12 @@ fn get_certs() {
     };
 
     let swarm_count = 5;
-    let swarms = make_swarms_with(swarm_count, |bs, maddr| {
-        create_swarm(bs, maddr, Some(trust.clone()))
-    });
+    let swarms = make_swarms_with(
+        swarm_count,
+        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
+        create_memory_maddr,
+        true,
+    );
     sleep(KAD_TIMEOUT);
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let peer_id = PeerId::from(Ed25519(last_key));
@@ -324,9 +325,12 @@ fn add_certs() {
     };
 
     let swarm_count = 5;
-    let swarms = make_swarms_with(swarm_count, |bs, maddr| {
-        create_swarm(bs, maddr, Some(trust.clone()))
-    });
+    let swarms = make_swarms_with(
+        swarm_count,
+        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
+        create_memory_maddr,
+        true,
+    );
     sleep(KAD_TIMEOUT);
 
     let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
@@ -354,9 +358,12 @@ fn add_certs_invalid_signature() {
     };
 
     let swarm_count = 5;
-    let swarms = make_swarms_with(swarm_count, |bs, maddr| {
-        create_swarm(bs, maddr, Some(trust.clone()))
-    });
+    let swarms = make_swarms_with(
+        swarm_count,
+        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
+        create_memory_maddr,
+        true,
+    );
     sleep(KAD_TIMEOUT);
 
     // invalidate signature in last trust in `cert`
@@ -393,7 +400,7 @@ fn identify() {
     fn check_reply(consumer: &mut ConnectedClient, swarm_addr: &Multiaddr, msg_id: &str) {
         let reply = consumer.receive();
         #[rustfmt::skip]
-        let reply_msg_id = reply.arguments.get("msg_id").expect("not empty").as_str().expect("str");
+            let reply_msg_id = reply.arguments.get("msg_id").expect("not empty").as_str().expect("str");
         assert_eq!(reply_msg_id, msg_id);
         let addrs = reply.arguments["addresses"].as_array().expect("not empty");
         assert!(!addrs.is_empty());

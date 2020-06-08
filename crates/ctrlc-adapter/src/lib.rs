@@ -20,6 +20,7 @@ pub fn block_until_ctrlc() {
     let ctrlc_outlet = std::cell::RefCell::new(Some(ctrlc_outlet));
 
     ctrlc::set_handler(move || {
+        println!("ctrlc fired!");
         if let Some(outlet) = ctrlc_outlet.borrow_mut().take() {
             outlet.send(()).expect("sending shutdown signal failed");
         }

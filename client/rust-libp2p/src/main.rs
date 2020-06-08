@@ -27,9 +27,11 @@
 )]
 
 use async_std::task;
+use clap::{App, Arg};
 use ctrlc_adapter::block_until_ctrlc;
-use faas_api::{relay, service, FunctionCall};
+use faas_api::{service, Address, FunctionCall};
 use fluence_client::{Client, ClientCommand, ClientEvent};
+use futures::task::Poll;
 use futures::{
     channel::{mpsc, mpsc::UnboundedReceiver, oneshot},
     prelude::*,
@@ -39,16 +41,21 @@ use futures::{
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use std::error::Error;
-use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::builder().format_timestamp_micros().init();
 
-    let relay_addr: Multiaddr = std::env::args()
-        .nth(1)
-        .expect("multiaddr of relay peer should be provided by the first argument")
+    let args = &[Arg::from_usage("<multiaddr> 'Multiaddr of the Fluence node'").required(true)];
+
+    let arg_matches = App::new("Connect to fluence server")
+        .args(args)
+        .get_matches();
+
+    let relay_addr: Multiaddr = arg_matches
+        .value_of("multiaddr")
+        .expect("multiaddr is required")
         .parse()
-        .expect("provided wrong  Multiaddr");
+        .expect("provided incorrect Multiaddr");
 
     let (exit_sender, exit_receiver) = oneshot::channel::<()>();
 
@@ -79,13 +86,19 @@ async fn run_client(
     let mut stdin_cmds = stdin_cmds.into_stream().fuse();
     let mut stop = exit_receiver.into_stream().fuse();
 
+    let mut node: Option<PeerId> = None;
+
     loop {
         select!(
             cmd = stdin_cmds.select_next_some() => {
                 match cmd {
                     Ok(cmd) => {
-                        client.send(cmd);
-                        print!("\n");
+                        if let Some(node) = &node {
+                            client.send(cmd.into(), node.clone());
+                            print!("\n");
+                        } else {
+                            print!("Not connected yet!");
+                        }
                     },
                     Err(e) => println!("incorrect string provided: {:?}", e)
                 }
@@ -94,7 +107,8 @@ async fn run_client(
                 match incoming {
                     Some(ClientEvent::NewConnection{ peer_id, ..}) => {
                         log::info!("Connected to {}", peer_id);
-                        print_example(&client.peer_id, peer_id);
+                        node = Some(peer_id.clone());
+                        print_example(client.relay_address(peer_id.clone()));
                     }
                     Some(msg) => println!("Received\n{}\n", serde_json::to_string_pretty(&msg).unwrap()),
                     None => {
@@ -126,20 +140,34 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
 
         loop {
             let stdin = io::BufReader::new(io::stdin());
-            let stream = Deserializer::from_reader(stdin).into_iter::<ClientCommand>();
+            let mut stream = Deserializer::from_reader(stdin).into_iter().fuse();
 
-            // blocking happens in 'for' below
-            for cmd in stream {
-                cmd_sender.unbounded_send(cmd).expect("send cmd");
-                task::sleep(Duration::from_nanos(10)).await; // return Poll::Pending from future's fn poll
-            }
+            let cmd_sender = cmd_sender.clone();
+            task::spawn(async move {
+                futures::future::poll_fn(|cx| {
+                    // Read parsed command from JSON stream (blocking)
+                    let cmd = stream.next();
+                    if let Some(cmd) = cmd {
+                        // Send command to select! that reads from `cmd_recv`
+                        cmd_sender.unbounded_send(cmd).expect("send cmd");
+                        // Call waker to respawn this future
+                        cx.waker().clone().wake();
+                        return Poll::Pending;
+                    } else {
+                        // Return Ready so await below completes
+                        return Poll::Ready(());
+                    }
+                })
+                .await;
+            })
+            .await;
         }
     });
 
     cmd_recv
 }
 
-fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
+fn print_example(reply_to: Address) {
     use serde_json::json;
     use std::time::SystemTime;
     fn show(cmd: ClientCommand) {
@@ -155,42 +183,39 @@ fn print_example(peer_id: &PeerId, bootstrap: PeerId) {
         .as_millis()
         .to_string();
 
-    let call_multiaddr = ClientCommand::Call {
-        node: bootstrap.clone(),
+    let call_identify = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(service!("IPFS.multiaddr")),
-            reply_to: Some(relay!(bootstrap.clone(), peer_id.clone())),
+            target: Some(service!("identify")),
+            reply_to: Some(reply_to.clone()),
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
-            name: Some("call multiaddr".to_string()),
+            name: Some("call identify".to_string()),
         },
     };
 
     let register_ipfs_get = ClientCommand::Call {
-        node: bootstrap.clone(),
         call: FunctionCall {
             uuid: uuid(),
             target: Some(service!("provide")),
-            reply_to: Some(relay!(bootstrap.clone(), peer_id.clone())),
+            reply_to: Some(reply_to.clone()),
             arguments: json!({ "service_id": "IPFS.get_QmFile3", "msg_id": time }),
             name: Some("register service".to_string()),
         },
     };
 
     let call_ipfs_get = ClientCommand::Call {
-        node: bootstrap.clone(),
         call: FunctionCall {
             uuid: uuid(),
             target: Some(service!("IPFS.get_QmFile3")),
-            reply_to: Some(relay!(bootstrap, peer_id.clone())),
+            reply_to: Some(reply_to.clone()),
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
         },
     };
 
     println!("Possible messages:");
-    println!("\n### call IPFS.multiaddr");
-    show(call_multiaddr);
+    println!("\n### call identify");
+    show(call_identify);
     println!("\n### Register IPFS.get service");
     show(register_ipfs_get);
     println!("\n### Call IPFS.get service");

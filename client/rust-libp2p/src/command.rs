@@ -15,17 +15,19 @@
  */
 
 use faas_api::FunctionCall;
-use fluence_libp2p::peerid_serializer;
-use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 /// Describes commands sent from client to relay node; also see `ToNodeNetworkMsg`
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "command", content = "body")]
+#[serde(tag = "command")]
 pub enum ClientCommand {
-    Call {
-        #[serde(with = "peerid_serializer")]
-        node: PeerId,
-        call: FunctionCall,
-    },
+    Call { call: FunctionCall },
+}
+
+impl Into<FunctionCall> for ClientCommand {
+    fn into(self) -> FunctionCall {
+        match self {
+            ClientCommand::Call { call } => call,
+        }
+    }
 }

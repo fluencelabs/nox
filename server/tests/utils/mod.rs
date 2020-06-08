@@ -17,5 +17,5 @@
 mod connected_client;
 mod misc;
 
-pub(crate) use connected_client::ConnectedClient;
-pub(crate) use misc::*;
+pub use connected_client::ConnectedClient;
+pub use misc::*;
