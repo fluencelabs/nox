@@ -45,7 +45,7 @@ pub struct ProviderRecord {
 
 impl ProviderRecord {
     // Create ProviderRecord, signing address path (without schema) with passed keypair
-    pub fn new(address: &Address, kp: &Keypair) -> Self {
+    pub fn signed(address: &Address, kp: &Keypair) -> Self {
         let address = address.path();
         let signature = kp.sign(address.as_bytes());
 
@@ -107,7 +107,7 @@ mod tests {
         let relay = RandomPeerId::random();
         let address: Address = relay!(relay, client);
 
-        let rec = ProviderRecord::new(&address, &keypair);
+        let rec = ProviderRecord::signed(&address, &keypair);
         let encoded: Vec<u8> = rec.clone().into();
         let decoded: ProviderRecord = encoded.as_slice().into();
 

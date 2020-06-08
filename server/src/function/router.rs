@@ -32,6 +32,7 @@ use libp2p::{
     PeerId,
 };
 use parity_multiaddr::Multiaddr;
+use prometheus::Registry;
 use std::collections::{HashMap, HashSet, VecDeque};
 use trust_graph::TrustGraph;
 use uuid::Uuid;
@@ -75,20 +76,27 @@ pub struct FunctionRouter {
 
 // TODO: move public methods to a trait
 impl FunctionRouter {
-    pub(crate) fn new(config: RouterConfig, trust_graph: TrustGraph) -> Self {
+    pub(crate) fn new(
+        config: RouterConfig,
+        trust_graph: TrustGraph,
+        registry: Option<&Registry>,
+    ) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
             .set_max_packet_size(100 * 4096 * 4096) // 100 Mb
             .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())
             .set_connection_idle_timeout(Duration::from_secs(2_628_000_000)); // ~month
         let store = MemoryStore::new(config.peer_id.clone());
-        let kademlia = Kademlia::with_config(
+        let mut kademlia = Kademlia::with_config(
             config.keypair.clone(),
             config.peer_id.clone(),
             store,
             cfg,
             trust_graph,
         );
+        if let Some(registry) = registry {
+            kademlia.enable_metrics(registry);
+        }
 
         Self {
             config,
@@ -151,13 +159,15 @@ impl FunctionRouter {
                     return;
                 }
                 Client(id) if is_local => {
-                    let id = id.clone();
-                    let client = target.next().unwrap();
+                    let client_id = id.clone();
+                    let client_protocol = target.next().unwrap();
                     // Remove signature from target
                     match target.next() {
                         Some(Signature(_)) => {
-                            let target = Address::cons(client, target);
-                            self.send_to(id, Routable, call.with_target(target));
+                            let target = Address::cons(client_protocol, target);
+                            // TODO: Why Routable? If it's a local client, it should be connected
+                            //       It can't be Routable, because it's not reachable via Kademlia
+                            self.send_to(client_id, Routable, call.with_target(target));
                         }
                         Some(other) => {
                             let path = target.join("");
@@ -198,12 +208,12 @@ impl FunctionRouter {
         let status = self.peer_status(&to);
         // Check if peer is in expected (or better) status
         if status < expected {
-            // TODO: this error is not helpful. Example of helpful error: "Peer wasn't found via GetClosestPeers"
-            //       consider custom errors for different pairs of (status, expected)
+            // TODO: This error is not helpful. Example of helpful error: "Peer wasn't found via GetClosestPeers".
+            //       Consider custom errors for different pairs of (status, expected)
             #[rustfmt::skip]
-            let err_msg = format!("unexpected status. Got {:?} expected {:?}", status, expected);
+            let err_msg = format!("Unexpected status for {}. Got {:?} expected {:?}", to, status, expected);
             #[rustfmt::skip]
-            log::error!("Can't send call {:?} to peer {}: {}", call, to, err_msg);
+            log::error!("Can't send call {:?}: {}", call, err_msg);
             self.send_error_on_call(call, err_msg);
             return;
         }

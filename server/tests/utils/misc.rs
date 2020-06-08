@@ -16,9 +16,10 @@
 
 use async_std::task;
 use faas_api::{service, Address, FunctionCall};
-use fluence_libp2p::build_memory_transport;
+use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::ServerBehaviour;
 
+use fluence_client::Transport;
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -27,6 +28,7 @@ use libp2p::{
     PeerId, Swarm,
 };
 use parity_multiaddr::Multiaddr;
+use prometheus::Registry;
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use trust_graph::{Certificate, TrustGraph};
@@ -34,12 +36,12 @@ use uuid::Uuid;
 
 /// Utility functions for tests.
 
-pub(crate) type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
-pub(crate) static TIMEOUT: Duration = Duration::from_secs(5);
-pub(crate) static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
-pub(crate) static KAD_TIMEOUT: Duration = Duration::from_millis(500);
+pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+pub static TIMEOUT: Duration = Duration::from_secs(5);
+pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
+pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-pub(crate) fn certificates_call(peer_id: PeerId, reply_to: Address) -> FunctionCall {
+pub fn certificates_call(peer_id: PeerId, reply_to: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(service!("certificates")),
@@ -49,7 +51,7 @@ pub(crate) fn certificates_call(peer_id: PeerId, reply_to: Address) -> FunctionC
     }
 }
 
-pub(crate) fn add_certificates_call(
+pub fn add_certificates_call(
     peer_id: PeerId,
     reply_to: Address,
     certs: Vec<Certificate>,
@@ -68,7 +70,7 @@ pub(crate) fn add_certificates_call(
     }
 }
 
-pub(crate) fn provide_call(service_id: &str, reply_to: Address) -> FunctionCall {
+pub fn provide_call(service_id: &str, reply_to: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(service!("provide")),
@@ -78,7 +80,7 @@ pub(crate) fn provide_call(service_id: &str, reply_to: Address) -> FunctionCall 
     }
 }
 
-pub(crate) fn service_call(service_id: &str, consumer: Address) -> FunctionCall {
+pub fn service_call(service_id: &str, consumer: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(service!(service_id)),
@@ -88,7 +90,7 @@ pub(crate) fn service_call(service_id: &str, consumer: Address) -> FunctionCall 
     }
 }
 
-pub(crate) fn reply_call(reply_to: Address) -> FunctionCall {
+pub fn reply_call(reply_to: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(reply_to),
@@ -98,11 +100,11 @@ pub(crate) fn reply_call(reply_to: Address) -> FunctionCall {
     }
 }
 
-pub(crate) fn uuid() -> String {
+pub fn uuid() -> String {
     Uuid::new_v4().to_string()
 }
 
-pub(crate) fn get_cert() -> Certificate {
+pub fn get_cert() -> Certificate {
     use std::str::FromStr;
 
     Certificate::from_str(
@@ -127,7 +129,7 @@ HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
 
 #[allow(dead_code)]
 // Enables logging, filtering out unnecessary details
-pub(crate) fn enable_logs() {
+pub fn enable_logs() {
     use log::LevelFilter::{Debug, Info};
 
     env_logger::builder()
@@ -151,14 +153,25 @@ pub(crate) fn enable_logs() {
         .ok();
 }
 
-pub(crate) struct CreatedSwarm(pub PeerId, pub Multiaddr);
-pub(crate) fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
-    make_swarms_with(n, |bs, maddr| create_swarm(bs, maddr, None))
+pub struct CreatedSwarm(pub PeerId, pub Multiaddr);
+pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
+    make_swarms_with(
+        n,
+        |bs, maddr| create_swarm(bs, maddr, None, Transport::Memory, None),
+        create_memory_maddr,
+        true,
+    )
 }
 
-pub(crate) fn make_swarms_with<F>(n: usize, create_swarm: F) -> Vec<CreatedSwarm>
+pub fn make_swarms_with<F, M>(
+    n: usize,
+    mut create_swarm: F,
+    mut create_maddr: M,
+    wait_connected: bool,
+) -> Vec<CreatedSwarm>
 where
-    F: Fn(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>),
+    M: FnMut() -> Multiaddr,
 {
     use futures::stream::FuturesUnordered;
     use futures_util::StreamExt;
@@ -207,7 +220,7 @@ where
                             connected.fetch_add(1, Ordering::SeqCst);
                             let total = connected.load(Ordering::Relaxed);
                             if total % 10 == 0 {
-                                log::trace!(
+                                log::info!(
                                     "established {: <10} +{: <10} (= {:<5})",
                                     total,
                                     format_args!("{:.3}s", start.elapsed().as_secs_f32()),
@@ -225,24 +238,28 @@ where
             .expect("drain");
     });
 
-    let now = Instant::now();
-    while connected.load(Ordering::SeqCst) < (n * (n - 1)) {}
-    log::debug!("Connection took {}s", now.elapsed().as_secs_f32());
+    if wait_connected {
+        let now = Instant::now();
+        while connected.load(Ordering::SeqCst) < (n * (n - 1)) {}
+        log::info!("Connection took {}s", now.elapsed().as_secs_f32());
+    }
 
     infos
 }
 
 #[derive(Default, Clone)]
-pub(crate) struct Trust {
-    pub(crate) root_weights: Vec<(PublicKey, u32)>,
-    pub(crate) certificates: Vec<Certificate>,
-    pub(crate) cur_time: Duration,
+pub struct Trust {
+    pub root_weights: Vec<(PublicKey, u32)>,
+    pub certificates: Vec<Certificate>,
+    pub cur_time: Duration,
 }
 
-pub(crate) fn create_swarm(
+pub fn create_swarm(
     bootstraps: Vec<Multiaddr>,
     listen_on: Multiaddr,
     trust: Option<Trust>,
+    transport: Transport,
+    registry: Option<&Registry>,
 ) -> (PeerId, Swarm<ServerBehaviour>) {
     use libp2p::identity;
 
@@ -266,10 +283,18 @@ pub(crate) fn create_swarm(
             vec![listen_on.clone()],
             trust_graph,
             bootstraps,
+            registry,
         );
-        let transport = build_memory_transport(Ed25519(kp));
-
-        Swarm::new(transport, server, peer_id.clone())
+        match transport {
+            Transport::Memory => {
+                Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())
+            }
+            Transport::Network => Swarm::new(
+                build_transport(Ed25519(kp), Duration::from_secs(10)),
+                server,
+                peer_id.clone(),
+            ),
+        }
     };
 
     Swarm::listen_on(&mut swarm, listen_on).unwrap();
@@ -277,7 +302,7 @@ pub(crate) fn create_swarm(
     (peer_id, swarm)
 }
 
-fn create_maddr() -> Multiaddr {
+pub fn create_memory_maddr() -> Multiaddr {
     use libp2p::core::multiaddr::Protocol;
 
     let port = 1 + rand::random::<u64>();

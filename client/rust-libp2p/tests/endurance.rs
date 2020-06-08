@@ -15,8 +15,8 @@
  */
 
 use config::{Config, File};
-use faas_api::{relay, service, FunctionCall, Protocol};
-use fluence_client::{Client, ClientCommand, ClientEvent};
+use faas_api::{service, Address, FunctionCall, Protocol};
+use fluence_client::{Client, ClientEvent};
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
 use log::LevelFilter;
@@ -135,7 +135,8 @@ fn endurance() {
                 let mut periodic = interval(service.period);
                 (&mut periodic).await;
 
-                provider.send(registration(service.node.peer_id.clone(), provider.peer_id.clone(), service.id.clone()));
+                let reply_to = provider.relay_address(service.node.peer_id.clone());
+                provider.send(registration(reply_to, service.id.clone()), service.node.peer_id.clone());
                 log::info!("{: <14} - Provider sent registration", prefix);
                 task::sleep(Duration::from_secs(pause)).await;
 
@@ -153,7 +154,7 @@ fn endurance() {
                         report(ConsumerConnected);
 
                         let sent = Instant::now();
-                        consumer.send(service_call(node.peer_id.clone(), service.id.clone()));
+                        consumer.send(service_call(service.id.clone()), node.peer_id.clone());
                         log::info!("{: <14}🌐 {: <8} ⇨ {: <8} - Consumer sent service call", prefix, node.name, service.node.name);
 
                         if wait_call(&mut provider, &service).await.success() {
@@ -248,30 +249,24 @@ fn uuid() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
-fn service_call(node: PeerId, service_id: String) -> ClientCommand {
-    ClientCommand::Call {
-        node,
-        call: FunctionCall {
-            uuid: uuid(),
-            target: Some(service!(service_id)),
-            reply_to: None,
-            arguments: serde_json::Value::Null,
-            name: Some("call service".into()),
-        },
+fn service_call(service_id: String) -> FunctionCall {
+    FunctionCall {
+        uuid: uuid(),
+        target: Some(service!(service_id)),
+        reply_to: None,
+        arguments: serde_json::Value::Null,
+        name: Some("call service".into()),
     }
 }
 
-fn registration(node: PeerId, client: PeerId, service_id: String) -> ClientCommand {
+fn registration(reply_to: Address, service_id: String) -> FunctionCall {
     use serde_json::json;
 
-    ClientCommand::Call {
-        node: node.clone(),
-        call: FunctionCall {
-            uuid: uuid(),
-            target: Some(service!("provide")),
-            reply_to: Some(relay!(node, client)),
-            arguments: json!({ "service_id": service_id }),
-            name: Some("registration".into()),
-        },
+    FunctionCall {
+        uuid: uuid(),
+        target: Some(service!("provide")),
+        reply_to: Some(reply_to),
+        arguments: json!({ "service_id": service_id }),
+        name: Some("registration".into()),
     }
 }

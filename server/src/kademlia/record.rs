@@ -52,6 +52,7 @@ impl From<MultiRecord> for MultiRecordProto {
             .map(|(v, p)| ValueProto::new(v, p.into_bytes()))
             .collect();
 
+        // TODO: calculate absolute timestamp (i.e., `t - EPOCH`) here
         let ttl = expires.map(|t| {
             let now = Instant::now();
             if t > now {
@@ -93,9 +94,17 @@ impl TryInto<MultiRecord> for MultiRecordProto {
             .collect::<Result<_, _>>()
             .map_err(|e: Error| Box::new(e))?; // TODO: get rid of explicit boxing
 
-        let expires = ttl
-            .filter(|&ttl| ttl > 0)
-            .map(|ttl| Instant::now() + Duration::from_secs(ttl as u64));
+        // ttl == 0 means record doesn't expire
+        // ttl == 1 means record already expired
+        let expires = ttl.filter(|&ttl| ttl > 0).map(|ttl| {
+            if ttl > 1 {
+                let dur = Duration::from_secs(ttl as u64);
+                Instant::now() + dur
+            } else {
+                // ttl == 1 means record already expired
+                Instant::now()
+            }
+        });
 
         Ok(MultiRecord {
             key: key.into(),

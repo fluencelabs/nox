@@ -26,6 +26,7 @@ use libp2p::{
     PeerId,
 };
 use parity_multiaddr::Multiaddr;
+use prometheus::Registry;
 use std::collections::VecDeque;
 use trust_graph::TrustGraph;
 
@@ -50,9 +51,10 @@ impl ServerBehaviour {
         listening_addresses: Vec<Multiaddr>,
         trust_graph: TrustGraph,
         bootstrap_nodes: Vec<Multiaddr>,
+        registry: Option<&Registry>,
     ) -> Self {
         let config = RouterConfig::new(key_pair.clone(), local_peer_id, listening_addresses);
-        let router = FunctionRouter::new(config, trust_graph);
+        let router = FunctionRouter::new(config, trust_graph, registry);
         let local_public_key = PublicKey::Ed25519(key_pair.public());
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),
