@@ -154,3 +154,4 @@ def fill_addresses(nodes_dict):
 
 def fill_multiaddr(ip, service, suffix = ""):
     return service._replace(multiaddr = "/ip4/{}/tcp/{}{}".format(ip, service.port, suffix))
+

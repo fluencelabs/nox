@@ -92,3 +92,4 @@ def load_config():
         env.hosts = env.config['nodes']
     else:
         puts("will use hosts: %s" % env.hosts)
+
