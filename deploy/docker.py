@@ -68,14 +68,12 @@ def do_deploy_watchdog():
 
 @task
 @parallel
-# @hosts('104.248.25.59')
 @hosts('134.209.186.43')
 def deploy_caddy():
     load_config()
 
     ports = [ '9002','9003','9005','9004','9001','9100','9990' ]
     host = 'relay02.fluence.dev'
-    # host = 'relay02.fluence.dev'
     ip = env.host_string
     fname = 'Caddyfile'
     prefix = '1'
@@ -86,6 +84,8 @@ def deploy_caddy():
     def append(line):
         run('echo "{}" >> {}'.format(line, fname))
 
+    # Generated config will be as follows:
+    #
     # {
     #    email  alexey@fluence.one
     # }
