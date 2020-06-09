@@ -22,33 +22,42 @@ use libp2p::swarm::{
 };
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::mem;
 use std::time::{Duration, Instant};
 
 pub type SwarmEventType = generate_swarm_event_type!(Bootstrapper);
 // TODO: make it exponential
-static RECONNECT_DELAY: Option<Duration> = Some(Duration::from_millis(1500));
+static RECONNECT_DELAY: Duration = Duration::from_millis(1500);
 static BOOTSTRAP_DELAY: Duration = Duration::from_millis(10000);
 static BOOTSTRAP_MAX_DELAY: Duration = Duration::from_secs(60);
 
+#[derive(Default, Debug)]
+struct Backoff(u32);
+impl Backoff {
+    pub fn next_delay(&mut self) -> Duration {
+        self.0 += 1;
+        self.0 * RECONNECT_DELAY
+    }
+}
+
 pub struct Bootstrapper {
     pub bootstrap_nodes: HashSet<Multiaddr>,
-    bootstrap_peers: HashSet<PeerId>,
     delayed_events: Vec<(Option<Instant>, SwarmEventType)>,
     events: VecDeque<SwarmEventType>,
     bootstrap_scheduled: Option<(Instant, Duration)>,
+    bootstrap_backoff: HashMap<Multiaddr, Backoff>,
 }
 
 impl Bootstrapper {
     pub fn new(bootstrap_nodes: Vec<Multiaddr>) -> Self {
         Self {
             bootstrap_nodes: bootstrap_nodes.into_iter().collect(),
-            bootstrap_peers: Default::default(),
             delayed_events: Default::default(),
             events: Default::default(),
             bootstrap_scheduled: None,
+            bootstrap_backoff: Default::default(),
         }
     }
 
@@ -56,6 +65,26 @@ impl Bootstrapper {
         let event = NetworkBehaviourAction::GenerateEvent(event);
         let deadline = delay.map(|d| Instant::now() + d);
         self.delayed_events.push((deadline, event));
+    }
+
+    fn reconnect_bootstrap<E, S>(&mut self, multiaddr: Multiaddr, error: E)
+    where
+        S: Into<String>,
+        E: Into<Option<S>>,
+    {
+        let delay = self
+            .bootstrap_backoff
+            .entry(multiaddr.clone())
+            .or_insert(Backoff::default())
+            .next_delay();
+
+        self.push_event(
+            BootstrapperEvent::ReconnectToBootstrap {
+                multiaddr,
+                error: error.into().map(|e| e.into()),
+            },
+            Some(delay),
+        );
     }
 
     /// Schedule sending of `RunBootstrap` event after a `BOOTSTRAP_DELAY`
@@ -132,32 +161,19 @@ impl NetworkBehaviour for Bootstrapper {
 
         log::debug!("connection established with {} {:?}", peer_id, maddr);
 
-        if self.bootstrap_nodes.contains(maddr) || self.bootstrap_peers.contains(peer_id) {
-            self.bootstrap_peers.insert(peer_id.clone());
+        if self.bootstrap_nodes.contains(maddr) {
             self.schedule_bootstrap();
         }
     }
 
-    fn inject_connection_closed(
-        &mut self,
-        peer_id: &PeerId,
-        _: &ConnectionId,
-        cp: &ConnectedPoint,
-    ) {
+    fn inject_connection_closed(&mut self, _: &PeerId, _: &ConnectionId, cp: &ConnectedPoint) {
         let maddr = match cp {
             ConnectedPoint::Dialer { address } => address,
             ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
         };
 
-        if self.bootstrap_nodes.contains(maddr) || self.bootstrap_peers.contains(peer_id) {
-            self.push_event(
-                BootstrapperEvent::ReconnectToBootstrap {
-                    peer_id: Some(peer_id.clone()),
-                    multiaddr: maddr.clone(),
-                    error: None,
-                },
-                RECONNECT_DELAY,
-            );
+        if self.bootstrap_nodes.contains(maddr) {
+            self.reconnect_bootstrap(maddr.clone(), "connection was closed");
         }
     }
 
@@ -165,22 +181,12 @@ impl NetworkBehaviour for Bootstrapper {
 
     fn inject_addr_reach_failure(
         &mut self,
-        peer_id: Option<&PeerId>,
+        _: Option<&PeerId>,
         maddr: &Multiaddr,
         error: &dyn Error,
     ) {
-        let is_bootstrap = self.bootstrap_nodes.contains(maddr)
-            || peer_id.map_or(false, |id| self.bootstrap_peers.contains(id));
-
-        if is_bootstrap {
-            self.push_event(
-                BootstrapperEvent::ReconnectToBootstrap {
-                    peer_id: peer_id.cloned(),
-                    multiaddr: maddr.clone(),
-                    error: Some(format!("{:?}", error)),
-                },
-                RECONNECT_DELAY,
-            );
+        if self.bootstrap_nodes.contains(maddr) {
+            self.reconnect_bootstrap(maddr.clone(), format!("{:?}", error));
         }
     }
 

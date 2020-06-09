@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 
 #[derive(Debug, Clone)]
@@ -23,7 +22,6 @@ pub enum BootstrapperEvent {
 
     // Command to reconnect to specified bootstrap
     ReconnectToBootstrap {
-        peer_id: Option<PeerId>,
         multiaddr: Multiaddr,
         error: Option<String>,
     },

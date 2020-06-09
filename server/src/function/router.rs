@@ -296,9 +296,7 @@ impl FunctionRouter {
 
     /// Run kademlia bootstrap, to advertise ourselves in Kademlia
     pub fn bootstrap(&mut self) {
-        match self.kademlia.bootstrap() {
-            Err(err) => log::warn!("bootstrap failed: {:?}", err),
-            _ => {}
-        }
+        self.kademlia
+            .get_closest_peers(self.config.peer_id.as_bytes());
     }
 }

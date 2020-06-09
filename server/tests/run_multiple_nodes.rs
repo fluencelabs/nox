@@ -24,7 +24,7 @@ use crate::utils::*;
 mod utils;
 
 #[test]
-#[ignore]
+// #[ignore]
 fn main() {
     use async_std::task;
     use libp2p::core::multiaddr::{Multiaddr, Protocol};

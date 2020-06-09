@@ -94,14 +94,6 @@ impl ServerBehaviour {
             .push_back(libp2p::swarm::NetworkBehaviourAction::DialAddress { address: maddr })
     }
 
-    pub(super) fn dial_peer(&mut self, peer_id: PeerId) {
-        self.events
-            .push_back(libp2p::swarm::NetworkBehaviourAction::DialPeer {
-                peer_id,
-                condition: libp2p::swarm::DialPeerCondition::Disconnected,
-            });
-    }
-
     event_polling!(custom_poll, events, SwarmEventType);
 }
 

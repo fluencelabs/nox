@@ -28,20 +28,13 @@ impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
                 // TODO: refactor out "thin bootstrap": only look ourselves in kademlia
                 self.bootstrap()
             }
-            BootstrapperEvent::ReconnectToBootstrap {
-                peer_id,
-                multiaddr,
-                error,
-            } => {
+            BootstrapperEvent::ReconnectToBootstrap { multiaddr, error } => {
                 log::info!(
                     "Bootstrap disconnected {} {}, reconnecting",
-                    peer_id.as_ref().map(|p| p.to_string()).unwrap_or_default(),
+                    multiaddr,
                     error.unwrap_or_default()
                 );
                 self.dial(multiaddr);
-                if let Some(peer_id) = peer_id {
-                    self.dial_peer(peer_id)
-                }
             }
         }
     }

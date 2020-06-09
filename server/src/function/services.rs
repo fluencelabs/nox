@@ -119,7 +119,6 @@ impl FunctionRouter {
                         .map_or(provider.clone(), |target| provider.clone().extend(target)),
                 );
                 // TODO: write tests on that, it's a very complex decision
-                // call.target = Some(provider.clone());
                 log::debug!("Sending call to provider {:?}", call);
                 self.call(call);
             }
