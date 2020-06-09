@@ -122,17 +122,6 @@ def parse_peer_ids(logs):
             peer_id = after_eq(line)
     return peer_id
 
-# def parse_peer_id(lines):
-#     try:
-#         line = list(filter(lambda l: "node service" in l, lines))[-1] # take last
-#         # peer_id = json.loads(line)['node_service']
-#         peer_id = line.split("=")[-1].strip()
-#         return peer_id
-#     except:
-#         puts("ERROR while parsing peer_id from %s" % line)
-#         return 'PEER_ID_ERROR' # Now that's awesome
-    
-
 def compose(cmd, yml = "fluence.yml"):
     return run('docker-compose -f %s %s' % (yml, cmd))
 
