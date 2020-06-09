@@ -1,0 +1,25 @@
+version: '3.5'
+services:
+  fluence_bootstrap:
+    image: fluencelabs/fluence:master
+    container_name: bootstrap
+    restart: always
+    command: "-c /Config.toml -s /node.key -e $HOST -t 7770 -w 9990"
+    ports:
+      - "7770:7770" # Node service
+      - "9990:9990" # Peer service
+    environment:
+      RUST_BACKTRACE: "full"
+      RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info"
+
+  fluence-ipfs:
+    image: fluencelabs/fluence:master-with-ipfs-multiaddr
+    restart: always
+    ports:
+      - "7100:7100" # Node service
+      - "9100:9100" # Peer service
+    command: "-c /Config.toml -s /node.key -b /ip4/$HOST/tcp/7770 -e $HOST -t 7100 -w 9100"
+    environment:
+      IPFS_MULTIADDR: "/dns4/ipfs2.fluence.one/tcp/443/https"
+      RUST_BACKTRACE: "full"
+      RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info"
