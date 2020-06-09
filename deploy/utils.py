@@ -54,13 +54,6 @@ def get_config(environment):
     file.close()
     return json.loads(info_json)[environment]
 
-def get_ipfs_address(config):
-    if config.get('ipfs') is None:
-        # Node and IPFS are connected via 'decentralized_storage_network' network, see node.yml & ipfs.yml
-        return "http://ipfs:5001"
-    else:
-        return config['ipfs']
-
 def get_image_tag(env):
     if not hasattr(env, 'image_tag'):
         return "v0.3.0"

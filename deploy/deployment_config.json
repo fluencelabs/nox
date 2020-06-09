@@ -3,15 +3,6 @@
     "nodes": [
       "104.248.25.59"
     ],
-    "ipfs": {
-      "bootstrap": ["167.172.162.143"],
-      "good": ["165.22.76.176"],
-      "provider": ["167.71.57.253"],
-      "bad_nodes": [
-        "134.209.247.94",
-        "161.35.20.90"
-      ]
-    },
     "fluence": {
       "keypairs": {
         "fluence_bootstrap.yml": [
