@@ -25,9 +25,16 @@ use libp2p::{
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum PeerStatus {
-    Connected = 3000, // Connected is better than Routable
-    Routable = 2000,  // Router is better than None
-    Unknown = 1000,   // Unknown is bottom
+    /// Peer is expected to be connected
+    Connected = 3000,
+    /// Peer is expected to be in the routing table
+    Routable = 2000,
+    /// State of the peer is unknown, need to look it up in kademlia
+    Unknown = 1000,
+    /// When peer is routable, but could be missing from the routing table.
+    /// "Checked" here means that state was checked externally, i.e., via GetClosestPeers
+    /// It is the lowest of all PeerStatus'es, because it is impossible to check in `send_to`
+    CheckedRoutable = 0,
 }
 
 // Contains methods related to searching for and connecting to peers
@@ -45,14 +52,13 @@ impl FunctionRouter {
     fn query_closest(&mut self, peer_id: PeerId, call: WaitPeer) {
         // Don't call get_closest_peers if there are already some calls waiting for it
         if let Enqueued::New = self.wait_peer.enqueue(peer_id.clone(), call) {
-            self.kademlia.get_closest_peers(peer_id.as_bytes());
+            // NOTE: Using Qm form of `peer_id` here (via peer_id.borrow), since kademlia uses that for keys
+            self.kademlia.get_closest_peers(peer_id);
         }
     }
 
     /// Send all calls waiting for this peer to be found
     pub(super) fn found_closest(&mut self, key: Vec<u8>, peers: Vec<PeerId>) {
-        use PeerStatus as ExpectedStatus;
-
         let peer_id = match PeerId::from_bytes(key) {
             Err(err) => {
                 log::warn!(
@@ -72,12 +78,22 @@ impl FunctionRouter {
         // Forward to `peer_id`
         let calls = self.wait_peer.remove_with(&peer_id, |wp| wp.found());
         for call in calls {
-            if peers.is_empty() {
-                // No peers found, send error
+            if peers.is_empty() || !peers.iter().any(|p| p == &peer_id) {
+                log::warn!(
+                    "peer {} wasn't found via closest query: {:?}",
+                    peer_id,
+                    peers
+                );
+                // Peer wasn't found, send error
                 self.send_error_on_call(call.into(), "peer wasn't found via closest query".into())
             } else {
-                // Forward calls to `peer_id`, assuming it is now routable
-                self.send_to(peer_id.clone(), ExpectedStatus::Routable, call.into())
+                // Forward calls to `peer_id`, guaranteeing it is now routable
+                self.send_to(
+                    peer_id.clone(),
+                    PeerStatus::CheckedRoutable,
+                    call.into(),
+                    "peer was found in kademlia",
+                )
             }
         }
 
@@ -100,8 +116,10 @@ impl FunctionRouter {
                     Protocol::Peer(peer_id.clone()) / call.target.take().unwrap_or_default();
                 self.send_to(
                     peer_id.clone(),
-                    ExpectedStatus::Routable,
+                    // Peer was found, so it must be routable
+                    PeerStatus::CheckedRoutable,
                     call.with_target(target),
+                    "peer was found in neighborhood",
                 )
             }
         }
@@ -200,14 +218,22 @@ mod tests {
 
         assert!(Connected > Unknown);
         assert!(Connected > Routable);
+        assert!(Connected > CheckedRoutable);
         assert_eq!(Connected, Connected);
 
         assert!(Routable > Unknown);
+        assert!(Routable > CheckedRoutable);
         assert!(Routable < Connected);
         assert_eq!(Routable, Routable);
 
+        assert!(Unknown > CheckedRoutable);
         assert!(Unknown < Connected);
         assert!(Unknown < Routable);
         assert_eq!(Unknown, Unknown);
+
+        assert!(CheckedRoutable < Connected);
+        assert!(CheckedRoutable < Routable);
+        assert!(CheckedRoutable < Unknown);
+        assert_eq!(CheckedRoutable, CheckedRoutable);
     }
 }

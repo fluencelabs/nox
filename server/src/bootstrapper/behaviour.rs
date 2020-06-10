@@ -43,6 +43,7 @@ impl Backoff {
 }
 
 pub struct Bootstrapper {
+    peer_id: PeerId,
     pub bootstrap_nodes: HashSet<Multiaddr>,
     delayed_events: Vec<(Option<Instant>, SwarmEventType)>,
     events: VecDeque<SwarmEventType>,
@@ -51,8 +52,9 @@ pub struct Bootstrapper {
 }
 
 impl Bootstrapper {
-    pub fn new(bootstrap_nodes: Vec<Multiaddr>) -> Self {
+    pub fn new(peer_id: PeerId, bootstrap_nodes: Vec<Multiaddr>) -> Self {
         Self {
+            peer_id,
             bootstrap_nodes: bootstrap_nodes.into_iter().collect(),
             delayed_events: Default::default(),
             events: Default::default(),
@@ -159,7 +161,12 @@ impl NetworkBehaviour for Bootstrapper {
             ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
         };
 
-        log::debug!("connection established with {} {:?}", peer_id, maddr);
+        log::debug!(
+            "{} connection established with {} {:?}",
+            self.peer_id,
+            peer_id,
+            maddr
+        );
 
         if self.bootstrap_nodes.contains(maddr) {
             self.schedule_bootstrap();

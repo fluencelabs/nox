@@ -56,7 +56,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for ServerBehaviour {
 
             // TODO: handle error?
             IdentifyEvent::Error { error, peer_id } => {
-                log::error!("Identify error on {}: {}", peer_id, error);
+                log::debug!("Identify error on {}: {}", peer_id, error);
             }
 
             // We don't care about Sent identification info

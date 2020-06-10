@@ -29,7 +29,7 @@ impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
                 self.bootstrap()
             }
             BootstrapperEvent::ReconnectToBootstrap { multiaddr, error } => {
-                log::info!(
+                log::debug!(
                     "Bootstrap disconnected {} {}, reconnecting",
                     multiaddr,
                     error.unwrap_or_default()
