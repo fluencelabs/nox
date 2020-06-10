@@ -79,13 +79,14 @@ impl FunctionRouter {
         let calls = self.wait_peer.remove_with(&peer_id, |wp| wp.found());
         for call in calls {
             if peers.is_empty() || !peers.iter().any(|p| p == &peer_id) {
-                log::warn!(
+                let err_msg = format!(
                     "peer {} wasn't found via closest query: {:?}",
                     peer_id,
-                    peers
+                    peers.iter().map(|p| p.to_base58())
                 );
+                log::warn!("{}", err_msg);
                 // Peer wasn't found, send error
-                self.send_error_on_call(call.into(), "peer wasn't found via closest query".into())
+                self.send_error_on_call(call.into(), err_msg)
             } else {
                 // Forward calls to `peer_id`, guaranteeing it is now routable
                 self.send_to(

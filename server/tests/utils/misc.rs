@@ -130,7 +130,7 @@ HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
 #[allow(dead_code)]
 // Enables logging, filtering out unnecessary details
 pub fn enable_logs() {
-    use log::LevelFilter::{Debug, Info};
+    use log::LevelFilter::{Debug, Info, Warn};
 
     env_logger::builder()
         .filter_level(Debug)
@@ -149,6 +149,7 @@ pub fn enable_logs() {
         .filter(Some("libp2p_kad::kbucket"), Info)
         .filter(Some("libp2p_plaintext"), Info)
         .filter(Some("libp2p_identify::protocol"), Info)
+        .filter(Some("libp2p_kad::behaviour"), Warn)
         .try_init()
         .ok();
 }
