@@ -31,7 +31,7 @@ use std::thread::sleep;
 mod utils;
 
 #[test]
-// #[ignore]
+#[ignore]
 fn main() {
     env_logger::init();
 
