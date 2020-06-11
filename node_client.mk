@@ -1,7 +1,9 @@
 client:
 	cargo run -p fluence-client -- ${args}
 
-DEBUG_ENV=RUST_LOG="debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info"
+LVL=warn
+LVL_VERBOSE=info
+DEBUG_ENV=RUST_LOG="${LVL_VERBOSE},libp2p_kad::query=${LVL_VERBOSE},fluence_server::bootstrapper=${LVL_VERBOSE},fluence_server::function::router=${LVL_VERBOSE},fluence_server::function::router_behaviour=${LVL_VERBOSE},libp2p_swarm=${LVL_VERBOSE},fluence_server=${LVL_VERBOSE},tokio_threadpool=${LVL},tokio_reactor=${LVL},mio=${LVL},tokio_io=${LVL},soketto=${LVL},yamux=${LVL},multistream_select=${LVL},libp2p_secio=${LVL},libp2p_websocket::framed=${LVL},libp2p_ping=${LVL},libp2p_core::upgrade::apply=${LVL},libp2p_kad::kbucket=${LVL},libp2p_kad::behaviour=${LVL}"
 
 client-debug:
 	${DEBUG_ENV} cargo run -p fluence-client -- ${args}
@@ -104,4 +106,29 @@ client-many:
 	split-window 'sleep 1 && ${CLIENT} /ip4/127.0.0.1/tcp/9999/ws' \; \
 	select-layout tiled
 
-.PHONY: client client-debug client-tmux node-tmux client-many node-many
+COUNT=15
+ULIMIT=ulimit -n 10000 &&
+INFO_ENV=${DEBUG_ENV}
+TEST_ENV=${INFO_ENV} HOST=127.0.0.1 ASYNC_STD_THREAD_COUNT=16 RUST_BACKTRACE=full COUNT=${COUNT}
+MULTIPLE_NODES=${TEST_ENV} cargo test --release --test run_multiple_nodes main -- --nocapture | tee -a "$(date)_node.log"
+
+massive-node:
+	tmux \
+    	new-session  '${ULIMIT} PORT=20000 ${MULTIPLE_NODES}' \; \
+    	select-layout tiled \; \
+    	split-window 'sleep 1 && ${ULIMIT} PORT=30000 BS_PORT=20000 ${MULTIPLE_NODES}' \; \
+    	select-layout tiled \; \
+    	split-window 'sleep 1 && ${ULIMIT} PORT=40000 BS_PORT=30000 ${MULTIPLE_NODES}' \; \
+    	select-layout tiled
+
+RND=`printf '%02d' $$(( RANDOM % ${COUNT} ))`
+massive-clients:
+	tmux \
+    	new-session  '${CLIENT} /ip4/127.0.0.1/tcp/200${RND}' \; \
+    	select-layout tiled \; \
+    	split-window 'sleep 1 && ${CLIENT} /ip4/127.0.0.1/tcp/300${RND}' \; \
+    	select-layout tiled \; \
+    	split-window 'sleep 1 && ${CLIENT} /ip4/127.0.0.1/tcp/400${RND}' \; \
+    	select-layout tiled
+
+.PHONY: client client-debug client-tmux node-tmux client-many node-many try

@@ -41,6 +41,15 @@ impl Transport {
     pub fn is_network(&self) -> bool {
         matches!(self, Transport::Network)
     }
+
+    pub fn from_maddr(maddr: &Multiaddr) -> Self {
+        use parity_multiaddr::Protocol::Memory;
+        if maddr.iter().any(|p| matches!(p, Memory(_))) {
+            Transport::Memory
+        } else {
+            Transport::Network
+        }
+    }
 }
 
 #[derive(Debug)]

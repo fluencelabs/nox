@@ -53,7 +53,8 @@ impl ServerBehaviour {
         bootstrap_nodes: Vec<Multiaddr>,
         registry: Option<&Registry>,
     ) -> Self {
-        let config = RouterConfig::new(key_pair.clone(), local_peer_id, listening_addresses);
+        let config =
+            RouterConfig::new(key_pair.clone(), local_peer_id.clone(), listening_addresses);
         let router = FunctionRouter::new(config, trust_graph, registry);
         let local_public_key = PublicKey::Ed25519(key_pair.public());
         let identity = Identify::new(
@@ -62,7 +63,7 @@ impl ServerBehaviour {
             local_public_key,
         );
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
-        let bootstrapper = Bootstrapper::new(bootstrap_nodes);
+        let bootstrapper = Bootstrapper::new(local_peer_id, bootstrap_nodes);
 
         Self {
             router,
@@ -92,14 +93,6 @@ impl ServerBehaviour {
     pub(super) fn dial(&mut self, maddr: Multiaddr) {
         self.events
             .push_back(libp2p::swarm::NetworkBehaviourAction::DialAddress { address: maddr })
-    }
-
-    pub(super) fn dial_peer(&mut self, peer_id: PeerId) {
-        self.events
-            .push_back(libp2p::swarm::NetworkBehaviourAction::DialPeer {
-                peer_id,
-                condition: libp2p::swarm::DialPeerCondition::Disconnected,
-            });
     }
 
     event_polling!(custom_poll, events, SwarmEventType);

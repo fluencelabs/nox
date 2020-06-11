@@ -11,6 +11,7 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:19999']
       - targets: ['localhost:29999']
+      - targets: ['localhost:39999']
 
 # histogram_quantile(0.95, sum(irate(kademlia_exporter_random_node_lookup_duration_bucket[10s])) by (le))
 # histogram_quantile(0.95, sum(rate(kademlia_exporter_ping_duration_bucket[5m])) by (le))

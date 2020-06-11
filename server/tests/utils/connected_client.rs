@@ -35,8 +35,9 @@ impl ConnectedClient {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
 
+        let transport = Transport::from_maddr(&node_address);
         let connect = async move {
-            let (mut client, _) = Client::connect_with(node_address.clone(), Transport::Memory)
+            let (mut client, _) = Client::connect_with(node_address.clone(), transport)
                 .await
                 .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {

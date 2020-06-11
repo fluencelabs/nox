@@ -143,7 +143,8 @@ impl FunctionRouter {
                     continue;
                 }
                 Peer(id) => {
-                    self.send_to(id.clone(), Unknown, call.with_target(target.collect()));
+                    let ctx = "send message to remote peer";
+                    self.send_to(id.clone(), Unknown, call.with_target(target.collect()), ctx);
                     return;
                 }
                 s @ Service(_) if is_local || self.service_available_locally(s) => {
@@ -165,9 +166,8 @@ impl FunctionRouter {
                     match target.next() {
                         Some(Signature(_)) => {
                             let target = Address::cons(client_protocol, target);
-                            // TODO: Why Routable? If it's a local client, it should be connected
-                            //       It can't be Routable, because it's not reachable via Kademlia
-                            self.send_to(client_id, Routable, call.with_target(target));
+                            let ctx = "send message to local client";
+                            self.send_to(client_id, Connected, call.with_target(target), ctx);
                         }
                         Some(other) => {
                             let path = target.join("");
@@ -202,7 +202,13 @@ impl FunctionRouter {
     }
 
     /// Schedule sending a call to unknown peer
-    pub(super) fn send_to(&mut self, to: PeerId, expected: PeerStatus, call: FunctionCall) {
+    pub(super) fn send_to(
+        &mut self,
+        to: PeerId,
+        expected: PeerStatus,
+        call: FunctionCall,
+        ctx: &str,
+    ) {
         use PeerStatus::*;
 
         let status = self.peer_status(&to);
@@ -211,7 +217,7 @@ impl FunctionRouter {
             // TODO: This error is not helpful. Example of helpful error: "Peer wasn't found via GetClosestPeers".
             //       Consider custom errors for different pairs of (status, expected)
             #[rustfmt::skip]
-            let err_msg = format!("Unexpected status for {}. Got {:?} expected {:?}", to, status, expected);
+            let err_msg = format!("Unexpected status for {}. Got {:?} expected {:?} ({})", to, status, expected, ctx);
             #[rustfmt::skip]
             log::error!("Can't send call {:?}: {}", call, err_msg);
             self.send_error_on_call(call, err_msg);
@@ -220,7 +226,7 @@ impl FunctionRouter {
 
         match status {
             Connected => self.send_to_connected(to, call),
-            Routable => self.connect_then_send(to, call),
+            Routable | CheckedRoutable => self.connect_then_send(to, call),
             Unknown => self.search_then_send(to, call),
         }
     }
@@ -296,9 +302,9 @@ impl FunctionRouter {
 
     /// Run kademlia bootstrap, to advertise ourselves in Kademlia
     pub fn bootstrap(&mut self) {
-        match self.kademlia.bootstrap() {
-            Err(err) => log::warn!("bootstrap failed: {:?}", err),
-            _ => {}
-        }
+        use std::borrow::Borrow;
+        // NOTE: Using Qm form of `peer_id` here (via peer_id.borrow), since kademlia uses that for keys
+        self.kademlia
+            .get_closest_peers(self.config.peer_id.borrow());
     }
 }
