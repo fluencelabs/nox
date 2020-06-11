@@ -28,6 +28,7 @@ pub struct FunctionCall {
     pub arguments: serde_json::Value, //TODO: make it Option<String>?
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    pub sender: Address,
 }
 
 impl FunctionCall {
@@ -38,21 +39,13 @@ impl FunctionCall {
 }
 
 pub mod call_test_utils {
-    use crate::Address;
     use crate::FunctionCall;
-    use crate::Protocol;
-    use fluence_libp2p::RandomPeerId;
-    use libp2p::PeerId;
+    use crate::{service, Address};
 
     pub fn gen_ipfs_call() -> FunctionCall {
-        let relay = RandomPeerId::random();
-        let client = RandomPeerId::random();
-        #[rustfmt::skip]
-        let reply_to: Option<Address> = Some(
-            vec![Protocol::Peer(relay), Protocol::Client(client)].iter().collect(),
-        );
-
-        let target = Some(Protocol::Service("IPFS.get_QmFile".to_string()).into());
+        let sender = Address::random_relay();
+        let reply_to = Some(sender.clone());
+        let target = Some(service!("IPFS.get_QmFile"));
 
         FunctionCall {
             uuid: "UUID-1".to_string(),
@@ -60,23 +53,20 @@ pub mod call_test_utils {
             reply_to,
             arguments: serde_json::Value::Null,
             name: Some("Getting IPFS file QmFile".to_string()),
+            sender,
         }
     }
 
     pub fn gen_strict_ipfs_call() -> FunctionCall {
         let mut call = gen_ipfs_call();
-        let relay: Address = Protocol::Peer(PeerId::random()).into();
-        let notebook = relay.append(Protocol::Client(PeerId::random()));
-        let service_on_notebook = notebook.extend(&call.target.unwrap());
-        call.target = Some(service_on_notebook);
+        call.target = Some(Address::random_relay_unsigned());
         call.name = Some("Getting IPFS file QmFile (strict)".into());
         call
     }
 
     pub fn gen_provide_call(target: Address, arguments: serde_json::Value) -> FunctionCall {
-        let notebook = Protocol::Client(PeerId::random());
-        let relay = Protocol::Peer(PeerId::random());
-        let reply_to = Some(relay / notebook);
+        let sender = Address::random_relay();
+        let reply_to = Some(sender.clone());
 
         FunctionCall {
             uuid: "UUID-1".to_string(),
@@ -84,6 +74,7 @@ pub mod call_test_utils {
             reply_to,
             arguments,
             name: None,
+            sender,
         }
     }
 }
@@ -95,6 +86,7 @@ pub mod test {
     use crate::Address;
     use crate::FunctionCall;
     use crate::Protocol;
+    use crate::{relay, service};
     use fluence_libp2p::RandomPeerId;
     use serde_json::json;
 
@@ -110,8 +102,8 @@ pub mod test {
             assert_eq!(addr, addr_de);
         }
 
-        check(Address::from(Protocol::Peer(p1.clone())).append(Protocol::Client(p2)));
-        check(Protocol::Service("IPFS.get".to_string()).into());
+        check(relay!(p1, p2));
+        check(service!("IPFS.get"));
         check(Protocol::Peer(p1).into());
     }
 
@@ -133,10 +125,7 @@ pub mod test {
 
     #[test]
     fn serialize_provide() {
-        use Protocol::*;
-
-        let provide: Address = Service("provide".into()).into();
-        let provide = provide.append(Service("IPFS.get_QmFile".into()));
+        let provide = service!("provide") / service!("IPFS.get_QmFile");
         let mut call = gen_provide_call(provide, serde_json::Value::Null);
         call.name = Some("Announce IPFS file (in address)".into());
 
@@ -147,7 +136,7 @@ pub mod test {
             Some("/service/provide/service/IPFS.get_QmFile".parse().unwrap())
         );
 
-        let provide = Service("provide".into()).into();
+        let provide = service!("provide");
         let arguments = json!({ "service_id": "IPFS.get_QmFile" });
         let mut call = gen_provide_call(provide, arguments);
         call.name = Some("Announce IPFS file (in args)".into());
@@ -155,10 +144,10 @@ pub mod test {
 
         assert_eq!(call.target, Some("/service/provide".parse().unwrap()));
 
-        let provide = Service("provide".into()).into();
+        let provide = service!("provide");
         let mut call = gen_provide_call(provide, serde_json::Value::Null);
         let notebook = call.reply_to.take().unwrap();
-        call.reply_to = Some(notebook.append(Protocol::Service("IPFS.get_QmFile".into())));
+        call.reply_to = Some(notebook / service!("IPFS.get_QmFile"));
         call.name = Some("Announce IPFS file (in reply)".into());
         check_call(call.clone());
 
@@ -168,13 +157,12 @@ pub mod test {
     #[test]
     fn serialize_reply_to_service() {
         use serde_json::json;
-        use Protocol::*;
 
         let slack_service = "hash(Slack.receiveWebhook_0xdxSECRET_CODE)";
         let github_service = "Github.subscribeNewCommitsToWebhook";
 
-        let slack_service = Some(Service(slack_service.into()).into());
-        let github_service = Some(Service(github_service.into()).into());
+        let slack_service = Some(service!(slack_service));
+        let github_service = Some(service!(github_service));
         let arguments = json!({"repo": "fluencelabs/fluence", "branch": "all"});
 
         // Notebook sends a call to github, and now github will send new events to slack
@@ -184,6 +172,7 @@ pub mod test {
             reply_to: slack_service,
             arguments,
             name: Some("Subscribing Slack channel to Github commits".into()),
+            sender: Address::random_relay(),
         };
         check_call(call);
     }

@@ -106,9 +106,7 @@ impl Client {
     }
 
     pub fn relay_address(&self, node: PeerId) -> Address {
-        let addr = relay!(node, self.peer_id.clone());
-        let sig = self.sign(addr.path().as_bytes());
-        addr.append(Protocol::Signature(sig))
+        relay!(node, self.peer_id.clone(), self.key_pair)
     }
 
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
