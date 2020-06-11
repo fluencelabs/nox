@@ -15,7 +15,7 @@
  */
 
 use super::{FunctionRouter, SwarmEventType};
-use faas_api::ProtocolMessage;
+use faas_api::{ProtocolConfig, ProtocolMessage};
 
 use std::error::Error;
 use std::task::{Context, Poll};
@@ -36,13 +36,14 @@ use libp2p::{
 
 impl NetworkBehaviour for FunctionRouter {
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
-        OneShotHandler<ProtocolMessage, ProtocolMessage, ProtocolMessage>,
+        OneShotHandler<ProtocolConfig, ProtocolMessage, ProtocolMessage>,
         <Kademlia<MemoryStore> as NetworkBehaviour>::ProtocolsHandler,
     >;
     type OutEvent = ();
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        IntoProtocolsHandler::select(Default::default(), self.kademlia.new_handler())
+        let config = ProtocolConfig::new(self.config.peer_id.clone());
+        IntoProtocolsHandler::select(config.into(), self.kademlia.new_handler())
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {

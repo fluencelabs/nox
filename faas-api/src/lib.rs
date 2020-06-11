@@ -40,3 +40,4 @@ pub use address::{Address, AddressError};
 pub use address_protocol::Protocol;
 pub use call::FunctionCall;
 pub use libp2p_protocol::message::ProtocolMessage;
+pub use libp2p_protocol::upgrade::ProtocolConfig;

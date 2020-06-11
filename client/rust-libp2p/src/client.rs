@@ -122,7 +122,7 @@ impl Client {
     ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let key_pair = libp2p::identity::Keypair::Ed25519(self.key_pair.clone());
-            let behaviour = ClientBehaviour::default();
+            let behaviour = ClientBehaviour::new(key_pair.public().into_peer_id());
 
             macro_rules! swarm {
                 ($transport:expr) => {{

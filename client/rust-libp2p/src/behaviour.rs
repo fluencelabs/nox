@@ -15,7 +15,7 @@
  */
 
 use crate::ClientEvent;
-use faas_api::{FunctionCall, ProtocolMessage};
+use faas_api::{FunctionCall, ProtocolConfig, ProtocolMessage};
 use failure::_core::task::{Context, Poll};
 use fluence_libp2p::generate_swarm_event_type;
 use libp2p::core::connection::{ConnectedPoint, ConnectionId};
@@ -33,10 +33,12 @@ use std::error::Error;
 pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
 
 pub struct ClientBehaviour {
+    peer_id: PeerId,
     events: VecDeque<SwarmEventType>,
     ping: Ping,
 }
 
+/*
 impl Default for ClientBehaviour {
     fn default() -> Self {
         let ping = Ping::new(PingConfig::new().with_keep_alive(true));
@@ -46,8 +48,18 @@ impl Default for ClientBehaviour {
         }
     }
 }
+ */
 
 impl ClientBehaviour {
+    pub fn new(peer_id: PeerId) -> Self {
+        let ping = Ping::new(PingConfig::new().with_keep_alive(true));
+        Self {
+            peer_id,
+            events: VecDeque::default(),
+            ping,
+        }
+    }
+
     pub fn call(&mut self, peer_id: PeerId, call: FunctionCall) {
         self.events
             .push_back(NetworkBehaviourAction::NotifyHandler {
@@ -60,14 +72,16 @@ impl ClientBehaviour {
 
 impl NetworkBehaviour for ClientBehaviour {
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
-        OneShotHandler<ProtocolMessage, ProtocolMessage, ProtocolMessage>,
+        <OneShotHandler<ProtocolConfig, ProtocolMessage, ProtocolMessage> as IntoProtocolsHandler>::Handler,
         <Ping as NetworkBehaviour>::ProtocolsHandler,
     >;
 
     type OutEvent = ClientEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        IntoProtocolsHandler::select(Default::default(), self.ping.new_handler())
+        let protocol_config = ProtocolConfig::new(self.peer_id.clone());
+
+        IntoProtocolsHandler::select(protocol_config.into(), self.ping.new_handler())
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
