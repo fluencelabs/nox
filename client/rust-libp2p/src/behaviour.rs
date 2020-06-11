@@ -15,7 +15,7 @@
  */
 
 use crate::ClientEvent;
-use faas_api::{FunctionCall, ProtocolConfig, ProtocolMessage};
+use faas_api::{Address, FunctionCall, ProtocolConfig, ProtocolMessage};
 use failure::_core::task::{Context, Poll};
 use fluence_libp2p::generate_swarm_event_type;
 use libp2p::core::connection::{ConnectedPoint, ConnectionId};
@@ -33,28 +33,16 @@ use std::error::Error;
 pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
 
 pub struct ClientBehaviour {
-    peer_id: PeerId,
+    local_address: Address,
     events: VecDeque<SwarmEventType>,
     ping: Ping,
 }
 
-/*
-impl Default for ClientBehaviour {
-    fn default() -> Self {
-        let ping = Ping::new(PingConfig::new().with_keep_alive(true));
-        Self {
-            events: VecDeque::default(),
-            ping,
-        }
-    }
-}
- */
-
 impl ClientBehaviour {
-    pub fn new(peer_id: PeerId) -> Self {
+    pub fn new(local_address: Address) -> Self {
         let ping = Ping::new(PingConfig::new().with_keep_alive(true));
         Self {
-            peer_id,
+            local_address,
             events: VecDeque::default(),
             ping,
         }
@@ -79,7 +67,7 @@ impl NetworkBehaviour for ClientBehaviour {
     type OutEvent = ClientEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        let protocol_config = ProtocolConfig::new(self.peer_id.clone());
+        let protocol_config = ProtocolConfig::new(self.local_address.clone());
 
         IntoProtocolsHandler::select(protocol_config.into(), self.ping.new_handler())
     }

@@ -254,6 +254,7 @@ impl FunctionRouter {
                 reply_to: None, // TODO: sure?
                 uuid: format!("error_{}", call.uuid),
                 name: call.name,
+                sender: self.config.local_address(),
             };
             self.call(call)
         } else {
@@ -277,6 +278,7 @@ impl FunctionRouter {
             reply_to: None, // TODO: sure?
             uuid: format!("error_{}", uuid),
             name: None,
+            sender: self.config.local_address(),
         };
         self.call(call)
     }

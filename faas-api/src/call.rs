@@ -102,7 +102,7 @@ pub mod test {
             assert_eq!(addr, addr_de);
         }
 
-        check(relay!(p1, p2));
+        check(relay!(p1.clone(), p2));
         check(service!("IPFS.get"));
         check(Protocol::Peer(p1).into());
     }

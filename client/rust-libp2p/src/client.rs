@@ -115,12 +115,13 @@ impl Client {
 
     fn dial(
         &self,
-        relay: Multiaddr,
+        node: Multiaddr,
         transport: Transport,
     ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let key_pair = libp2p::identity::Keypair::Ed25519(self.key_pair.clone());
-            let behaviour = ClientBehaviour::new(key_pair.public().into_peer_id());
+            let local_address = Protocol::Client(key_pair.public().into_peer_id()).into();
+            let behaviour = ClientBehaviour::new(local_address);
 
             macro_rules! swarm {
                 ($transport:expr) => {{
@@ -135,10 +136,10 @@ impl Client {
             }
         };
 
-        match Swarm::dial_addr(&mut swarm, relay.clone()) {
-            Ok(_) => log::info!("{} dialed to {:?}", self.peer_id, relay),
+        match Swarm::dial_addr(&mut swarm, node.clone()) {
+            Ok(_) => log::info!("{} dialed to {:?}", self.peer_id, node),
             Err(e) => {
-                log::error!("Dial to {:?} failed with {:?}", relay, e);
+                log::error!("Dial to {:?} failed with {:?}", node, e);
                 return Err(e.into());
             }
         }

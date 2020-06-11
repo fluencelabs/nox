@@ -42,7 +42,7 @@ impl NetworkBehaviour for FunctionRouter {
     type OutEvent = ();
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        let config = ProtocolConfig::new(self.config.peer_id.clone());
+        let config = ProtocolConfig::new(self.config.local_address());
         IntoProtocolsHandler::select(config.into(), self.kademlia.new_handler())
     }
 

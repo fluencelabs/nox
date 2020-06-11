@@ -136,7 +136,7 @@ fn endurance() {
                 (&mut periodic).await;
 
                 let reply_to = provider.relay_address(service.node.peer_id.clone());
-                provider.send(registration(reply_to, service.id.clone()), service.node.peer_id.clone());
+                provider.send(registration(reply_to.clone(), service.id.clone()), service.node.peer_id.clone());
                 log::info!("{: <14} - Provider sent registration", prefix);
                 task::sleep(Duration::from_secs(pause)).await;
 
@@ -154,7 +154,7 @@ fn endurance() {
                         report(ConsumerConnected);
 
                         let sent = Instant::now();
-                        consumer.send(service_call(service.id.clone()), node.peer_id.clone());
+                        consumer.send(service_call(reply_to.clone(), service.id.clone()), node.peer_id.clone());
                         log::info!("{: <14}🌐 {: <8} ⇨ {: <8} - Consumer sent service call", prefix, node.name, service.node.name);
 
                         if wait_call(&mut provider, &service).await.success() {
@@ -249,24 +249,26 @@ fn uuid() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
-fn service_call(service_id: String) -> FunctionCall {
+fn service_call(sender: Address, service_id: String) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(service!(service_id)),
-        reply_to: None,
+        reply_to: Some(sender.clone()),
         arguments: serde_json::Value::Null,
         name: Some("call service".into()),
+        sender,
     }
 }
 
-fn registration(reply_to: Address, service_id: String) -> FunctionCall {
+fn registration(sender: Address, service_id: String) -> FunctionCall {
     use serde_json::json;
 
     FunctionCall {
         uuid: uuid(),
         target: Some(service!("provide")),
-        reply_to: Some(reply_to),
+        reply_to: Some(sender.clone()),
         arguments: json!({ "service_id": service_id }),
         name: Some("registration".into()),
+        sender,
     }
 }
