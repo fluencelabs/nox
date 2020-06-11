@@ -17,24 +17,58 @@
 use crate::{FunctionCall, ProtocolMessage};
 pub use failure::Error;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
-use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
+use libp2p::{
+    core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
+    swarm::{protocols_handler, OneShotHandler},
+    PeerId,
+};
 use std::{io, iter, pin::Pin};
+
+#[derive(Clone)]
+pub struct ProtocolConfig {
+    #[allow(dead_code)]
+    peer_id: PeerId,
+}
+
+impl ProtocolConfig {
+    pub fn new(peer_id: PeerId) -> Self {
+        Self { peer_id }
+    }
+}
+
+impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent>
+    Into<OneShotHandler<ProtocolConfig, OutProto, OutEvent>> for ProtocolConfig
+{
+    fn into(self) -> OneShotHandler<ProtocolConfig, OutProto, OutEvent> {
+        OneShotHandler::new(
+            protocols_handler::SubstreamProtocol::new(self),
+            <_>::default(),
+        )
+    }
+}
 
 // 1 Mb
 #[allow(clippy::identity_op)]
 const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/fluence/faas/1.0.0";
 
-impl UpgradeInfo for ProtocolMessage {
-    type Info = &'static [u8];
-    type InfoIter = iter::Once<Self::Info>;
+macro_rules! impl_upgrade_info {
+    ($tname:ident) => {
+        impl UpgradeInfo for $tname {
+            type Info = &'static [u8];
+            type InfoIter = iter::Once<Self::Info>;
 
-    fn protocol_info(&self) -> Self::InfoIter {
-        iter::once(PROTOCOL_INFO)
-    }
+            fn protocol_info(&self) -> Self::InfoIter {
+                iter::once(PROTOCOL_INFO)
+            }
+        }
+    };
 }
 
-impl<Socket> InboundUpgrade<Socket> for ProtocolMessage
+impl_upgrade_info!(ProtocolConfig);
+impl_upgrade_info!(ProtocolMessage);
+
+impl<Socket> InboundUpgrade<Socket> for ProtocolConfig
 where
     Socket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
@@ -115,6 +149,8 @@ mod tests {
         upgrade,
     };
 
+    use crate::ProtocolConfig;
+    use fluence_libp2p::RandomPeerId;
     use rand::{thread_rng, Rng};
 
     #[test]
@@ -132,8 +168,10 @@ mod tests {
             let listener_event = listener.next().await.unwrap();
             let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
             let conn = listener_upgrade.await.unwrap();
-            let upgrade = ProtocolMessage::Upgrade;
-            upgrade::apply_inbound(conn, upgrade).await.unwrap()
+            let config = ProtocolConfig {
+                peer_id: RandomPeerId::random(),
+            };
+            upgrade::apply_inbound(conn, config).await.unwrap()
         });
 
         let sent_call = async_std::task::block_on(async move {
