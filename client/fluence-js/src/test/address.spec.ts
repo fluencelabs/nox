@@ -16,6 +16,9 @@ import {certificateFromString, certificateToString, issue} from "../trust/certif
 import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
 import {peerIdToSeed, seedToPeerId} from "../seed";
+import PeerInfo from "peer-info";
+
+let a;
 
 describe("Typescript usage suite", () => {
 
@@ -61,6 +64,7 @@ describe("Typescript usage suite", () => {
         let functionCall = makeFunctionCall(
             "123",
             addr2,
+            addr2,
             {
                 arg1: "123",
                 arg2: 3,
@@ -78,6 +82,7 @@ describe("Typescript usage suite", () => {
 
         let functionCallWithOptional = makeFunctionCall(
             "123",
+            addr,
             addr,
             {
                 arg1: "123",
