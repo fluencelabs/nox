@@ -47,7 +47,7 @@ enum Status {
 export class FluenceConnection {
 
     private readonly selfPeerInfo: PeerInfo;
-    readonly replyToAddress: Address;
+    readonly sender: Address;
     private node: LibP2p;
     private readonly address: Multiaddr;
     private readonly nodePeerId: PeerId;
@@ -60,7 +60,7 @@ export class FluenceConnection {
         this.selfPeerId = selfPeerInfo.id.toB58String();
         this.address = multiaddr;
         this.nodePeerId = hostPeerId;
-        this.replyToAddress = replyToAddress
+        this.sender = replyToAddress
     }
 
     async connect() {
@@ -90,7 +90,7 @@ export class FluenceConnection {
      * Sends remote service_id call.
      */
     async sendServiceCall(serviceId: string, args: any, name?: string) {
-        let regMsg = makeCall(serviceId, args, this.replyToAddress, this.replyToAddress, name);
+        let regMsg = makeCall(serviceId, args, this.sender, this.sender, name);
         await this.sendCall(regMsg);
     }
 
@@ -98,7 +98,7 @@ export class FluenceConnection {
      * Sends custom message to the peer.
      */
     async sendPeerCall(peer: string, msg: any, name?: string) {
-        let regMsg = makePeerCall(PeerId.createFromB58String(peer), msg, this.replyToAddress, this.replyToAddress, name);
+        let regMsg = makePeerCall(PeerId.createFromB58String(peer), msg, this.sender, this.sender, name);
         await this.sendCall(regMsg);
     }
 
@@ -106,7 +106,7 @@ export class FluenceConnection {
      * Sends custom message to the peer through relay.
      */
     async sendRelayCall(peer: string, relay: string, msg: any, name?: string) {
-        let regMsg = await makeRelayCall(PeerId.createFromB58String(peer), PeerId.createFromB58String(relay), msg, this.replyToAddress, this.replyToAddress, name);
+        let regMsg = await makeRelayCall(PeerId.createFromB58String(peer), PeerId.createFromB58String(relay), msg, this.sender, this.sender, name);
         await this.sendCall(regMsg);
     }
 
@@ -184,9 +184,9 @@ export class FluenceConnection {
         this.checkConnectedOrThrow();
 
         let replyTo;
-        if (reply) replyTo = this.replyToAddress;
+        if (reply) replyTo = this.sender;
 
-        let call = makeFunctionCall(genUUID(), target, args, this.replyToAddress, replyTo, name);
+        let call = makeFunctionCall(genUUID(), target, args, this.sender, replyTo, name);
 
         await this.sendCall(call);
     }

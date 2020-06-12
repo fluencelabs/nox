@@ -42,7 +42,7 @@ export class FluenceClient {
      * Makes call with response from function. Without reply_to field.
      */
     private responseCall(target: Address, args: any): FunctionCall {
-        return makeFunctionCall(genUUID(), target, this.connection.replyToAddress, args, undefined, "response");
+        return makeFunctionCall(genUUID(), target, this.connection.sender, args, undefined, "response");
     }
 
     /**
