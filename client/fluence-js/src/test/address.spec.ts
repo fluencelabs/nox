@@ -16,9 +16,6 @@ import {certificateFromString, certificateToString, issue} from "../trust/certif
 import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
 import {peerIdToSeed, seedToPeerId} from "../seed";
-import PeerInfo from "peer-info";
-
-let a;
 
 describe("Typescript usage suite", () => {
 
