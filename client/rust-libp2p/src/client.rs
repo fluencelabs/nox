@@ -106,9 +106,7 @@ impl Client {
     }
 
     pub fn relay_address(&self, node: PeerId) -> Address {
-        let addr = relay!(node, self.peer_id.clone());
-        let sig = self.sign(addr.path().as_bytes());
-        addr.append(Protocol::Signature(sig))
+        relay!(node, self.peer_id.clone(), self.key_pair)
     }
 
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
@@ -117,12 +115,13 @@ impl Client {
 
     fn dial(
         &self,
-        relay: Multiaddr,
+        node: Multiaddr,
         transport: Transport,
     ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let key_pair = libp2p::identity::Keypair::Ed25519(self.key_pair.clone());
-            let behaviour = ClientBehaviour::new(key_pair.public().into_peer_id());
+            let local_address = Protocol::Client(key_pair.public().into_peer_id()).into();
+            let behaviour = ClientBehaviour::new(local_address);
 
             macro_rules! swarm {
                 ($transport:expr) => {{
@@ -137,10 +136,10 @@ impl Client {
             }
         };
 
-        match Swarm::dial_addr(&mut swarm, relay.clone()) {
-            Ok(_) => log::info!("{} dialed to {:?}", self.peer_id, relay),
+        match Swarm::dial_addr(&mut swarm, node.clone()) {
+            Ok(_) => log::info!("{} dialed to {:?}", self.peer_id, node),
             Err(e) => {
-                log::error!("Dial to {:?} failed with {:?}", relay, e);
+                log::error!("Dial to {:?} failed with {:?}", node, e);
                 return Err(e.into());
             }
         }

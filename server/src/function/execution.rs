@@ -81,6 +81,7 @@ impl FunctionRouter {
             reply_to: Some(self.config.local_address()),
             name: Some("reply on identify".into()),
             arguments,
+            sender: self.config.local_address(),
         };
         self.call(call);
     }
@@ -135,6 +136,7 @@ impl FunctionRouter {
                 reply_to: Some(self.config.local_address()),
                 name: Some("reply on add_certificates".into()),
                 arguments,
+                sender: self.config.local_address(),
             };
             self.call(call);
         } else {
@@ -187,6 +189,7 @@ impl FunctionRouter {
                     reply_to: Some(self.config.local_address()),
                     name: Some("reply on certificates".into()),
                     arguments,
+                    sender: self.config.local_address(),
                 };
                 // Send reply with certificates and msg_id
                 self.call(call);

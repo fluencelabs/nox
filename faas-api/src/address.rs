@@ -310,11 +310,14 @@ impl Div<Protocol> for Protocol {
 // Builds relay address which looks like this: "/peer/QmRelay/client/QmClient"
 #[macro_export]
 macro_rules! relay {
-    ($relay:expr,$client:expr$(,$sig:expr)?) => {{
+    ($relay:expr,$client:expr$(,$kp:expr)?) => {{
         let relay = $crate::Address::from($crate::Protocol::Peer($relay));
         let relay = relay.append($crate::Protocol::Client($client));
-        // Optional line. If sig isn't passed, line isn't inserted
-        $(let relay = relay.append($crate::Protocol::Signature($sig));)?
+        // Optional line. If kp isn't passed, no signature will be generated
+        $(let relay = {
+            let signature = $kp.sign(relay.path().as_bytes());
+            relay.append($crate::Protocol::Signature(signature))
+        };)?
         relay
     }};
 }
@@ -327,6 +330,26 @@ macro_rules! service {
         // TODO: Will usually clone here, is it ok?
         $crate::Address::from($crate::Protocol::Service(id.into()))
     }};
+}
+
+/// Used in tests, but can't be marked as `#[cfg(tests)]` because it'll not be possible to export
+impl Address {
+    pub fn random_relay_unsigned() -> Self {
+        use fluence_libp2p::RandomPeerId;
+
+        relay!(RandomPeerId::random(), RandomPeerId::random())
+    }
+
+    pub fn random_relay() -> Self {
+        use fluence_libp2p::RandomPeerId;
+        use libp2p::identity::{ed25519::Keypair, PublicKey::Ed25519};
+
+        let node = RandomPeerId::random();
+        let client_kp = Keypair::generate();
+        let client = Ed25519(client_kp.public()).into_peer_id();
+
+        relay!(node, client, client_kp)
+    }
 }
 
 #[cfg(test)]

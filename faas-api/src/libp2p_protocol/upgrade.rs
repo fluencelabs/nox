@@ -14,25 +14,36 @@
  * limitations under the License.
  */
 
-use crate::{FunctionCall, ProtocolMessage};
+use crate::{Address, FunctionCall, ProtocolMessage};
 pub use failure::Error;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     swarm::{protocols_handler, OneShotHandler},
-    PeerId,
 };
 use std::{io, iter, pin::Pin};
 
 #[derive(Clone)]
 pub struct ProtocolConfig {
     #[allow(dead_code)]
-    peer_id: PeerId,
+    local_address: Address,
 }
 
 impl ProtocolConfig {
-    pub fn new(peer_id: PeerId) -> Self {
-        Self { peer_id }
+    pub fn new(local_address: Address) -> Self {
+        Self { local_address }
+    }
+
+    fn gen_error<E: std::error::Error>(&self, err: &E, data: &[u8]) -> ProtocolMessage {
+        use serde_json::json;
+        ProtocolMessage::FunctionCall(FunctionCall {
+            uuid: "error".into(),
+            target: None,
+            reply_to: None,
+            arguments: json!({ "data": data }),
+            name: Some(err.to_string()),
+            sender: self.local_address.clone(),
+        })
     }
 }
 
@@ -93,24 +104,13 @@ where
                 }
                 Err(err) => {
                     // Generate and send error back through socket
-                    let err_msg = gen_error(&err, &packet);
+                    let err_msg = self.gen_error(&err, &packet);
                     err_msg.upgrade_outbound(socket, info).await?;
                     return Err(err.into());
                 }
             }
         })
     }
-}
-
-fn gen_error<E: std::error::Error>(err: &E, data: &[u8]) -> ProtocolMessage {
-    use serde_json::json;
-    ProtocolMessage::FunctionCall(FunctionCall {
-        uuid: "error".into(),
-        target: None,
-        reply_to: None,
-        arguments: json!({ "data": data }),
-        name: Some(err.to_string()),
-    })
 }
 
 impl<Socket> OutboundUpgrade<Socket> for ProtocolMessage
@@ -149,7 +149,7 @@ mod tests {
         upgrade,
     };
 
-    use crate::ProtocolConfig;
+    use crate::{Protocol, ProtocolConfig};
     use fluence_libp2p::RandomPeerId;
     use rand::{thread_rng, Rng};
 
@@ -169,7 +169,7 @@ mod tests {
             let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
             let conn = listener_upgrade.await.unwrap();
             let config = ProtocolConfig {
-                peer_id: RandomPeerId::random(),
+                local_address: Protocol::Client(RandomPeerId::random()).into(),
             };
             upgrade::apply_inbound(conn, config).await.unwrap()
         });

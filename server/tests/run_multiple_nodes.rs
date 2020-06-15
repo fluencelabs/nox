@@ -131,32 +131,32 @@ fn receive_call_on_big_network() {
     while i > 0 {
         i -= 1;
 
-        let service = thread_rng()
+        let service_id = thread_rng()
             .sample_iter(Alphanumeric)
             .take(7)
             .collect::<String>();
-        let service = service.as_str();
+        let service_id = service_id.as_str();
 
         let mut client20 = ConnectedClient::connect_to(addr(20000)).expect("connect 20");
         let client30 = ConnectedClient::connect_to(addr(30000)).expect("connect 30");
         let client40 = ConnectedClient::connect_to(addr(40000)).expect("connect 40");
 
         log::info!("\niteration {}", i);
-        log::info!("service: {}", service);
+        log::info!("service: {}", service_id);
         log::info!("client20: {}", client20.relay_address());
         log::info!("client30: {}", client30.relay_address());
         log::info!("client40: {}", client40.relay_address());
 
         sleep(SHORT_TIMEOUT);
 
-        client20.send(provide_call(service, client20.relay_address()));
+        client20.send(provide_call(service_id, client20.relay_address()));
         sleep(KAD_TIMEOUT);
 
-        client30.send(service_call(service, client30.relay_address()));
+        client30.send(service_call(service_id, client30.relay_address()));
         let call30to20 = client20.receive();
         log::info!("call30to20: {:?}", call30to20);
 
-        client40.send(service_call(service, client40.relay_address()));
+        client40.send(service_call(service_id, client40.relay_address()));
         let call40to20 = client20.receive();
         log::info!("call40to20: {:?}", call40to20);
     }

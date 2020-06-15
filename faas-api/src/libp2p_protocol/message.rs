@@ -65,6 +65,7 @@ mod test {
                 "uuid": "2020-04-09T11:45:54.000Z",
                 "target": "fluence:/service/provide",
                 "reply_to": "fluence:/peer/QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2/client/QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
+                "sender": "fluence:/peer/QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2/client/QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
                 "arguments": {
                     "service_id": "println summa"
                 },
@@ -78,6 +79,7 @@ mod test {
                 "uuid": "2020-04-09T11:47:42.937Z",
                 "target": "fluence:/service/provide",
                 "reply_to": "fluence:/peer/QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2/client/QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
+                "sender": "fluence:/peer/QmX6yYZd4iLW7YpmZz4waLrtb5Y9f5v3PPGEmNGh9k3iW2/client/QmcsjjDd8bHFXwAttvyhp7CgaysZhABE2tXFjfPLA5ABJ5",
                 "arguments": {
                     "service_id": "println summa"
                 },

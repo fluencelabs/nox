@@ -190,6 +190,7 @@ fn print_example(reply_to: Address) {
             reply_to: Some(reply_to.clone()),
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call identify".to_string()),
+            sender: reply_to.clone(),
         },
     };
 
@@ -200,6 +201,7 @@ fn print_example(reply_to: Address) {
             reply_to: Some(reply_to.clone()),
             arguments: json!({ "service_id": "IPFS.get_QmFile3", "msg_id": time }),
             name: Some("register service".to_string()),
+            sender: reply_to.clone(),
         },
     };
 
@@ -210,6 +212,7 @@ fn print_example(reply_to: Address) {
             reply_to: Some(reply_to.clone()),
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
+            sender: reply_to.clone(),
         },
     };
 

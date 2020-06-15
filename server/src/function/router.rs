@@ -243,21 +243,24 @@ impl FunctionRouter {
 
     /// Send call with uuid `error_$uuid` to `call.reply_to`, if it's defined
     /// Keep `call.name`, put `reason` and `call` in arguments
-    pub(super) fn send_error_on_call(&mut self, mut call: FunctionCall, reason: String) {
+    pub(super) fn send_error_on_call(&mut self, call: FunctionCall, reason: String) {
         use serde_json::json;
         let arguments = json!({ "reason": reason, "call": call });
 
-        if let Some(reply_to) = call.reply_to.take() {
+        let reply_to = call.reply_to.as_ref().unwrap_or(&call.sender);
+
+        if reply_to != &self.config.local_address() {
             let call = FunctionCall {
-                target: Some(reply_to),
+                target: Some(reply_to.clone()),
                 arguments,
                 reply_to: None, // TODO: sure?
                 uuid: format!("error_{}", call.uuid),
                 name: call.name,
+                sender: self.config.local_address(),
             };
             self.call(call)
         } else {
-            log::warn!("Can't send error on call {:?}: reply_to is empty", call);
+            log::warn!("Can't send error on call {:?}: loop detected", call);
         }
     }
 
@@ -277,6 +280,7 @@ impl FunctionRouter {
             reply_to: None, // TODO: sure?
             uuid: format!("error_{}", uuid),
             name: None,
+            sender: self.config.local_address(),
         };
         self.call(call)
     }

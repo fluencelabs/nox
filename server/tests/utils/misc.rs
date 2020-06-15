@@ -41,62 +41,67 @@ pub static TIMEOUT: Duration = Duration::from_secs(5);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-pub fn certificates_call(peer_id: PeerId, reply_to: Address) -> FunctionCall {
+pub fn certificates_call(peer_id: PeerId, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(service!("certificates")),
-        reply_to: Some(reply_to),
+        reply_to: Some(sender.clone()),
         arguments: json!({ "peer_id": peer_id.to_string(), "msg_id": uuid() }),
         name: None,
+        sender,
     }
 }
 
 pub fn add_certificates_call(
     peer_id: PeerId,
-    reply_to: Address,
+    sender: Address,
     certs: Vec<Certificate>,
 ) -> FunctionCall {
     let certs: Vec<_> = certs.into_iter().map(|c| c.to_string()).collect();
     FunctionCall {
         uuid: uuid(),
         target: Some(service!("add_certificates")),
-        reply_to: Some(reply_to),
+        reply_to: Some(sender.clone()),
         arguments: json!({
             "peer_id": peer_id.to_string(),
             "msg_id": uuid(),
             "certificates": certs
         }),
         name: None,
+        sender,
     }
 }
 
-pub fn provide_call(service_id: &str, reply_to: Address) -> FunctionCall {
+pub fn provide_call(service_id: &str, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(service!("provide")),
-        reply_to: Some(reply_to),
+        reply_to: Some(sender.clone()),
         arguments: json!({ "service_id": service_id }),
         name: None,
+        sender,
     }
 }
 
-pub fn service_call(service_id: &str, consumer: Address) -> FunctionCall {
+pub fn service_call(service_id: &str, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(service!(service_id)),
-        reply_to: Some(consumer),
+        reply_to: Some(sender.clone()),
         arguments: Value::Null,
         name: None,
+        sender,
     }
 }
 
-pub fn reply_call(reply_to: Address) -> FunctionCall {
+pub fn reply_call(target: Address, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(reply_to),
+        target: Some(target),
         reply_to: None,
         arguments: Value::Null,
         name: Some("reply".into()),
+        sender,
     }
 }
 

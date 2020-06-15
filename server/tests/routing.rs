@@ -51,6 +51,7 @@ fn send_call() {
         reply_to: Some(sender.relay_address()),
         name: None,
         arguments: Value::Null,
+        sender: sender.relay_address(),
     };
 
     sender.send(call);
@@ -91,6 +92,7 @@ fn invalid_relay_signature() {
         reply_to: Some(sender.relay_address()),
         name: None,
         arguments: Value::Null,
+        sender: sender.relay_address(),
     };
 
     sender.send(call);
@@ -112,6 +114,7 @@ fn missing_relay_signature() {
         reply_to: Some(sender.relay_address()),
         name: None,
         arguments: Value::Null,
+        sender: sender.relay_address(),
     };
 
     sender.send(call);
@@ -166,7 +169,7 @@ fn call_service_reply() {
     let to_provider = provider.receive();
     assert_eq!(to_provider.reply_to, Some(consumer.relay_address()));
 
-    let reply = reply_call(to_provider.reply_to.unwrap());
+    let reply = reply_call(to_provider.reply_to.unwrap(), provider.relay_address());
     provider.send(reply.clone());
 
     let to_consumer = consumer.receive();
