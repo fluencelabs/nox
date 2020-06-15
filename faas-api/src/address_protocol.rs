@@ -71,11 +71,11 @@ impl Protocol {
     pub fn components(&self) -> (&'static str, Cow<'_, String>) {
         use self::Protocol::*;
         match self {
-            Service(id) => ("/service/", Cow::Borrowed(id)),
-            Peer(id) => ("/peer/", Cow::Owned(Self::peer_id_to_base58(id))),
-            Client(id) => ("/client/", Cow::Owned(Self::peer_id_to_base58(id))),
+            Service(id) => ("service", Cow::Borrowed(id)),
+            Peer(id) => ("peer", Cow::Owned(Self::peer_id_to_base58(id))),
+            Client(id) => ("client", Cow::Owned(Self::peer_id_to_base58(id))),
             // TODO: '/signature' => '?signature='
-            Signature(sig) => ("/signature/", Cow::Owned(Self::vec_to_base58(sig))),
+            Signature(sig) => ("signature", Cow::Owned(Self::vec_to_base58(sig))),
             Hashtag(hashtag) => ("#", Cow::Borrowed(hashtag)),
         }
     }
@@ -107,7 +107,12 @@ impl Protocol {
 
 impl std::fmt::Display for Protocol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (proto, value) = self.components();
-        write!(f, "{}{}", proto, value)
+        match self {
+            Protocol::Hashtag(h) => write!(f, "#{}", h),
+            other => {
+                let (proto, value) = other.components();
+                write!(f, "/{}/{}", proto, value)
+            }
+        }
     }
 }
