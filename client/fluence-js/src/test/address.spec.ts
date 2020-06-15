@@ -61,6 +61,7 @@ describe("Typescript usage suite", () => {
         let functionCall = makeFunctionCall(
             "123",
             addr2,
+            addr2,
             {
                 arg1: "123",
                 arg2: 3,
@@ -78,6 +79,7 @@ describe("Typescript usage suite", () => {
 
         let functionCallWithOptional = makeFunctionCall(
             "123",
+            addr,
             addr,
             {
                 arg1: "123",

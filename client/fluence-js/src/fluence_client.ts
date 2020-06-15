@@ -41,8 +41,8 @@ export class FluenceClient {
     /**
      * Makes call with response from function. Without reply_to field.
      */
-    private static responseCall(target: Address, args: any): FunctionCall {
-        return makeFunctionCall(genUUID(), target, args, undefined, "response");
+    private responseCall(target: Address, args: any): FunctionCall {
+        return makeFunctionCall(genUUID(), target, this.connection.sender, args, undefined, "response");
     }
 
     /**
@@ -155,14 +155,14 @@ export class FluenceClient {
                         // if the request hasn't been applied, there is no such service. Return an error.
                         if (!applied) {
                             console.log(`there is no service ${lastProtocol.value}`);
-                            return FluenceClient.responseCall(call.reply_to, {
+                            return this.responseCall(call.reply_to, {
                                 reason: `there is no such service`,
                                 msg: call
                             });
                         }
                     } catch (e) {
                         // if service throw an error, return it to the sender
-                        return FluenceClient.responseCall(call.reply_to, {
+                        return this.responseCall(call.reply_to, {
                             reason: `error on execution: ${e}`,
                             msg: call
                         });
@@ -174,7 +174,7 @@ export class FluenceClient {
                         console.log(`relay call: ${call}`);
                     } else {
                         console.warn(`this relay call is not for me: ${callToString(call)}`);
-                        return FluenceClient.responseCall(call.reply_to, {
+                        return this.responseCall(call.reply_to, {
                             reason: `this relay call is not for me`,
                             msg: call
                         });
@@ -185,7 +185,7 @@ export class FluenceClient {
                         console.log(`peer call: ${call}`);
                     } else {
                         console.warn(`this peer call is not for me: ${callToString(call)}`);
-                        return FluenceClient.responseCall(call.reply_to, {
+                        return this.responseCall(call.reply_to, {
                             reason: `this relay call is not for me`,
                             msg: call
                         });
