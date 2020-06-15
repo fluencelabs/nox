@@ -17,7 +17,6 @@
 use super::address::AddressError;
 use libp2p::PeerId;
 use std::borrow::Cow;
-use std::str::FromStr;
 
 type Result<T> = core::result::Result<T, AddressError>;
 
@@ -30,6 +29,7 @@ pub enum Protocol {
     // Peer that's accessible only via relay mechanics
     Client(PeerId),
     Signature(Vec<u8>),
+    Hashtag(String),
 }
 
 impl Protocol {
@@ -58,6 +58,10 @@ impl Protocol {
                 let sig = Self::parse_base_58(sig)?;
                 Ok(Signature(sig))
             }
+            "#" => {
+                let hashtag = iter.next().ok_or(AddressError::Empty)?;
+                Ok(Hashtag(hashtag.into()))
+            }
             _ => Err(AddressError::UnknownProtocol),
         }
     }
@@ -70,7 +74,9 @@ impl Protocol {
             Service(id) => ("service", Cow::Borrowed(id)),
             Peer(id) => ("peer", Cow::Owned(Self::peer_id_to_base58(id))),
             Client(id) => ("client", Cow::Owned(Self::peer_id_to_base58(id))),
+            // TODO: '/signature' => '?signature='
             Signature(sig) => ("signature", Cow::Owned(Self::vec_to_base58(sig))),
+            Hashtag(hashtag) => ("#", Cow::Borrowed(hashtag)),
         }
     }
 
@@ -101,22 +107,12 @@ impl Protocol {
 
 impl std::fmt::Display for Protocol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (proto, value) = self.components();
-        write!(f, "/{}/{}", proto, value)
-    }
-}
-
-impl FromStr for Protocol {
-    type Err = AddressError;
-
-    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
-        let mut parts = s.split('/').peekable();
-
-        if Some("") != parts.next() {
-            // Protocol must start with `/`
-            return Err(AddressError::InvalidProtocol);
+        match self {
+            Protocol::Hashtag(h) => write!(f, "#{}", h),
+            other => {
+                let (proto, value) = other.components();
+                write!(f, "/{}/{}", proto, value)
+            }
         }
-
-        Protocol::from_iter(parts)
     }
 }

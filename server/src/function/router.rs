@@ -193,6 +193,16 @@ impl FunctionRouter {
                     );
                     return;
                 }
+                wrong @ Hashtag(_) => {
+                    self.send_error_on_call(
+                        call,
+                        format!(
+                            "Invalid target: expected /peer, /client or /service, got {}",
+                            wrong
+                        ),
+                    );
+                    return;
+                }
             }
         }
 
