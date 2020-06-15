@@ -58,25 +58,19 @@ impl Address {
     }
 
     // Appends path of `other` to `self`
-    pub fn extend<A>(self, other: A) -> Self
+    pub fn extend<A>(mut self, other: A) -> Self
     where
         A: Borrow<Address>,
     {
-        let other = other.borrow().0.path_segments().unwrap();
-        self.extend_with(other)
-    }
+        let other = &other.borrow().0;
 
-    // Appends all given path segments to `self`
-    fn extend_with<I>(mut self, segments: I) -> Self
-    where
-        I: IntoIterator,
-        I::Item: AsRef<str>,
-    {
-        // It's ok to call .expect() since Address always contains SCHEME
-        self.0
-            .path_segments_mut()
-            .expect("url contains scheme")
-            .extend(segments);
+        let path = other.path_segments().unwrap();
+        self = self.extend_path(path);
+
+        if let Some(fragment) = other.fragment() {
+            self = self.set_fragment(fragment)
+        }
+
         self
     }
 
@@ -97,10 +91,16 @@ impl Address {
     where
         P: Borrow<Protocol>,
     {
-        // concatenate new with existing
-        let path = protocol.borrow().to_string() + self.0.path();
-        self.0.set_path(path.as_str());
-        self
+        match protocol.borrow() {
+            // override fragment (even though it's strange to prepend hashtag, i'd avoid throwing error here)
+            Protocol::Hashtag(h) => self.set_fragment(h.as_str()),
+            protocol => {
+                // concatenate new with existing
+                let path = protocol.to_string() + self.0.path();
+                self.0.set_path(path.as_str());
+                self
+            }
+        }
     }
 
     // Appends given protocol to the end of the current path
@@ -108,8 +108,13 @@ impl Address {
     where
         P: Borrow<Protocol>,
     {
-        let (p, v) = protocol.borrow().components();
-        self.extend_with([p, v.as_str()].iter())
+        match protocol.borrow() {
+            Protocol::Hashtag(h) => self.set_fragment(h.as_str()),
+            other => {
+                let (p, v) = other.components();
+                self.extend_path([p, v.as_str()].iter())
+            }
+        }
     }
 
     // Returns protocols in the address
@@ -117,37 +122,15 @@ impl Address {
         self.iter().collect()
     }
 
-    // Removes and returns first protocol from address
-    pub fn pop_front(&mut self) -> Option<Protocol> {
-        let mut path = self
-            .0
-            .path_segments()
-            // It's ok to call .expect() since Address always contains SCHEME
-            .expect("url contains scheme")
-            .peekable();
-
-        let result = if path.peek().is_some() {
-            let protocol = Protocol::from_iter(&mut path)
-                // This shouldn't happen: address is correct by construction
-                .unwrap_or_else(|_| panic!("{} was incorrect, can't pop_front", self));
-            Some(protocol)
-        } else {
-            None
-        };
-        let path = path.collect::<String>();
-        self.0.set_path(path.as_str());
-        result
-    }
-
     // Builds iterator over protocols in the address
     pub fn iter(&self) -> ProtocolsIter<'_> {
-        ProtocolsIter(self.0.path_segments().unwrap())
+        ProtocolsIter(self.0.path_segments().unwrap(), self.0.fragment())
     }
 
     // Returns true if address empty (i.e., contains only schema)
     pub fn is_empty(&self) -> bool {
         let path = self.0.path();
-        path.is_empty() || path == "/"
+        (path.is_empty() || path == "/") && self.0.fragment().is_none()
     }
 
     // Returns true if address contains given protocol
@@ -157,6 +140,26 @@ impl Address {
 
     pub fn path(&self) -> &str {
         self.0.path()
+    }
+
+    /// Appends all given path segments to `self`
+    fn extend_path<I>(mut self, segments: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+    {
+        // It's ok to call .expect() since Address always contains SCHEME
+        self.0
+            .path_segments_mut()
+            .expect("url contains scheme")
+            .extend(segments);
+        self
+    }
+
+    /// Sets fragment (hashtag) of the underlying address
+    fn set_fragment<'a>(mut self, fragment: &'a str) -> Self {
+        self.0.set_fragment(Some(fragment));
+        self
     }
 }
 
@@ -239,13 +242,24 @@ impl<'a> FromIterator<&'a Protocol> for Address {
     }
 }
 
-pub struct ProtocolsIter<'a>(std::str::Split<'a, char>);
+pub struct ProtocolsIter<'a>(std::str::Split<'a, char>, Option<&'a str>);
+impl<'a> ProtocolsIter<'a> {
+    fn take_fragment(&mut self) -> Option<Protocol> {
+        let hashtag = std::iter::once("#");
+        let fragment = self.1.take().into_iter();
+        Protocol::from_iter(hashtag.chain(fragment)).ok()
+    }
+
+    fn next_protocol(&mut self) -> Option<Protocol> {
+        Protocol::from_iter(&mut self.0).ok()
+    }
+}
 
 impl<'a> Iterator for ProtocolsIter<'a> {
     type Item = Protocol;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Protocol::from_iter(&mut self.0).ok()
+        self.next_protocol().or(self.take_fragment())
     }
 }
 
@@ -390,5 +404,15 @@ pub mod tests {
         } else {
             unreachable!()
         };
+    }
+
+    #[test]
+    fn try_hashtag() {
+        let _u: Url = "fluence:/peer/QmPeer/#service.call".parse().unwrap();
+
+        let u = SCHEME.join("#w.tf").unwrap();
+        println!("{:?} {:?} {:?}", u, u.fragment(), u.path());
+        let u = _u.join("fluence:/client/Cl/#test.call").unwrap();
+        println!("{:?} {:?} {:?}", u, u.fragment(), u.path());
     }
 }

@@ -210,7 +210,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let _service: AddCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let target = call.target.unwrap().pop_front().unwrap();
+        let target = call.target.unwrap().iter().next().unwrap();
         let service = BuiltinService::from(&target, call.arguments).unwrap();
 
         match service {
@@ -255,7 +255,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let _service: GetCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let target = call.target.unwrap().pop_front().unwrap();
+        let target = call.target.unwrap().iter().next().unwrap();
         let service = BuiltinService::from(&target, call.arguments).unwrap();
 
         match service {
@@ -275,7 +275,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         })
         .into();
         let call = gen_provide_call(target.into(), arguments);
-        let target = call.target.unwrap().pop_front().unwrap();
+        let target = call.target.unwrap().iter().next().unwrap();
         let service = BuiltinService::from(&target, call.arguments).unwrap();
 
         match service {
