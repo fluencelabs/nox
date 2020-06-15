@@ -93,6 +93,9 @@ impl BuiltinService {
         [Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY];
 
     pub fn from<'a>(target: &'a Protocol, arguments: serde_json::Value) -> Result<Self, Error<'a>> {
+        use serde_json::from_value;
+        use BuiltinService::*;
+
         // Check it's `/service/ID` and `ID` is one of builtin services
         let service_id = match target {
             Service(service_id) => service_id,
@@ -100,10 +103,10 @@ impl BuiltinService {
         };
 
         let service = match service_id.as_str() {
-            Self::PROVIDE => BuiltinService::DelegateProviding(serde_json::from_value(arguments)?),
-            Self::CERTS => BuiltinService::GetCertificates(serde_json::from_value(arguments)?),
-            Self::ADD_CERTS => BuiltinService::AddCertificates(serde_json::from_value(arguments)?),
-            Self::IDENTIFY => BuiltinService::Identify(serde_json::from_value(arguments)?),
+            Self::PROVIDE => DelegateProviding(from_value(arguments)?),
+            Self::CERTS => GetCertificates(from_value(arguments)?),
+            Self::ADD_CERTS => AddCertificates(from_value(arguments)?),
+            Self::IDENTIFY => Identify(from_value(arguments)?),
             s => return Err(Error::UnknownService(s)),
         };
 
