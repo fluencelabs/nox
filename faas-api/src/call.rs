@@ -125,33 +125,13 @@ pub mod test {
 
     #[test]
     fn serialize_provide() {
-        let provide = provider!("provide") / provider!("IPFS.get_QmFile");
-        let mut call = gen_provide_call(provide, serde_json::Value::Null);
-        call.name = Some("Announce IPFS file (in address)".into());
-
-        check_call(call.clone());
-
-        assert_eq!(
-            call.target,
-            Some("/service/provide/service/IPFS.get_QmFile".parse().unwrap())
-        );
-
         let provide = provider!("provide");
         let arguments = json!({ "service_id": "IPFS.get_QmFile" });
         let mut call = gen_provide_call(provide, arguments);
         call.name = Some("Announce IPFS file (in args)".into());
         check_call(call.clone());
 
-        assert_eq!(call.target, Some("/service/provide".parse().unwrap()));
-
-        let provide = provider!("provide");
-        let mut call = gen_provide_call(provide, serde_json::Value::Null);
-        let notebook = call.reply_to.take().unwrap();
-        call.reply_to = Some(notebook / provider!("IPFS.get_QmFile"));
-        call.name = Some("Announce IPFS file (in reply)".into());
-        check_call(call.clone());
-
-        assert_eq!(call.target, Some("/service/provide".parse().unwrap()));
+        assert_eq!(call.target, Some("/providers/provide".parse().unwrap()));
     }
 
     #[test]

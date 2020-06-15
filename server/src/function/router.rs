@@ -20,7 +20,7 @@ use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
 use crate::kademlia::MemoryStore;
-use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
+use faas_api::{hashtag, Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
@@ -147,16 +147,22 @@ impl FunctionRouter {
                     self.send_to(id.clone(), Unknown, call.with_target(target.collect()), ctx);
                     return;
                 }
-                s @ Providers(_) if is_local || self.service_available_locally(s) => {
+                Hashtag(service) if is_local || self.service_available_locally(service) => {
                     // If targeted to local, terminate locally, don't forward to network
                     let ttl = if is_local { 0 } else { 1 };
                     // target will be like: /client/QmClient/service/QmService
-                    self.pass_to_local_service(s.clone(), call.with_target(target.collect()), ttl);
+                    self.pass_to_local_service(
+                        &service.clone(),
+                        call.with_target(target.collect()),
+                        ttl,
+                    );
                     return;
                 }
-                s @ Providers(_) => {
-                    log::info!("searching for providers of {}. uuid {}", &s, &call.uuid);
-                    self.find_providers(s.into(), call.with_target(target.collect()));
+                Providers(key) => {
+                    // Here network transition `/providers/$key` become local identifier `#key`
+                    let key = hashtag!(key);
+                    log::info!("searching for providers of {}. uuid {}", key, &call.uuid);
+                    self.find_providers(key, call.with_target(target.collect()));
                     return;
                 }
                 Client(id) if is_local => {

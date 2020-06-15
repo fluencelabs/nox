@@ -62,12 +62,12 @@ impl Address {
     where
         A: Borrow<Address>,
     {
-        let other = &other.borrow().0;
+        let other = other.borrow();
 
-        let path = other.path_segments().unwrap();
+        let path = other.path_segments();
         self = self.extend_path(path);
 
-        if let Some(fragment) = other.fragment() {
+        if let Some(fragment) = other.0.fragment() {
             self = self.set_fragment(fragment)
         }
 
@@ -123,8 +123,8 @@ impl Address {
     }
 
     // Builds iterator over protocols in the address
-    pub fn iter(&self) -> ProtocolsIter<'_> {
-        ProtocolsIter(self.0.path_segments().unwrap(), self.0.fragment())
+    pub fn iter(&self) -> impl Iterator<Item = Protocol> + '_ {
+        ProtocolsIter(self.path_segments(), self.0.fragment())
     }
 
     // Returns true if address empty (i.e., contains only schema)
@@ -157,9 +157,17 @@ impl Address {
     }
 
     /// Sets fragment (hashtag) of the underlying address
-    fn set_fragment<'a>(mut self, fragment: &'a str) -> Self {
+    fn set_fragment(mut self, fragment: &str) -> Self {
         self.0.set_fragment(Some(fragment));
         self
+    }
+
+    /// Returns path segments without empty elements
+    fn path_segments(&self) -> impl Iterator<Item = &str> + '_ {
+        self.0
+            .path_segments()
+            .expect("url can be base")
+            .filter(|s| !s.is_empty())
     }
 }
 
@@ -242,8 +250,8 @@ impl<'a> FromIterator<&'a Protocol> for Address {
     }
 }
 
-pub struct ProtocolsIter<'a>(std::str::Split<'a, char>, Option<&'a str>);
-impl<'a> ProtocolsIter<'a> {
+pub struct ProtocolsIter<'a, P>(P, Option<&'a str>);
+impl<'a, P: Iterator<Item = &'a str>> ProtocolsIter<'a, P> {
     fn take_fragment(&mut self) -> Option<Protocol> {
         let hashtag = std::iter::once("#");
         let fragment = self.1.take().into_iter();
@@ -255,7 +263,7 @@ impl<'a> ProtocolsIter<'a> {
     }
 }
 
-impl<'a> Iterator for ProtocolsIter<'a> {
+impl<'a, P: Iterator<Item = &'a str>> Iterator for ProtocolsIter<'a, P> {
     type Item = Protocol;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -339,10 +347,23 @@ macro_rules! relay {
 // Builds service address which looks like this: "/providers/Key"
 #[macro_export]
 macro_rules! provider {
-    ($service_id:expr) => {{
+    ($service_id:expr) => {
+        $crate::addr_from_str!($service_id, Providers);
+    };
+}
+
+#[macro_export]
+macro_rules! hashtag {
+    ($service_id:expr) => {
+        $crate::addr_from_str!($service_id, Hashtag);
+    };
+}
+
+#[macro_export]
+macro_rules! addr_from_str {
+    ($service_id:expr, $proto:ident) => {{
         let id = $service_id;
-        // TODO: Will usually clone here, is it ok?
-        $crate::Address::from($crate::Protocol::Providers(id.into()))
+        $crate::Address::from($crate::Protocol::$proto(id.into()))
     }};
 }
 
@@ -372,47 +393,32 @@ pub mod tests {
 
     #[test]
     fn route_and_resolve() {
-        #[allow(clippy::ptr_arg)]
-        fn imitate_resolve(_service_id: &String) -> Address {
-            let relay = Protocol::Peer(
-                "Qmay8oMmnDmfLpmZtNwisEcmReVVqzvm2vcTc9rPzxeS3x"
-                    .parse()
-                    .unwrap(),
-            );
-            let client = Protocol::Client(
-                "QmWsPEib1mbGSxdqtDGnrqXiZFfVEbvicKS6cf5JfTtaZU"
-                    .parse()
-                    .unwrap(),
-            );
+        let relay = Protocol::Peer(
+            "Qmay8oMmnDmfLpmZtNwisEcmReVVqzvm2vcTc9rPzxeS3x"
+                .parse()
+                .unwrap(),
+        );
+        let client = Protocol::Client(
+            "QmWsPEib1mbGSxdqtDGnrqXiZFfVEbvicKS6cf5JfTtaZU"
+                .parse()
+                .unwrap(),
+        );
+        let relay_address = relay / client;
 
-            vec![relay, client].iter().collect()
-        }
-
-        let service = Address("fluence:/service/IPFS.get_QmFile".parse().unwrap());
-
+        let service = Address("fluence:/providers/IPFS.get_QmFile".parse().unwrap());
         let mut iter = service.iter().peekable();
 
-        let expected: Address = "fluence:/peer/Qmay8oMmnDmfLpmZtNwisEcmReVVqzvm2vcTc9rPzxeS3x/client/QmWsPEib1mbGSxdqtDGnrqXiZFfVEbvicKS6cf5JfTtaZU/service/IPFS.get_QmFile".parse().unwrap();
+        let expected: Address = "fluence:/peer/Qmay8oMmnDmfLpmZtNwisEcmReVVqzvm2vcTc9rPzxeS3x/client/QmWsPEib1mbGSxdqtDGnrqXiZFfVEbvicKS6cf5JfTtaZU#IPFS.get_QmFile".parse().unwrap();
 
         if let Some(Protocol::Providers(id)) = iter.peek() {
-            let resolved = imitate_resolve(id).extend(&service);
+            let local = Protocol::Hashtag(id.clone()).into();
+            let resolved = relay_address.clone().extend(&local);
             assert_eq!(expected, resolved);
 
-            let protos = service.iter();
-            let resolved = imitate_resolve(id).append_protos(protos);
+            let resolved = relay_address.clone().extend(&local);
             assert_eq!(expected, resolved);
         } else {
             unreachable!()
         };
-    }
-
-    #[test]
-    fn try_hashtag() {
-        let _u: Url = "fluence:/peer/QmPeer/#service.call".parse().unwrap();
-
-        let u = SCHEME.join("#w.tf").unwrap();
-        println!("{:?} {:?} {:?}", u, u.fragment(), u.path());
-        let u = _u.join("fluence:/client/Cl/#test.call").unwrap();
-        println!("{:?} {:?} {:?}", u, u.fragment(), u.path());
     }
 }

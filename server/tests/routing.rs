@@ -344,7 +344,11 @@ fn add_certs() {
     // If count is small, all nodes should fit in neighborhood, and all of them should reply
     for _ in 0..swarm_count {
         let reply = registrar.receive();
-        assert_eq!(reply.arguments["msg_id"], call.arguments["msg_id"]);
+        assert_eq!(
+            reply.arguments["msg_id"], call.arguments["msg_id"],
+            "{:#?}",
+            reply
+        );
     }
 }
 

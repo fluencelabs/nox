@@ -15,7 +15,7 @@
  */
 
 use async_std::task;
-use faas_api::{provider, Address, FunctionCall};
+use faas_api::{hashtag, Address, FunctionCall};
 use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::ServerBehaviour;
 
@@ -44,7 +44,7 @@ pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 pub fn certificates_call(peer_id: PeerId, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(provider!("certificates")),
+        target: Some(hashtag!("certificates")),
         reply_to: Some(sender.clone()),
         arguments: json!({ "peer_id": peer_id.to_string(), "msg_id": uuid() }),
         name: None,
@@ -60,7 +60,7 @@ pub fn add_certificates_call(
     let certs: Vec<_> = certs.into_iter().map(|c| c.to_string()).collect();
     FunctionCall {
         uuid: uuid(),
-        target: Some(provider!("add_certificates")),
+        target: Some(hashtag!("add_certificates")),
         reply_to: Some(sender.clone()),
         arguments: json!({
             "peer_id": peer_id.to_string(),
@@ -75,7 +75,7 @@ pub fn add_certificates_call(
 pub fn provide_call(service_id: &str, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(provider!("provide")),
+        target: Some(hashtag!("provide")),
         reply_to: Some(sender.clone()),
         arguments: json!({ "service_id": service_id }),
         name: None,
@@ -86,7 +86,7 @@ pub fn provide_call(service_id: &str, sender: Address) -> FunctionCall {
 pub fn service_call(service_id: &str, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(provider!(service_id)),
+        target: Some(hashtag!(service_id)),
         reply_to: Some(sender.clone()),
         arguments: Value::Null,
         name: None,
