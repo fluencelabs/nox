@@ -201,9 +201,8 @@ impl Client {
     }
 
     fn send_to_node<R: FunctionCallApi, S: DerefMut<Target = R>>(swarm: &mut S, cmd: Command) {
-        match cmd {
-            Command { node, call } => swarm.call(node, call),
-        }
+        let Command { node, call } = cmd;
+        swarm.call(node, call)
     }
 
     fn receive_from_node(

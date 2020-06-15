@@ -22,13 +22,15 @@ type Result<T> = core::result::Result<T, AddressError>;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Protocol {
-    // Service on the network
-    Service(String),
+    // Providers of the key
+    Providers(String),
     // Directly accessible peer
     Peer(PeerId),
     // Peer that's accessible only via relay mechanics
     Client(PeerId),
+    // Relay signature
     Signature(Vec<u8>),
+    // Immutable part that comes after '#' in URI
     Hashtag(String),
 }
 
@@ -41,9 +43,9 @@ impl Protocol {
     {
         use self::Protocol::*;
         match iter.next().ok_or(AddressError::Empty)? {
-            "service" => {
+            "providers" => {
                 let id = iter.next().ok_or(AddressError::Empty)?;
-                Ok(Service(id.into()))
+                Ok(Providers(id.into()))
             }
             "peer" => {
                 let id = Self::parse_peer_id(iter)?;
@@ -71,7 +73,7 @@ impl Protocol {
     pub fn components(&self) -> (&'static str, Cow<'_, String>) {
         use self::Protocol::*;
         match self {
-            Service(id) => ("service", Cow::Borrowed(id)),
+            Providers(id) => ("providers", Cow::Borrowed(id)),
             Peer(id) => ("peer", Cow::Owned(Self::peer_id_to_base58(id))),
             Client(id) => ("client", Cow::Owned(Self::peer_id_to_base58(id))),
             // TODO: '/signature' => '?signature='

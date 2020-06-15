@@ -193,7 +193,7 @@ impl FunctionRouter {
     }
 
     pub(super) fn search_for_client(&mut self, client: PeerId, call: FunctionCall) {
-        self.find_service_provider(Protocol::Client(client).into(), call)
+        self.find_providers(Protocol::Client(client).into(), call)
     }
 
     pub(super) fn peer_status(&mut self, peer: &PeerId) -> PeerStatus {

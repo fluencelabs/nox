@@ -29,7 +29,7 @@
 use async_std::task;
 use clap::{App, Arg};
 use ctrlc_adapter::block_until_ctrlc;
-use faas_api::{service, Address, FunctionCall};
+use faas_api::{provider, Address, FunctionCall};
 use fluence_client::{Client, ClientCommand, ClientEvent};
 use futures::task::Poll;
 use futures::{
@@ -152,10 +152,10 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
                         cmd_sender.unbounded_send(cmd).expect("send cmd");
                         // Call waker to respawn this future
                         cx.waker().clone().wake();
-                        return Poll::Pending;
+                        Poll::Pending
                     } else {
                         // Return Ready so await below completes
-                        return Poll::Ready(());
+                        Poll::Ready(())
                     }
                 })
                 .await;
@@ -186,7 +186,7 @@ fn print_example(reply_to: Address) {
     let call_identify = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(service!("identify")),
+            target: Some(provider!("identify")),
             reply_to: Some(reply_to.clone()),
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call identify".to_string()),
@@ -197,7 +197,7 @@ fn print_example(reply_to: Address) {
     let register_ipfs_get = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(service!("provide")),
+            target: Some(provider!("provide")),
             reply_to: Some(reply_to.clone()),
             arguments: json!({ "service_id": "IPFS.get_QmFile3", "msg_id": time }),
             name: Some("register service".to_string()),
@@ -208,11 +208,11 @@ fn print_example(reply_to: Address) {
     let call_ipfs_get = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(service!("IPFS.get_QmFile3")),
+            target: Some(provider!("IPFS.get_QmFile3")),
             reply_to: Some(reply_to.clone()),
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
-            sender: reply_to.clone(),
+            sender: reply_to,
         },
     };
 

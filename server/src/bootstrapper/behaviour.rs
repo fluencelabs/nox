@@ -77,7 +77,7 @@ impl Bootstrapper {
         let delay = self
             .bootstrap_backoff
             .entry(multiaddr.clone())
-            .or_insert(Backoff::default())
+            .or_insert_with(Backoff::default)
             .next_delay();
 
         self.push_event(
@@ -116,10 +116,9 @@ impl Bootstrapper {
     fn complete_delayed(&mut self, now: Instant) {
         let delayed = mem::replace(&mut self.delayed_events, vec![]);
 
-        let (ready, not_ready) = delayed.into_iter().partition(|(deadline, _)| {
-            let ready = deadline.map(|d| d >= now).unwrap_or(true);
-            ready
-        });
+        let (ready, not_ready) = delayed
+            .into_iter()
+            .partition(|(deadline, _)| deadline.map(|d| d >= now).unwrap_or(true));
 
         self.delayed_events = not_ready;
         self.events = ready.into_iter().map(|(_, e)| e).collect();
