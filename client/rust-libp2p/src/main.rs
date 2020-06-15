@@ -152,10 +152,10 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
                         cmd_sender.unbounded_send(cmd).expect("send cmd");
                         // Call waker to respawn this future
                         cx.waker().clone().wake();
-                        return Poll::Pending;
+                        Poll::Pending
                     } else {
                         // Return Ready so await below completes
-                        return Poll::Ready(());
+                        Poll::Ready(())
                     }
                 })
                 .await;
@@ -212,7 +212,7 @@ fn print_example(reply_to: Address) {
             reply_to: Some(reply_to.clone()),
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
-            sender: reply_to.clone(),
+            sender: reply_to,
         },
     };
 

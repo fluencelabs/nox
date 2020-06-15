@@ -188,8 +188,8 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRout
 
         log::debug!("Kademlia inject: {:?}", event);
 
-        match event {
-            QueryResult { result, .. } => match result {
+        if let QueryResult { result, .. } = event {
+            match result {
                 GetClosestPeers(result) => {
                     let (key, peers) = match result {
                         Ok(GetClosestPeersOk { key, peers }) => (key, peers),
@@ -200,8 +200,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRout
                 GetRecord(result) => self.name_resolved(result),
                 PutRecord(Err(result)) => self.name_publish_failed(result),
                 _ => {}
-            },
-            _ => {}
+            }
         };
     }
 }
