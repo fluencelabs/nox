@@ -41,6 +41,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 const IPFS_SERVICE_ID: &str = "IPFS.multiaddr";
+#[rustfmt::skip]
 static IPFS_SERVICE: Lazy<Protocol> = Lazy::new(|| Protocol::Service(IPFS_SERVICE_ID.to_string()));
 
 fn register_call(client: PeerId, relay: PeerId, service_id: &str, kp: &Keypair) -> FunctionCall {

@@ -70,7 +70,7 @@ impl FunctionRouter {
     }
 
     // Look for service providers, enqueue call to wait for providers
-    pub(super) fn find_service_provider(&mut self, name: Address, call: FunctionCall) {
+    pub(super) fn find_providers(&mut self, name: Address, call: FunctionCall) {
         log::info!("Finding service provider for {}, call: {:?}", name, call);
         if let Enqueued::New = self.wait_name_resolved.enqueue(name.clone(), call) {
             // won't call get_providers if there are already calls waiting for it

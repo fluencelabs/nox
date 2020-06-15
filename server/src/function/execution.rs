@@ -21,15 +21,15 @@ use super::{
     },
     FunctionRouter,
 };
-use faas_api::{service, Address, FunctionCall, Protocol};
+use faas_api::{provider, Address, FunctionCall, Protocol};
 use itertools::Itertools;
 use libp2p::PeerId;
 use serde_json::json;
 use trust_graph::Certificate;
 
 impl FunctionRouter {
-    /// Execute call on builtin service: "provide" or "certificates"
-    /// `ttl` – time to live, if `0`, "certificates" and "add_certificates" services
+    /// Execute call on builtin service: "provide", "certificates", etc
+    /// `ttl` – time to live, if `0`, then "certificates" and "add_certificates" services
     ///  won't send call to neighborhood
     pub(super) fn execute_builtin(
         &mut self,
@@ -41,7 +41,7 @@ impl FunctionRouter {
 
         match service {
             BS::DelegateProviding(DelegateProviding { service_id }) => {
-                self.provide(service!(service_id), call)
+                self.provide(provider!(service_id), call)
             }
             BS::GetCertificates(GetCertificates { peer_id, msg_id }) => {
                 self.get_certificates(peer_id, call, msg_id, ttl)

@@ -98,7 +98,7 @@ impl BuiltinService {
 
         // Check it's `/service/ID` and `ID` is one of builtin services
         let service_id = match target {
-            Service(service_id) => service_id,
+            Providers(service_id) => service_id,
             _ => return Err(Error::InvalidProtocol(target)),
         };
 
@@ -115,7 +115,7 @@ impl BuiltinService {
 
     pub fn is_builtin(service: &Protocol) -> bool {
         match service {
-            Service(service_id) => Self::SERVICES.contains(&service_id.as_str()),
+            Providers(service_id) => Self::SERVICES.contains(&service_id.as_str()),
             _ => false,
         }
     }
@@ -131,7 +131,7 @@ impl Into<(Protocol, serde_json::Value)> for BuiltinService {
             BuiltinService::AddCertificates { .. } => BuiltinService::ADD_CERTS,
             BuiltinService::Identify { .. } => BuiltinService::IDENTIFY,
         };
-        let target = Protocol::Service(service_id.to_string());
+        let target = Protocol::Providers(service_id.to_string());
         let arguments = json!(self);
 
         (target, arguments)
@@ -159,7 +159,7 @@ pub mod test {
         let protocols = call.target.as_ref().expect("non empty").protocols();
 
         let service_id = match protocols.as_slice() {
-            [Protocol::Service(service_id)] => service_id,
+            [Protocol::Providers(service_id)] => service_id,
             wrong => unreachable!("target should be Address::Service, was {:?}", wrong),
         };
 

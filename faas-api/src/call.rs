@@ -40,12 +40,12 @@ impl FunctionCall {
 
 pub mod call_test_utils {
     use crate::FunctionCall;
-    use crate::{service, Address};
+    use crate::{provider, Address};
 
     pub fn gen_ipfs_call() -> FunctionCall {
         let sender = Address::random_relay();
         let reply_to = Some(sender.clone());
-        let target = Some(service!("IPFS.get_QmFile"));
+        let target = Some(provider!("IPFS.get_QmFile"));
 
         FunctionCall {
             uuid: "UUID-1".to_string(),
@@ -86,7 +86,7 @@ pub mod test {
     use crate::Address;
     use crate::FunctionCall;
     use crate::Protocol;
-    use crate::{relay, service};
+    use crate::{provider, relay};
     use fluence_libp2p::RandomPeerId;
     use serde_json::json;
 
@@ -103,7 +103,7 @@ pub mod test {
         }
 
         check(relay!(p1.clone(), p2));
-        check(service!("IPFS.get"));
+        check(provider!("IPFS.get"));
         check(Protocol::Peer(p1).into());
     }
 
@@ -125,7 +125,7 @@ pub mod test {
 
     #[test]
     fn serialize_provide() {
-        let provide = service!("provide") / service!("IPFS.get_QmFile");
+        let provide = provider!("provide") / provider!("IPFS.get_QmFile");
         let mut call = gen_provide_call(provide, serde_json::Value::Null);
         call.name = Some("Announce IPFS file (in address)".into());
 
@@ -136,7 +136,7 @@ pub mod test {
             Some("/service/provide/service/IPFS.get_QmFile".parse().unwrap())
         );
 
-        let provide = service!("provide");
+        let provide = provider!("provide");
         let arguments = json!({ "service_id": "IPFS.get_QmFile" });
         let mut call = gen_provide_call(provide, arguments);
         call.name = Some("Announce IPFS file (in args)".into());
@@ -144,10 +144,10 @@ pub mod test {
 
         assert_eq!(call.target, Some("/service/provide".parse().unwrap()));
 
-        let provide = service!("provide");
+        let provide = provider!("provide");
         let mut call = gen_provide_call(provide, serde_json::Value::Null);
         let notebook = call.reply_to.take().unwrap();
-        call.reply_to = Some(notebook / service!("IPFS.get_QmFile"));
+        call.reply_to = Some(notebook / provider!("IPFS.get_QmFile"));
         call.name = Some("Announce IPFS file (in reply)".into());
         check_call(call.clone());
 
@@ -161,8 +161,8 @@ pub mod test {
         let slack_service = "hash(Slack.receiveWebhook_0xdxSECRET_CODE)";
         let github_service = "Github.subscribeNewCommitsToWebhook";
 
-        let slack_service = Some(service!(slack_service));
-        let github_service = Some(service!(github_service));
+        let slack_service = Some(provider!(slack_service));
+        let github_service = Some(provider!(github_service));
         let arguments = json!({"repo": "fluencelabs/fluence", "branch": "all"});
 
         // Notebook sends a call to github, and now github will send new events to slack

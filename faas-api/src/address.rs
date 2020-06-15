@@ -336,13 +336,13 @@ macro_rules! relay {
     }};
 }
 
-// Builds service address which looks like this: "/service/ServiceId"
+// Builds service address which looks like this: "/providers/Key"
 #[macro_export]
-macro_rules! service {
+macro_rules! provider {
     ($service_id:expr) => {{
         let id = $service_id;
         // TODO: Will usually clone here, is it ok?
-        $crate::Address::from($crate::Protocol::Service(id.into()))
+        $crate::Address::from($crate::Protocol::Providers(id.into()))
     }};
 }
 
@@ -394,7 +394,7 @@ pub mod tests {
 
         let expected: Address = "fluence:/peer/Qmay8oMmnDmfLpmZtNwisEcmReVVqzvm2vcTc9rPzxeS3x/client/QmWsPEib1mbGSxdqtDGnrqXiZFfVEbvicKS6cf5JfTtaZU/service/IPFS.get_QmFile".parse().unwrap();
 
-        if let Some(Protocol::Service(id)) = iter.peek() {
+        if let Some(Protocol::Providers(id)) = iter.peek() {
             let resolved = imitate_resolve(id).extend(&service);
             assert_eq!(expected, resolved);
 

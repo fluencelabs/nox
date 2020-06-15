@@ -147,16 +147,16 @@ impl FunctionRouter {
                     self.send_to(id.clone(), Unknown, call.with_target(target.collect()), ctx);
                     return;
                 }
-                s @ Service(_) if is_local || self.service_available_locally(s) => {
+                s @ Providers(_) if is_local || self.service_available_locally(s) => {
                     // If targeted to local, terminate locally, don't forward to network
                     let ttl = if is_local { 0 } else { 1 };
                     // target will be like: /client/QmClient/service/QmService
                     self.pass_to_local_service(s.clone(), call.with_target(target.collect()), ttl);
                     return;
                 }
-                s @ Service(_) => {
-                    log::info!("{} not found locally. uuid {}", &s, &call.uuid);
-                    self.find_service_provider(s.into(), call.with_target(target.collect()));
+                s @ Providers(_) => {
+                    log::info!("searching for providers of {}. uuid {}", &s, &call.uuid);
+                    self.find_providers(s.into(), call.with_target(target.collect()));
                     return;
                 }
                 Client(id) if is_local => {

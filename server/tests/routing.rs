@@ -27,7 +27,7 @@
     unreachable_patterns
 )]
 
-use faas_api::{service, FunctionCall, Protocol};
+use faas_api::{provider, FunctionCall, Protocol};
 use fluence_client::Transport;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
@@ -148,7 +148,7 @@ fn call_service() {
     );
     assert_eq!(
         to_provider.target,
-        Some(provider.client_address().extend(service!(service_id)))
+        Some(provider.client_address().extend(provider!(service_id)))
     );
 }
 
@@ -229,7 +229,7 @@ fn provide_disconnect() {
     );
     assert_eq!(
         to_provider.target,
-        Some(provider.client_address().extend(service!(service_id)))
+        Some(provider.client_address().extend(provider!(service_id)))
     );
 }
 
@@ -414,7 +414,7 @@ fn identify() {
     check_reply(&mut consumer, &swarms[1].1, &msg_id);
 
     for swarm in swarms {
-        identify_call.target = Some(Peer(swarm.0.clone()) / service!("identify"));
+        identify_call.target = Some(Peer(swarm.0.clone()) / provider!("identify"));
         consumer.send(identify_call.clone());
         check_reply(&mut consumer, &swarm.1, &msg_id);
     }

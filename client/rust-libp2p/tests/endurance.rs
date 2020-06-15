@@ -15,7 +15,7 @@
  */
 
 use config::{Config, File};
-use faas_api::{service, Address, FunctionCall, Protocol};
+use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_client::{Client, ClientEvent};
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
@@ -234,7 +234,7 @@ async fn wait_call(client: &mut Client, expected_service: &Service) -> Waiting<F
                 let protocols = call.target.as_ref().map(|addr| addr.protocols());
                 debug_assert!(matches!(
                     &protocols.as_deref(),
-                    Some([Protocol::Service(service_id)]) if service_id == &expected_service.id
+                    Some([Protocol::Providers(service_id)]) if service_id == &expected_service.id
                 ));
                 break Waiting::Ok(call);
             }
@@ -252,7 +252,7 @@ fn uuid() -> String {
 fn service_call(sender: Address, service_id: String) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(service!(service_id)),
+        target: Some(provider!(service_id)),
         reply_to: Some(sender.clone()),
         arguments: serde_json::Value::Null,
         name: Some("call service".into()),
@@ -265,7 +265,7 @@ fn registration(sender: Address, service_id: String) -> FunctionCall {
 
     FunctionCall {
         uuid: uuid(),
-        target: Some(service!("provide")),
+        target: Some(provider!("provide")),
         reply_to: Some(sender.clone()),
         arguments: json!({ "service_id": service_id }),
         name: Some("registration".into()),
