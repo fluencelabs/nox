@@ -46,9 +46,6 @@ static IPFS_SERVICE: Lazy<Protocol> = Lazy::new(|| Protocol::Service(IPFS_SERVIC
 fn register_call(client: PeerId, relay: PeerId, service_id: &str, kp: &Keypair) -> FunctionCall {
     let sender = relay!(relay, client, kp);
     let reply_to = Some(sender.clone());
-    // let signature = Protocol::Signature(kp.sign(reply_to.path().as_bytes()));
-    // let reply_to = Some(reply_to.append(signature));
-
     let target = Some(Protocol::Service("provide".into()).into());
     let arguments = json!({ "service_id": service_id });
     let uuid = message_id();
@@ -76,8 +73,6 @@ fn multiaddr_call(
     let arguments = json!({ "multiaddr": multiaddr.to_string(), "msg_id": msg_id });
     let sender = relay!(bootstrap_id, client, kp);
     let reply_to = Some(sender.clone());
-    // let signature = Protocol::Signature(kp.sign(reply_to.path().as_bytes()));
-    // let reply_to = Some(reply_to.append(signature));
     let uuid = message_id();
     let name = Some("Reply on IPFS.multiaddr".to_string());
 
