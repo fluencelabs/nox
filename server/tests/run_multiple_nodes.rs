@@ -17,6 +17,7 @@
 #![allow(unused_imports, dead_code)]
 
 use async_std::task;
+use faas_api::provider;
 use fluence_client::Transport;
 use fluence_server::Server;
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
@@ -152,7 +153,9 @@ fn receive_call_on_big_network() {
         client20.send(provide_call(service_id, client20.relay_address()));
         sleep(KAD_TIMEOUT);
 
-        client30.send(service_call(service_id, client30.relay_address()));
+        let service_id = provider!(service_id);
+
+        client30.send(service_call(service_id.clone(), client30.relay_address()));
         let call30to20 = client20.receive();
         log::info!("call30to20: {:?}", call30to20);
 
