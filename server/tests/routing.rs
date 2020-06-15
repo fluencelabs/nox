@@ -27,7 +27,7 @@
     unreachable_patterns
 )]
 
-use faas_api::{provider, FunctionCall, Protocol};
+use faas_api::{hashtag, provider, FunctionCall, Protocol};
 use fluence_client::Transport;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
@@ -136,7 +136,7 @@ fn call_service() {
     let provide = provide_call(service_id, provider.relay_address());
     provider.send(provide);
 
-    let call_service = service_call(service_id, consumer.relay_address());
+    let call_service = service_call(provider!(service_id), consumer.relay_address());
     consumer.send(call_service.clone());
 
     let to_provider = provider.receive();
@@ -163,7 +163,7 @@ fn call_service_reply() {
     let provide = provide_call(service_id, provider.relay_address());
     provider.send(provide);
 
-    let call_service = service_call(service_id, consumer.relay_address());
+    let call_service = service_call(provider!(service_id), consumer.relay_address());
     consumer.send(call_service);
 
     let to_provider = provider.receive();
@@ -202,7 +202,7 @@ fn provide_disconnect() {
     provider.client.stop();
 
     // Send call to the service, should fail
-    let mut call_service = service_call(service_id, consumer.relay_address());
+    let mut call_service = service_call(provider!(service_id), consumer.relay_address());
     call_service.name = Some("Send call to the service, should fail".into());
     consumer.send(call_service.clone());
     let error = consumer.receive();
@@ -268,7 +268,7 @@ fn reconnect_provide() {
 
     sleep(KAD_TIMEOUT);
 
-    let call_service = service_call(service_id, consumer.relay_address());
+    let call_service = service_call(provider!(service_id), consumer.relay_address());
     consumer.send(call_service.clone());
 
     let to_provider = provider.receive();
@@ -399,15 +399,16 @@ fn identify() {
 
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
 
-    let mut identify_call = service_call("identify", consumer.relay_address());
+    let mut identify_call = service_call(hashtag!("identify"), consumer.relay_address());
     let msg_id = uuid();
     identify_call.arguments = json!({ "msg_id": msg_id });
     consumer.send(identify_call.clone());
 
     fn check_reply(consumer: &mut ConnectedClient, swarm_addr: &Multiaddr, msg_id: &str) {
         let reply = consumer.receive();
+        println!("reply: {:#?}", reply);
         #[rustfmt::skip]
-            let reply_msg_id = reply.arguments.get("msg_id").expect("not empty").as_str().expect("str");
+        let reply_msg_id = reply.arguments.get("msg_id").expect("not empty").as_str().expect("str");
         assert_eq!(reply_msg_id, msg_id);
         let addrs = reply.arguments["addresses"].as_array().expect("not empty");
         assert!(!addrs.is_empty());
@@ -418,7 +419,7 @@ fn identify() {
     check_reply(&mut consumer, &swarms[1].1, &msg_id);
 
     for swarm in swarms {
-        identify_call.target = Some(Peer(swarm.0.clone()) / provider!("identify"));
+        identify_call.target = Some(Peer(swarm.0.clone()) / hashtag!("identify"));
         consumer.send(identify_call.clone());
         check_reply(&mut consumer, &swarm.1, &msg_id);
     }

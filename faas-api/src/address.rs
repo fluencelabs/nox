@@ -95,8 +95,15 @@ impl Address {
             // override fragment (even though it's strange to prepend hashtag, i'd avoid throwing error here)
             Protocol::Hashtag(h) => self.set_fragment(h.as_str()),
             protocol => {
-                // concatenate new with existing
-                let path = protocol.to_string() + self.0.path();
+                let protocol = protocol.to_string();
+                let path = if self.is_path_empty() {
+                    // Avoid appending single '/' to the protocol
+                    protocol
+                } else {
+                    // concatenate new with existing
+                    protocol + self.0.path()
+                };
+
                 self.0.set_path(path.as_str());
                 self
             }
@@ -129,8 +136,12 @@ impl Address {
 
     // Returns true if address empty (i.e., contains only schema)
     pub fn is_empty(&self) -> bool {
+        self.is_path_empty() && self.0.fragment().is_none()
+    }
+
+    fn is_path_empty(&self) -> bool {
         let path = self.0.path();
-        (path.is_empty() || path == "/") && self.0.fragment().is_none()
+        path.is_empty() || path == "/"
     }
 
     // Returns true if address contains given protocol
@@ -267,7 +278,7 @@ impl<'a, P: Iterator<Item = &'a str>> Iterator for ProtocolsIter<'a, P> {
     type Item = Protocol;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next_protocol().or(self.take_fragment())
+        self.next_protocol().or_else(|| self.take_fragment())
     }
 }
 
@@ -420,5 +431,16 @@ pub mod tests {
         } else {
             unreachable!()
         };
+    }
+
+    #[test]
+    fn iterator() {
+        let address: Address = "/peer/Qmay8oMmnDmfLpmZtNwisEcmReVVqzvm2vcTc9rPzxeS3x#IPFS.get"
+            .parse()
+            .unwrap();
+        let iter = address.iter();
+        let vec = iter.collect::<Vec<_>>();
+        println!("{:?}", vec);
+        assert_eq!(vec.len(), 2);
     }
 }

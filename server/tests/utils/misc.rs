@@ -83,10 +83,10 @@ pub fn provide_call(service_id: &str, sender: Address) -> FunctionCall {
     }
 }
 
-pub fn service_call(service_id: &str, sender: Address) -> FunctionCall {
+pub fn service_call(service: Address, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(hashtag!(service_id)),
+        target: Some(service),
         reply_to: Some(sender.clone()),
         arguments: Value::Null,
         name: None,
