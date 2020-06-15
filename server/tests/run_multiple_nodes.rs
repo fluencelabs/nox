@@ -114,7 +114,7 @@ fn receive_call_on_big_network() {
     use rand::distributions::Alphanumeric;
 
     let localhost = "127.0.0.1".parse().unwrap();
-    let count = 15;
+    let count = 10;
     start_bunch(count, 20000, localhost, None, count, None);
     start_bunch(count, 30000, localhost, Some(20000), count, None);
     start_bunch(count, 40000, localhost, Some(30000), count, None);
