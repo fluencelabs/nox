@@ -440,7 +440,6 @@ pub mod tests {
             .unwrap();
         let iter = address.iter();
         let vec = iter.collect::<Vec<_>>();
-        println!("{:?}", vec);
         assert_eq!(vec.len(), 2);
     }
 }

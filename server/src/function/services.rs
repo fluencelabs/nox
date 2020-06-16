@@ -115,10 +115,10 @@ impl FunctionRouter {
             for provider in providers.iter() {
                 let mut call = call.clone();
                 call.target = Some(
+                    // TODO: write tests on that, it's a very complex decision
                     call.target
                         .map_or(provider.clone(), |target| provider.clone().extend(target)),
                 );
-                // TODO: write tests on that, it's a very complex decision
                 log::debug!("Sending call to provider {:?}", call);
                 self.call(call);
             }
