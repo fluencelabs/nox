@@ -24,6 +24,8 @@ pub struct FunctionCall {
     pub target: Option<Address>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<Address>,
+    pub module: String,
+    pub fname: String,
     #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
     pub arguments: serde_json::Value, //TODO: make it Option<String>?
     #[serde(default, skip_serializing_if = "Option::is_none")]

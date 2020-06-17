@@ -33,14 +33,9 @@ impl FunctionRouter {
 
     /// Execute call locally: on builtin service or forward to provided name
     /// `ttl` – time to live (akin to ICMP ttl), if `0`, execute and drop, don't forward  
-    pub(super) fn pass_to_local_service(
-        &mut self,
-        service: &str,
-        mut call: FunctionCall,
-        ttl: usize,
-    ) {
-        if BuiltinService::is_builtin(service) {
-            match BuiltinService::from(service, call.arguments.clone()) {
+    pub(super) fn pass_to_local_service(&mut self, mut call: FunctionCall, ttl: usize) {
+        if BuiltinService::is_builtin(&call.module) {
+            match BuiltinService::from(&call.module, call.arguments.clone()) {
                 Ok(builtin) => self.execute_builtin(builtin, call, ttl),
                 Err(err) => {
                     self.send_error_on_call(call, format!("builtin service error: {}", err))
@@ -49,22 +44,22 @@ impl FunctionRouter {
             return;
         }
 
-        if let Some(provider) = self.provided_names.get(&provider!(service)).cloned() {
-            log::info!(
-                "Service {} was found locally. uuid {}",
-                &service,
-                &call.uuid
-            );
-            log::info!("Forwarding service call {} to {}", call.uuid, provider);
-            call.target = Some(
-                call.target
-                    .map_or(provider.clone(), |target| provider.extend(&target)),
-            );
-            self.call(call);
-            return;
-        }
+        // if let Some(provider) = self.provided_names.get(&provider!(service)).cloned() {
+        //     log::info!(
+        //         "Service {} was found locally. uuid {}",
+        //         &service,
+        //         &call.uuid
+        //     );
+        //     log::info!("Forwarding service call {} to {}", call.uuid, provider);
+        //     call.target = Some(
+        //         call.target
+        //             .map_or(provider.clone(), |target| provider.extend(&target)),
+        //     );
+        //     self.call(call);
+        //     return;
+        // }
 
-        let err_msg = "unroutable message: no local provider found for target".to_string();
+        let err_msg = format!("unroutable message: module {} not found", call.module());
         log::warn!("Error on {}: {}", &call.uuid, err_msg);
         self.send_error_on_call(call, err_msg);
     }

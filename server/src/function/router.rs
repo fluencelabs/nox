@@ -113,6 +113,7 @@ impl FunctionRouter {
     /// Verifies all signatures in `call.target`, if there are any
     pub fn call(&mut self, call: FunctionCall) {
         use PeerStatus::*;
+        use Protocol::*;
 
         let target = call.target.clone().filter(|t| !t.is_empty()); // TODO: how to avoid .clone() here?
         let target = match target {
@@ -134,8 +135,29 @@ impl FunctionRouter {
 
         let mut target = target.iter().peekable();
         let mut is_local: bool = false;
-        while let Some(address) = target.peek() {
-            use Protocol::*;
+
+        loop {
+            let address = match target.peek() {
+                Some(address) => address,
+                // No more path nodes to route, `is_local` means we're the target => pass to local services
+                None if is_local => {
+                    // If targeted to local, terminate locally, don't forward to network
+                    let ttl = if is_local { 0 } else { 1 };
+                    // target will be like: /client/QmClient/service/QmService
+                    self.pass_to_local_service(call.with_target(target.collect()), ttl);
+                    return;
+                }
+                // No more path nodes to route, target unknown => send error
+                None => {
+                    log::warn!("Invalid target in call {:?}", call);
+                    // TODO: this error is not helpful
+                    self.send_error_on_call(
+                        call,
+                        "invalid target in call: ran out of address parts".into(),
+                    );
+                    return;
+                }
+            };
             match address {
                 Peer(id) if self.is_local(&id) => {
                     target.next(); // Remove ourselves from target address, and continue routing
@@ -145,17 +167,6 @@ impl FunctionRouter {
                 Peer(id) => {
                     let ctx = "send message to remote peer";
                     self.send_to(id.clone(), Unknown, call.with_target(target.collect()), ctx);
-                    return;
-                }
-                Hashtag(service) if is_local || self.service_available_locally(service) => {
-                    // If targeted to local, terminate locally, don't forward to network
-                    let ttl = if is_local { 0 } else { 1 };
-                    // target will be like: /client/QmClient/service/QmService
-                    self.pass_to_local_service(
-                        &service.clone(),
-                        call.with_target(target.collect()),
-                        ttl,
-                    );
                     return;
                 }
                 Providers(key) => {
@@ -201,22 +212,12 @@ impl FunctionRouter {
                     );
                     return;
                 }
-                wrong @ Hashtag(_) => {
-                    self.send_error_on_call(
-                        call,
-                        format!(
-                            "Invalid target: expected /peer, /client or /service, got {}",
-                            wrong
-                        ),
-                    );
-                    return;
+                Hashtag(_) => {
+                    // Ignore hashtag because there's nothing else we can do about it
+                    continue;
                 }
             }
         }
-
-        log::warn!("Invalid target in call {:?}", call);
-        // TODO: this error is not helpful
-        self.send_error_on_call(call, "invalid target in call".into());
     }
 
     /// Schedule sending a call to unknown peer
