@@ -40,6 +40,8 @@ impl ProtocolConfig {
             uuid: "error".into(),
             target: None,
             reply_to: None,
+            module: None,
+            fname: None,
             arguments: json!({ "data": data }),
             name: Some(err.to_string()),
             sender: self.local_address.clone(),

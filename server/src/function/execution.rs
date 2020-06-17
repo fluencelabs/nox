@@ -79,8 +79,10 @@ impl FunctionRouter {
             uuid: Self::uuid(),
             target: Some(reply_to),
             reply_to: Some(self.config.local_address()),
-            name: Some("reply on identify".into()),
+            fname: None,
+            module: None,
             arguments,
+            name: Some("reply on identify".into()),
             sender: self.config.local_address(),
         };
         self.call(call);
