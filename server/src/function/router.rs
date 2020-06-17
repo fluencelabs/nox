@@ -161,6 +161,8 @@ impl FunctionRouter {
                 Providers(key) => {
                     // Here network transition `/providers/$key` become local identifier `#key`
                     let key = hashtag!(key);
+                    // Drop /providers/$key from target, so remainder is safe to pass
+                    target.next();
                     log::info!("searching for providers of {}. uuid {}", key, &call.uuid);
                     self.find_providers(key, call.with_target(target.collect()));
                     return;

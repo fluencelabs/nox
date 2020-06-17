@@ -146,10 +146,7 @@ fn call_service() {
         "Got: {:?}",
         to_provider
     );
-    assert_eq!(
-        to_provider.target,
-        Some(provider.client_address().extend(provider!(service_id)))
-    );
+    assert_eq!(to_provider.target, Some(provider.client_address()));
 }
 
 #[test]
@@ -227,10 +224,7 @@ fn provide_disconnect() {
         "Got: to_provider: {:#?}\ncall_service: {:#?}",
         to_provider, call_service
     );
-    assert_eq!(
-        to_provider.target,
-        Some(provider.client_address().extend(provider!(service_id)))
-    );
+    assert_eq!(to_provider.target, Some(provider.client_address()));
 }
 
 #[test]
