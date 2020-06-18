@@ -146,9 +146,8 @@ pub mod test {
         use serde_json::json;
 
         let slack_module = "hash(Slack.receiveWebhook_0xdxSECRET_CODE)".to_string();
-        let github_service = "Github.subscribeNewCommitsToWebhook";
 
-        let slack_service = provider!(slack_module);
+        let slack_service = provider!(slack_module.clone());
         let github_node = Some(Address::random_relay() / hashtag!("msgId123"));
         let arguments = json!({"repo": "fluencelabs/fluence", "branch": "all"});
 
@@ -157,7 +156,7 @@ pub mod test {
             uuid: "UUID-1".to_string(),
             target: Some(slack_service),
             reply_to: github_node,
-            module: slack_module.into(),
+            module: Some(slack_module),
             fname: None,
             arguments,
             name: Some("Subscribing Slack channel to Github commits".into()),

@@ -21,7 +21,7 @@ use std::fmt::Display;
 use trust_graph::{certificate_serde, Certificate};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DelegateProviding {
+pub struct Provide {
     pub service_id: String,
 }
 
@@ -52,7 +52,7 @@ pub struct Identify {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BuiltinService {
-    DelegateProviding(DelegateProviding),
+    Provide(Provide),
     GetCertificates(GetCertificates),
     AddCertificates(AddCertificates),
     Identify(Identify),
@@ -93,7 +93,7 @@ impl BuiltinService {
         use BuiltinService::*;
 
         let service = match service_id {
-            Self::PROVIDE => DelegateProviding(from_value(arguments)?),
+            Self::PROVIDE => Provide(from_value(arguments)?),
             Self::CERTS => GetCertificates(from_value(arguments)?),
             Self::ADD_CERTS => AddCertificates(from_value(arguments)?),
             Self::IDENTIFY => Identify(from_value(arguments)?),
@@ -112,7 +112,7 @@ impl BuiltinService {
         use serde_json::json;
 
         let service_id = match self {
-            BuiltinService::DelegateProviding { .. } => BuiltinService::PROVIDE,
+            BuiltinService::Provide { .. } => BuiltinService::PROVIDE,
             BuiltinService::GetCertificates { .. } => BuiltinService::CERTS,
             BuiltinService::AddCertificates { .. } => BuiltinService::ADD_CERTS,
             BuiltinService::Identify { .. } => BuiltinService::IDENTIFY,
@@ -134,7 +134,7 @@ pub mod test {
     #[test]
     fn serialize_provide() {
         let ipfs_service = "IPFS.get_QmFile";
-        let service = BuiltinService::DelegateProviding(DelegateProviding {
+        let service = BuiltinService::Provide(Provide {
             service_id: ipfs_service.into(),
         });
         let (target, arguments) = service.as_target_args();
@@ -150,11 +150,11 @@ pub mod test {
         assert_eq!(service_id, "provide");
 
         match BuiltinService::from(target, call.arguments) {
-            Ok(BuiltinService::DelegateProviding(DelegateProviding { service_id })) => {
+            Ok(BuiltinService::Provide(Provide { service_id })) => {
                 assert_eq!(service_id, ipfs_service)
             }
             wrong => unreachable!(
-                "target should be Some(BuiltinService::DelegateProviding, was {:?}",
+                "target should be Some(BuiltinService::Provide, was {:?}",
                 wrong
             ),
         };

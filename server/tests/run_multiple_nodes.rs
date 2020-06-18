@@ -150,16 +150,16 @@ fn receive_call_on_big_network() {
 
         sleep(SHORT_TIMEOUT);
 
-        client20.send(provide_call(service_id, client20.relay_address()));
+        client20.send(provide_call(service_id, client20.relay_addr()));
         sleep(KAD_TIMEOUT);
 
         let service_id = provider!(service_id);
 
-        client30.send(service_call(service_id.clone(), client30.relay_address()));
+        client30.send(service_call(service_id.clone(), client30.relay_addr()));
         let call30to20 = client20.receive();
         log::info!("call30to20: {:?}", call30to20);
 
-        client40.send(service_call(service_id, client40.relay_address()));
+        client40.send(service_call(service_id, client40.relay_addr()));
         let call40to20 = client20.receive();
         log::info!("call40to20: {:?}", call40to20);
     }

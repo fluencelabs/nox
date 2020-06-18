@@ -16,9 +16,7 @@
 
 use super::{
     address_signature::verify_address_signatures,
-    builtin_service::{
-        AddCertificates, BuiltinService, DelegateProviding, GetCertificates, Identify,
-    },
+    builtin_service::{AddCertificates, BuiltinService, GetCertificates, Identify, Provide},
     FunctionRouter,
 };
 use faas_api::{hashtag, Address, FunctionCall, Protocol};
@@ -40,9 +38,7 @@ impl FunctionRouter {
         use BuiltinService as BS;
 
         match service {
-            BS::DelegateProviding(DelegateProviding { service_id }) => {
-                self.provide(hashtag!(service_id), call)
-            }
+            BS::Provide(Provide { service_id }) => self.provide(hashtag!(service_id), call),
             BS::GetCertificates(GetCertificates { peer_id, msg_id }) => {
                 self.get_certificates(peer_id, call, msg_id, ttl)
             }
@@ -136,8 +132,10 @@ impl FunctionRouter {
                 uuid: Self::uuid(),
                 target: Some(reply_to.clone()),
                 reply_to: Some(self.config.local_address()),
-                name: Some("reply on add_certificates".into()),
+                module: None,
+                fname: None,
                 arguments,
+                name: Some("reply on add_certificates".into()),
                 sender: self.config.local_address(),
             };
             self.call(call);
@@ -189,8 +187,10 @@ impl FunctionRouter {
                     uuid: Self::uuid(),
                     target: Some(reply_to),
                     reply_to: Some(self.config.local_address()),
-                    name: Some("reply on certificates".into()),
+                    module: None,
+                    fname: None,
                     arguments,
+                    name: Some("reply on certificates".into()),
                     sender: self.config.local_address(),
                 };
                 // Send reply with certificates and msg_id

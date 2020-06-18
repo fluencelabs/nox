@@ -15,7 +15,7 @@
  */
 
 use crate::utils::misc::{make_swarms, CreatedSwarm, Result, SHORT_TIMEOUT, TIMEOUT};
-use faas_api::{Address, FunctionCall, Protocol};
+use faas_api::{peer, Address, FunctionCall, Protocol};
 
 use async_std::future::timeout;
 use async_std::task;
@@ -116,8 +116,12 @@ impl ConnectedClient {
         Protocol::Client(self.client.peer_id.clone()).into()
     }
 
-    pub fn relay_address(&self) -> Address {
+    pub fn relay_addr(&self) -> Address {
         self.client.relay_address(self.node.clone())
+    }
+
+    pub fn node_addr(&self) -> Address {
+        peer!(self.node.clone())
     }
 
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {

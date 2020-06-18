@@ -117,10 +117,10 @@ impl FunctionRouter {
 
         let target = call.target.clone().filter(|t| !t.is_empty()); // TODO: how to avoid .clone() here?
         let target = match target {
-            Option::Some(target) => target,
-            Option::None => {
+            Some(target) => target,
+            None => {
                 // send error if target is empty
-                log::error!("Target is not defined on call {:?}", call);
+                log::warn!("Target is not defined on call {:?}", call);
                 self.send_error_on_call(call, "target is not defined or empty".to_string());
                 return;
             }
@@ -140,21 +140,29 @@ impl FunctionRouter {
             let address = match target.peek() {
                 Some(address) => address,
                 // No more path nodes to route, `is_local` means we're the target => pass to local services
-                None if is_local => {
+                None if is_local && call.module.is_some() => {
                     // If targeted to local, terminate locally, don't forward to network
                     let ttl = if is_local { 0 } else { 1 };
+                    // `expect` is ok here, because condition above checks module is defined
+                    let module = call.module.clone().expect("module defined here");
                     // target will be like: /client/QmClient/service/QmService
-                    self.pass_to_local_service(call.with_target(target.collect()), ttl);
+                    self.pass_to_local_service(&module, call.with_target(target.collect()), ttl);
                     return;
                 }
                 // No more path nodes to route, target unknown => send error
-                None => {
+                None if !is_local => {
                     log::warn!("Invalid target in call {:?}", call);
                     // TODO: this error is not helpful
                     self.send_error_on_call(
                         call,
                         "invalid target in call: ran out of address parts".into(),
                     );
+                    return;
+                }
+                // call.module was empty, send error
+                None => {
+                    log::warn!("module is not defined or empty on call {:?}", call);
+                    self.send_error_on_call(call, "module is not defined or empty".into());
                     return;
                 }
             };
@@ -270,10 +278,12 @@ impl FunctionRouter {
 
         if reply_to != &self.config.local_address() {
             let call = FunctionCall {
-                target: Some(reply_to.clone()),
-                arguments,
-                reply_to: None, // TODO: sure?
                 uuid: format!("error_{}", call.uuid),
+                target: Some(reply_to.clone()),
+                reply_to: None, // TODO: sure?
+                module: None,
+                fname: None,
+                arguments,
                 name: call.name,
                 sender: self.config.local_address(),
             };
@@ -294,10 +304,12 @@ impl FunctionRouter {
         let arguments = json!({ "reason": reason });
         let uuid = Self::uuid();
         let call = FunctionCall {
-            target: Some(address),
-            arguments,
-            reply_to: None, // TODO: sure?
             uuid: format!("error_{}", uuid),
+            target: Some(address),
+            reply_to: None, // TODO: sure?
+            module: None,
+            fname: None,
+            arguments,
             name: None,
             sender: self.config.local_address(),
         };
