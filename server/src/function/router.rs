@@ -20,7 +20,7 @@ use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
 use crate::kademlia::MemoryStore;
-use faas_api::{hashtag, Address, FunctionCall, Protocol, ProtocolMessage};
+use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
@@ -175,9 +175,8 @@ impl FunctionRouter {
                     self.send_to(id.clone(), Unknown, call.with_target(target.collect()), ctx);
                     return;
                 }
-                Providers(key) => {
-                    // Here network transition `/providers/$key` become local identifier `#key`
-                    let key = hashtag!(key);
+                key @ Providers(_) => {
+                    let key = key.into();
                     // Drop /providers/$key from target, so remainder is safe to pass
                     target.next();
                     log::info!("searching for providers of {}. uuid {}", key, &call.uuid);

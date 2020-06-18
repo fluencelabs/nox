@@ -19,7 +19,7 @@ use super::{
     builtin_service::{AddCertificates, BuiltinService, GetCertificates, Identify, Provide},
     FunctionRouter,
 };
-use faas_api::{hashtag, Address, FunctionCall, Protocol};
+use faas_api::{provider, Address, FunctionCall, Protocol};
 use itertools::Itertools;
 use libp2p::PeerId;
 use serde_json::json;
@@ -33,7 +33,7 @@ impl FunctionRouter {
         use BuiltinService as BS;
 
         match service {
-            BS::Provide(Provide { service_id }) => self.provide(hashtag!(service_id), call),
+            BS::Provide(Provide { service_id }) => self.provide(provider!(service_id), call),
             BS::GetCertificates(GetCertificates { peer_id, msg_id }) => {
                 self.get_certificates(peer_id, call, msg_id)
             }
