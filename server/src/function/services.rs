@@ -28,10 +28,10 @@ impl FunctionRouter {
 
     /// Execute call locally: on builtin service or forward to provided name
     /// `ttl` – time to live (akin to ICMP ttl), if `0`, execute and drop, don't forward  
-    pub(super) fn pass_to_local_service(&mut self, module: &str, call: FunctionCall, ttl: usize) {
+    pub(super) fn pass_to_local_service(&mut self, module: &str, call: FunctionCall) {
         if BuiltinService::is_builtin(module) {
             match BuiltinService::from(module, call.arguments.clone()) {
-                Ok(builtin) => self.execute_builtin(builtin, call, ttl),
+                Ok(builtin) => self.execute_builtin(builtin, call),
                 Err(err) => {
                     self.send_error_on_call(call, format!("builtin service error: {}", err))
                 }

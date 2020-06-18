@@ -141,12 +141,10 @@ impl FunctionRouter {
                 Some(address) => address,
                 // No more path nodes to route, `is_local` means we're the target => pass to local services
                 None if is_local && call.module.is_some() => {
-                    // If targeted to local, terminate locally, don't forward to network
-                    let ttl = if is_local { 0 } else { 1 };
                     // `expect` is ok here, because condition above checks module is defined
                     let module = call.module.clone().expect("module defined here");
                     // target will be like: /client/QmClient/service/QmService
-                    self.pass_to_local_service(&module, call.with_target(target.collect()), ttl);
+                    self.pass_to_local_service(&module, call.with_target(target.collect()));
                     return;
                 }
                 // No more path nodes to route, target unknown => send error

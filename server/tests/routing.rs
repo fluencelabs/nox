@@ -334,8 +334,6 @@ fn get_certs() {
 
 #[test]
 fn add_certs() {
-    enable_logs();
-
     let cert = get_cert();
     let first_key = cert.chain.first().unwrap().issued_for.clone();
     let last_key = cert.chain.last().unwrap().issued_for.clone();
@@ -425,7 +423,6 @@ fn identify() {
 
     fn check_reply(consumer: &mut ConnectedClient, swarm_addr: &Multiaddr, msg_id: &str) {
         let reply = consumer.receive();
-        println!("reply: {:#?}", reply);
         #[rustfmt::skip]
         let reply_msg_id = reply.arguments.get("msg_id").expect("not empty").as_str().expect("str");
         assert_eq!(reply_msg_id, msg_id);
