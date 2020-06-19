@@ -17,9 +17,9 @@
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
-    dead_code,
+    // dead_code,
     nonstandard_style,
-    unused_imports,
+    // unused_imports,
     unused_mut,
     unused_variables,
     unused_unsafe,
@@ -28,6 +28,8 @@
 
 use fluence_server::config::{certificates, create_args, load_config, FluenceConfig};
 use fluence_server::Server;
+
+use fluence_faas::{FluenceFaaS, IValue};
 
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
@@ -101,3 +103,5 @@ fn start_fluence(config: FluenceConfig) -> Result<impl Stoppable, Box<dyn Error>
 
     Ok(Fluence { node_exit_outlet })
 }
+
+// fn start_faas() {}
