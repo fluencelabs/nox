@@ -37,6 +37,7 @@ pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
 pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
 pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
 
+#[derive(Deserialize, Debug)]
 pub struct FluenceConfig {
     pub server_config: ServerConfig,
     /// Directory, where all certificates are stored.
@@ -46,7 +47,7 @@ pub struct FluenceConfig {
     pub root_weights: Vec<(PublicKey, u32)>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct ServerConfig {
     /// For TCP connections
     pub tcp_port: u16,
