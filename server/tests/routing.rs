@@ -27,7 +27,7 @@
     unreachable_patterns
 )]
 
-use faas_api::{hashtag, provider, FunctionCall, Protocol};
+use faas_api::{peer, provider, FunctionCall, Protocol};
 use fluence_client::Transport;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
@@ -47,11 +47,13 @@ fn send_call() {
     let uuid = uuid();
     let call = FunctionCall {
         uuid: uuid.clone(),
-        target: Some(receiver.relay_address()),
-        reply_to: Some(sender.relay_address()),
-        name: None,
+        target: Some(receiver.relay_addr()),
+        module: None,
+        fname: None,
         arguments: Value::Null,
-        sender: sender.relay_address(),
+        reply_to: Some(sender.relay_addr()),
+        name: None,
+        sender: sender.relay_addr(),
     };
 
     sender.send(call);
@@ -72,7 +74,8 @@ fn send_call() {
 #[test]
 fn invalid_relay_signature() {
     let (mut sender, receiver) = ConnectedClient::make_clients().expect("connect clients");
-    let target = receiver.relay_address();
+    let target = receiver.relay_addr();
+    // replace signature with an incorrect one
     let target = target
         .protocols()
         .into_iter()
@@ -89,10 +92,12 @@ fn invalid_relay_signature() {
     let call = FunctionCall {
         uuid: uuid.clone(),
         target: Some(target),
-        reply_to: Some(sender.relay_address()),
-        name: None,
+        module: None,
+        fname: None,
         arguments: Value::Null,
-        sender: sender.relay_address(),
+        reply_to: Some(sender.relay_addr()),
+        name: None,
+        sender: sender.relay_addr(),
     };
 
     sender.send(call);
@@ -111,10 +116,12 @@ fn missing_relay_signature() {
     let call = FunctionCall {
         uuid: uuid.clone(),
         target: Some(target),
-        reply_to: Some(sender.relay_address()),
-        name: None,
+        module: None,
+        fname: None,
         arguments: Value::Null,
-        sender: sender.relay_address(),
+        reply_to: Some(sender.relay_addr()),
+        name: None,
+        sender: sender.relay_addr(),
     };
 
     sender.send(call);
@@ -133,10 +140,14 @@ fn call_service() {
     // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
     sleep(KAD_TIMEOUT);
 
-    let provide = provide_call(service_id, provider.relay_address());
+    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
 
-    let call_service = service_call(provider!(service_id), consumer.relay_address());
+    let call_service = service_call(
+        provider!(service_id),
+        consumer.relay_addr(),
+        service_id.into(),
+    );
     consumer.send(call_service.clone());
 
     let to_provider = provider.receive();
@@ -146,10 +157,7 @@ fn call_service() {
         "Got: {:?}",
         to_provider
     );
-    assert_eq!(
-        to_provider.target,
-        Some(provider.client_address().extend(provider!(service_id)))
-    );
+    assert_eq!(to_provider.target, Some(provider.client_address()));
 }
 
 #[test]
@@ -160,16 +168,20 @@ fn call_service_reply() {
     // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
     sleep(KAD_TIMEOUT);
 
-    let provide = provide_call(service_id, provider.relay_address());
+    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
 
-    let call_service = service_call(provider!(service_id), consumer.relay_address());
+    let call_service = service_call(
+        provider!(service_id),
+        consumer.relay_addr(),
+        service_id.into(),
+    );
     consumer.send(call_service);
 
     let to_provider = provider.receive();
-    assert_eq!(to_provider.reply_to, Some(consumer.relay_address()));
+    assert_eq!(to_provider.reply_to, Some(consumer.relay_addr()));
 
-    let reply = reply_call(to_provider.reply_to.unwrap(), provider.relay_address());
+    let reply = reply_call(to_provider.reply_to.unwrap(), provider.relay_addr());
     provider.send(reply.clone());
 
     let to_consumer = consumer.receive();
@@ -192,7 +204,7 @@ fn provide_disconnect() {
     let mut provider = ConnectedClient::connect_to(swarms[4].1.clone()).expect("connect provider");
 
     // Register service
-    let provide = provide_call(service_id, provider.relay_address());
+    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
     // Check there was no error // TODO: maybe send reply from relay?
     let error = provider.maybe_receive();
@@ -202,7 +214,11 @@ fn provide_disconnect() {
     provider.client.stop();
 
     // Send call to the service, should fail
-    let mut call_service = service_call(provider!(service_id), consumer.relay_address());
+    let mut call_service = service_call(
+        provider!(service_id),
+        consumer.relay_addr(),
+        service_id.into(),
+    );
     call_service.name = Some("Send call to the service, should fail".into());
     consumer.send(call_service.clone());
     let error = consumer.receive();
@@ -212,7 +228,7 @@ fn provide_disconnect() {
     // let bootstraps = vec![provider.node_address.clone(), consumer.node_address.clone()];
     let mut provider =
         ConnectedClient::connect_to(provider.node_address).expect("connect provider");
-    let provide = provide_call(service_id, provider.relay_address());
+    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
     let error = provider.maybe_receive();
     assert_eq!(error, None);
@@ -227,10 +243,7 @@ fn provide_disconnect() {
         "Got: to_provider: {:#?}\ncall_service: {:#?}",
         to_provider, call_service
     );
-    assert_eq!(
-        to_provider.target,
-        Some(provider.client_address().extend(provider!(service_id)))
-    );
+    assert_eq!(to_provider.target, Some(provider.client_address()));
 }
 
 #[test]
@@ -238,7 +251,7 @@ fn provide_disconnect() {
 fn provide_error() {
     let mut provider = ConnectedClient::new().expect("connect client");
     let service_id = "failedservice";
-    let provide = provide_call(service_id, provider.relay_address());
+    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
     let error = provider.receive();
     assert!(error.uuid.starts_with("error_"));
@@ -254,8 +267,8 @@ fn reconnect_provide() {
     for _i in 1..20 {
         for swarm in swarms.iter() {
             let provider = ConnectedClient::connect_to(swarm.1.clone()).expect("connect provider");
-            let provide_call = provide_call(service_id, provider.relay_address());
-            provider.send(provide_call);
+            let call = provide_call(service_id, provider.relay_addr(), provider.node_addr());
+            provider.send(call);
             sleep(SHORT_TIMEOUT);
         }
     }
@@ -263,12 +276,16 @@ fn reconnect_provide() {
     sleep(SHORT_TIMEOUT);
 
     let mut provider = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect provider");
-    let provide_call = provide_call(service_id, provider.relay_address());
-    provider.send(provide_call);
+    let call = provide_call(service_id, provider.relay_addr(), provider.node_addr());
+    provider.send(call);
 
     sleep(KAD_TIMEOUT);
 
-    let call_service = service_call(provider!(service_id), consumer.relay_address());
+    let call_service = service_call(
+        provider!(service_id),
+        consumer.relay_addr(),
+        service_id.into(),
+    );
     consumer.send(call_service.clone());
 
     let to_provider = provider.receive();
@@ -297,7 +314,7 @@ fn get_certs() {
     sleep(KAD_TIMEOUT);
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let peer_id = PeerId::from(Ed25519(last_key));
-    let call = certificates_call(peer_id, consumer.relay_address());
+    let call = certificates_call(peer_id, consumer.relay_addr(), consumer.node_addr());
     consumer.send(call.clone());
 
     // If count is small, all nodes should fit in neighborhood, and all of them should reply
@@ -336,19 +353,45 @@ fn add_certs() {
     );
     sleep(KAD_TIMEOUT);
 
-    let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let mut client = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
     let peer_id = PeerId::from(Ed25519(last_key));
-    let call = add_certificates_call(peer_id, registrar.relay_address(), vec![cert]);
-    registrar.send(call.clone());
+    let call = add_certificates_call(
+        peer_id.clone(),
+        client.relay_addr(),
+        client.node_addr(),
+        vec![cert.clone()],
+    );
+    client.send(call.clone());
 
     // If count is small, all nodes should fit in neighborhood, and all of them should reply
     for _ in 0..swarm_count {
-        let reply = registrar.receive();
+        let reply = client.receive();
         assert_eq!(
             reply.arguments["msg_id"], call.arguments["msg_id"],
             "{:#?}",
             reply
         );
+    }
+
+    for swarm in swarms {
+        // repeat procedure twice to catch errors related to hanging requests
+        for _ in 0..2 {
+            let mut client =
+                ConnectedClient::connect_to(swarm.1.clone()).expect("connect consumer");
+            let call = certificates_call(peer_id.clone(), client.relay_addr(), client.node_addr());
+            client.send(call.clone());
+
+            for _ in 0..swarm_count {
+                let reply = client.receive();
+                assert_eq!(reply.arguments["msg_id"], call.arguments["msg_id"]);
+                let reply_certs = &reply.arguments["certificates"][0]
+                    .as_str()
+                    .expect("get str cert");
+                let reply_cert = Certificate::from_str(reply_certs).expect("deserialize cert");
+
+                assert_eq!(reply_cert, cert);
+            }
+        }
     }
 }
 
@@ -377,13 +420,13 @@ fn add_certs_invalid_signature() {
     let signature = &mut cert.chain.last_mut().unwrap().signature;
     signature.iter_mut().for_each(|b| *b = b.saturating_add(1));
 
-    let mut registrar = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let mut client = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let peer_id = PeerId::from(Ed25519(last_key));
-    let call = add_certificates_call(peer_id, registrar.relay_address(), vec![cert]);
-    registrar.send(call.clone());
+    let call = add_certificates_call(peer_id, client.relay_addr(), client.node_addr(), vec![cert]);
+    client.send(call.clone());
 
     // check it's an error
-    let reply = registrar.receive();
+    let reply = client.receive();
     assert!(reply.uuid.starts_with("error_"));
     let err_msg = reply.arguments["reason"].as_str().expect("reason");
     assert!(err_msg.contains("Signature is not valid"));
@@ -391,7 +434,6 @@ fn add_certs_invalid_signature() {
 
 #[test]
 fn identify() {
-    use faas_api::Protocol::Peer;
     use serde_json::json;
 
     let swarms = make_swarms(5);
@@ -399,14 +441,14 @@ fn identify() {
 
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
 
-    let mut identify_call = service_call(hashtag!("identify"), consumer.relay_address());
+    let module = "identify".to_string();
+    let mut identify_call = service_call(consumer.node_addr(), consumer.relay_addr(), module);
     let msg_id = uuid();
     identify_call.arguments = json!({ "msg_id": msg_id });
     consumer.send(identify_call.clone());
 
     fn check_reply(consumer: &mut ConnectedClient, swarm_addr: &Multiaddr, msg_id: &str) {
         let reply = consumer.receive();
-        println!("reply: {:#?}", reply);
         #[rustfmt::skip]
         let reply_msg_id = reply.arguments.get("msg_id").expect("not empty").as_str().expect("str");
         assert_eq!(reply_msg_id, msg_id);
@@ -419,7 +461,7 @@ fn identify() {
     check_reply(&mut consumer, &swarms[1].1, &msg_id);
 
     for swarm in swarms {
-        identify_call.target = Some(Peer(swarm.0.clone()) / hashtag!("identify"));
+        identify_call.target = Some(peer!(swarm.0.clone()));
         consumer.send(identify_call.clone());
         check_reply(&mut consumer, &swarm.1, &msg_id);
     }

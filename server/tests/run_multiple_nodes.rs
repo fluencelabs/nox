@@ -110,6 +110,7 @@ fn create_maddr(host: IpAddr, port: u16) -> Multiaddr {
 }
 
 #[test]
+#[rustfmt::skip]
 fn receive_call_on_big_network() {
     use rand::distributions::Alphanumeric;
 
@@ -144,22 +145,22 @@ fn receive_call_on_big_network() {
 
         log::info!("\niteration {}", i);
         log::info!("service: {}", service_id);
-        log::info!("client20: {}", client20.relay_address());
-        log::info!("client30: {}", client30.relay_address());
-        log::info!("client40: {}", client40.relay_address());
+        log::info!("client20: {}", client20.relay_addr());
+        log::info!("client30: {}", client30.relay_addr());
+        log::info!("client40: {}", client40.relay_addr());
 
         sleep(SHORT_TIMEOUT);
 
-        client20.send(provide_call(service_id, client20.relay_address()));
+        client20.send(provide_call(service_id, client20.relay_addr(), client20.node_addr()));
         sleep(KAD_TIMEOUT);
 
-        let service_id = provider!(service_id);
+        let target = provider!(service_id);
 
-        client30.send(service_call(service_id.clone(), client30.relay_address()));
+        client30.send(service_call(target.clone(), client30.relay_addr(), service_id.into()));
         let call30to20 = client20.receive();
         log::info!("call30to20: {:?}", call30to20);
 
-        client40.send(service_call(service_id, client40.relay_address()));
+        client40.send(service_call(target, client40.relay_addr(), service_id.into()));
         let call40to20 = client20.receive();
         log::info!("call40to20: {:?}", call40to20);
     }

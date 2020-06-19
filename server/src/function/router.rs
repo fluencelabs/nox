@@ -20,7 +20,7 @@ use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
 use crate::kademlia::MemoryStore;
-use faas_api::{hashtag, Address, FunctionCall, Protocol, ProtocolMessage};
+use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
@@ -113,13 +113,14 @@ impl FunctionRouter {
     /// Verifies all signatures in `call.target`, if there are any
     pub fn call(&mut self, call: FunctionCall) {
         use PeerStatus::*;
+        use Protocol::*;
 
         let target = call.target.clone().filter(|t| !t.is_empty()); // TODO: how to avoid .clone() here?
         let target = match target {
-            Option::Some(target) => target,
-            Option::None => {
+            Some(target) => target,
+            None => {
                 // send error if target is empty
-                log::error!("Target is not defined on call {:?}", call);
+                log::warn!("Target is not defined on call {:?}", call);
                 self.send_error_on_call(call, "target is not defined or empty".to_string());
                 return;
             }
@@ -134,8 +135,35 @@ impl FunctionRouter {
 
         let mut target = target.iter().peekable();
         let mut is_local: bool = false;
-        while let Some(address) = target.peek() {
-            use Protocol::*;
+
+        loop {
+            let address = match target.peek() {
+                Some(address) => address,
+                // No more path nodes to route, `is_local` means we're the target => pass to local services
+                None if is_local && call.module.is_some() => {
+                    // `expect` is ok here, because condition above checks module is defined
+                    let module = call.module.clone().expect("module defined here");
+                    // target will be like: /client/QmClient/service/QmService
+                    self.pass_to_local_service(&module, call.with_target(target.collect()));
+                    return;
+                }
+                // No more path nodes to route, target unknown => send error
+                None if !is_local => {
+                    log::warn!("Invalid target in call {:?}", call);
+                    // TODO: this error is not helpful
+                    self.send_error_on_call(
+                        call,
+                        "invalid target in call: ran out of address parts".into(),
+                    );
+                    return;
+                }
+                // call.module was empty, send error
+                None => {
+                    log::warn!("module is not defined or empty on call {:?}", call);
+                    self.send_error_on_call(call, "module is not defined or empty".into());
+                    return;
+                }
+            };
             match address {
                 Peer(id) if self.is_local(&id) => {
                     target.next(); // Remove ourselves from target address, and continue routing
@@ -147,20 +175,10 @@ impl FunctionRouter {
                     self.send_to(id.clone(), Unknown, call.with_target(target.collect()), ctx);
                     return;
                 }
-                Hashtag(service) if is_local || self.service_available_locally(service) => {
-                    // If targeted to local, terminate locally, don't forward to network
-                    let ttl = if is_local { 0 } else { 1 };
-                    // target will be like: /client/QmClient/service/QmService
-                    self.pass_to_local_service(
-                        &service.clone(),
-                        call.with_target(target.collect()),
-                        ttl,
-                    );
-                    return;
-                }
-                Providers(key) => {
-                    // Here network transition `/providers/$key` become local identifier `#key`
-                    let key = hashtag!(key);
+                key @ Providers(_) => {
+                    let key = key.into();
+                    // Drop /providers/$key from target, so remainder is safe to pass
+                    target.next();
                     log::info!("searching for providers of {}. uuid {}", key, &call.uuid);
                     self.find_providers(key, call.with_target(target.collect()));
                     return;
@@ -199,22 +217,12 @@ impl FunctionRouter {
                     );
                     return;
                 }
-                wrong @ Hashtag(_) => {
-                    self.send_error_on_call(
-                        call,
-                        format!(
-                            "Invalid target: expected /peer, /client or /service, got {}",
-                            wrong
-                        ),
-                    );
-                    return;
+                Hashtag(_) => {
+                    // Ignore hashtag because there's nothing else we can do about it
+                    continue;
                 }
             }
         }
-
-        log::warn!("Invalid target in call {:?}", call);
-        // TODO: this error is not helpful
-        self.send_error_on_call(call, "invalid target in call".into());
     }
 
     /// Schedule sending a call to unknown peer
@@ -267,10 +275,12 @@ impl FunctionRouter {
 
         if reply_to != &self.config.local_address() {
             let call = FunctionCall {
-                target: Some(reply_to.clone()),
-                arguments,
-                reply_to: None, // TODO: sure?
                 uuid: format!("error_{}", call.uuid),
+                target: Some(reply_to.clone()),
+                reply_to: None, // TODO: sure?
+                module: None,
+                fname: None,
+                arguments,
                 name: call.name,
                 sender: self.config.local_address(),
             };
@@ -291,10 +301,12 @@ impl FunctionRouter {
         let arguments = json!({ "reason": reason });
         let uuid = Self::uuid();
         let call = FunctionCall {
-            target: Some(address),
-            arguments,
-            reply_to: None, // TODO: sure?
             uuid: format!("error_{}", uuid),
+            target: Some(address),
+            reply_to: None, // TODO: sure?
+            module: None,
+            fname: None,
+            arguments,
             name: None,
             sender: self.config.local_address(),
         };

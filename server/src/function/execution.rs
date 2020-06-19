@@ -16,12 +16,10 @@
 
 use super::{
     address_signature::verify_address_signatures,
-    builtin_service::{
-        AddCertificates, BuiltinService, DelegateProviding, GetCertificates, Identify,
-    },
+    builtin_service::{AddCertificates, BuiltinService, GetCertificates, Identify, Provide},
     FunctionRouter,
 };
-use faas_api::{hashtag, Address, FunctionCall, Protocol};
+use faas_api::{provider, Address, FunctionCall, Protocol};
 use itertools::Itertools;
 use libp2p::PeerId;
 use serde_json::json;
@@ -31,26 +29,19 @@ impl FunctionRouter {
     /// Execute call on builtin service: "provide", "certificates", etc
     /// `ttl` – time to live, if `0`, then "certificates" and "add_certificates" services
     ///  won't send call to neighborhood
-    pub(super) fn execute_builtin(
-        &mut self,
-        service: BuiltinService,
-        call: FunctionCall,
-        ttl: usize,
-    ) {
+    pub(super) fn execute_builtin(&mut self, service: BuiltinService, call: FunctionCall) {
         use BuiltinService as BS;
 
         match service {
-            BS::DelegateProviding(DelegateProviding { service_id }) => {
-                self.provide(hashtag!(service_id), call)
-            }
+            BS::Provide(Provide { service_id }) => self.provide(provider!(service_id), call),
             BS::GetCertificates(GetCertificates { peer_id, msg_id }) => {
-                self.get_certificates(peer_id, call, msg_id, ttl)
+                self.get_certificates(peer_id, call, msg_id)
             }
             BS::AddCertificates(AddCertificates {
                 peer_id,
                 certificates,
                 msg_id,
-            }) => self.add_certificates(peer_id, certificates, call, msg_id, ttl),
+            }) => self.add_certificates(peer_id, certificates, call, msg_id),
             BS::Identify(Identify { msg_id }) => self.identify(call, msg_id),
         }
     }
@@ -79,8 +70,10 @@ impl FunctionRouter {
             uuid: Self::uuid(),
             target: Some(reply_to),
             reply_to: Some(self.config.local_address()),
-            name: Some("reply on identify".into()),
+            fname: None,
+            module: None,
             arguments,
+            name: Some("reply on identify".into()),
             sender: self.config.local_address(),
         };
         self.call(call);
@@ -92,12 +85,11 @@ impl FunctionRouter {
         certificates: Vec<Certificate>,
         call: FunctionCall,
         msg_id: Option<String>,
-        ttl: usize,
     ) {
         #[rustfmt::skip]
         log::info!(
-            "executing add_certificates of {} certs for {}, ttl: {}, call: {:?}", 
-            certificates.len(), peer_id, ttl, call
+            "executing add_certificates of {} certs for {}, call: {:?}", 
+            certificates.len(), peer_id, call
         );
 
         // Calculate current time in Duration
@@ -134,8 +126,10 @@ impl FunctionRouter {
                 uuid: Self::uuid(),
                 target: Some(reply_to.clone()),
                 reply_to: Some(self.config.local_address()),
-                name: Some("reply on add_certificates".into()),
+                module: None,
+                fname: None,
                 arguments,
+                name: Some("reply on add_certificates".into()),
                 sender: self.config.local_address(),
             };
             self.call(call);
@@ -146,24 +140,16 @@ impl FunctionRouter {
             );
         }
 
-        // Finally – broadcast that call to the neighborhood if ttl > 0
+        // Finally – broadcast that call to the neighborhood if it wasn't already a replication
         // NOTE: not filtering errors, other nodes may succeed where we failed
-        if ttl > 0 {
-            self.send_to_neighborhood(peer_id, call)
-        }
+        self.replicate_to_neighbors(peer_id, call);
     }
 
-    fn get_certificates(
-        &mut self,
-        peer_id: PeerId,
-        call: FunctionCall,
-        msg_id: Option<String>,
-        ttl: usize,
-    ) {
+    fn get_certificates(&mut self, peer_id: PeerId, call: FunctionCall, msg_id: Option<String>) {
         use libp2p::identity::PublicKey;
 
         #[rustfmt::skip]
-        log::info!("executing certificates service for {}, ttl: {}, call: {:?}", peer_id, ttl, call);
+        log::info!("executing certificates service for {}, call: {:?}", peer_id, call);
 
         // Check reply_to is defined
         let reply_to = if let Some(reply_to) = call.reply_to.clone() {
@@ -187,8 +173,10 @@ impl FunctionRouter {
                     uuid: Self::uuid(),
                     target: Some(reply_to),
                     reply_to: Some(self.config.local_address()),
-                    name: Some("reply on certificates".into()),
+                    module: None,
+                    fname: None,
                     arguments,
+                    name: Some("reply on certificates".into()),
                     sender: self.config.local_address(),
                 };
                 // Send reply with certificates and msg_id
@@ -208,11 +196,8 @@ impl FunctionRouter {
             }
         }
 
-        // If ttl == 0, don't send to neighborhood
-        if ttl > 0 {
-            // Query closest peers for `peer_id`, then broadcast the call to found neighborhood
-            self.send_to_neighborhood(peer_id, call)
-        }
+        // Query closest peers for `peer_id`, then broadcast the call to found neighborhood
+        self.replicate_to_neighbors(peer_id, call);
     }
 
     fn provide(&mut self, name: Address, call: FunctionCall) {
@@ -266,6 +251,15 @@ impl FunctionRouter {
                 log::warn!("Service register error: missing reply_to  in {:?}", call);
                 self.send_error_on_call(call, "missing reply_to".into());
             }
+        }
+    }
+
+    /// Find neighborhood of the key `peer_id`, then broadcast given call to found neighborhood
+    fn replicate_to_neighbors(&mut self, peer_id: PeerId, mut call: FunctionCall) {
+        if call.fname.as_ref().map_or(true, |m| m != "replicate") {
+            // Mark call as a replication
+            call.fname = Some("replicate".into());
+            self.send_to_neighborhood(peer_id, call)
         }
     }
 }

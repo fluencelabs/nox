@@ -44,10 +44,11 @@ const IPFS_SERVICE_ID: &str = "IPFS.multiaddr";
 #[rustfmt::skip]
 static IPFS_SERVICE: Lazy<Protocol> = Lazy::new(|| Protocol::Providers(IPFS_SERVICE_ID.to_string()));
 
-fn register_call(client: PeerId, relay: PeerId, service_id: &str, kp: &Keypair) -> FunctionCall {
-    let sender = relay!(relay, client, kp);
+fn register_call(client: PeerId, node: PeerId, service_id: &str, kp: &Keypair) -> FunctionCall {
+    let sender = relay!(node.clone(), client, kp);
     let reply_to = Some(sender.clone());
-    let target = Some(Protocol::Providers("provide".into()).into());
+    let target = Some(Protocol::Peer(node).into());
+    let module = Some("provide".into());
     let arguments = json!({ "service_id": service_id });
     let uuid = message_id();
     let name = Some(format!("Delegate provide service {}", service_id));
@@ -56,6 +57,8 @@ fn register_call(client: PeerId, relay: PeerId, service_id: &str, kp: &Keypair) 
         uuid,
         target,
         reply_to,
+        module,
+        fname: None,
         arguments,
         name,
         sender,
@@ -81,6 +84,8 @@ fn multiaddr_call(
         uuid,
         target,
         reply_to,
+        module: None,
+        fname: None,
         arguments,
         name,
         sender,

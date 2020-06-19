@@ -378,6 +378,14 @@ macro_rules! addr_from_str {
     }};
 }
 
+#[macro_export]
+macro_rules! peer {
+    ($peer_id:expr) => {{
+        let id = $peer_id;
+        $crate::Address::from($crate::Protocol::Peer(id))
+    }};
+}
+
 /// Used in tests, but can't be marked as `#[cfg(tests)]` because it'll not be possible to export
 impl Address {
     pub fn random_relay_unsigned() -> Self {
@@ -440,7 +448,6 @@ pub mod tests {
             .unwrap();
         let iter = address.iter();
         let vec = iter.collect::<Vec<_>>();
-        println!("{:?}", vec);
         assert_eq!(vec.len(), 2);
     }
 }
