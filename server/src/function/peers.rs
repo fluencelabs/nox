@@ -99,9 +99,7 @@ impl FunctionRouter {
         }
 
         // Forward to neighborhood
-        let calls = self
-            .wait_peer
-            .remove_with(peer_id.clone(), |wp| wp.neighborhood());
+        let calls = self.wait_peer.remove_with(peer_id, |wp| wp.neighborhood());
         for call in calls {
             let call: FunctionCall = call.into();
 

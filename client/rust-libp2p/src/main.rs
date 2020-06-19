@@ -200,7 +200,7 @@ fn print_example(node: Address, reply_to: Address) {
     let register_ipfs_get = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(node.clone()),
+            target: Some(node),
             reply_to: Some(reply_to.clone()),
             module: Some("provide".into()),
             fname: None,
