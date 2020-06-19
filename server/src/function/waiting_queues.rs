@@ -16,6 +16,7 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
+use std::fmt::Debug;
 use std::hash::Hash;
 
 /// Represents a result of the enqueue_promise operation
@@ -30,20 +31,20 @@ pub struct WaitingQueues<K, V> {
     map: HashMap<K, VecDeque<V>>,
 }
 
-impl<K: Eq + Hash, V> Default for WaitingQueues<K, V> {
+impl<K: Eq + Hash + Debug, V: Debug> Default for WaitingQueues<K, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<K: Eq + Hash, V> WaitingQueues<K, V> {
+impl<K: Eq + Hash + Debug, V: Debug> WaitingQueues<K, V> {
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
         }
     }
 
-    // Inserts `item` in the queue associated with `key`
+    /// Inserts `item` in the queue associated with `key`
     pub fn enqueue(&mut self, key: K, item: V) -> Enqueued {
         use std::iter::FromIterator;
 
@@ -59,29 +60,36 @@ impl<K: Eq + Hash, V> WaitingQueues<K, V> {
         }
     }
 
-    // Removes queue associated with `key`
+    /// Removes queue associated with `key`
     pub fn remove(&mut self, key: &K) -> impl Iterator<Item = V> {
         self.map.remove(key).into_iter().flatten()
     }
 
-    // Removes items on key `k` that satisfy `remove` predicate
-    // Returns removed items. Keeps other items by reinserting them to queue.
-    pub fn remove_with<F>(&mut self, key: &K, remove: F) -> impl Iterator<Item = V>
+    /// Removes items on key `k` that satisfy `remove` predicate
+    /// Returns removed items. Keeps other items by reinserting them to queue.
+    /// If there's no items left after removal, removes key.
+    pub fn remove_with<F>(&mut self, key: K, remove: F) -> impl Iterator<Item = V>
     where
         F: FnMut(&V) -> bool,
     {
-        self.map
-            .get_mut(key)
-            .map(|queue| {
+        match self.map.entry(key) {
+            Entry::Occupied(mut entry) => {
+                let queue = entry.get_mut();
                 let (remove, keep) = queue.drain(..).partition::<Vec<_>, _>(remove);
-                queue.extend(keep);
+                if keep.is_empty() {
+                    // no items left - remove whole entry
+                    entry.remove();
+                } else {
+                    // put remaining items back
+                    queue.extend(keep);
+                }
                 remove.into_iter()
-            })
-            .into_iter()
-            .flatten()
+            }
+            Entry::Vacant(_) => vec![].into_iter(),
+        }
     }
 
-    // Returns number of items on key `k`. Useful for debug lofs.
+    /// Returns number of items on key `k`. Useful for debug.
     pub fn count(&self, key: &K) -> usize {
         self.map.get(key).map_or(0, |q| q.len())
     }
@@ -89,6 +97,7 @@ impl<K: Eq + Hash, V> WaitingQueues<K, V> {
 
 #[cfg(test)]
 mod tests {
+    use super::Enqueued;
     use crate::function::waiting_queues::WaitingQueues;
 
     #[test]
@@ -103,7 +112,7 @@ mod tests {
             q.enqueue(k.clone(), format!("value_good_{}", i));
         }
 
-        let removed: Vec<_> = q.remove_with(&k, |v| v.contains("bad")).collect();
+        let removed: Vec<_> = q.remove_with(k.clone(), |v| v.contains("bad")).collect();
 
         assert_eq!(removed.len(), len);
         assert!(
@@ -116,6 +125,18 @@ mod tests {
         assert!(
             remaining.iter().all(|v| v.contains("good")),
             "all remaining elements should be good"
+        );
+        drop(remaining); // don't hold reference to q
+
+        let removed = q.remove_with(k.clone(), |_| true).collect::<Vec<_>>();
+        assert!(
+            removed.iter().all(|v| v.contains("good")),
+            "all removed elements should be good"
+        );
+
+        assert!(
+            matches!(q.enqueue(k, "new".into()), Enqueued::New),
+            "all elements removed, queue must be empty"
         );
     }
 }

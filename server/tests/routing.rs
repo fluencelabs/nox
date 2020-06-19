@@ -353,9 +353,14 @@ fn add_certs() {
     );
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let mut client = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
     let peer_id = PeerId::from(Ed25519(last_key));
-    let call = add_certificates_call(peer_id, client.relay_addr(), client.node_addr(), vec![cert]);
+    let call = add_certificates_call(
+        peer_id.clone(),
+        client.relay_addr(),
+        client.node_addr(),
+        vec![cert.clone()],
+    );
     client.send(call.clone());
 
     // If count is small, all nodes should fit in neighborhood, and all of them should reply
@@ -366,6 +371,27 @@ fn add_certs() {
             "{:#?}",
             reply
         );
+    }
+
+    for swarm in swarms {
+        // repeat procedure twice to catch errors related to hanging requests
+        for _ in 0..2 {
+            let mut client =
+                ConnectedClient::connect_to(swarm.1.clone()).expect("connect consumer");
+            let call = certificates_call(peer_id.clone(), client.relay_addr(), client.node_addr());
+            client.send(call.clone());
+
+            for _ in 0..swarm_count {
+                let reply = client.receive();
+                assert_eq!(reply.arguments["msg_id"], call.arguments["msg_id"]);
+                let reply_certs = &reply.arguments["certificates"][0]
+                    .as_str()
+                    .expect("get str cert");
+                let reply_cert = Certificate::from_str(reply_certs).expect("deserialize cert");
+
+                assert_eq!(reply_cert, cert);
+            }
+        }
     }
 }
 
