@@ -54,13 +54,13 @@ export class FluenceConnection {
     private readonly selfPeerId: string;
     private readonly handleCall: (call: FunctionCall) => FunctionCall | undefined;
 
-    constructor(multiaddr: Multiaddr, hostPeerId: PeerId, selfPeerInfo: PeerInfo, replyToAddress: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
+    constructor(multiaddr: Multiaddr, hostPeerId: PeerId, selfPeerInfo: PeerInfo, sender: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
         this.selfPeerInfo = selfPeerInfo;
         this.handleCall = handleCall;
         this.selfPeerId = selfPeerInfo.id.toB58String();
         this.address = multiaddr;
         this.nodePeerId = hostPeerId;
-        this.sender = replyToAddress
+        this.sender = sender
     }
 
     async connect() {
@@ -186,13 +186,13 @@ export class FluenceConnection {
         let replyTo;
         if (reply) replyTo = this.sender;
 
-        let call = makeFunctionCall(genUUID(), target, args, this.sender, replyTo, name);
+        let call = makeFunctionCall(genUUID(), target, this.sender, args, replyTo, name);
 
         await this.sendCall(call);
     }
 
     async registerService(serviceId: string) {
-        let regMsg = await makeRegisterMessage(serviceId, this.nodePeerId, this.selfPeerInfo.id);
+        let regMsg = await makeRegisterMessage(serviceId, this.sender);
         await this.sendCall(regMsg);
     }
 }
