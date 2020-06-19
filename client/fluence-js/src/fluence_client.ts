@@ -107,6 +107,13 @@ export class FluenceClient {
         }
     }
 
+    /**
+     * Send a call to the local service on a peer the client connected with.
+     *
+     * @param serviceId
+     * @param args message to the service
+     * @param name common field for debug purposes
+     */
     async sendServiceLocalCall(serviceId: string, args: any, name?: string) {
         if (this.connection && this.connection.isConnected()) {
             await this.connection.sendServiceCall(serviceId, true, args, name);
@@ -127,6 +134,13 @@ export class FluenceClient {
         return await this.waitResponse(predicate);
     }
 
+    /**
+     * Send a call to the local service and wait a response matches predicate on a peer the client connected with.
+     *
+     * @param serviceId
+     * @param args message to the service
+     * @param predicate will be applied to each incoming call until it matches
+     */
     async sendServiceLocalCallWaitResponse(serviceId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
         await this.sendServiceLocalCall(serviceId, args);
         return await this.waitResponse(predicate);
@@ -167,7 +181,7 @@ export class FluenceClient {
                 case ProtocolType.Client:
                     if (lastProtocol.value === _this.selfPeerIdStr) {
                         console.log(`relay call:`);
-                        console.log(JSON.stringify(call));
+                        console.log(JSON.stringify(call, undefined, 2));
                         if (call.module) {
                             try {
                                 // call of the service, service should handle response sending, error handling, requests to other services
