@@ -36,8 +36,8 @@ export class Services {
 
     // could throw error from service callback
     // returns true if the call was applied
-    applyToService(serviceId: string, call: FunctionCall): boolean {
-        let service = this.services.get(serviceId);
+    applyToService(call: FunctionCall): boolean {
+        let service = this.services.get(call.module);
         if (service) {
             service(call);
             return true;

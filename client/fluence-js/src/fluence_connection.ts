@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Address} from "./address";
+import {Address, createPeerAddress, createServiceAddress} from "./address";
 import {
     callToString,
     FunctionCall,
@@ -89,8 +89,15 @@ export class FluenceConnection {
     /**
      * Sends remote service_id call.
      */
-    async sendServiceCall(serviceId: string, args: any, name?: string) {
-        let regMsg = makeCall(serviceId, args, this.sender, this.sender, name);
+    async sendServiceCall(serviceId: string, isLocal: boolean, args: any, name?: string) {
+        let target;
+        if (isLocal) {
+            target = createPeerAddress(this.nodePeerId.toB58String());
+        } else {
+            target = createServiceAddress(serviceId);
+        }
+
+        let regMsg = makeCall(serviceId, target, args, this.sender, this.sender, name);
         await this.sendCall(regMsg);
     }
 
@@ -186,13 +193,14 @@ export class FluenceConnection {
         let replyTo;
         if (reply) replyTo = this.sender;
 
-        let call = makeFunctionCall(genUUID(), target, this.sender, args, replyTo, name);
+        let call = makeFunctionCall(genUUID(), target, this.sender, args, undefined, undefined, replyTo, name);
 
         await this.sendCall(call);
     }
 
     async registerService(serviceId: string) {
-        let regMsg = await makeRegisterMessage(serviceId, this.sender);
+        let target = createPeerAddress(this.nodePeerId.toB58String())
+        let regMsg = await makeRegisterMessage(serviceId, target, this.sender);
         await this.sendCall(regMsg);
     }
 }

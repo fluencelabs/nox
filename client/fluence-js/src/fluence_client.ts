@@ -101,7 +101,15 @@ export class FluenceClient {
      */
     async sendServiceCall(serviceId: string, args: any, name?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(serviceId, args, name);
+            await this.connection.sendServiceCall(serviceId, false, args, name);
+        } else {
+            throw Error("client is not connected")
+        }
+    }
+
+    async sendServiceLocalCall(serviceId: string, args: any, name?: string) {
+        if (this.connection && this.connection.isConnected()) {
+            await this.connection.sendServiceCall(serviceId, true, args, name);
         } else {
             throw Error("client is not connected")
         }
@@ -116,6 +124,11 @@ export class FluenceClient {
      */
     async sendServiceCallWaitResponse(serviceId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
         await this.sendServiceCall(serviceId, args);
+        return await this.waitResponse(predicate);
+    }
+
+    async sendServiceLocalCallWaitResponse(serviceId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
+        await this.sendServiceLocalCall(serviceId, args);
         return await this.waitResponse(predicate);
     }
 
@@ -147,31 +160,35 @@ export class FluenceClient {
             _this.subscriptions.applyToSubscriptions(call);
 
             switch (lastProtocol.protocol) {
-                case ProtocolType.Service:
-                    try {
-                        // call of the service, service should handle response sending, error handling, requests to other services
-                        let applied = _this.services.applyToService(lastProtocol.value, call);
+                case ProtocolType.Providers:
 
-                        // if the request hasn't been applied, there is no such service. Return an error.
-                        if (!applied) {
-                            console.log(`there is no service ${lastProtocol.value}`);
-                            return this.responseCall(call.reply_to, {
-                                reason: `there is no such service`,
-                                msg: call
-                            });
-                        }
-                    } catch (e) {
-                        // if service throw an error, return it to the sender
-                        return this.responseCall(call.reply_to, {
-                            reason: `error on execution: ${e}`,
-                            msg: call
-                        });
-                    }
 
                     return undefined;
                 case ProtocolType.Client:
                     if (lastProtocol.value === _this.selfPeerIdStr) {
-                        console.log(`relay call: ${call}`);
+                        console.log(`relay call:`);
+                        console.log(JSON.stringify(call));
+                        if (call.module) {
+                            try {
+                                // call of the service, service should handle response sending, error handling, requests to other services
+                                let applied = _this.services.applyToService(call);
+
+                                // if the request hasn't been applied, there is no such service. Return an error.
+                                if (!applied) {
+                                    console.log(`there is no service ${lastProtocol.value}`);
+                                    return this.responseCall(call.reply_to, {
+                                        reason: `there is no such service`,
+                                        msg: call
+                                    });
+                                }
+                            } catch (e) {
+                                // if service throw an error, return it to the sender
+                                return this.responseCall(call.reply_to, {
+                                    reason: `error on execution: ${e}`,
+                                    msg: call
+                                });
+                            }
+                        }
                     } else {
                         console.warn(`this relay call is not for me: ${callToString(call)}`);
                         return this.responseCall(call.reply_to, {

@@ -27,7 +27,7 @@ export interface Protocol {
 }
 
 export enum ProtocolType {
-    Service = "service",
+    Providers = "providers",
     Peer = "peer",
     Signature = "signature",
     Client = "client"
@@ -64,7 +64,7 @@ export function parseProtocol(protocol: string, protocolIterator: IterableIterat
     protocol = protocol.toLocaleLowerCase();
 
     switch (protocol) {
-        case ProtocolType.Service:
+        case ProtocolType.Providers:
             return protocolWithValue(protocol, protocolIterator);
         case ProtocolType.Client:
             return protocolWithValue(protocol, protocolIterator);
@@ -100,7 +100,7 @@ export async function createRelayAddress(relay: string, peerId: PeerId, withSig:
 
 export function createServiceAddress(service: string): Address {
 
-    let protocol = {protocol: ProtocolType.Service, value: service};
+    let protocol = {protocol: ProtocolType.Providers, value: service};
 
     return {
         protocols: [protocol]
