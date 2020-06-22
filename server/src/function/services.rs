@@ -18,6 +18,7 @@ use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
 use crate::function::waiting_queues::Enqueued;
 use faas_api::{Address, FunctionCall, Protocol};
+use fluence_faas::IValue;
 use libp2p::PeerId;
 use std::collections::HashSet;
 
@@ -37,6 +38,50 @@ impl FunctionRouter {
                 }
             }
             return;
+        } else {
+            let interface = self.faas.get_interface();
+            if let Some(module) = interface.modules.iter().find(|m| m.name == module) {
+                let fname = match call.fname.as_ref() {
+                    Some(fname) => fname,
+                    None => {
+                        self.send_error_on_call(
+                            call,
+                            "fname must be specified in a call to wasm module".into(),
+                        );
+                        return;
+                    }
+                };
+                let function = match module.functions.iter().find(|f| f.name == fname) {
+                    Some(function) => function,
+                    None => {
+                        let err_msg = format!("function {} not found on module {}", fname, module);
+                        self.send_error_on_call(call, err_msg);
+                        return;
+                    }
+                };
+
+                let arguments = fluence_faas::to_interface_value(&call.arguments);
+                let arguments: &[IValue] = match &arguments {
+                    Ok(IValue::Record(arguments)) => arguments.as_ref(),
+                    Ok(other) => {
+                        let err_msg = format!(
+                            "can't parse arguments as array of interface types: got {:?}",
+                            other
+                        );
+                        self.send_error_on_call(call, err_msg);
+                        return;
+                    }
+                    Err(err) => {
+                        let err_msg =
+                            format!("can't parse arguments as array of interface types: {}", err);
+                        self.send_error_on_call(call, err_msg);
+                        return;
+                    }
+                };
+                let module = module.name.to_string();
+                let function = function.name.to_string();
+                self.faas.call_module(&module, &function, arguments);
+            };
         }
 
         let err_msg = format!("unroutable message: module {} not found", module);
