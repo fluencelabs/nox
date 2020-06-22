@@ -51,7 +51,13 @@ impl FunctionRouter {
                 self.reply_with(call, msg_id, ("addresses", addrs))
             }
             BS::GetInterface(GetInterface { msg_id }) => {
-                self.reply_with(call, msg_id, ("interface", self.faas.get_interface()))
+                match serde_json::to_value(self.faas.get_interface()) {
+                    Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
+                    Err(err) => log::error!(
+                        "Totally unexpected: can't serialize FaaS interface to json: {}",
+                        err
+                    ),
+                }
             }
         }
     }
