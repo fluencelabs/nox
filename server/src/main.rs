@@ -26,17 +26,13 @@
     unreachable_patterns
 )]
 
-use fluence_server::config::{certificates, create_args, load_config, FluenceConfig, ServerConfig};
-use fluence_server::Server;
-
-use fluence_faas::{FluenceFaaS, IValue, RawCoreModulesConfig};
-
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
+use fluence_faas::FluenceFaaS;
+use fluence_server::config::{certificates, create_args, load_config, FluenceConfig};
+use fluence_server::Server;
 use futures::channel::oneshot;
-use std::collections::HashMap;
 use std::error::Error;
-use trust_graph::{KeyPair, PublicKeyHashable};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -86,11 +82,12 @@ fn start_fluence(config: FluenceConfig) -> Result<impl Stoppable, Box<dyn Error>
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
-    let faas = FluenceFaaS::with_raw_config(config.faas);
+    let faas = FluenceFaaS::with_raw_config(config.faas)?;
 
     let node_service = Server::new(
         key_pair.clone(),
-        config.server.clone(),
+        config.server,
+        faas,
         config
             .root_weights
             .into_iter()

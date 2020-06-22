@@ -22,6 +22,7 @@ use super::waiting_queues::WaitingQueues;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
+use fluence_faas::FluenceFaaS;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
 use libp2p::{
@@ -55,6 +56,7 @@ pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 /// TODO: Latency. Latency gonna be nuts.
 /// TODO: add metrics-rs (relevant: substrate uses it, and publishes as http-endpoint for prometheus)
 pub struct FunctionRouter {
+    pub(super) faas: FluenceFaaS,
     /// Router configuration info: peer id, keypair, listening addresses
     pub(super) config: RouterConfig,
     /// Queue of events to send to the upper level
@@ -80,6 +82,7 @@ impl FunctionRouter {
         config: RouterConfig,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
+        faas: FluenceFaaS,
     ) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
@@ -99,6 +102,7 @@ impl FunctionRouter {
         }
 
         Self {
+            faas,
             config,
             kademlia,
             events: <_>::default(),
