@@ -19,6 +19,7 @@ use crate::config::ServerConfig;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 
 use async_std::task;
+use fluence_faas::FluenceFaaS;
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
 use libp2p::{
@@ -42,10 +43,11 @@ pub struct Server {
 impl Server {
     pub fn new(
         key_pair: Keypair,
-        config: ServerConfig,
+        server_config: ServerConfig,
+        faas: FluenceFaaS,
         root_weights: Vec<(ed25519::PublicKey, u32)>,
     ) -> Box<Self> {
-        let ServerConfig { socket_timeout, .. } = config;
+        let ServerConfig { socket_timeout, .. } = server_config;
 
         let local_peer_id = PeerId::from(PublicKey::Ed25519(key_pair.public()));
         log::info!("server peer id = {}", local_peer_id);
@@ -57,10 +59,11 @@ impl Server {
             let behaviour = ServerBehaviour::new(
                 key_pair.clone(),
                 local_peer_id.clone(),
-                config.external_addresses(),
+                server_config.external_addresses(),
                 trust_graph,
-                config.bootstrap_nodes.clone(),
+                server_config.bootstrap_nodes.clone(),
                 Some(&registry),
+                faas,
             );
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
@@ -69,14 +72,14 @@ impl Server {
         };
 
         // Add external addresses to Swarm
-        config
+        server_config
             .external_addresses()
             .into_iter()
             .for_each(|addr| Swarm::add_external_address(&mut swarm, addr));
 
         let node_service = Self {
             swarm,
-            config,
+            config: server_config,
             registry,
         };
 

@@ -16,12 +16,15 @@
 
 use super::{
     address_signature::verify_address_signatures,
-    builtin_service::{AddCertificates, BuiltinService, GetCertificates, Identify, Provide},
+    builtin_service::{
+        AddCertificates, BuiltinService, GetCertificates, GetInterface, Identify, Provide,
+    },
     FunctionRouter,
 };
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use itertools::Itertools;
 use libp2p::PeerId;
+use serde::Serialize;
 use serde_json::json;
 use trust_graph::Certificate;
 
@@ -42,13 +45,23 @@ impl FunctionRouter {
                 certificates,
                 msg_id,
             }) => self.add_certificates(peer_id, certificates, call, msg_id),
-            BS::Identify(Identify { msg_id }) => self.identify(call, msg_id),
+            BS::Identify(Identify { msg_id }) => {
+                let addrs = &self.config.external_addresses;
+                let addrs: Vec<_> = addrs.iter().map(ToString::to_string).collect();
+                self.reply_with(call, msg_id, ("addresses", addrs))
+            }
+            BS::GetInterface(GetInterface { msg_id }) => {
+                self.reply_with(call, msg_id, ("interface", self.faas.get_interface()))
+            }
         }
     }
 
-    fn identify(&mut self, call: FunctionCall, msg_id: Option<String>) {
-        log::info!("executing identify, call: {:?}", &call);
-
+    fn reply_with<T: Serialize>(
+        &mut self,
+        call: FunctionCall,
+        msg_id: Option<String>,
+        data: (&str, T),
+    ) {
         // Check reply_to is defined
         let reply_to = if let Some(reply_to) = call.reply_to.clone() {
             reply_to
@@ -58,13 +71,7 @@ impl FunctionRouter {
             return;
         };
 
-        let addrs: Vec<_> = self
-            .config
-            .external_addresses
-            .iter()
-            .map(ToString::to_string)
-            .collect();
-        let arguments = json!({ "msg_id": msg_id, "addresses": addrs });
+        let arguments = json!({ "msg_id": msg_id, data.0: data.1 });
         // Build reply
         let call = FunctionCall {
             uuid: Self::uuid(),
@@ -73,7 +80,7 @@ impl FunctionRouter {
             fname: None,
             module: None,
             arguments,
-            name: Some("reply on identify".into()),
+            name: None,
             sender: self.config.local_address(),
         };
         self.call(call);
