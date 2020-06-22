@@ -15,7 +15,9 @@
  */
 
 use crate::ed25519::{Keypair as Libp2pKeyPair, PublicKey, SecretKey};
+use ed25519_dalek::SignatureError;
 use libp2p_core::identity::error::DecodingError;
+use std::fmt;
 
 pub type Signature = Vec<u8>;
 
@@ -47,9 +49,11 @@ impl KeyPair {
 
     /// Decode a keypair from the format produced by `encode`.
     #[allow(dead_code)]
-    pub fn decode(kp: &mut [u8]) -> Result<KeyPair, DecodingError> {
-        let kp = Libp2pKeyPair::decode(kp)?;
-        Ok(Self { key_pair: kp })
+    pub fn decode(kp: &[u8]) -> Result<KeyPair, SignatureError> {
+        let kp = ed25519_dalek::Keypair::from_bytes(kp)?;
+        Ok(Self {
+            key_pair: kp.into(),
+        })
     }
 
     /// Get the public key of this keypair.
@@ -76,5 +80,43 @@ impl KeyPair {
 impl From<Libp2pKeyPair> for KeyPair {
     fn from(kp: Libp2pKeyPair) -> Self {
         Self { key_pair: kp }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for KeyPair {
+    fn deserialize<D>(deserializer: D) -> Result<KeyPair, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{Error, Unexpected, Visitor};
+
+        struct KeyPairVisitor;
+
+        impl<'de> Visitor<'de> for KeyPairVisitor {
+            type Value = KeyPair;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("byte array or base58 string")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                bs58::decode(s)
+                    .into_vec()
+                    .map_err(|_| Error::invalid_value(Unexpected::Str(s), &self))
+                    .and_then(|v| self.visit_bytes(v.as_slice()))
+            }
+
+            fn visit_bytes<E>(self, b: &[u8]) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                KeyPair::decode(b).map_err(|_| Error::invalid_value(Unexpected::Bytes(b), &self))
+            }
+        }
+
+        deserializer.deserialize_str(KeyPairVisitor)
     }
 }
