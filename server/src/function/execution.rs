@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+use super::address_signature::SignatureError;
 use super::{
     address_signature::verify_address_signatures,
     builtin_service::{
         AddCertificates, BuiltinService, GetCertificates, GetInterface, Identify, Provide,
     },
-    FunctionRouter,
+    errors::CallErrorKind::*,
+    CallError, ErrorData, FunctionRouter,
 };
-use crate::function::errors::CallErrorKind::{InvalidArguments, ResultSerializationFailed};
-use crate::function::CallError;
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_faas::IValue;
 use itertools::Itertools;
@@ -35,7 +35,11 @@ impl FunctionRouter {
     /// Execute call on builtin service: "provide", "certificates", etc
     /// `ttl` – time to live, if `0`, then "certificates" and "add_certificates" services
     ///  won't send call to neighborhood
-    pub(super) fn execute_builtin(&mut self, service: BuiltinService, call: FunctionCall) {
+    pub(super) fn execute_builtin(
+        &mut self,
+        service: BuiltinService,
+        call: FunctionCall,
+    ) -> Result<(), CallError<'static>> {
         use BuiltinService as BS;
 
         match service {
@@ -47,19 +51,19 @@ impl FunctionRouter {
                 peer_id,
                 certificates,
                 msg_id,
-            }) => self.add_certificates(peer_id, certificates, call, msg_id),
+            }) => Ok(self.add_certificates(peer_id, certificates, call, msg_id)),
             BS::Identify(Identify { msg_id }) => {
                 let addrs = &self.config.external_addresses;
                 let addrs: Vec<_> = addrs.iter().map(ToString::to_string).collect();
-                self.reply_with(call, msg_id, ("addresses", addrs))
+                Ok(self.reply_with(call, msg_id, ("addresses", addrs)))
             }
             BS::GetInterface(GetInterface { msg_id }) => {
                 match serde_json::to_value(self.faas.get_interface()) {
-                    Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
-                    Err(err) => log::error!(
+                    Ok(interface) => Ok(self.reply_with(call, msg_id, ("interface", interface))),
+                    Err(err) => Ok(log::error!(
                         "Totally unexpected: can't serialize FaaS interface to json: {}",
                         err
-                    ),
+                    )),
                 }
             }
         }
@@ -74,10 +78,9 @@ impl FunctionRouter {
     ) -> Result<(), CallError<'static>> {
         let arguments = if call.arguments != Value::Null {
             fluence_faas::to_interface_value(&call.arguments).map_err(|e| {
-                InvalidArguments {
+                call.clone().error(InvalidArguments {
                     error: format!("can't parse arguments as array of interface types: {}", e),
-                }
-                .of_call(call.clone())
+                })
             })?
         } else {
             IValue::Record(<_>::default())
@@ -85,16 +88,15 @@ impl FunctionRouter {
 
         let arguments = match &arguments {
             IValue::Record(arguments) => Ok(arguments.as_ref()),
-            other => Err(InvalidArguments {
+            other => Err(call.clone().error(InvalidArguments {
                 error: format!("expected array of interface values: got {:?}", other),
-            }
-            .of_call(call.clone())),
+            })),
         }?;
 
         let result = self
             .faas
             .call_module(&module, &function, arguments)
-            .map_err(|e| CallError::make(call.clone(), e))?;
+            .map_err(|e| call.clone().error(e))?;
         let result = fluence_faas::from_interface_values(&result)
             .map_err(|e| ResultSerializationFailed(e.to_string()).of_call(call.clone()))?;
 
@@ -167,62 +169,53 @@ impl FunctionRouter {
         self.replicate_to_neighbors(peer_id, call);
     }
 
-    fn get_certificates(&mut self, peer_id: PeerId, call: FunctionCall, msg_id: Option<String>) {
+    fn get_certificates(
+        &mut self,
+        peer_id: PeerId,
+        call: FunctionCall,
+        msg_id: Option<String>,
+    ) -> Result<(), CallError<'static>> {
         use libp2p::identity::PublicKey;
 
         #[rustfmt::skip]
         log::info!("executing certificates service for {}, call: {:?}", peer_id, call);
 
-        // Check reply_to is defined
-        let reply_to = if let Some(reply_to) = call.reply_to.clone() {
-            reply_to
-        } else {
-            log::error!("reply_to undefined on {:?}", call);
-            self.send_error_on_call(call, "reply_to is undefined".into());
-            return;
-        };
+        let reply_to = call
+            .reply_to
+            .as_ref()
+            .ok_or(call.clone().error(MissingReplyTo))?;
 
         // Extract public key from peer_id
-        match peer_id.as_public_key() {
-            Some(PublicKey::Ed25519(public_key)) => {
-                // Load certificates from trust graph; TODO: are empty roots OK?
-                let certs = self.kademlia.trust.get_all_certs(public_key, &[]);
-                // Serialize certs to string
-                let certs = certs.into_iter().map(|c| c.to_string()).collect::<Vec<_>>();
-                let arguments = json!({"certificates": certs, "msg_id": msg_id });
-                // Build reply
-                let call = FunctionCall {
-                    uuid: Self::uuid(),
-                    target: Some(reply_to),
-                    reply_to: Some(self.config.local_address()),
-                    module: None,
-                    fname: None,
-                    arguments,
-                    name: Some("reply on certificates".into()),
-                    sender: self.config.local_address(),
-                };
-                // Send reply with certificates and msg_id
-                self.call(call);
-            }
-            Some(pk) => {
-                #[rustfmt::skip]
-                log::error!("unsupported public key: expected ed25519, got {:?} {:?}", pk, call);
-                self.send_error_on_call(call, "unsupported public key: expected ed25519".into());
-                return;
-            }
+        let public_key = peer_id
+            .as_public_key()
+            .ok_or(call.clone().error(MissingPublicKey))
+            .and_then(|pk| match pk {
+                PublicKey::Ed25519(public_key) => Ok(public_key),
+                _ => Err(call.clone().error(UnsupportedPublicKey)),
+            })?;
 
-            None => {
-                log::error!("can't extract public key from peer_id {:?}", call);
-                self.send_error_on_call(call, "can't extract public key from peer_id".into());
-                return;
-            }
-        }
+        // Load certificates from trust graph; TODO: are empty roots OK?
+        let certs = self.kademlia.trust.get_all_certs(public_key, &[]);
+        // Serialize certs to string
+        let certs = certs.into_iter().map(|c| c.to_string()).collect::<Vec<_>>();
+        let arguments = json!({"certificates": certs, "msg_id": msg_id });
+        // Build reply
+        let reply = FunctionCall::reply(
+            reply_to.clone(),
+            self.config.local_address(),
+            arguments,
+            "reply on certificates",
+        );
+        // Send reply with certificates and msg_id
+        self.call(reply);
 
         // Query closest peers for `peer_id`, then broadcast the call to found neighborhood
         self.replicate_to_neighbors(peer_id, call);
+
+        Ok(())
     }
 
-    fn provide(&mut self, name: Address, call: FunctionCall) {
+    fn provide(&mut self, name: Address, call: FunctionCall) -> Result<(), CallError<'static>> {
         use Protocol::*;
 
         let protocols = call.reply_to.as_ref().map(|addr| addr.protocols());
@@ -230,11 +223,8 @@ impl FunctionRouter {
         match protocols.as_deref() {
             Some([Peer(p), cl @ Client(_), sig @ Signature(_), rem @ ..]) if self.is_local(p) => {
                 // Verify signatures in address
-                if let Err(err) = verify_address_signatures(call.reply_to.as_ref().unwrap()) {
-                    log::warn!("Service register error {:?}: {:?}", call, err);
-                    self.send_error_on_call(call, format!("signature error: {:?}", err));
-                    return;
-                }
+                let reply_to = call.reply_to.as_ref().unwrap();
+                verify_address_signatures(reply_to).map_err(|e| call.clone().error(e))?;
 
                 // provider ~ /peer/QmLocal/client/QmClient/signature/0xSig/service/QmService, or more complex
                 let provider = self.config.local_address() / cl / sig / rem;
@@ -246,33 +236,19 @@ impl FunctionRouter {
                     log::warn!("Replaced name {:?} with {:?}, call: {}", replaced, provider, &call.uuid);
                 }
 
-                if let Err(err) = self.publish_name(&name, &provider) {
-                    log::warn!("Service register error {:?} store error: {:?}", call, err);
-                    self.send_error_on_call(call, format!("store error: {:?}", err));
-                    return;
-                }
+                self.publish_name(&name, &provider)
+                    .map_err(|e| call.clone().error(e))?;
+
                 log::info!("Published a service {}: {:?}", name, call);
+                Ok(())
             }
-            Some([Peer(p), ..]) if !self.is_local(p) => {
-                // To avoid routing cycle (see discussion https://fluencelabs.slack.com/archives/C8FDH536W/p1588333361404100?thread_ts=1588331102.398600&cid=C8FDH536W)
-                log::warn!("Service register error: non-local relay {:?}", call);
-                self.send_error_on_call(call, "error: non-local relay".into());
-            }
-            Some([Peer(_), Client(_), ..]) => {
-                // Peer is local, but no signature was specified
-                log::warn!("Service register error: missing signature {:?}", call);
-                self.send_error_on_call(call, "error: missing signature".into());
-            }
-            Some(other) => {
-                let addr = other.iter().collect::<Address>();
-                log::warn!("Service register error: unsupported reply_to {}", addr);
-                self.send_error_on_call(call, "error: unsupported reply_to".into());
-            }
-            None => {
-                // If there's no `reply_to`, then we don't know where to forward, so can't register
-                log::warn!("Service register error: missing reply_to  in {:?}", call);
-                self.send_error_on_call(call, "missing reply_to".into());
-            }
+            // To avoid routing cycle (see discussion https://fluencelabs.slack.com/archives/C8FDH536W/p1588333361404100?thread_ts=1588331102.398600&cid=C8FDH536W)
+            Some([Peer(p), ..]) if !self.is_local(p) => Err(call.error(NonLocalRelay)),
+            // Peer is local, but no signature was specified
+            Some([Peer(_), Client(_), ..]) => Err(call.error(SignatureError::MissingSignature)),
+            Some(other) => Err(call.error(UnsupportedReplyTo(other.iter().collect()))),
+            // If there's no `reply_to`, then we don't know where to forward, so can't register
+            None => Err(call.error(MissingReplyTo)),
         }
     }
 

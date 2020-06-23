@@ -19,7 +19,7 @@
 #![deny(
     dead_code,
     nonstandard_style,
-    unused_imports,
+    // unused_imports,
     unused_mut,
     unused_variables,
     unused_unsafe,
@@ -74,7 +74,7 @@ mod function {
     mod waiting_queues;
 
     pub(crate) use self::config::RouterConfig;
-    pub(self) use errors::{CallError, CallErrorKind};
+    pub(self) use errors::{CallError, CallErrorKind, ErrorData};
     pub(crate) use router::FunctionRouter;
     pub(self) use router::SwarmEventType;
 }

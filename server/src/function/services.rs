@@ -17,7 +17,7 @@
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
 use crate::function::waiting_queues::Enqueued;
-use crate::function::{CallError, CallErrorKind, CallErrorKind::*};
+use crate::function::{CallError, CallErrorKind, CallErrorKind::*, ErrorData};
 use faas_api::{Address, FunctionCall, Protocol};
 use libp2p::PeerId;
 use std::collections::HashSet;
@@ -38,13 +38,13 @@ impl FunctionRouter {
     ) -> CallResult<'a, ()> {
         if BuiltinService::is_builtin(module) {
             let builtin = BuiltinService::from(module, call.arguments.clone())
-                .map_err(|e| CallError::make(call.clone(), e))?;
-            return Ok(self.execute_builtin(builtin, call));
+                .map_err(|e| call.clone().error(e))?;
+            return self.execute_builtin(builtin, call);
         }
 
         let found = self
             .find_in_faas(module, call.fname.as_deref())
-            .map_err(|e| CallError::make(call.clone(), e))?;
+            .map_err(|e| call.clone().error(e))?;
 
         if let Some((module, function)) = found {
             return self.execute_wasm(module, function, call);

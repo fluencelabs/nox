@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-use super::builtin_service;
-use crate::function::builtin_service::Error;
+use super::{address_signature::SignatureError, builtin_service};
 use faas_api::{Address, FunctionCall};
 use fluence_faas::FaaSError;
 
@@ -51,6 +50,23 @@ impl<'a> CallError<'a> {
             CallErrorKind::BuiltinServiceError(err) => format!("builtin service failure: {}", err),
             CallErrorKind::FaaSError(err) => format!("faas execution failure: {}", err),
             CallErrorKind::UnroutableCall(err_msg) => format!("unroutable call: {}", err_msg),
+            CallErrorKind::Signature(err) => {
+                format!("failed to register service, siganture error: {:?}", err)
+            }
+            CallErrorKind::ServiceRegister(err) => {
+                format!("failed to register service, store error: {:?}", err)
+            }
+            CallErrorKind::NonLocalRelay => {
+                "failed to register service, non-local relay".to_string()
+            }
+            CallErrorKind::UnsupportedReplyTo(addr) => {
+                format!("failed to register service, unsupported reply_to {}", addr)
+            }
+            CallErrorKind::MissingReplyTo => "missing reply_to".to_string(),
+            CallErrorKind::MissingPublicKey => "can't extract public key from peer id".to_string(),
+            CallErrorKind::UnsupportedPublicKey => {
+                "unsupported public key, expected ed25519".to_string()
+            }
         }
     }
 
@@ -83,6 +99,13 @@ pub enum CallErrorKind<'a> {
     BuiltinServiceError(builtin_service::Error<'a>),
     FaaSError(FaaSError),
     UnroutableCall(String),
+    Signature(SignatureError),
+    ServiceRegister(libp2p::kad::store::Error),
+    NonLocalRelay,
+    UnsupportedReplyTo(Address),
+    MissingReplyTo,
+    MissingPublicKey,
+    UnsupportedPublicKey,
 }
 
 impl<'a> CallErrorKind<'a> {
@@ -93,7 +116,7 @@ impl<'a> CallErrorKind<'a> {
 }
 
 impl<'a> From<builtin_service::Error<'a>> for CallErrorKind<'a> {
-    fn from(err: Error<'a>) -> Self {
+    fn from(err: builtin_service::Error<'a>) -> Self {
         CallErrorKind::BuiltinServiceError(err)
     }
 }
@@ -101,5 +124,27 @@ impl<'a> From<builtin_service::Error<'a>> for CallErrorKind<'a> {
 impl From<FaaSError> for CallErrorKind<'static> {
     fn from(err: FaaSError) -> Self {
         CallErrorKind::FaaSError(err)
+    }
+}
+
+impl From<SignatureError> for CallErrorKind<'static> {
+    fn from(err: SignatureError) -> Self {
+        CallErrorKind::Signature(err)
+    }
+}
+
+impl From<libp2p::kad::record::store::Error> for CallErrorKind<'static> {
+    fn from(err: libp2p::kad::record::store::Error) -> Self {
+        CallErrorKind::ServiceRegister(err)
+    }
+}
+
+pub trait ErrorData<EKind, Error> {
+    fn error(self, e: EKind) -> Error;
+}
+
+impl<'a, E: Into<CallErrorKind<'a>>> ErrorData<E, CallError<'a>> for FunctionCall {
+    fn error(self, e: E) -> CallError<'a> {
+        CallError::make(self, e)
     }
 }

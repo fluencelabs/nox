@@ -22,6 +22,7 @@ pub enum SignatureError {
     MissingClientPublicKey,
     InvalidSignature,
     UnsupportedAddress,
+    MissingSignature,
 }
 
 /// Extract client public key from relay address,
