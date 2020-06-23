@@ -20,6 +20,7 @@ use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::ServerBehaviour;
 
 use fluence_client::Transport;
+use fluence_faas::{FluenceFaaS, RawCoreModulesConfig, RawModuleConfig};
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -33,7 +34,6 @@ use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use trust_graph::{Certificate, TrustGraph};
 use uuid::Uuid;
-use fluence_faas::RawCoreModulesConfig;
 
 /// Utility functions for tests.
 
@@ -296,8 +296,16 @@ pub fn create_swarm(
             }
         }
 
-        let config = RawCoreModulesConfig { core_modules_dir: "", core_module: wasm_modules.iter().map(|m| RawModuleConfig { name: m.name.clone(),  }) }
-        let faas = FluenceFaaS::with_modules();
+        let config = RawCoreModulesConfig {
+            core_modules_dir: <_>::default(),
+            core_module: wasm_modules
+                .iter()
+                .map(|(name, _)| RawModuleConfig::new(name.clone()))
+                .collect(),
+            rpc_module: None,
+        };
+
+        let faas = FluenceFaaS::with_modules(wasm_modules, config).expect("create faas");
 
         let server = ServerBehaviour::new(
             kp.clone(),
@@ -306,6 +314,7 @@ pub fn create_swarm(
             trust_graph,
             bootstraps,
             registry,
+            faas,
         );
         match transport {
             Transport::Memory => {

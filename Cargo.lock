@@ -60,9 +60,9 @@ dependencies = [
 
 [[package]]
 name = "aho-corasick"
-version = "0.7.12"
+version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c259a748ac706ba73d609b73fc13469e128337f9a6b2fb3cc82d100f8dd8d511"
+checksum = "043164d8ba5c4c3035fec9bbee8647c0261d788f3474306f93bb65901cae0e86"
 dependencies = [
  "memchr",
 ]
@@ -968,7 +968,7 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 [[package]]
 name = "fce"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#5659013d3e8664bf2ea057634f729bdadfcf3c5b"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#0362f6e963dbf2f19bc94f3130442f3d8417644b"
 dependencies = [
  "fce_wit_interfaces",
  "multimap",
@@ -985,7 +985,7 @@ dependencies = [
 [[package]]
 name = "fce_wit_interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#5659013d3e8664bf2ea057634f729bdadfcf3c5b"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#0362f6e963dbf2f19bc94f3130442f3d8417644b"
 dependencies = [
  "multimap",
  "wasmer-interface-types",
@@ -1047,7 +1047,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#5659013d3e8664bf2ea057634f729bdadfcf3c5b"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#0362f6e963dbf2f19bc94f3130442f3d8417644b"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -4467,7 +4467,7 @@ dependencies = [
 [[package]]
 name = "wit_parser"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#5659013d3e8664bf2ea057634f729bdadfcf3c5b"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#0362f6e963dbf2f19bc94f3130442f3d8417644b"
 dependencies = [
  "anyhow",
  "fce_wit_interfaces",
