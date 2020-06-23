@@ -15,7 +15,7 @@
  */
 
 use config::{Config, File};
-use faas_api::{provider, Address, FunctionCall, Protocol};
+use faas_api::{peer, provider, Address, FunctionCall, Protocol};
 use fluence_client::{Client, ClientEvent};
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
@@ -136,7 +136,8 @@ fn endurance() {
                 (&mut periodic).await;
 
                 let reply_to = provider.relay_address(service.node.peer_id.clone());
-                provider.send(registration(reply_to.clone(), service.id.clone()), service.node.peer_id.clone());
+                let node = peer!(service.node.peer_id.clone());
+                provider.send(registration(reply_to.clone(), node, service.id.clone()), service.node.peer_id.clone());
                 log::info!("{: <14} - Provider sent registration", prefix);
                 task::sleep(Duration::from_secs(pause)).await;
 
@@ -252,20 +253,24 @@ fn uuid() -> String {
 fn service_call(sender: Address, service_id: String) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(provider!(service_id)),
-        reply_to: Some(sender.clone()),
+        target: Some(provider!(service_id.clone())),
+        module: Some(service_id),
+        fname: None,
         arguments: serde_json::Value::Null,
+        reply_to: Some(sender.clone()),
         name: Some("call service".into()),
         sender,
     }
 }
 
-fn registration(sender: Address, service_id: String) -> FunctionCall {
+fn registration(sender: Address, node: Address, service_id: String) -> FunctionCall {
     use serde_json::json;
 
     FunctionCall {
         uuid: uuid(),
-        target: Some(provider!("provide")),
+        target: Some(node),
+        module: Some("provide".into()),
+        fname: None,
         reply_to: Some(sender.clone()),
         arguments: json!({ "service_id": service_id }),
         name: Some("registration".into()),

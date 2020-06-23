@@ -29,7 +29,7 @@
 use async_std::task;
 use clap::{App, Arg};
 use ctrlc_adapter::block_until_ctrlc;
-use faas_api::{provider, Address, FunctionCall};
+use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_client::{Client, ClientCommand, ClientEvent};
 use futures::task::Poll;
 use futures::{
@@ -108,7 +108,7 @@ async fn run_client(
                     Some(ClientEvent::NewConnection{ peer_id, ..}) => {
                         log::info!("Connected to {}", peer_id);
                         node = Some(peer_id.clone());
-                        print_example(client.relay_address(peer_id.clone()));
+                        print_example(Protocol::Peer(peer_id.clone()).into(), client.relay_address(peer_id.clone()));
                     }
                     Some(msg) => println!("Received\n{}\n", serde_json::to_string_pretty(&msg).unwrap()),
                     None => {
@@ -167,7 +167,7 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
     cmd_recv
 }
 
-fn print_example(reply_to: Address) {
+fn print_example(node: Address, reply_to: Address) {
     use serde_json::json;
     use std::time::SystemTime;
     fn show(cmd: ClientCommand) {
@@ -186,20 +186,25 @@ fn print_example(reply_to: Address) {
     let call_identify = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(provider!("identify")),
+            target: Some(node.clone()),
             reply_to: Some(reply_to.clone()),
+            module: Some("provide".into()),
+            fname: None,
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call identify".to_string()),
             sender: reply_to.clone(),
         },
     };
 
+    let ipfs_service = "IPFS.get_QmFile3".to_string();
     let register_ipfs_get = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(provider!("provide")),
+            target: Some(node),
             reply_to: Some(reply_to.clone()),
-            arguments: json!({ "service_id": "IPFS.get_QmFile3", "msg_id": time }),
+            module: Some("provide".into()),
+            fname: None,
+            arguments: json!({ "service_id": ipfs_service, "msg_id": time }),
             name: Some("register service".to_string()),
             sender: reply_to.clone(),
         },
@@ -208,8 +213,10 @@ fn print_example(reply_to: Address) {
     let call_ipfs_get = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(provider!("IPFS.get_QmFile3")),
+            target: Some(provider!(ipfs_service.clone())),
             reply_to: Some(reply_to.clone()),
+            module: Some(ipfs_service),
+            fname: None,
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
             sender: reply_to,
