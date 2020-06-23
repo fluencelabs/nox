@@ -468,3 +468,8 @@ fn identify() {
         check_reply(&mut consumer, &swarm.1, &msg_id);
     }
 }
+
+#[test]
+fn get_interface() {
+    
+}

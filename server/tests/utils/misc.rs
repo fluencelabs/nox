@@ -33,6 +33,7 @@ use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use trust_graph::{Certificate, TrustGraph};
 use uuid::Uuid;
+use fluence_faas::RawCoreModulesConfig;
 
 /// Utility functions for tests.
 
@@ -276,6 +277,7 @@ pub fn create_swarm(
     trust: Option<Trust>,
     transport: Transport,
     registry: Option<&Registry>,
+    wasm_modules: Vec<(String, Vec<u8>)>,
 ) -> (PeerId, Swarm<ServerBehaviour>) {
     use libp2p::identity;
 
@@ -293,6 +295,10 @@ pub fn create_swarm(
                 trust_graph.add(cert, trust.cur_time).expect("add cert");
             }
         }
+
+        let config = RawCoreModulesConfig { core_modules_dir: "", core_module: wasm_modules.iter().map(|m| RawModuleConfig { name: m.name.clone(),  }) }
+        let faas = FluenceFaaS::with_modules();
+
         let server = ServerBehaviour::new(
             kp.clone(),
             peer_id.clone(),
