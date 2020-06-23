@@ -26,11 +26,11 @@
     unreachable_patterns
 )]
 
-macro_rules! ok_none {
+macro_rules! ok_get {
     ($opt:expr) => {{
         let r = { $opt };
         match r {
-            None => return Ok(None),
+            None => return Ok(Default::default()),
             Some(r) => r,
         }
     }};
@@ -74,7 +74,7 @@ mod function {
     mod waiting_queues;
 
     pub(crate) use self::config::RouterConfig;
-    pub(self) use errors::{CallError, CallErrorKind};
+    pub(self) use errors::{CallError, CallErrorKind, ErrorData};
     pub(crate) use router::FunctionRouter;
     pub(self) use router::SwarmEventType;
 }

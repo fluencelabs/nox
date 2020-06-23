@@ -16,6 +16,7 @@
 
 use crate::Address;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct FunctionCall {
@@ -37,6 +38,22 @@ impl FunctionCall {
     pub fn with_target(mut self, target: Address) -> Self {
         self.target = Some(target);
         self
+    }
+
+    pub fn reply<O>(target: Address, sender: Address, arguments: serde_json::Value, name: O) -> Self
+    where
+        O: Into<Option<String>>,
+    {
+        Self {
+            uuid: Uuid::new_v4().to_string(),
+            target: Some(target),
+            reply_to: Some(sender.clone()),
+            module: None,
+            fname: None,
+            arguments,
+            name: name.into(),
+            sender,
+        }
     }
 }
 
