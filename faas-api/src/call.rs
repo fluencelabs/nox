@@ -40,9 +40,9 @@ impl FunctionCall {
         self
     }
 
-    pub fn reply<S>(target: Address, sender: Address, arguments: serde_json::Value, name: S) -> Self
+    pub fn reply<O>(target: Address, sender: Address, arguments: serde_json::Value, name: O) -> Self
     where
-        S: Into<String>,
+        O: Into<Option<String>>,
     {
         Self {
             uuid: Uuid::new_v4().to_string(),
@@ -51,7 +51,7 @@ impl FunctionCall {
             module: None,
             fname: None,
             arguments,
-            name: Some(name.into()),
+            name: name.into(),
             sender,
         }
     }

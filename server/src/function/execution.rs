@@ -25,7 +25,6 @@ use super::{
 };
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_faas::IValue;
-use itertools::Itertools;
 use libp2p::PeerId;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -51,19 +50,16 @@ impl FunctionRouter {
                 peer_id,
                 certificates,
                 msg_id,
-            }) => Ok(self.add_certificates(peer_id, certificates, call, msg_id)),
+            }) => self.add_certificates(peer_id, certificates, call, msg_id),
             BS::Identify(Identify { msg_id }) => {
                 let addrs = &self.config.external_addresses;
                 let addrs: Vec<_> = addrs.iter().map(ToString::to_string).collect();
-                Ok(self.reply_with(call, msg_id, ("addresses", addrs)))
+                self.reply_with(call, msg_id, ("addresses", addrs))
             }
             BS::GetInterface(GetInterface { msg_id }) => {
                 match serde_json::to_value(self.faas.get_interface()) {
-                    Ok(interface) => Ok(self.reply_with(call, msg_id, ("interface", interface))),
-                    Err(err) => Ok(log::error!(
-                        "Totally unexpected: can't serialize FaaS interface to json: {}",
-                        err
-                    )),
+                    Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
+                    Err(err) => Err(call.error(FaasInterfaceSerialization(err))),
                 }
             }
         }
@@ -100,7 +96,7 @@ impl FunctionRouter {
         let result = fluence_faas::from_interface_values(&result)
             .map_err(|e| ResultSerializationFailed(e.to_string()).of_call(call.clone()))?;
 
-        Ok(self.reply_with(call, None, ("result", result)))
+        self.reply_with(call, None, ("result", result))
     }
 
     fn add_certificates(
@@ -109,7 +105,7 @@ impl FunctionRouter {
         certificates: Vec<Certificate>,
         call: FunctionCall,
         msg_id: Option<String>,
-    ) {
+    ) -> Result<(), CallError<'static>> {
         #[rustfmt::skip]
         log::info!(
             "executing add_certificates of {} certs for {}, call: {:?}", 
@@ -119,54 +115,34 @@ impl FunctionRouter {
         // Calculate current time in Duration
         let time = trust_graph::current_time();
         // Add each certificate, and collect errors
-        let errors: Vec<_> = certificates
-            .iter()
-            .flat_map(|cert| {
-                self.kademlia
-                    .trust
-                    .add(cert.clone(), time)
-                    .map_err(|err| (cert, err))
-                    .err()
+        let results: Vec<_> = certificates
+            .into_iter()
+            .map(|cert| match self.kademlia.trust.add(cert.clone(), time) {
+                Ok(_) => Ok(cert),
+                Err(e) => Err((cert, e)),
             })
             .collect();
 
         // If there are any errors, send these errors in a single message
-        if !errors.is_empty() {
-            #[rustfmt::skip]
-            let error = errors.into_iter().map(
-                |(cert, err)| format!("cert error {:?}: {}", cert, err)
-            ).join("\n");
-            #[rustfmt::skip]
-            log::warn!("add_certificates error uuid {}: {} call {:?}", call.uuid, error, call);
-            self.send_error_on_call(call.clone(), error);
-        } else if let Some(reply_to) = call.reply_to.as_ref() {
-            // If there are no errors, send reply marking success
-            log::debug!("add_certificates success uuid {}", call.uuid);
-
-            let status = format!("{} certs added", certificates.len());
-            let arguments = json!({ "msg_id": msg_id, "status": status });
-            // Build reply
-            let call = FunctionCall {
-                uuid: Self::uuid(),
-                target: Some(reply_to.clone()),
-                reply_to: Some(self.config.local_address()),
-                module: None,
-                fname: None,
-                arguments,
-                name: Some("reply on add_certificates".into()),
-                sender: self.config.local_address(),
-            };
-            self.call(call);
-        } else {
-            log::warn!(
-                "add_certificates reply_to is empty {}, can't send reply",
-                call.uuid
-            );
+        if results.iter().any(Result::is_err) {
+            let failed = results.into_iter().flat_map(Result::err).collect();
+            return Err(call.error(AddCertificates(failed)));
         }
+
+        // If there are no errors, send reply marking success
+        let reply_to = ok_get!(call.reply_to.as_ref()).clone();
+        log::debug!("add_certificates success uuid {}", call.uuid);
+
+        let status = format!("{} certs added", results.len());
+        let arguments = json!({ "msg_id": msg_id, "status": status });
+        let name = "reply on add_certificates".to_string();
+        // Send reply
+        let reply = FunctionCall::reply(reply_to, self.config.local_address(), arguments, name);
+        self.call(reply);
 
         // Finally – broadcast that call to the neighborhood if it wasn't already a replication
         // NOTE: not filtering errors, other nodes may succeed where we failed
-        self.replicate_to_neighbors(peer_id, call);
+        Ok(self.replicate_to_neighbors(peer_id, call))
     }
 
     fn get_certificates(
@@ -180,10 +156,8 @@ impl FunctionRouter {
         #[rustfmt::skip]
         log::info!("executing certificates service for {}, call: {:?}", peer_id, call);
 
-        let reply_to = call
-            .reply_to
-            .as_ref()
-            .ok_or(call.clone().error(MissingReplyTo))?;
+        let reply_to = call.reply_to.clone();
+        let reply_to = reply_to.ok_or(call.clone().error(MissingReplyTo))?;
 
         // Extract public key from peer_id
         let public_key = peer_id
@@ -199,14 +173,9 @@ impl FunctionRouter {
         // Serialize certs to string
         let certs = certs.into_iter().map(|c| c.to_string()).collect::<Vec<_>>();
         let arguments = json!({"certificates": certs, "msg_id": msg_id });
-        // Build reply
-        let reply = FunctionCall::reply(
-            reply_to.clone(),
-            self.config.local_address(),
-            arguments,
-            "reply on certificates",
-        );
+        let name = "reply on certificates".to_string();
         // Send reply with certificates and msg_id
+        let reply = FunctionCall::reply(reply_to, self.config.local_address(), arguments, name);
         self.call(reply);
 
         // Query closest peers for `peer_id`, then broadcast the call to found neighborhood
@@ -266,28 +235,12 @@ impl FunctionRouter {
         call: FunctionCall,
         msg_id: Option<String>,
         data: (&str, T),
-    ) {
-        // Check reply_to is defined
-        let reply_to = if let Some(reply_to) = call.reply_to.clone() {
-            reply_to
-        } else {
-            log::error!("reply_to undefined on {:?}", call);
-            self.send_error_on_call(call, "reply_to is undefined".into());
-            return;
-        };
-
+    ) -> Result<(), CallError<'static>> {
+        let reply_to = call.reply_to.clone();
+        let reply_to = reply_to.ok_or(call.clone().error(MissingReplyTo))?;
         let arguments = json!({ "msg_id": msg_id, data.0: data.1 });
-        // Build reply
-        let call = FunctionCall {
-            uuid: Self::uuid(),
-            target: Some(reply_to),
-            reply_to: Some(self.config.local_address()),
-            fname: None,
-            module: None,
-            arguments,
-            name: None,
-            sender: self.config.local_address(),
-        };
-        self.call(call);
+        let call = FunctionCall::reply(reply_to, self.config.local_address(), arguments, None);
+
+        Ok(self.call(call))
     }
 }

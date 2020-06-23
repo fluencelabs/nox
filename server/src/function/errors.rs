@@ -17,6 +17,7 @@
 use super::{address_signature::SignatureError, builtin_service};
 use faas_api::{Address, FunctionCall};
 use fluence_faas::FaaSError;
+use trust_graph::Certificate;
 
 pub struct CallError<'a> {
     call: FunctionCall,
@@ -67,6 +68,13 @@ impl<'a> CallError<'a> {
             CallErrorKind::UnsupportedPublicKey => {
                 "unsupported public key, expected ed25519".to_string()
             }
+            CallErrorKind::AddCertificates(failed) => {
+                format!("failed to add certificates: {:?}", failed)
+            }
+            CallErrorKind::FaasInterfaceSerialization(err) => format!(
+                "Totally unexpected: can't serialize FaaS interface to json: {}",
+                err
+            ),
         }
     }
 
@@ -106,6 +114,8 @@ pub enum CallErrorKind<'a> {
     MissingReplyTo,
     MissingPublicKey,
     UnsupportedPublicKey,
+    AddCertificates(Vec<(Certificate, String)>),
+    FaasInterfaceSerialization(serde_json::Error),
 }
 
 impl<'a> CallErrorKind<'a> {
