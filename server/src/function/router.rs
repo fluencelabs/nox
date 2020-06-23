@@ -148,12 +148,18 @@ impl FunctionRouter {
                     // `expect` is ok here, because condition above checks module is defined
                     let module = call.module.clone().expect("module defined here");
                     // target will be like: /client/QmClient/service/QmService
-                    self.pass_to_local_service(&module, call.with_target(target.collect()));
+                    let call = call.with_target(target.collect());
+                    // TODO: raise error instead of sending it
+                    if let Err(err) = self.execute_locally(&module, call) {
+                        let err_msg = err.err_msg();
+                        self.send_error_on_call(err.call(), err_msg);
+                    }
                     return;
                 }
                 // No more path nodes to route, target unknown => send error
                 None if !is_local => {
                     log::warn!("Invalid target in call {:?}", call);
+                    // TODO: raise error instead of sending it
                     // TODO: this error is not helpful
                     self.send_error_on_call(
                         call,
@@ -164,6 +170,7 @@ impl FunctionRouter {
                 // call.module was empty, send error
                 None => {
                     log::warn!("module is not defined or empty on call {:?}", call);
+                    // TODO: raise error instead of sending it
                     self.send_error_on_call(call, "module is not defined or empty".into());
                     return;
                 }
@@ -199,11 +206,13 @@ impl FunctionRouter {
                         }
                         Some(other) => {
                             let path = target.join("");
+                            // TODO: raise error instead of sending it
                             self.send_error_on_call(
                                 call,
                                 format!("expected /signature, got '{:?}' from {}", other, path),
                             );
                         }
+                        // TODO: raise error instead of sending it
                         None => self.send_error_on_call(call, "missing relay signature".into()),
                     };
                     return;
@@ -214,6 +223,7 @@ impl FunctionRouter {
                     return;
                 }
                 Signature(_) => {
+                    // TODO: raise error instead of sending it
                     self.send_error_on_call(
                         call,
                         "Invalid target: expected /peer, /client or /service, got /signature"

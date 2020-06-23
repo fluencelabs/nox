@@ -17,10 +17,12 @@
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
 use crate::function::waiting_queues::Enqueued;
+use crate::function::{CallError, CallErrorKind, CallErrorKind::*};
 use faas_api::{Address, FunctionCall, Protocol};
-use fluence_faas::IValue;
 use libp2p::PeerId;
 use std::collections::HashSet;
+
+type CallResult<'a, T> = std::result::Result<T, CallError<'a>>;
 
 impl FunctionRouter {
     // ####
@@ -29,64 +31,45 @@ impl FunctionRouter {
 
     /// Execute call locally: on builtin service or forward to provided name
     /// `ttl` – time to live (akin to ICMP ttl), if `0`, execute and drop, don't forward  
-    pub(super) fn pass_to_local_service(&mut self, module: &str, call: FunctionCall) {
+    pub(super) fn execute_locally<'a>(
+        &mut self,
+        module: &'a str,
+        call: FunctionCall,
+    ) -> CallResult<'a, ()> {
         if BuiltinService::is_builtin(module) {
-            match BuiltinService::from(module, call.arguments.clone()) {
-                Ok(builtin) => self.execute_builtin(builtin, call),
-                Err(err) => {
-                    self.send_error_on_call(call, format!("builtin service error: {}", err))
-                }
-            }
-            return;
-        } else {
-            let interface = self.faas.get_interface();
-            if let Some(module) = interface.modules.iter().find(|m| m.name == module) {
-                let fname = match call.fname.as_ref() {
-                    Some(fname) => fname,
-                    None => {
-                        self.send_error_on_call(
-                            call,
-                            "fname must be specified in a call to wasm module".into(),
-                        );
-                        return;
-                    }
-                };
-                let function = match module.functions.iter().find(|f| f.name == fname) {
-                    Some(function) => function,
-                    None => {
-                        let err_msg = format!("function {} not found on module {}", fname, module);
-                        self.send_error_on_call(call, err_msg);
-                        return;
-                    }
-                };
-
-                let arguments = fluence_faas::to_interface_value(&call.arguments);
-                let arguments: &[IValue] = match &arguments {
-                    Ok(IValue::Record(arguments)) => arguments.as_ref(),
-                    Ok(other) => {
-                        let err_msg = format!(
-                            "can't parse arguments as array of interface types: got {:?}",
-                            other
-                        );
-                        self.send_error_on_call(call, err_msg);
-                        return;
-                    }
-                    Err(err) => {
-                        let err_msg =
-                            format!("can't parse arguments as array of interface types: {}", err);
-                        self.send_error_on_call(call, err_msg);
-                        return;
-                    }
-                };
-                let module = module.name.to_string();
-                let function = function.name.to_string();
-                self.faas.call_module(&module, &function, arguments);
-            };
+            let builtin = BuiltinService::from(module, call.arguments.clone())
+                .map_err(|e| CallError::make(call.clone(), e))?;
+            return Ok(self.execute_builtin(builtin, call));
         }
 
-        let err_msg = format!("unroutable message: module {} not found", module);
-        log::warn!("Error on {}: {}", &call.uuid, err_msg);
-        self.send_error_on_call(call, err_msg);
+        let found = self
+            .find_in_faas(module, call.fname.as_deref())
+            .map_err(|e| CallError::make(call.clone(), e))?;
+
+        if let Some((module, function)) = found {
+            return self.execute_wasm(module, function, call);
+        }
+
+        Err(UnroutableCall(format!("module {} not found", module)).of_call(call))
+    }
+
+    fn find_in_faas(
+        &mut self,
+        module: &str,
+        function: Option<&str>,
+    ) -> Result<Option<(String, String)>, CallErrorKind<'static>> {
+        let interface = self.faas.get_interface();
+        let module = ok_none!(interface.modules.iter().find(|m| m.name == module));
+        let function = function.ok_or(MissingFunctionName {
+            module: module.name.to_string(),
+        })?;
+        let function = module.functions.iter().find(|f| f.name == function).ok_or(
+            CallErrorKind::FunctionNotFound {
+                module: module.name.to_string(),
+                function: function.to_string(),
+            },
+        )?;
+        Ok(Some((module.name.to_string(), function.name.to_string())))
     }
 
     // Look for service providers, enqueue call to wait for providers

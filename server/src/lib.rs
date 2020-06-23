@@ -17,7 +17,7 @@
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
-    // dead_code,
+    dead_code,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -25,6 +25,16 @@
     unused_unsafe,
     unreachable_patterns
 )]
+
+macro_rules! ok_none {
+    ($opt:expr) => {{
+        let r = { $opt };
+        match r {
+            None => return Ok(None),
+            Some(r) => r,
+        }
+    }};
+}
 
 pub mod config {
     mod args;
@@ -53,6 +63,7 @@ mod function {
     mod builtin_service;
     mod config;
     mod dht_names;
+    mod errors;
     mod execution;
     mod peers;
     mod provider_record;
@@ -63,8 +74,9 @@ mod function {
     mod waiting_queues;
 
     pub(crate) use self::config::RouterConfig;
+    pub(self) use errors::{CallError, CallErrorKind};
     pub(crate) use router::FunctionRouter;
-    pub(crate) use router::SwarmEventType;
+    pub(self) use router::SwarmEventType;
 }
 
 mod bootstrapper {

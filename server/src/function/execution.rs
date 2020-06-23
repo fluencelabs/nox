@@ -21,11 +21,14 @@ use super::{
     },
     FunctionRouter,
 };
+use crate::function::errors::CallErrorKind::{InvalidArguments, ResultSerializationFailed};
+use crate::function::CallError;
 use faas_api::{provider, Address, FunctionCall, Protocol};
+use fluence_faas::IValue;
 use itertools::Itertools;
 use libp2p::PeerId;
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use trust_graph::Certificate;
 
 impl FunctionRouter {
@@ -62,34 +65,40 @@ impl FunctionRouter {
         }
     }
 
-    fn reply_with<T: Serialize>(
+    /// Execute `function` on `module` in the FluenceFaaS
+    pub(super) fn execute_wasm(
         &mut self,
+        module: String,
+        function: String,
         call: FunctionCall,
-        msg_id: Option<String>,
-        data: (&str, T),
-    ) {
-        // Check reply_to is defined
-        let reply_to = if let Some(reply_to) = call.reply_to.clone() {
-            reply_to
+    ) -> Result<(), CallError<'static>> {
+        let arguments = if call.arguments != Value::Null {
+            fluence_faas::to_interface_value(&call.arguments).map_err(|e| {
+                InvalidArguments {
+                    error: format!("can't parse arguments as array of interface types: {}", e),
+                }
+                .of_call(call.clone())
+            })?
         } else {
-            log::error!("reply_to undefined on {:?}", call);
-            self.send_error_on_call(call, "reply_to is undefined".into());
-            return;
+            IValue::Record(<_>::default())
         };
 
-        let arguments = json!({ "msg_id": msg_id, data.0: data.1 });
-        // Build reply
-        let call = FunctionCall {
-            uuid: Self::uuid(),
-            target: Some(reply_to),
-            reply_to: Some(self.config.local_address()),
-            fname: None,
-            module: None,
-            arguments,
-            name: None,
-            sender: self.config.local_address(),
-        };
-        self.call(call);
+        let arguments = match &arguments {
+            IValue::Record(arguments) => Ok(arguments.as_ref()),
+            other => Err(InvalidArguments {
+                error: format!("expected array of interface values: got {:?}", other),
+            }
+            .of_call(call.clone())),
+        }?;
+
+        let result = self
+            .faas
+            .call_module(&module, &function, arguments)
+            .map_err(|e| CallError::make(call.clone(), e))?;
+        let result = fluence_faas::from_interface_values(&result)
+            .map_err(|e| ResultSerializationFailed(e.to_string()).of_call(call.clone()))?;
+
+        Ok(self.reply_with(call, None, ("result", result)))
     }
 
     fn add_certificates(
@@ -274,5 +283,35 @@ impl FunctionRouter {
             call.fname = Some("replicate".into());
             self.send_to_neighborhood(peer_id, call)
         }
+    }
+
+    fn reply_with<T: Serialize>(
+        &mut self,
+        call: FunctionCall,
+        msg_id: Option<String>,
+        data: (&str, T),
+    ) {
+        // Check reply_to is defined
+        let reply_to = if let Some(reply_to) = call.reply_to.clone() {
+            reply_to
+        } else {
+            log::error!("reply_to undefined on {:?}", call);
+            self.send_error_on_call(call, "reply_to is undefined".into());
+            return;
+        };
+
+        let arguments = json!({ "msg_id": msg_id, data.0: data.1 });
+        // Build reply
+        let call = FunctionCall {
+            uuid: Self::uuid(),
+            target: Some(reply_to),
+            reply_to: Some(self.config.local_address()),
+            fname: None,
+            module: None,
+            arguments,
+            name: None,
+            sender: self.config.local_address(),
+        };
+        self.call(call);
     }
 }
