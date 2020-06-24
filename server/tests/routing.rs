@@ -29,7 +29,7 @@
 
 use crate::utils::*;
 use faas_api::{peer, provider, FunctionCall, Protocol};
-use fluence_faas::RawModuleConfig;
+use fluence_faas::RawCoreModulesConfig;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde_json::json;
@@ -448,32 +448,58 @@ fn identify() {
 
 #[test]
 fn get_interface() {
-    let ipfs_rpc = include_bytes!("artifacts/ipfs_node.wasm");
-    let module: RawModuleConfig = toml::from_str(
+    let ipfs_node = include_bytes!("artifacts/ipfs_node.wasm");
+    let ipfs_rpc = include_bytes!("artifacts/wasm_ipfs_rpc_wit.wasi.wasm");
+    let wasm_config: RawCoreModulesConfig = toml::from_str(
         r#"
-        name = "ipfs_node.wasm"
-        mem_pages_count = 100
-        logger_enabled = true
-
-        [imports]
-        mysql = "/usr/bin/mysql"
-        ipfs = "/usr/local/bin/ipfs"
+        core_modules_dir = ""
+        
+        [[core_module]]
+            name = "ipfs_node.wasm"
+            mem_pages_count = 100
+            logger_enabled = true
+        
+            [core_module.imports]
+            ipfs = "/usr/local/bin/ipfs"
+            
+        [[core_module]]
+            name = "ipfs_rpc.wasm"
+            mem_pages_count = 100
+            logger_enabled = true
+            
+            [core_module.imports]
+            ipfs = "/usr/local/bin/ipfs"
 
         [wasi]
-        envs = []
-        preopened_files = ["./tests/artifacts"]
-        mapped_dirs = { "tmp" = "./tests/artifacts" }
+            envs = []
+            preopened_files = ["./tests/artifacts"]
+            mapped_dirs = { "tmp" = "./tests/artifacts" }
+        
+        [rpc_module]
+            mem_pages_count = 100
+            logger_enabled = true
+        
+            [rpc_module.wasi]
+            envs = []
+            preopened_files = ["./tests/artifacts"]
+            mapped_dirs = { "tmp" = "./tests/artifacts" }
     "#,
     )
     .expect("parse module config");
 
-    println!("config is {:?}", module);
+    let wasm_modules = vec![
+        ("ipfs_node.wasm".to_string(), ipfs_node.to_vec()),
+        ("ipfs_rpc.wasm".to_string(), ipfs_rpc.to_vec()),
+    ];
+
+    println!("config is {:?}", wasm_config);
 
     let swarms = make_swarms_with(
         1,
         |bs, maddr| {
             let mut config = SwarmConfig::new(bs, maddr);
-            config.wasm_modules = vec![(module.clone(), ipfs_rpc.to_vec())];
+            config.wasm_modules = wasm_modules.clone();
+            config.wasm_config = wasm_config.clone();
             create_swarm(config)
         },
         create_memory_maddr,
@@ -485,6 +511,26 @@ fn get_interface() {
     let mut call = service_call(client.node_addr(), client.relay_addr(), "get_interface");
     let msg_id = uuid();
     call.arguments = json!({ "msg_id": msg_id });
+    client.send(call.clone());
+    let received = client.receive();
+    println!(
+        "received: {}",
+        serde_json::to_string_pretty(&received).unwrap()
+    );
+
+    call.module = Some("ipfs_rpc.wasm".into());
+    call.fname = Some("add".into());
+    call.arguments = Value::Array(vec![Value::String("Hello world".into())]);
+    client.send(call.clone());
+    let received = client.receive();
+    println!(
+        "received: {}",
+        serde_json::to_string_pretty(&received).unwrap()
+    );
+
+    call.module = Some("ipfs_node.wasm".into());
+    call.fname = Some("get_addresses".into());
+    call.arguments = Value::Null;
     client.send(call.clone());
     let received = client.receive();
     println!(

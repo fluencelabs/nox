@@ -20,7 +20,7 @@ use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::ServerBehaviour;
 
 use fluence_client::Transport;
-use fluence_faas::{FluenceFaaS, RawCoreModulesConfig, RawModuleConfig};
+use fluence_faas::{FluenceFaaS, RawCoreModulesConfig};
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -277,7 +277,8 @@ pub struct SwarmConfig<'a> {
     pub trust: Option<Trust>,
     pub transport: Transport,
     pub registry: Option<&'a Registry>,
-    pub wasm_modules: Vec<(RawModuleConfig, Vec<u8>)>,
+    pub wasm_config: RawCoreModulesConfig,
+    pub wasm_modules: Vec<(String, Vec<u8>)>,
 }
 
 impl<'a> SwarmConfig<'a> {
@@ -288,7 +289,8 @@ impl<'a> SwarmConfig<'a> {
             trust: None,
             transport: Transport::Memory,
             registry: None,
-            wasm_modules: vec![],
+            wasm_config: <_>::default(),
+            wasm_modules: <_>::default(),
         }
     }
 
@@ -302,7 +304,9 @@ impl<'a> SwarmConfig<'a> {
 pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>) {
     use libp2p::identity;
     #[rustfmt::skip]
-    let SwarmConfig { bootstraps, listen_on, trust, transport, registry, wasm_modules } = config;
+    let SwarmConfig { 
+        bootstraps, listen_on, trust, transport, registry, wasm_config, wasm_modules 
+    } = config;
 
     let kp = Keypair::generate();
     let public_key = Ed25519(kp.public());
@@ -319,24 +323,13 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>)
             }
         }
 
-        let (wasm_modules, core_module): (Vec<(_, _)>, _) = wasm_modules
-            .into_iter()
-            .map(|(config, bytes)| ((config.name.clone(), bytes), config))
-            .unzip();
-
-        let config = RawCoreModulesConfig {
-            core_modules_dir: <_>::default(),
-            core_module,
-            rpc_module: None,
-        };
-
-        println!("full config: {:?}", config);
         println!(
-            "full config pretty: {}",
-            toml::to_string_pretty(&config).expect("print")
+            "full config pretty:\n{}",
+            toml::to_string_pretty(&wasm_config).expect("print")
         );
+        println!("config:\n{:#?}", wasm_config);
 
-        let faas = FluenceFaaS::with_modules(wasm_modules, config).expect("create faas");
+        let faas = FluenceFaaS::with_modules(wasm_modules, wasm_config).expect("create faas");
 
         let server = ServerBehaviour::new(
             kp.clone(),
