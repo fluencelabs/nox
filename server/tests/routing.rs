@@ -544,7 +544,8 @@ fn ipfs_call(module: &str, fname: &str) {
 
     let mut call = service_call(client.node_addr(), client.relay_addr(), module);
     call.fname = Some(fname.into());
-    call.arguments = Value::Array(vec![Value::String("Hello world".into())]);
+    let map = std::iter::once(("1".to_string(), Value::String("Hello world".into()))).collect();
+    call.arguments = Value::Object(map);
 
     client.send(call.clone());
 

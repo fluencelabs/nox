@@ -968,7 +968,7 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 [[package]]
 name = "fce"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#3b158b0a2170c8c5d5a9e6497afeb6798438ea43"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#619aca393b86b4746ebef485073103904d382b34"
 dependencies = [
  "fce_wit_interfaces",
  "multimap",
@@ -985,7 +985,7 @@ dependencies = [
 [[package]]
 name = "fce_wit_interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#3b158b0a2170c8c5d5a9e6497afeb6798438ea43"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#619aca393b86b4746ebef485073103904d382b34"
 dependencies = [
  "multimap",
  "wasmer-interface-types",
@@ -1047,7 +1047,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#3b158b0a2170c8c5d5a9e6497afeb6798438ea43"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#619aca393b86b4746ebef485073103904d382b34"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -4266,7 +4266,7 @@ dependencies = [
 [[package]]
 name = "wasmer-interface-types"
 version = "0.17.0"
-source = "git+http://github.com/fluencelabs/interface-types#a87cf1f52825f5885ea5de77eaac2a06534ec3da"
+source = "git+http://github.com/fluencelabs/interface-types?branch=serde#899567042fbbebe8c78ecd1c3c91816d347ae346"
 dependencies = [
  "nom",
  "serde 1.0.114",
@@ -4467,7 +4467,7 @@ dependencies = [
 [[package]]
 name = "wit_parser"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#3b158b0a2170c8c5d5a9e6497afeb6798438ea43"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#619aca393b86b4746ebef485073103904d382b34"
 dependencies = [
  "anyhow",
  "fce_wit_interfaces",

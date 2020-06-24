@@ -93,7 +93,7 @@ impl FunctionRouter {
             .faas
             .call_module(&module, &function, arguments)
             .map_err(|e| call.clone().error(e))?;
-        let result = fluence_faas::from_interface_values(&result)
+        let result: Value = fluence_faas::from_interface_values(&result)
             .map_err(|e| ResultSerializationFailed(e.to_string()).of_call(call.clone()))?;
 
         self.reply_with(call, None, ("result", result))
