@@ -461,8 +461,8 @@ fn get_interface() {
 
         [wasi]
         envs = []
-        preopened_files = ["./artifacts"]
-        mapped_dirs = { "tmp" = "./artifacts" }
+        preopened_files = ["./tests/artifacts"]
+        mapped_dirs = { "tmp" = "./tests/artifacts" }
     "#,
     )
     .expect("parse module config");
@@ -470,7 +470,7 @@ fn get_interface() {
     println!("config is {:?}", module);
 
     let swarms = make_swarms_with(
-        5,
+        1,
         |bs, maddr| {
             let mut config = SwarmConfig::new(bs, maddr);
             config.wasm_modules = vec![(module.clone(), ipfs_rpc.to_vec())];
@@ -481,11 +481,14 @@ fn get_interface() {
     );
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect consumer");
     let mut call = service_call(client.node_addr(), client.relay_addr(), "get_interface");
     let msg_id = uuid();
     call.arguments = json!({ "msg_id": msg_id });
     client.send(call.clone());
     let received = client.receive();
-    println!("received: {:?}", received);
+    println!(
+        "received: {}",
+        serde_json::to_string_pretty(&received).unwrap()
+    );
 }
