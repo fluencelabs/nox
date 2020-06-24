@@ -446,53 +446,52 @@ fn identify() {
     }
 }
 
+static IPFS_NODE: &[u8] = include_bytes!("artifacts/ipfs_node.wasm");
+static IPFS_RPC: &[u8] = include_bytes!("artifacts/wasm_ipfs_rpc_wit.wasi.wasm");
+static WASM_CONFIG: &str = r#"
+core_modules_dir = ""
+
+[[core_module]]
+    name = "ipfs_node.wasm"
+    mem_pages_count = 100
+    logger_enabled = true        
+[core_module.imports]
+    ipfs = "/usr/local/bin/ipfs"            
+[core_module.wasi]
+    envs = []
+    preopened_files = ["./tests/artifacts"]
+    mapped_dirs = { "tmp" = "./tests/artifacts" }
+    
+[[core_module]]
+    name = "ipfs_rpc.wasm"
+    mem_pages_count = 100
+    logger_enabled = true
+[core_module.imports]
+    ipfs = "/usr/local/bin/ipfs"
+[core_module.wasi]
+    envs = []
+    preopened_files = ["./tests/artifacts"]
+    mapped_dirs = { "tmp" = "./tests/artifacts" }
+
+[rpc_module]
+    mem_pages_count = 100
+    logger_enabled = true
+
+    [rpc_module.wasi]
+    envs = []
+    preopened_files = ["./tests/artifacts"]
+    mapped_dirs = { "tmp" = "./tests/artifacts" }
+"#;
+
 #[test]
 fn get_interface() {
-    let ipfs_node = include_bytes!("artifacts/ipfs_node.wasm");
-    let ipfs_rpc = include_bytes!("artifacts/wasm_ipfs_rpc_wit.wasi.wasm");
-    let wasm_config: RawCoreModulesConfig = toml::from_str(
-        r#"
-        core_modules_dir = ""
-        
-        [[core_module]]
-            name = "ipfs_node.wasm"
-            mem_pages_count = 100
-            logger_enabled = true
-        
-            [core_module.imports]
-            ipfs = "/usr/local/bin/ipfs"
-            
-        [[core_module]]
-            name = "ipfs_rpc.wasm"
-            mem_pages_count = 100
-            logger_enabled = true
-            
-            [core_module.imports]
-            ipfs = "/usr/local/bin/ipfs"
-
-        [wasi]
-            envs = []
-            preopened_files = ["./tests/artifacts"]
-            mapped_dirs = { "tmp" = "./tests/artifacts" }
-        
-        [rpc_module]
-            mem_pages_count = 100
-            logger_enabled = true
-        
-            [rpc_module.wasi]
-            envs = []
-            preopened_files = ["./tests/artifacts"]
-            mapped_dirs = { "tmp" = "./tests/artifacts" }
-    "#,
-    )
-    .expect("parse module config");
+    let wasm_config: RawCoreModulesConfig =
+        toml::from_str(WASM_CONFIG).expect("parse module config");
 
     let wasm_modules = vec![
-        ("ipfs_node.wasm".to_string(), ipfs_node.to_vec()),
-        ("ipfs_rpc.wasm".to_string(), ipfs_rpc.to_vec()),
+        ("ipfs_node.wasm".to_string(), IPFS_NODE.to_vec()),
+        ("ipfs_rpc.wasm".to_string(), IPFS_RPC.to_vec()),
     ];
-
-    println!("config is {:?}", wasm_config);
 
     let swarms = make_swarms_with(
         1,
@@ -517,24 +516,51 @@ fn get_interface() {
         "received: {}",
         serde_json::to_string_pretty(&received).unwrap()
     );
+}
 
-    call.module = Some("ipfs_rpc.wasm".into());
-    call.fname = Some("add".into());
+fn ipfs_call(module: &str, fname: &str) {
+    let wasm_config: RawCoreModulesConfig =
+        toml::from_str(WASM_CONFIG).expect("parse module config");
+
+    let wasm_modules = vec![
+        ("ipfs_node.wasm".to_string(), IPFS_NODE.to_vec()),
+        ("ipfs_rpc.wasm".to_string(), IPFS_RPC.to_vec()),
+    ];
+
+    let swarms = make_swarms_with(
+        1,
+        |bs, maddr| {
+            let mut config = SwarmConfig::new(bs, maddr);
+            config.wasm_modules = wasm_modules.clone();
+            config.wasm_config = wasm_config.clone();
+            create_swarm(config)
+        },
+        create_memory_maddr,
+        true,
+    );
+    sleep(KAD_TIMEOUT);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect consumer");
+
+    let mut call = service_call(client.node_addr(), client.relay_addr(), module);
+    call.fname = Some(fname.into());
     call.arguments = Value::Array(vec![Value::String("Hello world".into())]);
-    client.send(call.clone());
-    let received = client.receive();
-    println!(
-        "received: {}",
-        serde_json::to_string_pretty(&received).unwrap()
-    );
 
-    call.module = Some("ipfs_node.wasm".into());
-    call.fname = Some("get_addresses".into());
-    call.arguments = Value::Null;
     client.send(call.clone());
+
     let received = client.receive();
     println!(
         "received: {}",
         serde_json::to_string_pretty(&received).unwrap()
     );
+}
+
+#[test]
+fn ipfs_put() {
+    ipfs_call("ipfs_rpc.wasm", "put")
+}
+
+#[test]
+fn ipfs_get_addresses() {
+    ipfs_call("ipfs_node.wasm", "get_addresses")
 }

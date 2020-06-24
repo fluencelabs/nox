@@ -323,12 +323,6 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>)
             }
         }
 
-        println!(
-            "full config pretty:\n{}",
-            toml::to_string_pretty(&wasm_config).expect("print")
-        );
-        println!("config:\n{:#?}", wasm_config);
-
         let faas = FluenceFaaS::with_modules(wasm_modules, wasm_config).expect("create faas");
 
         let server = ServerBehaviour::new(
