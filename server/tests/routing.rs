@@ -27,16 +27,17 @@
     unreachable_patterns
 )]
 
+use crate::utils::*;
 use faas_api::{peer, provider, FunctionCall, Protocol};
-use fluence_client::Transport;
+use fluence_faas::RawModuleConfig;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
+use serde_json::json;
 use serde_json::Value;
 use std::str::FromStr;
 use std::thread::sleep;
 use trust_graph::{current_time, Certificate};
 
-use crate::utils::*;
 mod utils;
 
 #[test]
@@ -44,21 +45,16 @@ mod utils;
 fn send_call() {
     let (sender, mut receiver) = ConnectedClient::make_clients().expect("connect clients");
 
-    let uuid = uuid();
-    let call = FunctionCall {
-        uuid: uuid.clone(),
-        target: Some(receiver.relay_addr()),
-        module: None,
-        fname: None,
-        arguments: Value::Null,
-        reply_to: Some(sender.relay_addr()),
-        name: None,
-        sender: sender.relay_addr(),
-    };
+    let call = FunctionCall::reply(
+        receiver.relay_addr(),
+        sender.relay_addr(),
+        Value::Null,
+        None,
+    );
 
-    sender.send(call);
+    sender.send(call.clone());
     let received = receiver.receive();
-    assert_eq!(received.uuid, uuid);
+    assert_eq!(received.uuid, call.uuid);
 
     // Check there is no more messages
     let bad = receiver.maybe_receive();
@@ -145,11 +141,7 @@ fn call_service() {
     let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
 
-    let call_service = service_call(
-        provider!(service_id),
-        consumer.relay_addr(),
-        service_id.into(),
-    );
+    let call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
     consumer.send(call_service.clone());
 
     let to_provider = provider.receive();
@@ -173,11 +165,7 @@ fn call_service_reply() {
     let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
 
-    let call_service = service_call(
-        provider!(service_id),
-        consumer.relay_addr(),
-        service_id.into(),
-    );
+    let call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
     consumer.send(call_service);
 
     let to_provider = provider.receive();
@@ -216,11 +204,7 @@ fn provide_disconnect() {
     provider.client.stop();
 
     // Send call to the service, should fail
-    let mut call_service = service_call(
-        provider!(service_id),
-        consumer.relay_addr(),
-        service_id.into(),
-    );
+    let mut call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
     call_service.name = Some("Send call to the service, should fail".into());
     consumer.send(call_service.clone());
     let error = consumer.receive();
@@ -283,11 +267,7 @@ fn reconnect_provide() {
 
     sleep(KAD_TIMEOUT);
 
-    let call_service = service_call(
-        provider!(service_id),
-        consumer.relay_addr(),
-        service_id.into(),
-    );
+    let call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
     consumer.send(call_service.clone());
 
     let to_provider = provider.receive();
@@ -309,7 +289,7 @@ fn get_certs() {
     let swarm_count = 5;
     let swarms = make_swarms_with(
         swarm_count,
-        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
+        |bs, maddr| create_swarm(SwarmConfig::with_trust(bs, maddr, trust.clone())),
         create_memory_maddr,
         true,
     );
@@ -349,7 +329,7 @@ fn add_certs() {
     let swarm_count = 5;
     let swarms = make_swarms_with(
         swarm_count,
-        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
+        |bs, maddr| create_swarm(SwarmConfig::with_trust(bs, maddr, trust.clone())),
         create_memory_maddr,
         true,
     );
@@ -412,7 +392,7 @@ fn add_certs_invalid_signature() {
     let swarm_count = 5;
     let swarms = make_swarms_with(
         swarm_count,
-        |bs, maddr| create_swarm(bs, maddr, Some(trust.clone()), Transport::Memory, None),
+        |bs, maddr| create_swarm(SwarmConfig::with_trust(bs, maddr, trust.clone())),
         create_memory_maddr,
         true,
     );
@@ -436,15 +416,12 @@ fn add_certs_invalid_signature() {
 
 #[test]
 fn identify() {
-    use serde_json::json;
-
     let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
 
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
 
-    let module = "identify".to_string();
-    let mut identify_call = service_call(consumer.node_addr(), consumer.relay_addr(), module);
+    let mut identify_call = service_call(consumer.node_addr(), consumer.relay_addr(), "identify");
     let msg_id = uuid();
     identify_call.arguments = json!({ "msg_id": msg_id });
     consumer.send(identify_call.clone());
@@ -471,5 +448,44 @@ fn identify() {
 
 #[test]
 fn get_interface() {
-    
+    let ipfs_rpc = include_bytes!("artifacts/ipfs_node.wasm");
+    let module: RawModuleConfig = toml::from_str(
+        r#"
+        name = "ipfs_node.wasm"
+        mem_pages_count = 100
+        logger_enabled = true
+
+        [imports]
+        mysql = "/usr/bin/mysql"
+        ipfs = "/usr/local/bin/ipfs"
+
+        [wasi]
+        envs = []
+        preopened_files = ["./artifacts"]
+        mapped_dirs = { "tmp" = "./artifacts" }
+    "#,
+    )
+    .expect("parse module config");
+
+    println!("config is {:?}", module);
+
+    let swarms = make_swarms_with(
+        5,
+        |bs, maddr| {
+            let mut config = SwarmConfig::new(bs, maddr);
+            config.wasm_modules = vec![(module.clone(), ipfs_rpc.to_vec())];
+            create_swarm(config)
+        },
+        create_memory_maddr,
+        true,
+    );
+    sleep(KAD_TIMEOUT);
+
+    let mut client = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let mut call = service_call(client.node_addr(), client.relay_addr(), "get_interface");
+    let msg_id = uuid();
+    call.arguments = json!({ "msg_id": msg_id });
+    client.send(call.clone());
+    let received = client.receive();
+    println!("received: {:?}", received);
 }

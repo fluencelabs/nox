@@ -92,7 +92,10 @@ fn start_bunch(
         |bs, maddr| {
             let rnd = bs.into_iter().choose_multiple(&mut rng, bs_max);
             let bs: Vec<_> = rnd.into_iter().chain(external_bootstraps.clone()).collect();
-            create_swarm(bs, maddr, None, Transport::Network, registry)
+            let mut config = SwarmConfig::new(bs, maddr);
+            config.transport = Transport::Network;
+            config.registry = registry;
+            create_swarm(config)
         },
         || {
             let maddr = create_maddr(host, port + idx);
@@ -156,11 +159,11 @@ fn receive_call_on_big_network() {
 
         let target = provider!(service_id);
 
-        client30.send(service_call(target.clone(), client30.relay_addr(), service_id.into()));
+        client30.send(service_call(target.clone(), client30.relay_addr(), service_id));
         let call30to20 = client20.receive();
         log::info!("call30to20: {:?}", call30to20);
 
-        client40.send(service_call(target, client40.relay_addr(), service_id.into()));
+        client40.send(service_call(target, client40.relay_addr(), service_id));
         let call40to20 = client20.receive();
         log::info!("call40to20: {:?}", call40to20);
     }
