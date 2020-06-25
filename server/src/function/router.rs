@@ -359,6 +359,7 @@ impl FunctionRouter {
 
     /// Triggered when `get_closest_peers` finished for local peer id
     /// Publishes all locally available wasm modules to DHT
+    /// //TODO: unpublish these on drop?
     pub fn bootstrap_finished(&mut self) {
         use faas_api::provider;
 
