@@ -61,15 +61,17 @@ impl FunctionRouter {
     ) -> Result<Option<(String, String)>, CallErrorKind<'static>> {
         let interface = self.faas.get_interface();
         let module = ok_get!(interface.modules.iter().find(|m| m.name == module));
-        let function = function.ok_or(MissingFunctionName {
+        let function = function.ok_or_else(|| MissingFunctionName {
             module: module.name.to_string(),
         })?;
-        let function = module.functions.iter().find(|f| f.name == function).ok_or(
-            CallErrorKind::FunctionNotFound {
+        let function = module
+            .functions
+            .iter()
+            .find(|f| f.name == function)
+            .ok_or_else(|| CallErrorKind::FunctionNotFound {
                 module: module.name.to_string(),
                 function: function.to_string(),
-            },
-        )?;
+            })?;
         Ok(Some((module.name.to_string(), function.name.to_string())))
     }
 

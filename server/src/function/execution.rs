@@ -94,7 +94,7 @@ impl FunctionRouter {
             .call_module(&module, &function, arguments)
             .map_err(|e| call.clone().error(e))?;
 
-        // Handle empty result manually
+        // Handle empty result manually because `from_interface_values` doesn't support empty vec
         let result = if !result.is_empty() {
             fluence_faas::from_interface_values(&result)
                 .map_err(|e| call.clone().error(ResultSerializationFailed(e.to_string())))?
@@ -163,12 +163,12 @@ impl FunctionRouter {
         log::info!("executing certificates service for {}, call: {:?}", peer_id, call);
 
         let reply_to = call.reply_to.clone();
-        let reply_to = reply_to.ok_or(call.clone().error(MissingReplyTo))?;
+        let reply_to = reply_to.ok_or_else(|| call.clone().error(MissingReplyTo))?;
 
         // Extract public key from peer_id
         let public_key = peer_id
             .as_public_key()
-            .ok_or(call.clone().error(MissingPublicKey))
+            .ok_or_else(|| call.clone().error(MissingPublicKey))
             .and_then(|pk| match pk {
                 PublicKey::Ed25519(public_key) => Ok(public_key),
                 _ => Err(call.clone().error(UnsupportedPublicKey)),
@@ -245,7 +245,7 @@ impl FunctionRouter {
         data: (&str, T),
     ) -> Result<(), CallError<'static>> {
         let reply_to = call.reply_to.clone();
-        let reply_to = reply_to.ok_or(call.clone().error(MissingReplyTo))?;
+        let reply_to = reply_to.ok_or_else(|| call.error(MissingReplyTo))?;
 
         let mut args = serde_json::Map::new();
 
