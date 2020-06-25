@@ -93,8 +93,14 @@ impl FunctionRouter {
             .faas
             .call_module(&module, &function, arguments)
             .map_err(|e| call.clone().error(e))?;
-        let result: Value = fluence_faas::from_interface_values(&result)
-            .map_err(|e| ResultSerializationFailed(e.to_string()).of_call(call.clone()))?;
+
+        // Handle empty result manually
+        let result = if !result.is_empty() {
+            fluence_faas::from_interface_values(&result)
+                .map_err(|e| call.clone().error(ResultSerializationFailed(e.to_string())))?
+        } else {
+            Value::Null
+        };
 
         self.reply_with(call, None, ("result", result))
     }
@@ -238,7 +244,17 @@ impl FunctionRouter {
     ) -> Result<(), CallError<'static>> {
         let reply_to = call.reply_to.clone();
         let reply_to = reply_to.ok_or(call.clone().error(MissingReplyTo))?;
-        let arguments = json!({ "msg_id": msg_id, data.0: data.1 });
+
+        let mut map = serde_json::Map::new();
+        let value = json!(data.1);
+        if !value.is_null() {
+            map.insert(data.0.into(), value);
+        }
+        if let Some(msg_id) = msg_id {
+            map.insert("msg_id".into(), msg_id.into());
+        }
+        let arguments = Value::Object(map);
+
         let call = FunctionCall::reply(reply_to, self.config.local_address(), arguments, None);
 
         Ok(self.call(call))

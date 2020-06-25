@@ -272,9 +272,9 @@ checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
 
 [[package]]
 name = "base64"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e223af0dc48c96d4f8342ec01a4974f139df863896b316681efd36742f22cc67"
+checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 
 [[package]]
 name = "bencher"
@@ -968,7 +968,7 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 [[package]]
 name = "fce"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#619aca393b86b4746ebef485073103904d382b34"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#6c88d8179363bfe845fe5fecb5f88d4c2f32de34"
 dependencies = [
  "fce_wit_interfaces",
  "multimap",
@@ -985,7 +985,7 @@ dependencies = [
 [[package]]
 name = "fce_wit_interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#619aca393b86b4746ebef485073103904d382b34"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#6c88d8179363bfe845fe5fecb5f88d4c2f32de34"
 dependencies = [
  "multimap",
  "wasmer-interface-types",
@@ -1047,7 +1047,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#619aca393b86b4746ebef485073103904d382b34"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#6c88d8179363bfe845fe5fecb5f88d4c2f32de34"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -3179,7 +3179,7 @@ version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b82c9238b305f26f53443e3a4bc8528d64b8d0bee408ec949eb7bf5635ec680"
 dependencies = [
- "base64 0.12.2",
+ "base64 0.12.3",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -4266,7 +4266,7 @@ dependencies = [
 [[package]]
 name = "wasmer-interface-types"
 version = "0.17.0"
-source = "git+http://github.com/fluencelabs/interface-types?branch=serde#899567042fbbebe8c78ecd1c3c91816d347ae346"
+source = "git+http://github.com/fluencelabs/interface-types#689c6757fb5713495586085e53d51ecb2e8759b7"
 dependencies = [
  "nom",
  "serde 1.0.114",
@@ -4467,7 +4467,7 @@ dependencies = [
 [[package]]
 name = "wit_parser"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#619aca393b86b4746ebef485073103904d382b34"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#6c88d8179363bfe845fe5fecb5f88d4c2f32de34"
 dependencies = [
  "anyhow",
  "fce_wit_interfaces",

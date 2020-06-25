@@ -446,28 +446,23 @@ fn identify() {
     }
 }
 
-static IPFS_NODE: &[u8] = include_bytes!("artifacts/ipfs_node.wasm");
-static IPFS_RPC: &[u8] = include_bytes!("artifacts/wasm_ipfs_rpc_wit.wasi.wasm");
+static TEST_MODULE: &[u8] = include_bytes!("artifacts/test_module_wit.wasi.wasm");
 static WASM_CONFIG: &str = r#"
 core_modules_dir = ""
 
 [[core_module]]
-    name = "ipfs_node.wasm"
+    name = "test_one.wasm"
     mem_pages_count = 100
     logger_enabled = true        
-[core_module.imports]
-    ipfs = "/usr/local/bin/ipfs"            
 [core_module.wasi]
     envs = []
     preopened_files = ["./tests/artifacts"]
     mapped_dirs = { "tmp" = "./tests/artifacts" }
     
 [[core_module]]
-    name = "ipfs_rpc.wasm"
+    name = "test_two.wasm"
     mem_pages_count = 100
     logger_enabled = true
-[core_module.imports]
-    ipfs = "/usr/local/bin/ipfs"
 [core_module.wasi]
     envs = []
     preopened_files = ["./tests/artifacts"]
@@ -483,14 +478,13 @@ core_modules_dir = ""
     mapped_dirs = { "tmp" = "./tests/artifacts" }
 "#;
 
-#[test]
-fn get_interface() {
+fn start_faas() -> CreatedSwarm {
     let wasm_config: RawCoreModulesConfig =
         toml::from_str(WASM_CONFIG).expect("parse module config");
 
     let wasm_modules = vec![
-        ("ipfs_node.wasm".to_string(), IPFS_NODE.to_vec()),
-        ("ipfs_rpc.wasm".to_string(), IPFS_RPC.to_vec()),
+        ("test_one.wasm".to_string(), TEST_MODULE.to_vec()),
+        ("test_two.wasm".to_string(), TEST_MODULE.to_vec()),
     ];
 
     let swarms = make_swarms_with(
@@ -506,62 +500,92 @@ fn get_interface() {
     );
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect consumer");
+    swarms.into_iter().nth(0).unwrap()
+}
+
+#[test]
+fn get_interface() {
+    let swarm = start_faas();
+    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
     let mut call = service_call(client.node_addr(), client.relay_addr(), "get_interface");
     let msg_id = uuid();
     call.arguments = json!({ "msg_id": msg_id });
     client.send(call.clone());
     let received = client.receive();
-    println!(
-        "received: {}",
-        serde_json::to_string_pretty(&received).unwrap()
-    );
-}
 
-fn ipfs_call(module: &str, fname: &str) {
-    let wasm_config: RawCoreModulesConfig =
-        toml::from_str(WASM_CONFIG).expect("parse module config");
+    #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
+    struct Function {
+        inputs: Vec<String>,
+        name: String,
+        outputs: Vec<String>,
+    }
+    #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
+    struct Module {
+        name: String,
+        functions: Vec<Function>,
+    }
+    #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
+    struct Interface {
+        modules: Vec<Module>,
+    }
 
-    let wasm_modules = vec![
-        ("ipfs_node.wasm".to_string(), IPFS_NODE.to_vec()),
-        ("ipfs_rpc.wasm".to_string(), IPFS_RPC.to_vec()),
-    ];
+    let expected: Interface = serde_json::from_str(r#"{"modules":[{"functions":[{"inputs":["String"],"name":"greeting","outputs":["String"]},{"inputs":[],"name":"empty","outputs":[]}],"name":"test_one.wasm"},{"functions":[{"inputs":[],"name":"empty","outputs":[]},{"inputs":["String"],"name":"greeting","outputs":["String"]}],"name":"test_two.wasm"}]}"#).unwrap();
+    let actual: Interface =
+        serde_json::from_value(received.arguments["interface"].clone()).unwrap();
 
-    let swarms = make_swarms_with(
-        1,
-        |bs, maddr| {
-            let mut config = SwarmConfig::new(bs, maddr);
-            config.wasm_modules = wasm_modules.clone();
-            config.wasm_config = wasm_config.clone();
-            create_swarm(config)
-        },
-        create_memory_maddr,
-        true,
-    );
-    sleep(KAD_TIMEOUT);
-
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect consumer");
-
-    let mut call = service_call(client.node_addr(), client.relay_addr(), module);
-    call.fname = Some(fname.into());
-    let map = std::iter::once(("1".to_string(), Value::String("Hello world".into()))).collect();
-    call.arguments = Value::Object(map);
-
-    client.send(call.clone());
-
-    let received = client.receive();
-    println!(
-        "received: {}",
-        serde_json::to_string_pretty(&received).unwrap()
-    );
+    assert_eq!(expected.modules.len(), actual.modules.len());
+    for me in expected.modules {
+        #[rustfmt::skip]
+        let ma = actual.modules.iter().find(|m| m.name == me.name).expect("module not found");
+        assert_eq!(me.functions.len(), ma.functions.len());
+        for fe in me.functions {
+            #[rustfmt::skip]
+            let fa = ma.functions.iter().find(|f| f.name == fe.name).expect("function not found");
+            assert_eq!(&fe, fa);
+        }
+    }
 }
 
 #[test]
-fn ipfs_put() {
-    ipfs_call("ipfs_rpc.wasm", "put")
+fn call_greeting() {
+    let swarm = start_faas();
+    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+
+    for module in vec!["test_one.wasm", "test_two.wasm"] {
+        let mut call = service_call(client.node_addr(), client.relay_addr(), module);
+        call.fname = Some("greeting".into());
+        let payload: String = "Hello".into();
+
+        // Pass arguments as an array
+        call.arguments = Value::Array(vec![payload.clone().into()]);
+        client.send(call.clone());
+
+        let received = client.receive();
+        assert_eq!(&received.arguments["result"], &payload);
+
+        // Pass arguments as a map
+        let mut map = serde_json::Map::new();
+        map.insert("anything".into(), payload.clone().into());
+        call.arguments = Value::Object(map);
+        client.send(call);
+
+        let received = client.receive();
+        assert_eq!(&received.arguments["result"], &payload);
+    }
 }
 
 #[test]
-fn ipfs_get_addresses() {
-    ipfs_call("ipfs_node.wasm", "get_addresses")
+fn call_empty() {
+    let swarm = start_faas();
+    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+
+    for module in vec!["test_one.wasm", "test_two.wasm"] {
+        let mut call = service_call(client.node_addr(), client.relay_addr(), module);
+        call.fname = Some("empty".into());
+
+        client.send(call.clone());
+        let received = client.receive();
+
+        assert!(received.arguments.as_object().unwrap().is_empty());
+    }
 }
