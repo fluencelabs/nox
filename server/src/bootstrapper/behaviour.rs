@@ -22,27 +22,58 @@ use libp2p::swarm::{
 };
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::mem;
 use std::time::{Duration, Instant};
 
 pub type SwarmEventType = generate_swarm_event_type!(Bootstrapper);
-// TODO: make it exponential
-static RECONNECT_DELAY: Duration = Duration::from_millis(1500);
-static BOOTSTRAP_DELAY: Duration = Duration::from_millis(10000);
-static BOOTSTRAP_MAX_DELAY: Duration = Duration::from_secs(60);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BootstrapConfig {
+    pub reconnect_delay: Duration,
+    pub bootstrap_delay: Duration,
+    pub bootstrap_max_delay: Duration,
+}
+
+impl BootstrapConfig {
+    /// Creates config with all values to zero, so no delays. Useful for tests.
+    pub fn zero() -> BootstrapConfig {
+        BootstrapConfig {
+            reconnect_delay: <_>::default(),
+            bootstrap_delay: <_>::default(),
+            bootstrap_max_delay: <_>::default(),
+        }
+    }
+}
+
+impl Default for BootstrapConfig {
+    fn default() -> Self {
+        BootstrapConfig {
+            // TODO: make it exponential
+            reconnect_delay: Duration::from_millis(1500),
+            bootstrap_delay: Duration::from_millis(10000),
+            bootstrap_max_delay: Duration::from_secs(60),
+        }
+    }
+}
 
 #[derive(Default, Debug)]
-struct Backoff(u32);
+struct Backoff(u32, Duration);
 impl Backoff {
+    pub fn new(delay: Duration) -> Self {
+        Backoff(0, delay)
+    }
+
     pub fn next_delay(&mut self) -> Duration {
         self.0 += 1;
-        self.0 * RECONNECT_DELAY
+        self.0 * self.1
     }
 }
 
 pub struct Bootstrapper {
+    config: BootstrapConfig,
     peer_id: PeerId,
     pub bootstrap_nodes: HashSet<Multiaddr>,
     delayed_events: Vec<(Option<Instant>, SwarmEventType)>,
@@ -52,8 +83,9 @@ pub struct Bootstrapper {
 }
 
 impl Bootstrapper {
-    pub fn new(peer_id: PeerId, bootstrap_nodes: Vec<Multiaddr>) -> Self {
+    pub fn new(config: BootstrapConfig, peer_id: PeerId, bootstrap_nodes: Vec<Multiaddr>) -> Self {
         Self {
+            config,
             peer_id,
             bootstrap_nodes: bootstrap_nodes.into_iter().collect(),
             delayed_events: Default::default(),
@@ -74,10 +106,11 @@ impl Bootstrapper {
         S: Into<String>,
         E: Into<Option<S>>,
     {
+        let delay = self.config.reconnect_delay;
         let delay = self
             .bootstrap_backoff
             .entry(multiaddr.clone())
-            .or_insert_with(Backoff::default)
+            .or_insert_with(|| Backoff::new(delay))
             .next_delay();
 
         self.push_event(
@@ -89,23 +122,24 @@ impl Bootstrapper {
         );
     }
 
-    /// Schedule sending of `RunBootstrap` event after a `BOOTSTRAP_DELAY`
+    /// Schedule sending of `RunBootstrap` event after a `bootstrap_delay`
     fn schedule_bootstrap(&mut self) {
         match self.bootstrap_scheduled {
-            Some((scheduled, mut delay)) if delay < BOOTSTRAP_MAX_DELAY => {
+            Some((scheduled, mut delay)) if delay < self.config.bootstrap_max_delay => {
                 // Delay bootstrap by `elapsed`
                 delay += scheduled.elapsed()
             }
             Some(_) => { /* maximum delay reached */ }
-            mut empty => {
-                empty.replace((Instant::now(), BOOTSTRAP_DELAY));
+            None => {
+                self.bootstrap_scheduled
+                    .replace((Instant::now(), self.config.bootstrap_delay));
             }
         };
     }
 
     /// Send `RunBootstrap` if delay is reached
     fn trigger_bootstrap(&mut self, now: Instant) {
-        if let Some(&(scheduled, delay)) = self.bootstrap_scheduled.as_ref() {
+        if let Some((scheduled, delay)) = self.bootstrap_scheduled.take() {
             if now >= scheduled + delay {
                 self.push_event(BootstrapperEvent::RunBootstrap, None)
             }

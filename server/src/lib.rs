@@ -85,8 +85,9 @@ mod bootstrapper {
     mod behaviour;
     mod event;
 
-    pub use behaviour::Bootstrapper;
-    pub use event::BootstrapperEvent;
+    pub use behaviour::BootstrapConfig;
+    pub(crate) use behaviour::Bootstrapper;
+    pub(crate) use event::BootstrapperEvent;
 }
 
 pub mod kademlia {
@@ -103,6 +104,6 @@ pub(crate) use bootstrapper::Bootstrapper;
 pub(crate) use bootstrapper::BootstrapperEvent;
 pub(crate) use function::FunctionRouter;
 
-pub use server::Server;
-
 pub use behaviour::ServerBehaviour;
+pub use bootstrapper::BootstrapConfig;
+pub use server::Server;

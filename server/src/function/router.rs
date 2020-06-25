@@ -350,9 +350,28 @@ impl FunctionRouter {
 
     /// Run kademlia bootstrap, to advertise ourselves in Kademlia
     pub fn bootstrap(&mut self) {
+        log::info!("Bootstrapping");
         use std::borrow::Borrow;
         // NOTE: Using Qm form of `peer_id` here (via peer_id.borrow), since kademlia uses that for keys
         self.kademlia
             .get_closest_peers(self.config.peer_id.borrow());
+    }
+
+    /// Triggered when `get_closest_peers` finished for local peer id
+    /// Publishes all locally available wasm modules to DHT
+    pub fn bootstrap_finished(&mut self) {
+        use faas_api::provider;
+
+        log::info!("Bootstrap finished, publishing local modules");
+
+        let local = self.config.local_address();
+        let interface = self.faas.get_interface();
+        #[rustfmt::skip]
+        let modules: Vec<String> = interface.modules.iter().map(|m| m.name.to_owned()).collect();
+        for module in modules {
+            if let Err(err) = self.publish_name(&provider!(module.clone()), &local) {
+                log::warn!("Failed to publish local module {}: {:?}", module, err);
+            }
+        }
     }
 }

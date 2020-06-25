@@ -15,6 +15,7 @@
  */
 
 use super::keys::{decode_key_pair, load_or_create_key_pair};
+use crate::bootstrapper::BootstrapConfig;
 use clap::ArgMatches;
 use fluence_faas::RawCoreModulesConfig;
 use libp2p::core::Multiaddr;
@@ -77,6 +78,9 @@ pub struct ServerConfig {
     /// Prometheus port
     #[serde(default = "default_prometheus_port")]
     pub prometheus_port: u16,
+
+    #[serde(default)]
+    pub bootstrap_config: BootstrapConfig,
 }
 
 impl ServerConfig {

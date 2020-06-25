@@ -515,3 +515,33 @@ fn call_empty() {
         assert!(received.arguments.as_object().unwrap().is_empty());
     }
 }
+
+#[test]
+fn find_module_provider() {
+    let mut wasm_done = false;
+    let swarms = make_swarms_with(
+        5,
+        |bs, maddr| {
+            if wasm_done {
+                create_swarm(SwarmConfig::new(bs, maddr))
+            } else {
+                wasm_done = true;
+                create_swarm(faas_config(bs, maddr))
+            }
+        },
+        create_memory_maddr,
+        true,
+    );
+    sleep(KAD_TIMEOUT);
+
+    let payload = "payload".to_string();
+    let module = "test_one.wasm";
+    let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let mut call = service_call(provider!(module), consumer.relay_addr(), module);
+    call.fname = Some("greeting".into());
+    call.arguments = Value::Array(vec![Value::String(payload.clone())]);
+    consumer.send(call);
+
+    let received = consumer.receive();
+    assert_eq!(&received.arguments["result"], &payload, "{:?}", received);
+}

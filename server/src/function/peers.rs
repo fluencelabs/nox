@@ -70,9 +70,8 @@ impl FunctionRouter {
             Ok(peer_id) => peer_id,
         };
 
-        if !peer_id.is_inlining() {
-            // Warn about Qm... PeerId
-            log::warn!("Found closest peers for non-inlining peer id: {}", peer_id);
+        if self.is_local(&peer_id) {
+            self.bootstrap_finished();
         }
 
         // Forward to `peer_id`

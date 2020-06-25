@@ -17,7 +17,7 @@
 use async_std::task;
 use faas_api::{Address, FunctionCall};
 use fluence_libp2p::{build_memory_transport, build_transport};
-use fluence_server::ServerBehaviour;
+use fluence_server::{BootstrapConfig, ServerBehaviour};
 
 use fluence_client::Transport;
 use fluence_faas::{FluenceFaaS, RawCoreModulesConfig};
@@ -166,10 +166,13 @@ pub fn enable_logs() {
         .filter(Some("libp2p_kad::kbucket"), Info)
         .filter(Some("libp2p_plaintext"), Info)
         .filter(Some("libp2p_identify::protocol"), Info)
+        .filter(Some("cranelift_codegen"), Info)
+        .filter(Some("wasmer_wasi"), Info)
         .try_init()
         .ok();
 }
 
+#[derive(Debug)]
 pub struct CreatedSwarm(pub PeerId, pub Multiaddr);
 pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
     make_swarms_with(
@@ -333,6 +336,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>)
             bootstraps,
             registry,
             faas,
+            BootstrapConfig::zero(),
         );
         match transport {
             Transport::Memory => {

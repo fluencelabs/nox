@@ -64,6 +64,7 @@ impl Server {
                 server_config.bootstrap_nodes.clone(),
                 Some(&registry),
                 faas,
+                <_>::default(),
             );
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
