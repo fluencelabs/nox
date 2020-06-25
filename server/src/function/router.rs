@@ -55,7 +55,9 @@ pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 ///
 /// TODO: Latency. Latency gonna be nuts.
 /// TODO: add metrics-rs (relevant: substrate uses it, and publishes as http-endpoint for prometheus)
+/// TODO: Wrap `FluenceFaaS` in Mutex? Currently it's marked as `unsafe impl Send`, that may lead to UB.
 pub struct FunctionRouter {
+    /// Wasm execution environment
     pub(super) faas: FluenceFaaS,
     /// Router configuration info: peer id, keypair, listening addresses
     pub(super) config: RouterConfig,
