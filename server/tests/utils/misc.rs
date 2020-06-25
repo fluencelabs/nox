@@ -15,7 +15,7 @@
  */
 
 use async_std::task;
-use faas_api::{hashtag, Address, FunctionCall};
+use faas_api::{Address, FunctionCall};
 use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::ServerBehaviour;
 
@@ -41,12 +41,14 @@ pub static TIMEOUT: Duration = Duration::from_secs(5);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-pub fn certificates_call(peer_id: PeerId, sender: Address) -> FunctionCall {
+pub fn certificates_call(peer_id: PeerId, sender: Address, node: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(hashtag!("certificates")),
-        reply_to: Some(sender.clone()),
+        target: Some(node),
+        module: Some("certificates".into()),
+        fname: None,
         arguments: json!({ "peer_id": peer_id.to_string(), "msg_id": uuid() }),
+        reply_to: Some(sender.clone()),
         name: None,
         sender,
     }
@@ -55,40 +57,47 @@ pub fn certificates_call(peer_id: PeerId, sender: Address) -> FunctionCall {
 pub fn add_certificates_call(
     peer_id: PeerId,
     sender: Address,
+    node: Address,
     certs: Vec<Certificate>,
 ) -> FunctionCall {
     let certs: Vec<_> = certs.into_iter().map(|c| c.to_string()).collect();
     FunctionCall {
         uuid: uuid(),
-        target: Some(hashtag!("add_certificates")),
-        reply_to: Some(sender.clone()),
+        target: Some(node),
+        module: Some("add_certificates".into()),
+        fname: None,
         arguments: json!({
             "peer_id": peer_id.to_string(),
             "msg_id": uuid(),
             "certificates": certs
         }),
+        reply_to: Some(sender.clone()),
         name: None,
         sender,
     }
 }
 
-pub fn provide_call(service_id: &str, sender: Address) -> FunctionCall {
+pub fn provide_call(service_id: &str, sender: Address, node: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(hashtag!("provide")),
-        reply_to: Some(sender.clone()),
+        target: Some(node),
+        module: Some("provide".into()),
+        fname: None,
         arguments: json!({ "service_id": service_id }),
+        reply_to: Some(sender.clone()),
         name: None,
         sender,
     }
 }
 
-pub fn service_call(service: Address, sender: Address) -> FunctionCall {
+pub fn service_call(target: Address, sender: Address, module: String) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
-        target: Some(service),
-        reply_to: Some(sender.clone()),
+        target: Some(target),
+        module: Some(module),
+        fname: None,
         arguments: Value::Null,
+        reply_to: Some(sender.clone()),
         name: None,
         sender,
     }
@@ -98,8 +107,10 @@ pub fn reply_call(target: Address, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(target),
-        reply_to: None,
+        module: None,
+        fname: None,
         arguments: Value::Null,
+        reply_to: None,
         name: Some("reply".into()),
         sender,
     }

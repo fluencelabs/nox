@@ -76,7 +76,7 @@ impl FunctionRouter {
         }
 
         // Forward to `peer_id`
-        let calls = self.wait_peer.remove_with(&peer_id, |wp| wp.found());
+        let calls = self.wait_peer.remove_with(peer_id.clone(), |wp| wp.found());
         for call in calls {
             if peers.is_empty() || !peers.iter().any(|p| p == &peer_id) {
                 let err_msg = format!(
@@ -99,7 +99,7 @@ impl FunctionRouter {
         }
 
         // Forward to neighborhood
-        let calls = self.wait_peer.remove_with(&peer_id, |wp| wp.neighborhood());
+        let calls = self.wait_peer.remove_with(peer_id, |wp| wp.neighborhood());
         for call in calls {
             let call: FunctionCall = call.into();
 
@@ -141,7 +141,9 @@ impl FunctionRouter {
         log::info!("Peer connected: {}", peer_id);
         self.connected_peers.insert(peer_id.clone());
 
-        let waiting = self.wait_peer.remove_with(&peer_id, |wp| wp.connected());
+        let waiting = self
+            .wait_peer
+            .remove_with(peer_id.clone(), |wp| wp.connected());
 
         // TODO: leave move or remove move from closure?
         waiting.for_each(move |wp| match wp {
