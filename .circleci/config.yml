@@ -13,6 +13,7 @@ jobs:
             - fluence01-{{ checksum "Cargo.lock" }}
       - run: |
           rustup toolchain install nightly
+          rustup default nightly
           rustup component add rustfmt
           rustup component add clippy
           cargo +nightly fmt --all -- --check --color always
