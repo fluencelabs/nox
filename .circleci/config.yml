@@ -12,13 +12,13 @@ jobs:
           keys:
             - fluence01-{{ checksum "Cargo.lock" }}
       - run: |
-          rustup toolchain install stable
+          rustup toolchain install nightly
           rustup component add rustfmt
           rustup component add clippy
-          cargo fmt --all -- --check --color always
-          cargo build -v --all-features
-          cargo test -v --all-features
-          cargo clippy -v
+          cargo +nightly fmt --all -- --check --color always
+          cargo +nightly build -v --all-features
+          cargo +nightly test -v --all-features
+          cargo +nightly clippy -v
       - save_cache:
           paths:
             - ~/.cargo
