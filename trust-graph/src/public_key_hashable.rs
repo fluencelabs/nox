@@ -16,12 +16,13 @@
 
 use crate::ed25519::PublicKey;
 use ref_cast::RefCast;
+use serde::Deserialize;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
 
 /// Wrapper to use PublicKey in HashMap
-#[derive(PartialEq, Eq, Debug, Clone, RefCast)]
+#[derive(PartialEq, Eq, Debug, Clone, RefCast, Deserialize)]
 #[repr(transparent)]
 pub struct PublicKeyHashable(PublicKey);
 

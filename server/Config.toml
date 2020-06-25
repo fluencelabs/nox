@@ -1,4 +1,6 @@
-[roots]
+#root_key_pair = "wCUPkGaBypwbeuUnmgVyN37j9iavRoqzAkddDUzx3Yir7q1yuTp3H8cdUZERYxeQ8PEiMYcDuiy1DDkfueNh1Y6"
+
+[root_weights]
 Ct8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4 = 0
 5i1Jr4x6cafoSPgBEAzY62ChJun4NFXFSvsFc1SwRqWD = 1
 8vn1z5pUHwX6WjCzm6RCV8kUhK1vghKSg3ktqbgnt8vv = 2
@@ -20,3 +22,29 @@ AU4Z5crLwT74kUkWojiQhCarVxZhqSs54C7SmEqaVeLL = 13
 2mHozVXYVRGTwjLKFUC112BjSdgqi6c9wq4pHzPYpWEV = 18
 4oSYD4FPK9osNZM3nH2zKFXjri8rCsRdfansJPvs5AbQ = 19
 7bkX8cLTEAGG9n6NSrjdDrk1YkkyJRPdrCjpBWkHy2Bh = 20
+
+[faas]
+core_modules_dir = "/wasm_modules"
+
+[[faas.core_module]]
+    name = "ipfs_node.wasm"
+    mem_pages_count = 100
+    logger_enabled = true
+
+    [faas.core_module.imports]
+    mysql = "/usr/bin/mysql"
+    ipfs = "/usr/local/bin/ipfs"
+
+    [faas.core_module.wasi]
+    envs = []
+    preopened_files = ["./wasm/artifacts"]
+    mapped_dirs = { "tmp" = "./wasm/artifacts" }
+
+[faas.rpc_module]
+    mem_pages_count = 100
+    logger_enabled = true
+
+    [faas.rpc_module.wasi]
+    envs = []
+    preopened_files = ["./wasm/artifacts"]
+    mapped_dirs = { "tmp" = "./wasm/artifacts" }
