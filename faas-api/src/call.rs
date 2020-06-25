@@ -35,11 +35,13 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
+    /// Set target to a call, and return the call
     pub fn with_target(mut self, target: Address) -> Self {
         self.target = Some(target);
         self
     }
 
+    /// Build a "reply" call from given arguments
     pub fn reply<O>(target: Address, sender: Address, arguments: serde_json::Value, name: O) -> Self
     where
         O: Into<Option<String>>,

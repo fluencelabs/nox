@@ -52,7 +52,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .get_matches();
 
     let fluence_config = load_config(arg_matches)?;
-    println!("config: {:?}", fluence_config);
 
     let fluence = start_fluence(fluence_config)?;
     log::info!("Fluence has been successfully started.");

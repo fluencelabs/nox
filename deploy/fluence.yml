@@ -1,7 +1,7 @@
 version: '3.5'
 services:
   fluence-1:
-    image: fluencelabs/fluence:routing
+    image: fluencelabs/fluence:master
     restart: always
     ports:
       - "7001:7001" # Node service
@@ -12,7 +12,7 @@ services:
       RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info"
 
   fluence-2:
-    image: fluencelabs/fluence:routing
+    image: fluencelabs/fluence:master
     restart: always
     ports:
       - "7002:7002" # Node service
@@ -23,7 +23,7 @@ services:
       RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info"
 
   fluence-3:
-    image: fluencelabs/fluence:routing
+    image: fluencelabs/fluence:master
     restart: always
     ports:
       - "7003:7003" # Node service
@@ -34,7 +34,7 @@ services:
       RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info"
 
   fluence-4:
-    image: fluencelabs/fluence:routing
+    image: fluencelabs/fluence:master
     restart: always
     ports:
       - "7004:7004" # Node service
@@ -45,7 +45,7 @@ services:
       RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info"
 
   fluence-5:
-    image: fluencelabs/fluence:routing
+    image: fluencelabs/fluence:master
     restart: always
     ports:
       - "7005:7005" # Node service

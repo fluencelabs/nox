@@ -236,6 +236,8 @@ impl FunctionRouter {
         }
     }
 
+    /// Send reply on a given call with given msg_id and data in arguments
+    /// If data or msg_id is empty, it's not included in the arguments
     fn reply_with<T: Serialize>(
         &mut self,
         call: FunctionCall,
@@ -245,18 +247,22 @@ impl FunctionRouter {
         let reply_to = call.reply_to.clone();
         let reply_to = reply_to.ok_or(call.clone().error(MissingReplyTo))?;
 
-        let mut map = serde_json::Map::new();
+        let mut args = serde_json::Map::new();
+
+        // Include `data` if it's not empty
         let value = json!(data.1);
         if !value.is_null() {
-            map.insert(data.0.into(), value);
+            args.insert(data.0.into(), value);
         }
+
+        // Include `msg_id` if it's not empty
         if let Some(msg_id) = msg_id {
-            map.insert("msg_id".into(), msg_id.into());
+            args.insert("msg_id".into(), msg_id.into());
         }
-        let arguments = Value::Object(map);
 
-        let call = FunctionCall::reply(reply_to, self.config.local_address(), arguments, None);
-
+        // Build JSON object and send in reply
+        let args = Value::Object(args);
+        let call = FunctionCall::reply(reply_to, self.config.local_address(), args, None);
         Ok(self.call(call))
     }
 }

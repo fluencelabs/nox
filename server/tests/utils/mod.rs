@@ -15,7 +15,9 @@
  */
 
 mod connected_client;
+mod faas;
 mod misc;
 
 pub use connected_client::ConnectedClient;
+pub use faas::*;
 pub use misc::*;

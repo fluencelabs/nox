@@ -92,12 +92,9 @@ impl BuiltinService {
     const ADD_CERTS: &'static str = "add_certificates";
     const IDENTIFY: &'static str = "identify";
     const GET_INTERFACE: &'static str = "get_interface";
+    #[rustfmt::skip]
     const SERVICES: [&'static str; 5] = [
-        Self::PROVIDE,
-        Self::CERTS,
-        Self::ADD_CERTS,
-        Self::IDENTIFY,
-        Self::GET_INTERFACE,
+        Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY, Self::GET_INTERFACE,
     ];
 
     #[allow(clippy::needless_lifetimes)]

@@ -53,6 +53,7 @@ impl FunctionRouter {
         Err(UnroutableCall(format!("module {} not found", module)).of_call(call))
     }
 
+    /// Find a matching module with a matching function, and return their names
     fn find_in_faas(
         &mut self,
         module: &str,

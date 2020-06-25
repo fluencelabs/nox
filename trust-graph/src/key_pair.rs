@@ -83,6 +83,7 @@ impl From<Libp2pKeyPair> for KeyPair {
     }
 }
 
+/// Implement serde::Deserialize for KeyPair
 impl<'de> serde::Deserialize<'de> for KeyPair {
     fn deserialize<D>(deserializer: D) -> Result<KeyPair, D::Error>
     where
@@ -95,10 +96,12 @@ impl<'de> serde::Deserialize<'de> for KeyPair {
         impl<'de> Visitor<'de> for KeyPairVisitor {
             type Value = KeyPair;
 
+            /// Error message stating what was expected
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("byte array or base58 string")
             }
 
+            /// Implement deserialization from base58 string
             fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
             where
                 E: Error,
@@ -109,6 +112,7 @@ impl<'de> serde::Deserialize<'de> for KeyPair {
                     .and_then(|v| self.visit_bytes(v.as_slice()))
             }
 
+            /// Implement deserialization from bytes
             fn visit_bytes<E>(self, b: &[u8]) -> Result<Self::Value, E>
             where
                 E: Error,

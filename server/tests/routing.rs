@@ -29,7 +29,6 @@
 
 use crate::utils::*;
 use faas_api::{peer, provider, FunctionCall, Protocol};
-use fluence_faas::RawCoreModulesConfig;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde_json::json;
@@ -130,8 +129,6 @@ fn missing_relay_signature() {
 #[test]
 // Provide service, and check that call reach it
 fn call_service() {
-    enable_logs();
-
     let service_id = "someserviceilike";
     let (mut provider, consumer) = ConnectedClient::make_clients().expect("connect clients");
 
@@ -446,64 +443,8 @@ fn identify() {
     }
 }
 
-static TEST_MODULE: &[u8] = include_bytes!("artifacts/test_module_wit.wasi.wasm");
-static WASM_CONFIG: &str = r#"
-core_modules_dir = ""
-
-[[core_module]]
-    name = "test_one.wasm"
-    mem_pages_count = 100
-    logger_enabled = true        
-[core_module.wasi]
-    envs = []
-    preopened_files = ["./tests/artifacts"]
-    mapped_dirs = { "tmp" = "./tests/artifacts" }
-    
-[[core_module]]
-    name = "test_two.wasm"
-    mem_pages_count = 100
-    logger_enabled = true
-[core_module.wasi]
-    envs = []
-    preopened_files = ["./tests/artifacts"]
-    mapped_dirs = { "tmp" = "./tests/artifacts" }
-
-[rpc_module]
-    mem_pages_count = 100
-    logger_enabled = true
-
-    [rpc_module.wasi]
-    envs = []
-    preopened_files = ["./tests/artifacts"]
-    mapped_dirs = { "tmp" = "./tests/artifacts" }
-"#;
-
-fn start_faas() -> CreatedSwarm {
-    let wasm_config: RawCoreModulesConfig =
-        toml::from_str(WASM_CONFIG).expect("parse module config");
-
-    let wasm_modules = vec![
-        ("test_one.wasm".to_string(), TEST_MODULE.to_vec()),
-        ("test_two.wasm".to_string(), TEST_MODULE.to_vec()),
-    ];
-
-    let swarms = make_swarms_with(
-        1,
-        |bs, maddr| {
-            let mut config = SwarmConfig::new(bs, maddr);
-            config.wasm_modules = wasm_modules.clone();
-            config.wasm_config = wasm_config.clone();
-            create_swarm(config)
-        },
-        create_memory_maddr,
-        true,
-    );
-    sleep(KAD_TIMEOUT);
-
-    swarms.into_iter().nth(0).unwrap()
-}
-
 #[test]
+/// Call `get_interface` for two test modules, check they contain `greeting` and `empty` functions
 fn get_interface() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
@@ -513,26 +454,11 @@ fn get_interface() {
     client.send(call.clone());
     let received = client.receive();
 
-    #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
-    struct Function {
-        inputs: Vec<String>,
-        name: String,
-        outputs: Vec<String>,
-    }
-    #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
-    struct Module {
-        name: String,
-        functions: Vec<Function>,
-    }
-    #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
-    struct Interface {
-        modules: Vec<Module>,
-    }
-
     let expected: Interface = serde_json::from_str(r#"{"modules":[{"functions":[{"inputs":["String"],"name":"greeting","outputs":["String"]},{"inputs":[],"name":"empty","outputs":[]}],"name":"test_one.wasm"},{"functions":[{"inputs":[],"name":"empty","outputs":[]},{"inputs":["String"],"name":"greeting","outputs":["String"]}],"name":"test_two.wasm"}]}"#).unwrap();
     let actual: Interface =
         serde_json::from_value(received.arguments["interface"].clone()).unwrap();
 
+    // Check interface contains all expected modules and functions
     assert_eq!(expected.modules.len(), actual.modules.len());
     for me in expected.modules {
         #[rustfmt::skip]
