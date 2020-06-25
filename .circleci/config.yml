@@ -16,10 +16,10 @@ jobs:
           rustup default nightly
           rustup component add rustfmt
           rustup component add clippy
-          cargo +nightly fmt --all -- --check --color always
-          cargo +nightly build -v --all-features
-          cargo +nightly test -v --all-features
-          cargo +nightly clippy -v
+          cargo fmt --all -- --check --color always
+          cargo build -v --all-features
+          cargo test -v --all-features
+          cargo clippy -v
       - save_cache:
           paths:
             - ~/.cargo
