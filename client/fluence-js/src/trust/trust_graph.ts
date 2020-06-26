@@ -36,7 +36,7 @@ export class TrustGraph {
 
         let msgId = genUUID()
 
-        let response = await this.client.sendServiceCallWaitResponse("add_certificates", {
+        let response = await this.client.sendServiceLocalCallWaitResponse("add_certificates", {
             certificates: certsStr,
             msg_id: msgId,
             peer_id: peerId
@@ -64,7 +64,7 @@ export class TrustGraph {
     // Get certificates that stores in Kademlia neighbourhood by `peerId` key.
     async getCertificates(peerId: string): Promise<Certificate[]> {
         let msgId = genUUID();
-        let resp = await this.client.sendServiceCallWaitResponse("certificates", {
+        let resp = await this.client.sendServiceLocalCallWaitResponse("certificates", {
             msg_id: msgId,
             peer_id: peerId
         }, (args) => args.msg_id && args.msg_id === msgId)

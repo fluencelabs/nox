@@ -66,6 +66,8 @@ describe("Typescript usage suite", () => {
                 arg2: 3,
                 arg4: [1, 2, 3]
             },
+            "mm",
+            "fff",
             addr,
             "2444"
         );
