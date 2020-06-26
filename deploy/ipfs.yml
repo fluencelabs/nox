@@ -4,6 +4,5 @@ ipfs:
   ports:
     - "4001:4001" # IPFS swarm
     - "5001:5001" # IPFS API
-    - "8080:8080" # HTTP endpoint
+#    - "8080:8080" # HTTP endpoint
   command: daemon --migrate=true
-  network: ipfs-1

@@ -31,9 +31,9 @@ def deploy_ipfs():
         puts("IPFS: addresses")
         print_api_addresses(ipfs_nodes.items())
 
-        env.ipfs_addresses = external_addresses
-
-        execute(connect_ipfs_nodes)
+        # Uncomment to interconnect nodes
+        # env.ipfs_addresses = external_addresses
+        # execute(connect_ipfs_nodes)
         puts("IPFS: done")
 
         # Uncomment if IPFS Cluster is needed
@@ -65,7 +65,6 @@ def do_deploy_ipfs():
     with hide('running', 'output'):
         put('ipfs.yml', './')
         with shell_env(HOST=env.host_string):
-            # TODO: move somewhere
             run('docker-compose -f ./ipfs.yml up -d')
             nodes = get_ipfs_nodes(containers=get_containers())
             # put_swarm_key(nodes)
@@ -105,6 +104,7 @@ def get_ports(container):
     ports = chain.from_iterable(l.split('/tcp -> ') for l in lines)
     # filter by host port and remove 0.0.0.0 part
     ports = list(port.replace('0.0.0.0:', '') for port in ports if '0.0.0.0' in port)
+    print("ports: {}".format(ports))
     (a, b) = ports
     # IPFS API port always start from 5, the other one will be P2P (swarm) port
     if a.startswith('5'):

@@ -32,6 +32,16 @@ pub const BOOTSTRAP_NODE: &str = "bootstrap-node";
 pub const EXTERNAL_ADDR: &str = "external-ipaddr";
 pub const CERTIFICATE_DIR: &str = "certificate-dir";
 pub const CONFIG_FILE: &str = "config-file";
+const ARGS: &[&str] = &[
+    WEBSOCKET_PORT,
+    TCP_PORT,
+    ROOT_KEY_PAIR_PATH,
+    ROOT_KEY_PAIR,
+    BOOTSTRAP_NODE,
+    EXTERNAL_ADDR,
+    CERTIFICATE_DIR,
+    CONFIG_FILE,
+];
 
 pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
 pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
@@ -166,9 +176,9 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
 
     let file_content = std::fs::read(config_file)?;
     let mut config: toml::value::Table = toml::from_slice(&file_content)?;
-    for (k, v) in config.iter_mut() {
+    for k in ARGS {
         if let Some(arg) = arguments.value_of(k) {
-            *v = toml::value::Value::String(arg.to_string());
+            config.insert(k.to_string(), arg.to_string().into());
         }
     }
 
