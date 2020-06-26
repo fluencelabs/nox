@@ -12,7 +12,8 @@ jobs:
           keys:
             - fluence01-{{ checksum "Cargo.lock" }}
       - run: |
-          rustup toolchain install stable
+          rustup toolchain install nightly
+          rustup default nightly
           rustup component add rustfmt
           rustup component add clippy
           cargo fmt --all -- --check --color always

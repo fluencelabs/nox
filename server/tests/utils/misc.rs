@@ -20,6 +20,7 @@ use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::ServerBehaviour;
 
 use fluence_client::Transport;
+use fluence_faas::{FluenceFaaS, RawCoreModulesConfig};
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -90,11 +91,11 @@ pub fn provide_call(service_id: &str, sender: Address, node: Address) -> Functio
     }
 }
 
-pub fn service_call(target: Address, sender: Address, module: String) -> FunctionCall {
+pub fn service_call<S: Into<String>>(target: Address, sender: Address, module: S) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(target),
-        module: Some(module),
+        module: Some(module.into()),
         fname: None,
         arguments: Value::Null,
         reply_to: Some(sender.clone()),
@@ -173,7 +174,7 @@ pub struct CreatedSwarm(pub PeerId, pub Multiaddr);
 pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
     make_swarms_with(
         n,
-        |bs, maddr| create_swarm(bs, maddr, None, Transport::Memory, None),
+        |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
         create_memory_maddr,
         true,
     )
@@ -270,14 +271,42 @@ pub struct Trust {
     pub cur_time: Duration,
 }
 
-pub fn create_swarm(
-    bootstraps: Vec<Multiaddr>,
-    listen_on: Multiaddr,
-    trust: Option<Trust>,
-    transport: Transport,
-    registry: Option<&Registry>,
-) -> (PeerId, Swarm<ServerBehaviour>) {
+pub struct SwarmConfig<'a> {
+    pub bootstraps: Vec<Multiaddr>,
+    pub listen_on: Multiaddr,
+    pub trust: Option<Trust>,
+    pub transport: Transport,
+    pub registry: Option<&'a Registry>,
+    pub wasm_config: RawCoreModulesConfig,
+    pub wasm_modules: Vec<(String, Vec<u8>)>,
+}
+
+impl<'a> SwarmConfig<'a> {
+    pub fn new(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr) -> Self {
+        Self {
+            bootstraps,
+            listen_on,
+            trust: None,
+            transport: Transport::Memory,
+            registry: None,
+            wasm_config: <_>::default(),
+            wasm_modules: <_>::default(),
+        }
+    }
+
+    pub fn with_trust(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr, trust: Trust) -> Self {
+        let mut this = Self::new(bootstraps, listen_on);
+        this.trust = Some(trust);
+        this
+    }
+}
+
+pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>) {
     use libp2p::identity;
+    #[rustfmt::skip]
+    let SwarmConfig { 
+        bootstraps, listen_on, trust, transport, registry, wasm_config, wasm_modules 
+    } = config;
 
     let kp = Keypair::generate();
     let public_key = Ed25519(kp.public());
@@ -293,6 +322,9 @@ pub fn create_swarm(
                 trust_graph.add(cert, trust.cur_time).expect("add cert");
             }
         }
+
+        let faas = FluenceFaaS::with_modules(wasm_modules, wasm_config).expect("create faas");
+
         let server = ServerBehaviour::new(
             kp.clone(),
             peer_id.clone(),
@@ -300,6 +332,7 @@ pub fn create_swarm(
             trust_graph,
             bootstraps,
             registry,
+            faas,
         );
         match transport {
             Transport::Memory => {

@@ -49,6 +49,12 @@ pub struct Identify {
     pub msg_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GetInterface {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BuiltinService {
@@ -56,6 +62,7 @@ pub enum BuiltinService {
     GetCertificates(GetCertificates),
     AddCertificates(AddCertificates),
     Identify(Identify),
+    GetInterface(GetInterface),
 }
 
 #[derive(Debug)]
@@ -84,8 +91,11 @@ impl BuiltinService {
     const CERTS: &'static str = "certificates";
     const ADD_CERTS: &'static str = "add_certificates";
     const IDENTIFY: &'static str = "identify";
-    const SERVICES: [&'static str; 4] =
-        [Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY];
+    const GET_INTERFACE: &'static str = "get_interface";
+    #[rustfmt::skip]
+    const SERVICES: [&'static str; 5] = [
+        Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY, Self::GET_INTERFACE,
+    ];
 
     #[allow(clippy::needless_lifetimes)]
     pub fn from<'a>(service_id: &'a str, arguments: serde_json::Value) -> Result<Self, Error<'a>> {
@@ -97,6 +107,7 @@ impl BuiltinService {
             Self::CERTS => GetCertificates(from_value(arguments)?),
             Self::ADD_CERTS => AddCertificates(from_value(arguments)?),
             Self::IDENTIFY => Identify(from_value(arguments)?),
+            Self::GET_INTERFACE => GetInterface(from_value(arguments)?),
             s => return Err(Error::UnknownService(s)),
         };
 
@@ -116,6 +127,7 @@ impl BuiltinService {
             BuiltinService::GetCertificates { .. } => BuiltinService::CERTS,
             BuiltinService::AddCertificates { .. } => BuiltinService::ADD_CERTS,
             BuiltinService::Identify { .. } => BuiltinService::IDENTIFY,
+            BuiltinService::GetInterface { .. } => BuiltinService::GET_INTERFACE,
         };
 
         (service_id, json!(self))

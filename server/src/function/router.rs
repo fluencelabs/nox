@@ -22,6 +22,7 @@ use super::waiting_queues::WaitingQueues;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
+use fluence_faas::FluenceFaaS;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
 use libp2p::{
@@ -54,7 +55,10 @@ pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 ///
 /// TODO: Latency. Latency gonna be nuts.
 /// TODO: add metrics-rs (relevant: substrate uses it, and publishes as http-endpoint for prometheus)
+/// TODO: Wrap `FluenceFaaS` in Mutex? Currently it's marked as `unsafe impl Send`, that may lead to UB.
 pub struct FunctionRouter {
+    /// Wasm execution environment
+    pub(super) faas: FluenceFaaS,
     /// Router configuration info: peer id, keypair, listening addresses
     pub(super) config: RouterConfig,
     /// Queue of events to send to the upper level
@@ -80,6 +84,7 @@ impl FunctionRouter {
         config: RouterConfig,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
+        faas: FluenceFaaS,
     ) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
@@ -99,6 +104,7 @@ impl FunctionRouter {
         }
 
         Self {
+            faas,
             config,
             kademlia,
             events: <_>::default(),
@@ -144,12 +150,18 @@ impl FunctionRouter {
                     // `expect` is ok here, because condition above checks module is defined
                     let module = call.module.clone().expect("module defined here");
                     // target will be like: /client/QmClient/service/QmService
-                    self.pass_to_local_service(&module, call.with_target(target.collect()));
+                    let call = call.with_target(target.collect());
+                    // TODO: raise error instead of sending it
+                    if let Err(err) = self.execute_locally(&module, call) {
+                        let err_msg = err.err_msg();
+                        self.send_error_on_call(err.call(), err_msg);
+                    }
                     return;
                 }
                 // No more path nodes to route, target unknown => send error
                 None if !is_local => {
                     log::warn!("Invalid target in call {:?}", call);
+                    // TODO: raise error instead of sending it
                     // TODO: this error is not helpful
                     self.send_error_on_call(
                         call,
@@ -160,6 +172,7 @@ impl FunctionRouter {
                 // call.module was empty, send error
                 None => {
                     log::warn!("module is not defined or empty on call {:?}", call);
+                    // TODO: raise error instead of sending it
                     self.send_error_on_call(call, "module is not defined or empty".into());
                     return;
                 }
@@ -195,11 +208,13 @@ impl FunctionRouter {
                         }
                         Some(other) => {
                             let path = target.join("");
+                            // TODO: raise error instead of sending it
                             self.send_error_on_call(
                                 call,
                                 format!("expected /signature, got '{:?}' from {}", other, path),
                             );
                         }
+                        // TODO: raise error instead of sending it
                         None => self.send_error_on_call(call, "missing relay signature".into()),
                     };
                     return;
@@ -210,6 +225,7 @@ impl FunctionRouter {
                     return;
                 }
                 Signature(_) => {
+                    // TODO: raise error instead of sending it
                     self.send_error_on_call(
                         call,
                         "Invalid target: expected /peer, /client or /service, got /signature"

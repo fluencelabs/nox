@@ -26,11 +26,11 @@
     unreachable_patterns
 )]
 
-use fluence_server::config::{certificates, create_args, load_config, FluenceConfig};
-use fluence_server::Server;
-
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
+use fluence_faas::FluenceFaaS;
+use fluence_server::config::{certificates, create_args, load_config, FluenceConfig};
+use fluence_server::Server;
 use futures::channel::oneshot;
 use std::error::Error;
 
@@ -81,10 +81,17 @@ fn start_fluence(config: FluenceConfig) -> Result<impl Stoppable, Box<dyn Error>
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
+    let faas = FluenceFaaS::with_raw_config(config.faas)?;
+
     let node_service = Server::new(
         key_pair.clone(),
-        config.server_config.clone(),
-        config.root_weights.clone(),
+        config.server,
+        faas,
+        config
+            .root_weights
+            .into_iter()
+            .map(|(k, v)| (k.into(), v))
+            .collect(),
     );
 
     let node_exit_outlet = node_service.start();

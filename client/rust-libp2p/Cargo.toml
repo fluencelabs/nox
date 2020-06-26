@@ -9,7 +9,7 @@ fluence-libp2p = { path = "../../crates/libp2p" }
 faas-api = { path = "../../faas-api" }
 ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
-parity-multiaddr = "0.9.0"
+parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 multihash ="0.11.0"
 async-std = "1.5.0"
 futures = "0.3.4"
@@ -32,7 +32,6 @@ clap = "2.33.1"
 rand = "0.7.3"
 reqwest = "0.10.4"
 tokio = { version = "0.2.13", features = ["full", "macros"] }
-multiqueue2 = "0.1.6"
 async-timer = { version = "0.7.3", features = ["stream"] }
 async-std = { version = "1.5.0", features = ["unstable"] }
 names = "0.10.0"
