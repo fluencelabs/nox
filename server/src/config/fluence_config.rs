@@ -169,6 +169,7 @@ fn arg_to_toml(key: &str, value: &str) -> anyhow::Result<toml::Value> {
 
     Ok(match key {
         WEBSOCKET_PORT | TCP_PORT => Integer(value.parse()?),
+        BOOTSTRAP_NODE => Array(vec![String(value.into())]),
         _ => String(value.into()),
     })
 }

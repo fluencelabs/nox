@@ -44,8 +44,8 @@ core_modules_dir = "/wasm_modules"
 
     [faas.core_module.wasi]
     envs = []
-    preopened_files = ["./wasm/artifacts"]
-    mapped_dirs = { "tmp" = "./wasm/artifacts" }
+    preopened_files = ["/wasm_modules"]
+    mapped_dirs = { "tmp" = "/wasm_modules" }
 
 [faas.rpc_module]
     mem_pages_count = 100
@@ -53,6 +53,6 @@ core_modules_dir = "/wasm_modules"
 
     [faas.rpc_module.wasi]
     envs = []
-    preopened_files = ["./wasm/artifacts"]
-    mapped_dirs = { "tmp" = "./wasm/artifacts" }
+    preopened_files = ["/wasm_modules"]
+    mapped_dirs = { "tmp" = "/wasm_modules" }
 

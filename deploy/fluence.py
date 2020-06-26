@@ -66,12 +66,14 @@ def do_deploy_bootstrap():
 def do_deploy_fluence(yml="fluence.yml"):
     with hide():
         put(yml, './')
+        run('rm -rf ./ipfs_node.wasm')
+        put("ipfs_node.wasm", './')
         kwargs = {'HOST': env.host_string, 'BRANCH': env.config['branch']}
         if 'bootstrap' in env:
             kwargs['BOOTSTRAP'] = env.bootstrap
         print("kwargs: {}".format(kwargs))
         with shell_env(**kwargs):
-            compose('config', yml)
+            # compose('config', yml)
             compose('rm -fs', yml)
             compose("pull", yml)
             compose('up --no-start', yml)  # was: 'create'
