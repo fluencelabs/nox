@@ -21,7 +21,7 @@ use fluence_faas::RawCoreModulesConfig;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::{error::Error, net::IpAddr, time::Duration};
+use std::{net::IpAddr, time::Duration};
 use trust_graph::{KeyPair, PublicKeyHashable};
 
 pub const WEBSOCKET_PORT: &str = "websocket-port";
@@ -157,7 +157,7 @@ where
 }
 
 // loads config from arguments and a config file
-pub fn load_config(arguments: ArgMatches<'_>) -> Result<FluenceConfig, Box<dyn Error>> {
+pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
         .unwrap_or(DEFAULT_CONFIG_FILE);

@@ -437,9 +437,9 @@ checksum = "4964518bd3b4a8190e832886cdc0da9794f12e8e6c1613a9e90ff331c4c8724b"
 
 [[package]]
 name = "cc"
-version = "1.0.54"
+version = "1.0.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bbb73db36c1246e9034e307d0fba23f9a2e251faa47ade70c1bd252220c8311"
+checksum = "b1be3409f94d7bdceeb5f5fac551039d9b3f00e25da7a74fc4d33400a0d96368"
 
 [[package]]
 name = "cfg-if"
@@ -945,7 +945,7 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 [[package]]
 name = "fce"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#5db7bd0d7bb66ff97384101422a2a4cfde54dbde"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#6b812b7032da8350fe3e58330e6b0f747ddd5d30"
 dependencies = [
  "fce_wit_interfaces",
  "log",
@@ -963,7 +963,7 @@ dependencies = [
 [[package]]
 name = "fce_wit_interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#5db7bd0d7bb66ff97384101422a2a4cfde54dbde"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#6b812b7032da8350fe3e58330e6b0f747ddd5d30"
 dependencies = [
  "multimap",
  "wasmer-interface-types",
@@ -1024,7 +1024,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#5db7bd0d7bb66ff97384101422a2a4cfde54dbde"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#6b812b7032da8350fe3e58330e6b0f747ddd5d30"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -1089,6 +1089,7 @@ dependencies = [
 name = "fluence-server"
 version = "0.0.5"
 dependencies = [
+ "anyhow",
  "async-std",
  "base64 0.11.0",
  "bs58",
@@ -2529,9 +2530,9 @@ checksum = "2839e79665f131bdb5782e51f2c6c9599c133c6098982a54c794358bf432529c"
 
 [[package]]
 name = "openssl"
-version = "0.10.29"
+version = "0.10.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cee6d85f4cb4c4f59a6a85d5b68a233d280c82e29e822913b9c8b129fbf20bdd"
+checksum = "8d575eff3665419f9b83678ff2815858ad9d11567e082f5ac1814baba4e2bcb4"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -4289,7 +4290,7 @@ dependencies = [
 [[package]]
 name = "wit_parser"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=integration#5db7bd0d7bb66ff97384101422a2a4cfde54dbde"
+source = "git+https://github.com/fluencelabs/fce?branch=integration#6b812b7032da8350fe3e58330e6b0f747ddd5d30"
 dependencies = [
  "anyhow",
  "fce_wit_interfaces",

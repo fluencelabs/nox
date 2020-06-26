@@ -26,19 +26,19 @@
     unreachable_patterns
 )]
 
+use anyhow::Context;
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
 use fluence_faas::FluenceFaaS;
 use fluence_server::config::{certificates, create_args, load_config, FluenceConfig};
 use fluence_server::Server;
 use futures::channel::oneshot;
-use std::error::Error;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> anyhow::Result<()> {
     env_logger::builder()
         .format_timestamp_micros()
         .filter_level(log::LevelFilter::Info)
@@ -70,7 +70,7 @@ trait Stoppable {
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()
-fn start_fluence(config: FluenceConfig) -> Result<impl Stoppable, Box<dyn Error>> {
+fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     certificates::init(config.certificate_dir.as_str(), &config.root_key_pair)?;
@@ -81,7 +81,7 @@ fn start_fluence(config: FluenceConfig) -> Result<impl Stoppable, Box<dyn Error>
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
-    let faas = FluenceFaaS::with_raw_config(config.faas)?;
+    let faas = FluenceFaaS::with_raw_config(config.faas).context("Failed to create FluenceFaas")?;
 
     let node_service = Server::new(
         key_pair.clone(),
