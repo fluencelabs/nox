@@ -29,16 +29,10 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .short("w")
             .default_value("9999")
             .help("websocket port"),
-        Arg::with_name(ROOT_KEY_PAIR_PATH)
-            .takes_value(true)
-            .short("s")
-            .conflicts_with(ROOT_KEY_PAIR)
-            .help("path to ed25519 key pair file"),
         Arg::with_name(ROOT_KEY_PAIR)
             .takes_value(true)
             .short("k")
-            .conflicts_with(ROOT_KEY_PAIR_PATH)
-            .help("ed25519 key pair in base58"),
+            .help("path to ed25519 keypair or keypair in base58"),
         Arg::with_name(CONFIG_FILE)
             .takes_value(true)
             .short("c")

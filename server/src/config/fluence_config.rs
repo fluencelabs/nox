@@ -24,18 +24,16 @@ use std::collections::HashMap;
 use std::{net::IpAddr, time::Duration};
 use trust_graph::{KeyPair, PublicKeyHashable};
 
-pub const WEBSOCKET_PORT: &str = "websocket-port";
-pub const TCP_PORT: &str = "tcp-port";
-pub const ROOT_KEY_PAIR_PATH: &str = "root-key-pair-path";
-pub const ROOT_KEY_PAIR: &str = "root-key-pair";
-pub const BOOTSTRAP_NODE: &str = "bootstrap-node";
-pub const EXTERNAL_ADDR: &str = "external-ipaddr";
-pub const CERTIFICATE_DIR: &str = "certificate-dir";
+pub const WEBSOCKET_PORT: &str = "websocket_port";
+pub const TCP_PORT: &str = "tcp_port";
+pub const ROOT_KEY_PAIR: &str = "root_key_pair";
+pub const BOOTSTRAP_NODE: &str = "bootstrap_nodes";
+pub const EXTERNAL_ADDR: &str = "external_address";
+pub const CERTIFICATE_DIR: &str = "certificate_dir";
 pub const CONFIG_FILE: &str = "config-file";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
-    ROOT_KEY_PAIR_PATH,
     ROOT_KEY_PAIR,
     BOOTSTRAP_NODE,
     EXTERNAL_ADDR,
@@ -166,6 +164,15 @@ where
     }
 }
 
+fn arg_to_toml(key: &str, value: &str) -> anyhow::Result<toml::Value> {
+    use toml::Value::*;
+
+    Ok(match key {
+        WEBSOCKET_PORT | TCP_PORT => Integer(value.parse()?),
+        _ => String(value.into()),
+    })
+}
+
 // loads config from arguments and a config file
 pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
     let config_file = arguments
@@ -178,7 +185,7 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
     let mut config: toml::value::Table = toml::from_slice(&file_content)?;
     for k in ARGS {
         if let Some(arg) = arguments.value_of(k) {
-            config.insert(k.to_string(), arg.to_string().into());
+            config.insert(k.to_string(), arg_to_toml(k, arg)?);
         }
     }
 

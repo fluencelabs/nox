@@ -4,7 +4,7 @@ services:
     image: fluencelabs/fluence:$BRANCH
     container_name: bootstrap
     restart: always
-    command: "-c /Config.toml -s /node.key -e $HOST -t 7770 -w 9990"
+    command: "-c /Config.toml -k /node.key -e $HOST -t 7770 -w 9990"
     ports:
       - "7770:7770" # Node service
       - "9990:9990" # Peer service
@@ -18,7 +18,7 @@ services:
     ports:
       - "7100:7100" # Node service
       - "9100:9100" # Peer service
-    command: "-c /Config.toml -s /node.key -b /ip4/$HOST/tcp/7770 -e $HOST -t 7100 -w 9100"
+    command: "-c /Config.toml -k /node.key -b /ip4/$HOST/tcp/7770 -e $HOST -t 7100 -w 9100"
     volumes:
       - $PWD/ipfs_node.wasm:/wasm_modules/ipfs_node.wasm
     environment:

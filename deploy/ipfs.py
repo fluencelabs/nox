@@ -104,7 +104,6 @@ def get_ports(container):
     ports = chain.from_iterable(l.split('/tcp -> ') for l in lines)
     # filter by host port and remove 0.0.0.0 part
     ports = list(port.replace('0.0.0.0:', '') for port in ports if '0.0.0.0' in port)
-    print("ports: {}".format(ports))
     (a, b) = ports
     # IPFS API port always start from 5, the other one will be P2P (swarm) port
     if a.startswith('5'):
