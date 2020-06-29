@@ -53,4 +53,9 @@ endurance-docker:
 	docker build ${ENDURANCE} -t fluencelabs/fluence-endurance:${BRANCH} .
 	docker push fluencelabs/fluence-endurance:${BRANCH}
 
-.PHONY: server server-debug docker docker-push clean test release build
+deploy:
+	cd deploy; fab deploy_fluence
+
+docker-push-deploy: docker-push deploy
+
+.PHONY: server server-debug docker docker-push clean test release build deploy

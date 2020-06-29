@@ -359,7 +359,7 @@ impl FunctionRouter {
 
     /// Triggered when `get_closest_peers` finished for local peer id
     /// Publishes all locally available wasm modules to DHT
-    /// //TODO: unpublish these on drop?
+    /// TODO: unpublish local modules when node is stopping? i.e., on Drop?
     pub fn bootstrap_finished(&mut self) {
         use faas_api::provider;
 
@@ -372,6 +372,8 @@ impl FunctionRouter {
         for module in modules {
             if let Err(err) = self.publish_name(&provider!(module.clone()), &local) {
                 log::warn!("Failed to publish local module {}: {:?}", module, err);
+            } else {
+                log::info!("Publishing local module {}", module);
             }
         }
     }

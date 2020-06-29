@@ -39,10 +39,7 @@ const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 fn main() -> anyhow::Result<()> {
-    env_logger::builder()
-        .format_timestamp_micros()
-        .filter_level(log::LevelFilter::Info)
-        .init();
+    env_logger::builder().format_timestamp_micros().init();
 
     let arg_matches = App::new("Fluence protocol server")
         .version(VERSION)
