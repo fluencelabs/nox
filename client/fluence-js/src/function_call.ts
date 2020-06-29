@@ -47,14 +47,14 @@ export function callToString(call: FunctionCall) {
     return JSON.stringify(obj)
 }
 
-export function makeFunctionCall(uuid: string, target: Address, sender: Address, args: object, moduleF?: string, fname?: string, replyTo?: Address, name?: string): FunctionCall {
+export function makeFunctionCall(uuid: string, target: Address, sender: Address, args: object, moduleId?: string, fname?: string, replyTo?: Address, name?: string): FunctionCall {
 
     return {
         uuid: uuid,
         target: target,
         reply_to: replyTo,
         sender: sender,
-        "module": moduleF,
+        "module": moduleId,
         fname: fname,
         arguments: args,
         name: name,
@@ -113,12 +113,12 @@ export function makePeerCall(client: PeerId, msg: any, sender: Address, replyTo?
 }
 
 /**
- * Message to call remote service_id
+ * Message to call remote service
  */
-export function makeCall(functionId: string, target: Address, args: any, sender: Address, replyTo?: Address, fname?: string, name?: string): FunctionCall {
+export function makeCall(moduleId: string, target: Address, args: any, sender: Address, replyTo?: Address, fname?: string, name?: string): FunctionCall {
 
 
-    return makeFunctionCall(genUUID(), target, sender, args, functionId, fname, replyTo, name);
+    return makeFunctionCall(genUUID(), target, sender, args, moduleId, fname, replyTo, name);
 }
 
 /**
