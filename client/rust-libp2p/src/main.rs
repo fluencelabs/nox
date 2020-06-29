@@ -196,27 +196,13 @@ fn print_example(node: Address, reply_to: Address) {
         },
     };
 
-    let ipfs_service = "IPFS.get_QmFile3".to_string();
-    let register_ipfs_get = ClientCommand::Call {
+    let ipfs_get_addresses = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(node),
+            target: Some(provider!("ipfs_node.wasm")),
             reply_to: Some(reply_to.clone()),
-            module: Some("provide".into()),
-            fname: None,
-            arguments: json!({ "service_id": ipfs_service, "msg_id": time }),
-            name: Some("register service".to_string()),
-            sender: reply_to.clone(),
-        },
-    };
-
-    let call_ipfs_get = ClientCommand::Call {
-        call: FunctionCall {
-            uuid: uuid(),
-            target: Some(provider!(ipfs_service.clone())),
-            reply_to: Some(reply_to.clone()),
-            module: Some(ipfs_service),
-            fname: None,
+            module: Some("ipfs_node.wasm".into()),
+            fname: Some("get_addresses".into()),
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
             sender: reply_to,
@@ -226,9 +212,7 @@ fn print_example(node: Address, reply_to: Address) {
     println!("Possible messages:");
     println!("\n### call identify");
     show(call_identify);
-    println!("\n### Register IPFS.get service");
-    show(register_ipfs_get);
-    println!("\n### Call IPFS.get service");
-    show(call_ipfs_get);
+    println!("\n### Call IPFS get_addresses");
+    show(ipfs_get_addresses);
     println!("\n")
 }
