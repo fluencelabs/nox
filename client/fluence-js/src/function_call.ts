@@ -115,10 +115,10 @@ export function makePeerCall(client: PeerId, msg: any, sender: Address, replyTo?
 /**
  * Message to call remote service_id
  */
-export function makeCall(functionId: string, target: Address, args: any, sender: Address, replyTo?: Address, name?: string): FunctionCall {
+export function makeCall(functionId: string, target: Address, args: any, sender: Address, replyTo?: Address, fname?: string, name?: string): FunctionCall {
 
 
-    return makeFunctionCall(genUUID(), target, sender, args, functionId, undefined, replyTo, name);
+    return makeFunctionCall(genUUID(), target, sender, args, functionId, fname, replyTo, name);
 }
 
 /**
