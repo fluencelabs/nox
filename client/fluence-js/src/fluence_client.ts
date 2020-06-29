@@ -70,9 +70,11 @@ export class FluenceClient {
      * @param target receiver
      * @param args message in the call
      * @param predicate will be applied to each incoming call until it matches
+     * @param moduleId module name
+     * @param fname functin name
      */
-    async sendCallWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        await this.sendCall(target, args, true);
+    async sendCallWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), moduleId?: string, fname?: string): Promise<any> {
+        await this.sendCall(target, args, true, moduleId, fname);
         return this.waitResponse(predicate);
     }
 
@@ -82,11 +84,13 @@ export class FluenceClient {
      * @param target receiver
      * @param args message in the call
      * @param reply add a `replyTo` field or not
+     * @param moduleId module name
+     * @param fname function name
      * @param name common field for debug purposes
      */
-    async sendCall(target: Address, args: any, reply?: boolean, name?: string) {
+    async sendCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, name?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(target, args, reply, name);
+            await this.connection.sendFunctionCall(target, args, reply, moduleId, fname, name);
         } else {
             throw Error("client is not connected")
         }
@@ -95,13 +99,14 @@ export class FluenceClient {
     /**
      * Send call to the service.
      *
-     * @param serviceId
+     * @param moduleId
      * @param args message to the service
+     * @param fname function name
      * @param name common field for debug purposes
      */
-    async sendServiceCall(serviceId: string, args: any, name?: string) {
+    async sendServiceCall(moduleId: string, args: any, fname?: string, name?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(serviceId, false, args, name);
+            await this.connection.sendServiceCall(moduleId, false, args, fname, name);
         } else {
             throw Error("client is not connected")
         }
@@ -110,13 +115,14 @@ export class FluenceClient {
     /**
      * Send a call to the local service on a peer the client connected with.
      *
-     * @param serviceId
+     * @param moduleId
      * @param args message to the service
+     * @param fname function name
      * @param name common field for debug purposes
      */
-    async sendServiceLocalCall(serviceId: string, args: any, name?: string) {
+    async sendServiceLocalCall(moduleId: string, args: any, fname?: string, name?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(serviceId, true, args, name);
+            await this.connection.sendServiceCall(moduleId, true, args, fname, name);
         } else {
             throw Error("client is not connected")
         }
@@ -125,24 +131,26 @@ export class FluenceClient {
     /**
      * Send call to the service and wait a response matches predicate.
      *
-     * @param serviceId
+     * @param moduleId
      * @param args message to the service
      * @param predicate will be applied to each incoming call until it matches
+     * @param fname function name
      */
-    async sendServiceCallWaitResponse(serviceId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        await this.sendServiceCall(serviceId, args);
+    async sendServiceCallWaitResponse(moduleId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fname?: string): Promise<any> {
+        await this.sendServiceCall(moduleId, args, fname, fname);
         return await this.waitResponse(predicate);
     }
 
     /**
      * Send a call to the local service and wait a response matches predicate on a peer the client connected with.
      *
-     * @param serviceId
+     * @param moduleId
      * @param args message to the service
      * @param predicate will be applied to each incoming call until it matches
+     * @param fname function name
      */
-    async sendServiceLocalCallWaitResponse(serviceId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        await this.sendServiceLocalCall(serviceId, args);
+    async sendServiceLocalCallWaitResponse(moduleId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fname?: string): Promise<any> {
+        await this.sendServiceLocalCall(moduleId, args, fname);
         return await this.waitResponse(predicate);
     }
 
@@ -230,10 +238,10 @@ export class FluenceClient {
     /**
      * Sends a call to register the service_id.
      */
-    async registerService(serviceId: string, fn: (req: FunctionCall) => void) {
-        await this.connection.registerService(serviceId);
+    async registerService(moduleId: string, fn: (req: FunctionCall) => void) {
+        await this.connection.registerService(moduleId);
 
-        this.services.addService(serviceId, fn)
+        this.services.addService(moduleId, fn)
     }
 
     // subscribe new hook for every incoming call, to handle in-service responses and other different cases
@@ -244,10 +252,10 @@ export class FluenceClient {
 
 
     /**
-     * Sends a call to unregister the service_id.
+     * Sends a call to unregister the service.
      */
-    async unregisterService(serviceId: string) {
-        if (this.services.deleteService(serviceId)) {
+    async unregisterService(moduleId: string) {
+        if (this.services.deleteService(moduleId)) {
             console.warn("unregister is not implemented yet (service: ${serviceId}")
             // TODO unregister in fluence network when it will be supported
             // let regMsg = makeRegisterMessage(serviceId, PeerId.createFromB58String(this.nodePeerId));
