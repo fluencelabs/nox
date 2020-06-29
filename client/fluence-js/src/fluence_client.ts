@@ -70,9 +70,11 @@ export class FluenceClient {
      * @param target receiver
      * @param args message in the call
      * @param predicate will be applied to each incoming call until it matches
+     * @param moduleF module name
+     * @param fname functin name
      */
-    async sendCallWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        await this.sendCall(target, args, true);
+    async sendCallWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), moduleF?: string, fname?: string): Promise<any> {
+        await this.sendCall(target, args, true, moduleF, fname);
         return this.waitResponse(predicate);
     }
 
@@ -82,11 +84,13 @@ export class FluenceClient {
      * @param target receiver
      * @param args message in the call
      * @param reply add a `replyTo` field or not
+     * @param moduleF module name
+     * @param fname function name
      * @param name common field for debug purposes
      */
-    async sendCall(target: Address, args: any, reply?: boolean, name?: string) {
+    async sendCall(target: Address, args: any, reply?: boolean, moduleF?: string, fname?: string, name?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(target, args, reply, name);
+            await this.connection.sendFunctionCall(target, args, reply, moduleF, fname, name);
         } else {
             throw Error("client is not connected")
         }
