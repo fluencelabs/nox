@@ -16,6 +16,7 @@
 
 use super::keys::{decode_key_pair, load_or_create_key_pair};
 use crate::bootstrapper::BootstrapConfig;
+use anyhow::Context;
 use clap::ArgMatches;
 use fluence_faas::RawCoreModulesConfig;
 use libp2p::core::Multiaddr;
@@ -182,7 +183,8 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
 
     log::info!("Loading config from {}", config_file);
 
-    let file_content = std::fs::read(config_file)?;
+    let file_content =
+        std::fs::read(config_file).context(format!("Config wasn't found at {}", config_file))?;
     let mut config: toml::value::Table = toml::from_slice(&file_content)?;
     for k in ARGS {
         if let Some(arg) = arguments.value_of(k) {

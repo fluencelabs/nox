@@ -1,8 +1,8 @@
 {
     "branch": "fce_multiaddr",
-    "bootstrap": "165.22.91.189",
+    "bootstrap": "134.209.186.43",
     "nodes": [
-      "165.22.91.189"
+      "134.209.186.43"
     ],
     "fluence": {
       "keypairs": {

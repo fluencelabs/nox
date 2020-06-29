@@ -13,15 +13,18 @@ services:
       RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info"
 
   fluence-ipfs:
-    image: fluencelabs/fluence:$BRANCH
+    image: fluencelabs/fluence:$BRANCH-with-ipfs
     restart: always
     ports:
       - "7100:7100" # Node service
       - "9100:9100" # Peer service
+      - "4001:4001" # IPFS Swarm
+      - "5001:5001" # IPFS API
     command: "-c /Config.toml -k /node.key -b /ip4/$HOST/tcp/7770 -e $HOST -t 7100 -w 9100"
     volumes:
       - $PWD/ipfs_node.wasm:/wasm_modules/ipfs_node.wasm
     environment:
       IPFS_MULTIADDR: "/dns4/ipfs2.fluence.one/tcp/443/https"
+      HOST: "$HOST"
       RUST_BACKTRACE: "full"
       RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info"

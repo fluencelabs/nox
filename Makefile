@@ -23,6 +23,7 @@ server-debug:
 clean:
 	cargo clean
 
+# build x86_64 binaries
 cross-build:
 	cargo update -p libp2p
 	cross build --release --target x86_64-unknown-linux-gnu
@@ -33,17 +34,33 @@ SERVER_EXE = ${X86_TARGET}/fluence-server
 SERVER=--build-arg local_exe=${SERVER_EXE} --build-arg exe=fluence-server
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 IPFS_DOCKERFILE=./client/fluence-ipfs/docker/Dockerfile
-IPFS_TAG=${BRANCH}-with-ipfs-multiaddr
+IPFS_TAG=${BRANCH}-with-ipfs
 
-docker: cross-build
+# bundle containers from existing binaries
+containers:
 	docker build ${SERVER} -t fluencelabs/fluence:${BRANCH} .
 	docker build -t fluencelabs/fluence:${IPFS_TAG} -f ${IPFS_DOCKERFILE} .
 
+# build binaries, then bundle containers
+docker: cross-build containers
+
+# push containers to dockerhub
 push:
 	docker push fluencelabs/fluence:${BRANCH}
 	docker push fluencelabs/fluence:${IPFS_TAG}
 
+# build binaries, bundle containers, then push them
 docker-push: docker push
+
+# deploy existing containers (configure tag in deployment_config.json)
+deploy:
+	cd deploy; fab deploy_fluence
+
+# rebuild binaries and containers, push and deploy
+docker-deploy: docker-push deploy
+
+# bundle containers from existing binaries, push and deploy
+deploy-containers: containers push deploy
 
 ENDURANCE_EXE=$(shell find ${X86_TARGET} -name "endurance*" -perm +111 -type f)
 ENDURANCE=--build-arg exe=endurance --build-arg local_exe=${ENDURANCE_EXE}
@@ -53,9 +70,4 @@ endurance-docker:
 	docker build ${ENDURANCE} -t fluencelabs/fluence-endurance:${BRANCH} .
 	docker push fluencelabs/fluence-endurance:${BRANCH}
 
-deploy:
-	cd deploy; fab deploy_fluence
-
-docker-push-deploy: docker-push deploy
-
-.PHONY: server server-debug docker docker-push clean test release build deploy
+.PHONY: server server-debug docker docker-push clean test release build deploy docker-push-deploy
