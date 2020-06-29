@@ -22,7 +22,6 @@ use libp2p::swarm::{
 };
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
-use rand::{random, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
@@ -243,7 +242,6 @@ mod tests {
     use crate::bootstrapper::event::BootstrapperEvent::RunBootstrap;
     use fluence_libp2p::RandomPeerId;
     use libp2p::swarm::PollParameters;
-    use log::LevelFilter;
     use std::net::IpAddr;
     use std::task::{Context, Poll};
     use std::thread::sleep;
