@@ -55,7 +55,7 @@ impl Default for BootstrapConfig {
         BootstrapConfig {
             // TODO: make it exponential
             reconnect_delay: Duration::from_millis(1500 + rng.gen_range(0, 500)),
-            bootstrap_delay: Duration::from_millis(10000 + rng.gen_range(0, 2000)),
+            bootstrap_delay: Duration::from_millis(30000 + rng.gen_range(0, 2000)),
             bootstrap_max_delay: Duration::from_secs(60),
         }
     }
