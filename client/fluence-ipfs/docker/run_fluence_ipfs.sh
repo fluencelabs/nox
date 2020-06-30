@@ -9,6 +9,7 @@ IPFS=$(command -v ipfs)
 
 ipfs init --profile server >/dev/null || true
 ipfs config --json Addresses.Announce \[\"/ip4/"$HOST"/tcp/4001\"\]
+ipfs config --json Addresses.API '"/ip4/0.0.0.0/tcp/5001/"'
 
 # Run Server & IPFS in parallel, fail if any of the processes fails
 $BASH wait.sh \

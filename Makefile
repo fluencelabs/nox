@@ -60,7 +60,7 @@ deploy:
 docker-deploy: docker-push deploy
 
 # bundle containers from existing binaries, push and deploy
-deploy-containers: containers push deploy
+containers-deploy: containers push deploy
 
 ENDURANCE_EXE=$(shell find ${X86_TARGET} -name "endurance*" -perm +111 -type f)
 ENDURANCE=--build-arg exe=endurance --build-arg local_exe=${ENDURANCE_EXE}
