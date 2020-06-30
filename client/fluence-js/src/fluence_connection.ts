@@ -99,7 +99,7 @@ export class FluenceConnection {
     /**
      * Sends remote service_id call.
      */
-    async sendServiceCall(moduleId: string, isLocal: boolean, args: any, fname?: string, name?: string, replyHash?: string) {
+    async sendServiceCall(moduleId: string, isLocal: boolean, args: any, fname?: string, replyHash?: string, name?: string) {
         let target;
         if (isLocal) {
             target = createPeerAddress(this.nodePeerId.toB58String());
@@ -197,7 +197,7 @@ export class FluenceConnection {
     /**
      * Send FunctionCall to the connected node.
      */
-    async sendFunctionCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, name?: string, replyHash?: string) {
+    async sendFunctionCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, replyHash?: string, name?: string) {
         this.checkConnectedOrThrow();
 
         let replyTo;
