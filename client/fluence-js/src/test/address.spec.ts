@@ -124,10 +124,10 @@ describe("Typescript usage suite", () => {
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it("integration test", async function () {
+    it.skip("integration test", async function () {
         this.timeout(15000);
-        // await testCerts();
-        await testCalculator();
+        await testCerts();
+        // await testCalculator();
     });
 });
 
