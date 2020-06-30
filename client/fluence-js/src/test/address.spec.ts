@@ -194,7 +194,7 @@ export async function testCalculator() {
     let req = {one: 12, two: 23};
 
     // send call to `sum-calculator` service with two numbers
-    let response = await cl2.sendServiceCallWaitResponse(serviceId, req, undefined);
+    let response = await cl2.sendServiceCallWaitResponse(serviceId, req);
 
     let result = response.result;
     console.log(`calculation result is: ${result}`);
@@ -206,7 +206,7 @@ export async function testCalculator() {
     // send call to `sum-calculator` service with two numbers
     await cl2.sendServiceCall(serviceId, req, "calculator request");
 
-    let response2 = await cl2.sendServiceCallWaitResponse(serviceId, req, undefined);
+    let response2 = await cl2.sendServiceCallWaitResponse(serviceId, req);
 
     let result2 = await response2.result;
     console.log(`calculation result AFTER RECONNECT is: ${result2}`);
