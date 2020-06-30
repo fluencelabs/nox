@@ -34,22 +34,9 @@ export class TrustGraph {
             certsStr.push(await certificateToString(cert));
         }
 
-        let msgId = genUUID()
-
         let response = await this.client.sendServiceLocalCallWaitResponse("add_certificates", {
             certificates: certsStr,
-            msg_id: msgId,
             peer_id: peerId
-        }, (args) => {
-            // check if it is a successful response
-            let isSuccessResponse = args.msg_id && args.msg_id === msgId
-            if (isSuccessResponse) {
-                return true
-            } else {
-                // check if it is an error for this msgId
-                return args.call && args.call.arguments && args.call.arguments.msg_id === msgId
-            }
-
         });
 
         if (response.reason) {
@@ -63,11 +50,9 @@ export class TrustGraph {
 
     // Get certificates that stores in Kademlia neighbourhood by `peerId` key.
     async getCertificates(peerId: string): Promise<Certificate[]> {
-        let msgId = genUUID();
         let resp = await this.client.sendServiceLocalCallWaitResponse("certificates", {
-            msg_id: msgId,
             peer_id: peerId
-        }, (args) => args.msg_id && args.msg_id === msgId)
+        });
 
         let certificatesRaw = resp.certificates
 

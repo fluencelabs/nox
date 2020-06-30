@@ -137,11 +137,11 @@ export class FluenceClient {
      *
      * @param moduleId
      * @param args message to the service
-     * @param predicate will be applied to each incoming call until it matches
      * @param fname function name
-     * @param replyHash hash that will be added to replyTo address
      */
-    async sendServiceCallWaitResponse(moduleId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fname?: string, replyHash?: string): Promise<any> {
+    async sendServiceCallWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
+        let replyHash = genUUID();
+        let predicate: (args: any, target: Address) => boolean | undefined = (args: any, target: Address) => target.hash && target.hash === replyHash && !args.reason;
         await this.sendServiceCall(moduleId, args, fname, replyHash, fname);
         return await this.waitResponse(predicate);
     }
@@ -151,11 +151,11 @@ export class FluenceClient {
      *
      * @param moduleId
      * @param args message to the service
-     * @param predicate will be applied to each incoming call until it matches
      * @param fname function name
-     * @param replyHash hash that will be added to replyTo address
      */
-    async sendServiceLocalCallWaitResponse(moduleId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fname?: string, replyHash?: string): Promise<any> {
+    async sendServiceLocalCallWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
+        let replyHash = genUUID();
+        let predicate: (args: any, target: Address) => boolean | undefined = (args: any, target: Address) => target.hash && target.hash === replyHash && !args.reason;
         await this.sendServiceLocalCall(moduleId, args, fname, replyHash, undefined);
         return await this.waitResponse(predicate);
     }
