@@ -72,7 +72,9 @@ impl FunctionRouter {
         function: String,
         call: FunctionCall,
     ) -> Result<(), CallError<'static>> {
-        let arguments = if call.arguments != Value::Null {
+        let is_null = call.arguments == Value::Null;
+        let is_empty_arr = call.arguments.as_array().map_or(false, |a| a.is_empty());
+        let arguments = if !is_null && !is_empty_arr {
             fluence_faas::to_interface_value(&call.arguments).map_err(|e| {
                 call.clone().error(InvalidArguments {
                     error: format!("can't parse arguments as array of interface types: {}", e),
