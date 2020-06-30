@@ -18,7 +18,8 @@ import * as PeerId from "peer-id";
 import {encode} from "bs58"
 
 export interface Address {
-    protocols: Protocol[]
+    protocols: Protocol[],
+    hash?: string
 }
 
 export interface Protocol {
@@ -43,6 +44,10 @@ export function addressToString(address: Address): string {
         if (addr.value) {
             addressStr = addressStr + "/" + addr.value;
         }
+    }
+
+    if (address.hash) {
+        addressStr = addressStr + "#" + address.hash
     }
 
     return addressStr;
@@ -78,7 +83,7 @@ export function parseProtocol(protocol: string, protocolIterator: IterableIterat
 
 }
 
-export async function createRelayAddress(relay: string, peerId: PeerId, withSig: boolean): Promise<Address> {
+export async function createRelayAddress(relay: string, peerId: PeerId, withSig: boolean, hash?: string): Promise<Address> {
 
     let protocols = [
         {protocol: ProtocolType.Peer, value: relay},
@@ -94,24 +99,27 @@ export async function createRelayAddress(relay: string, peerId: PeerId, withSig:
     }
 
     return {
-        protocols: protocols
+        protocols: protocols,
+        hash: hash
     }
 }
 
-export function createServiceAddress(service: string): Address {
+export function createServiceAddress(service: string, hash?: string): Address {
 
     let protocol = {protocol: ProtocolType.Providers, value: service};
 
     return {
-        protocols: [protocol]
+        protocols: [protocol],
+        hash: hash
     }
 }
 
-export function createPeerAddress(peer: string): Address {
+export function createPeerAddress(peer: string, hash?: string): Address {
     let protocol = {protocol: ProtocolType.Peer, value: peer};
 
     return {
-        protocols: [protocol]
+        protocols: [protocol],
+        hash: hash
     }
 }
 
@@ -121,7 +129,9 @@ export function parseAddress(str: string): Address {
     // delete leading slashes
     str = str.replace(/^\/+/, '');
 
-    let parts = str.split("/");
+    let mainAndHash = str.split("#");
+
+    let parts = mainAndHash[0].split("/");
     if (parts.length < 1) {
         throw Error("address parts should not be empty")
     }
@@ -136,7 +146,14 @@ export function parseAddress(str: string): Address {
         protocols.push(protocol);
     }
 
+    let hashPart = mainAndHash.slice(1, mainAndHash.length).join();
+    let hash = undefined;
+    if (hashPart) {
+        hash = hashPart;
+    }
+
     return {
-        protocols: protocols
+        protocols: protocols,
+        hash: hash
     }
 }

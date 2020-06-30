@@ -63,6 +63,16 @@ export class FluenceConnection {
         this.sender = sender
     }
 
+    makeReplyTo(replyHash?: string): Address {
+        if (replyHash) {
+            let replyToWithHash = {...this.sender}
+            replyToWithHash.hash = replyHash;
+            return replyToWithHash;
+        } else {
+            return this.sender;
+        }
+    }
+
     async connect() {
         let peerInfo = this.selfPeerInfo;
         this.node = await Peer.create({
@@ -89,7 +99,7 @@ export class FluenceConnection {
     /**
      * Sends remote service_id call.
      */
-    async sendServiceCall(moduleId: string, isLocal: boolean, args: any, fname?: string, name?: string) {
+    async sendServiceCall(moduleId: string, isLocal: boolean, args: any, fname?: string, name?: string, replyHash?: string) {
         let target;
         if (isLocal) {
             target = createPeerAddress(this.nodePeerId.toB58String());
@@ -97,7 +107,7 @@ export class FluenceConnection {
             target = createServiceAddress(moduleId);
         }
 
-        let regMsg = makeCall(moduleId, target, args, this.sender, this.sender, fname, name);
+        let regMsg = makeCall(moduleId, target, args, this.sender, this.makeReplyTo(replyHash), fname, name);
         await this.sendCall(regMsg);
     }
 
@@ -187,11 +197,11 @@ export class FluenceConnection {
     /**
      * Send FunctionCall to the connected node.
      */
-    async sendFunctionCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, name?: string) {
+    async sendFunctionCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, name?: string, replyHash?: string) {
         this.checkConnectedOrThrow();
 
         let replyTo;
-        if (reply) replyTo = this.sender;
+        if (reply) replyTo = this.makeReplyTo(replyHash);
 
         let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, name);
 

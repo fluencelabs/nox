@@ -72,9 +72,10 @@ export class FluenceClient {
      * @param predicate will be applied to each incoming call until it matches
      * @param moduleId module name
      * @param fname functin name
+     * @param replyHash hash that will be added to replyTo address
      */
-    async sendCallWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), moduleId?: string, fname?: string): Promise<any> {
-        await this.sendCall(target, args, true, moduleId, fname);
+    async sendCallWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), moduleId?: string, fname?: string, replyHash?: string): Promise<any> {
+        await this.sendCall(target, args, true, moduleId, fname, undefined, replyHash);
         return this.waitResponse(predicate);
     }
 
@@ -87,10 +88,11 @@ export class FluenceClient {
      * @param moduleId module name
      * @param fname function name
      * @param name common field for debug purposes
+     * @param replyHash hash that will be added to replyTo address
      */
-    async sendCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, name?: string) {
+    async sendCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, name?: string, replyHash?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(target, args, reply, moduleId, fname, name);
+            await this.connection.sendFunctionCall(target, args, reply, moduleId, fname, replyHash, name);
         } else {
             throw Error("client is not connected")
         }
@@ -103,10 +105,11 @@ export class FluenceClient {
      * @param args message to the service
      * @param fname function name
      * @param name common field for debug purposes
+     * @param replyHash hash that will be added to replyTo address
      */
-    async sendServiceCall(moduleId: string, args: any, fname?: string, name?: string) {
+    async sendServiceCall(moduleId: string, args: any, fname?: string, name?: string, replyHash?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(moduleId, false, args, fname, name);
+            await this.connection.sendServiceCall(moduleId, false, args, fname, name, replyHash);
         } else {
             throw Error("client is not connected")
         }
@@ -119,10 +122,11 @@ export class FluenceClient {
      * @param args message to the service
      * @param fname function name
      * @param name common field for debug purposes
+     * @param replyHash hash that will be added to replyTo address
      */
-    async sendServiceLocalCall(moduleId: string, args: any, fname?: string, name?: string) {
+    async sendServiceLocalCall(moduleId: string, args: any, fname?: string, name?: string, replyHash?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(moduleId, true, args, fname, name);
+            await this.connection.sendServiceCall(moduleId, true, args, fname, name, replyHash);
         } else {
             throw Error("client is not connected")
         }
@@ -135,9 +139,10 @@ export class FluenceClient {
      * @param args message to the service
      * @param predicate will be applied to each incoming call until it matches
      * @param fname function name
+     * @param replyHash hash that will be added to replyTo address
      */
-    async sendServiceCallWaitResponse(moduleId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fname?: string): Promise<any> {
-        await this.sendServiceCall(moduleId, args, fname, fname);
+    async sendServiceCallWaitResponse(moduleId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fname?: string, replyHash?: string): Promise<any> {
+        await this.sendServiceCall(moduleId, args, fname, fname, replyHash);
         return await this.waitResponse(predicate);
     }
 
@@ -148,9 +153,10 @@ export class FluenceClient {
      * @param args message to the service
      * @param predicate will be applied to each incoming call until it matches
      * @param fname function name
+     * @param replyHash hash that will be added to replyTo address
      */
-    async sendServiceLocalCallWaitResponse(moduleId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fname?: string): Promise<any> {
-        await this.sendServiceLocalCall(moduleId, args, fname);
+    async sendServiceLocalCallWaitResponse(moduleId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fname?: string, replyHash?: string): Promise<any> {
+        await this.sendServiceLocalCall(moduleId, args, fname, undefined, replyHash);
         return await this.waitResponse(predicate);
     }
 
