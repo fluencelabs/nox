@@ -202,7 +202,7 @@ fn print_example(node: Address, reply_to: Address) {
             target: Some(provider!("ipfs_node.wasm")),
             reply_to: Some(reply_to.clone()),
             module: Some("ipfs_node.wasm".into()),
-            fname: Some("get_addresses".into()),
+            fname: Some("get_address".into()),
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
             sender: reply_to,
@@ -212,7 +212,7 @@ fn print_example(node: Address, reply_to: Address) {
     println!("Possible messages:");
     println!("\n### call identify");
     show(call_identify);
-    println!("\n### Call IPFS get_addresses");
+    println!("\n### Call IPFS get_address");
     show(ipfs_get_addresses);
     println!("\n")
 }

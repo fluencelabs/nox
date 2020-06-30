@@ -4,6 +4,7 @@
     "nodes": [
       "134.209.186.43"
     ],
+    "ipfs_addr": "/dns4/relay02.fluence.dev/tcp/15001/https",
     "fluence": {
       "keypairs": {
         "fluence_bootstrap.yml": [

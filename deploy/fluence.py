@@ -69,7 +69,9 @@ def do_deploy_fluence(yml="fluence.yml"):
         kwargs = {'HOST': env.host_string, 'BRANCH': env.config['branch']}
         if 'bootstrap' in env:
             kwargs['BOOTSTRAP'] = env.bootstrap
-        print("kwargs: {}".format(kwargs))
+        if 'ipfs_addr' in env.config:
+            kwargs['IPFS_ADDR'] = env.config['ipfs_addr']
+
         with shell_env(**kwargs):
             # compose('config', yml)
             compose('rm -fs', yml)

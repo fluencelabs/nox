@@ -22,13 +22,11 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
         Arg::with_name(TCP_PORT)
             .takes_value(true)
             .short("t")
-            .default_value("7777")
-            .help("tcp port"),
+            .help("tcp port [default: 7777]"),
         Arg::with_name(WEBSOCKET_PORT)
             .takes_value(true)
             .short("w")
-            .default_value("9999")
-            .help("websocket port"),
+            .help("websocket port [default: 9999]"),
         Arg::with_name(ROOT_KEY_PAIR)
             .takes_value(true)
             .short("k")
@@ -42,13 +40,20 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .short("d")
             .help("path to certificate dir"),
         Arg::with_name(BOOTSTRAP_NODE)
+            .value_name("MULTIADDR")
             .takes_value(true)
             .short("b")
             .multiple(true)
             .help("bootstrap nodes of the Fluence network"),
         Arg::with_name(EXTERNAL_ADDR)
             .takes_value(true)
-            .short("e")
+            .short("x")
             .help("external network address to publish as discoverable"),
+        Arg::with_name(CORE_ENVS)
+            .value_name("NAME=VALUE")
+            .takes_value(true)
+            .short("e")
+            .multiple(true)
+            .help("envs to pass to core modules"),
     ]
 }
