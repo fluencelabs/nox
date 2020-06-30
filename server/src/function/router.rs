@@ -368,7 +368,7 @@ impl FunctionRouter {
         let local = self.config.local_address();
         let interface = self.faas.get_interface();
         #[rustfmt::skip]
-        let modules: Vec<String> = interface.modules.iter().map(|m| m.name.to_owned()).collect();
+        let modules: Vec<String> = interface.modules.iter().map(|(name, _)| name.to_string()).collect();
         for module in modules {
             if let Err(err) = self.publish_name(&provider!(module.clone()), &local) {
                 log::warn!("Failed to publish local module {}: {:?}", module, err);

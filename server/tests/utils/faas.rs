@@ -19,6 +19,7 @@ use crate::utils::{
 };
 use fluence_faas::RawCoreModulesConfig;
 use parity_multiaddr::Multiaddr;
+use std::collections::HashMap;
 use std::thread::sleep;
 
 static TEST_MODULE: &[u8] = include_bytes!("../artifacts/test_module_wit.wasi.wasm");
@@ -59,14 +60,10 @@ pub struct Function {
     pub name: String,
     pub outputs: Vec<String>,
 }
-#[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
-pub struct Module {
-    pub name: String,
-    pub functions: Vec<Function>,
-}
+
 #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct Interface {
-    pub modules: Vec<Module>,
+    pub modules: HashMap<String, Vec<Function>>,
 }
 
 pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static> {

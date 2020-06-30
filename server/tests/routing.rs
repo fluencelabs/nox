@@ -454,19 +454,24 @@ fn get_interface() {
     client.send(call.clone());
     let received = client.receive();
 
-    let expected: Interface = serde_json::from_str(r#"{"modules":[{"functions":[{"inputs":["String"],"name":"greeting","outputs":["String"]},{"inputs":[],"name":"empty","outputs":[]}],"name":"test_one.wasm"},{"functions":[{"inputs":[],"name":"empty","outputs":[]},{"inputs":["String"],"name":"greeting","outputs":["String"]}],"name":"test_two.wasm"}]}"#).unwrap();
+    println!(
+        "{}",
+        serde_json::to_string(&received.arguments["interface"]).unwrap()
+    );
+
+    let expected: Interface = serde_json::from_str(r#"{"modules":{"test_one.wasm":[{"inputs":["String"],"name":"greeting","outputs":["String"]},{"inputs":[],"name":"empty","outputs":[]}],"test_two.wasm":[{"inputs":["String"],"name":"greeting","outputs":["String"]},{"inputs":[],"name":"empty","outputs":[]}]}}"#).unwrap();
     let actual: Interface =
         serde_json::from_value(received.arguments["interface"].clone()).unwrap();
 
     // Check interface contains all expected modules and functions
     assert_eq!(expected.modules.len(), actual.modules.len());
-    for me in expected.modules {
+    for (name, expected_fs) in expected.modules {
         #[rustfmt::skip]
-        let ma = actual.modules.iter().find(|m| m.name == me.name).expect("module not found");
-        assert_eq!(me.functions.len(), ma.functions.len());
-        for fe in me.functions {
+        let actual_fs = actual.modules.get(&name).expect("module not found");
+        assert_eq!(expected_fs.len(), actual_fs.len());
+        for fe in expected_fs {
             #[rustfmt::skip]
-            let fa = ma.functions.iter().find(|f| f.name == fe.name).expect("function not found");
+            let fa = actual_fs.iter().find(|f| f.name == fe.name).expect("function not found");
             assert_eq!(&fe, fa);
         }
     }
