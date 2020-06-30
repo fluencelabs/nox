@@ -64,17 +64,21 @@ export class FluenceClient {
         });
     }
 
+    private getPredicate(msgId: string): (args: any, target: Address) => (boolean | undefined) {
+        return (args: any, target: Address) => target.hash && target.hash === msgId && !args.reason;
+    }
+
     /**
      * Send call and wait a response.
      *
      * @param target receiver
      * @param args message in the call
-     * @param predicate will be applied to each incoming call until it matches
      * @param moduleId module name
      * @param fname functin name
-     * @param replyHash hash that will be added to replyTo address
      */
-    async sendCallWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), moduleId?: string, fname?: string, replyHash?: string): Promise<any> {
+    async sendCallWaitResponse(target: Address, args: any, moduleId?: string, fname?: string): Promise<any> {
+        let replyHash = genUUID();
+        let predicate = this.getPredicate(replyHash);
         await this.sendCall(target, args, true, moduleId, fname, replyHash, undefined);
         return this.waitResponse(predicate);
     }
@@ -141,7 +145,7 @@ export class FluenceClient {
      */
     async sendServiceCallWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
         let replyHash = genUUID();
-        let predicate: (args: any, target: Address) => boolean | undefined = (args: any, target: Address) => target.hash && target.hash === replyHash && !args.reason;
+        let predicate = this.getPredicate(replyHash);
         await this.sendServiceCall(moduleId, args, fname, replyHash, fname);
         return await this.waitResponse(predicate);
     }
@@ -155,7 +159,7 @@ export class FluenceClient {
      */
     async sendServiceLocalCallWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
         let replyHash = genUUID();
-        let predicate: (args: any, target: Address) => boolean | undefined = (args: any, target: Address) => target.hash && target.hash === replyHash && !args.reason;
+        let predicate = this.getPredicate(replyHash);
         await this.sendServiceLocalCall(moduleId, args, fname, replyHash, undefined);
         return await this.waitResponse(predicate);
     }
