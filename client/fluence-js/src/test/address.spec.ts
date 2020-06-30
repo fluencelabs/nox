@@ -198,7 +198,7 @@ export async function testCalculator() {
     let req = {one: 12, two: 23, msgId: msgId};
 
 
-    let predicate: (args: any, target: Address) => boolean | undefined = (args: any, target: Address) => target.hash && target.hash === msgId;
+    let predicate: (args: any, target: Address) => boolean | undefined = (args: any, target: Address) => target.hash && args.result && target.hash === msgId;
 
     // send call to `sum-calculator` service with two numbers
     let response = await cl2.sendServiceCallWaitResponse(serviceId, req, predicate, undefined, msgId);
