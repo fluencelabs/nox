@@ -56,14 +56,13 @@ core_modules_dir = ""
 
 #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct Function {
-    pub inputs: Vec<String>,
-    pub name: String,
-    pub outputs: Vec<String>,
+    pub input_types: Vec<String>,
+    pub output_types: Vec<String>,
 }
 
 #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct Interface {
-    pub modules: HashMap<String, Vec<Function>>,
+    pub modules: HashMap<String, HashMap<String, Function>>,
 }
 
 pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static> {

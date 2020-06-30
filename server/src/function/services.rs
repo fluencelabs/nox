@@ -64,14 +64,13 @@ impl FunctionRouter {
         let function = function.ok_or_else(|| MissingFunctionName {
             module: module.to_string(),
         })?;
-        let function = functions
-            .iter()
-            .find(|f| f.name == function)
-            .ok_or_else(|| CallErrorKind::FunctionNotFound {
+        if !functions.contains_key(function) {
+            return Err(CallErrorKind::FunctionNotFound {
                 module: module.to_string(),
                 function: function.to_string(),
-            })?;
-        Ok(Some((module.to_string(), function.name.to_string())))
+            });
+        }
+        Ok(Some((module.to_string(), function.to_string())))
     }
 
     // Look for service providers, enqueue call to wait for providers
