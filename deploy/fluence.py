@@ -5,7 +5,6 @@ from fabric.contrib.files   import append
 from utils                  import *
 from collections            import namedtuple
 from time                   import sleep
-from ipfs                   import do_deploy_ipfs
 
 
 # DTOs
@@ -24,9 +23,6 @@ def deploy_fluence():
     with hide():
         load_config()
         env.hosts = env.config["bootstrap"]
-
-#         puts("Fluence: deploying IPFS")
-#         execute(do_deploy_ipfs)
 
         puts("Fluence: deploying bootstrap")
         special_nodes = deploy_bootstrap()
@@ -119,8 +115,7 @@ def is_fluence_port(host_port):
     is_ws = '0.0.0.0:9' in host_port
     return is_tcp or is_ws
 
-# Assuming Fluence's tcp port always starts from 7
-# returns (node port, peer port)
+# returns (tcp port, ws port)
 def get_ports(container):
     from itertools import chain
     lines = run('docker port %s' % container).splitlines()
@@ -128,7 +123,7 @@ def get_ports(container):
     # filter by host port and remove 0.0.0.0 part
     ports = list(port.replace('0.0.0.0:', '') for port in ports if is_fluence_port(port))
     (a, b) = ports
-    # node service port starts with 7
+    # tcp port starts with 7
     if a.startswith('7'):
         return (a, b)
     else:
