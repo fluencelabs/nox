@@ -33,7 +33,7 @@ X86_TARGET=./target/x86_64-unknown-linux-gnu/release
 SERVER_EXE = ${X86_TARGET}/fluence-server
 SERVER=--build-arg local_exe=${SERVER_EXE} --build-arg exe=fluence-server
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-IPFS_DOCKERFILE=./client/fluence-ipfs/docker/Dockerfile
+IPFS_DOCKERFILE=./deploy/fluence-ipfs/Dockerfile
 IPFS_TAG=${BRANCH}-with-ipfs
 
 # bundle containers from existing binaries
