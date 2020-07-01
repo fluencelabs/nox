@@ -273,10 +273,6 @@ mod tests {
 
     #[test]
     fn run_bootstrap() {
-        // env_logger::builder()
-        //     .filter_level(LevelFilter::Trace)
-        //     .init();
-
         let delay = Duration::from_millis(100);
         let cfg = BootstrapConfig {
             reconnect_delay: delay,

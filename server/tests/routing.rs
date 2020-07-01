@@ -512,8 +512,10 @@ fn find_module_provider() {
         5,
         |bs, maddr| {
             if wasm_done {
+                // Do not load wasm modules on these swarms
                 create_swarm(SwarmConfig::new(bs, maddr))
             } else {
+                // Load wasm modules only on this single swarm
                 wasm_done = true;
                 create_swarm(faas_config(bs, maddr))
             }

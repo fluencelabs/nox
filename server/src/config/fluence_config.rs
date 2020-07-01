@@ -174,6 +174,7 @@ fn insert_args_to_config(
 ) -> anyhow::Result<()> {
     use toml::Value::*;
 
+    /// Set given `envs` to each `core_module.wasi.envs` in `config.faas`
     fn set_core_envs(config: &mut toml::value::Table, arg: Values<'_>) -> Option<()> {
         // Path in config is: ["faas"]["core_module"][0]["wasi"]["envs"]
         let faas = config.get_mut("faas")?.as_table_mut()?;
@@ -209,6 +210,7 @@ fn insert_args_to_config(
                 set_core_envs(config, arg);
             }
             k => {
+                // Convert value to a type of the corresponding field in `FluenceConfig`
                 let value = match k {
                     WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
                     BOOTSTRAP_NODE => Array(multiple(arg).collect()),
