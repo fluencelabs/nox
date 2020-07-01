@@ -3,7 +3,7 @@ import {
     createRelayAddress,
     createServiceAddress,
     addressToString,
-    parseAddress
+    parseAddress, Address
 } from "../address";
 import {expect} from 'chai';
 
@@ -66,6 +66,8 @@ describe("Typescript usage suite", () => {
                 arg2: 3,
                 arg4: [1, 2, 3]
             },
+            "mm",
+            "fff",
             addr,
             "2444"
         );
@@ -189,17 +191,10 @@ export async function testCalculator() {
         await cl1.sendCall(req.reply_to, message);
     });
 
-
-    // msgId is to identify response
-    let msgId = "calculate-it-for-me";
-
-    let req = {one: 12, two: 23, msgId: msgId};
-
-
-    let predicate: (args: any) => boolean | undefined = (args: any) => args.msgId && args.msgId === msgId;
+    let req = {one: 12, two: 23};
 
     // send call to `sum-calculator` service with two numbers
-    let response = await cl2.sendServiceCallWaitResponse(serviceId, req, predicate);
+    let response = await cl2.sendServiceCallWaitResponse(serviceId, req);
 
     let result = response.result;
     console.log(`calculation result is: ${result}`);
@@ -211,7 +206,7 @@ export async function testCalculator() {
     // send call to `sum-calculator` service with two numbers
     await cl2.sendServiceCall(serviceId, req, "calculator request");
 
-    let response2 = await cl2.sendServiceCallWaitResponse(serviceId, req, predicate);
+    let response2 = await cl2.sendServiceCallWaitResponse(serviceId, req);
 
     let result2 = await response2.result;
     console.log(`calculation result AFTER RECONNECT is: ${result2}`);

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Address} from "./address";
+import {Address, createPeerAddress, createServiceAddress} from "./address";
 import {
     callToString,
     FunctionCall,
@@ -63,6 +63,16 @@ export class FluenceConnection {
         this.sender = sender
     }
 
+    makeReplyTo(replyHash?: string): Address {
+        if (replyHash) {
+            let replyToWithHash = {...this.sender}
+            replyToWithHash.hash = replyHash;
+            return replyToWithHash;
+        } else {
+            return this.sender;
+        }
+    }
+
     async connect() {
         let peerInfo = this.selfPeerInfo;
         this.node = await Peer.create({
@@ -89,8 +99,15 @@ export class FluenceConnection {
     /**
      * Sends remote service_id call.
      */
-    async sendServiceCall(serviceId: string, args: any, name?: string) {
-        let regMsg = makeCall(serviceId, args, this.sender, this.sender, name);
+    async sendServiceCall(moduleId: string, isLocal: boolean, args: any, fname?: string, replyHash?: string, name?: string) {
+        let target;
+        if (isLocal) {
+            target = createPeerAddress(this.nodePeerId.toB58String());
+        } else {
+            target = createServiceAddress(moduleId);
+        }
+
+        let regMsg = makeCall(moduleId, target, args, this.sender, this.makeReplyTo(replyHash), fname, name);
         await this.sendCall(regMsg);
     }
 
@@ -180,19 +197,20 @@ export class FluenceConnection {
     /**
      * Send FunctionCall to the connected node.
      */
-    async sendFunctionCall(target: Address, args: any, reply?: boolean, name?: string) {
+    async sendFunctionCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, replyHash?: string, name?: string) {
         this.checkConnectedOrThrow();
 
         let replyTo;
-        if (reply) replyTo = this.sender;
+        if (reply) replyTo = this.makeReplyTo(replyHash);
 
-        let call = makeFunctionCall(genUUID(), target, this.sender, args, replyTo, name);
+        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, name);
 
         await this.sendCall(call);
     }
 
     async registerService(serviceId: string) {
-        let regMsg = await makeRegisterMessage(serviceId, this.sender);
+        let target = createPeerAddress(this.nodePeerId.toB58String())
+        let regMsg = await makeRegisterMessage(serviceId, target, this.sender);
         await this.sendCall(regMsg);
     }
 }

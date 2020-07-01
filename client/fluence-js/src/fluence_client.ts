@@ -64,15 +64,22 @@ export class FluenceClient {
         });
     }
 
+    private getPredicate(msgId: string): (args: any, target: Address) => (boolean | undefined) {
+        return (args: any, target: Address) => target.hash && target.hash === msgId && !args.reason;
+    }
+
     /**
      * Send call and wait a response.
      *
      * @param target receiver
      * @param args message in the call
-     * @param predicate will be applied to each incoming call until it matches
+     * @param moduleId module name
+     * @param fname functin name
      */
-    async sendCallWaitResponse(target: Address, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        await this.sendCall(target, args, true);
+    async sendCallWaitResponse(target: Address, args: any, moduleId?: string, fname?: string): Promise<any> {
+        let replyHash = genUUID();
+        let predicate = this.getPredicate(replyHash);
+        await this.sendCall(target, args, true, moduleId, fname, replyHash, undefined);
         return this.waitResponse(predicate);
     }
 
@@ -82,11 +89,14 @@ export class FluenceClient {
      * @param target receiver
      * @param args message in the call
      * @param reply add a `replyTo` field or not
+     * @param moduleId module name
+     * @param fname function name
      * @param name common field for debug purposes
+     * @param replyHash hash that will be added to replyTo address
      */
-    async sendCall(target: Address, args: any, reply?: boolean, name?: string) {
+    async sendCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, replyHash?: string, name?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(target, args, reply, name);
+            await this.connection.sendFunctionCall(target, args, reply, moduleId, fname, replyHash, name);
         } else {
             throw Error("client is not connected")
         }
@@ -95,13 +105,32 @@ export class FluenceClient {
     /**
      * Send call to the service.
      *
-     * @param serviceId
+     * @param moduleId
      * @param args message to the service
+     * @param fname function name
      * @param name common field for debug purposes
+     * @param replyHash hash that will be added to replyTo address
      */
-    async sendServiceCall(serviceId: string, args: any, name?: string) {
+    async sendServiceCall(moduleId: string, args: any, fname?: string, replyHash?: string, name?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(serviceId, args, name);
+            await this.connection.sendServiceCall(moduleId, false, args, fname, replyHash, name);
+        } else {
+            throw Error("client is not connected")
+        }
+    }
+
+    /**
+     * Send a call to the local service on a peer the client connected with.
+     *
+     * @param moduleId
+     * @param args message to the service
+     * @param fname function name
+     * @param name common field for debug purposes
+     * @param replyHash hash that will be added to replyTo address
+     */
+    async sendServiceLocalCall(moduleId: string, args: any, fname?: string, replyHash?: string, name?: string) {
+        if (this.connection && this.connection.isConnected()) {
+            await this.connection.sendServiceCall(moduleId, true, args, fname, replyHash, name);
         } else {
             throw Error("client is not connected")
         }
@@ -110,12 +139,28 @@ export class FluenceClient {
     /**
      * Send call to the service and wait a response matches predicate.
      *
-     * @param serviceId
+     * @param moduleId
      * @param args message to the service
-     * @param predicate will be applied to each incoming call until it matches
+     * @param fname function name
      */
-    async sendServiceCallWaitResponse(serviceId: string, args: any, predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        await this.sendServiceCall(serviceId, args);
+    async sendServiceCallWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
+        let replyHash = genUUID();
+        let predicate = this.getPredicate(replyHash);
+        await this.sendServiceCall(moduleId, args, fname, replyHash, fname);
+        return await this.waitResponse(predicate);
+    }
+
+    /**
+     * Send a call to the local service and wait a response matches predicate on a peer the client connected with.
+     *
+     * @param moduleId
+     * @param args message to the service
+     * @param fname function name
+     */
+    async sendServiceLocalCallWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
+        let replyHash = genUUID();
+        let predicate = this.getPredicate(replyHash);
+        await this.sendServiceLocalCall(moduleId, args, fname, replyHash, undefined);
         return await this.waitResponse(predicate);
     }
 
@@ -147,31 +192,35 @@ export class FluenceClient {
             _this.subscriptions.applyToSubscriptions(call);
 
             switch (lastProtocol.protocol) {
-                case ProtocolType.Service:
-                    try {
-                        // call of the service, service should handle response sending, error handling, requests to other services
-                        let applied = _this.services.applyToService(lastProtocol.value, call);
+                case ProtocolType.Providers:
 
-                        // if the request hasn't been applied, there is no such service. Return an error.
-                        if (!applied) {
-                            console.log(`there is no service ${lastProtocol.value}`);
-                            return this.responseCall(call.reply_to, {
-                                reason: `there is no such service`,
-                                msg: call
-                            });
-                        }
-                    } catch (e) {
-                        // if service throw an error, return it to the sender
-                        return this.responseCall(call.reply_to, {
-                            reason: `error on execution: ${e}`,
-                            msg: call
-                        });
-                    }
 
                     return undefined;
                 case ProtocolType.Client:
                     if (lastProtocol.value === _this.selfPeerIdStr) {
-                        console.log(`relay call: ${call}`);
+                        console.log(`relay call:`);
+                        console.log(JSON.stringify(call, undefined, 2));
+                        if (call.module) {
+                            try {
+                                // call of the service, service should handle response sending, error handling, requests to other services
+                                let applied = _this.services.applyToService(call);
+
+                                // if the request hasn't been applied, there is no such service. Return an error.
+                                if (!applied) {
+                                    console.log(`there is no service ${lastProtocol.value}`);
+                                    return this.responseCall(call.reply_to, {
+                                        reason: `there is no such service`,
+                                        msg: call
+                                    });
+                                }
+                            } catch (e) {
+                                // if service throw an error, return it to the sender
+                                return this.responseCall(call.reply_to, {
+                                    reason: `error on execution: ${e}`,
+                                    msg: call
+                                });
+                            }
+                        }
                     } else {
                         console.warn(`this relay call is not for me: ${callToString(call)}`);
                         return this.responseCall(call.reply_to, {
@@ -199,10 +248,10 @@ export class FluenceClient {
     /**
      * Sends a call to register the service_id.
      */
-    async registerService(serviceId: string, fn: (req: FunctionCall) => void) {
-        await this.connection.registerService(serviceId);
+    async registerService(moduleId: string, fn: (req: FunctionCall) => void) {
+        await this.connection.registerService(moduleId);
 
-        this.services.addService(serviceId, fn)
+        this.services.addService(moduleId, fn)
     }
 
     // subscribe new hook for every incoming call, to handle in-service responses and other different cases
@@ -213,10 +262,10 @@ export class FluenceClient {
 
 
     /**
-     * Sends a call to unregister the service_id.
+     * Sends a call to unregister the service.
      */
-    async unregisterService(serviceId: string) {
-        if (this.services.deleteService(serviceId)) {
+    async unregisterService(moduleId: string) {
+        if (this.services.deleteService(moduleId)) {
             console.warn("unregister is not implemented yet (service: ${serviceId}")
             // TODO unregister in fluence network when it will be supported
             // let regMsg = makeRegisterMessage(serviceId, PeerId.createFromB58String(this.nodePeerId));
