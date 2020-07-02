@@ -5,8 +5,8 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
-parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "libp2p_0_20" }
+parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "libp2p_0_20" }
 multihash ="0.11.0"
 futures = "0.3.4"
 futures-util = "0.3.4"

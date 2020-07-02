@@ -57,8 +57,8 @@ impl FunctionRouter {
 
         #[rustfmt::skip]
         let (found, quorum) = match &error {
-            QuorumFailed { num_results, quorum, .. } => (num_results, quorum.get()),
-            Timeout { num_results, quorum, .. } => (num_results, quorum.get()),
+            QuorumFailed { success, quorum, .. } => (success.len(), quorum.get()),
+            Timeout { success, quorum, .. } => (success.len(), quorum.get()),
         };
 
         // found more than 50% of required quorum // TODO: is it reasonable?
@@ -110,7 +110,7 @@ impl FunctionRouter {
             }
             Ok(GetRecordOk { records }) => {
                 let first = records.first().expect("records can't be empty");
-                (&first.key).try_into()
+                (&first.record.key).try_into()
             }
             Err(err) => err.key().try_into(),
         };
@@ -163,7 +163,7 @@ impl FunctionRouter {
         // fallback to single record, skip failed
         let records = records
             .into_iter()
-            .flat_map(|rec| match kademlia::try_to_multirecord(rec) {
+            .flat_map(|rec| match kademlia::try_to_multirecord(rec.record) {
                 Ok(multirec) => Some(multirec),
                 Err(err) => {
                     log::warn!(
