@@ -18,6 +18,8 @@ use crate::utils::{
     create_memory_maddr, create_swarm, make_swarms_with, CreatedSwarm, SwarmConfig, KAD_TIMEOUT,
 };
 use fluence_faas::RawCoreModulesConfig;
+use parity_multiaddr::Multiaddr;
+use std::collections::HashMap;
 use std::thread::sleep;
 
 static TEST_MODULE: &[u8] = include_bytes!("../artifacts/test_module_wit.wasi.wasm");
@@ -54,21 +56,16 @@ core_modules_dir = ""
 
 #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct Function {
-    pub inputs: Vec<String>,
-    pub name: String,
-    pub outputs: Vec<String>,
-}
-#[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
-pub struct Module {
-    pub name: String,
-    pub functions: Vec<Function>,
-}
-#[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
-pub struct Interface {
-    pub modules: Vec<Module>,
+    pub input_types: Vec<String>,
+    pub output_types: Vec<String>,
 }
 
-pub fn start_faas() -> CreatedSwarm {
+#[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
+pub struct Interface {
+    pub modules: HashMap<String, HashMap<String, Function>>,
+}
+
+pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static> {
     let wasm_config: RawCoreModulesConfig =
         toml::from_str(WASM_CONFIG).expect("parse module config");
 
@@ -77,14 +74,16 @@ pub fn start_faas() -> CreatedSwarm {
         ("test_two.wasm".to_string(), TEST_MODULE.to_vec()),
     ];
 
+    let mut config = SwarmConfig::new(bs, maddr);
+    config.wasm_modules = wasm_modules;
+    config.wasm_config = wasm_config;
+    config
+}
+
+pub fn start_faas() -> CreatedSwarm {
     let swarms = make_swarms_with(
         1,
-        |bs, maddr| {
-            let mut config = SwarmConfig::new(bs, maddr);
-            config.wasm_modules = wasm_modules.clone();
-            config.wasm_config = wasm_config.clone();
-            create_swarm(config)
-        },
+        |bs, maddr| create_swarm(faas_config(bs, maddr)),
         create_memory_maddr,
         true,
     );

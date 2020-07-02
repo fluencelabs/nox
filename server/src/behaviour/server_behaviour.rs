@@ -17,6 +17,7 @@
 use crate::Bootstrapper;
 use crate::FunctionRouter;
 
+use crate::bootstrapper::BootstrapConfig;
 use crate::function::RouterConfig;
 use fluence_faas::FluenceFaaS;
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
@@ -54,6 +55,7 @@ impl ServerBehaviour {
         bootstrap_nodes: Vec<Multiaddr>,
         registry: Option<&Registry>,
         faas: FluenceFaaS,
+        bs_config: BootstrapConfig,
     ) -> Self {
         let config =
             RouterConfig::new(key_pair.clone(), local_peer_id.clone(), listening_addresses);
@@ -65,7 +67,7 @@ impl ServerBehaviour {
             local_public_key,
         );
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
-        let bootstrapper = Bootstrapper::new(local_peer_id, bootstrap_nodes);
+        let bootstrapper = Bootstrapper::new(bs_config, local_peer_id, bootstrap_nodes);
 
         Self {
             router,

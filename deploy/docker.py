@@ -42,7 +42,7 @@ def do_install_docker():
         puts("installing docker")
         sudo("apt-get install --yes docker-ce docker-ce-cli containerd.io")
         puts("installing docker-compose")
-        sudo("""curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose """)
+        sudo("""curl -L "https://github.com/docker/compose/releases/download/1.26.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose """)
         sudo("chmod +x /usr/local/bin/docker-compose")
 
 @task
@@ -72,7 +72,7 @@ def do_deploy_watchdog():
 def deploy_caddy():
     load_config()
 
-    ports = [ '9002','9003','9005','9004','9001','9100','9990' ]
+    ports = [ '9002','9003','9005','9004','9001','9100','9990', '5001' ]
     host = 'relay02.fluence.dev'
     ip = env.host_string
     fname = 'Caddyfile'

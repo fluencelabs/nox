@@ -24,7 +24,7 @@ AU4Z5crLwT74kUkWojiQhCarVxZhqSs54C7SmEqaVeLL = 13
 7bkX8cLTEAGG9n6NSrjdDrk1YkkyJRPdrCjpBWkHy2Bh = 20
 
 [faas]
-core_modules_dir = "/wasm_modules"
+#core_modules_dir = "/wasm_modules"
 
 [[faas.core_module]]
     name = "ipfs_node.wasm"
@@ -32,7 +32,6 @@ core_modules_dir = "/wasm_modules"
     logger_enabled = true
 
     [faas.core_module.imports]
-    mysql = "/usr/bin/mysql"
     ipfs = "/usr/local/bin/ipfs"
 
     [faas.core_module.wasi]

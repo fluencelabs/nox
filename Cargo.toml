@@ -2,7 +2,6 @@
 members = [
     "server",
     "client/rust-libp2p",
-    "client/fluence-ipfs",
     "trust-graph",
     "crates/libp2p",
     "crates/ctrlc-adapter",

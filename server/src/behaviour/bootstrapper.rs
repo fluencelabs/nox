@@ -25,7 +25,6 @@ impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
         match event {
             BootstrapperEvent::RunBootstrap => {
                 log::debug!("Running bootstrap procedure");
-                // TODO: refactor out "thin bootstrap": only look ourselves in kademlia
                 self.bootstrap()
             }
             BootstrapperEvent::ReconnectToBootstrap { multiaddr, error } => {

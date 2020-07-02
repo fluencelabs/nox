@@ -82,10 +82,7 @@ impl FunctionRouter {
                 self.send_error(provider, err_msg);
             }
             Entry::Vacant(_) => {
-                log::warn!(
-                    "DHT put failed for service_id {}, but no registered services found",
-                    name
-                );
+                log::warn!("DHT put failed for service_id {}", name);
             }
         }
     }

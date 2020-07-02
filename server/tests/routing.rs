@@ -454,22 +454,11 @@ fn get_interface() {
     client.send(call.clone());
     let received = client.receive();
 
-    let expected: Interface = serde_json::from_str(r#"{"modules":[{"functions":[{"inputs":["String"],"name":"greeting","outputs":["String"]},{"inputs":[],"name":"empty","outputs":[]}],"name":"test_one.wasm"},{"functions":[{"inputs":[],"name":"empty","outputs":[]},{"inputs":["String"],"name":"greeting","outputs":["String"]}],"name":"test_two.wasm"}]}"#).unwrap();
+    let expected: Interface = serde_json::from_str(r#"{"modules":{"test_one.wasm":{"empty":{"input_types":[],"output_types":[]},"greeting":{"input_types":["String"],"output_types":["String"]}},"test_two.wasm":{"empty":{"input_types":[],"output_types":[]},"greeting":{"input_types":["String"],"output_types":["String"]}}}}"#).unwrap();
     let actual: Interface =
         serde_json::from_value(received.arguments["interface"].clone()).unwrap();
 
-    // Check interface contains all expected modules and functions
-    assert_eq!(expected.modules.len(), actual.modules.len());
-    for me in expected.modules {
-        #[rustfmt::skip]
-        let ma = actual.modules.iter().find(|m| m.name == me.name).expect("module not found");
-        assert_eq!(me.functions.len(), ma.functions.len());
-        for fe in me.functions {
-            #[rustfmt::skip]
-            let fa = ma.functions.iter().find(|f| f.name == fe.name).expect("function not found");
-            assert_eq!(&fe, fa);
-        }
-    }
+    assert_eq!(expected, actual);
 }
 
 #[test]
@@ -514,4 +503,36 @@ fn call_empty() {
 
         assert!(received.arguments.as_object().unwrap().is_empty());
     }
+}
+
+#[test]
+fn find_module_provider() {
+    let mut wasm_done = false;
+    let swarms = make_swarms_with(
+        5,
+        |bs, maddr| {
+            if wasm_done {
+                // Do not load wasm modules on these swarms
+                create_swarm(SwarmConfig::new(bs, maddr))
+            } else {
+                // Load wasm modules only on this single swarm
+                wasm_done = true;
+                create_swarm(faas_config(bs, maddr))
+            }
+        },
+        create_memory_maddr,
+        true,
+    );
+    sleep(KAD_TIMEOUT);
+
+    let payload = "payload".to_string();
+    let module = "test_one.wasm";
+    let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let mut call = service_call(provider!(module), consumer.relay_addr(), module);
+    call.fname = Some("greeting".into());
+    call.arguments = Value::Array(vec![Value::String(payload.clone())]);
+    consumer.send(call);
+
+    let received = consumer.receive();
+    assert_eq!(&received.arguments["result"], &payload, "{:?}", received);
 }

@@ -60,19 +60,17 @@ impl FunctionRouter {
         function: Option<&str>,
     ) -> Result<Option<(String, String)>, CallErrorKind<'static>> {
         let interface = self.faas.get_interface();
-        let module = ok_get!(interface.modules.iter().find(|m| m.name == module));
+        let functions = ok_get!(interface.modules.get(module));
         let function = function.ok_or_else(|| MissingFunctionName {
-            module: module.name.to_string(),
+            module: module.to_string(),
         })?;
-        let function = module
-            .functions
-            .iter()
-            .find(|f| f.name == function)
-            .ok_or_else(|| CallErrorKind::FunctionNotFound {
-                module: module.name.to_string(),
+        if !functions.contains_key(function) {
+            return Err(CallErrorKind::FunctionNotFound {
+                module: module.to_string(),
                 function: function.to_string(),
-            })?;
-        Ok(Some((module.name.to_string(), function.name.to_string())))
+            });
+        }
+        Ok(Some((module.to_string(), function.to_string())))
     }
 
     // Look for service providers, enqueue call to wait for providers

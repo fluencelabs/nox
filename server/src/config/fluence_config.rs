@@ -15,22 +15,34 @@
  */
 
 use super::keys::{decode_key_pair, load_or_create_key_pair};
-use clap::ArgMatches;
+use crate::bootstrapper::BootstrapConfig;
+use anyhow::Context;
+use clap::{ArgMatches, Values};
 use fluence_faas::RawCoreModulesConfig;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::{error::Error, net::IpAddr, time::Duration};
+use std::{net::IpAddr, time::Duration};
 use trust_graph::{KeyPair, PublicKeyHashable};
 
-pub const WEBSOCKET_PORT: &str = "websocket-port";
-pub const TCP_PORT: &str = "tcp-port";
-pub const ROOT_KEY_PAIR_PATH: &str = "root-key-pair-path";
-pub const ROOT_KEY_PAIR: &str = "root-key-pair";
-pub const BOOTSTRAP_NODE: &str = "bootstrap-node";
-pub const EXTERNAL_ADDR: &str = "external-ipaddr";
-pub const CERTIFICATE_DIR: &str = "certificate-dir";
-pub const CONFIG_FILE: &str = "config-file";
+pub const WEBSOCKET_PORT: &str = "websocket_port";
+pub const TCP_PORT: &str = "tcp_port";
+pub const ROOT_KEY_PAIR: &str = "root_key_pair";
+pub const BOOTSTRAP_NODE: &str = "bootstrap_nodes";
+pub const EXTERNAL_ADDR: &str = "external_address";
+pub const CERTIFICATE_DIR: &str = "certificate_dir";
+pub const CONFIG_FILE: &str = "config_file";
+pub const CORE_ENVS: &str = "core_envs";
+const ARGS: &[&str] = &[
+    WEBSOCKET_PORT,
+    TCP_PORT,
+    ROOT_KEY_PAIR,
+    BOOTSTRAP_NODE,
+    EXTERNAL_ADDR,
+    CERTIFICATE_DIR,
+    CONFIG_FILE,
+    CORE_ENVS,
+];
 
 pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
 pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
@@ -77,6 +89,9 @@ pub struct ServerConfig {
     /// Prometheus port
     #[serde(default = "default_prometheus_port")]
     pub prometheus_port: u16,
+
+    #[serde(default)]
+    pub bootstrap_config: BootstrapConfig,
 }
 
 impl ServerConfig {
@@ -152,21 +167,76 @@ where
     }
 }
 
+/// Take all command line arguments, and insert them into config appropriately
+fn insert_args_to_config(
+    arguments: ArgMatches<'_>,
+    config: &mut toml::value::Table,
+) -> anyhow::Result<()> {
+    use toml::Value::*;
+
+    /// Set given `envs` to each `core_module.wasi.envs` in `config.faas`
+    fn set_core_envs(config: &mut toml::value::Table, arg: Values<'_>) -> Option<()> {
+        // Path in config is: ["faas"]["core_module"][0]["wasi"]["envs"]
+        let faas = config.get_mut("faas")?.as_table_mut()?;
+        let core = faas.get_mut("core_module")?.as_array_mut()?;
+        for module in core.iter_mut() {
+            let wasi = module.get_mut("wasi")?.as_table_mut()?;
+            let envs = wasi.get_mut("envs")?.as_array_mut()?;
+
+            envs.extend(multiple(arg.clone()));
+        }
+
+        Some(())
+    }
+
+    fn single(mut value: Values<'_>) -> &str {
+        value.next().unwrap()
+    }
+
+    fn multiple(value: Values<'_>) -> impl Iterator<Item = toml::Value> + '_ {
+        value.map(|s| String(s.into()))
+    }
+
+    // Check each possible command line argument
+    for &k in ARGS {
+        let arg = match arguments.values_of(k) {
+            Some(arg) => arg,
+            None => continue,
+        };
+
+        match k {
+            CORE_ENVS => {
+                // Set envs for each core module
+                set_core_envs(config, arg);
+            }
+            k => {
+                // Convert value to a type of the corresponding field in `FluenceConfig`
+                let value = match k {
+                    WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
+                    BOOTSTRAP_NODE => Array(multiple(arg).collect()),
+                    _ => String(single(arg).into()),
+                };
+                config.insert(k.to_string(), value);
+            }
+        }
+    }
+
+    Ok(())
+}
+
 // loads config from arguments and a config file
-pub fn load_config(arguments: ArgMatches<'_>) -> Result<FluenceConfig, Box<dyn Error>> {
+pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
         .unwrap_or(DEFAULT_CONFIG_FILE);
 
     log::info!("Loading config from {}", config_file);
 
-    let file_content = std::fs::read(config_file)?;
+    let file_content =
+        std::fs::read(config_file).context(format!("Config wasn't found at {}", config_file))?;
     let mut config: toml::value::Table = toml::from_slice(&file_content)?;
-    for (k, v) in config.iter_mut() {
-        if let Some(arg) = arguments.value_of(k) {
-            *v = toml::value::Value::String(arg.to_string());
-        }
-    }
+
+    insert_args_to_config(arguments, &mut config)?;
 
     let config = toml::value::Value::Table(config);
     let config = FluenceConfig::deserialize(config)?;

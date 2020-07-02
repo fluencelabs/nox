@@ -951,7 +951,7 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 [[package]]
 name = "fce"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce#6784d2ed0806c59d9adbe0c65b44490b628afe89"
+source = "git+https://github.com/fluencelabs/fce#80afea2094bf3af8fb50ba4c03aa2d6a3546915f"
 dependencies = [
  "fce_wit_interfaces",
  "log",
@@ -969,7 +969,7 @@ dependencies = [
 [[package]]
 name = "fce_wit_interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce#6784d2ed0806c59d9adbe0c65b44490b628afe89"
+source = "git+https://github.com/fluencelabs/fce#80afea2094bf3af8fb50ba4c03aa2d6a3546915f"
 dependencies = [
  "multimap",
  "wasmer-interface-types",
@@ -1030,7 +1030,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce#6784d2ed0806c59d9adbe0c65b44490b628afe89"
+source = "git+https://github.com/fluencelabs/fce#80afea2094bf3af8fb50ba4c03aa2d6a3546915f"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -1042,34 +1042,6 @@ dependencies = [
  "wasmer-runtime",
  "wasmer-runtime-core",
  "wasmer-wasi",
-]
-
-[[package]]
-name = "fluence-ipfs"
-version = "0.0.1"
-dependencies = [
- "async-std",
- "async-timer",
- "bs58",
- "ctrlc-adapter",
- "env_logger",
- "faas-api",
- "failure",
- "fluence-client",
- "fluence-libp2p",
- "fnv",
- "futures",
- "futures-util",
- "libp2p",
- "log",
- "multihash",
- "once_cell",
- "parity-multiaddr",
- "rand 0.7.3",
- "serde 1.0.114",
- "serde_json",
- "uuid",
- "void",
 ]
 
 [[package]]
@@ -1095,6 +1067,7 @@ dependencies = [
 name = "fluence-server"
 version = "0.0.5"
 dependencies = [
+ "anyhow",
  "async-std",
  "base64 0.11.0",
  "bs58",
@@ -2320,9 +2293,9 @@ dependencies = [
 
 [[package]]
 name = "mio-named-pipes"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5e374eff525ce1c5b7687c4cef63943e7686524a387933ad27ca7ec43779cb3"
+checksum = "0840c1c50fd55e521b247f949c241c9997709f23bd7f023b9762cd561e935656"
 dependencies = [
  "log",
  "mio",
@@ -3896,7 +3869,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fde2f6a4bea1d6e007c4ad38c6839fa71cbb63b6dbf5b595aa38dc9b1093c11"
 dependencies = [
  "rand 0.7.3",
- "serde 1.0.114",
 ]
 
 [[package]]
@@ -4304,7 +4276,7 @@ dependencies = [
 [[package]]
 name = "wit_parser"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce#6784d2ed0806c59d9adbe0c65b44490b628afe89"
+source = "git+https://github.com/fluencelabs/fce#80afea2094bf3af8fb50ba4c03aa2d6a3546915f"
 dependencies = [
  "anyhow",
  "fce_wit_interfaces",

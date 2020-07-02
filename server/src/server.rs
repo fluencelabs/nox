@@ -64,6 +64,7 @@ impl Server {
                 server_config.bootstrap_nodes.clone(),
                 Some(&registry),
                 faas,
+                <_>::default(),
             );
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
@@ -149,14 +150,16 @@ impl Server {
     /// Starts node service listener.
     #[inline]
     fn listen(&mut self) -> Result<(), TransportError<io::Error>> {
-        let mut listen_addr = Multiaddr::from(self.config.listen_ip);
-        listen_addr.push(Protocol::Tcp(self.config.tcp_port));
+        let mut tcp = Multiaddr::from(self.config.listen_ip);
+        tcp.push(Protocol::Tcp(self.config.tcp_port));
 
         let mut ws = Multiaddr::from(self.config.listen_ip);
         ws.push(Protocol::Tcp(self.config.websocket_port));
         ws.push(Protocol::Ws("/".into()));
 
-        Swarm::listen_on(&mut self.swarm, listen_addr)?;
+        log::info!("Fluence listening on {} and {}", tcp, ws);
+
+        Swarm::listen_on(&mut self.swarm, tcp)?;
         Swarm::listen_on(&mut self.swarm, ws)?;
         Ok(())
     }

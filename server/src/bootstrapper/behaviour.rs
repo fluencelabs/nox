@@ -22,27 +22,60 @@ use libp2p::swarm::{
 };
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::mem;
 use std::time::{Duration, Instant};
 
 pub type SwarmEventType = generate_swarm_event_type!(Bootstrapper);
-// TODO: make it exponential
-static RECONNECT_DELAY: Duration = Duration::from_millis(1500);
-static BOOTSTRAP_DELAY: Duration = Duration::from_millis(10000);
-static BOOTSTRAP_MAX_DELAY: Duration = Duration::from_secs(60);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BootstrapConfig {
+    pub reconnect_delay: Duration,
+    pub bootstrap_delay: Duration,
+    pub bootstrap_max_delay: Duration,
+}
+
+impl BootstrapConfig {
+    /// Creates config with all values to zero, so no delays. Useful for tests.
+    pub fn zero() -> BootstrapConfig {
+        BootstrapConfig {
+            reconnect_delay: <_>::default(),
+            bootstrap_delay: <_>::default(),
+            bootstrap_max_delay: <_>::default(),
+        }
+    }
+}
+
+impl Default for BootstrapConfig {
+    fn default() -> Self {
+        use rand::prelude::*;
+        let mut rng = rand::thread_rng();
+        BootstrapConfig {
+            // TODO: make it exponential
+            reconnect_delay: Duration::from_millis(1500 + rng.gen_range(0, 500)),
+            bootstrap_delay: Duration::from_millis(30000 + rng.gen_range(0, 2000)),
+            bootstrap_max_delay: Duration::from_secs(60),
+        }
+    }
+}
 
 #[derive(Default, Debug)]
-struct Backoff(u32);
+struct Backoff(u32, Duration);
 impl Backoff {
+    pub fn new(delay: Duration) -> Self {
+        Backoff(0, delay)
+    }
+
     pub fn next_delay(&mut self) -> Duration {
         self.0 += 1;
-        self.0 * RECONNECT_DELAY
+        self.0 * self.1
     }
 }
 
 pub struct Bootstrapper {
+    config: BootstrapConfig,
     peer_id: PeerId,
     pub bootstrap_nodes: HashSet<Multiaddr>,
     delayed_events: Vec<(Option<Instant>, SwarmEventType)>,
@@ -52,8 +85,9 @@ pub struct Bootstrapper {
 }
 
 impl Bootstrapper {
-    pub fn new(peer_id: PeerId, bootstrap_nodes: Vec<Multiaddr>) -> Self {
+    pub fn new(config: BootstrapConfig, peer_id: PeerId, bootstrap_nodes: Vec<Multiaddr>) -> Self {
         Self {
+            config,
             peer_id,
             bootstrap_nodes: bootstrap_nodes.into_iter().collect(),
             delayed_events: Default::default(),
@@ -74,10 +108,11 @@ impl Bootstrapper {
         S: Into<String>,
         E: Into<Option<S>>,
     {
+        let delay = self.config.reconnect_delay;
         let delay = self
             .bootstrap_backoff
             .entry(multiaddr.clone())
-            .or_insert_with(Backoff::default)
+            .or_insert_with(|| Backoff::new(delay))
             .next_delay();
 
         self.push_event(
@@ -89,16 +124,17 @@ impl Bootstrapper {
         );
     }
 
-    /// Schedule sending of `RunBootstrap` event after a `BOOTSTRAP_DELAY`
+    /// Schedule sending of `RunBootstrap` event after a `bootstrap_delay`
     fn schedule_bootstrap(&mut self) {
         match self.bootstrap_scheduled {
-            Some((scheduled, mut delay)) if delay < BOOTSTRAP_MAX_DELAY => {
+            Some((scheduled, mut delay)) if delay < self.config.bootstrap_max_delay => {
                 // Delay bootstrap by `elapsed`
                 delay += scheduled.elapsed()
             }
             Some(_) => { /* maximum delay reached */ }
-            mut empty => {
-                empty.replace((Instant::now(), BOOTSTRAP_DELAY));
+            None => {
+                self.bootstrap_scheduled
+                    .replace((Instant::now(), self.config.bootstrap_delay));
             }
         };
     }
@@ -107,7 +143,8 @@ impl Bootstrapper {
     fn trigger_bootstrap(&mut self, now: Instant) {
         if let Some(&(scheduled, delay)) = self.bootstrap_scheduled.as_ref() {
             if now >= scheduled + delay {
-                self.push_event(BootstrapperEvent::RunBootstrap, None)
+                self.push_event(BootstrapperEvent::RunBootstrap, None);
+                self.bootstrap_scheduled = None;
             }
         }
     }
@@ -160,14 +197,14 @@ impl NetworkBehaviour for Bootstrapper {
             ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
         };
 
+        let is_bootstrap = self.bootstrap_nodes.contains(maddr);
+        #[rustfmt::skip]
         log::debug!(
-            "{} connection established with {} {:?}",
-            self.peer_id,
-            peer_id,
-            maddr
+            "{} connection established with {} {:?}. Bootstrap? {}",
+            self.peer_id, peer_id, maddr, is_bootstrap
         );
 
-        if self.bootstrap_nodes.contains(maddr) {
+        if is_bootstrap {
             self.schedule_bootstrap();
         }
     }
@@ -197,4 +234,90 @@ impl NetworkBehaviour for Bootstrapper {
     }
 
     event_polling!(poll, events, SwarmEventType, on_poll);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bootstrapper::event::BootstrapperEvent::RunBootstrap;
+    use fluence_libp2p::RandomPeerId;
+    use libp2p::swarm::PollParameters;
+    use std::net::IpAddr;
+    use std::task::{Context, Poll};
+    use std::thread::sleep;
+
+    struct PollParams {
+        peer_id: PeerId,
+    }
+    impl PollParameters for PollParams {
+        type SupportedProtocolsIter = std::iter::Empty<Vec<u8>>;
+        type ListenedAddressesIter = std::iter::Empty<Multiaddr>;
+        type ExternalAddressesIter = std::iter::Empty<Multiaddr>;
+
+        fn supported_protocols(&self) -> Self::SupportedProtocolsIter {
+            std::iter::empty()
+        }
+
+        fn listened_addresses(&self) -> Self::ListenedAddressesIter {
+            std::iter::empty()
+        }
+
+        fn external_addresses(&self) -> Self::ExternalAddressesIter {
+            std::iter::empty()
+        }
+
+        fn local_peer_id(&self) -> &PeerId {
+            &self.peer_id
+        }
+    }
+
+    #[test]
+    fn run_bootstrap() {
+        let delay = Duration::from_millis(100);
+        let cfg = BootstrapConfig {
+            reconnect_delay: delay,
+            bootstrap_delay: delay,
+            bootstrap_max_delay: delay * 100,
+        };
+        let peer_id = RandomPeerId::random();
+        let addr: IpAddr = "127.0.0.1".parse().unwrap();
+        let addr = Multiaddr::from(addr);
+        let bs = vec![addr.clone()];
+        let mut behaviour = Bootstrapper::new(cfg, peer_id.clone(), bs);
+
+        let start = Instant::now();
+        behaviour.inject_connection_established(
+            &RandomPeerId::random(),
+            &ConnectionId::new(0),
+            &ConnectedPoint::Dialer { address: addr },
+        );
+
+        let noop_waker = futures_util::task::noop_waker();
+        let mut cx = Context::from_waker(&noop_waker);
+
+        let mut parameters = PollParams { peer_id };
+
+        let event = loop {
+            match behaviour.poll(&mut cx, &mut parameters) {
+                Poll::Ready(event) => break event,
+                Poll::Pending => {
+                    sleep(Duration::from_millis(1));
+                    continue;
+                }
+            }
+        };
+
+        match event {
+            NetworkBehaviourAction::GenerateEvent(event) => match event {
+                RunBootstrap => {
+                    // Check that bootstrap didn't hang (completed in no more than twice of expected time)
+                    assert!(start.elapsed() < delay * 2);
+                    // Check that bootstrap was delayed for long enough
+                    assert!(start.elapsed() >= delay)
+                }
+                other => unreachable!("{:?}", other),
+            },
+            other => unreachable!("{:?}", other),
+        };
+    }
 }
