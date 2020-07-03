@@ -93,24 +93,24 @@ impl Trust {
             return Err("Trust in chain is expired.".to_string());
         }
 
-        let msg = Self::metadata_bytes(&trust.issued_for, trust.expires_at, trust.issued_at);
-        println!(
-            "checking signature {} by {}, metadata bytes: {:?}",
-            bs58::encode(&trust.signature).into_string(),
-            bs58::encode(issued_by).into_string(),
-            msg
-        );
+        let msg: &[u8] =
+            &Self::metadata_bytes(&trust.issued_for, trust.expires_at, trust.issued_at);
+        // println!(
+        //     "checking signature {} by {}, metadata bytes: {:?}",
+        //     bs58::encode(&trust.signature).into_string(),
+        //     bs58::encode(&issued_by.encode()).into_string(),
+        //     msg
+        // );
 
-        KeyPair::verify(issued_by, &msg, trust.signature.as_slice())?;
+        KeyPair::verify(issued_by, msg, trust.signature.as_slice())?;
 
         Ok(())
     }
 
     fn metadata_bytes(pk: &PublicKey, expires_at: Duration, issued_at: Duration) -> [u8; 48] {
         let pk_encoded = pk.encode();
-        let expires_at_encoded: [u8; EXPIRATION_LEN] =
-            (expires_at.as_millis() as u64).to_le_bytes();
-        let issued_at_encoded: [u8; ISSUED_LEN] = (issued_at.as_millis() as u64).to_le_bytes();
+        let expires_at_encoded: [u8; EXPIRATION_LEN] = (expires_at.as_secs() as u64).to_le_bytes();
+        let issued_at_encoded: [u8; ISSUED_LEN] = (issued_at.as_secs() as u64).to_le_bytes();
         let mut metadata = [0; METADATA_LEN];
 
         metadata[..PK_LEN].clone_from_slice(&pk_encoded[..PK_LEN]);
@@ -128,8 +128,8 @@ impl Trust {
         let mut vec = Vec::with_capacity(TRUST_LEN);
         vec.extend_from_slice(&self.issued_for.encode());
         vec.extend_from_slice(&self.signature.as_slice());
-        vec.extend_from_slice(&(self.expires_at.as_millis() as u64).to_le_bytes());
-        vec.extend_from_slice(&(self.issued_at.as_millis() as u64).to_le_bytes());
+        vec.extend_from_slice(&(self.expires_at.as_secs() as u64).to_le_bytes());
+        vec.extend_from_slice(&(self.issued_at.as_secs() as u64).to_le_bytes());
 
         vec
     }
@@ -148,11 +148,11 @@ impl Trust {
 
         let expiration_bytes = &arr[PK_LEN + SIG_LEN..PK_LEN + SIG_LEN + EXPIRATION_LEN];
         let expiration_date = u64::from_le_bytes(expiration_bytes.try_into().unwrap());
-        let expiration_date = Duration::from_millis(expiration_date);
+        let expiration_date = Duration::from_secs(expiration_date);
 
         let issued_bytes = &arr[PK_LEN + SIG_LEN + EXPIRATION_LEN..TRUST_LEN];
         let issued_date = u64::from_le_bytes(issued_bytes.try_into().unwrap());
-        let issued_date = Duration::from_millis(issued_date);
+        let issued_date = Duration::from_secs(issued_date);
 
         Ok(Self {
             issued_for: pk,
@@ -172,13 +172,13 @@ impl Trust {
     }
 
     fn str_to_duration(str: &str, field: &str) -> Result<Duration, String> {
-        let millis = str.parse().map_err(|e| {
+        let secs = str.parse().map_err(|e| {
             format!(
                 "Cannot parse `{}` field in the trust '{}': {}",
                 field, str, e
             )
         })?;
-        Ok(Duration::from_millis(millis))
+        Ok(Duration::from_secs(secs))
     }
 
     pub fn convert_from_strings(
@@ -213,8 +213,8 @@ impl ToString for Trust {
     fn to_string(&self) -> String {
         let issued_for = bs58::encode(self.issued_for.encode()).into_string();
         let signature = bs58::encode(self.signature.as_slice()).into_string();
-        let expires_at = (self.expires_at.as_millis() as u64).to_string();
-        let issued_at = (self.issued_at.as_millis() as u64).to_string();
+        let expires_at = (self.expires_at.as_secs() as u64).to_string();
+        let issued_at = (self.issued_at.as_secs() as u64).to_string();
 
         format!(
             "{}\n{}\n{}\n{}",

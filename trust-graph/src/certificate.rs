@@ -46,7 +46,7 @@ impl Certificate {
         expires_at: Duration,
         issued_at: Duration,
     ) -> Self {
-        let root_expiration = Duration::from_millis(u64::max_value());
+        let root_expiration = Duration::from_secs(u64::max_value());
 
         let root_trust = Trust::create(root_kp, root_kp.public_key(), root_expiration, issued_at);
 
@@ -336,11 +336,11 @@ mod tests {
         let trusted_roots = [root_kp.public_key()];
 
         // we don't need nanos for serialization, etc
-        let cur_time = Duration::from_millis(
+        let cur_time = Duration::from_secs(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_millis() as u64,
+                .as_secs() as u64,
         );
 
         let third_kp = KeyPair::generate();
