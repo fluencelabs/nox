@@ -119,7 +119,8 @@ impl Certificate {
 
         // check root trust and its existence in trusted roots list
         let root = &chain[0];
-        Trust::verify(root, &root.issued_for, cur_time)?;
+        Trust::verify(root, &root.issued_for, cur_time)
+            .map_err(|e| format!("Root trust did not pass verification: {}", e))?;
         if !trusted_roots.contains(&root.issued_for) {
             return Err("Certificate does not contain a trusted root.".to_string());
         }
