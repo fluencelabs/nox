@@ -279,7 +279,6 @@ mod tests {
     use crate::key_pair::KeyPair;
     use crate::misc::current_time;
     use failure::_core::time::Duration;
-    use std::str::FromStr;
 
     pub fn one_minute() -> Duration {
         Duration::new(60, 0)
@@ -513,6 +512,7 @@ mod tests {
 
     #[test]
     fn test_chain_from_root_to_another_root() {
+        use std::str::FromStr;
         let c = Certificate::from_str("11\n1111\nCt8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4\n3PjbNp21wtJ91fKdMRnqx9mj5t3gGw2KMz3NfsjLknxF3zXPePWwD3hqw4szCBj2GGhjEK5tEw3MArVye2VBp1Si\n158981172690500\n1593768779352\n6aYjUmaYTgZpPefm3aEZXxaHrk72ujErEBFCJxp9uv8H\n3APg4AisAaUUzdp9QcsmxQde8V8Ft4GhzCzT6GJrSj5tjiwRmA4t8qrWDxyYEiJi2ym6qRdrew9awSnsz1xxZuid\n1593855179352\n1593768779352\n9mw5qRU2ty78iLDz45JETdiVPr89hAASRtmxS7wrLaZF\nqPbY4qpgMS77kdmDrdKD4TQMVUo4g4uqGGwm3s5EA4DTBhDofZQfBxTQsu1LgXqVwUBXfDz8mTTCuNopRPwQH7m\n1596448844131\n1593770444131").unwrap();
 
         let mut graph = TrustGraph::default();
