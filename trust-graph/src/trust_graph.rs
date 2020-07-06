@@ -54,6 +54,11 @@ impl TrustGraph {
         }
     }
 
+    /// Insert new root weights
+    pub fn add_root_weights(&mut self, weights: Vec<(PublicKey, Weight)>) {
+        self.root_weights.extend(weights)
+    }
+
     /// Get trust by public key
     pub fn get(&self, pk: PublicKey) -> Option<&TrustNode> {
         self.nodes.get(&pk.into())
