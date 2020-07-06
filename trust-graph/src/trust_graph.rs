@@ -213,7 +213,7 @@ impl TrustGraph {
                 }
             }
 
-            // the first trust should be self-signed and contained in the roots list
+            // the last trust should be self-signed and contained in the roots list
             if last.issued_by == last.trust.issued_for && roots.contains(last.issued_by.as_ref()) {
                 terminated_chains.push(cur_chain);
             }
