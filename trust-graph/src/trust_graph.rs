@@ -219,7 +219,8 @@ impl TrustGraph {
                 }
             }
 
-            if roots.contains(last.trust.issued_for.as_ref()) {
+            // to be considered a chain, it must end with a self-signed trust that converges to one of the root weights
+            if last.issued_by == last.trust.issued_for && roots.contains(last.issued_by.as_ref()) {
                 terminated_chains.push(cur_chain);
             }
         }
@@ -250,6 +251,9 @@ impl TrustGraph {
                         auths.iter().map(|auth| auth.trust.clone()).rev().collect();
                     Certificate::new_unverified(trusts)
                 })
+                // Certificates with one trust could appear if a trust will be issued from one root to another.
+                // But certificate with one trust doesn't make sense, so filter such certificates
+                .filter(|c| c.chain.len() > 1)
                 .collect(),
             None => Vec::new(),
         }
@@ -511,6 +515,30 @@ mod tests {
 
         assert_eq!(certs.len(), 1);
         assert_eq!(certs[0], cert);
+    }
+
+    #[test]
+    fn test_chain_from_root_to_another_root() {
+        let (_, cert) = generate_cert_with_len(6, HashMap::new());
+
+        let mut graph = TrustGraph::default();
+        // add first and last trusts as roots
+        graph
+            .root_weights
+            .insert(cert.chain[0].clone().issued_for.into(), 1);
+        graph
+            .root_weights
+            .insert(cert.chain[3].clone().issued_for.into(), 1);
+        graph
+            .root_weights
+            .insert(cert.chain[5].clone().issued_for.into(), 1);
+
+        graph.add(cert.clone(), current_time()).unwrap();
+
+        let t = cert.chain[5].clone();
+        let certs = graph.get_all_certs(t.issued_for, &[]);
+
+        assert_eq!(certs.len(), 1);
     }
 
     #[test]
