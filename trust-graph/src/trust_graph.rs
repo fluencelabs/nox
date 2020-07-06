@@ -213,7 +213,7 @@ impl TrustGraph {
                 }
             }
 
-            // the last trust should be self-signed and contained in the roots list
+            // to be considered a chain, it must end with a self-signed trust that converges to one of the root weights
             if last.issued_by == last.trust.issued_for && roots.contains(last.issued_by.as_ref()) {
                 terminated_chains.push(cur_chain);
             }
