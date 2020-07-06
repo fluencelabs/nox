@@ -213,7 +213,8 @@ impl TrustGraph {
                 }
             }
 
-            if roots.contains(last.trust.issued_for.as_ref()) {
+            // to be considered a chain, it must end with a self-signed trust that converges to one of the root weights
+            if last.issued_by == last.trust.issued_for && roots.contains(last.issued_by.as_ref()) {
                 terminated_chains.push(cur_chain);
             }
         }
@@ -512,21 +513,23 @@ mod tests {
 
     #[test]
     fn test_chain_from_root_to_another_root() {
-        use std::str::FromStr;
-        let c = Certificate::from_str("11\n1111\nCt8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4\n3PjbNp21wtJ91fKdMRnqx9mj5t3gGw2KMz3NfsjLknxF3zXPePWwD3hqw4szCBj2GGhjEK5tEw3MArVye2VBp1Si\n158981172690500\n1593768779352\n6aYjUmaYTgZpPefm3aEZXxaHrk72ujErEBFCJxp9uv8H\n3APg4AisAaUUzdp9QcsmxQde8V8Ft4GhzCzT6GJrSj5tjiwRmA4t8qrWDxyYEiJi2ym6qRdrew9awSnsz1xxZuid\n1593855179352\n1593768779352\n9mw5qRU2ty78iLDz45JETdiVPr89hAASRtmxS7wrLaZF\nqPbY4qpgMS77kdmDrdKD4TQMVUo4g4uqGGwm3s5EA4DTBhDofZQfBxTQsu1LgXqVwUBXfDz8mTTCuNopRPwQH7m\n1596448844131\n1593770444131").unwrap();
+        let (_, cert) = generate_cert_with_len(6, HashMap::new());
 
         let mut graph = TrustGraph::default();
         // add first and last trusts as roots
         graph
             .root_weights
-            .insert(c.chain[0].clone().issued_for.into(), 1);
+            .insert(cert.chain[0].clone().issued_for.into(), 1);
         graph
             .root_weights
-            .insert(c.chain[2].clone().issued_for.into(), 1);
+            .insert(cert.chain[3].clone().issued_for.into(), 1);
+        graph
+            .root_weights
+            .insert(cert.chain[5].clone().issued_for.into(), 1);
 
-        graph.add(c.clone(), current_time()).unwrap();
+        graph.add(cert.clone(), current_time()).unwrap();
 
-        let t = c.chain[2].clone();
+        let t = cert.chain[5].clone();
         let certs = graph.get_all_certs(t.issued_for, &[]);
 
         assert_eq!(certs.len(), 1);
