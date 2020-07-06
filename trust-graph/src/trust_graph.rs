@@ -55,8 +55,9 @@ impl TrustGraph {
     }
 
     /// Insert new root weights
-    pub fn add_root_weights(&mut self, weights: Vec<(PublicKey, Weight)>) {
-        self.root_weights.extend(weights)
+    pub fn add_root_weights<P: Into<PublicKeyHashable>>(&mut self, weights: Vec<(P, Weight)>) {
+        self.root_weights
+            .extend(weights.into_iter().map(|(k, w)| (k.into(), w)))
     }
 
     /// Get trust by public key
