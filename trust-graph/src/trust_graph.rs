@@ -250,9 +250,11 @@ impl TrustGraph {
                         auths.iter().map(|auth| auth.trust.clone()).rev().collect();
                     Certificate::new_unverified(trusts)
                 })
-                // Certificates with one trust could appear if a trust will be issued from one root to another.
-                // But certificate with one trust doesn't make sense, so filter such certificates
-                .filter(|c| c.chain.len() > 1)
+                .filter(|c| {
+                    // Certificate with one trust means nothing, gotta be a bug. Checking for it here.
+                    debug_assert!(c.chain.len() > 1, "certificate with chain of len 1 arose");
+                    c.chain.len() > 1
+                })
                 .collect(),
             None => Vec::new(),
         }
