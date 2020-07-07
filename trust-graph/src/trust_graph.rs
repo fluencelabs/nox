@@ -72,28 +72,27 @@ impl TrustGraph {
         C: Borrow<Certificate>,
     {
         let roots: Vec<PublicKey> = self.root_weights.keys().cloned().map(Into::into).collect();
+        // Check that certificate is valid and converges to one of the known roots
         Certificate::verify(cert.borrow(), roots.as_slice(), cur_time)?;
 
-        let chain = &cert.borrow().chain;
-        let root_trust = chain.first().ok_or("empty chain")?;
+        let mut chain = cert.borrow().chain.iter();
+        let root_trust = chain.next().ok_or("empty chain")?;
         let root_pk: PublicKeyHashable = root_trust.issued_for.clone().into();
 
-        match self.nodes.get_mut(&root_pk) {
-            Some(_) => {}
-            None => {
-                let mut trust_node = TrustNode::new(root_trust.issued_for.clone(), cur_time);
-                let root_auth = Auth {
-                    trust: root_trust.clone(),
-                    issued_by: root_trust.issued_for.clone(),
-                };
-                trust_node.update_auth(root_auth);
-                self.nodes.insert(root_pk, trust_node);
-            }
+        // Insert new TrustNode for this root_pk if there wasn't one
+        if self.nodes.get_mut(&root_pk).is_none() {
+            let mut trust_node = TrustNode::new(root_trust.issued_for.clone(), cur_time);
+            let root_auth = Auth {
+                trust: root_trust.clone(),
+                issued_by: root_trust.issued_for.clone(),
+            };
+            trust_node.update_auth(root_auth);
+            self.nodes.insert(root_pk, trust_node);
         }
 
+        // Insert remaining trusts to the graph
         let mut previous_trust = root_trust;
-
-        for trust in chain.iter().skip(1) {
+        for trust in chain {
             let pk = trust.issued_for.clone().into();
 
             let auth = Auth {
@@ -309,10 +308,11 @@ mod tests {
         )
     }
 
-    fn generate_cert_with_len_and_expiration(
+    fn generate_cert_with(
         len: usize,
         predefined: HashMap<usize, KeyPair>,
-        expiration: Duration,
+        expires_at: Duration,
+        issued_at: Duration,
     ) -> (Vec<KeyPair>, Certificate) {
         assert!(len > 2);
 
@@ -320,7 +320,7 @@ mod tests {
         let second_kp = KeyPair::generate();
 
         let mut cert =
-            Certificate::issue_root(&root_kp, second_kp.public_key(), expiration, current_time());
+            Certificate::issue_root(&root_kp, second_kp.public_key(), expires_at, issued_at);
 
         let mut key_pairs = vec![root_kp, second_kp];
 
@@ -331,8 +331,9 @@ mod tests {
                 &previous_kp,
                 kp.public_key(),
                 &cert,
-                expiration,
-                current_time().checked_sub(Duration::new(60, 0)).unwrap(),
+                expires_at,
+                // TODO: why `issued_at = issued_at - 60 seconds`?
+                issued_at.checked_sub(Duration::from_secs(60)).unwrap(),
                 current_time(),
             )
             .unwrap();
@@ -349,7 +350,7 @@ mod tests {
         let cur_time = current_time();
         let far_future = cur_time.checked_add(one_minute()).unwrap();
 
-        generate_cert_with_len_and_expiration(len, predefined, far_future)
+        generate_cert_with(len, predefined, far_future, cur_time)
     }
 
     #[test]
@@ -377,8 +378,10 @@ mod tests {
     #[test]
     fn test_add_certs_with_same_trusts_and_different_expirations() {
         let cur_time = current_time();
-        let far_future = cur_time.checked_add(Duration::new(10, 0)).unwrap();
-        let far_far_future = cur_time.checked_add(Duration::new(900, 0)).unwrap();
+        let sec_10 = Duration::from_secs(10);
+        let sec_900 = Duration::from_secs(900);
+        let far_future = cur_time + sec_10;
+        let far_far_future = cur_time + sec_900;
         let key_pair1 = KeyPair::generate();
         let key_pair2 = KeyPair::generate();
 
@@ -387,14 +390,14 @@ mod tests {
         predefined1.insert(6, key_pair2.clone());
 
         let (key_pairs1, cert1) =
-            generate_cert_with_len_and_expiration(10, predefined1, far_future);
+            generate_cert_with(10, predefined1, far_future, cur_time + sec_10);
 
         let mut predefined2 = HashMap::new();
         predefined2.insert(7, key_pair1.clone());
         predefined2.insert(8, key_pair2.clone());
 
         let (key_pairs2, cert2) =
-            generate_cert_with_len_and_expiration(10, predefined2, far_far_future);
+            generate_cert_with(10, predefined2, far_far_future, cur_time + sec_900);
 
         let mut graph = TrustGraph::default();
         let root1_pk = key_pairs1[0].public_key();

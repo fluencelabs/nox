@@ -27,6 +27,22 @@ enum TrustRelation {
     Revoke(Revoke),
 }
 
+impl TrustRelation {
+    pub fn issued_at(&self) -> Duration {
+        match self {
+            TrustRelation::Auth(auth) => auth.trust.issued_at,
+            TrustRelation::Revoke(revoke) => revoke.revoked_at,
+        }
+    }
+
+    pub fn issued_by(&self) -> &PublicKey {
+        match self {
+            TrustRelation::Auth(auth) => &auth.issued_by,
+            TrustRelation::Revoke(revoke) => &revoke.revoked_by,
+        }
+    }
+}
+
 /// Represents who give a certificate
 #[derive(Debug, Clone)]
 pub struct Auth {
@@ -111,21 +127,24 @@ impl TrustNode {
     fn update_relation(
         &mut self,
         relation: TrustRelation,
-        revoked_at: Duration,
-        revoked_by: PublicKeyHashable,
+        issued_at: Duration,
+        issued_by: PublicKeyHashable,
     ) {
-        match self.trust_relations.get(&revoked_by) {
+        debug_assert_eq!(issued_at, relation.issued_at());
+        debug_assert_eq!(&issued_by, relation.issued_by().as_ref());
+
+        match self.trust_relations.get(&issued_by) {
             Some(TrustRelation::Auth(auth)) => {
-                if auth.trust.issued_at < revoked_at {
-                    self.insert(revoked_by, relation)
+                if auth.trust.issued_at < issued_at {
+                    self.insert(issued_by, relation)
                 }
             }
             Some(TrustRelation::Revoke(existed_revoke)) => {
-                if existed_revoke.revoked_at < revoked_at {
-                    self.insert(revoked_by, relation)
+                if existed_revoke.revoked_at < issued_at {
+                    self.insert(issued_by, relation)
                 }
             }
-            None => self.insert(revoked_by, relation),
+            None => self.insert(issued_by, relation),
         };
     }
 
