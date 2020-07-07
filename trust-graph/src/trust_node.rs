@@ -28,6 +28,7 @@ enum TrustRelation {
 }
 
 impl TrustRelation {
+    /// Returns timestamp of when this relation was created
     pub fn issued_at(&self) -> Duration {
         match self {
             TrustRelation::Auth(auth) => auth.trust.issued_at,
@@ -35,6 +36,7 @@ impl TrustRelation {
         }
     }
 
+    /// Returns public key of the creator of this relation
     pub fn issued_by(&self) -> &PublicKey {
         match self {
             TrustRelation::Auth(auth) => &auth.issued_by,
