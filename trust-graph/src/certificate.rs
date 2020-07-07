@@ -67,7 +67,7 @@ impl Certificate {
         cur_time: Duration,
     ) -> Result<Self, String> {
         if expires_at.lt(&issued_at) {
-            return Err("Expiration time should be greater then issued time.".to_string());
+            return Err("Expiration time should be greater than issued time.".to_string());
         }
 
         // first, verify given certificate

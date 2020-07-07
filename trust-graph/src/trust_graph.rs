@@ -310,7 +310,8 @@ mod tests {
 
     fn generate_cert_with(
         len: usize,
-        predefined: HashMap<usize, KeyPair>,
+        // Map of index to keypair. These key pairs will be used in trust chains at the given indexes
+        keys: HashMap<usize, KeyPair>,
         expires_at: Duration,
         issued_at: Duration,
     ) -> (Vec<KeyPair>, Certificate) {
@@ -325,7 +326,7 @@ mod tests {
         let mut key_pairs = vec![root_kp, second_kp];
 
         for idx in 2..len {
-            let kp = predefined.get(&idx).unwrap_or(&KeyPair::generate()).clone();
+            let kp = keys.get(&idx).unwrap_or(&KeyPair::generate()).clone();
             let previous_kp = &key_pairs[idx - 1];
             cert = Certificate::issue(
                 &previous_kp,
@@ -345,12 +346,12 @@ mod tests {
 
     fn generate_cert_with_len(
         len: usize,
-        predefined: HashMap<usize, KeyPair>,
+        keys: HashMap<usize, KeyPair>,
     ) -> (Vec<KeyPair>, Certificate) {
         let cur_time = current_time();
         let far_future = cur_time.checked_add(one_minute()).unwrap();
 
-        generate_cert_with(len, predefined, far_future, cur_time)
+        generate_cert_with(len, keys, far_future, cur_time)
     }
 
     #[test]
@@ -378,26 +379,25 @@ mod tests {
     #[test]
     fn test_add_certs_with_same_trusts_and_different_expirations() {
         let cur_time = current_time();
-        let sec_10 = Duration::from_secs(10);
-        let sec_900 = Duration::from_secs(900);
-        let far_future = cur_time + sec_10;
-        let far_far_future = cur_time + sec_900;
+        let far_future = cur_time + Duration::from_secs(10);
+        let far_far_future = cur_time + Duration::from_secs(900);
         let key_pair1 = KeyPair::generate();
         let key_pair2 = KeyPair::generate();
 
-        let mut predefined1 = HashMap::new();
-        predefined1.insert(5, key_pair1.clone());
-        predefined1.insert(6, key_pair2.clone());
+        // Use key_pair1 and key_pair2 for 5th and 6th trust in the cert chain
+        let mut chain_keys = HashMap::new();
+        chain_keys.insert(5, key_pair1.clone());
+        chain_keys.insert(6, key_pair2.clone());
 
-        let (key_pairs1, cert1) =
-            generate_cert_with(10, predefined1, far_future, cur_time + sec_10);
+        let (key_pairs1, cert1) = generate_cert_with(10, chain_keys, far_future * 2, far_future);
 
-        let mut predefined2 = HashMap::new();
-        predefined2.insert(7, key_pair1.clone());
-        predefined2.insert(8, key_pair2.clone());
+        // Use key_pair1 and key_pair2 for 7th and 8th trust in the cert chain
+        let mut chain_keys = HashMap::new();
+        chain_keys.insert(7, key_pair1.clone());
+        chain_keys.insert(8, key_pair2.clone());
 
         let (key_pairs2, cert2) =
-            generate_cert_with(10, predefined2, far_far_future, cur_time + sec_900);
+            generate_cert_with(10, chain_keys, far_far_future * 2, far_far_future);
 
         let mut graph = TrustGraph::default();
         let root1_pk = key_pairs1[0].public_key();
@@ -412,7 +412,7 @@ mod tests {
             .find(|a| a.issued_by == key_pair1.public_key())
             .unwrap();
 
-        assert_eq!(auth_by_kp1.trust.expires_at, far_future);
+        assert_eq!(auth_by_kp1.trust.expires_at, far_future * 2);
 
         graph.add(cert2, cur_time).unwrap();
 
@@ -422,7 +422,7 @@ mod tests {
             .find(|a| a.issued_by == key_pair1.public_key())
             .unwrap();
 
-        assert_eq!(auth_by_kp1.trust.expires_at, far_far_future);
+        assert_eq!(auth_by_kp1.trust.expires_at, far_far_future * 2);
     }
 
     #[test]
@@ -459,19 +459,19 @@ mod tests {
         let key_pair2 = KeyPair::generate();
         let key_pair3 = KeyPair::generate();
 
-        let mut predefined1 = HashMap::new();
-        predefined1.insert(3, key_pair1.clone());
-        predefined1.insert(5, key_pair2.clone());
-        predefined1.insert(7, key_pair3.clone());
+        let mut chain_keys = HashMap::new();
+        chain_keys.insert(3, key_pair1.clone());
+        chain_keys.insert(5, key_pair2.clone());
+        chain_keys.insert(7, key_pair3.clone());
 
-        let (key_pairs1, cert1) = generate_cert_with_len(10, predefined1);
+        let (key_pairs1, cert1) = generate_cert_with_len(10, chain_keys);
 
-        let mut predefined2 = HashMap::new();
-        predefined2.insert(7, key_pair1.clone());
-        predefined2.insert(6, key_pair2.clone());
-        predefined2.insert(5, key_pair3.clone());
+        let mut chain_keys = HashMap::new();
+        chain_keys.insert(7, key_pair1.clone());
+        chain_keys.insert(6, key_pair2.clone());
+        chain_keys.insert(5, key_pair3.clone());
 
-        let (key_pairs2, cert2) = generate_cert_with_len(10, predefined2);
+        let (key_pairs2, cert2) = generate_cert_with_len(10, chain_keys);
 
         let mut graph = TrustGraph::default();
         let root1_pk = key_pairs1[0].public_key();
@@ -550,26 +550,26 @@ mod tests {
         let key_pair2 = KeyPair::generate();
         let key_pair3 = KeyPair::generate();
 
-        let mut predefined1 = HashMap::new();
-        predefined1.insert(2, key_pair1.clone());
-        predefined1.insert(3, key_pair2.clone());
-        predefined1.insert(4, key_pair3.clone());
+        let mut chain_keys = HashMap::new();
+        chain_keys.insert(2, key_pair1.clone());
+        chain_keys.insert(3, key_pair2.clone());
+        chain_keys.insert(4, key_pair3.clone());
 
-        let (key_pairs1, cert1) = generate_cert_with_len(5, predefined1);
+        let (key_pairs1, cert1) = generate_cert_with_len(5, chain_keys);
 
-        let mut predefined2 = HashMap::new();
-        predefined2.insert(4, key_pair1.clone());
-        predefined2.insert(3, key_pair2.clone());
-        predefined2.insert(2, key_pair3.clone());
+        let mut chain_keys = HashMap::new();
+        chain_keys.insert(4, key_pair1.clone());
+        chain_keys.insert(3, key_pair2.clone());
+        chain_keys.insert(2, key_pair3.clone());
 
-        let (key_pairs2, cert2) = generate_cert_with_len(5, predefined2);
+        let (key_pairs2, cert2) = generate_cert_with_len(5, chain_keys);
 
-        let mut predefined3 = HashMap::new();
-        predefined3.insert(3, key_pair1.clone());
-        predefined3.insert(4, key_pair2.clone());
-        predefined3.insert(2, key_pair3.clone());
+        let mut chain_keys = HashMap::new();
+        chain_keys.insert(3, key_pair1.clone());
+        chain_keys.insert(4, key_pair2.clone());
+        chain_keys.insert(2, key_pair3.clone());
 
-        let (key_pairs3, cert3) = generate_cert_with_len(5, predefined3);
+        let (key_pairs3, cert3) = generate_cert_with_len(5, chain_keys);
 
         let mut graph = TrustGraph::default();
         let root1_pk = key_pairs1[0].public_key();
