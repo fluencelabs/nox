@@ -100,6 +100,10 @@ pub mod kademlia {
     pub(crate) use record::try_to_multirecord;
 }
 
+mod faas {
+    mod behaviour;
+}
+
 pub(crate) use bootstrapper::Bootstrapper;
 pub(crate) use bootstrapper::BootstrapperEvent;
 pub(crate) use function::FunctionRouter;

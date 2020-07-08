@@ -11,7 +11,7 @@ ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 multihash ="0.11.0"
-async-std = "1.5.0"
+async-std = "1.6.2"
 futures = "0.3.4"
 futures-util = "0.3.4"
 serde = { version = "1.0.110", features = ["derive"] }
