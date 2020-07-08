@@ -46,7 +46,7 @@ impl Certificate {
         expires_at: Duration,
         issued_at: Duration,
     ) -> Self {
-        let root_expiration = Duration::from_millis(u64::max_value());
+        let root_expiration = Duration::from_secs(u64::max_value());
 
         let root_trust = Trust::create(root_kp, root_kp.public_key(), root_expiration, issued_at);
 
@@ -67,7 +67,7 @@ impl Certificate {
         cur_time: Duration,
     ) -> Result<Self, String> {
         if expires_at.lt(&issued_at) {
-            return Err("Expiration time should be greater then issued time.".to_string());
+            return Err("Expiration time should be greater than issued time.".to_string());
         }
 
         // first, verify given certificate
@@ -119,7 +119,8 @@ impl Certificate {
 
         // check root trust and its existence in trusted roots list
         let root = &chain[0];
-        Trust::verify(root, &root.issued_for, cur_time)?;
+        Trust::verify(root, &root.issued_for, cur_time)
+            .map_err(|e| format!("Root trust did not pass verification: {}", e))?;
         if !trusted_roots.contains(&root.issued_for) {
             return Err("Certificate does not contain a trusted root.".to_string());
         }
@@ -335,11 +336,11 @@ mod tests {
         let trusted_roots = [root_kp.public_key()];
 
         // we don't need nanos for serialization, etc
-        let cur_time = Duration::from_millis(
+        let cur_time = Duration::from_secs(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_millis() as u64,
+                .as_secs() as u64,
         );
 
         let third_kp = KeyPair::generate();

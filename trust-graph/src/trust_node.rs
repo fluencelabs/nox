@@ -27,6 +27,24 @@ enum TrustRelation {
     Revoke(Revoke),
 }
 
+impl TrustRelation {
+    /// Returns timestamp of when this relation was created
+    pub fn issued_at(&self) -> Duration {
+        match self {
+            TrustRelation::Auth(auth) => auth.trust.issued_at,
+            TrustRelation::Revoke(revoke) => revoke.revoked_at,
+        }
+    }
+
+    /// Returns public key of the creator of this relation
+    pub fn issued_by(&self) -> &PublicKey {
+        match self {
+            TrustRelation::Auth(auth) => &auth.issued_by,
+            TrustRelation::Revoke(revoke) => &revoke.revoked_by,
+        }
+    }
+}
+
 /// Represents who give a certificate
 #[derive(Debug, Clone)]
 pub struct Auth {
@@ -97,10 +115,7 @@ impl TrustNode {
     /// Adds authorization. If the trust node already has this authorization,
     /// add auth with later expiration date.
     pub fn update_auth(&mut self, auth: Auth) {
-        let issued_by: PublicKeyHashable = auth.issued_by.clone().into();
-        let issued_at = auth.trust.issued_at;
-
-        self.update_relation(TrustRelation::Auth(auth), issued_at, issued_by);
+        self.update_relation(TrustRelation::Auth(auth));
     }
 
     // insert new trust relation, ignore if there is another one with same public key
@@ -108,32 +123,26 @@ impl TrustNode {
         self.trust_relations.insert(pk, tr);
     }
 
-    fn update_relation(
-        &mut self,
-        relation: TrustRelation,
-        revoked_at: Duration,
-        revoked_by: PublicKeyHashable,
-    ) {
-        match self.trust_relations.get(&revoked_by) {
+    fn update_relation(&mut self, relation: TrustRelation) {
+        let issued_by = relation.issued_by().as_ref();
+
+        match self.trust_relations.get(issued_by) {
             Some(TrustRelation::Auth(auth)) => {
-                if auth.trust.issued_at < revoked_at {
-                    self.insert(revoked_by, relation)
+                if auth.trust.issued_at < relation.issued_at() {
+                    self.insert(issued_by.clone(), relation)
                 }
             }
             Some(TrustRelation::Revoke(existed_revoke)) => {
-                if existed_revoke.revoked_at < revoked_at {
-                    self.insert(revoked_by, relation)
+                if existed_revoke.revoked_at < relation.issued_at() {
+                    self.insert(issued_by.clone(), relation)
                 }
             }
-            None => self.insert(revoked_by, relation),
+            None => self.insert(issued_by.clone(), relation),
         };
     }
 
     pub fn update_revoke(&mut self, revoke: Revoke) {
-        let revoked_at = revoke.revoked_at;
-        let revoked_by = revoke.revoked_by.clone().into();
-
-        self.update_relation(TrustRelation::Revoke(revoke), revoked_at, revoked_by);
+        self.update_relation(TrustRelation::Revoke(revoke));
     }
 }
 

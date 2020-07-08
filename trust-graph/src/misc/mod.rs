@@ -1,10 +1,10 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub fn current_time() -> Duration {
-    Duration::from_millis(
+    Duration::from_secs(
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_millis() as u64,
+            .as_secs() as u64,
     )
 }
