@@ -15,8 +15,10 @@
  */
 
 use async_std::task;
+use async_std::task::JoinHandle;
 use faas_api::FunctionCall;
-use fluence_faas::FluenceFaaS;
+use fluence_faas::{FaaSError, FluenceFaaS, IValue};
+use libp2p::core::connection::ConnectionId;
 use libp2p::swarm::{
     protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction,
     PollParameters,
@@ -25,25 +27,34 @@ use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use std::collections::HashMap;
 use std::future::Future;
+use std::pin::Pin;
 use std::task::{Context, Poll, Waker};
-use std::thread::JoinHandle;
 use void::Void;
 
-type FaasResult = Vec<InterfaceValue>;
+type FaasResult = Result<Vec<IValue>, FaaSError>;
+type FutResult = (FluenceFaaS, WasmCall, FaasResult);
+//noinspection RsUnresolvedReference
+type Fut = JoinHandle<FutResult>;
+
+struct WasmCall {
+    module: String,
+    function: String,
+    arguments: Vec<IValue>,
+    call: FunctionCall,
+}
 
 pub struct FaaSBehaviour {
     faases: HashMap<String, FluenceFaaS>,
-    calls: Vec<FunctionCall>,
+    calls: Vec<WasmCall>,
     waker: Option<Waker>,
-    futures: HashMap<String, JoinHandle<(FluenceFaaS, FunctionCall, FaasResult)>>,
+    futures: HashMap<String, Fut>,
 }
 
 impl FaaSBehaviour {
-    pub fn execute(call: FunctionCall) {
-        assert!(call.module.is_some())
-    }
+    #[allow(unused_variables, dead_code)]
+    pub fn execute(module: String, function: String, arguments: Vec<IValue>, call: FunctionCall) {}
 
-    pub fn create_faas(_call: &FunctionCall) -> FluenceFaaS {
+    fn create_faas(_call: &WasmCall) -> FluenceFaaS {
         unimplemented!()
     }
 }
@@ -70,50 +81,49 @@ impl NetworkBehaviour for FaaSBehaviour {
         &mut self,
         cx: &mut Context<'_>,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<_, Self::OutEvent>> {
+    ) -> Poll<NetworkBehaviourAction<Void, Self::OutEvent>> {
         self.waker = Some(cx.waker().clone());
 
         // Check there is a completed call
         let mut result = None;
-        let mut uuid = None;
+        // let mut futures = std::mem::replace(&mut self.futures, HashMap::new());
         for (key, fut) in self.futures.iter_mut() {
-            if let Poll::Ready(r) = fut.poll() {
-                uuid = Some(key);
-                result = Some(r);
+            let fut = Pin::new(fut);
+            if let Poll::Ready(r) = fut.poll(cx) {
+                result = Some((key.clone(), r));
                 break;
             }
         }
         // Remove completed future, reinsert faas, return result
-        if idx >= 0 {
-            self.futures.remove(idx);
+        if let Some((uuid, result)) = result {
+            self.futures.remove(&uuid);
 
-            let (faas, call, result) = result.unwrap();
-            self.faases.insert(call.module, faas);
+            let (faas, call, result): FutResult = result;
+            self.faases.insert(call.module.clone(), faas);
 
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result)));
+            return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call.call, result)));
         }
 
         // Check if there's a work and a matching faas isn't busy
         let futures = &self.futures;
-        let mut new_work = vec![];
-        self.calls.retain(|call| {
-            let uuid = call.module.expect("module must be defined");
-            let busy = futures.contains_key(&uuid);
-            if !busy {
-                new_work.push(call)
-            }
-
-            busy
-        });
+        let capacity = self.calls.capacity();
+        let calls = std::mem::replace(&mut self.calls, Vec::with_capacity(capacity));
+        let (busy, new_work): (Vec<_>, _) = calls
+            .into_iter()
+            .partition(|call| futures.contains_key(&call.module));
+        self.calls.extend(busy);
 
         // Execute calls on faases
         for call in new_work {
-            let uuid = call.module.expect("module must be defined");
+            let uuid = call.module.clone();
             let mut faas = self
                 .faases
                 .remove(&uuid)
                 .unwrap_or_else(|| Self::create_faas(&call));
-            let future = task::spawn_blocking(move || faas.execute(call));
+            let future = task::spawn_blocking(move || {
+                let result = faas.call_module(&call.module, &call.function, &call.arguments);
+                (faas, call, result)
+            });
             self.futures.insert(uuid, future);
         }
 
