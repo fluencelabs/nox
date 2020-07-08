@@ -90,6 +90,7 @@ impl NetworkBehaviour for FaaSBehaviour {
         for (key, fut) in self.futures.iter_mut() {
             let fut = Pin::new(fut);
             if let Poll::Ready(r) = fut.poll(cx) {
+                // TODO: excess clone (could be retrieved with remove_entry
                 result = Some((key.clone(), r));
                 break;
             }
