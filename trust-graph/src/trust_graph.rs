@@ -252,7 +252,11 @@ impl TrustGraph {
                 })
                 .filter(|c| {
                     // Certificate with one trust means nothing, gotta be a bug. Checking for it here.
-                    debug_assert!(c.chain.len() > 1, "certificate with chain of len 1 arose");
+                    debug_assert!(
+                        c.chain.len() > 1,
+                        "certificate with chain of len 1 arose: {:#?}",
+                        c
+                    );
                     c.chain.len() > 1
                 })
                 .collect(),
