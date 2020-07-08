@@ -95,12 +95,6 @@ impl Trust {
 
         let msg: &[u8] =
             &Self::metadata_bytes(&trust.issued_for, trust.expires_at, trust.issued_at);
-        // println!(
-        //     "checking signature {} by {}, metadata bytes: {:?}",
-        //     bs58::encode(&trust.signature).into_string(),
-        //     bs58::encode(&issued_by.encode()).into_string(),
-        //     msg
-        // );
 
         KeyPair::verify(issued_by, msg, trust.signature.as_slice())?;
 
