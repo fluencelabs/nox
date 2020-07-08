@@ -99,7 +99,7 @@ impl NetworkBehaviour for FaaSBehaviour {
             self.futures.remove(&uuid);
 
             let (faas, call, result): FutResult = result;
-            self.faases.insert(call.module.clone(), faas);
+            self.faases.insert(uuid, faas);
 
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call.call, result)));
         }
