@@ -129,10 +129,7 @@ impl FaaSBehaviour {
     #[allow(dead_code)]
     pub fn execute(&mut self, call: WasmCall) {
         self.calls.push(call);
-
-        if let Some(waker) = self.waker.take() {
-            waker.wake()
-        }
+        self.wake();
     }
 
     fn create_faas(&self, module_names: Vec<String>) -> Result<(String, FluenceFaaS)> {
@@ -171,6 +168,10 @@ impl FaaSBehaviour {
                     let future = async_std::future::ready(result);
                     self.futures.insert(service_id, Box::pin(future));
 
+                    self.wake();
+
+                    println!("created");
+
                     Ok(())
                 }
                 // Request to call function on an existing FaaS instance
@@ -181,10 +182,12 @@ impl FaaSBehaviour {
                         .faases
                         .remove(&service_id)
                         .ok_or_else(|| (call.clone(), FaasExecError::NoSuchInstance(service_id.clone())))?;
+                    let waker = self.waker.clone();
                     // Spawn a task that will call wasm function
                     let future = task::spawn_blocking(move || {
                         let result = faas.call_module(&module, &function, &arguments);
                         let result = result.map(|r| WasmResult::Returned(r)).map_err(|e| e.into());
+                        Self::call_wake(waker);
                         (faas, call, result)
                     });
                     // Save future for the next poll
@@ -194,6 +197,16 @@ impl FaaSBehaviour {
                 }
             }
         })
+    }
+
+    fn call_wake(waker: Option<Waker>) {
+        if let Some(waker) = waker {
+            waker.wake()
+        }
+    }
+
+    fn wake(&self) {
+        Self::call_wake(self.waker.clone())
     }
 }
 
@@ -220,6 +233,7 @@ impl NetworkBehaviour for FaaSBehaviour {
         cx: &mut Context<'_>,
         _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<Void, Self::OutEvent>> {
+        println!("poll!");
         self.waker = Some(cx.waker().clone());
 
         // Check there is a completed call
@@ -246,7 +260,7 @@ impl NetworkBehaviour for FaaSBehaviour {
         // Check if there's a work and a matching faas isn't busy
         let capacity = self.calls.capacity();
         let calls = std::mem::replace(&mut self.calls, Vec::with_capacity(capacity));
-        let (busy, new_work): (Vec<_>, _) = calls.into_iter().partition(|call| {
+        let (new_work, busy): (Vec<_>, _) = calls.into_iter().partition(|call| {
             // return true if service is to be created, or there is no existing work for that service_id
             call.is_create() || self.futures.contains_key(call.service_id().unwrap())
         });
@@ -265,6 +279,7 @@ impl NetworkBehaviour for FaaSBehaviour {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, Err(err))));
         }
 
+        println!("poll finished");
         Poll::Pending
     }
 }
