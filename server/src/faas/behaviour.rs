@@ -36,7 +36,6 @@ use void::Void;
 type Result<T> = std::result::Result<T, FaasExecError>;
 type FaasResult = Vec<IValue>;
 type FutResult = (FluenceFaaS, FunctionCall, Result<WasmResult>);
-//noinspection RsUnresolvedReference
 type Fut = BoxFuture<'static, FutResult>;
 
 #[derive(Debug)]
@@ -127,8 +126,14 @@ impl FaaSBehaviour {
         }
     }
 
-    #[allow(unused_variables, dead_code)]
-    pub fn execute(module: String, function: String, arguments: Vec<IValue>, call: FunctionCall) {}
+    #[allow(dead_code)]
+    pub fn execute(&mut self, call: WasmCall) {
+        self.calls.push(call);
+
+        if let Some(waker) = self.waker.take() {
+            waker.wake()
+        }
+    }
 
     fn create_faas(&self, module_names: Vec<String>) -> Result<(String, FluenceFaaS)> {
         let mut module_names = module_names.into_iter().collect();
@@ -261,5 +266,67 @@ impl NetworkBehaviour for FaaSBehaviour {
         }
 
         Poll::Pending
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    static TEST_MODULE: &str = "./tests/artifacts/test_module_wit.wasi.wasm";
+
+    use super::*;
+    // use async_std::task;
+    use fluence_faas::RawCoreModulesConfig;
+    use futures::StreamExt;
+    use futures::{executor::block_on, future::poll_fn};
+    use libp2p::core::transport::dummy::{DummyStream, DummyTransport};
+    use libp2p::mplex::Multiplex;
+    use libp2p::{PeerId, Swarm};
+
+    #[test]
+    fn call_multiple_faases() {
+        let mut tmp = std::env::temp_dir();
+        tmp.push("wasm_modules/");
+        std::fs::create_dir_all(&tmp).expect("create tmp dir");
+        println!("test module: {:?}", std::fs::canonicalize(TEST_MODULE));
+        std::fs::copy(TEST_MODULE, tmp.join("test_module.wasm")).expect("copy test module wasm");
+
+        let mut config: RawCoreModulesConfig = <_>::default();
+        config.core_modules_dir = Some(tmp.to_string_lossy().into());
+
+        let behaviour = FaaSBehaviour::new(config);
+        let transport = DummyTransport::<(PeerId, Multiplex<DummyStream>)>::new();
+        let mut swarm = Swarm::new(transport, behaviour, PeerId::random());
+
+        let call = FunctionCall {
+            uuid: "uuid".to_string(),
+            target: None,
+            reply_to: None,
+            module: None,
+            fname: None,
+            arguments: Default::default(),
+            name: None,
+            sender: Default::default(),
+        };
+
+        swarm.execute(WasmCall::Create {
+            module_names: vec!["test_module.wasm".to_string()],
+            call: call.clone(),
+        });
+
+        let (returned_call, result) = block_on(async move {
+            poll_fn(|ctx| {
+                loop {
+                    match swarm.poll_next_unpin(ctx) {
+                        Poll::Ready(Some((call, result))) => return Poll::Ready((call, result)),
+                        _ => break,
+                    }
+                }
+                Poll::Pending
+            })
+            .await
+        });
+
+        assert_eq!(returned_call, call);
+        assert!(result.is_ok());
     }
 }
