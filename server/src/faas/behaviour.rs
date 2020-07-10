@@ -33,44 +33,44 @@ use std::task::{Context, Poll, Waker};
 use uuid::Uuid;
 use void::Void;
 
-type Result<T> = std::result::Result<T, FaasExecError>;
+type Result<T> = std::result::Result<T, FaaSExecError>;
 type FaasResult = Vec<IValue>;
-type FutResult = (FluenceFaaS, FunctionCall, Result<WasmResult>);
+type FutResult = (FluenceFaaS, FunctionCall, Result<CallResult>);
 type Fut = BoxFuture<'static, FutResult>;
 
 #[derive(Debug)]
-pub enum FaasExecError {
+pub enum FaaSExecError {
     NoSuchInstance(String),
     FaaS(FaaSError),
 }
 
-impl Error for FaasExecError {}
-impl From<FaaSError> for FaasExecError {
+impl Error for FaaSExecError {}
+impl From<FaaSError> for FaaSExecError {
     fn from(err: FaaSError) -> Self {
-        FaasExecError::FaaS(err)
+        FaaSExecError::FaaS(err)
     }
 }
 
-impl std::fmt::Display for FaasExecError {
+impl std::fmt::Display for FaaSExecError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FaasExecError::NoSuchInstance(service_id) => {
+            FaaSExecError::NoSuchInstance(service_id) => {
                 write!(f, "FaaS instance {} not found", service_id)
             }
-            FaasExecError::FaaS(err) => err.fmt(f),
+            FaaSExecError::FaaS(err) => err.fmt(f),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum WasmResult {
+pub enum CallResult {
     FaaSCreated { service_id: String },
     Returned(FaasResult),
 }
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub enum WasmCall {
+pub enum FaaSCall {
     /// Call to the FaaS instance specified by `service_id`
     Call {
         /// UUID of the FaaS instance
@@ -92,25 +92,25 @@ pub enum WasmCall {
     },
 }
 
-impl WasmCall {
+impl FaaSCall {
     pub fn is_create(&self) -> bool {
         match self {
-            WasmCall::Create { .. } => true,
-            WasmCall::Call { .. } => false,
+            FaaSCall::Create { .. } => true,
+            FaaSCall::Call { .. } => false,
         }
     }
 
     pub fn service_id(&self) -> Option<&str> {
         match self {
-            WasmCall::Call { service_id, .. } => Some(service_id),
-            WasmCall::Create { .. } => None,
+            FaaSCall::Call { service_id, .. } => Some(service_id),
+            FaaSCall::Create { .. } => None,
         }
     }
 }
 
 pub struct FaaSBehaviour {
     faases: HashMap<String, FluenceFaaS>,
-    calls: Vec<WasmCall>,
+    calls: Vec<FaaSCall>,
     waker: Option<Waker>,
     futures: HashMap<String, Fut>,
     config: RawCoreModulesConfig,
@@ -129,19 +129,30 @@ impl FaaSBehaviour {
     }
 
     #[allow(dead_code)]
-    pub fn execute(&mut self, call: WasmCall) {
+    pub fn execute(&mut self, call: FaaSCall) {
         self.calls.push(call);
         self.wake();
     }
 
     #[allow(dead_code)]
-    pub fn get_interfaces(&self, service_id: String) -> Result<FaaSInterface<'_>> {
+    pub fn get_interface(&self, service_id: String) -> Result<FaaSInterface<'_>> {
         let faas = self
             .faases
             .get(&service_id)
-            .ok_or(FaasExecError::NoSuchInstance(service_id))?;
+            .ok_or(FaaSExecError::NoSuchInstance(service_id))?;
 
         Ok(faas.get_interface())
+    }
+
+    pub fn get_interfaces(&self) -> HashMap<&str, FaaSInterface<'_>> {
+        self.faases
+            .iter()
+            .map(|(k, v)| (k, v.get_interface()))
+            .collect()
+    }
+
+    pub fn get_modules(&self) -> impl Iterator<Item = &str> {
+        self.config.core_module.iter().map(|m| &m.name)
     }
 
     fn create_faas(&self, module_names: Vec<String>) -> Result<(String, FluenceFaaS)> {
@@ -157,19 +168,19 @@ impl FaaSBehaviour {
     fn execute_calls<I>(
         &mut self,
         new_work: &mut I,
-    ) -> std::result::Result<(), (FunctionCall, FaasExecError)>
+    ) -> std::result::Result<(), (FunctionCall, FaaSExecError)>
     where
-        I: Iterator<Item = WasmCall>,
+        I: Iterator<Item = FaaSCall>,
     {
         new_work.try_fold((), |_, call| {
             match call {
                 // Request to create FaaS instance with given module_names
-                WasmCall::Create { module_names, call } => {
+                FaaSCall::Create { module_names, call } => {
                     let (service_id, faas) = self
                         .create_faas(module_names)
                         .map_err(|e| (call.clone(), e))?;
 
-                    let result = WasmResult::FaaSCreated {
+                    let result = CallResult::FaaSCreated {
                         // TODO: excess clone, data duplication:
                         //  service_id stored in futures as key and as value in FaaSCreated :(
                         service_id: service_id.clone(),
@@ -187,17 +198,17 @@ impl FaaSBehaviour {
                 }
                 // Request to call function on an existing FaaS instance
                 #[rustfmt::skip]
-                WasmCall::Call { service_id, module, function, arguments, call } => {
+                FaaSCall::Call { service_id, module, function, arguments, call } => {
                     // Take existing faas
                     let mut faas = self
                         .faases
                         .remove(&service_id)
-                        .ok_or_else(|| (call.clone(), FaasExecError::NoSuchInstance(service_id.clone())))?;
+                        .ok_or_else(|| (call.clone(), FaaSExecError::NoSuchInstance(service_id.clone())))?;
                     let waker = self.waker.clone();
                     // Spawn a task that will call wasm function
                     let future = task::spawn_blocking(move || {
                         let result = faas.call_module(&module, &function, &arguments);
-                        let result = result.map(|r| WasmResult::Returned(r)).map_err(|e| e.into());
+                        let result = result.map(|r| CallResult::Returned(r)).map_err(|e| e.into());
                         Self::call_wake(waker);
                         (faas, call, result)
                     });
@@ -223,7 +234,7 @@ impl FaaSBehaviour {
 
 impl NetworkBehaviour for FaaSBehaviour {
     type ProtocolsHandler = DummyProtocolsHandler;
-    type OutEvent = (FunctionCall, Result<WasmResult>);
+    type OutEvent = (FunctionCall, Result<CallResult>);
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()
@@ -309,7 +320,7 @@ mod tests {
 
     fn wait_result(
         mut swarm: Swarm<FaaSBehaviour>,
-    ) -> ((FunctionCall, Result<WasmResult>), Swarm<FaaSBehaviour>) {
+    ) -> ((FunctionCall, Result<CallResult>), Swarm<FaaSBehaviour>) {
         block_on(async move {
             let result = poll_fn(|ctx| {
                 loop {
@@ -368,14 +379,14 @@ mod tests {
         mut swarm: Swarm<FaaSBehaviour>,
         module_names: Vec<String>,
     ) -> (String, Swarm<FaaSBehaviour>) {
-        swarm.execute(WasmCall::Create {
+        swarm.execute(FaaSCall::Create {
             module_names,
             call: empty_call(),
         });
 
         let ((_, created), swarm) = wait_result(swarm);
         let service_id = match &created {
-            Ok(WasmResult::FaaSCreated { service_id }) => service_id.clone(),
+            Ok(CallResult::FaaSCreated { service_id }) => service_id.clone(),
             wrong => unreachable!("wrong result: {:?}", wrong),
         };
 
@@ -389,7 +400,7 @@ mod tests {
         function: &str,
         argument: Option<&str>,
     ) -> (FaasResult, Swarm<FaaSBehaviour>) {
-        swarm.execute(WasmCall::Call {
+        swarm.execute(FaaSCall::Call {
             service_id,
             module: module.to_string(),
             function: function.to_string(),
@@ -402,7 +413,7 @@ mod tests {
 
         let ((_, returned), swarm) = wait_result(swarm);
         let returned = match returned {
-            Ok(WasmResult::Returned(r)) => r,
+            Ok(CallResult::Returned(r)) => r,
             wrong => panic!("{:#?}", wrong),
         };
 
@@ -416,7 +427,7 @@ mod tests {
         let (service_id, swarm) = create_faas(swarm, vec![test_module.clone()]);
 
         let interface = swarm
-            .get_interfaces(service_id.clone())
+            .get_interface(service_id.clone())
             .expect("get interface");
         assert_eq!(1, interface.modules.len());
         assert_eq!(
@@ -452,7 +463,7 @@ mod tests {
         assert_eq!(
             2,
             swarm
-                .get_interfaces(service_id2.clone())
+                .get_interface(service_id2.clone())
                 .expect("get interface")
                 .modules
                 .len()

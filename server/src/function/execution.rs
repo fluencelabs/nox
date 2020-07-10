@@ -57,10 +57,14 @@ impl FunctionRouter {
                 self.reply_with(call, msg_id, ("addresses", addrs))
             }
             BS::GetInterface(GetInterface { msg_id }) => {
-                match serde_json::to_value(self.faas.get_interface()) {
-                    Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
-                    Err(err) => Err(call.error(FaasInterfaceSerialization(err))),
-                }
+                unimplemented!("get_interface not implemented");
+                Err(call.error(InvalidArguments {
+                    error: "get_interface not implemented".to_string(),
+                }))
+                // match serde_json::to_value(self.faas.get_interface()) {
+                //     Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
+                //     Err(err) => Err(call.error(FaasInterfaceSerialization(err))),
+                // }
             }
         }
     }

@@ -99,8 +99,9 @@ pub mod kademlia {
     pub(crate) use record::try_to_multirecord;
 }
 
-mod faas {
+pub mod faas {
     mod behaviour;
+    pub(crate) use behaviour::{FaaSBehaviour, FaaSCall, FaaSExecError};
 }
 
 pub(crate) use bootstrapper::Bootstrapper;
