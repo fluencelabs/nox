@@ -435,27 +435,47 @@ mod tests {
         assert_eq!(returned, vec![IValue::String(payload.to_string())]);
     }
 
-    const IPFS_NODE: &str = "../deploy/ipfs_node.wasm";
-
     #[test]
     fn call_multiple_faases() {
         let test_module = "test_module.wasm".to_string();
-        let ipfs_node = "ipfs_node.wasm".to_string();
+        let test_module2 = "test_module2.wasm".to_string();
         let modules = vec![
             (test_module.clone(), TEST_MODULE),
-            (ipfs_node.clone(), IPFS_NODE),
+            (test_module2.clone(), TEST_MODULE),
         ];
         let swarm = make_swarm(modules);
 
-        let (service_id1, swarm) = create_faas(swarm, vec![test_module.clone()]);
-        let (_service_id2, swarm) = create_faas(swarm, vec![test_module.clone(), ipfs_node]);
+        let (_, swarm) = create_faas(swarm, vec![test_module.clone()]);
+        let (service_id2, swarm) =
+            create_faas(swarm, vec![test_module.clone(), test_module2.clone()]);
 
-        let (_returned, _swarm) = call_faas(
+        assert_eq!(
+            2,
+            swarm
+                .get_interfaces(service_id2.clone())
+                .expect("get interface")
+                .modules
+                .len()
+        );
+
+        let payload = "hello";
+        let (returned, swarm) = call_faas(
             swarm,
-            service_id1,
+            service_id2.clone(),
             test_module.as_str(),
             "greeting",
-            Some("hello"),
+            Some(payload),
         );
+
+        let (returned2, _swarm) = call_faas(
+            swarm,
+            service_id2,
+            test_module2.as_str(),
+            "greeting",
+            Some(payload),
+        );
+
+        assert_eq!(returned, vec![IValue::String(payload.to_string())]);
+        assert_eq!(returned2, returned);
     }
 }
