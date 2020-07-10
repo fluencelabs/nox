@@ -16,7 +16,7 @@
 
 use async_std::task;
 use faas_api::FunctionCall;
-use fluence_faas::{FaaSError, FluenceFaaS, IValue, RawCoreModulesConfig};
+use fluence_faas::{FaaSError, FaaSInterface, FluenceFaaS, IValue, RawCoreModulesConfig};
 use futures_util::future::BoxFuture;
 use libp2p::core::connection::ConnectionId;
 use libp2p::swarm::{
@@ -62,12 +62,14 @@ impl std::fmt::Display for FaasExecError {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum WasmResult {
     FaaSCreated { service_id: String },
     Returned(FaasResult),
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub enum WasmCall {
     /// Call to the FaaS instance specified by `service_id`
     Call {
@@ -132,6 +134,16 @@ impl FaaSBehaviour {
         self.wake();
     }
 
+    #[allow(dead_code)]
+    pub fn get_interfaces(&self, service_id: String) -> Result<FaaSInterface<'_>> {
+        let faas = self
+            .faases
+            .get(&service_id)
+            .ok_or(FaasExecError::NoSuchInstance(service_id))?;
+
+        Ok(faas.get_interface())
+    }
+
     fn create_faas(&self, module_names: Vec<String>) -> Result<(String, FluenceFaaS)> {
         let mut module_names = module_names.into_iter().collect();
         let uuid = Uuid::new_v4().to_string();
@@ -170,7 +182,6 @@ impl FaaSBehaviour {
 
                     self.wake();
 
-                    println!("created");
 
                     Ok(())
                 }
@@ -233,7 +244,6 @@ impl NetworkBehaviour for FaaSBehaviour {
         cx: &mut Context<'_>,
         _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<Void, Self::OutEvent>> {
-        println!("poll!");
         self.waker = Some(cx.waker().clone());
 
         // Check there is a completed call
@@ -262,7 +272,7 @@ impl NetworkBehaviour for FaaSBehaviour {
         let calls = std::mem::replace(&mut self.calls, Vec::with_capacity(capacity));
         let (new_work, busy): (Vec<_>, _) = calls.into_iter().partition(|call| {
             // return true if service is to be created, or there is no existing work for that service_id
-            call.is_create() || self.futures.contains_key(call.service_id().unwrap())
+            call.is_create() || !self.futures.contains_key(call.service_id().unwrap())
         });
         self.calls.extend(busy);
 
@@ -279,7 +289,6 @@ impl NetworkBehaviour for FaaSBehaviour {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, Err(err))));
         }
 
-        println!("poll finished");
         Poll::Pending
     }
 }
@@ -298,12 +307,14 @@ mod tests {
     use libp2p::{PeerId, Swarm};
 
     #[test]
+    #[no_mangle]
     fn call_multiple_faases() {
+        let test_module = "test_module.wasm".to_string();
+
         let mut tmp = std::env::temp_dir();
         tmp.push("wasm_modules/");
         std::fs::create_dir_all(&tmp).expect("create tmp dir");
-        println!("test module: {:?}", std::fs::canonicalize(TEST_MODULE));
-        std::fs::copy(TEST_MODULE, tmp.join("test_module.wasm")).expect("copy test module wasm");
+        std::fs::copy(TEST_MODULE, tmp.join(&test_module)).expect("copy test module wasm");
 
         let mut config: RawCoreModulesConfig = <_>::default();
         config.core_modules_dir = Some(tmp.to_string_lossy().into());
@@ -311,6 +322,24 @@ mod tests {
         let behaviour = FaaSBehaviour::new(config);
         let transport = DummyTransport::<(PeerId, Multiplex<DummyStream>)>::new();
         let mut swarm = Swarm::new(transport, behaviour, PeerId::random());
+
+        let wait_result = move |mut swarm: Swarm<FaaSBehaviour>| {
+            block_on(async move {
+                let result = poll_fn(|ctx| {
+                    loop {
+                        match swarm.poll_next_unpin(ctx) {
+                            Poll::Ready(Some(r)) => return Poll::Ready(r),
+                            _ => break,
+                        }
+                    }
+
+                    Poll::Pending
+                })
+                .await;
+
+                (result, swarm)
+            })
+        };
 
         let call = FunctionCall {
             uuid: "uuid".to_string(),
@@ -324,24 +353,40 @@ mod tests {
         };
 
         swarm.execute(WasmCall::Create {
-            module_names: vec!["test_module.wasm".to_string()],
+            module_names: vec![test_module.clone()],
             call: call.clone(),
         });
 
-        let (returned_call, result) = block_on(async move {
-            poll_fn(|ctx| {
-                loop {
-                    match swarm.poll_next_unpin(ctx) {
-                        Poll::Ready(Some((call, result))) => return Poll::Ready((call, result)),
-                        _ => break,
-                    }
-                }
-                Poll::Pending
-            })
-            .await
+        let ((_, created), mut swarm) = wait_result(swarm);
+        let service_id = match &created {
+            Ok(WasmResult::FaaSCreated { service_id }) => service_id.clone(),
+            wrong => unreachable!("wrong result: {:?}", wrong),
+        };
+
+        let interface = swarm
+            .get_interfaces(service_id.clone())
+            .expect("get interface");
+        assert_eq!(1, interface.modules.len());
+        assert_eq!(
+            &test_module,
+            interface.modules.into_iter().next().unwrap().0
+        );
+
+        let payload = "Hello";
+        swarm.execute(WasmCall::Call {
+            service_id,
+            module: test_module.clone(),
+            function: "greeting".to_string(),
+            arguments: vec![IValue::String(payload.to_string())],
+            call: call.clone(),
         });
 
-        assert_eq!(returned_call, call);
-        assert!(result.is_ok());
+        let ((_, returned), _) = wait_result(swarm);
+        match returned {
+            Ok(WasmResult::Returned(r)) => {
+                assert_eq!(r, vec![IValue::String(payload.to_string())]);
+            }
+            wrong => panic!("{:#?}", wrong),
+        }
     }
 }

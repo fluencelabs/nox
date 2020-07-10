@@ -513,9 +513,9 @@ checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 
 [[package]]
 name = "cc"
-version = "1.0.57"
+version = "1.0.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fde55d2a2bfaa4c9668bbc63f531fbdeee3ffe188f4662511ce2c22b3eedebe"
+checksum = "f9a06fb2e53271d7c279ec1efea6ab691c35a2ae67ec0d91d7acec0caf13b518"
 
 [[package]]
 name = "cfg-if"
@@ -1065,7 +1065,7 @@ checksum = "36a9cb09840f81cd211e435d00a4e487edd263dc3c8ff815c32dd76ad668ebed"
 [[package]]
 name = "fce"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=with_module_names#ea8cbd824e8976609ee6dbc3d8cbff3660b2b3a8"
+source = "git+https://github.com/fluencelabs/fce?branch=with_module_names#7ae25490a03d7994cc666c6f6efdfa308c318f0c"
 dependencies = [
  "fce-wit-interfaces",
  "log",
@@ -1083,7 +1083,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=with_module_names#ea8cbd824e8976609ee6dbc3d8cbff3660b2b3a8"
+source = "git+https://github.com/fluencelabs/fce?branch=with_module_names#7ae25490a03d7994cc666c6f6efdfa308c318f0c"
 dependencies = [
  "multimap",
  "wasmer-interface-types",
@@ -1144,7 +1144,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=with_module_names#ea8cbd824e8976609ee6dbc3d8cbff3660b2b3a8"
+source = "git+https://github.com/fluencelabs/fce?branch=with_module_names#7ae25490a03d7994cc666c6f6efdfa308c318f0c"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -1868,7 +1868,7 @@ checksum = "a9f8082297d534141b30c8d39e9b1773713ab50fdbe4ff30f750d063b3bfd701"
 [[package]]
 name = "libp2p"
 version = "0.20.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "bytes",
  "futures",
@@ -1906,7 +1906,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core"
 version = "0.19.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "asn1_der",
  "bs58",
@@ -1940,7 +1940,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core-derive"
 version = "0.19.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "quote",
  "syn",
@@ -1949,7 +1949,7 @@ dependencies = [
 [[package]]
 name = "libp2p-deflate"
 version = "0.19.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "flate2",
  "futures",
@@ -1959,7 +1959,7 @@ dependencies = [
 [[package]]
 name = "libp2p-dns"
 version = "0.19.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -1969,7 +1969,7 @@ dependencies = [
 [[package]]
 name = "libp2p-floodsub"
 version = "0.19.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "cuckoofilter",
  "fnv",
@@ -1985,7 +1985,7 @@ dependencies = [
 [[package]]
 name = "libp2p-gossipsub"
 version = "0.19.3"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "base64 0.11.0",
  "byteorder 1.3.4",
@@ -2009,7 +2009,7 @@ dependencies = [
 [[package]]
 name = "libp2p-identify"
 version = "0.19.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2024,7 +2024,7 @@ dependencies = [
 [[package]]
 name = "libp2p-kad"
 version = "0.20.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "arrayvec",
  "bs58",
@@ -2054,7 +2054,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mdns"
 version = "0.19.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "async-std",
  "data-encoding",
@@ -2075,7 +2075,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mplex"
 version = "0.19.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "bytes",
  "fnv",
@@ -2090,7 +2090,7 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.19.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "curve25519-dalek",
  "futures",
@@ -2110,7 +2110,7 @@ dependencies = [
 [[package]]
 name = "libp2p-ping"
 version = "0.19.3"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2124,7 +2124,7 @@ dependencies = [
 [[package]]
 name = "libp2p-plaintext"
 version = "0.19.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "bytes",
  "futures",
@@ -2141,7 +2141,7 @@ dependencies = [
 [[package]]
 name = "libp2p-pnet"
 version = "0.19.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "futures",
  "log",
@@ -2154,7 +2154,7 @@ dependencies = [
 [[package]]
 name = "libp2p-request-response"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "async-trait",
  "futures",
@@ -2167,7 +2167,7 @@ dependencies = [
 [[package]]
 name = "libp2p-secio"
 version = "0.19.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "aes-ctr",
  "ctr",
@@ -2196,7 +2196,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm"
 version = "0.19.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2210,7 +2210,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.19.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "async-std",
  "futures",
@@ -2225,7 +2225,7 @@ dependencies = [
 [[package]]
 name = "libp2p-uds"
 version = "0.19.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "async-std",
  "futures",
@@ -2236,7 +2236,7 @@ dependencies = [
 [[package]]
 name = "libp2p-wasm-ext"
 version = "0.19.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "futures",
  "js-sys",
@@ -2249,7 +2249,7 @@ dependencies = [
 [[package]]
 name = "libp2p-websocket"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "async-tls",
  "either",
@@ -2268,7 +2268,7 @@ dependencies = [
 [[package]]
 name = "libp2p-yamux"
 version = "0.19.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2513,7 +2513,7 @@ dependencies = [
 [[package]]
 name = "multistream-select"
 version = "0.8.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "bytes",
  "futures",
@@ -2711,7 +2711,7 @@ dependencies = [
 [[package]]
 name = "parity-multiaddr"
 version = "0.9.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#e47de3912c7fafc736b12f9f0b609f22f5098ff9"
+source = "git+https://github.com/fluencelabs/rust-libp2p#6ef292f3190e0909091aad6d42c9ad617780d45f"
 dependencies = [
  "arrayref",
  "bs58",
@@ -4527,7 +4527,7 @@ dependencies = [
 [[package]]
 name = "wit-parser"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=with_module_names#ea8cbd824e8976609ee6dbc3d8cbff3660b2b3a8"
+source = "git+https://github.com/fluencelabs/fce?branch=with_module_names#7ae25490a03d7994cc666c6f6efdfa308c318f0c"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
