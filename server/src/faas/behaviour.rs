@@ -305,43 +305,30 @@ mod tests {
     use libp2p::core::transport::dummy::{DummyStream, DummyTransport};
     use libp2p::mplex::Multiplex;
     use libp2p::{PeerId, Swarm};
+    use std::path::PathBuf;
 
-    #[test]
-    #[no_mangle]
-    fn call_multiple_faases() {
-        let test_module = "test_module.wasm".to_string();
-
-        let mut tmp = std::env::temp_dir();
-        tmp.push("wasm_modules/");
-        std::fs::create_dir_all(&tmp).expect("create tmp dir");
-        std::fs::copy(TEST_MODULE, tmp.join(&test_module)).expect("copy test module wasm");
-
-        let mut config: RawCoreModulesConfig = <_>::default();
-        config.core_modules_dir = Some(tmp.to_string_lossy().into());
-
-        let behaviour = FaaSBehaviour::new(config);
-        let transport = DummyTransport::<(PeerId, Multiplex<DummyStream>)>::new();
-        let mut swarm = Swarm::new(transport, behaviour, PeerId::random());
-
-        let wait_result = move |mut swarm: Swarm<FaaSBehaviour>| {
-            block_on(async move {
-                let result = poll_fn(|ctx| {
-                    loop {
-                        match swarm.poll_next_unpin(ctx) {
-                            Poll::Ready(Some(r)) => return Poll::Ready(r),
-                            _ => break,
-                        }
+    fn wait_result(
+        mut swarm: Swarm<FaaSBehaviour>,
+    ) -> ((FunctionCall, Result<WasmResult>), Swarm<FaaSBehaviour>) {
+        block_on(async move {
+            let result = poll_fn(|ctx| {
+                loop {
+                    match swarm.poll_next_unpin(ctx) {
+                        Poll::Ready(Some(r)) => return Poll::Ready(r),
+                        _ => break,
                     }
+                }
 
-                    Poll::Pending
-                })
-                .await;
-
-                (result, swarm)
+                Poll::Pending
             })
-        };
+            .await;
 
-        let call = FunctionCall {
+            (result, swarm)
+        })
+    }
+
+    fn empty_call() -> FunctionCall {
+        FunctionCall {
             uuid: "uuid".to_string(),
             target: None,
             reply_to: None,
@@ -350,7 +337,35 @@ mod tests {
             arguments: Default::default(),
             name: None,
             sender: Default::default(),
-        };
+        }
+    }
+
+    fn with_modules<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> RawCoreModulesConfig {
+        let mut tmp = std::env::temp_dir();
+        tmp.push("wasm_modules/");
+        std::fs::create_dir_all(&tmp).expect("create tmp dir");
+
+        for (name, path) in modules {
+            std::fs::copy(path.into(), tmp.join(&name)).expect("copy test module wasm");
+        }
+
+        let mut config: RawCoreModulesConfig = <_>::default();
+        config.core_modules_dir = Some(tmp.to_string_lossy().into());
+
+        config
+    }
+
+    #[test]
+    #[no_mangle]
+    fn call_multiple_faases() {
+        let test_module = "test_module.wasm".to_string();
+        let config = with_modules(vec![(test_module.clone(), TEST_MODULE)]);
+
+        let behaviour = FaaSBehaviour::new(config);
+        let transport = DummyTransport::<(PeerId, Multiplex<DummyStream>)>::new();
+        let mut swarm = Swarm::new(transport, behaviour, PeerId::random());
+
+        let call = empty_call();
 
         swarm.execute(WasmCall::Create {
             module_names: vec![test_module.clone()],
