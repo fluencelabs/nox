@@ -346,7 +346,9 @@ mod tests {
         std::fs::create_dir_all(&tmp).expect("create tmp dir");
 
         for (name, path) in modules {
-            std::fs::copy(path.into(), tmp.join(&name)).expect("copy test module wasm");
+            let path = path.into();
+            std::fs::copy(&path, tmp.join(&name))
+                .expect(format!("copy test module wasm {:?}", path).as_str());
         }
 
         let mut config: RawCoreModulesConfig = <_>::default();
@@ -355,28 +357,63 @@ mod tests {
         config
     }
 
-    #[test]
-    #[no_mangle]
-    fn call_multiple_faases() {
-        let test_module = "test_module.wasm".to_string();
-        let config = with_modules(vec![(test_module.clone(), TEST_MODULE)]);
-
+    fn make_swarm<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> Swarm<FaaSBehaviour> {
+        let config = with_modules(modules);
         let behaviour = FaaSBehaviour::new(config);
         let transport = DummyTransport::<(PeerId, Multiplex<DummyStream>)>::new();
-        let mut swarm = Swarm::new(transport, behaviour, PeerId::random());
+        Swarm::new(transport, behaviour, PeerId::random())
+    }
 
-        let call = empty_call();
-
+    fn create_faas(
+        mut swarm: Swarm<FaaSBehaviour>,
+        module_names: Vec<String>,
+    ) -> (String, Swarm<FaaSBehaviour>) {
         swarm.execute(WasmCall::Create {
-            module_names: vec![test_module.clone()],
-            call: call.clone(),
+            module_names,
+            call: empty_call(),
         });
 
-        let ((_, created), mut swarm) = wait_result(swarm);
+        let ((_, created), swarm) = wait_result(swarm);
         let service_id = match &created {
             Ok(WasmResult::FaaSCreated { service_id }) => service_id.clone(),
             wrong => unreachable!("wrong result: {:?}", wrong),
         };
+
+        (service_id, swarm)
+    }
+
+    fn call_faas(
+        mut swarm: Swarm<FaaSBehaviour>,
+        service_id: String,
+        module: &str,
+        function: &str,
+        argument: Option<&str>,
+    ) -> (FaasResult, Swarm<FaaSBehaviour>) {
+        swarm.execute(WasmCall::Call {
+            service_id,
+            module: module.to_string(),
+            function: function.to_string(),
+            arguments: argument
+                .into_iter()
+                .map(|s| IValue::String(s.to_string()))
+                .collect(),
+            call: empty_call(),
+        });
+
+        let ((_, returned), swarm) = wait_result(swarm);
+        let returned = match returned {
+            Ok(WasmResult::Returned(r)) => r,
+            wrong => panic!("{:#?}", wrong),
+        };
+
+        (returned, swarm)
+    }
+
+    #[test]
+    fn call_single_faas() {
+        let test_module = "test_module.wasm".to_string();
+        let swarm = make_swarm(vec![(test_module.clone(), TEST_MODULE)]);
+        let (service_id, swarm) = create_faas(swarm, vec![test_module.clone()]);
 
         let interface = swarm
             .get_interfaces(service_id.clone())
@@ -388,20 +425,37 @@ mod tests {
         );
 
         let payload = "Hello";
-        swarm.execute(WasmCall::Call {
+        let (returned, _) = call_faas(
+            swarm,
             service_id,
-            module: test_module.clone(),
-            function: "greeting".to_string(),
-            arguments: vec![IValue::String(payload.to_string())],
-            call: call.clone(),
-        });
+            test_module.as_str(),
+            "greeting",
+            Some(payload),
+        );
+        assert_eq!(returned, vec![IValue::String(payload.to_string())]);
+    }
 
-        let ((_, returned), _) = wait_result(swarm);
-        match returned {
-            Ok(WasmResult::Returned(r)) => {
-                assert_eq!(r, vec![IValue::String(payload.to_string())]);
-            }
-            wrong => panic!("{:#?}", wrong),
-        }
+    const IPFS_NODE: &str = "../deploy/ipfs_node.wasm";
+
+    #[test]
+    fn call_multiple_faases() {
+        let test_module = "test_module.wasm".to_string();
+        let ipfs_node = "ipfs_node.wasm".to_string();
+        let modules = vec![
+            (test_module.clone(), TEST_MODULE),
+            (ipfs_node.clone(), IPFS_NODE),
+        ];
+        let swarm = make_swarm(modules);
+
+        let (service_id1, swarm) = create_faas(swarm, vec![test_module.clone()]);
+        let (_service_id2, swarm) = create_faas(swarm, vec![test_module.clone(), ipfs_node]);
+
+        let (_returned, _swarm) = call_faas(
+            swarm,
+            service_id1,
+            test_module.as_str(),
+            "greeting",
+            Some("hello"),
+        );
     }
 }
