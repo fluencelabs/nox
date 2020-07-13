@@ -78,7 +78,6 @@ mod function {
     pub(self) use errors::{CallError, CallErrorKind, ErrorData};
     pub(crate) use router::FunctionRouter;
     pub(self) use router::SwarmEventType;
-    pub(self) use services::ResolvedFunction;
 }
 
 mod bootstrapper {
@@ -102,7 +101,7 @@ pub mod kademlia {
 
 pub mod faas {
     mod behaviour;
-    pub(crate) use behaviour::{FaaSBehaviour, FaaSCall};
+    pub(crate) use behaviour::{FaaSBehaviour, FaaSCall, FaaSCallResult, FaaSExecError};
 }
 
 pub(crate) use bootstrapper::Bootstrapper;

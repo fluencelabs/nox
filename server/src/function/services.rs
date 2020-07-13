@@ -16,19 +16,15 @@
 
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
+use crate::faas::{FaaSCall, FaaSCallResult, FaaSExecError};
 use crate::function::waiting_queues::Enqueued;
-use crate::function::{CallError, CallErrorKind, CallErrorKind::*, ErrorData};
+use crate::function::{CallError, CallErrorKind::*, ErrorData};
 use faas_api::{Address, FunctionCall, Protocol};
+use fluence_faas::IValue;
 use libp2p::PeerId;
 use std::collections::HashSet;
 
 type CallResult<T> = std::result::Result<T, CallError>;
-
-pub struct ResolvedFunction {
-    service_id: String,
-    function: String,
-    module: String,
-}
 
 impl FunctionRouter {
     // ####
@@ -36,7 +32,7 @@ impl FunctionRouter {
     // ###
 
     /// Execute call locally: on builtin service or forward to provided name
-    pub(super) fn execute_locally<'a>(
+    pub(super) fn execute_locally(
         &mut self,
         module: String,
         call: FunctionCall,
@@ -48,47 +44,88 @@ impl FunctionRouter {
             return self.execute_builtin(builtin, call);
         }
 
-        let found = self
-            .find_in_faas(module, call.fname.as_deref(), hashtag)
-            .map_err(|e| call.clone().error(e))?;
+        let call = self.prepare_call(module, hashtag, call)?;
+        self.faas.execute(call);
 
-        if let Some(function) = found {
-            return self.execute_wasm(function, call);
-        }
-
-        Err(UnroutableCall(format!("module {} not found", module)).of_call(call))
+        Ok(())
     }
 
     /// Find a matching module with a matching function, and return their names
-    fn find_in_faas(
+    fn prepare_call(
         &mut self,
         module: String,
-        function: Option<&str>,
         service_id: Option<String>,
-    ) -> Result<ResolvedFunction, CallErrorKind> {
-        let service_id = service_id.ok_or(MissingServiceId)?;
-        let interface = self.faas.get_interface(&service_id)?;
-        let functions = interface
-            .modules
-            .get(module.as_str())
-            .ok_or_else(|| NoSuchModule {
+        call: FunctionCall,
+    ) -> Result<FaaSCall, CallError> {
+        let service_id = match service_id {
+            Some(id) => id,
+            None if module.as_str() == "create" => {
+                #[allow(unused_variables)]
+                let context = vec![unimplemented!()]; // TODO: get context from function
+                return Ok(FaaSCall::Create {
+                    module_names: context,
+                    call,
+                });
+            }
+            None => return Err(call.clone().error(MissingServiceId)),
+        };
+
+        let interface = self
+            .faas
+            .get_interface(&service_id)
+            .map_err(|e| call.clone().error(e))?;
+        let functions = interface.modules.get(module.as_str()).ok_or_else(|| {
+            call.clone().error(NoSuchModule {
                 module: module.clone(),
                 service_id: service_id.clone(),
-            })?;
-        let function = function.ok_or_else(|| MissingFunctionName {
-            module: module.to_string(),
+            })
         })?;
-        if !functions.contains_key(function) {
-            return Err(CallErrorKind::FunctionNotFound {
+        let function = call.fname.as_ref().ok_or_else(|| {
+            call.clone().error(MissingFunctionName {
+                module: module.to_string(),
+            })
+        })?;
+        if !functions.contains_key(function.as_str()) {
+            return Err(call.clone().error(FunctionNotFound {
                 module: module.to_string(),
                 function: function.to_string(),
-            });
+            }));
         }
-        Ok(ResolvedFunction {
+
+        let is_null = call.arguments.is_null();
+        let is_empty_arr = call.arguments.as_array().map_or(false, |a| a.is_empty());
+        let is_empty_obj = call.arguments.as_object().map_or(false, |m| m.is_empty());
+        let arguments = if !is_null && !is_empty_arr && !is_empty_obj {
+            Some(
+                fluence_faas::to_interface_value(&call.arguments).map_err(|e| {
+                    call.clone().error(InvalidArguments {
+                        error: format!("can't parse arguments as array of interface types: {}", e),
+                    })
+                })?,
+            )
+        } else {
+            None
+        };
+
+        let arguments = match arguments {
+            Some(IValue::Record(arguments)) => Ok(arguments.into_vec()),
+            // Convert null, [] and {} into vec![]
+            None => Ok(vec![]),
+            other => Err(call.clone().error(InvalidArguments {
+                error: format!("expected array of interface values: got {:?}", other),
+            })),
+        }?;
+
+        // TODO: somehow differentiate between FaaSCall::Create and FaaSCall::Call
+        let faas_call = FaaSCall::Call {
+            service_id,
             module,
             function: function.to_string(),
-            service_id,
-        })
+            arguments,
+            call,
+        };
+
+        Ok(faas_call)
     }
 
     // Look for service providers, enqueue call to wait for providers
@@ -194,5 +231,25 @@ impl FunctionRouter {
         for name in removed {
             self.unpublish_name(name);
         }
+    }
+
+    pub(super) fn send_faas_result(
+        &mut self,
+        call: FunctionCall,
+        result: Result<FaaSCallResult, FaaSExecError>,
+    ) -> Result<(), CallError> {
+        use serde_json::Value;
+
+        let data = match result {
+            Ok(result) => {
+                let result = serde_json::to_value(result)
+                    .map_err(|e| call.clone().error(ResultSerializationFailed(e.to_string())))?;
+                ("result", result)
+            }
+            Err(error) => ("error", Value::String(error.to_string())),
+        };
+        self.reply_with(call, None, data)?;
+
+        Ok(())
     }
 }

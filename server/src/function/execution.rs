@@ -21,11 +21,9 @@ use super::{
         AddCertificates, BuiltinService, GetCertificates, GetInterface, Identify, Provide,
     },
     errors::CallErrorKind::*,
-    CallError, ErrorData, FunctionRouter, ResolvedFunction,
+    CallError, ErrorData, FunctionRouter,
 };
-use crate::faas::FaaSCall;
 use faas_api::{provider, Address, FunctionCall, Protocol};
-use fluence_faas::IValue;
 use libp2p::PeerId;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -57,7 +55,7 @@ impl FunctionRouter {
                 let addrs: Vec<_> = addrs.iter().map(ToString::to_string).collect();
                 self.reply_with(call, msg_id, ("addresses", addrs))
             }
-            BS::GetInterface(GetInterface { msg_id }) => {
+            BS::GetInterface(GetInterface { .. }) => {
                 unimplemented!("get_interface not implemented");
                 Err(call.error(InvalidArguments {
                     error: "get_interface not implemented".to_string(),
@@ -68,66 +66,6 @@ impl FunctionRouter {
                 // }
             }
         }
-    }
-
-    /// Execute `function` on `module` in the FluenceFaaS
-    pub(super) fn execute_wasm(
-        &mut self,
-        function: ResolvedFunction,
-        call: FunctionCall,
-    ) -> Result<(), CallError> {
-        let ResolvedFunction {
-            module,
-            function,
-            service_id,
-        } = function;
-
-        let is_null = call.arguments.is_null();
-        let is_empty_arr = call.arguments.as_array().map_or(false, |a| a.is_empty());
-        let is_empty_obj = call.arguments.as_object().map_or(false, |m| m.is_empty());
-        let arguments = if !is_null && !is_empty_arr && !is_empty_obj {
-            Some(
-                fluence_faas::to_interface_value(&call.arguments).map_err(|e| {
-                    call.clone().error(InvalidArguments {
-                        error: format!("can't parse arguments as array of interface types: {}", e),
-                    })
-                })?,
-            )
-        } else {
-            None
-        };
-
-        let arguments = match arguments {
-            Some(IValue::Record(arguments)) => Ok(arguments.into_vec()),
-            // Convert null, [] and {} into vec![]
-            None => Ok(vec![]),
-            other => Err(call.clone().error(InvalidArguments {
-                error: format!("expected array of interface values: got {:?}", other),
-            })),
-        }?;
-
-        let faas_call = FaaSCall::Call {
-            service_id,
-            module,
-            function,
-            arguments,
-            call,
-        };
-
-        self.faas.execute(faas_call);
-        Ok(())
-
-        // TODO: retrieve results from faas
-
-        // // Handle empty result manually because `from_interface_values` doesn't support empty vec
-        // let result = if !result.is_empty() {
-        //     fluence_faas::from_interface_values(&result)
-        //         .map_err(|e| call.clone().error(ResultSerializationFailed(e.to_string())))?
-        // } else {
-        //     Value::Null
-        // };
-        //
-        // self.reply_with(call, None, ("result", result))
     }
 
     fn add_certificates(
@@ -263,7 +201,7 @@ impl FunctionRouter {
 
     /// Send reply on a given call with given msg_id and data in arguments
     /// If data or msg_id is empty, it's not included in the arguments
-    fn reply_with<T: Serialize>(
+    pub(super) fn reply_with<T: Serialize>(
         &mut self,
         call: FunctionCall,
         msg_id: Option<String>,

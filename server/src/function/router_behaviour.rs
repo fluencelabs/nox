@@ -148,6 +148,15 @@ impl NetworkBehaviour for FunctionRouter {
             return Poll::Ready(event);
         }
 
+        while let Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result))) =
+            self.faas.poll(cx, params)
+        {
+            if let Err(err) = self.send_faas_result(call, result) {
+                let msg = err.err_msg();
+                self.send_error_on_call(err.call(), msg);
+            }
+        }
+
         // TODO: would be nice to generate that with macro
         loop {
             match self.kademlia.poll(cx, params) {

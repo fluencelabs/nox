@@ -25,6 +25,9 @@ use libp2p::swarm::{
 };
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
+use serde::ser::Error as SerError;
+use serde::{Serialize, Serializer};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::future::Future;
@@ -34,8 +37,9 @@ use uuid::Uuid;
 use void::Void;
 
 type Result<T> = std::result::Result<T, FaaSExecError>;
+#[allow(dead_code)]
 type FaasResult = Vec<IValue>;
-type FutResult = (FluenceFaaS, FunctionCall, Result<CallResult>);
+type FutResult = (FluenceFaaS, FunctionCall, Result<FaaSCallResult>);
 type Fut = BoxFuture<'static, FutResult>;
 
 #[derive(Debug)]
@@ -62,10 +66,37 @@ impl std::fmt::Display for FaaSExecError {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum CallResult {
-    FaaSCreated { service_id: String },
-    Returned(FaasResult),
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum FaaSCallResult {
+    FaaSCreated {
+        service_id: String,
+    },
+    #[serde(serialize_with = "FaaSCallResult::serialize_returned")]
+    Returned(Vec<IValue>),
+}
+
+impl FaaSCallResult {
+    fn serialize_returned<S>(
+        value: &Vec<IValue>,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // let value = match value {
+        //     c @ FaaSCallResult::FaaSCreated { .. } => unreachable!("used incorrectly"),
+        //     FaaSCallResult::Returned(result) => result,
+        // };
+        if value.is_empty() {
+            Value::Null.serialize(serializer)
+        } else {
+            let value = fluence_faas::from_interface_values(&value)
+                .map_err(|e| SerError::custom(format!("Failed to serialize result: {}", e)))?;
+
+            Value::serialize(&value, serializer)
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -144,6 +175,7 @@ impl FaaSBehaviour {
         Ok(faas.get_interface())
     }
 
+    #[allow(dead_code)]
     pub fn get_interfaces(&self) -> HashMap<&str, FaaSInterface<'_>> {
         self.faases
             .iter()
@@ -180,7 +212,7 @@ impl FaaSBehaviour {
                         .create_faas(module_names)
                         .map_err(|e| (call.clone(), e))?;
 
-                    let result = CallResult::FaaSCreated {
+                    let result = FaaSCallResult::FaaSCreated {
                         // TODO: excess clone, data duplication:
                         //  service_id stored in futures as key and as value in FaaSCreated :(
                         service_id: service_id.clone(),
@@ -208,7 +240,7 @@ impl FaaSBehaviour {
                     // Spawn a task that will call wasm function
                     let future = task::spawn_blocking(move || {
                         let result = faas.call_module(&module, &function, &arguments);
-                        let result = result.map(|r| CallResult::Returned(r)).map_err(|e| e.into());
+                        let result = result.map(|r| FaaSCallResult::Returned(r)).map_err(|e| e.into());
                         Self::call_wake(waker);
                         (faas, call, result)
                     });
@@ -234,7 +266,7 @@ impl FaaSBehaviour {
 
 impl NetworkBehaviour for FaaSBehaviour {
     type ProtocolsHandler = DummyProtocolsHandler;
-    type OutEvent = (FunctionCall, Result<CallResult>);
+    type OutEvent = (FunctionCall, Result<FaaSCallResult>);
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()
@@ -320,7 +352,7 @@ mod tests {
 
     fn wait_result(
         mut swarm: Swarm<FaaSBehaviour>,
-    ) -> ((FunctionCall, Result<CallResult>), Swarm<FaaSBehaviour>) {
+    ) -> ((FunctionCall, Result<FaaSCallResult>), Swarm<FaaSBehaviour>) {
         block_on(async move {
             let result = poll_fn(|ctx| {
                 loop {
@@ -386,7 +418,7 @@ mod tests {
 
         let ((_, created), swarm) = wait_result(swarm);
         let service_id = match &created {
-            Ok(CallResult::FaaSCreated { service_id }) => service_id.clone(),
+            Ok(FaaSCallResult::FaaSCreated { service_id }) => service_id.clone(),
             wrong => unreachable!("wrong result: {:?}", wrong),
         };
 
@@ -413,7 +445,7 @@ mod tests {
 
         let ((_, returned), swarm) = wait_result(swarm);
         let returned = match returned {
-            Ok(CallResult::Returned(r)) => r,
+            Ok(FaaSCallResult::Returned(r)) => r,
             wrong => panic!("{:#?}", wrong),
         };
 

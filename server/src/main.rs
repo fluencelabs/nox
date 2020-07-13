@@ -26,10 +26,8 @@
     unreachable_patterns
 )]
 
-use anyhow::Context;
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
-use fluence_faas::FluenceFaaS;
 use fluence_server::config::{certificates, create_args, load_config, FluenceConfig};
 use fluence_server::Server;
 use futures::channel::oneshot;

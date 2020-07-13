@@ -15,6 +15,7 @@
  */
 
 use super::{address_signature::SignatureError, builtin_service};
+use crate::faas::FaaSExecError;
 use faas_api::{Address, FunctionCall};
 use fluence_faas::FaaSError;
 use trust_graph::Certificate;
@@ -81,6 +82,9 @@ impl CallError {
             CallErrorKind::NoSuchModule { module, service_id } => {
                 format!("module {} wasn't found on service {}", module, service_id)
             }
+            CallErrorKind::FaaSExecError(err) => {
+                format!("error while executing faas call: {}", err)
+            }
         }
     }
 
@@ -106,12 +110,20 @@ impl CallError {
 }
 
 pub enum CallErrorKind {
-    MissingFunctionName { module: String },
-    FunctionNotFound { module: String, function: String },
-    InvalidArguments { error: String },
+    MissingFunctionName {
+        module: String,
+    },
+    FunctionNotFound {
+        module: String,
+        function: String,
+    },
+    InvalidArguments {
+        error: String,
+    },
     ResultSerializationFailed(String),
     BuiltinServiceError(builtin_service::Error),
     FaaSError(FaaSError),
+    #[allow(dead_code)]
     UnroutableCall(String),
     Signature(SignatureError),
     ServiceRegister(libp2p::kad::store::Error),
@@ -121,9 +133,14 @@ pub enum CallErrorKind {
     MissingPublicKey,
     UnsupportedPublicKey,
     AddCertificates(Vec<(Certificate, String)>),
+    #[allow(dead_code)]
     FaasInterfaceSerialization(serde_json::Error),
     MissingServiceId,
-    NoSuchModule { module: String, service_id: String },
+    NoSuchModule {
+        module: String,
+        service_id: String,
+    },
+    FaaSExecError(FaaSExecError),
 }
 
 impl CallErrorKind {
@@ -154,6 +171,12 @@ impl From<SignatureError> for CallErrorKind {
 impl From<libp2p::kad::record::store::Error> for CallErrorKind {
     fn from(err: libp2p::kad::record::store::Error) -> Self {
         CallErrorKind::ServiceRegister(err)
+    }
+}
+
+impl From<FaaSExecError> for CallErrorKind {
+    fn from(err: FaaSExecError) -> Self {
+        CallErrorKind::FaaSExecError(err)
     }
 }
 
