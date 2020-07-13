@@ -66,18 +66,18 @@ pub enum BuiltinService {
 }
 
 #[derive(Debug)]
-pub enum Error<'a> {
+pub enum Error {
     Serde(serde_json::Error),
-    UnknownService(&'a str),
+    UnknownService(String),
 }
 
-impl<'a> From<serde_json::Error> for Error<'a> {
+impl<'a> From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
         Error::Serde(err)
     }
 }
 
-impl<'a> Display for Error<'a> {
+impl<'a> Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::Serde(serderr) => serderr.fmt(f),
@@ -98,17 +98,17 @@ impl BuiltinService {
     ];
 
     #[allow(clippy::needless_lifetimes)]
-    pub fn from<'a>(service_id: &'a str, arguments: serde_json::Value) -> Result<Self, Error<'a>> {
+    pub fn from(service_id: String, arguments: serde_json::Value) -> Result<Self, Error> {
         use serde_json::from_value;
         use BuiltinService::*;
 
-        let service = match service_id {
+        let service = match service_id.as_str() {
             Self::PROVIDE => Provide(from_value(arguments)?),
             Self::CERTS => GetCertificates(from_value(arguments)?),
             Self::ADD_CERTS => AddCertificates(from_value(arguments)?),
             Self::IDENTIFY => Identify(from_value(arguments)?),
             Self::GET_INTERFACE => GetInterface(from_value(arguments)?),
-            s => return Err(Error::UnknownService(s)),
+            _ => return Err(Error::UnknownService(service_id)),
         };
 
         Ok(service)
@@ -161,7 +161,7 @@ pub mod test {
 
         assert_eq!(service_id, "provide");
 
-        match BuiltinService::from(target, call.arguments) {
+        match BuiltinService::from(target.into(), call.arguments) {
             Ok(BuiltinService::Provide(Provide { service_id })) => {
                 assert_eq!(service_id, ipfs_service)
             }
@@ -209,7 +209,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let _service: AddCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let service = BuiltinService::from(target, call.arguments).unwrap();
+        let service = BuiltinService::from(target.into(), call.arguments).unwrap();
 
         match service {
             BuiltinService::AddCertificates(add) => {
@@ -253,7 +253,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let _service: GetCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let service = BuiltinService::from(&target, call.arguments).unwrap();
+        let service = BuiltinService::from(target.into(), call.arguments).unwrap();
 
         match service {
             BuiltinService::GetCertificates(add) => {
@@ -272,7 +272,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         });
         let (target, arguments) = service.as_target_args();
         let call = gen_provide_call(provider!(target), arguments);
-        let service = BuiltinService::from(&target, call.arguments).unwrap();
+        let service = BuiltinService::from(target.into(), call.arguments).unwrap();
 
         match service {
             BuiltinService::Identify(identify) => assert_eq!(msg_id, identify.msg_id),

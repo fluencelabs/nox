@@ -23,7 +23,7 @@ use crate::faas::FaaSBehaviour;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
-use fluence_faas::{FluenceFaaS, RawCoreModulesConfig};
+use fluence_faas::RawCoreModulesConfig;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
 use libp2p::{
@@ -37,7 +37,6 @@ use parity_multiaddr::Multiaddr;
 use prometheus::Registry;
 use std::collections::{HashMap, HashSet, VecDeque};
 use trust_graph::TrustGraph;
-use url::quirks::hash;
 use uuid::Uuid;
 
 pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
@@ -156,7 +155,7 @@ impl FunctionRouter {
                     // target will be like: /client/QmClient/service/QmService
                     let call = call.with_target(target.collect());
                     // TODO: raise error instead of sending it
-                    if let Err(err) = self.execute_locally(&module, call, hashtag) {
+                    if let Err(err) = self.execute_locally(module, call, hashtag) {
                         let err_msg = err.err_msg();
                         self.send_error_on_call(err.call(), err_msg);
                     }

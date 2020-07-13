@@ -22,7 +22,13 @@ use faas_api::{Address, FunctionCall, Protocol};
 use libp2p::PeerId;
 use std::collections::HashSet;
 
-type CallResult<'a, T> = std::result::Result<T, CallError<'a>>;
+type CallResult<T> = std::result::Result<T, CallError>;
+
+pub struct ResolvedFunction {
+    service_id: String,
+    function: String,
+    module: String,
+}
 
 impl FunctionRouter {
     // ####
@@ -32,11 +38,11 @@ impl FunctionRouter {
     /// Execute call locally: on builtin service or forward to provided name
     pub(super) fn execute_locally<'a>(
         &mut self,
-        module: &'a str,
+        module: String,
         call: FunctionCall,
         hashtag: Option<String>,
-    ) -> CallResult<'a, ()> {
-        if BuiltinService::is_builtin(module) {
+    ) -> CallResult<()> {
+        if BuiltinService::is_builtin(&module) {
             let builtin = BuiltinService::from(module, call.arguments.clone())
                 .map_err(|e| call.clone().error(e))?;
             return self.execute_builtin(builtin, call);
@@ -46,26 +52,29 @@ impl FunctionRouter {
             .find_in_faas(module, call.fname.as_deref(), hashtag)
             .map_err(|e| call.clone().error(e))?;
 
-        if let Some((module, function)) = found {
-            return self.execute_wasm(module, function, call);
+        if let Some(function) = found {
+            return self.execute_wasm(function, call);
         }
 
         Err(UnroutableCall(format!("module {} not found", module)).of_call(call))
     }
 
     /// Find a matching module with a matching function, and return their names
-    fn find_in_faas<'a>(
+    fn find_in_faas(
         &mut self,
-        module: &'a str,
+        module: String,
         function: Option<&str>,
         service_id: Option<String>,
-    ) -> Result<Option<(String, String)>, CallErrorKind<'a>> {
+    ) -> Result<ResolvedFunction, CallErrorKind> {
         let service_id = service_id.ok_or(MissingServiceId)?;
         let interface = self.faas.get_interface(&service_id)?;
         let functions = interface
             .modules
-            .get(module)
-            .ok_or(NoSuchModule { module, service_id })?;
+            .get(module.as_str())
+            .ok_or_else(|| NoSuchModule {
+                module: module.clone(),
+                service_id: service_id.clone(),
+            })?;
         let function = function.ok_or_else(|| MissingFunctionName {
             module: module.to_string(),
         })?;
@@ -75,7 +84,11 @@ impl FunctionRouter {
                 function: function.to_string(),
             });
         }
-        Ok(Some((module.to_string(), function.to_string())))
+        Ok(ResolvedFunction {
+            module,
+            function: function.to_string(),
+            service_id,
+        })
     }
 
     // Look for service providers, enqueue call to wait for providers

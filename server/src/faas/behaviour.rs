@@ -138,7 +138,7 @@ impl FaaSBehaviour {
     pub fn get_interface(&self, service_id: &str) -> Result<FaaSInterface<'_>> {
         let faas = self
             .faases
-            .get(&service_id)
+            .get(service_id)
             .ok_or_else(|| FaaSExecError::NoSuchInstance(service_id.to_string()))?;
 
         Ok(faas.get_interface())
@@ -147,12 +147,12 @@ impl FaaSBehaviour {
     pub fn get_interfaces(&self) -> HashMap<&str, FaaSInterface<'_>> {
         self.faases
             .iter()
-            .map(|(k, v)| (k, v.get_interface()))
+            .map(|(k, v)| (k.as_str(), v.get_interface()))
             .collect()
     }
 
     pub fn get_modules(&self) -> impl Iterator<Item = &str> {
-        self.config.core_module.iter().map(|m| &m.name)
+        self.config.core_module.iter().map(|m| m.name.as_str())
     }
 
     fn create_faas(&self, module_names: Vec<String>) -> Result<(String, FluenceFaaS)> {
@@ -427,7 +427,7 @@ mod tests {
         let (service_id, swarm) = create_faas(swarm, vec![test_module.clone()]);
 
         let interface = swarm
-            .get_interface(service_id.clone())
+            .get_interface(service_id.as_str())
             .expect("get interface");
         assert_eq!(1, interface.modules.len());
         assert_eq!(
@@ -463,7 +463,7 @@ mod tests {
         assert_eq!(
             2,
             swarm
-                .get_interface(service_id2.clone())
+                .get_interface(&service_id2)
                 .expect("get interface")
                 .modules
                 .len()

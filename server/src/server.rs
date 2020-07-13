@@ -19,7 +19,7 @@ use crate::config::ServerConfig;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 
 use async_std::task;
-use fluence_faas::{FluenceFaaS, RawCoreModulesConfig};
+use fluence_faas::RawCoreModulesConfig;
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
 use libp2p::{

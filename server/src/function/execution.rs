@@ -21,8 +21,9 @@ use super::{
         AddCertificates, BuiltinService, GetCertificates, GetInterface, Identify, Provide,
     },
     errors::CallErrorKind::*,
-    CallError, ErrorData, FunctionRouter,
+    CallError, ErrorData, FunctionRouter, ResolvedFunction,
 };
+use crate::faas::FaaSCall;
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_faas::IValue;
 use libp2p::PeerId;
@@ -38,7 +39,7 @@ impl FunctionRouter {
         &mut self,
         service: BuiltinService,
         call: FunctionCall,
-    ) -> Result<(), CallError<'static>> {
+    ) -> Result<(), CallError> {
         use BuiltinService as BS;
 
         match service {
@@ -72,45 +73,61 @@ impl FunctionRouter {
     /// Execute `function` on `module` in the FluenceFaaS
     pub(super) fn execute_wasm(
         &mut self,
-        module: String,
-        function: String,
+        function: ResolvedFunction,
         call: FunctionCall,
-    ) -> Result<(), CallError<'static>> {
+    ) -> Result<(), CallError> {
+        let ResolvedFunction {
+            module,
+            function,
+            service_id,
+        } = function;
+
         let is_null = call.arguments.is_null();
         let is_empty_arr = call.arguments.as_array().map_or(false, |a| a.is_empty());
         let is_empty_obj = call.arguments.as_object().map_or(false, |m| m.is_empty());
         let arguments = if !is_null && !is_empty_arr && !is_empty_obj {
-            fluence_faas::to_interface_value(&call.arguments).map_err(|e| {
-                call.clone().error(InvalidArguments {
-                    error: format!("can't parse arguments as array of interface types: {}", e),
-                })
-            })?
+            Some(
+                fluence_faas::to_interface_value(&call.arguments).map_err(|e| {
+                    call.clone().error(InvalidArguments {
+                        error: format!("can't parse arguments as array of interface types: {}", e),
+                    })
+                })?,
+            )
         } else {
-            // Convert null, [] and {} into Record([])
-            IValue::Record(<_>::default())
+            None
         };
 
-        let arguments = match &arguments {
-            IValue::Record(arguments) => Ok(arguments.as_ref()),
+        let arguments = match arguments {
+            Some(IValue::Record(arguments)) => Ok(arguments.into_vec()),
+            // Convert null, [] and {} into vec![]
+            None => Ok(vec![]),
             other => Err(call.clone().error(InvalidArguments {
                 error: format!("expected array of interface values: got {:?}", other),
             })),
         }?;
 
-        let result = self
-            .faas
-            .call_module(&module, &function, arguments)
-            .map_err(|e| call.clone().error(e))?;
-
-        // Handle empty result manually because `from_interface_values` doesn't support empty vec
-        let result = if !result.is_empty() {
-            fluence_faas::from_interface_values(&result)
-                .map_err(|e| call.clone().error(ResultSerializationFailed(e.to_string())))?
-        } else {
-            Value::Null
+        let faas_call = FaaSCall::Call {
+            service_id,
+            module,
+            function,
+            arguments,
+            call,
         };
 
-        self.reply_with(call, None, ("result", result))
+        self.faas.execute(faas_call);
+        Ok(())
+
+        // TODO: retrieve results from faas
+
+        // // Handle empty result manually because `from_interface_values` doesn't support empty vec
+        // let result = if !result.is_empty() {
+        //     fluence_faas::from_interface_values(&result)
+        //         .map_err(|e| call.clone().error(ResultSerializationFailed(e.to_string())))?
+        // } else {
+        //     Value::Null
+        // };
+        //
+        // self.reply_with(call, None, ("result", result))
     }
 
     fn add_certificates(
@@ -119,7 +136,7 @@ impl FunctionRouter {
         certificates: Vec<Certificate>,
         call: FunctionCall,
         msg_id: Option<String>,
-    ) -> Result<(), CallError<'static>> {
+    ) -> Result<(), CallError> {
         #[rustfmt::skip]
         log::info!(
             "executing add_certificates of {} certs for {}, call: {:?}", 
@@ -164,7 +181,7 @@ impl FunctionRouter {
         peer_id: PeerId,
         call: FunctionCall,
         msg_id: Option<String>,
-    ) -> Result<(), CallError<'static>> {
+    ) -> Result<(), CallError> {
         use libp2p::identity::PublicKey;
 
         #[rustfmt::skip]
@@ -198,7 +215,7 @@ impl FunctionRouter {
         Ok(())
     }
 
-    fn provide(&mut self, name: Address, call: FunctionCall) -> Result<(), CallError<'static>> {
+    fn provide(&mut self, name: Address, call: FunctionCall) -> Result<(), CallError> {
         use Protocol::*;
 
         let protocols = call.reply_to.as_ref().map(|addr| addr.protocols());
@@ -251,7 +268,7 @@ impl FunctionRouter {
         call: FunctionCall,
         msg_id: Option<String>,
         data: (&str, T),
-    ) -> Result<(), CallError<'static>> {
+    ) -> Result<(), CallError> {
         let reply_to = call.reply_to.clone();
         let reply_to = reply_to.ok_or_else(|| call.error(MissingReplyTo))?;
 
