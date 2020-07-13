@@ -37,6 +37,7 @@ use parity_multiaddr::Multiaddr;
 use prometheus::Registry;
 use std::collections::{HashMap, HashSet, VecDeque};
 use trust_graph::TrustGraph;
+use url::quirks::hash;
 use uuid::Uuid;
 
 pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
@@ -143,6 +144,7 @@ impl FunctionRouter {
 
         let mut target = target.iter().peekable();
         let mut is_local: bool = false;
+        let mut hashtag = None;
 
         loop {
             let address = match target.peek() {
@@ -154,7 +156,7 @@ impl FunctionRouter {
                     // target will be like: /client/QmClient/service/QmService
                     let call = call.with_target(target.collect());
                     // TODO: raise error instead of sending it
-                    if let Err(err) = self.execute_locally(&module, call) {
+                    if let Err(err) = self.execute_locally(&module, call, hashtag) {
                         let err_msg = err.err_msg();
                         self.send_error_on_call(err.call(), err_msg);
                     }
@@ -236,8 +238,14 @@ impl FunctionRouter {
                     return;
                 }
                 Hashtag(_) => {
-                    // Ignore hashtag because there's nothing else we can do about it
-                    continue;
+                    // Consume & save hashtag
+                    hashtag = target.next().and_then(|p| match p {
+                        Hashtag(t) => Some(t),
+                        _ => {
+                            debug_assert!(false, "target.next() must be a hashtag here");
+                            None
+                        }
+                    });
                 }
             }
         }

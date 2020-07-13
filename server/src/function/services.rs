@@ -30,11 +30,11 @@ impl FunctionRouter {
     // ###
 
     /// Execute call locally: on builtin service or forward to provided name
-    /// `ttl` – time to live (akin to ICMP ttl), if `0`, execute and drop, don't forward  
     pub(super) fn execute_locally<'a>(
         &mut self,
         module: &'a str,
         call: FunctionCall,
+        hashtag: Option<String>,
     ) -> CallResult<'a, ()> {
         if BuiltinService::is_builtin(module) {
             let builtin = BuiltinService::from(module, call.arguments.clone())
@@ -43,7 +43,7 @@ impl FunctionRouter {
         }
 
         let found = self
-            .find_in_faas(module, call.fname.as_deref())
+            .find_in_faas(module, call.fname.as_deref(), hashtag)
             .map_err(|e| call.clone().error(e))?;
 
         if let Some((module, function)) = found {
@@ -54,13 +54,18 @@ impl FunctionRouter {
     }
 
     /// Find a matching module with a matching function, and return their names
-    fn find_in_faas(
+    fn find_in_faas<'a>(
         &mut self,
-        module: &str,
+        module: &'a str,
         function: Option<&str>,
-    ) -> Result<Option<(String, String)>, CallErrorKind<'static>> {
-        let interface = self.faas.get_interface();
-        let functions = ok_get!(interface.modules.get(module));
+        service_id: Option<String>,
+    ) -> Result<Option<(String, String)>, CallErrorKind<'a>> {
+        let service_id = service_id.ok_or(MissingServiceId)?;
+        let interface = self.faas.get_interface(&service_id)?;
+        let functions = interface
+            .modules
+            .get(module)
+            .ok_or(NoSuchModule { module, service_id })?;
         let function = function.ok_or_else(|| MissingFunctionName {
             module: module.to_string(),
         })?;

@@ -135,11 +135,11 @@ impl FaaSBehaviour {
     }
 
     #[allow(dead_code)]
-    pub fn get_interface(&self, service_id: String) -> Result<FaaSInterface<'_>> {
+    pub fn get_interface(&self, service_id: &str) -> Result<FaaSInterface<'_>> {
         let faas = self
             .faases
             .get(&service_id)
-            .ok_or(FaaSExecError::NoSuchInstance(service_id))?;
+            .ok_or_else(|| FaaSExecError::NoSuchInstance(service_id.to_string()))?;
 
         Ok(faas.get_interface())
     }

@@ -75,6 +75,12 @@ impl<'a> CallError<'a> {
                 "Totally unexpected: can't serialize FaaS interface to json: {}",
                 err
             ),
+            CallErrorKind::MissingServiceId => {
+                format!("service id must be specified after # in the target address")
+            }
+            CallErrorKind::NoSuchModule { module, service_id } => {
+                format!("module {} wasn't found on service {}", module, service)
+            }
         }
     }
 
@@ -116,6 +122,8 @@ pub enum CallErrorKind<'a> {
     UnsupportedPublicKey,
     AddCertificates(Vec<(Certificate, String)>),
     FaasInterfaceSerialization(serde_json::Error),
+    MissingServiceId,
+    NoSuchModule { module: &'a str, service_id: String },
 }
 
 impl<'a> CallErrorKind<'a> {
