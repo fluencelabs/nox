@@ -17,6 +17,7 @@
 use async_std::task;
 use faas_api::FunctionCall;
 use fluence_faas::{FaaSError, FaaSInterface, FluenceFaaS, IValue, RawCoreModulesConfig};
+use futures::FutureExt;
 use futures_util::future::BoxFuture;
 use libp2p::core::connection::ConnectionId;
 use libp2p::swarm::{
@@ -39,7 +40,7 @@ use void::Void;
 type Result<T> = std::result::Result<T, FaaSExecError>;
 #[allow(dead_code)]
 type FaasResult = Vec<IValue>;
-type FutResult = (FluenceFaaS, FunctionCall, Result<FaaSCallResult>);
+type FutResult = (Option<FluenceFaaS>, FunctionCall, Result<FaaSCallResult>);
 type Fut = BoxFuture<'static, FutResult>;
 
 #[derive(Debug)]
@@ -184,13 +185,18 @@ impl FaaSBehaviour {
         self.config.core_module.iter().map(|m| m.name.as_str())
     }
 
-    fn create_faas(&self, module_names: Vec<String>) -> Result<(String, FluenceFaaS)> {
+    fn create_faas(
+        &self,
+        module_names: Vec<String>,
+    ) -> (String, BoxFuture<'static, Result<FluenceFaaS>>) {
         let mut module_names = module_names.into_iter().collect();
         let uuid = Uuid::new_v4().to_string();
         let config = self.config.clone();
 
-        let faas = FluenceFaaS::with_module_names(&mut module_names, config)?;
-        Ok((uuid, faas))
+        let future = task::spawn_blocking(move || {
+            FluenceFaaS::with_module_names(&mut module_names, config).map_err(|e| e.into())
+        });
+        (uuid, Box::pin(future))
     }
 
     /// Spawns tasks for calls execution and creates new FaaS-es until an error happens
@@ -205,25 +211,18 @@ impl FaaSBehaviour {
             match call {
                 // Request to create FaaS instance with given module_names
                 FaaSCall::Create { module_names, call } => {
-                    log::info!("creating faas");
-                    let (service_id, faas) = self
-                        .create_faas(module_names)
-                        .map_err(|e| (call.clone(), e))?;
-                    log::info!("faas created");
-
-                    let result = FaaSCallResult::FaaSCreated {
-                        // TODO: excess clone, data duplication:
-                        //  service_id stored in futures as key and as value in FaaSCreated :(
-                        service_id: service_id.clone(),
-                    };
-                    let result = (faas, call, Ok(result));
-
-                    // Save completed future so result is returned on the next poll
-                    let future = async_std::future::ready(result);
-                    self.futures.insert(service_id, Box::pin(future));
-
-                    self.wake();
-
+                    let (uuid, future) = self.create_faas(module_names);
+                    let service_id = uuid.clone();
+                    let wake = self.waker.clone();
+                    let future = future.map(move |faas| {
+                        Self::call_wake(wake);
+                        let (faas, result) = match faas {
+                            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id })),
+                            Err(e) => (None, Err(e))
+                        };
+                        (faas, call, result)
+                    });
+                    self.futures.insert(uuid, Box::pin(future));
 
                     Ok(())
                 }
@@ -237,14 +236,11 @@ impl FaaSBehaviour {
                         .ok_or_else(|| (call.clone(), FaaSExecError::NoSuchInstance(service_id.clone())))?;
                     let waker = self.waker.clone();
                     // Spawn a task that will call wasm function
-                    log::info!("will spawn execution: {} {} {:?}", module, function, arguments);
                     let future = task::spawn_blocking(move || {
-                        log::info!("started execution: {} {} {:?}", module, function, arguments);
                         let result = faas.call_module(&module, &function, &arguments);
-                        log::info!("finished execution: {} {} {:?}", module, function, arguments);
                         let result = result.map(|r| FaaSCallResult::Returned(r)).map_err(|e| e.into());
                         Self::call_wake(waker);
-                        (faas, call, result)
+                        (Some(faas), call, result)
                     });
                     // Save future for the next poll
                     self.futures.insert(service_id, Box::pin(future));
@@ -291,7 +287,6 @@ impl NetworkBehaviour for FaaSBehaviour {
         cx: &mut Context<'_>,
         _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<Void, Self::OutEvent>> {
-        log::info!("faas poll");
         self.waker = Some(cx.waker().clone());
 
         // Check there is a completed call
@@ -300,8 +295,7 @@ impl NetworkBehaviour for FaaSBehaviour {
         for (service_id, fut) in self.futures.iter_mut() {
             let fut = Pin::new(fut);
             if let Poll::Ready(r) = fut.poll(cx) {
-                log::info!("faas poll future finished {}", service_id);
-                // TODO: excess clone (possible to obtain via futures.remove_entry
+                // TODO: excess clone (possible to obtain via futures.remove_entry)
                 result = Some((service_id.clone(), r));
                 break;
             }
@@ -311,7 +305,10 @@ impl NetworkBehaviour for FaaSBehaviour {
             self.futures.remove(&service_id);
 
             let (faas, call, result): FutResult = result;
-            self.faases.insert(service_id, faas);
+            // faas could be None if creation failed
+            if let Some(faas) = faas {
+                self.faases.insert(service_id, faas);
+            }
 
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result)));
         }
