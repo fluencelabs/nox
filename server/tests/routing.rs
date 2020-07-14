@@ -457,8 +457,6 @@ fn get_interface() {
 
 #[test]
 fn call_greeting() {
-    enable_logs();
-
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 

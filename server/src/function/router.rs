@@ -203,7 +203,6 @@ impl FunctionRouter {
                     return;
                 }
                 Client(id) if is_local || self.connected_peers.contains(id) => {
-                    log::info!("Sending call to local client");
                     let client_id = id.clone();
                     let client_protocol = target.next().unwrap();
                     // Remove signature from target
@@ -277,7 +276,6 @@ impl FunctionRouter {
             return;
         }
 
-        log::info!("Sending message to client with status {:?}", status);
         match status {
             Connected => self.send_to_connected(to, call),
             Routable | CheckedRoutable => self.connect_then_send(to, call),
