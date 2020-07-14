@@ -193,6 +193,7 @@ fn print_example(node: Address, reply_to: Address) {
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call identify".to_string()),
             sender: reply_to.clone(),
+            context: vec![],
         },
     };
 
@@ -206,6 +207,7 @@ fn print_example(node: Address, reply_to: Address) {
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
             sender: reply_to,
+            context: vec!["ipfs_node.wasm".to_string()],
         },
     };
 

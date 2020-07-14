@@ -105,6 +105,7 @@ impl CallError {
             arguments,
             name: self.call.name,
             sender,
+            context: vec![],
         }
     }
 }

@@ -45,6 +45,7 @@ impl ProtocolConfig {
             arguments: json!({ "data": data }),
             name: Some(err.to_string()),
             sender: self.local_address.clone(),
+            context: vec![],
         })
     }
 }

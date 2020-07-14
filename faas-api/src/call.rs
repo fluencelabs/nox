@@ -18,7 +18,7 @@ use crate::Address;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct FunctionCall {
     pub uuid: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -32,6 +32,8 @@ pub struct FunctionCall {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub sender: Address,
+    /// List of modules to load when executing function
+    pub context: Vec<String>,
 }
 
 impl FunctionCall {
@@ -55,6 +57,7 @@ impl FunctionCall {
             arguments,
             name: name.into(),
             sender,
+            context: vec![],
         }
     }
 }
@@ -73,11 +76,12 @@ pub mod call_test_utils {
             uuid: "UUID-1".to_string(),
             target,
             reply_to,
-            module: Some(module),
+            module: Some(module.clone()),
             fname: None,
             arguments: serde_json::Value::Null,
             name: Some("Getting IPFS file QmFile".to_string()),
             sender,
+            context: vec![module],
         }
     }
 
@@ -101,6 +105,7 @@ pub mod call_test_utils {
             arguments,
             name: None,
             sender,
+            context: vec![],
         }
     }
 }
@@ -176,10 +181,10 @@ pub mod test {
             target: Some(slack_service),
             reply_to: github_node,
             module: Some(slack_module),
-            fname: None,
             arguments,
             name: Some("Subscribing Slack channel to Github commits".into()),
             sender: Address::random_relay(),
+            ..<_>::default()
         };
         check_call(call);
     }

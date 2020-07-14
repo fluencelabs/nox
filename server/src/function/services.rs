@@ -60,10 +60,8 @@ impl FunctionRouter {
         let service_id = match service_id {
             Some(id) => id,
             None if module.as_str() == "create" => {
-                #[allow(unused_variables)]
-                let context = vec![unimplemented!()]; // TODO: get context from function
                 return Ok(FaaSCall::Create {
-                    module_names: context,
+                    module_names: call.context.clone(),
                     call,
                 });
             }
@@ -116,7 +114,6 @@ impl FunctionRouter {
             })),
         }?;
 
-        // TODO: somehow differentiate between FaaSCall::Create and FaaSCall::Call
         let faas_call = FaaSCall::Call {
             service_id,
             module,

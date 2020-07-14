@@ -55,15 +55,15 @@ impl FunctionRouter {
                 let addrs: Vec<_> = addrs.iter().map(ToString::to_string).collect();
                 self.reply_with(call, msg_id, ("addresses", addrs))
             }
-            BS::GetInterface(GetInterface { .. }) => {
-                unimplemented!("get_interface not implemented");
-                Err(call.error(InvalidArguments {
-                    error: "get_interface not implemented".to_string(),
-                }))
-                // match serde_json::to_value(self.faas.get_interface()) {
-                //     Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
-                //     Err(err) => Err(call.error(FaasInterfaceSerialization(err))),
-                // }
+            BS::GetInterface(GetInterface { msg_id, service_id }) => {
+                let interface = self
+                    .faas
+                    .get_interface(service_id.as_str())
+                    .map_err(|e| call.clone().error(e))?;
+                match serde_json::to_value(interface) {
+                    Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
+                    Err(err) => Err(call.error(FaasInterfaceSerialization(err))),
+                }
             }
         }
     }

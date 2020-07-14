@@ -308,6 +308,7 @@ impl FunctionRouter {
                 arguments,
                 name: call.name,
                 sender: self.config.local_address(),
+                context: vec![],
             };
             self.call(call)
         } else {
@@ -328,12 +329,13 @@ impl FunctionRouter {
         let call = FunctionCall {
             uuid: format!("error_{}", uuid),
             target: Some(address),
-            reply_to: None, // TODO: sure?
-            module: None,
-            fname: None,
-            arguments,
-            name: None,
             sender: self.config.local_address(),
+            arguments,
+            ..<_>::default()
+            // reply_to: None, // TODO: sure?
+            // module: None,
+            // fname: None,
+            // name: None,
         };
         self.call(call)
     }
