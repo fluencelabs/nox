@@ -87,12 +87,9 @@ fn invalid_relay_signature() {
     let call = FunctionCall {
         uuid: uuid.clone(),
         target: Some(target),
-        module: None,
-        fname: None,
-        arguments: Value::Null,
         reply_to: Some(sender.relay_addr()),
-        name: None,
         sender: sender.relay_addr(),
+        ..<_>::default()
     };
 
     sender.send(call);
@@ -111,12 +108,9 @@ fn missing_relay_signature() {
     let call = FunctionCall {
         uuid: uuid.clone(),
         target: Some(target),
-        module: None,
-        fname: None,
-        arguments: Value::Null,
         reply_to: Some(sender.relay_addr()),
-        name: None,
         sender: sender.relay_addr(),
+        ..<_>::default()
     };
 
     sender.send(call);
@@ -463,15 +457,24 @@ fn get_interface() {
 
 #[test]
 fn call_greeting() {
+    enable_logs();
+
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
     for module in vec!["test_one.wasm", "test_two.wasm"] {
-        let mut call = service_call(client.node_addr(), client.relay_addr(), module);
-        call.fname = Some("greeting".into());
-        let payload: String = "Hello".into();
+        #[rustfmt::skip]
+        let create = create_call(client.node_addr(), client.relay_addr(), vec![module.to_string()]);
+        client.send(create);
+        let created = client.receive();
+        #[rustfmt::skip]
+        let service_id = created.arguments["result"]["service_id"].as_str().unwrap().to_string();
+
+        #[rustfmt::skip]
+        let mut call = faas_call(client.node_addr(), client.relay_addr(), module, "greeting", service_id);
 
         // Pass arguments as an array
+        let payload: String = "Hello".into();
         call.arguments = Value::Array(vec![payload.clone().into()]);
         client.send(call.clone());
 

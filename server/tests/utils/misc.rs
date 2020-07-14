@@ -15,12 +15,12 @@
  */
 
 use async_std::task;
-use faas_api::{Address, FunctionCall};
+use faas_api::{Address, FunctionCall, Protocol};
 use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::{BootstrapConfig, ServerBehaviour};
 
 use fluence_client::Transport;
-use fluence_faas::{FluenceFaaS, RawCoreModulesConfig};
+use fluence_faas::{RawCoreModulesConfig};
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -30,7 +30,9 @@ use libp2p::{
 };
 use parity_multiaddr::Multiaddr;
 use prometheus::Registry;
+use rand::Rng;
 use serde_json::{json, Value};
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use trust_graph::{Certificate, TrustGraph};
 use uuid::Uuid;
@@ -38,7 +40,7 @@ use uuid::Uuid;
 /// Utility functions for tests.
 
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
-pub static TIMEOUT: Duration = Duration::from_secs(5);
+pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
@@ -47,11 +49,10 @@ pub fn certificates_call(peer_id: PeerId, sender: Address, node: Address) -> Fun
         uuid: uuid(),
         target: Some(node),
         module: Some("certificates".into()),
-        fname: None,
         arguments: json!({ "peer_id": peer_id.to_string(), "msg_id": uuid() }),
         reply_to: Some(sender.clone()),
-        name: None,
         sender,
+        ..<_>::default()
     }
 }
 
@@ -66,15 +67,14 @@ pub fn add_certificates_call(
         uuid: uuid(),
         target: Some(node),
         module: Some("add_certificates".into()),
-        fname: None,
         arguments: json!({
             "peer_id": peer_id.to_string(),
             "msg_id": uuid(),
             "certificates": certs
         }),
         reply_to: Some(sender.clone()),
-        name: None,
         sender,
+        ..<_>::default()
     }
 }
 
@@ -83,24 +83,63 @@ pub fn provide_call(service_id: &str, sender: Address, node: Address) -> Functio
         uuid: uuid(),
         target: Some(node),
         module: Some("provide".into()),
-        fname: None,
         arguments: json!({ "service_id": service_id }),
         reply_to: Some(sender.clone()),
-        name: None,
         sender,
+        ..<_>::default()
     }
 }
 
-pub fn service_call<S: Into<String>>(target: Address, sender: Address, module: S) -> FunctionCall {
+pub fn service_call<S>(target: Address, sender: Address, module: S) -> FunctionCall
+where
+    S: Into<String>,
+{
     FunctionCall {
         uuid: uuid(),
         target: Some(target),
         module: Some(module.into()),
-        fname: None,
         arguments: Value::Null,
         reply_to: Some(sender.clone()),
-        name: None,
         sender,
+        ..<_>::default()
+    }
+}
+
+pub fn faas_call<SM, SF>(
+    target: Address,
+    sender: Address,
+    module: SM,
+    function: SF,
+    service_id: String,
+) -> FunctionCall
+where
+    SM: Into<String>,
+    SF: Into<String>,
+{
+    FunctionCall {
+        uuid: uuid(),
+        target: Some(target.append(Protocol::Hashtag(service_id))),
+        module: Some(module.into()),
+        reply_to: Some(sender.clone()),
+        fname: Some(function.into()),
+        sender,
+        ..<_>::default()
+    }
+}
+
+pub fn create_call(
+    target: Address,
+    sender: Address,
+    context: Vec<String>,
+) -> FunctionCall {
+    FunctionCall {
+        uuid: uuid(),
+        target: Some(target),
+        module: Some("create".to_string()),
+        reply_to: Some(sender.clone()),
+        context,
+        sender,
+        ..<_>::default()
     }
 }
 
@@ -108,12 +147,10 @@ pub fn reply_call(target: Address, sender: Address) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(target),
-        module: None,
-        fname: None,
         arguments: Value::Null,
-        reply_to: None,
         name: Some("reply".into()),
         sender,
+        ..<_>::default()
     }
 }
 
@@ -308,12 +345,15 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>)
     use libp2p::identity;
     #[rustfmt::skip]
     let SwarmConfig { 
-        bootstraps, listen_on, trust, transport, registry, wasm_config, wasm_modules 
+        bootstraps, listen_on, trust, transport, registry, mut wasm_config, wasm_modules
     } = config;
 
     let kp = Keypair::generate();
     let public_key = Ed25519(kp.public());
     let peer_id = PeerId::from(public_key);
+
+    // write module to a temporary directory
+    wasm_config.core_modules_dir = put_modules(wasm_modules).to_str().map(|s| s.to_string());
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
@@ -326,8 +366,6 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>)
             }
         }
 
-        let faas = FluenceFaaS::with_modules(wasm_modules, wasm_config).expect("create faas");
-
         let server = ServerBehaviour::new(
             kp.clone(),
             peer_id.clone(),
@@ -335,7 +373,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>)
             trust_graph,
             bootstraps,
             registry,
-            faas,
+            wasm_config,
             BootstrapConfig::zero(),
         );
         match transport {
@@ -361,4 +399,25 @@ pub fn create_memory_maddr() -> Multiaddr {
     let port = 1 + rand::random::<u64>();
     let addr: Multiaddr = Protocol::Memory(port).into();
     addr
+}
+
+fn put_modules(modules: Vec<(String, Vec<u8>)>) -> PathBuf {
+    use rand::distributions::Alphanumeric;
+
+    let mut tmp = std::env::temp_dir();
+    tmp.push("fluence_test/");
+    let dir: String = rand::thread_rng()
+        .sample_iter(Alphanumeric)
+        .take(16)
+        .collect();
+    tmp.push(dir);
+
+    std::fs::create_dir_all(&tmp).expect("create tmp dir");
+
+    for (name, bytes) in modules {
+        std::fs::write(tmp.join(&name), bytes)
+            .expect(format!("write test module wasm {:?}", name).as_str());
+    }
+
+    tmp
 }
