@@ -127,9 +127,8 @@ where
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
-            // TODO: remove that once debugged
             match serde_json::to_string(&self) {
-                Ok(str) => log::debug!("Sending outbound ProtocolMessage: {}", str),
+                Ok(str) => log::info!("Sending outbound ProtocolMessage: {}", str),
                 Err(err) => log::warn!("Can't serialize {:?} to string {}", &self, err),
             }
 

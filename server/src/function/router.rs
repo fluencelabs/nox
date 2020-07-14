@@ -36,6 +36,7 @@ use libp2p::{
 use parity_multiaddr::Multiaddr;
 use prometheus::Registry;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::task::Waker;
 use trust_graph::TrustGraph;
 use uuid::Uuid;
 
@@ -63,7 +64,7 @@ pub struct FunctionRouter {
     /// Router configuration info: peer id, keypair, listening addresses
     pub(super) config: RouterConfig,
     /// Queue of events to send to the upper level
-    pub(super) events: VecDeque<SwarmEventType>,
+    events: VecDeque<SwarmEventType>,
     /// Underlying Kademlia node
     pub(super) kademlia: Kademlia<MemoryStore>,
     // TODO: health-check local services?
@@ -77,6 +78,7 @@ pub struct FunctionRouter {
     // TODO: clear connected_peers on inject_listener_closed?
     /// Mediated by inject_connected & inject_disconnected
     pub(super) connected_peers: HashSet<PeerId>,
+    pub(super) waker: Option<Waker>,
 }
 
 // TODO: move public methods to a trait
@@ -114,6 +116,7 @@ impl FunctionRouter {
             wait_peer: <_>::default(),
             provided_names: <_>::default(),
             connected_peers: <_>::default(),
+            waker: None,
         }
     }
 
@@ -199,7 +202,8 @@ impl FunctionRouter {
                     self.find_providers(key, call.with_target(target.collect()));
                     return;
                 }
-                Client(id) if is_local => {
+                Client(id) if is_local || self.connected_peers.contains(id) => {
+                    log::info!("Sending call to local client");
                     let client_id = id.clone();
                     let client_protocol = target.next().unwrap();
                     // Remove signature from target
@@ -273,6 +277,7 @@ impl FunctionRouter {
             return;
         }
 
+        log::info!("Sending message to client with status {:?}", status);
         match status {
             Connected => self.send_to_connected(to, call),
             Routable | CheckedRoutable => self.connect_then_send(to, call),
@@ -371,7 +376,7 @@ impl FunctionRouter {
     /// Triggered when `get_closest_peers` finished for local peer id
     /// Publishes all locally available wasm modules to DHT
     /// TODO: unpublish local modules when node is stopping? i.e., on Drop?
-    pub fn bootstrap_finished(&mut self) {
+    pub(super) fn bootstrap_finished(&mut self) {
         use faas_api::provider;
 
         log::info!("Bootstrap finished, publishing local modules");
@@ -387,5 +392,17 @@ impl FunctionRouter {
                 log::info!("Publishing local module {}", module);
             }
         }
+    }
+
+    pub(super) fn push_event(&mut self, event: SwarmEventType) {
+        if let Some(waker) = self.waker.clone() {
+            waker.wake();
+        }
+
+        self.events.push_back(event);
+    }
+
+    pub(super) fn pop_event(&mut self) -> Option<SwarmEventType> {
+        self.events.pop_front()
     }
 }

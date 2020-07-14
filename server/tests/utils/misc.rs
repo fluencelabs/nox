@@ -40,7 +40,7 @@ use uuid::Uuid;
 /// Utility functions for tests.
 
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
-pub static TIMEOUT: Duration = Duration::from_secs(15);
+pub static TIMEOUT: Duration = Duration::from_secs(30);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
@@ -184,10 +184,10 @@ HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
 #[allow(dead_code)]
 // Enables logging, filtering out unnecessary details
 pub fn enable_logs() {
-    use log::LevelFilter::{Debug, Info};
+    use log::LevelFilter::{Info};
 
     env_logger::builder()
-        .filter_level(Debug)
+        .filter_level(log::LevelFilter::Info)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)

@@ -144,10 +144,9 @@ impl NetworkBehaviour for FunctionRouter {
         use NetworkBehaviourAction::*;
         use NetworkBehaviourEventProcess as NBEP;
 
-        if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(event);
-        }
+        self.waker = Some(cx.waker().clone());
 
+        log::info!("started polling faas");
         while let Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result))) =
             self.faas.poll(cx, params)
         {
@@ -156,7 +155,14 @@ impl NetworkBehaviour for FunctionRouter {
                 self.send_error_on_call(err.call(), msg);
             }
         }
+        log::info!("finished polling faas");
 
+        if let Some(event) = self.pop_event() {
+            log::info!("Scheduling event");
+            return Poll::Ready(event);
+        }
+
+        log::info!("started polling kademlia");
         // TODO: would be nice to generate that with macro
         loop {
             match self.kademlia.poll(cx, params) {
@@ -184,6 +190,7 @@ impl NetworkBehaviour for FunctionRouter {
                 Poll::Pending => break,
             }
         }
+        log::info!("finished polling kademlia");
 
         Poll::Pending
     }
