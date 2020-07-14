@@ -20,7 +20,7 @@ use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::{BootstrapConfig, ServerBehaviour};
 
 use fluence_client::Transport;
-use fluence_faas::{RawCoreModulesConfig};
+use fluence_faas::RawCoreModulesConfig;
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -127,11 +127,7 @@ where
     }
 }
 
-pub fn create_call(
-    target: Address,
-    sender: Address,
-    context: Vec<String>,
-) -> FunctionCall {
+pub fn create_call(target: Address, sender: Address, context: Vec<String>) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(target),
@@ -184,7 +180,7 @@ HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
 #[allow(dead_code)]
 // Enables logging, filtering out unnecessary details
 pub fn enable_logs() {
-    use log::LevelFilter::{Info};
+    use log::LevelFilter::Info;
 
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)
@@ -210,7 +206,12 @@ pub fn enable_logs() {
 }
 
 #[derive(Debug)]
-pub struct CreatedSwarm(pub PeerId, pub Multiaddr);
+pub struct CreatedSwarm(
+    pub PeerId,
+    pub Multiaddr,
+    // tmp dir, must be cleaned
+    pub PathBuf,
+);
 pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
     make_swarms_with(
         n,
@@ -227,7 +228,7 @@ pub fn make_swarms_with<F, M>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>, PathBuf),
     M: FnMut() -> Multiaddr,
 {
     use futures::stream::FuturesUnordered;
@@ -244,8 +245,8 @@ where
         .map(|addr| {
             #[rustfmt::skip]
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
-            let (id, swarm) = create_swarm(addrs, addr.clone());
-            (CreatedSwarm(id, addr.clone()), swarm)
+            let (id, swarm, tmp) = create_swarm(addrs, addr.clone());
+            (CreatedSwarm(id, addr.clone(), tmp), swarm)
         })
         .collect::<Vec<_>>();
 
@@ -304,13 +305,14 @@ where
     infos
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Trust {
     pub root_weights: Vec<(PublicKey, u32)>,
     pub certificates: Vec<Certificate>,
     pub cur_time: Duration,
 }
 
+#[derive(Clone, Debug)]
 pub struct SwarmConfig<'a> {
     pub bootstraps: Vec<Multiaddr>,
     pub listen_on: Multiaddr,
@@ -341,10 +343,10 @@ impl<'a> SwarmConfig<'a> {
     }
 }
 
-pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>) {
+pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>, PathBuf) {
     use libp2p::identity;
     #[rustfmt::skip]
-    let SwarmConfig { 
+    let SwarmConfig {
         bootstraps, listen_on, trust, transport, registry, mut wasm_config, wasm_modules
     } = config;
 
@@ -353,7 +355,8 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>)
     let peer_id = PeerId::from(public_key);
 
     // write module to a temporary directory
-    wasm_config.core_modules_dir = put_modules(wasm_modules).to_str().map(|s| s.to_string());
+    let tmp = put_modules(wasm_modules);
+    wasm_config.core_modules_dir = tmp.to_str().map(|s| s.to_string());
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
@@ -390,7 +393,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>)
 
     Swarm::listen_on(&mut swarm, listen_on).unwrap();
 
-    (peer_id, swarm)
+    (peer_id, swarm, tmp)
 }
 
 pub fn create_memory_maddr() -> Multiaddr {
@@ -420,4 +423,8 @@ fn put_modules(modules: Vec<(String, Vec<u8>)>) -> PathBuf {
     }
 
     tmp
+}
+
+pub fn remove_dir(dir: &PathBuf) {
+    std::fs::remove_dir_all(&dir).expect(format!("remove dir {:?}", dir).as_str())
 }

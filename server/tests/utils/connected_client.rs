@@ -60,7 +60,7 @@ impl ConnectedClient {
 
     pub fn new() -> Result<Self> {
         let swarm = make_swarms(3).into_iter().next().unwrap();
-        let CreatedSwarm(node, addr1) = swarm;
+        let CreatedSwarm(node, addr1, _) = swarm;
 
         let connect = async move {
             let (mut client, _) = Client::connect_with(addr1.clone(), Transport::Memory)
@@ -80,8 +80,8 @@ impl ConnectedClient {
     pub fn make_clients() -> Result<(Self, Self)> {
         let swarms = make_swarms(3);
         let mut swarms = swarms.into_iter();
-        let CreatedSwarm(peer_id1, addr1) = swarms.next().expect("get swarm");
-        let CreatedSwarm(peer_id2, addr2) = swarms.next().expect("get swarm");
+        let CreatedSwarm(peer_id1, addr1, _) = swarms.next().expect("get swarm");
+        let CreatedSwarm(peer_id2, addr2, _) = swarms.next().expect("get swarm");
 
         let connect = async move {
             let (mut first, _) = Client::connect_with(addr1.clone(), Transport::Memory)

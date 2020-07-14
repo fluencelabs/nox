@@ -211,10 +211,12 @@ impl FaaSBehaviour {
             match call {
                 // Request to create FaaS instance with given module_names
                 FaaSCall::Create { module_names, call } => {
+                    log::info!("creating faas");
                     let (uuid, future) = self.create_faas(module_names);
                     let service_id = uuid.clone();
                     let wake = self.waker.clone();
                     let future = future.map(move |faas| {
+                        log::info!("faas created");
                         Self::call_wake(wake);
                         let (faas, result) = match faas {
                             Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id })),

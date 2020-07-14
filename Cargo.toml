@@ -18,3 +18,13 @@ parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch 
 
 [patch.'https://github.com/fluencelabs/fluence']
 trust-graph = { path = "trust-graph" }
+
+[profile.test]
+opt-level = 2
+debug = true
+lto = true
+#debug-assertions = true
+#overflow-checks = false
+#panic = "unwind"
+#incremental = true
+
