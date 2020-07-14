@@ -370,19 +370,6 @@ mod tests {
         })
     }
 
-    fn empty_call() -> FunctionCall {
-        FunctionCall {
-            uuid: "uuid".to_string(),
-            target: None,
-            reply_to: None,
-            module: None,
-            fname: None,
-            arguments: Default::default(),
-            name: None,
-            sender: Default::default(),
-        }
-    }
-
     fn with_modules<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> RawCoreModulesConfig {
         let mut tmp = std::env::temp_dir();
         tmp.push("wasm_modules/");
@@ -413,7 +400,7 @@ mod tests {
     ) -> (String, Swarm<FaaSBehaviour>) {
         swarm.execute(FaaSCall::Create {
             module_names,
-            call: empty_call(),
+            call: <_>::default(),
         });
 
         let ((_, created), swarm) = wait_result(swarm);
@@ -440,7 +427,7 @@ mod tests {
                 .into_iter()
                 .map(|s| IValue::String(s.to_string()))
                 .collect(),
-            call: empty_call(),
+            call: <_>::default(),
         });
 
         let ((_, returned), swarm) = wait_result(swarm);
@@ -488,8 +475,8 @@ mod tests {
         ];
         let swarm = make_swarm(modules);
 
-        let (_, swarm) = create_faas(swarm, vec![test_module.clone()]);
-        let (service_id2, swarm) =
+        let (service_id1, swarm) = create_faas(swarm, vec![test_module.clone()]);
+        let (service_id2, mut swarm) =
             create_faas(swarm, vec![test_module.clone(), test_module2.clone()]);
 
         assert_eq!(
@@ -501,24 +488,28 @@ mod tests {
                 .len()
         );
 
-        let payload = "hello";
-        let (returned, swarm) = call_faas(
-            swarm,
-            service_id2.clone(),
-            test_module.as_str(),
-            "greeting",
-            Some(payload),
-        );
+        for i in 1..10 {
+            let payload = i.to_string();
+            let (returned, s) = call_faas(
+                swarm,
+                service_id1.clone(),
+                test_module.as_str(),
+                "greeting",
+                Some(payload.as_str()),
+            );
 
-        let (returned2, _swarm) = call_faas(
-            swarm,
-            service_id2,
-            test_module2.as_str(),
-            "greeting",
-            Some(payload),
-        );
+            let (returned2, s) = call_faas(
+                s,
+                service_id2.clone(),
+                test_module2.as_str(),
+                "greeting",
+                Some(payload.as_str()),
+            );
 
-        assert_eq!(returned, vec![IValue::String(payload.to_string())]);
-        assert_eq!(returned2, returned);
+            assert_eq!(returned, vec![IValue::String(payload.to_string())]);
+            assert_eq!(returned2, returned);
+
+            swarm = s;
+        }
     }
 }
