@@ -143,8 +143,12 @@ fn default_cert_dir() -> String {
 
 /// Load keypair from default location
 fn load_key_pair() -> KeyPair {
-    load_or_create_key_pair(DEFAULT_KEY_DIR)
-        .expect(format!("Failed to load keypair from {}", DEFAULT_KEY_DIR).as_str())
+    load_or_create_key_pair(DEFAULT_KEY_DIR).unwrap_or_else(|e| {
+        panic!(format!(
+            "Failed to load keypair from {}: {:?}",
+            DEFAULT_KEY_DIR, e
+        ))
+    })
 }
 
 /// Try to decode keypair from string as base58,

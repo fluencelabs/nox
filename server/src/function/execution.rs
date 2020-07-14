@@ -111,7 +111,9 @@ impl FunctionRouter {
 
         // Finally – broadcast that call to the neighborhood if it wasn't already a replication
         // NOTE: not filtering errors, other nodes may succeed where we failed
-        Ok(self.replicate_to_neighbors(peer_id, call))
+        self.replicate_to_neighbors(peer_id, call);
+
+        Ok(())
     }
 
     fn get_certificates(
@@ -226,6 +228,8 @@ impl FunctionRouter {
         // Build JSON object and send in reply
         let args = Value::Object(args);
         let call = FunctionCall::reply(reply_to, self.config.local_address(), args, None);
-        Ok(self.call(call))
+        self.call(call);
+
+        Ok(())
     }
 }

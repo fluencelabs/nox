@@ -65,7 +65,7 @@ impl FunctionRouter {
                     call,
                 });
             }
-            None => return Err(call.clone().error(MissingServiceId)),
+            None => return Err(call.error(MissingServiceId)),
         };
 
         let interface = self

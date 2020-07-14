@@ -77,7 +77,7 @@ impl CallError {
                 err
             ),
             CallErrorKind::MissingServiceId => {
-                format!("service id must be specified after # in the target address")
+                "service id must be specified after # in the target address".to_string()
             }
             CallErrorKind::NoSuchModule { module, service_id } => {
                 format!("module {} wasn't found on service {}", module, service_id)
