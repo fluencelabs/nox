@@ -76,7 +76,7 @@ fn invalid_relay_signature() {
         .into_iter()
         .map(|p| {
             if let Protocol::Signature(_) = p {
-                Protocol::Signature(receiver.sign("/incorrect/path".as_bytes()))
+                Protocol::Signature(receiver.sign(b"/incorrect/path"))
             } else {
                 p
             }
@@ -85,7 +85,7 @@ fn invalid_relay_signature() {
 
     let uuid = uuid();
     let call = FunctionCall {
-        uuid: uuid.clone(),
+        uuid,
         target: Some(target),
         reply_to: Some(sender.relay_addr()),
         sender: sender.relay_addr(),
@@ -106,7 +106,7 @@ fn missing_relay_signature() {
 
     let uuid = uuid();
     let call = FunctionCall {
-        uuid: uuid.clone(),
+        uuid,
         target: Some(target),
         reply_to: Some(sender.relay_addr()),
         sender: sender.relay_addr(),
@@ -396,7 +396,7 @@ fn add_certs_invalid_signature() {
     let mut client = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let peer_id = PeerId::from(Ed25519(last_key));
     let call = add_certificates_call(peer_id, client.relay_addr(), client.node_addr(), vec![cert]);
-    client.send(call.clone());
+    client.send(call);
 
     // check it's an error
     let reply = client.receive();
@@ -454,7 +454,7 @@ fn get_interface() {
     let mut call = service_call(client.node_addr(), client.relay_addr(), "get_interface");
     let msg_id = uuid();
     call.arguments = json!({ "msg_id": msg_id, "service_id": service_id });
-    client.send(call.clone());
+    client.send(call);
     let received = client.receive();
 
     let expected: Interface = serde_json::from_str(r#"{"modules":{"test_one.wasm":{"empty":{"input_types":[],"output_types":[]},"greeting":{"input_types":["String"],"output_types":["String"]}},"test_two.wasm":{"empty":{"input_types":[],"output_types":[]},"greeting":{"input_types":["String"],"output_types":["String"]}}}}"#).unwrap();
@@ -469,7 +469,7 @@ fn call_greeting() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
-    for module in vec!["test_one.wasm", "test_two.wasm"] {
+    for module in &["test_one.wasm", "test_two.wasm"] {
         #[rustfmt::skip]
         let create = create_call(client.node_addr(), client.relay_addr(), vec![module.to_string()]);
         client.send(create);

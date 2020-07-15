@@ -561,7 +561,7 @@ mod tests {
                 assert!(store.add_provider(r.clone()).is_ok());
             }
 
-            records.sort_by(|r1, r2| distance(r1).cmp(&distance(r2)));
+            records.sort_by_key(distance);
             records.truncate(store.config.max_providers_per_key);
 
             records == store.providers(&key).to_vec()

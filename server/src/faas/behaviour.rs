@@ -380,7 +380,7 @@ mod tests {
         for (name, path) in modules {
             let path = path.into();
             std::fs::copy(&path, tmp.join(&name))
-                .expect(format!("copy test module wasm {:?}", path).as_str());
+                .unwrap_or_else(|_| panic!("copy test module wasm {:?}", path));
         }
 
         let mut config: RawCoreModulesConfig = <_>::default();
