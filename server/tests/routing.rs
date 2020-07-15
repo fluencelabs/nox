@@ -478,7 +478,7 @@ fn call_greeting() {
         let service_id = created.arguments["result"]["service_id"].as_str().unwrap().to_string();
 
         #[rustfmt::skip]
-        let mut call = faas_call(client.node_addr(), client.relay_addr(), module, "greeting", service_id);
+        let mut call = faas_call(client.node_addr(), client.relay_addr(), *module, "greeting", service_id);
 
         // Pass arguments as an array
         let payload: String = "Hello".into();
