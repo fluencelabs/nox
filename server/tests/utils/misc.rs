@@ -40,7 +40,7 @@ use uuid::Uuid;
 /// Utility functions for tests.
 
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
-pub static TIMEOUT: Duration = Duration::from_secs(5);
+pub static TIMEOUT: Duration = Duration::from_secs(30);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
