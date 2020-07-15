@@ -79,7 +79,7 @@ pub enum FaaSCallResult {
 
 impl FaaSCallResult {
     fn serialize_returned<S>(
-        value: &Vec<IValue>,
+        value: &[IValue],
         serializer: S,
     ) -> std::result::Result<S::Ok, S::Error>
     where
@@ -240,7 +240,7 @@ impl FaaSBehaviour {
                     // Spawn a task that will call wasm function
                     let future = task::spawn_blocking(move || {
                         let result = faas.call_module(&module, &function, &arguments);
-                        let result = result.map(|r| FaaSCallResult::Returned(r)).map_err(|e| e.into());
+                        let result = result.map(FaaSCallResult::Returned).map_err(|e| e.into());
                         Self::call_wake(waker);
                         (Some(faas), call, result)
                     });
@@ -360,11 +360,8 @@ mod tests {
     ) -> ((FunctionCall, Result<FaaSCallResult>), Swarm<FaaSBehaviour>) {
         block_on(async move {
             let result = poll_fn(|ctx| {
-                loop {
-                    match swarm.poll_next_unpin(ctx) {
-                        Poll::Ready(Some(r)) => return Poll::Ready(r),
-                        _ => break,
-                    }
+                if let Poll::Ready(Some(r)) = swarm.poll_next_unpin(ctx) {
+                    return Poll::Ready(r);
                 }
 
                 Poll::Pending

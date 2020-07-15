@@ -514,7 +514,7 @@ mod tests {
             // Set record to expire right now
             let now = Instant::now();
             mrec.expires = Some(now);
-            let reduced = reduce_multirecord(mrec.clone());
+            let reduced = reduce_multirecord(mrec);
 
             let mut store = MemoryStore::new(PeerId::random());
             assert!(store.put(reduced.clone()).is_ok());

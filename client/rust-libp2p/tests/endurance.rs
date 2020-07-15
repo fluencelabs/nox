@@ -255,11 +255,10 @@ fn service_call(sender: Address, service_id: String) -> FunctionCall {
         uuid: uuid(),
         target: Some(provider!(service_id.clone())),
         module: Some(service_id),
-        fname: None,
-        arguments: serde_json::Value::Null,
         reply_to: Some(sender.clone()),
         name: Some("call service".into()),
         sender,
+        ..<_>::default()
     }
 }
 
@@ -270,10 +269,10 @@ fn registration(sender: Address, node: Address, service_id: String) -> FunctionC
         uuid: uuid(),
         target: Some(node),
         module: Some("provide".into()),
-        fname: None,
         reply_to: Some(sender.clone()),
         arguments: json!({ "service_id": service_id }),
         name: Some("registration".into()),
         sender,
+        ..<_>::default()
     }
 }
