@@ -419,12 +419,12 @@ fn put_modules(modules: Vec<(String, Vec<u8>)>) -> PathBuf {
 
     for (name, bytes) in modules {
         std::fs::write(tmp.join(&name), bytes)
-            .expect(format!("write test module wasm {:?}", name).as_str());
+            .unwrap_or_else(|_| panic!("write test module wasm {:?}", name));
     }
 
     tmp
 }
 
 pub fn remove_dir(dir: &PathBuf) {
-    std::fs::remove_dir_all(&dir).expect(format!("remove dir {:?}", dir).as_str())
+    std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
 }
