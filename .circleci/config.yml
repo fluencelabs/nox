@@ -3,6 +3,7 @@ jobs:
   fluence:
     docker:
       - image: circleci/rust:latest
+    resource_class: medium+
     environment:
       RUST_BACKTRACE: 1
       RUST_TEST_THREADS: 1
@@ -12,8 +13,8 @@ jobs:
           keys:
             - fluence02-{{ checksum "Cargo.lock" }}
       - run: |
-          rustup toolchain install nightly-2020-07-12-x86_64-unknown-linux-gnu
-          rustup default nightly-2020-07-12-x86_64-unknown-linux-gnu
+          rustup toolchain install nightly-2020-07-13-x86_64-unknown-linux-gnu
+          rustup default nightly-2020-07-13-x86_64-unknown-linux-gnu
           rustup component add rustfmt
           rustup component add clippy
           cargo fmt --all -- --check --color always
