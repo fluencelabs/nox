@@ -501,17 +501,22 @@ fn call_greeting() {
     remove_dir(&swarm.2)
 }
 
-#[test]
-fn call_empty() {
-    enable_logs();
-
-    let swarm = start_faas();
-    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
-    let context = vec!["test_one.wasm".to_string(), "test_two.wasm".to_string()];
-    let create = create_call(client.node_addr(), client.relay_addr(), context.clone());
+fn create_service(client: &mut ConnectedClient, context: &[String]) -> String {
+    let create = create_call(client.node_addr(), client.relay_addr(), context.to_vec());
     client.send(create);
     #[rustfmt::skip]
     let service_id = client.receive().arguments["result"]["service_id"].as_str().unwrap().to_string();
+
+    service_id
+}
+
+#[test]
+fn call_empty() {
+    let swarm = start_faas();
+    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+
+    let context = vec!["test_one.wasm".to_string(), "test_two.wasm".to_string()];
+    let service_id = create_service(&mut client, &context);
 
     for module in context {
         #[rustfmt::skip]
@@ -563,4 +568,37 @@ fn find_module_provider() {
 
     let received = consumer.receive();
     assert_eq!(&received.arguments["result"], &payload, "{:?}", received);
+}
+
+#[test]
+fn get_interfaces() {
+    let swarm = start_faas();
+    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+
+    let context = vec!["test_one.wasm".to_string(), "test_two.wasm".to_string()];
+    let service_id1 = create_service(&mut client, &context);
+    let service_id2 = create_service(&mut client, &context);
+
+    let mut call = service_call(
+        client.node_addr(),
+        client.relay_addr(),
+        "get_active_interfaces",
+    );
+    let msg_id = uuid();
+    call.arguments = json!({ "msg_id": msg_id });
+    client.send(call);
+    let received = client.receive();
+
+    let expected: Interface = serde_json::from_str(r#"{"modules":{"test_one.wasm":{"empty":{"input_types":[],"output_types":[]},"greeting":{"input_types":["String"],"output_types":["String"]}},"test_two.wasm":{"empty":{"input_types":[],"output_types":[]},"greeting":{"input_types":["String"],"output_types":["String"]}}}}"#).unwrap();
+    let actual: Interface =
+        serde_json::from_value(received.arguments["active_interfaces"][service_id1].clone())
+            .unwrap();
+
+    assert_eq!(expected, actual);
+
+    let actual: Interface =
+        serde_json::from_value(received.arguments["active_interfaces"][service_id2].clone())
+            .unwrap();
+
+    assert_eq!(expected, actual);
 }
