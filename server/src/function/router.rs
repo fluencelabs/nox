@@ -335,10 +335,6 @@ impl FunctionRouter {
             sender: self.config.local_address(),
             arguments,
             ..<_>::default()
-            // reply_to: None, // TODO: sure?
-            // module: None,
-            // fname: None,
-            // name: None,
         };
         self.call(call)
     }
@@ -390,6 +386,7 @@ impl FunctionRouter {
         }
     }
 
+    /// Queue event, and call waker
     pub(super) fn push_event(&mut self, event: SwarmEventType) {
         if let Some(waker) = self.waker.clone() {
             waker.wake();
@@ -398,6 +395,7 @@ impl FunctionRouter {
         self.events.push_back(event);
     }
 
+    /// Take an event from queue
     pub(super) fn pop_event(&mut self) -> Option<SwarmEventType> {
         self.events.pop_front()
     }

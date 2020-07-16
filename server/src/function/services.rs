@@ -50,7 +50,7 @@ impl FunctionRouter {
         Ok(())
     }
 
-    /// Find a matching module with a matching function, and return their names
+    /// Create `FaaSCall` from a `FunctionCall`
     fn prepare_call(
         &mut self,
         module: String,
@@ -59,6 +59,7 @@ impl FunctionRouter {
     ) -> Result<FaaSCall, CallError> {
         let service_id = match service_id {
             Some(id) => id,
+            // If module is "create", this is a request to create FaaS
             None if module.as_str() == "create" => {
                 return Ok(FaaSCall::Create {
                     module_names: call.context.clone(),
@@ -90,6 +91,7 @@ impl FunctionRouter {
             }));
         }
 
+        // If arguments are on of: null, [] or {}, avoid calling `to_interface_value`
         let is_null = call.arguments.is_null();
         let is_empty_arr = call.arguments.as_array().map_or(false, |a| a.is_empty());
         let is_empty_obj = call.arguments.as_object().map_or(false, |m| m.is_empty());
@@ -230,6 +232,7 @@ impl FunctionRouter {
         }
     }
 
+    /// Serialize and send FaaS result as a reply
     pub(super) fn send_faas_result(
         &mut self,
         call: FunctionCall,
