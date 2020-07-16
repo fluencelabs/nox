@@ -41,37 +41,14 @@ type Result<T> = std::result::Result<T, FaaSExecError>;
 type FutResult = (Option<FluenceFaaS>, FunctionCall, Result<FaaSCallResult>);
 type Fut = BoxFuture<'static, FutResult>;
 
-#[derive(Debug)]
-pub enum FaaSExecError {
-    NoSuchInstance(String),
-    FaaS(FaaSError),
-}
-
-impl Error for FaaSExecError {}
-impl From<FaaSError> for FaaSExecError {
-    fn from(err: FaaSError) -> Self {
-        FaaSExecError::FaaS(err)
-    }
-}
-
-impl std::fmt::Display for FaaSExecError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FaaSExecError::NoSuchInstance(service_id) => {
-                write!(f, "FaaS instance {} not found", service_id)
-            }
-            FaaSExecError::FaaS(err) => err.fmt(f),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
+/// Result of executing FaasCall
 pub enum FaaSCallResult {
-    FaaSCreated {
-        service_id: String,
-    },
+    /// FaaS was created with this `service_id`
+    FaaSCreated { service_id: String },
     #[serde(serialize_with = "FaaSCallResult::serialize_returned")]
+    /// Call to faas returned this result
     Returned(Vec<IValue>),
 }
 
@@ -95,6 +72,7 @@ impl FaaSCallResult {
 }
 
 #[derive(Debug, Clone)]
+/// Call to FaaS
 pub enum FaaSCall {
     /// Call to the FaaS instance specified by `service_id`
     Call {
@@ -109,8 +87,9 @@ pub enum FaaSCall {
         /// FunctionCall that caused this WasmCall, returned to caller as is
         call: FunctionCall,
     },
+    /// Request to create new FaaS instance with given `module_names`
     Create {
-        /// Context: list of modules to load
+        /// Context: list of modules to load on creation
         module_names: Vec<String>,
         /// FunctionCall that caused this WasmCall, returned to caller as is
         call: FunctionCall,
@@ -118,11 +97,9 @@ pub enum FaaSCall {
 }
 
 impl FaaSCall {
+    /// Whether this call is of `Create` type
     pub fn is_create(&self) -> bool {
-        match self {
-            FaaSCall::Create { .. } => true,
-            FaaSCall::Call { .. } => false,
-        }
+        matches!(self, FaasCall::Create { .. })
     }
 
     pub fn service_id(&self) -> Option<&str> {
@@ -133,12 +110,18 @@ impl FaaSCall {
     }
 }
 
+/// Behaviour that manages FaaS instances: create, pass calls, poll for results
 pub struct FaaSBehaviour {
+    /// Created instances
+    //TODO: when to delete an instance?
     faases: HashMap<String, FluenceFaaS>,
+    /// Incoming calls waiting to be processed
     calls: Vec<FaaSCall>,
+    /// Context waker, used to trigger `poll`
     waker: Option<Waker>,
-    // service_id -> future
+    /// Pending futures: service_id -> future
     futures: HashMap<String, Fut>,
+    /// Config to create FaaS instances with
     config: RawCoreModulesConfig,
 }
 
@@ -153,11 +136,13 @@ impl FaaSBehaviour {
         }
     }
 
+    /// Execute given `call`
     pub fn execute(&mut self, call: FaaSCall) {
         self.calls.push(call);
         self.wake();
     }
 
+    /// Get interface of a FaaS instance specified by `service_id`
     pub fn get_interface(&self, service_id: &str) -> Result<FaaSInterface<'_>> {
         let faas = self
             .faases
@@ -168,6 +153,7 @@ impl FaaSBehaviour {
     }
 
     #[allow(dead_code)]
+    /// Get interfaces for all created FaaS instances
     pub fn get_interfaces(&self) -> HashMap<&str, FaaSInterface<'_>> {
         self.faases
             .iter()
@@ -175,10 +161,14 @@ impl FaaSBehaviour {
             .collect()
     }
 
+    /// Get available modules
+    // TODO: load modules from filesystem?
+    // TODO: load interfaces of these modules
     pub fn get_modules(&self) -> impl Iterator<Item = &str> {
         self.config.core_module.iter().map(|m| m.name.as_str())
     }
 
+    /// Creates FaaS instance in background
     fn create_faas(
         &self,
         module_names: Vec<String>,
@@ -205,12 +195,13 @@ impl FaaSBehaviour {
             match call {
                 // Request to create FaaS instance with given module_names
                 FaaSCall::Create { module_names, call } => {
-                    log::info!("creating faas");
+                    // Spawn FaaS creation and generate service_id uuid
                     let (uuid, future) = self.create_faas(module_names);
+
                     let service_id = uuid.clone();
                     let wake = self.waker.clone();
                     let future = future.map(move |faas| {
-                        log::info!("faas created");
+                        // Wake up when creation finished
                         Self::call_wake(wake);
                         let (faas, result) = match faas {
                             Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id })),
@@ -218,8 +209,9 @@ impl FaaSBehaviour {
                         };
                         (faas, call, result)
                     });
-                    self.futures.insert(uuid, Box::pin(future));
 
+                    // Save future for the next poll
+                    self.futures.insert(uuid, Box::pin(future));
                     Ok(())
                 }
                 // Request to call function on an existing FaaS instance
@@ -235,6 +227,7 @@ impl FaaSBehaviour {
                     let future = task::spawn_blocking(move || {
                         let result = faas.call_module(&module, &function, &arguments);
                         let result = result.map(FaaSCallResult::Returned).map_err(|e| e.into());
+                        // Wake when call finished
                         Self::call_wake(waker);
                         (Some(faas), call, result)
                     });
@@ -249,12 +242,14 @@ impl FaaSBehaviour {
         })
     }
 
+    /// Calls wake on an optional waker
     fn call_wake(waker: Option<Waker>) {
         if let Some(waker) = waker {
             waker.wake()
         }
     }
 
+    /// Clones and calls wakers
     fn wake(&self) {
         Self::call_wake(self.waker.clone())
     }
@@ -332,6 +327,30 @@ impl NetworkBehaviour for FaaSBehaviour {
         }
 
         Poll::Pending
+    }
+}
+
+#[derive(Debug)]
+pub enum FaaSExecError {
+    NoSuchInstance(String),
+    FaaS(FaaSError),
+}
+
+impl Error for FaaSExecError {}
+impl From<FaaSError> for FaaSExecError {
+    fn from(err: FaaSError) -> Self {
+        FaaSExecError::FaaS(err)
+    }
+}
+
+impl std::fmt::Display for FaaSExecError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FaaSExecError::NoSuchInstance(service_id) => {
+                write!(f, "FaaS instance {} not found", service_id)
+            }
+            FaaSExecError::FaaS(err) => err.fmt(f),
+        }
     }
 }
 
