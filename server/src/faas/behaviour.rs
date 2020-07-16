@@ -433,7 +433,7 @@ mod tests {
         module: &str,
         function: &str,
         argument: Option<&str>,
-    ) -> (FaasResult, Swarm<FaaSBehaviour>) {
+    ) -> (Vec<IValue>, Swarm<FaaSBehaviour>) {
         swarm.execute(FaaSCall::Call {
             service_id,
             module: module.to_string(),
