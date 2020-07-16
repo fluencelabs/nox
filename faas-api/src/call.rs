@@ -27,7 +27,10 @@ pub struct FunctionCall {
     pub reply_to: Option<Address>,
     pub module: Option<String>,
     pub fname: Option<String>,
-    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    #[serde(
+        default = "empty_obj",
+        skip_serializing_if = "serde_json::Value::is_null"
+    )]
     pub arguments: serde_json::Value, //TODO: make it Option<String>?
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -77,6 +80,10 @@ impl FunctionCall {
             context: vec![],
         }
     }
+}
+
+fn empty_obj() -> serde_json::Value {
+    serde_json::Value::Object(<_>::default())
 }
 
 pub mod call_test_utils {
