@@ -18,7 +18,7 @@ use crate::Address;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct FunctionCall {
     pub uuid: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -35,6 +35,22 @@ pub struct FunctionCall {
     /// List of modules to load when executing function
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub context: Vec<String>,
+}
+
+impl Default for FunctionCall {
+    fn default() -> Self {
+        Self {
+            uuid: "".to_string(),
+            target: None,
+            reply_to: None,
+            module: None,
+            fname: None,
+            arguments: empty_obj(),
+            name: None,
+            sender: Default::default(),
+            context: vec![],
+        }
+    }
 }
 
 impl FunctionCall {
@@ -78,11 +94,10 @@ pub mod call_test_utils {
             target,
             reply_to,
             module: Some(module.clone()),
-            fname: None,
-            arguments: serde_json::Value::Null,
             name: Some("Getting IPFS file QmFile".to_string()),
             sender,
             context: vec![module],
+            ..<_>::default()
         }
     }
 
@@ -102,11 +117,10 @@ pub mod call_test_utils {
             target: Some(target),
             reply_to,
             module: Some("provide".into()),
-            fname: None,
             arguments,
-            name: None,
             sender,
             context: vec![],
+            ..<_>::default()
         }
     }
 }
