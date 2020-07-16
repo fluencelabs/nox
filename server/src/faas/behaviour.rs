@@ -99,7 +99,7 @@ pub enum FaaSCall {
 impl FaaSCall {
     /// Whether this call is of `Create` type
     pub fn is_create(&self) -> bool {
-        matches!(self, FaasCall::Create { .. })
+        matches!(self, FaaSCall::Create { .. })
     }
 
     pub fn service_id(&self) -> Option<&str> {
