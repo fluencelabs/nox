@@ -56,6 +56,18 @@ pub struct GetInterface {
     pub msg_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GetActiveInterfaces {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GetAvailableModules {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BuiltinService {
@@ -64,6 +76,8 @@ pub enum BuiltinService {
     AddCertificates(AddCertificates),
     Identify(Identify),
     GetInterface(GetInterface),
+    GetActiveInterfaces(GetActiveInterfaces),
+    GetAvailableModules(GetAvailableModules),
 }
 
 #[derive(Debug)]
@@ -93,9 +107,12 @@ impl BuiltinService {
     const ADD_CERTS: &'static str = "add_certificates";
     const IDENTIFY: &'static str = "identify";
     const GET_INTERFACE: &'static str = "get_interface";
+    const GET_ACTIVE_INTERFACES: &'static str = "get_active_interfaces";
+    const GET_AVAILABLE_MODULES: &'static str = "get_available_modules";
     #[rustfmt::skip]
-    const SERVICES: [&'static str; 5] = [
+    const SERVICES: &'static [&'static str] = &[
         Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY, Self::GET_INTERFACE,
+        Self::GET_ACTIVE_INTERFACES, Self::GET_AVAILABLE_MODULES
     ];
 
     #[allow(clippy::needless_lifetimes)]
@@ -109,6 +126,8 @@ impl BuiltinService {
             Self::ADD_CERTS => AddCertificates(from_value(arguments)?),
             Self::IDENTIFY => Identify(from_value(arguments)?),
             Self::GET_INTERFACE => GetInterface(from_value(arguments)?),
+            Self::GET_ACTIVE_INTERFACES => GetActiveInterfaces(from_value(arguments)?),
+            Self::GET_AVAILABLE_MODULES => GetAvailableModules(from_value(arguments)?),
             _ => return Err(Error::UnknownService(service_id)),
         };
 
@@ -129,6 +148,8 @@ impl BuiltinService {
             BuiltinService::AddCertificates { .. } => BuiltinService::ADD_CERTS,
             BuiltinService::Identify { .. } => BuiltinService::IDENTIFY,
             BuiltinService::GetInterface { .. } => BuiltinService::GET_INTERFACE,
+            BuiltinService::GetActiveInterfaces { .. } => BuiltinService::GET_ACTIVE_INTERFACES,
+            BuiltinService::GetAvailableModules { .. } => BuiltinService::GET_AVAILABLE_MODULES,
         };
 
         (service_id, json!(self))
