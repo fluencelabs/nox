@@ -33,6 +33,7 @@ pub struct FunctionCall {
     pub name: Option<String>,
     pub sender: Address,
     /// List of modules to load when executing function
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub context: Vec<String>,
 }
 
