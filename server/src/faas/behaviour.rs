@@ -38,8 +38,6 @@ use uuid::Uuid;
 use void::Void;
 
 type Result<T> = std::result::Result<T, FaaSExecError>;
-#[allow(dead_code)]
-type FaasResult = Vec<IValue>;
 type FutResult = (Option<FluenceFaaS>, FunctionCall, Result<FaaSCallResult>);
 type Fut = BoxFuture<'static, FutResult>;
 
@@ -96,7 +94,6 @@ impl FaaSCallResult {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum FaaSCall {
     /// Call to the FaaS instance specified by `service_id`
@@ -146,7 +143,6 @@ pub struct FaaSBehaviour {
 }
 
 impl FaaSBehaviour {
-    #[allow(dead_code)]
     pub fn new(config: RawCoreModulesConfig) -> Self {
         Self {
             faases: <_>::default(),
@@ -157,13 +153,11 @@ impl FaaSBehaviour {
         }
     }
 
-    #[allow(dead_code)]
     pub fn execute(&mut self, call: FaaSCall) {
         self.calls.push(call);
         self.wake();
     }
 
-    #[allow(dead_code)]
     pub fn get_interface(&self, service_id: &str) -> Result<FaaSInterface<'_>> {
         let faas = self
             .faases

@@ -25,7 +25,6 @@ use std::{io, iter, pin::Pin};
 
 #[derive(Clone)]
 pub struct ProtocolConfig {
-    #[allow(dead_code)]
     local_address: Address,
 }
 

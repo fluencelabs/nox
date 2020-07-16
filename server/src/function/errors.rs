@@ -51,7 +51,6 @@ impl CallError {
             }
             CallErrorKind::BuiltinServiceError(err) => format!("builtin service failure: {}", err),
             CallErrorKind::FaaSError(err) => format!("faas execution failure: {}", err),
-            CallErrorKind::UnroutableCall(err_msg) => format!("unroutable call: {}", err_msg),
             CallErrorKind::Signature(err) => {
                 format!("failed to register service, siganture error: {:?}", err)
             }
@@ -87,45 +86,15 @@ impl CallError {
             }
         }
     }
-
-    #[allow(dead_code)]
-    pub fn into_reply(mut self, sender: Address) -> FunctionCall {
-        use serde_json::json;
-
-        let err_msg = self.err_msg();
-        let arguments = json!({ "reason": err_msg, "call": self.call });
-        let reply_to = self.call.reply_to.take().unwrap_or(self.call.sender);
-
-        FunctionCall {
-            uuid: format!("error_{}", self.call.uuid),
-            target: Some(reply_to),
-            reply_to: None,
-            module: None,
-            fname: None,
-            arguments,
-            name: self.call.name,
-            sender,
-            context: vec![],
-        }
-    }
 }
 
 pub enum CallErrorKind {
-    MissingFunctionName {
-        module: String,
-    },
-    FunctionNotFound {
-        module: String,
-        function: String,
-    },
-    InvalidArguments {
-        error: String,
-    },
+    MissingFunctionName { module: String },
+    FunctionNotFound { module: String, function: String },
+    InvalidArguments { error: String },
     ResultSerializationFailed(String),
     BuiltinServiceError(builtin_service::Error),
     FaaSError(FaaSError),
-    #[allow(dead_code)]
-    UnroutableCall(String),
     Signature(SignatureError),
     ServiceRegister(libp2p::kad::store::Error),
     NonLocalRelay,
@@ -134,21 +103,10 @@ pub enum CallErrorKind {
     MissingPublicKey,
     UnsupportedPublicKey,
     AddCertificates(Vec<(Certificate, String)>),
-    #[allow(dead_code)]
     FaasInterfaceSerialization(serde_json::Error),
     MissingServiceId,
-    NoSuchModule {
-        module: String,
-        service_id: String,
-    },
+    NoSuchModule { module: String, service_id: String },
     FaaSExecError(FaaSExecError),
-}
-
-impl CallErrorKind {
-    #[allow(dead_code)]
-    pub fn of_call(self, call: FunctionCall) -> CallError {
-        CallError::make(call, self)
-    }
 }
 
 impl From<builtin_service::Error> for CallErrorKind {
