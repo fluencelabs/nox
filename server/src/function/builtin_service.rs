@@ -43,26 +43,30 @@ pub struct AddCertificates {
     pub msg_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
 pub struct Identify {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msg_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
 pub struct GetInterface {
     pub service_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msg_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
 pub struct GetActiveInterfaces {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msg_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
 pub struct GetAvailableModules {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msg_id: Option<String>,

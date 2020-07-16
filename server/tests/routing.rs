@@ -579,11 +579,8 @@ fn get_interfaces() {
     let service_id1 = create_service(&mut client, &context);
     let service_id2 = create_service(&mut client, &context);
 
-    let mut call = service_call(
-        client.node_addr(),
-        client.relay_addr(),
-        "get_active_interfaces",
-    );
+    #[rustfmt::skip]
+    let mut call = service_call(client.node_addr(), client.relay_addr(), "get_active_interfaces");
     let msg_id = uuid();
     call.arguments = json!({ "msg_id": msg_id });
     client.send(call);
@@ -601,4 +598,25 @@ fn get_interfaces() {
             .unwrap();
 
     assert_eq!(expected, actual);
+}
+
+#[test]
+fn get_modules() {
+    let swarm = start_faas();
+    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+
+    #[rustfmt::skip]
+    let call = service_call(client.node_addr(), client.relay_addr(), "get_available_modules");
+    client.send(call);
+    let received = client.receive();
+
+    assert_eq!(
+        received.arguments["available_modules"]
+            .as_array()
+            .expect(format!("get array from {:#?}", received).as_str())
+            .as_slice(),
+        &["test_one.wasm", "test_two.wasm"],
+        "{:#?}",
+        received
+    );
 }
