@@ -613,7 +613,7 @@ fn get_modules() {
     assert_eq!(
         received.arguments["available_modules"]
             .as_array()
-            .expect(format!("get array from {:#?}", received).as_str())
+            .unwrap_or_else(|| panic!("get array from {:#?}", received))
             .as_slice(),
         &["test_one.wasm", "test_two.wasm"],
         "{:#?}",
