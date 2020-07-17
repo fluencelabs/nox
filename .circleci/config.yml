@@ -18,8 +18,8 @@ jobs:
           rustup component add rustfmt
           rustup component add clippy
           cargo fmt --all -- --check --color always
-          cargo build --all-features
-          cargo test --all-features
+          cargo build --release --all-features
+          cargo test --release --all-features
           cargo clippy
       - save_cache:
           paths:
