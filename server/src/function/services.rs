@@ -58,16 +58,20 @@ impl FunctionRouter {
         call: FunctionCall,
     ) -> Result<FaaSCall, CallError> {
         let service_id = match service_id {
-            Some(id) => id,
+            Some(id) => Ok(id),
             // If module is "create", this is a request to create FaaS
             None if module.as_str() == "create" => {
-                return Ok(FaaSCall::Create {
-                    module_names: call.context.clone(),
-                    call,
-                });
+                return if !call.context.is_empty() {
+                    Ok(FaaSCall::Create {
+                        module_names: call.context.clone(),
+                        call,
+                    })
+                } else {
+                    Err(call.error(EmptyContext))
+                }
             }
             None => return Err(call.error(MissingServiceId)),
-        };
+        }?;
 
         let interface = self
             .faas

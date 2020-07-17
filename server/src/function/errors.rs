@@ -84,6 +84,9 @@ impl CallError {
             CallErrorKind::FaaSExecError(err) => {
                 format!("error while executing faas call: {}", err)
             }
+            CallErrorKind::EmptyContext => {
+                "context can't be empty when creating a service".to_string()
+            }
         }
     }
 }
@@ -107,6 +110,7 @@ pub enum CallErrorKind {
     MissingServiceId,
     NoSuchModule { module: String, service_id: String },
     FaaSExecError(FaaSExecError),
+    EmptyContext,
 }
 
 impl From<builtin_service::Error> for CallErrorKind {
