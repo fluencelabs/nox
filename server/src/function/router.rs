@@ -376,7 +376,7 @@ impl FunctionRouter {
         log::info!("Bootstrap finished, publishing local modules");
 
         let local = self.config.local_address();
-        let modules: Vec<_> = self.faas.get_modules().map(|m| m.to_string()).collect();
+        let modules = self.faas.get_modules();
         for module in modules {
             if let Err(err) = self.publish_name(&provider!(module.clone()), &local) {
                 log::warn!("Failed to publish local module {}: {:?}", module, err);

@@ -28,7 +28,7 @@ use parity_multiaddr::Multiaddr;
 use serde::ser::Error as SerError;
 use serde::{Serialize, Serializer};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
@@ -161,10 +161,17 @@ impl FaaSBehaviour {
     }
 
     /// Get available modules
-    // TODO: load modules from filesystem?
     // TODO: load interfaces of these modules
-    pub fn get_modules(&self) -> impl Iterator<Item = &str> {
-        self.config.core_module.iter().map(|m| m.name.as_str())
+    pub fn get_modules(&self) -> Vec<String> {
+        let get_modules = |dir| -> Option<HashSet<String>> {
+            let dir = std::fs::read_dir(dir).ok()?;
+            dir.map(|p| Some(p.ok()?.file_name().into_string().ok()?))
+                .collect()
+        };
+        let dir = self.config.core_modules_dir.as_ref();
+        let fs_modules = dir.and_then(get_modules).unwrap_or_default();
+        let cfg_modules = self.config.core_module.iter().map(|m| m.name.clone());
+        cfg_modules.filter(|m| fs_modules.contains(m)).collect()
     }
 
     /// Spawns tasks for calls execution and creates new FaaS-es until an error happens
