@@ -164,12 +164,12 @@ impl FaaSBehaviour {
     // TODO: load interfaces of these modules
     pub fn get_modules(&self) -> Vec<String> {
         let get_modules = |dir| -> Option<HashSet<String>> {
-            let dir = std::fs::read_dir(dir).ok()?;
+            let dir = std::fs::read_dir(dir?).ok()?;
             dir.map(|p| Some(p.ok()?.file_name().into_string().ok()?))
                 .collect()
         };
         let dir = self.config.core_modules_dir.as_ref();
-        let fs_modules = dir.and_then(get_modules).unwrap_or_default();
+        let fs_modules = get_modules(dir).unwrap_or_default();
         let cfg_modules = self.config.core_module.iter().map(|m| m.name.clone());
         cfg_modules.filter(|m| fs_modules.contains(m)).collect()
     }
