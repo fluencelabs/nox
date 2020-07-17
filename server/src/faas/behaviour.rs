@@ -17,7 +17,6 @@
 use async_std::task;
 use faas_api::FunctionCall;
 use fluence_faas::{FaaSError, FaaSInterface, FluenceFaaS, IValue, RawCoreModulesConfig};
-use futures::FutureExt;
 use futures_util::future::BoxFuture;
 use libp2p::core::connection::ConnectionId;
 use libp2p::swarm::{
@@ -168,25 +167,6 @@ impl FaaSBehaviour {
         self.config.core_module.iter().map(|m| m.name.as_str())
     }
 
-    /// Creates FaaS instance in background
-    fn create_faas(
-        &self,
-        module_names: Vec<String>,
-    ) -> (String, BoxFuture<'static, Result<FluenceFaaS>>) {
-        let mut module_names = module_names.into_iter().collect();
-        let uuid = Uuid::new_v4().to_string();
-        let config = self.config.clone();
-        let waker = self.waker.clone();
-        let future = task::spawn_blocking(move || {
-            let faas =
-                FluenceFaaS::with_module_names(&mut module_names, config).map_err(|e| e.into());
-            // Wake to trigger poll()
-            Self::call_wake(waker);
-            faas
-        });
-        (uuid, Box::pin(future))
-    }
-
     /// Spawns tasks for calls execution and creates new FaaS-es until an error happens
     fn execute_calls<I>(
         &mut self,
@@ -202,7 +182,8 @@ impl FaaSBehaviour {
                     // Convert module names into hashmap
                     let mut module_names = module_names.into_iter().collect();
                     // Generate new service_id
-                    let service_id = Uuid::new_v4().to_string();
+                    let service_id = Uuid::new_v4();
+
                     // Create FaaS in background
                     let config = self.config.clone();
                     let waker = self.waker.clone();
@@ -210,7 +191,7 @@ impl FaaSBehaviour {
                         let faas =
                             FluenceFaaS::with_module_names(&mut module_names, config).map_err(|e| e.into());
                         let (faas, result) = match faas {
-                            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id: service_id.clone() })),
+                            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id: service_id.to_string() })),
                             Err(e) => (None, Err(e))
                         };
                         // Wake up when creation finished
@@ -219,7 +200,7 @@ impl FaaSBehaviour {
                     });
 
                     // Save future in order to return its result on the next poll() 
-                    self.futures.insert(service_id, Box::pin(future));
+                    self.futures.insert(service_id.to_string(), Box::pin(future));
                     Ok(())
                 }
                 // Request to call function on an existing FaaS instance
