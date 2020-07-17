@@ -71,7 +71,7 @@ impl FunctionRouter {
                 self.reply_with(call, msg_id, ("active_interfaces", interfaces))
             }
             BuiltinService::GetAvailableModules(GetAvailableModules { msg_id }) => {
-                let modules = json!(self.faas.get_modules().collect::<Vec<_>>());
+                let modules = json!(self.faas.get_modules());
                 self.reply_with(call, msg_id, ("available_modules", modules))
             }
         }
