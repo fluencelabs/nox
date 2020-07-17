@@ -160,7 +160,7 @@ impl FaaSBehaviour {
             .collect()
     }
 
-    /// Get available modules
+    /// Get available modules (intersection of modules from config + modules on filesystem)
     // TODO: load interfaces of these modules
     pub fn get_modules(&self) -> Vec<String> {
         let get_modules = |dir| -> Option<HashSet<String>> {
@@ -168,10 +168,14 @@ impl FaaSBehaviour {
             dir.map(|p| Some(p.ok()?.file_name().into_string().ok()?))
                 .collect()
         };
+
         let dir = self.config.core_modules_dir.as_ref();
-        let fs_modules = get_modules(dir).unwrap_or_default();
-        let cfg_modules = self.config.core_module.iter().map(|m| m.name.clone());
-        cfg_modules.filter(|m| fs_modules.contains(m)).collect()
+        if let Some(fs_modules) = get_modules(dir) {
+            let cfg_modules = self.config.core_module.iter().map(|m| m.name.clone());
+            return cfg_modules.filter(|m| fs_modules.contains(m)).collect();
+        }
+
+        return vec![];
     }
 
     /// Spawns tasks for calls execution and creates new FaaS-es until an error happens
