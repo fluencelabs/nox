@@ -176,9 +176,13 @@ impl FaaSBehaviour {
         let mut module_names = module_names.into_iter().collect();
         let uuid = Uuid::new_v4().to_string();
         let config = self.config.clone();
-
+        let waker = self.waker.clone();
         let future = task::spawn_blocking(move || {
-            FluenceFaaS::with_module_names(&mut module_names, config).map_err(|e| e.into())
+            let faas =
+                FluenceFaaS::with_module_names(&mut module_names, config).map_err(|e| e.into());
+            // Wake to trigger poll()
+            Self::call_wake(waker);
+            faas
         });
         (uuid, Box::pin(future))
     }
@@ -195,23 +199,27 @@ impl FaaSBehaviour {
             match call {
                 // Request to create FaaS instance with given module_names
                 FaaSCall::Create { module_names, call } => {
-                    // Spawn FaaS creation and generate service_id uuid
-                    let (uuid, future) = self.create_faas(module_names);
-
-                    let service_id = uuid.clone();
-                    let wake = self.waker.clone();
-                    let future = future.map(move |faas| {
-                        // Wake up when creation finished
-                        Self::call_wake(wake);
+                    // Convert module names into hashmap
+                    let mut module_names = module_names.into_iter().collect();
+                    // Generate new service_id
+                    let service_id = Uuid::new_v4().to_string();
+                    // Create FaaS in background
+                    let config = self.config.clone();
+                    let waker = self.waker.clone();
+                    let future = task::spawn_blocking(move || {
+                        let faas =
+                            FluenceFaaS::with_module_names(&mut module_names, config).map_err(|e| e.into());
                         let (faas, result) = match faas {
-                            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id })),
+                            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id: service_id.clone() })),
                             Err(e) => (None, Err(e))
                         };
+                        // Wake up when creation finished
+                        Self::call_wake(waker);
                         (faas, call, result)
                     });
 
-                    // Save future for the next poll
-                    self.futures.insert(uuid, Box::pin(future));
+                    // Save future in order to return its result on the next poll() 
+                    self.futures.insert(service_id, Box::pin(future));
                     Ok(())
                 }
                 // Request to call function on an existing FaaS instance
@@ -227,7 +235,7 @@ impl FaaSBehaviour {
                     let future = task::spawn_blocking(move || {
                         let result = faas.call_module(&module, &function, &arguments);
                         let result = result.map(FaaSCallResult::Returned).map_err(|e| e.into());
-                        // Wake when call finished
+                        // Wake when call finished to trigger poll()
                         Self::call_wake(waker);
                         (Some(faas), call, result)
                     });
@@ -273,6 +281,22 @@ impl NetworkBehaviour for FaaSBehaviour {
 
     fn inject_event(&mut self, _: PeerId, _: ConnectionId, _: Void) {}
 
+    /// Here you can see two thread pools are working together.
+    /// First thread pool comes from libp2p, it calls this `poll`; `cx.waker` refers to that thread pool.
+    /// Second thread pool comes from `async_std::task::spawn_blocking`, it executes `FaaSCall::Create` and `FaaSCall::Call`
+    ///
+    /// On each poll, `cx.waker` is cloned and saved to `self.waker`.
+    /// On each poll, we go trough each new call in `self.calls`, and try to execute it. Execution
+    /// happens in the background, on the "blocking" thread pool. Resulting future is then saved to `self.futures`.
+    ///
+    /// Once execution of the call is finished on the "blocking" thread pool, `self.waker.wake()` is called
+    /// to signal "libp2p thread pool" to wake up and trigger this `poll()` function.
+    ///
+    /// On each poll, we go through each future in `self.futures`, and poll it to get result. If
+    /// there's a result, we return it as `Poll::Ready(GenerateEvent(result))`.
+    ///
+    /// Note that each faas executes only a single call at a time. For that purpose it is removed
+    /// from `self.faases` during execution, and inserted back once execution is finished.
     fn poll(
         &mut self,
         cx: &mut Context<'_>,
