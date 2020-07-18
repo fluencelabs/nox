@@ -267,12 +267,12 @@ export class FluenceClient {
 
 
     /**
-     * Sends a call to register the service_id.
+     * Become a name provider. Other network members could find and call one of the providers of this name by this name.
      */
-    async registerService(moduleId: string, fn: (req: FunctionCall) => void) {
-        await this.connection.registerService(moduleId);
+    async provideName(name: string, fn: (req: FunctionCall) => void) {
+        await this.connection.provideName(name);
 
-        this.services.addService(moduleId, fn);
+        this.services.addService(name, fn);
     }
 
     /**
@@ -369,7 +369,7 @@ export class FluenceClient {
         // if the client already had a connection, it will reregister all services after establishing a new connection.
         if (!firstConnection) {
             for (let service of this.services.getAllServices().keys()) {
-                await this.connection.registerService(service);
+                await this.connection.provideName(service);
             }
 
         }

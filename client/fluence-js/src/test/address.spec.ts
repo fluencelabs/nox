@@ -231,7 +231,7 @@ export async function testCalculator() {
     let serviceId = "sum-calculator-" + genUUID();
 
     // register service that will add two numbers and send a response with calculation result
-    await cl1.registerService(serviceId, async (req) => {
+    await cl1.provideName(serviceId, async (req) => {
         console.log("message received");
         console.log(req);
 

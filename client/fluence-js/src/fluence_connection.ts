@@ -22,7 +22,7 @@ import {
     makeCreateMessage,
     makeFunctionCall,
     makePeerCall,
-    makeRegisterMessage,
+    makeProvideMessage,
     makeRelayCall,
     parseFunctionCall
 } from "./function_call";
@@ -208,9 +208,9 @@ export class FluenceConnection {
         await this.sendCall(call);
     }
 
-    async registerService(serviceId: string) {
+    async provideName(name: string) {
         let target = createPeerAddress(this.nodePeerId.toB58String())
-        let regMsg = await makeRegisterMessage(serviceId, target, this.sender);
+        let regMsg = await makeProvideMessage(name, target, this.sender);
         await this.sendCall(regMsg);
     }
 

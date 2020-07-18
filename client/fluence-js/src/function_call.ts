@@ -115,10 +115,10 @@ export function makePeerCall(client: PeerId, msg: any, sender: Address, replyTo?
 }
 
 /**
- * Message to register new service_id.
+ * Message to provide new name.
  */
-export async function makeRegisterMessage(serviceId: string, target: Address, sender: Address): Promise<FunctionCall> {
-    return makeFunctionCall(genUUID(), target, sender, {service_id: serviceId}, "provide", undefined, sender, undefined, "provide service_id");
+export async function makeProvideMessage(name: string, target: Address, sender: Address): Promise<FunctionCall> {
+    return makeFunctionCall(genUUID(), target, sender, {service_id: name}, "provide", undefined, sender, undefined, "provide service_id");
 }
 
 export async function makeCreateMessage(target: Address, sender: Address, replyTo: Address, context: string[]): Promise<FunctionCall> {
