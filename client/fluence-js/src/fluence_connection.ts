@@ -19,7 +19,7 @@ import {
     callToString,
     FunctionCall,
     genUUID,
-    makeCall,
+    makeCreateMessage,
     makeFunctionCall,
     makePeerCall,
     makeRegisterMessage,
@@ -107,8 +107,8 @@ export class FluenceConnection {
             target = createServiceAddress(moduleId);
         }
 
-        let regMsg = makeCall(moduleId, target, args, this.sender, this.makeReplyTo(replyHash), fname, name);
-        await this.sendCall(regMsg);
+        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, this.makeReplyTo(replyHash), undefined, name);
+        await this.sendCall(call);
     }
 
     /**
@@ -203,7 +203,7 @@ export class FluenceConnection {
         let replyTo;
         if (reply) replyTo = this.makeReplyTo(replyHash);
 
-        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, name);
+        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, undefined, name);
 
         await this.sendCall(call);
     }
@@ -212,5 +212,10 @@ export class FluenceConnection {
         let target = createPeerAddress(this.nodePeerId.toB58String())
         let regMsg = await makeRegisterMessage(serviceId, target, this.sender);
         await this.sendCall(regMsg);
+    }
+
+    async createService(target: Address, context: string[], replyHash: string) {
+        let createMsg = await makeCreateMessage(target, this.sender, this.makeReplyTo(replyHash), context);
+        await this.sendCall(createMsg);
     }
 }

@@ -69,6 +69,7 @@ describe("Typescript usage suite", () => {
             "mm",
             "fff",
             addr,
+            undefined,
             "2444"
         );
 
@@ -124,10 +125,11 @@ describe("Typescript usage suite", () => {
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it.skip("integration test", async function () {
+    it("integration test", async function () {
         this.timeout(15000);
-        await testCerts();
+        // await testCerts();
         // await testCalculator();
+        await testGetFullServicesInfo();
     });
 });
 
@@ -166,6 +168,55 @@ export async function testCerts() {
     expect(certs[0].chain[1].issuedAt).to.be.equal(extended.chain[1].issuedAt)
 }
 
+export async function testGetFullServicesInfo() {
+    let key1 = await Fluence.generatePeerId();
+    let key2 = await Fluence.generatePeerId();
+
+    // connect to two different nodes
+    let cl1 = await Fluence.connect("/dns4/134.209.186.43/tcp/9100/ws/p2p/12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM", key1);
+    let cl2 = await Fluence.connect("/ip4/134.209.186.43/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
+
+    let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
+    let peerAddr1 = createPeerAddress(peerId1);
+    let peerAddr2 = createPeerAddress("12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er");
+
+    // await cl2.createService(peerAddr1, ["ipfs_node.wasm"]);
+
+    let resp = await cl2.callServiceWaitResponse(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
+    console.log(resp)
+
+    let resp2 = await cl1.callServiceWaitResponse(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
+    console.log(resp2)
+
+    /*let r1 = await cl1.getActiveInterfaces();
+    console.log("111111111111111111");
+    console.log(r1);
+    let r2 = await cl1.getActiveInterfaces(peerAddr2);
+    console.log("2222222222222222222");
+    console.log(r2);
+
+    let r3 = await cl2.getActiveInterfaces();
+    console.log("33333333333333333333");
+    console.log(r3);
+    let r4 = await cl2.getActiveInterfaces(peerAddr1);
+    console.log("4444444444444444444444");
+    console.log(r4);*/
+
+    /*let r1 = await cl1.getAvailableModules();
+    console.log("111111111111111111");
+    console.log(r1);
+    let r2 = await cl1.getAvailableModules(peerAddr2);
+    console.log("2222222222222222222");
+    console.log(r2);
+
+    let r3 = await cl2.getAvailableModules();
+    console.log("33333333333333333333");
+    console.log(r3);
+    let r4 = await cl2.getAvailableModules(peerAddr1);
+    console.log("4444444444444444444444");
+    console.log(r4);*/
+}
+
 // Shows how to register and call new service in Fluence network
 export async function testCalculator() {
 
@@ -194,7 +245,7 @@ export async function testCalculator() {
     let req = {one: 12, two: 23};
 
     // send call to `sum-calculator` service with two numbers
-    let response = await cl2.sendServiceCallWaitResponse(serviceId, req);
+    let response = await cl2.callProviderWaitResponse(serviceId, req);
 
     let result = response.result;
     console.log(`calculation result is: ${result}`);
@@ -204,9 +255,9 @@ export async function testCalculator() {
     await delay(1000);
 
     // send call to `sum-calculator` service with two numbers
-    await cl2.sendServiceCall(serviceId, req, "calculator request");
+    await cl2.callProvider(serviceId, req, "calculator request");
 
-    let response2 = await cl2.sendServiceCallWaitResponse(serviceId, req);
+    let response2 = await cl2.callProviderWaitResponse(serviceId, req);
 
     let result2 = await response2.result;
     console.log(`calculation result AFTER RECONNECT is: ${result2}`);
