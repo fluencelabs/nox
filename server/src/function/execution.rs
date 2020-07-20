@@ -74,6 +74,7 @@ impl FunctionRouter {
                 let modules = json!(self.faas.get_modules());
                 self.reply_with(call, msg_id, ("available_modules", modules))
             }
+            BuiltinService::AddModule(_) => Ok(()),
         }
     }
 

@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+use fluence_faas::RawModuleConfig;
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::fmt::Display;
 use trust_graph::{certificate_serde, Certificate};
 
@@ -73,6 +74,36 @@ pub struct GetAvailableModules {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddModule {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+    #[serde(
+        deserialize_with = "AddModule::de_bytes",
+        serialize_with = "AddModule::ser_bytes"
+    )]
+    pub bytes: Vec<u8>,
+    pub config: RawModuleConfig,
+}
+
+impl AddModule {
+    fn de_bytes<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = <&str>::deserialize(deserializer)?;
+        base64::decode(s)
+            .map_err(|e| serde::de::Error::custom(format!("base64 decode error: {:?}", e)))
+    }
+
+    fn ser_bytes<S>(bs: &[u8], ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        String::serialize(&base64::encode(bs), ser)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BuiltinService {
     Provide(Provide),
@@ -82,6 +113,7 @@ pub enum BuiltinService {
     GetInterface(GetInterface),
     GetActiveInterfaces(GetActiveInterfaces),
     GetAvailableModules(GetAvailableModules),
+    AddModule(AddModule),
 }
 
 #[derive(Debug)]
@@ -113,10 +145,11 @@ impl BuiltinService {
     const GET_INTERFACE: &'static str = "get_interface";
     const GET_ACTIVE_INTERFACES: &'static str = "get_active_interfaces";
     const GET_AVAILABLE_MODULES: &'static str = "get_available_modules";
+    const ADD_MODULE: &'static str = "add_module";
     #[rustfmt::skip]
     const SERVICES: &'static [&'static str] = &[
         Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY, Self::GET_INTERFACE,
-        Self::GET_ACTIVE_INTERFACES, Self::GET_AVAILABLE_MODULES
+        Self::GET_ACTIVE_INTERFACES, Self::GET_AVAILABLE_MODULES, Self::ADD_MODULE
     ];
 
     #[allow(clippy::needless_lifetimes)]
@@ -154,6 +187,7 @@ impl BuiltinService {
             BuiltinService::GetInterface { .. } => BuiltinService::GET_INTERFACE,
             BuiltinService::GetActiveInterfaces { .. } => BuiltinService::GET_ACTIVE_INTERFACES,
             BuiltinService::GetAvailableModules { .. } => BuiltinService::GET_AVAILABLE_MODULES,
+            BuiltinService::AddModule(_) => BuiltinService::ADD_MODULE,
         };
 
         (service_id, json!(self))
