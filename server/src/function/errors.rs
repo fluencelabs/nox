@@ -96,7 +96,7 @@ pub enum CallErrorKind {
     FunctionNotFound { module: String, function: String },
     InvalidArguments { error: String },
     ResultSerializationFailed(String),
-    BuiltinServiceError(builtin_service::Error),
+    BuiltinServiceError(builtin_service::BuiltinServiceError),
     FaaSError(FaaSError),
     Signature(SignatureError),
     ServiceRegister(libp2p::kad::store::Error),
@@ -113,8 +113,8 @@ pub enum CallErrorKind {
     EmptyContext,
 }
 
-impl From<builtin_service::Error> for CallErrorKind {
-    fn from(err: builtin_service::Error) -> Self {
+impl From<builtin_service::BuiltinServiceError> for CallErrorKind {
+    fn from(err: builtin_service::BuiltinServiceError) -> Self {
         CallErrorKind::BuiltinServiceError(err)
     }
 }

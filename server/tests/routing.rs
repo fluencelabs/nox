@@ -624,6 +624,7 @@ fn test_get_modules() {
 }
 
 #[test]
+#[rustfmt::skip]
 fn add_module() {
     let config: Value = json!(
         {
@@ -641,18 +642,29 @@ fn add_module() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
+    // Add new module to faas
     let mut call = service_call(client.node_addr(), client.relay_addr(), "add_module");
     call.arguments =
         json!({ "msg_id": uuid(), "config": config, "bytes": base64::encode(&test_module()) });
     client.send(call);
-
     let received = client.receive();
     assert!(received.arguments.get("ok").is_some(), "{:?}", received);
 
+    // Check it is available
     let modules = get_modules(&mut client);
-
     assert_eq!(
         modules,
         &["test_one.wasm", "test_two.wasm", "test_three.wasm"]
     );
+    
+    // Create a service with that module
+    let service_id = create_service(&mut client, &["test_two.wasm".to_string(), "test_three.wasm".to_string()]);
+    
+    // Call new service
+    let mut call = faas_call(client.node_addr(), client.relay_addr(), "test_three.wasm", "greeting", service_id);
+    let payload = "Hello";
+    call.arguments = Value::Array(vec![payload.to_string().into()]);
+    client.send(call);
+    let received = client.receive();
+    assert_eq!(received.arguments["result"].as_str().unwrap(), payload);
 }

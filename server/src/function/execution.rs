@@ -79,7 +79,8 @@ impl FunctionRouter {
                 bytes,
                 config,
             }) => match self.faas.add_module(bytes, config) {
-                Ok(_) => self.reply_with(call, msg_id, ("ok", ())),
+                // TODO: what to return instead of {}?
+                Ok(_) => self.reply_with(call, msg_id, ("ok", json!({}))),
                 Err(e) => Err(call.error(e)),
             },
         }

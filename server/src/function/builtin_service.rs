@@ -90,8 +90,8 @@ impl AddModule {
     where
         D: serde::Deserializer<'de>,
     {
-        let s = <&str>::deserialize(deserializer)?;
-        base64::decode(s)
+        let s = String::deserialize(deserializer)?;
+        base64::decode(&s)
             .map_err(|e| serde::de::Error::custom(format!("base64 decode error: {:?}", e)))
     }
 
@@ -117,22 +117,22 @@ pub enum BuiltinService {
 }
 
 #[derive(Debug)]
-pub enum Error {
+pub enum BuiltinServiceError {
     Serde(serde_json::Error),
     UnknownService(String),
 }
 
-impl<'a> From<serde_json::Error> for Error {
+impl<'a> From<serde_json::Error> for BuiltinServiceError {
     fn from(err: serde_json::Error) -> Self {
-        Error::Serde(err)
+        BuiltinServiceError::Serde(err)
     }
 }
 
-impl<'a> Display for Error {
+impl<'a> Display for BuiltinServiceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Serde(serderr) => serderr.fmt(f),
-            Error::UnknownService(s) => write!(f, "unknown builtin service `{}`", s),
+            BuiltinServiceError::Serde(serderr) => serderr.fmt(f),
+            BuiltinServiceError::UnknownService(s) => write!(f, "unknown builtin service `{}`", s),
         }
     }
 }
@@ -153,7 +153,10 @@ impl BuiltinService {
     ];
 
     #[allow(clippy::needless_lifetimes)]
-    pub fn from(service_id: String, arguments: serde_json::Value) -> Result<Self, Error> {
+    pub fn from(
+        service_id: String,
+        arguments: serde_json::Value,
+    ) -> Result<Self, BuiltinServiceError> {
         use serde_json::from_value;
         use BuiltinService::*;
 
@@ -165,7 +168,8 @@ impl BuiltinService {
             Self::GET_INTERFACE => GetInterface(from_value(arguments)?),
             Self::GET_ACTIVE_INTERFACES => GetActiveInterfaces(from_value(arguments)?),
             Self::GET_AVAILABLE_MODULES => GetAvailableModules(from_value(arguments)?),
-            _ => return Err(Error::UnknownService(service_id)),
+            Self::ADD_MODULE => AddModule(from_value(arguments)?),
+            _ => return Err(BuiltinServiceError::UnknownService(service_id)),
         };
 
         Ok(service)
