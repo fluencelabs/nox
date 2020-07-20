@@ -10,7 +10,7 @@ parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch 
 multihash ="0.11.0"
 futures = "0.3.4"
 futures-util = "0.3.4"
-async-std = "1.5.0"
+async-std = "1.6.2"
 
 serde = { version = "1.0.110", features = ["derive"] }
 serde_json = "1.0.53"

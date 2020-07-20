@@ -144,8 +144,15 @@ impl NetworkBehaviour for FunctionRouter {
         use NetworkBehaviourAction::*;
         use NetworkBehaviourEventProcess as NBEP;
 
-        if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(event);
+        self.waker = Some(cx.waker().clone());
+
+        while let Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result))) =
+            self.faas.poll(cx, params)
+        {
+            if let Err(err) = self.send_faas_result(call, result) {
+                let msg = err.err_msg();
+                self.send_error_on_call(err.call(), msg);
+            }
         }
 
         // TODO: would be nice to generate that with macro
@@ -174,6 +181,10 @@ impl NetworkBehaviour for FunctionRouter {
                 }
                 Poll::Pending => break,
             }
+        }
+
+        if let Some(event) = self.pop_event() {
+            return Poll::Ready(event);
         }
 
         Poll::Pending

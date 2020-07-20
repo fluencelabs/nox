@@ -434,7 +434,7 @@ pub mod tests {
             let resolved = relay_address.clone().extend(&local);
             assert_eq!(expected, resolved);
 
-            let resolved = relay_address.clone().extend(&local);
+            let resolved = relay_address.extend(&local);
             assert_eq!(expected, resolved);
         } else {
             unreachable!()

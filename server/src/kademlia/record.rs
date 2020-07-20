@@ -84,6 +84,7 @@ impl TryInto<MultiRecord> for MultiRecordProto {
             PeerId::from_bytes(data).map_err(|_| ErrorKind::InvalidData.into())
         }
 
+        #[allow(clippy::redundant_closure)]
         let values = values
             .into_iter()
             .map(|v| {

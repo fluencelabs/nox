@@ -133,7 +133,7 @@ impl FunctionRouter {
         self.wait_peer.enqueue(peer_id.clone(), Connected(call));
 
         log::info!("Dialing {}", peer_id);
-        self.events.push_back(DialPeer { peer_id, condition });
+        self.push_event(DialPeer { peer_id, condition });
     }
 
     pub(super) fn connected(&mut self, peer_id: PeerId) {

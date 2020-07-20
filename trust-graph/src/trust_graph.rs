@@ -149,9 +149,7 @@ impl TrustGraph {
         let mut certs = certs.into_iter().peekable();
         // if there are no certificates for the given public key, there is no info about this public key
         // or some elements of possible certificate chains was revoked
-        if certs.peek().is_none() {
-            return None;
-        }
+        certs.peek()?;
 
         let mut weight = std::u32::MAX;
 

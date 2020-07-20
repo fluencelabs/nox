@@ -32,6 +32,7 @@ use libp2p::{identity, identity::ed25519, PeerId, Swarm};
 use parity_multiaddr::Multiaddr;
 use std::{error::Error, ops::DerefMut, time::Duration};
 
+#[derive(Clone, Debug)]
 pub enum Transport {
     Memory,
     Network,

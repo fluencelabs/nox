@@ -19,10 +19,11 @@ use super::config::RouterConfig;
 use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
+use crate::faas::FaaSBehaviour;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
-use fluence_faas::FluenceFaaS;
+use fluence_faas::RawCoreModulesConfig;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
 use libp2p::{
@@ -35,6 +36,7 @@ use libp2p::{
 use parity_multiaddr::Multiaddr;
 use prometheus::Registry;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::task::Waker;
 use trust_graph::TrustGraph;
 use uuid::Uuid;
 
@@ -58,11 +60,11 @@ pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 /// TODO: Wrap `FluenceFaaS` in Mutex? Currently it's marked as `unsafe impl Send`, that may lead to UB.
 pub struct FunctionRouter {
     /// Wasm execution environment
-    pub(super) faas: FluenceFaaS,
+    pub(super) faas: FaaSBehaviour,
     /// Router configuration info: peer id, keypair, listening addresses
     pub(super) config: RouterConfig,
     /// Queue of events to send to the upper level
-    pub(super) events: VecDeque<SwarmEventType>,
+    events: VecDeque<SwarmEventType>,
     /// Underlying Kademlia node
     pub(super) kademlia: Kademlia<MemoryStore>,
     // TODO: health-check local services?
@@ -76,6 +78,7 @@ pub struct FunctionRouter {
     // TODO: clear connected_peers on inject_listener_closed?
     /// Mediated by inject_connected & inject_disconnected
     pub(super) connected_peers: HashSet<PeerId>,
+    pub(super) waker: Option<Waker>,
 }
 
 // TODO: move public methods to a trait
@@ -84,7 +87,7 @@ impl FunctionRouter {
         config: RouterConfig,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
-        faas: FluenceFaaS,
+        faas_config: RawCoreModulesConfig,
     ) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
@@ -102,6 +105,7 @@ impl FunctionRouter {
         if let Some(registry) = registry {
             kademlia.enable_metrics(registry);
         }
+        let faas = FaaSBehaviour::new(faas_config);
 
         Self {
             faas,
@@ -112,6 +116,7 @@ impl FunctionRouter {
             wait_peer: <_>::default(),
             provided_names: <_>::default(),
             connected_peers: <_>::default(),
+            waker: None,
         }
     }
 
@@ -141,6 +146,7 @@ impl FunctionRouter {
 
         let mut target = target.iter().peekable();
         let mut is_local: bool = false;
+        let mut hashtag = None;
 
         loop {
             let address = match target.peek() {
@@ -152,7 +158,7 @@ impl FunctionRouter {
                     // target will be like: /client/QmClient/service/QmService
                     let call = call.with_target(target.collect());
                     // TODO: raise error instead of sending it
-                    if let Err(err) = self.execute_locally(&module, call) {
+                    if let Err(err) = self.execute_locally(module, call, hashtag) {
                         let err_msg = err.err_msg();
                         self.send_error_on_call(err.call(), err_msg);
                     }
@@ -196,7 +202,7 @@ impl FunctionRouter {
                     self.find_providers(key, call.with_target(target.collect()));
                     return;
                 }
-                Client(id) if is_local => {
+                Client(id) if is_local || self.connected_peers.contains(id) => {
                     let client_id = id.clone();
                     let client_protocol = target.next().unwrap();
                     // Remove signature from target
@@ -234,8 +240,14 @@ impl FunctionRouter {
                     return;
                 }
                 Hashtag(_) => {
-                    // Ignore hashtag because there's nothing else we can do about it
-                    continue;
+                    // Consume & save hashtag
+                    hashtag = target.next().and_then(|p| match p {
+                        Hashtag(t) => Some(t),
+                        _ => {
+                            debug_assert!(false, "target.next() must be a hashtag here");
+                            None
+                        }
+                    });
                 }
             }
         }
@@ -299,6 +311,7 @@ impl FunctionRouter {
                 arguments,
                 name: call.name,
                 sender: self.config.local_address(),
+                context: vec![],
             };
             self.call(call)
         } else {
@@ -319,12 +332,9 @@ impl FunctionRouter {
         let call = FunctionCall {
             uuid: format!("error_{}", uuid),
             target: Some(address),
-            reply_to: None, // TODO: sure?
-            module: None,
-            fname: None,
-            arguments,
-            name: None,
             sender: self.config.local_address(),
+            arguments,
+            ..<_>::default()
         };
         self.call(call)
     }
@@ -360,15 +370,13 @@ impl FunctionRouter {
     /// Triggered when `get_closest_peers` finished for local peer id
     /// Publishes all locally available wasm modules to DHT
     /// TODO: unpublish local modules when node is stopping? i.e., on Drop?
-    pub fn bootstrap_finished(&mut self) {
+    pub(super) fn bootstrap_finished(&mut self) {
         use faas_api::provider;
 
         log::info!("Bootstrap finished, publishing local modules");
 
         let local = self.config.local_address();
-        let interface = self.faas.get_interface();
-        #[rustfmt::skip]
-        let modules: Vec<String> = interface.modules.iter().map(|(name, _)| name.to_string()).collect();
+        let modules = self.faas.get_modules();
         for module in modules {
             if let Err(err) = self.publish_name(&provider!(module.clone()), &local) {
                 log::warn!("Failed to publish local module {}: {:?}", module, err);
@@ -376,5 +384,19 @@ impl FunctionRouter {
                 log::info!("Publishing local module {}", module);
             }
         }
+    }
+
+    /// Queue event, and call waker
+    pub(super) fn push_event(&mut self, event: SwarmEventType) {
+        if let Some(waker) = self.waker.clone() {
+            waker.wake();
+        }
+
+        self.events.push_back(event);
+    }
+
+    /// Take an event from queue
+    pub(super) fn pop_event(&mut self) -> Option<SwarmEventType> {
+        self.events.pop_front()
     }
 }

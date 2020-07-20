@@ -49,7 +49,7 @@ fn show_pubkey(key: &PublicKey, f: &mut std::fmt::Formatter<'_>) -> Result<(), s
     write!(f, "{}", bs58::encode(key.encode()).into_string())
 }
 
-fn show_sig(sig: &Signature, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+fn show_sig(sig: &[u8], f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
     write!(f, "{}", bs58::encode(sig).into_string())
 }
 

@@ -89,5 +89,5 @@ pub fn start_faas() -> CreatedSwarm {
     );
     sleep(KAD_TIMEOUT);
 
-    swarms.into_iter().nth(0).unwrap()
+    swarms.into_iter().next().unwrap()
 }
