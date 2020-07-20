@@ -600,23 +600,58 @@ fn get_interfaces() {
     assert_eq!(expected, actual);
 }
 
-#[test]
-fn get_modules() {
-    let swarm = start_faas();
-    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
-
+fn get_modules(client: &mut ConnectedClient) -> Vec<Value> {
     #[rustfmt::skip]
     let call = service_call(client.node_addr(), client.relay_addr(), "get_available_modules");
     client.send(call);
     let received = client.receive();
 
+    received.arguments["available_modules"]
+        .as_array()
+        .unwrap_or_else(|| panic!("get array from {:#?}", received))
+        .clone()
+}
+
+#[test]
+fn test_get_modules() {
+    let swarm = start_faas();
+    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+
     assert_eq!(
-        received.arguments["available_modules"]
-            .as_array()
-            .unwrap_or_else(|| panic!("get array from {:#?}", received))
-            .as_slice(),
-        &["test_one.wasm", "test_two.wasm"],
-        "{:#?}",
-        received
+        get_modules(&mut client),
+        &["test_one.wasm", "test_two.wasm"]
+    );
+}
+
+#[test]
+fn add_module() {
+    let config: Value = json!(
+        {
+            "name": "test_three.wasm",
+            "mem_pages_count": 100,
+            "logger_enabled": true,
+            "wasi": {
+                "envs": Vec::<()>::new(),
+                "preopened_files": vec!["./tests/artifacts"],
+                "mapped_dirs": json!({ "tmp": "./tests/artifacts" }),
+            }
+        }
+    );
+
+    let swarm = start_faas();
+    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+
+    let mut call = service_call(client.node_addr(), client.relay_addr(), "add_module");
+    call.arguments = json!({ "msg_id": uuid(), "config": config, "bytes": test_module() });
+    client.send(call);
+
+    let received = client.receive();
+    assert!(received.arguments.get("ok").is_some(), "{:?}", received);
+
+    let modules = get_modules(&mut client);
+
+    assert_eq!(
+        modules,
+        &["test_one.wasm", "test_two.wasm", "test_three.wasm"]
     );
 }
