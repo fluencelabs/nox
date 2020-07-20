@@ -41,6 +41,7 @@ pub struct FunctionCall {
 }
 
 impl Default for FunctionCall {
+    /// Implement default manually so arguments are `{}` by default
     fn default() -> Self {
         Self {
             uuid: "".to_string(),
