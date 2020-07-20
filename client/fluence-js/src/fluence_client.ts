@@ -103,50 +103,20 @@ export class FluenceClient {
     }
 
     /**
-     * Send call to the service.
-     *
-     * @param moduleId
-     * @param args message to the service
-     * @param fname function name
-     * @param name common field for debug purposes
-     * @param replyHash hash that will be added to replyTo address
-     */
-    async callProvider(moduleId: string, args: any, fname?: string, replyHash?: string, name?: string) {
-        if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(moduleId, false, args, fname, replyHash, name);
-        } else {
-            throw Error("client is not connected")
-        }
-    }
-
-    /**
-     * Send a call to the local service on a peer the client connected with.
-     *
-     * @param moduleId
-     * @param args message to the service
-     * @param fname function name
-     * @param name common field for debug purposes
-     * @param replyHash hash that will be added to replyTo address
-     */
-    async callLocalProvider(moduleId: string, args: any, fname?: string, replyHash?: string, name?: string) {
-        if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(moduleId, true, args, fname, replyHash, name);
-        } else {
-            throw Error("client is not connected")
-        }
-    }
-
-    /**
      * Send call to the service and wait a response matches predicate.
      *
      * @param moduleId
      * @param args message to the service
      * @param fname function name
      */
-    async callProviderWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
+    async callProvider(moduleId: string, args: any, fname?: string): Promise<any> {
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
-        await this.callProvider(moduleId, args, fname, replyHash, fname);
+        if (this.connection && this.connection.isConnected()) {
+            await this.connection.sendServiceCall(moduleId, false, args, fname, replyHash, name);
+        } else {
+            throw Error("client is not connected")
+        }
         return await this.waitResponse(predicate);
     }
 
@@ -157,23 +127,18 @@ export class FluenceClient {
      * @param args message to the service
      * @param fname function name
      */
-    async callLocalProviderWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
+    async callLocalProvider(moduleId: string, args: any, fname?: string): Promise<any> {
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
-        await this.callLocalProvider(moduleId, args, fname, replyHash, undefined);
-        return await this.waitResponse(predicate);
-    }
-
-    async callService(peerId: string, serviceId: string, moduleId: string, args: any, fname?: string) {
-        let target = createPeerAddress(peerId, serviceId);
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(target, args, true, moduleId, fname);
+            await this.connection.sendServiceCall(moduleId, true, args, fname, replyHash, name);
         } else {
             throw Error("client is not connected")
         }
+        return await this.waitResponse(predicate);
     }
 
-    async callServiceWaitResponse(peerId: string, serviceId: string, moduleId: string, args: any, fname?: string): Promise<any> {
+    async callService(peerId: string, serviceId: string, moduleId: string, args: any, fname?: string): Promise<any> {
         let target = createPeerAddress(peerId, serviceId);
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
@@ -291,7 +256,7 @@ export class FluenceClient {
         if (addr) {
             return this.sendCallWaitResponse(addr, {service_id: serviceId}, "get_interface")
         } else {
-            return this.callLocalProviderWaitResponse("get_interface", {service_id: serviceId})
+            return this.callLocalProvider("get_interface", {service_id: serviceId})
         }
     }
 
@@ -300,7 +265,7 @@ export class FluenceClient {
         if (addr) {
             return this.sendCallWaitResponse(addr, {}, "get_active_interfaces");
         } else {
-            return this.callLocalProviderWaitResponse("get_active_interfaces", {});
+            return this.callLocalProvider("get_active_interfaces", {});
         }
     }
 
@@ -309,7 +274,7 @@ export class FluenceClient {
         if (addr) {
             return this.sendCallWaitResponse(addr, {}, "get_available_modules");
         } else {
-            return this.callLocalProviderWaitResponse("get_available_modules", {});
+            return this.callLocalProvider("get_available_modules", {});
         }
 
     }

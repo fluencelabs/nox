@@ -182,10 +182,10 @@ export async function testGetFullServicesInfo() {
 
     // await cl2.createService(peerAddr1, ["ipfs_node.wasm"]);
 
-    let resp = await cl2.callServiceWaitResponse(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
+    let resp = await cl2.callService(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
     console.log(resp)
 
-    let resp2 = await cl1.callServiceWaitResponse(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
+    let resp2 = await cl1.callService(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
     console.log(resp2)
 
     /*let r1 = await cl1.getActiveInterfaces();
@@ -245,7 +245,7 @@ export async function testCalculator() {
     let req = {one: 12, two: 23};
 
     // send call to `sum-calculator` service with two numbers
-    let response = await cl2.callProviderWaitResponse(serviceId, req);
+    let response = await cl2.callProvider(serviceId, req);
 
     let result = response.result;
     console.log(`calculation result is: ${result}`);
@@ -257,7 +257,7 @@ export async function testCalculator() {
     // send call to `sum-calculator` service with two numbers
     await cl2.callProvider(serviceId, req, "calculator request");
 
-    let response2 = await cl2.callProviderWaitResponse(serviceId, req);
+    let response2 = await cl2.callProvider(serviceId, req);
 
     let result2 = await response2.result;
     console.log(`calculation result AFTER RECONNECT is: ${result2}`);
