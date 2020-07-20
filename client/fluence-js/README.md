@@ -46,7 +46,7 @@ Send a request by the second client and print a result. The predicate is require
 ```typescript
 let req = {one: 12, two: 23, msgId: msgId};
 
-let response = await client2.callProviderWaitResponse(name, req);
+let response = await client2.callProvider(name, req);
 
 let result = response.result;
 console.log(`calculation result is: ${result}`);
@@ -64,7 +64,7 @@ console.log(serviceId);
 ## Call Service
 
 ```
-let resp = await cl2.callServiceWaitResponse(peerAddr, serviceId, "ipfs_node.wasm", {some_arg: "1"}, "get_address")
+let resp = await cl2.callService(peerAddr, serviceId, "ipfs_node.wasm", {some_arg: "1"}, "get_address")
 console.log(resp)
 ```
 

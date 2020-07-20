@@ -126,8 +126,9 @@ export class FluenceClient {
      * @param moduleId
      * @param args message to the service
      * @param fname function name
+     * @param name debug info
      */
-    async callLocalProvider(moduleId: string, args: any, fname?: string): Promise<any> {
+    async callLocalProvider(moduleId: string, args: any, fname?: string, name?: string): Promise<any> {
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
         if (this.connection && this.connection.isConnected()) {
@@ -253,30 +254,36 @@ export class FluenceClient {
 
     // TODO add type for interface result
     async getInterface(serviceId: string, addr?: Address): Promise<any> {
+        let resp;
         if (addr) {
-            return this.sendCallWaitResponse(addr, {service_id: serviceId}, "get_interface")
+            resp = await this.sendCallWaitResponse(addr, {service_id: serviceId}, "get_interface")
         } else {
-            return this.callLocalProvider("get_interface", {service_id: serviceId})
+            resp = await this.callLocalProvider("get_interface", {service_id: serviceId})
         }
+        return resp.interface;
     }
 
     // TODO add type for interfaces result
     async getActiveInterfaces(addr?: Address): Promise<any> {
+        let resp;
         if (addr) {
-            return this.sendCallWaitResponse(addr, {}, "get_active_interfaces");
+            resp = await this.sendCallWaitResponse(addr, {}, "get_active_interfaces");
         } else {
-            return this.callLocalProvider("get_active_interfaces", {});
+            resp = await this.callLocalProvider("get_active_interfaces", {});
         }
+        return resp.active_interfaces;
     }
 
     // TODO add type for available modules result
-    async getAvailableModules(addr?: Address): Promise<any> {
+    async getAvailableModules(addr?: Address): Promise<string[]> {
+        let resp;
         if (addr) {
-            return this.sendCallWaitResponse(addr, {}, "get_available_modules");
+            resp = await this.sendCallWaitResponse(addr, {}, "get_available_modules");
         } else {
-            return this.callLocalProvider("get_available_modules", {});
+            resp = await this.callLocalProvider("get_available_modules", {});
         }
 
+        return resp.available_modules;
     }
 
     // subscribe new hook for every incoming call, to handle in-service responses and other different cases

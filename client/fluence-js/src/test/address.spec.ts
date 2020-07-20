@@ -182,39 +182,41 @@ export async function testGetFullServicesInfo() {
 
     // await cl2.createService(peerAddr1, ["ipfs_node.wasm"]);
 
-    let resp = await cl2.callService(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
+    /*let resp = await cl2.callService(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
     console.log(resp)
 
     let resp2 = await cl1.callService(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
-    console.log(resp2)
+    console.log(resp2)*/
 
-    /*let r1 = await cl1.getActiveInterfaces();
+    let r1 = await cl1.getActiveInterfaces();
+    let r11 = await cl1.getInterface('9adf40a2-0a4c-43ec-b4d2-305fd762cb46');
     console.log("111111111111111111");
     console.log(r1);
-    let r2 = await cl1.getActiveInterfaces(peerAddr2);
+    console.log(r11);
+    /*let r2 = await cl1.getActiveInterfaces(peerAddr2);
     console.log("2222222222222222222");
-    console.log(r2);
+    console.log(r2);*/
 
-    let r3 = await cl2.getActiveInterfaces();
+    /*let r3 = await cl2.getActiveInterfaces();
     console.log("33333333333333333333");
     console.log(r3);
     let r4 = await cl2.getActiveInterfaces(peerAddr1);
     console.log("4444444444444444444444");
     console.log(r4);*/
 
-    /*let r1 = await cl1.getAvailableModules();
+    /*let r5 = await cl1.getAvailableModules();
     console.log("111111111111111111");
-    console.log(r1);
-    let r2 = await cl1.getAvailableModules(peerAddr2);
+    console.log(r5);
+    let r6 = await cl1.getAvailableModules(peerAddr2);
     console.log("2222222222222222222");
-    console.log(r2);
+    console.log(r6);
 
-    let r3 = await cl2.getAvailableModules();
+    let r7 = await cl2.getAvailableModules();
     console.log("33333333333333333333");
-    console.log(r3);
-    let r4 = await cl2.getAvailableModules(peerAddr1);
+    console.log(r7);
+    let r8 = await cl2.getAvailableModules(peerAddr1);
     console.log("4444444444444444444444");
-    console.log(r4);*/
+    console.log(r8);*/
 }
 
 // Shows how to register and call new service in Fluence network
