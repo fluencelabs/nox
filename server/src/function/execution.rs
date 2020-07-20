@@ -23,7 +23,7 @@ use super::{
     errors::CallErrorKind::*,
     CallError, ErrorData, FunctionRouter,
 };
-use crate::function::builtin_service::{GetActiveInterfaces, GetAvailableModules};
+use crate::function::builtin_service::{AddModule, GetActiveInterfaces, GetAvailableModules};
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use libp2p::PeerId;
 use serde::Serialize;
@@ -74,7 +74,14 @@ impl FunctionRouter {
                 let modules = json!(self.faas.get_modules());
                 self.reply_with(call, msg_id, ("available_modules", modules))
             }
-            BuiltinService::AddModule(_) => Ok(()),
+            BuiltinService::AddModule(AddModule {
+                msg_id,
+                bytes,
+                config,
+            }) => match self.faas.add_module(bytes, config) {
+                Ok(_) => self.reply_with(call, msg_id, ("ok", ())),
+                Err(e) => Err(call.error(e)),
+            },
         }
     }
 
