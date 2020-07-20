@@ -642,7 +642,8 @@ fn add_module() {
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
     let mut call = service_call(client.node_addr(), client.relay_addr(), "add_module");
-    call.arguments = json!({ "msg_id": uuid(), "config": config, "bytes": test_module() });
+    call.arguments =
+        json!({ "msg_id": uuid(), "config": config, "bytes": base64::encode(&test_module()) });
     client.send(call);
 
     let received = client.receive();
