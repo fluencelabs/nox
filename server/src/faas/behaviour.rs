@@ -182,6 +182,8 @@ impl FaaSBehaviour {
         return vec![];
     }
 
+    /// Adds a module to the filesystem, overwriting existing module.
+    /// Also adds module config to the RawModuleConfig
     pub fn add_module(&mut self, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
         let dir = ok_get!(self.config.core_modules_dir.as_ref());
         let mut path = PathBuf::from(dir);
