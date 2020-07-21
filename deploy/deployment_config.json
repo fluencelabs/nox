@@ -1,5 +1,5 @@
 {
-    "branch": "fce_multiaddr",
+    "branch": "get_interfaces",
     "bootstrap": "134.209.186.43",
     "nodes": [
       "134.209.186.43"

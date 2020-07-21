@@ -15,20 +15,21 @@
  */
 
 use super::{address_signature::SignatureError, builtin_service};
+use crate::faas::FaaSExecError;
 use faas_api::{Address, FunctionCall};
 use fluence_faas::FaaSError;
 use trust_graph::Certificate;
 
-pub struct CallError<'a> {
+pub struct CallError {
     call: FunctionCall,
-    kind: CallErrorKind<'a>,
+    kind: CallErrorKind,
 }
-impl<'a> CallError<'a> {
-    pub fn error(call: FunctionCall, kind: CallErrorKind<'a>) -> Self {
+impl CallError {
+    pub fn error(call: FunctionCall, kind: CallErrorKind) -> Self {
         Self { call, kind }
     }
 
-    pub fn make<K: Into<CallErrorKind<'a>>>(call: FunctionCall, kind: K) -> Self {
+    pub fn make<K: Into<CallErrorKind>>(call: FunctionCall, kind: K) -> Self {
         Self::error(call, kind.into())
     }
 
@@ -50,7 +51,6 @@ impl<'a> CallError<'a> {
             }
             CallErrorKind::BuiltinServiceError(err) => format!("builtin service failure: {}", err),
             CallErrorKind::FaaSError(err) => format!("faas execution failure: {}", err),
-            CallErrorKind::UnroutableCall(err_msg) => format!("unroutable call: {}", err_msg),
             CallErrorKind::Signature(err) => {
                 format!("failed to register service, siganture error: {:?}", err)
             }
@@ -75,38 +75,29 @@ impl<'a> CallError<'a> {
                 "Totally unexpected: can't serialize FaaS interface to json: {}",
                 err
             ),
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn into_reply(mut self, sender: Address) -> FunctionCall {
-        use serde_json::json;
-
-        let err_msg = self.err_msg();
-        let arguments = json!({ "reason": err_msg, "call": self.call });
-        let reply_to = self.call.reply_to.take().unwrap_or(self.call.sender);
-
-        FunctionCall {
-            uuid: format!("error_{}", self.call.uuid),
-            target: Some(reply_to),
-            reply_to: None,
-            module: None,
-            fname: None,
-            arguments,
-            name: self.call.name,
-            sender,
+            CallErrorKind::MissingServiceId => {
+                "service id must be specified after # in the target address".to_string()
+            }
+            CallErrorKind::NoSuchModule { module, service_id } => {
+                format!("module {} wasn't found on service {}", module, service_id)
+            }
+            CallErrorKind::FaaSExecError(err) => {
+                format!("error while executing faas call: {}", err)
+            }
+            CallErrorKind::EmptyContext => {
+                "context can't be empty when creating a service".to_string()
+            }
         }
     }
 }
 
-pub enum CallErrorKind<'a> {
+pub enum CallErrorKind {
     MissingFunctionName { module: String },
     FunctionNotFound { module: String, function: String },
     InvalidArguments { error: String },
     ResultSerializationFailed(String),
-    BuiltinServiceError(builtin_service::Error<'a>),
+    BuiltinServiceError(builtin_service::BuiltinServiceError),
     FaaSError(FaaSError),
-    UnroutableCall(String),
     Signature(SignatureError),
     ServiceRegister(libp2p::kad::store::Error),
     NonLocalRelay,
@@ -116,36 +107,39 @@ pub enum CallErrorKind<'a> {
     UnsupportedPublicKey,
     AddCertificates(Vec<(Certificate, String)>),
     FaasInterfaceSerialization(serde_json::Error),
+    MissingServiceId,
+    NoSuchModule { module: String, service_id: String },
+    FaaSExecError(FaaSExecError),
+    EmptyContext,
 }
 
-impl<'a> CallErrorKind<'a> {
-    #[allow(dead_code)]
-    pub fn of_call(self, call: FunctionCall) -> CallError<'a> {
-        CallError::make(call, self)
-    }
-}
-
-impl<'a> From<builtin_service::Error<'a>> for CallErrorKind<'a> {
-    fn from(err: builtin_service::Error<'a>) -> Self {
+impl From<builtin_service::BuiltinServiceError> for CallErrorKind {
+    fn from(err: builtin_service::BuiltinServiceError) -> Self {
         CallErrorKind::BuiltinServiceError(err)
     }
 }
 
-impl From<FaaSError> for CallErrorKind<'static> {
+impl From<FaaSError> for CallErrorKind {
     fn from(err: FaaSError) -> Self {
         CallErrorKind::FaaSError(err)
     }
 }
 
-impl From<SignatureError> for CallErrorKind<'static> {
+impl From<SignatureError> for CallErrorKind {
     fn from(err: SignatureError) -> Self {
         CallErrorKind::Signature(err)
     }
 }
 
-impl From<libp2p::kad::record::store::Error> for CallErrorKind<'static> {
+impl From<libp2p::kad::record::store::Error> for CallErrorKind {
     fn from(err: libp2p::kad::record::store::Error) -> Self {
         CallErrorKind::ServiceRegister(err)
+    }
+}
+
+impl From<FaaSExecError> for CallErrorKind {
+    fn from(err: FaaSExecError) -> Self {
+        CallErrorKind::FaaSExecError(err)
     }
 }
 
@@ -153,8 +147,8 @@ pub trait ErrorData<EKind, Error> {
     fn error(self, e: EKind) -> Error;
 }
 
-impl<'a, E: Into<CallErrorKind<'a>>> ErrorData<E, CallError<'a>> for FunctionCall {
-    fn error(self, e: E) -> CallError<'a> {
+impl<'a, E: Into<CallErrorKind>> ErrorData<E, CallError> for FunctionCall {
+    fn error(self, e: E) -> CallError {
         CallError::make(self, e)
     }
 }

@@ -186,13 +186,14 @@ fn print_example(node: Address, reply_to: Address) {
     let call_identify = ClientCommand::Call {
         call: FunctionCall {
             uuid: uuid(),
-            target: Some(node.clone()),
+            target: Some(node),
             reply_to: Some(reply_to.clone()),
             module: Some("provide".into()),
             fname: None,
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call identify".to_string()),
             sender: reply_to.clone(),
+            context: vec![],
         },
     };
 
@@ -206,6 +207,7 @@ fn print_example(node: Address, reply_to: Address) {
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
             sender: reply_to,
+            context: vec!["ipfs_node.wasm".to_string()],
         },
     };
 

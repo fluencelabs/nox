@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+use fluence_faas::RawModuleConfig;
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::fmt::Display;
 use trust_graph::{certificate_serde, Certificate};
 
@@ -43,16 +44,63 @@ pub struct AddCertificates {
     pub msg_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
 pub struct Identify {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msg_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
 pub struct GetInterface {
+    pub service_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msg_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct GetActiveInterfaces {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct GetAvailableModules {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddModule {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+    #[serde(
+        deserialize_with = "AddModule::de_bytes",
+        serialize_with = "AddModule::ser_bytes"
+    )]
+    pub bytes: Vec<u8>,
+    pub config: RawModuleConfig,
+}
+
+impl AddModule {
+    fn de_bytes<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        base64::decode(&s)
+            .map_err(|e| serde::de::Error::custom(format!("base64 decode error: {:?}", e)))
+    }
+
+    fn ser_bytes<S>(bs: &[u8], ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        String::serialize(&base64::encode(bs), ser)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,25 +111,28 @@ pub enum BuiltinService {
     AddCertificates(AddCertificates),
     Identify(Identify),
     GetInterface(GetInterface),
+    GetActiveInterfaces(GetActiveInterfaces),
+    GetAvailableModules(GetAvailableModules),
+    AddModule(AddModule),
 }
 
 #[derive(Debug)]
-pub enum Error<'a> {
+pub enum BuiltinServiceError {
     Serde(serde_json::Error),
-    UnknownService(&'a str),
+    UnknownService(String),
 }
 
-impl<'a> From<serde_json::Error> for Error<'a> {
+impl<'a> From<serde_json::Error> for BuiltinServiceError {
     fn from(err: serde_json::Error) -> Self {
-        Error::Serde(err)
+        BuiltinServiceError::Serde(err)
     }
 }
 
-impl<'a> Display for Error<'a> {
+impl<'a> Display for BuiltinServiceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Serde(serderr) => serderr.fmt(f),
-            Error::UnknownService(s) => write!(f, "unknown builtin service `{}`", s),
+            BuiltinServiceError::Serde(serderr) => serderr.fmt(f),
+            BuiltinServiceError::UnknownService(s) => write!(f, "unknown builtin service `{}`", s),
         }
     }
 }
@@ -92,23 +143,33 @@ impl BuiltinService {
     const ADD_CERTS: &'static str = "add_certificates";
     const IDENTIFY: &'static str = "identify";
     const GET_INTERFACE: &'static str = "get_interface";
+    const GET_ACTIVE_INTERFACES: &'static str = "get_active_interfaces";
+    const GET_AVAILABLE_MODULES: &'static str = "get_available_modules";
+    const ADD_MODULE: &'static str = "add_module";
     #[rustfmt::skip]
-    const SERVICES: [&'static str; 5] = [
+    const SERVICES: &'static [&'static str] = &[
         Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY, Self::GET_INTERFACE,
+        Self::GET_ACTIVE_INTERFACES, Self::GET_AVAILABLE_MODULES, Self::ADD_MODULE
     ];
 
     #[allow(clippy::needless_lifetimes)]
-    pub fn from<'a>(service_id: &'a str, arguments: serde_json::Value) -> Result<Self, Error<'a>> {
+    pub fn from(
+        service_id: String,
+        arguments: serde_json::Value,
+    ) -> Result<Self, BuiltinServiceError> {
         use serde_json::from_value;
         use BuiltinService::*;
 
-        let service = match service_id {
+        let service = match service_id.as_str() {
             Self::PROVIDE => Provide(from_value(arguments)?),
             Self::CERTS => GetCertificates(from_value(arguments)?),
             Self::ADD_CERTS => AddCertificates(from_value(arguments)?),
             Self::IDENTIFY => Identify(from_value(arguments)?),
             Self::GET_INTERFACE => GetInterface(from_value(arguments)?),
-            s => return Err(Error::UnknownService(s)),
+            Self::GET_ACTIVE_INTERFACES => GetActiveInterfaces(from_value(arguments)?),
+            Self::GET_AVAILABLE_MODULES => GetAvailableModules(from_value(arguments)?),
+            Self::ADD_MODULE => AddModule(from_value(arguments)?),
+            _ => return Err(BuiltinServiceError::UnknownService(service_id)),
         };
 
         Ok(service)
@@ -128,6 +189,9 @@ impl BuiltinService {
             BuiltinService::AddCertificates { .. } => BuiltinService::ADD_CERTS,
             BuiltinService::Identify { .. } => BuiltinService::IDENTIFY,
             BuiltinService::GetInterface { .. } => BuiltinService::GET_INTERFACE,
+            BuiltinService::GetActiveInterfaces { .. } => BuiltinService::GET_ACTIVE_INTERFACES,
+            BuiltinService::GetAvailableModules { .. } => BuiltinService::GET_AVAILABLE_MODULES,
+            BuiltinService::AddModule(_) => BuiltinService::ADD_MODULE,
         };
 
         (service_id, json!(self))
@@ -161,7 +225,7 @@ pub mod test {
 
         assert_eq!(service_id, "provide");
 
-        match BuiltinService::from(target, call.arguments) {
+        match BuiltinService::from(target.into(), call.arguments) {
             Ok(BuiltinService::Provide(Provide { service_id })) => {
                 assert_eq!(service_id, ipfs_service)
             }
@@ -209,7 +273,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let _service: AddCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let service = BuiltinService::from(target, call.arguments).unwrap();
+        let service = BuiltinService::from(target.into(), call.arguments).unwrap();
 
         match service {
             BuiltinService::AddCertificates(add) => {
@@ -253,7 +317,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let _service: GetCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let service = BuiltinService::from(&target, call.arguments).unwrap();
+        let service = BuiltinService::from(target.into(), call.arguments).unwrap();
 
         match service {
             BuiltinService::GetCertificates(add) => {
@@ -272,7 +336,7 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         });
         let (target, arguments) = service.as_target_args();
         let call = gen_provide_call(provider!(target), arguments);
-        let service = BuiltinService::from(&target, call.arguments).unwrap();
+        let service = BuiltinService::from(target.into(), call.arguments).unwrap();
 
         match service {
             BuiltinService::Identify(identify) => assert_eq!(msg_id, identify.msg_id),

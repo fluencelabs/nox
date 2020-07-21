@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
@@ -98,6 +97,11 @@ pub mod kademlia {
 
     pub(crate) use memory_store::MemoryStore;
     pub(crate) use record::try_to_multirecord;
+}
+
+pub mod faas {
+    mod behaviour;
+    pub(crate) use behaviour::{FaaSBehaviour, FaaSCall, FaaSCallResult, FaaSExecError};
 }
 
 pub(crate) use bootstrapper::Bootstrapper;

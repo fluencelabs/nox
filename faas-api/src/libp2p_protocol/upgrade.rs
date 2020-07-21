@@ -25,7 +25,6 @@ use std::{io, iter, pin::Pin};
 
 #[derive(Clone)]
 pub struct ProtocolConfig {
-    #[allow(dead_code)]
     local_address: Address,
 }
 
@@ -45,6 +44,7 @@ impl ProtocolConfig {
             arguments: json!({ "data": data }),
             name: Some(err.to_string()),
             sender: self.local_address.clone(),
+            context: vec![],
         })
     }
 }
@@ -126,7 +126,6 @@ where
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
-            // TODO: remove that once debugged
             match serde_json::to_string(&self) {
                 Ok(str) => log::debug!("Sending outbound ProtocolMessage: {}", str),
                 Err(err) => log::warn!("Can't serialize {:?} to string {}", &self, err),

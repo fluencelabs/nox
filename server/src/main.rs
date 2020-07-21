@@ -26,10 +26,8 @@
     unreachable_patterns
 )]
 
-use anyhow::Context;
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
-use fluence_faas::FluenceFaaS;
 use fluence_server::config::{certificates, create_args, load_config, FluenceConfig};
 use fluence_server::Server;
 use futures::channel::oneshot;
@@ -78,12 +76,10 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
-    let faas = FluenceFaaS::with_raw_config(config.faas).context("Failed to create FluenceFaas")?;
-
     let node_service = Server::new(
         key_pair.clone(),
         config.server,
-        faas,
+        config.faas,
         config
             .root_weights
             .into_iter()

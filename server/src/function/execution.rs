@@ -23,8 +23,8 @@ use super::{
     errors::CallErrorKind::*,
     CallError, ErrorData, FunctionRouter,
 };
+use crate::function::builtin_service::{AddModule, GetActiveInterfaces, GetAvailableModules};
 use faas_api::{provider, Address, FunctionCall, Protocol};
-use fluence_faas::IValue;
 use libp2p::PeerId;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -38,7 +38,7 @@ impl FunctionRouter {
         &mut self,
         service: BuiltinService,
         call: FunctionCall,
-    ) -> Result<(), CallError<'static>> {
+    ) -> Result<(), CallError> {
         use BuiltinService as BS;
 
         match service {
@@ -56,57 +56,34 @@ impl FunctionRouter {
                 let addrs: Vec<_> = addrs.iter().map(ToString::to_string).collect();
                 self.reply_with(call, msg_id, ("addresses", addrs))
             }
-            BS::GetInterface(GetInterface { msg_id }) => {
-                match serde_json::to_value(self.faas.get_interface()) {
+            BS::GetInterface(GetInterface { msg_id, service_id }) => {
+                let interface = self
+                    .faas
+                    .get_interface(service_id.as_str())
+                    .map_err(|e| call.clone().error(e))?;
+                match serde_json::to_value(interface) {
                     Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
                     Err(err) => Err(call.error(FaasInterfaceSerialization(err))),
                 }
             }
+            BuiltinService::GetActiveInterfaces(GetActiveInterfaces { msg_id }) => {
+                let interfaces = json!(self.faas.get_interfaces());
+                self.reply_with(call, msg_id, ("active_interfaces", interfaces))
+            }
+            BuiltinService::GetAvailableModules(GetAvailableModules { msg_id }) => {
+                let modules = json!(self.faas.get_modules());
+                self.reply_with(call, msg_id, ("available_modules", modules))
+            }
+            BuiltinService::AddModule(AddModule {
+                msg_id,
+                bytes,
+                config,
+            }) => match self.faas.add_module(bytes, config) {
+                // TODO: what to return instead of {}?
+                Ok(_) => self.reply_with(call, msg_id, ("ok", json!({}))),
+                Err(e) => Err(call.error(e)),
+            },
         }
-    }
-
-    /// Execute `function` on `module` in the FluenceFaaS
-    pub(super) fn execute_wasm(
-        &mut self,
-        module: String,
-        function: String,
-        call: FunctionCall,
-    ) -> Result<(), CallError<'static>> {
-        let is_null = call.arguments.is_null();
-        let is_empty_arr = call.arguments.as_array().map_or(false, |a| a.is_empty());
-        let is_empty_obj = call.arguments.as_object().map_or(false, |m| m.is_empty());
-        let arguments = if !is_null && !is_empty_arr && !is_empty_obj {
-            fluence_faas::to_interface_value(&call.arguments).map_err(|e| {
-                call.clone().error(InvalidArguments {
-                    error: format!("can't parse arguments as array of interface types: {}", e),
-                })
-            })?
-        } else {
-            // Convert null, [] and {} into Record([])
-            IValue::Record(<_>::default())
-        };
-
-        let arguments = match &arguments {
-            IValue::Record(arguments) => Ok(arguments.as_ref()),
-            other => Err(call.clone().error(InvalidArguments {
-                error: format!("expected array of interface values: got {:?}", other),
-            })),
-        }?;
-
-        let result = self
-            .faas
-            .call_module(&module, &function, arguments)
-            .map_err(|e| call.clone().error(e))?;
-
-        // Handle empty result manually because `from_interface_values` doesn't support empty vec
-        let result = if !result.is_empty() {
-            fluence_faas::from_interface_values(&result)
-                .map_err(|e| call.clone().error(ResultSerializationFailed(e.to_string())))?
-        } else {
-            Value::Null
-        };
-
-        self.reply_with(call, None, ("result", result))
     }
 
     fn add_certificates(
@@ -115,7 +92,7 @@ impl FunctionRouter {
         certificates: Vec<Certificate>,
         call: FunctionCall,
         msg_id: Option<String>,
-    ) -> Result<(), CallError<'static>> {
+    ) -> Result<(), CallError> {
         #[rustfmt::skip]
         log::info!(
             "executing add_certificates of {} certs for {}, call: {:?}", 
@@ -152,7 +129,9 @@ impl FunctionRouter {
 
         // Finally – broadcast that call to the neighborhood if it wasn't already a replication
         // NOTE: not filtering errors, other nodes may succeed where we failed
-        Ok(self.replicate_to_neighbors(peer_id, call))
+        self.replicate_to_neighbors(peer_id, call);
+
+        Ok(())
     }
 
     fn get_certificates(
@@ -160,7 +139,7 @@ impl FunctionRouter {
         peer_id: PeerId,
         call: FunctionCall,
         msg_id: Option<String>,
-    ) -> Result<(), CallError<'static>> {
+    ) -> Result<(), CallError> {
         use libp2p::identity::PublicKey;
 
         #[rustfmt::skip]
@@ -194,7 +173,7 @@ impl FunctionRouter {
         Ok(())
     }
 
-    fn provide(&mut self, name: Address, call: FunctionCall) -> Result<(), CallError<'static>> {
+    fn provide(&mut self, name: Address, call: FunctionCall) -> Result<(), CallError> {
         use Protocol::*;
 
         let protocols = call.reply_to.as_ref().map(|addr| addr.protocols());
@@ -242,12 +221,12 @@ impl FunctionRouter {
 
     /// Send reply on a given call with given msg_id and data in arguments
     /// If data or msg_id is empty, it's not included in the arguments
-    fn reply_with<T: Serialize>(
+    pub(super) fn reply_with<T: Serialize>(
         &mut self,
         call: FunctionCall,
         msg_id: Option<String>,
         data: (&str, T),
-    ) -> Result<(), CallError<'static>> {
+    ) -> Result<(), CallError> {
         let reply_to = call.reply_to.clone();
         let reply_to = reply_to.ok_or_else(|| call.error(MissingReplyTo))?;
 
@@ -267,6 +246,8 @@ impl FunctionRouter {
         // Build JSON object and send in reply
         let args = Value::Object(args);
         let call = FunctionCall::reply(reply_to, self.config.local_address(), args, None);
-        Ok(self.call(call))
+        self.call(call);
+
+        Ok(())
     }
 }
