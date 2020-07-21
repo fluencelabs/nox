@@ -70,14 +70,18 @@ pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static>
         toml::from_str(WASM_CONFIG).expect("parse module config");
 
     let wasm_modules = vec![
-        ("test_one.wasm".to_string(), TEST_MODULE.to_vec()),
-        ("test_two.wasm".to_string(), TEST_MODULE.to_vec()),
+        ("test_one.wasm".to_string(), test_module()),
+        ("test_two.wasm".to_string(), test_module()),
     ];
 
     let mut config = SwarmConfig::new(bs, maddr);
     config.wasm_modules = wasm_modules;
     config.wasm_config = wasm_config;
     config
+}
+
+pub fn test_module() -> Vec<u8> {
+    TEST_MODULE.to_vec()
 }
 
 pub fn start_faas() -> CreatedSwarm {

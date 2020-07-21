@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+use crate::faas::behaviour::FaaSExecError::AddModule;
 use async_std::task;
 use faas_api::FunctionCall;
-use fluence_faas::{FaaSError, FaaSInterface, FluenceFaaS, IValue, RawCoreModulesConfig};
+use fluence_faas::{
+    FaaSError, FaaSInterface, FluenceFaaS, IValue, RawCoreModulesConfig, RawModuleConfig,
+};
 use futures_util::future::BoxFuture;
 use libp2p::core::connection::ConnectionId;
 use libp2p::swarm::{
@@ -31,6 +34,7 @@ use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::task::{Context, Poll, Waker};
 use uuid::Uuid;
@@ -176,6 +180,19 @@ impl FaaSBehaviour {
         }
 
         return vec![];
+    }
+
+    /// Adds a module to the filesystem, overwriting existing module.
+    /// Also adds module config to the RawModuleConfig
+    pub fn add_module(&mut self, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
+        let dir = ok_get!(self.config.core_modules_dir.as_ref());
+        let mut path = PathBuf::from(dir);
+        path.push(&config.name);
+        std::fs::write(&path, bytes).map_err(|err| AddModule { path, err })?;
+
+        self.config.core_module.push(config);
+
+        Ok(())
     }
 
     /// Spawns tasks for calls execution and creates new FaaS-es until an error happens
@@ -350,6 +367,7 @@ impl NetworkBehaviour for FaaSBehaviour {
 pub enum FaaSExecError {
     NoSuchInstance(String),
     FaaS(FaaSError),
+    AddModule { path: PathBuf, err: std::io::Error },
 }
 
 impl Error for FaaSExecError {}
@@ -366,6 +384,9 @@ impl std::fmt::Display for FaaSExecError {
                 write!(f, "FaaS instance {} not found", service_id)
             }
             FaaSExecError::FaaS(err) => err.fmt(f),
+            FaaSExecError::AddModule { path, err } => {
+                write!(f, "Error saving module {:?}: {:?}", path, err)
+            }
         }
     }
 }
