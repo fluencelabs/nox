@@ -198,7 +198,7 @@ impl FunctionRouter {
                     .map_err(|e| call.clone().error(e))?;
 
                 log::info!("Published a service {}: {:?}", name, call);
-                Ok(())
+                self.reply_with(call, None, ("ok", json!({})))
             }
             // To avoid routing cycle (see discussion https://fluencelabs.slack.com/archives/C8FDH536W/p1588333361404100?thread_ts=1588331102.398600&cid=C8FDH536W)
             Some([Peer(p), ..]) if !self.is_local(p) => Err(call.error(NonLocalRelay)),
