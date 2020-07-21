@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use faas_api::Address;
 use fluence_faas::RawModuleConfig;
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
@@ -23,7 +24,8 @@ use trust_graph::{certificate_serde, Certificate};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Provide {
-    pub service_id: String,
+    pub name: String,
+    pub address: Address,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -211,7 +213,7 @@ pub mod test {
     fn serialize_provide() {
         let ipfs_service = "IPFS.get_QmFile";
         let service = BuiltinService::Provide(Provide {
-            service_id: ipfs_service.into(),
+            name: ipfs_service.into(),
         });
         let (target, arguments) = service.as_target_args();
         let call = gen_provide_call(provider!(target), arguments);
@@ -226,7 +228,7 @@ pub mod test {
         assert_eq!(service_id, "provide");
 
         match BuiltinService::from(target.into(), call.arguments) {
-            Ok(BuiltinService::Provide(Provide { service_id })) => {
+            Ok(BuiltinService::Provide(Provide { name: service_id })) => {
                 assert_eq!(service_id, ipfs_service)
             }
             wrong => unreachable!(

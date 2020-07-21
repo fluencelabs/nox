@@ -16,7 +16,6 @@
 
 use super::wait_peer::WaitPeer;
 use super::FunctionRouter;
-use crate::function::waiting_queues::Enqueued;
 use faas_api::{FunctionCall, Protocol};
 use libp2p::{
     swarm::{DialPeerCondition, NetworkBehaviour, NetworkBehaviourAction},
@@ -50,11 +49,10 @@ impl FunctionRouter {
 
     /// Query for peers closest to the `peer_id` as DHT key, enqueue call until response
     fn query_closest(&mut self, peer_id: PeerId, call: WaitPeer) {
-        // Don't call get_closest_peers if there are already some calls waiting for it
-        if let Enqueued::New = self.wait_peer.enqueue(peer_id.clone(), call) {
-            // NOTE: Using Qm form of `peer_id` here (via peer_id.borrow), since kademlia uses that for keys
-            self.kademlia.get_closest_peers(peer_id);
-        }
+        // TODO: Don't call get_closest_peers if there are already WaitPeer::Neighbourhood or WaitPeer::Routable enqueued
+        self.wait_peer.enqueue(peer_id.clone(), call);
+        // NOTE: Using Qm form of `peer_id` here (via peer_id.borrow), since kademlia uses that for keys
+        self.kademlia.get_closest_peers(peer_id);
     }
 
     /// Send all calls waiting for this peer to be found

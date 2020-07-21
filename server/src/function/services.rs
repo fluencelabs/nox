@@ -17,6 +17,7 @@
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
 use crate::faas::{FaaSCall, FaaSCallResult, FaaSExecError};
+use crate::function::wait_address::WaitAddress;
 use crate::function::waiting_queues::Enqueued;
 use crate::function::{CallError, CallErrorKind::*, ErrorData};
 use faas_api::{Address, FunctionCall, Protocol};
@@ -134,7 +135,10 @@ impl FunctionRouter {
     // Look for service providers, enqueue call to wait for providers
     pub(super) fn find_providers(&mut self, name: Address, call: FunctionCall) {
         log::info!("Finding service provider for {}, call: {:?}", name, call);
-        if let Enqueued::New = self.wait_name_resolved.enqueue(name.clone(), call) {
+        if let Enqueued::New = self
+            .wait_address
+            .enqueue(name.clone(), WaitAddress::ProviderFound(call))
+        {
             // won't call get_providers if there are already calls waiting for it
             self.resolve_name(&name)
         } else {
@@ -146,7 +150,7 @@ impl FunctionRouter {
     }
 
     // Advance execution for calls waiting for this service: send them to first provider
-    pub fn providers_found(&mut self, name: &Address, providers: HashSet<Address>) {
+    pub fn providers_found(&mut self, name: Address, providers: HashSet<Address>) {
         if providers.is_empty() {
             self.provider_search_failed(name, "zero providers found");
         } else {
@@ -154,14 +158,17 @@ impl FunctionRouter {
         }
     }
 
-    fn provider_search_succeeded(&mut self, name: &Address, providers: HashSet<Address>) {
+    fn provider_search_succeeded(&mut self, name: Address, providers: HashSet<Address>) {
         log::info!(
             "Found {} providers for name {}: {:?}",
             providers.len(),
             name,
             providers
         );
-        let mut calls = self.wait_name_resolved.remove(&name).peekable();
+        let mut calls = self
+            .wait_address
+            .remove_with(name.clone(), WaitAddress::provider_found)
+            .peekable();
         // Check if calls are empty without actually advancing iterator
         if calls.peek().is_none() && !providers.is_empty() {
             log::warn!(
@@ -173,7 +180,7 @@ impl FunctionRouter {
         // TODO: Sending call to all providers here,
         //       implement and use ProviderSelector::All, ProviderSelector::Latest, ProviderSelector::MaxWeight
         // TODO: weight providers according to TrustGraph
-        for call in calls {
+        for call in calls.map(|c| c.call()) {
             for provider in providers.iter() {
                 let mut call = call.clone();
                 call.target = Some(
@@ -187,18 +194,22 @@ impl FunctionRouter {
         }
     }
 
-    pub(super) fn provider_search_failed(&mut self, name: &Address, reason: &str) {
-        let mut calls = self.wait_name_resolved.remove(name).peekable();
+    pub(super) fn provider_search_failed(&mut self, name: Address, reason: &str) {
+        let mut calls = self
+            .wait_address
+            .remove_with(name.clone(), WaitAddress::provider_found)
+            .peekable();
+
         // Check if calls are empty without actually advancing iterator
         if calls.peek().is_none() {
             log::warn!("Failed to find providers for {}: {}; 0 calls", name, reason);
             return;
-        } else {
-            log::warn!("Failed to find providers for {}: {}", name, reason);
         }
-        for call in calls {
+        log::warn!("Failed to find providers for {}: {}", name, reason);
+
+        for c in calls {
             self.send_error_on_call(
-                call,
+                c.call(),
                 format!("Failed to find providers for {}: {}", name, reason),
             );
         }

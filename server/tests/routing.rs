@@ -131,6 +131,10 @@ fn call_service() {
 
     let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
+    assert!(
+        provider.receive().arguments.get("ok").is_some(),
+        "provide failed"
+    );
 
     let call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
     consumer.send(call_service.clone());
@@ -155,6 +159,10 @@ fn call_service_reply() {
 
     let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
+    assert!(
+        provider.receive().arguments.get("ok").is_some(),
+        "provide failed"
+    );
 
     let call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
     consumer.send(call_service);
@@ -187,6 +195,10 @@ fn provide_disconnect() {
     // Register service
     let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
+    assert!(
+        provider.receive().arguments.get("ok").is_some(),
+        "provide failed"
+    );
     // Check there was no error // TODO: maybe send reply from relay?
     let error = provider.maybe_receive();
     assert_eq!(error, None);
@@ -207,8 +219,10 @@ fn provide_disconnect() {
         ConnectedClient::connect_to(provider.node_address).expect("connect provider");
     let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
-    let error = provider.maybe_receive();
-    assert_eq!(error, None);
+    assert!(
+        provider.receive().arguments.get("ok").is_some(),
+        "provide failed"
+    );
 
     // Send call to the service once again, should succeed
     call_service.name = Some("Send call to the service , should succeed".into());
@@ -230,8 +244,9 @@ fn provide_error() {
     let service_id = "failedservice";
     let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
     provider.send(provide);
+    provider.receive();
     let error = provider.receive();
-    assert!(error.uuid.starts_with("error_"));
+    assert!(error.uuid.starts_with("error_"), "{:?}", error);
 }
 
 #[test]
@@ -243,14 +258,16 @@ fn reconnect_provide() {
 
     for _i in 1..20 {
         for swarm in swarms.iter() {
-            let provider = ConnectedClient::connect_to(swarm.1.clone()).expect("connect provider");
+            let mut provider =
+                ConnectedClient::connect_to(swarm.1.clone()).expect("connect provider");
             let call = provide_call(service_id, provider.relay_addr(), provider.node_addr());
             provider.send(call);
-            sleep(SHORT_TIMEOUT);
+            assert!(
+                provider.receive().arguments.get("ok").is_some(),
+                "provide failed"
+            );
         }
     }
-
-    sleep(SHORT_TIMEOUT);
 
     let mut provider = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect provider");
     let call = provide_call(service_id, provider.relay_addr(), provider.node_addr());

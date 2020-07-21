@@ -17,18 +17,17 @@
 #![allow(clippy::mutable_key_type)]
 
 use crate::function::provider_record::ProviderRecord;
+use crate::function::wait_address::WaitAddress;
 use crate::kademlia;
 use crate::FunctionRouter;
-use faas_api::Address;
+use faas_api::{Address, AddressError, FunctionCall};
 use libp2p::{
     kad::record::{Key, Record},
     kad::{PutRecordError, Quorum},
 };
+use serde_json::json;
 use std::num::NonZeroUsize;
-use std::{
-    collections::{hash_map::Entry, HashSet},
-    convert::TryInto,
-};
+use std::{collections::HashSet, convert::TryInto};
 
 // TODO: move GET_QUORUM_N to config
 /// Number of nodes required to respond for DHT get operations
@@ -42,17 +41,14 @@ impl FunctionRouter {
     /// and send error to provider of this name.
     ///
     /// Assumes that key is a valid `Address`, logs an error otherwise.
-    pub fn name_publish_failed(&mut self, error: PutRecordError) {
+    pub(super) fn name_publish_failed(&mut self, error: PutRecordError) {
         use PutRecordError::*;
 
         let key: &Key = error.key();
-        let name: Address = match key.try_into() {
+        let name = Self::key_to_addr(key);
+        let name: Address = match name {
             Ok(service_id) => service_id,
-            Err(err) => {
-                #[rustfmt::skip]
-                log::warn!("Couldn't parse service_id from PutRecordError.key(): {:?}",err);
-                return;
-            }
+            _ => return,
         };
 
         #[rustfmt::skip]
@@ -61,29 +57,27 @@ impl FunctionRouter {
             Timeout { success, quorum, .. } => (success.len(), quorum.get()),
         };
 
-        // found more than 50% of required quorum // TODO: is it reasonable?
+        // TODO: is 50% a reasonable number?
+        // TODO: move to config
+        // found more than 50% of required quorum
         if found * 2 > quorum {
             #[rustfmt::skip]
             log::warn!("DHT.put almost failed, saved {} of {} replicas, but it is good enough", found, quorum);
             return;
         }
 
-        // Remove failed record, and send an error
-        match self.provided_names.entry(name.clone()) {
-            Entry::Occupied(e) => {
-                let provider = e.remove();
-                // remove failed record from DHT // TODO: sure need to do that?
-                self.kademlia.remove_record(error.key());
-                let err_msg = format!(
-                    "Error while registering service {:?}: DHT.put failed: {:?}",
-                    provider, error
-                );
-                log::warn!("{}", err_msg);
-                self.send_error(provider, err_msg);
-            }
-            Entry::Vacant(_) => {
-                log::warn!("DHT put failed for service_id {}", name);
-            }
+        let err_msg = format!(
+            "Error while publishing provider for {:?}: DHT.put failed: {:?}",
+            name, error
+        );
+        log::warn!("{}", err_msg);
+
+        // Remove failed record
+        self.provided_names.remove(&name);
+        // Send errors
+        let calls = self.wait_address.remove_with(name, WaitAddress::published);
+        for c in calls {
+            self.send_error_on_call(c.call(), err_msg.clone())
         }
     }
 
@@ -116,7 +110,7 @@ impl FunctionRouter {
         };
 
         // Check name was deserialized, otherwise log error and exit
-        let name = match &name {
+        let name = match name {
             Ok(name) => name,
             Err(err) => {
                 log::warn!("Can't parse Address name from dht record key: {:?}", err);
@@ -183,6 +177,7 @@ impl FunctionRouter {
         let providers = records
             .iter()
             .flat_map(|rec| {
+                let name = &name;
                 rec.values.iter().flat_map(
                     move |(value, publisher)| {
                         match ProviderRecord::deserialize_address(value, publisher) {
@@ -208,13 +203,38 @@ impl FunctionRouter {
     /// Publish provider by name to dht. Similar to DNS CNAME.
     pub(super) fn publish_name(
         &mut self,
-        name: &Address,
+        name: Address,
         provider: &Address,
+        call: Option<FunctionCall>,
     ) -> Result<(), libp2p::kad::store::Error> {
+        if let Some(call) = call {
+            self.wait_address
+                .enqueue(name.clone(), WaitAddress::Published(call));
+        }
+
         let record = ProviderRecord::signed(provider, &self.config.keypair);
         self.kademlia
-            .put_record(Record::new(name, record.into()), Quorum::Majority)
+            .put_record(Record::new(&name, record.into()), Quorum::Majority)
             .map(|_| ())
+    }
+
+    /// Send a reply signaling publishing succeeded
+    pub(super) fn name_publish_succeeded(&mut self, key: Key) -> Option<()> {
+        let name = Self::key_to_addr(&key).ok()?;
+        let calls = self
+            .wait_address
+            .remove_with(name, WaitAddress::published)
+            .map(|c| c.call());
+        for call in calls {
+            if let Err(e) = self.reply_with(call, None, ("ok", json!({}))) {
+                log::warn!(
+                    "Failed to send success reply after publish: {}",
+                    e.err_msg()
+                );
+            }
+        }
+
+        Some(())
     }
 
     /// Find provider by name, result will eventually be delivered in `name_resolved` function
@@ -230,5 +250,13 @@ impl FunctionRouter {
         let key = (&name).into();
         self.kademlia.remove_record(&key);
         self.kademlia.replicate_record(key)
+    }
+
+    fn key_to_addr(key: &Key) -> Result<Address, AddressError> {
+        key.try_into().map_err(|e| {
+            #[rustfmt::skip]
+            log::warn!("Couldn't parse provider address from DHT record key: {:?}", e);
+            AddressError::from(e)
+        })
     }
 }
