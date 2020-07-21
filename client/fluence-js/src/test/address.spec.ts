@@ -1,7 +1,7 @@
 import {
     createPeerAddress,
     createRelayAddress,
-    createServiceAddress,
+    createProviderAddress,
     addressToString,
     parseAddress, Address
 } from "../address";
@@ -24,7 +24,7 @@ describe("Typescript usage suite", () => {
     });
 
     it("should be able to convert service_id address to and from string", () => {
-        let addr = createServiceAddress("service_id-1");
+        let addr = createProviderAddress("service_id-1");
         let str = addressToString(addr);
         let parsed = parseAddress(str);
 
@@ -125,11 +125,12 @@ describe("Typescript usage suite", () => {
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it("integration test", async function () {
+    it.skip("integration test", async function () {
         this.timeout(15000);
         // await testCerts();
         // await testCalculator();
-        await testGetFullServicesInfo();
+        await testServicesAndInterfaces();
+        // await testAll();
     });
 });
 
@@ -168,7 +169,7 @@ export async function testCerts() {
     expect(certs[0].chain[1].issuedAt).to.be.equal(extended.chain[1].issuedAt)
 }
 
-export async function testGetFullServicesInfo() {
+export async function testServicesAndInterfaces() {
     let key1 = await Fluence.generatePeerId();
     let key2 = await Fluence.generatePeerId();
 
@@ -177,46 +178,21 @@ export async function testGetFullServicesInfo() {
     let cl2 = await Fluence.connect("/ip4/134.209.186.43/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
 
     let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
-    let peerAddr1 = createPeerAddress(peerId1);
-    let peerAddr2 = createPeerAddress("12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er");
 
-    // await cl2.createService(peerAddr1, ["ipfs_node.wasm"]);
+    let serviceId = await cl2.createService(peerId1, ["ipfs_node.wasm"]);
 
-    /*let resp = await cl2.callService(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
+    let resp = await cl2.callService(peerId1, serviceId, "ipfs_node.wasm", {}, "get_address")
     console.log(resp)
 
-    let resp2 = await cl1.callService(peerId1, "9adf40a2-0a4c-43ec-b4d2-305fd762cb46", "ipfs_node.wasm", {}, "get_address")
-    console.log(resp2)*/
+    /*let interfaces = await cl1.getActiveInterfaces();
+    let interfaces2 = await cl2.getActiveInterfaces(peerId1);
+    let interfaceResp = await cl1.getInterface(serviceId, peerId1);
 
-    let r1 = await cl1.getActiveInterfaces();
-    let r11 = await cl1.getInterface('9adf40a2-0a4c-43ec-b4d2-305fd762cb46');
-    console.log("111111111111111111");
-    console.log(r1);
-    console.log(r11);
-    /*let r2 = await cl1.getActiveInterfaces(peerAddr2);
-    console.log("2222222222222222222");
-    console.log(r2);*/
+    console.log(interfaces);
+    console.log(interfaceResp);
 
-    /*let r3 = await cl2.getActiveInterfaces();
-    console.log("33333333333333333333");
-    console.log(r3);
-    let r4 = await cl2.getActiveInterfaces(peerAddr1);
-    console.log("4444444444444444444444");
-    console.log(r4);*/
-
-    /*let r5 = await cl1.getAvailableModules();
-    console.log("111111111111111111");
-    console.log(r5);
-    let r6 = await cl1.getAvailableModules(peerAddr2);
-    console.log("2222222222222222222");
-    console.log(r6);
-
-    let r7 = await cl2.getAvailableModules();
-    console.log("33333333333333333333");
-    console.log(r7);
-    let r8 = await cl2.getAvailableModules(peerAddr1);
-    console.log("4444444444444444444444");
-    console.log(r8);*/
+    let availableModules = await cl1.getAvailableModules(peerId1);
+    console.log(availableModules);*/
 }
 
 // Shows how to register and call new service in Fluence network
@@ -230,10 +206,10 @@ export async function testCalculator() {
     let cl2 = await Fluence.connect("/ip4/134.209.186.43/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
 
     // service name that we will register with one connection and call with another
-    let serviceId = "sum-calculator-" + genUUID();
+    let providerId = "sum-calculator-" + genUUID();
 
     // register service that will add two numbers and send a response with calculation result
-    await cl1.provideName(serviceId, async (req) => {
+    await cl1.provideName(providerId, async (req) => {
         console.log("message received");
         console.log(req);
 
@@ -247,7 +223,7 @@ export async function testCalculator() {
     let req = {one: 12, two: 23};
 
     // send call to `sum-calculator` service with two numbers
-    let response = await cl2.callProvider(serviceId, req);
+    let response = await cl2.callProvider(providerId, req, providerId);
 
     let result = response.result;
     console.log(`calculation result is: ${result}`);
@@ -257,9 +233,9 @@ export async function testCalculator() {
     await delay(1000);
 
     // send call to `sum-calculator` service with two numbers
-    await cl2.callProvider(serviceId, req, "calculator request");
+    await cl2.callProvider(providerId, req, providerId, undefined, "calculator request");
 
-    let response2 = await cl2.callProvider(serviceId, req);
+    let response2 = await cl2.callProvider(providerId, req, providerId);
 
     let result2 = await response2.result;
     console.log(`calculation result AFTER RECONNECT is: ${result2}`);

@@ -33,7 +33,7 @@ export class TrustGraph {
             certsStr.push(await certificateToString(cert));
         }
 
-        let response = await this.client.callLocalProvider("add_certificates", {
+        let response = await this.client.callPeer("add_certificates", {
             certificates: certsStr,
             peer_id: peerId
         });
@@ -49,7 +49,7 @@ export class TrustGraph {
 
     // Get certificates that stores in Kademlia neighbourhood by `peerId` key.
     async getCertificates(peerId: string): Promise<Certificate[]> {
-        let resp = await this.client.callLocalProvider("certificates", {
+        let resp = await this.client.callPeer("certificates", {
             peer_id: peerId
         });
 

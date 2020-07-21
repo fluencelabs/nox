@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Address, createPeerAddress, createRelayAddress, ProtocolType} from "./address";
+import {Address, createPeerAddress, createRelayAddress, createProviderAddress, ProtocolType} from "./address";
 import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./function_call";
 import * as PeerId from "peer-id";
 import {Services} from "./services";
@@ -26,6 +26,7 @@ import {FluenceConnection} from "./fluence_connection";
 export class FluenceClient {
     readonly selfPeerInfo: PeerInfo;
     readonly selfPeerIdStr: string;
+    private nodePeerIdStr: string;
 
     private connection: FluenceConnection;
 
@@ -49,13 +50,17 @@ export class FluenceClient {
      * Waits a response that match the predicate.
      *
      * @param predicate will be applied to each incoming call until it matches
+     * @param fireOnError throw an error on first response with an error
      */
-    waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        return new Promise((resolve, _) => {
+    waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fireOnError: boolean): Promise<any> {
+        return new Promise((resolve, reject) => {
             // subscribe for responses, to handle response
             // TODO if there's no conn, reject
             this.subscribe((args: any, target: Address, replyTo: Address) => {
                 if (predicate(args, target, replyTo)) {
+                    if (args.reason && fireOnError) {
+                        reject(new Error(args.reason));
+                    }
                     resolve(args);
                     return true;
                 }
@@ -65,7 +70,7 @@ export class FluenceClient {
     }
 
     private getPredicate(msgId: string): (args: any, target: Address) => (boolean | undefined) {
-        return (args: any, target: Address) => target.hash && target.hash === msgId && !args.reason;
+        return (args: any, target: Address) => target.hash && target.hash === msgId;
     }
 
     /**
@@ -79,8 +84,8 @@ export class FluenceClient {
     async sendCallWaitResponse(target: Address, args: any, moduleId?: string, fname?: string): Promise<any> {
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
-        await this.sendCall(target, args, true, moduleId, fname, replyHash, undefined);
-        return this.waitResponse(predicate);
+        await this.sendCall(target, args, moduleId, fname, replyHash, undefined);
+        return this.waitResponse(predicate, true);
     }
 
     /**
@@ -88,67 +93,73 @@ export class FluenceClient {
      *
      * @param target receiver
      * @param args message in the call
-     * @param reply add a `replyTo` field or not
      * @param moduleId module name
      * @param fname function name
+     * @param context list of modules to use with the request
      * @param name common field for debug purposes
      * @param replyHash hash that will be added to replyTo address
      */
-    async sendCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, replyHash?: string, name?: string) {
+    async sendCall(target: Address, args: any, moduleId?: string, fname?: string, replyHash?: string | boolean, context?: string[], name?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(target, args, reply, moduleId, fname, replyHash, name);
+            await this.connection.sendFunctionCall(target, args, moduleId, fname, replyHash, context, name);
         } else {
             throw Error("client is not connected")
         }
     }
 
     /**
-     * Send call to the service and wait a response matches predicate.
+     * Send call to the provider and wait a response matches predicate.
      *
-     * @param moduleId
+     * @param provider published name in dht
      * @param args message to the service
+     * @param moduleId module name
      * @param fname function name
+     * @param name debug info
      */
-    async callProvider(moduleId: string, args: any, fname?: string): Promise<any> {
+    async callProvider(provider: string, args: any, moduleId?: string, fname?: string, name?: string): Promise<any> {
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
-        if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(moduleId, false, args, fname, replyHash, name);
-        } else {
-            throw Error("client is not connected")
-        }
-        return await this.waitResponse(predicate);
+        let address = createProviderAddress(provider);
+        await this.sendCall(address, args, moduleId, fname, replyHash, undefined, name);
+        return await this.waitResponse(predicate, false);
     }
 
     /**
      * Send a call to the local service and wait a response matches predicate on a peer the client connected with.
      *
      * @param moduleId
+     * @param addr node address
      * @param args message to the service
      * @param fname function name
+     * @param context
      * @param name debug info
      */
-    async callLocalProvider(moduleId: string, args: any, fname?: string, name?: string): Promise<any> {
+    async callPeer(moduleId: string, args: any, fname?: string, addr?: string, context?: string[], name?: string): Promise<any> {
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
-        if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(moduleId, true, args, fname, replyHash, name);
+
+        await this.callPeerInner(moduleId, args, fname, addr, context, replyHash, name)
+
+        return await this.waitResponse(predicate, true);
+    }
+
+    private async callPeerInner(moduleId: string, args: any, fname?: string, addr?: string, context?: string[], replyHash?: string | boolean, name?: string): Promise<any> {
+        let address;
+        if (addr) {
+            address = createPeerAddress(addr);
         } else {
-            throw Error("client is not connected")
+            address = createPeerAddress(this.nodePeerIdStr);
         }
-        return await this.waitResponse(predicate);
+
+        await this.sendCall(address, args, moduleId, fname, replyHash, context, name)
     }
 
     async callService(peerId: string, serviceId: string, moduleId: string, args: any, fname?: string): Promise<any> {
         let target = createPeerAddress(peerId, serviceId);
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
-        if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(target, args, true, moduleId, fname, replyHash);
-        } else {
-            throw Error("client is not connected")
-        }
-        return await this.waitResponse(predicate);
+        await this.sendCall(target, args, moduleId, fname, replyHash);
+        return await this.waitResponse(predicate, true);
     }
 
     /**
@@ -236,7 +247,7 @@ export class FluenceClient {
      * Become a name provider. Other network members could find and call one of the providers of this name by this name.
      */
     async provideName(name: string, fn: (req: FunctionCall) => void) {
-        await this.connection.provideName(name);
+        await this.callPeerInner("provide", {service_id: name}, undefined, undefined, undefined, true)
 
         this.services.addService(name, fn);
     }
@@ -244,43 +255,39 @@ export class FluenceClient {
     /**
      * Sends a call to create a service on remote node.
      */
-    async createService(target: Address, context: string[]) {
-        let replyHash = genUUID();
-        let predicate = this.getPredicate(replyHash);
-        await this.connection.createService(target, context, replyHash);
+    async createService(peerId: string, context: string[]): Promise<string> {
+        let resp = await this.callPeer("create", {}, undefined, peerId, context);
 
-        return await this.waitResponse(predicate);
+        if (resp.result && resp.result.service_id) {
+            return resp.result.service_id
+        } else {
+            console.error("Unknown response type on `createService`: ", resp)
+            throw new Error("Unknown response type on `createService`");
+        }
     }
 
-    // TODO add type for interface result
-    async getInterface(serviceId: string, addr?: Address): Promise<any> {
+    async getInterface(serviceId: string, peerId?: string): Promise<any> {
         let resp;
-        if (addr) {
-            resp = await this.sendCallWaitResponse(addr, {service_id: serviceId}, "get_interface")
-        } else {
-            resp = await this.callLocalProvider("get_interface", {service_id: serviceId})
-        }
+        resp = await this.callPeer("get_interface", {service_id: serviceId}, undefined, peerId)
         return resp.interface;
     }
 
-    // TODO add type for interfaces result
-    async getActiveInterfaces(addr?: Address): Promise<any> {
+    async getActiveInterfaces(peerId?: string): Promise<any> {
         let resp;
-        if (addr) {
-            resp = await this.sendCallWaitResponse(addr, {}, "get_active_interfaces");
+        if (peerId) {
+            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_active_interfaces");
         } else {
-            resp = await this.callLocalProvider("get_active_interfaces", {});
+            resp = await this.callPeer("get_active_interfaces", {}, undefined, peerId);
         }
         return resp.active_interfaces;
     }
 
-    // TODO add type for available modules result
-    async getAvailableModules(addr?: Address): Promise<string[]> {
+    async getAvailableModules(peerId?: string): Promise<string[]> {
         let resp;
-        if (addr) {
-            resp = await this.sendCallWaitResponse(addr, {}, "get_available_modules");
+        if (peerId) {
+            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_available_modules");
         } else {
-            resp = await this.callLocalProvider("get_available_modules", {});
+            resp = await this.callPeer("get_available_modules", {}, undefined, peerId);
         }
 
         return resp.available_modules;
@@ -319,6 +326,7 @@ export class FluenceClient {
         multiaddr = Multiaddr(multiaddr);
 
         let nodePeerId = multiaddr.getPeerId();
+        this.nodePeerIdStr = nodePeerId;
 
         if (!nodePeerId) {
             throw Error("'multiaddr' did not contain a valid peer id")
