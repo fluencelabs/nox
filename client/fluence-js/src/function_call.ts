@@ -42,9 +42,6 @@ export function callToString(call: FunctionCall) {
     }
 
     obj.target = addressToString(obj.target);
-    console.log("TARGET:")
-    console.log(JSON.stringify(call.target, undefined, 2));
-    console.log(obj.target)
     obj.sender = addressToString(obj.sender);
 
     return JSON.stringify(obj)
