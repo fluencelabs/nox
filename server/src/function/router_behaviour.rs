@@ -210,7 +210,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRout
                 }
                 GetRecord(result) => self.name_resolved(result),
                 PutRecord(Ok(PutRecordOk { key })) => {
-                    self.name_publish_succeeded(key);
+                    self.name_publish_succeeded(&key);
                 }
                 PutRecord(Err(result)) => self.name_publish_failed(result),
                 _ => {}

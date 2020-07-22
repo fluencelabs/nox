@@ -63,6 +63,7 @@ impl FunctionRouter {
         if found * 2 > quorum {
             #[rustfmt::skip]
             log::warn!("DHT.put almost failed, saved {} of {} replicas, but it is good enough", found, quorum);
+            self.name_publish_succeeded(key);
             return;
         }
 
@@ -219,8 +220,8 @@ impl FunctionRouter {
     }
 
     /// Send a reply signaling publishing succeeded
-    pub(super) fn name_publish_succeeded(&mut self, key: Key) -> Option<()> {
-        let name = Self::key_to_addr(&key).ok()?;
+    pub(super) fn name_publish_succeeded(&mut self, key: &Key) -> Option<()> {
+        let name = Self::key_to_addr(key).ok()?;
         let calls = self
             .wait_address
             .remove_with(name, WaitAddress::published)

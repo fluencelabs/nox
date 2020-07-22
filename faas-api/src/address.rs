@@ -404,6 +404,16 @@ impl Address {
 
         relay!(node, client, client_kp)
     }
+
+    pub fn random() -> Self {
+        let addr: Self = Protocol::random().into();
+
+        if rand::random() {
+            return addr.append(Protocol::random());
+        }
+
+        addr
+    }
 }
 
 #[cfg(test)]

@@ -16,6 +16,7 @@
 
 use crate::Address;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -81,62 +82,42 @@ impl FunctionCall {
             context: vec![],
         }
     }
+
+    pub fn random() -> Self {
+        use rand::Rng;
+        let rng = rand::thread_rng();
+        let rnd_str = || {
+            rng.sample_iter(rand::distributions::Alphanumeric)
+                .take(10)
+                .collect()
+        };
+        let maybe_str = || {
+            if rand::random() {
+                Some(rnd_str())
+            } else {
+                None
+            }
+        };
+        Self {
+            uuid: Uuid::new_v4().to_string(),
+            target: Address::random().into(),
+            reply_to: Address::random().into(),
+            module: maybe_str(),
+            fname: maybe_str(),
+            arguments: json!({ rnd_str(): rnd_str() }),
+            name: maybe_str(),
+            sender: Address::random(),
+            context: maybe_str().into_iter().collect(),
+        }
+    }
 }
 
 fn empty_obj() -> serde_json::Value {
     serde_json::Value::Object(<_>::default())
 }
 
-pub mod call_test_utils {
-    use crate::FunctionCall;
-    use crate::{provider, Address};
-
-    pub fn gen_ipfs_call() -> FunctionCall {
-        let sender = Address::random_relay();
-        let reply_to = Some(sender.clone());
-        let module = "IPFS.get_QmFile".to_string();
-        let target = Some(provider!(module.clone()));
-
-        FunctionCall {
-            uuid: "UUID-1".to_string(),
-            target,
-            reply_to,
-            module: Some(module.clone()),
-            name: Some("Getting IPFS file QmFile".to_string()),
-            sender,
-            context: vec![module],
-            ..<_>::default()
-        }
-    }
-
-    pub fn gen_strict_ipfs_call() -> FunctionCall {
-        let mut call = gen_ipfs_call();
-        call.target = Some(Address::random_relay_unsigned());
-        call.name = Some("Getting IPFS file QmFile (strict)".into());
-        call
-    }
-
-    pub fn gen_provide_call(target: Address, arguments: serde_json::Value) -> FunctionCall {
-        let sender = Address::random_relay();
-        let reply_to = Some(sender.clone());
-
-        FunctionCall {
-            uuid: "UUID-1".to_string(),
-            target: Some(target),
-            reply_to,
-            module: Some("provide".into()),
-            arguments,
-            sender,
-            context: vec![],
-            ..<_>::default()
-        }
-    }
-}
-
 #[cfg(test)]
 pub mod test {
-    use super::call_test_utils::gen_strict_ipfs_call;
-    use super::call_test_utils::{gen_ipfs_call, gen_provide_call};
     use crate::Address;
     use crate::FunctionCall;
     use crate::Protocol;
@@ -170,18 +151,10 @@ pub mod test {
     }
 
     #[test]
-    fn serialize_function() {
-        let ipfs_call = gen_ipfs_call();
-        check_call(ipfs_call);
-        let strict_ipfs_call = gen_strict_ipfs_call();
-        check_call(strict_ipfs_call);
-    }
-
-    #[test]
     fn serialize_provide() {
-        let target = Protocol::Peer(RandomPeerId::random()).into();
-        let arguments = json!({ "service_id": "IPFS.get_QmFile" });
-        let mut call = gen_provide_call(target, arguments);
+        let mut call = FunctionCall::random();
+        call.module = Some("provide".to_string());
+        call.arguments = json!({ "name": "IPFS", "address": Address::random_relay() });
         call.name = Some("Announce IPFS file (in args)".into());
         check_call(call.clone());
 

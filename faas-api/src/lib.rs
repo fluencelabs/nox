@@ -34,8 +34,6 @@ mod libp2p_protocol {
     pub mod upgrade;
 }
 
-pub use call::call_test_utils;
-
 pub use address::{Address, AddressError};
 pub use address_protocol::Protocol;
 pub use call::FunctionCall;

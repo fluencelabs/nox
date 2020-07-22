@@ -41,8 +41,7 @@ impl Into<ProtocolMessage> for () {
 
 #[cfg(test)]
 mod test {
-    use crate::call_test_utils::gen_ipfs_call;
-    use crate::ProtocolMessage;
+    use crate::{FunctionCall, ProtocolMessage};
 
     fn check_msg(msg: ProtocolMessage) {
         let str = serde_json::to_string(&msg).unwrap();
@@ -54,7 +53,7 @@ mod test {
 
     #[test]
     fn protocol_message() {
-        let msg = ProtocolMessage::FunctionCall(gen_ipfs_call());
+        let msg = ProtocolMessage::FunctionCall(FunctionCall::random());
         check_msg(msg);
     }
 

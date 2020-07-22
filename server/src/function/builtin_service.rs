@@ -203,33 +203,29 @@ impl BuiltinService {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use faas_api::call_test_utils::gen_provide_call;
-    use faas_api::provider;
-    use faas_api::Protocol;
+    use faas_api::FunctionCall;
     use fluence_libp2p::RandomPeerId;
     use std::str::FromStr;
 
     #[test]
     fn serialize_provide() {
         let ipfs_service = "IPFS.get_QmFile";
+        let addr = Address::random_relay();
         let service = BuiltinService::Provide(Provide {
             name: ipfs_service.into(),
+            address: addr.clone(),
         });
-        let (target, arguments) = service.as_target_args();
-        let call = gen_provide_call(provider!(target), arguments);
-
-        let protocols = call.target.as_ref().expect("non empty").protocols();
-
-        let service_id = match protocols.as_slice() {
-            [Protocol::Providers(service_id)] => service_id,
-            wrong => unreachable!("target should be Address::Service, was {:?}", wrong),
-        };
+        let (service_id, arguments) = service.as_target_args();
+        let mut call = FunctionCall::random();
+        call.module = service_id.to_string().into();
+        call.arguments = arguments;
 
         assert_eq!(service_id, "provide");
 
-        match BuiltinService::from(target.into(), call.arguments) {
-            Ok(BuiltinService::Provide(Provide { name: service_id })) => {
-                assert_eq!(service_id, ipfs_service)
+        match BuiltinService::from(service_id.into(), call.arguments) {
+            Ok(BuiltinService::Provide(Provide { name, address })) => {
+                assert_eq!(name, ipfs_service);
+                assert_eq!(addr, address);
             }
             wrong => unreachable!(
                 "target should be Some(BuiltinService::Provide, was {:?}",
@@ -268,14 +264,17 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
             peer_id: peer_id.clone(),
             msg_id: Some(msg_id.clone()),
         });
-        let (target, arguments) = service.as_target_args();
+        let (service_id, arguments) = service.as_target_args();
 
-        let call = gen_provide_call(provider!(target), arguments);
+        let mut call = FunctionCall::random();
+        call.target = Some(Address::random());
+        call.arguments = arguments;
+        call.module = Some(service_id.to_string());
 
         let _service: AddCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let service = BuiltinService::from(target.into(), call.arguments).unwrap();
+        let service = BuiltinService::from(call.module.unwrap(), call.arguments).unwrap();
 
         match service {
             BuiltinService::AddCertificates(add) => {
@@ -312,14 +311,17 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
             peer_id: peer_id.clone(),
             msg_id: Some(msg_id.clone()),
         });
-        let (target, arguments) = service.as_target_args();
+        let (service_id, arguments) = service.as_target_args();
 
-        let call = gen_provide_call(provider!(target), arguments);
+        let mut call = FunctionCall::random();
+        call.target = Address::random().into();
+        call.arguments = arguments;
+        call.module = service_id.to_string().into();
 
         let _service: GetCertificates =
             serde_json::from_value(call.arguments.clone()).expect("deserialize");
 
-        let service = BuiltinService::from(target.into(), call.arguments).unwrap();
+        let service = BuiltinService::from(call.module.unwrap(), call.arguments).unwrap();
 
         match service {
             BuiltinService::GetCertificates(add) => {
@@ -336,9 +338,12 @@ xdHh499gCUD7XA7WLXqCR9ZXxQZFweongvN9pa2egVdC19LJR9814pNReP4MBCCctsGbLmddygT6Pbev
         let service = BuiltinService::Identify(Identify {
             msg_id: msg_id.clone(),
         });
-        let (target, arguments) = service.as_target_args();
-        let call = gen_provide_call(provider!(target), arguments);
-        let service = BuiltinService::from(target.into(), call.arguments).unwrap();
+        let (service_id, arguments) = service.as_target_args();
+        let mut call = FunctionCall::random();
+        call.target = Address::random().into();
+        call.arguments = arguments;
+        call.module = service_id.to_string().into();
+        let service = BuiltinService::from(service_id.into(), call.arguments).unwrap();
 
         match service {
             BuiltinService::Identify(identify) => assert_eq!(msg_id, identify.msg_id),
