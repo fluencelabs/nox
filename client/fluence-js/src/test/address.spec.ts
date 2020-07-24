@@ -127,10 +127,9 @@ describe("Typescript usage suite", () => {
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
     it.skip("integration test", async function () {
         this.timeout(15000);
-        // await testCerts();
-        // await testCalculator();
+        await testCerts();
+        await testCalculator();
         await testServicesAndInterfaces();
-        // await testAll();
     });
 });
 
@@ -184,7 +183,7 @@ export async function testServicesAndInterfaces() {
     let resp = await cl2.callService(peerId1, serviceId, "ipfs_node.wasm", {}, "get_address")
     console.log(resp)
 
-    /*let interfaces = await cl1.getActiveInterfaces();
+    let interfaces = await cl1.getActiveInterfaces();
     let interfaces2 = await cl2.getActiveInterfaces(peerId1);
     let interfaceResp = await cl1.getInterface(serviceId, peerId1);
 
@@ -192,7 +191,7 @@ export async function testServicesAndInterfaces() {
     console.log(interfaceResp);
 
     let availableModules = await cl1.getAvailableModules(peerId1);
-    console.log(availableModules);*/
+    console.log(availableModules);
 }
 
 // Shows how to register and call new service in Fluence network

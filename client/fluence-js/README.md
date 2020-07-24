@@ -40,9 +40,10 @@ await cl1.provideName(name, async (req) => {
 });
 ```
 
-## Call Name Provider
+## Become a provider
 
-Send a request by the second client and print a result. The predicate is required to match a request and a response by `msgId`.
+To declare that you're available on some token (unique name), you can become a provider of that token. For example, below you become a provider of a name `sum-calculator-1234...` so you can share that name with other people, and they can call you by that.
+
 ```typescript
 let req = {one: 12, two: 23, msgId: msgId};
 
@@ -76,7 +77,7 @@ console.log(resp)
 ## Discover Services
 
 ```
-// get available modules on node (without arguments for connected node)
+// get available modules on node (to get info about connected node should use the method without arguments)
 let modules = cl1.getAvailableModules(peerAddr);
 
 // get interfaces of existing services

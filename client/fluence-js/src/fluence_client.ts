@@ -50,7 +50,7 @@ export class FluenceClient {
      * Waits a response that match the predicate.
      *
      * @param predicate will be applied to each incoming call until it matches
-     * @param fireOnError throw an error on first response with an error
+     * @param ignoreErrors ignore an errors, wait for success response
      */
     waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), ignoreErrors: boolean): Promise<any> {
         return new Promise((resolve, reject) => {
@@ -58,7 +58,7 @@ export class FluenceClient {
             // TODO if there's no conn, reject
             this.subscribe((args: any, target: Address, replyTo: Address) => {
                 if (predicate(args, target, replyTo)) {
-                    if (args.reason && fireOnError) {
+                    if (args.reason && !ignoreErrors) {
                         reject(new Error(args.reason));
                     }
                     resolve(args);
@@ -85,7 +85,7 @@ export class FluenceClient {
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
         await this.sendCall(target, args, moduleId, fname, replyHash, undefined);
-        return this.waitResponse(predicate, true);
+        return this.waitResponse(predicate, false);
     }
 
     /**
@@ -121,7 +121,7 @@ export class FluenceClient {
         let predicate = this.getPredicate(replyHash);
         let address = createProviderAddress(provider);
         await this.sendCall(address, args, moduleId, fname, replyHash, undefined, name);
-        return await this.waitResponse(predicate, false);
+        return await this.waitResponse(predicate, true);
     }
 
     /**
@@ -140,7 +140,7 @@ export class FluenceClient {
 
         await this.callPeerInner(moduleId, args, fname, addr, context, replyHash, name)
 
-        return await this.waitResponse(predicate, true);
+        return await this.waitResponse(predicate, false);
     }
 
     private async callPeerInner(moduleId: string, args: any, fname?: string, addr?: string, context?: string[], replyHash?: string | boolean, name?: string): Promise<any> {
@@ -159,7 +159,7 @@ export class FluenceClient {
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
         await this.sendCall(target, args, moduleId, fname, replyHash);
-        return await this.waitResponse(predicate, true);
+        return await this.waitResponse(predicate, false);
     }
 
     /**
