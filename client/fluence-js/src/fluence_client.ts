@@ -52,7 +52,7 @@ export class FluenceClient {
      * @param predicate will be applied to each incoming call until it matches
      * @param fireOnError throw an error on first response with an error
      */
-    waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), fireOnError: boolean): Promise<any> {
+    waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), ignoreErrors: boolean): Promise<any> {
         return new Promise((resolve, reject) => {
             // subscribe for responses, to handle response
             // TODO if there's no conn, reject
