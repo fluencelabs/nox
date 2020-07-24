@@ -79,6 +79,6 @@ console.log(resp)
 // get available modules on node (without arguments for connected node)
 let modules = cl1.getAvailableModules(peerAddr);
 
-// get active interfaces client can call
+// get interfaces of existing services
 let interfaces = await cl2.getActiveInterfaces(peerAddr);
 ```
