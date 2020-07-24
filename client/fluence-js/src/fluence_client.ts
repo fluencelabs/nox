@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
-import {Address, createPeerAddress, createRelayAddress, createProviderAddress, ProtocolType} from "./address";
+import {
+    Address,
+    createPeerAddress,
+    createRelayAddress,
+    createProviderAddress,
+    ProtocolType,
+    addressToString
+} from "./address";
 import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./function_call";
 import * as PeerId from "peer-id";
 import {Services} from "./services";
@@ -138,12 +145,6 @@ export class FluenceClient {
         let replyHash = genUUID();
         let predicate = this.getPredicate(replyHash);
 
-        await this.callPeerInner(moduleId, args, fname, addr, context, replyHash, name)
-
-        return await this.waitResponse(predicate, false);
-    }
-
-    private async callPeerInner(moduleId: string, args: any, fname?: string, addr?: string, context?: string[], replyHash?: string | boolean, name?: string): Promise<any> {
         let address;
         if (addr) {
             address = createPeerAddress(addr);
@@ -152,6 +153,8 @@ export class FluenceClient {
         }
 
         await this.sendCall(address, args, moduleId, fname, replyHash, context, name)
+
+        return await this.waitResponse(predicate, false);
     }
 
     async callService(peerId: string, serviceId: string, moduleId: string, args: any, fname?: string): Promise<any> {
@@ -247,7 +250,8 @@ export class FluenceClient {
      * Become a name provider. Other network members could find and call one of the providers of this name by this name.
      */
     async provideName(name: string, fn: (req: FunctionCall) => void) {
-        await this.callPeerInner("provide", {service_id: name}, undefined, undefined, undefined, true)
+        let replyTo = this.connection.sender;
+        await this.callPeer("provide", {service_id: name, reply_to: addressToString(replyTo)})
 
         this.services.addService(name, fn);
     }
