@@ -60,9 +60,10 @@ impl CallError {
             CallErrorKind::NonLocalRelay => {
                 "failed to register service, non-local relay".to_string()
             }
-            CallErrorKind::UnsupportedReplyTo(addr) => {
-                format!("failed to register service, unsupported reply_to {}", addr)
-            }
+            CallErrorKind::UnsupportedProvider(addr) => format!(
+                "failed to register service, unsupported provider address {}",
+                addr
+            ),
             CallErrorKind::MissingReplyTo => "missing reply_to".to_string(),
             CallErrorKind::MissingPublicKey => "can't extract public key from peer id".to_string(),
             CallErrorKind::UnsupportedPublicKey => {
@@ -101,7 +102,7 @@ pub enum CallErrorKind {
     Signature(SignatureError),
     ServiceRegister(libp2p::kad::store::Error),
     NonLocalRelay,
-    UnsupportedReplyTo(Address),
+    UnsupportedProvider(Address),
     MissingReplyTo,
     MissingPublicKey,
     UnsupportedPublicKey,

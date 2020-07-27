@@ -194,7 +194,7 @@ impl NetworkBehaviour for FunctionRouter {
 impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRouter {
     fn inject_event(&mut self, event: KademliaEvent) {
         use libp2p::kad::QueryResult::{GetClosestPeers, GetRecord, PutRecord};
-        use libp2p::kad::{GetClosestPeersError, GetClosestPeersOk};
+        use libp2p::kad::{GetClosestPeersError, GetClosestPeersOk, PutRecordOk};
         use KademliaEvent::QueryResult;
 
         log::debug!("Kademlia inject: {:?}", event);
@@ -209,6 +209,9 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for FunctionRout
                     self.found_closest(key, peers);
                 }
                 GetRecord(result) => self.name_resolved(result),
+                PutRecord(Ok(PutRecordOk { key })) => {
+                    self.name_publish_succeeded(&key);
+                }
                 PutRecord(Err(result)) => self.name_publish_failed(result),
                 _ => {}
             }

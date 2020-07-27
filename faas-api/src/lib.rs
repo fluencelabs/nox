@@ -33,8 +33,7 @@ mod libp2p_protocol {
     pub mod message;
     pub mod upgrade;
 }
-
-pub use call::call_test_utils;
+mod random;
 
 pub use address::{Address, AddressError};
 pub use address_protocol::Protocol;

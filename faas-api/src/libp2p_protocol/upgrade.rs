@@ -142,7 +142,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::ProtocolMessage;
-    use crate::call_test_utils::gen_ipfs_call;
     use futures::prelude::*;
     use libp2p::core::{
         multiaddr::multiaddr,
@@ -150,7 +149,7 @@ mod tests {
         upgrade,
     };
 
-    use crate::{Protocol, ProtocolConfig};
+    use crate::{FunctionCall, Protocol, ProtocolConfig};
     use fluence_libp2p::RandomPeerId;
     use rand::{thread_rng, Rng};
 
@@ -176,7 +175,7 @@ mod tests {
         });
 
         let sent_call = async_std::task::block_on(async move {
-            let call = ProtocolMessage::FunctionCall(gen_ipfs_call());
+            let call = ProtocolMessage::FunctionCall(FunctionCall::random());
             let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
             upgrade::apply_outbound(c, call.clone(), upgrade::Version::V1)
                 .await
