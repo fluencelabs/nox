@@ -676,18 +676,22 @@ fn add_module() {
 
     // Add new module to faas
     let mut call = service_call(client.node_addr(), client.relay_addr(), "add_module");
-    call.arguments =
-        json!({ "msg_id": uuid(), "config": config, "bytes": base64::encode(&test_module()) });
-    client.send(call);
+    call.arguments = json!({ "msg_id": uuid(), "config": config, "bytes": base64::encode(&test_module()) });
+    client.send(call.clone());
     let received = client.receive();
     assert!(received.arguments.get("ok").is_some(), "{:?}", received);
 
     // Check it is available
+    let expected = &["test_one.wasm", "test_two.wasm", "test_three.wasm"];
     let modules = get_modules(&mut client);
-    assert_eq!(
-        modules,
-        &["test_one.wasm", "test_two.wasm", "test_three.wasm"]
-    );
+    assert_eq!(modules, expected);
+    
+    // Check it won't be duplicated
+    client.send(call);
+    let received = client.receive();
+    assert!(received.arguments.get("ok").is_some(), "{:?}", received);
+    let modules = get_modules(&mut client);
+    assert_eq!(modules, expected);
     
     // Create a service with that module
     let service_id = create_service(&mut client, &["test_two.wasm".to_string(), "test_three.wasm".to_string()]);
