@@ -3,12 +3,12 @@ import {
     createRelayAddress,
     createProviderAddress,
     addressToString,
-    parseAddress, Address
+    parseAddress
 } from "../address";
 import {expect} from 'chai';
 
 import 'mocha';
-import {decode, encode} from "bs58"
+import {encode} from "bs58"
 import * as PeerId from "peer-id";
 import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../function_call";
 import Fluence from "../fluence";
@@ -16,6 +16,7 @@ import {certificateFromString, certificateToString, issue} from "../trust/certif
 import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
 import {peerIdToSeed, seedToPeerId} from "../seed";
+import {greetingWASM} from "./greeting_wasm";
 
 describe("Typescript usage suite", () => {
 
@@ -129,6 +130,7 @@ describe("Typescript usage suite", () => {
         this.timeout(15000);
         await testCerts();
         await testCalculator();
+        await testUploadWasm();
         await testServicesAndInterfaces();
     });
 });
@@ -168,6 +170,23 @@ export async function testCerts() {
     expect(certs[0].chain[1].issuedAt).to.be.equal(extended.chain[1].issuedAt)
 }
 
+export async function testUploadWasm() {
+    let key1 = await Fluence.generatePeerId();
+    let cl1 = await Fluence.connect("/dns4/134.209.186.43/tcp/9100/ws/p2p/12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM", key1);
+
+    await cl1.addModule(greetingWASM, "greeting1", 100, [], {}, []);
+
+    let availableModules = await cl1.getAvailableModules();
+    console.log(availableModules);
+
+    let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
+
+    let serviceId = await cl1.createService(peerId1, ["greeting1"]);
+
+    let resp = await cl1.callService(peerId1, serviceId, "greeting1", {name: "John"}, "greeting")
+    console.log(resp)
+}
+
 export async function testServicesAndInterfaces() {
     let key1 = await Fluence.generatePeerId();
     let key2 = await Fluence.generatePeerId();
@@ -184,7 +203,6 @@ export async function testServicesAndInterfaces() {
     console.log(resp)
 
     let interfaces = await cl1.getActiveInterfaces();
-    let interfaces2 = await cl2.getActiveInterfaces(peerId1);
     let interfaceResp = await cl1.getInterface(serviceId, peerId1);
 
     console.log(interfaces);

@@ -251,7 +251,7 @@ export class FluenceClient {
      */
     async provideName(name: string, fn: (req: FunctionCall) => void) {
         let replyTo = this.connection.sender;
-        await this.callPeer("provide", {service_id: name, reply_to: addressToString(replyTo)})
+        await this.callPeer("provide", {service_id: name, address: addressToString(replyTo)})
 
         this.services.addService(name, fn);
     }
@@ -292,6 +292,38 @@ export class FluenceClient {
             resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_available_modules");
         } else {
             resp = await this.callPeer("get_available_modules", {}, undefined, peerId);
+        }
+
+        return resp.available_modules;
+    }
+
+    /**
+     * Add new WASM module to the node.
+     *
+     * @param bytes WASM in base64
+     * @param name WASM identificator
+     * @param mem_pages_count memory amount for WASM
+     * @param envs environment variables
+     * @param mapped_dirs links to directories
+     * @param preopened_files files and directories that will be used in WASM
+     * @param peerId the node to add module
+     */
+    async addModule(bytes: string, name: string, mem_pages_count: number, envs: string[], mapped_dirs: any, preopened_files: string[], peerId?: string): Promise<any> {
+        let config: any = {
+            logger_enabled: true,
+            mem_pages_count: mem_pages_count,
+            name: name,
+            wasi: {
+                envs: envs,
+                mapped_dirs: mapped_dirs,
+                preopened_files: preopened_files
+            }
+        }
+        let resp;
+        if (peerId) {
+            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {bytes: bytes, config: config}, "add_module");
+        } else {
+            resp = await this.callPeer("add_module", {bytes: bytes, config: config}, undefined, peerId);
         }
 
         return resp.available_modules;
