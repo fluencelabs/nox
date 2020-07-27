@@ -100,7 +100,7 @@ export function genUUID() {
  * Message to provide new name.
  */
 export async function makeProvideMessage(name: string, target: Address, sender: Address): Promise<FunctionCall> {
-    return makeFunctionCall(genUUID(), target, sender, {service_id: name}, "provide", undefined, sender, undefined, "provide service_id");
+    return makeFunctionCall(genUUID(), target, sender, {name: name, address: addressToString(sender)}, "provide", undefined, sender, undefined, "provide service_id");
 }
 
 // TODO uncomment when this will be implemented in Fluence network

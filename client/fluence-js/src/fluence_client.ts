@@ -65,10 +65,15 @@ export class FluenceClient {
             // TODO if there's no conn, reject
             this.subscribe((args: any, target: Address, replyTo: Address) => {
                 if (predicate(args, target, replyTo)) {
-                    if (args.reason && !ignoreErrors) {
-                        reject(new Error(args.reason));
+                    if (args.reason) {
+                        if (ignoreErrors) {
+                            return false;
+                        } else {
+                            reject(new Error(args.reason));
+                        }
+                    } else {
+                        resolve(args);
                     }
-                    resolve(args);
                     return true;
                 }
                 return false;
@@ -251,7 +256,7 @@ export class FluenceClient {
      */
     async provideName(name: string, fn: (req: FunctionCall) => void) {
         let replyTo = this.connection.sender;
-        await this.callPeer("provide", {service_id: name, address: addressToString(replyTo)})
+        await this.callPeer("provide", {name: name, address: addressToString(replyTo)})
 
         this.services.addService(name, fn);
     }

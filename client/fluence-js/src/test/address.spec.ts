@@ -126,12 +126,12 @@ describe("Typescript usage suite", () => {
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it.skip("integration test", async function () {
+    it("integration test", async function () {
         this.timeout(15000);
-        await testCerts();
+        // await testCerts();
         await testCalculator();
-        await testUploadWasm();
-        await testServicesAndInterfaces();
+        // await testUploadWasm();
+        // await testServicesAndInterfaces();
     });
 });
 
@@ -243,7 +243,7 @@ export async function testCalculator() {
     let response = await cl2.callProvider(providerId, req, providerId);
 
     let result = response.result;
-    console.log(`calculation result is: ${result}`);
+    expect(result).to.be.equal(35)
 
     await cl1.connect("/dns4/relay02.fluence.dev/tcp/19001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9");
 
@@ -255,6 +255,8 @@ export async function testCalculator() {
     let response2 = await cl2.callProvider(providerId, req, providerId);
 
     let result2 = await response2.result;
-    console.log(`calculation result AFTER RECONNECT is: ${result2}`);
+    console.log("RESULT:");
+    console.log(response2);
+    expect(result2).to.be.equal(35)
 }
 
