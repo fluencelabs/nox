@@ -104,7 +104,7 @@ export async function createRelayAddress(relay: string, peerId: PeerId, withSig:
     }
 }
 
-export function createServiceAddress(service: string, hash?: string): Address {
+export function createProviderAddress(service: string, hash?: string): Address {
 
     let protocol = {protocol: ProtocolType.Providers, value: service};
 

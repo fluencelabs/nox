@@ -16,7 +16,6 @@
 
 import {FluenceClient} from "../fluence_client";
 import {Certificate, certificateFromString, certificateToString} from "./certificate";
-import {genUUID} from "../function_call";
 
 // The client to interact with the Fluence trust graph API
 export class TrustGraph {
@@ -34,7 +33,7 @@ export class TrustGraph {
             certsStr.push(await certificateToString(cert));
         }
 
-        let response = await this.client.sendServiceLocalCallWaitResponse("add_certificates", {
+        let response = await this.client.callPeer("add_certificates", {
             certificates: certsStr,
             peer_id: peerId
         });
@@ -50,7 +49,7 @@ export class TrustGraph {
 
     // Get certificates that stores in Kademlia neighbourhood by `peerId` key.
     async getCertificates(peerId: string): Promise<Certificate[]> {
-        let resp = await this.client.sendServiceLocalCallWaitResponse("certificates", {
+        let resp = await this.client.callPeer("certificates", {
             peer_id: peerId
         });
 

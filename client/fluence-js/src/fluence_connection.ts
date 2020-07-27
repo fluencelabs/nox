@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-import {Address, createPeerAddress, createServiceAddress} from "./address";
+import {Address, createPeerAddress} from "./address";
 import {
     callToString,
     FunctionCall,
     genUUID,
-    makeCall,
     makeFunctionCall,
-    makePeerCall,
-    makeRegisterMessage,
-    makeRelayCall,
+    makeProvideMessage,
     parseFunctionCall
 } from "./function_call";
 import * as PeerId from "peer-id";
@@ -50,7 +47,7 @@ export class FluenceConnection {
     readonly sender: Address;
     private node: LibP2p;
     private readonly address: Multiaddr;
-    private readonly nodePeerId: PeerId;
+    readonly nodePeerId: PeerId;
     private readonly selfPeerId: string;
     private readonly handleCall: (call: FunctionCall) => FunctionCall | undefined;
 
@@ -63,10 +60,10 @@ export class FluenceConnection {
         this.sender = sender
     }
 
-    makeReplyTo(replyHash?: string): Address {
-        if (replyHash) {
+    makeReplyTo(reply?: string): Address {
+        if (reply) {
             let replyToWithHash = {...this.sender}
-            replyToWithHash.hash = replyHash;
+            if (typeof reply === "string") replyToWithHash.hash = reply;
             return replyToWithHash;
         } else {
             return this.sender;
@@ -95,37 +92,6 @@ export class FluenceConnection {
 
     // connection status. If `Disconnected`, it cannot be reconnected
     private status: Status = Status.Initializing;
-
-    /**
-     * Sends remote service_id call.
-     */
-    async sendServiceCall(moduleId: string, isLocal: boolean, args: any, fname?: string, replyHash?: string, name?: string) {
-        let target;
-        if (isLocal) {
-            target = createPeerAddress(this.nodePeerId.toB58String());
-        } else {
-            target = createServiceAddress(moduleId);
-        }
-
-        let regMsg = makeCall(moduleId, target, args, this.sender, this.makeReplyTo(replyHash), fname, name);
-        await this.sendCall(regMsg);
-    }
-
-    /**
-     * Sends custom message to the peer.
-     */
-    async sendPeerCall(peer: string, msg: any, name?: string) {
-        let regMsg = makePeerCall(PeerId.createFromB58String(peer), msg, this.sender, this.sender, name);
-        await this.sendCall(regMsg);
-    }
-
-    /**
-     * Sends custom message to the peer through relay.
-     */
-    async sendRelayCall(peer: string, relay: string, msg: any, name?: string) {
-        let regMsg = await makeRelayCall(PeerId.createFromB58String(peer), PeerId.createFromB58String(relay), msg, this.sender, this.sender, name);
-        await this.sendCall(regMsg);
-    }
 
     private async startReceiving() {
         if (this.status === Status.Initializing) {
@@ -193,24 +159,23 @@ export class FluenceConnection {
         );
     }
 
-
     /**
      * Send FunctionCall to the connected node.
      */
-    async sendFunctionCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, replyHash?: string, name?: string) {
+    async sendFunctionCall(target: Address, args: any, moduleId?: string, fname?: string, msgId?: string, context?: string[], name?: string) {
         this.checkConnectedOrThrow();
 
         let replyTo;
-        if (reply) replyTo = this.makeReplyTo(replyHash);
+        if (msgId) replyTo = this.makeReplyTo(msgId);
 
-        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, name);
+        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, context, name);
 
         await this.sendCall(call);
     }
 
-    async registerService(serviceId: string) {
+    async provideName(name: string) {
         let target = createPeerAddress(this.nodePeerId.toB58String())
-        let regMsg = await makeRegisterMessage(serviceId, target, this.sender);
+        let regMsg = await makeProvideMessage(name, target, this.sender);
         await this.sendCall(regMsg);
     }
 }

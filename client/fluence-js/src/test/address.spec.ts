@@ -1,14 +1,14 @@
 import {
     createPeerAddress,
     createRelayAddress,
-    createServiceAddress,
+    createProviderAddress,
     addressToString,
-    parseAddress, Address
+    parseAddress
 } from "../address";
 import {expect} from 'chai';
 
 import 'mocha';
-import {decode, encode} from "bs58"
+import {encode} from "bs58"
 import * as PeerId from "peer-id";
 import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../function_call";
 import Fluence from "../fluence";
@@ -16,6 +16,7 @@ import {certificateFromString, certificateToString, issue} from "../trust/certif
 import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
 import {peerIdToSeed, seedToPeerId} from "../seed";
+import {greetingWASM} from "./greeting_wasm";
 
 describe("Typescript usage suite", () => {
 
@@ -24,7 +25,7 @@ describe("Typescript usage suite", () => {
     });
 
     it("should be able to convert service_id address to and from string", () => {
-        let addr = createServiceAddress("service_id-1");
+        let addr = createProviderAddress("service_id-1");
         let str = addressToString(addr);
         let parsed = parseAddress(str);
 
@@ -69,6 +70,7 @@ describe("Typescript usage suite", () => {
             "mm",
             "fff",
             addr,
+            undefined,
             "2444"
         );
 
@@ -124,10 +126,27 @@ describe("Typescript usage suite", () => {
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it.skip("integration test", async function () {
+    it.skip("test provide", async function () {
+        this.timeout(15000);
+        await testProvide();
+    });
+
+    // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
+    it.skip("test certs", async function () {
         this.timeout(15000);
         await testCerts();
-        // await testCalculator();
+    });
+
+    // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
+    it.skip("test upload wasm", async function () {
+        this.timeout(15000);
+        await testUploadWasm();
+    });
+
+    // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
+    it.skip("test list of services and interfaces", async function () {
+        this.timeout(15000);
+        await testServicesAndInterfaces();
     });
 });
 
@@ -166,8 +185,53 @@ export async function testCerts() {
     expect(certs[0].chain[1].issuedAt).to.be.equal(extended.chain[1].issuedAt)
 }
 
+export async function testUploadWasm() {
+    let key1 = await Fluence.generatePeerId();
+    let cl1 = await Fluence.connect("/dns4/134.209.186.43/tcp/9100/ws/p2p/12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM", key1);
+
+    let moduleName = genUUID()
+    await cl1.addModule(greetingWASM, moduleName, 100, [], {}, []);
+
+    let availableModules = await cl1.getAvailableModules();
+    console.log(availableModules);
+
+    let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
+
+    let serviceId = await cl1.createService(peerId1, [moduleName]);
+
+    let argName = genUUID();
+    let resp = await cl1.callService(peerId1, serviceId, moduleName, {name: argName}, "greeting")
+
+    expect(resp.result).to.be.equal(`Hi, ${argName}`)
+}
+
+export async function testServicesAndInterfaces() {
+    let key1 = await Fluence.generatePeerId();
+    let key2 = await Fluence.generatePeerId();
+
+    // connect to two different nodes
+    let cl1 = await Fluence.connect("/dns4/134.209.186.43/tcp/9100/ws/p2p/12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM", key1);
+    let cl2 = await Fluence.connect("/ip4/134.209.186.43/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
+
+    let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
+
+    let serviceId = await cl2.createService(peerId1, ["ipfs_node.wasm"]);
+
+    let resp = await cl2.callService(peerId1, serviceId, "ipfs_node.wasm", {}, "get_address")
+    console.log(resp)
+
+    let interfaces = await cl1.getActiveInterfaces();
+    let interfaceResp = await cl1.getInterface(serviceId, peerId1);
+
+    console.log(interfaces);
+    console.log(interfaceResp);
+
+    let availableModules = await cl1.getAvailableModules(peerId1);
+    console.log(availableModules);
+}
+
 // Shows how to register and call new service in Fluence network
-export async function testCalculator() {
+export async function testProvide() {
 
     let key1 = await Fluence.generatePeerId();
     let key2 = await Fluence.generatePeerId();
@@ -177,10 +241,10 @@ export async function testCalculator() {
     let cl2 = await Fluence.connect("/ip4/134.209.186.43/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", key2);
 
     // service name that we will register with one connection and call with another
-    let serviceId = "sum-calculator-" + genUUID();
+    let providerId = "sum-calculator-" + genUUID();
 
     // register service that will add two numbers and send a response with calculation result
-    await cl1.registerService(serviceId, async (req) => {
+    await cl1.provideName(providerId, async (req) => {
         console.log("message received");
         console.log(req);
 
@@ -188,27 +252,30 @@ export async function testCalculator() {
 
         let message = {msgId: req.arguments.msgId, result: req.arguments.one + req.arguments.two};
 
-        await cl1.sendCall(req.reply_to, message);
+
+        await cl1.sendCall({target: req.reply_to, args: message});
     });
 
     let req = {one: 12, two: 23};
 
     // send call to `sum-calculator` service with two numbers
-    let response = await cl2.sendServiceCallWaitResponse(serviceId, req);
+    let response = await cl2.callProvider(providerId, req, providerId);
 
     let result = response.result;
-    console.log(`calculation result is: ${result}`);
+    expect(result).to.be.equal(35)
 
     await cl1.connect("/dns4/relay02.fluence.dev/tcp/19001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9");
 
     await delay(1000);
 
     // send call to `sum-calculator` service with two numbers
-    await cl2.sendServiceCall(serviceId, req, "calculator request");
+    await cl2.callProvider(providerId, req, providerId, undefined, "calculator request");
 
-    let response2 = await cl2.sendServiceCallWaitResponse(serviceId, req);
+    let response2 = await cl2.callProvider(providerId, req, providerId);
 
     let result2 = await response2.result;
-    console.log(`calculation result AFTER RECONNECT is: ${result2}`);
+    console.log("RESULT:");
+    console.log(response2);
+    expect(result2).to.be.equal(35)
 }
 

@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
-import {Address, createRelayAddress, ProtocolType} from "./address";
+import {
+    Address,
+    createPeerAddress,
+    createRelayAddress,
+    createProviderAddress,
+    ProtocolType,
+    addressToString
+} from "./address";
 import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./function_call";
 import * as PeerId from "peer-id";
 import {Services} from "./services";
@@ -23,9 +30,29 @@ import {Subscriptions} from "./subscriptions";
 import * as PeerInfo from "peer-info";
 import {FluenceConnection} from "./fluence_connection";
 
+/**
+ * @param target receiver
+ * @param args message in the call
+ * @param moduleId module name
+ * @param fname function name
+ * @param context list of modules to use with the request
+ * @param name common field for debug purposes
+ * @param msgId hash that will be added to replyTo address
+ */
+interface Call {
+    target: Address,
+    args: any,
+    moduleId?: string,
+    fname?: string,
+    msgId?: string,
+    context?: string[],
+    name?: string
+}
+
 export class FluenceClient {
     readonly selfPeerInfo: PeerInfo;
     readonly selfPeerIdStr: string;
+    private nodePeerIdStr: string;
 
     private connection: FluenceConnection;
 
@@ -49,14 +76,23 @@ export class FluenceClient {
      * Waits a response that match the predicate.
      *
      * @param predicate will be applied to each incoming call until it matches
+     * @param ignoreErrors ignore an errors, wait for success response
      */
-    waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)): Promise<any> {
-        return new Promise((resolve, _) => {
+    waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), ignoreErrors: boolean): Promise<any> {
+        return new Promise((resolve, reject) => {
             // subscribe for responses, to handle response
             // TODO if there's no conn, reject
             this.subscribe((args: any, target: Address, replyTo: Address) => {
                 if (predicate(args, target, replyTo)) {
-                    resolve(args);
+                    if (args.reason) {
+                        if (ignoreErrors) {
+                            return false;
+                        } else {
+                            reject(new Error(args.reason));
+                        }
+                    } else {
+                        resolve(args);
+                    }
                     return true;
                 }
                 return false;
@@ -65,7 +101,7 @@ export class FluenceClient {
     }
 
     private getPredicate(msgId: string): (args: any, target: Address) => (boolean | undefined) {
-        return (args: any, target: Address) => target.hash && target.hash === msgId && !args.reason;
+        return (args: any, target: Address) => target.hash && target.hash === msgId;
     }
 
     /**
@@ -77,91 +113,76 @@ export class FluenceClient {
      * @param fname functin name
      */
     async sendCallWaitResponse(target: Address, args: any, moduleId?: string, fname?: string): Promise<any> {
-        let replyHash = genUUID();
-        let predicate = this.getPredicate(replyHash);
-        await this.sendCall(target, args, true, moduleId, fname, replyHash, undefined);
-        return this.waitResponse(predicate);
+        let msgId = genUUID();
+        let predicate = this.getPredicate(msgId);
+        await this.sendCall({target: target, args: args, moduleId: moduleId, fname: fname, msgId: msgId});
+        return this.waitResponse(predicate, false);
     }
+
+
 
     /**
      * Send call and forget.
      *
-     * @param target receiver
-     * @param args message in the call
-     * @param reply add a `replyTo` field or not
+     */
+    async sendCall(call: Call) {
+        if (this.connection && this.connection.isConnected()) {
+            await this.connection.sendFunctionCall(call.target, call.args, call.moduleId, call.fname, call.msgId, call.context, call.name);
+        } else {
+            throw Error("client is not connected")
+        }
+    }
+
+    /**
+     * Send call to the provider and wait a response matches predicate.
+     *
+     * @param provider published name in dht
+     * @param args message to the service
      * @param moduleId module name
      * @param fname function name
-     * @param name common field for debug purposes
-     * @param replyHash hash that will be added to replyTo address
+     * @param name debug info
      */
-    async sendCall(target: Address, args: any, reply?: boolean, moduleId?: string, fname?: string, replyHash?: string, name?: string) {
-        if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(target, args, reply, moduleId, fname, replyHash, name);
-        } else {
-            throw Error("client is not connected")
-        }
-    }
-
-    /**
-     * Send call to the service.
-     *
-     * @param moduleId
-     * @param args message to the service
-     * @param fname function name
-     * @param name common field for debug purposes
-     * @param replyHash hash that will be added to replyTo address
-     */
-    async sendServiceCall(moduleId: string, args: any, fname?: string, replyHash?: string, name?: string) {
-        if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(moduleId, false, args, fname, replyHash, name);
-        } else {
-            throw Error("client is not connected")
-        }
-    }
-
-    /**
-     * Send a call to the local service on a peer the client connected with.
-     *
-     * @param moduleId
-     * @param args message to the service
-     * @param fname function name
-     * @param name common field for debug purposes
-     * @param replyHash hash that will be added to replyTo address
-     */
-    async sendServiceLocalCall(moduleId: string, args: any, fname?: string, replyHash?: string, name?: string) {
-        if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendServiceCall(moduleId, true, args, fname, replyHash, name);
-        } else {
-            throw Error("client is not connected")
-        }
-    }
-
-    /**
-     * Send call to the service and wait a response matches predicate.
-     *
-     * @param moduleId
-     * @param args message to the service
-     * @param fname function name
-     */
-    async sendServiceCallWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
-        let replyHash = genUUID();
-        let predicate = this.getPredicate(replyHash);
-        await this.sendServiceCall(moduleId, args, fname, replyHash, fname);
-        return await this.waitResponse(predicate);
+    async callProvider(provider: string, args: any, moduleId?: string, fname?: string, name?: string): Promise<any> {
+        let msgId = genUUID();
+        let predicate = this.getPredicate(msgId);
+        let address = createProviderAddress(provider);
+        await this.sendCall({target: address, args: args, moduleId: moduleId, fname: fname, msgId: msgId, name: name});
+        return await this.waitResponse(predicate, true);
     }
 
     /**
      * Send a call to the local service and wait a response matches predicate on a peer the client connected with.
      *
      * @param moduleId
+     * @param addr node address
      * @param args message to the service
      * @param fname function name
+     * @param context
+     * @param name debug info
      */
-    async sendServiceLocalCallWaitResponse(moduleId: string, args: any, fname?: string): Promise<any> {
-        let replyHash = genUUID();
-        let predicate = this.getPredicate(replyHash);
-        await this.sendServiceLocalCall(moduleId, args, fname, replyHash, undefined);
-        return await this.waitResponse(predicate);
+    async callPeer(moduleId: string, args: any, fname?: string, addr?: string, context?: string[], name?: string): Promise<any> {
+        let msgId = genUUID();
+        let predicate = this.getPredicate(msgId);
+
+        let address;
+        if (addr) {
+            address = createPeerAddress(addr);
+        } else {
+            address = createPeerAddress(this.nodePeerIdStr);
+        }
+
+        await this.sendCall({target: address, args: args, moduleId: moduleId, fname: fname, msgId: msgId, context: context, name: name})
+
+        return await this.waitResponse(predicate, false);
+    }
+
+    async callService(peerId: string, serviceId: string, moduleId: string, args: any, fname?: string): Promise<any> {
+        let target = createPeerAddress(peerId, serviceId);
+        let msgId = genUUID();
+        let predicate = this.getPredicate(msgId);
+
+        await this.sendCall({target: target, args: args, moduleId: moduleId, fname: fname, msgId: msgId});
+        return await this.waitResponse(predicate, false);
     }
 
     /**
@@ -246,12 +267,86 @@ export class FluenceClient {
 
 
     /**
-     * Sends a call to register the service_id.
+     * Become a name provider. Other network members could find and call one of the providers of this name by this name.
      */
-    async registerService(moduleId: string, fn: (req: FunctionCall) => void) {
-        await this.connection.registerService(moduleId);
+    async provideName(name: string, fn: (req: FunctionCall) => void) {
+        let replyTo = this.connection.sender;
+        await this.callPeer("provide", {name: name, address: addressToString(replyTo)})
 
-        this.services.addService(moduleId, fn)
+        this.services.addService(name, fn);
+    }
+
+    /**
+     * Sends a call to create a service on remote node.
+     */
+    async createService(peerId: string, context: string[]): Promise<string> {
+        let resp = await this.callPeer("create", {}, undefined, peerId, context);
+
+        if (resp.result && resp.result.service_id) {
+            return resp.result.service_id
+        } else {
+            console.error("Unknown response type on `createService`: ", resp)
+            throw new Error("Unknown response type on `createService`");
+        }
+    }
+
+    async getInterface(serviceId: string, peerId?: string): Promise<any> {
+        let resp;
+        resp = await this.callPeer("get_interface", {service_id: serviceId}, undefined, peerId)
+        return resp.interface;
+    }
+
+    async getActiveInterfaces(peerId?: string): Promise<any> {
+        let resp;
+        if (peerId) {
+            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_active_interfaces");
+        } else {
+            resp = await this.callPeer("get_active_interfaces", {}, undefined, peerId);
+        }
+        return resp.active_interfaces;
+    }
+
+    async getAvailableModules(peerId?: string): Promise<string[]> {
+        let resp;
+        if (peerId) {
+            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_available_modules");
+        } else {
+            resp = await this.callPeer("get_available_modules", {}, undefined, peerId);
+        }
+
+        return resp.available_modules;
+    }
+
+    /**
+     * Add new WASM module to the node.
+     *
+     * @param bytes WASM in base64
+     * @param name WASM identificator
+     * @param mem_pages_count memory amount for WASM
+     * @param envs environment variables
+     * @param mapped_dirs links to directories
+     * @param preopened_files files and directories that will be used in WASM
+     * @param peerId the node to add module
+     */
+    async addModule(bytes: string, name: string, mem_pages_count: number, envs: string[], mapped_dirs: any, preopened_files: string[], peerId?: string): Promise<any> {
+        let config: any = {
+            logger_enabled: true,
+            mem_pages_count: mem_pages_count,
+            name: name,
+            wasi: {
+                envs: envs,
+                mapped_dirs: mapped_dirs,
+                preopened_files: preopened_files
+            }
+        }
+        let resp;
+        if (peerId) {
+            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {bytes: bytes, config: config}, "add_module");
+        } else {
+            resp = await this.callPeer("add_module", {bytes: bytes, config: config}, undefined, peerId);
+        }
+
+        return resp.available_modules;
     }
 
     // subscribe new hook for every incoming call, to handle in-service responses and other different cases
@@ -287,6 +382,7 @@ export class FluenceClient {
         multiaddr = Multiaddr(multiaddr);
 
         let nodePeerId = multiaddr.getPeerId();
+        this.nodePeerIdStr = nodePeerId;
 
         if (!nodePeerId) {
             throw Error("'multiaddr' did not contain a valid peer id")
@@ -309,7 +405,7 @@ export class FluenceClient {
         // if the client already had a connection, it will reregister all services after establishing a new connection.
         if (!firstConnection) {
             for (let service of this.services.getAllServices().keys()) {
-                await this.connection.registerService(service);
+                await this.connection.provideName(service);
             }
 
         }
