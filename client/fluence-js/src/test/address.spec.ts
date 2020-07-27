@@ -126,12 +126,27 @@ describe("Typescript usage suite", () => {
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it("integration test", async function () {
+    it.skip("test provide", async function () {
         this.timeout(15000);
-        // await testCerts();
-        await testCalculator();
-        // await testUploadWasm();
-        // await testServicesAndInterfaces();
+        await testProvide();
+    });
+
+    // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
+    it.skip("test certs", async function () {
+        this.timeout(15000);
+        await testCerts();
+    });
+
+    // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
+    it.skip("test upload wasm", async function () {
+        this.timeout(15000);
+        await testUploadWasm();
+    });
+
+    // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
+    it.skip("test list of services and interfaces", async function () {
+        this.timeout(15000);
+        await testServicesAndInterfaces();
     });
 });
 
@@ -174,17 +189,20 @@ export async function testUploadWasm() {
     let key1 = await Fluence.generatePeerId();
     let cl1 = await Fluence.connect("/dns4/134.209.186.43/tcp/9100/ws/p2p/12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM", key1);
 
-    await cl1.addModule(greetingWASM, "greeting1", 100, [], {}, []);
+    let moduleName = genUUID()
+    await cl1.addModule(greetingWASM, moduleName, 100, [], {}, []);
 
     let availableModules = await cl1.getAvailableModules();
     console.log(availableModules);
 
     let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
 
-    let serviceId = await cl1.createService(peerId1, ["greeting1"]);
+    let serviceId = await cl1.createService(peerId1, [moduleName]);
 
-    let resp = await cl1.callService(peerId1, serviceId, "greeting1", {name: "John"}, "greeting")
-    console.log(resp)
+    let argName = genUUID();
+    let resp = await cl1.callService(peerId1, serviceId, moduleName, {name: argName}, "greeting")
+
+    expect(resp.result).to.be.equal(`Hi, ${argName}`)
 }
 
 export async function testServicesAndInterfaces() {
@@ -213,7 +231,7 @@ export async function testServicesAndInterfaces() {
 }
 
 // Shows how to register and call new service in Fluence network
-export async function testCalculator() {
+export async function testProvide() {
 
     let key1 = await Fluence.generatePeerId();
     let key2 = await Fluence.generatePeerId();
@@ -234,7 +252,8 @@ export async function testCalculator() {
 
         let message = {msgId: req.arguments.msgId, result: req.arguments.one + req.arguments.two};
 
-        await cl1.sendCall(req.reply_to, message);
+
+        await cl1.sendCall({target: req.reply_to, args: message});
     });
 
     let req = {one: 12, two: 23};
