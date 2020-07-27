@@ -190,6 +190,8 @@ impl FaaSBehaviour {
         path.push(&config.name);
         std::fs::write(&path, bytes).map_err(|err| AddModule { path, err })?;
 
+        // replace existing configuration with a new one
+        self.config.core_module.retain(|m| m.name != config.name);
         self.config.core_module.push(config);
 
         Ok(())
