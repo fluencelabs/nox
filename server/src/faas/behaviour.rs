@@ -197,6 +197,25 @@ impl FaaSBehaviour {
         Ok(())
     }
 
+    fn create_faas(
+        module_names: Vec<String>,
+        config: RawCoreModulesConfig,
+        service_id: String,
+        waker: Option<Waker>,
+    ) -> (Option<FluenceFaaS>, Result<FaaSCallResult>) {
+        // Convert module names into hashmap
+        let module_names = module_names.into_iter().collect();
+
+        let faas = FluenceFaaS::with_module_names(&module_names, config).map_err(|e| e.into());
+        let (faas, result) = match faas {
+            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id })),
+            Err(e) => (None, Err(e)),
+        };
+        // Wake up when creation finished
+        Self::call_wake(waker);
+        (faas, result)
+    }
+
     /// Spawns tasks for calls execution and creates new FaaS-es until an error happens
     fn execute_calls<I>(
         &mut self,
@@ -209,8 +228,6 @@ impl FaaSBehaviour {
             match call {
                 // Request to create FaaS instance with given module_names
                 FaaSCall::Create { module_names, call } => {
-                    // Convert module names into hashmap
-                    let mut module_names = module_names.into_iter().collect();
                     // Generate new service_id
                     let service_id = Uuid::new_v4();
 
@@ -218,14 +235,8 @@ impl FaaSBehaviour {
                     let config = self.config.clone();
                     let waker = self.waker.clone();
                     let future = task::spawn_blocking(move || {
-                        let faas =
-                            FluenceFaaS::with_module_names(&mut module_names, config).map_err(|e| e.into());
-                        let (faas, result) = match faas {
-                            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id: service_id.to_string() })),
-                            Err(e) => (None, Err(e))
-                        };
-                        // Wake up when creation finished
-                        Self::call_wake(waker);
+                        let (faas, result) =
+                            Self::create_faas(module_names, config, service_id.to_string(), waker);
                         (faas, call, result)
                     });
 
