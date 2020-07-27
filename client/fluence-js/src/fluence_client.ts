@@ -89,9 +89,9 @@ export class FluenceClient {
      * @param fname functin name
      */
     async sendCallWaitResponse(target: Address, args: any, moduleId?: string, fname?: string): Promise<any> {
-        let replyHash = genUUID();
-        let predicate = this.getPredicate(replyHash);
-        await this.sendCall(target, args, moduleId, fname, replyHash, undefined);
+        let msgId = genUUID();
+        let predicate = this.getPredicate(msgId);
+        await this.sendCall(target, args, moduleId, fname, msgId, undefined);
         return this.waitResponse(predicate, false);
     }
 
@@ -104,11 +104,11 @@ export class FluenceClient {
      * @param fname function name
      * @param context list of modules to use with the request
      * @param name common field for debug purposes
-     * @param replyHash hash that will be added to replyTo address
+     * @param msgId hash that will be added to replyTo address
      */
-    async sendCall(target: Address, args: any, moduleId?: string, fname?: string, replyHash?: string | boolean, context?: string[], name?: string) {
+    async sendCall(target: Address, args: any, moduleId?: string, fname?: string, msgId?: string, context?: string[], name?: string) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(target, args, moduleId, fname, replyHash, context, name);
+            await this.connection.sendFunctionCall(target, args, moduleId, fname, msgId, context, name);
         } else {
             throw Error("client is not connected")
         }
@@ -124,10 +124,10 @@ export class FluenceClient {
      * @param name debug info
      */
     async callProvider(provider: string, args: any, moduleId?: string, fname?: string, name?: string): Promise<any> {
-        let replyHash = genUUID();
-        let predicate = this.getPredicate(replyHash);
+        let msgId = genUUID();
+        let predicate = this.getPredicate(msgId);
         let address = createProviderAddress(provider);
-        await this.sendCall(address, args, moduleId, fname, replyHash, undefined, name);
+        await this.sendCall(address, args, moduleId, fname, msgId, undefined, name);
         return await this.waitResponse(predicate, true);
     }
 
@@ -142,8 +142,8 @@ export class FluenceClient {
      * @param name debug info
      */
     async callPeer(moduleId: string, args: any, fname?: string, addr?: string, context?: string[], name?: string): Promise<any> {
-        let replyHash = genUUID();
-        let predicate = this.getPredicate(replyHash);
+        let msgId = genUUID();
+        let predicate = this.getPredicate(msgId);
 
         let address;
         if (addr) {
@@ -152,16 +152,16 @@ export class FluenceClient {
             address = createPeerAddress(this.nodePeerIdStr);
         }
 
-        await this.sendCall(address, args, moduleId, fname, replyHash, context, name)
+        await this.sendCall(address, args, moduleId, fname, msgId, context, name)
 
         return await this.waitResponse(predicate, false);
     }
 
     async callService(peerId: string, serviceId: string, moduleId: string, args: any, fname?: string): Promise<any> {
         let target = createPeerAddress(peerId, serviceId);
-        let replyHash = genUUID();
-        let predicate = this.getPredicate(replyHash);
-        await this.sendCall(target, args, moduleId, fname, replyHash);
+        let msgId = genUUID();
+        let predicate = this.getPredicate(msgId);
+        await this.sendCall(target, args, moduleId, fname, msgId);
         return await this.waitResponse(predicate, false);
     }
 

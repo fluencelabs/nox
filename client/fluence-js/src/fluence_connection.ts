@@ -60,7 +60,7 @@ export class FluenceConnection {
         this.sender = sender
     }
 
-    makeReplyTo(reply: boolean | string): Address {
+    makeReplyTo(reply?: string): Address {
         if (reply) {
             let replyToWithHash = {...this.sender}
             if (typeof reply === "string") replyToWithHash.hash = reply;
@@ -162,11 +162,11 @@ export class FluenceConnection {
     /**
      * Send FunctionCall to the connected node.
      */
-    async sendFunctionCall(target: Address, args: any, moduleId?: string, fname?: string, reply?: boolean | string, context?: string[], name?: string) {
+    async sendFunctionCall(target: Address, args: any, moduleId?: string, fname?: string, msgId?: string, context?: string[], name?: string) {
         this.checkConnectedOrThrow();
 
         let replyTo;
-        if (reply) replyTo = this.makeReplyTo(reply);
+        if (msgId) replyTo = this.makeReplyTo(msgId);
 
         let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, context, name);
 
