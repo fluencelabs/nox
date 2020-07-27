@@ -199,6 +199,7 @@ impl FaaSBehaviour {
     }
 
     /// Appends path `service_id` to all mapped and preopened directories in the config
+    /// TODO: this is an ad hoc solution, this could be implemented naturally on module loading level.
     fn change_dirs(
         mut config: RawCoreModulesConfig,
         service_id: &str,
