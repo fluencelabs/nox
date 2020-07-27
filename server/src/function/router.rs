@@ -269,7 +269,7 @@ impl FunctionRouter {
             // TODO: This error is not helpful. Example of helpful error: "Peer wasn't found via GetClosestPeers".
             //       Consider custom errors for different pairs of (status, expected)
             #[rustfmt::skip]
-            let err_msg = format!("Unexpected status for {}. Got {:?} expected {:?} ({})", to, status, expected, ctx);
+            let err_msg = format!("{} is not reachable (got {:?} expected {:?}) ({})", to, status, expected, ctx);
             #[rustfmt::skip]
             log::error!("Can't send call {:?}: {}", call, err_msg);
             self.send_error_on_call(call, err_msg);
@@ -297,14 +297,17 @@ impl FunctionRouter {
     /// Keep `call.name`, put `reason` and `call` in arguments
     pub(super) fn send_error_on_call(&mut self, call: FunctionCall, reason: String) {
         use serde_json::json;
+
+        let target = match call.reply_to.as_ref() {
+            Some(t) => t,
+            None => return,
+        };
         let arguments = json!({ "reason": reason, "call": call });
 
-        let reply_to = call.reply_to.as_ref().unwrap_or(&call.sender);
-
-        if reply_to != &self.config.local_address() {
+        if target != &self.config.local_address() {
             let call = FunctionCall {
                 uuid: format!("error_{}", call.uuid),
-                target: Some(reply_to.clone()),
+                target: Some(target.clone()),
                 reply_to: None, // TODO: sure?
                 module: None,
                 fname: None,

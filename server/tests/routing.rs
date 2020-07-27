@@ -123,8 +123,6 @@ fn missing_relay_signature() {
 #[test]
 // Provide service, and check that call reach it
 fn call_service() {
-    enable_logs();
-
     let service_id = "someserviceilike";
     let (mut provider, consumer) = ConnectedClient::make_clients().expect("connect clients");
 
