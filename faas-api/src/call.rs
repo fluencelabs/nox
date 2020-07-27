@@ -16,7 +16,6 @@
 
 use crate::Address;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -80,34 +79,6 @@ impl FunctionCall {
             name: name.into(),
             sender,
             context: vec![],
-        }
-    }
-
-    pub fn random() -> Self {
-        use rand::Rng;
-        let rng = rand::thread_rng();
-        let rnd_str = || {
-            rng.sample_iter(rand::distributions::Alphanumeric)
-                .take(10)
-                .collect()
-        };
-        let maybe_str = || {
-            if rand::random() {
-                Some(rnd_str())
-            } else {
-                None
-            }
-        };
-        Self {
-            uuid: Uuid::new_v4().to_string(),
-            target: Address::random().into(),
-            reply_to: Address::random().into(),
-            module: maybe_str(),
-            fname: maybe_str(),
-            arguments: json!({ rnd_str(): rnd_str() }),
-            name: maybe_str(),
-            sender: Address::random(),
-            context: maybe_str().into_iter().collect(),
         }
     }
 }

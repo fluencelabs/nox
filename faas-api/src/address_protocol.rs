@@ -15,9 +15,7 @@
  */
 
 use super::address::AddressError;
-use fluence_libp2p::RandomPeerId;
 use libp2p::PeerId;
-use rand::Rng;
 use std::borrow::Cow;
 
 type Result<T> = core::result::Result<T, AddressError>;
@@ -81,22 +79,6 @@ impl Protocol {
             // TODO: '/signature' => '?signature='
             Signature(sig) => ("signature", Cow::Owned(Self::vec_to_base58(sig))),
             Hashtag(hashtag) => ("#", Cow::Borrowed(hashtag)),
-        }
-    }
-
-    pub fn random() -> Self {
-        let rng = rand::thread_rng();
-        let rnd_str = || {
-            rng.sample_iter(rand::distributions::Alphanumeric)
-                .take(10)
-                .collect()
-        };
-        let i = rand::random::<usize>() % 3;
-        match i {
-            0 => Protocol::Providers(rnd_str()),
-            1 => Protocol::Peer(RandomPeerId::random()),
-            2 => Protocol::Client(RandomPeerId::random()),
-            _ => Protocol::Hashtag(rnd_str()),
         }
     }
 
