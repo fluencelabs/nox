@@ -16,7 +16,7 @@
 
 use faas_api::FunctionCall;
 
-/// Possible waiting states of the FunctionCall
+/// FunctionCall waiting for something happen to a peer possible states
 #[derive(Debug)]
 pub(super) enum WaitPeer {
     /// Wait for a given peer to become routable via Kademlia and forward call there

@@ -71,6 +71,7 @@ mod function {
     mod router;
     mod router_behaviour;
     mod services;
+    mod wait_address;
     mod wait_peer;
     mod waiting_queues;
 

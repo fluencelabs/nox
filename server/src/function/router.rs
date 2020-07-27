@@ -20,6 +20,7 @@ use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
 use crate::faas::FaaSBehaviour;
+use crate::function::wait_address::WaitAddress;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
@@ -38,7 +39,6 @@ use prometheus::Registry;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::task::Waker;
 use trust_graph::TrustGraph;
-use uuid::Uuid;
 
 pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 
@@ -71,8 +71,8 @@ pub struct FunctionRouter {
     /// Services provided by this node
     pub(super) provided_names: HashMap<Address, Address>,
     // TODO: clear queues on timeout?
-    /// Calls that are waiting for address to be name-resolved
-    pub(super) wait_name_resolved: WaitingQueues<Address, FunctionCall>,
+    /// Calls that are waiting for address to be name-resolved or published
+    pub(super) wait_address: WaitingQueues<Address, WaitAddress>,
     /// Calls that are waiting for target peer of the call to change state (see WaitPeer)
     pub(super) wait_peer: WaitingQueues<PeerId, WaitPeer>,
     // TODO: clear connected_peers on inject_listener_closed?
@@ -112,7 +112,7 @@ impl FunctionRouter {
             config,
             kademlia,
             events: <_>::default(),
-            wait_name_resolved: <_>::default(),
+            wait_address: <_>::default(),
             wait_peer: <_>::default(),
             provided_names: <_>::default(),
             connected_peers: <_>::default(),
@@ -319,26 +319,6 @@ impl FunctionRouter {
         }
     }
 
-    /// Generate uuid v4
-    pub(super) fn uuid() -> String {
-        Uuid::new_v4().to_string()
-    }
-
-    /// Send error to given `address`. Put `reason` in arguments.
-    pub(super) fn send_error(&mut self, address: Address, reason: String) {
-        use serde_json::json;
-        let arguments = json!({ "reason": reason });
-        let uuid = Self::uuid();
-        let call = FunctionCall {
-            uuid: format!("error_{}", uuid),
-            target: Some(address),
-            sender: self.config.local_address(),
-            arguments,
-            ..<_>::default()
-        };
-        self.call(call)
-    }
-
     /// Add node to kademlia routing table.
     /// Node is identified by `node_id`, `addresses` and `public_key`
     pub fn add_kad_node(
@@ -378,7 +358,7 @@ impl FunctionRouter {
         let local = self.config.local_address();
         let modules = self.faas.get_modules();
         for module in modules {
-            if let Err(err) = self.publish_name(&provider!(module.clone()), &local) {
+            if let Err(err) = self.publish_name(provider!(module.clone()), &local, None) {
                 log::warn!("Failed to publish local module {}: {:?}", module, err);
             } else {
                 log::info!("Publishing local module {}", module);

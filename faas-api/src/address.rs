@@ -386,26 +386,6 @@ macro_rules! peer {
     }};
 }
 
-/// Used in tests, but can't be marked as `#[cfg(tests)]` because it'll not be possible to export
-impl Address {
-    pub fn random_relay_unsigned() -> Self {
-        use fluence_libp2p::RandomPeerId;
-
-        relay!(RandomPeerId::random(), RandomPeerId::random())
-    }
-
-    pub fn random_relay() -> Self {
-        use fluence_libp2p::RandomPeerId;
-        use libp2p::identity::{ed25519::Keypair, PublicKey::Ed25519};
-
-        let node = RandomPeerId::random();
-        let client_kp = Keypair::generate();
-        let client = Ed25519(client_kp.public()).into_peer_id();
-
-        relay!(node, client, client_kp)
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
     use super::*;

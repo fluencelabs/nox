@@ -83,7 +83,7 @@ pub fn provide_call(service_id: &str, sender: Address, node: Address) -> Functio
         uuid: uuid(),
         target: Some(node),
         module: Some("provide".into()),
-        arguments: json!({ "service_id": service_id }),
+        arguments: json!({ "name": service_id, "address": sender.clone() }),
         reply_to: Some(sender.clone()),
         sender,
         ..<_>::default()

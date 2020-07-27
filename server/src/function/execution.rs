@@ -42,7 +42,7 @@ impl FunctionRouter {
         use BuiltinService as BS;
 
         match service {
-            BS::Provide(Provide { service_id }) => self.provide(provider!(service_id), call),
+            BS::Provide(Provide { name, address }) => self.provide(provider!(name), address, call),
             BS::GetCertificates(GetCertificates { peer_id, msg_id }) => {
                 self.get_certificates(peer_id, call, msg_id)
             }
@@ -173,13 +173,18 @@ impl FunctionRouter {
         Ok(())
     }
 
-    fn provide(&mut self, name: Address, call: FunctionCall) -> Result<(), CallError> {
+    fn provide(
+        &mut self,
+        name: Address,
+        provider: Address,
+        call: FunctionCall,
+    ) -> Result<(), CallError> {
         use Protocol::*;
 
-        let protocols = call.reply_to.as_ref().map(|addr| addr.protocols());
+        let protocols = provider.protocols();
 
-        match protocols.as_deref() {
-            Some([Peer(p), cl @ Client(_), sig @ Signature(_), rem @ ..]) if self.is_local(p) => {
+        match protocols.as_slice() {
+            [Peer(p), cl @ Client(_), sig @ Signature(_), rem @ ..] if self.is_local(&p) => {
                 // Verify signatures in address
                 let reply_to = call.reply_to.as_ref().unwrap();
                 verify_address_signatures(reply_to).map_err(|e| call.clone().error(e))?;
@@ -194,19 +199,18 @@ impl FunctionRouter {
                     log::warn!("Replaced name {:?} with {:?}, call: {}", replaced, provider, &call.uuid);
                 }
 
-                self.publish_name(&name, &provider)
+                let uuid = call.uuid.clone();
+                self.publish_name(name.clone(), &provider, Some(call.clone()))
                     .map_err(|e| call.clone().error(e))?;
 
-                log::info!("Published a service {}: {:?}", name, call);
+                log::info!("Published a service {}: {:?}", name, uuid);
                 Ok(())
             }
             // To avoid routing cycle (see discussion https://fluencelabs.slack.com/archives/C8FDH536W/p1588333361404100?thread_ts=1588331102.398600&cid=C8FDH536W)
-            Some([Peer(p), ..]) if !self.is_local(p) => Err(call.error(NonLocalRelay)),
+            [Peer(p), ..] if !self.is_local(&p) => Err(call.error(NonLocalRelay)),
             // Peer is local, but no signature was specified
-            Some([Peer(_), Client(_), ..]) => Err(call.error(SignatureError::MissingSignature)),
-            Some(other) => Err(call.error(UnsupportedReplyTo(other.iter().collect()))),
-            // If there's no `reply_to`, then we don't know where to forward, so can't register
-            None => Err(call.error(MissingReplyTo)),
+            [Peer(_), Client(_), ..] => Err(call.error(SignatureError::MissingSignature)),
+            other => Err(call.error(UnsupportedProvider(other.iter().collect()))),
         }
     }
 
