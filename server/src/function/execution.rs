@@ -61,10 +61,9 @@ impl FunctionRouter {
                     .faas
                     .get_interface(service_id.as_str())
                     .map_err(|e| call.clone().error(e))?;
-                match serde_json::to_value(interface) {
-                    Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
-                    Err(err) => Err(call.error(FaasInterfaceSerialization(err))),
-                }
+                let interface = json!(interface);
+
+                self.reply_with(call, msg_id, ("interface", json!(interface)))
             }
             BuiltinService::GetActiveInterfaces(GetActiveInterfaces { msg_id }) => {
                 let interfaces = json!(self.faas.get_interfaces());

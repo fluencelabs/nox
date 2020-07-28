@@ -156,7 +156,6 @@ impl FaaSBehaviour {
         Ok(faas.get_interface())
     }
 
-    #[allow(dead_code)]
     /// Get interfaces for all created FaaS instances
     pub fn get_interfaces(&self) -> HashMap<&str, FaaSInterface<'_>> {
         self.faases

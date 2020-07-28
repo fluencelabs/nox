@@ -72,10 +72,6 @@ impl CallError {
             CallErrorKind::AddCertificates(failed) => {
                 format!("failed to add certificates: {:?}", failed)
             }
-            CallErrorKind::FaasInterfaceSerialization(err) => format!(
-                "Totally unexpected: can't serialize FaaS interface to json: {}",
-                err
-            ),
             CallErrorKind::MissingServiceId => {
                 "service id must be specified after # in the target address".to_string()
             }
@@ -107,7 +103,6 @@ pub enum CallErrorKind {
     MissingPublicKey,
     UnsupportedPublicKey,
     AddCertificates(Vec<(Certificate, String)>),
-    FaasInterfaceSerialization(serde_json::Error),
     MissingServiceId,
     NoSuchModule { module: String, service_id: String },
     FaaSExecError(FaaSExecError),
