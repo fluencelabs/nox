@@ -617,15 +617,20 @@ fn get_interfaces() {
     let received = client.receive();
 
     let expected: Interface = serde_json::from_str(r#"{"modules":[{"name":"test_one.wasm","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]},{"name":"test_two.wasm","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]}]}"#).unwrap();
-    let actual: Interface =
-        serde_json::from_value(received.arguments["active_interfaces"][service_id1].clone())
-            .unwrap();
+
+    #[rustfmt::skip]
+    let actual: Interface = serde_json::from_value(
+        received.arguments["active_interfaces"].as_array().unwrap().iter().find(|i| i["service_id"] == service_id1).unwrap().clone(),
+    )
+    .unwrap();
 
     assert_eq!(expected, actual);
 
-    let actual: Interface =
-        serde_json::from_value(received.arguments["active_interfaces"][service_id2].clone())
-            .unwrap();
+    #[rustfmt::skip]
+    let actual: Interface = serde_json::from_value(
+        received.arguments["active_interfaces"].as_array().unwrap().iter().find(|i| i["service_id"] == service_id2).unwrap().clone(),
+    )
+    .unwrap();
 
     assert_eq!(expected, actual);
 }

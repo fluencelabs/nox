@@ -25,6 +25,7 @@ use super::{
 };
 use crate::function::builtin_service::{AddModule, GetActiveInterfaces, GetAvailableModules};
 use faas_api::{provider, Address, FunctionCall, Protocol};
+use fluence_faas::FaaSInterface;
 use libp2p::PeerId;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -66,11 +67,20 @@ impl FunctionRouter {
                 self.reply_with(call, msg_id, ("interface", json!(interface)))
             }
             BuiltinService::GetActiveInterfaces(GetActiveInterfaces { msg_id }) => {
+                #[rustfmt::skip]
                 let interfaces: Vec<_> = self
                     .faas
                     .get_interfaces()
                     .into_iter()
-                    .map(|(id, service)| json!({"service_id": id, "service": service}))
+                    .map(|(service_id, service)| {
+                        #[derive(Serialize)]
+                        struct Service<'a> {
+                            service_id: &'a str,
+                            #[serde(flatten)]
+                            service: FaaSInterface<'a>,
+                        }
+                        json!(Service { service_id, service })
+                    })
                     .collect();
                 self.reply_with(call, msg_id, ("active_interfaces", interfaces))
             }
