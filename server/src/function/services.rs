@@ -135,18 +135,10 @@ impl FunctionRouter {
     // Look for service providers, enqueue call to wait for providers
     pub(super) fn find_providers(&mut self, name: Address, call: FunctionCall) {
         log::info!("Finding service provider for {}, call: {:?}", name, call);
-        if let Enqueued::New = self
-            .wait_address
-            .enqueue(name.clone(), WaitAddress::ProviderFound(call))
-        {
-            // won't call get_providers if there are already calls waiting for it
-            self.resolve_name(&name)
-        } else {
-            log::debug!(
-                "won't call resolve_name because there are already promises waiting for {}",
-                name
-            )
-        }
+        self.wait_address
+            .enqueue(name.clone(), WaitAddress::ProviderFound(call));
+        // TODO: don't call resolve_name if there is the same request in progress
+        self.resolve_name(&name)
     }
 
     // Advance execution for calls waiting for this service: send them to first provider
