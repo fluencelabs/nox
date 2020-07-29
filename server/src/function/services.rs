@@ -18,7 +18,6 @@ use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
 use crate::faas::{FaaSCall, FaaSCallResult, FaaSExecError};
 use crate::function::wait_address::WaitAddress;
-use crate::function::waiting_queues::Enqueued;
 use crate::function::{CallError, CallErrorKind::*, ErrorData};
 use faas_api::{Address, FunctionCall, Protocol};
 use fluence_faas::IValue;

@@ -31,6 +31,13 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use trust_graph::Certificate;
 
+#[derive(Serialize)]
+struct Service<'a> {
+    service_id: &'a str,
+    #[serde(flatten)]
+    service: FaaSInterface<'a>,
+}
+
 impl FunctionRouter {
     /// Execute call on builtin service: "provide", "certificates", etc
     /// `ttl` – time to live, if `0`, then "certificates" and "add_certificates" services
@@ -58,11 +65,14 @@ impl FunctionRouter {
                 self.reply_with(call, msg_id, ("addresses", addrs))
             }
             BS::GetInterface(GetInterface { msg_id, service_id }) => {
-                let interface = self
+                let service = self
                     .faas
                     .get_interface(service_id.as_str())
                     .map_err(|e| call.clone().error(e))?;
-                let interface = json!(interface);
+                let interface = json!(Service {
+                    service_id: service_id.as_str(),
+                    service
+                });
 
                 self.reply_with(call, msg_id, ("interface", json!(interface)))
             }
@@ -73,12 +83,6 @@ impl FunctionRouter {
                     .get_interfaces()
                     .into_iter()
                     .map(|(service_id, service)| {
-                        #[derive(Serialize)]
-                        struct Service<'a> {
-                            service_id: &'a str,
-                            #[serde(flatten)]
-                            service: FaaSInterface<'a>,
-                        }
                         json!(Service { service_id, service })
                     })
                     .collect();
