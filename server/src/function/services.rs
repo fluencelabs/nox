@@ -173,6 +173,10 @@ impl FunctionRouter {
         providers.sort_by_cached_key(|addr| {
             // Take last public key in the address
             let pk = addr.iter().rev().find_map(|p| p.public_key())?;
+            let pk = match pk {
+                libp2p::identity::PublicKey::Ed25519(pk) => pk,
+                _ => return None,
+            };
             // Look it up in the trust graph
             self.kademlia.trust.weight(pk)
         });
