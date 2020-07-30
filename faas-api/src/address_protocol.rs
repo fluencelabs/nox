@@ -15,6 +15,7 @@
  */
 
 use super::address::AddressError;
+use libp2p::identity::PublicKey;
 use libp2p::PeerId;
 use std::borrow::Cow;
 
@@ -79,6 +80,15 @@ impl Protocol {
             // TODO: '/signature' => '?signature='
             Signature(sig) => ("signature", Cow::Owned(Self::vec_to_base58(sig))),
             Hashtag(hashtag) => ("#", Cow::Borrowed(hashtag)),
+        }
+    }
+
+    pub fn public_key(&self) -> Option<PublicKey> {
+        use self::Protocol::*;
+
+        match self {
+            Peer(id) | Client(id) => id.as_public_key(),
+            _ => None,
         }
     }
 

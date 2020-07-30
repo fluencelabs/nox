@@ -168,9 +168,21 @@ impl FunctionRouter {
             );
         }
 
+        let mut providers = providers.into_iter().collect::<Vec<_>>();
+        // Sort providers by weight in trust graph
+        providers.sort_by_cached_key(|addr| {
+            // Take last public key in the address
+            let pk = addr.iter().rev().find_map(|p| p.public_key())?;
+            let pk = match pk {
+                libp2p::identity::PublicKey::Ed25519(pk) => pk,
+                _ => return None,
+            };
+            // Look it up in the trust graph
+            self.kademlia.trust.weight(pk)
+        });
+
         // TODO: Sending call to all providers here,
         //       implement and use ProviderSelector::All, ProviderSelector::Latest, ProviderSelector::MaxWeight
-        // TODO: weight providers according to TrustGraph
         for call in calls.map(|c| c.call()) {
             for provider in providers.iter() {
                 let mut call = call.clone();
