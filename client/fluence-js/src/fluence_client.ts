@@ -295,7 +295,7 @@ export class FluenceClient {
         let resp;
         resp = await this.callPeer("get_interface", {service_id: serviceId}, undefined, peerId)
         let i = resp.interface;
-        i.service_id = serviceId;
+
         if (checkInterface(i)) {
             return i;
         } else {
