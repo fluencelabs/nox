@@ -168,6 +168,8 @@ impl FunctionRouter {
             );
         }
 
+        // let providers = providers.into_iter().collect::<Vec<_>>().sort_unstable_by(|addr| addr.iter().rev())
+
         // TODO: Sending call to all providers here,
         //       implement and use ProviderSelector::All, ProviderSelector::Latest, ProviderSelector::MaxWeight
         // TODO: weight providers according to TrustGraph

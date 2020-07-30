@@ -130,7 +130,7 @@ impl Address {
     }
 
     // Builds iterator over protocols in the address
-    pub fn iter(&self) -> impl Iterator<Item = Protocol> + '_ {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = Protocol> + '_ {
         ProtocolsIter(self.path_segments(), self.0.fragment())
     }
 
@@ -174,7 +174,7 @@ impl Address {
     }
 
     /// Returns path segments without empty elements
-    fn path_segments(&self) -> impl Iterator<Item = &str> + '_ {
+    fn path_segments(&self) -> impl DoubleEndedIterator<Item = &str> + '_ {
         self.0
             .path_segments()
             .expect("url can be base")
@@ -279,6 +279,22 @@ impl<'a, P: Iterator<Item = &'a str>> Iterator for ProtocolsIter<'a, P> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_protocol().or_else(|| self.take_fragment())
+    }
+}
+
+impl<'a, P: DoubleEndedIterator<Item = &'a str>> ProtocolsIter<'a, P> {
+    fn last_protocol(&mut self) -> Option<Protocol> {
+        self.take_fragment().or_else(|| {
+            let last = self.0.next_back().into_iter();
+            let prev_to_last = self.0.next_back().into_iter();
+            Protocol::from_iter(prev_to_last.chain(last)).ok()
+        })
+    }
+}
+
+impl<'a, P: DoubleEndedIterator<Item = &'a str>> DoubleEndedIterator for ProtocolsIter<'a, P> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.last_protocol()
     }
 }
 
@@ -429,5 +445,18 @@ pub mod tests {
         let iter = address.iter();
         let vec = iter.collect::<Vec<_>>();
         assert_eq!(vec.len(), 2);
+    }
+
+    #[test]
+    fn rev_iterator() {
+        let address: Address = "/peer/Qmay8oMmnDmfLpmZtNwisEcmReVVqzvm2vcTc9rPzxeS3x#IPFS.get"
+            .parse()
+            .unwrap();
+
+        let iter = address.iter();
+        let vec = iter.rev().collect::<Vec<_>>();
+        assert_eq!(vec.len(), 2);
+        assert!(matches!(vec[0], Protocol::Hashtag(_)));
+        assert!(matches!(vec[1], Protocol::Peer(_)))
     }
 }
