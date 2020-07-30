@@ -59,7 +59,7 @@ function checkModule(module: any): module is Module {
 }
 
 /**
- * Throws an error if 'i' is not Interface type.
+ * Throws an error if 'i' is not an Interface type.
  */
 export function checkInterface(i: any): i is Interface {
     if (!i.service_id) throw new Error(`There is no 'service_id' field in Interface struct: ${JSON.stringify(i)}`)
