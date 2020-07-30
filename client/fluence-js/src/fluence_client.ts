@@ -29,6 +29,7 @@ import Multiaddr from "multiaddr"
 import {Subscriptions} from "./subscriptions";
 import * as PeerInfo from "peer-info";
 import {FluenceConnection} from "./fluence_connection";
+import {checkInterface, Interface} from "./Interface";
 
 /**
  * @param target receiver
@@ -290,20 +291,37 @@ export class FluenceClient {
         }
     }
 
-    async getInterface(serviceId: string, peerId?: string): Promise<any> {
+    async getInterface(serviceId: string, peerId?: string): Promise<Interface> {
         let resp;
         resp = await this.callPeer("get_interface", {service_id: serviceId}, undefined, peerId)
-        return resp.interface;
+        let i = resp.interface;
+
+        if (checkInterface(i)) {
+            return i;
+        } else {
+            throw new Error("Unexpected");
+        }
     }
 
-    async getActiveInterfaces(peerId?: string): Promise<any> {
+    async getActiveInterfaces(peerId?: string): Promise<Interface[]> {
         let resp;
         if (peerId) {
             resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_active_interfaces");
         } else {
             resp = await this.callPeer("get_active_interfaces", {}, undefined, peerId);
         }
-        return resp.active_interfaces;
+        let interfaces = resp.active_interfaces;
+        if (interfaces && interfaces instanceof Array) {
+            return interfaces.map((i: any) => {
+                if (checkInterface(i)) {
+                    return i;
+                } else {
+                    throw new Error("Unexpected");
+                }
+            });
+        } else {
+            throw new Error("Unexpected");
+        }
     }
 
     async getAvailableModules(peerId?: string): Promise<string[]> {
