@@ -25,10 +25,18 @@ use super::{
 };
 use crate::function::builtin_service::{AddModule, GetActiveInterfaces, GetAvailableModules};
 use faas_api::{provider, Address, FunctionCall, Protocol};
+use fluence_faas::FaaSInterface;
 use libp2p::PeerId;
 use serde::Serialize;
 use serde_json::{json, Value};
 use trust_graph::Certificate;
+
+#[derive(Serialize)]
+struct Service<'a> {
+    service_id: &'a str,
+    #[serde(flatten)]
+    service: FaaSInterface<'a>,
+}
 
 impl FunctionRouter {
     /// Execute call on builtin service: "provide", "certificates", etc
@@ -57,17 +65,27 @@ impl FunctionRouter {
                 self.reply_with(call, msg_id, ("addresses", addrs))
             }
             BS::GetInterface(GetInterface { msg_id, service_id }) => {
-                let interface = self
+                let service = self
                     .faas
                     .get_interface(service_id.as_str())
                     .map_err(|e| call.clone().error(e))?;
-                match serde_json::to_value(interface) {
-                    Ok(interface) => self.reply_with(call, msg_id, ("interface", interface)),
-                    Err(err) => Err(call.error(FaasInterfaceSerialization(err))),
-                }
+                let interface = json!(Service {
+                    service_id: service_id.as_str(),
+                    service
+                });
+
+                self.reply_with(call, msg_id, ("interface", json!(interface)))
             }
             BuiltinService::GetActiveInterfaces(GetActiveInterfaces { msg_id }) => {
-                let interfaces = json!(self.faas.get_interfaces());
+                #[rustfmt::skip]
+                let interfaces: Vec<_> = self
+                    .faas
+                    .get_interfaces()
+                    .into_iter()
+                    .map(|(service_id, service)| {
+                        json!(Service { service_id, service })
+                    })
+                    .collect();
                 self.reply_with(call, msg_id, ("active_interfaces", interfaces))
             }
             BuiltinService::GetAvailableModules(GetAvailableModules { msg_id }) => {

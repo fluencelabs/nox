@@ -37,6 +37,7 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::task::{Context, Poll, Waker};
+use toml::value::Table;
 use uuid::Uuid;
 use void::Void;
 
@@ -155,7 +156,6 @@ impl FaaSBehaviour {
         Ok(faas.get_interface())
     }
 
-    #[allow(dead_code)]
     /// Get interfaces for all created FaaS instances
     pub fn get_interfaces(&self) -> HashMap<&str, FaaSInterface<'_>> {
         self.faases
@@ -197,6 +197,77 @@ impl FaaSBehaviour {
         Ok(())
     }
 
+    /// Appends path `service_id` to all mapped and preopened directories in the config
+    /// TODO: this is an ad hoc solution, this could be implemented naturally on module loading level.
+    fn change_dirs(
+        mut config: RawCoreModulesConfig,
+        service_id: &str,
+    ) -> Result<RawCoreModulesConfig> {
+        let push = |path: &String| -> String {
+            let mut k = PathBuf::from(path);
+            k.push(service_id);
+            k.to_string_lossy().into_owned()
+        };
+        let wasi_configs = config
+            .core_module
+            .iter_mut()
+            .flat_map(|c| c.wasi.iter_mut())
+            .chain(config.rpc_module.iter_mut().flat_map(|c| c.wasi.iter_mut()));
+
+        for wasi in wasi_configs {
+            // Take all mapped dirs, append service_id directory, and make sure resulting dirs exist
+            if let Some(dirs) = wasi.mapped_dirs.take() {
+                let dirs: Table = dirs
+                    .into_iter()
+                    .map(|(k, v)| {
+                        let dir = push(&k);
+                        std::fs::create_dir_all(&dir).map_err(|err| FaaSExecError::ChangeDir {
+                            path: dir.clone(),
+                            err,
+                        })?;
+                        Ok((dir, v))
+                    })
+                    .collect::<Result<_>>()?;
+                wasi.mapped_dirs = Some(dirs);
+            }
+
+            // Append service_id to all preopened dirs, and make sure they exist
+            if let Some(files) = wasi.preopened_files.as_mut() {
+                for file in files {
+                    *file = push(file);
+                    std::fs::create_dir_all(&file).map_err(|err| FaaSExecError::ChangeDir {
+                        path: file.to_string(),
+                        err,
+                    })?;
+                }
+            }
+        }
+
+        Ok(config)
+    }
+
+    fn create_faas(
+        module_names: Vec<String>,
+        config: RawCoreModulesConfig,
+        service_id: String,
+        waker: Option<Waker>,
+    ) -> (Option<FluenceFaaS>, Result<FaaSCallResult>) {
+        // Convert module names into hashmap
+        let module_names = module_names.into_iter().collect();
+
+        let config = Self::change_dirs(config, &service_id);
+        let faas = config.and_then(|config| {
+            FluenceFaaS::with_module_names(&module_names, config).map_err(|e| e.into())
+        });
+        let (faas, result) = match faas {
+            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id })),
+            Err(e) => (None, Err(e)),
+        };
+        // Wake up when creation finished
+        Self::call_wake(waker);
+        (faas, result)
+    }
+
     /// Spawns tasks for calls execution and creates new FaaS-es until an error happens
     fn execute_calls<I>(
         &mut self,
@@ -209,8 +280,6 @@ impl FaaSBehaviour {
             match call {
                 // Request to create FaaS instance with given module_names
                 FaaSCall::Create { module_names, call } => {
-                    // Convert module names into hashmap
-                    let mut module_names = module_names.into_iter().collect();
                     // Generate new service_id
                     let service_id = Uuid::new_v4();
 
@@ -218,14 +287,8 @@ impl FaaSBehaviour {
                     let config = self.config.clone();
                     let waker = self.waker.clone();
                     let future = task::spawn_blocking(move || {
-                        let faas =
-                            FluenceFaaS::with_module_names(&mut module_names, config).map_err(|e| e.into());
-                        let (faas, result) = match faas {
-                            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id: service_id.to_string() })),
-                            Err(e) => (None, Err(e))
-                        };
-                        // Wake up when creation finished
-                        Self::call_wake(waker);
+                        let service_id = service_id.to_string();
+                        let (faas, result) = Self::create_faas(module_names, config, service_id, waker);
                         (faas, call, result)
                     });
 
@@ -370,6 +433,7 @@ pub enum FaaSExecError {
     NoSuchInstance(String),
     FaaS(FaaSError),
     AddModule { path: PathBuf, err: std::io::Error },
+    ChangeDir { path: String, err: std::io::Error },
 }
 
 impl Error for FaaSExecError {}
@@ -389,6 +453,11 @@ impl std::fmt::Display for FaaSExecError {
             FaaSExecError::AddModule { path, err } => {
                 write!(f, "Error saving module {:?}: {:?}", path, err)
             }
+            FaaSExecError::ChangeDir { path, err } => write!(
+                f,
+                "Wrongs path in mapped dirs or preopened files {}: {:?}",
+                path, err
+            ),
         }
     }
 }

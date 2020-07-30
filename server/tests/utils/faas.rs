@@ -19,7 +19,6 @@ use crate::utils::{
 };
 use fluence_faas::RawCoreModulesConfig;
 use parity_multiaddr::Multiaddr;
-use std::collections::HashMap;
 use std::thread::sleep;
 
 static TEST_MODULE: &[u8] = include_bytes!("../artifacts/test_module_wit.wasi.wasm");
@@ -56,13 +55,43 @@ core_modules_dir = ""
 
 #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct Function {
+    pub name: String,
     pub input_types: Vec<String>,
     pub output_types: Vec<String>,
 }
 
-#[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
+#[derive(serde::Deserialize, Clone, Debug)]
+pub struct Module {
+    pub name: String,
+    pub functions: Vec<Function>,
+}
+
+#[derive(serde::Deserialize, Clone, Debug)]
 pub struct Interface {
-    pub modules: HashMap<String, HashMap<String, Function>>,
+    pub modules: Vec<Module>,
+}
+
+impl PartialEq for Interface {
+    fn eq(&self, right: &Self) -> bool {
+        for left in self.modules.iter() {
+            let right = right.modules.iter().find(|m| m.name == left.name).unwrap();
+            if left.functions.len() != right.functions.len() {
+                return false;
+            }
+            for left in left.functions.iter() {
+                let right = right
+                    .functions
+                    .iter()
+                    .find(|f| f.name == left.name)
+                    .unwrap();
+                if right != left {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
 }
 
 pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static> {
