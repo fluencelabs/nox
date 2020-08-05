@@ -32,7 +32,7 @@ AmsnWkUnbbdPPLHx7wjW4aNQQn1Xkv7Y1AAS3Lfnhguo = 4
 2o7wirW2bEj6zSP6BZ3WPyiuGkzdHW2kLYDGdfzck2SH = 4
 
 [faas]
-core_modules_dir = "/wasm_modules"
+modules_dir = "/wasm_modules"
 
 [[faas.core_module]]
     name = "ipfs_node.wasm"

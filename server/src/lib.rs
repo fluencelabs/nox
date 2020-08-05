@@ -102,7 +102,9 @@ pub mod kademlia {
 
 pub mod faas {
     mod behaviour;
-    pub(crate) use behaviour::{FaaSBehaviour, FaaSCall, FaaSCallResult, FaaSExecError};
+    pub(crate) use behaviour::{
+        FaaSExecError, FaaSServiceBehaviour, FaaSServiceCall, FaaSServiceCallResult,
+    };
 }
 
 pub(crate) use bootstrapper::Bootstrapper;

@@ -17,8 +17,9 @@
 use crate::faas::behaviour::FaaSExecError::AddModule;
 use async_std::task;
 use faas_api::FunctionCall;
-use fluence_faas::{
-    FaaSError, FaaSInterface, FluenceFaaS, IValue, RawCoreModulesConfig, RawModuleConfig,
+use fluence_faas_service::{
+    FaaSInterface, FluenceFaaSService as FaaSService, IValue, RawModuleConfig, RawModulesConfig,
+    ServiceError,
 };
 use futures_util::future::BoxFuture;
 use libp2p::core::connection::ConnectionId;
@@ -37,26 +38,29 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::task::{Context, Poll, Waker};
-use toml::value::Table;
 use uuid::Uuid;
 use void::Void;
 
 type Result<T> = std::result::Result<T, FaaSExecError>;
-type FutResult = (Option<FluenceFaaS>, FunctionCall, Result<FaaSCallResult>);
+type FutResult = (
+    Option<FaaSService>,
+    FunctionCall,
+    Result<FaaSServiceCallResult>,
+);
 type Fut = BoxFuture<'static, FutResult>;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 /// Result of executing FaasCall
-pub enum FaaSCallResult {
+pub enum FaaSServiceCallResult {
     /// FaaS was created with this `service_id`
     FaaSCreated { service_id: String },
-    #[serde(serialize_with = "FaaSCallResult::serialize_returned")]
+    #[serde(serialize_with = "FaaSServiceCallResult::serialize_returned")]
     /// Call to faas returned this result
     Returned(Vec<IValue>),
 }
 
-impl FaaSCallResult {
+impl FaaSServiceCallResult {
     fn serialize_returned<S>(
         value: &[IValue],
         serializer: S,
@@ -67,7 +71,7 @@ impl FaaSCallResult {
         if value.is_empty() {
             Value::Null.serialize(serializer)
         } else {
-            let value = fluence_faas::from_interface_values(&value)
+            let value = fluence_faas_service::from_interface_values(&value)
                 .map_err(|e| SerError::custom(format!("Failed to serialize result: {}", e)))?;
 
             Value::serialize(&value, serializer)
@@ -77,7 +81,7 @@ impl FaaSCallResult {
 
 #[derive(Debug, Clone)]
 /// Call to FaaS
-pub enum FaaSCall {
+pub enum FaaSServiceCall {
     /// Call to the FaaS instance specified by `service_id`
     Call {
         /// UUID of the FaaS instance
@@ -87,7 +91,8 @@ pub enum FaaSCall {
         /// Function name to call
         function: String,
         /// Arguments for the function
-        arguments: Vec<IValue>,
+        // TODO: change to Vec<u8> in future?
+        arguments: serde_json::Value,
         /// FunctionCall that caused this WasmCall, returned to caller as is
         call: FunctionCall,
     },
@@ -100,37 +105,37 @@ pub enum FaaSCall {
     },
 }
 
-impl FaaSCall {
+impl FaaSServiceCall {
     /// Whether this call is of `Create` type
     pub fn is_create(&self) -> bool {
-        matches!(self, FaaSCall::Create { .. })
+        matches!(self, FaaSServiceCall::Create { .. })
     }
 
     pub fn service_id(&self) -> Option<&str> {
         match self {
-            FaaSCall::Call { service_id, .. } => Some(service_id),
-            FaaSCall::Create { .. } => None,
+            FaaSServiceCall::Call { service_id, .. } => Some(service_id),
+            FaaSServiceCall::Create { .. } => None,
         }
     }
 }
 
 /// Behaviour that manages FaaS instances: create, pass calls, poll for results
-pub struct FaaSBehaviour {
+pub struct FaaSServiceBehaviour {
     /// Created instances
     //TODO: when to delete an instance?
-    faases: HashMap<String, FluenceFaaS>,
+    faases: HashMap<String, FaaSService>,
     /// Incoming calls waiting to be processed
-    calls: Vec<FaaSCall>,
+    calls: Vec<FaaSServiceCall>,
     /// Context waker, used to trigger `poll`
     waker: Option<Waker>,
     /// Pending futures: service_id -> future
     futures: HashMap<String, Fut>,
     /// Config to create FaaS instances with
-    config: RawCoreModulesConfig,
+    config: RawModulesConfig,
 }
 
-impl FaaSBehaviour {
-    pub fn new(config: RawCoreModulesConfig) -> Self {
+impl FaaSServiceBehaviour {
+    pub fn new(config: RawModulesConfig) -> Self {
         Self {
             faases: <_>::default(),
             calls: <_>::default(),
@@ -141,7 +146,7 @@ impl FaaSBehaviour {
     }
 
     /// Execute given `call`
-    pub fn execute(&mut self, call: FaaSCall) {
+    pub fn execute(&mut self, call: FaaSServiceCall) {
         self.calls.push(call);
         self.wake();
     }
@@ -173,7 +178,7 @@ impl FaaSBehaviour {
                 .collect()
         };
 
-        let dir = self.config.core_modules_dir.as_ref();
+        let dir = self.config.modules_dir.as_ref();
         if let Some(fs_modules) = get_modules(dir) {
             let cfg_modules = self.config.core_module.iter().map(|m| m.name.clone());
             return cfg_modules.filter(|m| fs_modules.contains(m)).collect();
@@ -185,7 +190,7 @@ impl FaaSBehaviour {
     /// Adds a module to the filesystem, overwriting existing module.
     /// Also adds module config to the RawModuleConfig
     pub fn add_module(&mut self, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
-        let dir = ok_get!(self.config.core_modules_dir.as_ref());
+        let dir = ok_get!(self.config.modules_dir.as_ref());
         let mut path = PathBuf::from(dir);
         path.push(&config.name);
         std::fs::write(&path, bytes).map_err(|err| AddModule { path, err })?;
@@ -197,70 +202,19 @@ impl FaaSBehaviour {
         Ok(())
     }
 
-    /// Appends path `service_id` to all mapped and preopened directories in the config
-    /// TODO: this is an ad hoc solution, this could be implemented naturally on module loading level.
-    fn change_dirs(
-        mut config: RawCoreModulesConfig,
-        service_id: &str,
-    ) -> Result<RawCoreModulesConfig> {
-        let push = |path: &String| -> String {
-            let mut k = PathBuf::from(path);
-            k.push(service_id);
-            k.to_string_lossy().into_owned()
-        };
-        let wasi_configs = config
-            .core_module
-            .iter_mut()
-            .flat_map(|c| c.wasi.iter_mut())
-            .chain(config.rpc_module.iter_mut().flat_map(|c| c.wasi.iter_mut()));
-
-        for wasi in wasi_configs {
-            // Take all mapped dirs, append service_id directory, and make sure resulting dirs exist
-            if let Some(dirs) = wasi.mapped_dirs.take() {
-                let dirs: Table = dirs
-                    .into_iter()
-                    .map(|(k, v)| {
-                        let dir = push(&k);
-                        std::fs::create_dir_all(&dir).map_err(|err| FaaSExecError::ChangeDir {
-                            path: dir.clone(),
-                            err,
-                        })?;
-                        Ok((dir, v))
-                    })
-                    .collect::<Result<_>>()?;
-                wasi.mapped_dirs = Some(dirs);
-            }
-
-            // Append service_id to all preopened dirs, and make sure they exist
-            if let Some(files) = wasi.preopened_files.as_mut() {
-                for file in files {
-                    *file = push(file);
-                    std::fs::create_dir_all(&file).map_err(|err| FaaSExecError::ChangeDir {
-                        path: file.to_string(),
-                        err,
-                    })?;
-                }
-            }
-        }
-
-        Ok(config)
-    }
-
     fn create_faas(
         module_names: Vec<String>,
-        config: RawCoreModulesConfig,
+        config: RawModulesConfig,
         service_id: String,
         waker: Option<Waker>,
-    ) -> (Option<FluenceFaaS>, Result<FaaSCallResult>) {
+    ) -> (Option<FaaSService>, Result<FaaSServiceCallResult>) {
         // Convert module names into hashmap
-        let module_names = module_names.into_iter().collect();
-
-        let config = Self::change_dirs(config, &service_id);
-        let faas = config.and_then(|config| {
-            FluenceFaaS::with_module_names(&module_names, config).map_err(|e| e.into())
-        });
+        let faas = FaaSService::new(module_names, config, &service_id).map_err(Into::into);
         let (faas, result) = match faas {
-            Ok(faas) => (Some(faas), Ok(FaaSCallResult::FaaSCreated { service_id })),
+            Ok(faas) => (
+                Some(faas),
+                Ok(FaaSServiceCallResult::FaaSCreated { service_id }),
+            ),
             Err(e) => (None, Err(e)),
         };
         // Wake up when creation finished
@@ -274,12 +228,12 @@ impl FaaSBehaviour {
         new_work: &mut I,
     ) -> std::result::Result<(), (FunctionCall, FaaSExecError)>
     where
-        I: Iterator<Item = FaaSCall>,
+        I: Iterator<Item = FaaSServiceCall>,
     {
         new_work.try_fold((), |_, call| {
             match call {
                 // Request to create FaaS instance with given module_names
-                FaaSCall::Create { module_names, call } => {
+                FaaSServiceCall::Create { module_names, call } => {
                     // Generate new service_id
                     let service_id = Uuid::new_v4();
 
@@ -298,7 +252,7 @@ impl FaaSBehaviour {
                 }
                 // Request to call function on an existing FaaS instance
                 #[rustfmt::skip]
-                FaaSCall::Call { service_id, module, function, arguments, call } => {
+                FaaSServiceCall::Call { service_id, module, function, arguments, call } => {
                     // Take existing faas
                     let mut faas = self
                         .faases
@@ -307,8 +261,8 @@ impl FaaSBehaviour {
                     let waker = self.waker.clone();
                     // Spawn a task that will call wasm function
                     let future = task::spawn_blocking(move || {
-                        let result = faas.call_module(&module, &function, &arguments);
-                        let result = result.map(FaaSCallResult::Returned).map_err(|e| e.into());
+                        let result = faas.call_module(&module, &function, arguments);
+                        let result = result.map(FaaSServiceCallResult::Returned).map_err(|e| e.into());
                         // Wake when call finished to trigger poll()
                         Self::call_wake(waker);
                         (Some(faas), call, result)
@@ -337,9 +291,9 @@ impl FaaSBehaviour {
     }
 }
 
-impl NetworkBehaviour for FaaSBehaviour {
+impl NetworkBehaviour for FaaSServiceBehaviour {
     type ProtocolsHandler = DummyProtocolsHandler;
-    type OutEvent = (FunctionCall, Result<FaaSCallResult>);
+    type OutEvent = (FunctionCall, Result<FaaSServiceCallResult>);
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()
@@ -431,15 +385,14 @@ impl NetworkBehaviour for FaaSBehaviour {
 #[derive(Debug)]
 pub enum FaaSExecError {
     NoSuchInstance(String),
-    FaaS(FaaSError),
+    FaaSService(ServiceError),
     AddModule { path: PathBuf, err: std::io::Error },
-    ChangeDir { path: String, err: std::io::Error },
 }
 
 impl Error for FaaSExecError {}
-impl From<FaaSError> for FaaSExecError {
-    fn from(err: FaaSError) -> Self {
-        FaaSExecError::FaaS(err)
+impl From<ServiceError> for FaaSExecError {
+    fn from(err: ServiceError) -> Self {
+        FaaSExecError::FaaSService(err)
     }
 }
 
@@ -449,15 +402,10 @@ impl std::fmt::Display for FaaSExecError {
             FaaSExecError::NoSuchInstance(service_id) => {
                 write!(f, "FaaS instance {} not found", service_id)
             }
-            FaaSExecError::FaaS(err) => err.fmt(f),
+            FaaSExecError::FaaSService(err) => err.fmt(f),
             FaaSExecError::AddModule { path, err } => {
                 write!(f, "Error saving module {:?}: {:?}", path, err)
             }
-            FaaSExecError::ChangeDir { path, err } => write!(
-                f,
-                "Wrongs path in mapped dirs or preopened files {}: {:?}",
-                path, err
-            ),
         }
     }
 }
@@ -468,7 +416,7 @@ mod tests {
 
     use super::*;
     // use async_std::task;
-    use fluence_faas::RawCoreModulesConfig;
+    use fluence_faas_service::RawModulesConfig;
     use futures::StreamExt;
     use futures::{executor::block_on, future::poll_fn};
     use libp2p::core::transport::dummy::{DummyStream, DummyTransport};
@@ -477,8 +425,11 @@ mod tests {
     use std::path::PathBuf;
 
     fn wait_result(
-        mut swarm: Swarm<FaaSBehaviour>,
-    ) -> ((FunctionCall, Result<FaaSCallResult>), Swarm<FaaSBehaviour>) {
+        mut swarm: Swarm<FaaSServiceBehaviour>,
+    ) -> (
+        (FunctionCall, Result<FaaSServiceCallResult>),
+        Swarm<FaaSServiceBehaviour>,
+    ) {
         block_on(async move {
             let result = poll_fn(|ctx| {
                 if let Poll::Ready(Some(r)) = swarm.poll_next_unpin(ctx) {
@@ -493,7 +444,7 @@ mod tests {
         })
     }
 
-    fn with_modules<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> RawCoreModulesConfig {
+    fn with_modules<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> RawModulesConfig {
         let mut tmp = std::env::temp_dir();
         tmp.push("wasm_modules/");
         std::fs::create_dir_all(&tmp).expect("create tmp dir");
@@ -504,31 +455,31 @@ mod tests {
                 .unwrap_or_else(|_| panic!("copy test module wasm {:?}", path));
         }
 
-        let mut config: RawCoreModulesConfig = <_>::default();
-        config.core_modules_dir = Some(tmp.to_string_lossy().into());
+        let mut config: RawModulesConfig = <_>::default();
+        config.modules_dir = Some(tmp.to_string_lossy().into());
 
         config
     }
 
-    fn make_swarm<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> Swarm<FaaSBehaviour> {
+    fn make_swarm<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> Swarm<FaaSServiceBehaviour> {
         let config = with_modules(modules);
-        let behaviour = FaaSBehaviour::new(config);
+        let behaviour = FaaSServiceBehaviour::new(config);
         let transport = DummyTransport::<(PeerId, Multiplex<DummyStream>)>::new();
         Swarm::new(transport, behaviour, PeerId::random())
     }
 
     fn create_faas(
-        mut swarm: Swarm<FaaSBehaviour>,
+        mut swarm: Swarm<FaaSServiceBehaviour>,
         module_names: Vec<String>,
-    ) -> (String, Swarm<FaaSBehaviour>) {
-        swarm.execute(FaaSCall::Create {
+    ) -> (String, Swarm<FaaSServiceBehaviour>) {
+        swarm.execute(FaaSServiceCall::Create {
             module_names,
             call: <_>::default(),
         });
 
         let ((_, created), swarm) = wait_result(swarm);
         let service_id = match &created {
-            Ok(FaaSCallResult::FaaSCreated { service_id }) => service_id.clone(),
+            Ok(FaaSServiceCallResult::FaaSCreated { service_id }) => service_id.clone(),
             wrong => unreachable!("wrong result: {:?}", wrong),
         };
 
@@ -536,26 +487,24 @@ mod tests {
     }
 
     fn call_faas(
-        mut swarm: Swarm<FaaSBehaviour>,
+        mut swarm: Swarm<FaaSServiceBehaviour>,
         service_id: String,
         module: &str,
         function: &str,
         argument: Option<&str>,
-    ) -> (Vec<IValue>, Swarm<FaaSBehaviour>) {
-        swarm.execute(FaaSCall::Call {
+    ) -> (Vec<IValue>, Swarm<FaaSServiceBehaviour>) {
+
+        swarm.execute(FaaSServiceCall::Call {
             service_id,
             module: module.to_string(),
             function: function.to_string(),
-            arguments: argument
-                .into_iter()
-                .map(|s| IValue::String(s.to_string()))
-                .collect(),
+            arguments: serde_json::json!([argument]),
             call: <_>::default(),
         });
 
         let ((_, returned), swarm) = wait_result(swarm);
         let returned = match returned {
-            Ok(FaaSCallResult::Returned(r)) => r,
+            Ok(FaaSServiceCallResult::Returned(r)) => r,
             wrong => panic!("{:#?}", wrong),
         };
 

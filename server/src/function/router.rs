@@ -19,12 +19,12 @@ use super::config::RouterConfig;
 use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
-use crate::faas::FaaSBehaviour;
+use crate::faas::FaaSServiceBehaviour;
 use crate::function::wait_address::WaitAddress;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
-use fluence_faas::RawCoreModulesConfig;
+use fluence_faas_service::RawModulesConfig;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
 use libp2p::{
@@ -60,7 +60,7 @@ pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 /// TODO: Wrap `FluenceFaaS` in Mutex? Currently it's marked as `unsafe impl Send`, that may lead to UB.
 pub struct FunctionRouter {
     /// Wasm execution environment
-    pub(super) faas: FaaSBehaviour,
+    pub(super) faas_service: FaaSServiceBehaviour,
     /// Router configuration info: peer id, keypair, listening addresses
     pub(super) config: RouterConfig,
     /// Queue of events to send to the upper level
@@ -87,7 +87,7 @@ impl FunctionRouter {
         config: RouterConfig,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
-        faas_config: RawCoreModulesConfig,
+        faas_config: RawModulesConfig,
     ) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
@@ -105,10 +105,10 @@ impl FunctionRouter {
         if let Some(registry) = registry {
             kademlia.enable_metrics(registry);
         }
-        let faas = FaaSBehaviour::new(faas_config);
+        let faas = FaaSServiceBehaviour::new(faas_config);
 
         Self {
-            faas,
+            faas_service: faas,
             config,
             kademlia,
             events: <_>::default(),
@@ -359,7 +359,7 @@ impl FunctionRouter {
         log::info!("Bootstrap finished, publishing local modules");
 
         let local = self.config.local_address();
-        let modules = self.faas.get_modules();
+        let modules = self.faas_service.get_modules();
         for module in modules {
             if let Err(err) = self.publish_name(provider!(module.clone()), &local, None) {
                 log::warn!("Failed to publish local module {}: {:?}", module, err);

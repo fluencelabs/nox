@@ -18,7 +18,7 @@ use super::keys::{decode_key_pair, load_or_create_key_pair};
 use crate::bootstrapper::BootstrapConfig;
 use anyhow::Context;
 use clap::{ArgMatches, Values};
-use fluence_faas::RawCoreModulesConfig;
+use fluence_faas_service::RawModulesConfig;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -52,7 +52,7 @@ pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
 pub struct FluenceConfig {
     #[serde(flatten)]
     pub server: ServerConfig,
-    pub faas: RawCoreModulesConfig,
+    pub faas: RawModulesConfig,
     /// Directory, where all certificates are stored.
     #[serde(default = "default_cert_dir")]
     pub certificate_dir: String,

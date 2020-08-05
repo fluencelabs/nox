@@ -147,7 +147,7 @@ impl NetworkBehaviour for FunctionRouter {
         self.waker = Some(cx.waker().clone());
 
         while let Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result))) =
-            self.faas.poll(cx, params)
+            self.faas_service.poll(cx, params)
         {
             if let Err(err) = self.send_faas_result(call, result) {
                 let msg = err.err_msg();

@@ -17,13 +17,13 @@
 use crate::utils::{
     create_memory_maddr, create_swarm, make_swarms_with, CreatedSwarm, SwarmConfig, KAD_TIMEOUT,
 };
-use fluence_faas::RawCoreModulesConfig;
+use fluence_faas_service::RawModulesConfig;
 use parity_multiaddr::Multiaddr;
 use std::thread::sleep;
 
 static TEST_MODULE: &[u8] = include_bytes!("../artifacts/test_module_wit.wasi.wasm");
 static WASM_CONFIG: &str = r#"
-core_modules_dir = ""
+modules_dir = ""
 
 [[core_module]]
     name = "test_one.wasm"
@@ -95,7 +95,7 @@ impl PartialEq for Interface {
 }
 
 pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static> {
-    let wasm_config: RawCoreModulesConfig =
+    let wasm_config: RawModulesConfig =
         toml::from_str(WASM_CONFIG).expect("parse module config");
 
     let wasm_modules = vec![

@@ -19,7 +19,7 @@ use crate::config::ServerConfig;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 
 use async_std::task;
-use fluence_faas::RawCoreModulesConfig;
+use fluence_faas_service::RawModulesConfig;
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
 use libp2p::{
@@ -44,7 +44,7 @@ impl Server {
     pub fn new(
         key_pair: Keypair,
         server_config: ServerConfig,
-        faas_config: RawCoreModulesConfig,
+        faas_config: RawModulesConfig,
         root_weights: Vec<(ed25519::PublicKey, u32)>,
     ) -> Box<Self> {
         let ServerConfig { socket_timeout, .. } = server_config;
