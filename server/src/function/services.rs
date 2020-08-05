@@ -23,7 +23,7 @@ use faas_api::{Address, FunctionCall, Protocol};
 use libp2p::PeerId;
 use std::collections::HashSet;
 
-const CREATE_COMMAND_NAME: &str = "crate";
+const CREATE_COMMAND_NAME: &str = "create";
 
 type CallResult<T> = std::result::Result<T, CallError>;
 

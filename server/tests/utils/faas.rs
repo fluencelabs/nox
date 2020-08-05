@@ -23,31 +23,34 @@ use std::thread::sleep;
 
 static TEST_MODULE: &[u8] = include_bytes!("../artifacts/test_module_wit.wasi.wasm");
 static WASM_CONFIG: &str = r#"
-modules_dir = ""
+module_dir = ""
+service_base_dir = ""
 
-[[core_module]]
+[[module]]
     name = "test_one.wasm"
     mem_pages_count = 100
     logger_enabled = true        
-[core_module.wasi]
+
+    [module.wasi]
     envs = []
     preopened_files = ["./tests/artifacts"]
     mapped_dirs = { "tmp" = "./tests/artifacts" }
     
-[[core_module]]
+[[module]]
     name = "test_two.wasm"
     mem_pages_count = 100
     logger_enabled = true
-[core_module.wasi]
+
+    [module.wasi]
     envs = []
     preopened_files = ["./tests/artifacts"]
     mapped_dirs = { "tmp" = "./tests/artifacts" }
 
-[rpc_module]
+[default]
     mem_pages_count = 100
     logger_enabled = true
 
-    [rpc_module.wasi]
+    [default.wasi]
     envs = []
     preopened_files = ["./tests/artifacts"]
     mapped_dirs = { "tmp" = "./tests/artifacts" }

@@ -180,7 +180,7 @@ impl FaaSServiceBehaviour {
 
         let dir = self.config.modules_dir.as_ref();
         if let Some(fs_modules) = get_modules(dir) {
-            let cfg_modules = self.config.core_module.iter().map(|m| m.name.clone());
+            let cfg_modules = self.config.module.iter().map(|m| m.name.clone());
             return cfg_modules.filter(|m| fs_modules.contains(m)).collect();
         }
 
@@ -196,8 +196,8 @@ impl FaaSServiceBehaviour {
         std::fs::write(&path, bytes).map_err(|err| AddModule { path, err })?;
 
         // replace existing configuration with a new one
-        self.config.core_module.retain(|m| m.name != config.name);
-        self.config.core_module.push(config);
+        self.config.module.retain(|m| m.name != config.name);
+        self.config.module.push(config);
 
         Ok(())
     }
@@ -457,6 +457,9 @@ mod tests {
 
         let mut config: RawModulesConfig = <_>::default();
         config.modules_dir = Some(tmp.to_string_lossy().into());
+
+        let tmp: String = std::env::temp_dir().to_string_lossy().into();
+        config.service_base_dir = Some(tmp);
 
         config
     }

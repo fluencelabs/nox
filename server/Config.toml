@@ -27,15 +27,15 @@ AU4Z5crLwT74kUkWojiQhCarVxZhqSs54C7SmEqaVeLL = 13
 #modules_dir = "/wasm_modules"
 service_base_dir = ""
 
-[[faas.core_module]]
+[[faas.module]]
     name = "ipfs_node.wasm"
     mem_pages_count = 100
     logger_enabled = true
 
-    [faas.core_module.imports]
+    [faas.module.imports]
     ipfs = "/usr/local/bin/ipfs"
 
-    [faas.core_module.wasi]
+    [faas.module.wasi]
     envs = []
     preopened_files = ["./wasm/artifacts"]
     mapped_dirs = { "tmp" = "./wasm/artifacts" }
