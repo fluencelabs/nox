@@ -33,6 +33,7 @@ AmsnWkUnbbdPPLHx7wjW4aNQQn1Xkv7Y1AAS3Lfnhguo = 4
 
 [faas]
 modules_dir = "/wasm_modules"
+service_base_dir = ""
 
 [[faas.core_module]]
     name = "ipfs_node.wasm"
@@ -47,11 +48,11 @@ modules_dir = "/wasm_modules"
     preopened_files = ["/wasm_modules"]
     mapped_dirs = { "tmp" = "/wasm_modules" }
 
-[faas.rpc_module]
+[faas.default]
     mem_pages_count = 100
     logger_enabled = true
 
-    [faas.rpc_module.wasi]
+    [faas.default.wasi]
     envs = []
     preopened_files = ["/wasm_modules"]
     mapped_dirs = { "tmp" = "/wasm_modules" }
