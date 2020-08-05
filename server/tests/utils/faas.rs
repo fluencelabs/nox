@@ -98,8 +98,7 @@ impl PartialEq for Interface {
 }
 
 pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static> {
-    let wasm_config: RawModulesConfig =
-        toml::from_str(WASM_CONFIG).expect("parse module config");
+    let wasm_config: RawModulesConfig = toml::from_str(WASM_CONFIG).expect("parse module config");
 
     let wasm_modules = vec![
         ("test_one.wasm".to_string(), test_module()),

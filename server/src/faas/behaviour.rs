@@ -496,7 +496,6 @@ mod tests {
         function: &str,
         argument: Option<&str>,
     ) -> (Vec<IValue>, Swarm<FaaSServiceBehaviour>) {
-
         swarm.execute(FaaSServiceCall::Call {
             service_id,
             module: module.to_string(),
