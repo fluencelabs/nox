@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-use crate::faas::behaviour::FaaSExecError::AddModule;
+use crate::app_service::behaviour::FaaSExecError::AddModule;
 use async_std::task;
 use faas_api::FunctionCall;
 use fluence_faas_service::{
-    FaaSInterface, FluenceFaaSService as FaaSService, IValue, RawModuleConfig, RawModulesConfig,
-    ServiceError,
+    FaaSInterface, AppService, IValue, RawModuleConfig, RawModulesConfig,
+    AppServiceError,
 };
 use futures_util::future::BoxFuture;
 use libp2p::core::connection::ConnectionId;
@@ -43,24 +43,24 @@ use void::Void;
 
 type Result<T> = std::result::Result<T, FaaSExecError>;
 type FutResult = (
-    Option<FaaSService>,
+    Option<AppService>,
     FunctionCall,
-    Result<FaaSServiceCallResult>,
+    Result<AppServiceCallResult>,
 );
 type Fut = BoxFuture<'static, FutResult>;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 /// Result of executing FaasCall
-pub enum FaaSServiceCallResult {
+pub enum AppServiceCallResult {
     /// FaaS was created with this `service_id`
     FaaSCreated { service_id: String },
-    #[serde(serialize_with = "FaaSServiceCallResult::serialize_returned")]
+    #[serde(serialize_with = "AppServiceCallResult::serialize_returned")]
     /// Call to faas returned this result
     Returned(Vec<IValue>),
 }
 
-impl FaaSServiceCallResult {
+impl AppServiceCallResult {
     fn serialize_returned<S>(
         value: &[IValue],
         serializer: S,
@@ -81,7 +81,7 @@ impl FaaSServiceCallResult {
 
 #[derive(Debug, Clone)]
 /// Call to FaaS
-pub enum FaaSServiceCall {
+pub enum AppServiceCall {
     /// Call to the FaaS instance specified by `service_id`
     Call {
         /// UUID of the FaaS instance
@@ -105,27 +105,27 @@ pub enum FaaSServiceCall {
     },
 }
 
-impl FaaSServiceCall {
+impl AppServiceCall {
     /// Whether this call is of `Create` type
     pub fn is_create(&self) -> bool {
-        matches!(self, FaaSServiceCall::Create { .. })
+        matches!(self, AppServiceCall::Create { .. })
     }
 
     pub fn service_id(&self) -> Option<&str> {
         match self {
-            FaaSServiceCall::Call { service_id, .. } => Some(service_id),
-            FaaSServiceCall::Create { .. } => None,
+            AppServiceCall::Call { service_id, .. } => Some(service_id),
+            AppServiceCall::Create { .. } => None,
         }
     }
 }
 
 /// Behaviour that manages FaaS instances: create, pass calls, poll for results
-pub struct FaaSServiceBehaviour {
+pub struct AppServiceBehaviour {
     /// Created instances
     //TODO: when to delete an instance?
-    faases: HashMap<String, FaaSService>,
+    faases: HashMap<String, AppService>,
     /// Incoming calls waiting to be processed
-    calls: Vec<FaaSServiceCall>,
+    calls: Vec<AppServiceCall>,
     /// Context waker, used to trigger `poll`
     waker: Option<Waker>,
     /// Pending futures: service_id -> future
@@ -134,7 +134,7 @@ pub struct FaaSServiceBehaviour {
     config: RawModulesConfig,
 }
 
-impl FaaSServiceBehaviour {
+impl AppServiceBehaviour {
     pub fn new(config: RawModulesConfig) -> Self {
         Self {
             faases: <_>::default(),
@@ -146,7 +146,7 @@ impl FaaSServiceBehaviour {
     }
 
     /// Execute given `call`
-    pub fn execute(&mut self, call: FaaSServiceCall) {
+    pub fn execute(&mut self, call: AppServiceCall) {
         self.calls.push(call);
         self.wake();
     }
@@ -207,13 +207,13 @@ impl FaaSServiceBehaviour {
         config: RawModulesConfig,
         service_id: String,
         waker: Option<Waker>,
-    ) -> (Option<FaaSService>, Result<FaaSServiceCallResult>) {
+    ) -> (Option<AppService>, Result<AppServiceCallResult>) {
         // Convert module names into hashmap
-        let faas = FaaSService::new(module_names, config, &service_id).map_err(Into::into);
+        let faas = AppService::new(module_names, config, &service_id).map_err(Into::into);
         let (faas, result) = match faas {
             Ok(faas) => (
                 Some(faas),
-                Ok(FaaSServiceCallResult::FaaSCreated { service_id }),
+                Ok(AppServiceCallResult::FaaSCreated { service_id }),
             ),
             Err(e) => (None, Err(e)),
         };
@@ -228,12 +228,12 @@ impl FaaSServiceBehaviour {
         new_work: &mut I,
     ) -> std::result::Result<(), (FunctionCall, FaaSExecError)>
     where
-        I: Iterator<Item = FaaSServiceCall>,
+        I: Iterator<Item =AppServiceCall>,
     {
         new_work.try_fold((), |_, call| {
             match call {
                 // Request to create FaaS instance with given module_names
-                FaaSServiceCall::Create { module_names, call } => {
+                AppServiceCall::Create { module_names, call } => {
                     // Generate new service_id
                     let service_id = Uuid::new_v4();
 
@@ -252,7 +252,7 @@ impl FaaSServiceBehaviour {
                 }
                 // Request to call function on an existing FaaS instance
                 #[rustfmt::skip]
-                FaaSServiceCall::Call { service_id, module, function, arguments, call } => {
+                AppServiceCall::Call { service_id, module, function, arguments, call } => {
                     // Take existing faas
                     let mut faas = self
                         .faases
@@ -262,7 +262,7 @@ impl FaaSServiceBehaviour {
                     // Spawn a task that will call wasm function
                     let future = task::spawn_blocking(move || {
                         let result = faas.call_module(&module, &function, arguments);
-                        let result = result.map(FaaSServiceCallResult::Returned).map_err(|e| e.into());
+                        let result = result.map(AppServiceCallResult::Returned).map_err(|e| e.into());
                         // Wake when call finished to trigger poll()
                         Self::call_wake(waker);
                         (Some(faas), call, result)
@@ -291,9 +291,9 @@ impl FaaSServiceBehaviour {
     }
 }
 
-impl NetworkBehaviour for FaaSServiceBehaviour {
+impl NetworkBehaviour for AppServiceBehaviour {
     type ProtocolsHandler = DummyProtocolsHandler;
-    type OutEvent = (FunctionCall, Result<FaaSServiceCallResult>);
+    type OutEvent = (FunctionCall, Result<AppServiceCallResult>);
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         Default::default()
@@ -385,14 +385,14 @@ impl NetworkBehaviour for FaaSServiceBehaviour {
 #[derive(Debug)]
 pub enum FaaSExecError {
     NoSuchInstance(String),
-    FaaSService(ServiceError),
+    AppService(AppServiceError),
     AddModule { path: PathBuf, err: std::io::Error },
 }
 
 impl Error for FaaSExecError {}
-impl From<ServiceError> for FaaSExecError {
-    fn from(err: ServiceError) -> Self {
-        FaaSExecError::FaaSService(err)
+impl From<AppServiceError> for FaaSExecError {
+    fn from(err: AppServiceError) -> Self {
+        FaaSExecError::AppService(err)
     }
 }
 
@@ -402,7 +402,7 @@ impl std::fmt::Display for FaaSExecError {
             FaaSExecError::NoSuchInstance(service_id) => {
                 write!(f, "FaaS instance {} not found", service_id)
             }
-            FaaSExecError::FaaSService(err) => err.fmt(f),
+            FaaSExecError::AppService(err) => err.fmt(f),
             FaaSExecError::AddModule { path, err } => {
                 write!(f, "Error saving module {:?}: {:?}", path, err)
             }
@@ -425,10 +425,10 @@ mod tests {
     use std::path::PathBuf;
 
     fn wait_result(
-        mut swarm: Swarm<FaaSServiceBehaviour>,
+        mut swarm: Swarm<AppServiceBehaviour>,
     ) -> (
-        (FunctionCall, Result<FaaSServiceCallResult>),
-        Swarm<FaaSServiceBehaviour>,
+        (FunctionCall, Result<AppServiceCallResult>),
+        Swarm<AppServiceBehaviour>,
     ) {
         block_on(async move {
             let result = poll_fn(|ctx| {
@@ -464,25 +464,25 @@ mod tests {
         config
     }
 
-    fn make_swarm<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> Swarm<FaaSServiceBehaviour> {
+    fn make_swarm<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> Swarm<AppServiceBehaviour> {
         let config = with_modules(modules);
-        let behaviour = FaaSServiceBehaviour::new(config);
+        let behaviour = AppServiceBehaviour::new(config);
         let transport = DummyTransport::<(PeerId, Multiplex<DummyStream>)>::new();
         Swarm::new(transport, behaviour, PeerId::random())
     }
 
     fn create_faas(
-        mut swarm: Swarm<FaaSServiceBehaviour>,
+        mut swarm: Swarm<AppServiceBehaviour>,
         module_names: Vec<String>,
-    ) -> (String, Swarm<FaaSServiceBehaviour>) {
-        swarm.execute(FaaSServiceCall::Create {
+    ) -> (String, Swarm<AppServiceBehaviour>) {
+        swarm.execute(AppServiceCall::Create {
             module_names,
             call: <_>::default(),
         });
 
         let ((_, created), swarm) = wait_result(swarm);
         let service_id = match &created {
-            Ok(FaaSServiceCallResult::FaaSCreated { service_id }) => service_id.clone(),
+            Ok(AppServiceCallResult::FaaSCreated { service_id }) => service_id.clone(),
             wrong => unreachable!("wrong result: {:?}", wrong),
         };
 
@@ -490,13 +490,13 @@ mod tests {
     }
 
     fn call_faas(
-        mut swarm: Swarm<FaaSServiceBehaviour>,
+        mut swarm: Swarm<AppServiceBehaviour>,
         service_id: String,
         module: &str,
         function: &str,
         argument: Option<&str>,
-    ) -> (Vec<IValue>, Swarm<FaaSServiceBehaviour>) {
-        swarm.execute(FaaSServiceCall::Call {
+    ) -> (Vec<IValue>, Swarm<AppServiceBehaviour>) {
+        swarm.execute(AppServiceCall::Call {
             service_id,
             module: module.to_string(),
             function: function.to_string(),
@@ -506,7 +506,7 @@ mod tests {
 
         let ((_, returned), swarm) = wait_result(swarm);
         let returned = match returned {
-            Ok(FaaSServiceCallResult::Returned(r)) => r,
+            Ok(AppServiceCallResult::Returned(r)) => r,
             wrong => panic!("{:#?}", wrong),
         };
 

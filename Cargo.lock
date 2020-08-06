@@ -569,9 +569,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.33.1"
+version = "2.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdfa80d47f954d53a35a64987ca1422f495b8d6483c0fe9f7117b36c2a792129"
+checksum = "10040cdf04294b565d9e0319955430099ec3813a64c952b86a41200ad714ae48"
 dependencies = [
  "ansi_term",
  "atty",
@@ -599,9 +599,9 @@ checksum = "475bd7aa7680b4ed8f6bb59745e882bcbaeb39326532bb79ffb1716480d9a274"
 
 [[package]]
 name = "concurrent-queue"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39ff9c66992ebea984b9446b2a45b300947216c17544ec9d7f045afe24333cd0"
+checksum = "30ed07550be01594c6026cff2a1d7fe9c8f683caa798e12b68694ac9e88286a3"
 dependencies = [
  "cache-padded",
 ]
@@ -1029,9 +1029,9 @@ dependencies = [
 
 [[package]]
 name = "event-listener"
-version = "2.3.0"
+version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "298f00c3b04c1d9b4cb86aefaaa35348af0957d98b30a5306fc635f8e718923d"
+checksum = "68082183f458867ce7cddea16d4df4443c1537112c0c09c450dedc09daf5c719"
 
 [[package]]
 name = "faas-api"
@@ -1094,7 +1094,7 @@ checksum = "36a9cb09840f81cd211e435d00a4e487edd263dc3c8ff815c32dd76ad668ebed"
 [[package]]
 name = "fce"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=service#879711704a9a9bcab3533e120ce1d38d7dc4c8de"
+source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
 dependencies = [
  "fce-wit-interfaces",
  "fce-wit-parser",
@@ -1112,7 +1112,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=service#879711704a9a9bcab3533e120ce1d38d7dc4c8de"
+source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1121,7 +1121,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=service#879711704a9a9bcab3533e120ce1d38d7dc4c8de"
+source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1185,7 +1185,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=service#879711704a9a9bcab3533e120ce1d38d7dc4c8de"
+source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -1202,7 +1202,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas-service"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=service#879711704a9a9bcab3533e120ce1d38d7dc4c8de"
+source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
 dependencies = [
  "cmd_lib",
  "fluence-faas",
@@ -3639,9 +3639,9 @@ dependencies = [
 
 [[package]]
 name = "signal-hook-registry"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94f478ede9f64724c5d173d7bb56099ec3e2d9fc2774aac65d34b8b890405f41"
+checksum = "a3e12110bc539e657a646068aaf5eb5b63af9d0c1f7b29c97113fad80e15f035"
 dependencies = [
  "arc-swap",
  "libc",
@@ -4011,9 +4011,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2734b5a028fa697686f16c6d18c2c6a3c7e41513f9a213abb6754c4acb3c8d7"
+checksum = "d593f98af59ebc017c0648f0117525db358745a8894a8d684e185ba3f45954f9"
 dependencies = [
  "lazy_static",
 ]

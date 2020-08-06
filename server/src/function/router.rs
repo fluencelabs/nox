@@ -19,7 +19,7 @@ use super::config::RouterConfig;
 use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
-use crate::faas::FaaSServiceBehaviour;
+use crate::app_service::AppServiceBehaviour;
 use crate::function::wait_address::WaitAddress;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
@@ -60,7 +60,7 @@ pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 /// TODO: Wrap `FluenceFaaS` in Mutex? Currently it's marked as `unsafe impl Send`, that may lead to UB.
 pub struct FunctionRouter {
     /// Wasm execution environment
-    pub(super) faas_service: FaaSServiceBehaviour,
+    pub(super) faas_service: AppServiceBehaviour,
     /// Router configuration info: peer id, keypair, listening addresses
     pub(super) config: RouterConfig,
     /// Queue of events to send to the upper level
@@ -105,7 +105,7 @@ impl FunctionRouter {
         if let Some(registry) = registry {
             kademlia.enable_metrics(registry);
         }
-        let faas = FaaSServiceBehaviour::new(faas_config);
+        let faas = AppServiceBehaviour::new(faas_config);
 
         Self {
             faas_service: faas,

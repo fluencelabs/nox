@@ -15,9 +15,9 @@
  */
 
 use super::{address_signature::SignatureError, builtin_service};
-use crate::faas::FaaSExecError;
+use crate::app_service::FaaSExecError;
 use faas_api::{Address, FunctionCall};
-use fluence_faas_service::ServiceError as FaaSServiceError;
+use fluence_faas_service::AppServiceError;
 use trust_graph::Certificate;
 
 pub struct CallError {
@@ -49,7 +49,7 @@ impl CallError {
                 format!("failed to serialize result: {}", err_msg)
             }
             CallErrorKind::BuiltinServiceError(err) => format!("builtin service failure: {}", err),
-            CallErrorKind::FaaSServiceError(err) => {
+            CallErrorKind::AppServiceError(err) => {
                 format!("faas service execution failure: {}", err)
             }
             CallErrorKind::Signature(err) => {
@@ -94,7 +94,7 @@ pub enum CallErrorKind {
     FunctionNotFound { module: String, function: String },
     ResultSerializationFailed(String),
     BuiltinServiceError(builtin_service::BuiltinServiceError),
-    FaaSServiceError(FaaSServiceError),
+    AppServiceError(AppServiceError),
     Signature(SignatureError),
     ServiceRegister(libp2p::kad::store::Error),
     NonLocalRelay,
@@ -115,9 +115,9 @@ impl From<builtin_service::BuiltinServiceError> for CallErrorKind {
     }
 }
 
-impl From<FaaSServiceError> for CallErrorKind {
-    fn from(err: FaaSServiceError) -> Self {
-        CallErrorKind::FaaSServiceError(err)
+impl From<AppServiceError> for CallErrorKind {
+    fn from(err: AppServiceError) -> Self {
+        CallErrorKind::AppServiceError(err)
     }
 }
 
