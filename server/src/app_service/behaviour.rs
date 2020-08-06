@@ -18,8 +18,7 @@ use crate::app_service::behaviour::FaaSExecError::AddModule;
 use async_std::task;
 use faas_api::FunctionCall;
 use fluence_faas_service::{
-    FaaSInterface, AppService, IValue, RawModuleConfig, RawModulesConfig,
-    AppServiceError,
+    AppService, AppServiceError, FaaSInterface, IValue, RawModuleConfig, RawModulesConfig,
 };
 use futures_util::future::BoxFuture;
 use libp2p::core::connection::ConnectionId;
@@ -228,7 +227,7 @@ impl AppServiceBehaviour {
         new_work: &mut I,
     ) -> std::result::Result<(), (FunctionCall, FaaSExecError)>
     where
-        I: Iterator<Item =AppServiceCall>,
+        I: Iterator<Item = AppServiceCall>,
     {
         new_work.try_fold((), |_, call| {
             match call {

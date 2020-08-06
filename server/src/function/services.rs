@@ -16,7 +16,7 @@
 
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
-use crate::app_service::{FaaSExecError, AppServiceCall, AppServiceCallResult};
+use crate::app_service::{AppServiceCall, AppServiceCallResult, FaaSExecError};
 use crate::function::wait_address::WaitAddress;
 use crate::function::{CallError, CallErrorKind::*, ErrorData};
 use faas_api::{Address, FunctionCall, Protocol};

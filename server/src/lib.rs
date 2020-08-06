@@ -103,7 +103,7 @@ pub mod kademlia {
 pub mod app_service {
     mod behaviour;
     pub(crate) use behaviour::{
-        FaaSExecError, AppServiceBehaviour, AppServiceCall, AppServiceCallResult,
+        AppServiceBehaviour, AppServiceCall, AppServiceCallResult, FaaSExecError,
     };
 }
 
