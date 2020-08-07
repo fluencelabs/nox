@@ -260,7 +260,7 @@ impl AppServiceBehaviour {
                     let waker = self.waker.clone();
                     // Spawn a task that will call wasm function
                     let future = task::spawn_blocking(move || {
-                        let result = faas.call_module(&module, &function, arguments);
+                        let result = faas.call(&module, &function, arguments);
                         let result = result.map(AppServiceCallResult::Returned).map_err(|e| e.into());
                         // Wake when call finished to trigger poll()
                         Self::call_wake(waker);
