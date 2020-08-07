@@ -24,7 +24,7 @@ use crate::function::wait_address::WaitAddress;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
-use fluence_faas_service::RawModulesConfig;
+use fluence_app_service::RawModulesConfig;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
 use libp2p::{
@@ -60,7 +60,7 @@ pub(crate) type SwarmEventType = generate_swarm_event_type!(FunctionRouter);
 /// TODO: Wrap `FluenceFaaS` in Mutex? Currently it's marked as `unsafe impl Send`, that may lead to UB.
 pub struct FunctionRouter {
     /// Wasm execution environment
-    pub(super) faas_service: AppServiceBehaviour,
+    pub(super) app_service: AppServiceBehaviour,
     /// Router configuration info: peer id, keypair, listening addresses
     pub(super) config: RouterConfig,
     /// Queue of events to send to the upper level
@@ -105,10 +105,10 @@ impl FunctionRouter {
         if let Some(registry) = registry {
             kademlia.enable_metrics(registry);
         }
-        let faas = AppServiceBehaviour::new(faas_config);
+        let app_service = AppServiceBehaviour::new(faas_config);
 
         Self {
-            faas_service: faas,
+            app_service,
             config,
             kademlia,
             events: <_>::default(),
@@ -359,7 +359,7 @@ impl FunctionRouter {
         log::info!("Bootstrap finished, publishing local modules");
 
         let local = self.config.local_address();
-        let modules = self.faas_service.get_modules();
+        let modules = self.app_service.get_modules();
         for module in modules {
             if let Err(err) = self.publish_name(provider!(module.clone()), &local, None) {
                 log::warn!("Failed to publish local module {}: {:?}", module, err);

@@ -1094,7 +1094,7 @@ checksum = "36a9cb09840f81cd211e435d00a4e487edd263dc3c8ff815c32dd76ad668ebed"
 [[package]]
 name = "fce"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
+source = "git+https://github.com/fluencelabs/fce?branch=service#6f78807ecccea5baf70448f9bdf0f04dddce082c"
 dependencies = [
  "fce-wit-interfaces",
  "fce-wit-parser",
@@ -1112,7 +1112,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
+source = "git+https://github.com/fluencelabs/fce?branch=service#6f78807ecccea5baf70448f9bdf0f04dddce082c"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1121,7 +1121,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
+source = "git+https://github.com/fluencelabs/fce?branch=service#6f78807ecccea5baf70448f9bdf0f04dddce082c"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1147,6 +1147,23 @@ dependencies = [
  "libc",
  "libz-sys",
  "miniz_oxide",
+]
+
+[[package]]
+name = "fluence-app-service"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/fce?branch=service#6f78807ecccea5baf70448f9bdf0f04dddce082c"
+dependencies = [
+ "cmd_lib",
+ "fluence-faas",
+ "log",
+ "serde 1.0.114",
+ "serde_derive",
+ "serde_json",
+ "toml",
+ "wasmer-runtime-core-fl",
+ "wasmer-runtime-fl",
+ "wasmer-wasi-fl",
 ]
 
 [[package]]
@@ -1185,27 +1202,10 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
+source = "git+https://github.com/fluencelabs/fce?branch=service#6f78807ecccea5baf70448f9bdf0f04dddce082c"
 dependencies = [
  "cmd_lib",
  "fce",
- "log",
- "serde 1.0.114",
- "serde_derive",
- "serde_json",
- "toml",
- "wasmer-runtime-core-fl",
- "wasmer-runtime-fl",
- "wasmer-wasi-fl",
-]
-
-[[package]]
-name = "fluence-faas-service"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=service#7a68c0ec02d4967f99e8fa6e31ac6957f6619b18"
-dependencies = [
- "cmd_lib",
- "fluence-faas",
  "log",
  "serde 1.0.114",
  "serde_derive",
@@ -1248,8 +1248,8 @@ dependencies = [
  "env_logger",
  "faas-api",
  "failure",
+ "fluence-app-service",
  "fluence-client",
- "fluence-faas-service",
  "fluence-libp2p",
  "futures",
  "futures-util",

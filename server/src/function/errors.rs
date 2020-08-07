@@ -17,7 +17,7 @@
 use super::{address_signature::SignatureError, builtin_service};
 use crate::app_service::FaaSExecError;
 use faas_api::{Address, FunctionCall};
-use fluence_faas_service::AppServiceError;
+use fluence_app_service::AppServiceError;
 use trust_graph::Certificate;
 
 pub struct CallError {

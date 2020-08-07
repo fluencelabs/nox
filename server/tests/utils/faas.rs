@@ -17,7 +17,7 @@
 use crate::utils::{
     create_memory_maddr, create_swarm, make_swarms_with, CreatedSwarm, SwarmConfig, KAD_TIMEOUT,
 };
-use fluence_faas_service::RawModulesConfig;
+use fluence_app_service::RawModulesConfig;
 use parity_multiaddr::Multiaddr;
 use std::thread::sleep;
 

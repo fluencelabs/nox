@@ -46,7 +46,7 @@ impl FunctionRouter {
         }
 
         let call = self.prepare_call(module, hashtag, call)?;
-        self.faas_service.execute(call);
+        self.app_service.execute(call);
 
         Ok(())
     }
@@ -73,7 +73,7 @@ impl FunctionRouter {
         };
 
         let interface = self
-            .faas_service
+            .app_service
             .get_interface(&service_id)
             .map_err(|e| call.clone().error(e))?;
         let functions = interface.modules.get(module.as_str()).ok_or_else(|| {

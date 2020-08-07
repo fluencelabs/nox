@@ -20,7 +20,7 @@ use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::{BootstrapConfig, ServerBehaviour};
 
 use fluence_client::Transport;
-use fluence_faas_service::RawModulesConfig;
+use fluence_app_service::RawModulesConfig;
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},

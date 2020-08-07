@@ -17,7 +17,7 @@
 use crate::app_service::behaviour::FaaSExecError::AddModule;
 use async_std::task;
 use faas_api::FunctionCall;
-use fluence_faas_service::{
+use fluence_app_service::{
     AppService, AppServiceError, FaaSInterface, IValue, RawModuleConfig, RawModulesConfig,
 };
 use futures_util::future::BoxFuture;
@@ -70,7 +70,7 @@ impl AppServiceCallResult {
         if value.is_empty() {
             Value::Null.serialize(serializer)
         } else {
-            let value = fluence_faas_service::from_interface_values(&value)
+            let value = fluence_app_service::from_interface_values(&value)
                 .map_err(|e| SerError::custom(format!("Failed to serialize result: {}", e)))?;
 
             Value::serialize(&value, serializer)
@@ -415,7 +415,7 @@ mod tests {
 
     use super::*;
     // use async_std::task;
-    use fluence_faas_service::RawModulesConfig;
+    use fluence_app_service::RawModulesConfig;
     use futures::StreamExt;
     use futures::{executor::block_on, future::poll_fn};
     use libp2p::core::transport::dummy::{DummyStream, DummyTransport};

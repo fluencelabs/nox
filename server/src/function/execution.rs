@@ -25,7 +25,7 @@ use super::{
 };
 use crate::function::builtin_service::{AddModule, GetActiveInterfaces, GetAvailableModules};
 use faas_api::{provider, Address, FunctionCall, Protocol};
-use fluence_faas_service::FaaSInterface;
+use fluence_app_service::FaaSInterface;
 use libp2p::PeerId;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -66,7 +66,7 @@ impl FunctionRouter {
             }
             BS::GetInterface(GetInterface { msg_id, service_id }) => {
                 let service = self
-                    .faas_service
+                    .app_service
                     .get_interface(service_id.as_str())
                     .map_err(|e| call.clone().error(e))?;
                 let interface = json!(Service {
@@ -79,7 +79,7 @@ impl FunctionRouter {
             BuiltinService::GetActiveInterfaces(GetActiveInterfaces { msg_id }) => {
                 #[rustfmt::skip]
                 let interfaces: Vec<_> = self
-                    .faas_service
+                    .app_service
                     .get_interfaces()
                     .into_iter()
                     .map(|(service_id, service)| {
@@ -89,14 +89,14 @@ impl FunctionRouter {
                 self.reply_with(call, msg_id, ("active_interfaces", interfaces))
             }
             BuiltinService::GetAvailableModules(GetAvailableModules { msg_id }) => {
-                let modules = json!(self.faas_service.get_modules());
+                let modules = json!(self.app_service.get_modules());
                 self.reply_with(call, msg_id, ("available_modules", modules))
             }
             BuiltinService::AddModule(AddModule {
                 msg_id,
                 bytes,
                 config,
-            }) => match self.faas_service.add_module(bytes, config) {
+            }) => match self.app_service.add_module(bytes, config) {
                 // TODO: what to return instead of {}?
                 Ok(_) => self.reply_with(call, msg_id, ("ok", json!({}))),
                 Err(e) => Err(call.error(e)),
