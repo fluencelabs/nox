@@ -18,7 +18,7 @@ use super::keys::{decode_key_pair, load_or_create_key_pair};
 use crate::bootstrapper::BootstrapConfig;
 use anyhow::Context;
 use clap::{ArgMatches, Values};
-use fluence_faas::RawCoreModulesConfig;
+use fluence_app_service::RawModulesConfig;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -52,7 +52,7 @@ pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
 pub struct FluenceConfig {
     #[serde(flatten)]
     pub server: ServerConfig,
-    pub faas: RawCoreModulesConfig,
+    pub faas: RawModulesConfig,
     /// Directory, where all certificates are stored.
     #[serde(default = "default_cert_dir")]
     pub certificate_dir: String,
@@ -178,11 +178,11 @@ fn insert_args_to_config(
 ) -> anyhow::Result<()> {
     use toml::Value::*;
 
-    /// Set given `envs` to each `core_module.wasi.envs` in `config.faas`
+    /// Set given `envs` to each `module.wasi.envs` in `config.faas`
     fn set_core_envs(config: &mut toml::value::Table, arg: Values<'_>) -> Option<()> {
-        // Path in config is: ["faas"]["core_module"][0]["wasi"]["envs"]
+        // Path in config is: ["faas"]["module"][0]["wasi"]["envs"]
         let faas = config.get_mut("faas")?.as_table_mut()?;
-        let core = faas.get_mut("core_module")?.as_array_mut()?;
+        let core = faas.get_mut("module")?.as_array_mut()?;
         for module in core.iter_mut() {
             let wasi = module.get_mut("wasi")?.as_table_mut()?;
             let envs = wasi.get_mut("envs")?.as_array_mut()?;

@@ -24,26 +24,27 @@ AU4Z5crLwT74kUkWojiQhCarVxZhqSs54C7SmEqaVeLL = 13
 7bkX8cLTEAGG9n6NSrjdDrk1YkkyJRPdrCjpBWkHy2Bh = 20
 
 [faas]
-#core_modules_dir = "/wasm_modules"
+#modules_dir = "/wasm_modules"
+service_base_dir = ""
 
-[[faas.core_module]]
+[[faas.module]]
     name = "ipfs_node.wasm"
     mem_pages_count = 100
     logger_enabled = true
 
-    [faas.core_module.imports]
+    [faas.module.imports]
     ipfs = "/usr/local/bin/ipfs"
 
-    [faas.core_module.wasi]
+    [faas.module.wasi]
     envs = []
     preopened_files = ["./wasm/artifacts"]
     mapped_dirs = { "tmp" = "./wasm/artifacts" }
 
-[faas.rpc_module]
+[faas.default]
     mem_pages_count = 100
     logger_enabled = true
 
-    [faas.rpc_module.wasi]
+    [faas.default.wasi]
     envs = []
     preopened_files = ["./wasm/artifacts"]
     mapped_dirs = { "tmp" = "./wasm/artifacts" }

@@ -19,7 +19,7 @@ use crate::FunctionRouter;
 
 use crate::bootstrapper::BootstrapConfig;
 use crate::function::RouterConfig;
-use fluence_faas::RawCoreModulesConfig;
+use fluence_app_service::RawModulesConfig;
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
 use libp2p::{
     identify::Identify,
@@ -54,7 +54,7 @@ impl ServerBehaviour {
         trust_graph: TrustGraph,
         bootstrap_nodes: Vec<Multiaddr>,
         registry: Option<&Registry>,
-        faas_config: RawCoreModulesConfig,
+        faas_config: RawModulesConfig,
         bs_config: BootstrapConfig,
     ) -> Self {
         let config =

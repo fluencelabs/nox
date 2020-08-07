@@ -19,8 +19,8 @@ use faas_api::{Address, FunctionCall, Protocol};
 use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::{BootstrapConfig, ServerBehaviour};
 
+use fluence_app_service::RawModulesConfig;
 use fluence_client::Transport;
-use fluence_faas::RawCoreModulesConfig;
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -319,7 +319,7 @@ pub struct SwarmConfig<'a> {
     pub trust: Option<Trust>,
     pub transport: Transport,
     pub registry: Option<&'a Registry>,
-    pub wasm_config: RawCoreModulesConfig,
+    pub wasm_config: RawModulesConfig,
     pub wasm_modules: Vec<(String, Vec<u8>)>,
 }
 
@@ -356,7 +356,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
 
     // write module to a temporary directory
     let tmp = put_modules(wasm_modules);
-    wasm_config.core_modules_dir = tmp.to_str().map(|s| s.to_string());
+    wasm_config.modules_dir = tmp.to_str().map(|s| s.to_string());
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;

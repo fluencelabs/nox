@@ -669,7 +669,7 @@ fn add_module() {
             "wasi": {
                 "envs": Vec::<()>::new(),
                 "preopened_files": vec!["./tests/artifacts"],
-                "mapped_dirs": json!({ "tmp": "./tests/artifacts" }),
+                "mapped_dirs": json!({}),
             }
         }
     );

@@ -16,13 +16,14 @@
 
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
-use crate::faas::{FaaSCall, FaaSCallResult, FaaSExecError};
+use crate::app_service::{AppServiceCall, AppServiceCallResult, FaaSExecError};
 use crate::function::wait_address::WaitAddress;
 use crate::function::{CallError, CallErrorKind::*, ErrorData};
 use faas_api::{Address, FunctionCall, Protocol};
-use fluence_faas::IValue;
 use libp2p::PeerId;
 use std::collections::HashSet;
+
+const CREATE_COMMAND_NAME: &str = "create";
 
 type CallResult<T> = std::result::Result<T, CallError>;
 
@@ -45,7 +46,7 @@ impl FunctionRouter {
         }
 
         let call = self.prepare_call(module, hashtag, call)?;
-        self.faas.execute(call);
+        self.app_service.execute(call);
 
         Ok(())
     }
@@ -56,25 +57,23 @@ impl FunctionRouter {
         module: String,
         service_id: Option<String>,
         call: FunctionCall,
-    ) -> Result<FaaSCall, CallError> {
+    ) -> Result<AppServiceCall, CallError> {
         let service_id = match service_id {
-            Some(id) => Ok(id),
-            // If module is "create", this is a request to create FaaS
-            None if module.as_str() == "create" => {
-                return if !call.context.is_empty() {
-                    Ok(FaaSCall::Create {
-                        module_names: call.context.clone(),
-                        call,
-                    })
-                } else {
-                    Err(call.error(EmptyContext))
-                }
+            Some(service_id) => service_id,
+            // If module is CREATE_COMMAND_NAME, this is a request to create FaaS
+            None if module.as_str() == CREATE_COMMAND_NAME && !call.context.is_empty() => {
+                return Ok(AppServiceCall::Create {
+                    module_names: call.context.clone(),
+                    call,
+                })
             }
+            // This branch is taken when call.context is empty
+            None if module.as_str() == CREATE_COMMAND_NAME => return Err(call.error(EmptyContext)),
             None => return Err(call.error(MissingServiceId)),
-        }?;
+        };
 
         let interface = self
-            .faas
+            .app_service
             .get_interface(&service_id)
             .map_err(|e| call.clone().error(e))?;
         let functions = interface.modules.get(module.as_str()).ok_or_else(|| {
@@ -95,36 +94,11 @@ impl FunctionRouter {
             }));
         }
 
-        // If arguments are on of: null, [] or {}, avoid calling `to_interface_value`
-        let is_null = call.arguments.is_null();
-        let is_empty_arr = call.arguments.as_array().map_or(false, |a| a.is_empty());
-        let is_empty_obj = call.arguments.as_object().map_or(false, |m| m.is_empty());
-        let arguments = if !is_null && !is_empty_arr && !is_empty_obj {
-            Some(
-                fluence_faas::to_interface_value(&call.arguments).map_err(|e| {
-                    call.clone().error(InvalidArguments {
-                        error: format!("can't parse arguments as array of interface types: {}", e),
-                    })
-                })?,
-            )
-        } else {
-            None
-        };
-
-        let arguments = match arguments {
-            Some(IValue::Record(arguments)) => Ok(arguments.into_vec()),
-            // Convert null, [] and {} into vec![]
-            None => Ok(vec![]),
-            other => Err(call.clone().error(InvalidArguments {
-                error: format!("expected array of interface values: got {:?}", other),
-            })),
-        }?;
-
-        let faas_call = FaaSCall::Call {
+        let faas_call = AppServiceCall::Call {
             service_id,
             module,
             function: function.to_string(),
-            arguments,
+            arguments: call.arguments.clone(),
             call,
         };
 
@@ -254,7 +228,7 @@ impl FunctionRouter {
     pub(super) fn send_faas_result(
         &mut self,
         call: FunctionCall,
-        result: Result<FaaSCallResult, FaaSExecError>,
+        result: Result<AppServiceCallResult, FaaSExecError>,
     ) -> Result<(), CallError> {
         use serde_json::Value;
 

@@ -17,40 +17,40 @@
 use crate::utils::{
     create_memory_maddr, create_swarm, make_swarms_with, CreatedSwarm, SwarmConfig, KAD_TIMEOUT,
 };
-use fluence_faas::RawCoreModulesConfig;
+use fluence_app_service::RawModulesConfig;
 use parity_multiaddr::Multiaddr;
 use std::thread::sleep;
 
 static TEST_MODULE: &[u8] = include_bytes!("../artifacts/test_module_wit.wasi.wasm");
 static WASM_CONFIG: &str = r#"
-core_modules_dir = ""
+module_dir = ""
+service_base_dir = ""
 
-[[core_module]]
+[[module]]
     name = "test_one.wasm"
     mem_pages_count = 100
     logger_enabled = true        
-[core_module.wasi]
+
+    [module.wasi]
     envs = []
     preopened_files = ["./tests/artifacts"]
-    mapped_dirs = { "tmp" = "./tests/artifacts" }
-    
-[[core_module]]
+
+[[module]]
     name = "test_two.wasm"
     mem_pages_count = 100
     logger_enabled = true
-[core_module.wasi]
+
+    [module.wasi]
     envs = []
     preopened_files = ["./tests/artifacts"]
-    mapped_dirs = { "tmp" = "./tests/artifacts" }
 
-[rpc_module]
+[default]
     mem_pages_count = 100
     logger_enabled = true
 
-    [rpc_module.wasi]
+    [default.wasi]
     envs = []
     preopened_files = ["./tests/artifacts"]
-    mapped_dirs = { "tmp" = "./tests/artifacts" }
 "#;
 
 #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
@@ -95,8 +95,9 @@ impl PartialEq for Interface {
 }
 
 pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static> {
-    let wasm_config: RawCoreModulesConfig =
+    let mut wasm_config: RawModulesConfig =
         toml::from_str(WASM_CONFIG).expect("parse module config");
+    wasm_config.service_base_dir = Some(std::env::temp_dir().to_string_lossy().into());
 
     let wasm_modules = vec![
         ("test_one.wasm".to_string(), test_module()),

@@ -15,7 +15,7 @@
  */
 
 use faas_api::Address;
-use fluence_faas::RawModuleConfig;
+use fluence_app_service::RawModuleConfig;
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize, Serializer};

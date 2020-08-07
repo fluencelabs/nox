@@ -257,7 +257,7 @@ impl FunctionRouter {
         key.try_into().map_err(|e| {
             #[rustfmt::skip]
             log::warn!("Couldn't parse provider address from DHT record key: {:?}", e);
-            AddressError::from(e)
+            e
         })
     }
 }

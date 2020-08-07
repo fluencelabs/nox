@@ -15,9 +15,9 @@
  */
 
 use super::{address_signature::SignatureError, builtin_service};
-use crate::faas::FaaSExecError;
+use crate::app_service::FaaSExecError;
 use faas_api::{Address, FunctionCall};
-use fluence_faas::FaaSError;
+use fluence_app_service::AppServiceError;
 use trust_graph::Certificate;
 
 pub struct CallError {
@@ -45,12 +45,13 @@ impl CallError {
             CallErrorKind::FunctionNotFound { module, function } => {
                 format!("function {} not found on module {}", function, module)
             }
-            CallErrorKind::InvalidArguments { error } => format!("invalid arguments: {}", error),
             CallErrorKind::ResultSerializationFailed(err_msg) => {
                 format!("failed to serialize result: {}", err_msg)
             }
             CallErrorKind::BuiltinServiceError(err) => format!("builtin service failure: {}", err),
-            CallErrorKind::FaaSError(err) => format!("faas execution failure: {}", err),
+            CallErrorKind::AppServiceError(err) => {
+                format!("faas service execution failure: {}", err)
+            }
             CallErrorKind::Signature(err) => {
                 format!("failed to register service, siganture error: {:?}", err)
             }
@@ -91,10 +92,9 @@ impl CallError {
 pub enum CallErrorKind {
     MissingFunctionName { module: String },
     FunctionNotFound { module: String, function: String },
-    InvalidArguments { error: String },
     ResultSerializationFailed(String),
     BuiltinServiceError(builtin_service::BuiltinServiceError),
-    FaaSError(FaaSError),
+    AppServiceError(AppServiceError),
     Signature(SignatureError),
     ServiceRegister(libp2p::kad::store::Error),
     NonLocalRelay,
@@ -115,9 +115,9 @@ impl From<builtin_service::BuiltinServiceError> for CallErrorKind {
     }
 }
 
-impl From<FaaSError> for CallErrorKind {
-    fn from(err: FaaSError) -> Self {
-        CallErrorKind::FaaSError(err)
+impl From<AppServiceError> for CallErrorKind {
+    fn from(err: AppServiceError) -> Self {
+        CallErrorKind::AppServiceError(err)
     }
 }
 
