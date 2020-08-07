@@ -149,7 +149,7 @@ impl NetworkBehaviour for FunctionRouter {
         while let Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result))) =
             self.app_service.poll(cx, params)
         {
-            if let Err(err) = self.send_faas_result(call, result) {
+            if let Err(err) = self.send_app_service_result(call, result) {
                 let msg = err.err_msg();
                 self.send_error_on_call(err.call(), msg);
             }

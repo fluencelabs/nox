@@ -51,7 +51,7 @@ impl FunctionRouter {
         Ok(())
     }
 
-    /// Create `FaaSCall` from a `FunctionCall`
+    /// Create `ServiceCall` from a `FunctionCall`
     fn prepare_call(
         &mut self,
         module: String,
@@ -224,8 +224,8 @@ impl FunctionRouter {
         }
     }
 
-    /// Serialize and send FaaS result as a reply
-    pub(super) fn send_faas_result(
+    /// Serialize and send app service result as a reply
+    pub(super) fn send_app_service_result(
         &mut self,
         call: FunctionCall,
         result: Result<ServiceCallResult, ServiceExecError>,
