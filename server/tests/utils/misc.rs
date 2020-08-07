@@ -19,8 +19,8 @@ use faas_api::{Address, FunctionCall, Protocol};
 use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::{BootstrapConfig, ServerBehaviour};
 
-use fluence_client::Transport;
 use fluence_app_service::RawModulesConfig;
+use fluence_client::Transport;
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
