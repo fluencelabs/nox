@@ -122,7 +122,7 @@ impl AppServiceCall {
 pub struct AppServiceBehaviour {
     /// Created instances
     //TODO: when to delete an instance?
-    faases: HashMap<String, AppService>,
+    app_services: HashMap<String, AppService>,
     /// Incoming calls waiting to be processed
     calls: Vec<AppServiceCall>,
     /// Context waker, used to trigger `poll`
@@ -136,7 +136,7 @@ pub struct AppServiceBehaviour {
 impl AppServiceBehaviour {
     pub fn new(config: RawModulesConfig) -> Self {
         Self {
-            faases: <_>::default(),
+            app_services: <_>::default(),
             calls: <_>::default(),
             waker: <_>::default(),
             futures: <_>::default(),
@@ -153,7 +153,7 @@ impl AppServiceBehaviour {
     /// Get interface of a FaaS instance specified by `service_id`
     pub fn get_interface(&self, service_id: &str) -> Result<FaaSInterface<'_>> {
         let faas = self
-            .faases
+            .app_services
             .get(service_id)
             .ok_or_else(|| FaaSExecError::NoSuchInstance(service_id.to_string()))?;
 
@@ -162,7 +162,7 @@ impl AppServiceBehaviour {
 
     /// Get interfaces for all created FaaS instances
     pub fn get_interfaces(&self) -> HashMap<&str, FaaSInterface<'_>> {
-        self.faases
+        self.app_services
             .iter()
             .map(|(k, v)| (k.as_str(), v.get_interface()))
             .collect()
@@ -254,7 +254,7 @@ impl AppServiceBehaviour {
                 AppServiceCall::Call { service_id, module, function, arguments, call } => {
                     // Take existing faas
                     let mut faas = self
-                        .faases
+                        .app_services
                         .remove(&service_id)
                         .ok_or_else(|| (call.clone(), FaaSExecError::NoSuchInstance(service_id.clone())))?;
                     let waker = self.waker.clone();
@@ -349,7 +349,7 @@ impl NetworkBehaviour for AppServiceBehaviour {
             let (faas, call, result): FutResult = result;
             // faas could be None if creation failed
             if let Some(faas) = faas {
-                self.faases.insert(service_id, faas);
+                self.app_services.insert(service_id, faas);
             }
 
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result)));
