@@ -16,7 +16,7 @@
 
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
-use crate::app_service::{AppServiceCall, AppServiceCallResult, FaaSExecError};
+use crate::app_service::{ServiceCall, ServiceCallResult, ServiceExecError};
 use crate::function::wait_address::WaitAddress;
 use crate::function::{CallError, CallErrorKind::*, ErrorData};
 use faas_api::{Address, FunctionCall, Protocol};
@@ -57,12 +57,12 @@ impl FunctionRouter {
         module: String,
         service_id: Option<String>,
         call: FunctionCall,
-    ) -> Result<AppServiceCall, CallError> {
+    ) -> Result<ServiceCall, CallError> {
         let service_id = match service_id {
             Some(service_id) => service_id,
             // If module is CREATE_COMMAND_NAME, this is a request to create FaaS
             None if module.as_str() == CREATE_COMMAND_NAME && !call.context.is_empty() => {
-                return Ok(AppServiceCall::Create {
+                return Ok(ServiceCall::Create {
                     module_names: call.context.clone(),
                     call,
                 })
@@ -94,7 +94,7 @@ impl FunctionRouter {
             }));
         }
 
-        let faas_call = AppServiceCall::Call {
+        let faas_call = ServiceCall::Call {
             service_id,
             module,
             function: function.to_string(),
@@ -228,7 +228,7 @@ impl FunctionRouter {
     pub(super) fn send_faas_result(
         &mut self,
         call: FunctionCall,
-        result: Result<AppServiceCallResult, FaaSExecError>,
+        result: Result<ServiceCallResult, ServiceExecError>,
     ) -> Result<(), CallError> {
         use serde_json::Value;
 
