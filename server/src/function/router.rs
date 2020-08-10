@@ -19,7 +19,7 @@ use super::config::RouterConfig;
 use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
-use crate::app_service::AppServiceBehaviour;
+use crate::app_service::{AppServiceBehaviour, AppServicesConfig};
 use crate::function::wait_address::WaitAddress;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
@@ -37,6 +37,7 @@ use libp2p::{
 use parity_multiaddr::Multiaddr;
 use prometheus::Registry;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
 use std::task::Waker;
 use trust_graph::TrustGraph;
 
@@ -87,7 +88,7 @@ impl FunctionRouter {
         config: RouterConfig,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
-        faas_config: RawModulesConfig,
+        services_config: AppServicesConfig,
     ) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
@@ -105,7 +106,7 @@ impl FunctionRouter {
         if let Some(registry) = registry {
             kademlia.enable_metrics(registry);
         }
-        let app_service = AppServiceBehaviour::new(faas_config);
+        let app_service = AppServiceBehaviour::new(services_config);
 
         Self {
             app_service,

@@ -17,6 +17,7 @@
 use crate::Bootstrapper;
 use crate::FunctionRouter;
 
+use crate::app_service::AppServicesConfig;
 use crate::bootstrapper::BootstrapConfig;
 use crate::function::RouterConfig;
 use fluence_app_service::RawModulesConfig;
@@ -30,6 +31,7 @@ use libp2p::{
 use parity_multiaddr::Multiaddr;
 use prometheus::Registry;
 use std::collections::VecDeque;
+use std::path::PathBuf;
 use trust_graph::TrustGraph;
 
 pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
@@ -54,12 +56,12 @@ impl ServerBehaviour {
         trust_graph: TrustGraph,
         bootstrap_nodes: Vec<Multiaddr>,
         registry: Option<&Registry>,
-        faas_config: RawModulesConfig,
         bs_config: BootstrapConfig,
+        services_config: AppServicesConfig,
     ) -> Self {
         let config =
             RouterConfig::new(key_pair.clone(), local_peer_id.clone(), listening_addresses);
-        let router = FunctionRouter::new(config, trust_graph, registry, faas_config);
+        let router = FunctionRouter::new(config, trust_graph, registry, services_config);
         let local_public_key = PublicKey::Ed25519(key_pair.public());
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),

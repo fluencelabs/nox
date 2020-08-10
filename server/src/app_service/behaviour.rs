@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use crate::app_service::behaviour::ServiceExecError::AddModule;
+use crate::app_service::behaviour::ServiceExecError::{AddModule, SerializeConfig, WriteConfig};
+use crate::app_service::AppServicesConfig;
 use async_std::task;
 use faas_api::FunctionCall;
 use fluence_app_service::{
@@ -54,7 +55,7 @@ type Fut = BoxFuture<'static, FutResult>;
 pub enum ServiceCallResult {
     /// Service was created with this `service_id`
     ServiceCreated { service_id: String },
-    #[serde(serialize_with = "AppServiceCallResult::serialize_returned")]
+    #[serde(serialize_with = "ServiceCallResult::serialize_returned")]
     /// Call to a service returned this result
     Returned(Vec<IValue>),
 }
@@ -129,12 +130,12 @@ pub struct AppServiceBehaviour {
     waker: Option<Waker>,
     /// Pending futures: service_id -> future
     futures: HashMap<String, Fut>,
-    /// Config to create AppService instances with
-    config: RawModulesConfig,
+    /// Config for service creation
+    config: AppServicesConfig,
 }
 
 impl AppServiceBehaviour {
-    pub fn new(config: RawModulesConfig) -> Self {
+    pub fn new(config: AppServicesConfig) -> Self {
         Self {
             app_services: <_>::default(),
             calls: <_>::default(),
@@ -172,41 +173,42 @@ impl AppServiceBehaviour {
     // TODO: load interfaces of these modules
     pub fn get_modules(&self) -> Vec<String> {
         let get_modules = |dir| -> Option<HashSet<String>> {
-            let dir = std::fs::read_dir(dir?).ok()?;
+            let dir = std::fs::read_dir(dir).ok()?;
             dir.map(|p| Some(p.ok()?.file_name().into_string().ok()?))
                 .collect()
         };
 
-        let dir = self.config.modules_dir.as_ref();
-        if let Some(fs_modules) = get_modules(dir) {
-            let cfg_modules = self.config.module.iter().map(|m| m.name.clone());
-            return cfg_modules.filter(|m| fs_modules.contains(m)).collect();
-        }
-
-        return vec![];
+        let fs_modules = get_modules(&self.config.blueprint_dir).unwrap_or_default();
+        return fs_modules.into_iter().collect();
     }
 
     /// Adds a module to the filesystem, overwriting existing module.
     /// Also adds module config to the RawModuleConfig
     pub fn add_module(&mut self, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
-        let dir = ok_get!(self.config.modules_dir.as_ref());
-        let mut path = PathBuf::from(dir);
+        let mut path = PathBuf::from(&self.config.blueprint_dir);
         path.push(&config.name);
-        std::fs::write(&path, bytes).map_err(|err| AddModule { path, err })?;
+        std::fs::write(&path, bytes).map_err(|err| AddModule {
+            path: path.clone(),
+            err,
+        })?;
 
         // replace existing configuration with a new one
-        self.config.module.retain(|m| m.name != config.name);
-        self.config.module.push(config);
+        let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
+        path.set_file_name(format!("blueprint_{}.toml", config.name));
+        std::fs::write(&path, toml).map_err(|err| WriteConfig { path, err })?;
 
         Ok(())
     }
 
     fn create_app_service(
         module_names: Vec<String>,
-        config: RawModulesConfig,
+        blueprint: String,
         service_id: String,
         waker: Option<Waker>,
+        envs: Vec<String>,
     ) -> (Option<AppService>, Result<ServiceCallResult>) {
+        let config: RawModulesConfig = unimplemented!("{}", blueprint); // load from file
+
         // Convert module names into hashmap
         let service = AppService::new(module_names, config, &service_id).map_err(Into::into);
         let (service, result) = match service {
@@ -237,11 +239,12 @@ impl AppServiceBehaviour {
                     let service_id = Uuid::new_v4();
 
                     // Create service in background
-                    let config = self.config.clone();
                     let waker = self.waker.clone();
+                    let blueprint = "".to_string(); // TODO: implement
+                    let envs = self.config.service_envs.clone();
                     let future = task::spawn_blocking(move || {
                         let service_id = service_id.to_string();
-                        let (service, result) = Self::create_app_service(module_names, config, service_id, waker);
+                        let (service, result) = Self::create_app_service(module_names, blueprint, service_id, waker, envs);
                         (service, call, result)
                     });
 
@@ -386,6 +389,8 @@ pub enum ServiceExecError {
     NoSuchInstance(String),
     Engine(AppServiceError),
     AddModule { path: PathBuf, err: std::io::Error },
+    SerializeConfig { err: toml::ser::Error },
+    WriteConfig { path: PathBuf, err: std::io::Error },
 }
 
 impl Error for ServiceExecError {}
@@ -405,10 +410,17 @@ impl std::fmt::Display for ServiceExecError {
             ServiceExecError::AddModule { path, err } => {
                 write!(f, "Error saving module {:?}: {:?}", path, err)
             }
+            ServiceExecError::SerializeConfig { err } => {
+                write!(f, "Error serializing config to toml: {:?}", err)
+            }
+            ServiceExecError::WriteConfig { path, err } => {
+                write!(f, "Error saving config to {:?}: {:?}", path, err)
+            }
         }
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     static TEST_MODULE: &str = "./tests/artifacts/test_module_wit.wasi.wasm";
@@ -585,3 +597,4 @@ mod tests {
         }
     }
 }
+*/

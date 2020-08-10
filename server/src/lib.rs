@@ -16,13 +16,13 @@
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
-    dead_code,
     nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
+    // dead_code,
+    // unused_imports,
+    // unused_mut,
+    // unused_variables,
     unused_unsafe,
-    unreachable_patterns
+    // unreachable_patterns
 )]
 
 /// Takes option as an argument, unwraps if `Some`, exit function with `Ok(default)` otherwise
@@ -102,9 +102,11 @@ pub mod kademlia {
 
 pub mod app_service {
     mod behaviour;
+    mod config;
     pub(crate) use behaviour::{
         AppServiceBehaviour, ServiceCall, ServiceCallResult, ServiceExecError,
     };
+    pub use config::AppServicesConfig;
 }
 
 pub(crate) use bootstrapper::Bootstrapper;

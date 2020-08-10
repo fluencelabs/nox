@@ -21,6 +21,7 @@ use fluence_server::{BootstrapConfig, ServerBehaviour};
 
 use fluence_app_service::RawModulesConfig;
 use fluence_client::Transport;
+use fluence_server::app_service::AppServicesConfig;
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -347,7 +348,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
     use libp2p::identity;
     #[rustfmt::skip]
     let SwarmConfig {
-        bootstraps, listen_on, trust, transport, registry, mut wasm_config, wasm_modules
+        bootstraps, listen_on, trust, transport, registry, wasm_modules, ..
     } = config;
 
     let kp = Keypair::generate();
@@ -356,7 +357,6 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
 
     // write module to a temporary directory
     let tmp = put_modules(wasm_modules);
-    wasm_config.modules_dir = tmp.to_str().map(|s| s.to_string());
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
@@ -376,8 +376,8 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             trust_graph,
             bootstraps,
             registry,
-            wasm_config,
             BootstrapConfig::zero(),
+            AppServicesConfig::new(&tmp, vec![]),
         );
         match transport {
             Transport::Memory => {
