@@ -31,7 +31,6 @@ use parity_multiaddr::{Multiaddr, Protocol};
 use prometheus::Registry;
 use std::io;
 use std::net::IpAddr;
-use std::path::PathBuf;
 use trust_graph::TrustGraph;
 
 // TODO: documentation

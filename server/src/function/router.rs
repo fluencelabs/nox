@@ -24,7 +24,6 @@ use crate::function::wait_address::WaitAddress;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
-use fluence_app_service::RawModulesConfig;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
 use libp2p::{
@@ -37,7 +36,6 @@ use libp2p::{
 use parity_multiaddr::Multiaddr;
 use prometheus::Registry;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::PathBuf;
 use std::task::Waker;
 use trust_graph::TrustGraph;
 
@@ -315,7 +313,6 @@ impl FunctionRouter {
                 arguments,
                 name: call.name,
                 sender: self.config.local_address(),
-                context: vec![],
             };
             self.call(call)
         } else {

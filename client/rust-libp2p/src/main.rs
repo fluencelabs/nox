@@ -167,7 +167,10 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
     cmd_recv
 }
 
+#[allow(dead_code, unused_variables, unreachable_code)]
 fn print_example(node: Address, reply_to: Address) {
+    unimplemented!();
+
     use serde_json::json;
     use std::time::SystemTime;
     fn show(cmd: ClientCommand) {
@@ -193,7 +196,6 @@ fn print_example(node: Address, reply_to: Address) {
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call identify".to_string()),
             sender: reply_to.clone(),
-            context: vec![],
         },
     };
 
@@ -207,7 +209,6 @@ fn print_example(node: Address, reply_to: Address) {
             arguments: serde_json::Value::Null,
             name: Some("call ipfs get".to_string()),
             sender: reply_to,
-            context: vec!["ipfs_node.wasm".to_string()],
         },
     };
 

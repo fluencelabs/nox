@@ -58,20 +58,21 @@ impl FunctionRouter {
         service_id: Option<String>,
         call: FunctionCall,
     ) -> Result<ServiceCall, CallError> {
+        // DSL-like function to save letters on error handling
+        let e = |e| call.clone().error(e);
+
         let service_id = match service_id {
             Some(service_id) => service_id,
             // If module is CREATE_COMMAND_NAME, this is a request to create FaaS
-            None if module.as_str() == CREATE_COMMAND_NAME && !call.context.is_empty() => {
-                unimplemented!();
-                // TODO: use call.arguments.blueprint instead of call.context
-                // return Ok(ServiceCall::Create {
-                //     module_names: call.context.clone(),
-                //     call,
-                // })
+            None if module.as_str() == CREATE_COMMAND_NAME => {
+                let blueprint = call.arguments.get("blueprint").ok_or(e(MissingBlueprint))?;
+                let blueprint = blueprint.as_str().ok_or(e(InvalidBlueprint))?;
+                return Ok(ServiceCall::Create {
+                    blueprint: blueprint.to_string(),
+                    call,
+                });
             }
-            // This branch is taken when call.context is empty
-            None if module.as_str() == CREATE_COMMAND_NAME => return Err(call.error(EmptyContext)),
-            None => return Err(call.error(MissingServiceId)),
+            None => return Err(e(MissingServiceId)),
         };
 
         let interface = self
@@ -79,18 +80,18 @@ impl FunctionRouter {
             .get_interface(&service_id)
             .map_err(|e| call.clone().error(e))?;
         let functions = interface.modules.get(module.as_str()).ok_or_else(|| {
-            call.clone().error(NoSuchModule {
+            e(NoSuchModule {
                 module: module.clone(),
                 service_id: service_id.clone(),
             })
         })?;
         let function = call.fname.as_ref().ok_or_else(|| {
-            call.clone().error(MissingFunctionName {
+            e(MissingFunctionName {
                 module: module.to_string(),
             })
         })?;
         if !functions.contains_key(function.as_str()) {
-            return Err(call.clone().error(FunctionNotFound {
+            return Err(e(FunctionNotFound {
                 module: module.to_string(),
                 function: function.to_string(),
             }));

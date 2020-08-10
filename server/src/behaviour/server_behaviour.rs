@@ -20,7 +20,6 @@ use crate::FunctionRouter;
 use crate::app_service::AppServicesConfig;
 use crate::bootstrapper::BootstrapConfig;
 use crate::function::RouterConfig;
-use fluence_app_service::RawModulesConfig;
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
 use libp2p::{
     identify::Identify,
@@ -31,7 +30,6 @@ use libp2p::{
 use parity_multiaddr::Multiaddr;
 use prometheus::Registry;
 use std::collections::VecDeque;
-use std::path::PathBuf;
 use trust_graph::TrustGraph;
 
 pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);

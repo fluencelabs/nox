@@ -17,12 +17,12 @@
 #![warn(rust_2018_idioms)]
 #![deny(
     nonstandard_style,
-    // dead_code,
-    // unused_imports,
-    // unused_mut,
-    // unused_variables,
+    dead_code,
+    unused_imports,
+    unused_mut,
+    unused_variables,
     unused_unsafe,
-    // unreachable_patterns
+    unreachable_patterns
 )]
 
 /// Takes option as an argument, unwraps if `Some`, exit function with `Ok(default)` otherwise
