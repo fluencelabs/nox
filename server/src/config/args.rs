@@ -60,5 +60,10 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .long("blueprint-dir")
             .multiple(true)
             .help("path to directory containing blueprints and wasm modules"),
+        Arg::with_name(SERVICES_WORKDIR)
+            .takes_value(true)
+            .long("services-workdir")
+            .multiple(true)
+            .help("path to a directory where all services will store their data"),
     ]
 }

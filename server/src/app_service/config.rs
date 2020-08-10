@@ -18,20 +18,26 @@ use serde::Deserialize;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct AppServicesConfig {
     /// Path of the blueprint directory containing blueprints and wasm modules
     pub blueprint_dir: PathBuf,
     /// Opaque environment variables to be passed on each service creation
     /// TODO: isolate envs of different modules (i.e., module A shouldn't access envs of module B)
     pub service_envs: Vec<String>,
+    pub services_workdir: PathBuf,
 }
 
 impl AppServicesConfig {
-    pub fn new<T: ?Sized + AsRef<OsStr>>(dir: &T, service_envs: Vec<String>) -> Self {
+    pub fn new<A: ?Sized + AsRef<OsStr>, B: ?Sized + AsRef<OsStr>>(
+        blueprint_dir: &A,
+        service_envs: Vec<String>,
+        workdir: &B,
+    ) -> Self {
         Self {
-            blueprint_dir: PathBuf::from(dir),
+            blueprint_dir: PathBuf::from(blueprint_dir),
             service_envs,
+            services_workdir: PathBuf::from(workdir),
         }
     }
 }

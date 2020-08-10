@@ -377,7 +377,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             bootstraps,
             registry,
             BootstrapConfig::zero(),
-            AppServicesConfig::new(&tmp, vec![]),
+            AppServicesConfig::new(&tmp, vec![], &tmp),
         );
         match transport {
             Transport::Memory => {

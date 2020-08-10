@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use crate::app_service::behaviour::ServiceExecError::{AddModule, SerializeConfig, WriteConfig};
-use crate::app_service::AppServicesConfig;
+use crate::app_service::behaviour::ServiceExecError::*;
+use crate::app_service::{AppServicesConfig, Blueprint};
 use async_std::task;
 use faas_api::FunctionCall;
 use fluence_app_service::{
@@ -98,8 +98,8 @@ pub enum ServiceCall {
     },
     /// Request to create new app service with given `module_names`
     Create {
-        /// Context: list of modules to load on creation
-        module_names: Vec<String>,
+        /// Id or name of the blueprint to create service from
+        blueprint: String,
         /// FunctionCall that caused this WasmCall, returned to caller as is
         call: FunctionCall,
     },
@@ -194,23 +194,48 @@ impl AppServiceBehaviour {
 
         // replace existing configuration with a new one
         let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
-        path.set_file_name(format!("blueprint_{}.toml", config.name));
+        path.set_file_name(format!("{}_config.toml", config.name));
         std::fs::write(&path, toml).map_err(|err| WriteConfig { path, err })?;
 
         Ok(())
     }
 
     fn create_app_service(
-        module_names: Vec<String>,
+        config: AppServicesConfig,
         blueprint: String,
         service_id: String,
         waker: Option<Waker>,
         envs: Vec<String>,
     ) -> (Option<AppService>, Result<ServiceCallResult>) {
-        let config: RawModulesConfig = unimplemented!("{}", blueprint); // load from file
+        let make_service = move |service_id| -> Result<_> {
+            use std::fs::read;
+            let mut bp_dir = PathBuf::from(&config.blueprint_dir);
+            let bp_path = bp_dir.with_file_name(&blueprint);
+            let blueprint = read(&bp_path).map_err(|e| NoSuchBlueprint { path: bp_path })?;
+            let blueprint: Blueprint =
+                toml::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
+            let modules: Vec<RawModuleConfig> = blueprint
+                .dependencies
+                .iter()
+                .map(|module| {
+                    let module = bp_dir.with_file_name(module);
+                    let module = read(&module).map_err(|e| NoSuchModule { path: module })?;
+                    toml::from_slice(module.as_slice()).map_err(|err| IncorrectModuleConfig { err })
+                })
+                .collect::<Result<_>>()?;
+            let to_string =
+                |path: &PathBuf| -> Option<_> { path.to_string_lossy().into_owned().into() };
+            let modules = RawModulesConfig {
+                modules_dir: to_string(&config.blueprint_dir),
+                service_base_dir: to_string(&config.services_workdir),
+                module: modules,
+                default: None,
+            };
 
-        // Convert module names into hashmap
-        let service = AppService::new(module_names, config, &service_id).map_err(Into::into);
+            AppService::new(modules, service_id, config.service_envs).map_err(Into::into)
+        };
+
+        let service = make_service(&service_id);
         let (service, result) = match service {
             Ok(service) => (
                 Some(service),
@@ -234,17 +259,17 @@ impl AppServiceBehaviour {
         new_work.try_fold((), |_, call| {
             match call {
                 // Request to create app service with given module_names
-                ServiceCall::Create { module_names, call } => {
+                ServiceCall::Create { blueprint, call } => {
                     // Generate new service_id
                     let service_id = Uuid::new_v4();
 
                     // Create service in background
                     let waker = self.waker.clone();
-                    let blueprint = "".to_string(); // TODO: implement
                     let envs = self.config.service_envs.clone();
+                    let config = self.config.clone();
                     let future = task::spawn_blocking(move || {
                         let service_id = service_id.to_string();
-                        let (service, result) = Self::create_app_service(module_names, blueprint, service_id, waker, envs);
+                        let (service, result) = Self::create_app_service(config, blueprint, service_id, waker, envs);
                         (service, call, result)
                     });
 
@@ -391,6 +416,10 @@ pub enum ServiceExecError {
     AddModule { path: PathBuf, err: std::io::Error },
     SerializeConfig { err: toml::ser::Error },
     WriteConfig { path: PathBuf, err: std::io::Error },
+    NoSuchBlueprint { path: PathBuf },
+    IncorrectBlueprint { err: toml::de::Error },
+    NoSuchModule { path: PathBuf },
+    IncorrectModuleConfig { err: toml::de::Error },
 }
 
 impl Error for ServiceExecError {}
@@ -416,6 +445,10 @@ impl std::fmt::Display for ServiceExecError {
             ServiceExecError::WriteConfig { path, err } => {
                 write!(f, "Error saving config to {:?}: {:?}", path, err)
             }
+            NoSuchBlueprint { path } => write!(f, "Blueprint wasn't found at {:?}", path),
+            IncorrectBlueprint { err } => write!(f, "Error parsing blueprint: {:?}", err),
+            NoSuchModule { path } => write!(f, "Module config wasn't found at {:?}", path),
+            IncorrectModuleConfig { err } => write!(f, "Error parsing module config: {:?}", err),
         }
     }
 }

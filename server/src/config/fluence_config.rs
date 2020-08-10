@@ -34,6 +34,7 @@ pub const CERTIFICATE_DIR: &str = "certificate_dir";
 pub const CONFIG_FILE: &str = "config_file";
 pub const SERVICE_ENVS: &str = "service_envs";
 pub const BLUEPRINT_DIR: &str = "blueprint_dir";
+pub const SERVICES_WORKDIR: &str = "services_workdir";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
@@ -50,6 +51,7 @@ pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
 pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
 pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
 pub const DEFAULT_BLUEPRINT_DIR: &str = "./.fluence/blueprints";
+pub const DEFAULT_SERVICES_WORKDIR: &str = "./.fluence/services";
 
 #[derive(Deserialize, Debug)]
 pub struct FluenceConfig {
@@ -63,6 +65,8 @@ pub struct FluenceConfig {
     pub root_weights: HashMap<PublicKeyHashable, u32>,
     #[serde(default = "default_blueprint_dir")]
     pub blueprint_dir: String,
+    #[serde(default = "default_services_workdir")]
+    pub services_workdir: String,
     pub service_envs: Vec<String>,
 }
 
@@ -147,6 +151,9 @@ fn default_cert_dir() -> String {
 }
 fn default_blueprint_dir() -> String {
     DEFAULT_BLUEPRINT_DIR.into()
+}
+fn default_services_workdir() -> String {
+    DEFAULT_SERVICES_WORKDIR.into()
 }
 
 /// Load keypair from default location

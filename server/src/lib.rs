@@ -102,10 +102,12 @@ pub mod kademlia {
 
 pub mod app_service {
     mod behaviour;
+    mod blueprint;
     mod config;
     pub(crate) use behaviour::{
         AppServiceBehaviour, ServiceCall, ServiceCallResult, ServiceExecError,
     };
+    pub(crate) use blueprint::Blueprint;
     pub use config::AppServicesConfig;
 }
 

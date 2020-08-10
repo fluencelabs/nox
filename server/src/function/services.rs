@@ -62,10 +62,12 @@ impl FunctionRouter {
             Some(service_id) => service_id,
             // If module is CREATE_COMMAND_NAME, this is a request to create FaaS
             None if module.as_str() == CREATE_COMMAND_NAME && !call.context.is_empty() => {
-                return Ok(ServiceCall::Create {
-                    module_names: call.context.clone(),
-                    call,
-                })
+                unimplemented!();
+                // TODO: use call.arguments.blueprint instead of call.context
+                // return Ok(ServiceCall::Create {
+                //     module_names: call.context.clone(),
+                //     call,
+                // })
             }
             // This branch is taken when call.context is empty
             None if module.as_str() == CREATE_COMMAND_NAME => return Err(call.error(EmptyContext)),
