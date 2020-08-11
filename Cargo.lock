@@ -21,7 +21,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fc95d1bdb8e6666b2b217308eeeb09f2d6728d104be3e31916cc74d15420331"
 dependencies = [
- "generic-array 0.14.3",
+ "generic-array 0.14.4",
 ]
 
 [[package]]
@@ -353,7 +353,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f30d3a39baa26f9651f17b375061f3233dde33424a8b72b0dbe93a68a0bc896d"
 dependencies = [
  "byteorder 1.3.4",
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -430,7 +430,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
 dependencies = [
- "generic-array 0.14.3",
+ "generic-array 0.14.4",
 ]
 
 [[package]]
@@ -439,7 +439,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa136449e765dc7faa244561ccae839c394048667929af599b5d931ebe7b7f10"
 dependencies = [
- "generic-array 0.14.3",
+ "generic-array 0.14.4",
 ]
 
 [[package]]
@@ -473,6 +473,12 @@ dependencies = [
  "parking",
  "waker-fn",
 ]
+
+[[package]]
+name = "boolinator"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
 
 [[package]]
 name = "bs58"
@@ -615,7 +621,7 @@ dependencies = [
  "lazy_static",
  "nom",
  "rust-ini",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde-hjson",
  "serde_json",
  "toml",
@@ -819,7 +825,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b584a330336237c1eecd3e94266efb216c56ed91225d634cb2991c5f3fd1aeab"
 dependencies = [
- "generic-array 0.14.3",
+ "generic-array 0.14.4",
  "subtle 2.2.3",
 ]
 
@@ -887,9 +893,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.2.1"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72aa14c04dfae8dd7d8a2b1cb7ca2152618cd01336dbfe704b8dcbf8d41dbd69"
+checksum = "d4d0e2d24e5ee3b23a01de38eefdcd978907890701f08ffffd4cb457ca4ee8d6"
 
 [[package]]
 name = "derivative"
@@ -917,7 +923,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
 dependencies = [
- "generic-array 0.14.3",
+ "generic-array 0.14.4",
 ]
 
 [[package]]
@@ -954,16 +960,16 @@ dependencies = [
  "curve25519-dalek",
  "ed25519",
  "rand 0.7.3",
- "serde 1.0.114",
+ "serde 1.0.115",
  "sha2 0.8.2",
  "zeroize",
 ]
 
 [[package]]
 name = "either"
-version = "1.5.3"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
+checksum = "cd56b59865bce947ac5958779cfa508f6c3b9497cc762b7e24a12d11ccde2c4f"
 
 [[package]]
 name = "encoding_rs"
@@ -993,7 +999,7 @@ version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ca8b296792113e1500fd935ae487be6e00ce318952a6880555554824d6ebf38"
 dependencies = [
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -1050,7 +1056,7 @@ dependencies = [
  "once_cell",
  "parity-multiaddr",
  "rand 0.7.3",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_json",
  "trust-graph",
  "url 2.1.1",
@@ -1087,22 +1093,23 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
 name = "fastrand"
-version = "1.3.3"
+version = "1.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36a9cb09840f81cd211e435d00a4e487edd263dc3c8ff815c32dd76ad668ebed"
+checksum = "4bd3bdaaf0a72155260a1c098989b60db1cbb22d6a628e64f16237aa4da93cc7"
 
 [[package]]
 name = "fce"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce#7254fe7e8c0578c37b74ea73d0eb4f3baa50091c"
+version = "0.1.1"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
 dependencies = [
+ "boolinator",
  "fce-wit-interfaces",
  "fce-wit-parser",
  "log",
  "multimap",
  "parity-wasm",
  "pwasm-utils",
- "serde 1.0.114",
+ "serde 1.0.115",
  "wasmer-interface-types-fl",
  "wasmer-runtime-core-fl",
  "wasmer-runtime-fl",
@@ -1112,7 +1119,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce#7254fe7e8c0578c37b74ea73d0eb4f3baa50091c"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1121,7 +1128,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce#7254fe7e8c0578c37b74ea73d0eb4f3baa50091c"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1152,12 +1159,13 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce#7254fe7e8c0578c37b74ea73d0eb4f3baa50091c"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
 dependencies = [
  "fluence-faas",
  "log",
  "serde_json",
  "toml",
+ "wasmer-wasi-fl",
 ]
 
 [[package]]
@@ -1186,7 +1194,7 @@ dependencies = [
  "parity-multiaddr",
  "rand 0.7.3",
  "reqwest",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_json",
  "tokio",
  "uuid",
@@ -1196,12 +1204,12 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce#7254fe7e8c0578c37b74ea73d0eb4f3baa50091c"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
 dependencies = [
  "cmd_lib",
  "fce",
  "log",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_derive",
  "serde_json",
  "toml",
@@ -1225,7 +1233,7 @@ dependencies = [
  "multihash",
  "parity-multiaddr",
  "rand 0.7.3",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_json",
 ]
 
@@ -1258,7 +1266,7 @@ dependencies = [
  "prost",
  "quickcheck",
  "rand 0.7.3",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_json",
  "smallvec 1.4.1",
  "tide",
@@ -1459,7 +1467,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e1d3b771574f62d0548cee0ad9057857e9fc25d7a3335f140c84f6acd0bf601"
 dependencies = [
  "cfg-if",
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -1473,9 +1481,9 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "0.14.3"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60fb4bb6bba52f78a471264d9a3b7d026cc0af47b22cd2cffbc0b787ca003e63"
+checksum = "501466ecc8a30d1d3b7fc9229b122b2ce8ed6e9d9223f1138d4babb253e51817"
 dependencies = [
  "typenum",
  "version_check",
@@ -1594,9 +1602,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34f595585f103464d8d2f6e9864682d74c1601fed5e07d62b1c9058dba8246fb"
+checksum = "e91b62f79061a0bc2e046024cb7ba44b08419ed238ecbd9adbd787434b9e8c25"
 dependencies = [
  "autocfg 1.0.0",
 ]
@@ -1707,7 +1715,7 @@ dependencies = [
  "infer",
  "omnom",
  "pin-project-lite",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_json",
  "url 2.1.1",
 ]
@@ -1794,13 +1802,13 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.5.0"
+version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b88cd59ee5f71fea89a62248fc8f387d44400cefe05ef548466d61ced9029a7"
+checksum = "86b45e59b16c76b11bf9738fd5d38879d3bd28ad292d7b313608becb17ae2df9"
 dependencies = [
  "autocfg 1.0.0",
- "hashbrown 0.8.1",
- "serde 1.0.114",
+ "hashbrown 0.8.2",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -1938,7 +1946,7 @@ checksum = "a2f02823cf78b754822df5f7f268fb59822e7296276d3e069d8e8cb26a14bd10"
 [[package]]
 name = "libp2p"
 version = "0.22.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "atomic",
  "bytes",
@@ -1977,7 +1985,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core"
 version = "0.20.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "asn1_der",
  "bs58",
@@ -1999,7 +2007,7 @@ dependencies = [
  "rand 0.7.3",
  "ring",
  "rw-stream-sink",
- "serde 1.0.114",
+ "serde 1.0.115",
  "sha2 0.8.2",
  "smallvec 1.4.1",
  "thiserror",
@@ -2011,7 +2019,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core-derive"
 version = "0.20.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "quote",
  "syn",
@@ -2020,7 +2028,7 @@ dependencies = [
 [[package]]
 name = "libp2p-deflate"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "flate2",
  "futures",
@@ -2030,7 +2038,7 @@ dependencies = [
 [[package]]
 name = "libp2p-dns"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2040,7 +2048,7 @@ dependencies = [
 [[package]]
 name = "libp2p-floodsub"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "cuckoofilter",
  "fnv",
@@ -2056,7 +2064,7 @@ dependencies = [
 [[package]]
 name = "libp2p-gossipsub"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "base64 0.11.0",
  "byteorder 1.3.4",
@@ -2081,7 +2089,7 @@ dependencies = [
 [[package]]
 name = "libp2p-identify"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2096,7 +2104,7 @@ dependencies = [
 [[package]]
 name = "libp2p-kad"
 version = "0.21.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "arrayvec",
  "bs58",
@@ -2126,7 +2134,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mdns"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "async-std",
  "data-encoding",
@@ -2147,7 +2155,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mplex"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "bytes",
  "fnv",
@@ -2162,7 +2170,7 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.21.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "bytes",
  "curve25519-dalek",
@@ -2183,7 +2191,7 @@ dependencies = [
 [[package]]
 name = "libp2p-ping"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2197,7 +2205,7 @@ dependencies = [
 [[package]]
 name = "libp2p-plaintext"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "bytes",
  "futures",
@@ -2214,7 +2222,7 @@ dependencies = [
 [[package]]
 name = "libp2p-pnet"
 version = "0.19.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "futures",
  "log",
@@ -2227,7 +2235,7 @@ dependencies = [
 [[package]]
 name = "libp2p-request-response"
 version = "0.1.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "async-trait",
  "futures",
@@ -2240,7 +2248,7 @@ dependencies = [
 [[package]]
 name = "libp2p-secio"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "aes-ctr",
  "ctr",
@@ -2269,7 +2277,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm"
 version = "0.20.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2283,7 +2291,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "async-std",
  "futures",
@@ -2298,7 +2306,7 @@ dependencies = [
 [[package]]
 name = "libp2p-uds"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "async-std",
  "futures",
@@ -2309,7 +2317,7 @@ dependencies = [
 [[package]]
 name = "libp2p-wasm-ext"
 version = "0.20.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "futures",
  "js-sys",
@@ -2322,7 +2330,7 @@ dependencies = [
 [[package]]
 name = "libp2p-websocket"
 version = "0.21.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "async-tls",
  "either",
@@ -2341,7 +2349,7 @@ dependencies = [
 [[package]]
 name = "libp2p-yamux"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2410,7 +2418,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fabed175da42fed1fa0746b0ea71f412aa9d35e76e95e59b192c64b9dc2bf8b"
 dependencies = [
  "cfg-if",
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -2569,13 +2577,13 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8883adfde9756c1d30b0f519c9b8c502a94b41ac62f696453c37c7fc0a958ce"
 dependencies = [
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
 name = "multistream-select"
 version = "0.8.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "bytes",
  "futures",
@@ -2773,7 +2781,7 @@ dependencies = [
 [[package]]
 name = "parity-multiaddr"
 version = "0.9.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p#3fb829f61b68d560451d09d9472691c81ae64e4d"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=master#3fb829f61b68d560451d09d9472691c81ae64e4d"
 dependencies = [
  "arrayref",
  "bs58",
@@ -2781,7 +2789,7 @@ dependencies = [
  "data-encoding",
  "multihash",
  "percent-encoding 2.1.0",
- "serde 1.0.114",
+ "serde 1.0.115",
  "static_assertions",
  "unsigned-varint 0.4.0",
  "url 2.1.1",
@@ -3282,7 +3290,7 @@ dependencies = [
  "native-tls",
  "percent-encoding 2.1.0",
  "pin-project-lite",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_urlencoded",
  "tokio",
  "tokio-tls",
@@ -3487,9 +3495,9 @@ checksum = "9dad3f759919b92c3068c696c15c3d17238234498bbdcc80f2c469606f948ac8"
 
 [[package]]
 name = "serde"
-version = "1.0.114"
+version = "1.0.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5317f7588f0a5078ee60ef675ef96735a1442132dc645eb1d12c018620ed8cd3"
+checksum = "e54c9a88f2da7238af84b5101443f0c0d0a3bbdc455e34a5c9497b1903ed55d5"
 dependencies = [
  "serde_derive",
 ]
@@ -3501,7 +3509,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d733da87e79faaac25616e33d26299a41143fd4cd42746cbb0e91d8feea243fd"
 dependencies = [
  "byteorder 1.3.4",
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -3523,14 +3531,14 @@ version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16ae07dd2f88a366f15bd0632ba725227018c69a1c8550a927324f8eb8368bb9"
 dependencies = [
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.114"
+version = "1.0.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a0be94b04690fbaed37cddffc5c134bf537c8e3329d53e982fe04c374978f8e"
+checksum = "609feed1d0a73cc36a0182a840a9b37b4a82f0b1150369f0536a9e3f2a31dc48"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3545,7 +3553,7 @@ checksum = "164eacbdb13512ec2745fb09d51fd5b22b0d65ed294a1dcf7285a360c80a675c"
 dependencies = [
  "itoa",
  "ryu",
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -3557,7 +3565,7 @@ dependencies = [
  "data-encoding",
  "error-chain",
  "percent-encoding 1.0.1",
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -3577,7 +3585,7 @@ checksum = "9ec5d77e2d4c73717816afac02670d5c4f534ea95ed430442cad02e7a6e32c97"
 dependencies = [
  "dtoa",
  "itoa",
- "serde 1.0.114",
+ "serde 1.0.115",
  "url 2.1.1",
 ]
 
@@ -3768,7 +3776,7 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09f8ed9974042b8c3672ff3030a69fcc03b74c47c3d1ecb7755e8a3626011e88"
 dependencies = [
- "generic-array 0.14.3",
+ "generic-array 0.14.4",
 ]
 
 [[package]]
@@ -3896,7 +3904,7 @@ dependencies = [
  "mime",
  "mime_guess",
  "route-recognizer",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_json",
  "serde_qs",
  "url 2.1.1",
@@ -3983,7 +3991,7 @@ version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffc92d160b1eef40665be3a05630d003936a3bc7da7421277846c2613e92c71a"
 dependencies = [
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -3994,9 +4002,9 @@ checksum = "e987b6bf443f4b5b3b6f38704195592cca41c5bb7aedd3c3693c7081f8289860"
 
 [[package]]
 name = "tracing"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0aae59226cf195d8e74d4b34beae1859257efb4e5fed3f147d2dc2c7d372178"
+checksum = "6d79ca061b032d6ce30c660fded31189ca0b9922bf483cd70759f13a2d86786c"
 dependencies = [
  "cfg-if",
  "log",
@@ -4005,9 +4013,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.13"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d593f98af59ebc017c0648f0117525db358745a8894a8d684e185ba3f45954f9"
+checksum = "db63662723c316b43ca36d833707cc93dff82a02ba3d7e354f342682cc8b3545"
 dependencies = [
  "lazy_static",
 ]
@@ -4025,7 +4033,7 @@ dependencies = [
  "parity-multiaddr",
  "rand 0.7.3",
  "ref-cast",
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -4060,7 +4068,7 @@ dependencies = [
  "erased-serde",
  "inventory",
  "lazy_static",
- "serde 1.0.114",
+ "serde 1.0.115",
  "typetag-impl",
 ]
 
@@ -4138,7 +4146,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8326b2c654932e3e4f9196e69d08fdf7cfd718e1dc6f66b347e6024a0c961402"
 dependencies = [
- "generic-array 0.14.3",
+ "generic-array 0.14.4",
  "subtle 2.2.3",
 ]
 
@@ -4184,7 +4192,7 @@ dependencies = [
  "idna 0.2.0",
  "matches",
  "percent-encoding 2.1.0",
- "serde 1.0.114",
+ "serde 1.0.115",
 ]
 
 [[package]]
@@ -4275,7 +4283,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0563a9a4b071746dd5aedbc3a28c6fe9be4586fb3fbadb67c400d4f53c6b16c"
 dependencies = [
  "cfg-if",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_json",
  "wasm-bindgen-macro",
 ]
@@ -4365,7 +4373,7 @@ dependencies = [
  "libc",
  "nix 0.15.0",
  "rayon",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde-bench",
  "serde_bytes",
  "serde_derive",
@@ -4412,7 +4420,7 @@ checksum = "7b12519a2a53ea1b2166ff47e56c6b57a3f7d714a2d34d26a6b04bdf22c37a41"
 dependencies = [
  "nom",
  "safe-transmute",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_json",
  "wast",
 ]
@@ -4436,7 +4444,7 @@ dependencies = [
  "page_size",
  "parking_lot 0.10.2",
  "rustc_version",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde-bench",
  "serde_bytes",
  "serde_derive",
@@ -4465,7 +4473,7 @@ dependencies = [
  "page_size",
  "parking_lot 0.10.2",
  "rustc_version",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde-bench",
  "serde_bytes",
  "serde_derive",
@@ -4483,7 +4491,7 @@ checksum = "e855c8942f998a6938e43c1d0bb11b76a60b1c8341e08db36cc36b97b58bb1e9"
 dependencies = [
  "lazy_static",
  "memmap",
- "serde 1.0.114",
+ "serde 1.0.115",
  "serde_derive",
  "wasmer-clif-backend-fl",
  "wasmer-runtime-core-fl",
@@ -4501,7 +4509,7 @@ dependencies = [
  "getrandom",
  "libc",
  "log",
- "serde 1.0.114",
+ "serde 1.0.115",
  "thiserror",
  "time",
  "typetag",
