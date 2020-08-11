@@ -105,6 +105,7 @@ pub mod app_service {
     mod call;
     mod config;
     mod error;
+    mod files;
     mod network;
     mod service;
 

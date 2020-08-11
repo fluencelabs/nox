@@ -1100,7 +1100,7 @@ checksum = "4bd3bdaaf0a72155260a1c098989b60db1cbb22d6a628e64f16237aa4da93cc7"
 [[package]]
 name = "fce"
 version = "0.1.1"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1119,7 +1119,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1128,7 +1128,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1159,7 +1159,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1204,7 +1204,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#aa0d2db60c65569a9566b6de36c763b0a4af743f"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
 dependencies = [
  "cmd_lib",
  "fce",

@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Blueprint {
-    pub name: String,
-    pub id: String,
-    pub dependencies: Vec<String>,
+/// Calculates filename of the config for a wasm module
+pub(super) fn module_config_name<S: AsRef<str>>(module: S) -> String {
+    format!("{}_config.toml", module.as_ref())
 }

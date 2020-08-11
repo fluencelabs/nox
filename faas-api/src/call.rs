@@ -76,6 +76,10 @@ impl FunctionCall {
             sender,
         }
     }
+
+    pub fn msg_id(&self) -> Option<&'_ str> {
+        self.arguments.get("msg_id").and_then(|s| s.as_str())
+    }
 }
 
 fn empty_obj() -> serde_json::Value {

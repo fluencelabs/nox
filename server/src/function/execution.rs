@@ -23,7 +23,9 @@ use super::{
     errors::CallErrorKind::*,
     CallError, ErrorData, FunctionRouter,
 };
-use crate::function::builtin_service::{AddModule, GetActiveInterfaces, GetAvailableModules};
+use crate::function::builtin_service::{
+    AddBlueprint, AddModule, GetActiveInterfaces, GetAvailableModules,
+};
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_app_service::FaaSInterface;
 use libp2p::PeerId;
@@ -101,6 +103,19 @@ impl FunctionRouter {
                 Ok(_) => self.reply_with(call, msg_id, ("ok", json!({}))),
                 Err(e) => Err(call.error(e)),
             },
+
+            BuiltinService::AddBlueprint(AddBlueprint { blueprint, .. }) => {
+                // Save blueprint
+                #[rustfmt::skip]
+                self.app_service.add_blueprint(&blueprint).map_err(|e| call.clone().error(e))?;
+                // Publish it on success
+                self.publish_name(
+                    provider!(blueprint.name),
+                    &self.config.local_address(),
+                    call.clone().into(),
+                )
+                .map_err(|e| call.error(e))
+            }
         }
     }
 

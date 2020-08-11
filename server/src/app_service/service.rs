@@ -25,6 +25,8 @@ use fluence_app_service::{
     AppService, FaaSInterface as AppServiceInterface, RawModuleConfig, RawModulesConfig,
 };
 
+use crate::app_service::error::ServiceExecError::WriteBlueprint;
+use crate::app_service::files;
 use async_std::task;
 use futures::future::BoxFuture;
 use std::collections::{HashMap, HashSet};
@@ -111,8 +113,23 @@ impl AppServiceBehaviour {
 
         // replace existing configuration with a new one
         let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
-        path.set_file_name(format!("{}_config.toml", config.name));
+        path.set_file_name(files::module_config_name(config.name));
         std::fs::write(&path, toml).map_err(|err| WriteConfig { path, err })?;
+
+        Ok(())
+    }
+
+    /// Saves new blueprint to disk
+    pub fn add_blueprint(&mut self, blueprint: &Blueprint) -> Result<()> {
+        let mut path = PathBuf::from(&self.config.blueprint_dir);
+        path.push(&blueprint.name);
+
+        // Save blueprint to disk
+        let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeConfig { err })?;
+        std::fs::write(&path, bytes).map_err(|err| WriteBlueprint { path, err })?;
+
+        // TODO: publish?
+        // TODO: check dependencies are satisfied?
 
         Ok(())
     }
@@ -134,7 +151,7 @@ impl AppServiceBehaviour {
                 .dependencies
                 .iter()
                 .map(|module| {
-                    let module = bp_dir.with_file_name(module);
+                    let module = bp_dir.with_file_name(files::module_config_name(module));
                     let module = read(&module).map_err(|err| NoSuchModule { path: module, err })?;
                     toml::from_slice(module.as_slice()).map_err(|err| IncorrectModuleConfig { err })
                 })
