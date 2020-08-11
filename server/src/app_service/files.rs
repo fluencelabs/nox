@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use crate::app_service::Blueprint;
+
 /// Calculates filename of the config for a wasm module
 pub(super) fn module_config_name<S: AsRef<str>>(module: S) -> String {
     format!("{}_config.toml", module.as_ref())
@@ -25,8 +27,8 @@ pub(super) fn module_file_name<S: AsRef<str>>(module: S) -> String {
 }
 
 /// Calculates filename of the blueprint
-pub(super) fn blueprint_file_name<S: AsRef<str>>(module: S) -> String {
-    format!("{}_blueprint.toml", module.as_ref())
+pub(super) fn blueprint_file_name(blueprint: &Blueprint) -> String {
+    format!("{}_blueprint.toml", blueprint.id)
 }
 
 /// Returns true if file is named like a blueprint would be

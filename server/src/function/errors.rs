@@ -82,10 +82,6 @@ impl CallError {
             CallErrorKind::FaaSExecError(err) => {
                 format!("error while executing faas call: {}", err)
             }
-            CallErrorKind::MissingBlueprint => {
-                "blueprint must be provided in arguments when creating a service".to_string()
-            }
-            CallErrorKind::InvalidBlueprint => "blueprint must be a string".to_string(),
         }
     }
 }
@@ -107,8 +103,6 @@ pub enum CallErrorKind {
     MissingServiceId,
     NoSuchModule { module: String, service_id: String },
     FaaSExecError(ServiceExecError),
-    MissingBlueprint,
-    InvalidBlueprint,
 }
 
 impl From<builtin_service::BuiltinServiceError> for CallErrorKind {

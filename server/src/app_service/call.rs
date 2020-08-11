@@ -38,8 +38,8 @@ pub enum ServiceCall {
     },
     /// Request to create new app service with given `module_names`
     Create {
-        /// Id or name of the blueprint to create service from
-        blueprint: String,
+        /// Id of the blueprint to create service from
+        blueprint_id: String,
         /// FunctionCall that caused this WasmCall, returned to caller as is
         call: FunctionCall,
     },

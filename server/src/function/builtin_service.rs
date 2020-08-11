@@ -95,6 +95,11 @@ pub struct AddBlueprint {
     pub blueprint: Blueprint,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateService {
+    pub blueprint_id: String,
+}
+
 mod base64 {
     use serde::{Deserialize, Serialize, Serializer};
 
@@ -127,6 +132,7 @@ pub enum BuiltinService {
     GetAvailableModules(GetAvailableModules),
     AddModule(AddModule),
     AddBlueprint(AddBlueprint),
+    CreateService(CreateService),
 }
 
 #[derive(Debug)]
@@ -160,11 +166,12 @@ impl BuiltinService {
     const GET_AVAILABLE_MODULES: &'static str = "get_available_modules";
     const ADD_MODULE: &'static str = "add_module";
     const ADD_BLUEPRINT: &'static str = "add_blueprint";
+    const CREATE_SERVICE: &'static str = "create";
     #[rustfmt::skip]
     const SERVICES: &'static [&'static str] = &[
         Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY, Self::GET_INTERFACE,
         Self::GET_ACTIVE_INTERFACES, Self::GET_AVAILABLE_MODULES, Self::ADD_MODULE,
-        Self::ADD_BLUEPRINT
+        Self::ADD_BLUEPRINT, Self::CREATE_SERVICE
     ];
 
     #[allow(clippy::needless_lifetimes)]
@@ -185,6 +192,7 @@ impl BuiltinService {
             Self::GET_AVAILABLE_MODULES => GetAvailableModules(from_value(arguments)?),
             Self::ADD_MODULE => AddModule(from_value(arguments)?),
             Self::ADD_BLUEPRINT => AddBlueprint(from_value(arguments)?),
+            Self::CREATE_SERVICE => CreateService(from_value(arguments)?),
             _ => return Err(BuiltinServiceError::UnknownService(service_id)),
         };
 

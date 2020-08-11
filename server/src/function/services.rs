@@ -23,8 +23,6 @@ use faas_api::{Address, FunctionCall, Protocol};
 use libp2p::PeerId;
 use std::collections::HashSet;
 
-const CREATE_COMMAND_NAME: &str = "create";
-
 type CallResult<T> = std::result::Result<T, CallError>;
 
 impl FunctionRouter {
@@ -63,15 +61,6 @@ impl FunctionRouter {
 
         let service_id = match service_id {
             Some(service_id) => service_id,
-            // If module is CREATE_COMMAND_NAME, this is a request to create FaaS
-            None if module.as_str() == CREATE_COMMAND_NAME => {
-                let blueprint = call.arguments.get("blueprint").ok_or(e(MissingBlueprint))?;
-                let blueprint = blueprint.as_str().ok_or(e(InvalidBlueprint))?;
-                return Ok(ServiceCall::Create {
-                    blueprint: blueprint.to_string(),
-                    call,
-                });
-            }
             None => return Err(e(MissingServiceId)),
         };
 

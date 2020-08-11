@@ -145,7 +145,7 @@ impl AppServiceBehaviour {
     /// Saves new blueprint to disk
     pub fn add_blueprint(&mut self, blueprint: &Blueprint) -> Result<()> {
         let mut path = PathBuf::from(&self.config.blueprint_dir);
-        path.set_file_name(files::blueprint_file_name(&blueprint.name));
+        path.set_file_name(files::blueprint_file_name(&blueprint));
 
         // Save blueprint to disk
         let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeConfig { err })?;
@@ -215,7 +215,7 @@ impl AppServiceBehaviour {
         new_work.try_fold((), |_, call| {
             match call {
                 // Request to create app service with given module_names
-                ServiceCall::Create { blueprint, call } => {
+                ServiceCall::Create { blueprint_id, call } => {
                     // Generate new service_id
                     let service_id = Uuid::new_v4();
 
@@ -224,7 +224,9 @@ impl AppServiceBehaviour {
                     let config = self.config.clone();
                     let future = task::spawn_blocking(move || {
                         let service_id = service_id.to_string();
-                        let (service, result) = Self::create_app_service(config, blueprint, service_id, waker);
+                        let (service, result) = Self::create_app_service(
+                            config, blueprint_id, service_id, waker
+                        );
                         (service, call, result)
                     });
 

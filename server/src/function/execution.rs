@@ -23,8 +23,9 @@ use super::{
     errors::CallErrorKind::*,
     CallError, ErrorData, FunctionRouter,
 };
+use crate::app_service::ServiceCall;
 use crate::function::builtin_service::{
-    AddBlueprint, AddModule, GetActiveInterfaces, GetAvailableModules,
+    AddBlueprint, AddModule, CreateService, GetActiveInterfaces, GetAvailableModules,
 };
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_app_service::FaaSInterface;
@@ -115,6 +116,12 @@ impl FunctionRouter {
                     call.clone().into(),
                 )
                 .map_err(|e| call.error(e))
+            }
+            BuiltinService::CreateService(CreateService { blueprint_id }) => {
+                let call = ServiceCall::Create { blueprint_id, call };
+                self.app_service.execute(call);
+
+                Ok(())
             }
         }
     }

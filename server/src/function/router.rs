@@ -359,7 +359,7 @@ impl FunctionRouter {
         let local = self.config.local_address();
         let modules = self.app_service.get_modules().into_iter();
         let blueprints = self.app_service.get_blueprints().into_iter();
-        let names = blueprints.map(|b| b.name).chain(modules);
+        let names = blueprints.flat_map(|b| vec![b.name, b.id]).chain(modules);
 
         for name in names {
             if let Err(err) = self.publish_name(provider!(name.clone()), &local, None) {
