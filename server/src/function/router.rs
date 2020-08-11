@@ -357,12 +357,15 @@ impl FunctionRouter {
         log::info!("Bootstrap finished, publishing local modules");
 
         let local = self.config.local_address();
-        let modules = self.app_service.get_modules();
-        for module in modules {
-            if let Err(err) = self.publish_name(provider!(module.clone()), &local, None) {
-                log::warn!("Failed to publish local module {}: {:?}", module, err);
+        let modules = self.app_service.get_modules().into_iter();
+        let blueprints = self.app_service.get_blueprints().into_iter();
+        let names = blueprints.map(|b| b.name).chain(modules);
+
+        for name in names {
+            if let Err(err) = self.publish_name(provider!(name.clone()), &local, None) {
+                log::warn!("Failed to publish module or blueprint {}: {:?}", name, err);
             } else {
-                log::info!("Publishing local module {}", module);
+                log::info!("Publishing module or blueprint {}", name);
             }
         }
     }

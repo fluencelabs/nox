@@ -18,3 +18,23 @@
 pub(super) fn module_config_name<S: AsRef<str>>(module: S) -> String {
     format!("{}_config.toml", module.as_ref())
 }
+
+/// Calculates filename of wasm module
+pub(super) fn module_file_name<S: AsRef<str>>(module: S) -> String {
+    format!("{}.wasm", module.as_ref())
+}
+
+/// Calculates filename of the blueprint
+pub(super) fn blueprint_file_name<S: AsRef<str>>(module: S) -> String {
+    format!("{}_blueprint.toml", module.as_ref())
+}
+
+/// Returns true if file is named like a blueprint would be
+pub(super) fn is_blueprint(name: &String) -> bool {
+    name.ends_with("_blueprint.toml")
+}
+
+/// Returns true if file is named like a module would be
+pub(super) fn is_module(name: &String) -> bool {
+    name.ends_with(".wasm")
+}

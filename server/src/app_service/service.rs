@@ -29,7 +29,7 @@ use crate::app_service::error::ServiceExecError::WriteBlueprint;
 use crate::app_service::files;
 use async_std::task;
 use futures::future::BoxFuture;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::task::Waker;
 use uuid::Uuid;
@@ -91,21 +91,44 @@ impl AppServiceBehaviour {
     /// Get available modules (intersection of modules from config + modules on filesystem)
     // TODO: load interfaces of these modules
     pub fn get_modules(&self) -> Vec<String> {
-        let get_modules = |dir| -> Option<HashSet<String>> {
-            let dir = std::fs::read_dir(dir).ok()?;
-            dir.map(|p| Some(p.ok()?.file_name().into_string().ok()?))
-                .collect()
-        };
+        Self::list_files(&self.config.blueprint_dir)
+            .into_iter()
+            .flatten()
+            .filter_map(|pb| {
+                pb.file_name()?
+                    .to_str()
+                    .map(|s| s.to_string())
+                    .filter(files::is_module)
+            })
+            .collect()
+    }
 
-        let fs_modules = get_modules(&self.config.blueprint_dir).unwrap_or_default();
-        return fs_modules.into_iter().collect();
+    /// Get available blueprints
+    pub fn get_blueprints(&self) -> Vec<Blueprint> {
+        Self::list_files(&self.config.blueprint_dir)
+            .into_iter()
+            .flatten()
+            .filter(|pb| {
+                pb.file_name()
+                    .and_then(|f| f.to_str())
+                    .map(|s| s.to_string())
+                    .filter(files::is_blueprint)
+                    .is_some()
+            })
+            .filter_map(|pb| toml::from_slice(std::fs::read(pb).ok()?.as_slice()).ok())
+            .collect()
+    }
+
+    fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {
+        let dir = std::fs::read_dir(dir).ok()?;
+        Some(dir.filter_map(|p| p.ok()?.path().into()))
     }
 
     /// Adds a module to the filesystem, overwriting existing module.
     /// Also adds module config to the RawModuleConfig
     pub fn add_module(&mut self, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
         let mut path = PathBuf::from(&self.config.blueprint_dir);
-        path.push(&config.name);
+        path.set_file_name(files::module_file_name(&config.name));
         std::fs::write(&path, bytes).map_err(|err| AddModule {
             path: path.clone(),
             err,
@@ -122,7 +145,7 @@ impl AppServiceBehaviour {
     /// Saves new blueprint to disk
     pub fn add_blueprint(&mut self, blueprint: &Blueprint) -> Result<()> {
         let mut path = PathBuf::from(&self.config.blueprint_dir);
-        path.push(&blueprint.name);
+        path.set_file_name(files::blueprint_file_name(&blueprint.name));
 
         // Save blueprint to disk
         let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeConfig { err })?;
