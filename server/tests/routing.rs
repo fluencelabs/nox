@@ -508,9 +508,10 @@ fn call_greeting() {
 
 #[test]
 fn call_empty() {
-    let swarm = make_swarms(1).into_iter().next().unwrap();
-    add_test_modules(swarm.1.clone());
-    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+    let swarms = make_swarms(3);
+    sleep(KAD_TIMEOUT);
+    add_test_modules(swarms[0].1.clone());
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     let dependencies = vec!["test_one".to_string(), "test_two".to_string()];
     let blueprint = client.add_blueprint(dependencies.clone());
@@ -526,7 +527,7 @@ fn call_empty() {
         assert!(received.arguments.as_object().unwrap().is_empty());
     }
 
-    remove_dir(&swarm.2)
+    remove_dir(&swarms[0].2)
 }
 
 #[test]

@@ -95,15 +95,20 @@ impl FunctionRouter {
                 let modules = json!(self.app_service.get_modules());
                 self.reply_with(call, msg_id, ("available_modules", modules))
             }
-            BuiltinService::AddModule(AddModule {
-                msg_id,
-                bytes,
-                config,
-            }) => match self.app_service.add_module(bytes, config) {
-                // TODO: what to return instead of {}?
-                Ok(_) => self.reply_with(call, msg_id, ("ok", json!({}))),
-                Err(e) => Err(call.error(e)),
-            },
+            BuiltinService::AddModule(AddModule { bytes, config, .. }) => {
+                let name = config.name.clone();
+                // Save module
+                #[rustfmt::skip]
+                self.app_service.add_module(bytes, config).map_err(|e| call.clone().error(e))?;
+
+                // Publish it on success
+                self.publish_name(
+                    provider!(name),
+                    &self.config.local_address(),
+                    call.clone().into(),
+                )
+                .map_err(|e| call.error(e))
+            }
 
             BuiltinService::AddBlueprint(AddBlueprint { blueprint, .. }) => {
                 // Save blueprint
