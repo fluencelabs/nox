@@ -15,7 +15,7 @@
  */
 
 use super::error::ServiceExecError::{
-    self, AddModule, IncorrectBlueprint, IncorrectModuleConfig, NoSuchBlueprint, NoSuchModule,
+    self, AddModule, IncorrectBlueprint, IncorrectModuleConfig, NoModuleConfig, NoSuchBlueprint,
     SerializeConfig, WriteConfig,
 };
 use super::{AppServicesConfig, Blueprint, ServiceCall, ServiceCallResult};
@@ -94,7 +94,7 @@ impl AppServiceBehaviour {
         Self::list_files(&self.config.blueprint_dir)
             .into_iter()
             .flatten()
-            .filter_map(|pb| files::as_module(pb.file_name()?.to_str()?))
+            .filter_map(|pb| files::extract_module_name(pb.file_name()?.to_str()?))
             .collect()
     }
 
@@ -130,7 +130,7 @@ impl AppServiceBehaviour {
 
         // replace existing configuration with a new one
         let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
-        let config = path.with_file_name(files::module_config_name(config.name));
+        let config = path.join(files::module_config_name(config.name));
         std::fs::write(&config, toml).map_err(|err| WriteConfig { path, err })?;
 
         Ok(())
@@ -156,32 +156,46 @@ impl AppServiceBehaviour {
         service_id: String,
         waker: Option<Waker>,
     ) -> (Option<AppService>, Result<ServiceCallResult>) {
+        use std::fs::read;
+
+        let to_string =
+            |path: &PathBuf| -> Option<_> { path.to_string_lossy().into_owned().into() };
+
+        // Load configs for all modules in blueprint
         let make_service = move |service_id| -> Result<_> {
-            use std::fs::read;
+            // Load blueprint from disk
             let bp_dir = PathBuf::from(&config.blueprint_dir);
             let bp_path = bp_dir.join(files::blueprint_fname(blueprint_id.as_str()));
             let blueprint = read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
             let blueprint: Blueprint =
                 toml::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
-            let modules: Vec<RawModuleConfig> = blueprint
+
+            // Load all module configs
+            let configs: Vec<RawModuleConfig> = blueprint
                 .dependencies
                 .iter()
                 .map(|module| {
-                    let module = bp_dir.join(files::module_config_name(module));
-                    let module = read(&module).map_err(|err| NoSuchModule { path: module, err })?;
-                    toml::from_slice(module.as_slice()).map_err(|err| IncorrectModuleConfig { err })
+                    let config = bp_dir.join(files::module_config_name(module));
+                    let config =
+                        read(&config).map_err(|err| NoModuleConfig { path: config, err })?;
+                    let mut config: RawModuleConfig = toml::from_slice(config.as_slice())
+                        .map_err(|err| IncorrectModuleConfig { err })?;
+                    // TODO: hack
+                    config.name = files::module_file_name(config.name);
+                    Ok(config)
                 })
                 .collect::<Result<_>>()?;
-            let to_string =
-                |path: &PathBuf| -> Option<_> { path.to_string_lossy().into_owned().into() };
+
             let modules = RawModulesConfig {
                 modules_dir: to_string(&config.blueprint_dir),
                 service_base_dir: to_string(&config.services_workdir),
-                module: modules,
+                module: configs,
                 default: None,
             };
 
-            AppService::new(modules, service_id, config.service_envs).map_err(Into::into)
+            println!("modules dir: {:?}", modules.modules_dir);
+
+            Ok(AppService::new(modules, service_id, config.service_envs)?)
         };
 
         let service = make_service(&service_id);

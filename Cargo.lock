@@ -470,7 +470,7 @@ dependencies = [
  "atomic-waker",
  "futures-lite",
  "once_cell",
- "parking",
+ "parking 1.0.6",
  "waker-fn",
 ]
 
@@ -708,7 +708,7 @@ dependencies = [
  "cranelift-entity",
  "gimli 0.20.0",
  "log",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "target-lexicon",
  "thiserror",
 ]
@@ -1100,7 +1100,7 @@ checksum = "4bd3bdaaf0a72155260a1c098989b60db1cbb22d6a628e64f16237aa4da93cc7"
 [[package]]
 name = "fce"
 version = "0.1.1"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#250a37ae89ab33f6c085e8d4c5aedc17a3978913"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1119,7 +1119,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#250a37ae89ab33f6c085e8d4c5aedc17a3978913"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1128,7 +1128,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#250a37ae89ab33f6c085e8d4c5aedc17a3978913"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1159,7 +1159,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#250a37ae89ab33f6c085e8d4c5aedc17a3978913"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1204,7 +1204,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#59d7ce2e747029a00e293146bbd3b12686b1bbbf"
+source = "git+https://github.com/fluencelabs/fce?branch=blueprint#250a37ae89ab33f6c085e8d4c5aedc17a3978913"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -1268,7 +1268,7 @@ dependencies = [
  "rand 0.7.3",
  "serde 1.0.115",
  "serde_json",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "tide",
  "toml",
  "trust-graph",
@@ -1372,15 +1372,15 @@ checksum = "de27142b013a8e869c14957e6d2edeef89e97c289e69d042ee3a49acd8b51789"
 
 [[package]]
 name = "futures-lite"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbe71459749b2e8e66fb95df721b22fa08661ad384a0c5b519e11d3893b4692a"
+checksum = "97999970129b808f0ccba93211201d431fcc12d7e1ffae03a61b5cedd1a7ced2"
 dependencies = [
  "fastrand",
  "futures-core",
  "futures-io",
  "memchr",
- "parking",
+ "parking 2.0.0",
  "pin-project-lite",
  "waker-fn",
 ]
@@ -1819,9 +1819,9 @@ checksum = "6854dd77ddc4f9ba1a448f487e27843583d407648150426a30c2ea3a2c39490a"
 
 [[package]]
 name = "inventory"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "621b50c176968fd3b0bd71f821a28a0ea98db2b5aea966b2fbb8bd1b7d310328"
+checksum = "49c68da9c8b1bda33dc6f55b2a9b4f44eca5ba2b2a1a308eab40db9fb7e200cb"
 dependencies = [
  "ctor",
  "ghost",
@@ -1830,9 +1830,9 @@ dependencies = [
 
 [[package]]
 name = "inventory-impl"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f99a4111304bade76468d05beab3487c226e4fe4c4de1c4e8f006e815762db73"
+checksum = "4143007b389ae51577282e3c95cf5a7ae0c9e06cafa927508300ceedcbc0354c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1978,7 +1978,7 @@ dependencies = [
  "parity-multiaddr",
  "parking_lot 0.10.2",
  "pin-project",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "wasm-timer",
 ]
 
@@ -2009,7 +2009,7 @@ dependencies = [
  "rw-stream-sink",
  "serde 1.0.115",
  "sha2 0.8.2",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "thiserror",
  "unsigned-varint 0.4.0",
  "void",
@@ -2058,7 +2058,7 @@ dependencies = [
  "prost",
  "prost-build",
  "rand 0.7.3",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
 ]
 
 [[package]]
@@ -2081,7 +2081,7 @@ dependencies = [
  "prost-build",
  "rand 0.7.3",
  "sha2 0.8.2",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "unsigned-varint 0.4.0",
  "wasm-timer",
 ]
@@ -2097,7 +2097,7 @@ dependencies = [
  "log",
  "prost",
  "prost-build",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "wasm-timer",
 ]
 
@@ -2123,7 +2123,7 @@ dependencies = [
  "prost-build",
  "rand 0.7.3",
  "sha2 0.8.2",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "trust-graph",
  "uint",
  "unsigned-varint 0.4.0",
@@ -2147,7 +2147,7 @@ dependencies = [
  "log",
  "net2",
  "rand 0.7.3",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "void",
  "wasm-timer",
 ]
@@ -2241,7 +2241,7 @@ dependencies = [
  "futures",
  "libp2p-core",
  "libp2p-swarm",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "wasm-timer",
 ]
 
@@ -2283,7 +2283,7 @@ dependencies = [
  "libp2p-core",
  "log",
  "rand 0.7.3",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "void",
  "wasm-timer",
 ]
@@ -2589,7 +2589,7 @@ dependencies = [
  "futures",
  "log",
  "pin-project",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "unsigned-varint 0.4.0",
 ]
 
@@ -2814,6 +2814,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6cb300f271742d4a2a66c01b6b2fa0c83dfebd2e0bf11addb879a3547b4ed87c"
 
 [[package]]
+name = "parking"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "427c3892f9e783d91cc128285287e70a59e206ca452770ece88a76f7a3eddd72"
+
+[[package]]
 name = "parking_lot"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2859,7 +2865,7 @@ dependencies = [
  "cloudabi",
  "libc",
  "redox_syscall",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "winapi 0.3.9",
 ]
 
@@ -3672,9 +3678,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.4.1"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3757cb9d89161a2f24e1cf78efa0c1fcff485d18e3f55e0aa3480824ddaa0f3f"
+checksum = "fbee7696b84bbf3d89a1c2eccff0850e3047ed46bfcd2e92c29a2d074d57e252"
 
 [[package]]
 name = "smol"
@@ -4394,7 +4400,7 @@ checksum = "c23f2824f354a00a77e4b040eef6e1d4c595a8a3e9013bad65199cc8dade9a5a"
 dependencies = [
  "cranelift-codegen",
  "log",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "target-lexicon",
 ]
 
@@ -4448,7 +4454,7 @@ dependencies = [
  "serde-bench",
  "serde_bytes",
  "serde_derive",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "target-lexicon",
  "wasmparser 0.51.4",
  "winapi 0.3.9",
@@ -4477,7 +4483,7 @@ dependencies = [
  "serde-bench",
  "serde_bytes",
  "serde_derive",
- "smallvec 1.4.1",
+ "smallvec 1.4.2",
  "target-lexicon",
  "wasmparser 0.51.4",
  "winapi 0.3.9",

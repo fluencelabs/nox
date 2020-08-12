@@ -40,8 +40,8 @@ pub(super) fn is_blueprint(name: &str) -> bool {
     name.ends_with("_blueprint.toml")
 }
 
-/// Returns true if file is named like a module would be
-pub(super) fn as_module(name: &str) -> Option<String> {
+/// If name ends with .wasm, returns that name without .wasm. Returns None otherwise
+pub(super) fn extract_module_name(name: &str) -> Option<String> {
     let result = name.replace(".wasm", "");
 
     if result == name {

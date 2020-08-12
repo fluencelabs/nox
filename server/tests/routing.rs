@@ -454,9 +454,10 @@ fn identify() {
 #[test]
 /// Call `get_interface` for two test modules, check they contain `greeting` and `empty` functions
 fn get_interface() {
-    let swarm = make_swarms(1).into_iter().next().unwrap();
-    add_test_modules(swarm.1.clone());
-    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+    let swarms = make_swarms(3);
+    sleep(KAD_TIMEOUT);
+    add_test_modules(swarms[0].1.clone());
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     let dependencies = vec!["test_one".to_string(), "test_two".to_string()];
     let blueprint = client.add_blueprint(dependencies);
@@ -476,9 +477,10 @@ fn get_interface() {
 
 #[test]
 fn call_greeting() {
-    let swarm = make_swarms(1).into_iter().next().unwrap();
-    add_test_modules(swarm.1.clone());
-    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+    let swarms = make_swarms(3);
+    sleep(KAD_TIMEOUT);
+    add_test_modules(swarms[0].1.clone());
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     for module in &["test_one", "test_two"] {
         let blueprint = client.add_blueprint(vec![module.to_string()]);
@@ -503,7 +505,7 @@ fn call_greeting() {
         assert_eq!(&received.arguments["result"], &payload);
     }
 
-    remove_dir(&swarm.2)
+    remove_dir(&swarms[0].2)
 }
 
 #[test]
@@ -563,9 +565,10 @@ fn find_module_provider() {
 
 #[test]
 fn get_interfaces() {
-    let swarm = make_swarms(1).into_iter().next().unwrap();
-    add_test_modules(swarm.1.clone());
-    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+    let swarms = make_swarms(3);
+    sleep(KAD_TIMEOUT);
+    add_test_modules(swarms[0].1.clone());
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     let dependencies = vec!["test_one".to_string(), "test_two".to_string()];
     let blueprint = client.add_blueprint(dependencies);
@@ -599,9 +602,10 @@ fn get_interfaces() {
 
 #[test]
 fn test_get_modules() {
-    let swarm = make_swarms(1).into_iter().next().unwrap();
-    add_test_modules(swarm.1.clone());
-    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+    let swarms = make_swarms(3);
+    sleep(KAD_TIMEOUT);
+    add_test_modules(swarms[0].1.clone());
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     assert_eq!(client.get_modules(), &["test_one", "test_two"]);
 }
@@ -622,9 +626,10 @@ fn add_module() {
         }
     )).unwrap();
 
-    let swarm = make_swarms(1).into_iter().next().unwrap();
-    add_test_modules(swarm.1.clone());
-    let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
+    let swarms = make_swarms(3);
+    sleep(KAD_TIMEOUT);
+    add_test_modules(swarms[0].1.clone());
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     // Add new module to faas
     client.add_module(test_module().as_slice(), config.clone());

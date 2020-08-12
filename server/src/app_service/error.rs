@@ -27,7 +27,7 @@ pub enum ServiceExecError {
     WriteConfig { path: PathBuf, err: std::io::Error },
     NoSuchBlueprint { path: PathBuf, err: std::io::Error },
     IncorrectBlueprint { err: toml::de::Error },
-    NoSuchModule { path: PathBuf, err: std::io::Error },
+    NoModuleConfig { path: PathBuf, err: std::io::Error },
     IncorrectModuleConfig { err: toml::de::Error },
     WriteBlueprint { path: PathBuf, err: std::io::Error },
 }
@@ -61,7 +61,7 @@ impl std::fmt::Display for ServiceExecError {
             ServiceExecError::IncorrectBlueprint { err } => {
                 write!(f, "Error parsing blueprint: {:?}", err)
             }
-            ServiceExecError::NoSuchModule { path, err } => {
+            ServiceExecError::NoModuleConfig { path, err } => {
                 write!(f, "Module config wasn't found at {:?}: {:?}", path, err)
             }
             ServiceExecError::IncorrectModuleConfig { err } => {
