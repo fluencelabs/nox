@@ -217,6 +217,7 @@ impl BuiltinService {
             BuiltinService::GetAvailableModules { .. } => BuiltinService::GET_AVAILABLE_MODULES,
             BuiltinService::AddModule(_) => BuiltinService::ADD_MODULE,
             BuiltinService::AddBlueprint(_) => BuiltinService::ADD_BLUEPRINT,
+            BuiltinService::CreateService(_) => BuiltinService::CREATE_SERVICE,
         };
 
         (service_id, json!(self))

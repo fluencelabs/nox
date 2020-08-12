@@ -109,11 +109,11 @@ pub mod app_service {
     mod network;
     mod service;
 
-    pub(crate) use blueprint::Blueprint;
     pub(crate) use call::{ServiceCall, ServiceCallResult};
     pub(crate) use error::ServiceExecError;
     pub(crate) use service::AppServiceBehaviour;
 
+    pub use blueprint::Blueprint;
     pub use config::AppServicesConfig;
 }
 
