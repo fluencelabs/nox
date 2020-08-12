@@ -114,13 +114,16 @@ impl FunctionRouter {
                 // Save blueprint
                 #[rustfmt::skip]
                 self.app_service.add_blueprint(&blueprint).map_err(|e| call.clone().error(e))?;
-                // Publish it on success
-                self.publish_name(
-                    provider!(blueprint.name),
-                    &self.config.local_address(),
-                    call.clone().into(),
-                )
-                .map_err(|e| call.error(e))
+
+                // Become a provider for blueprint's name and id
+                let addr = &self.config.local_address();
+                self.publish_name(provider!(blueprint.id), addr, call.clone().into())
+                    .map_err(|e| call.clone().error(e))?;
+                // Call is None here to avoid sending several replies
+                self.publish_name(provider!(blueprint.name), addr, None)
+                    .map_err(|e| call.clone().error(e))?;
+
+                Ok(())
             }
             BuiltinService::CreateService(CreateService { blueprint_id }) => {
                 let call = ServiceCall::Create { blueprint_id, call };

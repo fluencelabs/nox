@@ -542,7 +542,7 @@ fn find_blueprint_provider() {
 
     let payload = "payload".to_string();
     let module = "test_one";
-    let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
+    let mut consumer = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect consumer");
     let blueprint = consumer.add_blueprint(vec![module.to_string()]);
     let service_id = consumer.create_service(provider!(&blueprint.id), &blueprint.id);
     let mut call = consumer.faas_call(provider!(blueprint.id), module, "greeting", service_id);
