@@ -597,7 +597,11 @@ fn test_get_modules() {
     add_test_modules(swarms[0].1.clone());
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
-    assert_eq!(client.get_modules(), &["test_one", "test_two"]);
+    let mut expected = vec!["test_one", "test_two"];
+    let mut actual = client.get_modules();
+    expected.sort();
+    actual.sort();
+    assert_eq!(expected, actual);
 }
 
 #[test]
@@ -629,7 +633,7 @@ fn add_module() {
     expected.sort();
     let mut modules = client.get_modules();
     modules.sort();
-    assert_eq!(modules, expected);
+    assert_eq!(modules, expected, "sorted modules");
     
     // Check it won't be duplicated
     client.add_module(test_module().as_slice(), config);
