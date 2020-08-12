@@ -28,7 +28,11 @@ pub(super) fn module_file_name<S: AsRef<str>>(module: S) -> String {
 
 /// Calculates filename of the blueprint
 pub(super) fn blueprint_file_name(blueprint: &Blueprint) -> String {
-    format!("{}_blueprint.toml", blueprint.id)
+    blueprint_fname(blueprint.id.as_str())
+}
+
+pub(super) fn blueprint_fname(id: &str) -> String {
+    format!("{}_blueprint.toml", id)
 }
 
 /// Returns true if file is named like a blueprint would be

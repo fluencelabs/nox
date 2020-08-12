@@ -145,7 +145,6 @@ impl AppServiceBehaviour {
         let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeConfig { err })?;
         std::fs::write(&path, bytes).map_err(|err| WriteBlueprint { path, err })?;
 
-        // TODO: publish?
         // TODO: check dependencies are satisfied?
 
         Ok(())
@@ -153,14 +152,14 @@ impl AppServiceBehaviour {
 
     fn create_app_service(
         config: AppServicesConfig,
-        blueprint: String,
+        blueprint_id: String,
         service_id: String,
         waker: Option<Waker>,
     ) -> (Option<AppService>, Result<ServiceCallResult>) {
         let make_service = move |service_id| -> Result<_> {
             use std::fs::read;
             let bp_dir = PathBuf::from(&config.blueprint_dir);
-            let bp_path = bp_dir.join(&blueprint);
+            let bp_path = bp_dir.join(files::blueprint_fname(blueprint_id.as_str()));
             let blueprint = read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
             let blueprint: Blueprint =
                 toml::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
