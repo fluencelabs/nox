@@ -21,3 +21,13 @@ pub struct Blueprint {
     pub id: String,
     pub dependencies: Vec<String>,
 }
+
+impl Blueprint {
+    pub fn new<S: Into<String>>(name: S, id: String, dependencies: Vec<String>) -> Self {
+        Self {
+            name: name.into(),
+            id,
+            dependencies,
+        }
+    }
+}

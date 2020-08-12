@@ -129,7 +129,7 @@ where
     }
 }
 
-pub fn add_blueprint_call(target: Address, sender: Address, blueprint: Blueprint) -> FunctionCall {
+pub fn add_blueprint_call(target: Address, sender: Address, blueprint: &Blueprint) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(target),
@@ -171,7 +171,7 @@ impl ConnectedClient {
     pub fn add_certificates_call(&self, peer_id: PeerId, certs: Vec<Certificate>) -> FunctionCall {
         add_certificates_call(peer_id, self.relay_addr(), self.node_addr(), certs)
     }
-    pub fn send_provide_call(&mut self, service_id: &str) -> FunctionCall {
+    pub fn provide(&mut self, service_id: &str) -> FunctionCall {
         let call = provide_call(service_id, self.relay_addr(), self.node_addr());
         self.send(call);
         self.receive()
@@ -214,14 +214,48 @@ impl ConnectedClient {
     {
         self.faas_call(self.node_addr(), module, function, service_id)
     }
-    pub fn add_blueprint_call(&self, blueprint: Blueprint) -> FunctionCall {
-        add_blueprint_call(self.node_addr(), self.relay_addr(), blueprint)
+
+    pub fn add_blueprint(&mut self, dependencies: Vec<String>) -> Blueprint {
+        let blueprint = Blueprint::new(uuid(), uuid(), dependencies);
+        let call = add_blueprint_call(self.node_addr(), self.relay_addr(), &blueprint);
+        self.send(call);
+        let received = self.receive();
+        assert!(
+            received.arguments.get("ok").is_some(),
+            "blueprint add failed {:?}",
+            received
+        );
+
+        blueprint
     }
-    pub fn create_service_call(&self, blueprint_id: String) -> FunctionCall {
-        create_service_call(self.node_addr(), self.relay_addr(), blueprint_id)
+
+    pub fn create_service(&mut self, target: Address, blueprint_id: String) -> String {
+        let call = create_service_call(target, self.relay_addr(), blueprint_id);
+        self.send(call);
+        let received = self.receive();
+        received.arguments["result"]["service_id"]
+            .as_str()
+            .expect(format!("service creation failed: {:?}", received).as_str())
+            .to_string()
     }
+
+    pub fn create_service_local(&mut self, blueprint_id: String) -> String {
+        self.create_service(self.node_addr(), blueprint_id)
+    }
+
     pub fn reply_call(&self, target: Address) -> FunctionCall {
         reply_call(target, self.relay_addr())
+    }
+
+    pub fn get_modules(&mut self) -> Vec<Value> {
+        let call = self.local_service_call("get_available_modules");
+        self.send(call);
+        let received = self.receive();
+
+        received.arguments["available_modules"]
+            .as_array()
+            .unwrap_or_else(|| panic!("get array from {:#?}", received))
+            .clone()
     }
 }
 

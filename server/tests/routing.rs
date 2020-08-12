@@ -29,6 +29,7 @@
 
 use crate::utils::*;
 use faas_api::{peer, provider, FunctionCall, Protocol};
+use fluence_server::app_service::Blueprint;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde_json::json;
@@ -129,7 +130,7 @@ fn call_service() {
     // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
     sleep(KAD_TIMEOUT);
 
-    let provide = provider.send_provide_call(service_id);
+    let provide = provider.provide(service_id);
     provider.send(provide);
     let received = provider.receive();
     assert!(
@@ -138,7 +139,7 @@ fn call_service() {
         received
     );
 
-    let call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
+    let call_service = consumer.service_call(provider!(service_id), service_id);
     consumer.send(call_service.clone());
 
     let to_provider = provider.receive();
@@ -159,14 +160,14 @@ fn call_service_reply() {
     // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
     sleep(KAD_TIMEOUT);
 
-    let received = provider.send_provide_call(service_id);
+    let received = provider.provide(service_id);
     assert!(
         received.arguments.get("ok").is_some(),
         "provide failed: {:#?}",
         received
     );
 
-    let call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
+    let call_service = consumer.service_call(provider!(service_id), service_id);
     consumer.send(call_service);
 
     let to_provider = provider.receive();
@@ -195,7 +196,7 @@ fn provide_disconnect() {
     let mut provider = ConnectedClient::connect_to(swarms[4].1.clone()).expect("connect provider");
 
     // Register service
-    let received = provider.send_provide_call(service_id);
+    let received = provider.provide(service_id);
     assert!(
         received.arguments.get("ok").is_some(),
         "provide failed: {:#?}",
@@ -209,7 +210,7 @@ fn provide_disconnect() {
     provider.client.stop();
 
     // Send call to the service, should fail
-    let mut call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
+    let mut call_service = consumer.service_call(provider!(service_id), service_id);
     call_service.name = Some("Send call to the service, should fail".into());
     consumer.send(call_service.clone());
     let error = consumer.receive();
@@ -219,7 +220,7 @@ fn provide_disconnect() {
     // let bootstraps = vec![provider.node_address.clone(), consumer.node_address.clone()];
     let mut provider =
         ConnectedClient::connect_to(provider.node_address).expect("connect provider");
-    let received = provider.send_provide_call(service_id);
+    let received = provider.provide(service_id);
     assert!(
         received.arguments.get("ok").is_some(),
         "provide failed: {:#?}",
@@ -244,7 +245,7 @@ fn provide_disconnect() {
 fn provide_error() {
     let mut provider = ConnectedClient::new().expect("connect client");
     let service_id = "failedservice";
-    let error = provider.send_provide_call(service_id);
+    let error = provider.provide(service_id);
     assert!(error.uuid.starts_with("error_"), "{:?}", error);
 }
 
@@ -259,7 +260,7 @@ fn reconnect_provide() {
         for swarm in swarms.iter() {
             let mut provider =
                 ConnectedClient::connect_to(swarm.1.clone()).expect("connect provider");
-            let received = provider.send_provide_call(service_id);
+            let received = provider.provide(service_id);
             assert!(
                 received.arguments.get("ok").is_some(),
                 "provide failed: {:#?}",
@@ -269,14 +270,14 @@ fn reconnect_provide() {
     }
 
     let mut provider = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect provider");
-    let received = provider.send_provide_call(service_id);
+    let received = provider.provide(service_id);
     assert!(
         received.arguments.get("ok").is_some(),
         "provide failed: {:#?}",
         received
     );
 
-    let call_service = service_call(provider!(service_id), consumer.relay_addr(), service_id);
+    let call_service = consumer.service_call(provider!(service_id), service_id);
     consumer.send(call_service.clone());
 
     let to_provider = provider.receive();
@@ -430,7 +431,7 @@ fn identify() {
 
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
 
-    let mut identify_call = service_call(consumer.node_addr(), consumer.relay_addr(), "identify");
+    let mut identify_call = consumer.service_call(consumer.node_addr(), "identify");
     let msg_id = uuid();
     identify_call.arguments = json!({ "msg_id": msg_id });
     consumer.send(identify_call.clone());
@@ -462,15 +463,15 @@ fn get_interface() {
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
     let dependencies = vec!["test_one".to_string(), "test_two".to_string()];
-    let add_blueprint = add_blueprint_call(client.node_addr())
+    let blueprint = client.add_blueprint(dependencies);
     #[rustfmt::skip]
-    let create = create_service_call(client.node_addr(), client.relay_addr(), dependencies);
+    let create = client.create_service_call(blueprint.id);
     client.send(create);
     #[rustfmt::skip]
     let service_id = client.receive().arguments["result"]["service_id"].as_str().unwrap().to_string();
 
     #[rustfmt::skip]
-    let mut call = service_call(client.node_addr(), client.relay_addr(), "get_interface");
+    let mut call = client.local_service_call("get_interface");
     let msg_id = uuid();
     call.arguments = json!({ "msg_id": msg_id, "service_id": service_id });
     client.send(call);
@@ -489,15 +490,9 @@ fn call_greeting() {
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
     for module in &["test_one", "test_two"] {
-        #[rustfmt::skip]
-        let create = create_service_call(client.node_addr(), client.relay_addr(), vec![module.to_string()]);
-        client.send(create);
-        let created = client.receive();
-        #[rustfmt::skip]
-        let service_id = created.arguments["result"]["service_id"].as_str().unwrap().to_string();
-
-        #[rustfmt::skip]
-        let mut call = faas_call(client.node_addr(), client.relay_addr(), *module, "greeting", service_id);
+        let blueprint = client.add_blueprint(vec![module.to_string()]);
+        let service_id = client.create_service_local(blueprint.id);
+        let mut call = client.local_faas_call(*module, "greeting", service_id);
 
         // Pass arguments as an array
         let payload: String = "Hello".into();
@@ -520,26 +515,17 @@ fn call_greeting() {
     remove_dir(&swarm.2)
 }
 
-fn create_service(client: &mut ConnectedClient, context: &[String]) -> String {
-    let create = create_service_call(client.node_addr(), client.relay_addr(), context.to_vec());
-    client.send(create);
-    #[rustfmt::skip]
-    let service_id = client.receive().arguments["result"]["service_id"].as_str().unwrap().to_string();
-
-    service_id
-}
-
 #[test]
 fn call_empty() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
-    let context = vec!["test_one".to_string(), "test_two".to_string()];
-    let service_id = create_service(&mut client, &context);
+    let dependencies = vec!["test_one".to_string(), "test_two".to_string()];
+    let blueprint = client.add_blueprint(dependencies);
+    let service_id = client.create_service_local(blueprint.id);
 
-    for module in context {
-        #[rustfmt::skip]
-        let mut call = faas_call(client.node_addr(), client.relay_addr(), module, "empty", service_id.clone());
+    for module in dependencies {
+        let mut call = client.local_faas_call(module, "empty", service_id.clone());
         call.fname = Some("empty".into());
 
         client.send(call.clone());
@@ -574,14 +560,9 @@ fn find_module_provider() {
     let payload = "payload".to_string();
     let module = "test_one";
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
-    #[rustfmt::skip]
-    let create = create_service_call(provider!(module), consumer.relay_addr(), vec![module.to_string()]);
-    consumer.send(create);
-    #[rustfmt::skip]
-    let service_id = consumer.receive().arguments["result"]["service_id"].as_str().unwrap().to_string();
-
-    #[rustfmt::skip]
-    let mut call = faas_call(provider!(module), consumer.relay_addr(), module, "greeting", service_id);
+    let blueprint = consumer.add_blueprint(vec![module.to_string()]);
+    let service_id = consumer.create_service(provider!(module), blueprint.id);
+    let mut call = consumer.faas_call(provider!(module), module, "greeting", service_id);
     call.arguments = Value::Array(vec![Value::String(payload.clone())]);
     consumer.send(call);
 
@@ -599,7 +580,7 @@ fn get_interfaces() {
     let service_id2 = create_service(&mut client, &context);
 
     #[rustfmt::skip]
-    let mut call = service_call(client.node_addr(), client.relay_addr(), "get_active_interfaces");
+    let mut call = client.local_service_call("get_active_interfaces");
     let msg_id = uuid();
     call.arguments = json!({ "msg_id": msg_id });
     client.send(call);
@@ -624,24 +605,12 @@ fn get_interfaces() {
     assert_eq!(expected, actual);
 }
 
-fn get_modules(client: &mut ConnectedClient) -> Vec<Value> {
-    #[rustfmt::skip]
-    let call = service_call(client.node_addr(), client.relay_addr(), "get_available_modules");
-    client.send(call);
-    let received = client.receive();
-
-    received.arguments["available_modules"]
-        .as_array()
-        .unwrap_or_else(|| panic!("get array from {:#?}", received))
-        .clone()
-}
-
 #[test]
 fn test_get_modules() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
-    assert_eq!(get_modules(&mut client), &["test_one", "test_two"]);
+    assert_eq!(client.get_modules(), &["test_one", "test_two"]);
 }
 
 #[test]
@@ -664,7 +633,7 @@ fn add_module() {
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
     // Add new module to faas
-    let mut call = service_call(client.node_addr(), client.relay_addr(), "add_module");
+    let mut call = client.local_service_call("add_module");
     call.arguments = json!({ "msg_id": uuid(), "config": config, "bytes": base64::encode(&test_module()) });
     client.send(call.clone());
     let received = client.receive();
@@ -672,21 +641,21 @@ fn add_module() {
 
     // Check it is available
     let expected = &["test_one", "test_two", "test_three.wasm"];
-    let modules = get_modules(&mut client);
+    let modules = client.get_modules();
     assert_eq!(modules, expected);
     
     // Check it won't be duplicated
     client.send(call);
     let received = client.receive();
     assert!(received.arguments.get("ok").is_some(), "{:?}", received);
-    let modules = get_modules(&mut client);
+    let modules = client.get_modules();
     assert_eq!(modules, expected);
     
     // Create a service with that module
     let service_id = create_service(&mut client, &["test_two".to_string(), "test_three.wasm".to_string()]);
     
     // Call new service
-    let mut call = faas_call(client.node_addr(), client.relay_addr(), "test_three.wasm", "greeting", service_id);
+    let mut call = client.local_faas_call("test_three.wasm", "greeting", service_id);
     let payload = "Hello";
     call.arguments = Value::Array(vec![payload.to_string().into()]);
     client.send(call);
