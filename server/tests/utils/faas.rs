@@ -40,7 +40,11 @@ pub struct Interface {
 impl PartialEq for Interface {
     fn eq(&self, right: &Self) -> bool {
         for left in self.modules.iter() {
-            let right = right.modules.iter().find(|m| m.name == left.name).unwrap();
+            let right = right
+                .modules
+                .iter()
+                .find(|m| m.name == left.name)
+                .expect(format!("module {} wasn't found", left.name).as_str());
             if left.functions.len() != right.functions.len() {
                 return false;
             }
@@ -49,7 +53,7 @@ impl PartialEq for Interface {
                     .functions
                     .iter()
                     .find(|f| f.name == left.name)
-                    .unwrap();
+                    .expect(format!("function {} wasn't found", left.name).as_str());
                 if right != left {
                     return false;
                 }

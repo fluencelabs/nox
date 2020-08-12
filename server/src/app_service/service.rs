@@ -178,10 +178,8 @@ impl AppServiceBehaviour {
                     let config = bp_dir.join(files::module_config_name(module));
                     let config =
                         read(&config).map_err(|err| NoModuleConfig { path: config, err })?;
-                    let mut config: RawModuleConfig = toml::from_slice(config.as_slice())
+                    let config: RawModuleConfig = toml::from_slice(config.as_slice())
                         .map_err(|err| IncorrectModuleConfig { err })?;
-                    // TODO: hack
-                    config.name = files::module_file_name(config.name);
                     Ok(config)
                 })
                 .collect::<Result<_>>()?;
@@ -192,8 +190,6 @@ impl AppServiceBehaviour {
                 module: configs,
                 default: None,
             };
-
-            println!("modules dir: {:?}", modules.modules_dir);
 
             Ok(AppService::new(modules, service_id, config.service_envs)?)
         };

@@ -493,7 +493,11 @@ fn call_greeting() {
         client.send(call.clone());
 
         let received = client.receive();
-        assert_eq!(&received.arguments["result"], &payload);
+        assert_eq!(
+            &received.arguments["result"], &payload,
+            "{:?}",
+            received.arguments
+        );
 
         // Pass arguments as a map
         let mut map = serde_json::Map::new();
