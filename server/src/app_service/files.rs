@@ -32,11 +32,17 @@ pub(super) fn blueprint_file_name(blueprint: &Blueprint) -> String {
 }
 
 /// Returns true if file is named like a blueprint would be
-pub(super) fn is_blueprint(name: &String) -> bool {
+pub(super) fn is_blueprint(name: &str) -> bool {
     name.ends_with("_blueprint.toml")
 }
 
 /// Returns true if file is named like a module would be
-pub(super) fn is_module(name: &String) -> bool {
-    name.ends_with(".wasm")
+pub(super) fn as_module(name: &str) -> Option<String> {
+    let result = name.replace(".wasm", "");
+
+    if result == name {
+        return None;
+    }
+
+    Some(result)
 }

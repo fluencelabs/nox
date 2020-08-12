@@ -94,12 +94,7 @@ impl AppServiceBehaviour {
         Self::list_files(&self.config.blueprint_dir)
             .into_iter()
             .flatten()
-            .filter_map(|pb| {
-                pb.file_name()?
-                    .to_str()
-                    .map(|s| s.to_string())
-                    .filter(files::is_module)
-            })
+            .filter_map(|pb| files::as_module(pb.file_name()?.to_str()?))
             .collect()
     }
 
@@ -111,8 +106,7 @@ impl AppServiceBehaviour {
             .filter(|pb| {
                 pb.file_name()
                     .and_then(|f| f.to_str())
-                    .map(|s| s.to_string())
-                    .filter(files::is_blueprint)
+                    .filter(|s| files::is_blueprint(s))
                     .is_some()
             })
             .filter_map(|pb| toml::from_slice(std::fs::read(pb).ok()?.as_slice()).ok())

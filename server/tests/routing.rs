@@ -629,8 +629,10 @@ fn add_module() {
     client.add_module(test_module().as_slice(), config.clone());
 
     // Check it is available
-    let expected = &["test_one", "test_two", "test_three.wasm"];
-    let modules = client.get_modules();
+    let mut expected = vec!["test_one", "test_two", "test_three"];
+    expected.sort();
+    let mut modules = client.get_modules();
+    modules.sort();
     assert_eq!(modules, expected);
     
     // Check it won't be duplicated

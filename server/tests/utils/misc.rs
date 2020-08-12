@@ -279,7 +279,7 @@ impl ConnectedClient {
         reply_call(target, self.relay_addr())
     }
 
-    pub fn get_modules(&mut self) -> Vec<Value> {
+    pub fn get_modules(&mut self) -> Vec<String> {
         let call = self.local_service_call("get_available_modules");
         self.send(call);
         let received = self.receive();
@@ -287,7 +287,9 @@ impl ConnectedClient {
         received.arguments["available_modules"]
             .as_array()
             .unwrap_or_else(|| panic!("get array from {:#?}", received))
-            .clone()
+            .iter()
+            .filter_map(|v| Some(v.as_str()?.to_string()))
+            .collect()
     }
 }
 
@@ -490,7 +492,6 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
     let peer_id = PeerId::from(public_key);
 
     let tmp = make_tmp_dir();
-    println!("tmp dir is {:?}", tmp);
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
