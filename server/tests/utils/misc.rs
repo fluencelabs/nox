@@ -203,6 +203,7 @@ impl ConnectedClient {
     {
         service_call(target, self.relay_addr(), module)
     }
+
     pub fn local_service_call<S>(&self, module: S) -> FunctionCall
     where
         S: Into<String>,

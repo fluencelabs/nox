@@ -130,9 +130,7 @@ fn call_service() {
     // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
     sleep(KAD_TIMEOUT);
 
-    let provide = provider.provide(service_id);
-    provider.send(provide);
-    let received = provider.receive();
+    let received = provider.provide(service_id);
     assert!(
         received.arguments.get("ok").is_some(),
         "provide failed: {:#?}",
@@ -537,29 +535,17 @@ fn call_empty() {
 }
 
 #[test]
-fn find_module_provider() {
-    let mut modules_added = false;
-    let swarms = make_swarms_with(
-        5,
-        |bs, maddr| {
-            let swarm = create_swarm(SwarmConfig::new(bs, maddr.clone()));
-            if !modules_added {
-                add_test_modules(maddr);
-                modules_added = true;
-            }
-            swarm
-        },
-        create_memory_maddr,
-        true,
-    );
+fn find_blueprint_provider() {
+    let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
+    add_test_modules(swarms[0].1.clone());
 
     let payload = "payload".to_string();
     let module = "test_one";
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     let blueprint = consumer.add_blueprint(vec![module.to_string()]);
-    let service_id = consumer.create_service(provider!(module), blueprint.id);
-    let mut call = consumer.faas_call(provider!(module), module, "greeting", service_id);
+    let service_id = consumer.create_service(provider!(&blueprint.id), &blueprint.id);
+    let mut call = consumer.faas_call(provider!(blueprint.id), module, "greeting", service_id);
     call.arguments = Value::Array(vec![Value::String(payload.clone())]);
     consumer.send(call);
 
@@ -647,18 +633,16 @@ fn add_module() {
     
     // Check it won't be duplicated
     client.add_module(test_module().as_slice(), config);
-    let received = client.receive();
-    assert!(received.arguments.get("ok").is_some(), "{:?}", received);
     let modules = client.get_modules();
     assert_eq!(modules, expected);
     
     // Create a blueprint with that module
-    let blueprint = client.add_blueprint(vec!["test_two".to_string(), "test_three.wasm".to_string()]);
+    let blueprint = client.add_blueprint(vec!["test_two".to_string(), "test_three".to_string()]);
     // Create a service from blueprint
     let service_id = client.create_service_local(blueprint.id);
     
     // Call new service
-    let mut call = client.local_faas_call("test_three.wasm", "greeting", service_id);
+    let mut call = client.local_faas_call("test_three", "greeting", service_id);
     let payload = "Hello";
     call.arguments = Value::Array(vec![payload.to_string().into()]);
     client.send(call);
