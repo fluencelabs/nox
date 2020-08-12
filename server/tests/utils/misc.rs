@@ -19,9 +19,10 @@ use faas_api::{Address, FunctionCall, Protocol};
 use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::{BootstrapConfig, ServerBehaviour};
 
+use crate::utils::ConnectedClient;
 use fluence_app_service::RawModulesConfig;
 use fluence_client::Transport;
-use fluence_server::app_service::AppServicesConfig;
+use fluence_server::app_service::{AppServicesConfig, Blueprint};
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -128,13 +129,25 @@ where
     }
 }
 
-pub fn create_call(target: Address, sender: Address, context: Vec<String>) -> FunctionCall {
+pub fn add_blueprint_call(target: Address, sender: Address, blueprint: Blueprint) -> FunctionCall {
+    FunctionCall {
+        uuid: uuid(),
+        target: Some(target),
+        module: Some("add_blueprint".to_string()),
+        reply_to: Some(sender.clone()),
+        arguments: json!({ "blueprint": blueprint }),
+        sender,
+        ..<_>::default()
+    }
+}
+
+pub fn create_service_call(target: Address, sender: Address, blueprint_id: String) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(target),
         module: Some("create".to_string()),
         reply_to: Some(sender.clone()),
-        context,
+        arguments: json!({ "blueprint_id": blueprint_id }),
         sender,
         ..<_>::default()
     }
@@ -148,6 +161,67 @@ pub fn reply_call(target: Address, sender: Address) -> FunctionCall {
         name: Some("reply".into()),
         sender,
         ..<_>::default()
+    }
+}
+
+impl ConnectedClient {
+    pub fn certificates_call(&self, peer_id: PeerId) -> FunctionCall {
+        certificates_call(peer_id, self.relay_addr(), self.node_addr())
+    }
+    pub fn add_certificates_call(&self, peer_id: PeerId, certs: Vec<Certificate>) -> FunctionCall {
+        add_certificates_call(peer_id, self.relay_addr(), self.node_addr(), certs)
+    }
+    pub fn send_provide_call(&mut self, service_id: &str) -> FunctionCall {
+        let call = provide_call(service_id, self.relay_addr(), self.node_addr());
+        self.send(call);
+        self.receive()
+    }
+    pub fn service_call<S>(&self, target: Address, module: S) -> FunctionCall
+    where
+        S: Into<String>,
+    {
+        service_call(target, self.relay_addr(), module)
+    }
+    pub fn local_service_call<S>(&self, module: S) -> FunctionCall
+    where
+        S: Into<String>,
+    {
+        self.service_call(self.node_addr(), module)
+    }
+    pub fn faas_call<SM, SF>(
+        &self,
+        target: Address,
+        module: SM,
+        function: SF,
+        service_id: String,
+    ) -> FunctionCall
+    where
+        SM: Into<String>,
+        SF: Into<String>,
+    {
+        faas_call(target, self.relay_addr(), module, function, service_id)
+    }
+
+    pub fn local_faas_call<SM, SF>(
+        &self,
+        module: SM,
+        function: SF,
+        service_id: String,
+    ) -> FunctionCall
+    where
+        SM: Into<String>,
+        SF: Into<String>,
+    {
+        self.faas_call(self.node_addr(), module, function, service_id)
+    }
+    pub fn add_blueprint_call(&self, blueprint: Blueprint) -> FunctionCall {
+        add_blueprint_call(self.node_addr(), self.relay_addr(), blueprint)
+    }
+    pub fn create_service_call(&self, blueprint_id: String) -> FunctionCall {
+        create_service_call(self.node_addr(), self.relay_addr(), blueprint_id)
+    }
+    pub fn reply_call(&self, target: Address) -> FunctionCall {
+        reply_call(target, self.relay_addr())
     }
 }
 
@@ -320,7 +394,6 @@ pub struct SwarmConfig<'a> {
     pub trust: Option<Trust>,
     pub transport: Transport,
     pub registry: Option<&'a Registry>,
-    pub wasm_config: RawModulesConfig,
     pub wasm_modules: Vec<(String, Vec<u8>)>,
 }
 
@@ -332,7 +405,6 @@ impl<'a> SwarmConfig<'a> {
             trust: None,
             transport: Transport::Memory,
             registry: None,
-            wasm_config: <_>::default(),
             wasm_modules: <_>::default(),
         }
     }

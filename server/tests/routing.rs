@@ -129,7 +129,7 @@ fn call_service() {
     // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
     sleep(KAD_TIMEOUT);
 
-    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
+    let provide = provider.send_provide_call(service_id);
     provider.send(provide);
     let received = provider.receive();
     assert!(
@@ -159,9 +159,7 @@ fn call_service_reply() {
     // Wait until Kademlia is ready // TODO: wait for event from behaviour instead?
     sleep(KAD_TIMEOUT);
 
-    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
-    provider.send(provide);
-    let received = provider.receive();
+    let received = provider.send_provide_call(service_id);
     assert!(
         received.arguments.get("ok").is_some(),
         "provide failed: {:#?}",
@@ -197,9 +195,7 @@ fn provide_disconnect() {
     let mut provider = ConnectedClient::connect_to(swarms[4].1.clone()).expect("connect provider");
 
     // Register service
-    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
-    provider.send(provide);
-    let received = provider.receive();
+    let received = provider.send_provide_call(service_id);
     assert!(
         received.arguments.get("ok").is_some(),
         "provide failed: {:#?}",
@@ -223,9 +219,7 @@ fn provide_disconnect() {
     // let bootstraps = vec![provider.node_address.clone(), consumer.node_address.clone()];
     let mut provider =
         ConnectedClient::connect_to(provider.node_address).expect("connect provider");
-    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
-    provider.send(provide);
-    let received = provider.receive();
+    let received = provider.send_provide_call(service_id);
     assert!(
         received.arguments.get("ok").is_some(),
         "provide failed: {:#?}",
@@ -250,9 +244,7 @@ fn provide_disconnect() {
 fn provide_error() {
     let mut provider = ConnectedClient::new().expect("connect client");
     let service_id = "failedservice";
-    let provide = provide_call(service_id, provider.relay_addr(), provider.node_addr());
-    provider.send(provide);
-    let error = provider.receive();
+    let error = provider.send_provide_call(service_id);
     assert!(error.uuid.starts_with("error_"), "{:?}", error);
 }
 
@@ -267,9 +259,7 @@ fn reconnect_provide() {
         for swarm in swarms.iter() {
             let mut provider =
                 ConnectedClient::connect_to(swarm.1.clone()).expect("connect provider");
-            let call = provide_call(service_id, provider.relay_addr(), provider.node_addr());
-            provider.send(call);
-            let received = provider.receive();
+            let received = provider.send_provide_call(service_id);
             assert!(
                 received.arguments.get("ok").is_some(),
                 "provide failed: {:#?}",
@@ -279,9 +269,7 @@ fn reconnect_provide() {
     }
 
     let mut provider = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect provider");
-    let call = provide_call(service_id, provider.relay_addr(), provider.node_addr());
-    provider.send(call);
-    let received = provider.receive();
+    let received = provider.send_provide_call(service_id);
     assert!(
         received.arguments.get("ok").is_some(),
         "provide failed: {:#?}",
@@ -473,9 +461,10 @@ fn get_interface() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
-    let context = vec!["test_one.wasm".to_string(), "test_two.wasm".to_string()];
+    let dependencies = vec!["test_one".to_string(), "test_two".to_string()];
+    let add_blueprint = add_blueprint_call(client.node_addr())
     #[rustfmt::skip]
-    let create = create_call(client.node_addr(), client.relay_addr(), context);
+    let create = create_service_call(client.node_addr(), client.relay_addr(), dependencies);
     client.send(create);
     #[rustfmt::skip]
     let service_id = client.receive().arguments["result"]["service_id"].as_str().unwrap().to_string();
@@ -487,7 +476,7 @@ fn get_interface() {
     client.send(call);
     let received = client.receive();
 
-    let expected: Interface = serde_json::from_str(r#"{"modules":[{"name":"test_one.wasm","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]},{"name":"test_two.wasm","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]}]}"#).unwrap();
+    let expected: Interface = serde_json::from_str(r#"{"modules":[{"name":"test_one","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]},{"name":"test_two","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]}]}"#).unwrap();
     let actual: Interface =
         serde_json::from_value(received.arguments["interface"].clone()).unwrap();
 
@@ -499,9 +488,9 @@ fn call_greeting() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
-    for module in &["test_one.wasm", "test_two.wasm"] {
+    for module in &["test_one", "test_two"] {
         #[rustfmt::skip]
-        let create = create_call(client.node_addr(), client.relay_addr(), vec![module.to_string()]);
+        let create = create_service_call(client.node_addr(), client.relay_addr(), vec![module.to_string()]);
         client.send(create);
         let created = client.receive();
         #[rustfmt::skip]
@@ -532,7 +521,7 @@ fn call_greeting() {
 }
 
 fn create_service(client: &mut ConnectedClient, context: &[String]) -> String {
-    let create = create_call(client.node_addr(), client.relay_addr(), context.to_vec());
+    let create = create_service_call(client.node_addr(), client.relay_addr(), context.to_vec());
     client.send(create);
     #[rustfmt::skip]
     let service_id = client.receive().arguments["result"]["service_id"].as_str().unwrap().to_string();
@@ -545,7 +534,7 @@ fn call_empty() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
-    let context = vec!["test_one.wasm".to_string(), "test_two.wasm".to_string()];
+    let context = vec!["test_one".to_string(), "test_two".to_string()];
     let service_id = create_service(&mut client, &context);
 
     for module in context {
@@ -583,10 +572,10 @@ fn find_module_provider() {
     sleep(KAD_TIMEOUT);
 
     let payload = "payload".to_string();
-    let module = "test_one.wasm";
+    let module = "test_one";
     let mut consumer = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect consumer");
     #[rustfmt::skip]
-    let create = create_call(provider!(module), consumer.relay_addr(), vec![module.to_string()]);
+    let create = create_service_call(provider!(module), consumer.relay_addr(), vec![module.to_string()]);
     consumer.send(create);
     #[rustfmt::skip]
     let service_id = consumer.receive().arguments["result"]["service_id"].as_str().unwrap().to_string();
@@ -605,7 +594,7 @@ fn get_interfaces() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
-    let context = vec!["test_one.wasm".to_string(), "test_two.wasm".to_string()];
+    let context = vec!["test_one".to_string(), "test_two".to_string()];
     let service_id1 = create_service(&mut client, &context);
     let service_id2 = create_service(&mut client, &context);
 
@@ -616,7 +605,7 @@ fn get_interfaces() {
     client.send(call);
     let received = client.receive();
 
-    let expected: Interface = serde_json::from_str(r#"{"modules":[{"name":"test_one.wasm","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]},{"name":"test_two.wasm","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]}]}"#).unwrap();
+    let expected: Interface = serde_json::from_str(r#"{"modules":[{"name":"test_one","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]},{"name":"test_two","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]}]}"#).unwrap();
 
     #[rustfmt::skip]
     let actual: Interface = serde_json::from_value(
@@ -652,10 +641,7 @@ fn test_get_modules() {
     let swarm = start_faas();
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
-    assert_eq!(
-        get_modules(&mut client),
-        &["test_one.wasm", "test_two.wasm"]
-    );
+    assert_eq!(get_modules(&mut client), &["test_one", "test_two"]);
 }
 
 #[test]
@@ -685,7 +671,7 @@ fn add_module() {
     assert!(received.arguments.get("ok").is_some(), "{:?}", received);
 
     // Check it is available
-    let expected = &["test_one.wasm", "test_two.wasm", "test_three.wasm"];
+    let expected = &["test_one", "test_two", "test_three.wasm"];
     let modules = get_modules(&mut client);
     assert_eq!(modules, expected);
     
@@ -697,7 +683,7 @@ fn add_module() {
     assert_eq!(modules, expected);
     
     // Create a service with that module
-    let service_id = create_service(&mut client, &["test_two.wasm".to_string(), "test_three.wasm".to_string()]);
+    let service_id = create_service(&mut client, &["test_two".to_string(), "test_three.wasm".to_string()]);
     
     // Call new service
     let mut call = faas_call(client.node_addr(), client.relay_addr(), "test_three.wasm", "greeting", service_id);

@@ -27,7 +27,7 @@ module_dir = ""
 service_base_dir = ""
 
 [[module]]
-    name = "test_one.wasm"
+    name = "test_one"
     mem_pages_count = 100
     logger_enabled = true        
 
@@ -36,7 +36,7 @@ service_base_dir = ""
     preopened_files = ["./tests/artifacts"]
 
 [[module]]
-    name = "test_two.wasm"
+    name = "test_two"
     mem_pages_count = 100
     logger_enabled = true
 
@@ -100,8 +100,8 @@ pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static>
     wasm_config.service_base_dir = Some(std::env::temp_dir().to_string_lossy().into());
 
     let wasm_modules = vec![
-        ("test_one.wasm".to_string(), test_module()),
-        ("test_two.wasm".to_string(), test_module()),
+        ("test_one".to_string(), test_module()),
+        ("test_two".to_string(), test_module()),
     ];
 
     let mut config = SwarmConfig::new(bs, maddr);

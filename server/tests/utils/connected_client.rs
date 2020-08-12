@@ -20,6 +20,7 @@ use faas_api::{peer, Address, FunctionCall, Protocol};
 use async_std::future::timeout;
 use async_std::task;
 use fluence_client::{Client, ClientEvent, Transport};
+use futures::{FutureExt, TryFutureExt};
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 
