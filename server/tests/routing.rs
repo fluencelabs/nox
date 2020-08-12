@@ -610,7 +610,7 @@ fn test_get_modules() {
 fn add_module() {
     let config: RawModuleConfig = serde_json::from_value(json!(
         {
-            "name": "test_three.wasm",
+            "name": "test_three",
             "mem_pages_count": 100,
             "logger_enabled": true,
             "wasi": {

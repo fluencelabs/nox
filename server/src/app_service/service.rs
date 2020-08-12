@@ -127,17 +127,17 @@ impl AppServiceBehaviour {
     /// Adds a module to the filesystem, overwriting existing module.
     /// Also adds module config to the RawModuleConfig
     pub fn add_module(&mut self, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
-        let mut path = PathBuf::from(&self.config.blueprint_dir);
-        path.set_file_name(files::module_file_name(&config.name));
-        std::fs::write(&path, bytes).map_err(|err| AddModule {
+        let path = PathBuf::from(&self.config.blueprint_dir);
+        let module = path.join(files::module_file_name(&config.name));
+        std::fs::write(&module, bytes).map_err(|err| AddModule {
             path: path.clone(),
             err,
         })?;
 
         // replace existing configuration with a new one
         let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
-        path.set_file_name(files::module_config_name(config.name));
-        std::fs::write(&path, toml).map_err(|err| WriteConfig { path, err })?;
+        let config = path.with_file_name(files::module_config_name(config.name));
+        std::fs::write(&config, toml).map_err(|err| WriteConfig { path, err })?;
 
         Ok(())
     }
@@ -145,7 +145,7 @@ impl AppServiceBehaviour {
     /// Saves new blueprint to disk
     pub fn add_blueprint(&mut self, blueprint: &Blueprint) -> Result<()> {
         let mut path = PathBuf::from(&self.config.blueprint_dir);
-        path.set_file_name(files::blueprint_file_name(&blueprint));
+        path.push(files::blueprint_file_name(&blueprint));
 
         // Save blueprint to disk
         let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeConfig { err })?;
@@ -166,7 +166,7 @@ impl AppServiceBehaviour {
         let make_service = move |service_id| -> Result<_> {
             use std::fs::read;
             let bp_dir = PathBuf::from(&config.blueprint_dir);
-            let bp_path = bp_dir.with_file_name(&blueprint);
+            let bp_path = bp_dir.join(&blueprint);
             let blueprint = read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
             let blueprint: Blueprint =
                 toml::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
@@ -174,7 +174,7 @@ impl AppServiceBehaviour {
                 .dependencies
                 .iter()
                 .map(|module| {
-                    let module = bp_dir.with_file_name(files::module_config_name(module));
+                    let module = bp_dir.join(files::module_config_name(module));
                     let module = read(&module).map_err(|err| NoSuchModule { path: module, err })?;
                     toml::from_slice(module.as_slice()).map_err(|err| IncorrectModuleConfig { err })
                 })
