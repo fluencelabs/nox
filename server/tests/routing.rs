@@ -29,6 +29,7 @@
 
 use crate::utils::*;
 use faas_api::{peer, provider, FunctionCall, Protocol};
+use fluence_app_service::RawModuleConfig;
 use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde_json::json;
@@ -607,7 +608,7 @@ fn test_get_modules() {
 #[test]
 #[rustfmt::skip]
 fn add_module() {
-    let config: Value = json!(
+    let config: RawModuleConfig = serde_json::from_value(json!(
         {
             "name": "test_three.wasm",
             "mem_pages_count": 100,
@@ -618,18 +619,14 @@ fn add_module() {
                 "mapped_dirs": json!({}),
             }
         }
-    );
+    )).unwrap();
 
     let swarm = make_swarms(1).into_iter().next().unwrap();
     add_test_modules(swarm.1.clone());
     let mut client = ConnectedClient::connect_to(swarm.1).expect("connect client");
 
     // Add new module to faas
-    let mut call = client.local_service_call("add_module");
-    call.arguments = json!({ "msg_id": uuid(), "config": config, "bytes": base64::encode(&test_module()) });
-    client.send(call.clone());
-    let received = client.receive();
-    assert!(received.arguments.get("ok").is_some(), "{:?}", received);
+    client.add_module(test_module().as_slice(), config.clone());
 
     // Check it is available
     let expected = &["test_one", "test_two", "test_three.wasm"];
@@ -637,7 +634,7 @@ fn add_module() {
     assert_eq!(modules, expected);
     
     // Check it won't be duplicated
-    client.send(call);
+    client.add_module(test_module().as_slice(), config);
     let received = client.receive();
     assert!(received.arguments.get("ok").is_some(), "{:?}", received);
     let modules = client.get_modules();
