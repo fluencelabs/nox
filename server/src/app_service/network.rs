@@ -126,19 +126,25 @@ impl NetworkBehaviour for AppServiceBehaviour {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     static TEST_MODULE: &str = "./tests/artifacts/test_module_wit.wasi.wasm";
 
     use super::*;
-    use fluence_app_service::RawModulesConfig;
+    use crate::app_service::{AppServicesConfig, Blueprint, ServiceCall};
+    use fluence_app_service::{IValue, RawModuleConfig};
     use futures::StreamExt;
     use futures::{executor::block_on, future::poll_fn};
     use libp2p::core::transport::dummy::{DummyStream, DummyTransport};
     use libp2p::mplex::Multiplex;
     use libp2p::{PeerId, Swarm};
-    use std::path::PathBuf;
+    use rand::Rng;
+    use serde_json::json;
+    use std::path::{Path, PathBuf};
+
+    fn uuid() -> String {
+        uuid::Uuid::new_v4().to_string()
+    }
 
     fn wait_result(
         mut swarm: Swarm<AppServiceBehaviour>,
@@ -160,28 +166,67 @@ mod tests {
         })
     }
 
-    fn with_modules<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> RawModulesConfig {
+    fn make_tmp_dir() -> PathBuf {
+        use rand::distributions::Alphanumeric;
+
         let mut tmp = std::env::temp_dir();
-        tmp.push("wasm_modules/");
+        tmp.push("fluence_test/");
+        let dir: String = rand::thread_rng()
+            .sample_iter(Alphanumeric)
+            .take(16)
+            .collect();
+        tmp.push(dir);
+
         std::fs::create_dir_all(&tmp).expect("create tmp dir");
 
-        for (name, path) in modules {
-            let path = path.into();
-            std::fs::copy(&path, tmp.join(&name))
-                .unwrap_or_else(|_| panic!("copy test module wasm {:?}", path));
-        }
-
-        let mut config: RawModulesConfig = <_>::default();
-        config.modules_dir = Some(tmp.to_string_lossy().into());
-
-        let tmp: String = std::env::temp_dir().to_string_lossy().into();
-        config.service_base_dir = Some(tmp);
-
-        config
+        tmp
     }
 
-    fn make_swarm<P: Into<PathBuf>>(modules: Vec<(String, P)>) -> Swarm<AppServiceBehaviour> {
-        let config = with_modules(modules);
+    fn make_config() -> AppServicesConfig {
+        let tmp = make_tmp_dir();
+
+        AppServicesConfig {
+            blueprint_dir: tmp.clone(),
+            service_envs: vec![],
+            services_workdir: tmp,
+        }
+    }
+
+    fn upload_modules<P: AsRef<Path>>(
+        swarm: &mut Swarm<AppServiceBehaviour>,
+        modules: &[(&str, P)],
+    ) {
+        for (name, path) in modules {
+            let bytes = std::fs::read(&path).expect("read module");
+            let config: RawModuleConfig = serde_json::from_value(json!(
+                {
+                    "name": name,
+                    "mem_pages_count": 100,
+                    "logger_enabled": true,
+                    "wasi": {
+                        "envs": Vec::<()>::new(),
+                        "preopened_files": vec!["./tests/artifacts"],
+                        "mapped_dirs": json!({}),
+                    }
+                }
+            ))
+            .unwrap();
+            swarm.add_module(bytes, config).expect("add module");
+        }
+    }
+
+    fn add_blueprint(swarm: &mut Swarm<AppServiceBehaviour>, modules: &[&str]) -> Blueprint {
+        let blueprint = Blueprint {
+            name: uuid(),
+            id: uuid(),
+            dependencies: modules.iter().map(|s| s.to_string()).collect(),
+        };
+        swarm.add_blueprint(&blueprint).expect("add blueprint");
+        blueprint
+    }
+
+    fn make_swarm() -> Swarm<AppServiceBehaviour> {
+        let config = make_config();
         let behaviour = AppServiceBehaviour::new(config);
         let transport = DummyTransport::<(PeerId, Multiplex<DummyStream>)>::new();
         Swarm::new(transport, behaviour, PeerId::random())
@@ -189,10 +234,12 @@ mod tests {
 
     fn create_app_service(
         mut swarm: Swarm<AppServiceBehaviour>,
-        module_names: Vec<String>,
+        module_names: &[&str],
     ) -> (String, Swarm<AppServiceBehaviour>) {
+        let blueprint = add_blueprint(&mut swarm, module_names);
+
         swarm.execute(ServiceCall::Create {
-            module_names,
+            blueprint_id: blueprint.id,
             call: <_>::default(),
         });
 
@@ -231,9 +278,10 @@ mod tests {
 
     #[test]
     fn call_single_service() {
-        let test_module = "test_module.wasm".to_string();
-        let swarm = make_swarm(vec![(test_module.clone(), TEST_MODULE)]);
-        let (service_id, swarm) = create_app_service(swarm, vec![test_module.clone()]);
+        let test_module = "test_module";
+        let mut swarm = make_swarm();
+        upload_modules(&mut swarm, &[(test_module, TEST_MODULE)]);
+        let (service_id, swarm) = create_app_service(swarm, &[test_module]);
 
         let interface = swarm
             .get_interface(service_id.as_str())
@@ -241,33 +289,25 @@ mod tests {
         assert_eq!(1, interface.modules.len());
         assert_eq!(
             &test_module,
-            interface.modules.into_iter().next().unwrap().0
+            &interface.modules.into_iter().next().unwrap().0
         );
 
         let payload = "Hello";
-        let (returned, _) = call_service(
-            swarm,
-            service_id,
-            test_module.as_str(),
-            "greeting",
-            Some(payload),
-        );
+        let (returned, _) = call_service(swarm, service_id, test_module, "greeting", Some(payload));
         assert_eq!(returned, vec![IValue::String(payload.to_string())]);
     }
 
     #[test]
     fn call_multiple_services() {
-        let test_module = "test_module.wasm".to_string();
-        let test_module2 = "test_module2.wasm".to_string();
-        let modules = vec![
-            (test_module.clone(), TEST_MODULE),
-            (test_module2.clone(), TEST_MODULE),
-        ];
-        let swarm = make_swarm(modules);
-
-        let (service_id1, swarm) = create_app_service(swarm, vec![test_module.clone()]);
-        let (service_id2, mut swarm) =
-            create_app_service(swarm, vec![test_module.clone(), test_module2.clone()]);
+        let test_module = "test_module";
+        let test_module2 = "test_module2";
+        let mut swarm = make_swarm();
+        upload_modules(
+            &mut swarm,
+            &[(test_module, TEST_MODULE), (test_module2, TEST_MODULE)],
+        );
+        let (service_id1, swarm) = create_app_service(swarm, &[test_module]);
+        let (service_id2, mut swarm) = create_app_service(swarm, &[test_module, test_module2]);
 
         assert_eq!(
             2,
@@ -283,7 +323,7 @@ mod tests {
             let (returned, s) = call_service(
                 swarm,
                 service_id1.clone(),
-                test_module.as_str(),
+                test_module,
                 "greeting",
                 Some(payload.as_str()),
             );
@@ -291,7 +331,7 @@ mod tests {
             let (returned2, s) = call_service(
                 s,
                 service_id2.clone(),
-                test_module2.as_str(),
+                test_module2,
                 "greeting",
                 Some(payload.as_str()),
             );
@@ -303,4 +343,3 @@ mod tests {
         }
     }
 }
-*/

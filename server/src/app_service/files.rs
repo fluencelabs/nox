@@ -42,11 +42,5 @@ pub(super) fn is_blueprint(name: &str) -> bool {
 
 /// If name ends with .wasm, returns that name without .wasm. Returns None otherwise
 pub(super) fn extract_module_name(name: &str) -> Option<String> {
-    let result = name.replace(".wasm", "");
-
-    if result == name {
-        return None;
-    }
-
-    Some(result)
+    name.strip_suffix(".wasm").map(|s| s.to_string())
 }
