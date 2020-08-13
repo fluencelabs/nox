@@ -29,7 +29,7 @@
 use async_std::task;
 use clap::{App, Arg};
 use ctrlc_adapter::block_until_ctrlc;
-use faas_api::{provider, Address, FunctionCall, Protocol};
+use faas_api::{Address, FunctionCall, Protocol};
 use fluence_client::{Client, ClientCommand, ClientEvent};
 use futures::task::Poll;
 use futures::{
