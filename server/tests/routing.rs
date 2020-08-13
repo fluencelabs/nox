@@ -628,17 +628,18 @@ fn add_module() {
     // Add new module to faas
     client.add_module(test_module().as_slice(), config.clone());
 
+    let compare_sorted = |mut left: Vec<_>, mut right: Vec<_>| {
+        left.sort();
+        right.sort();
+        assert_eq!(left, right)
+    };
+    
     // Check it is available
-    let mut expected = vec!["test_one", "test_two", "test_three"];
-    expected.sort();
-    let mut modules = client.get_modules();
-    modules.sort();
-    assert_eq!(modules, expected, "sorted modules");
+    compare_sorted(client.get_modules(), vec!["test_one", "test_two", "test_three"]);
     
     // Check it won't be duplicated
     client.add_module(test_module().as_slice(), config);
-    let modules = client.get_modules();
-    assert_eq!(modules, expected);
+    compare_sorted(client.get_modules(), vec!["test_one", "test_two", "test_three"]);
     
     // Create a blueprint with that module
     let blueprint = client.add_blueprint(vec!["test_two".to_string(), "test_three".to_string()]);
