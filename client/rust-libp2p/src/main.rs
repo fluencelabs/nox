@@ -167,10 +167,7 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
     cmd_recv
 }
 
-#[allow(dead_code, unused_variables, unreachable_code)]
 fn print_example(node: Address, reply_to: Address) {
-    unimplemented!();
-
     use serde_json::json;
     use std::time::SystemTime;
     fn show(cmd: ClientCommand) {
@@ -199,23 +196,8 @@ fn print_example(node: Address, reply_to: Address) {
         },
     };
 
-    let ipfs_get_addresses = ClientCommand::Call {
-        call: FunctionCall {
-            uuid: uuid(),
-            target: Some(provider!("ipfs_node.wasm")),
-            reply_to: Some(reply_to.clone()),
-            module: Some("ipfs_node.wasm".into()),
-            fname: Some("get_address".into()),
-            arguments: serde_json::Value::Null,
-            name: Some("call ipfs get".to_string()),
-            sender: reply_to,
-        },
-    };
-
     println!("Possible messages:");
     println!("\n### call identify");
     show(call_identify);
-    println!("\n### Call IPFS get_address");
-    show(ipfs_get_addresses);
     println!("\n")
 }
