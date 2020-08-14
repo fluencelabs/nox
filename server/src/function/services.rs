@@ -16,14 +16,12 @@
 
 use super::builtin_service::BuiltinService;
 use super::FunctionRouter;
-use crate::app_service::{AppServiceCall, AppServiceCallResult, FaaSExecError};
+use crate::app_service::{ServiceCall, ServiceCallResult, ServiceExecError};
 use crate::function::wait_address::WaitAddress;
 use crate::function::{CallError, CallErrorKind::*, ErrorData};
 use faas_api::{Address, FunctionCall, Protocol};
 use libp2p::PeerId;
 use std::collections::HashSet;
-
-const CREATE_COMMAND_NAME: &str = "create";
 
 type CallResult<T> = std::result::Result<T, CallError>;
 
@@ -51,25 +49,19 @@ impl FunctionRouter {
         Ok(())
     }
 
-    /// Create `FaaSCall` from a `FunctionCall`
+    /// Create `ServiceCall` from a `FunctionCall`
     fn prepare_call(
         &mut self,
         module: String,
         service_id: Option<String>,
         call: FunctionCall,
-    ) -> Result<AppServiceCall, CallError> {
+    ) -> Result<ServiceCall, CallError> {
+        // DSL-like function to save letters on error handling
+        let e = |e| call.clone().error(e);
+
         let service_id = match service_id {
             Some(service_id) => service_id,
-            // If module is CREATE_COMMAND_NAME, this is a request to create FaaS
-            None if module.as_str() == CREATE_COMMAND_NAME && !call.context.is_empty() => {
-                return Ok(AppServiceCall::Create {
-                    module_names: call.context.clone(),
-                    call,
-                })
-            }
-            // This branch is taken when call.context is empty
-            None if module.as_str() == CREATE_COMMAND_NAME => return Err(call.error(EmptyContext)),
-            None => return Err(call.error(MissingServiceId)),
+            None => return Err(e(MissingServiceId)),
         };
 
         let interface = self
@@ -77,24 +69,24 @@ impl FunctionRouter {
             .get_interface(&service_id)
             .map_err(|e| call.clone().error(e))?;
         let functions = interface.modules.get(module.as_str()).ok_or_else(|| {
-            call.clone().error(NoSuchModule {
+            e(NoSuchModule {
                 module: module.clone(),
                 service_id: service_id.clone(),
             })
         })?;
         let function = call.fname.as_ref().ok_or_else(|| {
-            call.clone().error(MissingFunctionName {
+            e(MissingFunctionName {
                 module: module.to_string(),
             })
         })?;
         if !functions.contains_key(function.as_str()) {
-            return Err(call.clone().error(FunctionNotFound {
+            return Err(e(FunctionNotFound {
                 module: module.to_string(),
                 function: function.to_string(),
             }));
         }
 
-        let faas_call = AppServiceCall::Call {
+        let faas_call = ServiceCall::Call {
             service_id,
             module,
             function: function.to_string(),
@@ -224,11 +216,11 @@ impl FunctionRouter {
         }
     }
 
-    /// Serialize and send FaaS result as a reply
-    pub(super) fn send_faas_result(
+    /// Serialize and send app service result as a reply
+    pub(super) fn send_app_service_result(
         &mut self,
         call: FunctionCall,
-        result: Result<AppServiceCallResult, FaaSExecError>,
+        result: Result<ServiceCallResult, ServiceExecError>,
     ) -> Result<(), CallError> {
         use serde_json::Value;
 

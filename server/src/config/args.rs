@@ -49,11 +49,21 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .takes_value(true)
             .short("x")
             .help("external network address to publish as discoverable"),
-        Arg::with_name(CORE_ENVS)
+        Arg::with_name(SERVICE_ENVS)
             .value_name("NAME=VALUE")
             .takes_value(true)
             .short("e")
             .multiple(true)
             .help("envs to pass to core modules"),
+        Arg::with_name(BLUEPRINT_DIR)
+            .takes_value(true)
+            .long("blueprint-dir")
+            .multiple(true)
+            .help("path to directory containing blueprints and wasm modules"),
+        Arg::with_name(SERVICES_WORKDIR)
+            .takes_value(true)
+            .long("services-workdir")
+            .multiple(true)
+            .help("path to a directory where all services will store their data"),
     ]
 }

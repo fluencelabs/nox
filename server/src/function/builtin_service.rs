@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+use crate::app_service::Blueprint;
 use faas_api::Address;
 use fluence_app_service::RawModuleConfig;
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use trust_graph::{certificate_serde, Certificate};
 
@@ -80,15 +81,29 @@ pub struct AddModule {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msg_id: Option<String>,
     #[serde(
-        deserialize_with = "AddModule::de_bytes",
-        serialize_with = "AddModule::ser_bytes"
+        deserialize_with = "base64::de_bytes",
+        serialize_with = "base64::ser_bytes"
     )]
     pub bytes: Vec<u8>,
     pub config: RawModuleConfig,
 }
 
-impl AddModule {
-    fn de_bytes<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddBlueprint {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+    pub blueprint: Blueprint,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateService {
+    pub blueprint_id: String,
+}
+
+mod base64 {
+    use serde::{Deserialize, Serialize, Serializer};
+
+    pub fn de_bytes<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -97,7 +112,7 @@ impl AddModule {
             .map_err(|e| serde::de::Error::custom(format!("base64 decode error: {:?}", e)))
     }
 
-    fn ser_bytes<S>(bs: &[u8], ser: S) -> Result<S::Ok, S::Error>
+    pub fn ser_bytes<S>(bs: &[u8], ser: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -116,6 +131,8 @@ pub enum BuiltinService {
     GetActiveInterfaces(GetActiveInterfaces),
     GetAvailableModules(GetAvailableModules),
     AddModule(AddModule),
+    AddBlueprint(AddBlueprint),
+    CreateService(CreateService),
 }
 
 #[derive(Debug)]
@@ -148,10 +165,13 @@ impl BuiltinService {
     const GET_ACTIVE_INTERFACES: &'static str = "get_active_interfaces";
     const GET_AVAILABLE_MODULES: &'static str = "get_available_modules";
     const ADD_MODULE: &'static str = "add_module";
+    const ADD_BLUEPRINT: &'static str = "add_blueprint";
+    const CREATE_SERVICE: &'static str = "create";
     #[rustfmt::skip]
     const SERVICES: &'static [&'static str] = &[
         Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY, Self::GET_INTERFACE,
-        Self::GET_ACTIVE_INTERFACES, Self::GET_AVAILABLE_MODULES, Self::ADD_MODULE
+        Self::GET_ACTIVE_INTERFACES, Self::GET_AVAILABLE_MODULES, Self::ADD_MODULE,
+        Self::ADD_BLUEPRINT, Self::CREATE_SERVICE
     ];
 
     #[allow(clippy::needless_lifetimes)]
@@ -171,6 +191,8 @@ impl BuiltinService {
             Self::GET_ACTIVE_INTERFACES => GetActiveInterfaces(from_value(arguments)?),
             Self::GET_AVAILABLE_MODULES => GetAvailableModules(from_value(arguments)?),
             Self::ADD_MODULE => AddModule(from_value(arguments)?),
+            Self::ADD_BLUEPRINT => AddBlueprint(from_value(arguments)?),
+            Self::CREATE_SERVICE => CreateService(from_value(arguments)?),
             _ => return Err(BuiltinServiceError::UnknownService(service_id)),
         };
 
@@ -194,6 +216,8 @@ impl BuiltinService {
             BuiltinService::GetActiveInterfaces { .. } => BuiltinService::GET_ACTIVE_INTERFACES,
             BuiltinService::GetAvailableModules { .. } => BuiltinService::GET_AVAILABLE_MODULES,
             BuiltinService::AddModule(_) => BuiltinService::ADD_MODULE,
+            BuiltinService::AddBlueprint(_) => BuiltinService::ADD_BLUEPRINT,
+            BuiltinService::CreateService(_) => BuiltinService::CREATE_SERVICE,
         };
 
         (service_id, json!(self))

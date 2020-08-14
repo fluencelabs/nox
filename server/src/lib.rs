@@ -16,8 +16,8 @@
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
-    dead_code,
     nonstandard_style,
+    dead_code,
     unused_imports,
     unused_mut,
     unused_variables,
@@ -101,10 +101,20 @@ pub mod kademlia {
 }
 
 pub mod app_service {
-    mod behaviour;
-    pub(crate) use behaviour::{
-        AppServiceBehaviour, AppServiceCall, AppServiceCallResult, FaaSExecError,
-    };
+    mod blueprint;
+    mod call;
+    mod config;
+    mod error;
+    mod files;
+    mod network;
+    mod service;
+
+    pub(crate) use call::{ServiceCall, ServiceCallResult};
+    pub(crate) use error::ServiceExecError;
+    pub(crate) use service::AppServiceBehaviour;
+
+    pub use blueprint::Blueprint;
+    pub use config::AppServicesConfig;
 }
 
 pub(crate) use bootstrapper::Bootstrapper;

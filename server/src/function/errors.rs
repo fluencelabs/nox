@@ -15,7 +15,7 @@
  */
 
 use super::{address_signature::SignatureError, builtin_service};
-use crate::app_service::FaaSExecError;
+use crate::app_service::ServiceExecError;
 use faas_api::{Address, FunctionCall};
 use fluence_app_service::AppServiceError;
 use trust_graph::Certificate;
@@ -82,9 +82,6 @@ impl CallError {
             CallErrorKind::FaaSExecError(err) => {
                 format!("error while executing faas call: {}", err)
             }
-            CallErrorKind::EmptyContext => {
-                "context can't be empty when creating a service".to_string()
-            }
         }
     }
 }
@@ -105,8 +102,7 @@ pub enum CallErrorKind {
     AddCertificates(Vec<(Certificate, String)>),
     MissingServiceId,
     NoSuchModule { module: String, service_id: String },
-    FaaSExecError(FaaSExecError),
-    EmptyContext,
+    FaaSExecError(ServiceExecError),
 }
 
 impl From<builtin_service::BuiltinServiceError> for CallErrorKind {
@@ -133,8 +129,8 @@ impl From<libp2p::kad::record::store::Error> for CallErrorKind {
     }
 }
 
-impl From<FaaSExecError> for CallErrorKind {
-    fn from(err: FaaSExecError) -> Self {
+impl From<ServiceExecError> for CallErrorKind {
+    fn from(err: ServiceExecError) -> Self {
         CallErrorKind::FaaSExecError(err)
     }
 }

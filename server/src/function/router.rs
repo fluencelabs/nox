@@ -19,12 +19,11 @@ use super::config::RouterConfig;
 use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
-use crate::app_service::AppServiceBehaviour;
+use crate::app_service::{AppServiceBehaviour, AppServicesConfig};
 use crate::function::wait_address::WaitAddress;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
 use failure::_core::time::Duration;
-use fluence_app_service::RawModulesConfig;
 use fluence_libp2p::generate_swarm_event_type;
 use itertools::Itertools;
 use libp2p::{
@@ -87,7 +86,7 @@ impl FunctionRouter {
         config: RouterConfig,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
-        faas_config: RawModulesConfig,
+        services_config: AppServicesConfig,
     ) -> Self {
         let mut cfg = KademliaConfig::default();
         cfg.set_query_timeout(Duration::from_secs(5))
@@ -105,7 +104,7 @@ impl FunctionRouter {
         if let Some(registry) = registry {
             kademlia.enable_metrics(registry);
         }
-        let app_service = AppServiceBehaviour::new(faas_config);
+        let app_service = AppServiceBehaviour::new(services_config);
 
         Self {
             app_service,
@@ -314,7 +313,6 @@ impl FunctionRouter {
                 arguments,
                 name: call.name,
                 sender: self.config.local_address(),
-                context: vec![],
             };
             self.call(call)
         } else {
@@ -359,12 +357,15 @@ impl FunctionRouter {
         log::info!("Bootstrap finished, publishing local modules");
 
         let local = self.config.local_address();
-        let modules = self.app_service.get_modules();
-        for module in modules {
-            if let Err(err) = self.publish_name(provider!(module.clone()), &local, None) {
-                log::warn!("Failed to publish local module {}: {:?}", module, err);
+        let modules = self.app_service.get_modules().into_iter();
+        let blueprints = self.app_service.get_blueprints().into_iter();
+        let names = blueprints.flat_map(|b| vec![b.name, b.id]).chain(modules);
+
+        for name in names {
+            if let Err(err) = self.publish_name(provider!(name.clone()), &local, None) {
+                log::warn!("Failed to publish module or blueprint {}: {:?}", name, err);
             } else {
-                log::info!("Publishing local module {}", module);
+                log::info!("Publishing module or blueprint {}", name);
             }
         }
     }

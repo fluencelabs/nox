@@ -23,7 +23,10 @@ use super::{
     errors::CallErrorKind::*,
     CallError, ErrorData, FunctionRouter,
 };
-use crate::function::builtin_service::{AddModule, GetActiveInterfaces, GetAvailableModules};
+use crate::app_service::ServiceCall;
+use crate::function::builtin_service::{
+    AddBlueprint, AddModule, CreateService, GetActiveInterfaces, GetAvailableModules,
+};
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_app_service::FaaSInterface;
 use libp2p::PeerId;
@@ -92,15 +95,42 @@ impl FunctionRouter {
                 let modules = json!(self.app_service.get_modules());
                 self.reply_with(call, msg_id, ("available_modules", modules))
             }
-            BuiltinService::AddModule(AddModule {
-                msg_id,
-                bytes,
-                config,
-            }) => match self.app_service.add_module(bytes, config) {
-                // TODO: what to return instead of {}?
-                Ok(_) => self.reply_with(call, msg_id, ("ok", json!({}))),
-                Err(e) => Err(call.error(e)),
-            },
+            BuiltinService::AddModule(AddModule { bytes, config, .. }) => {
+                let name = config.name.clone();
+                // Save module
+                #[rustfmt::skip]
+                self.app_service.add_module(bytes, config).map_err(|e| call.clone().error(e))?;
+
+                // Publish it on success
+                self.publish_name(
+                    provider!(name),
+                    &self.config.local_address(),
+                    call.clone().into(),
+                )
+                .map_err(|e| call.error(e))
+            }
+
+            BuiltinService::AddBlueprint(AddBlueprint { blueprint, .. }) => {
+                // Save blueprint
+                #[rustfmt::skip]
+                self.app_service.add_blueprint(&blueprint).map_err(|e| call.clone().error(e))?;
+
+                // Become a provider for blueprint's name and id
+                let addr = &self.config.local_address();
+                self.publish_name(provider!(blueprint.id), addr, call.clone().into())
+                    .map_err(|e| call.clone().error(e))?;
+                // Call is None here to avoid sending several replies
+                self.publish_name(provider!(blueprint.name), addr, None)
+                    .map_err(|e| call.clone().error(e))?;
+
+                Ok(())
+            }
+            BuiltinService::CreateService(CreateService { blueprint_id }) => {
+                let call = ServiceCall::Create { blueprint_id, call };
+                self.app_service.execute(call);
+
+                Ok(())
+            }
         }
     }
 

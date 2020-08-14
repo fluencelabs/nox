@@ -18,7 +18,6 @@ use super::keys::{decode_key_pair, load_or_create_key_pair};
 use crate::bootstrapper::BootstrapConfig;
 use anyhow::Context;
 use clap::{ArgMatches, Values};
-use fluence_app_service::RawModulesConfig;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -32,7 +31,9 @@ pub const BOOTSTRAP_NODE: &str = "bootstrap_nodes";
 pub const EXTERNAL_ADDR: &str = "external_address";
 pub const CERTIFICATE_DIR: &str = "certificate_dir";
 pub const CONFIG_FILE: &str = "config_file";
-pub const CORE_ENVS: &str = "core_envs";
+pub const SERVICE_ENVS: &str = "service_envs";
+pub const BLUEPRINT_DIR: &str = "blueprint_dir";
+pub const SERVICES_WORKDIR: &str = "services_workdir";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
@@ -41,24 +42,31 @@ const ARGS: &[&str] = &[
     EXTERNAL_ADDR,
     CERTIFICATE_DIR,
     CONFIG_FILE,
-    CORE_ENVS,
+    SERVICE_ENVS,
+    BLUEPRINT_DIR,
 ];
 
 pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
 pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
 pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
+pub const DEFAULT_BLUEPRINT_DIR: &str = "./.fluence/blueprints";
+pub const DEFAULT_SERVICES_WORKDIR: &str = "./.fluence/services";
 
 #[derive(Deserialize, Debug)]
 pub struct FluenceConfig {
     #[serde(flatten)]
     pub server: ServerConfig,
-    pub faas: RawModulesConfig,
     /// Directory, where all certificates are stored.
     #[serde(default = "default_cert_dir")]
     pub certificate_dir: String,
     #[serde(deserialize_with = "parse_or_load_keypair", default = "load_key_pair")]
     pub root_key_pair: KeyPair,
     pub root_weights: HashMap<PublicKeyHashable, u32>,
+    #[serde(default = "default_blueprint_dir")]
+    pub blueprint_dir: String,
+    #[serde(default = "default_services_workdir")]
+    pub services_workdir: String,
+    pub service_envs: Vec<String>,
 }
 
 #[derive(Clone, Deserialize, Debug)]
@@ -140,6 +148,12 @@ fn default_prometheus_port() -> u16 {
 fn default_cert_dir() -> String {
     DEFAULT_CERT_DIR.into()
 }
+fn default_blueprint_dir() -> String {
+    DEFAULT_BLUEPRINT_DIR.into()
+}
+fn default_services_workdir() -> String {
+    DEFAULT_SERVICES_WORKDIR.into()
+}
 
 /// Load keypair from default location
 fn load_key_pair() -> KeyPair {
@@ -178,21 +192,6 @@ fn insert_args_to_config(
 ) -> anyhow::Result<()> {
     use toml::Value::*;
 
-    /// Set given `envs` to each `module.wasi.envs` in `config.faas`
-    fn set_core_envs(config: &mut toml::value::Table, arg: Values<'_>) -> Option<()> {
-        // Path in config is: ["faas"]["module"][0]["wasi"]["envs"]
-        let faas = config.get_mut("faas")?.as_table_mut()?;
-        let core = faas.get_mut("module")?.as_array_mut()?;
-        for module in core.iter_mut() {
-            let wasi = module.get_mut("wasi")?.as_table_mut()?;
-            let envs = wasi.get_mut("envs")?.as_array_mut()?;
-
-            envs.extend(multiple(arg.clone()));
-        }
-
-        Some(())
-    }
-
     fn single(mut value: Values<'_>) -> &str {
         value.next().unwrap()
     }
@@ -208,21 +207,13 @@ fn insert_args_to_config(
             None => continue,
         };
 
-        match k {
-            CORE_ENVS => {
-                // Set envs for each core module
-                set_core_envs(config, arg);
-            }
-            k => {
-                // Convert value to a type of the corresponding field in `FluenceConfig`
-                let value = match k {
-                    WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
-                    BOOTSTRAP_NODE => Array(multiple(arg).collect()),
-                    _ => String(single(arg).into()),
-                };
-                config.insert(k.to_string(), value);
-            }
-        }
+        // Convert value to a type of the corresponding field in `FluenceConfig`
+        let value = match k {
+            WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
+            BOOTSTRAP_NODE | SERVICE_ENVS => Array(multiple(arg).collect()),
+            _ => String(single(arg).into()),
+        };
+        config.insert(k.to_string(), value);
     }
 
     Ok(())

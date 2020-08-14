@@ -227,7 +227,8 @@ impl FunctionRouter {
             .remove_with(name, WaitAddress::published)
             .map(|c| c.call());
         for call in calls {
-            if let Err(e) = self.reply_with(call, None, ("ok", json!({}))) {
+            let msg_id = call.msg_id().map(|s| s.to_string());
+            if let Err(e) = self.reply_with(call, msg_id, ("ok", json!({}))) {
                 log::warn!(
                     "Failed to send success reply after publish: {}",
                     e.err_msg()

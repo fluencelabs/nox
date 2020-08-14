@@ -19,8 +19,10 @@ use faas_api::{Address, FunctionCall, Protocol};
 use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::{BootstrapConfig, ServerBehaviour};
 
-use fluence_app_service::RawModulesConfig;
+use crate::utils::ConnectedClient;
+use fluence_app_service::RawModuleConfig;
 use fluence_client::Transport;
+use fluence_server::app_service::{AppServicesConfig, Blueprint};
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -127,13 +129,46 @@ where
     }
 }
 
-pub fn create_call(target: Address, sender: Address, context: Vec<String>) -> FunctionCall {
+pub fn add_module_call(
+    target: Address,
+    sender: Address,
+    module: &[u8],
+    config: RawModuleConfig,
+) -> FunctionCall {
+    FunctionCall {
+        uuid: uuid(),
+        target: Some(target),
+        module: Some("add_module".to_string()),
+        reply_to: Some(sender.clone()),
+        arguments: json!({ "bytes": base64::encode(module), "config": config }),
+        sender,
+        ..<_>::default()
+    }
+}
+
+pub fn add_blueprint_call(target: Address, sender: Address, blueprint: &Blueprint) -> FunctionCall {
+    FunctionCall {
+        uuid: uuid(),
+        target: Some(target),
+        module: Some("add_blueprint".to_string()),
+        reply_to: Some(sender.clone()),
+        arguments: json!({ "blueprint": blueprint }),
+        sender,
+        ..<_>::default()
+    }
+}
+
+pub fn create_service_call<S: AsRef<str>>(
+    target: Address,
+    sender: Address,
+    blueprint_id: S,
+) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(target),
         module: Some("create".to_string()),
         reply_to: Some(sender.clone()),
-        context,
+        arguments: json!({ "blueprint_id": blueprint_id.as_ref() }),
         sender,
         ..<_>::default()
     }
@@ -147,6 +182,115 @@ pub fn reply_call(target: Address, sender: Address) -> FunctionCall {
         name: Some("reply".into()),
         sender,
         ..<_>::default()
+    }
+}
+
+impl ConnectedClient {
+    pub fn certificates_call(&self, peer_id: PeerId) -> FunctionCall {
+        certificates_call(peer_id, self.relay_addr(), self.node_addr())
+    }
+    pub fn add_certificates_call(&self, peer_id: PeerId, certs: Vec<Certificate>) -> FunctionCall {
+        add_certificates_call(peer_id, self.relay_addr(), self.node_addr(), certs)
+    }
+    pub fn provide(&mut self, service_id: &str) -> FunctionCall {
+        let call = provide_call(service_id, self.relay_addr(), self.node_addr());
+        self.send(call);
+        self.receive()
+    }
+    pub fn service_call<S>(&self, target: Address, module: S) -> FunctionCall
+    where
+        S: Into<String>,
+    {
+        service_call(target, self.relay_addr(), module)
+    }
+
+    pub fn local_service_call<S>(&self, module: S) -> FunctionCall
+    where
+        S: Into<String>,
+    {
+        self.service_call(self.node_addr(), module)
+    }
+    pub fn faas_call<SM, SF>(
+        &self,
+        target: Address,
+        module: SM,
+        function: SF,
+        service_id: String,
+    ) -> FunctionCall
+    where
+        SM: Into<String>,
+        SF: Into<String>,
+    {
+        faas_call(target, self.relay_addr(), module, function, service_id)
+    }
+
+    pub fn local_faas_call<SM, SF>(
+        &self,
+        module: SM,
+        function: SF,
+        service_id: String,
+    ) -> FunctionCall
+    where
+        SM: Into<String>,
+        SF: Into<String>,
+    {
+        self.faas_call(self.node_addr(), module, function, service_id)
+    }
+
+    pub fn add_module(&mut self, module: &[u8], config: RawModuleConfig) {
+        let call = add_module_call(self.node_addr(), self.relay_addr(), module, config);
+        self.send(call);
+        let received = self.receive();
+        assert!(
+            received.arguments.get("ok").is_some(),
+            "module add failed {:?}",
+            received
+        );
+    }
+
+    pub fn add_blueprint(&mut self, dependencies: Vec<String>) -> Blueprint {
+        let blueprint = Blueprint::new(uuid(), uuid(), dependencies);
+        let call = add_blueprint_call(self.node_addr(), self.relay_addr(), &blueprint);
+        self.send(call);
+        let received = self.receive();
+        assert!(
+            received.arguments.get("ok").is_some(),
+            "blueprint add failed {:?}",
+            received
+        );
+
+        blueprint
+    }
+
+    pub fn create_service<S: AsRef<str>>(&mut self, target: Address, blueprint_id: S) -> String {
+        let call = create_service_call(target, self.relay_addr(), blueprint_id);
+        self.send(call);
+        let received = self.receive();
+        received.arguments["result"]["service_id"]
+            .as_str()
+            .expect(format!("service creation failed: {:?}", received).as_str())
+            .to_string()
+    }
+
+    pub fn create_service_local<S: AsRef<str>>(&mut self, blueprint_id: S) -> String {
+        self.create_service(self.node_addr(), blueprint_id)
+    }
+
+    pub fn reply_call(&self, target: Address) -> FunctionCall {
+        reply_call(target, self.relay_addr())
+    }
+
+    pub fn get_modules(&mut self) -> Vec<String> {
+        let call = self.local_service_call("get_available_modules");
+        self.send(call);
+        let received = self.receive();
+
+        received.arguments["available_modules"]
+            .as_array()
+            .unwrap_or_else(|| panic!("get array from {:#?}", received))
+            .iter()
+            .filter_map(|v| Some(v.as_str()?.to_string()))
+            .collect()
     }
 }
 
@@ -319,8 +463,6 @@ pub struct SwarmConfig<'a> {
     pub trust: Option<Trust>,
     pub transport: Transport,
     pub registry: Option<&'a Registry>,
-    pub wasm_config: RawModulesConfig,
-    pub wasm_modules: Vec<(String, Vec<u8>)>,
 }
 
 impl<'a> SwarmConfig<'a> {
@@ -331,8 +473,6 @@ impl<'a> SwarmConfig<'a> {
             trust: None,
             transport: Transport::Memory,
             registry: None,
-            wasm_config: <_>::default(),
-            wasm_modules: <_>::default(),
         }
     }
 
@@ -346,17 +486,13 @@ impl<'a> SwarmConfig<'a> {
 pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>, PathBuf) {
     use libp2p::identity;
     #[rustfmt::skip]
-    let SwarmConfig {
-        bootstraps, listen_on, trust, transport, registry, mut wasm_config, wasm_modules
-    } = config;
+    let SwarmConfig { bootstraps, listen_on, trust, transport, registry, .. } = config;
 
     let kp = Keypair::generate();
     let public_key = Ed25519(kp.public());
     let peer_id = PeerId::from(public_key);
 
-    // write module to a temporary directory
-    let tmp = put_modules(wasm_modules);
-    wasm_config.modules_dir = tmp.to_str().map(|s| s.to_string());
+    let tmp = make_tmp_dir();
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
@@ -376,8 +512,8 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             trust_graph,
             bootstraps,
             registry,
-            wasm_config,
             BootstrapConfig::zero(),
+            AppServicesConfig::new(&tmp, vec![], &tmp),
         );
         match transport {
             Transport::Memory => {
@@ -404,7 +540,7 @@ pub fn create_memory_maddr() -> Multiaddr {
     addr
 }
 
-fn put_modules(modules: Vec<(String, Vec<u8>)>) -> PathBuf {
+fn make_tmp_dir() -> PathBuf {
     use rand::distributions::Alphanumeric;
 
     let mut tmp = std::env::temp_dir();
@@ -416,11 +552,6 @@ fn put_modules(modules: Vec<(String, Vec<u8>)>) -> PathBuf {
     tmp.push(dir);
 
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
-
-    for (name, bytes) in modules {
-        std::fs::write(tmp.join(&name), bytes)
-            .unwrap_or_else(|_| panic!("write test module wasm {:?}", name));
-    }
 
     tmp
 }

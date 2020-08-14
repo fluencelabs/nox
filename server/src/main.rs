@@ -28,6 +28,7 @@
 
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
+use fluence_server::app_service::AppServicesConfig;
 use fluence_server::config::{certificates, create_args, load_config, FluenceConfig};
 use fluence_server::Server;
 use futures::channel::oneshot;
@@ -37,6 +38,8 @@ const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 fn main() -> anyhow::Result<()> {
+    // TODO: set level to info by default (todo: check that RUST_LOG will still work)
+    // TODO: maybe set log level via flag?
     env_logger::builder().format_timestamp_micros().init();
 
     let arg_matches = App::new("Fluence protocol server")
@@ -76,10 +79,15 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
+    let services_config = AppServicesConfig::new(
+        &config.blueprint_dir,
+        config.service_envs,
+        &config.services_workdir,
+    );
     let node_service = Server::new(
         key_pair.clone(),
         config.server,
-        config.faas,
+        services_config,
         config
             .root_weights
             .into_iter()

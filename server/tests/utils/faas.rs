@@ -14,44 +14,10 @@
  * limitations under the License.
  */
 
-use crate::utils::{
-    create_memory_maddr, create_swarm, make_swarms_with, CreatedSwarm, SwarmConfig, KAD_TIMEOUT,
-};
-use fluence_app_service::RawModulesConfig;
+use crate::utils::ConnectedClient;
 use parity_multiaddr::Multiaddr;
-use std::thread::sleep;
 
 static TEST_MODULE: &[u8] = include_bytes!("../artifacts/test_module_wit.wasi.wasm");
-static WASM_CONFIG: &str = r#"
-module_dir = ""
-service_base_dir = ""
-
-[[module]]
-    name = "test_one.wasm"
-    mem_pages_count = 100
-    logger_enabled = true        
-
-    [module.wasi]
-    envs = []
-    preopened_files = ["./tests/artifacts"]
-
-[[module]]
-    name = "test_two.wasm"
-    mem_pages_count = 100
-    logger_enabled = true
-
-    [module.wasi]
-    envs = []
-    preopened_files = ["./tests/artifacts"]
-
-[default]
-    mem_pages_count = 100
-    logger_enabled = true
-
-    [default.wasi]
-    envs = []
-    preopened_files = ["./tests/artifacts"]
-"#;
 
 #[derive(serde::Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct Function {
@@ -74,7 +40,11 @@ pub struct Interface {
 impl PartialEq for Interface {
     fn eq(&self, right: &Self) -> bool {
         for left in self.modules.iter() {
-            let right = right.modules.iter().find(|m| m.name == left.name).unwrap();
+            let right = right
+                .modules
+                .iter()
+                .find(|m| m.name == left.name)
+                .expect(format!("module {} wasn't found", left.name).as_str());
             if left.functions.len() != right.functions.len() {
                 return false;
             }
@@ -83,7 +53,7 @@ impl PartialEq for Interface {
                     .functions
                     .iter()
                     .find(|f| f.name == left.name)
-                    .unwrap();
+                    .expect(format!("function {} wasn't found", left.name).as_str());
                 if right != left {
                     return false;
                 }
@@ -94,34 +64,23 @@ impl PartialEq for Interface {
     }
 }
 
-pub fn faas_config(bs: Vec<Multiaddr>, maddr: Multiaddr) -> SwarmConfig<'static> {
-    let mut wasm_config: RawModulesConfig =
-        toml::from_str(WASM_CONFIG).expect("parse module config");
-    wasm_config.service_base_dir = Some(std::env::temp_dir().to_string_lossy().into());
-
-    let wasm_modules = vec![
-        ("test_one.wasm".to_string(), test_module()),
-        ("test_two.wasm".to_string(), test_module()),
-    ];
-
-    let mut config = SwarmConfig::new(bs, maddr);
-    config.wasm_modules = wasm_modules;
-    config.wasm_config = wasm_config;
-    config
-}
-
 pub fn test_module() -> Vec<u8> {
     TEST_MODULE.to_vec()
 }
 
-pub fn start_faas() -> CreatedSwarm {
-    let swarms = make_swarms_with(
-        1,
-        |bs, maddr| create_swarm(faas_config(bs, maddr)),
-        create_memory_maddr,
-        true,
-    );
-    sleep(KAD_TIMEOUT);
+pub fn add_test_modules(swarm: Multiaddr) {
+    let mut client = ConnectedClient::connect_to(swarm).expect("connect client");
+    #[rustfmt::skip]
+    let config = |name| toml::from_str(format!(
+    r#"
+        name = "{}"
+        mem_pages_count = 100
+        logger_enabled = true
+        [module.wasi]
+        envs = []
+        preopened_files = ["./tests/artifacts"]
+    "#, name).as_str()).expect("parse config");
 
-    swarms.into_iter().next().unwrap()
+    client.add_module(test_module().as_slice(), config("test_one"));
+    client.add_module(test_module().as_slice(), config("test_two"));
 }

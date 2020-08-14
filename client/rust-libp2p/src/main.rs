@@ -29,7 +29,7 @@
 use async_std::task;
 use clap::{App, Arg};
 use ctrlc_adapter::block_until_ctrlc;
-use faas_api::{provider, Address, FunctionCall, Protocol};
+use faas_api::{Address, FunctionCall, Protocol};
 use fluence_client::{Client, ClientCommand, ClientEvent};
 use futures::task::Poll;
 use futures::{
@@ -193,28 +193,11 @@ fn print_example(node: Address, reply_to: Address) {
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call identify".to_string()),
             sender: reply_to.clone(),
-            context: vec![],
-        },
-    };
-
-    let ipfs_get_addresses = ClientCommand::Call {
-        call: FunctionCall {
-            uuid: uuid(),
-            target: Some(provider!("ipfs_node.wasm")),
-            reply_to: Some(reply_to.clone()),
-            module: Some("ipfs_node.wasm".into()),
-            fname: Some("get_address".into()),
-            arguments: serde_json::Value::Null,
-            name: Some("call ipfs get".to_string()),
-            sender: reply_to,
-            context: vec!["ipfs_node.wasm".to_string()],
         },
     };
 
     println!("Possible messages:");
     println!("\n### call identify");
     show(call_identify);
-    println!("\n### Call IPFS get_address");
-    show(ipfs_get_addresses);
     println!("\n")
 }

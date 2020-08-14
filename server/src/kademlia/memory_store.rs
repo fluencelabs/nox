@@ -114,14 +114,9 @@ impl MultiRecord {
 
         Self::merge_maps(&mut self.values, mrec.values, max_values);
 
-        // Take max of expiration times, and set it to `self.expires`.
-        // `None` means the record will never expire.
-        if let Some(current) = self.expires.as_ref() {
-            // If `mrec.expires` is None, mark current record to never expire
-            if mrec.expires.map_or(true, |their| current.le(&their)) {
-                self.expires = mrec.expires;
-            }
-        }
+        // Smaller TTL prevails. Only if neither TTL is set is the record
+        // stored "forever".
+        self.expires = self.expires.or(mrec.expires).min(mrec.expires);
     }
 
     /// Return whether this record is of `SimpleRecord` kind

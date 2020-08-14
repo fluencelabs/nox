@@ -89,7 +89,6 @@ impl FunctionCall {
             arguments: json!({ rnd_str(): rnd_str() }),
             name: maybe_str(),
             sender: Address::random(),
-            context: maybe_str().into_iter().collect(),
         }
     }
 }
