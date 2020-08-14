@@ -30,6 +30,7 @@ pub enum ServiceExecError {
     NoModuleConfig { path: PathBuf, err: std::io::Error },
     IncorrectModuleConfig { err: toml::de::Error },
     WriteBlueprint { path: PathBuf, err: std::io::Error },
+    CreateServiceBaseDir { path: PathBuf, err: std::io::Error },
 }
 
 impl Error for ServiceExecError {}

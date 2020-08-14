@@ -25,7 +25,7 @@ use fluence_app_service::{
     AppService, FaaSInterface as AppServiceInterface, RawModuleConfig, RawModulesConfig,
 };
 
-use crate::app_service::error::ServiceExecError::WriteBlueprint;
+use crate::app_service::error::ServiceExecError::{CreateServiceBaseDir, WriteBlueprint};
 use crate::app_service::files;
 use async_std::task;
 use futures::future::BoxFuture;
@@ -184,9 +184,16 @@ impl AppServiceBehaviour {
                 })
                 .collect::<Result<_>>()?;
 
+            // Create separate base dir for the new service
+            let service_base_dir = config.services_workdir.join(&service_id);
+            std::fs::create_dir_all(&service_base_dir).map_err(|err| CreateServiceBaseDir {
+                path: service_base_dir,
+                err,
+            })?;
+
             let modules = RawModulesConfig {
                 modules_dir: to_string(&config.blueprint_dir),
-                service_base_dir: to_string(&config.services_workdir.join(&service_id)),
+                service_base_dir: to_string(&service_base_dir),
                 module: configs,
                 default: None,
             };
