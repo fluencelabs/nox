@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-use super::error::ServiceExecError::{
-    self, AddModule, IncorrectBlueprint, IncorrectModuleConfig, NoModuleConfig, NoSuchBlueprint,
-    SerializeConfig, WriteConfig,
-};
-use super::{AppServicesConfig, Blueprint, ServiceCall, ServiceCallResult};
+use super::error::ServiceExecError::{self, *};
+use super::{Blueprint, ServiceCall, ServiceCallResult};
 
 use faas_api::FunctionCall;
 use fluence_app_service::{
     AppService, FaaSInterface as AppServiceInterface, RawModuleConfig, RawModulesConfig,
 };
 
-use crate::app_service::error::ServiceExecError::{CreateServiceBaseDir, WriteBlueprint};
+use crate::app_service::error::ServiceExecError::{
+    CreateServiceBaseDir, CreateServicesDir, ReadPersistedService, WriteBlueprint,
+};
 use crate::app_service::files;
+use crate::app_service::persisted_service::PersistedService;
+use crate::config::AppServicesConfig;
 use async_std::task;
 use futures::future::BoxFuture;
 use std::collections::HashMap;
@@ -113,11 +114,6 @@ impl AppServiceBehaviour {
             .collect()
     }
 
-    fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {
-        let dir = std::fs::read_dir(dir).ok()?;
-        Some(dir.filter_map(|p| p.ok()?.path().into()))
-    }
-
     /// Adds a module to the filesystem, overwriting existing module.
     /// Also adds module config to the RawModuleConfig
     pub fn add_module(&mut self, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
@@ -156,17 +152,15 @@ impl AppServiceBehaviour {
         service_id: String,
         waker: Option<Waker>,
     ) -> (Option<AppService>, Result<ServiceCallResult>) {
-        use std::fs::read;
-
         let to_string =
             |path: &PathBuf| -> Option<_> { path.to_string_lossy().into_owned().into() };
 
         // Load configs for all modules in blueprint
-        let make_service = move |service_id| -> Result<_> {
+        let make_service = move |service_id: &str| -> Result<_> {
             let bp_dir = PathBuf::from(&config.blueprint_dir);
 
             // Load blueprint from disk
-            let blueprint = Self::load_blueprint(&bp_dir, blueprint_id);
+            let blueprint = Self::load_blueprint(&bp_dir, blueprint_id)?;
 
             // Load all module configs
             let configs: Vec<RawModuleConfig> = blueprint
@@ -176,7 +170,7 @@ impl AppServiceBehaviour {
                 .collect::<Result<_>>()?;
 
             // Create separate base dir for the new service
-            let service_base_dir = config.services_workdir.join(&service_id);
+            let service_base_dir = config.workdir.join(&service_id);
             std::fs::create_dir_all(&service_base_dir).map_err(|err| CreateServiceBaseDir {
                 path: service_base_dir.clone(),
                 err,
@@ -192,12 +186,12 @@ impl AppServiceBehaviour {
             let service = AppService::new(modules.clone(), &service_id, config.service_envs)?;
 
             // Save created service to disk, so it is recreated on restart
-            Self::persist_service(&config.services_dir, &service_id, &modules)?;
+            Self::persist_service(&config.services_dir, &service_id, modules)?;
 
             Ok(service)
         };
 
-        let service = make_service(&service_id);
+        let service = make_service(service_id.as_str());
         let (service, result) = match service {
             Ok(service) => (
                 Some(service),
@@ -268,6 +262,55 @@ impl AppServiceBehaviour {
         })
     }
 
+    /// Load info about persisted services from disk, and create `AppService` for each of them
+    pub fn create_persisted_services(&mut self) -> Vec<ServiceExecError> {
+        // Load all persisted service file names
+        let files = match Self::list_files(&self.config.services_dir) {
+            Some(files) => files,
+            None => {
+                return std::fs::create_dir_all(&self.config.services_dir)
+                    .map_err(|err| CreateServicesDir {
+                        path: self.config.services_dir.clone(),
+                        err,
+                    })
+                    .err()
+                    .into_iter()
+                    .collect();
+            }
+        };
+
+        files.map(|file| {
+            // Load service's persisted info
+            let bytes =
+                std::fs::read(&file).map_err(|err| ReadPersistedService { err, path: file })?;
+            let persisted: PersistedService<'_> =
+                toml::from_slice(bytes.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
+
+            // Don't overwrite existing services
+            if !self.app_services.contains_key(persisted.service_id) {
+                log::warn!(
+                    "Won't load persisted service {}: there's already a service with such service id", 
+                    persisted.service_id
+                );
+
+                return Ok(());
+            }
+
+            let service = AppService::new(
+                persisted.config,
+                persisted.service_id,
+                // TODO: persist & load envs that were used on service creation?
+                //       In case envs change after restart
+                self.config.service_envs.clone(),
+            )?;
+
+            let service_id = persisted.service_id.to_string();
+            self.app_services.insert(service_id, service);
+
+            Ok(())
+        }).filter_map(|r| r.err()).collect()
+    }
+
     /// Calls wake on an optional waker
     fn call_wake(waker: Option<Waker>) {
         if let Some(waker) = waker {
@@ -280,6 +323,7 @@ impl AppServiceBehaviour {
         Self::call_wake(self.waker.clone())
     }
 
+    /// Load blueprint from disk
     fn load_blueprint(bp_dir: &PathBuf, blueprint_id: String) -> Result<Blueprint> {
         let bp_path = bp_dir.join(files::blueprint_fname(blueprint_id.as_str()));
         let blueprint =
@@ -290,7 +334,8 @@ impl AppServiceBehaviour {
         Ok(blueprint)
     }
 
-    fn load_module_config(modules_dir: &PathBuf, module: String) -> Result<RawModuleConfig> {
+    /// Load RawModuleConfig from disk, for a given module name
+    fn load_module_config(modules_dir: &PathBuf, module: &str) -> Result<RawModuleConfig> {
         let config = modules_dir.join(files::module_config_name(module));
         let config = std::fs::read(&config).map_err(|err| NoModuleConfig { path: config, err })?;
         let config =
@@ -299,13 +344,21 @@ impl AppServiceBehaviour {
         Ok(config)
     }
 
+    /// Persist service config (`RawModulesConfig`) to disk, so it is recreated after restart
     fn persist_service(
         services_dir: &PathBuf,
         service_id: &str,
-        config: &RawModulesConfig,
+        config: RawModulesConfig,
     ) -> Result<()> {
-        let bytes = toml::to_vec(config).map_err(|err| SerializeConfig { err })?;
+        let config = PersistedService::new(service_id, config);
+        let bytes = toml::to_vec(&config).map_err(|err| SerializeConfig { err })?;
         let path = services_dir.join(files::service_file_name(service_id));
         std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
+    }
+
+    /// List files in directory
+    fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {
+        let dir = std::fs::read_dir(dir).ok()?;
+        Some(dir.filter_map(|p| p.ok()?.path().into()))
     }
 }

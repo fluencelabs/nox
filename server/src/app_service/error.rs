@@ -31,6 +31,8 @@ pub enum ServiceExecError {
     IncorrectModuleConfig { err: toml::de::Error },
     WriteBlueprint { path: PathBuf, err: std::io::Error },
     CreateServiceBaseDir { path: PathBuf, err: std::io::Error },
+    ReadPersistedService { path: PathBuf, err: std::io::Error },
+    CreateServicesDir { path: PathBuf, err: std::io::Error },
 }
 
 impl Error for ServiceExecError {}
@@ -74,6 +76,16 @@ impl std::fmt::Display for ServiceExecError {
             ServiceExecError::CreateServiceBaseDir { path, err } => write!(
                 f,
                 "Error creating base dir {:?} for service: {:?}",
+                path, err
+            ),
+            ServiceExecError::ReadPersistedService { path, err } => write!(
+                f,
+                "Error reading persisted service from {:?}: {:?}",
+                path, err
+            ),
+            ServiceExecError::CreateServicesDir { path, err } => write!(
+                f,
+                "Error creating directory for persisted services {:?}: {:?}",
                 path, err
             ),
         }

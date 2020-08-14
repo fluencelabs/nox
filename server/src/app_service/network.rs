@@ -131,7 +131,8 @@ mod tests {
     static TEST_MODULE: &str = "./tests/artifacts/test_module_wit.wasi.wasm";
 
     use super::*;
-    use crate::app_service::{AppServicesConfig, Blueprint, ServiceCall};
+    use crate::app_service::{Blueprint, ServiceCall};
+    use crate::config::AppServicesConfig;
     use fluence_app_service::{IValue, RawModuleConfig};
     use futures::StreamExt;
     use futures::{executor::block_on, future::poll_fn};

@@ -44,9 +44,14 @@ impl AppServicesConfig {
         services_dir: &A,
         service_envs: Vec<String>,
     ) -> Self {
-        let cwd = std::env::current_dir().ok();
         // if cwd is available, make given path absolute
-        let absolute = |p| cwd.map_or(p.into(), |c| c.join(p));
+        let absolute = |p| {
+            let p = PathBuf::from(p);
+            match std::env::current_dir().ok() {
+                Some(c) => c.join(p),
+                None => p,
+            }
+        };
 
         Self {
             blueprint_dir: absolute(blueprint_dir),

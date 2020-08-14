@@ -16,6 +16,7 @@
 
 use parity_multiaddr::Multiaddr;
 use std::net::IpAddr;
+use std::path::PathBuf;
 use std::time::Duration;
 
 pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
@@ -45,9 +46,9 @@ pub fn default_prometheus_port() -> u16 {
 pub fn default_cert_dir() -> String {
     DEFAULT_CERT_DIR.into()
 }
-pub fn default_blueprint_dir() -> String {
+pub fn default_blueprint_dir() -> PathBuf {
     DEFAULT_BLUEPRINT_DIR.into()
 }
-pub fn default_services_workdir() -> String {
+pub fn default_services_workdir() -> PathBuf {
     DEFAULT_SERVICES_WORKDIR.into()
 }

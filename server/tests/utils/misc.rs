@@ -22,7 +22,8 @@ use fluence_server::{BootstrapConfig, ServerBehaviour};
 use crate::utils::ConnectedClient;
 use fluence_app_service::RawModuleConfig;
 use fluence_client::Transport;
-use fluence_server::app_service::{AppServicesConfig, Blueprint};
+use fluence_server::app_service::Blueprint;
+use fluence_server::config::AppServicesConfig;
 use libp2p::{
     identity::{
         ed25519::{Keypair, PublicKey},
@@ -513,7 +514,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             bootstraps,
             registry,
             BootstrapConfig::zero(),
-            AppServicesConfig::new(&tmp, vec![], &tmp),
+            AppServicesConfig::new(&tmp, &tmp, &tmp, &tmp, vec![]),
         );
         match transport {
             Transport::Memory => {

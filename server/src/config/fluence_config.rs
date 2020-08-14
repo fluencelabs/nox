@@ -16,8 +16,8 @@
 
 use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
-use crate::app_service::AppServicesConfig;
 use crate::bootstrapper::BootstrapConfig;
+use crate::config::AppServicesConfig;
 use anyhow::Context;
 use clap::{ArgMatches, Values};
 use libp2p::core::Multiaddr;

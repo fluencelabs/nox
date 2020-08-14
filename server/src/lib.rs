@@ -50,6 +50,7 @@ pub mod config {
     pub use self::fluence_config::load_config;
     pub use self::fluence_config::FluenceConfig;
     pub use self::fluence_config::ServerConfig;
+    pub use app_services::AppServicesConfig;
 }
 
 mod server;
@@ -108,13 +109,13 @@ pub mod app_service {
     mod error;
     mod files;
     mod network;
+    mod persisted_service;
     mod service;
 
     pub(crate) use call::{ServiceCall, ServiceCallResult};
     pub(crate) use error::ServiceExecError;
     pub(crate) use service::AppServiceBehaviour;
 
-    pub use crate::config::app_services::AppServicesConfig;
     pub use blueprint::Blueprint;
 }
 
