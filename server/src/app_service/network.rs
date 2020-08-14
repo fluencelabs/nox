@@ -187,8 +187,10 @@ mod tests {
 
         AppServicesConfig {
             blueprint_dir: tmp.clone(),
+            modules_dir: tmp.clone(),
+            services_dir: tmp.clone(),
+            workdir: tmp,
             service_envs: vec![],
-            services_workdir: tmp,
         }
     }
 

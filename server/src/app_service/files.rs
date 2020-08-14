@@ -49,3 +49,7 @@ pub(super) fn extract_module_name(name: &str) -> Option<String> {
     // strip extension
     path.file_stem()?.to_string_lossy().to_string().into()
 }
+
+pub(super) fn service_file_name(service_id: &str) -> String {
+    format!("{}_service.toml", service_id)
+}

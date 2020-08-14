@@ -38,7 +38,9 @@ macro_rules! ok_get {
 }
 
 pub mod config {
+    mod app_services;
     mod args;
+    mod defaults;
     mod fluence_config;
     mod keys;
 
@@ -103,7 +105,6 @@ pub mod kademlia {
 pub mod app_service {
     mod blueprint;
     mod call;
-    mod config;
     mod error;
     mod files;
     mod network;
@@ -113,8 +114,8 @@ pub mod app_service {
     pub(crate) use error::ServiceExecError;
     pub(crate) use service::AppServiceBehaviour;
 
+    pub use crate::config::app_services::AppServicesConfig;
     pub use blueprint::Blueprint;
-    pub use config::AppServicesConfig;
 }
 
 pub(crate) use bootstrapper::Bootstrapper;

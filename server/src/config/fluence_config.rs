@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
+use crate::app_service::AppServicesConfig;
 use crate::bootstrapper::BootstrapConfig;
 use anyhow::Context;
 use clap::{ArgMatches, Values};
@@ -46,12 +48,6 @@ const ARGS: &[&str] = &[
     BLUEPRINT_DIR,
 ];
 
-pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
-pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
-pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
-pub const DEFAULT_BLUEPRINT_DIR: &str = "./.fluence/blueprints";
-pub const DEFAULT_SERVICES_WORKDIR: &str = "./.fluence/services";
-
 #[derive(Deserialize, Debug)]
 pub struct FluenceConfig {
     #[serde(flatten)]
@@ -62,10 +58,8 @@ pub struct FluenceConfig {
     #[serde(deserialize_with = "parse_or_load_keypair", default = "load_key_pair")]
     pub root_key_pair: KeyPair,
     pub root_weights: HashMap<PublicKeyHashable, u32>,
-    #[serde(default = "default_blueprint_dir")]
-    pub blueprint_dir: String,
-    #[serde(default = "default_services_workdir")]
-    pub services_workdir: String,
+    #[serde(flatten)]
+    pub app_services: AppServicesConfig,
     pub service_envs: Vec<String>,
 }
 
@@ -125,34 +119,6 @@ impl ServerConfig {
             vec![]
         }
     }
-}
-
-fn default_tcp_port() -> u16 {
-    7777
-}
-fn default_listen_ip() -> IpAddr {
-    "0.0.0.0".parse().unwrap()
-}
-fn default_socket_timeout() -> Duration {
-    Duration::from_secs(20)
-}
-fn default_bootstrap_nodes() -> Vec<Multiaddr> {
-    vec![]
-}
-fn default_websocket_port() -> u16 {
-    9999
-}
-fn default_prometheus_port() -> u16 {
-    18080
-}
-fn default_cert_dir() -> String {
-    DEFAULT_CERT_DIR.into()
-}
-fn default_blueprint_dir() -> String {
-    DEFAULT_BLUEPRINT_DIR.into()
-}
-fn default_services_workdir() -> String {
-    DEFAULT_SERVICES_WORKDIR.into()
 }
 
 /// Load keypair from default location

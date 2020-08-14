@@ -163,25 +163,16 @@ impl AppServiceBehaviour {
 
         // Load configs for all modules in blueprint
         let make_service = move |service_id| -> Result<_> {
-            // Load blueprint from disk
             let bp_dir = PathBuf::from(&config.blueprint_dir);
-            let bp_path = bp_dir.join(files::blueprint_fname(blueprint_id.as_str()));
-            let blueprint = read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
-            let blueprint: Blueprint =
-                toml::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
+
+            // Load blueprint from disk
+            let blueprint = Self::load_blueprint(&bp_dir, blueprint_id);
 
             // Load all module configs
             let configs: Vec<RawModuleConfig> = blueprint
                 .dependencies
                 .iter()
-                .map(|module| {
-                    let config = bp_dir.join(files::module_config_name(module));
-                    let config =
-                        read(&config).map_err(|err| NoModuleConfig { path: config, err })?;
-                    let config: RawModuleConfig = toml::from_slice(config.as_slice())
-                        .map_err(|err| IncorrectModuleConfig { err })?;
-                    Ok(config)
-                })
+                .map(|module| Self::load_module_config(&config.modules_dir, module))
                 .collect::<Result<_>>()?;
 
             // Create separate base dir for the new service
@@ -198,7 +189,12 @@ impl AppServiceBehaviour {
                 default: None,
             };
 
-            Ok(AppService::new(modules, service_id, config.service_envs)?)
+            let service = AppService::new(modules.clone(), &service_id, config.service_envs)?;
+
+            // Save created service to disk, so it is recreated on restart
+            Self::persist_service(&config.services_dir, &service_id, &modules)?;
+
+            Ok(service)
         };
 
         let service = make_service(&service_id);
@@ -282,5 +278,34 @@ impl AppServiceBehaviour {
     /// Clones and calls wakers
     fn wake(&self) {
         Self::call_wake(self.waker.clone())
+    }
+
+    fn load_blueprint(bp_dir: &PathBuf, blueprint_id: String) -> Result<Blueprint> {
+        let bp_path = bp_dir.join(files::blueprint_fname(blueprint_id.as_str()));
+        let blueprint =
+            std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
+        let blueprint: Blueprint =
+            toml::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
+
+        Ok(blueprint)
+    }
+
+    fn load_module_config(modules_dir: &PathBuf, module: String) -> Result<RawModuleConfig> {
+        let config = modules_dir.join(files::module_config_name(module));
+        let config = std::fs::read(&config).map_err(|err| NoModuleConfig { path: config, err })?;
+        let config =
+            toml::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
+
+        Ok(config)
+    }
+
+    fn persist_service(
+        services_dir: &PathBuf,
+        service_id: &str,
+        config: &RawModulesConfig,
+    ) -> Result<()> {
+        let bytes = toml::to_vec(config).map_err(|err| SerializeConfig { err })?;
+        let path = services_dir.join(files::service_file_name(service_id));
+        std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
     }
 }
