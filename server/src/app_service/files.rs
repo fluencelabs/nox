@@ -15,6 +15,7 @@
  */
 
 use crate::app_service::Blueprint;
+use std::path::Path;
 
 /// Calculates filename of the config for a wasm module
 pub(super) fn module_config_name<S: AsRef<str>>(module: S) -> String {
@@ -40,7 +41,8 @@ pub(super) fn is_blueprint(name: &str) -> bool {
     name.ends_with("_blueprint.toml")
 }
 
-/// If name ends with .wasm, returns that name without .wasm. Returns None otherwise
+/// Return filename without extension (presumably .wasm)
 pub(super) fn extract_module_name(name: &str) -> Option<String> {
-    name.strip_suffix(".wasm").map(|s| s.to_string())
+    let path: &Path = name.as_ref();
+    path.file_stem().map(|s| s.to_string_lossy().to_string())
 }

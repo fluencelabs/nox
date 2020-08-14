@@ -24,9 +24,9 @@ pub struct Blueprint {
 
 impl Blueprint {
     #[allow(dead_code)]
-    pub fn new<S: Into<String>>(name: S, id: String, dependencies: Vec<String>) -> Self {
+    pub fn new(name: String, id: String, dependencies: Vec<String>) -> Self {
         Self {
-            name: name.into(),
+            name,
             id,
             dependencies,
         }
