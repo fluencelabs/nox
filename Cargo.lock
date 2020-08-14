@@ -508,9 +508,9 @@ dependencies = [
 
 [[package]]
 name = "blocking"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76e94bf99b692f54c9d05f97454d3faf11134523fe5b180564a3fb6ed63bcc0a"
+checksum = "2ad97f54e1c9030ad57fae2f5e3791447f48bb225ab20f9d80515e7017d04378"
 dependencies = [
  "async-channel",
  "atomic-waker",
@@ -1145,7 +1145,7 @@ checksum = "4bd3bdaaf0a72155260a1c098989b60db1cbb22d6a628e64f16237aa4da93cc7"
 [[package]]
 name = "fce"
 version = "0.1.1"
-source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1164,7 +1164,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1173,7 +1173,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1204,7 +1204,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1249,7 +1249,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "cmd_lib",
  "fce",
