@@ -41,8 +41,11 @@ pub(super) fn is_blueprint(name: &str) -> bool {
     name.ends_with("_blueprint.toml")
 }
 
-/// Return filename without extension (presumably .wasm)
+/// Return file name with .wasm extension stripped. None if extension wasn't .wasm
 pub(super) fn extract_module_name(name: &str) -> Option<String> {
     let path: &Path = name.as_ref();
-    path.file_stem().map(|s| s.to_string_lossy().to_string())
+    // return None if extension isn't "wasm"
+    path.extension().filter(|ext| ext == &"wasm")?;
+    // strip extension
+    path.file_stem()?.to_string_lossy().to_string().into()
 }
