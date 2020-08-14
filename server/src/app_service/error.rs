@@ -71,6 +71,11 @@ impl std::fmt::Display for ServiceExecError {
             ServiceExecError::WriteBlueprint { path, err } => {
                 write!(f, "Error writing blueprint to {:?}: {:?}", path, err)
             }
+            ServiceExecError::CreateServiceBaseDir { path, err } => write!(
+                f,
+                "Error creating base dir {:?} for service: {:?}",
+                path, err
+            ),
         }
     }
 }

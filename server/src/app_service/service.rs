@@ -187,7 +187,7 @@ impl AppServiceBehaviour {
             // Create separate base dir for the new service
             let service_base_dir = config.services_workdir.join(&service_id);
             std::fs::create_dir_all(&service_base_dir).map_err(|err| CreateServiceBaseDir {
-                path: service_base_dir,
+                path: service_base_dir.clone(),
                 err,
             })?;
 
