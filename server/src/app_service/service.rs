@@ -186,7 +186,7 @@ impl AppServiceBehaviour {
 
             let modules = RawModulesConfig {
                 modules_dir: to_string(&config.blueprint_dir),
-                service_base_dir: to_string(&config.services_workdir),
+                service_base_dir: to_string(&config.services_workdir.join(&service_id)),
                 module: configs,
                 default: None,
             };
