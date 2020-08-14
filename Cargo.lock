@@ -620,9 +620,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.33.2"
+version = "2.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10040cdf04294b565d9e0319955430099ec3813a64c952b86a41200ad714ae48"
+checksum = "37e58ac78573c40708d45522f0d80fa2f01cc4f9b4e2bf749807255454312002"
 dependencies = [
  "ansi_term",
  "atty",
@@ -1145,7 +1145,7 @@ checksum = "4bd3bdaaf0a72155260a1c098989b60db1cbb22d6a628e64f16237aa4da93cc7"
 [[package]]
 name = "fce"
 version = "0.1.1"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#550b447ef66c0c9960944ee458e9023f3a3b8388"
+source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1164,7 +1164,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#550b447ef66c0c9960944ee458e9023f3a3b8388"
+source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1173,7 +1173,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#550b447ef66c0c9960944ee458e9023f3a3b8388"
+source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1204,7 +1204,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#550b447ef66c0c9960944ee458e9023f3a3b8388"
+source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1249,7 +1249,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=blueprint#550b447ef66c0c9960944ee458e9023f3a3b8388"
+source = "git+https://github.com/fluencelabs/fce?branch=master#77cd79e124440765b924b070a1c9031f06380ebc"
 dependencies = [
  "cmd_lib",
  "fce",
