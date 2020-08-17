@@ -23,7 +23,7 @@ use fluence_app_service::{
 };
 
 use crate::app_service::error::ServiceExecError::{
-    CreateServiceBaseDir, CreateServicesDir, ReadPersistedService, WriteBlueprint,
+    CreateServicesDir, ReadPersistedService, WriteBlueprint,
 };
 use crate::app_service::files;
 use crate::app_service::persisted_service::PersistedService;
@@ -96,7 +96,7 @@ impl AppServiceBehaviour {
     /// Get available modules (intersection of modules from config + modules on filesystem)
     // TODO: load interfaces of these modules
     pub fn get_modules(&self) -> Vec<String> {
-        Self::list_files(&self.config.blueprint_dir)
+        Self::list_files(&self.config.modules_dir)
             .into_iter()
             .flatten()
             .filter_map(|pb| files::extract_module_name(pb.file_name()?.to_str()?))
@@ -121,7 +121,7 @@ impl AppServiceBehaviour {
     /// Adds a module to the filesystem, overwriting existing module.
     /// Also adds module config to the RawModuleConfig
     pub fn add_module(&mut self, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
-        let path = PathBuf::from(&self.config.blueprint_dir);
+        let path = PathBuf::from(&self.config.modules_dir);
         let module = path.join(files::module_file_name(&config.name));
         std::fs::write(&module, bytes).map_err(|err| AddModule {
             path: path.clone(),
@@ -161,10 +161,15 @@ impl AppServiceBehaviour {
 
         // Load configs for all modules in blueprint
         let make_service = move |service_id: &str| -> Result<_> {
-            let bp_dir = PathBuf::from(&config.blueprint_dir);
+            let time = || {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs_f64()
+            };
 
             // Load blueprint from disk
-            let blueprint = Self::load_blueprint(&bp_dir, &blueprint_id)?;
+            let blueprint = Self::load_blueprint(&config.blueprint_dir, &blueprint_id)?;
 
             // Load all module configs
             let configs: Vec<RawModuleConfig> = blueprint
@@ -173,16 +178,9 @@ impl AppServiceBehaviour {
                 .map(|module| Self::load_module_config(&config.modules_dir, module))
                 .collect::<Result<_>>()?;
 
-            // Create separate base dir for the new service
-            let service_base_dir = config.workdir.join(&service_id);
-            std::fs::create_dir_all(&service_base_dir).map_err(|err| CreateServiceBaseDir {
-                path: service_base_dir.clone(),
-                err,
-            })?;
-
             let modules = RawModulesConfig {
-                modules_dir: to_string(&config.blueprint_dir),
-                service_base_dir: to_string(&service_base_dir),
+                modules_dir: to_string(&config.modules_dir),
+                service_base_dir: to_string(&config.workdir),
                 module: configs,
                 default: None,
             };
@@ -284,8 +282,7 @@ impl AppServiceBehaviour {
             }
         };
 
-        files.filter(files::is_service).map(|file| {
-            println!("rerunning persisted service {:?} {:?}", file.file_name(), std::time::SystemTime::now().elapsed().unwrap());
+        let errors = files.filter(files::is_service).map(|file| {
             // Load service's persisted info
             let bytes =
                 std::fs::read(&file).map_err(|err| ReadPersistedService { err, path: file.clone() })?;
@@ -294,7 +291,6 @@ impl AppServiceBehaviour {
 
             // Don't overwrite existing services
             if self.app_services.contains_key(service_id) {
-                println!("won't load {:?} {:?}", file.file_name(), std::time::SystemTime::now());
                 log::warn!(
                     "Won't load persisted service {}: there's already a service with such service id",
                     service_id
@@ -310,8 +306,12 @@ impl AppServiceBehaviour {
                 call: None
             });
 
+            self.wake();
+
             Ok(())
-        }).filter_map(|r| r.err()).collect()
+        }).filter_map(|r| r.err()).collect();
+
+        errors
     }
 
     /// Calls wake on an optional waker

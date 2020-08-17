@@ -371,10 +371,6 @@ impl FunctionRouter {
             }
         }
 
-        println!(
-            "rerunning persisted services {:?}",
-            std::time::SystemTime::now()
-        );
         let errors = self.app_service.create_persisted_services();
         if !errors.is_empty() {
             log::warn!(

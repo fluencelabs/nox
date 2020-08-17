@@ -37,7 +37,6 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread::sleep;
-use std::time::SystemTime;
 use trust_graph::{current_time, Certificate};
 
 mod utils;
@@ -689,6 +688,22 @@ fn restart_persistent_services() {
 
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     assert_eq!(client.get_modules().len(), 2);
-    println!("getting active interfaces {:?}", SystemTime::now());
-    assert_eq!(client.get_active_interfaces().len(), n);
+
+    let mut attempts = 0;
+    loop {
+        sleep(SHORT_TIMEOUT * 5);
+        let services = client.get_active_interfaces().len();
+        if services == 3 {
+            break;
+        }
+
+        attempts += 1;
+        if attempts > 60 {
+            // TODO: KARAUUUL~. 60 is too long.
+            panic!(
+                "Timed out waiting for 3 services to be created. Attempts {}/60, services {}/3",
+                attempts, services
+            );
+        }
+    }
 }
