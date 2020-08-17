@@ -19,7 +19,7 @@ use faas_api::{Address, FunctionCall, Protocol};
 use fluence_libp2p::{build_memory_transport, build_transport};
 use fluence_server::{BootstrapConfig, ServerBehaviour};
 
-use crate::utils::ConnectedClient;
+use crate::utils::{ConnectedClient, Service};
 use fluence_app_service::RawModuleConfig;
 use fluence_client::Transport;
 use fluence_server::app_service::Blueprint;
@@ -293,6 +293,17 @@ impl ConnectedClient {
             .filter_map(|v| Some(v.as_str()?.to_string()))
             .collect()
     }
+
+    pub fn get_active_interfaces(&mut self) -> Vec<Service> {
+        let mut call = self.local_service_call("get_active_interfaces");
+        let msg_id = uuid();
+        call.arguments = json!({ "msg_id": msg_id });
+        self.send(call);
+        let received = self.receive();
+
+        serde_json::from_value(received.arguments["active_interfaces"].clone())
+            .expect("get interfaces")
+    }
 }
 
 pub fn uuid() -> String {
@@ -464,6 +475,20 @@ pub struct SwarmConfig<'a> {
     pub trust: Option<Trust>,
     pub transport: Transport,
     pub registry: Option<&'a Registry>,
+    pub tmp_dir: Option<PathBuf>,
+}
+
+impl<'a> Default for SwarmConfig<'a> {
+    fn default() -> Self {
+        Self {
+            bootstraps: <_>::default(),
+            listen_on: Multiaddr::empty(),
+            trust: <_>::default(),
+            transport: Transport::Memory,
+            registry: <_>::default(),
+            tmp_dir: <_>::default(),
+        }
+    }
 }
 
 impl<'a> SwarmConfig<'a> {
@@ -471,9 +496,8 @@ impl<'a> SwarmConfig<'a> {
         Self {
             bootstraps,
             listen_on,
-            trust: None,
             transport: Transport::Memory,
-            registry: None,
+            ..<_>::default()
         }
     }
 
@@ -493,7 +517,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
     let public_key = Ed25519(kp.public());
     let peer_id = PeerId::from(public_key);
 
-    let tmp = make_tmp_dir();
+    let tmp = config.tmp_dir.unwrap_or_else(|| make_tmp_dir());
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
@@ -514,7 +538,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             bootstraps,
             registry,
             BootstrapConfig::zero(),
-            AppServicesConfig::new(&tmp, &tmp, &tmp, &tmp, vec![]),
+            AppServicesConfig::new(&tmp, vec![]).expect("create app services config"),
         );
         match transport {
             Transport::Memory => {
@@ -541,7 +565,7 @@ pub fn create_memory_maddr() -> Multiaddr {
     addr
 }
 
-fn make_tmp_dir() -> PathBuf {
+pub fn make_tmp_dir() -> PathBuf {
     use rand::distributions::Alphanumeric;
 
     let mut tmp = std::env::temp_dir();

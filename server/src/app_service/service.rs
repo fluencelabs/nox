@@ -268,6 +268,7 @@ impl AppServiceBehaviour {
         let files = match Self::list_files(&self.config.services_dir) {
             Some(files) => files,
             None => {
+                // Attempt to create directory and exit
                 return std::fs::create_dir_all(&self.config.services_dir)
                     .map_err(|err| CreateServicesDir {
                         path: self.config.services_dir.clone(),
@@ -279,15 +280,17 @@ impl AppServiceBehaviour {
             }
         };
 
-        files.map(|file| {
+        files.filter(files::is_service).map(|file| {
+            println!("rerunning persisted service {:?} {:?}", file.file_name(), std::time::SystemTime::now().elapsed().unwrap());
             // Load service's persisted info
             let bytes =
-                std::fs::read(&file).map_err(|err| ReadPersistedService { err, path: file })?;
+                std::fs::read(&file).map_err(|err| ReadPersistedService { err, path: file.clone() })?;
             let persisted: PersistedService<'_> =
                 toml::from_slice(bytes.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
 
             // Don't overwrite existing services
             if !self.app_services.contains_key(persisted.service_id) {
+                println!("won't load {:?} {:?}", file.file_name(), std::time::SystemTime::now());
                 log::warn!(
                     "Won't load persisted service {}: there's already a service with such service id", 
                     persisted.service_id

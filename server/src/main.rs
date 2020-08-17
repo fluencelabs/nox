@@ -28,7 +28,9 @@
 
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
-use fluence_server::config::{certificates, create_args, load_config, FluenceConfig};
+use fluence_server::config::{
+    certificates, create_args, load_config, AppServicesConfig, FluenceConfig,
+};
 use fluence_server::Server;
 use futures::channel::oneshot;
 
@@ -78,10 +80,13 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
+    let app_service_config =
+        AppServicesConfig::new(&config.services_base_dir, config.service_envs)?;
+
     let node_service = Server::new(
         key_pair.clone(),
         config.server,
-        config.app_services,
+        app_service_config,
         config
             .root_weights
             .into_iter()

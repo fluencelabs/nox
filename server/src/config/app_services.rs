@@ -38,27 +38,46 @@ pub struct AppServicesConfig {
 
 impl AppServicesConfig {
     pub fn new<A: ?Sized + AsRef<OsStr>>(
-        blueprint_dir: &A,
-        workdir: &A,
-        modules_dir: &A,
-        services_dir: &A,
+        base_dir: &A,
         service_envs: Vec<String>,
-    ) -> Self {
+    ) -> Result<Self, std::io::Error> {
         // if cwd is available, make given path absolute
-        let absolute = |p| {
-            let p = PathBuf::from(p);
-            match std::env::current_dir().ok() {
-                Some(c) => c.join(p),
-                None => p,
-            }
+        let base_dir = PathBuf::from(base_dir);
+        let base_dir = match std::env::current_dir().ok() {
+            Some(c) => c.join(base_dir),
+            None => base_dir,
         };
 
-        Self {
-            blueprint_dir: absolute(blueprint_dir),
-            workdir: absolute(workdir),
-            modules_dir: absolute(modules_dir),
-            services_dir: absolute(services_dir),
+        let blueprint_dir = base_dir.join("blueprint");
+        let workdir = base_dir.join("workdir");
+        let modules_dir = base_dir.join("modules");
+        let services_dir = base_dir.join("services");
+
+        let this = Self {
+            blueprint_dir,
+            workdir,
+            modules_dir,
+            services_dir,
             service_envs,
+        };
+
+        this.create_dirs()?;
+
+        Ok(this)
+    }
+
+    pub fn create_dirs(&self) -> Result<(), std::io::Error> {
+        let dirs = &[
+            &self.blueprint_dir,
+            &self.workdir,
+            &self.modules_dir,
+            &self.services_dir,
+        ];
+
+        for dir in dirs.into_iter() {
+            std::fs::create_dir_all(dir)?;
         }
+
+        Ok(())
     }
 }

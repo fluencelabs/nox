@@ -15,7 +15,7 @@
  */
 
 use crate::app_service::Blueprint;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Calculates filename of the config for a wasm module
 pub(super) fn module_config_name<S: AsRef<str>>(module: S) -> String {
@@ -52,4 +52,10 @@ pub(super) fn extract_module_name(name: &str) -> Option<String> {
 
 pub(super) fn service_file_name(service_id: &str) -> String {
     format!("{}_service.toml", service_id)
+}
+
+pub(super) fn is_service(path: &PathBuf) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .map_or(false, |n| n.ends_with("_service.toml"))
 }

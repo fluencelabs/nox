@@ -37,6 +37,13 @@ pub struct Interface {
     pub modules: Vec<Module>,
 }
 
+#[derive(serde::Deserialize, Clone, Debug)]
+pub struct Service {
+    pub service_id: String,
+    #[serde(flatten)]
+    pub service: Interface,
+}
+
 impl PartialEq for Interface {
     fn eq(&self, right: &Self) -> bool {
         for left in self.modules.iter() {

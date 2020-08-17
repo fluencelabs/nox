@@ -17,12 +17,12 @@
 use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
 use crate::bootstrapper::BootstrapConfig;
-use crate::config::AppServicesConfig;
 use anyhow::Context;
 use clap::{ArgMatches, Values};
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::{net::IpAddr, time::Duration};
 use trust_graph::{KeyPair, PublicKeyHashable};
 
@@ -58,8 +58,8 @@ pub struct FluenceConfig {
     #[serde(deserialize_with = "parse_or_load_keypair", default = "load_key_pair")]
     pub root_key_pair: KeyPair,
     pub root_weights: HashMap<PublicKeyHashable, u32>,
-    #[serde(flatten)]
-    pub app_services: AppServicesConfig,
+    /// Base directory for resources needed by application services
+    pub services_base_dir: PathBuf,
     pub service_envs: Vec<String>,
 }
 
