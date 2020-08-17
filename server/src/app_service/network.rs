@@ -136,6 +136,8 @@ mod tests {
     use super::*;
     use crate::app_service::{Blueprint, ServiceCall};
     use crate::config::AppServicesConfig;
+    use async_std::future::timeout;
+    use failure::_core::time::Duration;
     use fluence_app_service::{IValue, RawModuleConfig};
     use futures::StreamExt;
     use futures::{executor::block_on, future::poll_fn};
@@ -156,7 +158,7 @@ mod tests {
         (FunctionCall, Result<ServiceCallResult>),
         Swarm<AppServiceBehaviour>,
     ) {
-        block_on(async move {
+        block_on(timeout(Duration::from_secs(5), async move {
             let result = poll_fn(|ctx| {
                 if let Poll::Ready(Some(r)) = swarm.poll_next_unpin(ctx) {
                     return Poll::Ready(r);
@@ -167,7 +169,8 @@ mod tests {
             .await;
 
             (result, swarm)
-        })
+        }))
+        .expect("timed out")
     }
 
     fn make_tmp_dir() -> PathBuf {
@@ -246,7 +249,7 @@ mod tests {
 
         swarm.execute(ServiceCall::Create {
             blueprint_id: blueprint.id,
-            call: None,
+            call: Some(FunctionCall::default()),
             service_id: None,
         });
 
