@@ -74,7 +74,7 @@ impl AppServicesConfig {
             &self.services_dir,
         ];
 
-        for dir in dirs.into_iter() {
+        for dir in dirs {
             std::fs::create_dir_all(dir)?;
         }
 

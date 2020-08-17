@@ -178,7 +178,7 @@ impl AppServiceBehaviour {
                 default: None,
             };
 
-            let service = AppService::new(modules.clone(), &service_id, config.service_envs)?;
+            let service = AppService::new(modules, &service_id, config.service_envs)?;
 
             // Save created service to disk, so it is recreated on restart
             Self::persist_service(&config.services_dir, &service_id, &blueprint_id)?;
@@ -275,7 +275,7 @@ impl AppServiceBehaviour {
             }
         };
 
-        let errors = files.filter(files::is_service).map(|file| {
+        files.filter(files::is_service).map(|file| {
             // Load service's persisted info
             let bytes =
                 std::fs::read(&file).map_err(|err| ReadPersistedService { err, path: file.clone() })?;
@@ -302,9 +302,7 @@ impl AppServiceBehaviour {
             self.wake();
 
             Ok(())
-        }).filter_map(|r| r.err()).collect();
-
-        errors
+        }).filter_map(|r| r.err()).collect()
     }
 
     /// Calls wake on an optional waker
