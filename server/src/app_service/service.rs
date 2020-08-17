@@ -161,13 +161,6 @@ impl AppServiceBehaviour {
 
         // Load configs for all modules in blueprint
         let make_service = move |service_id: &str| -> Result<_> {
-            let time = || {
-                std::time::SystemTime::now()
-                    .duration_since(std::time::SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs_f64()
-            };
-
             // Load blueprint from disk
             let blueprint = Self::load_blueprint(&config.blueprint_dir, &blueprint_id)?;
 
