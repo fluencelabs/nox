@@ -36,7 +36,11 @@ use std::task::Waker;
 use uuid::Uuid;
 
 pub(super) type Result<T> = std::result::Result<T, ServiceExecError>;
-pub(super) type FutResult = (Option<AppService>, FunctionCall, Result<ServiceCallResult>);
+pub(super) type FutResult = (
+    Option<AppService>,
+    Option<FunctionCall>,
+    Result<ServiceCallResult>,
+);
 pub(super) type Fut = BoxFuture<'static, FutResult>;
 
 /// Behaviour that manages AppService instances: create, pass calls, poll for results
@@ -160,7 +164,7 @@ impl AppServiceBehaviour {
             let bp_dir = PathBuf::from(&config.blueprint_dir);
 
             // Load blueprint from disk
-            let blueprint = Self::load_blueprint(&bp_dir, blueprint_id)?;
+            let blueprint = Self::load_blueprint(&bp_dir, &blueprint_id)?;
 
             // Load all module configs
             let configs: Vec<RawModuleConfig> = blueprint
@@ -186,7 +190,7 @@ impl AppServiceBehaviour {
             let service = AppService::new(modules.clone(), &service_id, config.service_envs)?;
 
             // Save created service to disk, so it is recreated on restart
-            Self::persist_service(&config.services_dir, &service_id, modules)?;
+            Self::persist_service(&config.services_dir, &service_id, &blueprint_id)?;
 
             Ok(service)
         };
@@ -215,23 +219,23 @@ impl AppServiceBehaviour {
         new_work.try_fold((), |_, call| {
             match call {
                 // Request to create app service with given module_names
-                ServiceCall::Create { blueprint_id, call } => {
+                ServiceCall::Create { service_id, blueprint_id, call } => {
                     // Generate new service_id
-                    let service_id = Uuid::new_v4();
+                    let service_id = service_id.unwrap_or_else(|| Uuid::new_v4().to_string());
 
                     // Create service in background
                     let waker = self.waker.clone();
                     let config = self.config.clone();
+                    let id = service_id.clone();
                     let future = task::spawn_blocking(move || {
-                        let service_id = service_id.to_string();
                         let (service, result) = Self::create_app_service(
-                            config, blueprint_id, service_id, waker
+                            config, blueprint_id, id, waker
                         );
                         (service, call, result)
                     });
 
                     // Save future in order to return its result on the next poll() 
-                    self.futures.insert(service_id.to_string(), Box::pin(future));
+                    self.futures.insert(service_id, Box::pin(future));
                     Ok(())
                 }
                 // Request to call function on an existing app service
@@ -249,7 +253,7 @@ impl AppServiceBehaviour {
                         let result = result.map(ServiceCallResult::Returned).map_err(|e| e.into());
                         // Wake when call finished to trigger poll()
                         Self::call_wake(waker);
-                        (Some(service), call, result)
+                        (Some(service), Some(call), result)
                     });
                     // Save future for the next poll
                     self.futures.insert(service_id, Box::pin(future));
@@ -285,30 +289,26 @@ impl AppServiceBehaviour {
             // Load service's persisted info
             let bytes =
                 std::fs::read(&file).map_err(|err| ReadPersistedService { err, path: file.clone() })?;
-            let persisted: PersistedService<'_> =
+            let PersistedService { service_id, blueprint_id } =
                 toml::from_slice(bytes.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
 
             // Don't overwrite existing services
-            if !self.app_services.contains_key(persisted.service_id) {
+            if self.app_services.contains_key(service_id) {
                 println!("won't load {:?} {:?}", file.file_name(), std::time::SystemTime::now());
                 log::warn!(
-                    "Won't load persisted service {}: there's already a service with such service id", 
-                    persisted.service_id
+                    "Won't load persisted service {}: there's already a service with such service id",
+                    service_id
                 );
 
                 return Ok(());
             }
 
-            let service = AppService::new(
-                persisted.config,
-                persisted.service_id,
-                // TODO: persist & load envs that were used on service creation?
-                //       In case envs change after restart
-                self.config.service_envs.clone(),
-            )?;
-
-            let service_id = persisted.service_id.to_string();
-            self.app_services.insert(service_id, service);
+            // Schedule creation of the service
+            self.execute(ServiceCall::Create {
+                service_id: Some(service_id.to_string()),
+                blueprint_id: blueprint_id.to_string(),
+                call: None
+            });
 
             Ok(())
         }).filter_map(|r| r.err()).collect()
@@ -327,8 +327,8 @@ impl AppServiceBehaviour {
     }
 
     /// Load blueprint from disk
-    fn load_blueprint(bp_dir: &PathBuf, blueprint_id: String) -> Result<Blueprint> {
-        let bp_path = bp_dir.join(files::blueprint_fname(blueprint_id.as_str()));
+    fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint> {
+        let bp_path = bp_dir.join(files::blueprint_fname(blueprint_id));
         let blueprint =
             std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
         let blueprint: Blueprint =
@@ -347,13 +347,9 @@ impl AppServiceBehaviour {
         Ok(config)
     }
 
-    /// Persist service config (`RawModulesConfig`) to disk, so it is recreated after restart
-    fn persist_service(
-        services_dir: &PathBuf,
-        service_id: &str,
-        config: RawModulesConfig,
-    ) -> Result<()> {
-        let config = PersistedService::new(service_id, config);
+    /// Persist service info to disk, so it is recreated after restart
+    fn persist_service(services_dir: &PathBuf, service_id: &str, blueprint_id: &str) -> Result<()> {
+        let config = PersistedService::new(service_id, blueprint_id);
         let bytes = toml::to_vec(&config).map_err(|err| SerializeConfig { err })?;
         let path = services_dir.join(files::service_file_name(service_id));
         std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })

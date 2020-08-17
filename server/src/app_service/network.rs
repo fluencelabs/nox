@@ -97,7 +97,10 @@ impl NetworkBehaviour for AppServiceBehaviour {
                 self.app_services.insert(service_id, service);
             }
 
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result)));
+            // If there's a call, then someone possibly waits for a result of creation
+            if let Some(call) = call {
+                return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result)));
+            }
         }
 
         // Check if there's a work and a matching service isn't busy
@@ -243,7 +246,8 @@ mod tests {
 
         swarm.execute(ServiceCall::Create {
             blueprint_id: blueprint.id,
-            call: <_>::default(),
+            call: None,
+            service_id: None,
         });
 
         let ((_, created), swarm) = wait_result(swarm);

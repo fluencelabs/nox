@@ -38,14 +38,24 @@ pub enum ServiceCall {
     },
     /// Request to create new app service with given `module_names`
     Create {
+        /// Predefined service_id to create service with
+        service_id: Option<String>,
         /// Id of the blueprint to create service from
         blueprint_id: String,
-        /// FunctionCall that caused this WasmCall, returned to caller as is
-        call: FunctionCall,
+        /// FunctionCall that caused this ServiceCall, returned to caller as is
+        call: Option<FunctionCall>,
     },
 }
 
 impl ServiceCall {
+    pub fn create(blueprint_id: String, call: FunctionCall) -> Self {
+        Self::Create {
+            blueprint_id,
+            call: Some(call),
+            service_id: None,
+        }
+    }
+
     /// Whether this call is of `Create` type
     pub fn is_create(&self) -> bool {
         matches!(self, ServiceCall::Create { .. })

@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-use fluence_app_service::RawModulesConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PersistedService<'a> {
     #[serde(borrow)]
     pub service_id: &'a str,
-    pub config: RawModulesConfig,
+    pub blueprint_id: &'a str,
 }
 
 impl<'a> PersistedService<'a> {
-    pub fn new(service_id: &'a str, config: RawModulesConfig) -> Self {
-        Self { service_id, config }
+    pub fn new(service_id: &'a str, blueprint_id: &'a str) -> Self {
+        Self {
+            service_id,
+            blueprint_id,
+        }
     }
 }
