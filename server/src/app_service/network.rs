@@ -136,7 +136,6 @@ mod tests {
     use super::*;
     use crate::app_service::{Blueprint, ServiceCall};
     use crate::config::AppServicesConfig;
-    use async_std::future::timeout;
     use failure::_core::time::Duration;
     use fluence_app_service::{IValue, RawModuleConfig};
     use futures::StreamExt;
@@ -154,11 +153,12 @@ mod tests {
 
     fn wait_result(
         mut swarm: Swarm<AppServiceBehaviour>,
+        timeout: Duration,
     ) -> (
         (FunctionCall, Result<ServiceCallResult>),
         Swarm<AppServiceBehaviour>,
     ) {
-        block_on(timeout(Duration::from_secs(5), async move {
+        block_on(async_std::future::timeout(timeout, async move {
             let result = poll_fn(|ctx| {
                 if let Poll::Ready(Some(r)) = swarm.poll_next_unpin(ctx) {
                     return Poll::Ready(r);
@@ -253,7 +253,7 @@ mod tests {
             service_id: None,
         });
 
-        let ((_, created), swarm) = wait_result(swarm);
+        let ((_, created), swarm) = wait_result(swarm, Duration::from_secs(15));
         let service_id = match &created {
             Ok(ServiceCallResult::ServiceCreated { service_id }) => service_id.clone(),
             wrong => unreachable!("wrong result: {:?}", wrong),
@@ -277,7 +277,7 @@ mod tests {
             call: <_>::default(),
         });
 
-        let ((_, returned), swarm) = wait_result(swarm);
+        let ((_, returned), swarm) = wait_result(swarm, Duration::from_millis(100));
         let returned = match returned {
             Ok(ServiceCallResult::Returned(r)) => r,
             wrong => panic!("{:#?}", wrong),
