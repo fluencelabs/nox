@@ -281,7 +281,7 @@ impl ConnectedClient {
         reply_call(target, self.relay_addr())
     }
 
-    pub fn get_modules(&mut self) -> Vec<String> {
+    pub fn get_available_modules(&mut self) -> Vec<String> {
         let call = self.local_service_call("get_available_modules");
         self.send(call);
         let received = self.receive();
@@ -292,6 +292,21 @@ impl ConnectedClient {
             .iter()
             .filter_map(|v| Some(v.as_str()?.to_string()))
             .collect()
+    }
+
+    pub fn get_available_blueprints(&mut self) -> Vec<Blueprint> {
+        let call = self.local_service_call("get_available_blueprints");
+        self.send(call);
+        let received = self.receive();
+
+        received.arguments["available_blueprints"]
+            .as_array()
+            .unwrap_or_else(|| panic!("get array from {:#?}", received))
+            .clone()
+            .into_iter()
+            .map(|b| serde_json::from_value(b))
+            .collect::<std::result::Result<_, _>>()
+            .expect("error parsing bluepritns")
     }
 
     pub fn get_active_interfaces(&mut self) -> Vec<Service> {
