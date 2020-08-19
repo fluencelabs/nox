@@ -192,7 +192,7 @@ fn print_example(node: Address, reply_to: Address) {
             fname: None,
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call identify".to_string()),
-            sender: reply_to.clone(),
+            sender: reply_to,
         },
     };
 

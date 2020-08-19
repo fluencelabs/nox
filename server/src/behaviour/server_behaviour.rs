@@ -17,8 +17,8 @@
 use crate::Bootstrapper;
 use crate::FunctionRouter;
 
-use crate::app_service::AppServicesConfig;
 use crate::bootstrapper::BootstrapConfig;
+use crate::config::AppServicesConfig;
 use crate::function::RouterConfig;
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
 use libp2p::{

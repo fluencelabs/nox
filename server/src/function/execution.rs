@@ -126,7 +126,7 @@ impl FunctionRouter {
                 Ok(())
             }
             BuiltinService::CreateService(CreateService { blueprint_id }) => {
-                let call = ServiceCall::Create { blueprint_id, call };
+                let call = ServiceCall::create(blueprint_id, call);
                 self.app_service.execute(call);
 
                 Ok(())

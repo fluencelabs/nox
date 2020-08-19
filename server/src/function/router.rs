@@ -19,7 +19,9 @@ use super::config::RouterConfig;
 use super::peers::PeerStatus;
 use super::wait_peer::WaitPeer;
 use super::waiting_queues::WaitingQueues;
-use crate::app_service::{AppServiceBehaviour, AppServicesConfig};
+
+use crate::app_service::AppServiceBehaviour;
+use crate::config::AppServicesConfig;
 use crate::function::wait_address::WaitAddress;
 use crate::kademlia::MemoryStore;
 use faas_api::{Address, FunctionCall, Protocol, ProtocolMessage};
@@ -367,6 +369,15 @@ impl FunctionRouter {
             } else {
                 log::info!("Publishing module or blueprint {}", name);
             }
+        }
+
+        let errors = self.app_service.create_persisted_services();
+        if !errors.is_empty() {
+            log::warn!(
+                "Encountered {} errors during persisted services creation\n:{:#?}",
+                errors.len(),
+                errors
+            )
         }
     }
 

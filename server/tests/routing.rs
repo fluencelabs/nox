@@ -34,6 +34,7 @@ use libp2p::{identity::PublicKey::Ed25519, PeerId};
 use parity_multiaddr::Multiaddr;
 use serde_json::json;
 use serde_json::Value;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread::sleep;
 use trust_graph::{current_time, Certificate};
@@ -564,30 +565,20 @@ fn get_interfaces() {
     let blueprint = client.add_blueprint(dependencies);
     let service_id1 = client.create_service_local(&blueprint.id);
     let service_id2 = client.create_service_local(&blueprint.id);
-
-    let mut call = client.local_service_call("get_active_interfaces");
-    let msg_id = uuid();
-    call.arguments = json!({ "msg_id": msg_id });
-    client.send(call);
-    let received = client.receive();
+    let interfaces = client.get_active_interfaces();
 
     let expected: Interface = serde_json::from_str(r#"{"modules":[{"name":"test_one","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]},{"name":"test_two","functions":[{"name":"empty","input_types":[],"output_types":[]},{"name":"greeting","input_types":["String"],"output_types":["String"]}]}]}"#).unwrap();
+    let actual1 = interfaces
+        .iter()
+        .find(|s| s.service_id == service_id1)
+        .unwrap();
+    assert_eq!(expected, actual1.service);
 
-    #[rustfmt::skip]
-    let actual: Interface = serde_json::from_value(
-        received.arguments["active_interfaces"].as_array().unwrap().iter().find(|i| i["service_id"] == service_id1).unwrap().clone(),
-    )
-    .unwrap();
-
-    assert_eq!(expected, actual);
-
-    #[rustfmt::skip]
-    let actual: Interface = serde_json::from_value(
-        received.arguments["active_interfaces"].as_array().unwrap().iter().find(|i| i["service_id"] == service_id2).unwrap().clone(),
-    )
-    .unwrap();
-
-    assert_eq!(expected, actual);
+    let actual2 = interfaces
+        .iter()
+        .find(|s| s.service_id == service_id2)
+        .unwrap();
+    assert_eq!(expected, actual2.service);
 }
 
 #[test]
@@ -653,4 +644,66 @@ fn add_module() {
     client.send(call);
     let received = client.receive();
     assert_eq!(received.arguments["result"].as_str().unwrap(), payload);
+}
+
+fn swarms_with_tmp_dirs(n: usize, tmp_dirs: &[PathBuf]) -> Vec<CreatedSwarm> {
+    let mut counter = 0;
+    make_swarms_with(
+        n,
+        |bs, maddr| {
+            let tmp_dir = tmp_dirs[counter].clone();
+            let mut config = SwarmConfig::new(bs, maddr);
+            config.tmp_dir = Some(tmp_dir);
+            counter += 1;
+            create_swarm(config)
+        },
+        create_memory_maddr,
+        true,
+    )
+}
+
+#[test]
+fn restart_persistent_services() {
+    let n = 3;
+    let tmp_dirs = (0..n).map(|_| make_tmp_dir()).collect::<Vec<_>>();
+    let swarms = swarms_with_tmp_dirs(n, tmp_dirs.as_slice());
+    sleep(KAD_TIMEOUT);
+    add_test_modules(swarms[0].1.clone());
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let dependencies = vec!["test_one".to_string(), "test_two".to_string()];
+    let blueprint = client.add_blueprint(dependencies);
+    for _ in 0..n {
+        client.create_service_local(&blueprint.id);
+    }
+
+    assert_eq!(client.get_modules().len(), 2);
+    assert_eq!(client.get_active_interfaces().len(), n);
+
+    drop(swarms);
+
+    let swarms = swarms_with_tmp_dirs(n, tmp_dirs.as_slice());
+    sleep(KAD_TIMEOUT);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    assert_eq!(client.get_modules().len(), 2);
+
+    let mut attempts = 0;
+    loop {
+        sleep(SHORT_TIMEOUT * 5);
+        let services = client.get_active_interfaces().len();
+        if services == 3 {
+            break;
+        }
+
+        attempts += 1;
+        if attempts > 60 {
+            // TODO: KARAUUUL~. 60 is too long.
+            panic!(
+                "Timed out waiting for 3 services to be created. Attempts {}/60, services {}/3",
+                attempts, services
+            );
+        }
+    }
 }

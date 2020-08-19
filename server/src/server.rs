@@ -18,7 +18,7 @@ use super::behaviour::ServerBehaviour;
 use crate::config::ServerConfig;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 
-use crate::app_service::AppServicesConfig;
+use crate::config::AppServicesConfig;
 use async_std::task;
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};

@@ -1,0 +1,54 @@
+/*
+ * Copyright 2020 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use parity_multiaddr::Multiaddr;
+use std::net::IpAddr;
+use std::path::PathBuf;
+use std::time::Duration;
+
+pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
+pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
+pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
+pub const DEFAULT_BLUEPRINT_DIR: &str = "./.fluence/blueprints";
+pub const DEFAULT_SERVICES_WORKDIR: &str = "./.fluence/services";
+
+pub fn default_tcp_port() -> u16 {
+    7777
+}
+pub fn default_listen_ip() -> IpAddr {
+    "0.0.0.0".parse().unwrap()
+}
+pub fn default_socket_timeout() -> Duration {
+    Duration::from_secs(20)
+}
+pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
+    vec![]
+}
+pub fn default_websocket_port() -> u16 {
+    9999
+}
+pub fn default_prometheus_port() -> u16 {
+    18080
+}
+pub fn default_cert_dir() -> String {
+    DEFAULT_CERT_DIR.into()
+}
+pub fn default_blueprint_dir() -> PathBuf {
+    DEFAULT_BLUEPRINT_DIR.into()
+}
+pub fn default_services_workdir() -> PathBuf {
+    DEFAULT_SERVICES_WORKDIR.into()
+}

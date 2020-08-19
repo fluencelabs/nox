@@ -97,7 +97,10 @@ impl NetworkBehaviour for AppServiceBehaviour {
                 self.app_services.insert(service_id, service);
             }
 
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result)));
+            // If there's a call, then someone possibly waits for a result of creation
+            if let Some(call) = call {
+                return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result)));
+            }
         }
 
         // Check if there's a work and a matching service isn't busy
@@ -131,7 +134,9 @@ mod tests {
     static TEST_MODULE: &str = "./tests/artifacts/test_module_wit.wasi.wasm";
 
     use super::*;
-    use crate::app_service::{AppServicesConfig, Blueprint, ServiceCall};
+    use crate::app_service::{Blueprint, ServiceCall};
+    use crate::config::AppServicesConfig;
+    use failure::_core::time::Duration;
     use fluence_app_service::{IValue, RawModuleConfig};
     use futures::StreamExt;
     use futures::{executor::block_on, future::poll_fn};
@@ -148,11 +153,12 @@ mod tests {
 
     fn wait_result(
         mut swarm: Swarm<AppServiceBehaviour>,
+        timeout: Duration,
     ) -> (
         (FunctionCall, Result<ServiceCallResult>),
         Swarm<AppServiceBehaviour>,
     ) {
-        block_on(async move {
+        block_on(async_std::future::timeout(timeout, async move {
             let result = poll_fn(|ctx| {
                 if let Poll::Ready(Some(r)) = swarm.poll_next_unpin(ctx) {
                     return Poll::Ready(r);
@@ -163,7 +169,8 @@ mod tests {
             .await;
 
             (result, swarm)
-        })
+        }))
+        .expect("timed out")
     }
 
     fn make_tmp_dir() -> PathBuf {
@@ -187,8 +194,10 @@ mod tests {
 
         AppServicesConfig {
             blueprint_dir: tmp.clone(),
+            modules_dir: tmp.clone(),
+            services_dir: tmp.clone(),
+            workdir: tmp,
             service_envs: vec![],
-            services_workdir: tmp,
         }
     }
 
@@ -240,10 +249,11 @@ mod tests {
 
         swarm.execute(ServiceCall::Create {
             blueprint_id: blueprint.id,
-            call: <_>::default(),
+            call: Some(FunctionCall::default()),
+            service_id: None,
         });
 
-        let ((_, created), swarm) = wait_result(swarm);
+        let ((_, created), swarm) = wait_result(swarm, Duration::from_secs(15));
         let service_id = match &created {
             Ok(ServiceCallResult::ServiceCreated { service_id }) => service_id.clone(),
             wrong => unreachable!("wrong result: {:?}", wrong),
@@ -267,7 +277,7 @@ mod tests {
             call: <_>::default(),
         });
 
-        let ((_, returned), swarm) = wait_result(swarm);
+        let ((_, returned), swarm) = wait_result(swarm, Duration::from_millis(100));
         let returned = match returned {
             Ok(ServiceCallResult::Returned(r)) => r,
             wrong => panic!("{:#?}", wrong),
