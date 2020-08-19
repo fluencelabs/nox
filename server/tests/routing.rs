@@ -589,7 +589,7 @@ fn test_get_modules() {
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     let mut expected = vec!["test_one", "test_two"];
-    let mut actual = client.get_modules();
+    let mut actual = client.get_available_modules();
     expected.sort();
     actual.sort();
     assert_eq!(expected, actual);
@@ -626,11 +626,11 @@ fn add_module() {
     };
     
     // Check it is available
-    compare_sorted(client.get_modules(), vec!["test_one", "test_two", "test_three"]);
+    compare_sorted(client.get_available_modules(), vec!["test_one", "test_two", "test_three"]);
     
     // Check it won't be duplicated
     client.add_module(test_module().as_slice(), config);
-    compare_sorted(client.get_modules(), vec!["test_one", "test_two", "test_three"]);
+    compare_sorted(client.get_available_modules(), vec!["test_one", "test_two", "test_three"]);
     
     // Create a blueprint with that module
     let blueprint = client.add_blueprint(vec!["test_two".to_string(), "test_three".to_string()]);
@@ -678,7 +678,8 @@ fn restart_persistent_services() {
         client.create_service_local(&blueprint.id);
     }
 
-    assert_eq!(client.get_modules().len(), 2);
+    assert_eq!(client.get_available_modules().len(), 2);
+    assert_eq!(client.get_available_blueprints().len(), 1);
     assert_eq!(client.get_active_interfaces().len(), n);
 
     drop(swarms);
@@ -687,7 +688,8 @@ fn restart_persistent_services() {
     sleep(KAD_TIMEOUT);
 
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
-    assert_eq!(client.get_modules().len(), 2);
+    assert_eq!(client.get_available_modules().len(), 2);
+    assert_eq!(client.get_available_blueprints().len(), 1);
 
     let mut attempts = 0;
     loop {

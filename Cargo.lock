@@ -1145,7 +1145,7 @@ checksum = "4bd3bdaaf0a72155260a1c098989b60db1cbb22d6a628e64f16237aa4da93cc7"
 [[package]]
 name = "fce"
 version = "0.1.1"
-source = "git+https://github.com/fluencelabs/fce?branch=persistence#963b1792bffdaaf63ff55315bdac1c77ca7ae8ed"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1164,7 +1164,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=persistence#963b1792bffdaaf63ff55315bdac1c77ca7ae8ed"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1173,7 +1173,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=persistence#963b1792bffdaaf63ff55315bdac1c77ca7ae8ed"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1204,7 +1204,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=persistence#963b1792bffdaaf63ff55315bdac1c77ca7ae8ed"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1249,7 +1249,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=persistence#963b1792bffdaaf63ff55315bdac1c77ca7ae8ed"
+source = "git+https://github.com/fluencelabs/fce?branch=master#a670ec76cd3afcef843ce3e376869fa76fdeb87c"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -2421,9 +2421,9 @@ dependencies = [
 
 [[package]]
 name = "libz-sys"
-version = "1.0.27"
+version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ca8894883d250240341478bf987467332fbdd5da5c42426c69a8f93dbc302f2"
+checksum = "2eb5e43362e38e2bca2fd5f5134c4d4564a23a5c28e9b95411652021a8675ebe"
 dependencies = [
  "cc",
  "libc",
@@ -2987,9 +2987,9 @@ checksum = "d36492546b6af1463394d46f0c834346f31548646f6ba10849802c9c9a27ac33"
 
 [[package]]
 name = "polling"
-version = "0.1.5"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e09dffb745feffca5be3dea51c02b7b368c4597ab0219a82acaf9799ab3e0d1"
+checksum = "b6d83023eb990619815bb41b45625b02da62b00d0f24b0a08aae37697b3f6c94"
 dependencies = [
  "cfg-if",
  "libc",
@@ -3425,9 +3425,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.18.1"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d1126dcf58e93cee7d098dbda643b5f92ed724f1f6a63007c1116eed6700c81"
+checksum = "cac94b333ee2aac3284c5b8a1b7fb4dd11cba88c244e3fe33cdbd047af0eb693"
 dependencies = [
  "base64 0.12.3",
  "log",

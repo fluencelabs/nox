@@ -25,7 +25,8 @@ use super::{
 };
 use crate::app_service::ServiceCall;
 use crate::function::builtin_service::{
-    AddBlueprint, AddModule, CreateService, GetActiveInterfaces, GetAvailableModules,
+    AddBlueprint, AddModule, CreateService, GetActiveInterfaces, GetAvailableBlueprints,
+    GetAvailableModules,
 };
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_app_service::FaaSInterface;
@@ -130,6 +131,10 @@ impl FunctionRouter {
                 self.app_service.execute(call);
 
                 Ok(())
+            }
+            BuiltinService::GetAvailableBlueprints(GetAvailableBlueprints { msg_id }) => {
+                let blueprints = json!(self.app_service.get_blueprints());
+                self.reply_with(call, msg_id, ("available_blueprints", blueprints))
             }
         }
     }
