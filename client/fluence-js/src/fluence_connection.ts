@@ -162,13 +162,13 @@ export class FluenceConnection {
     /**
      * Send FunctionCall to the connected node.
      */
-    async sendFunctionCall(target: Address, args: any, moduleId?: string, fname?: string, msgId?: string, context?: string[], name?: string) {
+    async sendFunctionCall(target: Address, args: any, moduleId?: string, fname?: string, msgId?: string, name?: string) {
         this.checkConnectedOrThrow();
 
         let replyTo;
         if (msgId) replyTo = this.makeReplyTo(msgId);
 
-        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, context, name);
+        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, name);
 
         await this.sendCall(call);
     }
