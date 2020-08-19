@@ -70,7 +70,6 @@ describe("Typescript usage suite", () => {
             "mm",
             "fff",
             addr,
-            undefined,
             "2444"
         );
 
