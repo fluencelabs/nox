@@ -280,8 +280,8 @@ export class FluenceClient {
     /**
      * Sends a call to create a service on remote node.
      */
-    async createService(peerId: string, context: string[]): Promise<string> {
-        let resp = await this.callPeer("create", {}, undefined, peerId, context);
+    async createService(peerId: string, blueprint: string): Promise<string> {
+        let resp = await this.callPeer("create", {blueprint_id: blueprint}, undefined, peerId);
 
         if (resp.result && resp.result.service_id) {
             return resp.result.service_id
@@ -289,6 +289,21 @@ export class FluenceClient {
             console.error("Unknown response type on `createService`: ", resp)
             throw new Error("Unknown response type on `createService`");
         }
+    }
+
+    async addBlueprint(peerId: string, name: string, dependencies: string[]): Promise<string> {
+
+        let id = genUUID();
+        let blueprint = {
+            name: name,
+            id: id,
+            dependencies: dependencies
+        };
+        let msg_id = genUUID();
+
+        await this.callPeer("add_blueprint", {msg_id, blueprint}, undefined, peerId);
+
+        return id;
     }
 
     async getInterface(serviceId: string, peerId?: string): Promise<Interface> {

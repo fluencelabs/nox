@@ -15,11 +15,9 @@
  */
 
 import {
-    createPeerAddress,
-    createRelayAddress,
     Address, addressToString, parseAddress
 } from "./address";
-import * as PeerId from "peer-id";
+import { v4 as uuidv4 } from 'uuid';
 
 export interface FunctionCall {
     uuid: string,
@@ -92,8 +90,7 @@ export function parseFunctionCall(str: string): FunctionCall {
 }
 
 export function genUUID() {
-    let date = new Date();
-    return date.toISOString()
+    return uuidv4();
 }
 
 /**
