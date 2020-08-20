@@ -15,6 +15,19 @@
  */
 
 use faas_api::FunctionCall;
+use serde_json::Value;
+
+#[derive(Debug)]
+pub(super) struct WaitPublished {
+    pub(super) call: FunctionCall,
+    pub(super) reply: Option<Value>,
+}
+
+impl From<FunctionCall> for WaitPublished {
+    fn from(call: FunctionCall) -> Self {
+        WaitPublished { call, reply: None }
+    }
+}
 
 /// FunctionCall waiting for something happen with Address possible states
 #[derive(Debug)]
@@ -22,14 +35,21 @@ pub(super) enum WaitAddress {
     /// Waiting until provider for an address is resolved through DHT
     ProviderFound(FunctionCall),
     /// Waiting until provider for an address is published
-    Published(FunctionCall),
+    Published(WaitPublished),
 }
 
 impl WaitAddress {
     pub fn call(self) -> FunctionCall {
         match self {
             WaitAddress::ProviderFound(call) => call,
-            WaitAddress::Published(call) => call,
+            WaitAddress::Published(WaitPublished { call, .. }) => call,
+        }
+    }
+
+    pub fn reply(self) -> (FunctionCall, Option<Value>) {
+        match self {
+            WaitAddress::ProviderFound(call) => (call, None),
+            WaitAddress::Published(WaitPublished { call, reply }) => (call, reply),
         }
     }
 

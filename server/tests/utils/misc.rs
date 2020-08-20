@@ -147,13 +147,18 @@ pub fn add_module_call(
     }
 }
 
-pub fn add_blueprint_call(target: Address, sender: Address, blueprint: &Blueprint) -> FunctionCall {
+pub fn add_blueprint_call(
+    target: Address,
+    sender: Address,
+    blueprint_name: String,
+    dependencies: Vec<String>,
+) -> FunctionCall {
     FunctionCall {
         uuid: uuid(),
         target: Some(target),
         module: Some("add_blueprint".to_string()),
         reply_to: Some(sender.clone()),
-        arguments: json!({ "blueprint": blueprint }),
+        arguments: json!({ "blueprint": { "name": blueprint_name, "dependencies": dependencies } }),
         sender,
         ..<_>::default()
     }
@@ -250,17 +255,17 @@ impl ConnectedClient {
     }
 
     pub fn add_blueprint(&mut self, dependencies: Vec<String>) -> Blueprint {
-        let blueprint = Blueprint::new(uuid(), uuid(), dependencies);
-        let call = add_blueprint_call(self.node_addr(), self.relay_addr(), &blueprint);
+        let name = uuid();
+        let call = add_blueprint_call(
+            self.node_addr(),
+            self.relay_addr(),
+            name.clone(),
+            dependencies.clone(),
+        );
         self.send(call);
         let received = self.receive();
-        assert!(
-            received.arguments.get("ok").is_some(),
-            "blueprint add failed {:?}",
-            received
-        );
-
-        blueprint
+        let blueprint = received.arguments["result"]["blueprint"].clone();
+        serde_json::from_value(blueprint).expect("failed to decode blueprint")
     }
 
     pub fn create_service<S: AsRef<str>>(&mut self, target: Address, blueprint_id: S) -> String {

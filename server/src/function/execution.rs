@@ -28,6 +28,7 @@ use crate::function::builtin_service::{
     AddBlueprint, AddModule, CreateService, GetActiveInterfaces, GetAvailableBlueprints,
     GetAvailableModules,
 };
+use crate::function::wait_address::WaitPublished;
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_app_service::FaaSInterface;
 use libp2p::PeerId;
@@ -106,7 +107,7 @@ impl FunctionRouter {
                 self.publish_name(
                     provider!(name),
                     &self.config.local_address(),
-                    call.clone().into(),
+                    Some(call.clone().into()),
                 )
                 .map_err(|e| call.error(e))
             }
@@ -118,7 +119,11 @@ impl FunctionRouter {
 
                 // Become a provider for blueprint's name and id
                 let addr = &self.config.local_address();
-                self.publish_name(provider!(blueprint.id), addr, call.clone().into())
+                let call_reply = WaitPublished {
+                    call: call.clone(),
+                    reply: json!({ "blueprint": blueprint }).into(),
+                };
+                self.publish_name(provider!(blueprint.id), addr, call_reply.into())
                     .map_err(|e| call.clone().error(e))?;
                 // Call is None here to avoid sending several replies
                 self.publish_name(provider!(blueprint.name), addr, None)
@@ -253,7 +258,7 @@ impl FunctionRouter {
                 }
 
                 let uuid = call.uuid.clone();
-                self.publish_name(name.clone(), &provider, Some(call.clone()))
+                self.publish_name(name.clone(), &provider, Some(call.clone().into()))
                     .map_err(|e| call.clone().error(e))?;
 
                 log::info!("Published a service {}: {:?}", name, uuid);
