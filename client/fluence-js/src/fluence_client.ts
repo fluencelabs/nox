@@ -280,8 +280,8 @@ export class FluenceClient {
     async createService(peerId: string, blueprint: string): Promise<string> {
         let resp = await this.callPeer("create", {blueprint_id: blueprint}, undefined, peerId);
 
-        if (resp.result && resp.result.service_id) {
-            return resp.result.service_id
+        if (resp && resp.service_id) {
+            return resp.service_id
         } else {
             console.error("Unknown response type on `createService`: ", resp)
             throw new Error("Unknown response type on `createService`");
@@ -315,6 +315,16 @@ export class FluenceClient {
         }
     }
 
+    async getAvailableBlueprints(peerId?: string): Promise<string[]> {
+        let resp;
+        if (peerId) {
+            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_available_blueprints");
+        } else {
+            resp = await this.callPeer("get_available_blueprints", {}, undefined, peerId);
+        }
+        return resp.available_blueprints;
+    }
+
     async getActiveInterfaces(peerId?: string): Promise<Interface[]> {
         let resp;
         if (peerId) {
@@ -332,7 +342,7 @@ export class FluenceClient {
                 }
             });
         } else {
-            throw new Error("Unexpected");
+            throw new Error("Unexpected. 'get_active_interfaces' should return an array pf interfaces.");
         }
     }
 

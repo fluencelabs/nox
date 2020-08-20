@@ -197,6 +197,8 @@ export async function testUploadWasm() {
     let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
 
     let blueprintId = await cl1.addBlueprint(peerId1, "some test blueprint", [moduleName])
+    let blueprints = await cl1.getAvailableModules(peerId1)
+    console.log(blueprints);
 
     let serviceId = await cl1.createService(peerId1, blueprintId);
 
