@@ -227,7 +227,7 @@ impl FunctionRouter {
             .map(|c| c.reply());
         for (call, reply) in calls {
             let msg_id = call.msg_id().map(|s| s.to_string());
-            if let Err(e) = self.reply_with(call, msg_id, ("result", reply)) {
+            if let Err(e) = self.reply_with(call, msg_id, reply) {
                 log::warn!(
                     "Failed to send success reply after publish: {}",
                     e.err_msg()

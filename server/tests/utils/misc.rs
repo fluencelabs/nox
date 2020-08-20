@@ -264,7 +264,7 @@ impl ConnectedClient {
         );
         self.send(call);
         let received = self.receive();
-        let blueprint = received.arguments["result"]["blueprint"].clone();
+        let blueprint = received.arguments["blueprint"].clone();
         serde_json::from_value(blueprint).expect("failed to decode blueprint")
     }
 
@@ -272,7 +272,7 @@ impl ConnectedClient {
         let call = create_service_call(target, self.relay_addr(), blueprint_id);
         self.send(call);
         let received = self.receive();
-        received.arguments["result"]["service_id"]
+        received.arguments["service_id"]
             .as_str()
             .expect(format!("service creation failed: {:?}", received).as_str())
             .to_string()
