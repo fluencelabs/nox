@@ -22,13 +22,13 @@ import {
     ProtocolType,
     addressToString
 } from "./address";
-import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./function_call";
+import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./functionCall";
 import * as PeerId from "peer-id";
-import {Services} from "./services";
+import {LocalServices} from "./localServices";
 import Multiaddr from "multiaddr"
 import {Subscriptions} from "./subscriptions";
 import * as PeerInfo from "peer-info";
-import {FluenceConnection} from "./fluence_connection";
+import {FluenceConnection} from "./fluenceConnection";
 import {checkInterface, Interface} from "./Interface";
 
 /**
@@ -55,7 +55,7 @@ export class FluenceClient {
 
     private connection: FluenceConnection;
 
-    private services: Services = new Services();
+    private services: LocalServices = new LocalServices();
 
     private subscriptions: Subscriptions = new Subscriptions();
 

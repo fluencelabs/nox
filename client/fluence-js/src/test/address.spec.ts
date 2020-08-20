@@ -10,7 +10,7 @@ import {expect} from 'chai';
 import 'mocha';
 import {encode} from "bs58"
 import * as PeerId from "peer-id";
-import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../function_call";
+import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../functionCall";
 import Fluence from "../fluence";
 import {certificateFromString, certificateToString, issue} from "../trust/certificate";
 import {TrustGraph} from "../trust/trust_graph";
@@ -137,13 +137,13 @@ describe("Typescript usage suite", () => {
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it.skip("test upload wasm", async function () {
+    it("test upload wasm", async function () {
         this.timeout(15000);
         await testUploadWasm();
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it("test list of services and interfaces", async function () {
+    it.skip("test list of services and interfaces", async function () {
         this.timeout(15000);
         await testServicesAndInterfaces();
     });
@@ -218,10 +218,10 @@ export async function testServicesAndInterfaces() {
 
     let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
 
-    let blueprintId = await cl1.addBlueprint(peerId1, "some test blueprint", ["ipfs_node.wasm", "2020-08-10T11:19:36.127Z"])
+    let blueprintId = await cl1.addBlueprint(peerId1, "some test blueprint", ["ipfs_node"])
     let serviceId = await cl2.createService(peerId1, blueprintId);
 
-    let resp = await cl2.callService(peerId1, serviceId, "ipfs_node.wasm", {}, "get_address")
+    let resp = await cl2.callService(peerId1, serviceId, "ipfs_node", {}, "get_address")
     console.log(resp)
 
     let interfaces = await cl1.getActiveInterfaces();

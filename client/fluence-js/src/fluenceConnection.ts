@@ -22,7 +22,7 @@ import {
     makeFunctionCall,
     makeProvideMessage,
     parseFunctionCall
-} from "./function_call";
+} from "./functionCall";
 import * as PeerId from "peer-id";
 import * as PeerInfo from "peer-info";
 import Websockets from "libp2p-websockets";

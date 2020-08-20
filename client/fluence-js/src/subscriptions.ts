@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {FunctionCall} from "./function_call";
+import {FunctionCall} from "./functionCall";
 import {Address} from "./address";
 
 export class Subscriptions {
