@@ -27,6 +27,12 @@ export class Service {
         this.peerId = peerId;
     }
 
+    /**
+     *
+     * @param moduleId wich module in service to call
+     * @param args parameters to call service
+     * @param fname function name if existed
+     */
     async call(moduleId: string, args: any, fname?: string): Promise<any> {
         return this.client.callService(this.peerId, this.serviceId, moduleId, args, fname);
     }

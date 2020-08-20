@@ -137,7 +137,7 @@ describe("Typescript usage suite", () => {
     });
 
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
-    it("test upload wasm", async function () {
+    it.skip("test upload wasm", async function () {
         this.timeout(15000);
         await testUploadWasm();
     });
