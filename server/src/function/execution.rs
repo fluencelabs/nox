@@ -258,7 +258,12 @@ impl FunctionRouter {
                 }
 
                 let uuid = call.uuid.clone();
-                self.publish_name(name.clone(), &provider, Some(call.clone().into()))
+                let reply = WaitPublished {
+                    call: call.clone(),
+                    reply: Some(json!({"ok": {}})),
+                }
+                .into();
+                self.publish_name(name.clone(), &provider, reply)
                     .map_err(|e| call.clone().error(e))?;
 
                 log::info!("Published a service {}: {:?}", name, uuid);
