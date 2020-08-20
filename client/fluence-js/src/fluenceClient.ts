@@ -106,23 +106,6 @@ export class FluenceClient {
     }
 
     /**
-     * Send call and wait a response.
-     *
-     * @param target receiver
-     * @param args message in the call
-     * @param moduleId module name
-     * @param fname functin name
-     */
-    async sendCallWaitResponse(target: Address, args: any, moduleId?: string, fname?: string): Promise<any> {
-        let msgId = genUUID();
-        let predicate = this.getPredicate(msgId);
-        await this.sendCall({target: target, args: args, moduleId: moduleId, fname: fname, msgId: msgId});
-        return this.waitResponse(predicate, false);
-    }
-
-
-
-    /**
      * Send call and forget.
      *
      */
@@ -322,12 +305,8 @@ export class FluenceClient {
     }
 
     async getAvailableBlueprints(peerId?: string): Promise<Blueprint[]> {
-        let resp;
-        if (peerId) {
-            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_available_blueprints");
-        } else {
-            resp = await this.callPeer("get_available_blueprints", {}, undefined, peerId);
-        }
+        let resp = await this.callPeer("get_available_blueprints", {}, undefined);
+
         let blueprints = resp.available_blueprints;
 
         if (blueprints && blueprints instanceof Array) {
@@ -344,12 +323,8 @@ export class FluenceClient {
     }
 
     async getActiveInterfaces(peerId?: string): Promise<Interface[]> {
-        let resp;
-        if (peerId) {
-            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_active_interfaces");
-        } else {
-            resp = await this.callPeer("get_active_interfaces", {}, undefined, peerId);
-        }
+        let resp = await this.callPeer("get_active_interfaces", {}, undefined);
+
         let interfaces = resp.active_interfaces;
         if (interfaces && interfaces instanceof Array) {
             return interfaces.map((i: any) => {
@@ -365,13 +340,7 @@ export class FluenceClient {
     }
 
     async getAvailableModules(peerId?: string): Promise<string[]> {
-        let resp;
-        if (peerId) {
-            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_available_modules");
-        } else {
-            resp = await this.callPeer("get_available_modules", {}, undefined, peerId);
-        }
-
+        let resp = await this.callPeer("get_available_modules", {}, undefined, peerId);
         return resp.available_modules;
     }
 
@@ -397,12 +366,7 @@ export class FluenceClient {
                 preopened_files: preopened_files
             }
         }
-        let resp;
-        if (peerId) {
-            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {bytes: bytes, config: config}, "add_module");
-        } else {
-            resp = await this.callPeer("add_module", {bytes: bytes, config: config}, undefined, peerId);
-        }
+        let resp = await this.callPeer("add_module", {bytes: bytes, config: config}, undefined, peerId);
 
         return resp.available_modules;
     }
