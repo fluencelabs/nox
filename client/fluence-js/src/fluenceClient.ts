@@ -30,6 +30,8 @@ import {Subscriptions} from "./subscriptions";
 import * as PeerInfo from "peer-info";
 import {FluenceConnection} from "./fluenceConnection";
 import {checkInterface, Interface} from "./Interface";
+import {Service} from "./service";
+import {Blueprint, checkBlueprint} from "./blueprint";
 
 /**
  * @param target receiver
@@ -183,6 +185,10 @@ export class FluenceClient {
         return await this.waitResponse(predicate, false);
     }
 
+    getService(peerId: string, serviceId: string): Service {
+        return new Service(this, peerId, serviceId);
+    }
+
     /**
      * Handle incoming call.
      * If FunctionCall returns - we should send it as a response.
@@ -315,14 +321,26 @@ export class FluenceClient {
         }
     }
 
-    async getAvailableBlueprints(peerId?: string): Promise<string[]> {
+    async getAvailableBlueprints(peerId?: string): Promise<Blueprint[]> {
         let resp;
         if (peerId) {
             resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_available_blueprints");
         } else {
             resp = await this.callPeer("get_available_blueprints", {}, undefined, peerId);
         }
-        return resp.available_blueprints;
+        let blueprints = resp.available_blueprints;
+
+        if (blueprints && blueprints instanceof Array) {
+            return blueprints.map((b: any) => {
+                if (checkBlueprint(b)) {
+                    return b;
+                } else {
+                    throw new Error("Unexpected");
+                }
+            });
+        } else {
+            throw new Error("Unexpected. 'get_active_interfaces' should return an array of interfaces.");
+        }
     }
 
     async getActiveInterfaces(peerId?: string): Promise<Interface[]> {

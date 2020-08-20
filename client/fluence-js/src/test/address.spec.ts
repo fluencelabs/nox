@@ -197,13 +197,15 @@ export async function testUploadWasm() {
     let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
 
     let blueprintId = await cl1.addBlueprint(peerId1, "some test blueprint", [moduleName])
-    let blueprints = await cl1.getAvailableModules(peerId1)
+    let blueprints = await cl1.getAvailableBlueprints(peerId1)
     console.log(blueprints);
 
     let serviceId = await cl1.createService(peerId1, blueprintId);
 
+    let service = cl1.getService(peerId1, serviceId);
+
     let argName = genUUID();
-    let resp = await cl1.callService(peerId1, serviceId, moduleName, {name: argName}, "greeting")
+    let resp = await service.call(moduleName, {name: argName}, "greeting")
 
     expect(resp.result).to.be.equal(`Hi, ${argName}`)
 }
