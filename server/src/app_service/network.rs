@@ -94,12 +94,14 @@ impl NetworkBehaviour for AppServiceBehaviour {
             let (service, call, result): FutResult = result;
             // service could be None if creation failed
             if let Some(service) = service {
-                self.app_services.insert(service_id, service);
+                self.app_services.insert(service_id.clone(), service);
             }
 
             // If there's a call, then someone possibly waits for a result of creation
             if let Some(call) = call {
                 return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result)));
+            } else if let Err(err) = result {
+                log::warn!("Error in service {}: {:?}", service_id, err);
             }
         }
 

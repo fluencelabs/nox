@@ -100,6 +100,13 @@ pub struct CreateService {
     pub blueprint_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct GetAvailableBlueprints {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msg_id: Option<String>,
+}
+
 mod base64 {
     use serde::{Deserialize, Serialize, Serializer};
 
@@ -133,6 +140,7 @@ pub enum BuiltinService {
     AddModule(AddModule),
     AddBlueprint(AddBlueprint),
     CreateService(CreateService),
+    GetAvailableBlueprints(GetAvailableBlueprints),
 }
 
 #[derive(Debug)]
@@ -167,11 +175,12 @@ impl BuiltinService {
     const ADD_MODULE: &'static str = "add_module";
     const ADD_BLUEPRINT: &'static str = "add_blueprint";
     const CREATE_SERVICE: &'static str = "create";
+    const GET_AVAILABLE_BLUEPRINTS: &'static str = "get_available_blueprints";
     #[rustfmt::skip]
     const SERVICES: &'static [&'static str] = &[
         Self::PROVIDE, Self::CERTS, Self::ADD_CERTS, Self::IDENTIFY, Self::GET_INTERFACE,
         Self::GET_ACTIVE_INTERFACES, Self::GET_AVAILABLE_MODULES, Self::ADD_MODULE,
-        Self::ADD_BLUEPRINT, Self::CREATE_SERVICE
+        Self::ADD_BLUEPRINT, Self::CREATE_SERVICE, Self::GET_AVAILABLE_BLUEPRINTS,
     ];
 
     #[allow(clippy::needless_lifetimes)]
@@ -193,6 +202,7 @@ impl BuiltinService {
             Self::ADD_MODULE => AddModule(from_value(arguments)?),
             Self::ADD_BLUEPRINT => AddBlueprint(from_value(arguments)?),
             Self::CREATE_SERVICE => CreateService(from_value(arguments)?),
+            Self::GET_AVAILABLE_BLUEPRINTS => GetAvailableBlueprints(from_value(arguments)?),
             _ => return Err(BuiltinServiceError::UnknownService(service_id)),
         };
 
@@ -218,6 +228,7 @@ impl BuiltinService {
             BuiltinService::AddModule(_) => BuiltinService::ADD_MODULE,
             BuiltinService::AddBlueprint(_) => BuiltinService::ADD_BLUEPRINT,
             BuiltinService::CreateService(_) => BuiltinService::CREATE_SERVICE,
+            BuiltinService::GetAvailableBlueprints(_) => BuiltinService::GET_AVAILABLE_BLUEPRINTS,
         };
 
         (service_id, json!(self))
