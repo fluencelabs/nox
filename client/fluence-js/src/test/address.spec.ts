@@ -10,7 +10,7 @@ import {expect} from 'chai';
 import 'mocha';
 import {encode} from "bs58"
 import * as PeerId from "peer-id";
-import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../function_call";
+import {callToString, genUUID, makeFunctionCall, parseFunctionCall} from "../functionCall";
 import Fluence from "../fluence";
 import {certificateFromString, certificateToString, issue} from "../trust/certificate";
 import {TrustGraph} from "../trust/trust_graph";
@@ -70,7 +70,6 @@ describe("Typescript usage suite", () => {
             "mm",
             "fff",
             addr,
-            undefined,
             "2444"
         );
 
@@ -197,10 +196,16 @@ export async function testUploadWasm() {
 
     let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
 
-    let serviceId = await cl1.createService(peerId1, [moduleName]);
+    let blueprintId = await cl1.addBlueprint(peerId1, "some test blueprint", [moduleName])
+    let blueprints = await cl1.getAvailableBlueprints(peerId1)
+    console.log(blueprints);
+
+    let serviceId = await cl1.createService(peerId1, blueprintId);
+
+    let service = cl1.getService(peerId1, serviceId);
 
     let argName = genUUID();
-    let resp = await cl1.callService(peerId1, serviceId, moduleName, {name: argName}, "greeting")
+    let resp = await service.call(moduleName, {name: argName}, "greeting")
 
     expect(resp.result).to.be.equal(`Hi, ${argName}`)
 }
@@ -215,9 +220,10 @@ export async function testServicesAndInterfaces() {
 
     let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
 
-    let serviceId = await cl2.createService(peerId1, ["ipfs_node.wasm"]);
+    let blueprintId = await cl1.addBlueprint(peerId1, "some test blueprint", ["ipfs_node"])
+    let serviceId = await cl2.createService(peerId1, blueprintId);
 
-    let resp = await cl2.callService(peerId1, serviceId, "ipfs_node.wasm", {}, "get_address")
+    let resp = await cl2.callService(peerId1, serviceId, "ipfs_node", {}, "get_address")
     console.log(resp)
 
     let interfaces = await cl1.getActiveInterfaces();

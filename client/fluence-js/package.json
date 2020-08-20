@@ -1,6 +1,6 @@
 {
   "name": "fluence",
-  "version": "0.7.3",
+  "version": "0.7.6",
   "description": "the browser js-libp2p client for the Fluence network",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
@@ -26,11 +26,13 @@
     "libp2p-secio": "0.12.5",
     "libp2p-websockets": "0.13.6",
     "peer-id": "0.13.12",
-    "peer-info": "0.17.5"
+    "peer-info": "0.17.5",
+    "uuid": "8.3.0"
   },
   "devDependencies": {
     "@types/base64-js": "1.2.5",
     "@types/bs58": "4.0.1",
+    "@types/uuid": "8.3.0",
     "@types/chai": "4.2.11",
     "@types/mocha": "7.0.2",
     "assert": "2.0.0",

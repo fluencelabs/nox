@@ -22,7 +22,7 @@ import {
     makeFunctionCall,
     makeProvideMessage,
     parseFunctionCall
-} from "./function_call";
+} from "./functionCall";
 import * as PeerId from "peer-id";
 import * as PeerInfo from "peer-info";
 import Websockets from "libp2p-websockets";
@@ -162,13 +162,13 @@ export class FluenceConnection {
     /**
      * Send FunctionCall to the connected node.
      */
-    async sendFunctionCall(target: Address, args: any, moduleId?: string, fname?: string, msgId?: string, context?: string[], name?: string) {
+    async sendFunctionCall(target: Address, args: any, moduleId?: string, fname?: string, msgId?: string, name?: string) {
         this.checkConnectedOrThrow();
 
         let replyTo;
         if (msgId) replyTo = this.makeReplyTo(msgId);
 
-        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, context, name);
+        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, name);
 
         await this.sendCall(call);
     }

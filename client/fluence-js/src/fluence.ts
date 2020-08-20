@@ -17,7 +17,7 @@
 import * as PeerInfo from "peer-info";
 import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
-import {FluenceClient} from "./fluence_client";
+import {FluenceClient} from "./fluenceClient";
 
 
 export default class Fluence {

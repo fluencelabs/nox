@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import {FunctionCall} from "./function_call";
+import {FunctionCall} from "./functionCall";
 
-export class Services {
+export class LocalServices {
 
     private services: Map<string, (req: FunctionCall) => void> = new Map();
 
