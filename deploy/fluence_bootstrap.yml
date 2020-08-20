@@ -21,8 +21,9 @@ services:
       - "4001:4001" # IPFS Swarm
       - "5001:5001" # IPFS API
     command: "-c /Config.toml -k /node.key -b /ip4/$HOST/tcp/7770 -x $HOST -t 7100 -w 9100 -e IPFS_ADDR=$IPFS_ADDR"
-    volumes:
-      - $PWD/ipfs_node.wasm:/wasm_modules/ipfs_node.wasm
+#    volumes:
+#      - $PWD/ipfs_node.wasm:/.fluence/services/modules/ipfs_node.wasm
+#      - $PWD/ipfs_node_config.toml:/.fluence/services/modules/ipfs_node_config.toml
     environment:
       HOST: "$HOST"
       RUST_BACKTRACE: "full"

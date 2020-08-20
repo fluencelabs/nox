@@ -30,30 +30,3 @@ GojUFhCTnaRhe8vggPXpyF3pCeNoGtYyjM2yNy3xeBdk = 4
 C5yYMcMCt94u51GXWru9MKFHGcgJQ29jDzhANX7iNATU = 4
 AmsnWkUnbbdPPLHx7wjW4aNQQn1Xkv7Y1AAS3Lfnhguo = 4
 2o7wirW2bEj6zSP6BZ3WPyiuGkzdHW2kLYDGdfzck2SH = 4
-
-[faas]
-modules_dir = "/wasm_modules"
-service_base_dir = ""
-
-[[faas.module]]
-    name = "ipfs_node.wasm"
-    mem_pages_count = 100
-    logger_enabled = true
-
-    [faas.module.imports]
-    ipfs = "/usr/local/bin/ipfs"
-
-    [faas.module.wasi]
-    envs = []
-    preopened_files = ["/wasm_modules"]
-    mapped_dirs = { "tmp" = "/wasm_modules" }
-
-[faas.default]
-    mem_pages_count = 100
-    logger_enabled = true
-
-    [faas.default.wasi]
-    envs = []
-    preopened_files = ["/wasm_modules"]
-    mapped_dirs = { "tmp" = "/wasm_modules" }
-
