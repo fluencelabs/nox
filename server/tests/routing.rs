@@ -638,12 +638,16 @@ fn add_module() {
     let service_id = client.create_service_local(blueprint.id);
     
     // Call new service
-    let mut call = client.local_faas_call("test_three", "greeting", service_id);
+    let mut call = client.local_faas_call("test_three", "greeting", service_id.clone());
     let payload = "Hello";
     call.arguments = Value::Array(vec![payload.to_string().into()]);
     client.send(call);
     let received = client.receive();
     assert_eq!(received.arguments["result"].as_str().unwrap(), payload);
+    
+    // Check interface
+    let interface = client.get_interface(&service_id);
+    assert_eq!(interface.service.modules.len(), 2);
 }
 
 fn swarms_with_tmp_dirs(n: usize, tmp_dirs: &[PathBuf]) -> Vec<CreatedSwarm> {

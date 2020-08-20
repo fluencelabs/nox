@@ -324,6 +324,15 @@ impl ConnectedClient {
         serde_json::from_value(received.arguments["active_interfaces"].clone())
             .expect("get interfaces")
     }
+
+    pub fn get_interface(&mut self, service_id: &str) -> Service {
+        let mut call = self.local_service_call("get_interface");
+        call.arguments = json!({ "service_id": service_id });
+        self.send(call);
+        let received = self.receive();
+
+        serde_json::from_value(received.arguments["interface"].clone()).expect("get interface")
+    }
 }
 
 pub fn uuid() -> String {
