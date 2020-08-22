@@ -276,6 +276,7 @@ mod tests {
             module: module.to_string(),
             function: function.to_string(),
             arguments: serde_json::json!([argument]),
+            call_parameters: <_>::default(),
             call: <_>::default(),
         });
 
