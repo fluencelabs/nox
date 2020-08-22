@@ -42,6 +42,7 @@ impl ProtocolConfig {
             module: None,
             fname: None,
             arguments: json!({ "data": data }),
+            call_parameters: <_>::default(),
             name: Some(err.to_string()),
             sender: self.local_address.clone(),
         })

@@ -86,11 +86,18 @@ impl FunctionRouter {
             }));
         }
 
+        let call_parameters = call
+            .call_parameters
+            .as_ref()
+            .ok_or_else(|| e(MissingCallParameters))?
+            .clone();
+
         let faas_call = ServiceCall::Call {
             service_id,
             module,
             function: function.to_string(),
             arguments: call.arguments.clone(),
+            call_parameters,
             call,
         };
 

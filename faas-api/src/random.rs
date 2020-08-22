@@ -80,6 +80,16 @@ impl FunctionCall {
                 None
             }
         };
+        let maybe_call_parameters = || {
+            if rand::random() {
+                Some(fluence_app_service::CallParameters {
+                    call_id: rnd_str(),
+                    user_name: rnd_str(),
+                })
+            } else {
+                None
+            }
+        };
         Self {
             uuid: Uuid::new_v4().to_string(),
             target: Address::random().into(),
@@ -87,6 +97,7 @@ impl FunctionCall {
             module: maybe_str(),
             fname: maybe_str(),
             arguments: json!({ rnd_str(): rnd_str() }),
+            call_parameters: maybe_call_parameters(),
             name: maybe_str(),
             sender: Address::random(),
         }

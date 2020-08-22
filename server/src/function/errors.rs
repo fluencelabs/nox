@@ -42,6 +42,7 @@ impl CallError {
             CallErrorKind::MissingFunctionName { module } => {
                 format!("missing function name, module was {}", module)
             }
+            CallErrorKind::MissingCallParameters => format!("missing call parameters"),
             CallErrorKind::FunctionNotFound { module, function } => {
                 format!("function {} not found on module {}", function, module)
             }
@@ -88,6 +89,7 @@ impl CallError {
 
 pub enum CallErrorKind {
     MissingFunctionName { module: String },
+    MissingCallParameters,
     FunctionNotFound { module: String, function: String },
     ResultSerializationFailed(String),
     BuiltinServiceError(builtin_service::BuiltinServiceError),

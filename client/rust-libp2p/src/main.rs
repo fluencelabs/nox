@@ -191,6 +191,10 @@ fn print_example(node: Address, reply_to: Address) {
             module: Some("provide".into()),
             fname: None,
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
+            call_parameters: Some(faas_api::CallParameters {
+                call_id: String::from("0x1337"),
+                user_name: String::from("root"),
+            }),
             name: Some("call identify".to_string()),
             sender: reply_to,
         },

@@ -35,6 +35,8 @@ mod libp2p_protocol {
 }
 mod random;
 
+pub use fluence_app_service::CallParameters;
+
 pub use address::{Address, AddressError};
 pub use address_protocol::Protocol;
 pub use call::FunctionCall;
