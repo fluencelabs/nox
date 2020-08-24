@@ -194,6 +194,7 @@ fn print_example(node: Address, reply_to: Address) {
             call_parameters: Some(faas_api::CallParameters {
                 call_id: String::from("0x1337"),
                 user_name: String::from("root"),
+                application_id: String::from("0x31337"),
             }),
             name: Some("call identify".to_string()),
             sender: reply_to,

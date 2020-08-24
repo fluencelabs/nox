@@ -86,11 +86,15 @@ impl FunctionRouter {
             }));
         }
 
+        let call_parameters = call.call_parameters.clone().unwrap_or_default();
+        // TODO: uncomment when frontend is ready
+        /*
         let call_parameters = call
             .call_parameters
             .as_ref()
             .ok_or_else(|| e(MissingCallParameters))?
             .clone();
+         */
 
         let faas_call = ServiceCall::Call {
             service_id,

@@ -85,6 +85,7 @@ impl FunctionCall {
                 Some(fluence_app_service::CallParameters {
                     call_id: rnd_str(),
                     user_name: rnd_str(),
+                    application_id: rnd_str(),
                 })
             } else {
                 None
