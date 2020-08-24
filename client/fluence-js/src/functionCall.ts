@@ -15,11 +15,9 @@
  */
 
 import {
-    createPeerAddress,
-    createRelayAddress,
     Address, addressToString, parseAddress
 } from "./address";
-import * as PeerId from "peer-id";
+import { v4 as uuidv4 } from 'uuid';
 
 export interface FunctionCall {
     uuid: string,
@@ -29,7 +27,6 @@ export interface FunctionCall {
     "module"?: string,
     fname?: string,
     arguments: any,
-    context?: string[],
     name?: string,
     action: "FunctionCall"
 }
@@ -47,7 +44,7 @@ export function callToString(call: FunctionCall) {
     return JSON.stringify(obj)
 }
 
-export function makeFunctionCall(uuid: string, target: Address, sender: Address, args: object, moduleId?: string, fname?: string, replyTo?: Address, context?: string[], name?: string): FunctionCall {
+export function makeFunctionCall(uuid: string, target: Address, sender: Address, args: object, moduleId?: string, fname?: string, replyTo?: Address, name?: string): FunctionCall {
 
     return {
         uuid: uuid,
@@ -57,7 +54,6 @@ export function makeFunctionCall(uuid: string, target: Address, sender: Address,
         "module": moduleId,
         fname: fname,
         arguments: args,
-        context: context,
         name: name,
         action: "FunctionCall"
     }
@@ -83,7 +79,6 @@ export function parseFunctionCall(str: string): FunctionCall {
         reply_to: replyTo,
         sender: sender,
         arguments: json.arguments,
-        context: json.context,
         "module": json.module,
         fname: json.fname,
         name: json.name,
@@ -92,15 +87,14 @@ export function parseFunctionCall(str: string): FunctionCall {
 }
 
 export function genUUID() {
-    let date = new Date();
-    return date.toISOString()
+    return uuidv4();
 }
 
 /**
  * Message to provide new name.
  */
 export async function makeProvideMessage(name: string, target: Address, sender: Address): Promise<FunctionCall> {
-    return makeFunctionCall(genUUID(), target, sender, {name: name, address: addressToString(sender)}, "provide", undefined, sender, undefined, "provide service_id");
+    return makeFunctionCall(genUUID(), target, sender, {name: name, address: addressToString(sender)}, "provide", undefined, sender, "provide service_id");
 }
 
 // TODO uncomment when this will be implemented in Fluence network

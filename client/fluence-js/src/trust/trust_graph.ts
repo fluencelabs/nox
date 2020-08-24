@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {FluenceClient} from "../fluence_client";
+import {FluenceClient} from "../fluenceClient";
 import {Certificate, certificateFromString, certificateToString} from "./certificate";
 
 // The client to interact with the Fluence trust graph API

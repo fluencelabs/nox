@@ -22,21 +22,22 @@ import {
     ProtocolType,
     addressToString
 } from "./address";
-import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./function_call";
+import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./functionCall";
 import * as PeerId from "peer-id";
-import {Services} from "./services";
+import {LocalServices} from "./localServices";
 import Multiaddr from "multiaddr"
 import {Subscriptions} from "./subscriptions";
 import * as PeerInfo from "peer-info";
-import {FluenceConnection} from "./fluence_connection";
+import {FluenceConnection} from "./fluenceConnection";
 import {checkInterface, Interface} from "./Interface";
+import {Service} from "./service";
+import {Blueprint, checkBlueprint} from "./blueprint";
 
 /**
  * @param target receiver
  * @param args message in the call
  * @param moduleId module name
  * @param fname function name
- * @param context list of modules to use with the request
  * @param name common field for debug purposes
  * @param msgId hash that will be added to replyTo address
  */
@@ -46,7 +47,6 @@ interface Call {
     moduleId?: string,
     fname?: string,
     msgId?: string,
-    context?: string[],
     name?: string
 }
 
@@ -57,7 +57,7 @@ export class FluenceClient {
 
     private connection: FluenceConnection;
 
-    private services: Services = new Services();
+    private services: LocalServices = new LocalServices();
 
     private subscriptions: Subscriptions = new Subscriptions();
 
@@ -106,29 +106,12 @@ export class FluenceClient {
     }
 
     /**
-     * Send call and wait a response.
-     *
-     * @param target receiver
-     * @param args message in the call
-     * @param moduleId module name
-     * @param fname functin name
-     */
-    async sendCallWaitResponse(target: Address, args: any, moduleId?: string, fname?: string): Promise<any> {
-        let msgId = genUUID();
-        let predicate = this.getPredicate(msgId);
-        await this.sendCall({target: target, args: args, moduleId: moduleId, fname: fname, msgId: msgId});
-        return this.waitResponse(predicate, false);
-    }
-
-
-
-    /**
      * Send call and forget.
      *
      */
     async sendCall(call: Call) {
         if (this.connection && this.connection.isConnected()) {
-            await this.connection.sendFunctionCall(call.target, call.args, call.moduleId, call.fname, call.msgId, call.context, call.name);
+            await this.connection.sendFunctionCall(call.target, call.args, call.moduleId, call.fname, call.msgId, call.name);
         } else {
             throw Error("client is not connected")
         }
@@ -158,10 +141,9 @@ export class FluenceClient {
      * @param addr node address
      * @param args message to the service
      * @param fname function name
-     * @param context
      * @param name debug info
      */
-    async callPeer(moduleId: string, args: any, fname?: string, addr?: string, context?: string[], name?: string): Promise<any> {
+    async callPeer(moduleId: string, args: any, fname?: string, addr?: string, name?: string): Promise<any> {
         let msgId = genUUID();
         let predicate = this.getPredicate(msgId);
 
@@ -172,7 +154,7 @@ export class FluenceClient {
             address = createPeerAddress(this.nodePeerIdStr);
         }
 
-        await this.sendCall({target: address, args: args, moduleId: moduleId, fname: fname, msgId: msgId, context: context, name: name})
+        await this.sendCall({target: address, args: args, moduleId: moduleId, fname: fname, msgId: msgId, name: name})
 
         return await this.waitResponse(predicate, false);
     }
@@ -184,6 +166,10 @@ export class FluenceClient {
 
         await this.sendCall({target: target, args: args, moduleId: moduleId, fname: fname, msgId: msgId});
         return await this.waitResponse(predicate, false);
+    }
+
+    getService(peerId: string, serviceId: string): Service {
+        return new Service(this, peerId, serviceId);
     }
 
     /**
@@ -280,15 +266,30 @@ export class FluenceClient {
     /**
      * Sends a call to create a service on remote node.
      */
-    async createService(peerId: string, context: string[]): Promise<string> {
-        let resp = await this.callPeer("create", {}, undefined, peerId, context);
+    async createService(peerId: string, blueprint: string): Promise<string> {
+        let resp = await this.callPeer("create", {blueprint_id: blueprint}, undefined, peerId);
 
-        if (resp.result && resp.result.service_id) {
-            return resp.result.service_id
+        if (resp && resp.service_id) {
+            return resp.service_id
         } else {
             console.error("Unknown response type on `createService`: ", resp)
             throw new Error("Unknown response type on `createService`");
         }
+    }
+
+    async addBlueprint(peerId: string, name: string, dependencies: string[]): Promise<string> {
+
+        let id = genUUID();
+        let blueprint = {
+            name: name,
+            id: id,
+            dependencies: dependencies
+        };
+        let msg_id = genUUID();
+
+        await this.callPeer("add_blueprint", {msg_id, blueprint}, undefined, peerId);
+
+        return id;
     }
 
     async getInterface(serviceId: string, peerId?: string): Promise<Interface> {
@@ -303,13 +304,27 @@ export class FluenceClient {
         }
     }
 
-    async getActiveInterfaces(peerId?: string): Promise<Interface[]> {
-        let resp;
-        if (peerId) {
-            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_active_interfaces");
+    async getAvailableBlueprints(peerId?: string): Promise<Blueprint[]> {
+        let resp = await this.callPeer("get_available_blueprints", {}, undefined);
+
+        let blueprints = resp.available_blueprints;
+
+        if (blueprints && blueprints instanceof Array) {
+            return blueprints.map((b: any) => {
+                if (checkBlueprint(b)) {
+                    return b;
+                } else {
+                    throw new Error("Unexpected");
+                }
+            });
         } else {
-            resp = await this.callPeer("get_active_interfaces", {}, undefined, peerId);
+            throw new Error("Unexpected. 'get_active_interfaces' should return an array of interfaces.");
         }
+    }
+
+    async getActiveInterfaces(peerId?: string): Promise<Interface[]> {
+        let resp = await this.callPeer("get_active_interfaces", {}, undefined);
+
         let interfaces = resp.active_interfaces;
         if (interfaces && interfaces instanceof Array) {
             return interfaces.map((i: any) => {
@@ -320,18 +335,12 @@ export class FluenceClient {
                 }
             });
         } else {
-            throw new Error("Unexpected");
+            throw new Error("Unexpected. 'get_active_interfaces' should return an array pf interfaces.");
         }
     }
 
     async getAvailableModules(peerId?: string): Promise<string[]> {
-        let resp;
-        if (peerId) {
-            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {}, "get_available_modules");
-        } else {
-            resp = await this.callPeer("get_available_modules", {}, undefined, peerId);
-        }
-
+        let resp = await this.callPeer("get_available_modules", {}, undefined, peerId);
         return resp.available_modules;
     }
 
@@ -357,12 +366,7 @@ export class FluenceClient {
                 preopened_files: preopened_files
             }
         }
-        let resp;
-        if (peerId) {
-            resp = await this.sendCallWaitResponse(createPeerAddress(peerId), {bytes: bytes, config: config}, "add_module");
-        } else {
-            resp = await this.callPeer("add_module", {bytes: bytes, config: config}, undefined, peerId);
-        }
+        let resp = await this.callPeer("add_module", {bytes: bytes, config: config}, undefined, peerId);
 
         return resp.available_modules;
     }
