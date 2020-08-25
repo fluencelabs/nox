@@ -28,6 +28,7 @@ use crate::function::builtin_service::{
     AddBlueprint, AddModule, CreateService, GetActiveInterfaces, GetAvailableBlueprints,
     GetAvailableModules,
 };
+use crate::function::wait_address::WaitPublished;
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_app_service::FaaSInterface;
 use libp2p::PeerId;
@@ -66,7 +67,7 @@ impl FunctionRouter {
             BS::Identify(Identify { msg_id }) => {
                 let addrs = &self.config.external_addresses;
                 let addrs: Vec<_> = addrs.iter().map(ToString::to_string).collect();
-                self.reply_with(call, msg_id, ("addresses", addrs))
+                self.reply_with(call, msg_id, json!({ "addresses": addrs }))
             }
             BS::GetInterface(GetInterface { msg_id, service_id }) => {
                 let service = self
@@ -78,7 +79,7 @@ impl FunctionRouter {
                     service
                 });
 
-                self.reply_with(call, msg_id, ("interface", json!(interface)))
+                self.reply_with(call, msg_id, json!({ "interface": interface }))
             }
             BuiltinService::GetActiveInterfaces(GetActiveInterfaces { msg_id }) => {
                 #[rustfmt::skip]
@@ -90,11 +91,11 @@ impl FunctionRouter {
                         json!(Service { service_id, service })
                     })
                     .collect();
-                self.reply_with(call, msg_id, ("active_interfaces", interfaces))
+                self.reply_with(call, msg_id, json!({ "active_interfaces": interfaces }))
             }
             BuiltinService::GetAvailableModules(GetAvailableModules { msg_id }) => {
                 let modules = json!(self.app_service.get_modules());
-                self.reply_with(call, msg_id, ("available_modules", modules))
+                self.reply_with(call, msg_id, json!({ "available_modules": modules }))
             }
             BuiltinService::AddModule(AddModule { bytes, config, .. }) => {
                 let name = config.name.clone();
@@ -103,12 +104,12 @@ impl FunctionRouter {
                 self.app_service.add_module(bytes, config).map_err(|e| call.clone().error(e))?;
 
                 // Publish it on success
-                self.publish_name(
-                    provider!(name),
-                    &self.config.local_address(),
-                    call.clone().into(),
-                )
-                .map_err(|e| call.error(e))
+                let reply = WaitPublished {
+                    call: call.clone(),
+                    reply: json!({"ok": {}}).into(),
+                };
+                self.publish_name(provider!(name), &self.config.local_address(), Some(reply))
+                    .map_err(|e| call.error(e))
             }
 
             BuiltinService::AddBlueprint(AddBlueprint { blueprint, .. }) => {
@@ -118,7 +119,11 @@ impl FunctionRouter {
 
                 // Become a provider for blueprint's name and id
                 let addr = &self.config.local_address();
-                self.publish_name(provider!(blueprint.id), addr, call.clone().into())
+                let call_reply = WaitPublished {
+                    call: call.clone(),
+                    reply: json!({ "blueprint": blueprint }).into(),
+                };
+                self.publish_name(provider!(blueprint.id), addr, call_reply.into())
                     .map_err(|e| call.clone().error(e))?;
                 // Call is None here to avoid sending several replies
                 self.publish_name(provider!(blueprint.name), addr, None)
@@ -134,7 +139,7 @@ impl FunctionRouter {
             }
             BuiltinService::GetAvailableBlueprints(GetAvailableBlueprints { msg_id }) => {
                 let blueprints = json!(self.app_service.get_blueprints());
-                self.reply_with(call, msg_id, ("available_blueprints", blueprints))
+                self.reply_with(call, msg_id, json!({ "available_blueprints": blueprints }))
             }
         }
     }
@@ -253,7 +258,12 @@ impl FunctionRouter {
                 }
 
                 let uuid = call.uuid.clone();
-                self.publish_name(name.clone(), &provider, Some(call.clone()))
+                let reply = WaitPublished {
+                    call: call.clone(),
+                    reply: Some(json!({"ok": {}})),
+                }
+                .into();
+                self.publish_name(name.clone(), &provider, reply)
                     .map_err(|e| call.clone().error(e))?;
 
                 log::info!("Published a service {}: {:?}", name, uuid);
@@ -282,7 +292,7 @@ impl FunctionRouter {
         &mut self,
         call: FunctionCall,
         msg_id: Option<String>,
-        data: (&str, T),
+        data: T,
     ) -> Result<(), CallError> {
         let reply_to = call.reply_to.clone();
         let reply_to = reply_to.ok_or_else(|| call.error(MissingReplyTo))?;
@@ -290,9 +300,14 @@ impl FunctionRouter {
         let mut args = serde_json::Map::new();
 
         // Include `data` if it's not empty
-        let value = json!(data.1);
-        if !value.is_null() {
-            args.insert(data.0.into(), value);
+        let value = json!(data);
+        match value {
+            Value::Null => {}
+            // flatten object
+            Value::Object(map) => args.extend(map),
+            other => {
+                args.insert("result".to_string(), other);
+            }
         }
 
         // Include `msg_id` if it's not empty

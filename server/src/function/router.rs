@@ -296,6 +296,7 @@ impl FunctionRouter {
 
     /// Send call with uuid `error_$uuid` to `call.reply_to`, if it's defined
     /// Keep `call.name`, put `reason` and `call` in arguments
+    /// TODO: reason should be json::Value containing structured errors: code, data, etc
     pub(super) fn send_error_on_call(&mut self, call: FunctionCall, reason: String) {
         use serde_json::json;
 

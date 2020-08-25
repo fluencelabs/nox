@@ -1,0 +1,11 @@
+name = "ipfs_node"
+mem_pages_count = 100
+logger_enabled = true
+
+[faas.module.imports]
+ipfs = "/usr/local/bin/ipfs"
+
+[faas.module.wasi]
+envs = []
+preopened_files = ["/wasm_modules"]
+mapped_dirs = { "tmp" = "/wasm_modules" }

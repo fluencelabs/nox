@@ -17,15 +17,14 @@
 #![allow(clippy::mutable_key_type)]
 
 use crate::function::provider_record::ProviderRecord;
-use crate::function::wait_address::WaitAddress;
+use crate::function::wait_address::{WaitAddress, WaitPublished};
 use crate::kademlia;
 use crate::FunctionRouter;
-use faas_api::{Address, AddressError, FunctionCall};
+use faas_api::{Address, AddressError};
 use libp2p::{
     kad::record::{Key, Record},
     kad::{PutRecordError, Quorum},
 };
-use serde_json::json;
 use std::num::NonZeroUsize;
 use std::{collections::HashSet, convert::TryInto};
 
@@ -206,7 +205,7 @@ impl FunctionRouter {
         &mut self,
         name: Address,
         provider: &Address,
-        call: Option<FunctionCall>,
+        call: Option<WaitPublished>,
     ) -> Result<(), libp2p::kad::store::Error> {
         if let Some(call) = call {
             self.wait_address
@@ -225,10 +224,10 @@ impl FunctionRouter {
         let calls = self
             .wait_address
             .remove_with(name, WaitAddress::published)
-            .map(|c| c.call());
-        for call in calls {
+            .map(|c| c.reply());
+        for (call, reply) in calls {
             let msg_id = call.msg_id().map(|s| s.to_string());
-            if let Err(e) = self.reply_with(call, msg_id, ("ok", json!({}))) {
+            if let Err(e) = self.reply_with(call, msg_id, reply) {
                 log::warn!(
                     "Failed to send success reply after publish: {}",
                     e.err_msg()

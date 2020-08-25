@@ -21,6 +21,7 @@ use crate::function::wait_address::WaitAddress;
 use crate::function::{CallError, CallErrorKind::*, ErrorData};
 use faas_api::{Address, FunctionCall, Protocol};
 use libp2p::PeerId;
+use serde_json::json;
 use std::collections::HashSet;
 
 type CallResult<T> = std::result::Result<T, CallError>;
@@ -233,15 +234,9 @@ impl FunctionRouter {
         call: FunctionCall,
         result: Result<ServiceCallResult, ServiceExecError>,
     ) -> Result<(), CallError> {
-        use serde_json::Value;
-
         let data = match result {
-            Ok(result) => {
-                let result = serde_json::to_value(result)
-                    .map_err(|e| call.clone().error(ResultSerializationFailed(e.to_string())))?;
-                ("result", result)
-            }
-            Err(error) => ("error", Value::String(error.to_string())),
+            Ok(result) => json!(result),
+            Err(error) => json!({ "error": error.to_string() }),
         };
         self.reply_with(call, None, data)?;
 

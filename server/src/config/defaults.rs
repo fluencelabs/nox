@@ -22,8 +22,7 @@ use std::time::Duration;
 pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
 pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
 pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
-pub const DEFAULT_BLUEPRINT_DIR: &str = "./.fluence/blueprints";
-pub const DEFAULT_SERVICES_WORKDIR: &str = "./.fluence/services";
+pub const DEFAULT_SERVICES_BASE_DIR: &str = "./.fluence/services";
 
 pub fn default_tcp_port() -> u16 {
     7777
@@ -46,9 +45,7 @@ pub fn default_prometheus_port() -> u16 {
 pub fn default_cert_dir() -> String {
     DEFAULT_CERT_DIR.into()
 }
-pub fn default_blueprint_dir() -> PathBuf {
-    DEFAULT_BLUEPRINT_DIR.into()
-}
-pub fn default_services_workdir() -> PathBuf {
-    DEFAULT_SERVICES_WORKDIR.into()
+
+pub fn default_services_basedir() -> PathBuf {
+    DEFAULT_SERVICES_BASE_DIR.into()
 }

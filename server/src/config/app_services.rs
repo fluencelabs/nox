@@ -14,21 +14,17 @@
  * limitations under the License.
  */
 
-use super::defaults::{default_blueprint_dir, default_services_workdir};
-use serde::Deserialize;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct AppServicesConfig {
     /// Path of the blueprint directory containing blueprints and wasm modules
-    #[serde(default = "default_blueprint_dir")]
     pub blueprint_dir: PathBuf,
     /// Opaque environment variables to be passed on each service creation
     /// TODO: isolate envs of different modules (i.e., module A shouldn't access envs of module B)
     pub service_envs: Vec<String>,
     /// Working dir for services
-    #[serde(default = "default_services_workdir")]
     pub workdir: PathBuf,
     /// Dir to store .wasm modules and their configs
     pub modules_dir: PathBuf,
