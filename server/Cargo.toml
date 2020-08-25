@@ -9,7 +9,7 @@ trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
 faas-api = { path = "../faas-api" }
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce" }
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 multihash ="0.11.0"
