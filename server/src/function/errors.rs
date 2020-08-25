@@ -45,9 +45,6 @@ impl CallError {
             CallErrorKind::FunctionNotFound { module, function } => {
                 format!("function {} not found on module {}", function, module)
             }
-            CallErrorKind::ResultSerializationFailed(err_msg) => {
-                format!("failed to serialize result: {}", err_msg)
-            }
             CallErrorKind::BuiltinServiceError(err) => format!("builtin service failure: {}", err),
             CallErrorKind::AppServiceError(err) => {
                 format!("faas service execution failure: {}", err)
@@ -89,7 +86,6 @@ impl CallError {
 pub enum CallErrorKind {
     MissingFunctionName { module: String },
     FunctionNotFound { module: String, function: String },
-    ResultSerializationFailed(String),
     BuiltinServiceError(builtin_service::BuiltinServiceError),
     AppServiceError(AppServiceError),
     Signature(SignatureError),

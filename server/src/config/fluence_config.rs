@@ -59,7 +59,9 @@ pub struct FluenceConfig {
     pub root_key_pair: KeyPair,
     pub root_weights: HashMap<PublicKeyHashable, u32>,
     /// Base directory for resources needed by application services
+    #[serde(default = "default_services_basedir")]
     pub services_base_dir: PathBuf,
+    #[serde(default = "Vec::new")]
     pub service_envs: Vec<String>,
 }
 
