@@ -1165,7 +1165,7 @@ checksum = "4bd3bdaaf0a72155260a1c098989b60db1cbb22d6a628e64f16237aa4da93cc7"
 [[package]]
 name = "fce"
 version = "0.1.1"
-source = "git+https://github.com/fluencelabs/fce?branch=call_params#b19be55345ccf36903502990c6e1995381e5272c"
+source = "git+https://github.com/fluencelabs/fce#5632d684ae42e957f2f856811cb15af798db3575"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1184,7 +1184,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=call_params#b19be55345ccf36903502990c6e1995381e5272c"
+source = "git+https://github.com/fluencelabs/fce#5632d684ae42e957f2f856811cb15af798db3575"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1193,7 +1193,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=call_params#b19be55345ccf36903502990c6e1995381e5272c"
+source = "git+https://github.com/fluencelabs/fce#5632d684ae42e957f2f856811cb15af798db3575"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1224,7 +1224,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=call_params#b19be55345ccf36903502990c6e1995381e5272c"
+source = "git+https://github.com/fluencelabs/fce#5632d684ae42e957f2f856811cb15af798db3575"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1269,12 +1269,13 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=call_params#b19be55345ccf36903502990c6e1995381e5272c"
+source = "git+https://github.com/fluencelabs/fce#5632d684ae42e957f2f856811cb15af798db3575"
 dependencies = [
  "cmd_lib",
  "fce",
  "fluence-sdk-main",
  "log",
+ "safe-transmute",
  "serde 1.0.115",
  "serde_derive",
  "serde_json",
@@ -1306,7 +1307,7 @@ dependencies = [
 [[package]]
 name = "fluence-sdk-macro"
 version = "0.2.0"
-source = "git+https://github.com/fluencelabs/rust-sdk?branch=call_parameters#d1f092e6eb793bde7c726b60cba1c2d8217f1db0"
+source = "git+https://github.com/fluencelabs/rust-sdk#d0db9a365f68046e3fe8d2ae19badb988c68ea3f"
 dependencies = [
  "fluence-sdk-wit",
 ]
@@ -1314,7 +1315,7 @@ dependencies = [
 [[package]]
 name = "fluence-sdk-main"
 version = "0.2.0"
-source = "git+https://github.com/fluencelabs/rust-sdk?branch=call_parameters#d1f092e6eb793bde7c726b60cba1c2d8217f1db0"
+source = "git+https://github.com/fluencelabs/rust-sdk#d0db9a365f68046e3fe8d2ae19badb988c68ea3f"
 dependencies = [
  "fluence-sdk-macro",
  "log",
@@ -1324,7 +1325,7 @@ dependencies = [
 [[package]]
 name = "fluence-sdk-wit"
 version = "0.2.0"
-source = "git+https://github.com/fluencelabs/rust-sdk?branch=call_parameters#d1f092e6eb793bde7c726b60cba1c2d8217f1db0"
+source = "git+https://github.com/fluencelabs/rust-sdk#d0db9a365f68046e3fe8d2ae19badb988c68ea3f"
 dependencies = [
  "proc-macro2",
  "quote",
