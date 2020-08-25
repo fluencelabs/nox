@@ -314,7 +314,6 @@ impl FunctionRouter {
                 module: None,
                 fname: None,
                 arguments,
-                call_parameters: None,
                 name: call.name,
                 sender: self.config.local_address(),
             };

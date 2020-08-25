@@ -15,7 +15,6 @@
  */
 
 use crate::Address;
-use fluence_app_service::CallParameters;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -33,7 +32,6 @@ pub struct FunctionCall {
         skip_serializing_if = "serde_json::Value::is_null"
     )]
     pub arguments: serde_json::Value, //TODO: make it Option<String>?
-    pub call_parameters: Option<CallParameters>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub sender: Address,
@@ -49,7 +47,6 @@ impl Default for FunctionCall {
             module: None,
             fname: None,
             arguments: empty_obj(),
-            call_parameters: <_>::default(),
             name: None,
             sender: Default::default(),
         }
@@ -75,7 +72,6 @@ impl FunctionCall {
             module: None,
             fname: None,
             arguments,
-            call_parameters: None,
             name: name.into(),
             sender,
         }

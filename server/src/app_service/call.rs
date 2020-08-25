@@ -33,8 +33,6 @@ pub enum ServiceCall {
         /// Arguments for the function
         // TODO: change to Vec<u8> in future?
         arguments: serde_json::Value,
-        /// Call parameters to pass to loaded Wasm modules
-        call_parameters: fluence_app_service::CallParameters,
         /// FunctionCall that caused this WasmCall, returned to caller as is
         call: FunctionCall,
     },
