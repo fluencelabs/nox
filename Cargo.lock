@@ -1112,7 +1112,6 @@ dependencies = [
  "base64 0.11.0",
  "bs58",
  "failure",
- "fluence-app-service",
  "fluence-libp2p",
  "futures",
  "futures-util",
