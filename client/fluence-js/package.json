@@ -1,6 +1,6 @@
 {
   "name": "fluence",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "description": "the browser js-libp2p client for the Fluence network",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
@@ -21,12 +21,11 @@
     "cids": "0.8.1",
     "it-length-prefixed": "3.0.1",
     "it-pipe": "1.1.0",
-    "libp2p": "0.27.4",
+    "libp2p": "0.28.3",
     "libp2p-mplex": "0.9.5",
     "libp2p-secio": "0.12.5",
     "libp2p-websockets": "0.13.6",
     "peer-id": "0.13.12",
-    "peer-info": "0.17.5",
     "uuid": "8.3.0"
   },
   "devDependencies": {
@@ -38,7 +37,7 @@
     "assert": "2.0.0",
     "chai": "4.2.0",
     "clean-webpack-plugin": "3.0.0",
-    "libp2p-ts": "https://github.com/fluencelabs/libp2p-ts.git",
+    "libp2p-ts": "https://github.com/ChainSafe/libp2p-ts.git",
     "mocha": "7.2.0",
     "ts-loader": "7.0.5",
     "ts-mocha": "7.0.0",
