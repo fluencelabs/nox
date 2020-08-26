@@ -23,8 +23,7 @@ import {
     makeProvideMessage,
     parseFunctionCall
 } from "./functionCall";
-import * as PeerId from "peer-id";
-import * as PeerInfo from "peer-info";
+
 import Websockets from "libp2p-websockets";
 import Mplex from "libp2p-mplex";
 import SECIO from "libp2p-secio";
@@ -32,6 +31,7 @@ import Peer from "libp2p";
 import {decode, encode} from "it-length-prefixed";
 import pipe from "it-pipe";
 import Multiaddr from "multiaddr";
+import PeerId from "peer-id";
 
 export const PROTOCOL_NAME = '/fluence/faas/1.0.0';
 
@@ -43,18 +43,18 @@ enum Status {
 
 export class FluenceConnection {
 
-    private readonly selfPeerInfo: PeerInfo;
+    private readonly selfPeerId: PeerId;
     readonly sender: Address;
     private node: LibP2p;
     private readonly address: Multiaddr;
     readonly nodePeerId: PeerId;
-    private readonly selfPeerId: string;
+    private readonly selfPeerIdStr: string;
     private readonly handleCall: (call: FunctionCall) => FunctionCall | undefined;
 
-    constructor(multiaddr: Multiaddr, hostPeerId: PeerId, selfPeerInfo: PeerInfo, sender: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
-        this.selfPeerInfo = selfPeerInfo;
+    constructor(multiaddr: Multiaddr, hostPeerId: PeerId, selfPeerId: PeerId, sender: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
+        this.selfPeerId = selfPeerId;
         this.handleCall = handleCall;
-        this.selfPeerId = selfPeerInfo.id.toB58String();
+        this.selfPeerIdStr = selfPeerId.toB58String();
         this.address = multiaddr;
         this.nodePeerId = hostPeerId;
         this.sender = sender
@@ -71,9 +71,9 @@ export class FluenceConnection {
     }
 
     async connect() {
-        let peerInfo = this.selfPeerInfo;
+        let peerInfo = this.selfPeerId;
         this.node = await Peer.create({
-            peerInfo,
+            peerId: peerInfo,
             config: {},
             modules: {
                 transport: [Websockets],
@@ -97,7 +97,7 @@ export class FluenceConnection {
         if (this.status === Status.Initializing) {
             await this.node.start();
 
-            console.log("dialing to the node with address: " + this.node.peerInfo.id.toB58String());
+            console.log("dialing to the node with address: " + this.node.peerId.toB58String());
 
             await this.node.dial(this.address);
 
@@ -110,7 +110,7 @@ export class FluenceConnection {
                     async function (source: AsyncIterable<string>) {
                         for await (const msg of source) {
                             try {
-                                console.log(_this.selfPeerId);
+                                console.log(_this.selfPeerIdStr);
                                 let call = parseFunctionCall(msg);
                                 let response = _this.handleCall(call);
 

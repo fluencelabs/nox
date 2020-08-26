@@ -27,7 +27,6 @@ import * as PeerId from "peer-id";
 import {LocalServices} from "./localServices";
 import Multiaddr from "multiaddr"
 import {Subscriptions} from "./subscriptions";
-import * as PeerInfo from "peer-info";
 import {FluenceConnection} from "./fluenceConnection";
 import {checkInterface, Interface} from "./Interface";
 import {Service} from "./service";
@@ -51,7 +50,7 @@ interface Call {
 }
 
 export class FluenceClient {
-    readonly selfPeerInfo: PeerInfo;
+    readonly selfPeerId: PeerId;
     readonly selfPeerIdStr: string;
     private nodePeerIdStr: string;
 
@@ -61,9 +60,9 @@ export class FluenceClient {
 
     private subscriptions: Subscriptions = new Subscriptions();
 
-    constructor(selfPeerInfo: PeerInfo) {
-        this.selfPeerInfo = selfPeerInfo;
-        this.selfPeerIdStr = selfPeerInfo.id.toB58String();
+    constructor(selfPeerId: PeerId) {
+        this.selfPeerId = selfPeerId;
+        this.selfPeerIdStr = selfPeerId.toB58String();
     }
 
     /**
@@ -305,7 +304,7 @@ export class FluenceClient {
     }
 
     async getAvailableBlueprints(peerId?: string): Promise<Blueprint[]> {
-        let resp = await this.callPeer("get_available_blueprints", {}, undefined);
+        let resp = await this.callPeer("get_available_blueprints", {}, undefined, peerId);
 
         let blueprints = resp.available_blueprints;
 
@@ -323,7 +322,7 @@ export class FluenceClient {
     }
 
     async getActiveInterfaces(peerId?: string): Promise<Interface[]> {
-        let resp = await this.callPeer("get_active_interfaces", {}, undefined);
+        let resp = await this.callPeer("get_active_interfaces", {}, undefined, peerId);
 
         let interfaces = resp.active_interfaces;
         if (interfaces && interfaces instanceof Array) {
@@ -417,8 +416,8 @@ export class FluenceClient {
         }
 
         let peerId = PeerId.createFromB58String(nodePeerId);
-        let relayAddress = await createRelayAddress(nodePeerId, this.selfPeerInfo.id, true);
-        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerInfo, relayAddress, this.handleCall());
+        let relayAddress = await createRelayAddress(nodePeerId, this.selfPeerId, true);
+        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, relayAddress, this.handleCall());
 
         await connection.connect();
 
