@@ -31,6 +31,7 @@ import {FluenceConnection} from "./fluenceConnection";
 import {checkInterface, Interface} from "./Interface";
 import {Service} from "./service";
 import {Blueprint, checkBlueprint} from "./blueprint";
+import * as log from 'loglevel';
 
 /**
  * @param target receiver
@@ -180,7 +181,7 @@ export class FluenceClient {
         let _this = this;
 
         return (call: FunctionCall) => {
-            console.log("FunctionCall received:");
+            log.debug("FunctionCall received:");
 
             // if other side return an error - handle it
             // TODO do it in the protocol
@@ -205,8 +206,8 @@ export class FluenceClient {
                     return undefined;
                 case ProtocolType.Client:
                     if (lastProtocol.value === _this.selfPeerIdStr) {
-                        console.log(`relay call:`);
-                        console.log(JSON.stringify(call, undefined, 2));
+                        log.debug(`relay call:`);
+                        log.debug(JSON.stringify(call, undefined, 2));
                         if (call.module) {
                             try {
                                 // call of the service, service should handle response sending, error handling, requests to other services
@@ -214,7 +215,7 @@ export class FluenceClient {
 
                                 // if the request hasn't been applied, there is no such service. Return an error.
                                 if (!applied) {
-                                    console.log(`there is no service ${lastProtocol.value}`);
+                                    log.warn(`there is no service ${lastProtocol.value}`);
                                     return this.responseCall(call.reply_to, {
                                         reason: `there is no such service`,
                                         msg: call
@@ -229,7 +230,7 @@ export class FluenceClient {
                             }
                         }
                     } else {
-                        console.warn(`this relay call is not for me: ${callToString(call)}`);
+                        log.warn(`this relay call is not for me: ${callToString(call)}`);
                         return this.responseCall(call.reply_to, {
                             reason: `this relay call is not for me`,
                             msg: call
@@ -238,9 +239,9 @@ export class FluenceClient {
                     return undefined;
                 case ProtocolType.Peer:
                     if (lastProtocol.value === this.selfPeerIdStr) {
-                        console.log(`peer call: ${call}`);
+                        log.debug(`peer call: ${call}`);
                     } else {
-                        console.warn(`this peer call is not for me: ${callToString(call)}`);
+                       log.warn(`this peer call is not for me: ${callToString(call)}`);
                         return this.responseCall(call.reply_to, {
                             reason: `this relay call is not for me`,
                             msg: call
@@ -265,18 +266,18 @@ export class FluenceClient {
     /**
      * Sends a call to create a service on remote node.
      */
-    async createService(peerId: string, blueprint: string): Promise<string> {
+    async createService(blueprint: string, peerId?: string): Promise<string> {
         let resp = await this.callPeer("create", {blueprint_id: blueprint}, undefined, peerId);
 
         if (resp && resp.service_id) {
             return resp.service_id
         } else {
-            console.error("Unknown response type on `createService`: ", resp)
+            log.error("Unknown response type on `createService`: ", resp)
             throw new Error("Unknown response type on `createService`");
         }
     }
 
-    async addBlueprint(peerId: string, name: string, dependencies: string[]): Promise<string> {
+    async addBlueprint(name: string, dependencies: string[], peerId?: string): Promise<string> {
 
         let id = genUUID();
         let blueprint = {
@@ -382,7 +383,7 @@ export class FluenceClient {
      */
     async unregisterService(moduleId: string) {
         if (this.services.deleteService(moduleId)) {
-            console.warn("unregister is not implemented yet (service: ${serviceId}")
+            log.warn("unregister is not implemented yet (service: ${serviceId}")
             // TODO unregister in fluence network when it will be supported
             // let regMsg = makeRegisterMessage(serviceId, PeerId.createFromB58String(this.nodePeerId));
             // await this.sendFunctionCall(regMsg);

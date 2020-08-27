@@ -18,6 +18,7 @@ import {
     Address, addressToString, parseAddress
 } from "./address";
 import { v4 as uuidv4 } from 'uuid';
+import * as log from 'loglevel';
 
 export interface FunctionCall {
     uuid: string,
@@ -61,7 +62,7 @@ export function makeFunctionCall(uuid: string, target: Address, sender: Address,
 
 export function parseFunctionCall(str: string): FunctionCall {
     let json = JSON.parse(str);
-    console.log(JSON.stringify(json, undefined, 2));
+    log.debug(JSON.stringify(json, undefined, 2));
 
     let replyTo: Address;
     if (json.reply_to) replyTo = parseAddress(json.reply_to);
