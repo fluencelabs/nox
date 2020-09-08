@@ -92,6 +92,7 @@ impl FunctionRouter {
             module,
             function: function.to_string(),
             arguments: call.arguments.clone(),
+            headers: call.headers.clone(),
             call,
         };
 

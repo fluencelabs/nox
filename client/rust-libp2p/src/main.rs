@@ -189,10 +189,10 @@ fn print_example(node: Address, reply_to: Address) {
             target: Some(node),
             reply_to: Some(reply_to.clone()),
             module: Some("provide".into()),
-            fname: None,
             arguments: json!({ "hash": "QmFile", "msg_id": time }),
             name: Some("call identify".to_string()),
             sender: reply_to,
+            ..<_>::default()
         },
     };
 

@@ -231,7 +231,7 @@ impl AppServiceBehaviour {
                 }
                 // Request to call function on an existing app service
                 #[rustfmt::skip]
-                ServiceCall::Call { service_id, module, function, arguments, call } => {
+                ServiceCall::Call { service_id, module, function, arguments, headers, call } => {
                     // Take existing service
                     let mut service = self
                         .app_services
@@ -240,7 +240,7 @@ impl AppServiceBehaviour {
                     let waker = self.waker.clone();
                     // Spawn a task that will call wasm function
                     let future = task::spawn_blocking(move || {
-                        let result = service.call(&module, &function, arguments, <_>::default());
+                        let result = service.call(&module, &function, arguments, headers);
                         let result = result.map(ServiceCallResult::Returned).map_err(|e| e.into());
                         // Wake when call finished to trigger poll()
                         Self::call_wake(waker);
