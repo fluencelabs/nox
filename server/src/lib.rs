@@ -109,8 +109,10 @@ pub mod app_service {
     mod call;
     mod error;
     mod files;
+    mod modules;
     mod network;
     mod persisted_service;
+    mod persistence;
     mod service;
 
     pub(crate) use call::{ServiceCall, ServiceCallResult};
@@ -118,6 +120,10 @@ pub mod app_service {
     pub(crate) use service::AppServiceBehaviour;
 
     pub use blueprint::Blueprint;
+}
+
+pub mod particle {
+    pub mod router;
 }
 
 pub(crate) use bootstrapper::Bootstrapper;

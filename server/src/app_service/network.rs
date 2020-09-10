@@ -19,40 +19,13 @@ use crate::app_service::ServiceCallResult;
 
 use faas_api::FunctionCall;
 
-use libp2p::{
-    core::connection::ConnectionId,
-    swarm::{
-        protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction,
-        PollParameters,
-    },
-    PeerId,
-};
-use parity_multiaddr::Multiaddr;
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
-use void::Void;
 
-impl NetworkBehaviour for AppServiceBehaviour {
-    type ProtocolsHandler = DummyProtocolsHandler;
-    type OutEvent = (FunctionCall, Result<ServiceCallResult>);
-
-    fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        Default::default()
-    }
-
-    fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
-        vec![]
-    }
-
-    fn inject_connected(&mut self, _: &PeerId) {}
-
-    fn inject_disconnected(&mut self, _: &PeerId) {}
-
-    fn inject_event(&mut self, _: PeerId, _: ConnectionId, _: Void) {}
-
+impl AppServiceBehaviour {
     /// Here you can see two thread pools are working together.
     /// First thread pool comes from libp2p, it calls this `poll`; `cx.waker` refers to that thread pool.
     /// Second thread pool comes from `async_std::task::spawn_blocking`, it executes `ServiceCall::Create` and `ServiceCall::Call`
@@ -69,11 +42,10 @@ impl NetworkBehaviour for AppServiceBehaviour {
     ///
     /// Note that each service executes only a single call at a time. For that purpose it is removed
     /// from `self.app_services` during execution, and inserted back once execution is finished.
-    fn poll(
+    pub fn poll(
         &mut self,
         cx: &mut Context<'_>,
-        _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<Void, Self::OutEvent>> {
+    ) -> Poll<(FunctionCall, Result<ServiceCallResult>)> {
         self.waker = Some(cx.waker().clone());
 
         // Check there is a completed call
@@ -99,7 +71,7 @@ impl NetworkBehaviour for AppServiceBehaviour {
 
             // If there's a call, then someone possibly waits for a result of creation
             if let Some(call) = call {
-                return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result)));
+                return Poll::Ready((call, result));
             } else if let Err(err) = result {
                 log::warn!("Error in service {}: {:?}", service_id, err);
             }
@@ -124,7 +96,7 @@ impl NetworkBehaviour for AppServiceBehaviour {
             // Put left work back to the queue
             self.calls.extend(new_work);
             // Return the error
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, Err(err))));
+            return Poll::Ready((call, Err(err)));
         }
 
         Poll::Pending
@@ -142,12 +114,53 @@ mod tests {
     use fluence_app_service::{IValue, RawModuleConfig};
     use futures::StreamExt;
     use futures::{executor::block_on, future::poll_fn};
-    use libp2p::core::transport::dummy::{DummyStream, DummyTransport};
-    use libp2p::mplex::Multiplex;
-    use libp2p::{PeerId, Swarm};
+    use libp2p::{
+        core::{
+            connection::ConnectionId,
+            transport::dummy::{DummyStream, DummyTransport},
+        },
+        mplex::Multiplex,
+        swarm::{
+            protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction,
+            PollParameters,
+        },
+        PeerId, Swarm,
+    };
+    use parity_multiaddr::Multiaddr;
     use rand::Rng;
     use serde_json::json;
     use std::path::{Path, PathBuf};
+    use void::Void;
+
+    impl NetworkBehaviour for AppServiceBehaviour {
+        type ProtocolsHandler = DummyProtocolsHandler;
+        type OutEvent = (FunctionCall, Result<ServiceCallResult>);
+
+        fn new_handler(&mut self) -> Self::ProtocolsHandler {
+            Default::default()
+        }
+
+        fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
+            vec![]
+        }
+
+        fn inject_connected(&mut self, _: &PeerId) {}
+
+        fn inject_disconnected(&mut self, _: &PeerId) {}
+
+        fn inject_event(&mut self, _: PeerId, _: ConnectionId, _: Void) {}
+
+        fn poll(
+            &mut self,
+            cx: &mut Context<'_>,
+            _: &mut impl PollParameters,
+        ) -> Poll<NetworkBehaviourAction<Void, Self::OutEvent>> {
+            match self.poll(cx) {
+                Poll::Ready(event) => Poll::Ready(NetworkBehaviourAction::GenerateEvent(event)),
+                Poll::Pending => Poll::Pending,
+            }
+        }
+    }
 
     fn uuid() -> String {
         uuid::Uuid::new_v4().to_string()

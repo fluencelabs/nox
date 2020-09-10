@@ -146,9 +146,7 @@ impl NetworkBehaviour for FunctionRouter {
 
         self.waker = Some(cx.waker().clone());
 
-        while let Poll::Ready(NetworkBehaviourAction::GenerateEvent((call, result))) =
-            self.app_service.poll(cx, params)
-        {
+        while let Poll::Ready((call, result)) = self.app_service.poll(cx) {
             if let Err(err) = self.send_app_service_result(call, result) {
                 let msg = err.err_msg();
                 self.send_error_on_call(err.call(), msg);
