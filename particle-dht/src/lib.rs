@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-pub(super) mod store {
-    pub(super) mod memory_store;
-    pub(super) mod record;
+pub(crate) mod store {
+    mod memory_store;
+    mod provider_record;
+    mod record;
 }
 
 mod dht;

@@ -3016,12 +3016,21 @@ dependencies = [
 [[package]]
 name = "particle-actors"
 version = "0.0.1"
+dependencies = [
+ "fluence-libp2p",
+ "futures",
+ "libp2p",
+ "parity-multiaddr",
+ "particle-protocol",
+]
 
 [[package]]
 name = "particle-dht"
 version = "0.0.1"
 dependencies = [
  "libp2p",
+ "once_cell",
+ "prost",
 ]
 
 [[package]]

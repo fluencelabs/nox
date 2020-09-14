@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::kademlia::memory_store::{MultiRecord, MultiRecordKind};
+use super::memory_store::{MultiRecord, MultiRecordKind};
 use libp2p::kad::record::Record;
 use libp2p::PeerId;
 use once_cell::sync::Lazy;

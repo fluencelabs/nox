@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::actors::plumber::Plumber;
+use crate::Plumber;
 use fluence_libp2p::generate_swarm_event_type;
 use futures::task::{Context, Poll};
 use libp2p::{

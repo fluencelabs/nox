@@ -40,6 +40,7 @@ use libp2p::kad::record::store::*;
 use libp2p::kad::record::{Key, ProviderRecord, Record};
 use libp2p::kad::K_VALUE;
 use libp2p::PeerId;
+use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::collections::{hash_map, hash_set, HashMap, HashSet};

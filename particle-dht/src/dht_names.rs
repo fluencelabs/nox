@@ -32,7 +32,7 @@ use std::{collections::HashSet, convert::TryInto};
 /// Number of nodes required to respond for DHT get operations
 const GET_QUORUM_N: usize = 3;
 
-impl DHT {
+impl ParticleDHT {
     /// Called when Kademlia failed to execute PutRecord.
     /// If at least 50% of required quorum was stored in DHT,
     /// then consider this a non-failure, and proceed as with success.
