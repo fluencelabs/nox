@@ -3000,6 +3000,7 @@ dependencies = [
  "log",
  "multihash",
  "parity-multiaddr",
+ "particle-protocol",
  "prometheus",
  "rand 0.7.3",
  "serde 1.0.116",

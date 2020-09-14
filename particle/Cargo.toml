@@ -8,6 +8,7 @@ edition = "2018"
 trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
+particle-protocol = { path = "../particle-protocol"}
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 multihash ="0.11.0"
