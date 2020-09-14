@@ -21,3 +21,5 @@ pub(super) mod store {
 
 mod dht;
 mod dht_names;
+
+pub use dht::ParticleDHT;

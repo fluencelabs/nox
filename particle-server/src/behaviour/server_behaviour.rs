@@ -23,6 +23,8 @@ use libp2p::{
     PeerId,
 };
 use parity_multiaddr::Multiaddr;
+use particle_actors::Plumber;
+use particle_dht::ParticleDHT;
 use prometheus::Registry;
 use std::collections::VecDeque;
 use trust_graph::TrustGraph;
@@ -35,6 +37,8 @@ pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
 pub struct ServerBehaviour {
     identity: Identify,
     ping: Ping,
+    plumber: Plumber,
+    dht: ParticleDHT,
     #[behaviour(ignore)]
     events: VecDeque<SwarmEventType>,
 }

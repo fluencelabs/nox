@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-use crate::store::memory_store::MemoryStore;
-use libp2p::kad::Kademlia;
+mod network;
+mod plumber;
 
-#[derive(libp2p::NetworkBehaviour)]
-pub struct ParticleDHT {
-    pub(super) kademlia: Kademlia<MemoryStore>,
-}
+pub use plumber::Plumber;

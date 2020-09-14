@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 
-pub(crate) struct Plumber {}
+pub struct Plumber {}

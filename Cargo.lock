@@ -3000,6 +3000,8 @@ dependencies = [
  "log",
  "multihash",
  "parity-multiaddr",
+ "particle-actors",
+ "particle-dht",
  "particle-protocol",
  "prometheus",
  "rand 0.7.3",
@@ -3010,6 +3012,10 @@ dependencies = [
  "trust-graph",
  "void",
 ]
+
+[[package]]
+name = "particle-actors"
+version = "0.0.1"
 
 [[package]]
 name = "particle-dht"
