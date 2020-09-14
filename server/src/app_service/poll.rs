@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-use crate::app_service::service::{AppServiceBehaviour, FutResult, Result};
-use crate::app_service::ServiceCallResult;
-
+use super::{
+    service::{AppServiceBehaviour, FutResult, Result},
+    ServiceCallResult,
+};
 use faas_api::FunctionCall;
 
+use futures::{channel::mpsc, Stream};
 use std::{
     future::Future,
     pin::Pin,
@@ -50,7 +52,6 @@ impl AppServiceBehaviour {
 
         // Check there is a completed call
         let mut result = None;
-        // let mut futures = std::mem::replace(&mut self.futures, HashMap::new());
         for (service_id, fut) in self.futures.iter_mut() {
             let fut = Pin::new(fut);
             if let Poll::Ready(r) = fut.poll(cx) {
@@ -75,6 +76,13 @@ impl AppServiceBehaviour {
             } else if let Err(err) = result {
                 log::warn!("Error in service {}: {:?}", service_id, err);
             }
+        }
+
+        // If there are some service calls from steppers, add them to the queue=
+        if let Poll::Ready(Some(call)) =
+            mpsc::UnboundedReceiver::poll_next(Pin::new(&mut self.intra_calls), cx)
+        {
+            self.execute(call)
         }
 
         // Check if there's a work and a matching service isn't busy
@@ -367,5 +375,39 @@ mod tests {
 
             swarm = s;
         }
+    }
+
+    #[test]
+    fn intra_call_service() {
+        let test_module = "test_module";
+        let mut swarm = make_swarm();
+        upload_modules(&mut swarm, &[(test_module, TEST_MODULE)]);
+        let (service_id, swarm) = create_app_service(swarm, &[test_module]);
+
+        let interface = swarm
+            .get_interface(service_id.as_str())
+            .expect("get interface");
+        assert_eq!(1, interface.modules.len());
+        assert_eq!(
+            &test_module,
+            &interface.modules.into_iter().next().unwrap().0
+        );
+
+        let payload = "Hello";
+        let call = ServiceCall::Call {
+            service_id,
+            module: test_module.to_string(),
+            function: "greeting".to_string(),
+            arguments: serde_json::json!([payload.to_string()]),
+            call: <_>::default(),
+        };
+        let closure = swarm.make_call_service();
+        closure(call);
+        let ((_, returned), _) = wait_result(swarm, Duration::from_millis(100));
+        let returned = match returned {
+            Ok(ServiceCallResult::Returned(r)) => r,
+            wrong => panic!("{:#?}", wrong),
+        };
+        assert_eq!(returned, vec![IValue::String(payload.to_string())]);
     }
 }

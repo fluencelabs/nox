@@ -110,9 +110,9 @@ pub mod app_service {
     mod error;
     mod files;
     mod modules;
-    mod network;
     mod persisted_service;
     mod persistence;
+    mod poll;
     mod service;
 
     pub(crate) use call::{ServiceCall, ServiceCallResult};

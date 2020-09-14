@@ -23,6 +23,7 @@ use fluence_app_service::{AppService, RawModuleConfig, RawModulesConfig};
 use crate::config::AppServicesConfig;
 use crate::function::{extract_client_id, extract_public_key};
 use async_std::task;
+use futures::channel::mpsc;
 use futures::future::BoxFuture;
 use libp2p::identity::PublicKey;
 use std::collections::HashMap;
@@ -51,16 +52,22 @@ pub struct AppServiceBehaviour {
     pub(super) futures: HashMap<String, Fut>,
     /// Config for service creation
     pub(super) config: AppServicesConfig,
+    pub(super) mailbox: mpsc::UnboundedSender<ServiceCall>,
+    pub(super) intra_calls: mpsc::UnboundedReceiver<ServiceCall>,
 }
 
 impl AppServiceBehaviour {
     pub fn new(config: AppServicesConfig) -> Self {
+        let (outlet, inlet) = mpsc::unbounded();
+
         Self {
             app_services: <_>::default(),
             calls: <_>::default(),
             waker: <_>::default(),
             futures: <_>::default(),
             config,
+            mailbox: outlet,
+            intra_calls: inlet,
         }
     }
 
@@ -171,8 +178,11 @@ impl AppServiceBehaviour {
                         .remove(&service_id)
                         .ok_or_else(|| (call.clone(), ServiceExecError::NoSuchInstance(service_id.clone())))?;
                     let waker = self.waker.clone();
+                    let call_service = self.make_call_service();
                     // Spawn a task that will call wasm function
                     let future = task::spawn_blocking(move || {
+                        // TODO: pass `call_service` to fce
+                        drop(call_service);
                         let result = service.call(&module, &function, arguments, headers);
                         let result = result.map(ServiceCallResult::Returned).map_err(|e| e.into());
                         // Wake when call finished to trigger poll()
@@ -188,6 +198,16 @@ impl AppServiceBehaviour {
                 }
             }
         })
+    }
+
+    #[allow(dead_code)]
+    pub(super) fn make_call_service(&self) -> impl Fn(ServiceCall) {
+        let mailbox = self.mailbox.clone();
+        move |call| {
+            mailbox.unbounded_send(call).expect(
+                "app service behaviour's mailbox was disconnected. shouldn't happen. panic!",
+            );
+        }
     }
 
     /// Calls wake on an optional waker
