@@ -6,7 +6,8 @@ members = [
     "crates/libp2p",
     "crates/ctrlc-adapter",
     "faas-api",
-    "particle"
+    "particle",
+    "particle-protocol"
 ]
 exclude = [
     "client/js-websocket/utils-wasm",
