@@ -139,7 +139,9 @@ impl NetworkBehaviour for ParticleBehaviour {
         use EitherOutput::{First, Second};
 
         match event {
-            First(event) => self.plumber.inject_event(peer_id, connection, event),
+            First(event) => {
+                NetworkBehaviour::inject_event(&mut self.plumber, peer_id, connection, event)
+            }
             Second(event) => {
                 NetworkBehaviour::inject_event(&mut self.dht, peer_id, connection, event)
             }

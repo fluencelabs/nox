@@ -3001,6 +3001,7 @@ dependencies = [
  "multihash",
  "parity-multiaddr",
  "particle-behaviour",
+ "particle-dht",
  "particle-protocol",
  "prometheus",
  "rand 0.7.3",
