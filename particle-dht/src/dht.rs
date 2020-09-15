@@ -51,11 +51,11 @@ impl ParticleDHT {
             cfg,
             trust_graph,
         );
-        /*
+
         if let Some(registry) = registry {
             kademlia.enable_metrics(registry);
         }
-        */
+
         Self { kademlia }
     }
 }
