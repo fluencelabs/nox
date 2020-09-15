@@ -3028,9 +3028,13 @@ dependencies = [
 name = "particle-dht"
 version = "0.0.1"
 dependencies = [
+ "bs58",
  "libp2p",
+ "log",
  "once_cell",
  "prost",
+ "serde_json",
+ "smallvec 1.4.2",
 ]
 
 [[package]]

@@ -17,6 +17,7 @@
 use libp2p::identity::ed25519::Keypair;
 use libp2p::PeerId;
 use prost::Message;
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub enum ProviderError {
@@ -41,9 +42,8 @@ pub struct ProviderRecord {
 
 impl ProviderRecord {
     // Create ProviderRecord, signing address path (without schema) with passed keypair
-    pub fn signed(address: &Address, kp: &Keypair) -> Self {
-        let address = address.path();
-        let signature = kp.sign(address.as_bytes());
+    pub fn signed(address: impl AsRef<[u8]> + Into<String>, kp: &Keypair) -> Self {
+        let signature = kp.sign(address.as_ref());
 
         Self {
             address: address.into(),
@@ -53,11 +53,15 @@ impl ProviderRecord {
 
     // Deserialize value to ProviderRecord, verify address and record author's signature.
     // Return provider Address.
-    pub fn deserialize_address(value: &[u8], publisher: &PeerId) -> Result<Address, ProviderError> {
+    pub fn deserialize_address<T: FromStr>(
+        value: &[u8],
+        publisher: &PeerId,
+    ) -> Result<T, ProviderError> {
+        /*
         use ProviderError::*;
 
         let provider: ProviderRecord = value.into();
-        let address: Address = provider.address.parse().map_err(Deserialization)?;
+        let address: T = provider.address.parse().map_err(Deserialization)?;
         let public = publisher.as_public_key().ok_or(NoPublisherKey)?;
         let sig = provider.signature.as_slice();
 
@@ -67,6 +71,8 @@ impl ProviderRecord {
         verify_address_signatures(&address).map_err(Signature)?;
 
         Ok(address)
+        */
+        unimplemented!()
     }
 }
 

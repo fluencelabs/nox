@@ -15,12 +15,11 @@
  */
 
 #![allow(clippy::mutable_key_type)]
-
-use crate::function::provider_record::ProviderRecord;
-use crate::function::wait_address::{WaitAddress, WaitPublished};
-use crate::kademlia;
-use crate::FunctionRouter;
-use faas_api::{Address, AddressError};
+/*
+use super::dht::ParticleDHT;
+use super::store::provider_record::ProviderRecord;
+use super::wait::wait_address::{WaitAddress, WaitPublished};
+use crate::store::record::try_to_multirecord;
 use libp2p::{
     kad::record::{Key, Record},
     kad::{PutRecordError, Quorum},
@@ -157,7 +156,7 @@ impl ParticleDHT {
         // fallback to single record, skip failed
         let records = records
             .into_iter()
-            .flat_map(|rec| match kademlia::try_to_multirecord(rec.record) {
+            .flat_map(|rec| match try_to_multirecord(rec.record) {
                 Ok(multirec) => Some(multirec),
                 Err(err) => {
                     log::warn!(
@@ -260,4 +259,4 @@ impl ParticleDHT {
             e
         })
     }
-}
+}*/

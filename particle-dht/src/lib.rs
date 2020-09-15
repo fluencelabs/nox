@@ -15,12 +15,18 @@
  */
 
 pub(crate) mod store {
-    mod memory_store;
-    mod provider_record;
-    mod record;
+    pub(crate) mod memory_store;
+    pub(crate) mod provider_record;
+    pub(crate) mod record;
 }
 
 mod dht;
 mod dht_names;
+
+pub(crate) mod wait {
+    pub(crate) mod wait_address;
+    pub(crate) mod wait_peer;
+    pub(crate) mod waiting_queues;
+}
 
 pub use dht::ParticleDHT;

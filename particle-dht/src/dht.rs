@@ -15,9 +15,16 @@
  */
 
 use crate::store::memory_store::MemoryStore;
-use libp2p::kad::Kademlia;
+use libp2p::kad::{Kademlia, KademliaEvent};
+use libp2p::swarm::NetworkBehaviourEventProcess;
 
 #[derive(libp2p::NetworkBehaviour)]
 pub struct ParticleDHT {
     pub(super) kademlia: Kademlia<MemoryStore>,
+}
+
+impl NetworkBehaviourEventProcess<KademliaEvent> for ParticleDHT {
+    fn inject_event(&mut self, event: KademliaEvent) {
+        unimplemented!()
+    }
 }
