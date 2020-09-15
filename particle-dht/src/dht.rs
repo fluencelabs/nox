@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::store::memory_store::MemoryStore;
+use libp2p::kad::store::MemoryStore;
 use libp2p::{
     identity::ed25519::Keypair,
     kad::{Kademlia, KademliaConfig, KademliaEvent},

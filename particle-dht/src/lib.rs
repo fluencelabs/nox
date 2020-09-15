@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-pub(crate) mod store {
-    pub(crate) mod memory_store;
-    pub(crate) mod provider_record;
-    pub(crate) mod record;
-}
-
 mod dht;
 mod dht_names;
 
