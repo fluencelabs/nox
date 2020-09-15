@@ -1,0 +1,18 @@
+[package]
+name = "particle-behaviour"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+particle-protocol = { path = "../particle-protocol"}
+particle-actors = { path = "../particle-actors"}
+particle-dht = { path = "../particle-dht"}
+
+trust-graph = { path = "../trust-graph" }
+fluence-libp2p = { path = "../crates/libp2p" }
+
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+prometheus = "0.9.0"

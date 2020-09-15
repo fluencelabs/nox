@@ -3000,8 +3000,7 @@ dependencies = [
  "log",
  "multihash",
  "parity-multiaddr",
- "particle-actors",
- "particle-dht",
+ "particle-behaviour",
  "particle-protocol",
  "prometheus",
  "rand 0.7.3",
@@ -3022,6 +3021,19 @@ dependencies = [
  "libp2p",
  "parity-multiaddr",
  "particle-protocol",
+]
+
+[[package]]
+name = "particle-behaviour"
+version = "0.0.1"
+dependencies = [
+ "fluence-libp2p",
+ "libp2p",
+ "particle-actors",
+ "particle-dht",
+ "particle-protocol",
+ "prometheus",
+ "trust-graph",
 ]
 
 [[package]]
