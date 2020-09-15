@@ -182,6 +182,9 @@ export async function testCerts() {
     expect(certs[0].chain[1].signature).to.be.equal(extended.chain[1].signature)
     expect(certs[0].chain[1].expiresAt).to.be.equal(extended.chain[1].expiresAt)
     expect(certs[0].chain[1].issuedAt).to.be.equal(extended.chain[1].issuedAt)
+
+    await cl1.disconnect();
+    await cl2.disconnect();
 }
 
 export async function testUploadWasm() {
@@ -196,7 +199,7 @@ export async function testUploadWasm() {
 
     let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
 
-    let blueprintId = await cl1.addBlueprint(peerId1, "some test blueprint", [moduleName])
+    let blueprintId = await cl1.addBlueprint("some test blueprint", [moduleName], peerId1)
     let blueprints = await cl1.getAvailableBlueprints(peerId1)
     console.log(blueprints);
 
@@ -208,6 +211,8 @@ export async function testUploadWasm() {
     let resp = await service.call(moduleName, {name: argName}, "greeting")
 
     expect(resp.result).to.be.equal(`Hi, ${argName}`)
+
+    await cl1.disconnect();
 }
 
 export async function testServicesAndInterfaces() {
@@ -220,7 +225,7 @@ export async function testServicesAndInterfaces() {
 
     let peerId1 = "12D3KooWPnLxnY71JDxvB3zbjKu9k1BCYNthGZw6iGrLYsR1RnWM"
 
-    let blueprintId = await cl1.addBlueprint(peerId1, "some test blueprint", ["ipfs_node"])
+    let blueprintId = await cl1.addBlueprint("some test blueprint", ["ipfs_node"], peerId1)
     let serviceId = await cl2.createService(peerId1, blueprintId);
 
     let resp = await cl2.callService(peerId1, serviceId, "ipfs_node", {}, "get_address")
@@ -234,6 +239,9 @@ export async function testServicesAndInterfaces() {
 
     let availableModules = await cl1.getAvailableModules(peerId1);
     console.log(availableModules);
+
+    await cl1.disconnect();
+    await cl2.disconnect();
 }
 
 // Shows how to register and call new service in Fluence network
@@ -282,6 +290,9 @@ export async function testProvide() {
     let result2 = await response2.result;
     console.log("RESULT:");
     console.log(response2);
-    expect(result2).to.be.equal(35)
+    expect(result2).to.be.equal(35);
+
+    await cl1.disconnect();
+    await cl2.disconnect();
 }
 

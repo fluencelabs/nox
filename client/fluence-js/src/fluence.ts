@@ -17,9 +17,16 @@
 import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
 import {FluenceClient} from "./fluenceClient";
+import * as log from "loglevel";
+import {LogLevelDesc} from "loglevel";
 
+log.setLevel('info')
 
 export default class Fluence {
+
+    setLogLevel(level: LogLevelDesc): void {
+        log.setLevel(level);
+    }
 
     /**
      * Generates new peer id with Ed25519 private key.
