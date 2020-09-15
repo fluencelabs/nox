@@ -17,6 +17,7 @@
 use crate::Plumber;
 use fluence_libp2p::generate_swarm_event_type;
 use futures::task::{Context, Poll};
+use libp2p::core::ConnectedPoint;
 use libp2p::{
     core::connection::ConnectionId,
     swarm::{
@@ -35,29 +36,39 @@ impl NetworkBehaviour for Plumber {
     type OutEvent = ();
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        let config = ProtocolConfig::new();
-        config.into()
+        ProtocolConfig::new().into()
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        unimplemented!()
+        self.client_address(peer_id).into_iter().cloned().collect()
     }
 
-    fn inject_connected(&mut self, peer_id: &PeerId) {
-        unimplemented!()
-    }
+    fn inject_connected(&mut self, peer_id: &PeerId) {}
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        unimplemented!()
+        self.remove_client(peer_id);
     }
 
-    fn inject_event(
+    fn inject_connection_established(
         &mut self,
-        peer_id: PeerId,
-        connection: ConnectionId,
-        event: <<Self::ProtocolsHandler as IntoProtocolsHandler>::Handler as ProtocolsHandler>::OutEvent,
+        peer_id: &PeerId,
+        _: &ConnectionId,
+        cp: &ConnectedPoint,
     ) {
-        unimplemented!()
+        let maddr = match cp {
+            ConnectedPoint::Dialer { address } => address,
+            ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
+        };
+
+        self.add_client_address(peer_id.clone(), maddr.clone());
+    }
+
+    fn inject_event(&mut self, peer_id: PeerId, connection: ConnectionId, event: ProtocolMessage) {
+        match event {
+            ProtocolMessage::Upgrade => self.add_client(peer_id),
+            ProtocolMessage::Particle(particle) => self.ingest(particle),
+            ProtocolMessage::UpgradeError(_) => {}
+        }
     }
 
     fn poll(

@@ -14,4 +14,39 @@
  * limitations under the License.
  */
 
-pub struct Plumber {}
+use libp2p::PeerId;
+use parity_multiaddr::Multiaddr;
+use particle_protocol::Particle;
+use std::collections::{HashMap, HashSet};
+
+pub struct Plumber {
+    clients: HashMap<PeerId, Option<Multiaddr>>,
+}
+
+impl Plumber {
+    pub fn new() -> Self {
+        Self {
+            clients: <_>::default(),
+        }
+    }
+
+    pub fn add_client(&mut self, client: PeerId) {
+        self.clients.insert(client, None);
+    }
+
+    pub fn add_client_address(&mut self, client: PeerId, address: Multiaddr) {
+        self.clients.insert(client, Some(address));
+    }
+
+    pub fn client_address(&self, client: &PeerId) -> &Option<Multiaddr> {
+        self.clients.get(client).unwrap_or(&None)
+    }
+
+    pub fn remove_client(&mut self, client: &PeerId) {
+        self.clients.remove(client);
+    }
+
+    pub fn ingest(&mut self, particle: Particle) {
+        unimplemented!()
+    }
+}

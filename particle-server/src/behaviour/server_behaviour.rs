@@ -67,7 +67,7 @@ impl ServerBehaviour {
         Self {
             identity,
             ping,
-            plumber: Plumber {},
+            plumber: Plumber::new(),
             dht: ParticleDHT::new(dht_config, trust_graph, registry),
             events: Default::default(),
         }
