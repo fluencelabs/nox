@@ -24,7 +24,7 @@ use libp2p::{
 };
 use parity_multiaddr::Multiaddr;
 use particle_actors::Plumber;
-use particle_dht::ParticleDHT;
+use particle_dht::{DHTConfig, ParticleDHT};
 use prometheus::Registry;
 use std::collections::VecDeque;
 use trust_graph::TrustGraph;
@@ -46,10 +46,10 @@ pub struct ServerBehaviour {
 impl ServerBehaviour {
     pub fn new(
         key_pair: ed25519::Keypair,
-        _local_peer_id: PeerId,
+        local_peer_id: PeerId,
         _listening_addresses: Vec<Multiaddr>,
-        _trust_graph: TrustGraph,
-        _registry: Option<&Registry>,
+        trust_graph: TrustGraph,
+        registry: Option<&Registry>,
         _services_config: AppServicesConfig,
     ) -> Self {
         let local_public_key = PublicKey::Ed25519(key_pair.public());
@@ -59,10 +59,16 @@ impl ServerBehaviour {
             local_public_key,
         );
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
+        let dht_config = DHTConfig {
+            peer_id: local_peer_id,
+            keypair: key_pair,
+        };
 
         Self {
             identity,
             ping,
+            plumber: Plumber {},
+            dht: ParticleDHT::new(dht_config, trust_graph, registry),
             events: Default::default(),
         }
     }

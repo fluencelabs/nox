@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-mod actors {
-    mod network;
-    mod plumber;
-}
-
 mod server;
 mod behaviour {
     mod bootstrapper;

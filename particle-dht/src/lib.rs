@@ -29,4 +29,5 @@ pub(crate) mod wait {
     pub(crate) mod waiting_queues;
 }
 
+pub use dht::DHTConfig;
 pub use dht::ParticleDHT;

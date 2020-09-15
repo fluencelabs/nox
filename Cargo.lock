@@ -3032,9 +3032,11 @@ dependencies = [
  "libp2p",
  "log",
  "once_cell",
+ "prometheus",
  "prost",
  "serde_json",
  "smallvec 1.4.2",
+ "trust-graph",
 ]
 
 [[package]]
