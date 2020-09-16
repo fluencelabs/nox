@@ -130,11 +130,13 @@ impl NetworkBehaviour for ParticleBehaviour {
         if let Poll::Ready(event) = self.plumber.poll() {
             match event {
                 PlumberEvent::Forward { target, particle } => {
+                    // TODO: check if target is a client in Plumber
+                    //       resolve target through DHT otherwise
                     return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
                         peer_id: target,
                         handler: NotifyHandler::Any,
                         event: EitherOutput::First(ProtocolMessage::Particle(particle)),
-                    })
+                    });
                 }
             }
         }
