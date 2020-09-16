@@ -16,23 +16,21 @@
 
 use control_macro::get_return;
 use fluence_libp2p::generate_swarm_event_type;
-use libp2p::core::identity::ed25519;
-use libp2p::core::Multiaddr;
-use libp2p::kad::QueryResult;
+use trust_graph::TrustGraph;
+
 use libp2p::{
+    core::{identity::ed25519, Multiaddr},
     identity::ed25519::Keypair,
     kad::{
         store::{self, MemoryStore},
-        Kademlia, KademliaConfig, KademliaEvent, QueryId,
+        Kademlia, KademliaConfig, KademliaEvent, QueryId, QueryResult,
     },
     swarm::NetworkBehaviourEventProcess,
     PeerId,
 };
 use prometheus::Registry;
 use smallvec::alloc::collections::VecDeque;
-use std::collections::HashMap;
-use std::time::Duration;
-use trust_graph::TrustGraph;
+use std::{collections::HashMap, time::Duration};
 
 pub type SwarmEventType = generate_swarm_event_type!(ParticleDHT);
 
