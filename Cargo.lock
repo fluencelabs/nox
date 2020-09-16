@@ -1349,6 +1349,7 @@ dependencies = [
  "base64 0.11.0",
  "bs58",
  "clap",
+ "control-macro",
  "ctrlc-adapter",
  "env_logger",
  "faas-api",

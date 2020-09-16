@@ -17,7 +17,7 @@
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use particle_protocol::Particle;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::task::Poll;
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ pub enum PlumberEvent {
 
 pub struct Plumber {
     clients: HashMap<PeerId, Option<Multiaddr>>,
-    events: VecDequeue<PlumberEvent>,
+    events: VecDeque<PlumberEvent>,
 }
 
 impl Plumber {
@@ -55,7 +55,7 @@ impl Plumber {
     }
 
     pub fn ingest(&mut self, particle: Particle) {
-        self.events.push(PlumberEvent::Forward {
+        self.events.push_back(PlumberEvent::Forward {
             target: particle.init_peer_id.clone(),
             particle,
         });

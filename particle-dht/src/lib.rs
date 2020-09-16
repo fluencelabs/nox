@@ -25,5 +25,4 @@ pub(crate) mod wait {
 
 mod network;
 
-pub use dht::DHTConfig;
-pub use dht::ParticleDHT;
+pub use dht::{DHTConfig, DHTEvent, ParticleDHT};

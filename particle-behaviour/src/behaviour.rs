@@ -15,8 +15,8 @@
  */
 
 use fluence_libp2p::{generate_swarm_event_type, poll_loop};
-use particle_actors::Plumber;
-use particle_dht::{DHTConfig, ParticleDHT};
+use particle_actors::{Plumber, PlumberEvent};
+use particle_dht::{DHTConfig, DHTEvent, ParticleDHT};
 use trust_graph::TrustGraph;
 
 use libp2p::swarm::NotifyHandler;
@@ -46,16 +46,12 @@ pub struct ParticleBehaviour {
     waker: Option<Waker>,
 }
 
-impl libp2p::swarm::NetworkBehaviourEventProcess<KademliaEvent> for ParticleBehaviour {
-    fn inject_event(&mut self, event: KademliaEvent) {
-        unimplemented!()
-    }
+impl libp2p::swarm::NetworkBehaviourEventProcess<()> for ParticleBehaviour {
+    fn inject_event(&mut self, event: ()) {}
 }
 
-impl libp2p::swarm::NetworkBehaviourEventProcess<()> for ParticleBehaviour {
-    fn inject_event(&mut self, event: ()) {
-        unimplemented!()
-    }
+impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour {
+    fn inject_event(&mut self, event: DHTEvent) {}
 }
 
 impl ParticleBehaviour {
@@ -83,7 +79,7 @@ impl NetworkBehaviour for ParticleBehaviour {
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        let p = self.plumber.client_address(peer_id).into_iter();
+        let p = self.plumber.client_address(peer_id).clone().into_iter();
         let d = self.dht.addresses_of_peer(peer_id).into_iter();
 
         p.chain(d).collect()

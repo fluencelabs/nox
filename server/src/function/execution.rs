@@ -29,6 +29,7 @@ use crate::function::builtin_service::{
     GetAvailableModules,
 };
 use crate::function::wait_address::WaitPublished;
+use control_macro::ok_get;
 use faas_api::{provider, Address, FunctionCall, Protocol};
 use fluence_app_service::FaaSInterface;
 use libp2p::PeerId;

@@ -16,4 +16,4 @@
 
 mod plumber;
 
-pub use plumber::Plumber;
+pub use plumber::{Plumber, PlumberEvent};
