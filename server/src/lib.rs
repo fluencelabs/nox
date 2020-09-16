@@ -79,6 +79,7 @@ mod function {
     mod waiting_queues;
 
     pub(crate) use self::config::RouterConfig;
+    pub(crate) use address_signature::{extract_client_id, extract_public_key};
     pub(self) use errors::{CallError, CallErrorKind, ErrorData};
     pub(crate) use router::FunctionRouter;
     pub(self) use router::SwarmEventType;
