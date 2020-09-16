@@ -80,14 +80,14 @@ macro_rules! make_swarm {
 
         let behaviour = $behaviour(peer_id.clone(), keypair.clone());
         let transport = build_memory_transport(Ed25519(keypair));
-        let mut swarm = Swarm::new(transport, behaviour, peer_id.clone());
+        let swarm = Swarm::new(transport, behaviour, peer_id.clone());
 
         swarm
     }};
 }
 
 fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
-    let swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
+    let mut swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
         let config = DHTConfig {
             peer_id: peer_id.clone(),
             keypair: keypair.clone(),

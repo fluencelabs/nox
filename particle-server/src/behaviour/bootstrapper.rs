@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-/*
 use super::server_behaviour::ServerBehaviour;
-use crate::BootstrapperEvent;
+use crate::bootstrapper::BootstrapperEvent;
 use libp2p::swarm::NetworkBehaviourEventProcess;
 
 impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
@@ -39,4 +38,3 @@ impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
         }
     }
 }
-*/

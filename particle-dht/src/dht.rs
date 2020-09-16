@@ -107,6 +107,15 @@ impl ParticleDHT {
                 .add_address(&node_id, addr.clone(), public_key.clone());
         }
     }
+
+    /// Run kademlia bootstrap, to advertise ourselves in Kademlia
+    pub fn bootstrap(&mut self) {
+        log::info!("Bootstrapping");
+        use std::borrow::Borrow;
+        // NOTE: Using Qm form of `peer_id` here (via peer_id.borrow), since kademlia uses that for keys
+        self.kademlia
+            .get_closest_peers(self.config.peer_id.borrow());
+    }
 }
 
 impl ParticleDHT {

@@ -399,6 +399,7 @@ mod tests {
             module: test_module.to_string(),
             function: "greeting".to_string(),
             arguments: serde_json::json!([payload.to_string()]),
+            headers: <_>::default(),
             call: <_>::default(),
         };
         let closure = swarm.make_call_service();

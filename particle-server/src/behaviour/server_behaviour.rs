@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::config::AppServicesConfig;
+use crate::bootstrapper::{BootstrapConfig, Bootstrapper};
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
 use libp2p::{
     identify::Identify,
@@ -35,6 +35,7 @@ pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll")]
 pub struct ServerBehaviour {
+    bootstrapper: Bootstrapper,
     identity: Identify,
     ping: Ping,
     pub(super) particle: ParticleBehaviour,
@@ -49,7 +50,8 @@ impl ServerBehaviour {
         _listening_addresses: Vec<Multiaddr>,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
-        _services_config: AppServicesConfig,
+        bootstrap_nodes: Vec<Multiaddr>,
+        bs_config: BootstrapConfig,
     ) -> Self {
         let local_public_key = PublicKey::Ed25519(key_pair.public());
         let identity = Identify::new(
@@ -59,37 +61,37 @@ impl ServerBehaviour {
         );
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
         let dht_config = DHTConfig {
-            peer_id: local_peer_id,
+            peer_id: local_peer_id.clone(),
             keypair: key_pair,
         };
         let particle = ParticleBehaviour::new(dht_config, trust_graph, registry);
+        let bootstrapper = Bootstrapper::new(bs_config, local_peer_id, bootstrap_nodes);
 
         Self {
             identity,
             ping,
             particle,
+            bootstrapper,
             events: Default::default(),
         }
     }
 
     /// Dials bootstrap nodes
     pub fn dial_bootstrap_nodes(&mut self) {
-        /*
-                // TODO: how to avoid collect?
-                let bootstrap_nodes: Vec<_> = self.bootstrapper.bootstrap_nodes.iter().cloned().collect();
-                if bootstrap_nodes.is_empty() {
-                    log::warn!("No bootstrap nodes found. Am I the only one? :(");
-                }
-                for maddr in bootstrap_nodes {
-                    self.dial(maddr)
-                }
-        */
-    }
-    /*
-        pub fn bootstrap(&mut self) {
-            self.router.bootstrap()
+        // TODO: how to avoid collect?
+        let bootstrap_nodes: Vec<_> = self.bootstrapper.bootstrap_nodes.iter().cloned().collect();
+        if bootstrap_nodes.is_empty() {
+            log::warn!("No bootstrap nodes found. Am I the only one? :(");
         }
-    */
+        for maddr in bootstrap_nodes {
+            self.dial(maddr)
+        }
+    }
+
+    pub fn bootstrap(&mut self) {
+        self.particle.bootstrap()
+    }
+
     pub(super) fn dial(&mut self, maddr: Multiaddr) {
         self.events
             .push_back(libp2p::swarm::NetworkBehaviourAction::DialAddress { address: maddr })

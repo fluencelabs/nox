@@ -39,5 +39,14 @@ pub mod config {
     pub use app_services::AppServicesConfig;
 }
 
+mod bootstrapper {
+    mod behaviour;
+    mod event;
+
+    pub use behaviour::BootstrapConfig;
+    pub(crate) use behaviour::Bootstrapper;
+    pub(crate) use event::BootstrapperEvent;
+}
+
 pub use behaviour::ServerBehaviour;
 pub use server::Server;

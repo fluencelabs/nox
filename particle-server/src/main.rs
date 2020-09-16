@@ -80,13 +80,12 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
-    let app_service_config =
+    let _app_service_config =
         AppServicesConfig::new(&config.services_base_dir, config.service_envs)?;
 
     let node_service = Server::new(
         key_pair.clone(),
         config.server,
-        app_service_config,
         config
             .root_weights
             .into_iter()

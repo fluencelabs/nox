@@ -18,7 +18,6 @@ use super::behaviour::ServerBehaviour;
 use crate::config::ServerConfig;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 
-use crate::config::AppServicesConfig;
 use async_std::task;
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
@@ -44,7 +43,6 @@ impl Server {
     pub fn new(
         key_pair: Keypair,
         server_config: ServerConfig,
-        services_config: AppServicesConfig,
         root_weights: Vec<(ed25519::PublicKey, u32)>,
     ) -> Box<Self> {
         let ServerConfig { socket_timeout, .. } = server_config;
@@ -62,7 +60,8 @@ impl Server {
                 server_config.external_addresses(),
                 trust_graph,
                 Some(&registry),
-                services_config,
+                server_config.bootstrap_nodes.clone(),
+                <_>::default(),
             );
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);

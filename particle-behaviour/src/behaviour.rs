@@ -74,6 +74,10 @@ impl ParticleBehaviour {
     ) {
         self.dht.add_kad_node(node_id, addresses, public_key)
     }
+
+    pub fn bootstrap(&mut self) {
+        self.dht.bootstrap()
+    }
 }
 
 impl NetworkBehaviour for ParticleBehaviour {
