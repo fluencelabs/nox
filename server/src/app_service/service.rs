@@ -28,8 +28,10 @@ use crate::app_service::error::ServiceExecError::{
 use crate::app_service::files;
 use crate::app_service::persisted_service::PersistedService;
 use crate::config::AppServicesConfig;
+use crate::function::{extract_client_id, extract_public_key};
 use async_std::task;
 use futures::future::BoxFuture;
+use libp2p::identity::PublicKey;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::task::Waker;
@@ -155,6 +157,8 @@ impl AppServiceBehaviour {
         blueprint_id: String,
         service_id: String,
         waker: Option<Waker>,
+        owner_id: Option<String>,
+        owner_pk: Option<String>,
     ) -> (Option<AppService>, Result<ServiceCallResult>) {
         let to_string =
             |path: &PathBuf| -> Option<_> { path.to_string_lossy().into_owned().into() };
@@ -178,7 +182,16 @@ impl AppServiceBehaviour {
                 default: None,
             };
 
-            let service = AppService::new(modules, &service_id, config.service_envs)?;
+            let mut envs = config.service_envs;
+            if let Some(owner_id) = owner_id {
+                envs.push(format!("owner_id={}", owner_id));
+            };
+            if let Some(owner_pk) = owner_pk {
+                envs.push(format!("owner_pk={}", owner_pk));
+            };
+            log::info!("Creating service {}, envs: {:?}", service_id, envs);
+
+            let service = AppService::new(modules, &service_id, envs)?;
 
             // Save created service to disk, so it is recreated on restart
             Self::persist_service(&config.services_dir, &service_id, &blueprint_id)?;
@@ -218,9 +231,11 @@ impl AppServiceBehaviour {
                     let waker = self.waker.clone();
                     let config = self.config.clone();
                     let id = service_id.clone();
+                    let owner_id = Self::owner_id(call.as_ref());
+                    let owner_pk = Self::owner_pk(call.as_ref());
                     let future = task::spawn_blocking(move || {
                         let (service, result) = Self::create_app_service(
-                            config, blueprint_id, id, waker
+                            config, blueprint_id, id, waker, owner_id, owner_pk
                         );
                         (service, call, result)
                     });
@@ -350,5 +365,20 @@ impl AppServiceBehaviour {
     fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {
         let dir = std::fs::read_dir(dir).ok()?;
         Some(dir.filter_map(|p| p.ok()?.path().into()))
+    }
+
+    fn owner_pk(call: Option<&FunctionCall>) -> Option<String> {
+        let call = call?;
+        if let PublicKey::Ed25519(pk) = extract_public_key(&call.sender).ok()? {
+            return Some(bs58::encode(pk.encode()).into_string());
+        }
+
+        None
+    }
+
+    fn owner_id(call: Option<&FunctionCall>) -> Option<String> {
+        let call = call?;
+        let id = extract_client_id(&call.sender).ok()?;
+        Some(id.to_string())
     }
 }

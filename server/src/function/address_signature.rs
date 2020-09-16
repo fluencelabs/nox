@@ -16,6 +16,7 @@
 
 use faas_api::{Address, Protocol};
 use libp2p::identity::PublicKey;
+use libp2p::PeerId;
 
 #[derive(Debug)]
 pub enum SignatureError {
@@ -25,16 +26,13 @@ pub enum SignatureError {
     MissingSignature,
 }
 
-/// Extract client public key from relay address,
-/// return error if it's not a relay address, or
-/// there's no public key in client's PeerId
-fn extract_public_key(address: &Address) -> Result<PublicKey, SignatureError> {
+pub fn extract_client_id(address: &Address) -> Result<PeerId, SignatureError> {
     use Protocol::*;
     use SignatureError::*;
 
-    let protocols = address.protocols();
-    match protocols.as_slice() {
-        [Peer(_), Client(client)] => client.as_public_key().ok_or(MissingClientPublicKey),
+    let mut ps = address.iter();
+    match (ps.next(), ps.next(), ps.next()) {
+        (Some(Peer(_)), Some(Client(client)), None) => Ok(client),
         _ => {
             log::warn!(
                 "Signature verification error {}: not a relay address",
@@ -43,6 +41,15 @@ fn extract_public_key(address: &Address) -> Result<PublicKey, SignatureError> {
             Err(UnsupportedAddress)
         }
     }
+}
+
+/// Extract client public key from relay address,
+/// return error if it's not a relay address, or
+/// there's no public key in client's PeerId
+pub fn extract_public_key(address: &Address) -> Result<PublicKey, SignatureError> {
+    extract_client_id(address)?
+        .as_public_key()
+        .ok_or(SignatureError::MissingClientPublicKey)
 }
 
 /// Verify signature of the address path (without schema)
