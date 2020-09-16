@@ -19,6 +19,7 @@ use particle_actors::Plumber;
 use particle_dht::{DHTConfig, ParticleDHT};
 use trust_graph::TrustGraph;
 
+use libp2p::swarm::NotifyHandler;
 use libp2p::{
     core::{
         connection::{ConnectedPoint, ConnectionId, ListenerId},
@@ -126,9 +127,17 @@ impl NetworkBehaviour for ParticleBehaviour {
     ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
-        /*if let Poll::Ready(event) = self.plumber.poll() {
-            return Poll::Ready();
-        }*/
+        if let Poll::Ready(event) = self.plumber.poll() {
+            match event {
+                PlumberEvent::Forward { target, particle } => {
+                    return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                        peer_id: target,
+                        handler: NotifyHandler::Any,
+                        event: EitherOutput::First(ProtocolMessage::Particle(particle)),
+                    })
+                }
+            }
+        }
 
         poll_loop!(self, self.dht, cx, params, EitherOutput::Second);
 

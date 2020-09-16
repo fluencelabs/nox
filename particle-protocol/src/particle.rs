@@ -20,14 +20,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Particle {
-    id: String,
+    pub id: String,
     #[serde(with = "peerid_serializer")]
-    init_peer_id: PeerId,
-    timestamp: u64,
-    ttl: u32,
-    script: String,
-    signature: Vec<u8>,
-    data: serde_json::Value,
+    pub init_peer_id: PeerId,
+    pub timestamp: u64,
+    pub ttl: u32,
+    pub script: String,
+    pub signature: Vec<u8>,
+    pub data: serde_json::Value,
 }
 
 impl Default for Particle {
