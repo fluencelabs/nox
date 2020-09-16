@@ -3033,12 +3033,15 @@ dependencies = [
 name = "particle-behaviour"
 version = "0.0.1"
 dependencies = [
+ "async-std",
  "fluence-libp2p",
+ "futures",
  "libp2p",
  "particle-actors",
  "particle-dht",
  "particle-protocol",
  "prometheus",
+ "rand 0.7.3",
  "trust-graph",
 ]
 

@@ -16,3 +16,8 @@ fluence-libp2p = { path = "../crates/libp2p" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 prometheus = "0.9.0"
+
+[dev-dependencies]
+futures = "0.3.4"
+async-std = { version = "1.6.2", features = ["unstable"] }
+rand = "0.7.3"
