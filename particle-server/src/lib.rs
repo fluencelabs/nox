@@ -32,11 +32,11 @@ pub mod config {
 
     pub mod certificates;
 
-    pub use self::args::create_args;
-    pub use self::fluence_config::load_config;
-    pub use self::fluence_config::FluenceConfig;
-    pub use self::fluence_config::ServerConfig;
     pub use app_services::AppServicesConfig;
+    pub use args::create_args;
+    pub use fluence_config::load_config;
+    pub use fluence_config::FluenceConfig;
+    pub use fluence_config::ServerConfig;
 }
 
 mod bootstrapper {
