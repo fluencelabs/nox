@@ -130,11 +130,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ParticleDHT {
                     self.publish_succeeded(client)
                 }
             }
-            KademliaEvent::QueryResult { .. } => {}
-            KademliaEvent::RoutingUpdated { .. } => {}
-            KademliaEvent::UnroutablePeer { .. } => {}
-            KademliaEvent::RoutablePeer { .. } => {}
-            KademliaEvent::PendingRoutablePeer { .. } => {}
+            _ => {}
         }
     }
 }

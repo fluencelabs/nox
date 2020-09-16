@@ -14,34 +14,42 @@
  * limitations under the License.
  */
 
-use async_std::task;
-use fluence_libp2p::{build_memory_transport, generate_swarm_event_type};
-use futures::future::FutureExt;
-use futures::select;
-use futures::task::{Context, Poll};
-use libp2p::core::connection::ConnectionId;
-use libp2p::core::Multiaddr;
-use libp2p::identity::ed25519::Keypair;
-use libp2p::swarm::{
-    NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
-    SwarmEvent,
-};
-use libp2p::{PeerId, Swarm};
 use particle_behaviour::ParticleBehaviour;
 use particle_dht::DHTConfig;
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
-use std::collections::VecDeque;
+
+use fluence_libp2p::{build_memory_transport, generate_swarm_event_type};
 use trust_graph::TrustGraph;
+
+use async_std::task;
+use futures::{
+    future::FutureExt,
+    select,
+    task::{Context, Poll},
+};
+use libp2p::{
+    core::{connection::ConnectionId, Multiaddr},
+    identity::ed25519::Keypair,
+    swarm::{
+        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
+        SwarmEvent,
+    },
+    PeerId, Swarm,
+};
+use std::collections::VecDeque;
 
 #[test]
 fn echo_particle() {
-    let (mut swarm, addr, swarm_id) = make_server();
+    let (mut server, addr, server_id) = make_server();
     let (mut client, client_id) = make_client(addr);
 
+    // Poll server & client in background
+    // Once client connected, send Particle
+    // Exit when server echoes the particle
     let particle = task::block_on(task::spawn(async move {
         loop {
             select!(
-                event = swarm.next_event().fuse() => println!("swarm event: {:?}", event),
+                event = server.next_event().fuse() => println!("server event: {:?}", event),
                 event = client.next_event().fuse() => {
                     println!("client got event: {:?}", event);
                     match event {
@@ -55,7 +63,7 @@ fn echo_particle() {
                                 signature: vec![],
                                 data: Default::default(),
                             };
-                            client.send(p.clone(), swarm_id.clone());
+                            client.send(p.clone(), server_id.clone());
                         }
                         SwarmEvent::Behaviour(particle) => {
                             break particle
