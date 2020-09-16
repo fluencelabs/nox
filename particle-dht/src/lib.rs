@@ -15,14 +15,6 @@
  */
 
 mod dht;
-mod dht_names;
-
-pub(crate) mod wait {
-    pub(crate) mod wait_address;
-    pub(crate) mod wait_peer;
-    pub(crate) mod waiting_queues;
-}
-
 mod network;
 
 pub use dht::{DHTConfig, DHTEvent, ParticleDHT};

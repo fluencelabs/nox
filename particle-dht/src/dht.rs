@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-use crate::wait::waiting_queues::WaitingQueues;
 use control_macro::get_return;
 use fluence_libp2p::generate_swarm_event_type;
-use libp2p::kad::{PutRecordError, PutRecordOk, PutRecordResult, QueryResult};
+use libp2p::kad::{PutRecordError, PutRecordResult, QueryResult};
 use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{
     identity::ed25519::Keypair,
     kad::{
-        store::{self, Error, MemoryStore},
+        store::{self, MemoryStore},
         Kademlia, KademliaConfig, KademliaEvent, QueryId, Quorum, Record,
     },
     swarm::NetworkBehaviourEventProcess,
@@ -155,7 +154,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ParticleDHT {
             KademliaEvent::QueryResult {
                 id,
                 result: QueryResult::PutRecord(result),
-                stats,
+                ..
             } => {
                 let client = get_return!(self.pending.remove(&id));
                 if let Err(err) = Self::recover_result(result) {

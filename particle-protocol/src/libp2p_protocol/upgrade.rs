@@ -21,6 +21,7 @@ use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     swarm::{protocols_handler, OneShotHandler},
 };
+use serde_json::json;
 use std::{io, iter, pin::Pin};
 
 #[derive(Clone)]
@@ -32,7 +33,7 @@ impl ProtocolConfig {
     }
 
     fn gen_error<E: std::error::Error>(&self, err: &E, data: &[u8]) -> ProtocolMessage {
-        ProtocolMessage::UpgradeError(unimplemented!("TODO: respond with error"))
+        ProtocolMessage::UpgradeError(json!({ "error": err.to_string(), "data": data }))
     }
 }
 
@@ -136,8 +137,7 @@ mod tests {
         upgrade,
     };
 
-    use crate::{Protocol, ProtocolConfig};
-    use fluence_libp2p::RandomPeerId;
+    use crate::ProtocolConfig;
     use rand::{thread_rng, Rng};
 
     #[test]
@@ -155,14 +155,12 @@ mod tests {
             let listener_event = listener.next().await.unwrap();
             let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
             let conn = listener_upgrade.await.unwrap();
-            let config = ProtocolConfig {
-                local_address: Protocol::Client(RandomPeerId::random()).into(),
-            };
+            let config = ProtocolConfig::new();
             upgrade::apply_inbound(conn, config).await.unwrap()
         });
 
         let sent_call = async_std::task::block_on(async move {
-            let call = ProtocolMessage::FunctionCall(FunctionCall::random());
+            let call = ProtocolMessage::Particle(<_>::default());
             let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
             upgrade::apply_outbound(c, call.clone(), upgrade::Version::V1)
                 .await

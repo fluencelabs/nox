@@ -3066,11 +3066,13 @@ dependencies = [
 name = "particle-protocol"
 version = "0.0.1"
 dependencies = [
+ "async-std",
  "failure",
  "fluence-libp2p",
  "futures",
  "libp2p",
  "log",
+ "rand 0.7.3",
  "serde 1.0.116",
  "serde_derive",
  "serde_json",

@@ -13,3 +13,7 @@ failure = "0.1.8"
 serde = "1.0.116"
 serde_derive = "1.0.116"
 log = "0.4.11"
+
+[dev-dependencies]
+rand = "0.7.3"
+async-std = "1.6.3"

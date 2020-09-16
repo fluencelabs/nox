@@ -26,10 +26,7 @@ use libp2p::{
     },
     futures::task::{Context, Poll},
     kad::{store::MemoryStore, Kademlia},
-    swarm::{
-        IntoProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
-        ProtocolsHandler,
-    },
+    swarm::{IntoProtocolsHandler, NetworkBehaviour, PollParameters, ProtocolsHandler},
     PeerId,
 };
 use std::error::Error;
