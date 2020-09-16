@@ -5,6 +5,7 @@ members = [
     "trust-graph",
     "crates/libp2p",
     "crates/ctrlc-adapter",
+    "crates/control-macro",
     "faas-api",
     "particle-server",
     "particle-actors",

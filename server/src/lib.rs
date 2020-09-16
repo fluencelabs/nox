@@ -25,18 +25,6 @@
     unreachable_patterns
 )]
 
-/// Takes option as an argument, unwraps if `Some`, exit function with `Ok(default)` otherwise
-/// Ought to make it easier to short-circuit in functions returning `Result<Option<_>>`
-macro_rules! ok_get {
-    ($opt:expr) => {{
-        let r = { $opt };
-        match r {
-            Some(r) => r,
-            None => return Ok(Default::default()),
-        }
-    }};
-}
-
 pub mod config {
     mod app_services;
     mod args;

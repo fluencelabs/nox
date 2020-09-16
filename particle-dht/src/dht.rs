@@ -14,20 +14,46 @@
  * limitations under the License.
  */
 
-use libp2p::kad::store::MemoryStore;
+use crate::wait::waiting_queues::WaitingQueues;
+use control_macro::get_return;
+use fluence_libp2p::generate_swarm_event_type;
+use libp2p::kad::{PutRecordError, PutRecordOk, PutRecordResult, QueryResult};
+use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{
     identity::ed25519::Keypair,
-    kad::{Kademlia, KademliaConfig, KademliaEvent},
+    kad::{
+        store::{self, Error, MemoryStore},
+        Kademlia, KademliaConfig, KademliaEvent, QueryId, Quorum, Record,
+    },
     swarm::NetworkBehaviourEventProcess,
     PeerId,
 };
 use prometheus::Registry;
+use smallvec::alloc::collections::VecDeque;
+use std::collections::HashMap;
 use std::time::Duration;
 use trust_graph::TrustGraph;
 
-#[derive(libp2p::NetworkBehaviour)]
+pub type SwarmEventType = generate_swarm_event_type!(ParticleDHT);
+
+#[derive(Debug)]
+pub enum PublishError {
+    StoreError(store::Error),
+    TimedOut,
+    QuorumFailed,
+}
+
+#[derive(Debug)]
+pub enum DHTEvent {
+    Published(PeerId),
+    PublishFailed(PeerId, PublishError),
+}
+
 pub struct ParticleDHT {
     pub(super) kademlia: Kademlia<MemoryStore>,
+    pub(super) config: DHTConfig,
+    pub(super) pending: HashMap<QueryId, PeerId>,
+    pub(super) events: VecDeque<SwarmEventType>,
 }
 
 pub struct DHTConfig {
@@ -56,12 +82,93 @@ impl ParticleDHT {
             kademlia.enable_metrics(registry);
         }
 
-        Self { kademlia }
+        Self {
+            kademlia,
+            config,
+            pending: <_>::default(),
+            events: <_>::default(),
+        }
+    }
+}
+
+impl ParticleDHT {
+    pub fn publish_client(&mut self, client: PeerId) {
+        let bytes = [client.as_bytes(), self.config.peer_id.as_bytes()].concat();
+        let signature = self.config.keypair.sign(bytes.as_slice());
+        let record = Record::new(client.clone().into_bytes(), signature);
+
+        match self.kademlia.put_record(record, Quorum::Majority) {
+            Ok(query_id) => {
+                self.pending.insert(query_id, client);
+            }
+            Err(err) => self.publish_failed(client, PublishError::StoreError(err)),
+        };
+    }
+
+    pub fn publish_failed(&mut self, client: PeerId, error: PublishError) {
+        self.emit(DHTEvent::PublishFailed(client, error));
+    }
+
+    pub fn publish_succeeded(&mut self, client: PeerId) {
+        self.emit(DHTEvent::Published(client))
+    }
+
+    fn emit(&mut self, event: DHTEvent) {
+        self.events
+            .push_back(NetworkBehaviourAction::GenerateEvent(event));
+    }
+
+    pub(super) fn recover_result(result: PutRecordResult) -> Result<(), PublishError> {
+        let err = match result {
+            Ok(_) => return Ok(()),
+            Err(err) => err,
+        };
+
+        #[rustfmt::skip]
+        let (found, quorum, reason, key) = match &err {
+            PutRecordError::QuorumFailed { success, quorum, key, .. } => (success.len(), quorum.get(), PublishError::QuorumFailed, key),
+            PutRecordError::Timeout { success, quorum, key, .. } => (success.len(), quorum.get(), PublishError::TimedOut, key),
+        };
+
+        // TODO: is 50% a reasonable number?
+        // TODO: move to config
+        // Recover if found more than 50% of required quorum
+        if found * 2 > quorum {
+            #[rustfmt::skip]
+            log::warn!("DHT.put almost failed, saved {} of {} replicas, but it is good enough", found, quorum);
+            return Ok(());
+        }
+
+        let err_msg = format!(
+            "Error while publishing provider for {:?}: DHT.put failed ({}/{} replies): {:?}",
+            key, found, quorum, reason
+        );
+        log::warn!("{}", err_msg);
+
+        Err(reason)
     }
 }
 
 impl NetworkBehaviourEventProcess<KademliaEvent> for ParticleDHT {
     fn inject_event(&mut self, event: KademliaEvent) {
-        unimplemented!()
+        match event {
+            KademliaEvent::QueryResult {
+                id,
+                result: QueryResult::PutRecord(result),
+                stats,
+            } => {
+                let client = get_return!(self.pending.remove(&id));
+                if let Err(err) = Self::recover_result(result) {
+                    self.publish_failed(client, err)
+                } else {
+                    self.publish_succeeded(client)
+                }
+            }
+            KademliaEvent::QueryResult { .. } => {}
+            KademliaEvent::RoutingUpdated { .. } => {}
+            KademliaEvent::UnroutablePeer { .. } => {}
+            KademliaEvent::RoutablePeer { .. } => {}
+            KademliaEvent::PendingRoutablePeer { .. } => {}
+        }
     }
 }

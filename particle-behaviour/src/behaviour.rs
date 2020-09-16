@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::generate_swarm_event_type;
+use fluence_libp2p::{generate_swarm_event_type, poll_loop};
 use particle_actors::Plumber;
 use particle_dht::{DHTConfig, ParticleDHT};
 use trust_graph::TrustGraph;
@@ -35,39 +35,6 @@ use libp2p::{
 use prometheus::Registry;
 use std::error::Error;
 use std::task::{Context, Poll, Waker};
-
-macro_rules! poll_loop {
-    ($self:ident,$behaviour:expr,$cx:expr,$params:expr,$either:path) => {{
-        loop {
-            match NetworkBehaviour::poll(&mut $behaviour, $cx, $params) {
-                Poll::Ready(NetworkBehaviourAction::GenerateEvent(event)) => {
-                    NBEP::inject_event($self, event)
-                }
-                Poll::Ready(NetworkBehaviourAction::NotifyHandler {
-                    peer_id,
-                    event,
-                    handler,
-                }) => {
-                    return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
-                        peer_id,
-                        event: $either(event),
-                        handler,
-                    })
-                }
-                Poll::Ready(NetworkBehaviourAction::DialAddress { address }) => {
-                    return Poll::Ready(NetworkBehaviourAction::DialAddress { address })
-                }
-                Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address }) => {
-                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address })
-                }
-                Poll::Ready(NetworkBehaviourAction::DialPeer { peer_id, condition }) => {
-                    return Poll::Ready(NetworkBehaviourAction::DialPeer { peer_id, condition })
-                }
-                Poll::Pending => break,
-            }
-        }
-    }};
-}
 
 pub(crate) type SwarmEventType = generate_swarm_event_type!(ParticleBehaviour);
 
@@ -153,9 +120,6 @@ impl NetworkBehaviour for ParticleBehaviour {
         cx: &mut Context<'_>,
         params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
-        use NetworkBehaviourAction::*;
-        use NetworkBehaviourEventProcess as NBEP;
-
         self.waker = Some(cx.waker().clone());
 
         poll_loop!(self, self.plumber, cx, params, EitherOutput::First);

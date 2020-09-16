@@ -707,6 +707,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
+name = "control-macro"
+version = "0.0.1"
+
+[[package]]
 name = "cookie"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3042,6 +3046,8 @@ name = "particle-dht"
 version = "0.0.1"
 dependencies = [
  "bs58",
+ "control-macro",
+ "fluence-libp2p",
  "libp2p",
  "log",
  "once_cell",
