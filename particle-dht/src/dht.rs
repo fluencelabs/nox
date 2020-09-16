@@ -16,6 +16,8 @@
 
 use control_macro::get_return;
 use fluence_libp2p::generate_swarm_event_type;
+use libp2p::core::identity::ed25519;
+use libp2p::core::Multiaddr;
 use libp2p::kad::{PutRecordError, PutRecordResult, QueryResult};
 use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{
@@ -86,6 +88,23 @@ impl ParticleDHT {
             config,
             pending: <_>::default(),
             events: <_>::default(),
+        }
+    }
+
+    pub fn add_kad_node(
+        &mut self,
+        node_id: PeerId,
+        addresses: Vec<Multiaddr>,
+        public_key: ed25519::PublicKey,
+    ) {
+        log::trace!(
+            "adding new node {} with {:?} addresses to kademlia",
+            node_id,
+            addresses,
+        );
+        for addr in addresses {
+            self.kademlia
+                .add_address(&node_id, addr.clone(), public_key.clone());
         }
     }
 }

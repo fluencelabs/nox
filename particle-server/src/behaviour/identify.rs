@@ -40,9 +40,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for ServerBehaviour {
                 match info.public_key {
                     PublicKey::Ed25519(public_key) if supports_kademlia => {
                         let addresses = filter_addresses(info.listen_addrs);
-                        /*
-                        self.router.add_kad_node(peer_id, addresses, public_key);
-                        */
+                        self.particle.add_kad_node(peer_id, addresses, public_key);
                     }
                     _ if supports_kademlia => {
                         log::error!(

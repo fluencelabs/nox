@@ -17,7 +17,7 @@
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use particle_protocol::Particle;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::task::Poll;
 
 #[derive(Debug)]

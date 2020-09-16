@@ -19,6 +19,7 @@ use particle_actors::{Plumber, PlumberEvent};
 use particle_dht::{DHTConfig, DHTEvent, ParticleDHT};
 use trust_graph::TrustGraph;
 
+use libp2p::core::identity::ed25519;
 use libp2p::swarm::NotifyHandler;
 use libp2p::{
     core::{
@@ -26,10 +27,9 @@ use libp2p::{
         either::EitherOutput,
         Multiaddr,
     },
-    kad::{record::store::MemoryStore, Kademlia, KademliaEvent},
     swarm::{
         IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
-        NetworkBehaviourEventProcess, OneShotHandler, PollParameters, ProtocolsHandler,
+        OneShotHandler, PollParameters, ProtocolsHandler,
     },
     PeerId,
 };
@@ -47,11 +47,11 @@ pub struct ParticleBehaviour {
 }
 
 impl libp2p::swarm::NetworkBehaviourEventProcess<()> for ParticleBehaviour {
-    fn inject_event(&mut self, event: ()) {}
+    fn inject_event(&mut self, _: ()) {}
 }
 
 impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour {
-    fn inject_event(&mut self, event: DHTEvent) {}
+    fn inject_event(&mut self, _event: DHTEvent) {}
 }
 
 impl ParticleBehaviour {
@@ -64,6 +64,15 @@ impl ParticleBehaviour {
             dht,
             waker: None,
         }
+    }
+
+    pub fn add_kad_node(
+        &mut self,
+        node_id: PeerId,
+        addresses: Vec<Multiaddr>,
+        public_key: ed25519::PublicKey,
+    ) {
+        self.dht.add_kad_node(node_id, addresses, public_key)
     }
 }
 

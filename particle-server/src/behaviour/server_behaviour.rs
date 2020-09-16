@@ -37,7 +37,7 @@ pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
 pub struct ServerBehaviour {
     identity: Identify,
     ping: Ping,
-    particle: ParticleBehaviour,
+    pub(super) particle: ParticleBehaviour,
     #[behaviour(ignore)]
     events: VecDeque<SwarmEventType>,
 }

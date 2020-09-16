@@ -15,18 +15,13 @@
  */
 
 use async_std::task;
-use fluence_libp2p::{build_memory_transport, generate_swarm_event_type, RandomPeerId};
-use futures::channel::mpsc;
+use fluence_libp2p::{build_memory_transport, generate_swarm_event_type};
 use futures::future::FutureExt;
 use futures::select;
 use futures::task::{Context, Poll};
-use futures::StreamExt;
 use libp2p::core::connection::ConnectionId;
-use libp2p::core::either::EitherOutput;
-use libp2p::core::transport::dummy::{DummyStream, DummyTransport};
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
-use libp2p::mplex::Multiplex;
 use libp2p::swarm::{
     NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
     SwarmEvent,
@@ -92,7 +87,7 @@ macro_rules! make_swarm {
 }
 
 fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
-    let mut swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
+    let swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
         let config = DHTConfig {
             peer_id: peer_id.clone(),
             keypair: keypair.clone(),
@@ -125,7 +120,7 @@ pub fn create_memory_maddr() -> Multiaddr {
     addr
 }
 
-pub type ClientEventType = generate_swarm_event_type!(Client);
+type ClientEventType = generate_swarm_event_type!(Client);
 
 #[derive(Default)]
 struct Client {
@@ -155,15 +150,15 @@ impl NetworkBehaviour for Client {
         ProtocolConfig::new().into()
     }
 
-    fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+    fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
         vec![]
     }
 
-    fn inject_connected(&mut self, peer_id: &PeerId) {}
+    fn inject_connected(&mut self, _: &PeerId) {}
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId) {}
+    fn inject_disconnected(&mut self, _: &PeerId) {}
 
-    fn inject_event(&mut self, peer_id: PeerId, connection: ConnectionId, event: ProtocolMessage) {
+    fn inject_event(&mut self, peer_id: PeerId, _: ConnectionId, event: ProtocolMessage) {
         match event {
             ProtocolMessage::Particle(p) => self
                 .events
@@ -173,11 +168,7 @@ impl NetworkBehaviour for Client {
         }
     }
 
-    fn poll(
-        &mut self,
-        cx: &mut Context<'_>,
-        params: &mut impl PollParameters,
-    ) -> Poll<ClientEventType> {
+    fn poll(&mut self, _: &mut Context<'_>, _: &mut impl PollParameters) -> Poll<ClientEventType> {
         if let Some(e) = self.events.pop_front() {
             return Poll::Ready(e);
         }
