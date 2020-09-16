@@ -32,6 +32,7 @@ import {decode, encode} from "it-length-prefixed";
 import pipe from "it-pipe";
 import Multiaddr from "multiaddr";
 import PeerId from "peer-id";
+import * as log from 'loglevel';
 
 export const PROTOCOL_NAME = '/fluence/faas/1.0.0';
 
@@ -97,7 +98,7 @@ export class FluenceConnection {
         if (this.status === Status.Initializing) {
             await this.node.start();
 
-            console.log("dialing to the node with address: " + this.node.peerId.toB58String());
+            log.debug("dialing to the node with address: " + this.node.peerId.toB58String());
 
             await this.node.dial(this.address);
 
@@ -110,7 +111,7 @@ export class FluenceConnection {
                     async function (source: AsyncIterable<string>) {
                         for await (const msg of source) {
                             try {
-                                console.log(_this.selfPeerIdStr);
+                                log.debug(_this.selfPeerIdStr);
                                 let call = parseFunctionCall(msg);
                                 let response = _this.handleCall(call);
 
@@ -119,7 +120,7 @@ export class FluenceConnection {
                                     await _this.sendCall(response);
                                 }
                             } catch(e) {
-                                console.log("error on handling a new incoming message: " + e);
+                                log.error("error on handling a new incoming message: " + e);
                             }
                         }
                     }
@@ -145,8 +146,8 @@ export class FluenceConnection {
 
     private async sendCall(call: FunctionCall) {
         let callStr = callToString(call);
-        console.log("send function call: " + JSON.stringify(JSON.parse(callStr), undefined, 2));
-        console.log(call);
+        log.debug("send function call: " + JSON.stringify(JSON.parse(callStr), undefined, 2));
+        log.debug(call);
 
         // create outgoing substream
         const conn = await this.node.dialProtocol(this.address, PROTOCOL_NAME) as {stream: Stream; protocol: string};
