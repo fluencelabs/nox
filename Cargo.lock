@@ -2995,6 +2995,7 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "libp2p",
+ "log",
  "particle-actors",
  "particle-dht",
  "particle-protocol",
