@@ -110,10 +110,6 @@ pub mod app_service {
     pub use blueprint::Blueprint;
 }
 
-pub mod particle {
-    pub mod router;
-}
-
 pub(crate) use bootstrapper::Bootstrapper;
 pub(crate) use bootstrapper::BootstrapperEvent;
 pub(crate) use function::FunctionRouter;
