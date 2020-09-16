@@ -15,6 +15,7 @@
  */
 
 use crate::{relay, Address, FunctionCall, Protocol};
+use fluence_app_service::CallParameters;
 use fluence_libp2p::RandomPeerId;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::identity::PublicKey::Ed25519;
@@ -80,6 +81,8 @@ impl FunctionCall {
                 None
             }
         };
+        let headers = CallParameters::new(rnd_str(), rnd_str(), rnd_str());
+
         Self {
             uuid: Uuid::new_v4().to_string(),
             target: Address::random().into(),
@@ -89,6 +92,7 @@ impl FunctionCall {
             arguments: json!({ rnd_str(): rnd_str() }),
             name: maybe_str(),
             sender: Address::random(),
+            headers,
         }
     }
 }

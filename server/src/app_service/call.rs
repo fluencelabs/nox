@@ -15,7 +15,7 @@
  */
 
 use faas_api::FunctionCall;
-use fluence_app_service::IValue;
+use fluence_app_service::{CallParameters, IValue};
 use serde::{ser::Error as SerError, Serialize, Serializer};
 use serde_json::Value;
 
@@ -33,6 +33,8 @@ pub enum ServiceCall {
         /// Arguments for the function
         // TODO: change to Vec<u8> in future?
         arguments: serde_json::Value,
+        /// Call headers
+        headers: CallParameters,
         /// FunctionCall that caused this WasmCall, returned to caller as is
         call: FunctionCall,
     },

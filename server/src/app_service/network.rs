@@ -277,6 +277,7 @@ mod tests {
             function: function.to_string(),
             arguments: serde_json::json!([argument]),
             call: <_>::default(),
+            headers: <_>::default(),
         });
 
         let ((_, returned), swarm) = wait_result(swarm, Duration::from_millis(100));

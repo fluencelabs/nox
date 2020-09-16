@@ -310,12 +310,10 @@ impl FunctionRouter {
             let call = FunctionCall {
                 uuid: format!("error_{}", call.uuid),
                 target: Some(target.clone()),
-                reply_to: None, // TODO: sure?
-                module: None,
-                fname: None,
                 arguments,
                 name: call.name,
                 sender: self.config.local_address(),
+                ..<_>::default()
             };
             self.call(call)
         } else {
