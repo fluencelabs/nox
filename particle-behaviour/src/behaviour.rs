@@ -32,6 +32,7 @@ use libp2p::{
     },
     PeerId,
 };
+use particle_protocol::{ProtocolConfig, ProtocolMessage};
 use prometheus::Registry;
 use std::error::Error;
 use std::task::{Context, Poll, Waker};
@@ -71,29 +72,27 @@ impl ParticleBehaviour {
 
 impl NetworkBehaviour for ParticleBehaviour {
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
-        <Plumber as NetworkBehaviour>::ProtocolsHandler,
+        OneShotHandler<ProtocolConfig, ProtocolMessage, ProtocolMessage>,
         <ParticleDHT as NetworkBehaviour>::ProtocolsHandler,
     >;
     type OutEvent = ();
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        IntoProtocolsHandler::select(self.plumber.new_handler(), self.dht.new_handler())
+        IntoProtocolsHandler::select(ProtocolConfig::new().into(), self.dht.new_handler())
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        let p = self.plumber.addresses_of_peer(peer_id).into_iter();
+        let p = self.plumber.client_address(peer_id).into_iter();
         let d = self.dht.addresses_of_peer(peer_id).into_iter();
 
         p.chain(d).collect()
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        self.plumber.inject_connected(peer_id);
         self.dht.inject_connected(peer_id);
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        self.plumber.inject_disconnected(peer_id);
         self.dht.inject_disconnected(peer_id);
     }
 
@@ -106,9 +105,14 @@ impl NetworkBehaviour for ParticleBehaviour {
         use EitherOutput::{First, Second};
 
         match event {
-            First(event) => {
-                NetworkBehaviour::inject_event(&mut self.plumber, peer_id, connection, event)
-            }
+            First(event) => match event {
+                ProtocolMessage::Upgrade => {
+                    self.plumber.add_client(peer_id.clone());
+                    self.dht.publish_client(peer_id);
+                }
+                ProtocolMessage::Particle(particle) => self.plumber.ingest(particle),
+                ProtocolMessage::UpgradeError(_) => {}
+            },
             Second(event) => {
                 NetworkBehaviour::inject_event(&mut self.dht, peer_id, connection, event)
             }
@@ -122,7 +126,10 @@ impl NetworkBehaviour for ParticleBehaviour {
     ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
-        poll_loop!(self, self.plumber, cx, params, EitherOutput::First);
+        /*if let Poll::Ready(event) = self.plumber.poll() {
+            return Poll::Ready();
+        }*/
+
         poll_loop!(self, self.dht, cx, params, EitherOutput::Second);
 
         Poll::Pending
@@ -135,37 +142,30 @@ impl NetworkBehaviour for ParticleBehaviour {
         addr: &Multiaddr,
         error: &dyn Error,
     ) {
-        self.plumber.inject_addr_reach_failure(peer_id, addr, error);
         self.dht.inject_addr_reach_failure(peer_id, addr, error);
     }
 
     fn inject_dial_failure(&mut self, peer_id: &PeerId) {
-        self.plumber.inject_dial_failure(peer_id);
         self.dht.inject_dial_failure(peer_id);
     }
 
     fn inject_new_listen_addr(&mut self, addr: &Multiaddr) {
-        self.plumber.inject_new_listen_addr(addr);
         self.dht.inject_new_listen_addr(addr);
     }
 
     fn inject_expired_listen_addr(&mut self, addr: &Multiaddr) {
-        self.plumber.inject_expired_listen_addr(addr);
         self.dht.inject_expired_listen_addr(addr);
     }
 
     fn inject_new_external_addr(&mut self, addr: &Multiaddr) {
-        self.plumber.inject_new_external_addr(addr);
         self.dht.inject_new_external_addr(addr);
     }
 
     fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
-        self.plumber.inject_listener_error(id, err);
         self.dht.inject_listener_error(id, err);
     }
 
     fn inject_listener_closed(&mut self, id: ListenerId, reason: Result<(), &std::io::Error>) {
-        self.plumber.inject_listener_closed(id, reason);
         self.dht.inject_listener_closed(id, reason);
     }
 
@@ -175,12 +175,10 @@ impl NetworkBehaviour for ParticleBehaviour {
         ci: &ConnectionId,
         cp: &ConnectedPoint,
     ) {
-        self.plumber.inject_connection_established(id, ci, cp);
         self.dht.inject_connection_established(id, ci, cp);
     }
 
     fn inject_connection_closed(&mut self, id: &PeerId, ci: &ConnectionId, cp: &ConnectedPoint) {
-        self.plumber.inject_connection_closed(id, ci, cp);
         self.dht.inject_connection_closed(id, ci, cp);
     }
 
@@ -191,7 +189,6 @@ impl NetworkBehaviour for ParticleBehaviour {
         old: &ConnectedPoint,
         new: &ConnectedPoint,
     ) {
-        self.plumber.inject_address_change(id, ci, old, new);
         self.dht.inject_address_change(id, ci, old, new);
     }
 }

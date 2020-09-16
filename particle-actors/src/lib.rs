@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-mod network;
 mod plumber;
 
 pub use plumber::Plumber;
