@@ -135,6 +135,24 @@ export class FluenceClient {
     }
 
     /**
+     * Send a message to a client that connected with a relay.
+     *
+     * @param relayId
+     * @param clientId
+     * @param moduleId
+     * @param args message to the service
+     * @param fname function name
+     * @param name debug info
+     */
+    async fireClient(relayId: string, clientId: string, moduleId: string, args: any, fname?: string, name?: string): Promise<void> {
+        let msgId = genUUID();
+        let clientPeerId = await PeerId.createFromB58String(clientId);
+        let address = await createRelayAddress(relayId, clientPeerId, false);
+
+        await this.sendCall({target: address, args: args, moduleId: moduleId, fname: fname, msgId: msgId, name: name})
+    }
+
+    /**
      * Send a call to the local service and wait a response matches predicate on a peer the client connected with.
      *
      * @param moduleId
@@ -417,8 +435,9 @@ export class FluenceClient {
         }
 
         let peerId = PeerId.createFromB58String(nodePeerId);
-        let relayAddress = await createRelayAddress(nodePeerId, this.selfPeerId, true);
-        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, relayAddress, this.handleCall());
+        let sender = await createRelayAddress(nodePeerId, this.selfPeerId, false);
+        let replyTo = await createRelayAddress(nodePeerId, this.selfPeerId, true);
+        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, sender, replyTo, this.handleCall());
 
         await connection.connect();
 
