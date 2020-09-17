@@ -5,8 +5,11 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
+particle-protocol = { path = "../particle-protocol" }
+
 trust-graph = { path = "../trust-graph" }
 control-macro = { path = "../crates/control-macro" }
+waiting-queues = { path = "../crates/waiting-queues" }
 fluence-libp2p = { path = "../crates/libp2p" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }

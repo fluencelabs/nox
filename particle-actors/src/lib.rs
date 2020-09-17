@@ -28,4 +28,4 @@
 
 mod plumber;
 
-pub use plumber::{Plumber, PlumberEvent};
+pub use plumber::{PeerKind, Plumber, PlumberEvent};

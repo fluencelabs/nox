@@ -18,16 +18,27 @@ use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use particle_protocol::Particle;
 use std::collections::{HashMap, VecDeque};
-use std::task::Poll;
+use std::task::{Poll, Waker};
+
+#[derive(Debug)]
+pub enum PeerKind {
+    Client,
+    Unknown,
+}
 
 #[derive(Debug)]
 pub enum PlumberEvent {
-    Forward { target: PeerId, particle: Particle },
+    Forward {
+        target: PeerId,
+        particle: Particle,
+        kind: PeerKind,
+    },
 }
 
 pub struct Plumber {
     clients: HashMap<PeerId, Option<Multiaddr>>,
     events: VecDeque<PlumberEvent>,
+    pub(super) waker: Option<Waker>,
 }
 
 impl Plumber {
@@ -35,6 +46,7 @@ impl Plumber {
         Self {
             clients: <_>::default(),
             events: <_>::default(),
+            waker: <_>::default(),
         }
     }
 
@@ -55,17 +67,36 @@ impl Plumber {
     }
 
     pub fn ingest(&mut self, particle: Particle) {
-        self.events.push_back(PlumberEvent::Forward {
-            target: particle.init_peer_id.clone(),
+        let target = particle.init_peer_id.clone();
+
+        let kind = if self.clients.contains_key(&target) {
+            PeerKind::Client
+        } else {
+            PeerKind::Unknown
+        };
+
+        self.emit(PlumberEvent::Forward {
+            target,
+            kind,
             particle,
         });
     }
 
-    pub fn poll(&mut self) -> Poll<PlumberEvent> {
+    pub fn poll(&mut self, waker: Waker) -> Poll<PlumberEvent> {
+        self.waker = Some(waker);
+
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);
         }
 
         Poll::Pending
+    }
+
+    fn emit(&mut self, event: PlumberEvent) {
+        if let Some(waker) = self.waker.clone() {
+            waker.wake();
+        }
+
+        self.events.push_back(event);
     }
 }

@@ -17,12 +17,12 @@
 use crate::behaviour::SwarmEventType;
 use crate::ParticleBehaviour;
 
-use particle_actors::PlumberEvent;
 use particle_dht::ParticleDHT;
 use particle_protocol::{ProtocolConfig, ProtocolMessage};
 
 use fluence_libp2p::poll_loop;
 
+use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{
     core::{
         connection::{ConnectionId, ListenerId},
@@ -30,8 +30,8 @@ use libp2p::{
         ConnectedPoint, Multiaddr,
     },
     swarm::{
-        IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
-        NotifyHandler, OneShotHandler, PollParameters, ProtocolsHandler,
+        IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, OneShotHandler,
+        PollParameters, ProtocolsHandler,
     },
     PeerId,
 };
@@ -94,18 +94,8 @@ impl NetworkBehaviour for ParticleBehaviour {
         cx: &mut Context<'_>,
         params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
-        if let Poll::Ready(event) = self.plumber.poll() {
-            match event {
-                PlumberEvent::Forward { target, particle } => {
-                    // TODO: check if target is a client in Plumber
-                    //       resolve target through DHT otherwise
-                    return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
-                        peer_id: target,
-                        handler: NotifyHandler::Any,
-                        event: EitherOutput::First(ProtocolMessage::Particle(particle)),
-                    });
-                }
-            }
+        if let Poll::Ready(event) = self.plumber.poll(cx.waker().clone()) {
+            NetworkBehaviourEventProcess::inject_event(self, event);
         }
 
         poll_loop!(self, self.dht, cx, params, EitherOutput::Second);

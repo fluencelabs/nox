@@ -46,11 +46,13 @@ impl NetworkBehaviour for ParticleDHT {
 
     fn inject_connected(&mut self, id: &PeerId) {
         log::debug!("{} got inject_connected {}", self.config.peer_id, id);
+        self.connected(id.clone());
         self.kademlia.inject_connected(id);
     }
 
     fn inject_disconnected(&mut self, id: &PeerId) {
         log::debug!("{} got inject_disconnected {}", self.config.peer_id, id);
+        self.disconnected(id);
         self.kademlia.inject_disconnected(id);
     }
 
@@ -110,6 +112,8 @@ impl NetworkBehaviour for ParticleDHT {
         cx: &mut Context<'_>,
         params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
+        self.waker = Some(cx.waker().clone());
+
         poll_loop!(self, self.kademlia, cx, params);
 
         if let Some(event) = self.events.pop_front() {

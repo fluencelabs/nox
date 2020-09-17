@@ -14,23 +14,28 @@
  * limitations under the License.
  */
 
-use particle_actors::Plumber;
+use particle_actors::{PeerKind, Plumber, PlumberEvent};
 use particle_dht::{DHTConfig, DHTEvent, ParticleDHT};
+use particle_protocol::{Particle, ProtocolMessage};
 
 use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
 
 use libp2p::{
-    core::{identity::ed25519, Multiaddr},
+    core::{either::EitherOutput, identity::ed25519, Multiaddr},
+    swarm::{NetworkBehaviourAction, NotifyHandler},
     PeerId,
 };
 use prometheus::Registry;
+use std::{collections::VecDeque, task::Waker};
 
 pub(crate) type SwarmEventType = generate_swarm_event_type!(ParticleBehaviour);
 
 pub struct ParticleBehaviour {
     pub(super) plumber: Plumber,
     pub(super) dht: ParticleDHT,
+    pub(super) events: VecDeque<SwarmEventType>,
+    pub(super) waker: Option<Waker>,
 }
 
 impl libp2p::swarm::NetworkBehaviourEventProcess<()> for ParticleBehaviour {
@@ -39,7 +44,33 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<()> for ParticleBehaviour {
 
 impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour {
     fn inject_event(&mut self, event: DHTEvent) {
-        log::info!("DHT event: {:?}", event)
+        log::info!("DHT event: {:?}", event);
+        match event {
+            DHTEvent::Published(_) => {}
+            DHTEvent::PublishFailed(_, _) => {}
+            DHTEvent::Forward { target, particle } => self.forward_particle(target, particle),
+        }
+    }
+}
+
+impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehaviour {
+    fn inject_event(&mut self, event: PlumberEvent) {
+        match event {
+            PlumberEvent::Forward {
+                target,
+                particle,
+                kind: PeerKind::Client,
+            } => {
+                self.forward_particle(target, particle);
+            }
+            PlumberEvent::Forward {
+                target,
+                particle,
+                kind: PeerKind::Unknown,
+            } => {
+                self.dht.send_to(target, particle);
+            }
+        }
     }
 }
 
@@ -48,7 +79,12 @@ impl ParticleBehaviour {
         let plumber = Plumber::new();
         let dht = ParticleDHT::new(config, trust_graph, registry);
 
-        Self { plumber, dht }
+        Self {
+            plumber,
+            dht,
+            events: <_>::default(),
+            waker: <_>::default(),
+        }
     }
 
     pub fn add_kad_node(
@@ -62,5 +98,21 @@ impl ParticleBehaviour {
 
     pub fn bootstrap(&mut self) {
         self.dht.bootstrap()
+    }
+
+    pub(super) fn push_event(&mut self, event: SwarmEventType) {
+        if let Some(waker) = self.waker.clone() {
+            waker.wake();
+        }
+
+        self.events.push_back(event);
+    }
+
+    fn forward_particle(&mut self, target: PeerId, particle: Particle) {
+        self.push_event(NetworkBehaviourAction::NotifyHandler {
+            peer_id: target,
+            handler: NotifyHandler::Any,
+            event: EitherOutput::First(ProtocolMessage::Particle(particle)),
+        });
     }
 }

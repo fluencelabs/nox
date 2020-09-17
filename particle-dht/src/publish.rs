@@ -20,12 +20,14 @@ use libp2p::{
     swarm::NetworkBehaviourAction,
     PeerId,
 };
+use std::borrow::Borrow;
 
 impl ParticleDHT {
     pub fn publish_client(&mut self, client: PeerId) {
         let bytes = [client.as_bytes(), self.config.peer_id.as_bytes()].concat();
         let signature = self.config.keypair.sign(bytes.as_slice());
-        let record = Record::new(client.clone().into_bytes(), signature);
+        let key: &[u8] = client.borrow();
+        let record = Record::new(key.to_vec(), signature);
 
         match self.kademlia.put_record(record, Quorum::Majority) {
             Ok(query_id) => {
@@ -43,9 +45,8 @@ impl ParticleDHT {
         self.emit(DHTEvent::Published(client))
     }
 
-    fn emit(&mut self, event: DHTEvent) {
-        self.events
-            .push_back(NetworkBehaviourAction::GenerateEvent(event));
+    pub(super) fn emit(&mut self, event: DHTEvent) {
+        self.push_event(NetworkBehaviourAction::GenerateEvent(event))
     }
 
     pub(super) fn recover_result(result: PutRecordResult) -> Result<(), PublishError> {

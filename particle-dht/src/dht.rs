@@ -14,23 +14,29 @@
  * limitations under the License.
  */
 
-use control_macro::get_return;
+use super::wait_peer::WaitPeer;
+
 use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
+use waiting_queues::WaitingQueues;
 
 use libp2p::{
     core::{identity::ed25519, Multiaddr},
     identity::ed25519::Keypair,
     kad::{
         store::{self, MemoryStore},
-        Kademlia, KademliaConfig, KademliaEvent, QueryId, QueryResult,
+        Kademlia, KademliaConfig, QueryId,
     },
-    swarm::NetworkBehaviourEventProcess,
     PeerId,
 };
+use particle_protocol::Particle;
 use prometheus::Registry;
 use smallvec::alloc::collections::VecDeque;
-use std::{collections::HashMap, time::Duration};
+use std::task::Waker;
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
 
 pub type SwarmEventType = generate_swarm_event_type!(ParticleDHT);
 
@@ -45,6 +51,7 @@ pub enum PublishError {
 pub enum DHTEvent {
     Published(PeerId),
     PublishFailed(PeerId, PublishError),
+    Forward { target: PeerId, particle: Particle },
 }
 
 pub struct ParticleDHT {
@@ -52,6 +59,9 @@ pub struct ParticleDHT {
     pub(super) config: DHTConfig,
     pub(super) pending: HashMap<QueryId, PeerId>,
     pub(super) events: VecDeque<SwarmEventType>,
+    pub(super) connected_peers: HashSet<PeerId>,
+    pub(super) wait_peer: WaitingQueues<PeerId, WaitPeer>,
+    pub(super) waker: Option<Waker>,
 }
 
 pub struct DHTConfig {
@@ -85,6 +95,9 @@ impl ParticleDHT {
             config,
             pending: <_>::default(),
             events: <_>::default(),
+            connected_peers: <_>::default(),
+            wait_peer: <_>::default(),
+            waker: <_>::default(),
         }
     }
 
@@ -113,24 +126,14 @@ impl ParticleDHT {
         self.kademlia
             .get_closest_peers(self.config.peer_id.borrow());
     }
-}
 
-impl NetworkBehaviourEventProcess<KademliaEvent> for ParticleDHT {
-    fn inject_event(&mut self, event: KademliaEvent) {
-        match event {
-            KademliaEvent::QueryResult {
-                id,
-                result: QueryResult::PutRecord(result),
-                ..
-            } => {
-                let client = get_return!(self.pending.remove(&id));
-                if let Err(err) = Self::recover_result(result) {
-                    self.publish_failed(client, err)
-                } else {
-                    self.publish_succeeded(client)
-                }
-            }
-            _ => {}
+    pub(super) fn bootstrap_finished(&mut self) {}
+
+    pub(super) fn push_event(&mut self, event: SwarmEventType) {
+        if let Some(waker) = self.waker.clone() {
+            waker.wake();
         }
+
+        self.events.push_back(event);
     }
 }

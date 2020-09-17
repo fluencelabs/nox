@@ -5,6 +5,7 @@ members = [
     "crates/libp2p",
     "crates/ctrlc-adapter",
     "crates/control-macro",
+    "crates/waiting-queues",
     "faas-api",
     "particle-server",
     "particle-actors",

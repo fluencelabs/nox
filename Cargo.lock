@@ -3014,11 +3014,13 @@ dependencies = [
  "libp2p",
  "log",
  "once_cell",
+ "particle-protocol",
  "prometheus",
  "prost",
  "serde_json",
  "smallvec 1.4.2",
  "trust-graph",
+ "waiting-queues",
 ]
 
 [[package]]
@@ -4411,6 +4413,10 @@ name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
+
+[[package]]
+name = "waiting-queues"
+version = "0.0.1"
 
 [[package]]
 name = "waker-fn"

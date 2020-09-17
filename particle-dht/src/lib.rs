@@ -26,8 +26,13 @@
     unreachable_patterns
 )]
 
+mod connections;
 mod dht;
+mod kademlia;
 mod network;
 mod publish;
+mod resolve;
+mod routing;
+mod wait_peer;
 
 pub use dht::{DHTConfig, DHTEvent, ParticleDHT};
