@@ -29,7 +29,6 @@
 use async_std::task;
 use clap::{App, Arg};
 use ctrlc_adapter::block_until_ctrlc;
-use faas_api::{Address, FunctionCall, Protocol};
 use fluence_client::{Client, ClientCommand, ClientEvent};
 use futures::task::Poll;
 use futures::{
@@ -108,7 +107,8 @@ async fn run_client(
                     Some(ClientEvent::NewConnection{ peer_id, ..}) => {
                         log::info!("Connected to {}", peer_id);
                         node = Some(peer_id.clone());
-                        print_example(Protocol::Peer(peer_id.clone()).into(), client.relay_address(peer_id.clone()));
+                        unimplemented!("print example");
+                        /*print_example(Protocol::Peer(peer_id.clone()).into(), client.relay_address(peer_id.clone()));*/
                     }
                     Some(msg) => println!("Received\n{}\n", serde_json::to_string_pretty(&msg).unwrap()),
                     None => {
@@ -167,7 +167,7 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
     cmd_recv
 }
 
-fn print_example(node: Address, reply_to: Address) {
+/*fn print_example(node: Address, reply_to: Address) {
     use serde_json::json;
     use std::time::SystemTime;
     fn show(cmd: ClientCommand) {
@@ -183,7 +183,7 @@ fn print_example(node: Address, reply_to: Address) {
         .as_millis()
         .to_string();
 
-    let call_identify = ClientCommand::Call {
+    let call_identify = ClientCommand::Particle {
         call: FunctionCall {
             uuid: uuid(),
             target: Some(node),
@@ -201,3 +201,4 @@ fn print_example(node: Address, reply_to: Address) {
     show(call_identify);
     println!("\n")
 }
+*/

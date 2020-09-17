@@ -62,7 +62,7 @@ impl ParticleDHT {
         self.connected_peers.remove(peer_id);
 
         let _waiting_calls = self.wait_peer.remove(peer_id);
-        unimplemented!("disconnection handling");
+        log::error!("plz handle waiting calls");
         /*for waiting in waiting_calls.into_iter() {
             self.send_error_on_call(waiting.into(), format!("peer {} disconnected", peer_id));
         }*/

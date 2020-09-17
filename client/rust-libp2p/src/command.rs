@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-use faas_api::FunctionCall;
+use particle_protocol::Particle;
 use serde::{Deserialize, Serialize};
 
 /// Describes commands sent from client to relay node; also see `ToNodeNetworkMsg`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "command")]
 pub enum ClientCommand {
-    Call { call: FunctionCall },
+    Particle { particle: Particle },
 }
 
-impl Into<FunctionCall> for ClientCommand {
-    fn into(self) -> FunctionCall {
+impl Into<Particle> for ClientCommand {
+    fn into(self) -> Particle {
         match self {
-            ClientCommand::Call { call } => call,
+            ClientCommand::Particle { particle } => particle,
         }
     }
 }

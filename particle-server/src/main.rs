@@ -29,7 +29,7 @@
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
 use futures::channel::oneshot;
-use particle::{
+use particle_server::{
     config::{certificates, create_args, load_config, AppServicesConfig, FluenceConfig},
     Server,
 };

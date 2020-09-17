@@ -22,3 +22,4 @@ log = "0.4.11"
 futures = "0.3.4"
 async-std = { version = "1.6.2", features = ["unstable"] }
 rand = "0.7.3"
+test-utils = { path = "../crates/test-utils" }

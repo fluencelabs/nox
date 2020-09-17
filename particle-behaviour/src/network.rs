@@ -77,10 +77,14 @@ impl NetworkBehaviour for ParticleBehaviour {
         match event {
             First(event) => match event {
                 ProtocolMessage::Upgrade => {
+                    log::info!("New client connected: {}", peer_id);
                     self.plumber.add_client(peer_id.clone());
                     self.dht.publish_client(peer_id);
                 }
-                ProtocolMessage::Particle(particle) => self.plumber.ingest(particle),
+                ProtocolMessage::Particle(particle) => {
+                    log::info!("Ingesting particle {:?}", particle);
+                    self.plumber.ingest(particle)
+                }
                 ProtocolMessage::UpgradeError(_) => {}
             },
             Second(event) => {
@@ -94,6 +98,10 @@ impl NetworkBehaviour for ParticleBehaviour {
         cx: &mut Context<'_>,
         params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
+        if let Some(event) = self.events.pop_front() {
+            return Poll::Ready(event);
+        }
+
         if let Poll::Ready(event) = self.plumber.poll(cx.waker().clone()) {
             NetworkBehaviourEventProcess::inject_event(self, event);
         }

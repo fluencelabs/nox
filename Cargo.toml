@@ -6,7 +6,7 @@ members = [
     "crates/ctrlc-adapter",
     "crates/control-macro",
     "crates/waiting-queues",
-    "faas-api",
+    "crates/test-utils",
     "particle-server",
     "particle-actors",
     "particle-protocol",

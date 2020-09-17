@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-use faas_api::FunctionCall;
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
+use particle_protocol::Particle;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum ClientEvent {
-    FunctionCall {
-        call: FunctionCall,
+    Particle {
+        particle: Particle,
         #[serde(with = "peerid_serializer")]
         sender: PeerId,
     },

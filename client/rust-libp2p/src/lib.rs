@@ -26,11 +26,11 @@
     unreachable_patterns
 )]
 
+mod api;
 mod behaviour;
 mod client;
 mod command;
 mod event;
-mod function_call_api;
 
 pub use client::{Client, Transport};
 pub use command::ClientCommand;

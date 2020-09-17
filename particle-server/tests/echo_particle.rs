@@ -14,29 +14,18 @@
  * limitations under the License.
  */
 
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use particle_protocol::Particle;
+use test_utils::{make_swarms, ConnectedClient};
 
-mod address;
-mod address_protocol;
-mod call;
-mod libp2p_protocol {
-    pub mod message;
-    pub mod upgrade;
+#[test]
+fn echo_particle() {
+    let swarms = make_swarms(3);
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let mut particle = Particle::default();
+    particle.id = "123".to_string();
+    particle.init_peer_id = client.peer_id.clone();
+    client.send(particle.clone());
+    let response = client.receive();
+    assert_eq!(response.id, particle.id)
 }
-mod random;
-
-pub use address::{Address, AddressError};
-pub use address_protocol::Protocol;
-pub use call::FunctionCall;
-pub use libp2p_protocol::message::ProtocolMessage;
-pub use libp2p_protocol::upgrade::ProtocolConfig;

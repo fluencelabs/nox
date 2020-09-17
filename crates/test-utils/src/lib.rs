@@ -14,16 +14,8 @@
  * limitations under the License.
  */
 
-use crate::behaviour::ClientBehaviour;
-use faas_api::FunctionCall;
-use libp2p::PeerId;
+mod connected_client;
+mod misc;
 
-pub trait FunctionCallApi {
-    fn call(&mut self, peer_id: PeerId, call: FunctionCall);
-}
-
-impl FunctionCallApi for ClientBehaviour {
-    fn call(&mut self, peer_id: PeerId, call: FunctionCall) {
-        self.call(peer_id, call)
-    }
-}
+pub use connected_client::ConnectedClient;
+pub use misc::*;

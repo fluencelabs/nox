@@ -1,0 +1,28 @@
+[package]
+name = "test-utils"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+fluence-client = { path = "../../client/rust-libp2p" }
+trust-graph  = { path = "../../trust-graph" }
+fluence-libp2p  = { path = "../libp2p" }
+particle-server  = { path = "../../particle-server" }
+particle-protocol  = { path = "../../particle-protocol" }
+
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+
+rand = "0.7.3"
+quickcheck = "0.9.2"
+async-std = "1.6.4"
+futures = "0.3.4"
+futures-util = "0.3.4"
+serde_json = "1.0.57"
+serde = "1.0.116"
+log = "0.4.11"
+env_logger = "0.7.1"
+uuid = "0.8.1"
+toml = "0.5.6"
+prometheus = "0.9.0"

@@ -61,4 +61,5 @@ mod bootstrapper {
 }
 
 pub use behaviour::ServerBehaviour;
+pub use bootstrapper::BootstrapConfig;
 pub use server::Server;

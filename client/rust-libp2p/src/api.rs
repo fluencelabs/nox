@@ -14,4 +14,16 @@
  * limitations under the License.
  */
 
-pub const NODES: [(&str, &str); 0] = [];
+use crate::behaviour::ClientBehaviour;
+use libp2p::PeerId;
+use particle_protocol::Particle;
+
+pub trait ParticleApi {
+    fn send(&mut self, peer_id: PeerId, particle: Particle);
+}
+
+impl ParticleApi for ClientBehaviour {
+    fn send(&mut self, peer_id: PeerId, particle: Particle) {
+        self.call(peer_id, particle)
+    }
+}

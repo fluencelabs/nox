@@ -55,6 +55,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour
 
 impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehaviour {
     fn inject_event(&mut self, event: PlumberEvent) {
+        log::info!("Plumber event: {:?}", event);
         match event {
             PlumberEvent::Forward {
                 target,
