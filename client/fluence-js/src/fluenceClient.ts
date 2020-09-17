@@ -79,12 +79,12 @@ export class FluenceClient {
      * @param predicate will be applied to each incoming call until it matches
      * @param ignoreErrors ignore an errors, wait for success response
      */
-    waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), ignoreErrors: boolean): Promise<any> {
+    waitResponse(predicate: (args: any, target: Address, replyTo: Address, moduleId?: string, fname?: string) => (boolean | undefined), ignoreErrors: boolean): Promise<any> {
         return new Promise((resolve, reject) => {
             // subscribe for responses, to handle response
             // TODO if there's no conn, reject
-            this.subscribe((args: any, target: Address, replyTo: Address) => {
-                if (predicate(args, target, replyTo)) {
+            this.subscribe((args: any, target: Address, replyTo: Address, moduleId?: string, fname?: string) => {
+                if (predicate(args, target, replyTo, moduleId, fname)) {
                     if (args.reason) {
                         if (ignoreErrors) {
                             return false;
@@ -391,7 +391,7 @@ export class FluenceClient {
 
     // subscribe new hook for every incoming call, to handle in-service responses and other different cases
     // the hook will be deleted if it will return `true`
-    subscribe(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)) {
+    subscribe(predicate: (args: any, target: Address, replyTo: Address, moduleId?: string, fname?: string) => (boolean | undefined)) {
         this.subscriptions.subscribe(predicate)
     }
 
