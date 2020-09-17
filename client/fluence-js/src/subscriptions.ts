@@ -36,7 +36,7 @@ export class Subscriptions {
      * @param call
      */
     applyToSubscriptions(call: FunctionCall) {
-        // if subscription return false - delete it from subscriptions
+        // if subscription return true - delete it from subscriptions
         this.subscriptions = this.subscriptions.filter(callback => !callback(call.arguments, call.target, call.reply_to, call.module, call.fname))
     }
 }

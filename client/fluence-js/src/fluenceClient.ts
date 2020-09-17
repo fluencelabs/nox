@@ -20,7 +20,7 @@ import {
     createRelayAddress,
     createProviderAddress,
     ProtocolType,
-    addressToString
+    addressToString, createRelayAddressWithSig
 } from "./address";
 import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./functionCall";
 import * as PeerId from "peer-id";
@@ -55,7 +55,7 @@ export class FluenceClient {
     readonly selfPeerIdStr: string;
     private nodePeerIdStr: string;
 
-    private connection: FluenceConnection;
+    connection: FluenceConnection;
 
     private services: LocalServices = new LocalServices();
 
@@ -139,15 +139,16 @@ export class FluenceClient {
      *
      * @param relayId
      * @param clientId
+     * @param sig
      * @param moduleId
      * @param args message to the service
      * @param fname function name
      * @param name debug info
      */
-    async fireClient(relayId: string, clientId: string, moduleId: string, args: any, fname?: string, name?: string): Promise<void> {
+    async fireClient(relayId: string, clientId: string, sig: string, moduleId: string, args: any, fname?: string, name?: string): Promise<void> {
         let msgId = genUUID();
         let clientPeerId = await PeerId.createFromB58String(clientId);
-        let address = await createRelayAddress(relayId, clientPeerId, false);
+        let address = await createRelayAddressWithSig(relayId, clientPeerId, sig);
 
         await this.sendCall({target: address, args: args, moduleId: moduleId, fname: fname, msgId: msgId, name: name})
     }
