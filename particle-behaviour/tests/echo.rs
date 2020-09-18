@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#![recursion_limit = "256"]
+
 use particle_behaviour::ParticleBehaviour;
 use particle_dht::DHTConfig;
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
@@ -61,7 +63,7 @@ fn echo_particle() {
                                 ttl: 1,
                                 script: "".to_string(),
                                 signature: vec![],
-                                data: Default::default(),
+                                data: <_>::default(),
                             };
                             client.send(p.clone(), server_id.clone());
                         }
@@ -96,10 +98,7 @@ macro_rules! make_swarm {
 
 fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
     let mut swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
-        let config = DHTConfig {
-            peer_id: peer_id.clone(),
-            keypair: keypair.clone(),
-        };
+        let config = DHTConfig { peer_id, keypair };
         let trust_graph = TrustGraph::new(<_>::default());
         let registry = None;
         ParticleBehaviour::new(config, trust_graph, registry)
@@ -108,7 +107,7 @@ fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
     let address = create_memory_maddr();
     Swarm::listen_on(&mut swarm, address.clone()).expect("listen");
 
-    let peer_id = Swarm::local_peer_id(&mut swarm).clone();
+    let peer_id = Swarm::local_peer_id(&swarm).clone();
     (swarm, address, peer_id)
 }
 
@@ -116,7 +115,7 @@ fn make_client(address: Multiaddr) -> (Swarm<Client>, PeerId) {
     let mut swarm = make_swarm!(|_, _| Client::new());
     Swarm::dial_addr(&mut swarm, address).expect("dial");
 
-    let peer_id = Swarm::local_peer_id(&mut swarm).clone();
+    let peer_id = Swarm::local_peer_id(&swarm).clone();
     (swarm, peer_id)
 }
 

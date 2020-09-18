@@ -72,7 +72,7 @@ impl ServerBehaviour {
             ping,
             particle,
             bootstrapper,
-            events: Default::default(),
+            events: <_>::default(),
         }
     }
 

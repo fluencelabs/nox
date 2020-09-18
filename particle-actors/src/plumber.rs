@@ -35,6 +35,7 @@ pub enum PlumberEvent {
     },
 }
 
+#[derive(Debug, Default)]
 pub struct Plumber {
     clients: HashMap<PeerId, Option<Multiaddr>>,
     events: VecDeque<PlumberEvent>,

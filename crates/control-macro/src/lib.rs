@@ -6,7 +6,7 @@ macro_rules! ok_get {
         let r = { $opt };
         match r {
             Some(r) => r,
-            None => return Ok(Default::default()),
+            None => return Ok(<_>::default()),
         }
     }};
 }

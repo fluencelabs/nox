@@ -90,10 +90,10 @@ impl Bootstrapper {
             config,
             peer_id,
             bootstrap_nodes: bootstrap_nodes.into_iter().collect(),
-            delayed_events: Default::default(),
-            events: Default::default(),
+            delayed_events: <_>::default(),
+            events: <_>::default(),
             bootstrap_scheduled: None,
-            bootstrap_backoff: Default::default(),
+            bootstrap_backoff: <_>::default(),
         }
     }
 
@@ -175,7 +175,7 @@ impl NetworkBehaviour for Bootstrapper {
     type OutEvent = BootstrapperEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        Default::default()
+        <_>::default()
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {

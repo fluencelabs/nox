@@ -25,7 +25,7 @@ use libp2p::{
 use serde_json::json;
 use std::{io, iter};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ProtocolConfig {}
 
 impl ProtocolConfig {

@@ -252,7 +252,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
     let public_key = Ed25519(kp.public());
     let peer_id = PeerId::from(public_key);
 
-    let tmp = config.tmp_dir.unwrap_or_else(|| make_tmp_dir());
+    let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
