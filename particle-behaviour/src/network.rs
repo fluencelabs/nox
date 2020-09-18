@@ -63,6 +63,8 @@ impl NetworkBehaviour for ParticleBehaviour {
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
+        // TODO: self.dht.unpublish_client(peer_id)
+        self.plumber.remove_client(peer_id);
         self.dht.inject_disconnected(peer_id);
     }
 
