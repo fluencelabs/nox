@@ -13,3 +13,7 @@ fluence-app-service = { git = "https://github.com/fluencelabs/fce" }
 futures = "0.3.4"
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+
+either = "1.6.1"
+log = "0.4.11"
+async-std = { version = "1.6.2", features = ["unstable"] }
