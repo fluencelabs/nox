@@ -21,7 +21,6 @@ use particle_protocol::Particle;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[allow(clippy::large_enum_variant)]
 pub enum ClientEvent {
     Particle {
         particle: Particle,

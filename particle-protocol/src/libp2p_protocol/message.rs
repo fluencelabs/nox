@@ -19,7 +19,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "action")]
-#[allow(clippy::large_enum_variant)]
 pub enum ProtocolMessage {
     Particle(Particle),
     UpgradeError(serde_json::Value),
