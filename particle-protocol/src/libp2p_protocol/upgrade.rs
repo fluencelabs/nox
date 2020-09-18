@@ -16,13 +16,14 @@
 
 use crate::ProtocolMessage;
 pub use failure::Error;
-use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, Future};
+use futures::future::BoxFuture;
+use futures::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     swarm::{protocols_handler, OneShotHandler},
 };
 use serde_json::json;
-use std::{io, iter, pin::Pin};
+use std::{io, iter};
 
 #[derive(Clone)]
 pub struct ProtocolConfig {}
@@ -75,8 +76,7 @@ where
 {
     type Output = ProtocolMessage;
     type Error = Error;
-    #[allow(clippy::type_complexity)]
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
+    type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
     fn upgrade_inbound(self, mut socket: Socket, info: Self::Info) -> Self::Future {
         Box::pin(async move {
@@ -109,8 +109,7 @@ where
 {
     type Output = ();
     type Error = io::Error;
-    #[allow(clippy::type_complexity)]
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
+    type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
