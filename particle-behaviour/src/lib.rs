@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::peerid_serializer;
-use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
-use particle_protocol::Particle;
-use serde::{Deserialize, Serialize};
+#![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum ClientEvent {
-    Particle {
-        particle: Particle,
-        #[serde(with = "peerid_serializer")]
-        sender: PeerId,
-    },
-    NewConnection {
-        #[serde(with = "peerid_serializer")]
-        peer_id: PeerId,
-        multiaddr: Multiaddr,
-    },
-}
+mod behaviour;
+mod network;
+
+pub use behaviour::ParticleBehaviour;

@@ -1,0 +1,14 @@
+[package]
+name = "particle-actors"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+particle-protocol = { path = "../particle-protocol"}
+
+fluence-libp2p = { path = "../crates/libp2p" }
+
+futures = "0.3.4"
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }

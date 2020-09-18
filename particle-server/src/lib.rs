@@ -26,12 +26,40 @@
     unreachable_patterns
 )]
 
-mod api;
-mod behaviour;
-mod client;
-mod command;
-mod event;
+mod server;
+mod behaviour {
+    mod bootstrapper;
+    mod identify;
+    mod server_behaviour;
 
-pub use client::{Client, Transport};
-pub use command::ClientCommand;
-pub use event::ClientEvent;
+    pub use server_behaviour::ServerBehaviour;
+}
+
+pub mod config {
+    mod app_services;
+    mod args;
+    mod defaults;
+    mod fluence_config;
+    mod keys;
+
+    pub mod certificates;
+
+    pub use app_services::AppServicesConfig;
+    pub use args::create_args;
+    pub use fluence_config::load_config;
+    pub use fluence_config::FluenceConfig;
+    pub use fluence_config::ServerConfig;
+}
+
+mod bootstrapper {
+    mod behaviour;
+    mod event;
+
+    pub use behaviour::BootstrapConfig;
+    pub(crate) use behaviour::Bootstrapper;
+    pub(crate) use event::BootstrapperEvent;
+}
+
+pub use behaviour::ServerBehaviour;
+pub use bootstrapper::BootstrapConfig;
+pub use server::Server;

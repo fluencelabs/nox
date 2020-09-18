@@ -14,22 +14,18 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::peerid_serializer;
-use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use particle_protocol::Particle;
-use serde::{Deserialize, Serialize};
+use test_utils::{make_swarms, ConnectedClient};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum ClientEvent {
-    Particle {
-        particle: Particle,
-        #[serde(with = "peerid_serializer")]
-        sender: PeerId,
-    },
-    NewConnection {
-        #[serde(with = "peerid_serializer")]
-        peer_id: PeerId,
-        multiaddr: Multiaddr,
-    },
+#[test]
+fn echo_particle() {
+    let swarms = make_swarms(3);
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let mut particle = Particle::default();
+    particle.id = "123".to_string();
+    particle.init_peer_id = client.peer_id.clone();
+    client.send(particle.clone());
+    let response = client.receive();
+    assert_eq!(response.id, particle.id)
 }

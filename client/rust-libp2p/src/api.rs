@@ -14,22 +14,16 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::peerid_serializer;
+use crate::behaviour::ClientBehaviour;
 use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use particle_protocol::Particle;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum ClientEvent {
-    Particle {
-        particle: Particle,
-        #[serde(with = "peerid_serializer")]
-        sender: PeerId,
-    },
-    NewConnection {
-        #[serde(with = "peerid_serializer")]
-        peer_id: PeerId,
-        multiaddr: Multiaddr,
-    },
+pub trait ParticleApi {
+    fn send(&mut self, peer_id: PeerId, particle: Particle);
+}
+
+impl ParticleApi for ClientBehaviour {
+    fn send(&mut self, peer_id: PeerId, particle: Particle) {
+        self.call(peer_id, particle)
+    }
 }
