@@ -8,6 +8,7 @@ edition = "2018"
 particle-protocol = { path = "../particle-protocol"}
 
 fluence-libp2p = { path = "../crates/libp2p" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce" }
 
 futures = "0.3.4"
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
