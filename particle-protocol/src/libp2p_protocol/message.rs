@@ -14,22 +14,26 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::peerid_serializer;
-use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
-use particle_protocol::Particle;
+use crate::Particle;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum ClientEvent {
-    Particle {
-        particle: Particle,
-        #[serde(with = "peerid_serializer")]
-        sender: PeerId,
-    },
-    NewConnection {
-        #[serde(with = "peerid_serializer")]
-        peer_id: PeerId,
-        multiaddr: Multiaddr,
-    },
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "action")]
+pub enum ProtocolMessage {
+    Particle(Particle),
+    UpgradeError(serde_json::Value),
+    Upgrade,
+}
+
+impl Default for ProtocolMessage {
+    fn default() -> Self {
+        ProtocolMessage::Upgrade
+    }
+}
+
+// required by OneShotHandler in inject_fully_negotiated_outbound
+impl Into<ProtocolMessage> for () {
+    fn into(self) -> ProtocolMessage {
+        ProtocolMessage::Upgrade
+    }
 }

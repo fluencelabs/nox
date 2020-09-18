@@ -15,19 +15,31 @@
  */
 
 use particle_protocol::Particle;
-use serde::{Deserialize, Serialize};
 
-/// Describes commands sent from client to relay node; also see `ToNodeNetworkMsg`
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "command")]
-pub enum ClientCommand {
-    Particle { particle: Particle },
+/// Particle waiting for something happen to a peer possible states
+#[derive(Debug)]
+pub(super) enum WaitPeer {
+    /// Wait for a given peer to become routable via Kademlia and forward particle there
+    Routable(Particle),
+    /// Wait for a given peer to become connected and forward particle there
+    Connected(Particle),
 }
 
-impl Into<Particle> for ClientCommand {
+impl WaitPeer {
+    pub fn routable(&self) -> bool {
+        matches!(self, WaitPeer::Routable(_))
+    }
+
+    pub fn connected(&self) -> bool {
+        matches!(self, WaitPeer::Connected(_))
+    }
+}
+
+impl Into<Particle> for WaitPeer {
     fn into(self) -> Particle {
         match self {
-            ClientCommand::Particle { particle } => particle,
+            WaitPeer::Routable(particle) => particle,
+            WaitPeer::Connected(particle) => particle,
         }
     }
 }

@@ -14,22 +14,8 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::peerid_serializer;
-use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
-use particle_protocol::Particle;
-use serde::{Deserialize, Serialize};
+mod connected_client;
+mod misc;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum ClientEvent {
-    Particle {
-        particle: Particle,
-        #[serde(with = "peerid_serializer")]
-        sender: PeerId,
-    },
-    NewConnection {
-        #[serde(with = "peerid_serializer")]
-        peer_id: PeerId,
-        multiaddr: Multiaddr,
-    },
-}
+pub use connected_client::ConnectedClient;
+pub use misc::*;

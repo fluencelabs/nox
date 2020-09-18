@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use crate::{behaviour::ClientBehaviour, function_call_api::FunctionCallApi, ClientEvent};
+use crate::api::ParticleApi;
+use crate::{behaviour::ClientBehaviour, ClientEvent};
 use async_std::{task, task::JoinHandle};
-use faas_api::{relay, Address, FunctionCall, Protocol};
 use fluence_libp2p::{
     build_memory_transport, build_transport,
     types::{Inlet, OneshotOutlet, Outlet},
@@ -30,6 +30,7 @@ use futures::{
 };
 use libp2p::{identity, identity::ed25519, PeerId, Swarm};
 use parity_multiaddr::Multiaddr;
+use particle_protocol::Particle;
 use std::{error::Error, ops::DerefMut, time::Duration};
 
 #[derive(Clone, Debug)]
@@ -56,7 +57,7 @@ impl Transport {
 #[derive(Debug)]
 struct Command {
     node: PeerId,
-    call: FunctionCall,
+    particle: Particle,
 }
 
 #[derive(Debug)]
@@ -88,8 +89,8 @@ impl Client {
         }
     }
 
-    pub fn send(&self, call: FunctionCall, node: PeerId) {
-        if let Err(err) = self.relay_outlet.unbounded_send(Command { node, call }) {
+    pub fn send(&self, particle: Particle, node: PeerId) {
+        if let Err(err) = self.relay_outlet.unbounded_send(Command { node, particle }) {
             let err_msg = format!("{:?}", err);
             let msg = err.into_inner();
             log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
@@ -106,10 +107,6 @@ impl Client {
         }
     }
 
-    pub fn relay_address(&self, node: PeerId) -> Address {
-        relay!(node, self.peer_id.clone(), self.key_pair)
-    }
-
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
         self.key_pair.sign(bytes)
     }
@@ -121,8 +118,8 @@ impl Client {
     ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let key_pair = libp2p::identity::Keypair::Ed25519(self.key_pair.clone());
-            let local_address = Protocol::Client(key_pair.public().into_peer_id()).into();
-            let behaviour = ClientBehaviour::new(local_address);
+            // let local_address = Protocol::Client(key_pair.public().into_peer_id()).into();
+            let behaviour = ClientBehaviour::new();
 
             macro_rules! swarm {
                 ($transport:expr) => {{
@@ -201,9 +198,9 @@ impl Client {
         Ok((client, task))
     }
 
-    fn send_to_node<R: FunctionCallApi, S: DerefMut<Target = R>>(swarm: &mut S, cmd: Command) {
-        let Command { node, call } = cmd;
-        swarm.call(node, call)
+    fn send_to_node<R: ParticleApi, S: DerefMut<Target = R>>(swarm: &mut S, cmd: Command) {
+        let Command { node, particle } = cmd;
+        swarm.send(node, particle)
     }
 
     fn receive_from_node(

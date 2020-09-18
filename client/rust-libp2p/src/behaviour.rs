@@ -15,7 +15,6 @@
  */
 
 use crate::ClientEvent;
-use faas_api::{Address, FunctionCall, ProtocolConfig, ProtocolMessage};
 use failure::_core::task::{Context, Poll};
 use fluence_libp2p::generate_swarm_event_type;
 use libp2p::core::connection::{ConnectedPoint, ConnectionId};
@@ -27,31 +26,30 @@ use libp2p::swarm::{
 };
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
+use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 use std::collections::VecDeque;
 use std::error::Error;
 
 pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
 
 pub struct ClientBehaviour {
-    local_address: Address,
     events: VecDeque<SwarmEventType>,
     ping: Ping,
 }
 
 impl ClientBehaviour {
-    pub fn new(local_address: Address) -> Self {
+    pub fn new() -> Self {
         let ping = Ping::new(PingConfig::new().with_keep_alive(true));
         Self {
-            local_address,
             events: VecDeque::default(),
             ping,
         }
     }
 
-    pub fn call(&mut self, peer_id: PeerId, call: FunctionCall) {
+    pub fn call(&mut self, peer_id: PeerId, call: Particle) {
         self.events
             .push_back(NetworkBehaviourAction::NotifyHandler {
-                event: EitherOutput::First(ProtocolMessage::FunctionCall(call)),
+                event: EitherOutput::First(ProtocolMessage::Particle(call)),
                 handler: NotifyHandler::Any,
                 peer_id,
             })
@@ -67,7 +65,7 @@ impl NetworkBehaviour for ClientBehaviour {
     type OutEvent = ClientEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        let protocol_config = ProtocolConfig::new(self.local_address.clone());
+        let protocol_config = ProtocolConfig::new();
 
         IntoProtocolsHandler::select(protocol_config.into(), self.ping.new_handler())
     }
@@ -147,15 +145,19 @@ impl NetworkBehaviour for ClientBehaviour {
         cid: ConnectionId,
         event: EitherOutput<ProtocolMessage, PingResult>,
     ) {
+        use ClientEvent::Particle;
+        use EitherOutput::*;
+        use NetworkBehaviourAction::GenerateEvent;
+
         match event {
-            EitherOutput::First(ProtocolMessage::FunctionCall(call)) => self.events.push_back(
-                NetworkBehaviourAction::GenerateEvent(ClientEvent::FunctionCall {
-                    call,
+            First(ProtocolMessage::Particle(particle)) => {
+                self.events.push_back(GenerateEvent(Particle {
+                    particle,
                     sender: peer_id,
-                }),
-            ),
-            EitherOutput::Second(ping) => self.ping.inject_event(peer_id, cid, ping),
-            EitherOutput::First(ProtocolMessage::Upgrade) => {}
+                }))
+            }
+            Second(ping) => self.ping.inject_event(peer_id, cid, ping),
+            First(_) => {}
         }
     }
 

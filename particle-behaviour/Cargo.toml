@@ -1,0 +1,23 @@
+[package]
+name = "particle-behaviour"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+particle-protocol = { path = "../particle-protocol"}
+particle-actors = { path = "../particle-actors"}
+particle-dht = { path = "../particle-dht"}
+
+trust-graph = { path = "../trust-graph" }
+fluence-libp2p = { path = "../crates/libp2p" }
+
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+prometheus = "0.9.0"
+log = "0.4.11"
+
+[dev-dependencies]
+futures = "0.3.4"
+async-std = { version = "1.6.2", features = ["unstable"] }
+rand = "0.7.3"
+test-utils = { path = "../crates/test-utils" }

@@ -49,3 +49,38 @@ macro_rules! generate_swarm_event_type {
             >
     }
 }
+
+#[macro_export]
+macro_rules! poll_loop {
+    ($self:ident,$behaviour:expr,$cx:expr,$params:expr$(,$into_event:expr)?) => {{
+        loop {
+            match NetworkBehaviour::poll(&mut $behaviour, $cx, $params) {
+                Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::GenerateEvent(event)) => {
+                    ::libp2p::swarm::NetworkBehaviourEventProcess::inject_event($self, event)
+                }
+                Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::NotifyHandler {
+                    peer_id,
+                    event,
+                    handler,
+                }) => {
+                    $(let event = $into_event(event);)?
+                    return Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::NotifyHandler {
+                        peer_id,
+                        event,
+                        handler,
+                    })
+                }
+                Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::DialAddress { address }) => {
+                    return Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::DialAddress { address })
+                }
+                Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::ReportObservedAddr { address }) => {
+                    return Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::ReportObservedAddr { address })
+                }
+                Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::DialPeer { peer_id, condition }) => {
+                    return Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::DialPeer { peer_id, condition })
+                }
+                Poll::Pending => break,
+            }
+        }
+    }};
+}
