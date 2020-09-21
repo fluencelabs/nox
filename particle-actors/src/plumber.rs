@@ -14,11 +14,21 @@
  * limitations under the License.
  */
 
+use crate::actor::{Actor, ActorEvent};
+use crate::config::ActorConfig;
+use async_std::task;
+use fluence_app_service::AppServiceError;
+use futures::future::BoxFuture;
+use futures::Future;
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
 use particle_protocol::Particle;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
-use std::task::{Poll, Waker};
+use std::fmt::{Debug, Formatter};
+use std::mem;
+use std::pin::Pin;
+use std::task::{Context, Poll, Waker};
 
 #[derive(Debug)]
 pub enum PeerKind {
@@ -35,18 +45,46 @@ pub enum PlumberEvent {
     },
 }
 
-#[derive(Debug, Default)]
+type Fut = BoxFuture<'static, Result<Actor, AppServiceError>>;
+
+pub enum ActorState {
+    Creating { future: Fut, mailbox: Vec<Particle> },
+    Created(Actor),
+}
+
+impl Debug for ActorState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ActorState::Creating { mailbox, .. } => write!(
+                f,
+                "ActorState::Creating {{ future: OPAQUE, mailbox: {:?} }}",
+                mailbox
+            ),
+            ActorState::Created(actor) => write!(
+                f,
+                "ActorState::Created {{ actor.particle: {:?} }}",
+                actor.particle()
+            ),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Plumber {
     clients: HashMap<PeerId, Option<Multiaddr>>,
     events: VecDeque<PlumberEvent>,
+    actors: HashMap<String, ActorState>,
+    config: ActorConfig,
     pub(super) waker: Option<Waker>,
 }
 
 impl Plumber {
-    pub fn new() -> Self {
+    pub fn new(config: ActorConfig) -> Self {
         Self {
             clients: <_>::default(),
             events: <_>::default(),
+            actors: <_>::default(),
+            config,
             waker: <_>::default(),
         }
     }
@@ -68,36 +106,96 @@ impl Plumber {
     }
 
     pub fn ingest(&mut self, particle: Particle) {
-        let target = particle.init_peer_id.clone();
-
-        let kind = if self.clients.contains_key(&target) {
-            PeerKind::Client
-        } else {
-            PeerKind::Unknown
-        };
-
-        self.emit(PlumberEvent::Forward {
-            target,
-            kind,
-            particle,
-        });
+        match self.actors.entry(particle.id.clone()) {
+            Entry::Vacant(entry) => {
+                let config = self.config.clone();
+                let future = Self::create_actor(config, particle);
+                entry.insert(ActorState::Creating {
+                    future,
+                    mailbox: vec![],
+                });
+            }
+            Entry::Occupied(mut entry) => match entry.get_mut() {
+                ActorState::Created(actor) => actor.ingest(particle),
+                ActorState::Creating { mailbox, .. } => mailbox.push(particle),
+            },
+        }
     }
 
-    pub fn poll(&mut self, waker: Waker) -> Poll<PlumberEvent> {
-        self.waker = Some(waker);
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<PlumberEvent> {
+        self.waker = Some(cx.waker().clone());
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);
         }
 
+        // Remove finished creation operations from hashmap
+        let mut created = vec![];
+        self.actors.retain(|id, s| {
+            if let ActorState::Creating { future, mailbox } = s {
+                if let Poll::Ready(r) = Pin::new(future).poll(cx) {
+                    let mailbox = mem::replace(mailbox, vec![]);
+                    created.push((id.clone(), r, mailbox));
+                    return false;
+                }
+            }
+            true
+        });
+        if !created.is_empty() {
+            self.wake()
+        }
+        // Insert successfully created actors to hashmap
+        for (id, actor, mailbox) in created.into_iter() {
+            match actor {
+                Ok(mut actor) => {
+                    for particle in mailbox.into_iter() {
+                        actor.ingest(particle)
+                    }
+                    self.actors.insert(id, ActorState::Created(actor));
+                }
+                Err(err) => unimplemented!("error creating actor: {:?}", err),
+            }
+        }
+
+        // Poll existing actors for results
+        for mut actor in self.actors.iter_mut() {
+            if let (_, ActorState::Created(ref mut actor)) = &mut actor {
+                if let Poll::Ready(ActorEvent::Forward { particle, target }) = actor.poll(cx) {
+                    let kind = self.peer_kind(&target);
+                    return Poll::Ready(PlumberEvent::Forward {
+                        particle,
+                        target,
+                        kind,
+                    });
+                }
+            }
+        }
+
         Poll::Pending
     }
 
+    #[allow(dead_code)]
     fn emit(&mut self, event: PlumberEvent) {
+        self.wake();
+
+        self.events.push_back(event);
+    }
+
+    fn wake(&self) {
         if let Some(waker) = self.waker.clone() {
             waker.wake();
         }
+    }
 
-        self.events.push_back(event);
+    fn create_actor(config: ActorConfig, particle: Particle) -> Fut {
+        Box::pin(task::spawn_blocking(move || Actor::new(config, particle)))
+    }
+
+    fn peer_kind(&self, peer: &PeerId) -> PeerKind {
+        if self.clients.contains_key(peer) {
+            PeerKind::Client
+        } else {
+            PeerKind::Unknown
+        }
     }
 }

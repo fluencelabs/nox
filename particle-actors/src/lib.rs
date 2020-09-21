@@ -27,6 +27,7 @@
 )]
 
 mod actor;
+mod config;
 mod plumber;
 
 pub use plumber::{PeerKind, Plumber, PlumberEvent};
