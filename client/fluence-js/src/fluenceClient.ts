@@ -145,7 +145,7 @@ export class FluenceClient {
      * @param fname function name
      * @param name debug info
      */
-    async fireClient(relayId: string, clientId: string, sig: string, moduleId: string, args: any, fname?: string, name?: string): Promise<void> {
+    async callClient(relayId: string, clientId: string, sig: string, moduleId: string, args: any, fname?: string, name?: string): Promise<void> {
         let msgId = genUUID();
         let clientPeerId = await PeerId.createFromB58String(clientId);
         let address = await createRelayAddressWithSig(relayId, clientPeerId, sig);
