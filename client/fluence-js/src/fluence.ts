@@ -24,7 +24,7 @@ log.setLevel('info')
 
 export default class Fluence {
 
-    setLogLevel(level: LogLevelDesc): void {
+    static setLogLevel(level: LogLevelDesc): void {
         log.setLevel(level);
     }
 

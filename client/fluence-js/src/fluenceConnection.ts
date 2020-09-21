@@ -46,24 +46,26 @@ export class FluenceConnection {
 
     private readonly selfPeerId: PeerId;
     readonly sender: Address;
+    readonly replyTo: Address;
     private node: LibP2p;
     private readonly address: Multiaddr;
     readonly nodePeerId: PeerId;
     private readonly selfPeerIdStr: string;
     private readonly handleCall: (call: FunctionCall) => FunctionCall | undefined;
 
-    constructor(multiaddr: Multiaddr, hostPeerId: PeerId, selfPeerId: PeerId, sender: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
+    constructor(multiaddr: Multiaddr, hostPeerId: PeerId, selfPeerId: PeerId, sender: Address, replyTo: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
         this.selfPeerId = selfPeerId;
         this.handleCall = handleCall;
         this.selfPeerIdStr = selfPeerId.toB58String();
         this.address = multiaddr;
         this.nodePeerId = hostPeerId;
         this.sender = sender
+        this.replyTo = replyTo
     }
 
     makeReplyTo(reply?: string): Address {
         if (reply) {
-            let replyToWithHash = {...this.sender}
+            let replyToWithHash = {...this.replyTo}
             if (typeof reply === "string") replyToWithHash.hash = reply;
             return replyToWithHash;
         } else {
@@ -176,7 +178,7 @@ export class FluenceConnection {
 
     async provideName(name: string) {
         let target = createPeerAddress(this.nodePeerId.toB58String())
-        let regMsg = await makeProvideMessage(name, target, this.sender);
+        let regMsg = await makeProvideMessage(name, target, this.sender, this.replyTo);
         await this.sendCall(regMsg);
     }
 }

@@ -8,5 +8,4 @@ src
 tsconfig.json
 webpack.config.js
 
-*.js.map
 bundle
