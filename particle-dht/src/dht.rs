@@ -130,8 +130,8 @@ impl ParticleDHT {
     pub(super) fn bootstrap_finished(&mut self) {}
 
     pub(super) fn push_event(&mut self, event: SwarmEventType) {
-        if let Some(waker) = self.waker.clone() {
-            waker.wake();
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref();
         }
 
         self.events.push_back(event);

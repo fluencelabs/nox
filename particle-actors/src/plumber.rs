@@ -182,8 +182,8 @@ impl Plumber {
     }
 
     fn wake(&self) {
-        if let Some(waker) = self.waker.clone() {
-            waker.wake();
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref();
         }
     }
 

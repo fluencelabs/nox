@@ -15,30 +15,40 @@
  */
 #![allow(dead_code)]
 
+use crate::actor::VmState::{Executing, Idle};
 use crate::config::ActorConfig;
-use either::Either::{self, Left, Right};
+use async_std::pin::Pin;
+use async_std::task;
 use fluence_app_service::{AppService, AppServiceError, RawModulesConfig};
 use futures::future::BoxFuture;
+use futures::Future;
 use libp2p::PeerId;
 use particle_protocol::Particle;
+use serde_json::json;
 use std::collections::VecDeque;
+use std::mem;
 use std::path::PathBuf;
 use std::task::{Context, Poll, Waker};
 
 pub(super) type Fut = BoxFuture<'static, FutResult>;
 
-pub enum FutResult {
-    Created(AppService),
-    CreationFailed(AppServiceError),
-    Effect(AppService, ActorEvent),
+pub struct FutResult {
+    vm: AppService,
+    effect: ActorEvent,
 }
 
 pub enum ActorEvent {
     Forward { particle: Particle, target: PeerId },
 }
 
+enum VmState {
+    Idle(AppService),
+    Executing(Fut),
+    Polling,
+}
+
 pub struct Actor {
-    vm: AppService,
+    vm: VmState,
     particle: Particle,
     mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
@@ -48,7 +58,7 @@ impl Actor {
     pub fn new(config: ActorConfig, particle: Particle) -> Result<Self, AppServiceError> {
         let vm = Self::create_vm(config, particle.id.clone(), particle.init_peer_id.clone())?;
         Ok(Self {
-            vm,
+            vm: Idle(vm),
             particle,
             mailbox: <_>::default(),
             waker: <_>::default(),
@@ -65,12 +75,20 @@ impl Actor {
     }
 
     pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<ActorEvent> {
-        self.waker = Some(cx.waker().clone());
+        let waker = cx.waker().clone();
+        self.waker = Some(waker.clone());
 
-        // // Execute next particle or keep waiting for a current work to complete
-        // self.vm_or_work = Some(vm_or_work.either(|vm| self.execute_next(vm), |f| Right(f)));
-        //
-        // return effect;
+        let vm = mem::replace(&mut self.vm, VmState::Polling);
+        match vm {
+            Idle(vm) => self.vm = self.execute_next(vm, waker),
+            VmState::Executing(mut fut) => {
+                if let Poll::Ready(FutResult { vm, effect }) = Pin::new(&mut fut).poll(cx) {
+                    self.vm = self.execute_next(vm, waker);
+                    return Poll::Ready(effect);
+                }
+            }
+            VmState::Polling => unreachable!("polling race"),
+        }
 
         Poll::Pending
     }
@@ -108,20 +126,31 @@ impl Actor {
         // Self::persist_service(&config.services_dir, &service_id, &blueprint_id)?;
     }
 
-    fn execute_next(&mut self, vm: AppService) -> Either<AppService, Fut> {
+    fn execute_next(&mut self, vm: AppService, waker: Waker) -> VmState {
         match self.mailbox.pop_front() {
-            Some(p) => Right(Self::execute(p, vm)),
-            None => Left(vm),
+            Some(p) => Executing(Self::execute(p, vm, waker)),
+            None => Idle(vm),
         }
     }
 
-    fn execute(_particle: Particle, _vm: AppService) -> Fut {
-        Box::pin(async { unimplemented!() })
+    fn execute(particle: Particle, mut vm: AppService, waker: Waker) -> Fut {
+        Box::pin(task::spawn_blocking(move || {
+            vm.call("stepper", "step", json!(particle.clone()), <_>::default());
+
+            let effect = ActorEvent::Forward {
+                target: particle.init_peer_id.clone(),
+                particle,
+            };
+
+            waker.wake();
+
+            FutResult { vm, effect }
+        }))
     }
 
     fn wake(&self) {
-        if let Some(waker) = self.waker.clone() {
-            waker.clone().wake()
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref();
         }
     }
 }

@@ -2939,7 +2939,6 @@ name = "particle-actors"
 version = "0.0.1"
 dependencies = [
  "async-std",
- "either",
  "fluence-app-service",
  "fluence-libp2p",
  "futures",
@@ -2947,6 +2946,7 @@ dependencies = [
  "log",
  "parity-multiaddr",
  "particle-protocol",
+ "serde_json",
 ]
 
 [[package]]
