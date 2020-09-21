@@ -28,6 +28,7 @@ use libp2p::{
     PeerId, Swarm,
 };
 use parity_multiaddr::Multiaddr;
+use particle_actors::ActorConfig;
 use prometheus::Registry;
 use rand::Rng;
 use std::path::PathBuf;
@@ -273,6 +274,8 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             registry,
             bootstraps,
             BootstrapConfig::zero(),
+            ActorConfig::new(tmp.clone(), vec![], "aquamarine".to_string())
+                .expect("create actor config"),
         );
         match transport {
             Transport::Memory => {

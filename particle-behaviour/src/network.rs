@@ -104,7 +104,7 @@ impl NetworkBehaviour for ParticleBehaviour {
             return Poll::Ready(event);
         }
 
-        if let Poll::Ready(event) = self.plumber.poll(cx.waker().clone()) {
+        if let Poll::Ready(event) = self.plumber.poll(cx) {
             NetworkBehaviourEventProcess::inject_event(self, event);
         }
 

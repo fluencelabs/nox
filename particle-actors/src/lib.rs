@@ -30,4 +30,5 @@ mod actor;
 mod config;
 mod plumber;
 
+pub use config::ActorConfig;
 pub use plumber::{PeerKind, Plumber, PlumberEvent};

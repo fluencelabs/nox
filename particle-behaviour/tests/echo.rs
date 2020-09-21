@@ -16,7 +16,7 @@
 
 #![recursion_limit = "256"]
 
-use particle_behaviour::ParticleBehaviour;
+use particle_behaviour::{ActorConfig, ParticleBehaviour};
 use particle_dht::DHTConfig;
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 
@@ -39,6 +39,7 @@ use libp2p::{
     PeerId, Swarm,
 };
 use std::collections::VecDeque;
+use test_utils::make_tmp_dir;
 
 #[test]
 fn echo_particle() {
@@ -98,10 +99,13 @@ macro_rules! make_swarm {
 
 fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
     let mut swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
-        let config = DHTConfig { peer_id, keypair };
+        // TODO: actually put aquamarine.wasm to tmp dir
+        let actor_config = ActorConfig::new(make_tmp_dir(), vec![], "aquamarine".to_string())
+            .expect("actor config");
+        let dht_config = DHTConfig { peer_id, keypair };
         let trust_graph = TrustGraph::new(<_>::default());
         let registry = None;
-        ParticleBehaviour::new(config, trust_graph, registry)
+        ParticleBehaviour::new(actor_config, dht_config, trust_graph, registry)
     });
 
     let address = create_memory_maddr();

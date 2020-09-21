@@ -111,7 +111,7 @@ impl Actor {
             default: None,
         };
 
-        let mut envs = config.service_envs;
+        let mut envs = config.envs;
         envs.push(format!("owner_id={}", owner_id));
         /*
         if let Some(owner_pk) = owner_pk {

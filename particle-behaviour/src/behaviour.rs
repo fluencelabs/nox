@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use particle_actors::{PeerKind, Plumber, PlumberEvent};
+use particle_actors::{ActorConfig, PeerKind, Plumber, PlumberEvent};
 use particle_dht::{DHTConfig, DHTEvent, ParticleDHT};
 use particle_protocol::{Particle, ProtocolMessage};
 
@@ -76,9 +76,14 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehav
 }
 
 impl ParticleBehaviour {
-    pub fn new(config: DHTConfig, trust_graph: TrustGraph, registry: Option<&Registry>) -> Self {
-        let plumber = Plumber::new();
-        let dht = ParticleDHT::new(config, trust_graph, registry);
+    pub fn new(
+        actor_cfg: ActorConfig,
+        dht_cfg: DHTConfig,
+        trust_graph: TrustGraph,
+        registry: Option<&Registry>,
+    ) -> Self {
+        let plumber = Plumber::new(actor_cfg);
+        let dht = ParticleDHT::new(dht_cfg, trust_graph, registry);
 
         Self {
             plumber,
