@@ -45,7 +45,9 @@ impl ActorConfig {
             None => base_dir,
         };
 
-        let stepper_config = RawModuleConfig::new(stepper_module_name);
+        let mut stepper_config = RawModuleConfig::new(stepper_module_name);
+        stepper_config.logger_enabled = Some(true);
+        stepper_config.mem_pages_count = Some(100);
 
         let workdir = base_dir.join("workdir");
         let modules_dir = base_dir.join("modules");

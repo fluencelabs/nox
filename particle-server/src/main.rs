@@ -84,7 +84,7 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
     let actor_config = ActorConfig::new(
         config.services_base_dir,
         config.service_envs,
-        "aquamarine".to_string(),
+        config.stepper_module,
     )?;
 
     let node_service = Server::new(

@@ -18,6 +18,7 @@ use async_std::task;
 use fluence_libp2p::{build_memory_transport, build_transport};
 use particle_server::{BootstrapConfig, ServerBehaviour};
 
+use crate::AQUAMARINE;
 use fluence_client::Transport;
 use futures::StreamExt;
 use libp2p::{
@@ -320,4 +321,10 @@ pub fn make_tmp_dir() -> PathBuf {
 
 pub fn remove_dir(dir: &PathBuf) {
     std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
+}
+
+pub fn put_aquamarine(mut tmp: PathBuf) {
+    tmp.push("aquamarine.wasm");
+    std::fs::write(&tmp, AQUAMARINE)
+        .expect(format!("fs::write aquamarine.wasm to {:?}", tmp).as_str())
 }

@@ -17,6 +17,7 @@
 
 use crate::actor::VmState::{Executing, Idle};
 use crate::config::ActorConfig;
+use crate::invoke::parse_invoke_result;
 use async_std::pin::Pin;
 use async_std::task;
 use fluence_app_service::{AppService, AppServiceError, RawModulesConfig};
@@ -34,7 +35,7 @@ pub(super) type Fut = BoxFuture<'static, FutResult>;
 
 pub struct FutResult {
     vm: AppService,
-    effect: ActorEvent,
+    effects: Vec<ActorEvent>,
 }
 
 pub enum ActorEvent {
@@ -47,6 +48,17 @@ enum VmState {
     Polling,
 }
 
+impl std::fmt::Display for VmState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            Idle(_) => "idle",
+            Executing(_) => "executing",
+            VmState::Polling => "polling",
+        };
+        write!(f, "{}", str)
+    }
+}
+
 pub struct Actor {
     vm: VmState,
     particle: Particle,
@@ -57,12 +69,16 @@ pub struct Actor {
 impl Actor {
     pub fn new(config: ActorConfig, particle: Particle) -> Result<Self, AppServiceError> {
         let vm = Self::create_vm(config, particle.id.clone(), particle.init_peer_id.clone())?;
-        Ok(Self {
+        let mut this = Self {
             vm: Idle(vm),
-            particle,
+            particle: particle.clone(),
             mailbox: <_>::default(),
             waker: <_>::default(),
-        })
+        };
+
+        this.ingest(particle);
+
+        Ok(this)
     }
 
     pub fn particle(&self) -> &Particle {
@@ -74,23 +90,26 @@ impl Actor {
         self.wake();
     }
 
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<ActorEvent> {
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Vec<ActorEvent>> {
         let waker = cx.waker().clone();
         self.waker = Some(waker.clone());
 
         let vm = mem::replace(&mut self.vm, VmState::Polling);
-        match vm {
-            Idle(vm) => self.vm = self.execute_next(vm, waker),
+        let execute = |vm| self.execute_next(vm, waker);
+        let (state, effect) = match vm {
+            Idle(vm) => (execute(vm), Poll::Pending),
             VmState::Executing(mut fut) => {
-                if let Poll::Ready(FutResult { vm, effect }) = Pin::new(&mut fut).poll(cx) {
-                    self.vm = self.execute_next(vm, waker);
-                    return Poll::Ready(effect);
+                if let Poll::Ready(FutResult { vm, effects }) = Pin::new(&mut fut).poll(cx) {
+                    (execute(vm), Poll::Ready(effects))
+                } else {
+                    (VmState::Executing(fut), Poll::Pending)
                 }
             }
             VmState::Polling => unreachable!("polling race"),
-        }
+        };
 
-        Poll::Pending
+        self.vm = state;
+        return effect;
     }
 
     // TODO: check resolve works fine with new providers
@@ -134,17 +153,56 @@ impl Actor {
     }
 
     fn execute(particle: Particle, mut vm: AppService, waker: Waker) -> Fut {
+        log::debug!("Scheduling particle for execution {:?}", particle.id);
         Box::pin(task::spawn_blocking(move || {
-            vm.call("stepper", "step", json!(particle.clone()), <_>::default());
+            log::info!("Executing particle {:?}", particle.id);
 
-            let effect = ActorEvent::Forward {
-                target: particle.init_peer_id.clone(),
-                particle,
+            let result = vm.call(
+                "aquamarine",
+                "invoke",
+                json!({
+                    "init_user_id": particle.init_peer_id.to_string(),
+                    "aqua": particle.script,
+                    "data": particle.data.to_string()
+                }),
+                <_>::default(),
+            );
+
+            log::debug!("Executed particle {:?}, parsing", particle.id);
+
+            let effects = match parse_invoke_result(result) {
+                Ok((data, targets)) => {
+                    let mut particle = particle;
+                    particle.data = data;
+                    targets
+                        .into_iter()
+                        .map(|target| ActorEvent::Forward {
+                            particle: particle.clone(),
+                            target,
+                        })
+                        .collect::<Vec<_>>()
+                }
+                Err(err) => {
+                    let mut particle = particle;
+                    let error = format!("{:?}", err);
+                    if let Some(map) = particle.data.as_object_mut() {
+                        map.insert("error".to_string(), json!(error));
+                    } else {
+                        particle.data = json!({"error": error, "data": particle.data})
+                    }
+                    // Return error to the init peer id
+                    vec![ActorEvent::Forward {
+                        target: particle.init_peer_id.clone(),
+                        particle,
+                    }]
+                }
             };
+
+            log::debug!("Parsed result on particle");
 
             waker.wake();
 
-            FutResult { vm, effect }
+            FutResult { vm, effects }
         }))
     }
 

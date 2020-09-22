@@ -28,6 +28,7 @@
 
 mod actor;
 mod config;
+mod invoke;
 mod plumber;
 
 pub use config::ActorConfig;

@@ -21,6 +21,7 @@ use particle_dht::DHTConfig;
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 
 use fluence_libp2p::{build_memory_transport, generate_swarm_event_type};
+use test_utils::{enable_logs, make_tmp_dir, put_aquamarine};
 use trust_graph::TrustGraph;
 
 use async_std::task;
@@ -38,11 +39,13 @@ use libp2p::{
     },
     PeerId, Swarm,
 };
+use serde_json::json;
 use std::collections::VecDeque;
-use test_utils::make_tmp_dir;
 
 #[test]
 fn echo_particle() {
+    enable_logs();
+
     let (mut server, addr, server_id) = make_server();
     let (mut client, client_id) = make_client(addr);
 
@@ -64,7 +67,7 @@ fn echo_particle() {
                                 ttl: 1,
                                 script: "".to_string(),
                                 signature: vec![],
-                                data: <_>::default(),
+                                data: json!("data"),
                             };
                             client.send(p.clone(), server_id.clone());
                         }
@@ -78,7 +81,8 @@ fn echo_particle() {
         }
     }));
 
-    assert_eq!(particle.id, "123".to_string())
+    assert_eq!(particle.id, "123".to_string());
+    assert_eq!(particle.data, json!("data"));
 }
 
 macro_rules! make_swarm {
@@ -99,9 +103,10 @@ macro_rules! make_swarm {
 
 fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
     let mut swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
-        // TODO: actually put aquamarine.wasm to tmp dir
-        let actor_config = ActorConfig::new(make_tmp_dir(), vec![], "aquamarine".to_string())
-            .expect("actor config");
+        let tmp = make_tmp_dir();
+        let actor_config =
+            ActorConfig::new(tmp, vec![], "aquamarine".to_string()).expect("actor config");
+        put_aquamarine(actor_config.modules_dir.clone());
         let dht_config = DHTConfig { peer_id, keypair };
         let trust_graph = TrustGraph::new(<_>::default());
         let registry = None;

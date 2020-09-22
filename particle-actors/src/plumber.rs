@@ -141,6 +141,7 @@ impl Plumber {
             }
             true
         });
+        // We might have some work processed by newly created actors, so wake up!
         if !created.is_empty() {
             self.wake()
         }
@@ -158,27 +159,36 @@ impl Plumber {
         }
 
         // Poll existing actors for results
-        for mut actor in self.actors.iter_mut() {
-            if let (_, ActorState::Created(ref mut actor)) = &mut actor {
-                if let Poll::Ready(ActorEvent::Forward { particle, target }) = actor.poll(cx) {
-                    let kind = self.peer_kind(&target);
-                    return Poll::Ready(PlumberEvent::Forward {
-                        particle,
-                        target,
-                        kind,
-                    });
+        let effects = self
+            .actors
+            .values_mut()
+            .flat_map(|mut actor| {
+                if let ActorState::Created(ref mut actor) = &mut actor {
+                    if let Poll::Ready(effects) = actor.poll(cx) {
+                        return effects;
+                    }
                 }
-            }
+
+                vec![]
+            })
+            .collect::<Vec<_>>();
+
+        for effect in effects {
+            let ActorEvent::Forward { particle, target } = effect;
+            let kind = self.peer_kind(&target);
+            self.events.push_back(PlumberEvent::Forward {
+                particle,
+                target,
+                kind,
+            });
+        }
+
+        // We might have got new results
+        if let Some(event) = self.events.pop_front() {
+            return Poll::Ready(event);
         }
 
         Poll::Pending
-    }
-
-    #[allow(dead_code)]
-    fn emit(&mut self, event: PlumberEvent) {
-        self.wake();
-
-        self.events.push_back(event);
     }
 
     fn wake(&self) {
