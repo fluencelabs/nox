@@ -267,6 +267,11 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             }
         }
 
+        let actor_config = ActorConfig::new(tmp.clone(), vec![], "aquamarine".to_string())
+            .expect("create actor config");
+
+        put_aquamarine(actor_config.modules_dir.clone());
+
         let server = ServerBehaviour::new(
             kp.clone(),
             peer_id.clone(),
@@ -275,8 +280,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             registry,
             bootstraps,
             BootstrapConfig::zero(),
-            ActorConfig::new(tmp.clone(), vec![], "aquamarine".to_string())
-                .expect("create actor config"),
+            actor_config,
         );
         match transport {
             Transport::Memory => {
