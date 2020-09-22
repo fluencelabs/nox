@@ -112,9 +112,6 @@ impl Actor {
         return effect;
     }
 
-    // TODO: check resolve works fine with new providers
-    // TODO: remove provider on client disconnect
-
     fn create_vm(
         config: ActorConfig,
         particle_id: String,
@@ -132,11 +129,7 @@ impl Actor {
 
         let mut envs = config.envs;
         envs.push(format!("owner_id={}", owner_id));
-        /*
-        if let Some(owner_pk) = owner_pk {
-            envs.push(format!("owner_pk={}", owner_pk));
-        };
-        */
+
         log::info!("Creating service {}, envs: {:?}", particle_id, envs);
 
         AppService::new(modules, &particle_id, envs)

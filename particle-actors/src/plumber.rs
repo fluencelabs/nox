@@ -16,19 +16,22 @@
 
 use crate::actor::{Actor, ActorEvent};
 use crate::config::ActorConfig;
-use async_std::task;
+
+use particle_protocol::Particle;
+
 use fluence_app_service::AppServiceError;
-use futures::future::BoxFuture;
-use futures::Future;
+
+use async_std::task;
+use futures::{future::BoxFuture, Future};
 use libp2p::PeerId;
 use parity_multiaddr::Multiaddr;
-use particle_protocol::Particle;
-use std::collections::hash_map::Entry;
-use std::collections::{HashMap, VecDeque};
-use std::fmt::{Debug, Formatter};
-use std::mem;
-use std::pin::Pin;
-use std::task::{Context, Poll, Waker};
+use std::{
+    collections::{hash_map::Entry, HashMap, VecDeque},
+    fmt::{Debug, Formatter},
+    mem,
+    pin::Pin,
+    task::{Context, Poll, Waker},
+};
 
 #[derive(Debug)]
 pub enum PeerKind {
@@ -105,9 +108,11 @@ impl Plumber {
         self.clients.remove(client);
     }
 
+    /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
     pub fn ingest(&mut self, particle: Particle) {
         match self.actors.entry(particle.id.clone()) {
             Entry::Vacant(entry) => {
+                // Create new actor
                 let config = self.config.clone();
                 let future = Self::create_actor(config, particle);
                 entry.insert(ActorState::Creating {
@@ -116,7 +121,9 @@ impl Plumber {
                 });
             }
             Entry::Occupied(mut entry) => match entry.get_mut() {
+                // Forward to the mailbox
                 ActorState::Created(actor) => actor.ingest(particle),
+                // Actor is still creating, buffer particle until later
                 ActorState::Creating { mailbox, .. } => mailbox.push(particle),
             },
         }
@@ -129,11 +136,13 @@ impl Plumber {
             return Poll::Ready(event);
         }
 
-        // Remove finished creation operations from hashmap
+        // Vector of newly created actors
         let mut created = vec![];
+        // Remove finished creation operations from hashmap
         self.actors.retain(|id, s| {
             if let ActorState::Creating { future, mailbox } = s {
                 if let Poll::Ready(r) = Pin::new(future).poll(cx) {
+                    // Take ownership of the mailbox
                     let mailbox = mem::replace(mailbox, vec![]);
                     created.push((id.clone(), r, mailbox));
                     return false;
@@ -149,6 +158,7 @@ impl Plumber {
         for (id, actor, mailbox) in created.into_iter() {
             match actor {
                 Ok(mut actor) => {
+                    // Ingest buffered particles
                     for particle in mailbox.into_iter() {
                         actor.ingest(particle)
                     }
@@ -173,6 +183,7 @@ impl Plumber {
             })
             .collect::<Vec<_>>();
 
+        // Turn effects into events, and buffer them
         for effect in effects {
             let ActorEvent::Forward { particle, target } = effect;
             let kind = self.peer_kind(&target);
@@ -183,7 +194,7 @@ impl Plumber {
             });
         }
 
-        // We might have got new results
+        // Return new event if there is some
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);
         }
@@ -201,6 +212,7 @@ impl Plumber {
         Box::pin(task::spawn_blocking(move || Actor::new(config, particle)))
     }
 
+    /// Returns whether peer is a directly connected client or not
     fn peer_kind(&self, peer: &PeerId) -> PeerKind {
         if self.clients.contains_key(peer) {
             PeerKind::Client

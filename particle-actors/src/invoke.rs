@@ -38,12 +38,6 @@ pub enum ExecutionError {
     AppServiceError(AppServiceError),
 }
 
-// impl std::fmt::Display for ExecutionError {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-//         match self {
-//             ExecutionError::ConfigParseError(err_msg) => write!(f, "{}", err_msg),
-//     }
-// }
 fn parse_data(data: Option<IValue>) -> Result<Value, FieldError> {
     let data = data.ok_or(FieldError::Missing)?;
     let data = match data {
