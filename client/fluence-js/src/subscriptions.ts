@@ -18,7 +18,7 @@ import {FunctionCall} from "./functionCall";
 import {Address} from "./address";
 
 export class Subscriptions {
-    private subscriptions: ((args: any, target: Address, replyTo: Address) => (boolean | undefined))[] = [];
+    private subscriptions: ((args: any, target: Address, replyTo: Address, module?: string, fname?: string) => (boolean | undefined))[] = [];
 
     constructor() {}
 
@@ -27,7 +27,7 @@ export class Subscriptions {
      * If subscription returns true, delete subscription.
      * @param f
      */
-    subscribe(f: (args: any, target: Address, replyTo: Address) => (boolean | undefined)) {
+    subscribe(f: (args: any, target: Address, replyTo: Address, moduleId?: string, fname?: string) => (boolean | undefined)) {
         this.subscriptions.push(f);
     }
 
@@ -36,7 +36,7 @@ export class Subscriptions {
      * @param call
      */
     applyToSubscriptions(call: FunctionCall) {
-        // if subscription return false - delete it from subscriptions
-        this.subscriptions = this.subscriptions.filter(callback => !callback(call.arguments, call.target, call.reply_to))
+        // if subscription return true - delete it from subscriptions
+        this.subscriptions = this.subscriptions.filter(callback => !callback(call.arguments, call.target, call.reply_to, call.module, call.fname))
     }
 }

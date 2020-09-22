@@ -36,6 +36,10 @@ export enum ProtocolType {
 
 const PROTOCOL = "fluence:";
 
+export function getSignature(address: Address): string | undefined {
+    return address.protocols.find(p => p.protocol === ProtocolType.Signature)?.value
+}
+
 export function addressToString(address: Address): string {
     let addressStr = PROTOCOL;
 
@@ -81,6 +85,19 @@ export function parseProtocol(protocol: string, protocolIterator: IterableIterat
             throw Error("cannot parse protocol. Should be 'service|peer|client|signature'");
     }
 
+}
+
+export async function createRelayAddressWithSig(relay: string, peerId: PeerId, sig: string, hash?: string): Promise<Address> {
+    let protocols = [
+        {protocol: ProtocolType.Peer, value: relay},
+        {protocol: ProtocolType.Client, value: peerId.toB58String()},
+        {protocol: ProtocolType.Signature, value: sig}
+    ];
+
+    return {
+        protocols: protocols,
+        hash: hash
+    }
 }
 
 export async function createRelayAddress(relay: string, peerId: PeerId, withSig: boolean, hash?: string): Promise<Address> {

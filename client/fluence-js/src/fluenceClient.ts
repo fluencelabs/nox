@@ -20,7 +20,7 @@ import {
     createRelayAddress,
     createProviderAddress,
     ProtocolType,
-    addressToString
+    addressToString, createRelayAddressWithSig
 } from "./address";
 import {callToString, FunctionCall, genUUID, makeFunctionCall,} from "./functionCall";
 import * as PeerId from "peer-id";
@@ -55,7 +55,7 @@ export class FluenceClient {
     readonly selfPeerIdStr: string;
     private nodePeerIdStr: string;
 
-    private connection: FluenceConnection;
+    connection: FluenceConnection;
 
     private services: LocalServices = new LocalServices();
 
@@ -79,12 +79,12 @@ export class FluenceClient {
      * @param predicate will be applied to each incoming call until it matches
      * @param ignoreErrors ignore an errors, wait for success response
      */
-    waitResponse(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined), ignoreErrors: boolean): Promise<any> {
+    waitResponse(predicate: (args: any, target: Address, replyTo: Address, moduleId?: string, fname?: string) => (boolean | undefined), ignoreErrors: boolean): Promise<any> {
         return new Promise((resolve, reject) => {
             // subscribe for responses, to handle response
             // TODO if there's no conn, reject
-            this.subscribe((args: any, target: Address, replyTo: Address) => {
-                if (predicate(args, target, replyTo)) {
+            this.subscribe((args: any, target: Address, replyTo: Address, moduleId?: string, fname?: string) => {
+                if (predicate(args, target, replyTo, moduleId, fname)) {
                     if (args.reason) {
                         if (ignoreErrors) {
                             return false;
@@ -132,6 +132,25 @@ export class FluenceClient {
         let address = createProviderAddress(provider);
         await this.sendCall({target: address, args: args, moduleId: moduleId, fname: fname, msgId: msgId, name: name});
         return await this.waitResponse(predicate, true);
+    }
+
+    /**
+     * Send a message to a client that connected with a relay.
+     *
+     * @param relayId
+     * @param clientId
+     * @param sig
+     * @param moduleId
+     * @param args message to the service
+     * @param fname function name
+     * @param name debug info
+     */
+    async callClient(relayId: string, clientId: string, sig: string, moduleId: string, args: any, fname?: string, name?: string): Promise<void> {
+        let msgId = genUUID();
+        let clientPeerId = await PeerId.createFromB58String(clientId);
+        let address = await createRelayAddressWithSig(relayId, clientPeerId, sig);
+
+        await this.sendCall({target: address, args: args, moduleId: moduleId, fname: fname, msgId: msgId, name: name})
     }
 
     /**
@@ -373,7 +392,7 @@ export class FluenceClient {
 
     // subscribe new hook for every incoming call, to handle in-service responses and other different cases
     // the hook will be deleted if it will return `true`
-    subscribe(predicate: (args: any, target: Address, replyTo: Address) => (boolean | undefined)) {
+    subscribe(predicate: (args: any, target: Address, replyTo: Address, moduleId?: string, fname?: string) => (boolean | undefined)) {
         this.subscriptions.subscribe(predicate)
     }
 
@@ -417,8 +436,9 @@ export class FluenceClient {
         }
 
         let peerId = PeerId.createFromB58String(nodePeerId);
-        let relayAddress = await createRelayAddress(nodePeerId, this.selfPeerId, true);
-        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, relayAddress, this.handleCall());
+        let sender = await createRelayAddress(nodePeerId, this.selfPeerId, false);
+        let replyTo = await createRelayAddress(nodePeerId, this.selfPeerId, true);
+        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, sender, replyTo, this.handleCall());
 
         await connection.connect();
 
