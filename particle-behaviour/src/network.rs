@@ -52,7 +52,7 @@ impl NetworkBehaviour for ParticleBehaviour {
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        let p = self.plumber.client_address(peer_id).clone().into_iter();
+        let p = self.client_address(peer_id).clone().into_iter();
         let d = self.dht.addresses_of_peer(peer_id).into_iter();
 
         p.chain(d).collect()
@@ -64,7 +64,7 @@ impl NetworkBehaviour for ParticleBehaviour {
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
         // TODO: self.dht.unpublish_client(peer_id)
-        self.plumber.remove_client(peer_id);
+        self.remove_client(peer_id);
         self.dht.inject_disconnected(peer_id);
     }
 
@@ -80,7 +80,7 @@ impl NetworkBehaviour for ParticleBehaviour {
             First(event) => match event {
                 ProtocolMessage::Upgrade => {
                     log::info!("New client connected: {}", peer_id);
-                    self.plumber.add_client(peer_id.clone());
+                    self.add_client(peer_id.clone());
                     self.dht.publish_client(peer_id);
                 }
                 ProtocolMessage::Particle(particle) => {
@@ -154,7 +154,7 @@ impl NetworkBehaviour for ParticleBehaviour {
         cp: &ConnectedPoint,
     ) {
         let maddr = remote_multiaddr(cp);
-        self.plumber.add_client_address(id, maddr.clone());
+        self.add_client_address(id, maddr.clone());
         self.dht.inject_connection_established(id, ci, cp);
     }
 

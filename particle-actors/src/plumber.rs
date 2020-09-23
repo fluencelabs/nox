@@ -24,7 +24,6 @@ use fluence_app_service::AppServiceError;
 use async_std::task;
 use futures::{future::BoxFuture, Future};
 use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
     fmt::{Debug, Formatter},
@@ -34,17 +33,10 @@ use std::{
 };
 
 #[derive(Debug)]
-pub enum PeerKind {
-    Client,
-    Unknown,
-}
-
-#[derive(Debug)]
 pub enum PlumberEvent {
     Forward {
         target: PeerId,
         particle: Particle,
-        kind: PeerKind,
     },
 }
 
@@ -74,7 +66,6 @@ impl Debug for ActorState {
 
 #[derive(Debug)]
 pub struct Plumber {
-    clients: HashMap<PeerId, Option<Multiaddr>>,
     events: VecDeque<PlumberEvent>,
     actors: HashMap<String, ActorState>,
     config: ActorConfig,
@@ -84,32 +75,11 @@ pub struct Plumber {
 impl Plumber {
     pub fn new(config: ActorConfig) -> Self {
         Self {
-            clients: <_>::default(),
             events: <_>::default(),
             actors: <_>::default(),
             config,
             waker: <_>::default(),
         }
-    }
-
-    pub fn add_client(&mut self, client: PeerId) {
-        self.clients.insert(client, None);
-    }
-
-    pub fn add_client_address(&mut self, client: &PeerId, address: Multiaddr) {
-        if let Some(addr) = self.clients.get_mut(client) {
-            if let Some(addr) = addr.replace(address) {
-                log::info!("Replaced old addr {} for client {}", addr, client)
-            }
-        }
-    }
-
-    pub fn client_address(&self, client: &PeerId) -> &Option<Multiaddr> {
-        self.clients.get(client).unwrap_or(&None)
-    }
-
-    pub fn remove_client(&mut self, client: &PeerId) {
-        self.clients.remove(client);
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
@@ -190,11 +160,9 @@ impl Plumber {
         // Turn effects into events, and buffer them
         for effect in effects {
             let ActorEvent::Forward { particle, target } = effect;
-            let kind = self.peer_kind(&target);
             self.events.push_back(PlumberEvent::Forward {
                 particle,
                 target,
-                kind,
             });
         }
 
@@ -214,17 +182,5 @@ impl Plumber {
 
     fn create_actor(config: ActorConfig, particle: Particle) -> Fut {
         Box::pin(task::spawn_blocking(move || Actor::new(config, particle)))
-    }
-
-    /// Returns whether peer is a directly connected client or not
-    fn peer_kind(&self, peer: &PeerId) -> PeerKind {
-        if let Some(addr) = self.clients.get(peer) {
-            if addr.is_none() {
-                log::warn!("Address of the peer {} is unknown", peer);
-            }
-            PeerKind::Client
-        } else {
-            PeerKind::Unknown
-        }
     }
 }

@@ -32,4 +32,4 @@ mod invoke;
 mod plumber;
 
 pub use config::ActorConfig;
-pub use plumber::{PeerKind, Plumber, PlumberEvent};
+pub use plumber::{Plumber, PlumberEvent};

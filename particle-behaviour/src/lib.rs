@@ -27,6 +27,7 @@
 )]
 
 mod behaviour;
+mod clients;
 mod network;
 
 pub use behaviour::ParticleBehaviour;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use particle_actors::{ActorConfig, PeerKind, Plumber, PlumberEvent};
+use particle_actors::{ActorConfig, Plumber, PlumberEvent};
 use particle_dht::{DHTConfig, DHTEvent, ParticleDHT};
 use particle_protocol::{Particle, ProtocolMessage};
 
@@ -27,13 +27,16 @@ use libp2p::{
     PeerId,
 };
 use prometheus::Registry;
+use std::collections::HashMap;
 use std::{collections::VecDeque, task::Waker};
+use crate::clients::PeerKind;
 
 pub(crate) type SwarmEventType = generate_swarm_event_type!(ParticleBehaviour);
 
 pub struct ParticleBehaviour {
     pub(super) plumber: Plumber,
     pub(super) dht: ParticleDHT,
+    pub(super) clients: HashMap<PeerId, Option<Multiaddr>>,
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
 }
@@ -60,16 +63,12 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehav
             PlumberEvent::Forward {
                 target,
                 particle,
-                kind: PeerKind::Client,
             } => {
-                self.forward_particle(target, particle);
-            }
-            PlumberEvent::Forward {
-                target,
-                particle,
-                kind: PeerKind::Unknown,
-            } => {
-                self.dht.send_to(target, particle);
+                if let PeerKind::Client = self.peer_kind(&target) {
+                    self.forward_particle(target, particle);
+                } else {
+                    self.dht.send_to(target, particle)
+                }
             }
         }
     }
@@ -88,6 +87,7 @@ impl ParticleBehaviour {
         Self {
             plumber,
             dht,
+            clients: <_>::default(),
             events: <_>::default(),
             waker: <_>::default(),
         }
