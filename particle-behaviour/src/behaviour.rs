@@ -21,15 +21,17 @@ use particle_protocol::{Particle, ProtocolMessage};
 use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
 
+use crate::clients::PeerKind;
 use libp2p::{
     core::{either::EitherOutput, identity::ed25519, Multiaddr},
     swarm::{NetworkBehaviourAction, NotifyHandler},
     PeerId,
 };
 use prometheus::Registry;
-use std::collections::HashMap;
-use std::{collections::VecDeque, task::Waker};
-use crate::clients::PeerKind;
+use std::{
+    collections::{HashMap, VecDeque},
+    task::Waker,
+};
 
 pub(crate) type SwarmEventType = generate_swarm_event_type!(ParticleBehaviour);
 
@@ -60,10 +62,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehav
     fn inject_event(&mut self, event: PlumberEvent) {
         log::info!("Plumber event: {:?}", event);
         match event {
-            PlumberEvent::Forward {
-                target,
-                particle,
-            } => {
+            PlumberEvent::Forward { target, particle } => {
                 if let PeerKind::Client = self.peer_kind(&target) {
                     self.forward_particle(target, particle);
                 } else {

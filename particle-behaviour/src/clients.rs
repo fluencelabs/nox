@@ -15,8 +15,8 @@
  */
 
 use crate::ParticleBehaviour;
-use libp2p::PeerId;
 use libp2p::core::Multiaddr;
+use libp2p::PeerId;
 
 #[derive(Debug)]
 pub(super) enum PeerKind {

@@ -34,10 +34,7 @@ use std::{
 
 #[derive(Debug)]
 pub enum PlumberEvent {
-    Forward {
-        target: PeerId,
-        particle: Particle,
-    },
+    Forward { target: PeerId, particle: Particle },
 }
 
 type Fut = BoxFuture<'static, Result<Actor, AppServiceError>>;
@@ -160,10 +157,8 @@ impl Plumber {
         // Turn effects into events, and buffer them
         for effect in effects {
             let ActorEvent::Forward { particle, target } = effect;
-            self.events.push_back(PlumberEvent::Forward {
-                particle,
-                target,
-            });
+            self.events
+                .push_back(PlumberEvent::Forward { particle, target });
         }
 
         // Return new event if there is some
