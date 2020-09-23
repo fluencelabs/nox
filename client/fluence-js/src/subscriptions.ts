@@ -26,8 +26,14 @@ export class Subscriptions {
      * If subscription returns true, delete subscription.
      * @param id
      * @param f
+     * @param ttl
      */
-    subscribe(id: string, f: (particle: Particle) => void) {
+    subscribe(id: string, f: (particle: Particle) => void, ttl: number) {
+        let _this = this;
+        setTimeout(() => {
+            _this.subscriptions.delete(id)
+            console.log(`Particle with id ${id} deleted by timeout`)
+        }, ttl)
         this.subscriptions.set(id, f);
     }
 
@@ -41,7 +47,11 @@ export class Subscriptions {
         if (callback) {
             callback(particle);
         } else {
-            console.log("External particle received. 'Stepper' needed on client. Unimplemented.");
+            if (particle.timestamp + particle.ttl > Date.now()) {
+                console.log("Old particle received. 'ttl' is ended.");
+            } else {
+                console.log("External particle received. 'Stepper' needed on client. Unimplemented.");
+            }
             console.log(particle);
         }
     }
