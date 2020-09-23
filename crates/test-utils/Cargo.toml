@@ -16,7 +16,6 @@ libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master"
 parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
 rand = "0.7.3"
-quickcheck = "0.9.2"
 async-std = "1.6.4"
 futures = "0.3.4"
 futures-util = "0.3.4"
