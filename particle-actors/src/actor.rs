@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![allow(dead_code)]
 
 use crate::actor::VmState::{Executing, Idle};
 use crate::config::ActorConfig;
@@ -96,20 +95,21 @@ impl Actor {
 
         let vm = mem::replace(&mut self.vm, VmState::Polling);
         let execute = |vm| self.execute_next(vm, waker);
-        let (state, effect) = match vm {
+
+        let (state, effects) = match vm {
             Idle(vm) => (execute(vm), Poll::Pending),
-            VmState::Executing(mut fut) => {
+            Executing(mut fut) => {
                 if let Poll::Ready(FutResult { vm, effects }) = Pin::new(&mut fut).poll(cx) {
                     (execute(vm), Poll::Ready(effects))
                 } else {
-                    (VmState::Executing(fut), Poll::Pending)
+                    (Executing(fut), Poll::Pending)
                 }
             }
             VmState::Polling => unreachable!("polling race"),
         };
 
         self.vm = state;
-        return effect;
+        return effects;
     }
 
     fn create_vm(
@@ -179,9 +179,9 @@ impl Actor {
                     let mut particle = particle;
                     let error = format!("{:?}", err);
                     if let Some(map) = particle.data.as_object_mut() {
-                        map.insert("error".to_string(), json!(error));
+                        map.insert("protocol!error".to_string(), json!(error));
                     } else {
-                        particle.data = json!({"error": error, "data": particle.data})
+                        particle.data = json!({"protocol!error": error, "data": particle.data})
                     }
                     // Return error to the init peer id
                     vec![ActorEvent::Forward {

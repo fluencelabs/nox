@@ -20,7 +20,7 @@ use crate::ParticleBehaviour;
 use particle_dht::ParticleDHT;
 use particle_protocol::{ProtocolConfig, ProtocolMessage};
 
-use fluence_libp2p::poll_loop;
+use fluence_libp2p::{poll_loop, remote_multiaddr};
 
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{
@@ -153,6 +153,8 @@ impl NetworkBehaviour for ParticleBehaviour {
         ci: &ConnectionId,
         cp: &ConnectedPoint,
     ) {
+        let maddr = remote_multiaddr(cp);
+        self.plumber.add_client_address(id, maddr.clone());
         self.dht.inject_connection_established(id, ci, cp);
     }
 
