@@ -14,16 +14,6 @@
  * limitations under the License.
  */
 
-import {Address, createPeerAddress} from "./address";
-import {
-    callToString,
-    FunctionCall,
-    genUUID,
-    makeFunctionCall,
-    makeProvideMessage,
-    parseFunctionCall
-} from "./functionCall";
-
 import Websockets from "libp2p-websockets";
 import Mplex from "libp2p-mplex";
 import SECIO from "libp2p-secio";
@@ -33,6 +23,7 @@ import pipe from "it-pipe";
 import Multiaddr from "multiaddr";
 import PeerId from "peer-id";
 import * as log from 'loglevel';
+import {parseParticle, Particle, particleToString} from "./particle";
 
 export const PROTOCOL_NAME = '/fluence/faas/1.0.0';
 
@@ -45,32 +36,19 @@ enum Status {
 export class FluenceConnection {
 
     private readonly selfPeerId: PeerId;
-    readonly sender: Address;
-    readonly replyTo: Address;
+    readonly relay: PeerId;
     private node: LibP2p;
     private readonly address: Multiaddr;
     readonly nodePeerId: PeerId;
     private readonly selfPeerIdStr: string;
-    private readonly handleCall: (call: FunctionCall) => FunctionCall | undefined;
+    private readonly handleCall: (call: Particle) => void;
 
-    constructor(multiaddr: Multiaddr, hostPeerId: PeerId, selfPeerId: PeerId, sender: Address, replyTo: Address, handleCall: (call: FunctionCall) => FunctionCall | undefined) {
+    constructor(multiaddr: Multiaddr, hostPeerId: PeerId, selfPeerId: PeerId, handleCall: (call: Particle) => void) {
         this.selfPeerId = selfPeerId;
         this.handleCall = handleCall;
         this.selfPeerIdStr = selfPeerId.toB58String();
         this.address = multiaddr;
         this.nodePeerId = hostPeerId;
-        this.sender = sender
-        this.replyTo = replyTo
-    }
-
-    makeReplyTo(reply?: string): Address {
-        if (reply) {
-            let replyToWithHash = {...this.replyTo}
-            if (typeof reply === "string") replyToWithHash.hash = reply;
-            return replyToWithHash;
-        } else {
-            return this.sender;
-        }
     }
 
     async connect() {
@@ -114,13 +92,8 @@ export class FluenceConnection {
                         for await (const msg of source) {
                             try {
                                 log.debug(_this.selfPeerIdStr);
-                                let call = parseFunctionCall(msg);
-                                let response = _this.handleCall(call);
-
-                                // send a response if it exists, do nothing otherwise
-                                if (response) {
-                                    await _this.sendCall(response);
-                                }
+                                let particle = parseParticle(msg);
+                                _this.handleCall(particle);
                             } catch(e) {
                                 log.error("error on handling a new incoming message: " + e);
                             }
@@ -146,39 +119,19 @@ export class FluenceConnection {
         this.status = Status.Disconnected;
     }
 
-    private async sendCall(call: FunctionCall) {
-        let callStr = callToString(call);
-        log.debug("send function call: " + JSON.stringify(JSON.parse(callStr), undefined, 2));
-        log.debug(call);
+    async sendParticle(particle: Particle): Promise<void> {
+        this.checkConnectedOrThrow();
+        let particleStr = particleToString(particle);
+        log.debug("send function call: \n" + JSON.stringify(particle, undefined, 2));
 
         // create outgoing substream
         const conn = await this.node.dialProtocol(this.address, PROTOCOL_NAME) as {stream: Stream; protocol: string};
 
         pipe(
-            [callStr],
+            [particleStr],
             // at first, make a message varint
             encode(),
             conn.stream.sink,
         );
-    }
-
-    /**
-     * Send FunctionCall to the connected node.
-     */
-    async sendFunctionCall(target: Address, args: any, moduleId?: string, fname?: string, msgId?: string, name?: string) {
-        this.checkConnectedOrThrow();
-
-        let replyTo;
-        if (msgId) replyTo = this.makeReplyTo(msgId);
-
-        let call = makeFunctionCall(genUUID(), target, this.sender, args, moduleId, fname, replyTo, name);
-
-        await this.sendCall(call);
-    }
-
-    async provideName(name: string) {
-        let target = createPeerAddress(this.nodePeerId.toB58String())
-        let regMsg = await makeProvideMessage(name, target, this.sender, this.replyTo);
-        await this.sendCall(regMsg);
     }
 }

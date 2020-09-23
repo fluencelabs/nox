@@ -1,0 +1,52 @@
+/*
+ * Copyright 2020 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { v4 as uuidv4 } from 'uuid';
+
+export interface Particle {
+    id: string,
+    init_peer_id: string,
+    timestamp: number,
+    ttl: number,
+    script: string,
+    // sign upper fields
+    signature: string,
+    data: object
+}
+
+export function particleToString(call: Particle) {
+    let obj: any = {...call};
+
+    return JSON.stringify(obj)
+}
+
+export function parseParticle(str: string): Particle {
+    let json = JSON.parse(str);
+
+    return {
+        id: json.id,
+        init_peer_id: json.init_peer_id,
+        timestamp: json.timestamp,
+        ttl: json.ttl,
+        script: json.script,
+        signature: json.signature,
+        data: json.data,
+    }
+}
+
+export function genUUID() {
+    return uuidv4();
+}
