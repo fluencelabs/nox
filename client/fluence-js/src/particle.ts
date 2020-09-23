@@ -15,6 +15,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import PeerId from "peer-id";
+import {encode} from "bs58";
 
 export interface Particle {
     id: string,
@@ -45,6 +47,17 @@ export function parseParticle(str: string): Particle {
         signature: json.signature,
         data: json.data,
     }
+}
+
+export async function signParticle(peerId: PeerId,
+                                   id: string,
+                                   init_peer_id: string,
+                                   timestamp: number,
+                                   ttl: number,
+                                   script: string): Promise<string> {
+    let buf = Buffer.from(id, 'utf8');
+    let signature = await peerId.privKey.sign(buf)
+    return encode(signature)
 }
 
 export function genUUID() {

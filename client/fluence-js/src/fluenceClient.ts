@@ -15,7 +15,7 @@
  */
 
 
-import {Particle} from "./particle";
+import {genUUID, Particle, signParticle} from "./particle";
 import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
@@ -24,14 +24,16 @@ import {Subscriptions} from "./subscriptions";
 export class FluenceClient {
     readonly selfPeerId: PeerId;
     readonly selfPeerIdStr: string;
+    readonly defaultTtl: number;
     private nodePeerIdStr: string;
     private subscriptions = new Subscriptions();
 
     connection: FluenceConnection;
 
-    constructor(selfPeerId: PeerId) {
+    constructor(selfPeerId: PeerId, defaultTtl?: number) {
         this.selfPeerId = selfPeerId;
         this.selfPeerIdStr = selfPeerId.toB58String();
+        this.defaultTtl = defaultTtl ?? 7000;
     }
 
     /**
@@ -39,7 +41,7 @@ export class FluenceClient {
      *
      * @param id
      */
-    waitResponse(id: string): Promise<any> {
+    waitResponse(id: string): Promise<Particle> {
         return new Promise((resolve, reject) => {
             // subscribe for responses, to handle response
             // TODO if there's no conn, reject
@@ -95,5 +97,23 @@ export class FluenceClient {
         await connection.connect();
 
         this.connection = connection;
+    }
+
+    async sendParticle(script: string, data: object, ttl?: number): Promise<Particle> {
+        let id = genUUID();
+        let currentTime = (new Date()).getTime();
+        ttl = ttl ?? this.defaultTtl
+        let signature = await signParticle(this.selfPeerId, id, this.selfPeerIdStr, currentTime, ttl, script);
+        let particle: Particle = {
+            id: id,
+            init_peer_id: this.selfPeerIdStr,
+            timestamp: currentTime,
+            ttl: ttl,
+            script: script,
+            signature: signature,
+            data: data
+        }
+        await this.connection.sendParticle(particle);
+        return this.waitResponse(id);
     }
 }
