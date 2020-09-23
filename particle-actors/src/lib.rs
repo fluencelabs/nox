@@ -26,6 +26,10 @@
     unreachable_patterns
 )]
 
+mod actor;
+mod config;
+mod invoke;
 mod plumber;
 
+pub use config::ActorConfig;
 pub use plumber::{PeerKind, Plumber, PlumberEvent};

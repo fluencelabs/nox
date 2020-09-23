@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
-mod artifacts;
-mod connected_client;
-mod misc;
+use libp2p::core::connection::ConnectedPoint;
+use parity_multiaddr::Multiaddr;
 
-pub use artifacts::*;
-pub use connected_client::ConnectedClient;
-pub use misc::*;
+/// Retrieves multiaddr of the remote peer
+pub fn remote_multiaddr(cp: &ConnectedPoint) -> &Multiaddr {
+    let maddr = match cp {
+        ConnectedPoint::Dialer { address } => address,
+        ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
+    };
+
+    maddr
+}

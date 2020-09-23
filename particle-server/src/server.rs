@@ -27,6 +27,7 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use parity_multiaddr::{Multiaddr, Protocol};
+use particle_behaviour::ActorConfig;
 use prometheus::Registry;
 use std::io;
 use std::net::IpAddr;
@@ -44,6 +45,7 @@ impl Server {
         key_pair: Keypair,
         server_config: ServerConfig,
         root_weights: Vec<(ed25519::PublicKey, u32)>,
+        actor_config: ActorConfig,
     ) -> Box<Self> {
         let ServerConfig { socket_timeout, .. } = server_config;
 
@@ -62,6 +64,7 @@ impl Server {
                 Some(&registry),
                 server_config.bootstrap_nodes.clone(),
                 <_>::default(),
+                actor_config,
             );
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);

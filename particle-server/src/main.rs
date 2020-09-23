@@ -29,8 +29,9 @@
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
 use futures::channel::oneshot;
+use particle_behaviour::ActorConfig;
 use particle_server::{
-    config::{certificates, create_args, load_config, AppServicesConfig, FluenceConfig},
+    config::{certificates, create_args, load_config, FluenceConfig},
     Server,
 };
 
@@ -80,8 +81,11 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
-    let _app_service_config =
-        AppServicesConfig::new(&config.services_base_dir, config.service_envs)?;
+    let actor_config = ActorConfig::new(
+        config.services_base_dir,
+        config.service_envs,
+        config.stepper_module,
+    )?;
 
     let node_service = Server::new(
         key_pair.clone(),
@@ -91,6 +95,7 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
             .into_iter()
             .map(|(k, v)| (k.into(), v))
             .collect(),
+        actor_config,
     );
 
     let node_exit_outlet = node_service.start();

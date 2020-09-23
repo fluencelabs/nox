@@ -18,6 +18,7 @@ use async_std::task;
 use fluence_libp2p::{build_memory_transport, build_transport};
 use particle_server::{BootstrapConfig, ServerBehaviour};
 
+use crate::AQUAMARINE;
 use fluence_client::Transport;
 use futures::StreamExt;
 use libp2p::{
@@ -28,6 +29,7 @@ use libp2p::{
     PeerId, Swarm,
 };
 use parity_multiaddr::Multiaddr;
+use particle_actors::ActorConfig;
 use prometheus::Registry;
 use rand::Rng;
 use std::path::PathBuf;
@@ -265,6 +267,11 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             }
         }
 
+        let actor_config = ActorConfig::new(tmp.clone(), vec![], "aquamarine".to_string())
+            .expect("create actor config");
+
+        put_aquamarine(actor_config.modules_dir.clone());
+
         let server = ServerBehaviour::new(
             kp.clone(),
             peer_id.clone(),
@@ -273,6 +280,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             registry,
             bootstraps,
             BootstrapConfig::zero(),
+            actor_config,
         );
         match transport {
             Transport::Memory => {
@@ -317,4 +325,10 @@ pub fn make_tmp_dir() -> PathBuf {
 
 pub fn remove_dir(dir: &PathBuf) {
     std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
+}
+
+pub fn put_aquamarine(mut tmp: PathBuf) {
+    tmp.push("aquamarine.wasm");
+    std::fs::write(&tmp, AQUAMARINE)
+        .expect(format!("fs::write aquamarine.wasm to {:?}", tmp).as_str())
 }

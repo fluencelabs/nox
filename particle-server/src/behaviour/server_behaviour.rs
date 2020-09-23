@@ -23,7 +23,7 @@ use libp2p::{
     PeerId,
 };
 use parity_multiaddr::Multiaddr;
-use particle_behaviour::ParticleBehaviour;
+use particle_behaviour::{ActorConfig, ParticleBehaviour};
 use particle_dht::DHTConfig;
 use prometheus::Registry;
 use std::collections::VecDeque;
@@ -52,6 +52,7 @@ impl ServerBehaviour {
         registry: Option<&Registry>,
         bootstrap_nodes: Vec<Multiaddr>,
         bs_config: BootstrapConfig,
+        actor_config: ActorConfig,
     ) -> Self {
         let local_public_key = PublicKey::Ed25519(key_pair.public());
         let identity = Identify::new(
@@ -64,7 +65,7 @@ impl ServerBehaviour {
             peer_id: local_peer_id.clone(),
             keypair: key_pair,
         };
-        let particle = ParticleBehaviour::new(dht_config, trust_graph, registry);
+        let particle = ParticleBehaviour::new(actor_config, dht_config, trust_graph, registry);
         let bootstrapper = Bootstrapper::new(bs_config, local_peer_id, bootstrap_nodes);
 
         Self {

@@ -27,5 +27,6 @@ fn echo_particle() {
     particle.init_peer_id = client.peer_id.clone();
     client.send(particle.clone());
     let response = client.receive();
-    assert_eq!(response.id, particle.id)
+    assert_eq!(response.id, particle.id);
+    assert_eq!(response.data, particle.data);
 }

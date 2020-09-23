@@ -62,6 +62,8 @@ pub struct FluenceConfig {
     pub services_base_dir: PathBuf,
     #[serde(default = "Vec::new")]
     pub service_envs: Vec<String>,
+    #[serde(default = "default_stepper")]
+    pub stepper_module: String,
 }
 
 #[derive(Clone, Deserialize, Debug)]
