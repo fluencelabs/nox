@@ -3087,6 +3087,7 @@ dependencies = [
  "fluence-app-service",
  "libp2p",
  "parking_lot 0.11.0",
+ "serde 1.0.116",
  "serde_json",
 ]
 

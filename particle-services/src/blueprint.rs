@@ -14,14 +14,25 @@
  * limitations under the License.
  */
 
-use crate::error::ServiceError;
+use serde::{Deserialize, Serialize};
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Blueprint {
+    pub name: String,
+    #[serde(default = "uuid")]
+    pub id: String,
+    pub dependencies: Vec<String>,
+}
 
-mod services;
-mod vm;
-mod config;
-mod error;
-mod modules;
-mod files;
-mod blueprint;
+fn uuid() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
 
-pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
+impl Blueprint {
+    pub fn new(name: String, id: String, dependencies: Vec<String>) -> Self {
+        Self {
+            name,
+            id,
+            dependencies,
+        }
+    }
+}

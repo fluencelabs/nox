@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-use crate::error::ServiceError;
+use fluence_app_service::AppServiceError;
 
-mod services;
-mod vm;
-mod config;
-mod error;
-mod modules;
-mod files;
-mod blueprint;
+pub enum ServiceError {
+    NoSuchService(String),
+    AppServiceError(AppServiceError)
+}
 
-pub(crate) type Result<T> = std::result::Result<T, ServiceError>;

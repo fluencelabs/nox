@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-use crate::error::ServiceError;
+use std::path::PathBuf;
 
-mod services;
-mod vm;
-mod config;
-mod error;
-mod modules;
-mod files;
-mod blueprint;
-
-pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
+pub struct ServicesConfig {
+    /// Path of the blueprint directory containing blueprints and wasm modules
+    pub blueprint_dir: PathBuf,
+    /// Opaque environment variables to be passed on each service creation
+    /// TODO: isolate envs of different modules (i.e., module A shouldn't access envs of module B)
+    pub service_envs: Vec<String>,
+    /// Working dir for services
+    pub workdir: PathBuf,
+    /// Dir to store .wasm modules and their configs
+    pub modules_dir: PathBuf,
+    /// Dir to persist info about running services
+    pub services_dir: PathBuf,
+}
