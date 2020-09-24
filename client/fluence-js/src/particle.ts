@@ -26,7 +26,8 @@ export interface Particle {
     script: string,
     // sign upper fields
     signature: string,
-    data: object
+    data: object,
+    action: "Particle"
 }
 
 export function particleToString(call: Particle) {
@@ -46,15 +47,22 @@ export function parseParticle(str: string): Particle {
         script: json.script,
         signature: json.signature,
         data: json.data,
+        action: "Particle"
     }
 }
 
 export async function signParticle(peerId: PeerId,
                                    id: string,
-                                   init_peer_id: string,
-                                   timestamp: number,
+                                   timestamp: bigint,
                                    ttl: number,
                                    script: string): Promise<string> {
+    let peerIdBuf = Buffer.from(peerId.toB58String(), 'utf8');
+    let idBuf = Buffer.from(id, 'utf8');
+
+    let tsBuf = new ArrayBuffer(8);
+    new DataView(tsBuf).setBigUint64(0, timestamp);
+
+
     let buf = Buffer.from(id, 'utf8');
     let signature = await peerId.privKey.sign(buf)
     return encode(signature)

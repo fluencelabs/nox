@@ -37,6 +37,17 @@ describe("Typescript usage suite", () => {
         expect(ser).to.be.equal(cert);
     });
 
+    it("test new client", async function () {
+        let key1 = await Fluence.generatePeerId();
+        let key2 = await Fluence.generatePeerId();
+
+        // connect to two different nodes
+        let cl1 = await Fluence.connect("/dns4/134.209.186.43/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", key1);
+
+        let result = await cl1.sendParticle("123", {a: 777, b: "567"})
+        console.log(result)
+    });
+
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
     it.skip("test certs", async function () {
         this.timeout(15000);

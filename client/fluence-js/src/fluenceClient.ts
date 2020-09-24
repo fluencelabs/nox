@@ -40,14 +40,15 @@ export class FluenceClient {
      * Waits a response that match the predicate.
      *
      * @param id
+     * @param ttl
      */
-    waitResponse(id: string): Promise<Particle> {
+    waitResponse(id: string, ttl: number): Promise<Particle> {
         return new Promise((resolve, reject) => {
             // subscribe for responses, to handle response
             // TODO if there's no conn, reject
             this.subscriptions.subscribe(id, (particle: Particle) => {
                 resolve(particle);
-            });
+            }, ttl);
         })
     }
 
@@ -101,9 +102,11 @@ export class FluenceClient {
 
     async sendParticle(script: string, data: object, ttl?: number): Promise<Particle> {
         let id = genUUID();
-        let currentTime = (new Date()).getTime();
+        let currentTime = (new Date()).getTime()
+        let bigCurrentTime = BigInt(currentTime);
+
         ttl = ttl ?? this.defaultTtl
-        let signature = await signParticle(this.selfPeerId, id, this.selfPeerIdStr, currentTime, ttl, script);
+        let signature = await signParticle(this.selfPeerId, id, bigCurrentTime, ttl, script);
         let particle: Particle = {
             id: id,
             init_peer_id: this.selfPeerIdStr,
@@ -111,9 +114,10 @@ export class FluenceClient {
             ttl: ttl,
             script: script,
             signature: signature,
-            data: data
+            data: data,
+            action: "Particle"
         }
         await this.connection.sendParticle(particle);
-        return this.waitResponse(id);
+        return this.waitResponse(id, ttl);
     }
 }
