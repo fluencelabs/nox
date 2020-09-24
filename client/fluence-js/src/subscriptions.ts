@@ -22,11 +22,11 @@ export class Subscriptions {
     constructor() {}
 
     /**
-     * Subscriptions will be applied to all peer and relay messages.
-     * If subscription returns true, delete subscription.
-     * @param id
-     * @param f
-     * @param ttl
+     * Subscriptions will be applied by outside message if id will be the same.
+     *
+     * @param id message identificator
+     * @param f function to use with outside message
+     * @param ttl time to live, subscription will be deleted after this time
      */
     subscribe(id: string, f: (particle: Particle) => void, ttl: number) {
         let _this = this;
@@ -38,7 +38,7 @@ export class Subscriptions {
     }
 
     /**
-     * Apply call to all subscriptions and delete subscriptions that return `true`.
+     * A particle will be applied if id of the particle was subscribed earlier.
      * @param particle
      */
     applyToSubscriptions(particle: Particle) {
