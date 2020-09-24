@@ -99,7 +99,14 @@ pub struct ServerConfig {
     pub services_base_dir: PathBuf,
 
     #[serde(default = "Vec::new")]
-    pub service_envs: Vec<String>,
+    pub services_envs: Vec<String>,
+
+    /// Base directory for resources needed by application services
+    #[serde(default = "default_stepper_basedir")]
+    pub stepper_base_dir: PathBuf,
+
+    #[serde(default = "Vec::new")]
+    pub stepper_envs: Vec<String>,
 
     #[serde(default = "default_stepper")]
     pub stepper_module_name: String,

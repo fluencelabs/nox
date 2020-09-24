@@ -84,19 +84,28 @@ def do_deploy_fluence(yml="fluence.yml"):
 def get_host_idx(containers):
     return env.hosts.index(env.host_string) * containers
 
+def put_aquamarine():
+    run("mkdir -p ./stepper/modules/")
+    put("aquamarine.wasm", './stepper/modules/')
+
+def copy_aquamarine(container):
+    run('docker cp ./stepper %s:/' % container)
+
+def copy_key(yml, container, idx):
+    keypair = env.config['fluence']['keypairs'][yml][idx]
+    fname = '{}_{}.key'.format(yml, idx)
+    append(fname, keypair)
+    run('docker cp %s %s:/node.key' % (fname, container))
 
 def copy_configs_and_keys(yml):
     put("Config.toml", "./")
+    put_aquamarine()
     containers = compose('ps -q', yml).splitlines()
     host_idx = get_host_idx(len(containers))
     for idx, id in enumerate(containers):
-        container_idx = host_idx + idx
         run('docker cp ./Config.toml %s:/Config.toml' % id)
-        keypair = env.config['fluence']['keypairs'][yml][container_idx]
-        fname = '{}_{}.key'.format(yml, container_idx)
-        append(fname, keypair)
-        run('docker cp %s %s:/node.key' % (fname, id))
-
+        copy_aquamarine(id)
+        copy_key(yml, id, host_idx + idx)
 
 # returns [Node]
 def get_fluence_addresses(yml="fluence.yml"):

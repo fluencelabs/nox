@@ -33,6 +33,8 @@ use std::{
 };
 
 type Fut = BoxFuture<'static, Result<Actor, AppServiceError>>;
+type Callback =
+    Box<dyn Fn(String, String, serde_json::Value) -> serde_json::Value + Send + 'static>;
 
 #[derive(Debug)]
 pub enum PlumberEvent {
@@ -44,20 +46,22 @@ pub enum ActorState {
     Created(Actor),
 }
 
-#[derive(Debug)]
 pub struct Plumber {
+    config: ActorConfig,
     events: VecDeque<PlumberEvent>,
     actors: HashMap<String, ActorState>,
-    config: ActorConfig,
+    #[allow(dead_code)]
+    services: HashMap<String, Callback>,
     pub(super) waker: Option<Waker>,
 }
 
 impl Plumber {
     pub fn new(config: ActorConfig) -> Self {
         Self {
+            config,
             events: <_>::default(),
             actors: <_>::default(),
-            config,
+            services: <_>::default(),
             waker: <_>::default(),
         }
     }

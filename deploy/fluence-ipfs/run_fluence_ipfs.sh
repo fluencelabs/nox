@@ -22,5 +22,5 @@ ipfs config --json Gateway.HTTPHeaders.Access-Control-Allow-Methods '["PUT", "GE
 
 # Run Server & IPFS in parallel, fail if any of the processes fails
 $BASH wait.sh \
-  "./fluence-server $*" \
+  "./particle-server $*" \
   "$IPFS daemon"

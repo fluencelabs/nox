@@ -35,7 +35,9 @@ pub struct BehaviourConfig<'a> {
     pub bootstrap: BootstrapConfig,
     pub registry: Option<&'a Registry>,
     pub services_base_dir: PathBuf,
-    pub service_envs: Vec<String>,
+    pub services_envs: Vec<String>,
+    pub stepper_base_dir: PathBuf,
+    pub stepper_envs: Vec<String>,
     pub stepper_module_name: String,
 }
 
@@ -55,7 +57,9 @@ impl<'a> BehaviourConfig<'a> {
             bootstrap_nodes: config.bootstrap_nodes.clone(),
             bootstrap: config.bootstrap_config.clone(),
             services_base_dir: config.services_base_dir.clone(),
-            service_envs: config.service_envs.clone(),
+            services_envs: config.services_envs.clone(),
+            stepper_base_dir: config.stepper_base_dir.clone(),
+            stepper_envs: config.stepper_envs.clone(),
             stepper_module_name: config.stepper_module_name.clone(),
         }
     }

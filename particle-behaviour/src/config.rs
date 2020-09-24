@@ -23,22 +23,28 @@ use std::io;
 use std::path::PathBuf;
 
 pub struct ParticleConfig {
-    base_dir: PathBuf,
-    envs: Vec<String>,
+    services_base_dir: PathBuf,
+    services_envs: Vec<String>,
+    stepper_base_dir: PathBuf,
+    stepper_envs: Vec<String>,
     stepper_module_name: String,
     key_pair: ed25519::Keypair,
 }
 
 impl ParticleConfig {
     pub fn new(
-        base_dir: PathBuf,
-        envs: Vec<String>,
+        services_base_dir: PathBuf,
+        services_envs: Vec<String>,
+        stepper_base_dir: PathBuf,
+        stepper_envs: Vec<String>,
         stepper_module_name: String,
         key_pair: ed25519::Keypair,
     ) -> Self {
         Self {
-            base_dir,
-            envs,
+            services_base_dir,
+            services_envs,
+            stepper_base_dir,
+            stepper_envs,
             stepper_module_name,
             key_pair,
         }
@@ -46,14 +52,14 @@ impl ParticleConfig {
 
     pub fn actor_config(&self) -> io::Result<ActorConfig> {
         ActorConfig::new(
-            self.base_dir.clone(),
-            self.envs.clone(),
+            self.stepper_base_dir.clone(),
+            self.stepper_envs.clone(),
             self.stepper_module_name.clone(),
         )
     }
 
     pub fn services_config(&self) -> io::Result<ServicesConfig> {
-        ServicesConfig::new(self.base_dir.clone(), self.envs.clone())
+        ServicesConfig::new(self.services_base_dir.clone(), self.services_envs.clone())
     }
 
     pub fn dht_config(&self) -> DHTConfig {

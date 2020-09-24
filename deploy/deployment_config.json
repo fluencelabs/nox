@@ -1,5 +1,5 @@
 {
-    "branch": "blueprint_id_generation",
+    "branch": "call_service",
     "bootstrap": "134.209.186.43",
     "nodes": [
       "134.209.186.43"

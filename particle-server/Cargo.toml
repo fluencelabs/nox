@@ -8,7 +8,6 @@ edition = "2018"
 particle-protocol = { path = "../particle-protocol"}
 particle-behaviour = { path = "../particle-behaviour"}
 
-
 config = { path = "../config" }
 trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }

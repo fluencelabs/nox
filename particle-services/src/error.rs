@@ -27,6 +27,7 @@ pub enum ServiceError {
     WriteConfig { path: PathBuf, err: std::io::Error },
     NoSuchBlueprint { path: PathBuf, err: std::io::Error },
     IncorrectBlueprint { err: toml::de::Error },
+    MissingBlueprintId,
     NoModuleConfig { path: PathBuf, err: std::io::Error },
     IncorrectModuleConfig { err: toml::de::Error },
     WriteBlueprint { path: PathBuf, err: std::io::Error },
@@ -82,6 +83,10 @@ impl std::fmt::Display for ServiceError {
                 "Error creating directory for persisted services {:?}: {:?}",
                 path, err
             ),
+
+            ServiceError::MissingBlueprintId => {
+                write!(f, "No blueprint_id in arguments from stepper")
+            }
         }
     }
 }

@@ -283,7 +283,9 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             bootstrap: BootstrapConfig::zero(),
             registry,
             services_base_dir: tmp.clone(),
-            service_envs: vec![],
+            services_envs: vec![],
+            stepper_base_dir: tmp.clone(),
+            stepper_envs: vec![],
             stepper_module_name: "aquamarine".to_string(),
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
