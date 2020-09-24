@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use config::{abs_path, create_dirs};
 use fluence_app_service::RawModuleConfig;
 use std::path::PathBuf;
 
@@ -38,25 +39,16 @@ impl ActorConfig {
         envs: Vec<String>,
         stepper_module_name: String,
     ) -> Result<Self, std::io::Error> {
-        // if cwd is available, make given path absolute
-        let base_dir = PathBuf::from(base_dir);
-        let base_dir = match std::env::current_dir().ok() {
-            Some(c) => c.join(base_dir),
-            None => base_dir,
-        };
+        let base_dir = abs_path(base_dir);
 
         let mut stepper_config = RawModuleConfig::new(stepper_module_name);
         stepper_config.logger_enabled = Some(true);
         stepper_config.mem_pages_count = Some(100);
 
-        let workdir = base_dir.join("workdir");
-        let modules_dir = base_dir.join("modules");
-        let services_dir = base_dir.join("services");
-
         let this = Self {
-            workdir,
-            modules_dir,
-            services_dir,
+            workdir: config::workdir(&base_dir),
+            modules_dir: config::modules_dir(&base_dir),
+            services_dir: config::services_dir(&base_dir),
             envs,
             stepper_config,
         };
@@ -67,12 +59,6 @@ impl ActorConfig {
     }
 
     pub fn create_dirs(&self) -> Result<(), std::io::Error> {
-        let dirs = &[&self.workdir, &self.modules_dir, &self.services_dir];
-
-        for dir in dirs {
-            std::fs::create_dir_all(dir)?;
-        }
-
-        Ok(())
+        create_dirs(&[&self.workdir, &self.modules_dir, &self.services_dir])
     }
 }

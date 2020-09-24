@@ -14,18 +14,43 @@
  * limitations under the License.
  */
 
+use config::{abs_path, create_dirs};
 use std::path::PathBuf;
 
+#[derive(Debug, Clone)]
 pub struct ServicesConfig {
     /// Path of the blueprint directory containing blueprints and wasm modules
     pub blueprint_dir: PathBuf,
     /// Opaque environment variables to be passed on each service creation
     /// TODO: isolate envs of different modules (i.e., module A shouldn't access envs of module B)
-    pub service_envs: Vec<String>,
+    pub envs: Vec<String>,
     /// Working dir for services
     pub workdir: PathBuf,
     /// Dir to store .wasm modules and their configs
     pub modules_dir: PathBuf,
     /// Dir to persist info about running services
     pub services_dir: PathBuf,
+}
+
+impl ServicesConfig {
+    pub fn new(base_dir: PathBuf, envs: Vec<String>) -> Result<Self, std::io::Error> {
+        let base_dir = abs_path(base_dir);
+
+        let this = Self {
+            blueprint_dir: config::blueprint_dir(&base_dir),
+            workdir: config::workdir(&base_dir),
+            modules_dir: config::modules_dir(&base_dir),
+            services_dir: config::services_dir(&base_dir),
+            envs,
+        };
+
+        create_dirs(&[
+            &this.blueprint_dir,
+            &this.workdir,
+            &this.modules_dir,
+            &this.services_dir,
+        ])?;
+
+        Ok(this)
+    }
 }

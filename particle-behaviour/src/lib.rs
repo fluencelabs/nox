@@ -28,7 +28,8 @@
 
 mod behaviour;
 mod clients;
+mod config;
 mod network;
 
-pub use behaviour::ParticleBehaviour;
-pub use particle_actors::ActorConfig;
+pub use crate::behaviour::ParticleBehaviour;
+pub use crate::config::ParticleConfig;

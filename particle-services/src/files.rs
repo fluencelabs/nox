@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#![allow(dead_code)]
 
+use crate::blueprint::Blueprint;
 use std::path::{Path, PathBuf};
 
 /// Calculates filename of the config for a wasm module

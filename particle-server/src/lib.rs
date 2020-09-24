@@ -38,6 +38,7 @@ mod behaviour {
 pub mod config {
     mod app_services;
     mod args;
+    mod behaviour_config;
     mod defaults;
     mod fluence_config;
     mod keys;
@@ -46,6 +47,7 @@ pub mod config {
 
     pub use app_services::AppServicesConfig;
     pub use args::create_args;
+    pub use behaviour_config::BehaviourConfig;
     pub use fluence_config::load_config;
     pub use fluence_config::FluenceConfig;
     pub use fluence_config::ServerConfig;

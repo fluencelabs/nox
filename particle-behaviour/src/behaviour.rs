@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-use particle_actors::{ActorConfig, Plumber, PlumberEvent};
-use particle_dht::{DHTConfig, DHTEvent, ParticleDHT};
+use particle_actors::{Plumber, PlumberEvent};
+use particle_dht::{DHTEvent, ParticleDHT};
 use particle_protocol::{Particle, ProtocolMessage};
+use particle_services::ParticleServices;
 
 use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
 
 use crate::clients::PeerKind;
+use crate::ParticleConfig;
 use libp2p::{
     core::{either::EitherOutput, identity::ed25519, Multiaddr},
     swarm::{NetworkBehaviourAction, NotifyHandler},
@@ -30,6 +32,7 @@ use libp2p::{
 use prometheus::Registry;
 use std::{
     collections::{HashMap, VecDeque},
+    io,
     task::Waker,
 };
 
@@ -38,6 +41,8 @@ pub(crate) type SwarmEventType = generate_swarm_event_type!(ParticleBehaviour);
 pub struct ParticleBehaviour {
     pub(super) plumber: Plumber,
     pub(super) dht: ParticleDHT,
+    #[allow(dead_code)]
+    pub(super) services: ParticleServices,
     pub(super) clients: HashMap<PeerId, Option<Multiaddr>>,
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
@@ -75,21 +80,22 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehav
 
 impl ParticleBehaviour {
     pub fn new(
-        actor_cfg: ActorConfig,
-        dht_cfg: DHTConfig,
+        config: ParticleConfig,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
-    ) -> Self {
-        let plumber = Plumber::new(actor_cfg);
-        let dht = ParticleDHT::new(dht_cfg, trust_graph, registry);
+    ) -> io::Result<Self> {
+        let plumber = Plumber::new(config.actor_config()?);
+        let dht = ParticleDHT::new(config.dht_config(), trust_graph, registry);
+        let services = ParticleServices::new(config.services_config()?);
 
-        Self {
+        Ok(Self {
             plumber,
             dht,
+            services,
             clients: <_>::default(),
             events: <_>::default(),
             waker: <_>::default(),
-        }
+        })
     }
 
     pub fn add_kad_node(

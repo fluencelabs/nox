@@ -5,6 +5,8 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
+config = { path = "../config"}
+
 fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
@@ -12,3 +14,6 @@ libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master"
 parking_lot = "0.11.0"
 serde_json = "1.0.57"
 serde = "1.0.116"
+log = "0.4.11"
+uuid = "0.8.1"
+toml = "0.5.6"

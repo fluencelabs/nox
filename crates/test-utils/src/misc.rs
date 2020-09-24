@@ -19,22 +19,27 @@ use fluence_libp2p::{build_memory_transport, build_transport};
 use particle_server::{BootstrapConfig, ServerBehaviour};
 
 use crate::AQUAMARINE;
+
+use config::modules_dir;
 use fluence_client::Transport;
+use particle_server::config::BehaviourConfig;
+use trust_graph::{Certificate, TrustGraph};
+
 use futures::StreamExt;
 use libp2p::{
+    core::Multiaddr,
     identity::{
         ed25519::{Keypair, PublicKey},
         PublicKey::Ed25519,
     },
     PeerId, Swarm,
 };
-use parity_multiaddr::Multiaddr;
-use particle_actors::ActorConfig;
 use prometheus::Registry;
 use rand::Rng;
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
-use trust_graph::{Certificate, TrustGraph};
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 use uuid::Uuid;
 
 /// Utility functions for tests.
@@ -267,21 +272,21 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             }
         }
 
-        let actor_config = ActorConfig::new(tmp.clone(), vec![], "aquamarine".to_string())
-            .expect("create actor config");
+        put_aquamarine(modules_dir(&tmp));
 
-        put_aquamarine(actor_config.modules_dir.clone());
-
-        let server = ServerBehaviour::new(
-            kp.clone(),
-            peer_id.clone(),
-            vec![listen_on.clone()],
+        let config = BehaviourConfig {
+            key_pair: kp.clone(),
+            local_peer_id: peer_id.clone(),
+            listening_addresses: vec![listen_on.clone()],
             trust_graph,
+            bootstrap_nodes: bootstraps,
+            bootstrap: BootstrapConfig::zero(),
             registry,
-            bootstraps,
-            BootstrapConfig::zero(),
-            actor_config,
-        );
+            services_base_dir: tmp.clone(),
+            service_envs: vec![],
+            stepper_module_name: "aquamarine".to_string(),
+        };
+        let server = ServerBehaviour::new(config).expect("create server behaviour");
         match transport {
             Transport::Memory => {
                 Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())

@@ -16,12 +16,15 @@
 
 use crate::error::ServiceError;
 
-mod services;
-mod vm;
+mod blueprint;
 mod config;
 mod error;
-mod modules;
 mod files;
-mod blueprint;
+mod modules;
+mod services;
+mod vm;
 
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
+
+pub use crate::config::ServicesConfig;
+pub use crate::services::ParticleServices;

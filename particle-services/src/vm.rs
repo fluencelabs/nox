@@ -14,23 +14,20 @@
  * limitations under the License.
  */
 
-use fluence_app_service::{AppService, AppServiceError, RawModuleConfig, RawModulesConfig};
-use std::task::Waker;
-use std::path::PathBuf;
-use crate::services::ServiceError;
 use crate::config::ServicesConfig;
-use crate::Result;
 use crate::error::ServiceError;
 use crate::modules::{load_blueprint, load_module_config, persist_service};
+use crate::Result;
+use fluence_app_service::{AppService, RawModuleConfig, RawModulesConfig};
+use std::path::PathBuf;
 
-fn create_app_service(
+pub fn create_vm(
     config: ServicesConfig,
     blueprint_id: String,
-    service_id: String,
+    service_id: &str,
     owner_id: Option<String>,
 ) -> Result<AppService> {
-    let to_string =
-        |path: &PathBuf| -> Option<_> { path.to_string_lossy().into_owned().into() };
+    let to_string = |path: &PathBuf| -> Option<_> { path.to_string_lossy().into_owned().into() };
 
     // Load configs for all modules in blueprint
     let make_service = move |service_id: &str| -> Result<_> {
@@ -51,14 +48,14 @@ fn create_app_service(
             default: None,
         };
 
-        let mut envs = config.service_envs;
+        let mut envs = config.envs;
         if let Some(owner_id) = owner_id {
             envs.push(format!("owner_id={}", owner_id));
         };
 
         log::info!("Creating service {}, envs: {:?}", service_id, envs);
 
-        let service = AppService::new(modules, &service_id, envs).map_err(ServiceError::AppServiceError)?;
+        let service = AppService::new(modules, &service_id, envs).map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
         persist_service(&config.services_dir, &service_id, &blueprint_id)?;
@@ -66,6 +63,5 @@ fn create_app_service(
         Ok(service)
     };
 
-    let service = make_service(service_id.as_str());
-
+    make_service(service_id)
 }

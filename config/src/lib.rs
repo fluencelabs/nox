@@ -14,15 +14,6 @@
  * limitations under the License.
  */
 
-use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Blueprint {
-    pub name: String,
-    #[serde(default = "uuid")]
-    pub id: String,
-    pub dependencies: Vec<String>,
-}
+mod config;
 
-fn uuid() -> String {
-    uuid::Uuid::new_v4().to_string()
-}
+pub use config::*;

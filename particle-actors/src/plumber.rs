@@ -32,33 +32,16 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
+type Fut = BoxFuture<'static, Result<Actor, AppServiceError>>;
+
 #[derive(Debug)]
 pub enum PlumberEvent {
     Forward { target: PeerId, particle: Particle },
 }
 
-type Fut = BoxFuture<'static, Result<Actor, AppServiceError>>;
-
 pub enum ActorState {
     Creating { future: Fut, mailbox: Vec<Particle> },
     Created(Actor),
-}
-
-impl Debug for ActorState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ActorState::Creating { mailbox, .. } => write!(
-                f,
-                "ActorState::Creating {{ future: OPAQUE, mailbox: {:?} }}",
-                mailbox
-            ),
-            ActorState::Created(actor) => write!(
-                f,
-                "ActorState::Created {{ actor.particle: {:?} }}",
-                actor.particle()
-            ),
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -177,5 +160,22 @@ impl Plumber {
 
     fn create_actor(config: ActorConfig, particle: Particle) -> Fut {
         Box::pin(task::spawn_blocking(move || Actor::new(config, particle)))
+    }
+}
+
+impl Debug for ActorState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ActorState::Creating { mailbox, .. } => write!(
+                f,
+                "ActorState::Creating {{ future: OPAQUE, mailbox: {:?} }}",
+                mailbox
+            ),
+            ActorState::Created(actor) => write!(
+                f,
+                "ActorState::Created {{ actor.particle: {:?} }}",
+                actor.particle()
+            ),
+        }
     }
 }

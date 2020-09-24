@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-use crate::{Result, files};
+#![allow(dead_code)]
+
+use crate::blueprint::Blueprint;
+use crate::error::ServiceError::*;
+use crate::{files, Result};
 
 use fluence_app_service::RawModuleConfig;
 
 use std::path::PathBuf;
-use crate::blueprint::Blueprint;
 
 /// Load blueprint from disk
 pub fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint> {
@@ -43,11 +46,16 @@ pub fn load_module_config(modules_dir: &PathBuf, module: &str) -> Result<RawModu
 }
 
 /// Persist service info to disk, so it is recreated after restart
-pub fn persist_service(services_dir: &PathBuf, service_id: &str, blueprint_id: &str) -> Result<()> {
-    let config = PersistedService::new(service_id, blueprint_id);
+pub fn persist_service(
+    _services_dir: &PathBuf,
+    _service_id: &str,
+    _blueprint_id: &str,
+) -> Result<()> {
+    /*let config = PersistedService::new(service_id, blueprint_id);
     let bytes = toml::to_vec(&config).map_err(|err| SerializeConfig { err })?;
     let path = services_dir.join(files::service_file_name(service_id));
-    std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
+    std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })*/
+    unimplemented!()
 }
 
 /// List files in directory
@@ -57,25 +65,22 @@ pub fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {
 }
 
 /// Adds a module to the filesystem, overwriting existing module.
-    /// Also adds module config to the RawModuleConfig
+/// Also adds module config to the RawModuleConfig
 pub fn add_module(modules_dir: &PathBuf, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
     let module = modules_dir.join(files::module_file_name(&config.name));
-    std::fs::write(&module, bytes).map_err(|err| AddModule {
-        path: path.clone(),
-        err,
-    })?;
+    std::fs::write(&module, bytes).map_err(|err| AddModule { path: module, err })?;
 
     // replace existing configuration with a new one
     let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
-    let config = path.join(files::module_config_name(config.name));
-    std::fs::write(&config, toml).map_err(|err| WriteConfig { path, err })?;
+    let config = modules_dir.join(files::module_config_name(config.name));
+    std::fs::write(&config, toml).map_err(|err| WriteConfig { path: config, err })?;
 
     Ok(())
 }
 
 /// Saves new blueprint to disk
 pub fn add_blueprint(blueprint_dir: &PathBuf, blueprint: &Blueprint) -> Result<()> {
-    let mut path = blueprint_dir.join(files::blueprint_file_name(&blueprint));
+    let path = blueprint_dir.join(files::blueprint_file_name(&blueprint));
 
     // Save blueprint to disk
     let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeConfig { err })?;

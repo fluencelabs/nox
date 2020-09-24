@@ -21,8 +21,8 @@ use fluence_client::{Client, ClientEvent, Transport};
 
 use async_std::{future::timeout, task};
 use core::ops::Deref;
+use libp2p::core::Multiaddr;
 use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use particle_protocol::Particle;
 
 #[derive(Debug)]

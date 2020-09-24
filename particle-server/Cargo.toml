@@ -7,8 +7,9 @@ edition = "2018"
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
 particle-behaviour = { path = "../particle-behaviour"}
-particle-dht = { path = "../particle-dht"}
 
+
+config = { path = "../config" }
 trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}

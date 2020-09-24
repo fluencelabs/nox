@@ -16,8 +16,10 @@
 
 use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
+use crate::BootstrapConfig;
 use anyhow::Context;
 use clap::{ArgMatches, Values};
+use libp2p::core::identity::ed25519::PublicKey;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -56,14 +58,6 @@ pub struct FluenceConfig {
     pub certificate_dir: String,
     #[serde(deserialize_with = "parse_or_load_keypair", default = "load_key_pair")]
     pub root_key_pair: KeyPair,
-    pub root_weights: HashMap<PublicKeyHashable, u32>,
-    /// Base directory for resources needed by application services
-    #[serde(default = "default_services_basedir")]
-    pub services_base_dir: PathBuf,
-    #[serde(default = "Vec::new")]
-    pub service_envs: Vec<String>,
-    #[serde(default = "default_stepper")]
-    pub stepper_module: String,
 }
 
 #[derive(Clone, Deserialize, Debug)]
@@ -94,10 +88,21 @@ pub struct ServerConfig {
     /// Prometheus port
     #[serde(default = "default_prometheus_port")]
     pub prometheus_port: u16,
-    /*
+
     #[serde(default)]
     pub bootstrap_config: BootstrapConfig,
-    */
+
+    pub root_weights: HashMap<PublicKeyHashable, u32>,
+
+    /// Base directory for resources needed by application services
+    #[serde(default = "default_services_basedir")]
+    pub services_base_dir: PathBuf,
+
+    #[serde(default = "Vec::new")]
+    pub service_envs: Vec<String>,
+
+    #[serde(default = "default_stepper")]
+    pub stepper_module_name: String,
 }
 
 impl ServerConfig {
@@ -122,6 +127,14 @@ impl ServerConfig {
         } else {
             vec![]
         }
+    }
+
+    pub fn root_weights(&self) -> Vec<(PublicKey, u32)> {
+        self.root_weights
+            .clone()
+            .into_iter()
+            .map(|(k, v)| (k.into(), v))
+            .collect()
     }
 }
 
