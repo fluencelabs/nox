@@ -26,8 +26,6 @@ pub struct ParticleConfig {
     services_base_dir: PathBuf,
     services_envs: Vec<String>,
     stepper_base_dir: PathBuf,
-    stepper_envs: Vec<String>,
-    stepper_module_name: String,
     key_pair: ed25519::Keypair,
 }
 
@@ -36,26 +34,18 @@ impl ParticleConfig {
         services_base_dir: PathBuf,
         services_envs: Vec<String>,
         stepper_base_dir: PathBuf,
-        stepper_envs: Vec<String>,
-        stepper_module_name: String,
         key_pair: ed25519::Keypair,
     ) -> Self {
         Self {
             services_base_dir,
             services_envs,
             stepper_base_dir,
-            stepper_envs,
-            stepper_module_name,
             key_pair,
         }
     }
 
     pub fn actor_config(&self) -> io::Result<ActorConfig> {
-        ActorConfig::new(
-            self.stepper_base_dir.clone(),
-            self.stepper_envs.clone(),
-            self.stepper_module_name.clone(),
-        )
+        ActorConfig::new(self.stepper_base_dir.clone())
     }
 
     pub fn services_config(&self) -> io::Result<ServicesConfig> {

@@ -55,8 +55,6 @@ impl ServerBehaviour {
             cfg.services_base_dir,
             cfg.services_envs,
             cfg.stepper_base_dir,
-            cfg.stepper_envs,
-            cfg.stepper_module_name,
             cfg.key_pair,
         );
         let particle = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)?;
