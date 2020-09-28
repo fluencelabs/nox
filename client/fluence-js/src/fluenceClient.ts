@@ -20,6 +20,7 @@ import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
+import {PreparedParticle} from "./preparedParticle";
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;
@@ -100,23 +101,30 @@ export class FluenceClient {
         this.connection = connection;
     }
 
+    async sendPreparedParticle(preparedParticle: PreparedParticle, data: object, ttl?: number): Promise<Particle> {
+        return this.sendParticle(preparedParticle.script, data, ttl)
+    }
+
     async sendParticle(script: string, data: object, ttl?: number): Promise<Particle> {
         let id = genUUID();
         let currentTime = (new Date()).getTime()
         let bigCurrentTime = BigInt(currentTime);
 
         ttl = ttl ?? this.defaultTtl
-        let signature = await signParticle(this.selfPeerId, id, bigCurrentTime, ttl, script);
+
         let particle: Particle = {
             id: id,
             init_peer_id: this.selfPeerIdStr,
-            timestamp: currentTime,
+            timestamp: bigCurrentTime,
             ttl: ttl,
             script: script,
-            signature: signature,
+            signature: "",
             data: data,
             action: "Particle"
         }
+
+        particle.signature = await signParticle(this.selfPeerId, particle);
+
         await this.connection.sendParticle(particle);
         return this.waitResponse(id, ttl);
     }

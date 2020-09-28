@@ -23,7 +23,7 @@ import pipe from "it-pipe";
 import Multiaddr from "multiaddr";
 import PeerId from "peer-id";
 import * as log from 'loglevel';
-import {parseParticle, Particle, particleToString} from "./particle";
+import {parseParticle, Particle, stringifyParticle} from "./particle";
 
 export const PROTOCOL_NAME = '/fluence/faas/1.0.0';
 
@@ -121,7 +121,7 @@ export class FluenceConnection {
 
     async sendParticle(particle: Particle): Promise<void> {
         this.checkConnectedOrThrow();
-        let particleStr = particleToString(particle);
+        let particleStr = stringifyParticle(particle);
         log.debug("send function call: \n" + JSON.stringify(particle, undefined, 2));
 
         // create outgoing substream

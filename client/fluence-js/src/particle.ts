@@ -21,7 +21,7 @@ import {encode} from "bs58";
 export interface Particle {
     id: string,
     init_peer_id: string,
-    timestamp: number,
+    timestamp: bigint,
     ttl: number,
     script: string,
     // sign upper fields
@@ -33,7 +33,7 @@ export interface Particle {
 /**
  * Copies a particle and stringify it.
  */
-export function particleToString(call: Particle): string {
+export function stringifyParticle(call: Particle): string {
     let obj: any = {...call};
 
     return JSON.stringify(obj)
@@ -55,28 +55,29 @@ export function parseParticle(str: string): Particle {
     }
 }
 
+export function canonicalBytes(particle: Particle) {
+    let peerIdBuf = Buffer.from(particle.init_peer_id, 'utf8');
+    let idBuf = Buffer.from(particle.id, 'utf8');
+
+    let tsArr = new ArrayBuffer(8);
+    new DataView(tsArr).setBigUint64(0, particle.timestamp);
+    let tsBuf = new Buffer(tsArr);
+
+    let ttlArr = new ArrayBuffer(4);
+    new DataView(ttlArr).setUint32(0, particle.ttl);
+    let ttlBuf = new Buffer(ttlArr);
+
+    let scriptBuf = Buffer.from(particle.script, 'utf8');
+
+    return Buffer.concat([peerIdBuf, idBuf, tsBuf, ttlBuf, scriptBuf]);
+}
+
 /**
  * Sign a particle with a private key from peerId.
  */
 export async function signParticle(peerId: PeerId,
-                                   id: string,
-                                   timestamp: bigint,
-                                   ttl: number,
-                                   script: string): Promise<string> {
-    let peerIdBuf = Buffer.from(peerId.toB58String(), 'utf8');
-    let idBuf = Buffer.from(id, 'utf8');
-
-    let tsArr = new ArrayBuffer(8);
-    new DataView(tsArr).setBigUint64(0, timestamp);
-    let tsBuf = new Buffer(tsArr);
-
-    let ttlArr = new ArrayBuffer(4);
-    new DataView(ttlArr).setUint32(0, ttl);
-    let ttlBuf = new Buffer(ttlArr);
-
-    let scriptBuf = Buffer.from(script, 'utf8');
-
-    let bufToSign = Buffer.concat([peerIdBuf, idBuf, tsBuf, ttlBuf, scriptBuf]);
+                                   particle: Particle): Promise<string> {
+    let bufToSign = canonicalBytes(particle);
 
     let signature = await peerId.privKey.sign(bufToSign)
     return encode(signature)
