@@ -86,11 +86,11 @@ export function canonicalBytes(particle: Particle) {
 
     let tsArr = new ArrayBuffer(8);
     new DataView(tsArr).setBigUint64(0, BigInt(particle.timestamp));
-    let tsBuf = new Buffer(tsArr);
+    let tsBuf = Buffer.from(tsArr);
 
     let ttlArr = new ArrayBuffer(4);
     new DataView(ttlArr).setUint32(0, particle.ttl);
-    let ttlBuf = new Buffer(ttlArr);
+    let ttlBuf = Buffer.from(ttlArr);
 
     let scriptBuf = Buffer.from(particle.script, 'utf8');
 
