@@ -121,6 +121,7 @@ export class FluenceConnection {
 
     async sendParticle(particle: Particle): Promise<void> {
         this.checkConnectedOrThrow();
+
         let particleStr = stringifyParticle(particle);
         log.debug("send function call: \n" + JSON.stringify(particle, undefined, 2));
 

@@ -8,6 +8,7 @@ import {certificateFromString, certificateToString, issue} from "../trust/certif
 import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
 import {peerIdToSeed, seedToPeerId} from "../seed";
+import {build, Particle} from "../particle";
 
 describe("Typescript usage suite", () => {
 
@@ -44,7 +45,9 @@ describe("Typescript usage suite", () => {
         // connect to two different nodes
         let cl1 = await Fluence.connect("/dns4/134.209.186.43/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", key1);
 
-        let result = await cl1.sendParticle("123", {a: 777, b: "567"})
+        let particle = await build(key1, "123", {a: 777, b: "567"})
+
+        let result = await cl1.sendParticle(particle)
         console.log(result)
     });
 
