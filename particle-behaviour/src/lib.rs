@@ -30,3 +30,4 @@ mod behaviour;
 mod network;
 
 pub use behaviour::ParticleBehaviour;
+pub use particle_actors::ActorConfig;

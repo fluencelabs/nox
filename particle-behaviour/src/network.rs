@@ -20,7 +20,7 @@ use crate::ParticleBehaviour;
 use particle_dht::ParticleDHT;
 use particle_protocol::{ProtocolConfig, ProtocolMessage};
 
-use fluence_libp2p::poll_loop;
+use fluence_libp2p::{poll_loop, remote_multiaddr};
 
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{
@@ -63,6 +63,8 @@ impl NetworkBehaviour for ParticleBehaviour {
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
+        // TODO: self.dht.unpublish_client(peer_id)
+        self.plumber.remove_client(peer_id);
         self.dht.inject_disconnected(peer_id);
     }
 
@@ -102,7 +104,7 @@ impl NetworkBehaviour for ParticleBehaviour {
             return Poll::Ready(event);
         }
 
-        if let Poll::Ready(event) = self.plumber.poll(cx.waker().clone()) {
+        if let Poll::Ready(event) = self.plumber.poll(cx) {
             NetworkBehaviourEventProcess::inject_event(self, event);
         }
 
@@ -151,6 +153,8 @@ impl NetworkBehaviour for ParticleBehaviour {
         ci: &ConnectionId,
         cp: &ConnectedPoint,
     ) {
+        let maddr = remote_multiaddr(cp);
+        self.plumber.add_client_address(id, maddr.clone());
         self.dht.inject_connection_established(id, ci, cp);
     }
 

@@ -15,7 +15,7 @@
  */
 
 use crate::bootstrapper::event::BootstrapperEvent;
-use fluence_libp2p::{event_polling, generate_swarm_event_type};
+use fluence_libp2p::{event_polling, generate_swarm_event_type, remote_multiaddr};
 use libp2p::core::connection::{ConnectedPoint, ConnectionId};
 use libp2p::swarm::{
     protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction,
@@ -192,10 +192,7 @@ impl NetworkBehaviour for Bootstrapper {
         _: &ConnectionId,
         cp: &ConnectedPoint,
     ) {
-        let maddr = match cp {
-            ConnectedPoint::Dialer { address } => address,
-            ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
-        };
+        let maddr = remote_multiaddr(cp);
 
         let is_bootstrap = self.bootstrap_nodes.contains(maddr);
         #[rustfmt::skip]
@@ -210,10 +207,7 @@ impl NetworkBehaviour for Bootstrapper {
     }
 
     fn inject_connection_closed(&mut self, _: &PeerId, _: &ConnectionId, cp: &ConnectedPoint) {
-        let maddr = match cp {
-            ConnectedPoint::Dialer { address } => address,
-            ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
-        };
+        let maddr = remote_multiaddr(cp);
 
         if self.bootstrap_nodes.contains(maddr) {
             self.reconnect_bootstrap(maddr.clone(), "connection was closed");

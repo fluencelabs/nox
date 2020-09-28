@@ -26,6 +26,7 @@
     unreachable_patterns
 )]
 
+mod connected_point;
 mod macros;
 mod random_peer_id;
 mod serde;
@@ -33,6 +34,7 @@ mod transport;
 pub mod types;
 
 pub use self::serde::*;
+pub use connected_point::*;
 pub use macros::*;
 pub use random_peer_id::RandomPeerId;
 pub use transport::{build_memory_transport, build_transport};
