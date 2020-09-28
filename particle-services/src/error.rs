@@ -62,6 +62,16 @@ pub enum ServiceError {
         path: PathBuf,
         err: std::io::Error,
     },
+    ArgParseError {
+        field: &'static str,
+        error: ArgParse,
+    },
+}
+
+#[derive(Debug)]
+pub enum ArgParse {
+    Missing,
+    SerdeJson(serde_json::Error),
 }
 
 impl Error for ServiceError {}
@@ -112,10 +122,14 @@ impl std::fmt::Display for ServiceError {
                 "Error creating directory for persisted services {:?}: {:?}",
                 path, err
             ),
-
             ServiceError::MissingBlueprintId => {
                 write!(f, "No blueprint_id in arguments from stepper")
             }
+            ServiceError::ArgParseError { field, error } => write!(
+                f,
+                "Error parsing arguments on call_service. field: {}, error: {:?}",
+                field, error
+            ),
         }
     }
 }

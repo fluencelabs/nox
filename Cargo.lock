@@ -139,7 +139,7 @@ checksum = "6b602bfe940d21c130f3895acd65221e8a61270debe89d628b9cb4e3ccb8569b"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#e30f502574a032fc1900a8d331b83b2939312ed6"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
 dependencies = [
  "fluence-faas",
  "serde 1.0.116",
@@ -1200,7 +1200,7 @@ checksum = "5c85295147490b8fcf2ea3d104080a105a8b2c63f9c319e82c02d8e952388919"
 [[package]]
 name = "fce"
 version = "0.1.6"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#e30f502574a032fc1900a8d331b83b2939312ed6"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1220,7 +1220,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.4"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#e30f502574a032fc1900a8d331b83b2939312ed6"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1229,7 +1229,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.6"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#e30f502574a032fc1900a8d331b83b2939312ed6"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1260,7 +1260,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.7"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#e30f502574a032fc1900a8d331b83b2939312ed6"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1305,7 +1305,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.7"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#e30f502574a032fc1900a8d331b83b2939312ed6"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -3001,7 +3001,6 @@ dependencies = [
  "aquamarine-vm",
  "async-std",
  "config 0.0.1",
- "fluence-app-service",
  "fluence-libp2p",
  "futures",
  "libp2p",
@@ -3106,6 +3105,7 @@ dependencies = [
 name = "particle-services"
 version = "0.0.1"
 dependencies = [
+ "aquamarine-vm",
  "config 0.0.1",
  "fluence-app-service",
  "futures",

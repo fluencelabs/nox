@@ -8,6 +8,7 @@ edition = "2018"
 config = { path = "../config"}
 
 fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "host_func_refactoring" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "host_func_refactoring" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 

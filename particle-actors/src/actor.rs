@@ -19,7 +19,7 @@ use crate::config::ActorConfig;
 use crate::invoke::parse_outcome;
 use crate::plumber::Fabric;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMError, HostImportDescriptor};
+use aquamarine_vm::{AquamarineVM, AquamarineVMError};
 use particle_protocol::Particle;
 
 use async_std::{pin::Pin, task};
@@ -108,17 +108,9 @@ impl Actor {
     }
 
     fn create_vm(config: ActorConfig, services: Fabric) -> Result<AquamarineVM, AquamarineVMError> {
-        let closure = services();
-        let closure = HostImportDescriptor {
-            closure,
-            // TODO: How to specify these types ???
-            argument_types: vec![],
-            output_type: None,
-            error_handler: None,
-        };
         AquamarineVM::new(
             &config.modules_dir,
-            vec![("call_service".to_string(), closure)],
+            vec![("call_service".to_string(), services())],
         )
     }
 

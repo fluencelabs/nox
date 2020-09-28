@@ -17,8 +17,7 @@
 use crate::actor::{Actor, ActorEvent};
 use crate::config::ActorConfig;
 
-use aquamarine_vm::AquamarineVMError;
-use fluence_app_service::IValue;
+use aquamarine_vm::{AquamarineVMError, HostImportDescriptor};
 use particle_protocol::Particle;
 
 use async_std::sync::Arc;
@@ -34,8 +33,7 @@ use std::{
 };
 
 type Fut = BoxFuture<'static, Result<Actor, AquamarineVMError>>;
-pub(super) type Callback = Box<dyn (Fn(Vec<IValue>) -> Option<IValue>) + Send + Sync + 'static>;
-pub(super) type Fabric = Arc<dyn Fn() -> Callback + Send + Sync + 'static>;
+pub(super) type Fabric = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
 
 #[derive(Debug)]
 pub enum PlumberEvent {

@@ -16,6 +16,7 @@
 
 use crate::error::ServiceError;
 
+mod args;
 mod blueprint;
 mod config;
 mod error;
