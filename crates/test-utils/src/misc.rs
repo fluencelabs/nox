@@ -272,8 +272,6 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             }
         }
 
-        put_aquamarine(modules_dir(&tmp));
-
         let config = BehaviourConfig {
             key_pair: kp.clone(),
             local_peer_id: peer_id.clone(),
@@ -289,6 +287,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             stepper_module_name: "aquamarine".to_string(),
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
+        put_aquamarine(modules_dir(&tmp));
         match transport {
             Transport::Memory => {
                 Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())
