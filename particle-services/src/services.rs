@@ -43,16 +43,19 @@ impl ParticleServices {
         }
     }
 
+    #[allow(dead_code)]
     fn spawn(&self) {
         use futures::executor::ThreadPool;
         use futures::task::SpawnExt;
         let executor = ThreadPool::new().unwrap();
 
         let fabric = self.fabric().clone();
-        executor.spawn(async move {
-            let cb = fabric();
-            cb(<_>::default());
-        });
+        executor
+            .spawn(async move {
+                let cb = fabric();
+                cb(<_>::default());
+            })
+            .expect("spawn");
     }
 
     pub fn fabric(&self) -> Fabric {

@@ -16,10 +16,10 @@
 
 use crate::actor::VmState::{Executing, Idle};
 use crate::config::ActorConfig;
-use crate::invoke::{parse_invoke_result, parse_outcome};
+use crate::invoke::parse_outcome;
 use crate::plumber::Fabric;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMError, HostImportDescriptor, StepperOutcome};
+use aquamarine_vm::{AquamarineVM, AquamarineVMError, HostImportDescriptor};
 use particle_protocol::Particle;
 
 use async_std::{pin::Pin, task};
@@ -29,7 +29,6 @@ use serde_json::json;
 use std::{
     collections::VecDeque,
     mem,
-    path::PathBuf,
     task::{Context, Poll, Waker},
 };
 

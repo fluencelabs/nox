@@ -22,17 +22,46 @@ use std::path::PathBuf;
 pub enum ServiceError {
     NoSuchInstance(String),
     Engine(AppServiceError),
-    AddModule { path: PathBuf, err: std::io::Error },
-    SerializeConfig { err: toml::ser::Error },
-    WriteConfig { path: PathBuf, err: std::io::Error },
-    NoSuchBlueprint { path: PathBuf, err: std::io::Error },
-    IncorrectBlueprint { err: toml::de::Error },
+    AddModule {
+        path: PathBuf,
+        err: std::io::Error,
+    },
+    SerializeConfig {
+        err: toml::ser::Error,
+    },
+    WriteConfig {
+        path: PathBuf,
+        err: std::io::Error,
+    },
+    NoSuchBlueprint {
+        path: PathBuf,
+        err: std::io::Error,
+    },
+    IncorrectBlueprint {
+        err: toml::de::Error,
+    },
     MissingBlueprintId,
-    NoModuleConfig { path: PathBuf, err: std::io::Error },
-    IncorrectModuleConfig { err: toml::de::Error },
-    WriteBlueprint { path: PathBuf, err: std::io::Error },
-    ReadPersistedService { path: PathBuf, err: std::io::Error },
-    CreateServicesDir { path: PathBuf, err: std::io::Error },
+    NoModuleConfig {
+        path: PathBuf,
+        err: std::io::Error,
+    },
+    IncorrectModuleConfig {
+        err: toml::de::Error,
+    },
+    WriteBlueprint {
+        path: PathBuf,
+        err: std::io::Error,
+    },
+    #[allow(dead_code)]
+    ReadPersistedService {
+        path: PathBuf,
+        err: std::io::Error,
+    },
+    #[allow(dead_code)]
+    CreateServicesDir {
+        path: PathBuf,
+        err: std::io::Error,
+    },
 }
 
 impl Error for ServiceError {}
