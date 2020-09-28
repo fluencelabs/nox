@@ -9,7 +9,8 @@ particle-protocol = { path = "../particle-protocol"}
 
 fluence-libp2p = { path = "../crates/libp2p" }
 config = { path = "../config" }
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "host_func_refactoring" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "host_func_refactoring" }
 
 futures = "0.3.4"
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }

@@ -17,10 +17,11 @@
 use crate::actor::{Actor, ActorEvent};
 use crate::config::ActorConfig;
 
+use aquamarine_vm::AquamarineVMError;
+use fluence_app_service::IValue;
 use particle_protocol::Particle;
 
-use fluence_app_service::AppServiceError;
-
+use async_std::sync::Arc;
 use async_std::task;
 use futures::{future::BoxFuture, Future};
 use libp2p::PeerId;
@@ -32,9 +33,9 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-type Fut = BoxFuture<'static, Result<Actor, AppServiceError>>;
-type Callback =
-    Box<dyn Fn(String, String, serde_json::Value) -> serde_json::Value + Send + 'static>;
+type Fut = BoxFuture<'static, Result<Actor, AquamarineVMError>>;
+pub(super) type Callback = Box<dyn (Fn(Vec<IValue>) -> Option<IValue>) + Send + Sync + 'static>;
+pub(super) type Fabric = Arc<dyn Fn() -> Callback + Send + Sync + 'static>;
 
 #[derive(Debug)]
 pub enum PlumberEvent {
@@ -50,18 +51,17 @@ pub struct Plumber {
     config: ActorConfig,
     events: VecDeque<PlumberEvent>,
     actors: HashMap<String, ActorState>,
-    #[allow(dead_code)]
-    services: HashMap<String, Callback>,
+    services: Fabric,
     pub(super) waker: Option<Waker>,
 }
 
 impl Plumber {
-    pub fn new(config: ActorConfig) -> Self {
+    pub fn new(config: ActorConfig, services: Fabric) -> Self {
         Self {
             config,
+            services,
             events: <_>::default(),
             actors: <_>::default(),
-            services: <_>::default(),
             waker: <_>::default(),
         }
     }
@@ -72,7 +72,8 @@ impl Plumber {
             Entry::Vacant(entry) => {
                 // Create new actor
                 let config = self.config.clone();
-                let future = Self::create_actor(config, particle);
+                let services = self.services.clone();
+                let future = Self::create_actor(config, particle, services);
                 entry.insert(ActorState::Creating {
                     future,
                     mailbox: vec![],
@@ -162,8 +163,10 @@ impl Plumber {
         }
     }
 
-    fn create_actor(config: ActorConfig, particle: Particle) -> Fut {
-        Box::pin(task::spawn_blocking(move || Actor::new(config, particle)))
+    fn create_actor(config: ActorConfig, particle: Particle, services: Fabric) -> Fut {
+        Box::pin(task::spawn_blocking(move || {
+            Actor::new(config, particle, services)
+        }))
     }
 }
 

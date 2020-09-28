@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use aquamarine_vm::{AquamarineVMError, StepperOutcome};
 use fluence_app_service::{AppServiceError, IValue};
 use libp2p::PeerId;
 use serde_json::Value;
@@ -36,6 +37,7 @@ pub enum ExecutionError {
         error: FieldError,
     },
     AppServiceError(AppServiceError),
+    AquamarineError(AquamarineVMError),
 }
 
 fn parse_data(data: Option<IValue>) -> Result<Value, FieldError> {
@@ -106,4 +108,28 @@ pub fn parse_invoke_result(
         }
         _ => Err(ExecutionError::ResultIsNotARecord),
     }
+}
+
+pub fn parse_outcome(
+    outcome: Result<StepperOutcome, AquamarineVMError>,
+) -> Result<(serde_json::Value, Vec<PeerId>), ExecutionError> {
+    let outcome = outcome.map_err(|err| ExecutionError::AquamarineError(err))?;
+    let data = serde_json::from_str(outcome.data.as_str()).map_err(|err| {
+        ExecutionError::InvalidResultField {
+            field: "data",
+            error: FieldError::InvalidJson(err),
+        }
+    })?;
+    let peer_ids = outcome
+        .next_peer_pks
+        .into_iter()
+        .map(|id| {
+            parse_peer_id(id.as_str()).map_err(|error| ExecutionError::InvalidResultField {
+                field: "next_peer_pks[..]",
+                error,
+            })
+        })
+        .collect::<Result<_, ExecutionError>>()?;
+
+    Ok((data, peer_ids))
 }

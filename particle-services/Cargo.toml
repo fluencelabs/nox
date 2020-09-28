@@ -7,10 +7,11 @@ edition = "2018"
 [dependencies]
 config = { path = "../config"}
 
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "host_func_refactoring" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
+futures = "0.3.5"
 parking_lot = "0.11.0"
 serde_json = "1.0.57"
 serde = "1.0.116"

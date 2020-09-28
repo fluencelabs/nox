@@ -84,9 +84,9 @@ impl ParticleBehaviour {
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
     ) -> io::Result<Self> {
-        let plumber = Plumber::new(config.actor_config()?);
-        let dht = ParticleDHT::new(config.dht_config(), trust_graph, registry);
         let services = ParticleServices::new(config.services_config()?);
+        let plumber = Plumber::new(config.actor_config()?, services.fabric());
+        let dht = ParticleDHT::new(config.dht_config(), trust_graph, registry);
 
         Ok(Self {
             plumber,
