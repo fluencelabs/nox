@@ -47,7 +47,7 @@ export class Subscriptions {
         if (callback) {
             callback(particle);
         } else {
-            if (particle.timestamp + particle.ttl > Date.now()) {
+            if (Number(particle.timestamp) + particle.ttl > Date.now()) {
                 console.log("Old particle received. 'ttl' is ended.");
             } else {
                 console.log("External particle received. 'Stepper' needed on client. Unimplemented.");

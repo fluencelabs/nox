@@ -21,13 +21,12 @@ import {encode} from "bs58";
 export interface Particle {
     id: string,
     init_peer_id: string,
-    timestamp: bigint,
+    timestamp: number,
     ttl: number,
     script: string,
     // sign upper fields
     signature: string,
-    data: object,
-    action: "Particle"
+    data: object
 }
 
 /**
@@ -35,6 +34,7 @@ export interface Particle {
  */
 export function stringifyParticle(call: Particle): string {
     let obj: any = {...call};
+    obj.action = "Particle"
 
     return JSON.stringify(obj)
 }
@@ -50,8 +50,7 @@ export function parseParticle(str: string): Particle {
         ttl: json.ttl,
         script: json.script,
         signature: json.signature,
-        data: json.data,
-        action: "Particle"
+        data: json.data
     }
 }
 
@@ -60,7 +59,7 @@ export function canonicalBytes(particle: Particle) {
     let idBuf = Buffer.from(particle.id, 'utf8');
 
     let tsArr = new ArrayBuffer(8);
-    new DataView(tsArr).setBigUint64(0, particle.timestamp);
+    new DataView(tsArr).setBigUint64(0, BigInt(particle.timestamp));
     let tsBuf = new Buffer(tsArr);
 
     let ttlArr = new ArrayBuffer(4);

@@ -108,19 +108,17 @@ export class FluenceClient {
     async sendParticle(script: string, data: object, ttl?: number): Promise<Particle> {
         let id = genUUID();
         let currentTime = (new Date()).getTime()
-        let bigCurrentTime = BigInt(currentTime);
 
         ttl = ttl ?? this.defaultTtl
 
         let particle: Particle = {
             id: id,
             init_peer_id: this.selfPeerIdStr,
-            timestamp: bigCurrentTime,
+            timestamp: currentTime,
             ttl: ttl,
             script: script,
             signature: "",
-            data: data,
-            action: "Particle"
+            data: data
         }
 
         particle.signature = await signParticle(this.selfPeerId, particle);
