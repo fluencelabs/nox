@@ -19,7 +19,7 @@ use crate::config::{BehaviourConfig, ServerConfig};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 
 use async_std::task;
-use config::to_peer_id;
+use config_utils::to_peer_id;
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
 use libp2p::{identity::ed25519::Keypair, Swarm, TransportError};

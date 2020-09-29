@@ -697,13 +697,6 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.0.1"
-dependencies = [
- "libp2p-core",
-]
-
-[[package]]
-name = "config"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b076e143e1d9538dde65da30f8481c2a6c44040edb8e02b9bf1351edb92ce3"
@@ -716,6 +709,13 @@ dependencies = [
  "serde_json",
  "toml",
  "yaml-rust",
+]
+
+[[package]]
+name = "config-utils"
+version = "0.0.1"
+dependencies = [
+ "libp2p-core",
 ]
 
 [[package]]
@@ -1271,7 +1271,7 @@ dependencies = [
  "bencher",
  "bs58",
  "clap",
- "config 0.10.1",
+ "config",
  "ctrlc-adapter",
  "env_logger",
  "failure",
@@ -2993,7 +2993,7 @@ version = "0.0.1"
 dependencies = [
  "aquamarine-vm",
  "async-std",
- "config 0.0.1",
+ "config-utils",
  "fluence-libp2p",
  "futures",
  "libp2p",
@@ -3008,7 +3008,7 @@ name = "particle-behaviour"
 version = "0.0.1"
 dependencies = [
  "async-std",
- "config 0.0.1",
+ "config-utils",
  "fluence-libp2p",
  "futures",
  "libp2p",
@@ -3068,7 +3068,7 @@ dependencies = [
  "base64 0.11.0",
  "bs58",
  "clap",
- "config 0.0.1",
+ "config-utils",
  "ctrlc-adapter",
  "env_logger",
  "failure",
@@ -3099,7 +3099,7 @@ name = "particle-services"
 version = "0.0.1"
 dependencies = [
  "aquamarine-vm",
- "config 0.0.1",
+ "config-utils",
  "fluence-app-service",
  "futures",
  "libp2p",
@@ -4068,7 +4068,7 @@ name = "test-utils"
 version = "0.0.1"
 dependencies = [
  "async-std",
- "config 0.0.1",
+ "config-utils",
  "env_logger",
  "fluence-client",
  "fluence-libp2p",

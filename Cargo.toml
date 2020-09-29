@@ -12,7 +12,7 @@ members = [
     "particle-protocol",
     "particle-dht",
     "particle-services",
-    "config"
+    "crates/config-utils"
 ]
 exclude = [
     "client/js-websocket/utils-wasm",

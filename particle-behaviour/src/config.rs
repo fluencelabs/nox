@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use config::to_peer_id;
+use config_utils::to_peer_id;
 use libp2p::identity::ed25519;
 use particle_actors::ActorConfig;
 use particle_dht::DHTConfig;

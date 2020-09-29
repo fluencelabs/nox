@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use config::{abs_path, create_dirs};
+use config_utils::{abs_path, create_dirs};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -37,10 +37,10 @@ impl ServicesConfig {
         let base_dir = abs_path(base_dir);
 
         let this = Self {
-            blueprint_dir: config::blueprint_dir(&base_dir),
-            workdir: config::workdir(&base_dir),
-            modules_dir: config::modules_dir(&base_dir),
-            services_dir: config::services_dir(&base_dir),
+            blueprint_dir: config_utils::blueprint_dir(&base_dir),
+            workdir: config_utils::workdir(&base_dir),
+            modules_dir: config_utils::modules_dir(&base_dir),
+            services_dir: config_utils::services_dir(&base_dir),
             envs,
         };
 

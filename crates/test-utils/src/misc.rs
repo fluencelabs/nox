@@ -18,7 +18,7 @@ use async_std::task;
 use fluence_libp2p::{build_memory_transport, build_transport};
 use particle_server::{BootstrapConfig, ServerBehaviour};
 
-use config::modules_dir;
+use config_utils::modules_dir;
 use fluence_client::Transport;
 use particle_server::config::BehaviourConfig;
 use trust_graph::{Certificate, TrustGraph};

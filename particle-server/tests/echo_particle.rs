@@ -15,7 +15,7 @@
  */
 
 use particle_protocol::Particle;
-use test_utils::{make_swarms, make_swarms_with_cfg, ConnectedClient};
+use test_utils::{make_swarms, ConnectedClient};
 
 #[test]
 fn echo_particle() {

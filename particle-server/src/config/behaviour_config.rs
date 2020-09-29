@@ -19,7 +19,7 @@ use crate::BootstrapConfig;
 use trust_graph::TrustGraph;
 
 use crate::config::ServerConfig;
-use config::to_peer_id;
+use config_utils::to_peer_id;
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519;
 use libp2p::PeerId;

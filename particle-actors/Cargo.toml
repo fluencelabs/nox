@@ -8,7 +8,7 @@ edition = "2018"
 particle-protocol = { path = "../particle-protocol"}
 
 fluence-libp2p = { path = "../crates/libp2p" }
-config = { path = "../config" }
+config-utils = { path = "../crates/config-utils" }
 aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "host_func_refactoring" }
 
 futures = "0.3.4"

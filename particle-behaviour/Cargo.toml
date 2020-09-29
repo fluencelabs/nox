@@ -10,7 +10,7 @@ particle-actors = { path = "../particle-actors"}
 particle-dht = { path = "../particle-dht"}
 particle-services = { path = "../particle-services"}
 
-config = { path = "../config" }
+config-utils = { path = "../crates/config-utils" }
 trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
 

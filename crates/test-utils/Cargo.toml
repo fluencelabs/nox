@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 fluence-client = { path = "../../client/rust-libp2p" }
 trust-graph = { path = "../../trust-graph" }
-config = { path = "../../config" }
+config-utils = { path = "../config-utils" }
 fluence-libp2p = { path = "../libp2p" }
 particle-server = { path = "../../particle-server" }
 particle-protocol = { path = "../../particle-protocol" }
