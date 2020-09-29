@@ -16,14 +16,15 @@
 
 use super::behaviour::ServerBehaviour;
 use crate::config::{BehaviourConfig, ServerConfig};
+
+use config_utils::to_peer_id;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 
 use async_std::task;
-use config_utils::to_peer_id;
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
+use libp2p::core::multiaddr::Protocol;
 use libp2p::{identity::ed25519::Keypair, Swarm, TransportError};
-use parity_multiaddr::{Multiaddr, Protocol};
 use prometheus::Registry;
 use std::io;
 use std::net::IpAddr;

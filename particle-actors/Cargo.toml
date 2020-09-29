@@ -13,7 +13,6 @@ aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "host_fun
 
 futures = "0.3.4"
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
-parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
 log = "0.4.11"
 async-std = { version = "1.6.2", features = ["unstable"] }

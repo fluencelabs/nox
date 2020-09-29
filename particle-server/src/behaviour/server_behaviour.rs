@@ -22,7 +22,6 @@ use libp2p::{
     identity::PublicKey,
     ping::{Ping, PingConfig, PingEvent},
 };
-use parity_multiaddr::Multiaddr;
 use particle_behaviour::{ParticleBehaviour, ParticleConfig};
 use std::collections::VecDeque;
 use std::io;

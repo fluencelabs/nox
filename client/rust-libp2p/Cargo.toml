@@ -10,7 +10,6 @@ fluence-libp2p = { path = "../../crates/libp2p" }
 ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
-parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
 multihash ="0.11.0"
 async-std = "1.6.2"

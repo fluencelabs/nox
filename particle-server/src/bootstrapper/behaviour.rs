@@ -21,7 +21,6 @@ use libp2p::swarm::{
     protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction,
 };
 use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;

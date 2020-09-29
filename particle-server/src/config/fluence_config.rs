@@ -108,8 +108,6 @@ pub struct ServerConfig {
 
 impl ServerConfig {
     pub fn external_addresses(&self) -> Vec<Multiaddr> {
-        use parity_multiaddr::Protocol;
-
         if let Some(external_address) = self.external_address {
             let external_tcp = {
                 let mut maddr = Multiaddr::from(external_address);

@@ -28,8 +28,8 @@ use futures::{
     stream::{Fuse, StreamExt},
     FutureExt,
 };
+use libp2p::core::Multiaddr;
 use libp2p::{identity, identity::ed25519, PeerId, Swarm};
-use parity_multiaddr::Multiaddr;
 use particle_protocol::Particle;
 use std::{error::Error, ops::DerefMut, time::Duration};
 
@@ -45,7 +45,7 @@ impl Transport {
     }
 
     pub fn from_maddr(maddr: &Multiaddr) -> Self {
-        use parity_multiaddr::Protocol::Memory;
+        use libp2p::core::multiaddr::Protocol::Memory;
         if maddr.iter().any(|p| matches!(p, Memory(_))) {
             Transport::Memory
         } else {

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use parity_multiaddr::Multiaddr;
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::time::Duration;

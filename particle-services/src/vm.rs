@@ -60,7 +60,7 @@ pub fn create_vm(
         let service = AppService::new(modules, &service_id, envs).map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
-        persist_service(&config.services_dir, &service_id, &blueprint_id)?;
+        // persist_service(&config.services_dir, &service_id, &blueprint_id)?;
 
         Ok(service)
     };

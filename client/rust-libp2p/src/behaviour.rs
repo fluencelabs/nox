@@ -19,13 +19,13 @@ use failure::_core::task::{Context, Poll};
 use fluence_libp2p::generate_swarm_event_type;
 use libp2p::core::connection::{ConnectedPoint, ConnectionId};
 use libp2p::core::either::EitherOutput;
+use libp2p::core::Multiaddr;
 use libp2p::ping::{Ping, PingConfig, PingResult};
 use libp2p::swarm::{
     IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
     NotifyHandler, OneShotHandler, PollParameters,
 };
 use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 use std::collections::VecDeque;
 use std::error::Error;
