@@ -107,6 +107,16 @@ impl ParticleDHT {
         }
     }
 
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DHTEvent> {
+        self.waker = Some(cx.waker().clone());
+
+        if let Some(event) = self.events.pop_front() {
+            return Poll::Ready(event);
+        }
+
+        Poll::Pending
+    }
+
     pub fn add_kad_node(
         &mut self,
         node_id: PeerId,
@@ -141,16 +151,6 @@ impl ParticleDHT {
         }
 
         self.events.push_back(event);
-    }
-
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DHTEvent> {
-        self.waker = Some(cx.waker().clone());
-
-        if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(event);
-        }
-
-        Poll::Pending
     }
 }
 

@@ -36,11 +36,11 @@ impl ParticleDHT {
         };
     }
 
-    pub fn publish_failed(&mut self, client: PeerId, error: PublishError) {
+    pub(super) fn publish_failed(&mut self, client: PeerId, error: PublishError) {
         self.emit(DHTEvent::PublishFailed(client, error));
     }
 
-    pub fn publish_succeeded(&mut self, client: PeerId) {
+    pub(super) fn publish_succeeded(&mut self, client: PeerId) {
         self.emit(DHTEvent::Published(client))
     }
 
