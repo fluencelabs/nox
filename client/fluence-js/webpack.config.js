@@ -1,12 +1,14 @@
 const path = require('path');
 const webpack = require('webpack');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 
 const production = (process.env.NODE_ENV === 'production');
 
 const config = {
     entry: {
-        app: ['./src/fluence.ts']
+        app: ['./index.ts']
     },
     module: {
         rules: [
@@ -28,7 +30,17 @@ const config = {
         fs: 'empty'
     },
     plugins: [
-        new CleanWebpackPlugin(),
+        // new CleanWebpackPlugin(),
+        new HtmlWebpackPlugin(),
+        new WasmPackPlugin({
+            crateDirectory: path.resolve(__dirname, "../../../aquamarine")
+        }),
+        // Have this example work in Edge which doesn't ship `TextEncoder` or
+        // `TextDecoder` at this time.
+        new webpack.ProvidePlugin({
+            TextDecoder: ['text-encoding', 'TextDecoder'],
+            TextEncoder: ['text-encoding', 'TextEncoder']
+        })
     ]
 };
 
