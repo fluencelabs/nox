@@ -121,7 +121,7 @@ pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
 
 pub fn make_swarms_with_cfg<F>(n: usize, update_cfg: F) -> Vec<CreatedSwarm>
 where
-    F: Fn(SwarmConfig) -> SwarmConfig,
+    F: Fn(SwarmConfig<'_>) -> SwarmConfig<'_>,
 {
     make_swarms_with(
         n,
@@ -301,8 +301,6 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             services_base_dir: tmp.clone(),
             services_envs: vec![],
             stepper_base_dir: tmp.clone(),
-            stepper_envs: vec![],
-            stepper_module_name: "aquamarine".to_string(),
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
         put_aquamarine(modules_dir(&tmp), aquamarine_file_name);

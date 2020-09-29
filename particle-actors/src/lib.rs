@@ -16,15 +16,15 @@
 
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
-// #![deny(
-//     dead_code,
-//     nonstandard_style,
-//     unused_imports,
-//     unused_mut,
-//     unused_variables,
-//     unused_unsafe,
-//     unreachable_patterns
-// )]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 
 mod actor;
 mod config;
