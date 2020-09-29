@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-mod artifacts;
 mod connected_client;
 mod misc;
 
-pub use artifacts::*;
 pub use connected_client::ConnectedClient;
 pub use misc::*;

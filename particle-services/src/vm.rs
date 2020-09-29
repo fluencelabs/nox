@@ -73,7 +73,7 @@ pub fn as_record(v: std::result::Result<IValue, IValue>) -> Option<IValue> {
         Ok(v) => (0, v),
         Err(e) => (1, e),
     };
-    let result = ivalue_to_jvalue_bytes(result);
+    let result = ivalue_to_jvalue_string(result);
     let vec = Vec1::new(vec![IValue::U32(code), result]).expect("not empty");
     Some(IValue::Record(vec))
 }
@@ -103,9 +103,17 @@ fn ivalue_to_jvalue(v: IValue) -> serde_json::Value {
     }
 }
 
+#[allow(dead_code)]
 fn ivalue_to_jvalue_bytes(ivalue: IValue) -> IValue {
     let jvalue = ivalue_to_jvalue(ivalue);
     let bytes = serde_json::to_vec(&jvalue).expect("shouldn't fail");
     let bytes = bytes.into_iter().map(IValue::U8).collect();
     IValue::Array(bytes)
+}
+
+#[allow(dead_code)]
+fn ivalue_to_jvalue_string(ivalue: IValue) -> IValue {
+    let jvalue = ivalue_to_jvalue(ivalue);
+    let string = serde_json::to_string(&jvalue).expect("shouldn't fail");
+    IValue::String(string)
 }

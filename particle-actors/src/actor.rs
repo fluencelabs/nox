@@ -62,7 +62,9 @@ impl Actor {
         particle: Particle,
         services: Fabric,
     ) -> Result<Self, AquamarineVMError> {
+        log::info!("creating vm");
         let vm = Self::create_vm(config, services)?;
+        log::info!("vm created");
         let mut this = Self {
             vm: Idle(vm),
             particle: particle.clone(),
@@ -122,17 +124,17 @@ impl Actor {
     }
 
     fn execute(particle: Particle, mut vm: AquamarineVM, waker: Waker) -> Fut {
-        log::debug!("Scheduling particle for execution {:?}", particle.id);
+        log::info!("Scheduling particle for execution {:?}", particle.id);
         Box::pin(task::spawn_blocking(move || {
-            log::info!("Executing particle {:?}", particle.id);
-
-            let result = vm.call(json!({
+            let args = json!({
                 "init_user_id": particle.init_peer_id.to_string(),
                 "aqua": particle.script,
                 "data": particle.data.to_string()
-            }));
+            });
+            log::info!("Executing particle {:?}, args {:?}", particle.id, args);
+            let result = vm.call(args);
 
-            log::debug!("Executed particle {:?}, parsing", particle.id);
+            log::info!("Executed particle {:?}, parsing {:?}", particle.id, result);
 
             let effects = match parse_outcome(result) {
                 Ok((data, targets)) => {

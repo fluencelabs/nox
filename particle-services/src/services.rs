@@ -56,8 +56,12 @@ impl ParticleServices {
                 let config = config.clone();
                 let args = match parse_args(args) {
                     Ok(args) => args,
-                    Err(err) => return as_record(Err(IValue::String(err.to_string()))),
+                    Err(err) => {
+                        log::warn!("error parsing args: {:?}", err);
+                        return as_record(Err(IValue::String(err.to_string())));
+                    }
                 };
+                log::info!("calling host with args: {:?}", args);
                 // route
                 match args.service_id.as_str() {
                     "create" => Self::create_service(services, config, args.args),

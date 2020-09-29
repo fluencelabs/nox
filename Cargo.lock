@@ -139,7 +139,7 @@ checksum = "6b602bfe940d21c130f3895acd65221e8a61270debe89d628b9cb4e3ccb8569b"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#4cd70e03ec196d1f1f8aec42d3380980e315c43a"
 dependencies = [
  "fluence-faas",
  "serde 1.0.116",
@@ -200,7 +200,7 @@ version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d373d78ded7d0b3fa8039375718cde0aace493f2e34fb60f51cbf567562ca801"
 dependencies = [
- "async-task 4.0.2",
+ "async-task",
  "concurrent-queue",
  "fastrand",
  "futures-lite",
@@ -210,9 +210,9 @@ dependencies = [
 
 [[package]]
 name = "async-global-executor"
-version = "1.2.1"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5586e693d02f9b439742e9d5d68bd64d923c6861954f7d78f91001a0e152d589"
+checksum = "fefeb39da249f4c33af940b779a56723ce45809ef5c54dad84bb538d4ffb6d9e"
 dependencies = [
  "async-executor",
  "async-io",
@@ -280,14 +280,13 @@ dependencies = [
 
 [[package]]
 name = "async-std"
-version = "1.6.4"
+version = "1.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c92085acfce8b32e5b261d0b59b8f3309aee69fea421ea3f271f8b93225754f"
+checksum = "a9fa76751505e8df1c7a77762f60486f60c71bbd9b8557f4da6ad47d083732ed"
 dependencies = [
  "async-global-executor",
  "async-io",
  "async-mutex",
- "async-task 3.0.0",
  "blocking",
  "crossbeam-utils",
  "futures-channel",
@@ -305,12 +304,6 @@ dependencies = [
  "slab",
  "wasm-bindgen-futures",
 ]
-
-[[package]]
-name = "async-task"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17772156ef2829aadc587461c7753af20b7e8db1529bc66855add962a3b35d3"
 
 [[package]]
 name = "async-task"
@@ -1200,7 +1193,7 @@ checksum = "5c85295147490b8fcf2ea3d104080a105a8b2c63f9c319e82c02d8e952388919"
 [[package]]
 name = "fce"
 version = "0.1.6"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#4cd70e03ec196d1f1f8aec42d3380980e315c43a"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1220,7 +1213,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.4"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#4cd70e03ec196d1f1f8aec42d3380980e315c43a"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1229,7 +1222,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.6"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#4cd70e03ec196d1f1f8aec42d3380980e315c43a"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1260,7 +1253,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.7"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#4cd70e03ec196d1f1f8aec42d3380980e315c43a"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1305,7 +1298,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.7"
-source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#6686a48b9bc234184fce7457b16cf38bb7b27fb7"
+source = "git+https://github.com/fluencelabs/fce?branch=host_func_refactoring#4cd70e03ec196d1f1f8aec42d3380980e315c43a"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -1696,9 +1689,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00d63df3d41950fb462ed38308eea019113ad1508da725bbedcd0fa5a85ef5f7"
+checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
 
 [[package]]
 name = "heck"
@@ -1904,7 +1897,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55e2e4c765aa53a0424761bf9f41aa7a6ac1efa87238f59560640e27fca028f2"
 dependencies = [
  "autocfg 1.0.1",
- "hashbrown 0.9.0",
+ "hashbrown 0.9.1",
  "serde 1.0.116",
 ]
 
@@ -3162,9 +3155,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71f349a4f0e70676ffb2dbafe16d0c992382d02f0a952e3ddf584fc289dac6b3"
+checksum = "4fe74897791e156a0cd8cce0db31b9b2198e67877316bf3086c3acd187f719f0"
 
 [[package]]
 name = "pin-utils"
@@ -4249,20 +4242,21 @@ checksum = "e987b6bf443f4b5b3b6f38704195592cca41c5bb7aedd3c3693c7081f8289860"
 
 [[package]]
 name = "tracing"
-version = "0.1.19"
+version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d79ca061b032d6ce30c660fded31189ca0b9922bf483cd70759f13a2d86786c"
+checksum = "b0987850db3733619253fe60e17cb59b82d37c7e6c0236bb81e4d6b87c879f27"
 dependencies = [
  "cfg-if",
  "log",
+ "pin-project-lite",
  "tracing-core",
 ]
 
 [[package]]
 name = "tracing-core"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bcf46c1f1f06aeea2d6b81f3c863d0930a596c86ad1920d4e5bad6dd1d7119a"
+checksum = "f50de3927f93d202783f4513cda820ab47ef17f624b03c096e86ef00c67e6b5f"
 dependencies = [
  "lazy_static",
 ]

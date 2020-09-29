@@ -18,8 +18,6 @@ use async_std::task;
 use fluence_libp2p::{build_memory_transport, build_transport};
 use particle_server::{BootstrapConfig, ServerBehaviour};
 
-use crate::AQUAMARINE;
-
 use config::modules_dir;
 use fluence_client::Transport;
 use particle_server::config::BehaviourConfig;
@@ -45,7 +43,7 @@ use uuid::Uuid;
 /// Utility functions for tests.
 
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
-pub static TIMEOUT: Duration = Duration::from_secs(30);
+pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
@@ -79,7 +77,7 @@ HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
 #[allow(dead_code)]
 // Enables logging, filtering out unnecessary details
 pub fn enable_logs() {
-    use log::LevelFilter::Info;
+    use log::LevelFilter::*;
 
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)
@@ -95,7 +93,8 @@ pub fn enable_logs() {
         .filter(Some("libp2p_websocket::framed"), Info)
         .filter(Some("libp2p_ping"), Info)
         .filter(Some("libp2p_core::upgrade::apply"), Info)
-        .filter(Some("libp2p_kad::kbucket"), Info)
+        .filter(Some("libp2p_kad::kbucket"), Warn)
+        .filter(Some("libp2p_kad"), Warn)
         .filter(Some("libp2p_plaintext"), Info)
         .filter(Some("libp2p_identify::protocol"), Info)
         .filter(Some("cranelift_codegen"), Info)
@@ -115,6 +114,18 @@ pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
     make_swarms_with(
         n,
         |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
+        create_memory_maddr,
+        true,
+    )
+}
+
+pub fn make_swarms_with_cfg<F>(n: usize, update_cfg: F) -> Vec<CreatedSwarm>
+where
+    F: Fn(SwarmConfig) -> SwarmConfig,
+{
+    make_swarms_with(
+        n,
+        |bs, maddr| create_swarm(update_cfg(SwarmConfig::new(bs, maddr))),
         create_memory_maddr,
         true,
     )
@@ -218,6 +229,7 @@ pub struct SwarmConfig<'a> {
     pub transport: Transport,
     pub registry: Option<&'a Registry>,
     pub tmp_dir: Option<PathBuf>,
+    pub aquamarine_file_name: Option<String>,
 }
 
 impl<'a> Default for SwarmConfig<'a> {
@@ -229,6 +241,7 @@ impl<'a> Default for SwarmConfig<'a> {
             transport: Transport::Memory,
             registry: <_>::default(),
             tmp_dir: <_>::default(),
+            aquamarine_file_name: <_>::default(),
         }
     }
 }
@@ -248,12 +261,17 @@ impl<'a> SwarmConfig<'a> {
         this.trust = Some(trust);
         this
     }
+
+    pub fn with_aquamarine<S: Into<String>>(mut self, file_name: S) -> Self {
+        self.aquamarine_file_name = Some(file_name.into());
+        self
+    }
 }
 
 pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>, PathBuf) {
     use libp2p::identity;
     #[rustfmt::skip]
-    let SwarmConfig { bootstraps, listen_on, trust, transport, registry, .. } = config;
+    let SwarmConfig { bootstraps, listen_on, trust, transport, registry, aquamarine_file_name, .. } = config;
 
     let kp = Keypair::generate();
     let public_key = Ed25519(kp.public());
@@ -287,7 +305,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             stepper_module_name: "aquamarine".to_string(),
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
-        put_aquamarine(modules_dir(&tmp));
+        put_aquamarine(modules_dir(&tmp), aquamarine_file_name);
         match transport {
             Transport::Memory => {
                 Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())
@@ -333,8 +351,20 @@ pub fn remove_dir(dir: &PathBuf) {
     std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
 }
 
-pub fn put_aquamarine(mut tmp: PathBuf) {
-    tmp.push("aquamarine.wasm");
-    std::fs::write(&tmp, AQUAMARINE)
+pub fn abs_path(path: PathBuf) -> PathBuf {
+    match std::env::current_dir().ok() {
+        Some(c) => c.join(path),
+        None => path,
+    }
+}
+
+pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
+    let file_name = file_name.unwrap_or("aquamarine.wasm".to_string());
+    let aquamarine = abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
+    let aquamarine =
+        std::fs::read(&aquamarine).expect(format!("fs::read from {:?}", aquamarine).as_str());
+
+    let tmp = abs_path(tmp.join("aquamarine.wasm"));
+    std::fs::write(&tmp, aquamarine)
         .expect(format!("fs::write aquamarine.wasm to {:?}", tmp).as_str())
 }

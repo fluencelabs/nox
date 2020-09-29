@@ -19,6 +19,7 @@ use crate::error::ServiceError;
 use crate::error::ServiceError::ArgParseError;
 use fluence_app_service::IValue;
 
+#[derive(Debug)]
 pub struct Args {
     pub service_id: String,
     pub fname: String,
