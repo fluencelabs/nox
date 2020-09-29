@@ -29,7 +29,6 @@
 mod connections;
 mod dht;
 mod kademlia;
-mod network;
 mod publish;
 mod resolve;
 mod routing;

@@ -16,10 +16,10 @@
 
 use super::wait_peer::WaitPeer;
 
-use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
 use waiting_queues::WaitingQueues;
 
+use libp2p::swarm::DialPeerCondition;
 use libp2p::{
     core::{identity::ed25519, Multiaddr},
     identity::ed25519::Keypair,
@@ -32,13 +32,12 @@ use libp2p::{
 use particle_protocol::Particle;
 use prometheus::Registry;
 use smallvec::alloc::collections::VecDeque;
-use std::task::Waker;
+use std::ops::{Deref, DerefMut};
+use std::task::{Context, Poll, Waker};
 use std::{
     collections::{HashMap, HashSet},
     time::Duration,
 };
-
-pub type SwarmEventType = generate_swarm_event_type!(ParticleDHT);
 
 #[derive(Debug)]
 pub enum PublishError {
@@ -49,16 +48,23 @@ pub enum PublishError {
 
 #[derive(Debug)]
 pub enum DHTEvent {
+    DialPeer {
+        peer_id: PeerId,
+        condition: DialPeerCondition,
+    },
     Published(PeerId),
     PublishFailed(PeerId, PublishError),
-    Forward { target: PeerId, particle: Particle },
+    Forward {
+        target: PeerId,
+        particle: Particle,
+    },
 }
 
 pub struct ParticleDHT {
     pub(super) kademlia: Kademlia<MemoryStore>,
     pub(super) config: DHTConfig,
     pub(super) pending: HashMap<QueryId, PeerId>,
-    pub(super) events: VecDeque<SwarmEventType>,
+    pub(super) events: VecDeque<DHTEvent>,
     pub(super) connected_peers: HashSet<PeerId>,
     pub(super) wait_peer: WaitingQueues<PeerId, WaitPeer>,
     pub(super) waker: Option<Waker>,
@@ -129,11 +135,35 @@ impl ParticleDHT {
 
     pub(super) fn bootstrap_finished(&mut self) {}
 
-    pub(super) fn push_event(&mut self, event: SwarmEventType) {
+    pub(super) fn push_event(&mut self, event: DHTEvent) {
         if let Some(waker) = &self.waker {
             waker.wake_by_ref();
         }
 
         self.events.push_back(event);
+    }
+
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DHTEvent> {
+        self.waker = Some(cx.waker().clone());
+
+        if let Some(event) = self.events.pop_front() {
+            return Poll::Ready(event);
+        }
+
+        Poll::Pending
+    }
+}
+
+impl Deref for ParticleDHT {
+    type Target = Kademlia<MemoryStore>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.kademlia
+    }
+}
+
+impl DerefMut for ParticleDHT {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.kademlia
     }
 }

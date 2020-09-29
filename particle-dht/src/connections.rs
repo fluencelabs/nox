@@ -16,10 +16,8 @@
 
 use crate::wait_peer::WaitPeer;
 use crate::{DHTEvent, ParticleDHT};
-use libp2p::{
-    swarm::{DialPeerCondition, NetworkBehaviourAction},
-    PeerId,
-};
+use libp2p::{swarm::DialPeerCondition, PeerId};
+
 use particle_protocol::Particle;
 
 impl ParticleDHT {
@@ -29,8 +27,8 @@ impl ParticleDHT {
 
     pub(super) fn connect_then_send(&mut self, peer_id: PeerId, particle: Particle) {
         use super::wait_peer::WaitPeer::Connected;
+        use DHTEvent::DialPeer;
         use DialPeerCondition::Disconnected as condition;
-        use NetworkBehaviourAction::DialPeer;
 
         self.wait_peer.enqueue(peer_id.clone(), Connected(particle));
 
@@ -38,7 +36,7 @@ impl ParticleDHT {
         self.push_event(DialPeer { peer_id, condition });
     }
 
-    pub(super) fn connected(&mut self, peer_id: PeerId) {
+    pub fn connected(&mut self, peer_id: PeerId) {
         log::info!("Peer connected: {}", peer_id);
         self.connected_peers.insert(peer_id.clone());
 
@@ -53,7 +51,7 @@ impl ParticleDHT {
     }
 
     // TODO: clear connected_peers on inject_listener_closed?
-    pub(super) fn disconnected(&mut self, peer_id: &PeerId) {
+    pub fn disconnected(&mut self, peer_id: &PeerId) {
         log::info!(
             "Peer disconnected: {}. {} calls left waiting.",
             peer_id,

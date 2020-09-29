@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+use crate::clients::PeerKind;
+use crate::ParticleConfig;
+
 use particle_actors::{Plumber, PlumberEvent};
 use particle_dht::{DHTEvent, ParticleDHT};
 use particle_protocol::{Particle, ProtocolMessage};
@@ -22,8 +25,6 @@ use particle_services::ParticleServices;
 use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
 
-use crate::clients::PeerKind;
-use crate::ParticleConfig;
 use libp2p::{
     core::{either::EitherOutput, identity::ed25519, Multiaddr},
     swarm::{NetworkBehaviourAction, NotifyHandler},
@@ -59,6 +60,9 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour
             DHTEvent::Published(_) => {}
             DHTEvent::PublishFailed(_, _) => {}
             DHTEvent::Forward { target, particle } => self.forward_particle(target, particle),
+            DHTEvent::DialPeer { peer_id, condition } => self
+                .events
+                .push_back(NetworkBehaviourAction::DialPeer { peer_id, condition }),
         }
     }
 }
