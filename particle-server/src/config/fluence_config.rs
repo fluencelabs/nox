@@ -17,15 +17,14 @@
 use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
 use crate::BootstrapConfig;
+
+use trust_graph::{KeyPair, PublicKeyHashable};
+
 use anyhow::Context;
 use clap::{ArgMatches, Values};
-use libp2p::core::identity::ed25519::PublicKey;
-use libp2p::core::Multiaddr;
+use libp2p::core::{identity::ed25519::PublicKey, multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::{net::IpAddr, time::Duration};
-use trust_graph::{KeyPair, PublicKeyHashable};
+use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";

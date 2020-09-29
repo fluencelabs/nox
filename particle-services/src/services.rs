@@ -48,41 +48,39 @@ impl ParticleServices {
         let services = self.services.clone();
         let config = self.config.clone();
 
-        Arc::new(move || {
-            let services = services.clone();
-            let config = config.clone();
-            let closure = Box::new(move |args| {
-                let services = services.clone();
-                let config = config.clone();
-                let args = match parse_args(args) {
-                    Ok(args) => args,
-                    Err(err) => {
-                        log::warn!("error parsing args: {:?}", err);
-                        return as_record(Err(IValue::String(err.to_string())));
-                    }
-                };
-                log::info!("calling host with args: {:?}", args);
-                // route
-                match args.service_id.as_str() {
-                    "create" => Self::create_service(services, config, args.args),
-                    s if Self::is_builtin(&s) => unimplemented!("builtin"),
-                    _ => Self::call_service(services, args),
+        Arc::new(move || Self::router(services.clone(), config.clone()))
+    }
+
+    fn router(services: Services, config: ServicesConfig) -> HostImportDescriptor {
+        let closure = Box::new(move |args| {
+            let args = match parse_args(args) {
+                Ok(args) => args,
+                Err(err) => {
+                    log::warn!("error parsing args: {:?}", err);
+                    return as_record(Err(IValue::String(err.to_string())));
                 }
-            });
-            HostImportDescriptor {
-                closure,
-                argument_types: vec![IType::String, IType::String, IType::String],
-                output_type: Some(IType::Record(0)),
-                error_handler: None,
+            };
+            log::info!("Router args: {:?}", args);
+            // route
+            match args.service_id.as_str() {
+                "create" => Self::create_service(services.clone(), config.clone(), args.args),
+                s if Self::is_builtin(&s) => unimplemented!("builtin"),
+                _ => Self::call_service(services.clone(), args),
             }
-        })
+        });
+        HostImportDescriptor {
+            closure,
+            argument_types: vec![IType::String, IType::String, IType::String],
+            output_type: Some(IType::Record(0)),
+            error_handler: None,
+        }
     }
 
     fn is_builtin(_s: &str) -> bool {
         false
     }
 
-    pub fn create_service(
+    fn create_service(
         services: Services,
         config: ServicesConfig,
         args: serde_json::Value,
@@ -112,7 +110,7 @@ impl ParticleServices {
         as_record(result)
     }
 
-    pub fn call_service(services: Services, args: Args) -> Option<IValue> {
+    fn call_service(services: Services, args: Args) -> Option<IValue> {
         let call = || -> Result<Vec<IValue>, ServiceError> {
             let services = services.read();
             let vm = services

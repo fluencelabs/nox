@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use libp2p::core::Multiaddr;
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::time::Duration;

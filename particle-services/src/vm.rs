@@ -16,7 +16,7 @@
 
 use crate::config::ServicesConfig;
 use crate::error::ServiceError;
-use crate::modules::{load_blueprint, load_module_config, persist_service};
+use crate::modules::{load_blueprint, load_module_config};
 use crate::Result;
 use fluence_app_service::vec1::Vec1;
 use fluence_app_service::{AppService, IValue, RawModuleConfig, RawModulesConfig};

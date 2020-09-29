@@ -45,6 +45,7 @@ pub fn load_module_config(modules_dir: &PathBuf, module: &str) -> Result<RawModu
     Ok(config)
 }
 
+/*
 /// Persist service info to disk, so it is recreated after restart
 pub fn persist_service(services_dir: &PathBuf, service_id: &str, blueprint_id: &str) -> Result<()> {
     let config = PersistedService::new(service_id, blueprint_id);
@@ -52,6 +53,7 @@ pub fn persist_service(services_dir: &PathBuf, service_id: &str, blueprint_id: &
     let path = services_dir.join(files::service_file_name(service_id));
     std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
 }
+*/
 
 /// List files in directory
 pub fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {

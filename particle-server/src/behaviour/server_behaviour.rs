@@ -17,6 +17,7 @@
 use crate::bootstrapper::Bootstrapper;
 use crate::config::BehaviourConfig;
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
+use libp2p::core::Multiaddr;
 use libp2p::{
     identify::Identify,
     identity::PublicKey,

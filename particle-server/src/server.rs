@@ -19,16 +19,17 @@ use crate::config::{BehaviourConfig, ServerConfig};
 
 use config_utils::to_peer_id;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
+use trust_graph::TrustGraph;
 
 use async_std::task;
-use futures::future::BoxFuture;
-use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
-use libp2p::core::multiaddr::Protocol;
-use libp2p::{identity::ed25519::Keypair, Swarm, TransportError};
+use futures::{channel::oneshot, future::BoxFuture, select, stream::StreamExt, FutureExt};
+use libp2p::{
+    core::{multiaddr::Protocol, Multiaddr},
+    identity::ed25519::Keypair,
+    Swarm, TransportError,
+};
 use prometheus::Registry;
-use std::io;
-use std::net::IpAddr;
-use trust_graph::TrustGraph;
+use std::{io, net::IpAddr};
 
 // TODO: documentation
 pub struct Server {
