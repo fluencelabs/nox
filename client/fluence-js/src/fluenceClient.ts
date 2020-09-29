@@ -20,6 +20,9 @@ import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
+import * as stepper from "../stepper";
+
+const WASM = stepper.loadWasm();
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;
@@ -61,7 +64,14 @@ export class FluenceClient {
 
         return (particle: Particle) => {
             // call all subscriptions for a new call
-            _this.subscriptions.applyToSubscriptions(particle);
+            if (!_this.subscriptions.applyToSubscriptions(particle)) {
+                // if there is no subscription, use Stepper
+                WASM.then((w) => {
+                    let stepperOutcomeStr = w.invoke(particle.init_peer_id, particle.script, JSON.stringify(particle.data))
+                    let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
+                    console.log(stepperOutcome)
+                })
+            }
         }
     }
 
