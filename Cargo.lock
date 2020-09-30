@@ -3090,6 +3090,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "particle-closures"
+version = "0.0.1"
+dependencies = [
+ "config-utils",
+ "fluence-libp2p",
+ "libp2p",
+ "particle-actors",
+ "particle-dht",
+ "particle-protocol",
+ "particle-services",
+ "trust-graph",
+ "waiting-queues",
+]
+
+[[package]]
 name = "particle-dht"
 version = "0.0.1"
 dependencies = [

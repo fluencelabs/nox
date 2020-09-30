@@ -27,6 +27,7 @@
 )]
 
 mod behaviour;
+mod builtin_services;
 mod clients;
 mod config;
 mod host_closures;

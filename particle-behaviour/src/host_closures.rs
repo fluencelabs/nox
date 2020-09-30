@@ -17,7 +17,7 @@
 use particle_actors::HostImportDescriptor;
 use particle_services::{Args, IType, IValue};
 
-use crate::mailbox::BuiltinServices;
+use crate::builtin_services::BuiltinServices;
 use particle_actors::vec1::Vec1;
 use serde_json::json;
 use std::sync::Arc;

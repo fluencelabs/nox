@@ -17,25 +17,26 @@
 use particle_services::{Args, IValue};
 use waiting_queues::WaitingQueues;
 
+use crate::builtin_services::BuiltinServices;
 use futures::{channel::mpsc, StreamExt};
 use std::sync::mpsc as std_mpsc;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
+pub(super) type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 
-type WaitResult = std_mpsc::Receiver<BuiltinCommandResult>;
-type WaitingVM = std_mpsc::Sender<BuiltinCommandResult>;
-type Inbox = mpsc::UnboundedReceiver<Command>;
-type Destination = mpsc::UnboundedSender<Command>;
+pub(super) type WaitResult = std_mpsc::Receiver<BuiltinCommandResult>;
+pub(super) type WaitingVM = std_mpsc::Sender<BuiltinCommandResult>;
+pub(super) type Inbox = mpsc::UnboundedReceiver<Command>;
+pub(super) type Destination = mpsc::UnboundedSender<Command>;
 
-type Key = libp2p::kad::record::Key;
-type Value = Vec<u8>;
+pub(super) type Key = libp2p::kad::record::Key;
+pub(super) type Value = Vec<u8>;
 
 #[derive(Debug)]
 pub struct Command {
-    outlet: WaitingVM,
-    kind: BuiltinCommand,
+    pub outlet: WaitingVM,
+    pub kind: BuiltinCommand,
 }
 
 #[derive(Debug, Clone)]
@@ -69,55 +70,6 @@ pub struct Mailbox {
     destination: Destination,
 }
 
-#[derive(Debug, Clone)]
-pub struct BuiltinServices {
-    mailbox: Destination,
-}
-
-impl BuiltinServices {
-    const SERVICES: &'static [&'static str] = &["services"];
-
-    pub fn is_builtin(service_id: &str) -> bool {
-        Self::SERVICES.contains(&service_id)
-    }
-
-    pub fn router(self) -> Closure {
-        Arc::new(move |args| Some(Self::route(self.clone(), args).into()))
-    }
-
-    pub fn resolve(&self, key: Key) -> WaitResult {
-        let (outlet, inlet) = std_mpsc::channel();
-        let cmd = Command {
-            outlet,
-            kind: BuiltinCommand::DHTResolve(key),
-        };
-        self.mailbox
-            .unbounded_send(cmd)
-            .expect("builtin => mailbox");
-
-        inlet
-    }
-
-    fn route(api: BuiltinServices, args: Args) -> BuiltinCommandResult {
-        let wait = match args.service_id.as_str() {
-            "resolve" => {
-                let key = args
-                    .args
-                    .get("key")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| bs58::decode(s).into_vec().ok())
-                    .unwrap_or_else(|| unimplemented!("FIXME: return error?"));
-
-                api.resolve(key.into())
-            }
-            "add_certificate" => unimplemented!("FIXME"),
-            _ => unimplemented!("FIXME: unknown. return error? re-route to call service?"),
-        };
-
-        wait.recv().expect("receive BuiltinCommandResult")
-    }
-}
-
 // Infrastructure
 impl Mailbox {
     pub fn new() -> Self {
@@ -143,9 +95,7 @@ impl Mailbox {
     }
 
     pub fn get_api(&self) -> BuiltinServices {
-        BuiltinServices {
-            mailbox: self.get_destination(),
-        }
+        BuiltinServices::new(self.get_destination())
     }
 }
 
