@@ -161,9 +161,13 @@ impl Plumber {
         }
     }
 
-    fn create_actor(config: ActorConfig, particle: Particle, services: ClosureDescriptor) -> Fut {
+    fn create_actor(
+        config: ActorConfig,
+        particle: Particle,
+        host_closure: ClosureDescriptor,
+    ) -> Fut {
         Box::pin(task::spawn_blocking(move || {
-            Actor::new(config, particle, services)
+            Actor::new(config, particle, host_closure)
         }))
     }
 }

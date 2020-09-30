@@ -17,11 +17,11 @@
 use crate::actor::VmState::{Executing, Idle};
 use crate::config::ActorConfig;
 use crate::invoke::parse_outcome;
-use crate::plumber::ClosureDescriptor;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError, HostImportDescriptor};
+use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError};
 use particle_protocol::Particle;
 
+use crate::plumber::ClosureDescriptor;
 use async_std::{pin::Pin, task};
 use futures::{future::BoxFuture, Future};
 use libp2p::PeerId;
@@ -60,10 +60,10 @@ impl Actor {
     pub fn new(
         config: ActorConfig,
         particle: Particle,
-        services: ClosureDescriptor,
+        host_closure: ClosureDescriptor,
     ) -> Result<Self, AquamarineVMError> {
         log::info!("creating vm");
-        let vm = Self::create_vm(config, services)?;
+        let vm = Self::create_vm(config, host_closure)?;
         log::info!("vm created");
         let mut this = Self {
             vm: Idle(vm),
@@ -111,11 +111,11 @@ impl Actor {
 
     fn create_vm(
         config: ActorConfig,
-        call_service: HostImportDescriptor,
+        host_closure: ClosureDescriptor,
     ) -> Result<AquamarineVM, AquamarineVMError> {
         let config = AquamarineVMConfig {
             aquamarine_wasm_path: config.modules_dir,
-            call_service,
+            call_service: host_closure(),
         };
         AquamarineVM::new(config)
     }

@@ -133,6 +133,11 @@ impl std::fmt::Display for ServiceError {
                 "Error parsing arguments on call_service. field: {}, error: {:?}",
                 field, error
             ),
+            ServiceError::ModuleConvertError { err } => write!(
+                f,
+                "Error converting TomlFaaSNamedModuleConfig to FaaSModuleConfig: {:?}",
+                err
+            ),
         }
     }
 }

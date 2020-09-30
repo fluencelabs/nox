@@ -37,7 +37,7 @@ impl HostClosures {
         Arc::new(move || {
             let this = self.clone();
             HostImportDescriptor {
-                closure: Box::new(move |args| this.clone().route(args)),
+                host_exported_func: Box::new(move |_, args| this.clone().route(args)),
                 argument_types: vec![IType::String, IType::String, IType::String],
                 output_type: Some(IType::Record(0)),
                 error_handler: None,

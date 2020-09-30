@@ -299,7 +299,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             bootstrap: BootstrapConfig::zero(),
             registry,
             services_base_dir: tmp.clone(),
-            services_envs: vec![],
+            services_envs: <_>::default(),
             stepper_base_dir: tmp.clone(),
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");

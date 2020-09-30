@@ -18,12 +18,10 @@ use crate::config::ServicesConfig;
 use crate::error::ServiceError;
 use crate::modules::{load_blueprint, load_module_config};
 use crate::Result;
-use fluence_app_service::vec1::Vec1;
-use fluence_app_service::{
-    AppService, AppServiceConfig, FaaSConfig, IValue, TomlFaaSConfig, TomlFaaSNamedModuleConfig,
-};
+
+use fluence_app_service::{vec1::Vec1, AppService, AppServiceConfig, FaaSConfig, IValue};
+
 use serde_json::json;
-use std::path::PathBuf;
 
 pub fn create_vm(
     config: ServicesConfig,
@@ -31,15 +29,13 @@ pub fn create_vm(
     service_id: &str,
     owner_id: Option<String>,
 ) -> Result<AppService> {
-    let to_string = |path: &PathBuf| -> Option<_> { path.to_string_lossy().into_owned().into() };
-
     // Load configs for all modules in blueprint
     let make_service = move |service_id: &str| -> Result<_> {
         // Load blueprint from disk
         let blueprint = load_blueprint(&config.blueprint_dir, &blueprint_id)?;
 
         // Load all module configs
-        let modules_config: Vec<TomlFaaSNamedModuleConfig> = blueprint
+        let modules_config: Vec<_> = blueprint
             .dependencies
             .iter()
             .map(|module| load_module_config(&config.modules_dir, module))
@@ -56,12 +52,12 @@ pub fn create_vm(
 
         let mut envs = config.envs;
         if let Some(owner_id) = owner_id {
-            envs.push(format!("owner_id={}", owner_id));
+            envs.insert(b"owner_id".to_vec(), owner_id.into_bytes());
         };
 
         log::info!("Creating service {}, envs: {:?}", service_id, envs);
 
-        let service = AppService::new(modules, &service_id, envs).map_err(ServiceError::Engine)?;
+        let service = AppService::new(modules, service_id, envs).map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
         // persist_service(&config.services_dir, &service_id, &blueprint_id)?;

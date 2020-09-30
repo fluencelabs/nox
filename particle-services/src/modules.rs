@@ -37,7 +37,10 @@ pub fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint>
 }
 
 /// Load FaaSModuleConfig from disk, for a given module name
-pub fn load_module_config(modules_dir: &PathBuf, module: &str) -> Result<FaaSModuleConfig> {
+pub fn load_module_config(
+    modules_dir: &PathBuf,
+    module: &str,
+) -> Result<(String, FaaSModuleConfig)> {
     let config = modules_dir.join(files::module_config_name(module));
     let config = std::fs::read(&config).map_err(|err| NoModuleConfig { path: config, err })?;
     let config: TomlFaaSNamedModuleConfig =
