@@ -1,1 +1,1 @@
-export function loadWasm(): Promise<typeof import('./pkg')>;
+export function loadWasm(): Promise<typeof import('./pkg')>

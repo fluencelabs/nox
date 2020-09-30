@@ -29,9 +29,9 @@ const config = {
         fs: 'empty'
     },
     plugins: [
-        // new CleanWebpackPlugin(),
         new HtmlWebpackPlugin(),
         new WasmPackPlugin({
+            // TODO use another path somehow
             crateDirectory: path.resolve(__dirname, "../../../aquamarine"),
             outDir:path.resolve(__dirname, "./pkg")
         }),
