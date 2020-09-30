@@ -14,29 +14,45 @@
  * limitations under the License.
  */
 
-import {FunctionCall} from "./functionCall";
-import {Address} from "./address";
+import {Particle} from "./particle";
 
 export class Subscriptions {
-    private subscriptions: ((args: any, target: Address, replyTo: Address, module?: string, fname?: string) => (boolean | undefined))[] = [];
+    private subscriptions: Map<string,  (particle: Particle) => void> = new Map();
 
     constructor() {}
 
     /**
-     * Subscriptions will be applied to all peer and relay messages.
-     * If subscription returns true, delete subscription.
-     * @param f
+     * Subscriptions will be applied by outside message if id will be the same.
+     *
+     * @param id message identificator
+     * @param f function to use with outside message
+     * @param ttl time to live, subscription will be deleted after this time
      */
-    subscribe(f: (args: any, target: Address, replyTo: Address, moduleId?: string, fname?: string) => (boolean | undefined)) {
-        this.subscriptions.push(f);
+    subscribe(id: string, f: (particle: Particle) => void, ttl: number) {
+        let _this = this;
+        setTimeout(() => {
+            _this.subscriptions.delete(id)
+            console.log(`Particle with id ${id} deleted by timeout`)
+        }, ttl)
+        this.subscriptions.set(id, f);
     }
 
     /**
-     * Apply call to all subscriptions and delete subscriptions that return `true`.
-     * @param call
+     * A particle will be applied if id of the particle was subscribed earlier.
+     * @param particle
      */
-    applyToSubscriptions(call: FunctionCall) {
+    applyToSubscriptions(particle: Particle) {
         // if subscription return true - delete it from subscriptions
-        this.subscriptions = this.subscriptions.filter(callback => !callback(call.arguments, call.target, call.reply_to, call.module, call.fname))
+        let callback = this.subscriptions.get(particle.id)
+        if (callback) {
+            callback(particle);
+        } else {
+            if (Number(particle.timestamp) + particle.ttl > Date.now()) {
+                console.log("Old particle received. 'ttl' is ended.");
+            } else {
+                console.log("External particle received. 'Stepper' needed on client. Unimplemented.");
+            }
+            console.log(particle);
+        }
     }
 }
