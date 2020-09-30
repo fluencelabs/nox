@@ -19,7 +19,7 @@ use crate::config::ActorConfig;
 use crate::invoke::parse_outcome;
 use crate::plumber::ClosureDescriptor;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMError};
+use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError, HostImportDescriptor};
 use particle_protocol::Particle;
 
 use async_std::{pin::Pin, task};
@@ -111,13 +111,13 @@ impl Actor {
 
     fn create_vm(
         config: ActorConfig,
-        services: ClosureDescriptor,
+        call_service: HostImportDescriptor,
     ) -> Result<AquamarineVM, AquamarineVMError> {
-        let config = AquamarineVMConfig {};
-        AquamarineVM::new(
-            &config.modules_dir,
-            vec![("call_service".to_string(), services())],
-        )
+        let config = AquamarineVMConfig {
+            aquamarine_wasm_path: config.modules_dir,
+            call_service,
+        };
+        AquamarineVM::new(config)
     }
 
     fn execute_next(&mut self, vm: AquamarineVM, waker: Waker) -> VmState {
