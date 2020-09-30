@@ -17,7 +17,7 @@
 use crate::actor::VmState::{Executing, Idle};
 use crate::config::ActorConfig;
 use crate::invoke::parse_outcome;
-use crate::plumber::Fabric;
+use crate::plumber::ClosureDescriptor;
 
 use aquamarine_vm::{AquamarineVM, AquamarineVMError};
 use particle_protocol::Particle;
@@ -60,7 +60,7 @@ impl Actor {
     pub fn new(
         config: ActorConfig,
         particle: Particle,
-        services: Fabric,
+        services: ClosureDescriptor,
     ) -> Result<Self, AquamarineVMError> {
         log::info!("creating vm");
         let vm = Self::create_vm(config, services)?;
@@ -109,7 +109,10 @@ impl Actor {
         return effects;
     }
 
-    fn create_vm(config: ActorConfig, services: Fabric) -> Result<AquamarineVM, AquamarineVMError> {
+    fn create_vm(
+        config: ActorConfig,
+        services: ClosureDescriptor,
+    ) -> Result<AquamarineVM, AquamarineVMError> {
         AquamarineVM::new(
             &config.modules_dir,
             vec![("call_service".to_string(), services())],

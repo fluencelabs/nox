@@ -22,19 +22,8 @@ use particle_actors::vec1::Vec1;
 use serde_json::json;
 use std::sync::Arc;
 
-type Fabric = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
+type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
 type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
-
-/*
-    trait SafeFn<Args>: Fn(Args) + Send + Sync + 'static {}
-    impl<T: Fn(Args) + Send + Sync + 'static, Args> SafeFn<Args> for T {}
-
-    struct Closures<Create, Call, Builtin> {
-        create_service: Create,
-        call_service: Call,
-        builtin: Builtin,
-    }
-*/
 
 #[derive(Clone)]
 pub struct Closures {
@@ -44,7 +33,7 @@ pub struct Closures {
 }
 
 impl Closures {
-    pub fn descriptor(self) -> Fabric {
+    pub fn descriptor(self) -> ClosureDescriptor {
         Arc::new(move || {
             let this = self.clone();
             HostImportDescriptor {
