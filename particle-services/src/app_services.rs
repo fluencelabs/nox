@@ -29,12 +29,12 @@ type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 type VM = Arc<Mutex<AppService>>;
 type Services = Arc<RwLock<HashMap<String, VM>>>;
 
-pub struct ParticleServices {
+pub struct ParticleAppServices {
     config: ServicesConfig,
     services: Services,
 }
 
-impl ParticleServices {
+impl ParticleAppServices {
     pub fn new(config: ServicesConfig) -> Self {
         Self {
             config,

@@ -24,39 +24,39 @@ use std::task::{Context, Poll};
 
 type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 
-type WaitResult = std_mpsc::Receiver<DHTResult>;
-type WaitingVM = std_mpsc::Sender<DHTResult>;
-type Inbox = mpsc::UnboundedReceiver<DHTCommand>;
-type Destination = mpsc::UnboundedSender<DHTCommand>;
+type WaitResult = std_mpsc::Receiver<BuiltinCommandResult>;
+type WaitingVM = std_mpsc::Sender<BuiltinCommandResult>;
+type Inbox = mpsc::UnboundedReceiver<Command>;
+type Destination = mpsc::UnboundedSender<Command>;
 
 type Key = libp2p::kad::record::Key;
 type Value = Vec<u8>;
 
 #[derive(Debug)]
-pub struct DHTCommand {
+pub struct Command {
     outlet: WaitingVM,
-    kind: DHTCommandKind,
+    kind: BuiltinCommand,
 }
 
 #[derive(Debug, Clone)]
-pub enum DHTCommandKind {
-    Resolve(Key),
+pub enum BuiltinCommand {
+    DHTResolve(Key),
 }
 
-impl DHTCommandKind {
+impl BuiltinCommand {
     pub fn key(&self) -> &Key {
         match self {
-            DHTCommandKind::Resolve(key) => &key,
+            BuiltinCommand::DHTResolve(key) => &key,
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum DHTResult {
-    Resolved(Key, Value),
+pub enum BuiltinCommandResult {
+    DHTResolved(Key, Value),
 }
 
-impl Into<IValue> for DHTResult {
+impl Into<IValue> for BuiltinCommandResult {
     fn into(self) -> IValue {
         unimplemented!("FIXME")
     }
@@ -64,7 +64,7 @@ impl Into<IValue> for DHTResult {
 
 #[derive(Debug)]
 pub struct Mailbox {
-    waiting: WaitingQueues<Key, DHTCommand>,
+    waiting: WaitingQueues<Key, Command>,
     inbox: Inbox,
     destination: Destination,
 }
@@ -85,7 +85,20 @@ impl BuiltinServices {
         Arc::new(move |args| Some(Self::route(self.clone(), args).into()))
     }
 
-    fn route(api: BuiltinServices, args: Args) -> DHTResult {
+    pub fn resolve(&self, key: Key) -> WaitResult {
+        let (outlet, inlet) = std_mpsc::channel();
+        let cmd = Command {
+            outlet,
+            kind: BuiltinCommand::DHTResolve(key),
+        };
+        self.mailbox
+            .unbounded_send(cmd)
+            .expect("builtin => mailbox");
+
+        inlet
+    }
+
+    fn route(api: BuiltinServices, args: Args) -> BuiltinCommandResult {
         let wait = match args.service_id.as_str() {
             "resolve" => {
                 let key = args
@@ -97,21 +110,11 @@ impl BuiltinServices {
 
                 api.resolve(key.into())
             }
+            "add_certificate" => unimplemented!("FIXME"),
             _ => unimplemented!("FIXME: unknown. return error? re-route to call service?"),
         };
 
-        wait.recv().expect("receive DHTResult")
-    }
-
-    pub fn resolve(&self, key: Key) -> WaitResult {
-        let (outlet, inlet) = std_mpsc::channel();
-        let cmd = DHTCommand {
-            outlet,
-            kind: DHTCommandKind::Resolve(key),
-        };
-        self.mailbox.unbounded_send(cmd).expect("api => mailbox");
-
-        inlet
+        wait.recv().expect("receive BuiltinCommandResult")
     }
 }
 
@@ -135,7 +138,7 @@ impl Default for Mailbox {
 
 // VM API
 impl Mailbox {
-    pub fn get_destination(&self) -> Destination {
+    fn get_destination(&self) -> Destination {
         self.destination.clone()
     }
 
@@ -150,12 +153,12 @@ impl Mailbox {
 impl Mailbox {
     pub fn resolve_complete(&mut self, key: Key, value: Value) {
         for cmd in self.waiting.remove(&key) {
-            let result = DHTResult::Resolved(key.clone(), value.clone());
+            let result = BuiltinCommandResult::DHTResolved(key.clone(), value.clone());
             cmd.outlet.send(result.clone()).expect("resolve_complete")
         }
     }
 
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DHTCommandKind> {
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<BuiltinCommand> {
         match self.inbox.poll_next_unpin(cx) {
             Poll::Ready(Some(cmd)) => {
                 let kind = cmd.kind.clone();

@@ -15,18 +15,18 @@
  */
 
 use crate::clients::PeerKind;
-use crate::mailbox::{DHTCommandKind, Mailbox};
+use crate::mailbox::{BuiltinCommand, Mailbox};
 use crate::ParticleConfig;
 
 use particle_actors::{Plumber, PlumberEvent};
 use particle_dht::{DHTEvent, ParticleDHT};
 use particle_protocol::{Particle, ProtocolMessage};
-use particle_services::ParticleServices;
+use particle_services::ParticleAppServices;
 
 use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
 
-use crate::host_closures::Closures;
+use crate::host_closures::HostClosures;
 use libp2p::{
     core::{either::EitherOutput, identity::ed25519, Multiaddr},
     swarm::{NetworkBehaviourAction, NotifyHandler},
@@ -45,7 +45,7 @@ pub struct ParticleBehaviour {
     pub(super) plumber: Plumber,
     pub(super) dht: ParticleDHT,
     #[allow(dead_code)]
-    pub(super) services: ParticleServices,
+    pub(super) services: ParticleAppServices,
     #[allow(dead_code)]
     pub(super) mailbox: Mailbox,
     pub(super) clients: HashMap<PeerId, Option<Multiaddr>>,
@@ -87,10 +87,10 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehav
     }
 }
 
-impl libp2p::swarm::NetworkBehaviourEventProcess<DHTCommandKind> for ParticleBehaviour {
-    fn inject_event(&mut self, cmd: DHTCommandKind) {
+impl libp2p::swarm::NetworkBehaviourEventProcess<BuiltinCommand> for ParticleBehaviour {
+    fn inject_event(&mut self, cmd: BuiltinCommand) {
         match cmd {
-            DHTCommandKind::Resolve(key) => self.dht.resolve(key),
+            BuiltinCommand::DHTResolve(key) => self.dht.resolve(key),
         }
     }
 }
@@ -101,9 +101,9 @@ impl ParticleBehaviour {
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
     ) -> io::Result<Self> {
-        let services = ParticleServices::new(config.services_config()?);
+        let services = ParticleAppServices::new(config.services_config()?);
         let mailbox = Mailbox::new();
-        let closures = Closures {
+        let closures = HostClosures {
             call_service: services.call_service(),
             create_service: services.create_service(),
             builtin: mailbox.get_api().router(),

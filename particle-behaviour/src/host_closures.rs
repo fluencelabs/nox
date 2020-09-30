@@ -26,13 +26,13 @@ type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 's
 type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 
 #[derive(Clone)]
-pub struct Closures {
+pub struct HostClosures {
     pub create_service: Closure,
     pub call_service: Closure,
     pub builtin: Closure,
 }
 
-impl Closures {
+impl HostClosures {
     pub fn descriptor(self) -> ClosureDescriptor {
         Arc::new(move || {
             let this = self.clone();
