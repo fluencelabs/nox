@@ -15,7 +15,7 @@
  */
 
 #![warn(rust_2018_idioms)]
-#![deny(
+/*#![deny(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -24,7 +24,7 @@
     unused_unsafe,
     unreachable_patterns
 )]
-
+*/
 use crate::error::ServiceError;
 
 mod app_services;

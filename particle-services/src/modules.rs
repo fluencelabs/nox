@@ -20,8 +20,9 @@ use crate::blueprint::Blueprint;
 use crate::error::ServiceError::*;
 use crate::{files, Result};
 
-use fluence_app_service::RawModuleConfig;
+use fluence_app_service::{FaaSModuleConfig, TomlFaaSNamedModuleConfig};
 
+use std::convert::TryInto;
 use std::path::PathBuf;
 
 /// Load blueprint from disk
@@ -35,12 +36,15 @@ pub fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint>
     Ok(blueprint)
 }
 
-/// Load RawModuleConfig from disk, for a given module name
-pub fn load_module_config(modules_dir: &PathBuf, module: &str) -> Result<RawModuleConfig> {
+/// Load FaaSModuleConfig from disk, for a given module name
+pub fn load_module_config(modules_dir: &PathBuf, module: &str) -> Result<FaaSModuleConfig> {
     let config = modules_dir.join(files::module_config_name(module));
     let config = std::fs::read(&config).map_err(|err| NoModuleConfig { path: config, err })?;
-    let config =
+    let config: TomlFaaSNamedModuleConfig =
         toml::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
+    let config = config
+        .try_into()
+        .map_err(|err| ModuleConvertError { err })?;
 
     Ok(config)
 }
@@ -62,8 +66,12 @@ pub fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {
 }
 
 /// Adds a module to the filesystem, overwriting existing module.
-/// Also adds module config to the RawModuleConfig
-pub fn add_module(modules_dir: &PathBuf, bytes: Vec<u8>, config: RawModuleConfig) -> Result<()> {
+/// Also adds module config to the TomlFaaSNamedModuleConfig
+pub fn add_module(
+    modules_dir: &PathBuf,
+    bytes: Vec<u8>,
+    config: TomlFaaSNamedModuleConfig,
+) -> Result<()> {
     let module = modules_dir.join(files::module_file_name(&config.name));
     std::fs::write(&module, bytes).map_err(|err| AddModule { path: module, err })?;
 

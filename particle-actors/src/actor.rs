@@ -113,6 +113,7 @@ impl Actor {
         config: ActorConfig,
         services: ClosureDescriptor,
     ) -> Result<AquamarineVM, AquamarineVMError> {
+        let config = AquamarineVMConfig {};
         AquamarineVM::new(
             &config.modules_dir,
             vec![("call_service".to_string(), services())],

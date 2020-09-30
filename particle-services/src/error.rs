@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use fluence_app_service::AppServiceError;
+use fluence_app_service::{AppServiceError, FaaSError};
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -47,6 +47,9 @@ pub enum ServiceError {
     },
     IncorrectModuleConfig {
         err: toml::de::Error,
+    },
+    ModuleConvertError {
+        err: FaaSError,
     },
     WriteBlueprint {
         path: PathBuf,

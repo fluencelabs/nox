@@ -97,8 +97,8 @@ pub struct ServerConfig {
     #[serde(default = "default_services_basedir")]
     pub services_base_dir: PathBuf,
 
-    #[serde(default = "Vec::new")]
-    pub services_envs: Vec<String>,
+    #[serde(default)]
+    pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
 
     /// Base directory for resources needed by application services
     #[serde(default = "default_stepper_basedir")]

@@ -19,7 +19,9 @@ use crate::error::ServiceError;
 use crate::modules::{load_blueprint, load_module_config};
 use crate::Result;
 use fluence_app_service::vec1::Vec1;
-use fluence_app_service::{AppService, IValue, RawModuleConfig, RawModulesConfig};
+use fluence_app_service::{
+    AppService, AppServiceConfig, FaaSConfig, IValue, TomlFaaSConfig, TomlFaaSNamedModuleConfig,
+};
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -37,17 +39,19 @@ pub fn create_vm(
         let blueprint = load_blueprint(&config.blueprint_dir, &blueprint_id)?;
 
         // Load all module configs
-        let configs: Vec<RawModuleConfig> = blueprint
+        let modules_config: Vec<TomlFaaSNamedModuleConfig> = blueprint
             .dependencies
             .iter()
             .map(|module| load_module_config(&config.modules_dir, module))
             .collect::<Result<_>>()?;
 
-        let modules = RawModulesConfig {
-            modules_dir: to_string(&config.modules_dir),
-            service_base_dir: to_string(&config.workdir),
-            module: configs,
-            default: None,
+        let modules = AppServiceConfig {
+            service_base_dir: config.workdir,
+            faas_config: FaaSConfig {
+                modules_dir: Some(config.modules_dir),
+                modules_config,
+                default_modules_config: None,
+            },
         };
 
         let mut envs = config.envs;

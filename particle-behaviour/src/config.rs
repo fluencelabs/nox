@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-use config_utils::to_peer_id;
-use libp2p::identity::ed25519;
 use particle_actors::ActorConfig;
 use particle_dht::DHTConfig;
 use particle_services::ServicesConfig;
-use std::io;
-use std::path::PathBuf;
+
+use config_utils::to_peer_id;
+
+use libp2p::identity::ed25519;
+use std::{collections::HashMap, io, path::PathBuf};
 
 pub struct ParticleConfig {
     services_base_dir: PathBuf,
-    services_envs: Vec<String>,
+    services_envs: HashMap<Vec<u8>, Vec<u8>>,
     stepper_base_dir: PathBuf,
     key_pair: ed25519::Keypair,
 }
@@ -32,7 +33,7 @@ pub struct ParticleConfig {
 impl ParticleConfig {
     pub fn new(
         services_base_dir: PathBuf,
-        services_envs: Vec<String>,
+        services_envs: HashMap<Vec<u8>, Vec<u8>>,
         stepper_base_dir: PathBuf,
         key_pair: ed25519::Keypair,
     ) -> Self {

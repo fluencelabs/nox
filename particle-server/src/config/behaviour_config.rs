@@ -24,6 +24,7 @@ use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519;
 use libp2p::PeerId;
 use prometheus::Registry;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub struct BehaviourConfig<'a> {
@@ -35,7 +36,7 @@ pub struct BehaviourConfig<'a> {
     pub bootstrap: BootstrapConfig,
     pub registry: Option<&'a Registry>,
     pub services_base_dir: PathBuf,
-    pub services_envs: Vec<String>,
+    pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
     pub stepper_base_dir: PathBuf,
 }
 
