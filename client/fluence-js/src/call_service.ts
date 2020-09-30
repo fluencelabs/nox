@@ -23,12 +23,16 @@ class Service {
 
 let services: Map<string, Service> = new Map();
 
+function registerService(service: Service) {
+    services.set(service.serviceId, service)
+}
+
 let logger = new Service("logger")
 logger.registerFunction("logger", (args: string) => {
     console.log("logger service: " + args)
     return ""
 })
-services.set("logger", logger)
+registerService(logger);
 
 export function call_service(service_id: string, fn_name: string, args: string): string {
     let service = services.get(service_id)
