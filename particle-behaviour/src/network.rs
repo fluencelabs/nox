@@ -114,6 +114,10 @@ impl NetworkBehaviour for ParticleBehaviour {
             NetworkBehaviourEventProcess::inject_event(self, event);
         }
 
+        if let Poll::Ready(cmd) = self.mailbox.poll(cx) {
+            NetworkBehaviourEventProcess::inject_event(self, cmd);
+        }
+
         // Poll kademlia and forward GenerateEvent to self.dht
         poll_loop!(
             &mut self.dht,

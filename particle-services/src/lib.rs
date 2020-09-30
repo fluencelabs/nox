@@ -38,5 +38,7 @@ mod vm;
 
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
 
+pub use crate::args::Args;
 pub use crate::config::ServicesConfig;
 pub use crate::services::ParticleServices;
+pub use fluence_app_service::{IType, IValue};

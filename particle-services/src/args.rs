@@ -26,36 +26,38 @@ pub struct Args {
     pub args: serde_json::Value,
 }
 
-pub fn parse_args(args: Vec<IValue>) -> Result<Args, ServiceError> {
-    let mut args = args.into_iter();
-    let service_id = args.next().and_then(into_string).ok_or(ArgParseError {
-        field: "service_id",
-        error: Missing,
-    })?;
-    let fname = args.next().and_then(into_string).ok_or(ArgParseError {
-        field: "fname",
-        error: Missing,
-    })?;
-    let args = args
-        .next()
-        .as_ref()
-        .and_then(into_str)
-        .ok_or(ArgParseError {
-            field: "args",
+impl Args {
+    pub fn parse(args: Vec<IValue>) -> Result<Args, ServiceError> {
+        let mut args = args.into_iter();
+        let service_id = args.next().and_then(into_string).ok_or(ArgParseError {
+            field: "service_id",
             error: Missing,
-        })
-        .and_then(|v| {
-            serde_json::from_str(v).map_err(|err| ArgParseError {
-                field: "args",
-                error: SerdeJson(err),
-            })
         })?;
+        let fname = args.next().and_then(into_string).ok_or(ArgParseError {
+            field: "fname",
+            error: Missing,
+        })?;
+        let args = args
+            .next()
+            .as_ref()
+            .and_then(into_str)
+            .ok_or(ArgParseError {
+                field: "args",
+                error: Missing,
+            })
+            .and_then(|v| {
+                serde_json::from_str(v).map_err(|err| ArgParseError {
+                    field: "args",
+                    error: SerdeJson(err),
+                })
+            })?;
 
-    Ok(Args {
-        service_id,
-        fname,
-        args,
-    })
+        Ok(Args {
+            service_id,
+            fname,
+            args,
+        })
+    }
 }
 
 fn into_str(v: &IValue) -> Option<&str> {

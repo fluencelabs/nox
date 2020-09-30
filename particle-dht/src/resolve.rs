@@ -16,10 +16,15 @@
 
 use crate::wait_peer::WaitPeer;
 use crate::ParticleDHT;
+use libp2p::kad::record::Key;
 use libp2p::PeerId;
 use particle_protocol::Particle;
 
 impl ParticleDHT {
+    pub fn resolve(&mut self, _key: Key) {
+        unimplemented!("TODO")
+    }
+
     /// Look for peer in Kademlia, enqueue call to wait for result
     pub(super) fn search_then_send(&mut self, peer_id: PeerId, particle: Particle) {
         self.query_closest(peer_id, WaitPeer::Routable(particle))

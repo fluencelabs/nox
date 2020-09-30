@@ -13,14 +13,16 @@ particle-services = { path = "../particle-services"}
 config-utils = { path = "../crates/config-utils" }
 trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
+waiting-queues = { path = "../crates/waiting-queues" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 prometheus = "0.9.0"
 log = "0.4.11"
+futures = "0.3.5"
+serde_json = "1.0.57"
+bs58 = "0.3.1"
 
 [dev-dependencies]
-futures = "0.3.5"
 async-std = { version = "1.6.5", features = ["unstable"] }
 rand = "0.7.3"
 test-utils = { path = "../crates/test-utils" }
-serde_json = "1.0.57"

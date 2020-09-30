@@ -3071,6 +3071,7 @@ name = "particle-behaviour"
 version = "0.0.1"
 dependencies = [
  "async-std",
+ "bs58",
  "config-utils",
  "fluence-libp2p",
  "futures",
@@ -3085,6 +3086,7 @@ dependencies = [
  "serde_json",
  "test-utils",
  "trust-graph",
+ "waiting-queues",
 ]
 
 [[package]]
@@ -3094,6 +3096,7 @@ dependencies = [
  "bs58",
  "control-macro",
  "fluence-libp2p",
+ "futures",
  "libp2p",
  "log",
  "once_cell",

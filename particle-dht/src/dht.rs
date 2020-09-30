@@ -19,6 +19,7 @@ use super::wait_peer::WaitPeer;
 use trust_graph::TrustGraph;
 use waiting_queues::WaitingQueues;
 
+use libp2p::kad::record::Key;
 use libp2p::swarm::DialPeerCondition;
 use libp2p::{
     core::{identity::ed25519, Multiaddr},
@@ -57,6 +58,10 @@ pub enum DHTEvent {
     Forward {
         target: PeerId,
         particle: Particle,
+    },
+    Resolved {
+        key: Key,
+        value: Vec<u8>,
     },
 }
 

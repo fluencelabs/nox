@@ -15,6 +15,7 @@
  */
 
 use crate::clients::PeerKind;
+use crate::mailbox::{DHTCommandKind, Mailbox};
 use crate::ParticleConfig;
 
 use particle_actors::{Plumber, PlumberEvent};
@@ -25,6 +26,7 @@ use particle_services::ParticleServices;
 use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
 
+use crate::host_closures::Closures;
 use libp2p::{
     core::{either::EitherOutput, identity::ed25519, Multiaddr},
     swarm::{NetworkBehaviourAction, NotifyHandler},
@@ -44,6 +46,8 @@ pub struct ParticleBehaviour {
     pub(super) dht: ParticleDHT,
     #[allow(dead_code)]
     pub(super) services: ParticleServices,
+    #[allow(dead_code)]
+    pub(super) mailbox: Mailbox,
     pub(super) clients: HashMap<PeerId, Option<Multiaddr>>,
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
@@ -63,6 +67,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour
             DHTEvent::DialPeer { peer_id, condition } => self
                 .events
                 .push_back(NetworkBehaviourAction::DialPeer { peer_id, condition }),
+            DHTEvent::Resolved { key, value } => self.mailbox.resolve_complete(key, value),
         }
     }
 }
@@ -82,6 +87,14 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehav
     }
 }
 
+impl libp2p::swarm::NetworkBehaviourEventProcess<DHTCommandKind> for ParticleBehaviour {
+    fn inject_event(&mut self, cmd: DHTCommandKind) {
+        match cmd {
+            DHTCommandKind::Resolve(key) => self.dht.resolve(key),
+        }
+    }
+}
+
 impl ParticleBehaviour {
     pub fn new(
         config: ParticleConfig,
@@ -89,13 +102,20 @@ impl ParticleBehaviour {
         registry: Option<&Registry>,
     ) -> io::Result<Self> {
         let services = ParticleServices::new(config.services_config()?);
-        let plumber = Plumber::new(config.actor_config()?, services.fabric());
+        let mailbox = Mailbox::new();
+        let closures = Closures {
+            call_service: services.call_service(),
+            create_service: services.create_service(),
+            builtin: mailbox.get_api().router(),
+        };
+        let plumber = Plumber::new(config.actor_config()?, closures.descriptor());
         let dht = ParticleDHT::new(config.dht_config(), trust_graph, registry);
 
         Ok(Self {
             plumber,
             dht,
             services,
+            mailbox,
             clients: <_>::default(),
             events: <_>::default(),
             waker: <_>::default(),
