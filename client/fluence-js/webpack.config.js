@@ -7,7 +7,7 @@ const production = (process.env.NODE_ENV === 'production');
 
 const config = {
     entry: {
-        app: ['./index.ts']
+        app: ['./src/fluence.ts']
     },
     module: {
         rules: [
