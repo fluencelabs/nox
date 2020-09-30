@@ -3078,6 +3078,7 @@ dependencies = [
  "libp2p",
  "log",
  "particle-actors",
+ "particle-closures",
  "particle-dht",
  "particle-protocol",
  "particle-services",
@@ -3093,13 +3094,17 @@ dependencies = [
 name = "particle-closures"
 version = "0.0.1"
 dependencies = [
+ "bs58",
  "config-utils",
  "fluence-libp2p",
+ "futures",
  "libp2p",
+ "log",
  "particle-actors",
  "particle-dht",
  "particle-protocol",
  "particle-services",
+ "serde_json",
  "trust-graph",
  "waiting-queues",
 ]

@@ -15,7 +15,6 @@
  */
 
 use crate::clients::PeerKind;
-use crate::mailbox::{BuiltinCommand, Mailbox};
 use crate::ParticleConfig;
 
 use particle_actors::{Plumber, PlumberEvent};
@@ -26,12 +25,12 @@ use particle_services::ParticleAppServices;
 use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
 
-use crate::host_closures::HostClosures;
 use libp2p::{
     core::{either::EitherOutput, identity::ed25519, Multiaddr},
     swarm::{NetworkBehaviourAction, NotifyHandler},
     PeerId,
 };
+use particle_closures::{BuiltinCommand, HostClosures, Mailbox};
 use prometheus::Registry;
 use std::{
     collections::{HashMap, VecDeque},

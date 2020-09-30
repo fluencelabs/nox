@@ -26,10 +26,10 @@
     unreachable_patterns
 )]
 
-mod behaviour;
-mod clients;
-mod config;
-mod network;
+mod builtin_services;
+mod host_closures;
+mod mailbox;
 
-pub use crate::behaviour::ParticleBehaviour;
-pub use crate::config::ParticleConfig;
+pub use builtin_services::BuiltinServices;
+pub use host_closures::HostClosures;
+pub use mailbox::{BuiltinCommand, Mailbox};
