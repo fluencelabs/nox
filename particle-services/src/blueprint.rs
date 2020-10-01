@@ -14,4 +14,15 @@
  * limitations under the License.
  */
 
-pub static AQUAMARINE: &[u8] = include_bytes!("../artifacts/aquamarine.wasm");
+use serde::{Deserialize, Serialize};
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Blueprint {
+    pub name: String,
+    #[serde(default = "uuid")]
+    pub id: String,
+    pub dependencies: Vec<String>,
+}
+
+fn uuid() -> String {
+    uuid::Uuid::new_v4().to_string()
+}

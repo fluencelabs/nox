@@ -7,18 +7,18 @@ edition = "2018"
 [dependencies]
 fluence-client = { path = "../../client/rust-libp2p" }
 trust-graph = { path = "../../trust-graph" }
+config-utils = { path = "../config-utils" }
 fluence-libp2p = { path = "../libp2p" }
 particle-server = { path = "../../particle-server" }
 particle-protocol = { path = "../../particle-protocol" }
 particle-actors = { path = "../../particle-actors" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
-parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
 rand = "0.7.3"
-async-std = "1.6.4"
-futures = "0.3.4"
-futures-util = "0.3.4"
+async-std = "1.6.5"
+futures = "0.3.5"
+futures-util = "0.3.5"
 serde_json = "1.0.57"
 serde = "1.0.116"
 log = "0.4.11"

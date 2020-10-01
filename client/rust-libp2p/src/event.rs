@@ -15,8 +15,8 @@
  */
 
 use fluence_libp2p::peerid_serializer;
+use libp2p::core::Multiaddr;
 use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use particle_protocol::Particle;
 use serde::{Deserialize, Serialize};
 

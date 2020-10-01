@@ -11,6 +11,8 @@ members = [
     "particle-actors",
     "particle-protocol",
     "particle-dht",
+    "particle-services",
+    "crates/config-utils"
 ]
 exclude = [
     "client/js-websocket/utils-wasm",
@@ -19,7 +21,6 @@ exclude = [
 [patch.crates-io]
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
-parity-multiaddr = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
 [patch.'https://github.com/fluencelabs/fluence']
 trust-graph = { path = "trust-graph" }

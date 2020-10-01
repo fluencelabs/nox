@@ -14,10 +14,19 @@
  * limitations under the License.
  */
 
-mod artifacts;
+#![warn(rust_2018_idioms)]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
+
 mod connected_client;
 mod misc;
 
-pub use artifacts::*;
 pub use connected_client::ConnectedClient;
 pub use misc::*;

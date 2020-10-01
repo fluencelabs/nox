@@ -17,24 +17,24 @@
 use crate::behaviour::SwarmEventType;
 use crate::ParticleBehaviour;
 
-use particle_dht::ParticleDHT;
 use particle_protocol::{ProtocolConfig, ProtocolMessage};
 
 use fluence_libp2p::{poll_loop, remote_multiaddr};
 
-use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{
     core::{
         connection::{ConnectionId, ListenerId},
         either::EitherOutput,
         ConnectedPoint, Multiaddr,
     },
+    kad::{store::MemoryStore, Kademlia},
     swarm::{
-        IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, OneShotHandler,
-        PollParameters, ProtocolsHandler,
+        IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour,
+        NetworkBehaviourEventProcess, OneShotHandler, PollParameters, ProtocolsHandler,
     },
     PeerId,
 };
+use std::ops::DerefMut;
 use std::{
     error::Error,
     task::{Context, Poll},
@@ -43,7 +43,7 @@ use std::{
 impl NetworkBehaviour for ParticleBehaviour {
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
         OneShotHandler<ProtocolConfig, ProtocolMessage, ProtocolMessage>,
-        <ParticleDHT as NetworkBehaviour>::ProtocolsHandler,
+        <Kademlia<MemoryStore> as NetworkBehaviour>::ProtocolsHandler,
     >;
     type OutEvent = ();
 
@@ -52,19 +52,21 @@ impl NetworkBehaviour for ParticleBehaviour {
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        let p = self.plumber.client_address(peer_id).clone().into_iter();
+        let p = self.client_address(peer_id).clone().into_iter();
         let d = self.dht.addresses_of_peer(peer_id).into_iter();
 
         p.chain(d).collect()
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
+        self.dht.connected(peer_id.clone());
         self.dht.inject_connected(peer_id);
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
         // TODO: self.dht.unpublish_client(peer_id)
-        self.plumber.remove_client(peer_id);
+        self.remove_client(peer_id);
+        self.dht.disconnected(peer_id);
         self.dht.inject_disconnected(peer_id);
     }
 
@@ -80,7 +82,7 @@ impl NetworkBehaviour for ParticleBehaviour {
             First(event) => match event {
                 ProtocolMessage::Upgrade => {
                     log::info!("New client connected: {}", peer_id);
-                    self.plumber.add_client(peer_id.clone());
+                    self.add_client(peer_id.clone());
                     self.dht.publish_client(peer_id);
                 }
                 ProtocolMessage::Particle(particle) => {
@@ -90,7 +92,7 @@ impl NetworkBehaviour for ParticleBehaviour {
                 ProtocolMessage::UpgradeError(_) => {}
             },
             Second(event) => {
-                NetworkBehaviour::inject_event(&mut self.dht, peer_id, connection, event)
+                NetworkBehaviour::inject_event(self.dht.deref_mut(), peer_id, connection, event)
             }
         }
     }
@@ -108,7 +110,18 @@ impl NetworkBehaviour for ParticleBehaviour {
             NetworkBehaviourEventProcess::inject_event(self, event);
         }
 
-        poll_loop!(self, self.dht, cx, params, EitherOutput::Second);
+        if let Poll::Ready(event) = self.dht.poll(cx) {
+            NetworkBehaviourEventProcess::inject_event(self, event);
+        }
+
+        // Poll kademlia and forward GenerateEvent to self.dht
+        poll_loop!(
+            &mut self.dht,
+            self.dht.deref_mut(),
+            cx,
+            params,
+            EitherOutput::Second
+        );
 
         Poll::Pending
     }
@@ -154,7 +167,7 @@ impl NetworkBehaviour for ParticleBehaviour {
         cp: &ConnectedPoint,
     ) {
         let maddr = remote_multiaddr(cp);
-        self.plumber.add_client_address(id, maddr.clone());
+        self.add_client_address(id, maddr.clone());
         self.dht.inject_connection_established(id, ci, cp);
     }
 

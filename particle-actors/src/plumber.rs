@@ -17,14 +17,13 @@
 use crate::actor::{Actor, ActorEvent};
 use crate::config::ActorConfig;
 
+use aquamarine_vm::{AquamarineVMError, HostImportDescriptor};
 use particle_protocol::Particle;
 
-use fluence_app_service::AppServiceError;
-
+use async_std::sync::Arc;
 use async_std::task;
 use futures::{future::BoxFuture, Future};
 use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
     fmt::{Debug, Formatter},
@@ -33,83 +32,36 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-#[derive(Debug)]
-pub enum PeerKind {
-    Client,
-    Unknown,
-}
+type Fut = BoxFuture<'static, Result<Actor, AquamarineVMError>>;
+pub(super) type Fabric = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
 
 #[derive(Debug)]
 pub enum PlumberEvent {
-    Forward {
-        target: PeerId,
-        particle: Particle,
-        kind: PeerKind,
-    },
+    Forward { target: PeerId, particle: Particle },
 }
-
-type Fut = BoxFuture<'static, Result<Actor, AppServiceError>>;
 
 pub enum ActorState {
     Creating { future: Fut, mailbox: Vec<Particle> },
     Created(Actor),
 }
 
-impl Debug for ActorState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ActorState::Creating { mailbox, .. } => write!(
-                f,
-                "ActorState::Creating {{ future: OPAQUE, mailbox: {:?} }}",
-                mailbox
-            ),
-            ActorState::Created(actor) => write!(
-                f,
-                "ActorState::Created {{ actor.particle: {:?} }}",
-                actor.particle()
-            ),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct Plumber {
-    clients: HashMap<PeerId, Option<Multiaddr>>,
+    config: ActorConfig,
     events: VecDeque<PlumberEvent>,
     actors: HashMap<String, ActorState>,
-    config: ActorConfig,
+    services: Fabric,
     pub(super) waker: Option<Waker>,
 }
 
 impl Plumber {
-    pub fn new(config: ActorConfig) -> Self {
+    pub fn new(config: ActorConfig, services: Fabric) -> Self {
         Self {
-            clients: <_>::default(),
+            config,
+            services,
             events: <_>::default(),
             actors: <_>::default(),
-            config,
             waker: <_>::default(),
         }
-    }
-
-    pub fn add_client(&mut self, client: PeerId) {
-        self.clients.insert(client, None);
-    }
-
-    pub fn add_client_address(&mut self, client: &PeerId, address: Multiaddr) {
-        if let Some(addr) = self.clients.get_mut(client) {
-            if let Some(addr) = addr.replace(address) {
-                log::info!("Replaced old addr {} for client {}", addr, client)
-            }
-        }
-    }
-
-    pub fn client_address(&self, client: &PeerId) -> &Option<Multiaddr> {
-        self.clients.get(client).unwrap_or(&None)
-    }
-
-    pub fn remove_client(&mut self, client: &PeerId) {
-        self.clients.remove(client);
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
@@ -118,7 +70,8 @@ impl Plumber {
             Entry::Vacant(entry) => {
                 // Create new actor
                 let config = self.config.clone();
-                let future = Self::create_actor(config, particle);
+                let services = self.services.clone();
+                let future = Self::create_actor(config, particle, services);
                 entry.insert(ActorState::Creating {
                     future,
                     mailbox: vec![],
@@ -190,12 +143,8 @@ impl Plumber {
         // Turn effects into events, and buffer them
         for effect in effects {
             let ActorEvent::Forward { particle, target } = effect;
-            let kind = self.peer_kind(&target);
-            self.events.push_back(PlumberEvent::Forward {
-                particle,
-                target,
-                kind,
-            });
+            self.events
+                .push_back(PlumberEvent::Forward { particle, target });
         }
 
         // Return new event if there is some
@@ -212,19 +161,26 @@ impl Plumber {
         }
     }
 
-    fn create_actor(config: ActorConfig, particle: Particle) -> Fut {
-        Box::pin(task::spawn_blocking(move || Actor::new(config, particle)))
+    fn create_actor(config: ActorConfig, particle: Particle, services: Fabric) -> Fut {
+        Box::pin(task::spawn_blocking(move || {
+            Actor::new(config, particle, services)
+        }))
     }
+}
 
-    /// Returns whether peer is a directly connected client or not
-    fn peer_kind(&self, peer: &PeerId) -> PeerKind {
-        if let Some(addr) = self.clients.get(peer) {
-            if addr.is_none() {
-                log::warn!("Address of the peer {} is unknown", peer);
-            }
-            PeerKind::Client
-        } else {
-            PeerKind::Unknown
+impl Debug for ActorState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ActorState::Creating { mailbox, .. } => write!(
+                f,
+                "ActorState::Creating {{ future: OPAQUE, mailbox: {:?} }}",
+                mailbox
+            ),
+            ActorState::Created(actor) => write!(
+                f,
+                "ActorState::Created {{ actor.particle: {:?} }}",
+                actor.particle()
+            ),
         }
     }
 }

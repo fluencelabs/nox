@@ -65,14 +65,13 @@ pub mod multihash_serializer {
 
 // waiting for https://github.com/serde-rs/serde/issues/723 that will make UX better
 pub mod provider_serializer {
-    use libp2p::PeerId;
-    use parity_multiaddr::Multiaddr;
-    use serde::de::{SeqAccess, Visitor};
-    use serde::ser::SerializeSeq;
-    use serde::{Deserializer, Serializer};
-
-    use std::fmt;
-    use std::str::FromStr;
+    use libp2p::{core::Multiaddr, PeerId};
+    use serde::{
+        de::{SeqAccess, Visitor},
+        ser::SerializeSeq,
+        Deserializer, Serializer,
+    };
+    use std::{fmt, str::FromStr};
 
     pub fn serialize<S>(value: &[(Multiaddr, PeerId)], serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -133,7 +132,7 @@ pub mod provider_serializer {
 #[cfg(test)]
 mod tests {
     use crate::RandomPeerId;
-    use libp2p::PeerId;
+    use libp2p::{core::Multiaddr, PeerId};
     use serde::{Deserialize, Serialize};
     use std::str::FromStr;
 
@@ -213,7 +212,6 @@ mod tests {
     #[test]
     fn providers() {
         use super::provider_serializer;
-        use parity_multiaddr::Multiaddr;
         use std::net::Ipv4Addr;
 
         #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]

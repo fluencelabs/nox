@@ -10,17 +10,17 @@ client-debug:
 
 node-bootstrap:
 	RUST_BACKTRACE=1 ${DEBUG_ENV} \
-	cargo run -p fluence-server -- -t 7770 -w 9990 \
+	cargo run -p particle-server -- -t 7770 -w 9990 \
 	-k wCUPkGaBypwbeuUnmgVyN37j9iavRoqzAkddDUzx3Yir7q1yuTp3H8cdUZERYxeQ8PEiMYcDuiy1DDkfueNh1Y6
 
 node-first:
 	RUST_BACKTRACE=1 ${DEBUG_ENV} \
-	cargo run -p fluence-server -- -t 7771 -w 9991 -b /ip4/127.0.0.1/tcp/7770 \
+	cargo run -p particle-server -- -t 7771 -w 9991 -b /ip4/127.0.0.1/tcp/7770 \
 	-k 4pJqYfv3wXUpodE6Bi4wE8bJkpHuFbGcXrdFnT9L29j782ge7jdov7FPrbwnvwjUm4UhK5BvJvAYikCcmvCPVx9s
 
 node-second:
 	RUST_BACKTRACE=1 ${DEBUG_ENV} \
-	cargo run -p fluence-server -- -t 7772 -w 9992 -b /ip4/127.0.0.1/tcp/7770 \
+	cargo run -p particle-server -- -t 7772 -w 9992 -b /ip4/127.0.0.1/tcp/7770 \
 	-k 2zgzUew3bMSgWcZ34FFS36LiJVkn3YphW2H8TDvL8JF8T4apTDxnm7GRsLppkCNGS5ytAQioxEktYq8Wr8SWAHLv
 
 fluence-ipfs:
@@ -54,7 +54,7 @@ client-tmux:
 	select-layout tiled
 
 RUST_ENV=RUST_BACKTRACE=1 RUST_LOG="info,libp2p_kad=trace,fluence_server=trace"
-FLUENCE=${RUST_ENV} ./target/debug/fluence-server
+FLUENCE=${RUST_ENV} ./target/debug/particle-server
 BOOTSTRAP=/ip4/127.0.0.1/tcp/7770
 node-many:
 	cargo update -p libp2p

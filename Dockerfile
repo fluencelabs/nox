@@ -1,5 +1,5 @@
 from rust
-ARG exe=fluence-server
+ARG exe=particle-server
 ARG local_exe=
 copy $local_exe /executable
 run chmod +x /executable

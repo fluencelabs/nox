@@ -15,18 +15,24 @@
  */
 
 use crate::bootstrapper::event::BootstrapperEvent;
+
 use fluence_libp2p::{event_polling, generate_swarm_event_type, remote_multiaddr};
-use libp2p::core::connection::{ConnectedPoint, ConnectionId};
-use libp2p::swarm::{
-    protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction,
+
+use libp2p::{
+    core::{
+        connection::{ConnectedPoint, ConnectionId},
+        Multiaddr,
+    },
+    swarm::{protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction},
+    PeerId,
 };
-use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::error::Error;
-use std::mem;
-use std::time::{Duration, Instant};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    error::Error,
+    mem,
+    time::{Duration, Instant},
+};
 
 pub type SwarmEventType = generate_swarm_event_type!(Bootstrapper);
 

@@ -37,8 +37,8 @@ use futures::{
     select,
     stream::StreamExt,
 };
+use libp2p::core::Multiaddr;
 use libp2p::PeerId;
-use parity_multiaddr::Multiaddr;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {

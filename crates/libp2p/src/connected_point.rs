@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-use libp2p::core::connection::ConnectedPoint;
-use parity_multiaddr::Multiaddr;
+use libp2p::core::{connection::ConnectedPoint, Multiaddr};
 
 /// Retrieves multiaddr of the remote peer
 pub fn remote_multiaddr(cp: &ConnectedPoint) -> &Multiaddr {

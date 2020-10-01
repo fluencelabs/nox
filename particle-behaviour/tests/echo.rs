@@ -16,8 +16,7 @@
 
 #![recursion_limit = "256"]
 
-use particle_behaviour::{ActorConfig, ParticleBehaviour};
-use particle_dht::DHTConfig;
+use particle_behaviour::{ParticleBehaviour, ParticleConfig};
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 
 use fluence_libp2p::{build_memory_transport, generate_swarm_event_type};
@@ -100,15 +99,15 @@ macro_rules! make_swarm {
 }
 
 fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
-    let mut swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
+    let mut swarm = make_swarm!(|_: PeerId, keypair: Keypair| {
         let tmp = make_tmp_dir();
-        let actor_config =
-            ActorConfig::new(tmp, vec![], "aquamarine".to_string()).expect("actor config");
-        put_aquamarine(actor_config.modules_dir.clone());
-        let dht_config = DHTConfig { peer_id, keypair };
         let trust_graph = TrustGraph::new(<_>::default());
         let registry = None;
-        ParticleBehaviour::new(actor_config, dht_config, trust_graph, registry)
+        let config = ParticleConfig::new(tmp.clone(), vec![], tmp.clone(), keypair);
+        let behaviour =
+            ParticleBehaviour::new(config, trust_graph, registry).expect("particle behaviour");
+        put_aquamarine(tmp.join("modules"), None);
+        behaviour
     });
 
     let address = create_memory_maddr();
