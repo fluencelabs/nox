@@ -21,17 +21,44 @@ use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     swarm::{protocols_handler, OneShotHandler},
 };
+use serde::Deserialize;
 use serde_json::json;
-use std::{io, iter};
+use std::{io, iter, time::Duration};
 
 pub use failure::Error;
+use libp2p::swarm::OneShotHandlerConfig;
 
-#[derive(Clone, Default)]
-pub struct ProtocolConfig {}
+#[derive(Clone, Deserialize, Debug)]
+pub struct ProtocolConfig {
+    /// Timeout for applying the given upgrade on a substream
+    pub upgrade_timeout: Duration,
+    /// Keep-alive timeout for idle connections.
+    pub keep_alive_timeout: Duration,
+    /// Timeout for outbound substream upgrades.
+    pub outbound_substream_timeout: Duration,
+}
+
+impl Default for ProtocolConfig {
+    fn default() -> Self {
+        Self {
+            upgrade_timeout: Duration::from_secs(10),
+            keep_alive_timeout: Duration::from_secs(10),
+            outbound_substream_timeout: Duration::from_secs(10),
+        }
+    }
+}
 
 impl ProtocolConfig {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(
+        upgrade_timeout: Duration,
+        keep_alive_timeout: Duration,
+        outbound_substream_timeout: Duration,
+    ) -> Self {
+        Self {
+            upgrade_timeout,
+            keep_alive_timeout,
+            outbound_substream_timeout,
+        }
     }
 
     fn gen_error<E: std::error::Error>(&self, err: &E, data: &[u8]) -> ProtocolMessage {
@@ -44,8 +71,12 @@ impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent>
 {
     fn into(self) -> OneShotHandler<ProtocolConfig, OutProto, OutEvent> {
         OneShotHandler::new(
-            protocols_handler::SubstreamProtocol::new(self),
-            <_>::default(),
+            protocols_handler::SubstreamProtocol::new(self.clone())
+                .with_timeout(self.upgrade_timeout),
+            OneShotHandlerConfig {
+                keep_alive_timeout: self.keep_alive_timeout,
+                outbound_substream_timeout: self.outbound_substream_timeout,
+            },
         )
     }
 }
@@ -157,7 +188,7 @@ mod tests {
             let listener_event = listener.next().await.unwrap();
             let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
             let conn = listener_upgrade.await.unwrap();
-            let config = ProtocolConfig::new();
+            let config = ProtocolConfig::default();
             upgrade::apply_inbound(conn, config).await.unwrap()
         });
 

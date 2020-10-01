@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-use crate::clients::PeerKind;
 use crate::ParticleConfig;
 
-use particle_actors::{Plumber, PlumberEvent};
-use particle_dht::{DHTEvent, ParticleDHT};
-use particle_protocol::{Particle, ProtocolMessage};
+use particle_actors::Plumber;
+use particle_dht::ParticleDHT;
+use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 use particle_services::ParticleAppServices;
 
 use fluence_libp2p::generate_swarm_event_type;
@@ -30,7 +29,7 @@ use libp2p::{
     swarm::{NetworkBehaviourAction, NotifyHandler},
     PeerId,
 };
-use particle_closures::{BuiltinCommand, HostClosures, Mailbox};
+use particle_closures::{HostClosures, Mailbox};
 use prometheus::Registry;
 use std::{
     collections::{HashMap, VecDeque},
@@ -47,51 +46,10 @@ pub struct ParticleBehaviour {
     pub(super) services: ParticleAppServices,
     #[allow(dead_code)]
     pub(super) mailbox: Mailbox,
-    pub(super) clients: HashMap<PeerId, Option<Multiaddr>>,
+    pub(super) clients: HashMap<PeerId, Multiaddr>,
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
-}
-
-impl libp2p::swarm::NetworkBehaviourEventProcess<()> for ParticleBehaviour {
-    fn inject_event(&mut self, _: ()) {}
-}
-
-impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour {
-    fn inject_event(&mut self, event: DHTEvent) {
-        log::info!("DHT event: {:?}", event);
-        match event {
-            DHTEvent::Published(_) => {}
-            DHTEvent::PublishFailed(_, _) => {}
-            DHTEvent::Forward { target, particle } => self.forward_particle(target, particle),
-            DHTEvent::DialPeer { peer_id, condition } => self
-                .events
-                .push_back(NetworkBehaviourAction::DialPeer { peer_id, condition }),
-            DHTEvent::Resolved { key, value } => self.mailbox.resolve_complete(key, value),
-        }
-    }
-}
-
-impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehaviour {
-    fn inject_event(&mut self, event: PlumberEvent) {
-        log::info!("Plumber event: {:?}", event);
-        match event {
-            PlumberEvent::Forward { target, particle } => {
-                if let PeerKind::Client = self.peer_kind(&target) {
-                    self.forward_particle(target, particle);
-                } else {
-                    self.dht.send_to(target, particle)
-                }
-            }
-        }
-    }
-}
-
-impl libp2p::swarm::NetworkBehaviourEventProcess<BuiltinCommand> for ParticleBehaviour {
-    fn inject_event(&mut self, cmd: BuiltinCommand) {
-        match cmd {
-            BuiltinCommand::DHTResolve(key) => self.dht.resolve(key),
-        }
-    }
+    pub(super) protocol_config: ProtocolConfig,
 }
 
 impl ParticleBehaviour {
@@ -115,6 +73,7 @@ impl ParticleBehaviour {
             dht,
             services,
             mailbox,
+            protocol_config: config.protocol_config,
             clients: <_>::default(),
             events: <_>::default(),
             waker: <_>::default(),
@@ -142,7 +101,7 @@ impl ParticleBehaviour {
         self.events.push_back(event);
     }
 
-    fn forward_particle(&mut self, target: PeerId, particle: Particle) {
+    pub(super) fn forward_particle(&mut self, target: PeerId, particle: Particle) {
         self.push_event(NetworkBehaviourAction::NotifyHandler {
             peer_id: target,
             handler: NotifyHandler::Any,

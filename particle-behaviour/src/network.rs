@@ -48,19 +48,25 @@ impl NetworkBehaviour for ParticleBehaviour {
     type OutEvent = ();
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        IntoProtocolsHandler::select(ProtocolConfig::new().into(), self.dht.new_handler())
+        IntoProtocolsHandler::select(self.protocol_config.clone().into(), self.dht.new_handler())
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        let p = self.client_address(peer_id).clone().into_iter();
+        let p = self.client_address(peer_id).cloned().into_iter();
         let d = self.dht.addresses_of_peer(peer_id).into_iter();
 
-        p.chain(d).collect()
+        let addrs = p.chain(d).collect();
+
+        log::debug!("Addresses of peer {}: {:?}", peer_id, addrs);
+
+        addrs
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
+        log::info!("New client connected: {}", peer_id);
         self.dht.connected(peer_id.clone());
         self.dht.inject_connected(peer_id);
+        self.dht.publish_client(peer_id.clone());
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
@@ -80,16 +86,12 @@ impl NetworkBehaviour for ParticleBehaviour {
 
         match event {
             First(event) => match event {
-                ProtocolMessage::Upgrade => {
-                    log::info!("New client connected: {}", peer_id);
-                    self.add_client(peer_id.clone());
-                    self.dht.publish_client(peer_id);
-                }
                 ProtocolMessage::Particle(particle) => {
                     log::info!("Ingesting particle {:?}", particle);
                     self.plumber.ingest(particle)
                 }
-                ProtocolMessage::UpgradeError(_) => {}
+                ProtocolMessage::Upgrade => {}
+                ProtocolMessage::UpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
             },
             Second(event) => {
                 NetworkBehaviour::inject_event(self.dht.deref_mut(), peer_id, connection, event)
@@ -102,6 +104,8 @@ impl NetworkBehaviour for ParticleBehaviour {
         cx: &mut Context<'_>,
         params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
+        self.waker = Some(cx.waker().clone());
+
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);
         }
@@ -171,7 +175,7 @@ impl NetworkBehaviour for ParticleBehaviour {
         cp: &ConnectedPoint,
     ) {
         let maddr = remote_multiaddr(cp);
-        self.add_client_address(id, maddr.clone());
+        self.add_client_address(id.clone(), maddr.clone());
         self.dht.inject_connection_established(id, ci, cp);
     }
 

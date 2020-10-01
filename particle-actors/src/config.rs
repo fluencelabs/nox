@@ -15,10 +15,12 @@
  */
 
 use config_utils::{create_dirs, to_abs_path};
+use libp2p::PeerId;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct ActorConfig {
+    pub current_peer_id: PeerId,
     /// Working dir for steppers
     pub workdir: PathBuf,
     /// Dir to store .wasm modules and their configs
@@ -28,10 +30,11 @@ pub struct ActorConfig {
 }
 
 impl ActorConfig {
-    pub fn new(base_dir: PathBuf) -> Result<Self, std::io::Error> {
+    pub fn new(current_peer_id: PeerId, base_dir: PathBuf) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
 
         let this = Self {
+            current_peer_id,
             workdir: config_utils::workdir(&base_dir),
             modules_dir: config_utils::modules_dir(&base_dir),
             services_dir: config_utils::services_dir(&base_dir),

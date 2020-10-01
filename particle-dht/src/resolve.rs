@@ -32,6 +32,7 @@ impl ParticleDHT {
 
     /// Query for peers closest to the `peer_id` as DHT key, enqueue call until response
     fn query_closest(&mut self, peer_id: PeerId, call: WaitPeer) {
+        log::debug!("Queried closest peers for peer_id {}", peer_id);
         // TODO: Don't call get_closest_peers if there are already WaitPeer::Neighbourhood or WaitPeer::Routable enqueued
         self.wait_peer.enqueue(peer_id.clone(), call);
         // NOTE: Using Qm form of `peer_id` here (via peer_id.borrow), since kademlia uses that for keys
@@ -39,6 +40,7 @@ impl ParticleDHT {
     }
 
     pub(super) fn found_closest(&mut self, peer_id: PeerId, peers: Vec<PeerId>) {
+        log::debug!("Found closest peers for peer_id {}: {:?}", peer_id, peers);
         // Forward to `peer_id`
         let particles = self
             .wait_peer

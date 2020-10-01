@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
+use crate::config::ServerConfig;
 use crate::BootstrapConfig;
 
+use particle_protocol::ProtocolConfig;
+
+use config_utils::to_peer_id;
 use trust_graph::TrustGraph;
 
-use crate::config::ServerConfig;
-use config_utils::to_peer_id;
-use libp2p::core::Multiaddr;
-use libp2p::identity::ed25519;
-use libp2p::PeerId;
+use libp2p::{core::Multiaddr, identity::ed25519, PeerId};
 use prometheus::Registry;
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 pub struct BehaviourConfig<'a> {
     pub key_pair: ed25519::Keypair,
@@ -38,6 +37,7 @@ pub struct BehaviourConfig<'a> {
     pub services_base_dir: PathBuf,
     pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
     pub stepper_base_dir: PathBuf,
+    pub protocol_config: ProtocolConfig,
 }
 
 impl<'a> BehaviourConfig<'a> {
@@ -58,6 +58,7 @@ impl<'a> BehaviourConfig<'a> {
             services_base_dir: config.services_base_dir.clone(),
             services_envs: config.services_envs.clone(),
             stepper_base_dir: config.stepper_base_dir.clone(),
+            protocol_config: config.protocol_config.clone(),
         }
     }
 }

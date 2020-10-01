@@ -23,6 +23,7 @@ use trust_graph::{KeyPair, PublicKeyHashable};
 use anyhow::Context;
 use clap::{ArgMatches, Values};
 use libp2p::core::{identity::ed25519::PublicKey, multiaddr::Protocol, Multiaddr};
+use particle_protocol::ProtocolConfig;
 use serde::Deserialize;
 use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
@@ -103,6 +104,9 @@ pub struct ServerConfig {
     /// Base directory for resources needed by application services
     #[serde(default = "default_stepper_basedir")]
     pub stepper_base_dir: PathBuf,
+
+    #[serde(default, flatten)]
+    pub protocol_config: ProtocolConfig,
 }
 
 impl ServerConfig {

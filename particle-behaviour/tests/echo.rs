@@ -40,6 +40,7 @@ use libp2p::{
 };
 use serde_json::json;
 use std::collections::VecDeque;
+use std::time::Duration;
 
 #[test]
 fn echo_particle() {
@@ -52,7 +53,7 @@ fn echo_particle() {
     let particle = task::block_on(task::spawn(async move {
         loop {
             select!(
-                event = server.next_event().fuse() => println!("server event: {:?}", event),
+                event = server.next_event().fuse() => {}/*println!("server event: {:?}", event)*/,
                 event = client.next_event().fuse() => {
                     println!("client got event: {:?}", event);
                     match event {
@@ -62,9 +63,9 @@ fn echo_particle() {
                                 init_peer_id: client_id.clone(),
                                 timestamp: 0,
                                 ttl: 1,
-                                script: "((call (%current% (local_service_id local_fn_name) () result_name)) (call (remote_peer_id (service_id fn_name) () g)))".to_string(),
+                                script: format!("((call ({} (service_id fn_name) () result_name)))", client_id),
                                 signature: vec![],
-                                data: json!({}),
+                                data: json!({"data": "none"}),
                             };
                             client.send(p.clone(), server_id.clone());
                         }
@@ -79,7 +80,7 @@ fn echo_particle() {
     }));
 
     assert_eq!(particle.id, "123".to_string());
-    assert_eq!(particle.data, json!("data"));
+    assert_eq!(particle.data, json!({"data": "none"}));
 }
 
 macro_rules! make_swarm {
@@ -99,11 +100,20 @@ macro_rules! make_swarm {
 }
 
 fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
-    let mut swarm = make_swarm!(|_: PeerId, keypair: Keypair| {
+    let mut swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
         let tmp = make_tmp_dir();
         let trust_graph = TrustGraph::new(<_>::default());
         let registry = None;
-        let config = ParticleConfig::new(tmp.clone(), <_>::default(), tmp.clone(), keypair);
+        let tout = Duration::from_secs(100);
+        let config = ProtocolConfig::new(tout.clone(), tout.clone(), tout);
+        let config = ParticleConfig::new(
+            config,
+            peer_id,
+            tmp.clone(),
+            <_>::default(),
+            tmp.clone(),
+            keypair,
+        );
         let behaviour =
             ParticleBehaviour::new(config, trust_graph, registry).expect("particle behaviour");
         put_aquamarine(tmp.join("modules"), None);
@@ -160,7 +170,12 @@ impl NetworkBehaviour for Client {
     type OutEvent = Particle;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        ProtocolConfig::new().into()
+        ProtocolConfig::new(
+            Duration::from_secs(100),
+            Duration::from_secs(100),
+            Duration::from_secs(100),
+        )
+        .into()
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {

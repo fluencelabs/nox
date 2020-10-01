@@ -16,28 +16,35 @@
 
 use particle_actors::ActorConfig;
 use particle_dht::DHTConfig;
+use particle_protocol::ProtocolConfig;
 use particle_services::ServicesConfig;
 
 use config_utils::to_peer_id;
 
-use libp2p::identity::ed25519;
+use libp2p::{identity::ed25519, PeerId};
 use std::{collections::HashMap, io, path::PathBuf};
 
 pub struct ParticleConfig {
-    services_base_dir: PathBuf,
-    services_envs: HashMap<Vec<u8>, Vec<u8>>,
-    stepper_base_dir: PathBuf,
-    key_pair: ed25519::Keypair,
+    pub protocol_config: ProtocolConfig,
+    pub current_peer_id: PeerId,
+    pub services_base_dir: PathBuf,
+    pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
+    pub stepper_base_dir: PathBuf,
+    pub key_pair: ed25519::Keypair,
 }
 
 impl ParticleConfig {
     pub fn new(
+        protocol_config: ProtocolConfig,
+        current_peer_id: PeerId,
         services_base_dir: PathBuf,
         services_envs: HashMap<Vec<u8>, Vec<u8>>,
         stepper_base_dir: PathBuf,
         key_pair: ed25519::Keypair,
     ) -> Self {
         Self {
+            protocol_config,
+            current_peer_id,
             services_base_dir,
             services_envs,
             stepper_base_dir,
@@ -46,7 +53,7 @@ impl ParticleConfig {
     }
 
     pub fn actor_config(&self) -> io::Result<ActorConfig> {
-        ActorConfig::new(self.stepper_base_dir.clone())
+        ActorConfig::new(self.current_peer_id.clone(), self.stepper_base_dir.clone())
     }
 
     pub fn services_config(&self) -> io::Result<ServicesConfig> {

@@ -81,7 +81,7 @@ pub fn enable_logs() {
     use log::LevelFilter::*;
 
     env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
+        .filter_level(log::LevelFilter::Debug)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)
@@ -302,6 +302,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             services_base_dir: tmp.clone(),
             services_envs: <_>::default(),
             stepper_base_dir: tmp.clone(),
+            protocol_config: <_>::default(),
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
         put_aquamarine(modules_dir(&tmp), aquamarine_file_name);
