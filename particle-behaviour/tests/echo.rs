@@ -62,9 +62,9 @@ fn echo_particle() {
                                 init_peer_id: client_id.clone(),
                                 timestamp: 0,
                                 ttl: 1,
-                                script: "".to_string(),
+                                script: "((call (%current% (local_service_id local_fn_name) () result_name)) (call (remote_peer_id (service_id fn_name) () g)))".to_string(),
                                 signature: vec![],
-                                data: json!("data"),
+                                data: json!({}),
                             };
                             client.send(p.clone(), server_id.clone());
                         }

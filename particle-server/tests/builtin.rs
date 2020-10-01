@@ -20,7 +20,7 @@ use test_utils::{make_swarms_with_cfg, ConnectedClient};
 
 #[test]
 fn create_service() {
-    let swarms = make_swarms_with_cfg(3, |cfg| cfg.with_aquamarine("aquamarine_call.wasm"));
+    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let mut particle = Particle::default();
     particle.id = "123".to_string();

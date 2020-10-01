@@ -114,7 +114,7 @@ impl Actor {
         host_closure: ClosureDescriptor,
     ) -> Result<AquamarineVM, AquamarineVMError> {
         let config = AquamarineVMConfig {
-            aquamarine_wasm_path: config.modules_dir,
+            aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
             call_service: host_closure(),
         };
         AquamarineVM::new(config)
@@ -135,10 +135,12 @@ impl Actor {
                 "aqua": particle.script,
                 "data": particle.data.to_string()
             });
-            log::info!("Executing particle {:?}, args {:?}", particle.id, args);
+            log::info!("Executing particle {}, args {:?}", particle.id, args);
             let result = vm.call(args);
 
-            log::info!("Executed particle {:?}, parsing {:?}", particle.id, result);
+            if let Err(err) = &result {
+                log::warn!("Error executing article {}: {:?}", particle.id, err)
+            }
 
             let effects = match parse_outcome(result) {
                 Ok((data, targets)) => {
