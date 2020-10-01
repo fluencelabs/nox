@@ -20,9 +20,8 @@ use crate::config::ActorConfig;
 use aquamarine_vm::{AquamarineVMError, HostImportDescriptor};
 use particle_protocol::Particle;
 
-use async_std::sync::Arc;
-use async_std::task;
-use futures::{future::BoxFuture, Future};
+use async_std::{sync::Arc, task};
+use futures::{future::BoxFuture, Future, FutureExt};
 use libp2p::PeerId;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
@@ -166,9 +165,7 @@ impl Plumber {
         particle: Particle,
         host_closure: ClosureDescriptor,
     ) -> Fut {
-        Box::pin(task::spawn_blocking(move || {
-            Actor::new(config, particle, host_closure)
-        }))
+        task::spawn_blocking(move || Actor::new(config, particle, host_closure)).boxed()
     }
 }
 

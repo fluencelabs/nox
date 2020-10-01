@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use config_utils::{abs_path, create_dirs};
+use config_utils::{create_dirs, to_abs_path};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -35,7 +35,7 @@ pub struct ServicesConfig {
 
 impl ServicesConfig {
     pub fn new(base_dir: PathBuf, envs: HashMap<Vec<u8>, Vec<u8>>) -> Result<Self, std::io::Error> {
-        let base_dir = abs_path(base_dir);
+        let base_dir = to_abs_path(base_dir);
 
         let this = Self {
             blueprint_dir: config_utils::blueprint_dir(&base_dir),

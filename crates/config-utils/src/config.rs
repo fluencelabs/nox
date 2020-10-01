@@ -17,7 +17,7 @@
 use libp2p_core::{identity::ed25519::Keypair, PeerId, PublicKey};
 use std::path::{Path, PathBuf};
 
-pub fn abs_path(path: PathBuf) -> PathBuf {
+pub fn to_abs_path(path: PathBuf) -> PathBuf {
     match std::env::current_dir().ok() {
         Some(c) => c.join(path),
         None => path,

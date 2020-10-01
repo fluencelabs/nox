@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use config_utils::{abs_path, create_dirs};
+use config_utils::{create_dirs, to_abs_path};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -29,7 +29,7 @@ pub struct ActorConfig {
 
 impl ActorConfig {
     pub fn new(base_dir: PathBuf) -> Result<Self, std::io::Error> {
-        let base_dir = abs_path(base_dir);
+        let base_dir = to_abs_path(base_dir);
 
         let this = Self {
             workdir: config_utils::workdir(&base_dir),

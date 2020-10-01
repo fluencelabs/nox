@@ -27,4 +27,10 @@
 
 mod config;
 
-pub use config::*;
+pub use config::blueprint_dir;
+pub use config::create_dirs;
+pub use config::modules_dir;
+pub use config::services_dir;
+pub use config::to_abs_path;
+pub use config::to_peer_id;
+pub use config::workdir;

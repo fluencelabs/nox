@@ -17,13 +17,13 @@
 use crate::actor::VmState::{Executing, Idle};
 use crate::config::ActorConfig;
 use crate::invoke::parse_outcome;
+use crate::plumber::ClosureDescriptor;
 
 use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError};
 use particle_protocol::Particle;
 
-use crate::plumber::ClosureDescriptor;
 use async_std::{pin::Pin, task};
-use futures::{future::BoxFuture, Future};
+use futures::{future::BoxFuture, Future, FutureExt};
 use libp2p::PeerId;
 use serde_json::json;
 use std::{
@@ -129,7 +129,7 @@ impl Actor {
 
     fn execute(particle: Particle, mut vm: AquamarineVM, waker: Waker) -> Fut {
         log::info!("Scheduling particle for execution {:?}", particle.id);
-        Box::pin(task::spawn_blocking(move || {
+        task::spawn_blocking(move || {
             let args = json!({
                 "init_user_id": particle.init_peer_id.to_string(),
                 "aqua": particle.script,
@@ -173,7 +173,8 @@ impl Actor {
             waker.wake();
 
             FutResult { vm, effects }
-        }))
+        })
+        .boxed()
     }
 
     fn wake(&self) {

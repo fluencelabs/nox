@@ -15,15 +15,16 @@
  */
 
 use crate::ProtocolMessage;
-pub use failure::Error;
-use futures::future::BoxFuture;
-use futures::{AsyncRead, AsyncWrite, AsyncWriteExt};
+
+use futures::{future::BoxFuture, AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt};
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     swarm::{protocols_handler, OneShotHandler},
 };
 use serde_json::json;
 use std::{io, iter};
+
+pub use failure::Error;
 
 #[derive(Clone, Default)]
 pub struct ProtocolConfig {}
@@ -79,7 +80,7 @@ where
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
     fn upgrade_inbound(self, mut socket: Socket, info: Self::Info) -> Self::Future {
-        Box::pin(async move {
+        async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
             // TODO: remove that once debugged
             match std::str::from_utf8(&packet) {
@@ -99,7 +100,8 @@ where
                     return Err(err.into());
                 }
             }
-        })
+        }
+        .boxed()
     }
 }
 
@@ -112,7 +114,7 @@ where
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
-        Box::pin(async move {
+        async move {
             match serde_json::to_string(&self) {
                 Ok(str) => log::debug!("Sending outbound ProtocolMessage: {}", str),
                 Err(err) => log::warn!("Can't serialize {:?} to string {}", &self, err),
@@ -122,7 +124,8 @@ where
             upgrade::write_one(&mut socket, bytes).await?;
 
             Ok(())
-        })
+        }
+        .boxed()
     }
 }
 

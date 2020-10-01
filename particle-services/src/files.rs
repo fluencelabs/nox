@@ -23,9 +23,11 @@ pub(super) fn module_config_name<S: AsRef<str>>(module: S) -> String {
     format!("{}_config.toml", module.as_ref())
 }
 
-/// Calculates filename of wasm module
-pub(super) fn module_file_name<S: AsRef<str>>(module: S) -> String {
-    format!("{}.wasm", module.as_ref())
+/// Calculates the name of a wasm module file, given a name of the module.
+/// For example, it's ipfs in config, and ipfs.wasm on filesystem.
+/// That function then encapsulates the knowledge about that transformation.
+pub(super) fn module_file_name(module: &str) -> String {
+    format!("{}.wasm", module)
 }
 
 /// Calculates filename of the blueprint
