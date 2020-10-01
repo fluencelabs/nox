@@ -29,7 +29,8 @@ use libp2p::{
     Swarm, TransportError,
 };
 use prometheus::Registry;
-use std::{io, net::IpAddr};
+use std::io;
+use std::net::SocketAddr;
 
 // TODO: documentation
 pub struct Server {
@@ -84,7 +85,7 @@ impl Server {
         task::spawn(async move {
             let mut metrics = Self::start_metrics_endpoint(
                 self.registry,
-                (self.config.listen_ip, self.config.prometheus_port),
+                SocketAddr::new(self.config.listen_ip, self.config.prometheus_port),
             )
             .fuse();
             loop {
@@ -103,10 +104,10 @@ impl Server {
 
     pub fn start_metrics_endpoint(
         registry: Registry,
-        listen_addr: (IpAddr, u16),
+        listen_addr: SocketAddr,
     ) -> BoxFuture<'static, io::Result<()>> {
-        use http_types::{Error, StatusCode::InternalServerError};
         use prometheus::{Encoder, TextEncoder};
+        use tide::{Error, StatusCode::InternalServerError};
 
         let mut app = tide::with_state(registry);
         app.at("/metrics")
