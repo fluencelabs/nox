@@ -17,15 +17,31 @@
 use particle_protocol::Particle;
 use test_utils::{make_swarms, ConnectedClient};
 
+use std::thread::sleep;
+use std::time::Duration;
+
+pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
+
 #[test]
 fn echo_particle() {
     let swarms = make_swarms(3);
+    sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     let mut particle = Particle::default();
     particle.id = "123".to_string();
     particle.init_peer_id = client.peer_id.clone();
+    particle.script = format!(
+        "((call ({} (service_id fn_name) () result_name)))",
+        client.peer_id
+    );
     client.send(particle.clone());
+
+    if cfg!(debug_assertions) {
+        // Account for slow VM in debug
+        client.timeout = Duration::from_secs(60);
+    }
+
     let response = client.receive();
     assert_eq!(response.id, particle.id);
     assert_eq!(response.data, particle.data);
