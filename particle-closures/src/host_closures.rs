@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-use particle_actors::HostImportDescriptor;
+use crate::BuiltinServicesApi;
+
+use particle_actors::{vec1::Vec1, HostImportDescriptor};
 use particle_services::{Args, IType, IValue};
 
-use crate::builtin_services::BuiltinServices;
-use particle_actors::vec1::Vec1;
 use serde_json::json;
 use std::sync::Arc;
 
@@ -57,7 +57,7 @@ impl HostClosures {
         // route
         match args.service_id.as_str() {
             "create" => (self.create_service)(args),
-            s if BuiltinServices::is_builtin(&s) => (self.builtin)(args),
+            s if BuiltinServicesApi::is_builtin(&s) => (self.builtin)(args),
             _ => (self.call_service)(args),
         }
     }

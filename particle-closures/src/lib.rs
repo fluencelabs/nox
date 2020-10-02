@@ -26,10 +26,10 @@
     unreachable_patterns
 )]
 
-mod builtin_services;
+mod builtin_services_api;
 mod host_closures;
 mod mailbox;
 
-pub use builtin_services::BuiltinServices;
+pub use builtin_services_api::BuiltinServicesApi;
 pub use host_closures::HostClosures;
 pub use mailbox::{BuiltinCommand, Mailbox};

@@ -24,11 +24,11 @@ use libp2p::kad::record;
 use std::{sync::mpsc as std_mpsc, sync::Arc};
 
 #[derive(Debug, Clone)]
-pub struct BuiltinServices {
+pub struct BuiltinServicesApi {
     mailbox: Destination,
 }
 
-impl BuiltinServices {
+impl BuiltinServicesApi {
     const SERVICES: &'static [&'static str] = &["services"];
 
     pub fn new(mailbox: Destination) -> Self {
@@ -43,20 +43,7 @@ impl BuiltinServices {
         Arc::new(move |args| Some(Self::route(self.clone(), args).into()))
     }
 
-    pub fn resolve(&self, key: record::Key) -> WaitResult {
-        let (outlet, inlet) = std_mpsc::channel();
-        let cmd = Command {
-            outlet,
-            kind: BuiltinCommand::DHTResolve(key),
-        };
-        self.mailbox
-            .unbounded_send(cmd)
-            .expect("builtin => mailbox");
-
-        inlet
-    }
-
-    fn route(api: BuiltinServices, args: Args) -> BuiltinCommandResult {
+    fn route(api: BuiltinServicesApi, args: Args) -> BuiltinCommandResult {
         let wait = match args.service_id.as_str() {
             "resolve" => {
                 let key = args
@@ -73,5 +60,18 @@ impl BuiltinServices {
         };
 
         wait.recv().expect("receive BuiltinCommandResult")
+    }
+
+    fn resolve(&self, key: record::Key) -> WaitResult {
+        let (outlet, inlet) = std_mpsc::channel();
+        let cmd = Command {
+            outlet,
+            kind: BuiltinCommand::DHTResolve(key),
+        };
+        self.mailbox
+            .unbounded_send(cmd)
+            .expect("builtin => mailbox");
+
+        inlet
     }
 }

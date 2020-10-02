@@ -38,7 +38,9 @@ mod vm;
 
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
 
-pub use crate::app_services::ParticleAppServices;
-pub use crate::args::Args;
-pub use crate::config::ServicesConfig;
+pub use app_services::ParticleAppServices;
+pub use args::Args;
+pub use blueprint::Blueprint;
+pub use config::ServicesConfig;
+
 pub use fluence_app_service::{IType, IValue};

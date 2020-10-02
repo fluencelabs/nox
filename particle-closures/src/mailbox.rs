@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::builtin_services::BuiltinServices;
+use crate::builtin_services_api::BuiltinServicesApi;
 
 use particle_dht::ResolveErrorKind;
 use particle_services::{Args, IValue};
@@ -46,12 +46,6 @@ pub struct Command {
 pub enum Key {
     DHT(libp2p::kad::record::Key),
 }
-
-/*impl Default for Key {
-    fn default() -> Self {
-        Key::DHT(<_>::default())
-    }
-}*/
 
 #[derive(Debug, Clone)]
 pub enum BuiltinCommand {
@@ -110,8 +104,8 @@ impl Mailbox {
         self.destination.clone()
     }
 
-    pub fn get_api(&self) -> BuiltinServices {
-        BuiltinServices::new(self.get_destination())
+    pub fn get_api(&self) -> BuiltinServicesApi {
+        BuiltinServicesApi::new(self.get_destination())
     }
 }
 
