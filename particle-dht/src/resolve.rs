@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
+use crate::errors::{ResolveError, ResolveErrorKind};
 use crate::wait_peer::WaitPeer;
 use crate::{DHTEvent, ParticleDHT};
 
 use particle_protocol::Particle;
 
-use crate::errors::{ResolveError, ResolveErrorKind};
-use libp2p::kad::{GetRecordError, GetRecordOk, GetRecordResult, PeerRecord};
-use libp2p::{kad::record::Key, kad::Quorum, PeerId};
-use std::collections::HashSet;
+use libp2p::{
+    kad::{record::Key, GetRecordError, GetRecordOk, GetRecordResult, PeerRecord, Quorum},
+    PeerId,
+};
 
 impl ParticleDHT {
     pub fn resolve(&mut self, key: Key) {
@@ -61,7 +62,7 @@ impl ParticleDHT {
         // Recover if found more than 50% of required quorum
         if found.len() * 2 > quorum {
             #[rustfmt::skip]
-            log::warn!("DHT.get almost failed, got {} of {} replicas, but it is good enough", found, quorum);
+            log::warn!("DHT.get almost failed, got {} of {} replicas, but it is good enough", found.len(), quorum);
             return Ok(found);
         }
 

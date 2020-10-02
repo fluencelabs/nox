@@ -24,13 +24,13 @@ pub enum PublishError {
     QuorumFailed,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ResolveError {
     pub key: Key,
     pub kind: ResolveErrorKind,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ResolveErrorKind {
     TimedOut,
     QuorumFailed,

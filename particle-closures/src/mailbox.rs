@@ -42,20 +42,26 @@ pub struct Command {
     pub kind: BuiltinCommand,
 }
 
-#[derive(Debug, Hash, Clone)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum Key {
     DHT(libp2p::kad::record::Key),
 }
 
+/*impl Default for Key {
+    fn default() -> Self {
+        Key::DHT(<_>::default())
+    }
+}*/
+
 #[derive(Debug, Clone)]
 pub enum BuiltinCommand {
-    DHTResolve(Key),
+    DHTResolve(record::Key),
 }
 
 impl BuiltinCommand {
-    pub fn key(&self) -> &Key {
+    pub fn key(&self) -> Key {
         match self {
-            BuiltinCommand::DHTResolve(key) => &key,
+            BuiltinCommand::DHTResolve(key) => Key::DHT(key.clone()),
         }
     }
 }
@@ -116,9 +122,11 @@ impl Mailbox {
         key: record::Key,
         value: Result<HashSet<Vec<u8>>, ResolveErrorKind>,
     ) {
-        for cmd in self.waiting.remove(&Key::DHT(key)) {
-            let result =
-                BuiltinCommandResult::DHTResolved(key.clone(), value.into_iter().collect());
+        for cmd in self.waiting.remove(&Key::DHT(key.clone())) {
+            let result = BuiltinCommandResult::DHTResolved(
+                key.clone(),
+                value.clone().map(|v| v.into_iter().collect()),
+            );
             cmd.outlet.send(result.clone()).expect("resolve_complete")
         }
     }
@@ -127,7 +135,7 @@ impl Mailbox {
         match self.inbox.poll_next_unpin(cx) {
             Poll::Ready(Some(cmd)) => {
                 let kind = cmd.kind.clone();
-                self.waiting.enqueue(kind.key().clone(), cmd);
+                self.waiting.enqueue(kind.key(), cmd);
                 Poll::Ready(kind)
             }
             Poll::Ready(None) => unreachable!("destination couldn't be dropped"),

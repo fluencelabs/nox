@@ -15,13 +15,13 @@
  */
 
 use crate::mailbox::{
-    BuiltinCommand, BuiltinCommandResult, Closure, Command, Destination, Key, WaitResult,
+    BuiltinCommand, BuiltinCommandResult, Closure, Command, Destination, WaitResult,
 };
 
 use particle_services::Args;
 
-use std::sync::mpsc as std_mpsc;
-use std::sync::Arc;
+use libp2p::kad::record;
+use std::{sync::mpsc as std_mpsc, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct BuiltinServices {
@@ -43,7 +43,7 @@ impl BuiltinServices {
         Arc::new(move |args| Some(Self::route(self.clone(), args).into()))
     }
 
-    pub fn resolve(&self, key: Key) -> WaitResult {
+    pub fn resolve(&self, key: record::Key) -> WaitResult {
         let (outlet, inlet) = std_mpsc::channel();
         let cmd = Command {
             outlet,
