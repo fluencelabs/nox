@@ -32,7 +32,6 @@ use std::{
 };
 
 type Fut = BoxFuture<'static, Result<Actor, AquamarineVMError>>;
-pub(super) type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
 
 #[derive(Debug)]
 pub enum PlumberEvent {

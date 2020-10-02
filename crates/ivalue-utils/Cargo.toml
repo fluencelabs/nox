@@ -1,0 +1,9 @@
+[package]
+name = "ivalue-utils"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+wasmer-wit = { package = "wasmer-interface-types-fl", version = "=0.17.9" }
+serde_json = "1.0.58"

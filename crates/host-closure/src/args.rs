@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
-use crate::error::ArgParse::{Missing, SerdeJson};
-use crate::error::ServiceError;
-use crate::error::ServiceError::ArgParseError;
-use fluence_app_service::IValue;
+use ArgsError::{MissingField, SerdeJson};
+
+use ivalue_utils::IValue;
+
+#[derive(Debug)]
+pub enum ArgsError {
+    MissingField(&'static str),
+    SerdeJson(serde_json::Error),
+}
 
 #[derive(Debug)]
 pub struct Args {
@@ -29,28 +34,22 @@ pub struct Args {
 impl Args {
     pub fn parse(args: Vec<IValue>) -> Result<Args, ServiceError> {
         let mut args = args.into_iter();
-        let service_id = args.next().and_then(into_string).ok_or(ArgParseError {
-            field: "service_id",
-            error: Missing,
-        })?;
-        let fname = args.next().and_then(into_string).ok_or(ArgParseError {
-            field: "fname",
-            error: Missing,
-        })?;
+        let service_id = args
+            .next()
+            .and_then(into_string)
+            .ok_or(MissingField("service_id"))?;
+
+        let fname = args
+            .next()
+            .and_then(into_string)
+            .ok_or(MissingField("fname"))?;
+
         let args = args
             .next()
             .as_ref()
             .and_then(into_str)
-            .ok_or(ArgParseError {
-                field: "args",
-                error: Missing,
-            })
-            .and_then(|v| {
-                serde_json::from_str(v).map_err(|err| ArgParseError {
-                    field: "args",
-                    error: SerdeJson(err),
-                })
-            })?;
+            .ok_or(MissingField("service_id"))
+            .and_then(|v| serde_json::from_str(v).map_err(|err| SerdeJson(err)))?;
 
         Ok(Args {
             service_id,

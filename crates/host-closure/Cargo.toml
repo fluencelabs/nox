@@ -1,0 +1,9 @@
+[package]
+name = "host-closure"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+ivalue-utils = { path = "../ivalue-utils" }
+fce = { git = "https://github.com/fluencelabs/fce", branch = "master" }

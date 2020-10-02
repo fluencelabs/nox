@@ -29,8 +29,6 @@ use std::{
     task::{Context, Poll},
 };
 
-pub(super) type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
-
 pub(super) type WaitResult = std_mpsc::Receiver<BuiltinCommandResult>;
 pub(super) type WaitingVM = std_mpsc::Sender<BuiltinCommandResult>;
 pub(super) type Inbox = mpsc::UnboundedReceiver<Command>;

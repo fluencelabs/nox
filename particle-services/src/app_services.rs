@@ -18,14 +18,15 @@ use crate::args::Args;
 use crate::config::ServicesConfig;
 use crate::error::ServiceError;
 use crate::error::ServiceError::MissingBlueprintId;
-use crate::vm::{as_record, create_vm};
+use crate::vm::create_vm;
 
 use fluence_app_service::{AppService, IValue};
+use host_closure::Closure;
+use ivalue_utils::as_record;
 
 use parking_lot::{Mutex, RwLock};
 use std::{collections::HashMap, sync::Arc};
 
-type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 type VM = Arc<Mutex<AppService>>;
 type Services = Arc<RwLock<HashMap<String, VM>>>;
 

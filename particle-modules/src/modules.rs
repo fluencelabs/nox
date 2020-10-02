@@ -14,28 +14,4 @@
  * limitations under the License.
  */
 
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
-
-use crate::error::ServiceError;
-
-mod app_services;
-mod config;
-mod error;
-mod vm;
-
-pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
-
-pub use app_services::ParticleAppServices;
-pub use args::Args;
-pub use config::ServicesConfig;
-
-pub use fluence_app_service::{IType, IValue};
+pub fn add_module() -> Closure {}

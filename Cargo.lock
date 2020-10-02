@@ -1900,6 +1900,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "host-closure"
+version = "0.0.1"
+dependencies = [
+ "fce",
+ "ivalue-utils",
+]
+
+[[package]]
 name = "http"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2100,6 +2108,14 @@ name = "itoa"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc6f3ad7b9d11a0c00842ff8de1b60ee58661048eb8049ed33c73594f359d7e6"
+
+[[package]]
+name = "ivalue-utils"
+version = "0.0.1"
+dependencies = [
+ "serde_json",
+ "wasmer-interface-types-fl",
+]
 
 [[package]]
 name = "js-sys"
@@ -3159,6 +3175,7 @@ dependencies = [
  "config-utils",
  "fluence-libp2p",
  "futures",
+ "ivalue-utils",
  "libp2p",
  "log",
  "particle-actors",
@@ -3189,6 +3206,16 @@ dependencies = [
  "smallvec",
  "trust-graph",
  "waiting-queues",
+]
+
+[[package]]
+name = "particle-modules"
+version = "0.0.1"
+dependencies = [
+ "fluence-app-service",
+ "serde 1.0.116",
+ "toml",
+ "uuid",
 ]
 
 [[package]]
@@ -3248,9 +3275,12 @@ dependencies = [
  "config-utils",
  "fluence-app-service",
  "futures",
+ "host-closure",
+ "ivalue-utils",
  "libp2p",
  "log",
  "parking_lot 0.11.0",
+ "particle-modules",
  "serde 1.0.116",
  "serde_json",
  "toml",

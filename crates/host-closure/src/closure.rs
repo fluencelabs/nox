@@ -14,28 +14,12 @@
  * limitations under the License.
  */
 
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use crate::args::Args;
 
-use crate::error::ServiceError;
+use ivalue_utils::IValue;
 
-mod app_services;
-mod config;
-mod error;
-mod vm;
+use fce::HostImportDescriptor;
+use std::sync::Arc;
 
-pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
-
-pub use app_services::ParticleAppServices;
-pub use args::Args;
-pub use config::ServicesConfig;
-
-pub use fluence_app_service::{IType, IValue};
+pub type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
+pub type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;

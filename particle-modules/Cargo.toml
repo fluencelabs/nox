@@ -1,0 +1,12 @@
+[package]
+name = "particle-modules"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+
+serde = { version = "1.0.116", features = ["derive"] }
+uuid = "0.8.1"
+toml = "0.5.6"

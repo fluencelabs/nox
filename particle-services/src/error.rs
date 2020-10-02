@@ -14,47 +14,16 @@
  * limitations under the License.
  */
 
-use fluence_app_service::{AppServiceError, FaaSError};
-use std::error::Error;
-use std::path::PathBuf;
+use fluence_app_service::AppServiceError;
+use particle_modules::ModuleError;
+
+use std::{error::Error, path::PathBuf};
 
 #[derive(Debug)]
 pub enum ServiceError {
     NoSuchInstance(String),
     Engine(AppServiceError),
-    AddModule {
-        path: PathBuf,
-        err: std::io::Error,
-    },
-    SerializeConfig {
-        err: toml::ser::Error,
-    },
-    WriteConfig {
-        path: PathBuf,
-        err: std::io::Error,
-    },
-    NoSuchBlueprint {
-        path: PathBuf,
-        err: std::io::Error,
-    },
-    IncorrectBlueprint {
-        err: toml::de::Error,
-    },
-    MissingBlueprintId,
-    NoModuleConfig {
-        path: PathBuf,
-        err: std::io::Error,
-    },
-    IncorrectModuleConfig {
-        err: toml::de::Error,
-    },
-    ModuleConvertError {
-        err: FaaSError,
-    },
-    WriteBlueprint {
-        path: PathBuf,
-        err: std::io::Error,
-    },
+    ModuleError(ModuleError),
     #[allow(dead_code)]
     ReadPersistedService {
         path: PathBuf,
@@ -65,22 +34,20 @@ pub enum ServiceError {
         path: PathBuf,
         err: std::io::Error,
     },
-    ArgParseError {
-        field: &'static str,
-        error: ArgParse,
-    },
-}
-
-#[derive(Debug)]
-pub enum ArgParse {
-    Missing,
-    SerdeJson(serde_json::Error),
+    ArgParseError(ArgsError),
+    MissingBlueprintId,
 }
 
 impl Error for ServiceError {}
 impl From<AppServiceError> for ServiceError {
     fn from(err: AppServiceError) -> Self {
         ServiceError::Engine(err)
+    }
+}
+
+impl From<ModuleError> for ServiceError {
+    fn from(err: ModuleError) -> Self {
+        ServiceError::ModuleError(err)
     }
 }
 
@@ -91,30 +58,6 @@ impl std::fmt::Display for ServiceError {
                 write!(f, "App service {} not found", service_id)
             }
             ServiceError::Engine(err) => err.fmt(f),
-            ServiceError::AddModule { path, err } => {
-                write!(f, "Error saving module {:?}: {:?}", path, err)
-            }
-            ServiceError::SerializeConfig { err } => {
-                write!(f, "Error serializing config to toml: {:?}", err)
-            }
-            ServiceError::WriteConfig { path, err } => {
-                write!(f, "Error saving config to {:?}: {:?}", path, err)
-            }
-            ServiceError::NoSuchBlueprint { path, err } => {
-                write!(f, "Blueprint wasn't found at {:?}: {:?}", path, err)
-            }
-            ServiceError::IncorrectBlueprint { err } => {
-                write!(f, "Error parsing blueprint: {:?}", err)
-            }
-            ServiceError::NoModuleConfig { path, err } => {
-                write!(f, "Module config wasn't found at {:?}: {:?}", path, err)
-            }
-            ServiceError::IncorrectModuleConfig { err } => {
-                write!(f, "Error parsing module config: {:?}", err)
-            }
-            ServiceError::WriteBlueprint { path, err } => {
-                write!(f, "Error writing blueprint to {:?}: {:?}", path, err)
-            }
             ServiceError::ReadPersistedService { path, err } => write!(
                 f,
                 "Error reading persisted service from {:?}: {:?}",
@@ -133,11 +76,7 @@ impl std::fmt::Display for ServiceError {
                 "Error parsing arguments on call_service. field: {}, error: {:?}",
                 field, error
             ),
-            ServiceError::ModuleConvertError { err } => write!(
-                f,
-                "Error converting TomlFaaSNamedModuleConfig to FaaSModuleConfig: {:?}",
-                err
-            ),
+            ServiceError::ModuleError(err) => write!(f, "ModuleError: {:?}", err),
         }
     }
 }
