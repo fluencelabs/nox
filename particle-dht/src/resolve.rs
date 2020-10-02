@@ -15,14 +15,61 @@
  */
 
 use crate::wait_peer::WaitPeer;
-use crate::ParticleDHT;
-use libp2p::kad::record::Key;
-use libp2p::PeerId;
+use crate::{DHTEvent, ParticleDHT};
+
 use particle_protocol::Particle;
 
+use crate::errors::{ResolveError, ResolveErrorKind};
+use libp2p::kad::{GetRecordError, GetRecordOk, GetRecordResult, PeerRecord};
+use libp2p::{kad::record::Key, kad::Quorum, PeerId};
+use std::collections::HashSet;
+
 impl ParticleDHT {
-    pub fn resolve(&mut self, _key: Key) {
-        unimplemented!("TODO")
+    pub fn resolve(&mut self, key: Key) {
+        self.kademlia.get_record(&key, Quorum::Majority);
+    }
+
+    pub(super) fn resolved(&mut self, result: GetRecordResult) {
+        match Self::recover_get(result) {
+            Ok(records) => {
+                let key = records.iter().next().unwrap().record.key.clone();
+                let value = records.into_iter().map(|r| r.record.value).collect();
+                self.emit(DHTEvent::Resolved { key, value });
+            }
+            Err(err) => self.emit(DHTEvent::ResolveFailed { err }),
+        }
+    }
+
+    pub(super) fn recover_get(result: GetRecordResult) -> Result<Vec<PeerRecord>, ResolveError> {
+        let err = match result {
+            Err(err) => err,
+            Ok(GetRecordOk { records }) if records.is_empty() => {
+                unreachable!("It should be GetRecordError::NotFound")
+            }
+            Ok(GetRecordOk { records }) => return Ok(records),
+        };
+
+        #[rustfmt::skip]
+        let (found, quorum, reason, key) = match err {
+            GetRecordError::QuorumFailed { records, quorum, key, .. } => (records, quorum.get(), ResolveErrorKind::QuorumFailed, key),
+            GetRecordError::Timeout { records, quorum, key, .. } => (records, quorum.get(), ResolveErrorKind::TimedOut, key),
+            GetRecordError::NotFound { key, .. } => (vec![], 0, ResolveErrorKind::NotFound, key)
+        };
+
+        // TODO: is 50% a reasonable number?
+        // TODO: move to config
+        // Recover if found more than 50% of required quorum
+        if found.len() * 2 > quorum {
+            #[rustfmt::skip]
+            log::warn!("DHT.get almost failed, got {} of {} replicas, but it is good enough", found, quorum);
+            return Ok(found);
+        }
+
+        #[rustfmt::skip]
+        let err_msg = format!("Error while resolving key {:?}: DHT.get failed ({}/{} replies): {:?}", key, found.len(), quorum, reason);
+        log::warn!("{}", err_msg);
+
+        Err(ResolveError { key, kind: reason })
     }
 
     /// Look for peer in Kademlia, enqueue call to wait for result

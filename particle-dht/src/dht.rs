@@ -15,37 +15,29 @@
  */
 
 use super::wait_peer::WaitPeer;
+use crate::errors::{PublishError, ResolveError};
+
+use particle_protocol::Particle;
 
 use trust_graph::TrustGraph;
 use waiting_queues::WaitingQueues;
 
-use libp2p::kad::record::Key;
-use libp2p::swarm::DialPeerCondition;
 use libp2p::{
     core::{identity::ed25519, Multiaddr},
     identity::ed25519::Keypair,
-    kad::{
-        store::{self, MemoryStore},
-        Kademlia, KademliaConfig, QueryId,
-    },
+    kad::record::Key,
+    kad::{store::MemoryStore, Kademlia, KademliaConfig, QueryId},
+    swarm::DialPeerCondition,
     PeerId,
 };
-use particle_protocol::Particle;
 use prometheus::Registry;
 use smallvec::alloc::collections::VecDeque;
-use std::ops::{Deref, DerefMut};
-use std::task::{Context, Poll, Waker};
 use std::{
     collections::{HashMap, HashSet},
+    ops::{Deref, DerefMut},
+    task::{Context, Poll, Waker},
     time::Duration,
 };
-
-#[derive(Debug)]
-pub enum PublishError {
-    StoreError(store::Error),
-    TimedOut,
-    QuorumFailed,
-}
 
 #[derive(Debug)]
 pub enum DHTEvent {
@@ -61,7 +53,10 @@ pub enum DHTEvent {
     },
     Resolved {
         key: Key,
-        value: Vec<u8>,
+        value: HashSet<Vec<u8>>,
+    },
+    ResolveFailed {
+        err: ResolveError,
     },
 }
 

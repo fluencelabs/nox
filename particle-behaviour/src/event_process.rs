@@ -37,7 +37,10 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour
             DHTEvent::DialPeer { peer_id, condition } => self
                 .events
                 .push_back(NetworkBehaviourAction::DialPeer { peer_id, condition }),
-            DHTEvent::Resolved { key, value } => self.mailbox.resolve_complete(key, value),
+            DHTEvent::Resolved { key, value } => self.mailbox.resolve_complete(key, Ok(value)),
+            DHTEvent::ResolveFailed { err } => {
+                self.mailbox.resolve_complete(err.key, Err(err.kind))
+            }
         }
     }
 }

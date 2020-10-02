@@ -14,14 +14,20 @@
  * limitations under the License.
  */
 
+use crate::builtin_services::BuiltinServices;
+
+use particle_dht::ResolveErrorKind;
 use particle_services::{Args, IValue};
+
 use waiting_queues::WaitingQueues;
 
-use crate::builtin_services::BuiltinServices;
 use futures::{channel::mpsc, StreamExt};
-use std::sync::mpsc as std_mpsc;
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use libp2p::kad::record;
+use std::{
+    collections::HashSet,
+    sync::{mpsc as std_mpsc, Arc},
+    task::{Context, Poll},
+};
 
 pub(super) type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 
@@ -30,13 +36,15 @@ pub(super) type WaitingVM = std_mpsc::Sender<BuiltinCommandResult>;
 pub(super) type Inbox = mpsc::UnboundedReceiver<Command>;
 pub(super) type Destination = mpsc::UnboundedSender<Command>;
 
-pub(super) type Key = libp2p::kad::record::Key;
-pub(super) type Value = Vec<u8>;
-
 #[derive(Debug)]
 pub struct Command {
     pub outlet: WaitingVM,
     pub kind: BuiltinCommand,
+}
+
+#[derive(Debug, Hash, Clone)]
+pub enum Key {
+    DHT(libp2p::kad::record::Key),
 }
 
 #[derive(Debug, Clone)]
@@ -54,12 +62,14 @@ impl BuiltinCommand {
 
 #[derive(Debug, Clone)]
 pub enum BuiltinCommandResult {
-    DHTResolved(Key, Value),
+    DHTResolved(record::Key, Result<Vec<Vec<u8>>, ResolveErrorKind>),
 }
 
 impl Into<IValue> for BuiltinCommandResult {
     fn into(self) -> IValue {
-        unimplemented!("FIXME")
+        match self {
+            BuiltinCommandResult::DHTResolved(_, _) => unimplemented!("FIXME"),
+        }
     }
 }
 
@@ -101,9 +111,14 @@ impl Mailbox {
 
 // Behaviour API
 impl Mailbox {
-    pub fn resolve_complete(&mut self, key: Key, value: Value) {
-        for cmd in self.waiting.remove(&key) {
-            let result = BuiltinCommandResult::DHTResolved(key.clone(), value.clone());
+    pub fn resolve_complete(
+        &mut self,
+        key: record::Key,
+        value: Result<HashSet<Vec<u8>>, ResolveErrorKind>,
+    ) {
+        for cmd in self.waiting.remove(&Key::DHT(key)) {
+            let result =
+                BuiltinCommandResult::DHTResolved(key.clone(), value.into_iter().collect());
             cmd.outlet.send(result.clone()).expect("resolve_complete")
         }
     }
