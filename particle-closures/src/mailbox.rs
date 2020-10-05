@@ -116,11 +116,9 @@ impl Mailbox {
         key: record::Key,
         value: Result<HashSet<Vec<u8>>, ResolveErrorKind>,
     ) {
+        let value = value.map(|v| v.into_iter().collect());
         for cmd in self.waiting.remove(&Key::DHT(key.clone())) {
-            let result = BuiltinCommandResult::DHTResolved(
-                key.clone(),
-                value.clone().map(|v| v.into_iter().collect()),
-            );
+            let result = BuiltinCommandResult::DHTResolved(key.clone(), value.clone());
             cmd.outlet.send(result.clone()).expect("resolve_complete")
         }
     }

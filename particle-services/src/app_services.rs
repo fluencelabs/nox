@@ -58,7 +58,8 @@ impl ParticleAppServices {
 
                 let user_id = args
                     .get("user_id")
-                    .and_then(|v| Some(v.as_str()?.to_string()));
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.to_string());
                 create_vm(config.clone(), blueprint_id, &service_id, user_id)
             };
             let result = match make_vm() {
