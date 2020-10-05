@@ -41,11 +41,11 @@ export class Subscriptions {
      * A particle will be applied if id of the particle was subscribed earlier.
      * @param particle
      */
-    applyToSubscriptions(particle: Particle) {
-        // if subscription return true - delete it from subscriptions
+    applyToSubscriptions(particle: Particle): boolean {
         let callback = this.subscriptions.get(particle.id)
         if (callback) {
             callback(particle);
+            return true;
         } else {
             if (Number(particle.timestamp) + particle.ttl > Date.now()) {
                 console.log("Old particle received. 'ttl' is ended.");
@@ -53,6 +53,7 @@ export class Subscriptions {
                 console.log("External particle received. 'Stepper' needed on client. Unimplemented.");
             }
             console.log(particle);
+            return false;
         }
     }
 }

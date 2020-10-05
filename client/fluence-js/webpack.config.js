@@ -1,6 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 
 const production = (process.env.NODE_ENV === 'production');
 
@@ -28,7 +29,16 @@ const config = {
         fs: 'empty'
     },
     plugins: [
-        new CleanWebpackPlugin(),
+        new HtmlWebpackPlugin(),
+        new WasmPackPlugin({
+            // TODO use another path somehow
+            crateDirectory: path.resolve(__dirname, "../../../aquamarine"),
+            outDir:path.resolve(__dirname, "./pkg")
+        }),
+        new webpack.ProvidePlugin({
+            TextDecoder: ['text-encoding', 'TextDecoder'],
+            TextEncoder: ['text-encoding', 'TextEncoder']
+        })
     ]
 };
 
