@@ -76,16 +76,17 @@ fn config() {
 }
 
 #[test]
-fn add_module() {
+fn add_module_blueprint() {
     enable_logs();
 
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
+    let module = "test";
     let config = json!(
         {
-            "name": "test_three",
+            "name": module,
             "mem_pages_count": 100,
             "logger_enabled": true,
             "wasi": {
@@ -95,11 +96,57 @@ fn add_module() {
             }
         }
     );
-    let script = call_script(&client.node, &client.peer_id, "add_module", "module");
+    // let script = call_script(&client.node, &client.peer_id, "add_module", "module");
+    let script = format!(
+        r#"(seq (
+            (call (%current_peer_id% (add_module ||) (module) module))
+            (seq (
+                (call (%current_peer_id% (add_blueprint ||) (blueprint) blueprint_id))
+                (seq (
+                    (call (%current_peer_id% (create ||) (blueprint_id) service_id))
+                    (call ({} (|| ||) (service_id) client_result))
+                ))
+            ))
+        ))"#,
+        client.peer_id
+    )
+    .replace("\n", "")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("  ", " ")
+    .replace("( (", "((")
+    .replace(") )", "))");
+
+    println!("script:\n{:?}", script);
+
     let response = send_particle(
         &mut client,
         script,
-        json!({"module": { "module": test_module(), "config": config }}),
+        json!({
+            "module": {
+                "module": test_module(),
+                "config": config
+            },
+            "blueprint": {
+                "blueprint": {
+                    "name": "blueprint",
+                    "dependencies": [ module ]
+                },
+            },
+        }),
     );
 
     println!("response: {:?}", response);

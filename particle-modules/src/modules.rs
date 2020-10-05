@@ -43,7 +43,7 @@ pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
         let blueprint = get("blueprint", &mut args).map_err(as_value)?;
         files::add_blueprint(&blueprint_dir, &blueprint).map_err(as_value)?;
 
-        Ok(None)
+        Ok(Some(Value::String(blueprint.id)))
     })
 }
 
