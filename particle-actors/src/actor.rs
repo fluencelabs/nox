@@ -143,6 +143,8 @@ impl Actor {
                 log::warn!("Error executing particle {}: {:?}", particle.id, err)
             }
 
+            log::debug!("Executed particle: {:?}", result);
+
             let effects = match parse_outcome(result) {
                 Ok((data, targets)) => {
                     let mut particle = particle;
