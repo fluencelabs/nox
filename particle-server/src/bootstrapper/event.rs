@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use parity_multiaddr::Multiaddr;
+use libp2p::core::Multiaddr;
 
 #[derive(Debug, Clone)]
 pub enum BootstrapperEvent {

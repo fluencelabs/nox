@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use parity_multiaddr::Multiaddr;
+use libp2p::core::Multiaddr;
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -23,7 +23,7 @@ pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
 pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
 pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
 pub const DEFAULT_SERVICES_BASE_DIR: &str = "./.fluence/services";
-pub const DEFAULT_STEPPER_MODULE: &str = "aquamarine";
+pub const DEFAULT_STEPPER_BASE_DIR: &str = "./.fluence/stepper";
 
 pub fn default_tcp_port() -> u16 {
     7777
@@ -51,6 +51,6 @@ pub fn default_services_basedir() -> PathBuf {
     DEFAULT_SERVICES_BASE_DIR.into()
 }
 
-pub fn default_stepper() -> String {
-    DEFAULT_STEPPER_MODULE.into()
+pub fn default_stepper_basedir() -> PathBuf {
+    DEFAULT_STEPPER_BASE_DIR.into()
 }

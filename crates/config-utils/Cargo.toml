@@ -1,0 +1,8 @@
+[package]
+name = "config-utils"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }

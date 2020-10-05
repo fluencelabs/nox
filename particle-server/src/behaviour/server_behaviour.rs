@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-use crate::bootstrapper::{BootstrapConfig, Bootstrapper};
+use crate::bootstrapper::Bootstrapper;
+use crate::config::BehaviourConfig;
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
+use libp2p::core::Multiaddr;
 use libp2p::{
     identify::Identify,
-    identity::{ed25519, PublicKey},
+    identity::PublicKey,
     ping::{Ping, PingConfig, PingEvent},
-    PeerId,
 };
-use parity_multiaddr::Multiaddr;
-use particle_behaviour::{ActorConfig, ParticleBehaviour};
-use particle_dht::DHTConfig;
-use prometheus::Registry;
+use particle_behaviour::{ParticleBehaviour, ParticleConfig};
 use std::collections::VecDeque;
-use trust_graph::TrustGraph;
+use std::io;
 
 pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
 
@@ -44,37 +42,31 @@ pub struct ServerBehaviour {
 }
 
 impl ServerBehaviour {
-    pub fn new(
-        key_pair: ed25519::Keypair,
-        local_peer_id: PeerId,
-        _listening_addresses: Vec<Multiaddr>,
-        trust_graph: TrustGraph,
-        registry: Option<&Registry>,
-        bootstrap_nodes: Vec<Multiaddr>,
-        bs_config: BootstrapConfig,
-        actor_config: ActorConfig,
-    ) -> Self {
-        let local_public_key = PublicKey::Ed25519(key_pair.public());
+    pub fn new(cfg: BehaviourConfig<'_>) -> io::Result<Self> {
+        let local_public_key = PublicKey::Ed25519(cfg.key_pair.public());
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),
             "0.1.0".into(),
             local_public_key,
         );
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
-        let dht_config = DHTConfig {
-            peer_id: local_peer_id.clone(),
-            keypair: key_pair,
-        };
-        let particle = ParticleBehaviour::new(actor_config, dht_config, trust_graph, registry);
-        let bootstrapper = Bootstrapper::new(bs_config, local_peer_id, bootstrap_nodes);
 
-        Self {
+        let config = ParticleConfig::new(
+            cfg.services_base_dir,
+            cfg.services_envs,
+            cfg.stepper_base_dir,
+            cfg.key_pair,
+        );
+        let particle = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)?;
+        let bootstrapper = Bootstrapper::new(cfg.bootstrap, cfg.local_peer_id, cfg.bootstrap_nodes);
+
+        Ok(Self {
             identity,
             ping,
             particle,
             bootstrapper,
             events: <_>::default(),
-        }
+        })
     }
 
     /// Dials bootstrap nodes

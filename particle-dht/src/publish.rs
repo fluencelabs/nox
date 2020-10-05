@@ -17,7 +17,6 @@
 use crate::{dht::PublishError, DHTEvent, ParticleDHT};
 use libp2p::{
     kad::{PutRecordError, PutRecordResult, Quorum, Record},
-    swarm::NetworkBehaviourAction,
     PeerId,
 };
 use std::borrow::Borrow;
@@ -37,16 +36,16 @@ impl ParticleDHT {
         };
     }
 
-    pub fn publish_failed(&mut self, client: PeerId, error: PublishError) {
+    pub(super) fn publish_failed(&mut self, client: PeerId, error: PublishError) {
         self.emit(DHTEvent::PublishFailed(client, error));
     }
 
-    pub fn publish_succeeded(&mut self, client: PeerId) {
+    pub(super) fn publish_succeeded(&mut self, client: PeerId) {
         self.emit(DHTEvent::Published(client))
     }
 
     pub(super) fn emit(&mut self, event: DHTEvent) {
-        self.push_event(NetworkBehaviourAction::GenerateEvent(event))
+        self.push_event(event)
     }
 
     pub(super) fn recover_result(result: PutRecordResult) -> Result<(), PublishError> {
@@ -56,7 +55,7 @@ impl ParticleDHT {
         };
 
         #[rustfmt::skip]
-            let (found, quorum, reason, key) = match &err {
+        let (found, quorum, reason, key) = match &err {
             PutRecordError::QuorumFailed { success, quorum, key, .. } => (success.len(), quorum.get(), PublishError::QuorumFailed, key),
             PutRecordError::Timeout { success, quorum, key, .. } => (success.len(), quorum.get(), PublishError::TimedOut, key),
         };

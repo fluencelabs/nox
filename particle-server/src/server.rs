@@ -15,23 +15,22 @@
  */
 
 use super::behaviour::ServerBehaviour;
-use crate::config::ServerConfig;
+use crate::config::{BehaviourConfig, ServerConfig};
+
+use config_utils::to_peer_id;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
+use trust_graph::TrustGraph;
 
 use async_std::task;
-use futures::future::BoxFuture;
-use futures::{channel::oneshot, select, stream::StreamExt, FutureExt};
+use futures::{channel::oneshot, future::BoxFuture, select, stream::StreamExt, FutureExt};
 use libp2p::{
-    identity::ed25519::{self, Keypair},
-    identity::PublicKey,
-    PeerId, Swarm, TransportError,
+    core::{multiaddr::Protocol, Multiaddr},
+    identity::ed25519::Keypair,
+    Swarm, TransportError,
 };
-use parity_multiaddr::{Multiaddr, Protocol};
-use particle_behaviour::ActorConfig;
 use prometheus::Registry;
 use std::io;
-use std::net::IpAddr;
-use trust_graph::TrustGraph;
+use std::net::SocketAddr;
 
 // TODO: documentation
 pub struct Server {
@@ -41,31 +40,19 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(
-        key_pair: Keypair,
-        server_config: ServerConfig,
-        root_weights: Vec<(ed25519::PublicKey, u32)>,
-        actor_config: ActorConfig,
-    ) -> Box<Self> {
-        let ServerConfig { socket_timeout, .. } = server_config;
+    pub fn new(key_pair: Keypair, config: ServerConfig) -> io::Result<Box<Self>> {
+        let ServerConfig { socket_timeout, .. } = config;
 
-        let local_peer_id = PeerId::from(PublicKey::Ed25519(key_pair.public()));
+        let local_peer_id = to_peer_id(&key_pair);
         log::info!("server peer id = {}", local_peer_id);
 
-        let trust_graph = TrustGraph::new(root_weights);
+        let trust_graph = TrustGraph::new(config.root_weights());
         let registry = Registry::new();
 
         let mut swarm = {
-            let behaviour = ServerBehaviour::new(
-                key_pair.clone(),
-                local_peer_id.clone(),
-                server_config.external_addresses(),
-                trust_graph,
-                Some(&registry),
-                server_config.bootstrap_nodes.clone(),
-                <_>::default(),
-                actor_config,
-            );
+            let config =
+                BehaviourConfig::new(trust_graph, Some(&registry), key_pair.clone(), &config);
+            let behaviour = ServerBehaviour::new(config)?;
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
 
@@ -73,18 +60,18 @@ impl Server {
         };
 
         // Add external addresses to Swarm
-        server_config
+        config
             .external_addresses()
             .into_iter()
             .for_each(|addr| Swarm::add_external_address(&mut swarm, addr));
 
         let node_service = Self {
             swarm,
-            config: server_config,
+            config,
             registry,
         };
 
-        Box::new(node_service)
+        Ok(Box::new(node_service))
     }
 
     /// Starts node service
@@ -98,7 +85,7 @@ impl Server {
         task::spawn(async move {
             let mut metrics = Self::start_metrics_endpoint(
                 self.registry,
-                (self.config.listen_ip, self.config.prometheus_port),
+                SocketAddr::new(self.config.listen_ip, self.config.prometheus_port),
             )
             .fuse();
             loop {
@@ -117,10 +104,10 @@ impl Server {
 
     pub fn start_metrics_endpoint(
         registry: Registry,
-        listen_addr: (IpAddr, u16),
+        listen_addr: SocketAddr,
     ) -> BoxFuture<'static, io::Result<()>> {
-        use http_types::{Error, StatusCode::InternalServerError};
         use prometheus::{Encoder, TextEncoder};
+        use tide::{Error, StatusCode::InternalServerError};
 
         let mut app = tide::with_state(registry);
         app.at("/metrics")

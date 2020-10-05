@@ -16,10 +16,12 @@
 
 use super::ServerBehaviour;
 use itertools::Itertools;
-use libp2p::identify::IdentifyEvent;
-use libp2p::identity::PublicKey;
-use libp2p::swarm::NetworkBehaviourEventProcess;
-use parity_multiaddr::{Multiaddr, Protocol};
+use libp2p::{
+    core::{multiaddr::Protocol, Multiaddr},
+    identify::IdentifyEvent,
+    identity::PublicKey,
+    swarm::NetworkBehaviourEventProcess,
+};
 use std::net::IpAddr;
 
 /// Network address information is exchanged via Identify protocol.

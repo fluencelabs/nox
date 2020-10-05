@@ -31,5 +31,5 @@ mod config;
 mod invoke;
 mod plumber;
 
-pub use config::ActorConfig;
-pub use plumber::{PeerKind, Plumber, PlumberEvent};
+pub use crate::config::ActorConfig;
+pub use crate::plumber::{Plumber, PlumberEvent};

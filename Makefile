@@ -14,11 +14,11 @@ test:
 	cargo test
 
 server:
-	cargo run -p fluence-server -- -b ${BOOTSTRAP_NODE}
+	cargo run -p particle-server -- -b ${BOOTSTRAP_NODE}
 
 server-debug:
 	RUST_LOG="trace,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info" \
-	cargo run -p fluence-server -- -b ${BOOTSTRAP_NODE}
+	cargo run -p particle-server -- -b ${BOOTSTRAP_NODE}
 
 clean:
 	cargo clean
@@ -30,8 +30,8 @@ cross-build:
 
 X86_TARGET=./target/x86_64-unknown-linux-gnu/release
 
-SERVER_EXE = ${X86_TARGET}/fluence-server
-SERVER=--build-arg local_exe=${SERVER_EXE} --build-arg exe=fluence-server
+SERVER_EXE = ${X86_TARGET}/particle-server
+SERVER=--build-arg local_exe=${SERVER_EXE} --build-arg exe=particle-server
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 IPFS_DOCKERFILE=./deploy/fluence-ipfs/Dockerfile
 IPFS_TAG=${BRANCH}-with-ipfs
