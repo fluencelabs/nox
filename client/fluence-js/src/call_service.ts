@@ -1,4 +1,11 @@
-class Service {
+import {getService, registerService} from "./globalState";
+
+interface CallServiceResult {
+    ret_code: number,
+    result: string
+}
+
+export class Service {
 
     serviceId: string;
     functions: Map<string, (args: string) => string> = new Map();
@@ -11,20 +18,30 @@ class Service {
         this.functions.set(fnName, fn);
     }
 
-    call(fnName: string, args: string): string {
+    call(fnName: string, args: string): CallServiceResult {
         let fn = this.functions.get(fnName)
         if (fn) {
-            return fn(args)
+            try {
+                let result = fn(args)
+                return {
+                    ret_code: 0,
+                    result
+                }
+            } catch (err) {
+                return {
+                    ret_code: 1,
+                    result: JSON.stringify(err)
+                }
+            }
+
         } else {
-            return `Error. There is no function ${fnName}`
+            let errorMsg = `Error. There is no function ${fnName}`
+            return {
+                ret_code: 1,
+                result: errorMsg
+            }
         }
     }
-}
-
-let services: Map<string, Service> = new Map();
-
-function registerService(service: Service) {
-    services.set(service.serviceId, service)
 }
 
 let logger = new Service("logger")
@@ -35,9 +52,9 @@ logger.registerFunction("logger", (args: string) => {
 registerService(logger);
 
 export function call_service(service_id: string, fn_name: string, args: string): string {
-    let service = services.get(service_id)
+    let service = getService(service_id)
     if (service) {
-        return service.call(fn_name, args)
+        return JSON.stringify(service.call(fn_name, args))
     } else {
         return `Error. There is no service ${service_id}`
     }
