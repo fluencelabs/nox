@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use crate::args::Args;
 use crate::config::ServicesConfig;
 use crate::error::ServiceError;
 use crate::error::ServiceError::MissingBlueprintId;

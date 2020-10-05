@@ -25,6 +25,7 @@
     unreachable_patterns
 )]
 
+pub use wasmer_wit::types::InterfaceType as IType;
 pub use wasmer_wit::values::InterfaceValue as IValue;
 pub use wasmer_wit::vec1;
 

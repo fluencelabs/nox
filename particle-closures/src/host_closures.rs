@@ -16,10 +16,9 @@
 
 use crate::BuiltinServicesApi;
 
+use host_closure::{Args, Closure};
+use ivalue_utils::{as_record, IType, IValue};
 use particle_actors::HostImportDescriptor;
-use particle_services::{Args, IType, IValue};
-
-use ivalue_utils::as_record;
 
 use std::sync::Arc;
 

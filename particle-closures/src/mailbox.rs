@@ -16,16 +16,15 @@
 
 use crate::builtin_services_api::BuiltinServicesApi;
 
+use ivalue_utils::IValue;
 use particle_dht::ResolveErrorKind;
-use particle_services::{Args, IValue};
-
 use waiting_queues::WaitingQueues;
 
 use futures::{channel::mpsc, StreamExt};
 use libp2p::kad::record;
 use std::{
     collections::HashSet,
-    sync::{mpsc as std_mpsc, Arc},
+    sync::mpsc as std_mpsc,
     task::{Context, Poll},
 };
 

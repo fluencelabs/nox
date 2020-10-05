@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-use fluence_app_service::AppServiceError;
 use particle_modules::ModuleError;
+
+use fluence_app_service::AppServiceError;
+use host_closure::ArgsError;
 
 use std::{error::Error, path::PathBuf};
 
@@ -34,6 +36,7 @@ pub enum ServiceError {
         path: PathBuf,
         err: std::io::Error,
     },
+    #[allow(dead_code)]
     ArgParseError(ArgsError),
     MissingBlueprintId,
 }
@@ -71,12 +74,10 @@ impl std::fmt::Display for ServiceError {
             ServiceError::MissingBlueprintId => {
                 write!(f, "No blueprint_id in arguments from stepper")
             }
-            ServiceError::ArgParseError { field, error } => write!(
-                f,
-                "Error parsing arguments on call_service. field: {}, error: {:?}",
-                field, error
-            ),
             ServiceError::ModuleError(err) => write!(f, "ModuleError: {:?}", err),
+            ServiceError::ArgParseError(error) => {
+                write!(f, "Error parsing arguments on call_service: {:?}", error)
+            }
         }
     }
 }

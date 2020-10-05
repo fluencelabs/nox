@@ -14,4 +14,9 @@
  * limitations under the License.
  */
 
-pub fn add_module() -> Closure {}
+use host_closure::Closure;
+
+#[allow(dead_code)]
+pub fn add_module() -> Closure {
+    unimplemented!()
+}

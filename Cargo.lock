@@ -1905,6 +1905,7 @@ version = "0.0.1"
 dependencies = [
  "fce",
  "ivalue-utils",
+ "serde_json",
 ]
 
 [[package]]
@@ -3137,6 +3138,7 @@ dependencies = [
  "config-utils",
  "fluence-libp2p",
  "futures",
+ "host-closure",
  "libp2p",
  "log",
  "particle-protocol",
@@ -3175,6 +3177,7 @@ dependencies = [
  "config-utils",
  "fluence-libp2p",
  "futures",
+ "host-closure",
  "ivalue-utils",
  "libp2p",
  "log",
@@ -3213,6 +3216,7 @@ name = "particle-modules"
 version = "0.0.1"
 dependencies = [
  "fluence-app-service",
+ "host-closure",
  "serde 1.0.116",
  "toml",
  "uuid",

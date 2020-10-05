@@ -17,10 +17,12 @@
 use crate::actor::{Actor, ActorEvent};
 use crate::config::ActorConfig;
 
-use aquamarine_vm::{AquamarineVMError, HostImportDescriptor};
+use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
-use async_std::{sync::Arc, task};
+use aquamarine_vm::AquamarineVMError;
+
+use async_std::task;
 use futures::{future::BoxFuture, Future, FutureExt};
 use libp2p::PeerId;
 use std::{

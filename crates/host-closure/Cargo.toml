@@ -7,3 +7,5 @@ edition = "2018"
 [dependencies]
 ivalue-utils = { path = "../ivalue-utils" }
 fce = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+
+serde_json = "1.0.58"

@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-use crate::mailbox::{
-    BuiltinCommand, BuiltinCommandResult, Closure, Command, Destination, WaitResult,
-};
+use crate::mailbox::{BuiltinCommand, BuiltinCommandResult, Command, Destination, WaitResult};
 
-use particle_services::Args;
+use host_closure::{Args, Closure};
 
 use libp2p::kad::record;
 use std::{sync::mpsc as std_mpsc, sync::Arc};

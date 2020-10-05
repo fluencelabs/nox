@@ -11,6 +11,7 @@ particle-dht = { path = "../particle-dht"}
 particle-services = { path = "../particle-services"}
 
 config-utils = { path = "../crates/config-utils" }
+host-closure = { path = "../crates/host-closure" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
