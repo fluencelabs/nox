@@ -14,54 +14,92 @@
  * limitations under the License.
  */
 
-use crate::files;
+use crate::file_names::extract_module_name;
+use crate::{file_names, files};
 
 use host_closure::{Args, ArgsError, Closure};
-use ivalue_utils::IValue;
+use ivalue_utils::as_record_opt;
 use ArgsError::{MissingField, SerdeJson};
 
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 use std::{path::PathBuf, sync::Arc};
 
+/// Adds a module to the filesystem, overwriting existing module.
 pub fn add_module(modules_dir: PathBuf) -> Closure {
     closure(move |mut args| {
-        let module = get("module", &mut args).map_err(as_ivalue)?;
-        let config = get("config", &mut args).map_err(as_ivalue)?;
-        files::add_module(&modules_dir, module, config).map_err(as_ivalue)
+        let module = get("module", &mut args).map_err(as_value)?;
+        let config = get("config", &mut args).map_err(as_value)?;
+        files::add_module(&modules_dir, module, config).map_err(as_value)?;
+
+        Ok(None)
     })
 }
 
+/// Saves new blueprint to disk
 pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
     closure(move |mut args| {
-        let blueprint = get("blueprint", &mut args).map_err(as_ivalue)?;
-        files::add_blueprint(&blueprint_dir, &blueprint).map_err(as_ivalue)
+        let blueprint = get("blueprint", &mut args).map_err(as_value)?;
+        files::add_blueprint(&blueprint_dir, &blueprint).map_err(as_value)?;
+
+        Ok(None)
+    })
+}
+
+/// Get available modules (intersection of modules from config + modules on filesystem)
+// TODO: load interfaces of these modules
+pub fn get_modules(modules_dir: PathBuf) -> Closure {
+    closure(move |_| {
+        Ok(Some(Value::Array(
+            files::list_files(&modules_dir)
+                .into_iter()
+                .flatten()
+                .filter_map(|pb| extract_module_name(pb.file_name()?.to_str()?).map(Value::String))
+                .collect(),
+        )))
+    })
+}
+
+/// Get available blueprints
+pub fn get_blueprints(blueprint_dir: PathBuf) -> Closure {
+    closure(move |_| {
+        Ok(Some(Value::Array(
+            files::list_files(&blueprint_dir)
+                .into_iter()
+                .flatten()
+                .filter_map(|pb| {
+                    // Check if file name matches blueprint schema
+                    pb.file_name()?
+                        .to_str()
+                        .filter(|s| file_names::is_blueprint(s))?;
+
+                    // Read & deserialize TOML
+                    let bytes = std::fs::read(pb).ok()?;
+                    let config = toml::from_slice(bytes.as_slice()).ok()?;
+
+                    // Convert to json
+                    serde_json::to_value(config).ok()
+                })
+                .collect(),
+        )))
     })
 }
 
 /// Converts Fn into Closure, converting error into Option<IValue>
 fn closure<F>(f: F) -> Closure
 where
-    F: Fn(serde_json::Value) -> Result<(), IValue> + Send + Sync + 'static,
+    F: Fn(Value) -> Result<Option<Value>, Value> + Send + Sync + 'static,
 {
-    Arc::new(move |Args { args, .. }| {
-        if let Err(err) = f(args) {
-            return ivalue_utils::error(err);
-        }
-
-        ivalue_utils::unit()
-    })
+    Arc::new(move |Args { args, .. }| as_record_opt(f(args)))
 }
 
 /// Converts an error into IValue::String
-fn as_ivalue<E: ToString>(err: E) -> IValue {
-    IValue::String(err.to_string())
+fn as_value<E: ToString>(err: E) -> Value {
+    Value::String(err.to_string())
 }
 
 /// Retrieves named field of type T from json Value
-fn get<T: DeserializeOwned>(
-    field: &'static str,
-    args: &mut serde_json::Value,
-) -> Result<T, ArgsError> {
+fn get<T: DeserializeOwned>(field: &'static str, args: &mut Value) -> Result<T, ArgsError> {
     let value = args.get_mut(field).ok_or(MissingField(field))?.take();
     let value: T = serde_json::from_value(value).map_err(|err| SerdeJson { err, field })?;
 

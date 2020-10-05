@@ -17,9 +17,10 @@
 use crate::BuiltinServicesApi;
 
 use host_closure::{Args, Closure};
-use ivalue_utils::{as_record, IType, IValue};
+use ivalue_utils::{IType, IValue};
 use particle_actors::HostImportDescriptor;
 
+use serde_json::json;
 use std::sync::Arc;
 
 type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
@@ -31,6 +32,8 @@ pub struct HostClosures {
     pub builtin: Closure,
     pub add_module: Closure,
     pub add_blueprint: Closure,
+    pub get_modules: Closure,
+    pub get_blueprints: Closure,
 }
 
 impl HostClosures {
@@ -51,7 +54,7 @@ impl HostClosures {
             Ok(args) => args,
             Err(err) => {
                 log::warn!("error parsing args: {:?}", err);
-                return as_record(Err(IValue::String(err.to_string())));
+                return ivalue_utils::error(json!(err.to_string()));
             }
         };
         log::info!("Router args: {:?}", args);
@@ -60,6 +63,8 @@ impl HostClosures {
             "create" => (self.create_service)(args),
             "add_module" => (self.add_module)(args),
             "add_blueprint" => (self.add_blueprint)(args),
+            "get_available_modules" => (self.get_modules)(args),
+            "get_available_blueprints" => (self.get_blueprints)(args),
             s if BuiltinServicesApi::is_builtin(&s) => (self.builtin)(args),
             _ => (self.call_service)(args),
         }

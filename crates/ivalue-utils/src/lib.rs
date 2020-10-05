@@ -29,17 +29,10 @@ pub use wasmer_wit::types::InterfaceType as IType;
 pub use wasmer_wit::values::InterfaceValue as IValue;
 pub use wasmer_wit::vec1;
 
-use serde_json::json;
+use serde_json::{json, Value};
 use vec1::Vec1;
 
-pub fn as_record(v: std::result::Result<IValue, IValue>) -> Option<IValue> {
-    match v {
-        Ok(v) => ok(v),
-        Err(e) => error(e),
-    }
-}
-
-pub fn as_record_opt(v: std::result::Result<Option<IValue>, IValue>) -> Option<IValue> {
+pub fn as_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<IValue> {
     match v {
         Ok(None) => unit(),
         Ok(Some(v)) => ok(v),
@@ -47,15 +40,19 @@ pub fn as_record_opt(v: std::result::Result<Option<IValue>, IValue>) -> Option<I
     }
 }
 
-pub fn ok(value: IValue) -> Option<IValue> {
-    let value = ivalue_to_jvalue_string(value);
+pub fn ok(value: Value) -> Option<IValue> {
+    let value = IValue::String(value.to_string());
     Some(IValue::Record(
         Vec1::new(vec![IValue::U32(0), value]).unwrap(),
     ))
 }
 
-pub fn error(err: IValue) -> Option<IValue> {
-    let err = ivalue_to_jvalue_string(err);
+pub fn ivalue_ok(value: IValue) -> Option<IValue> {
+    ok(ivalue_to_jvalue(value))
+}
+
+pub fn error(err: Value) -> Option<IValue> {
+    let err = IValue::String(err.to_string());
     Some(IValue::Record(
         Vec1::new(vec![IValue::U32(1), err]).unwrap(),
     ))
@@ -66,7 +63,7 @@ pub fn unit() -> Option<IValue> {
 }
 
 /// Serializes IValue to json bytes
-fn ivalue_to_jvalue(v: IValue) -> serde_json::Value {
+fn ivalue_to_jvalue(v: IValue) -> Value {
     match v {
         IValue::S8(v) => json!(v),
         IValue::S16(v) => json!(v),
@@ -88,19 +85,4 @@ fn ivalue_to_jvalue(v: IValue) -> serde_json::Value {
             .map(ivalue_to_jvalue)
             .collect::<Vec<_>>()),
     }
-}
-
-#[allow(dead_code)]
-fn ivalue_to_jvalue_bytes(ivalue: IValue) -> IValue {
-    let jvalue = ivalue_to_jvalue(ivalue);
-    let bytes = serde_json::to_vec(&jvalue).expect("shouldn't fail");
-    let bytes = bytes.into_iter().map(IValue::U8).collect();
-    IValue::Array(bytes)
-}
-
-#[allow(dead_code)]
-fn ivalue_to_jvalue_string(ivalue: IValue) -> IValue {
-    let jvalue = ivalue_to_jvalue(ivalue);
-    let string = serde_json::to_string(&jvalue).expect("shouldn't fail");
-    IValue::String(string)
 }

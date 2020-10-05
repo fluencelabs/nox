@@ -21,9 +21,9 @@ use crate::vm::create_vm;
 
 use fluence_app_service::{AppService, IValue};
 use host_closure::Closure;
-use ivalue_utils::as_record;
 
 use parking_lot::{Mutex, RwLock};
+use serde_json::json;
 use std::{collections::HashMap, sync::Arc};
 
 type VM = Arc<Mutex<AppService>>;
@@ -62,16 +62,15 @@ impl ParticleAppServices {
                     .map(|v| v.to_string());
                 create_vm(config.clone(), blueprint_id, &service_id, user_id)
             };
-            let result = match make_vm() {
+
+            match make_vm() {
                 Ok(vm) => {
                     let vm = Arc::new(Mutex::new(vm));
                     services.write().insert(service_id.clone(), vm);
-                    Ok(IValue::String(service_id))
+                    ivalue_utils::ok(json!(service_id))
                 }
-                // TODO: how to distinguish error from success?
-                Err(err) => Err(IValue::String(err.to_string())),
-            };
-            as_record(result)
+                Err(err) => ivalue_utils::error(json!(err.to_string())),
+            }
         })
     }
 
@@ -92,13 +91,14 @@ impl ParticleAppServices {
                 Ok(result)
             };
 
-            let result = match call() {
+            match call() {
                 // AppService always returns a single element
-                Ok(result) => Ok(result.into_iter().next().expect("must be defined")),
-                Err(err) => Err(IValue::String(err.to_string())),
-            };
-
-            as_record(result)
+                Ok(result) => {
+                    let result = result.into_iter().next().expect("must be defined");
+                    ivalue_utils::ivalue_ok(result)
+                }
+                Err(err) => ivalue_utils::error(json!(err.to_string())),
+            }
         })
     }
 }
