@@ -46,7 +46,7 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-const AQUAMARINE: &'static str = "aquamarine.wasm";
+const AQUAMARINE: &str = "aquamarine.wasm";
 
 pub fn uuid() -> String {
     Uuid::new_v4().to_string()

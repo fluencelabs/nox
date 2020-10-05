@@ -33,6 +33,7 @@ impl ParticleDHT {
     pub(super) fn resolved(&mut self, result: GetRecordResult) {
         match Self::recover_get(result) {
             Ok(records) => {
+                // unwrapping is safe here because recover_get returns a non-empty vector of PeerRecords
                 let key = records.iter().next().unwrap().record.key.clone();
                 let value = records.into_iter().map(|r| r.record.value).collect();
                 self.emit(DHTEvent::Resolved { key, value });
@@ -41,6 +42,7 @@ impl ParticleDHT {
         }
     }
 
+    /// Returns either a non-empty vector of `PeerRecord`, or an error
     pub(super) fn recover_get(result: GetRecordResult) -> Result<Vec<PeerRecord>, ResolveError> {
         let err = match result {
             Err(err) => err,

@@ -38,15 +38,15 @@ pub struct ConnectedClient {
 
 impl ConnectedClient {
     pub fn timeout(&self) -> Duration {
-        self.timeout.clone()
+        self.timeout
     }
 
     pub fn short_timeout(&self) -> Duration {
-        self.short_timeout.clone()
+        self.short_timeout
     }
 
     pub fn kad_timeout(&self) -> Duration {
-        self.kad_timeout.clone()
+        self.kad_timeout
     }
 }
 
