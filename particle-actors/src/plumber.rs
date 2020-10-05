@@ -20,9 +20,8 @@ use crate::config::ActorConfig;
 use aquamarine_vm::{AquamarineVMError, HostImportDescriptor};
 use particle_protocol::Particle;
 
-use async_std::sync::Arc;
-use async_std::task;
-use futures::{future::BoxFuture, Future};
+use async_std::{sync::Arc, task};
+use futures::{future::BoxFuture, Future, FutureExt};
 use libp2p::PeerId;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
@@ -33,7 +32,7 @@ use std::{
 };
 
 type Fut = BoxFuture<'static, Result<Actor, AquamarineVMError>>;
-pub(super) type Fabric = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
+pub(super) type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
 
 #[derive(Debug)]
 pub enum PlumberEvent {
@@ -49,15 +48,15 @@ pub struct Plumber {
     config: ActorConfig,
     events: VecDeque<PlumberEvent>,
     actors: HashMap<String, ActorState>,
-    services: Fabric,
+    host_closure: ClosureDescriptor,
     pub(super) waker: Option<Waker>,
 }
 
 impl Plumber {
-    pub fn new(config: ActorConfig, services: Fabric) -> Self {
+    pub fn new(config: ActorConfig, host_closure: ClosureDescriptor) -> Self {
         Self {
             config,
-            services,
+            host_closure,
             events: <_>::default(),
             actors: <_>::default(),
             waker: <_>::default(),
@@ -70,7 +69,7 @@ impl Plumber {
             Entry::Vacant(entry) => {
                 // Create new actor
                 let config = self.config.clone();
-                let services = self.services.clone();
+                let services = self.host_closure.clone();
                 let future = Self::create_actor(config, particle, services);
                 entry.insert(ActorState::Creating {
                     future,
@@ -161,10 +160,12 @@ impl Plumber {
         }
     }
 
-    fn create_actor(config: ActorConfig, particle: Particle, services: Fabric) -> Fut {
-        Box::pin(task::spawn_blocking(move || {
-            Actor::new(config, particle, services)
-        }))
+    fn create_actor(
+        config: ActorConfig,
+        particle: Particle,
+        host_closure: ClosureDescriptor,
+    ) -> Fut {
+        task::spawn_blocking(move || Actor::new(config, particle, host_closure)).boxed()
     }
 }
 

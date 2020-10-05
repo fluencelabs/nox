@@ -29,6 +29,7 @@
 mod behaviour;
 mod clients;
 mod config;
+mod event_process;
 mod network;
 
 pub use crate::behaviour::ParticleBehaviour;

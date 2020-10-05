@@ -14,26 +14,25 @@
  * limitations under the License.
  */
 
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use libp2p::kad::record::Key;
+use libp2p::kad::store;
 
-mod connections;
-mod dht;
-mod errors;
-mod kademlia;
-mod publish;
-mod resolve;
-mod routing;
-mod wait_peer;
+#[derive(Debug)]
+pub enum PublishError {
+    StoreError(store::Error),
+    TimedOut,
+    QuorumFailed,
+}
 
-pub use dht::{DHTConfig, DHTEvent, ParticleDHT};
-pub use errors::{ResolveError, ResolveErrorKind};
+#[derive(Debug, Clone)]
+pub struct ResolveError {
+    pub key: Key,
+    pub kind: ResolveErrorKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum ResolveErrorKind {
+    TimedOut,
+    QuorumFailed,
+    NotFound,
+}

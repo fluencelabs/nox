@@ -19,6 +19,7 @@ use libp2p::swarm::NetworkBehaviour;
 use libp2p::PeerId;
 use particle_protocol::Particle;
 
+#[derive(Debug)]
 pub(super) enum PeerStatus {
     /// Peer is expected to be connected
     Connected,
@@ -33,6 +34,9 @@ impl ParticleDHT {
         use PeerStatus::*;
 
         let status = self.peer_status(&to);
+
+        #[rustfmt::skip]
+        log::debug!("Sending particle {} to peer {} ({:?})", particle.id, to, status);
 
         match status {
             Connected => self.send_to_connected(to, particle),

@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-use async_std::task;
-use fluence_libp2p::{build_memory_transport, build_transport};
-use particle_server::{BootstrapConfig, ServerBehaviour};
+use particle_server::{config::BehaviourConfig, BootstrapConfig, ServerBehaviour};
 
-use config_utils::modules_dir;
+use config_utils::{modules_dir, to_abs_path};
 use fluence_client::Transport;
-use particle_server::config::BehaviourConfig;
+use fluence_libp2p::{build_memory_transport, build_transport};
 use trust_graph::{Certificate, TrustGraph};
 
+use async_std::task;
 use futures::StreamExt;
 use libp2p::{
     core::Multiaddr,
@@ -46,6 +45,8 @@ pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
+
+const AQUAMARINE: &str = "aquamarine.wasm";
 
 pub fn uuid() -> String {
     Uuid::new_v4().to_string()
@@ -80,7 +81,7 @@ pub fn enable_logs() {
     use log::LevelFilter::*;
 
     env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
+        .filter_level(log::LevelFilter::Debug)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)
@@ -299,8 +300,9 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             bootstrap: BootstrapConfig::zero(),
             registry,
             services_base_dir: tmp.clone(),
-            services_envs: vec![],
+            services_envs: <_>::default(),
             stepper_base_dir: tmp.clone(),
+            protocol_config: <_>::default(),
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
         put_aquamarine(modules_dir(&tmp), aquamarine_file_name);
@@ -349,20 +351,13 @@ pub fn remove_dir(dir: &PathBuf) {
     std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
 }
 
-pub fn abs_path(path: PathBuf) -> PathBuf {
-    match std::env::current_dir().ok() {
-        Some(c) => c.join(path),
-        None => path,
-    }
-}
-
 pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
-    let file_name = file_name.unwrap_or("aquamarine.wasm".to_string());
-    let aquamarine = abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
+    let file_name = file_name.unwrap_or(AQUAMARINE.to_string());
+    let aquamarine = to_abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
     let aquamarine =
         std::fs::read(&aquamarine).expect(format!("fs::read from {:?}", aquamarine).as_str());
 
-    let tmp = abs_path(tmp.join("aquamarine.wasm"));
+    let tmp = to_abs_path(tmp.join(AQUAMARINE));
     std::fs::write(&tmp, aquamarine)
         .expect(format!("fs::write aquamarine.wasm to {:?}", tmp).as_str())
 }

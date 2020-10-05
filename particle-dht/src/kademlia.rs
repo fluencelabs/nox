@@ -64,6 +64,10 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ParticleDHT {
                     self.found_closest(peer_id, peers);
                 }
             }
+            KademliaEvent::QueryResult {
+                result: QueryResult::GetRecord(result),
+                ..
+            } => self.resolved(result),
             _ => {}
         }
     }

@@ -16,18 +16,30 @@
 
 use particle_protocol::Particle;
 use serde_json::json;
-use test_utils::{make_swarms_with_cfg, ConnectedClient};
+use std::time::Duration;
+use test_utils::{enable_logs, make_swarms_with_cfg, ConnectedClient};
 
 #[test]
 fn create_service() {
-    let swarms = make_swarms_with_cfg(3, |cfg| cfg.with_aquamarine("aquamarine_call.wasm"));
+    enable_logs();
+
+    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let mut particle = Particle::default();
     particle.id = "123".to_string();
     particle.init_peer_id = client.peer_id.clone();
-    particle.script = r#"((call ((peer_part (PeerId ())) (fn_part (create ||)) (args |{"kak":"dela"}|) (result_name RESNAME))))"#.to_string();
-    particle.data = json!({"kak": "dela"});
+    particle.script = format!(
+        "((call ({} (create ||) (field) result_name)))",
+        client.peer_id
+    );
+    particle.data = json!({"field": "value"});
     client.send(particle.clone());
+
+    if cfg!(debug_assertions) {
+        // Account for slow VM in debug
+        client.timeout = Duration::from_secs(60);
+    }
+
     let response = client.receive();
     assert_eq!(response.id, particle.id);
     assert_eq!(response.data, particle.data);
