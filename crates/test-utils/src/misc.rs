@@ -47,6 +47,7 @@ pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
 const AQUAMARINE: &str = "aquamarine.wasm";
+const TEST_MODULE: &str = "test_module_wit.wasi.wasm";
 
 pub fn uuid() -> String {
     Uuid::new_v4().to_string()
@@ -360,4 +361,12 @@ pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
     let tmp = to_abs_path(tmp.join(AQUAMARINE));
     std::fs::write(&tmp, aquamarine)
         .expect(format!("fs::write aquamarine.wasm to {:?}", tmp).as_str())
+}
+
+pub fn test_module() -> Vec<u8> {
+    let file_name = TEST_MODULE.to_string();
+    let module = to_abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
+    let module = std::fs::read(&module).expect(format!("fs::read from {:?}", module).as_str());
+
+    module
 }

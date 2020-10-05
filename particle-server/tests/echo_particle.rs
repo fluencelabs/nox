@@ -15,12 +15,10 @@
  */
 
 use particle_protocol::Particle;
-use test_utils::{make_swarms, ConnectedClient};
+use test_utils::{make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use std::thread::sleep;
 use std::time::Duration;
-
-pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
 #[test]
 fn echo_particle() {

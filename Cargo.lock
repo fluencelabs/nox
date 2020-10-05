@@ -3254,6 +3254,7 @@ dependencies = [
  "ctrlc-adapter",
  "env_logger",
  "failure",
+ "fluence-app-service",
  "fluence-libp2p",
  "futures",
  "futures-util",

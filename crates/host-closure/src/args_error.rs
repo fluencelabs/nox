@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
@@ -23,6 +24,10 @@ pub enum ArgsError {
     SerdeJson {
         field: &'static str,
         err: serde_json::Error,
+    },
+    InvalidFormat {
+        field: &'static str,
+        err: Cow<'static, str>,
     },
 }
 
@@ -35,6 +40,9 @@ impl Display for ArgsError {
                 write!(f, "Field {} is missing from args to call_service", field)
             }
             ArgsError::SerdeJson { err, field } => {
+                write!(f, "Error while deserializing field {}: {:?}", field, err)
+            }
+            ArgsError::InvalidFormat { field, err } => {
                 write!(f, "Error while deserializing field {}: {:?}", field, err)
             }
         }

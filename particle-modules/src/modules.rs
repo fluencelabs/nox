@@ -23,6 +23,7 @@ use ArgsError::{MissingField, SerdeJson};
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use std::fmt::Debug;
 use std::{path::PathBuf, sync::Arc};
 
 /// Adds a module to the filesystem, overwriting existing module.
@@ -94,8 +95,8 @@ where
 }
 
 /// Converts an error into IValue::String
-fn as_value<E: ToString>(err: E) -> Value {
-    Value::String(err.to_string())
+fn as_value<E: Debug>(err: E) -> Value {
+    Value::String(format!("Error: {:?}", err))
 }
 
 /// Retrieves named field of type T from json Value
