@@ -33,13 +33,36 @@ use serde_json::json;
 use vec1::Vec1;
 
 pub fn as_record(v: std::result::Result<IValue, IValue>) -> Option<IValue> {
-    let (code, result) = match v {
-        Ok(v) => (0, v),
-        Err(e) => (1, e),
-    };
-    let result = ivalue_to_jvalue_string(result);
-    let vec = Vec1::new(vec![IValue::U32(code), result]).expect("not empty");
-    Some(IValue::Record(vec))
+    match v {
+        Ok(v) => ok(v),
+        Err(e) => error(e),
+    }
+}
+
+pub fn as_record_opt(v: std::result::Result<Option<IValue>, IValue>) -> Option<IValue> {
+    match v {
+        Ok(None) => unit(),
+        Ok(Some(v)) => ok(v),
+        Err(e) => error(e),
+    }
+}
+
+pub fn ok(value: IValue) -> Option<IValue> {
+    let value = ivalue_to_jvalue_string(value);
+    Some(IValue::Record(
+        Vec1::new(vec![IValue::U32(0), value]).unwrap(),
+    ))
+}
+
+pub fn error(err: IValue) -> Option<IValue> {
+    let err = ivalue_to_jvalue_string(err);
+    Some(IValue::Record(
+        Vec1::new(vec![IValue::U32(1), err]).unwrap(),
+    ))
+}
+
+pub fn unit() -> Option<IValue> {
+    Some(IValue::Record(Vec1::new(vec![IValue::U32(0)]).unwrap()))
 }
 
 /// Serializes IValue to json bytes

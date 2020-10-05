@@ -3217,7 +3217,9 @@ version = "0.0.1"
 dependencies = [
  "fluence-app-service",
  "host-closure",
+ "ivalue-utils",
  "serde 1.0.116",
+ "serde_json",
  "toml",
  "uuid",
 ]
