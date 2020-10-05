@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use crate::{dht::PublishError, DHTEvent, ParticleDHT};
+use crate::errors::PublishError;
+use crate::{DHTEvent, ParticleDHT};
 use libp2p::{
     kad::{PutRecordError, PutRecordResult, Quorum, Record},
     PeerId,

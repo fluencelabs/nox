@@ -15,7 +15,7 @@
  */
 
 use super::misc::Result;
-use crate::{make_swarms, CreatedSwarm, SHORT_TIMEOUT, TIMEOUT};
+use crate::{make_swarms, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
 
 use fluence_client::{Client, ClientEvent, Transport};
 
@@ -24,12 +24,30 @@ use core::ops::Deref;
 use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 use particle_protocol::Particle;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct ConnectedClient {
     pub client: Client,
     pub node: PeerId,
     pub node_address: Multiaddr,
+    pub timeout: Duration,
+    pub short_timeout: Duration,
+    pub kad_timeout: Duration,
+}
+
+impl ConnectedClient {
+    pub fn timeout(&self) -> Duration {
+        self.timeout
+    }
+
+    pub fn short_timeout(&self) -> Duration {
+        self.short_timeout
+    }
+
+    pub fn kad_timeout(&self) -> Duration {
+        self.kad_timeout
+    }
 }
 
 impl Deref for ConnectedClient {
@@ -54,11 +72,7 @@ impl ConnectedClient {
                 peer_id, ..
             }) = client.receive_one().await
             {
-                Ok(ConnectedClient {
-                    client,
-                    node: peer_id,
-                    node_address,
-                })
+                Ok(ConnectedClient::new(client, peer_id, node_address))
             } else {
                 Err(ErrorKind::ConnectionAborted.into())
             };
@@ -68,23 +82,15 @@ impl ConnectedClient {
         Ok(task::block_on(timeout(TIMEOUT, connect))??)
     }
 
-    pub fn new() -> Result<Self> {
-        let swarm = make_swarms(3).into_iter().next().unwrap();
-        let CreatedSwarm(node, addr1, _) = swarm;
-
-        let connect = async move {
-            let (mut client, _) = Client::connect_with(addr1.clone(), Transport::Memory)
-                .await
-                .expect("sender connected");
-            client.receive_one().await;
-
-            ConnectedClient {
-                client,
-                node,
-                node_address: addr1,
-            }
-        };
-        Ok(task::block_on(timeout(TIMEOUT, connect))?)
+    pub fn new(client: Client, node: PeerId, node_address: Multiaddr) -> Self {
+        Self {
+            client,
+            node,
+            node_address,
+            timeout: TIMEOUT,
+            short_timeout: SHORT_TIMEOUT,
+            kad_timeout: KAD_TIMEOUT,
+        }
     }
 
     pub fn make_clients() -> Result<(Self, Self)> {
@@ -99,22 +105,14 @@ impl ConnectedClient {
                 .expect("first connected");
             first.receive_one().await;
 
-            let first = ConnectedClient {
-                client: first,
-                node: peer_id1,
-                node_address: addr1,
-            };
+            let first = ConnectedClient::new(first, peer_id1, addr1);
 
             let (mut second, _) = Client::connect_with(addr2.clone(), Transport::Memory)
                 .await
                 .expect("second connected");
             second.receive_one().await;
 
-            let second = ConnectedClient {
-                client: second,
-                node: peer_id2,
-                node_address: addr2,
-            };
+            let second = ConnectedClient::new(second, peer_id2, addr2);
 
             (first, second)
         };
@@ -127,8 +125,9 @@ impl ConnectedClient {
     }
 
     pub fn receive(&mut self) -> Particle {
+        let tout = self.timeout();
         let receive = self.client.receive_one();
-        let result = task::block_on(timeout(TIMEOUT, receive)).expect("get particle");
+        let result = task::block_on(timeout(tout, receive)).expect("get particle");
 
         if let Some(ClientEvent::Particle { particle, .. }) = result {
             particle
@@ -138,8 +137,9 @@ impl ConnectedClient {
     }
 
     pub fn maybe_receive(&mut self) -> Option<Particle> {
+        let short_timeout = self.short_timeout();
         let receive = self.client.receive_one();
-        let result = task::block_on(timeout(SHORT_TIMEOUT, receive))
+        let result = task::block_on(timeout(short_timeout, receive))
             .ok()
             .flatten();
 

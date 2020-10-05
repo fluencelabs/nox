@@ -14,58 +14,53 @@
  * limitations under the License.
  */
 
-use crate::config::ServicesConfig;
-use crate::error::ServiceError;
-use crate::modules::{load_blueprint, load_module_config};
-use crate::Result;
+use crate::BuiltinServicesApi;
 
-use fluence_app_service::{vec1::Vec1, AppService, AppServiceConfig, FaaSConfig, IValue};
+use particle_actors::{vec1::Vec1, HostImportDescriptor};
+use particle_services::{Args, IType, IValue};
 
 use serde_json::json;
+use std::sync::Arc;
 
-pub fn create_vm(
-    config: ServicesConfig,
-    blueprint_id: String,
-    service_id: &str,
-    owner_id: Option<String>,
-) -> Result<AppService> {
-    // Load configs for all modules in blueprint
-    let make_service = move |service_id: &str| -> Result<_> {
-        // Load blueprint from disk
-        let blueprint = load_blueprint(&config.blueprint_dir, &blueprint_id)?;
+type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
+type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 
-        // Load all module configs
-        let modules_config: Vec<_> = blueprint
-            .dependencies
-            .iter()
-            .map(|module| load_module_config(&config.modules_dir, module))
-            .collect::<Result<_>>()?;
+#[derive(Clone)]
+pub struct HostClosures {
+    pub create_service: Closure,
+    pub call_service: Closure,
+    pub builtin: Closure,
+}
 
-        let modules = AppServiceConfig {
-            service_base_dir: config.workdir,
-            faas_config: FaaSConfig {
-                modules_dir: Some(config.modules_dir),
-                modules_config,
-                default_modules_config: None,
-            },
+impl HostClosures {
+    pub fn descriptor(self) -> ClosureDescriptor {
+        Arc::new(move || {
+            let this = self.clone();
+            HostImportDescriptor {
+                host_exported_func: Box::new(move |_, args| this.route(args)),
+                argument_types: vec![IType::String, IType::String, IType::String],
+                output_type: Some(IType::Record(0)),
+                error_handler: None,
+            }
+        })
+    }
+
+    fn route(&self, args: Vec<IValue>) -> Option<IValue> {
+        let args = match Args::parse(args) {
+            Ok(args) => args,
+            Err(err) => {
+                log::warn!("error parsing args: {:?}", err);
+                return as_record(Err(IValue::String(err.to_string())));
+            }
         };
-
-        let mut envs = config.envs;
-        if let Some(owner_id) = owner_id {
-            envs.insert(b"owner_id".to_vec(), owner_id.into_bytes());
-        };
-
-        log::info!("Creating service {}, envs: {:?}", service_id, envs);
-
-        let service = AppService::new(modules, service_id, envs).map_err(ServiceError::Engine)?;
-
-        // Save created service to disk, so it is recreated on restart
-        // persist_service(&config.services_dir, &service_id, &blueprint_id)?;
-
-        Ok(service)
-    };
-
-    make_service(service_id)
+        log::info!("Router args: {:?}", args);
+        // route
+        match args.service_id.as_str() {
+            "create" => (self.create_service)(args),
+            s if BuiltinServicesApi::is_builtin(&s) => (self.builtin)(args),
+            _ => (self.call_service)(args),
+        }
+    }
 }
 
 pub fn as_record(v: std::result::Result<IValue, IValue>) -> Option<IValue> {

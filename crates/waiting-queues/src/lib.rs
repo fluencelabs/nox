@@ -38,6 +38,7 @@ pub enum Enqueued {
     Existing,
 }
 
+#[derive(Debug)]
 pub struct WaitingQueues<K, V> {
     map: HashMap<K, VecDeque<V>>,
 }

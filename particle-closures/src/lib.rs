@@ -26,14 +26,10 @@
     unreachable_patterns
 )]
 
-mod connections;
-mod dht;
-mod errors;
-mod kademlia;
-mod publish;
-mod resolve;
-mod routing;
-mod wait_peer;
+mod builtin_services_api;
+mod host_closures;
+mod mailbox;
 
-pub use dht::{DHTConfig, DHTEvent, ParticleDHT};
-pub use errors::{ResolveError, ResolveErrorKind};
+pub use builtin_services_api::BuiltinServicesApi;
+pub use host_closures::HostClosures;
+pub use mailbox::{BuiltinCommand, Mailbox};

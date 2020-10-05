@@ -131,7 +131,7 @@ impl Server {
                 })
             });
 
-        Box::pin(app.listen(listen_addr))
+        app.listen(listen_addr).boxed()
     }
 
     /// Starts node service listener.

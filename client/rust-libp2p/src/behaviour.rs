@@ -65,7 +65,7 @@ impl NetworkBehaviour for ClientBehaviour {
     type OutEvent = ClientEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        let protocol_config = ProtocolConfig::new();
+        let protocol_config = ProtocolConfig::default();
 
         IntoProtocolsHandler::select(protocol_config.into(), self.ping.new_handler())
     }

@@ -15,22 +15,50 @@
  */
 
 use crate::ProtocolMessage;
-pub use failure::Error;
-use futures::future::BoxFuture;
-use futures::{AsyncRead, AsyncWrite, AsyncWriteExt};
+
+use futures::{future::BoxFuture, AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt};
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     swarm::{protocols_handler, OneShotHandler},
 };
+use serde::Deserialize;
 use serde_json::json;
-use std::{io, iter};
+use std::{io, iter, time::Duration};
 
-#[derive(Clone, Default)]
-pub struct ProtocolConfig {}
+pub use failure::Error;
+use libp2p::swarm::OneShotHandlerConfig;
+
+#[derive(Clone, Deserialize, Debug)]
+pub struct ProtocolConfig {
+    /// Timeout for applying the given upgrade on a substream
+    pub upgrade_timeout: Duration,
+    /// Keep-alive timeout for idle connections.
+    pub keep_alive_timeout: Duration,
+    /// Timeout for outbound substream upgrades.
+    pub outbound_substream_timeout: Duration,
+}
+
+impl Default for ProtocolConfig {
+    fn default() -> Self {
+        Self {
+            upgrade_timeout: Duration::from_secs(10),
+            keep_alive_timeout: Duration::from_secs(10),
+            outbound_substream_timeout: Duration::from_secs(10),
+        }
+    }
+}
 
 impl ProtocolConfig {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(
+        upgrade_timeout: Duration,
+        keep_alive_timeout: Duration,
+        outbound_substream_timeout: Duration,
+    ) -> Self {
+        Self {
+            upgrade_timeout,
+            keep_alive_timeout,
+            outbound_substream_timeout,
+        }
     }
 
     fn gen_error<E: std::error::Error>(&self, err: &E, data: &[u8]) -> ProtocolMessage {
@@ -43,8 +71,12 @@ impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent>
 {
     fn into(self) -> OneShotHandler<ProtocolConfig, OutProto, OutEvent> {
         OneShotHandler::new(
-            protocols_handler::SubstreamProtocol::new(self),
-            <_>::default(),
+            protocols_handler::SubstreamProtocol::new(self.clone())
+                .with_timeout(self.upgrade_timeout),
+            OneShotHandlerConfig {
+                keep_alive_timeout: self.keep_alive_timeout,
+                outbound_substream_timeout: self.outbound_substream_timeout,
+            },
         )
     }
 }
@@ -79,7 +111,7 @@ where
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
     fn upgrade_inbound(self, mut socket: Socket, info: Self::Info) -> Self::Future {
-        Box::pin(async move {
+        async move {
             let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
             // TODO: remove that once debugged
             match std::str::from_utf8(&packet) {
@@ -99,7 +131,8 @@ where
                     return Err(err.into());
                 }
             }
-        })
+        }
+        .boxed()
     }
 }
 
@@ -112,7 +145,7 @@ where
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
     fn upgrade_outbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
-        Box::pin(async move {
+        async move {
             match serde_json::to_string(&self) {
                 Ok(str) => log::debug!("Sending outbound ProtocolMessage: {}", str),
                 Err(err) => log::warn!("Can't serialize {:?} to string {}", &self, err),
@@ -122,7 +155,8 @@ where
             upgrade::write_one(&mut socket, bytes).await?;
 
             Ok(())
-        })
+        }
+        .boxed()
     }
 }
 
@@ -154,7 +188,7 @@ mod tests {
             let listener_event = listener.next().await.unwrap();
             let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
             let conn = listener_upgrade.await.unwrap();
-            let config = ProtocolConfig::new();
+            let config = ProtocolConfig::default();
             upgrade::apply_inbound(conn, config).await.unwrap()
         });
 

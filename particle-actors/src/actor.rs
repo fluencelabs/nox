@@ -17,13 +17,13 @@
 use crate::actor::VmState::{Executing, Idle};
 use crate::config::ActorConfig;
 use crate::invoke::parse_outcome;
-use crate::plumber::Fabric;
+use crate::plumber::ClosureDescriptor;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMError};
+use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError};
 use particle_protocol::Particle;
 
 use async_std::{pin::Pin, task};
-use futures::{future::BoxFuture, Future};
+use futures::{future::BoxFuture, Future, FutureExt};
 use libp2p::PeerId;
 use serde_json::json;
 use std::{
@@ -60,10 +60,10 @@ impl Actor {
     pub fn new(
         config: ActorConfig,
         particle: Particle,
-        services: Fabric,
+        host_closure: ClosureDescriptor,
     ) -> Result<Self, AquamarineVMError> {
         log::info!("creating vm");
-        let vm = Self::create_vm(config, services)?;
+        let vm = Self::create_vm(config, host_closure)?;
         log::info!("vm created");
         let mut this = Self {
             vm: Idle(vm),
@@ -109,11 +109,16 @@ impl Actor {
         return effects;
     }
 
-    fn create_vm(config: ActorConfig, services: Fabric) -> Result<AquamarineVM, AquamarineVMError> {
-        AquamarineVM::new(
-            &config.modules_dir,
-            vec![("call_service".to_string(), services())],
-        )
+    fn create_vm(
+        config: ActorConfig,
+        host_closure: ClosureDescriptor,
+    ) -> Result<AquamarineVM, AquamarineVMError> {
+        let config = AquamarineVMConfig {
+            current_peer_id: config.current_peer_id.to_string(),
+            aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
+            call_service: host_closure(),
+        };
+        AquamarineVM::new(config)
     }
 
     fn execute_next(&mut self, vm: AquamarineVM, waker: Waker) -> VmState {
@@ -125,16 +130,20 @@ impl Actor {
 
     fn execute(particle: Particle, mut vm: AquamarineVM, waker: Waker) -> Fut {
         log::info!("Scheduling particle for execution {:?}", particle.id);
-        Box::pin(task::spawn_blocking(move || {
+        task::spawn_blocking(move || {
             let args = json!({
                 "init_user_id": particle.init_peer_id.to_string(),
                 "aqua": particle.script,
                 "data": particle.data.to_string()
             });
-            log::info!("Executing particle {:?}, args {:?}", particle.id, args);
+            log::info!("Executing particle {}, args {:?}", particle.id, args);
             let result = vm.call(args);
 
-            log::info!("Executed particle {:?}, parsing {:?}", particle.id, result);
+            if let Err(err) = &result {
+                log::warn!("Error executing particle {}: {:?}", particle.id, err)
+            }
+
+            log::debug!("Executed particle: {:?}", result);
 
             let effects = match parse_outcome(result) {
                 Ok((data, targets)) => {
@@ -169,7 +178,8 @@ impl Actor {
             waker.wake();
 
             FutResult { vm, effects }
-        }))
+        })
+        .boxed()
     }
 
     fn wake(&self) {
