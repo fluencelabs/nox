@@ -184,7 +184,7 @@ checksum = "6b602bfe940d21c130f3895acd65221e8a61270debe89d628b9cb4e3ccb8569b"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#abcdb37c91ecd408ba365e89ac9ecf987468277f"
+source = "git+https://github.com/fluencelabs/fce?branch=toml_fix#2953bef83bece65adcdfeb58b8d494efcd7ee10e"
 dependencies = [
  "fluence-faas",
  "serde 1.0.116",
@@ -1302,7 +1302,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.7"
-source = "git+https://github.com/fluencelabs/fce?branch=master#abcdb37c91ecd408ba365e89ac9ecf987468277f"
+source = "git+https://github.com/fluencelabs/fce?branch=toml_fix#2953bef83bece65adcdfeb58b8d494efcd7ee10e"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1322,7 +1322,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.5"
-source = "git+https://github.com/fluencelabs/fce?branch=master#abcdb37c91ecd408ba365e89ac9ecf987468277f"
+source = "git+https://github.com/fluencelabs/fce?branch=toml_fix#2953bef83bece65adcdfeb58b8d494efcd7ee10e"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1331,7 +1331,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.7"
-source = "git+https://github.com/fluencelabs/fce?branch=master#abcdb37c91ecd408ba365e89ac9ecf987468277f"
+source = "git+https://github.com/fluencelabs/fce?branch=toml_fix#2953bef83bece65adcdfeb58b8d494efcd7ee10e"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1378,7 +1378,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.8"
-source = "git+https://github.com/fluencelabs/fce?branch=master#abcdb37c91ecd408ba365e89ac9ecf987468277f"
+source = "git+https://github.com/fluencelabs/fce?branch=toml_fix#2953bef83bece65adcdfeb58b8d494efcd7ee10e"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1424,7 +1424,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.8"
-source = "git+https://github.com/fluencelabs/fce?branch=master#abcdb37c91ecd408ba365e89ac9ecf987468277f"
+source = "git+https://github.com/fluencelabs/fce?branch=toml_fix#2953bef83bece65adcdfeb58b8d494efcd7ee10e"
 dependencies = [
  "cmd_lib",
  "fce",

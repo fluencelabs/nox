@@ -33,10 +33,10 @@ fn send_particle(client: &mut ConnectedClient, script: String, data: Value) -> P
     particle.data = data;
     client.send(particle.clone());
 
-    if cfg!(debug_assertions) {
-        // Account for slow VM in debug
-        client.timeout = Duration::from_secs(60);
-    }
+    // if cfg!(debug_assertions) {
+    // Account for slow VM in debug
+    client.timeout = Duration::from_secs(160);
+    // }
 
     let response = client.receive();
 
@@ -50,7 +50,7 @@ fn call_script(
     arg_name: &'static str,
 ) -> String {
     format!(
-        "((call ({} ({} fname) ({}) result_name)) (call ({} (csrvcid cfname) ({}) result_name)))",
+        "(seq ((call ({} ({} fname) ({}) result_name)) (call ({} (csrvcid cfname) ({}) result_name))))",
         node, service_id, arg_name, reply_to, arg_name
     )
 }
@@ -71,7 +71,8 @@ fn config() {
     );
     let config: TomlFaaSNamedModuleConfig =
         serde_json::from_value(config).expect("parse from jvalue");
-    let str = toml::to_string(&config).expect("serialize to toml");
+
+    toml::to_string(&config).expect("serialize to toml");
 }
 
 #[test]

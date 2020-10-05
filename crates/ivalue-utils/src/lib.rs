@@ -59,7 +59,9 @@ pub fn error(err: Value) -> Option<IValue> {
 }
 
 pub fn unit() -> Option<IValue> {
-    Some(IValue::Record(Vec1::new(vec![IValue::U32(0)]).unwrap()))
+    Some(IValue::Record(
+        Vec1::new(vec![IValue::S32(0), IValue::String("\"\"".to_string())]).unwrap(),
+    ))
 }
 
 /// Serializes IValue to json bytes
