@@ -23,38 +23,22 @@ use ArgsError::{MissingField, SerdeJson};
 use serde::de::DeserializeOwned;
 use std::{path::PathBuf, sync::Arc};
 
-#[allow(dead_code)]
 pub fn add_module(modules_dir: PathBuf) -> Closure {
-    Arc::new(move |Args { mut args, .. }| {
-        let mut add_module = || {
-            let module = get("module", &mut args).map_err(as_ivalue)?;
-            let config = get("config", &mut args).map_err(as_ivalue)?;
-            files::add_module(&modules_dir, module, config).map_err(as_ivalue)
-        };
-
-        if let Err(err) = add_module() {
-            return ivalue_utils::error(err);
-        }
-
-        ivalue_utils::unit()
+    closure(move |mut args| {
+        let module = get("module", &mut args).map_err(as_ivalue)?;
+        let config = get("config", &mut args).map_err(as_ivalue)?;
+        files::add_module(&modules_dir, module, config).map_err(as_ivalue)
     })
 }
 
 pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
-    Arc::new(move |Args { mut args, .. }| {
-        let mut add_blueprint = || {
-            let blueprint = get("blueprint", &mut args).map_err(as_ivalue)?;
-            files::add_blueprint(&blueprint_dir, &blueprint).map_err(as_ivalue)
-        };
-
-        if let Err(err) = add_blueprint() {
-            return ivalue_utils::error(err);
-        }
-
-        ivalue_utils::unit()
+    closure(move |mut args| {
+        let blueprint = get("blueprint", &mut args).map_err(as_ivalue)?;
+        files::add_blueprint(&blueprint_dir, &blueprint).map_err(as_ivalue)
     })
 }
 
+/// Converts Fn into Closure, converting error into Option<IValue>
 fn closure<F>(f: F) -> Closure
 where
     F: Fn(serde_json::Value) -> Result<(), IValue> + Send + Sync + 'static,
@@ -68,10 +52,12 @@ where
     })
 }
 
+/// Converts an error into IValue::String
 fn as_ivalue<E: ToString>(err: E) -> IValue {
     IValue::String(err.to_string())
 }
 
+/// Retrieves named field of type T from json Value
 fn get<T: DeserializeOwned>(
     field: &'static str,
     args: &mut serde_json::Value,
@@ -81,17 +67,3 @@ fn get<T: DeserializeOwned>(
 
     Ok(value)
 }
-
-/*fn as_bytes(value: serde_json::Value) -> Option<Vec<u8>> {
-    match value {
-        serde_json::Value::Array(values) => {
-            let bytes: Vec<_> = values
-                .into_iter()
-                .flat_map(|u| u.as_u64())
-                .map(|u| u as u8)
-                .collect();
-            Some(bytes)
-        }
-        _ => None,
-    }
-}*/

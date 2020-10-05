@@ -16,7 +16,7 @@
 
 #![warn(rust_2018_idioms)]
 #![deny(
-    // dead_code,
+    dead_code,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -34,3 +34,4 @@ mod modules;
 pub use blueprint::Blueprint;
 pub use error::ModuleError;
 pub use files::{load_blueprint, load_module_config};
+pub use modules::{add_blueprint, add_module};

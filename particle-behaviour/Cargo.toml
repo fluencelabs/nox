@@ -10,6 +10,7 @@ particle-actors = { path = "../particle-actors"}
 particle-dht = { path = "../particle-dht"}
 particle-services = { path = "../particle-services"}
 particle-closures = { path = "../particle-closures"}
+particle-modules = { path = "../particle-modules"}
 
 config-utils = { path = "../crates/config-utils" }
 trust-graph = { path = "../trust-graph" }

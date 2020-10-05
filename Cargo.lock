@@ -3159,6 +3159,7 @@ dependencies = [
  "particle-actors",
  "particle-closures",
  "particle-dht",
+ "particle-modules",
  "particle-protocol",
  "particle-services",
  "prometheus",

@@ -60,6 +60,14 @@ impl ParticleConfig {
         ServicesConfig::new(self.services_base_dir.clone(), self.services_envs.clone())
     }
 
+    pub fn modules_dir(&self) -> PathBuf {
+        self.services_base_dir.join("modules")
+    }
+
+    pub fn blueprint_dir(&self) -> PathBuf {
+        self.services_base_dir.join("blueprint")
+    }
+
     pub fn dht_config(&self) -> DHTConfig {
         DHTConfig {
             peer_id: to_peer_id(&self.key_pair),

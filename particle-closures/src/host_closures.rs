@@ -29,6 +29,8 @@ pub struct HostClosures {
     pub create_service: Closure,
     pub call_service: Closure,
     pub builtin: Closure,
+    pub add_module: Closure,
+    pub add_blueprint: Closure,
 }
 
 impl HostClosures {
@@ -56,6 +58,8 @@ impl HostClosures {
         // route
         match args.service_id.as_str() {
             "create" => (self.create_service)(args),
+            "add_module" => (self.add_module)(args),
+            "add_blueprint" => (self.add_blueprint)(args),
             s if BuiltinServicesApi::is_builtin(&s) => (self.builtin)(args),
             _ => (self.call_service)(args),
         }

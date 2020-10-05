@@ -61,8 +61,10 @@ impl ParticleBehaviour {
         let services = ParticleAppServices::new(config.services_config()?);
         let mailbox = Mailbox::new();
         let closures = HostClosures {
-            call_service: services.call_service(),
+            add_module: particle_modules::add_module(config.modules_dir()),
+            add_blueprint: particle_modules::add_blueprint(config.blueprint_dir()),
             create_service: services.create_service(),
+            call_service: services.call_service(),
             builtin: mailbox.get_api().router(),
         };
         let plumber = Plumber::new(config.actor_config()?, closures.descriptor());
