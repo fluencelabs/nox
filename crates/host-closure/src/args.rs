@@ -14,19 +14,47 @@
  * limitations under the License.
  */
 
-use crate::args_error::ArgsError::{self, InvalidFormat, MissingField, SerdeJson};
+use crate::args_error::ArgsError::{self, MissingField, SerdeJson};
 
-use ivalue_utils::IValue;
+use control_macro::ok_get;
+use ivalue_utils::{into_str, into_string, IValue};
+
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 #[derive(Debug)]
 pub struct Args {
     pub service_id: String,
     pub fname: String,
-    pub args: serde_json::Value,
+    pub args: Vec<serde_json::Value>,
 }
 
 impl Args {
+    /// Retrieves next json value from iterator, parse it to T
+    pub fn next<T: DeserializeOwned>(
+        field: &'static str,
+        args: &mut impl Iterator<Item = Value>,
+    ) -> Result<T, ArgsError> {
+        let value = args.next().ok_or(MissingField(field))?;
+        let value: T = Self::deserialize(field, value)?;
+
+        Ok(value)
+    }
+
+    pub fn maybe_next<T: DeserializeOwned>(
+        field: &'static str,
+        args: &mut impl Iterator<Item = Value>,
+    ) -> Result<Option<T>, ArgsError> {
+        let value = ok_get!(args.next());
+        let value: T = Self::deserialize(field, value)?;
+
+        Ok(Some(value))
+    }
+
+    fn deserialize<T: DeserializeOwned>(field: &'static str, v: Value) -> Result<T, ArgsError> {
+        serde_json::from_value(v).map_err(|err| SerdeJson { err, field })
+    }
+
     pub fn parse(args: Vec<IValue>) -> Result<Args, ArgsError> {
         let mut args = args.into_iter();
         let service_id = args
@@ -51,7 +79,7 @@ impl Args {
                     err,
                 })
             })?;
-        let args = match args {
+        /*        let args = match args {
             Value::Array(arr) => arr.into_iter().next().ok_or(InvalidFormat {
                 field: "args",
                 err: "Expected single-element array, got empty array".into(),
@@ -61,28 +89,12 @@ impl Args {
                 field: "args",
                 err: format!("Expected json object, got {:?}", v).into(),
             }),
-        }?;
+        }?;*/
 
         Ok(Args {
             service_id,
             fname,
             args,
         })
-    }
-}
-
-fn into_str(v: &IValue) -> Option<&str> {
-    if let IValue::String(s) = v {
-        Some(s.as_str())
-    } else {
-        None
-    }
-}
-
-fn into_string(v: IValue) -> Option<String> {
-    if let IValue::String(s) = v {
-        Some(s)
-    } else {
-        None
     }
 }

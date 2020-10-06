@@ -1903,8 +1903,11 @@ dependencies = [
 name = "host-closure"
 version = "0.0.1"
 dependencies = [
+ "control-macro",
  "fce",
  "ivalue-utils",
+ "json-utils",
+ "serde 1.0.116",
  "serde_json",
 ]
 
@@ -2125,6 +2128,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca059e81d9486668f12d455a4ea6daa600bd408134cd17e3d3fb5a32d1f016f8"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "json-utils"
+version = "0.0.1"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]
@@ -3219,6 +3229,7 @@ dependencies = [
  "fluence-app-service",
  "host-closure",
  "ivalue-utils",
+ "json-utils",
  "serde 1.0.116",
  "serde_json",
  "toml",
@@ -3285,6 +3296,7 @@ dependencies = [
  "futures",
  "host-closure",
  "ivalue-utils",
+ "json-utils",
  "libp2p",
  "log",
  "parking_lot 0.11.0",

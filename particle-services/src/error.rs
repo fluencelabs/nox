@@ -38,13 +38,18 @@ pub enum ServiceError {
     },
     #[allow(dead_code)]
     ArgParseError(ArgsError),
-    MissingBlueprintId,
 }
 
 impl Error for ServiceError {}
 impl From<AppServiceError> for ServiceError {
     fn from(err: AppServiceError) -> Self {
         ServiceError::Engine(err)
+    }
+}
+
+impl From<ArgsError> for ServiceError {
+    fn from(err: ArgsError) -> Self {
+        ServiceError::ArgParseError(err)
     }
 }
 
@@ -71,9 +76,6 @@ impl std::fmt::Display for ServiceError {
                 "Error creating directory for persisted services {:?}: {:?}",
                 path, err
             ),
-            ServiceError::MissingBlueprintId => {
-                write!(f, "No blueprint_id in arguments from stepper")
-            }
             ServiceError::ModuleError(err) => write!(f, "ModuleError: {:?}", err),
             ServiceError::ArgParseError(error) => {
                 write!(f, "Error parsing arguments on call_service: {:?}", error)

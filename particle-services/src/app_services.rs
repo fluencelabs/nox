@@ -16,14 +16,14 @@
 
 use crate::config::ServicesConfig;
 use crate::error::ServiceError;
-use crate::error::ServiceError::MissingBlueprintId;
 use crate::vm::create_vm;
 
 use fluence_app_service::{AppService, IValue};
-use host_closure::Closure;
+use host_closure::{closure, Args, Closure};
+use json_utils::as_value;
 
 use parking_lot::{Mutex, RwLock};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::{collections::HashMap, sync::Arc};
 
 type VM = Arc<Mutex<AppService>>;
@@ -46,31 +46,20 @@ impl ParticleAppServices {
         let services = self.services.clone();
         let config = self.config.clone();
 
-        Arc::new(move |args| {
-            let args = args.args;
+        closure(move |mut args| {
             let service_id = uuid::Uuid::new_v4().to_string();
-            let make_vm = || {
-                let blueprint_id = args
-                    .get("blueprint_id")
-                    .and_then(|v| v.as_str())
-                    .ok_or(MissingBlueprintId)?
-                    .to_string();
+            let mut make_vm = || {
+                let blueprint_id = Args::next("blueprint_id", &mut args)?;
+                let user_id = Args::maybe_next("user_id", &mut args)?;
 
-                let user_id = args
-                    .get("user_id")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string());
                 create_vm(config.clone(), blueprint_id, &service_id, user_id)
             };
 
-            match make_vm() {
-                Ok(vm) => {
-                    let vm = Arc::new(Mutex::new(vm));
-                    services.write().insert(service_id.clone(), vm);
-                    ivalue_utils::ok(json!(service_id))
-                }
-                Err(err) => ivalue_utils::error(json!(err.to_string())),
-            }
+            make_vm().map_err(as_value).map(|vm| {
+                let vm = Arc::new(Mutex::new(vm));
+                services.write().insert(service_id.clone(), vm);
+                json!(service_id)
+            })
         })
     }
 
@@ -85,7 +74,12 @@ impl ParticleAppServices {
                     .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
                 let result = vm
                     .lock()
-                    .call("facade".to_string(), args.fname, args.args, <_>::default())
+                    .call(
+                        "facade".to_string(),
+                        args.fname,
+                        Value::Array(args.args),
+                        <_>::default(),
+                    )
                     .map_err(ServiceError::Engine)?;
 
                 Ok(result)

@@ -9,6 +9,7 @@ particle-modules = { path = "../particle-modules" }
 
 config-utils = { path = "../crates/config-utils" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
+json-utils = { path = "../crates/json-utils" }
 host-closure = { path = "../crates/host-closure" }
 
 fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "toml_fix" }

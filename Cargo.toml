@@ -10,6 +10,7 @@ members = [
     "crates/config-utils",
     "crates/ivalue-utils",
     "crates/host-closure",
+    "crates/json-utils",
     "particle-server",
     "particle-actors",
     "particle-protocol",

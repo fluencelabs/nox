@@ -46,7 +46,8 @@ impl BuiltinServicesApi {
             "resolve" => {
                 let key = args
                     .args
-                    .get("key")
+                    .iter()
+                    .next()
                     .and_then(|v| v.as_str())
                     .and_then(|s| bs58::decode(s).into_vec().ok())
                     .unwrap_or_else(|| unimplemented!("FIXME: return error?"));

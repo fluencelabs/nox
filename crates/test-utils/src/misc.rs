@@ -370,3 +370,27 @@ pub fn test_module() -> Vec<u8> {
 
     module
 }
+
+pub fn format_aqua(s: String) -> String {
+    use std::iter::FromIterator;
+    let mut new = Vec::with_capacity(s.capacity());
+    // whether to skip the next whitespace
+    let mut skip_next_wsp = false;
+    // whether c was a closing brace
+    let mut was_cbr = false;
+    for c in s.chars() {
+        let is_wsp = c == ' ';
+        if (skip_next_wsp && is_wsp) || c == '\n' {
+            continue;
+        }
+        let is_cbr = c == ')';
+        skip_next_wsp = is_wsp || c == '(' || is_cbr;
+        if was_cbr && !is_cbr {
+            new.push(' ');
+        }
+        was_cbr = is_cbr;
+        new.push(c)
+    }
+
+    String::from_iter(new.into_iter())
+}

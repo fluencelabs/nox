@@ -17,20 +17,17 @@
 use crate::file_names::extract_module_name;
 use crate::{file_names, files};
 
-use host_closure::{Args, ArgsError, Closure};
-use ivalue_utils::as_record_opt;
-use ArgsError::{MissingField, SerdeJson};
+use host_closure::{closure, closure_opt, Args, Closure};
+use json_utils::as_value;
 
-use serde::de::DeserializeOwned;
 use serde_json::Value;
-use std::fmt::Debug;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 /// Adds a module to the filesystem, overwriting existing module.
 pub fn add_module(modules_dir: PathBuf) -> Closure {
-    closure(move |mut args| {
-        let module = get("module", &mut args).map_err(as_value)?;
-        let config = get("config", &mut args).map_err(as_value)?;
+    closure_opt(move |mut args| {
+        let module = Args::next("module", &mut args).map_err(as_value)?;
+        let config = Args::next("config", &mut args).map_err(as_value)?;
         files::add_module(&modules_dir, module, config).map_err(as_value)?;
 
         Ok(None)
@@ -40,10 +37,10 @@ pub fn add_module(modules_dir: PathBuf) -> Closure {
 /// Saves new blueprint to disk
 pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
     closure(move |mut args| {
-        let blueprint = get("blueprint", &mut args).map_err(as_value)?;
+        let blueprint = Args::next("blueprint", &mut args).map_err(as_value)?;
         files::add_blueprint(&blueprint_dir, &blueprint).map_err(as_value)?;
 
-        Ok(Some(Value::String(blueprint.id)))
+        Ok(Value::String(blueprint.id))
     })
 }
 
@@ -51,20 +48,20 @@ pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
 // TODO: load interfaces of these modules
 pub fn get_modules(modules_dir: PathBuf) -> Closure {
     closure(move |_| {
-        Ok(Some(Value::Array(
+        Ok(Value::Array(
             files::list_files(&modules_dir)
                 .into_iter()
                 .flatten()
                 .filter_map(|pb| extract_module_name(pb.file_name()?.to_str()?).map(Value::String))
                 .collect(),
-        )))
+        ))
     })
 }
 
 /// Get available blueprints
 pub fn get_blueprints(blueprint_dir: PathBuf) -> Closure {
     closure(move |_| {
-        Ok(Some(Value::Array(
+        Ok(Value::Array(
             files::list_files(&blueprint_dir)
                 .into_iter()
                 .flatten()
@@ -82,27 +79,6 @@ pub fn get_blueprints(blueprint_dir: PathBuf) -> Closure {
                     serde_json::to_value(config).ok()
                 })
                 .collect(),
-        )))
+        ))
     })
-}
-
-/// Converts Fn into Closure, converting error into Option<IValue>
-fn closure<F>(f: F) -> Closure
-where
-    F: Fn(Value) -> Result<Option<Value>, Value> + Send + Sync + 'static,
-{
-    Arc::new(move |Args { args, .. }| as_record_opt(f(args)))
-}
-
-/// Converts an error into IValue::String
-fn as_value<E: Debug>(err: E) -> Value {
-    Value::String(format!("Error: {:?}", err))
-}
-
-/// Retrieves named field of type T from json Value
-fn get<T: DeserializeOwned>(field: &'static str, args: &mut Value) -> Result<T, ArgsError> {
-    let value = args.get_mut(field).ok_or(MissingField(field))?.take();
-    let value: T = serde_json::from_value(value).map_err(|err| SerdeJson { err, field })?;
-
-    Ok(value)
 }

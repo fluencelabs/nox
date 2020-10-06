@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
+use fluence_app_service::TomlFaaSNamedModuleConfig;
 use particle_protocol::Particle;
 use test_utils::{
-    enable_logs, make_swarms_with_cfg, test_module, uuid, ConnectedClient, KAD_TIMEOUT,
+    enable_logs, format_aqua, make_swarms_with_cfg, test_module, uuid, ConnectedClient, KAD_TIMEOUT,
 };
 
-use fluence_app_service::TomlFaaSNamedModuleConfig;
-use libp2p::PeerId;
 use serde_json::{json, Value};
 use std::thread::sleep;
 use std::time::Duration;
@@ -43,7 +42,7 @@ fn send_particle(client: &mut ConnectedClient, script: String, data: Value) -> P
     response
 }
 
-fn call_script(
+/*fn call_script(
     node: &PeerId,
     reply_to: &PeerId,
     service_id: &'static str,
@@ -53,7 +52,7 @@ fn call_script(
         "(seq ((call ({} ({} fname) ({}) result_name)) (call ({} (csrvcid cfname) ({}) result_name))))",
         node, service_id, arg_name, reply_to, arg_name
     )
-}
+}*/
 
 #[test]
 fn config() {
@@ -96,8 +95,8 @@ fn add_module_blueprint() {
             }
         }
     );
-    // let script = call_script(&client.node, &client.peer_id, "add_module", "module");
-    let script = format!(
+
+    let script = format_aqua(format!(
         r#"(seq (
             (call (%current_peer_id% (add_module ||) (module) module))
             (seq (
@@ -109,26 +108,7 @@ fn add_module_blueprint() {
             ))
         ))"#,
         client.peer_id
-    )
-    .replace("\n", "")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("  ", " ")
-    .replace("( (", "((")
-    .replace(") )", "))");
+    ));
 
     println!("script:\n{:?}", script);
 
@@ -136,16 +116,8 @@ fn add_module_blueprint() {
         &mut client,
         script,
         json!({
-            "module": {
-                "module": test_module(),
-                "config": config
-            },
-            "blueprint": {
-                "blueprint": {
-                    "name": "blueprint",
-                    "dependencies": [ module ]
-                },
-            },
+            "module": [ test_module(), config ],
+            "blueprint": [ "blueprint", [module] ],
         }),
     );
 
