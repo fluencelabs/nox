@@ -30,7 +30,7 @@ fn echo_particle() {
     particle.id = "123".to_string();
     particle.init_peer_id = client.peer_id.clone();
     particle.script = format!(
-        "((call ({} (service_id fn_name) () result_name)))",
+        "(call ({} (service_id fn_name) () result_name))",
         client.peer_id
     );
     client.send(particle.clone());

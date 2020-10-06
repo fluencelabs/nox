@@ -73,23 +73,11 @@ impl Args {
             .and_then(into_str)
             .ok_or(MissingField("args"))
             .and_then(|v| {
-                println!("args: {}", v);
                 serde_json::from_str(v).map_err(|err| SerdeJson {
                     field: "service_id",
                     err,
                 })
             })?;
-        /*        let args = match args {
-            Value::Array(arr) => arr.into_iter().next().ok_or(InvalidFormat {
-                field: "args",
-                err: "Expected single-element array, got empty array".into(),
-            }),
-            o @ Value::Object(_) => Ok(o),
-            v => Err(InvalidFormat {
-                field: "args",
-                err: format!("Expected json object, got {:?}", v).into(),
-            }),
-        }?;*/
 
         Ok(Args {
             service_id,
