@@ -48,8 +48,8 @@ pub fn into_string(v: IValue) -> Option<String> {
     }
 }
 
+/// Converts result of call_service into `IValue::Record`
 pub fn as_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<IValue> {
-    println!("as_record_opt: {:?}", v);
     match v {
         Ok(None) => unit(),
         Ok(Some(v)) => ok(v),
@@ -57,14 +57,15 @@ pub fn as_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<IVa
     }
 }
 
+/// Converts result of call_service into `IValue::Record`
 pub fn as_record(v: std::result::Result<Value, Value>) -> Option<IValue> {
-    println!("as_record: {:?}", v);
     match v {
         Ok(v) => ok(v),
         Err(e) => error(e),
     }
 }
 
+/// Converts successful result of call_service into `IValue::Record`  
 pub fn ok(value: Value) -> Option<IValue> {
     let value = IValue::String(value.to_string());
     Some(IValue::Record(
@@ -72,10 +73,12 @@ pub fn ok(value: Value) -> Option<IValue> {
     ))
 }
 
+/// Converts successful result of app service execution into `IValue::Record`
 pub fn ivalue_ok(value: IValue) -> Option<IValue> {
     ok(ivalue_to_jvalue(value))
 }
 
+/// Converts erroneous result of call_service into `IValue::Record`
 pub fn error(err: Value) -> Option<IValue> {
     let err = IValue::String(err.to_string());
     Some(IValue::Record(
@@ -83,13 +86,14 @@ pub fn error(err: Value) -> Option<IValue> {
     ))
 }
 
+/// Converts empty result of call_service into `IValue::Record`
 pub fn unit() -> Option<IValue> {
     Some(IValue::Record(
         Vec1::new(vec![IValue::S32(0), IValue::String("\"\"".to_string())]).unwrap(),
     ))
 }
 
-/// Serializes IValue to json bytes
+/// Serializes IValue to json Value
 fn ivalue_to_jvalue(v: IValue) -> Value {
     match v {
         IValue::S8(v) => json!(v),

@@ -16,7 +16,9 @@
 
 use crate::mailbox::{BuiltinCommand, BuiltinCommandResult, Command, Destination, WaitResult};
 
-use host_closure::{Args, Closure};
+use host_closure::{Args, ArgsError, Closure};
+use ivalue_utils::as_record;
+use json_utils::as_value;
 
 use libp2p::kad::record;
 use std::{sync::mpsc as std_mpsc, sync::Arc};
@@ -38,19 +40,33 @@ impl BuiltinServicesApi {
     }
 
     pub fn router(self) -> Closure {
-        Arc::new(move |args| Some(Self::route(self.clone(), args).into()))
+        Arc::new(move |args| {
+            let result = Self::route(self.clone(), args)
+                .map_err(as_value)
+                .and_then(Into::into);
+            as_record(result)
+        })
     }
 
-    fn route(api: BuiltinServicesApi, args: Args) -> BuiltinCommandResult {
+    fn route(api: BuiltinServicesApi, args: Args) -> Result<BuiltinCommandResult, ArgsError> {
         let wait = match args.service_id.as_str() {
             "resolve" => {
                 let key = args
                     .args
                     .iter()
                     .next()
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| bs58::decode(s).into_vec().ok())
-                    .unwrap_or_else(|| unimplemented!("FIXME: return error?"));
+                    .ok_or(ArgsError::MissingField("key"))?
+                    .as_str()
+                    .ok_or(ArgsError::InvalidFormat {
+                        field: "key",
+                        err: "expected str".into(),
+                    })?;
+                let key = bs58::decode(key)
+                    .into_vec()
+                    .map_err(|err| ArgsError::InvalidFormat {
+                        field: "key",
+                        err: format!("not a base58: {:?}", err).into(),
+                    })?;
 
                 api.resolve(key.into())
             }
@@ -58,7 +74,7 @@ impl BuiltinServicesApi {
             _ => unimplemented!("FIXME: unknown. return error? re-route to call service?"),
         };
 
-        wait.recv().expect("receive BuiltinCommandResult")
+        Ok(wait.recv().expect("receive BuiltinCommandResult"))
     }
 
     fn resolve(&self, key: record::Key) -> WaitResult {

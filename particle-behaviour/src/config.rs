@@ -60,6 +60,7 @@ impl ParticleConfig {
         ServicesConfig::new(self.services_base_dir.clone(), self.services_envs.clone())
     }
 
+    /// Creates and returns path for app service modules directory
     pub fn modules_dir(&self) -> io::Result<PathBuf> {
         let path = self.services_base_dir.join("modules");
         create_dir_all(&path)?;
@@ -67,6 +68,7 @@ impl ParticleConfig {
         Ok(path)
     }
 
+    /// Creates and returns path for app service blueprint directory
     pub fn blueprint_dir(&self) -> io::Result<PathBuf> {
         let path = self.services_base_dir.join("blueprint");
         create_dir_all(&path)?;

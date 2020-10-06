@@ -67,7 +67,6 @@ fn echo_particle() {
                                 signature: vec![],
                                 data: json!({"data": "none"}),
                             };
-                            println!("script:\n{:?}", p.script);
                             client.send(p.clone(), server_id.clone());
                         }
                         SwarmEvent::Behaviour(particle) => {

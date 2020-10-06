@@ -3190,6 +3190,7 @@ dependencies = [
  "futures",
  "host-closure",
  "ivalue-utils",
+ "json-utils",
  "libp2p",
  "log",
  "particle-actors",

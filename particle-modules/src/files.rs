@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#![allow(dead_code)]
-
 use crate::blueprint::Blueprint;
 use crate::error::{ModuleError::*, Result};
 use crate::file_names;

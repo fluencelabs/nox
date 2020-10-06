@@ -13,6 +13,7 @@ particle-services = { path = "../particle-services"}
 config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
+json-utils = { path = "../crates/json-utils" }
 trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
 waiting-queues = { path = "../crates/waiting-queues" }

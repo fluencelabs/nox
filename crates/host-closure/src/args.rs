@@ -23,6 +23,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 #[derive(Debug)]
+/// Arguments passed by VM to host on call_service
 pub struct Args {
     pub service_id: String,
     pub fname: String,
@@ -30,31 +31,7 @@ pub struct Args {
 }
 
 impl Args {
-    /// Retrieves next json value from iterator, parse it to T
-    pub fn next<T: DeserializeOwned>(
-        field: &'static str,
-        args: &mut impl Iterator<Item = Value>,
-    ) -> Result<T, ArgsError> {
-        let value = args.next().ok_or(MissingField(field))?;
-        let value: T = Self::deserialize(field, value)?;
-
-        Ok(value)
-    }
-
-    pub fn maybe_next<T: DeserializeOwned>(
-        field: &'static str,
-        args: &mut impl Iterator<Item = Value>,
-    ) -> Result<Option<T>, ArgsError> {
-        let value = ok_get!(args.next());
-        let value: T = Self::deserialize(field, value)?;
-
-        Ok(Some(value))
-    }
-
-    fn deserialize<T: DeserializeOwned>(field: &'static str, v: Value) -> Result<T, ArgsError> {
-        serde_json::from_value(v).map_err(|err| SerdeJson { err, field })
-    }
-
+    /// Construct Args from `Vec<IValue>`
     pub fn parse(args: Vec<IValue>) -> Result<Args, ArgsError> {
         let mut args = args.into_iter();
         let service_id = args
@@ -84,5 +61,31 @@ impl Args {
             fname,
             args,
         })
+    }
+
+    /// Retrieves next json value from iterator, parse it to T
+    pub fn next<T: DeserializeOwned>(
+        field: &'static str,
+        args: &mut impl Iterator<Item = Value>,
+    ) -> Result<T, ArgsError> {
+        let value = args.next().ok_or(MissingField(field))?;
+        let value: T = Self::deserialize(field, value)?;
+
+        Ok(value)
+    }
+
+    /// Retrieves a json value from iterator if it's not empty, and parses it to T
+    pub fn maybe_next<T: DeserializeOwned>(
+        field: &'static str,
+        args: &mut impl Iterator<Item = Value>,
+    ) -> Result<Option<T>, ArgsError> {
+        let value = ok_get!(args.next());
+        let value: T = Self::deserialize(field, value)?;
+
+        Ok(Some(value))
+    }
+
+    fn deserialize<T: DeserializeOwned>(field: &'static str, v: Value) -> Result<T, ArgsError> {
+        serde_json::from_value(v).map_err(|err| SerdeJson { err, field })
     }
 }

@@ -33,6 +33,7 @@ where
     Arc::new(move |Args { args, .. }| as_record_opt(f(args.into_iter())))
 }
 
+/// Converts Fn into Closure, converting error into Option<IValue>
 pub fn closure<F>(f: F) -> Closure
 where
     F: Fn(std::vec::IntoIter<Value>) -> Result<Value, Value> + Send + Sync + 'static,
