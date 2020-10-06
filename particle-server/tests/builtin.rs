@@ -42,9 +42,7 @@ fn send_particle(client: &mut ConnectedClient, script: String, data: Value) -> P
 }
 
 #[test]
-fn add_module_blueprint() {
-    enable_logs();
-
+fn create_service() {
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -106,6 +104,6 @@ fn add_module_blueprint() {
 
     assert_eq!(
         response.data.get("greeting").unwrap().as_str().unwrap(),
-        "Hi, folex!"
+        "Hi, folex"
     )
 }
