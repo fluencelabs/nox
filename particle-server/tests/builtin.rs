@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use fluence_app_service::TomlFaaSNamedModuleConfig;
 use particle_protocol::Particle;
 use test_utils::{
     enable_logs, format_aqua, make_swarms_with_cfg, test_module, uuid, ConnectedClient, KAD_TIMEOUT,
@@ -32,46 +31,14 @@ fn send_particle(client: &mut ConnectedClient, script: String, data: Value) -> P
     particle.data = data;
     client.send(particle.clone());
 
-    // if cfg!(debug_assertions) {
-    // Account for slow VM in debug
-    client.timeout = Duration::from_secs(160);
-    // }
+    if cfg!(debug_assertions) {
+        // Account for slow VM in debug
+        client.timeout = Duration::from_secs(60);
+    }
 
     let response = client.receive();
 
     response
-}
-
-/*fn call_script(
-    node: &PeerId,
-    reply_to: &PeerId,
-    service_id: &'static str,
-    arg_name: &'static str,
-) -> String {
-    format!(
-        "(seq ((call ({} ({} fname) ({}) result_name)) (call ({} (csrvcid cfname) ({}) result_name))))",
-        node, service_id, arg_name, reply_to, arg_name
-    )
-}*/
-
-#[test]
-fn config() {
-    let config = json!(
-        {
-            "name": "test_three",
-            "mem_pages_count": 100,
-            "logger_enabled": true,
-            "wasi": {
-                "envs": json!({}),
-                "preopened_files": vec!["./tests/artifacts"],
-                "mapped_dirs": json!({}),
-            }
-        }
-    );
-    let config: TomlFaaSNamedModuleConfig =
-        serde_json::from_value(config).expect("parse from jvalue");
-
-    toml::to_string(&config).expect("serialize to toml");
 }
 
 #[test]
@@ -82,7 +49,7 @@ fn add_module_blueprint() {
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
-    let module = "test";
+    let module = "greeting";
     let config = json!(
         {
             "name": module,
@@ -90,7 +57,7 @@ fn add_module_blueprint() {
             "logger_enabled": true,
             "wasi": {
                 "envs": json!({}),
-                "preopened_files": vec!["./tests/artifacts"],
+                "preopened_files": vec!["/tmp"],
                 "mapped_dirs": json!({}),
             }
         }
@@ -98,7 +65,7 @@ fn add_module_blueprint() {
 
     let script = format_aqua(format!(
         r#"(seq (
-            (call (%current_peer_id% (add_module ||) (module_bytes module_config) not_module))
+            (call (%current_peer_id% (add_module ||) (module_bytes module_config) module))
             (seq (
                 (call (%current_peer_id% (add_blueprint ||) (blueprint) blueprint_id))
                 (seq (
@@ -110,8 +77,6 @@ fn add_module_blueprint() {
         client.peer_id
     ));
 
-    println!("script:\n{:?}", script);
-
     let response = send_particle(
         &mut client,
         script,
@@ -122,32 +87,25 @@ fn add_module_blueprint() {
         }),
     );
 
-    println!("response: {:?}", response);
-}
+    let service_id = response.data.get("service_id").unwrap().as_str().unwrap();
+    let script = format_aqua(format!(
+        r#"(seq (
+            (call (%current_peer_id% ({} |greeting|) (my_name) greeting))
+            (call ({} (|| ||) (greeting) client_result))
+        ))"#,
+        service_id, client.peer_id
+    ));
 
-#[test]
-fn create_service() {
-    enable_logs();
-
-    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
-    sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
-    let mut particle = Particle::default();
-    particle.id = "123".to_string();
-    particle.init_peer_id = client.peer_id.clone();
-    particle.script = format!(
-        "((call ({} (create ||) (field) result_name)))",
-        client.peer_id
+    let response = send_particle(
+        &mut client,
+        script,
+        json!({
+            "my_name": "folex"
+        }),
     );
-    particle.data = json!({"field": "value"});
-    client.send(particle.clone());
 
-    if cfg!(debug_assertions) {
-        // Account for slow VM in debug
-        client.timeout = Duration::from_secs(60);
-    }
-
-    let response = client.receive();
-    assert_eq!(response.id, particle.id);
-    assert_eq!(response.data, particle.data);
+    assert_eq!(
+        response.data.get("greeting").unwrap().as_str().unwrap(),
+        "Hi, folex!"
+    )
 }

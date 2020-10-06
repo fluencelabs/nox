@@ -74,12 +74,7 @@ impl ParticleAppServices {
                     .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
                 let result = vm
                     .lock()
-                    .call(
-                        "facade".to_string(),
-                        args.fname,
-                        Value::Array(args.args),
-                        <_>::default(),
-                    )
+                    .call(args.fname, Value::Array(args.args), <_>::default())
                     .map_err(ServiceError::Engine)?;
 
                 Ok(result)
