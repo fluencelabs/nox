@@ -17,7 +17,7 @@
 import {Particle} from "./particle";
 
 export class Subscriptions {
-    private subscriptions: Map<string,  (particle: Particle) => void> = new Map();
+    private subscriptions: Set<string> = new Set();
 
     constructor() {}
 
@@ -25,35 +25,18 @@ export class Subscriptions {
      * Subscriptions will be applied by outside message if id will be the same.
      *
      * @param id message identificator
-     * @param f function to use with outside message
      * @param ttl time to live, subscription will be deleted after this time
      */
-    subscribe(id: string, f: (particle: Particle) => void, ttl: number) {
+    subscribe(id: string, ttl: number) {
         let _this = this;
         setTimeout(() => {
             _this.subscriptions.delete(id)
             console.log(`Particle with id ${id} deleted by timeout`)
         }, ttl)
-        this.subscriptions.set(id, f);
+        this.subscriptions.add(id);
     }
 
-    /**
-     * A particle will be applied if id of the particle was subscribed earlier.
-     * @param particle
-     */
-    applyToSubscriptions(particle: Particle): boolean {
-        let callback = this.subscriptions.get(particle.id)
-        if (callback) {
-            callback(particle);
-            return true;
-        } else {
-            if (Number(particle.timestamp) + particle.ttl > Date.now()) {
-                console.log("Old particle received. 'ttl' is ended.");
-            } else {
-                console.log("External particle received. 'Stepper' needed on client. Unimplemented.");
-            }
-            console.log(particle);
-            return false;
-        }
+    hasSubscription(particle: Particle): boolean {
+        return this.subscriptions.has(particle.id)
     }
 }

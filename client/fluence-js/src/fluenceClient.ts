@@ -21,6 +21,7 @@ import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
 import * as stepper from "../stepper";
+import {addParticle, getCurrentParticleId, popParticle, setCurrentParticleId} from "./globalState";
 
 const WASM = stepper.loadWasm();
 
@@ -38,39 +39,58 @@ export class FluenceClient {
         this.selfPeerIdStr = selfPeerId.toB58String();
     }
 
-    /**
-     * Waits a response that match the predicate.
-     *
-     * @param id
-     * @param ttl
-     */
-    waitResponse(id: string, ttl: number): Promise<Particle> {
-        return new Promise((resolve, reject) => {
-            // subscribe for responses, to handle response
-            // TODO if there's no conn, reject
-            this.subscriptions.subscribe(id, (particle: Particle) => {
-                resolve(particle);
-            }, ttl);
-        })
+    handleParticle(particle: Particle): void {
+
+        // if a current particle is processing, add new particle to the queue
+        if (getCurrentParticleId()) {
+            addParticle(particle);
+        } else {
+            // start particle processing if queue is empty
+            WASM.then((w) => {
+                let stepperOutcomeStr = w.invoke(particle.init_peer_id, particle.script, JSON.stringify(particle.data))
+                let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
+
+                console.log(stepperOutcome);
+
+                // do nothing if there is no `next_peer_pks`
+                if (stepperOutcome.next_peer_pks.length > 0) {
+                    let newParticle: Particle = {...particle};
+                    newParticle.data = JSON.parse(stepperOutcome.data);
+
+                    this.connection.sendParticle(newParticle).catch((reason) => {
+                        console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
+                    });
+                }
+            }).finally(() => {
+                // get last particle from the queue
+                let nextParticle = popParticle();
+                // start the processing of a new particle if it exists
+                if (nextParticle) {
+                    // update current particle
+                    setCurrentParticleId(nextParticle.id);
+                    this.handleParticle(nextParticle)
+                } else {
+                    // wait for a new call (do nothing) if there is no new particle in a queue
+                    setCurrentParticleId(undefined);
+                }
+            }
+
+            )
+        }
     }
 
     /**
      * Handle incoming call.
      * If FunctionCall returns - we should send it as a response.
      */
-    handleParticle(): (particle: Particle) => void {
+    handleExternalParticle(): (particle: Particle) => void {
 
         let _this = this;
 
         return (particle: Particle) => {
-            // call all subscriptions for a new call
-            if (!_this.subscriptions.applyToSubscriptions(particle)) {
+            if (_this.subscriptions.hasSubscription(particle)) {
                 // if there is no subscription, use Stepper
-                WASM.then((w) => {
-                    let stepperOutcomeStr = w.invoke(particle.init_peer_id, particle.script, JSON.stringify(particle.data))
-                    let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
-                    console.log(stepperOutcome)
-                })
+                _this.handleParticle(particle);
             }
         }
     }
@@ -102,15 +122,16 @@ export class FluenceClient {
         }
 
         let peerId = PeerId.createFromB58String(nodePeerId);
-        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, this.handleParticle());
+        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, this.handleExternalParticle());
 
         await connection.connect();
 
         this.connection = connection;
     }
 
-    async sendParticle(particle: Particle): Promise<Particle> {
-        await this.connection.sendParticle(particle);
-        return this.waitResponse(particle.id, particle.ttl);
+    sendParticle(particle: Particle): string {
+        this.handleParticle(particle);
+        this.subscriptions.subscribe(particle.id, particle.ttl);
+        return particle.id
     }
 }
