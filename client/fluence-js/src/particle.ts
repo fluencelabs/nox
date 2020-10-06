@@ -35,7 +35,9 @@ export async function build(peerId: PeerId, script: string, data: object, ttl?: 
     let id = genUUID();
     let currentTime = (new Date()).getTime();
 
-    ttl = ttl ?? DEFAULT_TTL;
+    if (ttl) {
+        ttl = DEFAULT_TTL
+    }
 
     let particle: Particle = {
         id: id,
