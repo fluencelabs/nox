@@ -3230,6 +3230,7 @@ dependencies = [
  "host-closure",
  "ivalue-utils",
  "json-utils",
+ "log",
  "serde 1.0.116",
  "serde_json",
  "toml",

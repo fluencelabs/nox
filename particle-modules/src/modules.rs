@@ -26,9 +26,12 @@ use std::path::PathBuf;
 /// Adds a module to the filesystem, overwriting existing module.
 pub fn add_module(modules_dir: PathBuf) -> Closure {
     closure_opt(move |mut args| {
+        log::debug!("add_module called");
         let module = Args::next("module", &mut args).map_err(as_value)?;
         let config = Args::next("config", &mut args).map_err(as_value)?;
+        log::debug!("add_module parsed");
         files::add_module(&modules_dir, module, config).map_err(as_value)?;
+        log::debug!("add_module finished");
 
         Ok(None)
     })

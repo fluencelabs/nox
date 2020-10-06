@@ -98,7 +98,7 @@ fn add_module_blueprint() {
 
     let script = format_aqua(format!(
         r#"(seq (
-            (call (%current_peer_id% (add_module ||) (module) module))
+            (call (%current_peer_id% (add_module ||) (module_bytes module_config) not_module))
             (seq (
                 (call (%current_peer_id% (add_blueprint ||) (blueprint) blueprint_id))
                 (seq (
@@ -116,8 +116,9 @@ fn add_module_blueprint() {
         &mut client,
         script,
         json!({
-            "module": [ test_module(), config ],
-            "blueprint": [ "blueprint", [module] ],
+            "module_bytes": test_module(),
+            "module_config": config,
+            "blueprint": { "name": "blueprint", "dependencies": [module] },
         }),
     );
 

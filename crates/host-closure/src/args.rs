@@ -71,7 +71,7 @@ impl Args {
             .next()
             .as_ref()
             .and_then(into_str)
-            .ok_or(MissingField("service_id"))
+            .ok_or(MissingField("args"))
             .and_then(|v| {
                 println!("args: {}", v);
                 serde_json::from_str(v).map_err(|err| SerdeJson {

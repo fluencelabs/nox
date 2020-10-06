@@ -47,7 +47,7 @@ pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
 const AQUAMARINE: &str = "aquamarine.wasm";
-const TEST_MODULE: &str = "test_module_wit.wasi.wasm";
+const TEST_MODULE: &str = "greeting.wasm";
 
 pub fn uuid() -> String {
     Uuid::new_v4().to_string()

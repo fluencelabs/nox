@@ -49,6 +49,7 @@ pub fn into_string(v: IValue) -> Option<String> {
 }
 
 pub fn as_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<IValue> {
+    println!("as_record_opt: {:?}", v);
     match v {
         Ok(None) => unit(),
         Ok(Some(v)) => ok(v),
@@ -57,6 +58,7 @@ pub fn as_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<IVa
 }
 
 pub fn as_record(v: std::result::Result<Value, Value>) -> Option<IValue> {
+    println!("as_record: {:?}", v);
     match v {
         Ok(v) => ok(v),
         Err(e) => error(e),
