@@ -13,7 +13,7 @@
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "pretty": true,
-    "target": "es2018",
+    "target": "esnext",
     "module": "commonjs",
     "moduleResolution": "node",
     "declaration": true,
