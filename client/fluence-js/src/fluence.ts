@@ -19,6 +19,7 @@ import Multiaddr from "multiaddr"
 import {FluenceClient} from "./fluenceClient";
 import * as log from "loglevel";
 import {LogLevelDesc} from "loglevel";
+import {build} from "./particle";
 
 log.setLevel('info')
 
@@ -49,3 +50,34 @@ export default class Fluence {
         return client;
     }
 }
+
+declare global {
+    interface Window {
+        Fluence: Fluence;
+        test: any;
+        startWasiTask: any
+    }
+}
+
+async function test() {
+    let key1 = await Fluence.generatePeerId();
+    let key2 = await Fluence.generatePeerId();
+
+
+    let nodePeerId = "12D3KooWQ8x4SMBmSSUrMzY2m13uzC7UoSyvHaDhTKx7hH8aXxpt"
+    let addr = '/ip4/127.0.0.1/tcp/9001/ws/p2p/' + nodePeerId
+
+    // connect to two different nodes
+    let cl1 = await Fluence.connect(addr, key1);
+    let cl2 = await Fluence.connect(addr, key2);
+
+    let script = `(call (12D3KooWRvqnnRD8cCXo4bx11QUAemtaKMciD9FZXnseiB4hkJ4N (|| ||) () void))`
+
+    let particle = await build(key1, script, {data: "nonesa"})
+
+    let result = await cl1.sendParticle(particle)
+    console.log(result)
+}
+
+window.Fluence = Fluence;
+window.test = test;

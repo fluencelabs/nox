@@ -8,7 +8,7 @@ import {certificateFromString, certificateToString, issue} from "../trust/certif
 import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
 import {peerIdToSeed, seedToPeerId} from "../seed";
-import {build, Particle} from "../particle";
+import {build} from "../particle";
 
 describe("Typescript usage suite", () => {
 
@@ -42,10 +42,15 @@ describe("Typescript usage suite", () => {
         let key1 = await Fluence.generatePeerId();
         let key2 = await Fluence.generatePeerId();
 
-        // connect to two different nodes
-        let cl1 = await Fluence.connect("/dns4/134.209.186.43/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", key1);
+        let nodePeerId = "12D3KooWQ8x4SMBmSSUrMzY2m13uzC7UoSyvHaDhTKx7hH8aXxpt"
+        let addr = '/ip4/127.0.0.1/tcp/9001/ws/p2p/' + nodePeerId
 
-        let particle = await build(key1, "123", {a: 777, b: "567"})
+        // connect to two different nodes
+        let cl1 = await Fluence.connect(addr, key1);
+
+        let script = "((call (%current% (local_service_id local_fn_name) () result_name)) (call (remote_peer_id (service_id fn_name) () g)))"
+
+        let particle = await build(key1, script, {})
 
         let result = await cl1.sendParticle(particle)
         console.log(result)

@@ -36,7 +36,6 @@ enum Status {
 export class FluenceConnection {
 
     private readonly selfPeerId: PeerId;
-    readonly relay: PeerId;
     private node: LibP2p;
     private readonly address: Multiaddr;
     readonly nodePeerId: PeerId;

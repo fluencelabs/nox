@@ -51,11 +51,14 @@ logger.registerFunction("logger", (args: string) => {
 })
 registerService(logger);
 
-export function call_service(service_id: string, fn_name: string, args: string): string {
+export function call_service(service_id: string, fn_name: string, args: string): CallServiceResult {
     let service = getService(service_id)
     if (service) {
-        return JSON.stringify(service.call(fn_name, args))
+        return service.call(fn_name, args)
     } else {
-        return `Error. There is no service ${service_id}`
+        return {
+            result: JSON.stringify({error: `Error. There is no service ${service_id}`}),
+            ret_code: 0
+        }
     }
 }

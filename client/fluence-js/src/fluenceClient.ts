@@ -16,14 +16,13 @@
 
 
 import {Particle} from "./particle";
+import {StepperOutcome} from "./stepperOutcome";
 import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
-import * as stepper from "../stepper";
 import {addParticle, getCurrentParticleId, popParticle, setCurrentParticleId} from "./globalState";
-
-const WASM = stepper.loadWasm();
+import {instantiateStepper, Stepper} from "../test";
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;
@@ -31,6 +30,7 @@ export class FluenceClient {
 
     private nodePeerIdStr: string;
     private subscriptions = new Subscriptions();
+    private stepper: Stepper = undefined;
 
     connection: FluenceConnection;
 
@@ -46,10 +46,11 @@ export class FluenceClient {
             addParticle(particle);
         } else {
             // start particle processing if queue is empty
-            WASM.then((w) => {
-                let stepperOutcomeStr = w.invoke(particle.init_peer_id, particle.script, JSON.stringify(particle.data))
+            try {
+                let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(particle.data))
                 let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
 
+                console.log("inner stepper outcome:");
                 console.log(stepperOutcome);
 
                 // do nothing if there is no `next_peer_pks`
@@ -61,7 +62,7 @@ export class FluenceClient {
                         console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
                     });
                 }
-            }).finally(() => {
+            } finally {
                 // get last particle from the queue
                 let nextParticle = popParticle();
                 // start the processing of a new particle if it exists
@@ -74,8 +75,6 @@ export class FluenceClient {
                     setCurrentParticleId(undefined);
                 }
             }
-
-            )
         }
     }
 
@@ -122,6 +121,9 @@ export class FluenceClient {
         }
 
         let peerId = PeerId.createFromB58String(nodePeerId);
+
+        this.stepper = await instantiateStepper(this.selfPeerId);
+
         let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, this.handleExternalParticle());
 
         await connection.connect();

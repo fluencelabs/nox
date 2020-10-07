@@ -32,7 +32,7 @@ const config = {
         new HtmlWebpackPlugin(),
         new WasmPackPlugin({
             // TODO use another path somehow
-            crateDirectory: path.resolve(__dirname, "../../../aquamarine"),
+            crateDirectory: path.resolve(__dirname, "../../../aquamarine/stepper"),
             outDir:path.resolve(__dirname, "./pkg")
         }),
         new webpack.ProvidePlugin({
