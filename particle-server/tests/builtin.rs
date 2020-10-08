@@ -16,24 +16,26 @@
 
 use particle_protocol::Particle;
 use test_utils::{
-    format_aqua, make_swarms_with_cfg, test_module, uuid, ConnectedClient, KAD_TIMEOUT,
+    enable_logs, format_aqua, make_swarms_with_cfg, test_module, uuid, ConnectedClient, KAD_TIMEOUT,
 };
 
 use serde_json::{json, Value};
 use std::thread::sleep;
 use std::time::Duration;
 
-fn send_particle(client: &mut ConnectedClient, script: String, data: Value) -> Particle {
+fn send_particle(client: &mut ConnectedClient, script: String, data: Value) {
     let mut particle = Particle::default();
     particle.id = uuid();
     particle.init_peer_id = client.peer_id.clone();
     particle.script = script;
     particle.data = data;
     client.send(particle.clone());
+}
 
+fn receive_particle(client: &mut ConnectedClient) -> Particle {
     if cfg!(debug_assertions) {
         // Account for slow VM in debug
-        client.timeout = Duration::from_secs(60);
+        client.timeout = Duration::from_secs(160);
     }
 
     let response = client.receive();
@@ -43,9 +45,12 @@ fn send_particle(client: &mut ConnectedClient, script: String, data: Value) -> P
 
 #[test]
 fn create_service() {
+    enable_logs();
+
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     let module = "greeting";
     let config = json!(
@@ -75,7 +80,7 @@ fn create_service() {
         client.peer_id
     ));
 
-    let response = send_particle(
+    send_particle(
         &mut client,
         script,
         json!({
@@ -85,22 +90,26 @@ fn create_service() {
         }),
     );
 
+    let response = receive_particle(&mut client);
+
     let service_id = response.data.get("service_id").unwrap().as_str().unwrap();
     let script = format_aqua(format!(
         r#"(seq (
             (call (%current_peer_id% ({} |greeting|) (my_name) greeting))
             (call ({} (|| ||) (greeting) client_result))
         ))"#,
-        service_id, client.peer_id
+        service_id, client2.peer_id
     ));
 
-    let response = send_particle(
+    send_particle(
         &mut client,
         script,
         json!({
             "my_name": "folex"
         }),
     );
+
+    let response = receive_particle(&mut client2);
 
     assert_eq!(
         response.data.get("greeting").unwrap().as_str().unwrap(),
