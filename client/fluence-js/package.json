@@ -7,7 +7,8 @@
   "scripts": {
     "test": "mocha -r ts-node/register src/**/*.spec.ts",
     "test-ts": "ts-mocha -p tsconfig.json src/**/*.spec.ts",
-    "package:build": "NODE_ENV=production webpack && tsc",
+    "package:build": "NODE_ENV=production webpack && tsc && cp -r aqua dist",
+    "package": "tsc && cp -r aqua dist",
     "compile": "tsc",
     "start": "webpack-dev-server -p",
     "build": "webpack"

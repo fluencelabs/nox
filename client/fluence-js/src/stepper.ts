@@ -1,9 +1,9 @@
 import {wasmBs64} from "../wasmBs64";
 import {toByteArray} from "base64-js";
-import * as aqua from "./aqua"
+import * as aqua from "../aqua"
 
 import {callService} from "./callService";
-import {getInt32Memory0, getStringFromWasm0, passStringToWasm0, WASM_VECTOR_LEN} from "./aqua";
+import {getInt32Memory0, getStringFromWasm0, passStringToWasm0, WASM_VECTOR_LEN} from "../aqua";
 import PeerId from "peer-id";
 
 export type Stepper = (init_user_id: string, script: string, data: string) => string
