@@ -8,13 +8,13 @@ interface CallServiceResult {
 export class Service {
 
     serviceId: string;
-    functions: Map<string, (args: string) => string> = new Map();
+    functions: Map<string, (args: string) => object> = new Map();
 
     constructor(serviceId: string) {
         this.serviceId = serviceId;
     }
 
-    registerFunction(fnName: string, fn: (args: string) => string) {
+    registerFunction(fnName: string, fn: (args: string) => object) {
         this.functions.set(fnName, fn);
     }
 
@@ -25,7 +25,7 @@ export class Service {
                 let result = fn(args)
                 return {
                     ret_code: 0,
-                    result
+                    result: JSON.stringify(result)
                 }
             } catch (err) {
                 return {
@@ -38,7 +38,7 @@ export class Service {
             let errorMsg = `Error. There is no function ${fnName}`
             return {
                 ret_code: 1,
-                result: errorMsg
+                result: JSON.stringify(errorMsg)
             }
         }
     }
@@ -47,7 +47,7 @@ export class Service {
 let logger = new Service("")
 logger.registerFunction("", (args: string) => {
     console.log("logger service: " + args)
-    return "done"
+    return { result: "done" }
 })
 registerService(logger);
 
@@ -57,7 +57,7 @@ export function call_service(service_id: string, fn_name: string, args: string):
         return service.call(fn_name, args)
     } else {
         return {
-            result: `Error. There is no service: ${service_id}`,
+            result: JSON.stringify(`Error. There is no service: ${service_id}`),
             ret_code: 0
         }
     }
