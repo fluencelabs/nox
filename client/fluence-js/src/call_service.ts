@@ -44,8 +44,8 @@ export class Service {
     }
 }
 
-let logger = new Service("logger")
-logger.registerFunction("logger", (args: string) => {
+let logger = new Service("")
+logger.registerFunction("", (args: string) => {
     console.log("logger service: " + args)
     return ""
 })

@@ -56,6 +56,7 @@ declare global {
         Fluence: Fluence;
         connectCl: any;
         sendMessage: any
+        execute: any
     }
 }
 
@@ -69,6 +70,14 @@ async function connectCl() {
 
     let cl1 = await Fluence.connect(addr, key1);
     cl = cl1
+}
+
+async function execute(pid: string, script: string, data: object) {
+
+    let particle = await build(cl.selfPeerId, script, data)
+
+    let result = await cl.sendParticle(particle)
+    console.log(result)
 }
 
 async function sendMessage(pid: string, msg: string) {
@@ -89,3 +98,4 @@ async function sendMessage(pid: string, msg: string) {
 window.Fluence = Fluence;
 window.connectCl = connectCl;
 window.sendMessage = sendMessage;
+window.execute = execute;
