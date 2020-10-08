@@ -37,6 +37,6 @@ pub fn into_string(v: Value) -> Option<String> {
 }
 
 /// Converts an error into IValue::String
-pub fn as_value<E: Debug>(err: E) -> Value {
+pub fn err_as_value<E: Debug>(err: E) -> Value {
     Value::String(format!("Error: {:?}", err))
 }

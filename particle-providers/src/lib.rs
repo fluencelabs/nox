@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
+//! This crate describes how providers are stored in memory
+
+#![warn(missing_debug_implementations, rust_2018_idioms, missing_docs)]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -26,18 +27,6 @@
     unreachable_patterns
 )]
 
-mod connected_point;
-mod macros;
-mod random_peer_id;
-mod serde;
-mod transport;
-pub mod types;
+mod providers;
 
-pub use self::serde::*;
-pub use connected_point::*;
-pub use macros::*;
-pub use random_peer_id::RandomPeerId;
-pub use transport::{build_memory_transport, build_transport};
-
-// libp2p reexports
-pub use libp2p::PeerId;
+pub use providers::{ProviderError, ProviderRepository};

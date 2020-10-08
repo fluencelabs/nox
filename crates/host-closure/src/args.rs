@@ -19,7 +19,7 @@ use crate::args_error::ArgsError::{self, MissingField, SerdeJson};
 use control_macro::ok_get;
 use ivalue_utils::{into_str, into_string, IValue};
 
-use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use serde_json::Value;
 
 #[derive(Debug)]
@@ -64,7 +64,7 @@ impl Args {
     }
 
     /// Retrieves next json value from iterator, parse it to T
-    pub fn next<T: DeserializeOwned>(
+    pub fn next<T: for<'de> Deserialize<'de>>(
         field: &'static str,
         args: &mut impl Iterator<Item = Value>,
     ) -> Result<T, ArgsError> {
@@ -75,7 +75,7 @@ impl Args {
     }
 
     /// Retrieves a json value from iterator if it's not empty, and parses it to T
-    pub fn maybe_next<T: DeserializeOwned>(
+    pub fn maybe_next<T: for<'de> Deserialize<'de>>(
         field: &'static str,
         args: &mut impl Iterator<Item = Value>,
     ) -> Result<Option<T>, ArgsError> {
@@ -85,7 +85,10 @@ impl Args {
         Ok(Some(value))
     }
 
-    fn deserialize<T: DeserializeOwned>(field: &'static str, v: Value) -> Result<T, ArgsError> {
+    fn deserialize<T: for<'de> Deserialize<'de>>(
+        field: &'static str,
+        v: Value,
+    ) -> Result<T, ArgsError> {
         serde_json::from_value(v).map_err(|err| SerdeJson { err, field })
     }
 }

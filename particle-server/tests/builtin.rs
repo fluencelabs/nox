@@ -23,30 +23,8 @@ use serde_json::{json, Value};
 use std::thread::sleep;
 use std::time::Duration;
 
-fn send_particle(client: &mut ConnectedClient, script: String, data: Value) {
-    let mut particle = Particle::default();
-    particle.id = uuid();
-    particle.init_peer_id = client.peer_id.clone();
-    particle.script = script;
-    particle.data = data;
-    client.send(particle.clone());
-}
-
-fn receive_particle(client: &mut ConnectedClient) -> Particle {
-    if cfg!(debug_assertions) {
-        // Account for slow VM in debug
-        client.timeout = Duration::from_secs(160);
-    }
-
-    let response = client.receive();
-
-    response
-}
-
 #[test]
 fn create_service() {
-    enable_logs();
-
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -80,8 +58,7 @@ fn create_service() {
         client.peer_id
     );
 
-    send_particle(
-        &mut client,
+    client.send_particle(
         script,
         json!({
             "module_bytes": test_module(),
@@ -90,7 +67,7 @@ fn create_service() {
         }),
     );
 
-    let response = receive_particle(&mut client);
+    let response = client.receive_particle();
 
     let service_id = response.data.get("service_id").unwrap().as_str().unwrap();
     let script = format!(
@@ -101,15 +78,14 @@ fn create_service() {
         service_id, client2.peer_id
     );
 
-    send_particle(
-        &mut client,
+    client.send_particle(
         script,
         json!({
             "my_name": "folex"
         }),
     );
 
-    let response = receive_particle(&mut client2);
+    let response = client2.receive_particle();
 
     assert_eq!(
         response.data.get("greeting").unwrap().as_str().unwrap(),

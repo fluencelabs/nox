@@ -30,6 +30,7 @@ use libp2p::{
     PeerId,
 };
 use particle_closures::{HostClosures, Mailbox};
+use particle_providers::ProviderRepository;
 use prometheus::Registry;
 use std::{
     collections::{HashMap, VecDeque},
@@ -43,9 +44,11 @@ pub struct ParticleBehaviour {
     pub(super) plumber: Plumber,
     pub(super) dht: ParticleDHT,
     #[allow(dead_code)]
-    pub(super) services: ParticleAppServices,
+    services: ParticleAppServices,
     #[allow(dead_code)]
     pub(super) mailbox: Mailbox,
+    #[allow(dead_code)]
+    providers: ProviderRepository,
     pub(super) clients: HashMap<PeerId, Multiaddr>,
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
@@ -60,7 +63,10 @@ impl ParticleBehaviour {
     ) -> io::Result<Self> {
         let services = ParticleAppServices::new(config.services_config()?);
         let mailbox = Mailbox::new();
+        let providers = ProviderRepository::default();
         let closures = HostClosures {
+            add_provider: providers.add_provider(),
+            get_providers: providers.get_providers(),
             get_modules: particle_modules::get_modules(config.modules_dir()?),
             get_blueprints: particle_modules::get_blueprints(config.blueprint_dir()?),
             add_module: particle_modules::add_module(config.modules_dir()?),
@@ -77,6 +83,7 @@ impl ParticleBehaviour {
             dht,
             services,
             mailbox,
+            providers,
             protocol_config: config.protocol_config,
             clients: <_>::default(),
             events: <_>::default(),

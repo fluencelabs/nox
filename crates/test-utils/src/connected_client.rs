@@ -15,7 +15,7 @@
  */
 
 use super::misc::Result;
-use crate::{make_swarms, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
+use crate::{make_swarms, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
 
 use fluence_client::{Client, ClientEvent, Transport};
 
@@ -24,6 +24,7 @@ use core::ops::Deref;
 use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 use particle_protocol::Particle;
+use serde_json::Value;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -147,5 +148,28 @@ impl ConnectedClient {
             ClientEvent::Particle { particle, .. } => Some(particle),
             _ => None,
         })
+    }
+
+    pub fn send_particle(&mut self, script: String, data: Value) {
+        let mut particle = Particle::default();
+        particle.id = uuid();
+        particle.init_peer_id = self.peer_id.clone();
+        particle.script = script;
+        particle.data = data;
+        self.send(particle.clone());
+    }
+
+    pub fn receive_particle(&mut self) -> Particle {
+        let timeout = self.timeout;
+        if cfg!(debug_assertions) {
+            // Account for slow VM in debug
+            self.timeout = Duration::from_secs(160);
+        }
+
+        let response = self.receive();
+
+        self.timeout = timeout;
+
+        response
     }
 }

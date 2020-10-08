@@ -18,7 +18,6 @@ use crate::file_names::extract_module_name;
 use crate::{file_names, files};
 
 use host_closure::{closure, closure_opt, Args, Closure};
-use json_utils::as_value;
 
 use serde_json::Value;
 use std::path::PathBuf;
@@ -27,10 +26,10 @@ use std::path::PathBuf;
 pub fn add_module(modules_dir: PathBuf) -> Closure {
     closure_opt(move |mut args| {
         log::debug!("add_module called");
-        let module = Args::next("module", &mut args).map_err(as_value)?;
-        let config = Args::next("config", &mut args).map_err(as_value)?;
+        let module = Args::next("module", &mut args)?;
+        let config = Args::next("config", &mut args)?;
         log::debug!("add_module parsed");
-        files::add_module(&modules_dir, module, config).map_err(as_value)?;
+        files::add_module(&modules_dir, module, config)?;
         log::debug!("add_module finished");
 
         Ok(None)
@@ -40,8 +39,8 @@ pub fn add_module(modules_dir: PathBuf) -> Closure {
 /// Saves new blueprint to disk
 pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
     closure(move |mut args| {
-        let blueprint = Args::next("blueprint", &mut args).map_err(as_value)?;
-        files::add_blueprint(&blueprint_dir, &blueprint).map_err(as_value)?;
+        let blueprint = Args::next("blueprint", &mut args)?;
+        files::add_blueprint(&blueprint_dir, &blueprint)?;
 
         Ok(Value::String(blueprint.id))
     })

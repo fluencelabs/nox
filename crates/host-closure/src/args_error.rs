@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+use json_utils::err_as_value;
+
+use serde_json::Value;
 use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -29,6 +32,18 @@ pub enum ArgsError {
         field: &'static str,
         err: Cow<'static, str>,
     },
+}
+
+// impl Into<Value> for ArgsError {
+//     fn into(self) -> Value {
+//         err_as_value(self)
+//     }
+// }
+
+impl From<ArgsError> for Value {
+    fn from(err: ArgsError) -> Self {
+        err_as_value(err)
+    }
 }
 
 impl Error for ArgsError {}
