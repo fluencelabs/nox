@@ -23,6 +23,7 @@ import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
 import {addParticle, getCurrentParticleId, popParticle, setCurrentParticleId} from "./globalState";
 import {instantiateStepper, Stepper} from "./stepper";
+import log from "loglevel";
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;
@@ -50,8 +51,8 @@ export class FluenceClient {
                 let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(particle.data))
                 let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
 
-                console.log("inner stepper outcome:");
-                console.log(stepperOutcome);
+                log.info("inner stepper outcome:");
+                log.info(stepperOutcome);
 
                 // do nothing if there is no `next_peer_pks`
                 if (stepperOutcome.next_peer_pks.length > 0) {
