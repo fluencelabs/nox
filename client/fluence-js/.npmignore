@@ -3,7 +3,7 @@
 node_modules
 types
 
-./src/
+src/
 
 tsconfig.json
 webpack.config.js
