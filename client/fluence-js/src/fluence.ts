@@ -21,7 +21,7 @@ import * as log from "loglevel";
 import {LogLevelDesc} from "loglevel";
 import {build} from "./particle";
 
-log.setLevel('error')
+log.setLevel('info')
 
 export default class Fluence {
 

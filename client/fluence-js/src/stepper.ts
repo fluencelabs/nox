@@ -5,6 +5,7 @@ import * as aqua from "../aqua"
 import {callService} from "./callService";
 import {getInt32Memory0, getStringFromWasm0, passStringToWasm0, WASM_VECTOR_LEN} from "../aqua";
 import PeerId from "peer-id";
+import log from "loglevel";
 
 export type Stepper = (init_user_id: string, script: string, data: string) => string
 
@@ -43,7 +44,7 @@ export async function instantiateStepper(pid: PeerId): Promise<Stepper> {
         "host": { log_utf8_string: (arg0: any, arg1: any) => {
                 try {
                     let str = getStringFromWasm0(wasm, arg0, arg1)
-                    console.log(str)
+                    log.debug(str)
                 } finally {
                 }
             }
