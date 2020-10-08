@@ -54,35 +54,38 @@ export default class Fluence {
 declare global {
     interface Window {
         Fluence: Fluence;
-        test: any;
-        startWasiTask: any
+        connectCl: any;
+        sendMessage: any
     }
 }
 
-async function test() {
+let nodePeerId = "12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb"
+let addr = '/dns4/134.209.186.43/tcp/9003/ws/p2p/' + nodePeerId
+let cl: FluenceClient;
+
+async function connectCl() {
     let key1 = await Fluence.generatePeerId();
-    let key2 = await Fluence.generatePeerId();
+    console.log("pid: " + key1.toB58String())
 
-
-    let nodePeerId = "12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb"
-    let addr = '/dns4/134.209.186.43/tcp/9003/ws/p2p/' + nodePeerId
-
-    // connect to two different nodes
     let cl1 = await Fluence.connect(addr, key1);
-    let cl2 = await Fluence.connect(addr, key2);
+    cl = cl1
+}
 
-    let script = `(call (${key2.toB58String()} (|| ||) () void))`
+async function sendMessage(pid: string, msg: string) {
+
+    let script = `(call (${pid} (|| ||) () void))`
 
     /*let script = `(seq (
             (call (%current_peer_id% (local_service_id local_fn_name) () result_name))
             (call (${key2.toB58String()} (service_id fn_name) () g))
         ))`*/
 
-    let particle = await build(key1, script, {serdeValue: "test" })
+    let particle = await build(cl.selfPeerId, script, {msg: msg })
 
-    let result = await cl1.sendParticle(particle)
+    let result = await cl.sendParticle(particle)
     console.log(result)
 }
 
 window.Fluence = Fluence;
-window.test = test;
+window.connectCl = connectCl;
+window.sendMessage = sendMessage;
