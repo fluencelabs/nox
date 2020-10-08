@@ -57,7 +57,7 @@ export function call_service(service_id: string, fn_name: string, args: string):
         return service.call(fn_name, args)
     } else {
         return {
-            result: JSON.stringify({error: `Error. There is no service ${service_id}`}),
+            result: `Error. There is no service: ${service_id}`,
             ret_code: 0
         }
     }

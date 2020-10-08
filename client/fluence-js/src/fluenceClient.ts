@@ -87,9 +87,11 @@ export class FluenceClient {
         let _this = this;
 
         return (particle: Particle) => {
-            if (_this.subscriptions.hasSubscription(particle)) {
-                // if there is no subscription, use Stepper
+            let now = Date.now();
+            if (particle.timestamp + particle.ttl > now) {
                 _this.handleParticle(particle);
+            } else {
+                console.log(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
             }
         }
     }

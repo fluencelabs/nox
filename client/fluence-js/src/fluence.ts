@@ -64,16 +64,21 @@ async function test() {
     let key2 = await Fluence.generatePeerId();
 
 
-    let nodePeerId = "12D3KooWQ8x4SMBmSSUrMzY2m13uzC7UoSyvHaDhTKx7hH8aXxpt"
-    let addr = '/ip4/127.0.0.1/tcp/9001/ws/p2p/' + nodePeerId
+    let nodePeerId = "12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb"
+    let addr = '/dns4/134.209.186.43/tcp/9003/ws/p2p/' + nodePeerId
 
     // connect to two different nodes
     let cl1 = await Fluence.connect(addr, key1);
     let cl2 = await Fluence.connect(addr, key2);
 
-    let script = `(call (12D3KooWRvqnnRD8cCXo4bx11QUAemtaKMciD9FZXnseiB4hkJ4N (|| ||) () void))`
+    let script = `(call (${key2.toB58String()} (|| ||) () void))`
 
-    let particle = await build(key1, script, {data: "nonesa"})
+    /*let script = `(seq (
+            (call (%current_peer_id% (local_service_id local_fn_name) () result_name))
+            (call (${key2.toB58String()} (service_id fn_name) () g))
+        ))`*/
+
+    let particle = await build(key1, script, {serdeValue: "test" })
 
     let result = await cl1.sendParticle(particle)
     console.log(result)
