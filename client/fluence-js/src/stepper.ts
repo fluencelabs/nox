@@ -1,9 +1,9 @@
-import {wasmBs64} from "./wasmBs64";
+import {wasmBs64} from "../wasmBs64";
 import {toByteArray} from "base64-js";
-import * as aqua from "./aqua"
+import * as aqua from "../aqua"
 
-import {call_service} from "./src/call_service";
-import {getInt32Memory0, getStringFromWasm0, passStringToWasm0, WASM_VECTOR_LEN} from "./aqua";
+import {callService} from "./callService";
+import {getInt32Memory0, getStringFromWasm0, passStringToWasm0, WASM_VECTOR_LEN} from "../aqua";
 import PeerId from "peer-id";
 
 export type Stepper = (init_user_id: string, script: string, data: string) => string
@@ -17,9 +17,11 @@ export async function instantiateStepper(pid: PeerId): Promise<Stepper> {
     const importObject = {
         "./index_bg.js": { __wbg_callserviceimpl_c0ca292e3c8c0c97: (arg0: any, arg1: any, arg2: any, arg3: any, arg4: any, arg5: any, arg6: any) => {
                 try {
-                    var ret = call_service(getStringFromWasm0(wasm, arg1, arg2), getStringFromWasm0(wasm, arg3, arg4), getStringFromWasm0(wasm, arg5, arg6));
+                    let serviceId = getStringFromWasm0(wasm, arg1, arg2)
+                    let fnName = getStringFromWasm0(wasm, arg3, arg4)
+                    let args = getStringFromWasm0(wasm, arg5, arg6);
+                    var ret = callService(serviceId, fnName, args);
                     let retStr = JSON.stringify(ret)
-                    console.log("result: " + retStr)
                     var ptr0 = passStringToWasm0(wasm, retStr, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
                     var len0 = WASM_VECTOR_LEN;
                     getInt32Memory0(wasm)[arg0 / 4 + 1] = len0;

@@ -1,6 +1,6 @@
 import {getService, registerService} from "./globalState";
 
-interface CallServiceResult {
+export interface CallServiceResult {
     ret_code: number,
     result: string
 }
@@ -8,17 +8,17 @@ interface CallServiceResult {
 export class Service {
 
     serviceId: string;
-    functions: Map<string, (args: string) => object> = new Map();
+    functions: Map<string, (args: any[]) => object> = new Map();
 
     constructor(serviceId: string) {
         this.serviceId = serviceId;
     }
 
-    registerFunction(fnName: string, fn: (args: string) => object) {
+    registerFunction(fnName: string, fn: (args: any[]) => object) {
         this.functions.set(fnName, fn);
     }
 
-    call(fnName: string, args: string): CallServiceResult {
+    call(fnName: string, args: any[]): CallServiceResult {
         let fn = this.functions.get(fnName)
         if (fn) {
             try {
@@ -45,20 +45,29 @@ export class Service {
 }
 
 let logger = new Service("")
-logger.registerFunction("", (args: string) => {
+logger.registerFunction("", (args: any[]) => {
     console.log("logger service: " + args)
     return { result: "done" }
 })
 registerService(logger);
 
-export function call_service(service_id: string, fn_name: string, args: string): CallServiceResult {
-    let service = getService(service_id)
-    if (service) {
-        return service.call(fn_name, args)
-    } else {
-        return {
-            result: JSON.stringify(`Error. There is no service: ${service_id}`),
-            ret_code: 0
+export function callService(service_id: string, fn_name: string, args: string): CallServiceResult {
+    try {
+        let argsObject = JSON.parse(args)
+        if (!Array.isArray(argsObject)) {
+            throw new Error("args is not an array")
         }
+        let service = getService(service_id)
+        if (service) {
+            return service.call(fn_name, argsObject)
+        } else {
+            return {
+                result: JSON.stringify(`Error. There is no service: ${service_id}`),
+                ret_code: 0
+            }
+        }
+    } catch (err) {
+        console.error("Cannot parse arguments: " + JSON.stringify(err))
     }
+
 }

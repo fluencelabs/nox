@@ -1,4 +1,4 @@
-import {Service} from "./call_service";
+import {Service} from "./callService";
 import {Particle} from "./particle";
 
 // TODO put state with wasm file in each created FluenceClient

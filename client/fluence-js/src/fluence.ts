@@ -77,7 +77,6 @@ async function execute(pid: string, script: string, data: object) {
     let particle = await build(cl.selfPeerId, script, data)
 
     let result = await cl.sendParticle(particle)
-    console.log(result)
 }
 
 async function sendMessage(pid: string, msg: string) {
@@ -92,7 +91,6 @@ async function sendMessage(pid: string, msg: string) {
     let particle = await build(cl.selfPeerId, script, {msg: msg })
 
     let result = await cl.sendParticle(particle)
-    console.log(result)
 }
 
 window.Fluence = Fluence;

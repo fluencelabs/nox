@@ -22,7 +22,7 @@ import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
 import {addParticle, getCurrentParticleId, popParticle, setCurrentParticleId} from "./globalState";
-import {instantiateStepper, Stepper} from "../test";
+import {instantiateStepper, Stepper} from "./stepper";
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;

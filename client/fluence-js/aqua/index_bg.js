@@ -1,5 +1,3 @@
-import { call_service_impl } from '../src/call_service.ts';
-
 /**
  */
 export function main(wasm) {
@@ -85,6 +83,7 @@ export function getStringFromWasm0(wasm, ptr, len) {
     return cachedTextDecoder.decode(getUint8Memory0(wasm).subarray(ptr, ptr + len));
 }
 /**
+ * @param {any} wasm
  * @param {string} init_user_id
  * @param {string} aqua
  * @param {string} data

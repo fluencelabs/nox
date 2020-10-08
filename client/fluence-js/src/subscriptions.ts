@@ -15,6 +15,7 @@
  */
 
 import {Particle} from "./particle";
+import log from "loglevel";
 
 export class Subscriptions {
     private subscriptions: Set<string> = new Set();
@@ -31,7 +32,7 @@ export class Subscriptions {
         let _this = this;
         setTimeout(() => {
             _this.subscriptions.delete(id)
-            console.log(`Particle with id ${id} deleted by timeout`)
+            log.info(`Particle with id ${id} deleted by timeout`)
         }, ttl)
         this.subscriptions.add(id);
     }
