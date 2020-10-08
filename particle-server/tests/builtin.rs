@@ -66,7 +66,7 @@ fn create_service() {
         }
     );
 
-    let script = format_aqua(format!(
+    let script = format!(
         r#"(seq (
             (call (%current_peer_id% (add_module ||) (module_bytes module_config) module))
             (seq (
@@ -78,7 +78,7 @@ fn create_service() {
             ))
         ))"#,
         client.peer_id
-    ));
+    );
 
     send_particle(
         &mut client,
@@ -93,13 +93,13 @@ fn create_service() {
     let response = receive_particle(&mut client);
 
     let service_id = response.data.get("service_id").unwrap().as_str().unwrap();
-    let script = format_aqua(format!(
+    let script = format!(
         r#"(seq (
             (call (%current_peer_id% ({} |greeting|) (my_name) greeting))
             (call ({} (|| ||) (greeting) client_result))
         ))"#,
         service_id, client2.peer_id
-    ));
+    );
 
     send_particle(
         &mut client,
