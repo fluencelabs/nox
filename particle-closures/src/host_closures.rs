@@ -20,7 +20,7 @@ use host_closure::{Args, Closure};
 use ivalue_utils::{IType, IValue};
 use particle_actors::HostImportDescriptor;
 
-use serde_json::json;
+use serde_json::{json, Value};
 use std::sync::Arc;
 
 type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
@@ -69,6 +69,7 @@ impl HostClosures {
             "get_available_blueprints" => (self.get_blueprints)(args),
             "add_provider" => (self.add_provider)(args),
             "get_providers" => (self.get_providers)(args),
+            "identity" => ivalue_utils::ok(Value::Array(args.args)),
             s if BuiltinServicesApi::is_builtin(&s) => (self.builtin)(args),
             _ => (self.call_service)(args),
         }
