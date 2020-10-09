@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use test_utils::{enable_logs, make_swarms_with_cfg, test_module, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{make_swarms_with_cfg, test_module, ConnectedClient, KAD_TIMEOUT};
 
 use serde_json::json;
 use std::thread::sleep;
