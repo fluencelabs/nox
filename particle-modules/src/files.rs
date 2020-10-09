@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#![allow(dead_code)]
-
 use crate::blueprint::Blueprint;
-use crate::error::ServiceError::*;
-use crate::{files, Result};
+use crate::error::{ModuleError::*, Result};
+use crate::file_names;
 
 use fluence_app_service::{FaaSModuleConfig, TomlFaaSNamedModuleConfig};
 
@@ -27,7 +25,7 @@ use std::path::PathBuf;
 
 /// Load blueprint from disk
 pub fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint> {
-    let bp_path = bp_dir.join(files::blueprint_fname(blueprint_id));
+    let bp_path = bp_dir.join(file_names::blueprint_fname(blueprint_id));
     let blueprint =
         std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
     let blueprint: Blueprint =
@@ -41,7 +39,7 @@ pub fn load_module_config(
     modules_dir: &PathBuf,
     module: &str,
 ) -> Result<(String, FaaSModuleConfig)> {
-    let config = modules_dir.join(files::module_config_name(module));
+    let config = modules_dir.join(file_names::module_config_name(module));
     let config = std::fs::read(&config).map_err(|err| NoModuleConfig { path: config, err })?;
     let config: TomlFaaSNamedModuleConfig =
         toml::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
@@ -75,12 +73,12 @@ pub fn add_module(
     bytes: Vec<u8>,
     config: TomlFaaSNamedModuleConfig,
 ) -> Result<()> {
-    let module = modules_dir.join(files::module_file_name(&config.name));
+    let module = modules_dir.join(file_names::module_file_name(&config.name));
     std::fs::write(&module, bytes).map_err(|err| AddModule { path: module, err })?;
 
     // replace existing configuration with a new one
     let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
-    let config = modules_dir.join(files::module_config_name(config.name));
+    let config = modules_dir.join(file_names::module_config_name(config.name));
     std::fs::write(&config, toml).map_err(|err| WriteConfig { path: config, err })?;
 
     Ok(())
@@ -88,7 +86,7 @@ pub fn add_module(
 
 /// Saves new blueprint to disk
 pub fn add_blueprint(blueprint_dir: &PathBuf, blueprint: &Blueprint) -> Result<()> {
-    let path = blueprint_dir.join(files::blueprint_file_name(&blueprint));
+    let path = blueprint_dir.join(file_names::blueprint_file_name(&blueprint));
 
     // Save blueprint to disk
     let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeConfig { err })?;

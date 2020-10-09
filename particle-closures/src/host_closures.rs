@@ -16,20 +16,24 @@
 
 use crate::BuiltinServicesApi;
 
-use particle_actors::{vec1::Vec1, HostImportDescriptor};
-use particle_services::{Args, IType, IValue};
+use host_closure::{Args, Closure};
+use ivalue_utils::{IType, IValue};
+use particle_actors::HostImportDescriptor;
 
 use serde_json::json;
 use std::sync::Arc;
 
 type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
-type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 
 #[derive(Clone)]
 pub struct HostClosures {
     pub create_service: Closure,
     pub call_service: Closure,
     pub builtin: Closure,
+    pub add_module: Closure,
+    pub add_blueprint: Closure,
+    pub get_modules: Closure,
+    pub get_blueprints: Closure,
 }
 
 impl HostClosures {
@@ -50,65 +54,19 @@ impl HostClosures {
             Ok(args) => args,
             Err(err) => {
                 log::warn!("error parsing args: {:?}", err);
-                return as_record(Err(IValue::String(err.to_string())));
+                return ivalue_utils::error(json!(err.to_string()));
             }
         };
         log::info!("Router args: {:?}", args);
         // route
         match args.service_id.as_str() {
             "create" => (self.create_service)(args),
+            "add_module" => (self.add_module)(args),
+            "add_blueprint" => (self.add_blueprint)(args),
+            "get_available_modules" => (self.get_modules)(args),
+            "get_available_blueprints" => (self.get_blueprints)(args),
             s if BuiltinServicesApi::is_builtin(&s) => (self.builtin)(args),
             _ => (self.call_service)(args),
         }
     }
-}
-
-pub fn as_record(v: std::result::Result<IValue, IValue>) -> Option<IValue> {
-    let (code, result) = match v {
-        Ok(v) => (0, v),
-        Err(e) => (1, e),
-    };
-    let result = ivalue_to_jvalue_string(result);
-    let vec = Vec1::new(vec![IValue::U32(code), result]).expect("not empty");
-    Some(IValue::Record(vec))
-}
-
-/// Serializes IValue to json bytes
-fn ivalue_to_jvalue(v: IValue) -> serde_json::Value {
-    match v {
-        IValue::S8(v) => json!(v),
-        IValue::S16(v) => json!(v),
-        IValue::S32(v) => json!(v),
-        IValue::S64(v) => json!(v),
-        IValue::U8(v) => json!(v),
-        IValue::U16(v) => json!(v),
-        IValue::U32(v) => json!(v),
-        IValue::U64(v) => json!(v),
-        IValue::F32(v) => json!(v),
-        IValue::F64(v) => json!(v),
-        IValue::String(v) => json!(v),
-        IValue::I32(v) => json!(v),
-        IValue::I64(v) => json!(v),
-        IValue::Array(v) => json!(v.into_iter().map(ivalue_to_jvalue).collect::<Vec<_>>()),
-        IValue::Record(v) => json!(v
-            .into_vec()
-            .into_iter()
-            .map(ivalue_to_jvalue)
-            .collect::<Vec<_>>()),
-    }
-}
-
-#[allow(dead_code)]
-fn ivalue_to_jvalue_bytes(ivalue: IValue) -> IValue {
-    let jvalue = ivalue_to_jvalue(ivalue);
-    let bytes = serde_json::to_vec(&jvalue).expect("shouldn't fail");
-    let bytes = bytes.into_iter().map(IValue::U8).collect();
-    IValue::Array(bytes)
-}
-
-#[allow(dead_code)]
-fn ivalue_to_jvalue_string(ivalue: IValue) -> IValue {
-    let jvalue = ivalue_to_jvalue(ivalue);
-    let string = serde_json::to_string(&jvalue).expect("shouldn't fail");
-    IValue::String(string)
 }

@@ -25,16 +25,18 @@
     unreachable_patterns
 )]
 
-use crate::error::ServiceError;
+use serde_json::Value;
+use std::fmt::Debug;
 
-mod app_services;
-mod config;
-mod error;
-mod vm;
+pub fn into_string(v: Value) -> Option<String> {
+    if let Value::String(s) = v {
+        return Some(s);
+    }
 
-pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
+    None
+}
 
-pub use app_services::ParticleAppServices;
-pub use config::ServicesConfig;
-
-pub use fluence_app_service::{IType, IValue};
+/// Converts an error into IValue::String
+pub fn as_value<E: Debug>(err: E) -> Value {
+    Value::String(format!("Error: {:?}", err))
+}

@@ -16,20 +16,18 @@
 
 use crate::builtin_services_api::BuiltinServicesApi;
 
+use json_utils::as_value;
 use particle_dht::ResolveErrorKind;
-use particle_services::{Args, IValue};
-
 use waiting_queues::WaitingQueues;
 
 use futures::{channel::mpsc, StreamExt};
 use libp2p::kad::record;
+use serde_json::{json, Value};
 use std::{
     collections::HashSet,
-    sync::{mpsc as std_mpsc, Arc},
+    sync::mpsc as std_mpsc,
     task::{Context, Poll},
 };
-
-pub(super) type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 
 pub(super) type WaitResult = std_mpsc::Receiver<BuiltinCommandResult>;
 pub(super) type WaitingVM = std_mpsc::Sender<BuiltinCommandResult>;
@@ -62,13 +60,13 @@ impl BuiltinCommand {
 
 #[derive(Debug, Clone)]
 pub enum BuiltinCommandResult {
-    DHTResolved(record::Key, Result<Vec<Vec<u8>>, ResolveErrorKind>),
+    DHTResolved(Result<Vec<Vec<u8>>, ResolveErrorKind>),
 }
 
-impl Into<IValue> for BuiltinCommandResult {
-    fn into(self) -> IValue {
+impl Into<Result<Value, Value>> for BuiltinCommandResult {
+    fn into(self) -> Result<Value, Value> {
         match self {
-            BuiltinCommandResult::DHTResolved(_, _) => unimplemented!("FIXME"),
+            BuiltinCommandResult::DHTResolved(v) => v.map(|vs| json!(vs)).map_err(as_value),
         }
     }
 }
@@ -117,8 +115,8 @@ impl Mailbox {
         value: Result<HashSet<Vec<u8>>, ResolveErrorKind>,
     ) {
         let value = value.map(|v| v.into_iter().collect());
-        for cmd in self.waiting.remove(&Key::DHT(key.clone())) {
-            let result = BuiltinCommandResult::DHTResolved(key.clone(), value.clone());
+        for cmd in self.waiting.remove(&Key::DHT(key)) {
+            let result = BuiltinCommandResult::DHTResolved(value.clone());
             cmd.outlet.send(result.clone()).expect("resolve_complete")
         }
     }

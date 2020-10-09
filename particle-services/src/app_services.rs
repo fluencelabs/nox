@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-use crate::args::Args;
 use crate::config::ServicesConfig;
 use crate::error::ServiceError;
-use crate::error::ServiceError::MissingBlueprintId;
-use crate::vm::{as_record, create_vm};
+use crate::vm::create_vm;
 
 use fluence_app_service::{AppService, IValue};
+use host_closure::{closure, Args, Closure};
+use json_utils::as_value;
 
 use parking_lot::{Mutex, RwLock};
+use serde_json::{json, Value};
 use std::{collections::HashMap, sync::Arc};
 
-type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
 type VM = Arc<Mutex<AppService>>;
 type Services = Arc<RwLock<HashMap<String, VM>>>;
 
@@ -46,32 +46,20 @@ impl ParticleAppServices {
         let services = self.services.clone();
         let config = self.config.clone();
 
-        Arc::new(move |args| {
-            let args = args.args;
+        closure(move |mut args| {
             let service_id = uuid::Uuid::new_v4().to_string();
-            let make_vm = || {
-                let blueprint_id = args
-                    .get("blueprint_id")
-                    .and_then(|v| v.as_str())
-                    .ok_or(MissingBlueprintId)?
-                    .to_string();
+            let mut make_vm = || {
+                let blueprint_id = Args::next("blueprint_id", &mut args)?;
+                let user_id = Args::maybe_next("user_id", &mut args)?;
 
-                let user_id = args
-                    .get("user_id")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string());
                 create_vm(config.clone(), blueprint_id, &service_id, user_id)
             };
-            let result = match make_vm() {
-                Ok(vm) => {
-                    let vm = Arc::new(Mutex::new(vm));
-                    services.write().insert(service_id.clone(), vm);
-                    Ok(IValue::String(service_id))
-                }
-                // TODO: how to distinguish error from success?
-                Err(err) => Err(IValue::String(err.to_string())),
-            };
-            as_record(result)
+
+            make_vm().map_err(as_value).map(|vm| {
+                let vm = Arc::new(Mutex::new(vm));
+                services.write().insert(service_id.clone(), vm);
+                json!(service_id)
+            })
         })
     }
 
@@ -86,19 +74,20 @@ impl ParticleAppServices {
                     .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
                 let result = vm
                     .lock()
-                    .call("facade".to_string(), args.fname, args.args, <_>::default())
+                    .call(args.fname, Value::Array(args.args), <_>::default())
                     .map_err(ServiceError::Engine)?;
 
                 Ok(result)
             };
 
-            let result = match call() {
+            match call() {
                 // AppService always returns a single element
-                Ok(result) => Ok(result.into_iter().next().expect("must be defined")),
-                Err(err) => Err(IValue::String(err.to_string())),
-            };
-
-            as_record(result)
+                Ok(result) => {
+                    let result = result.into_iter().next().expect("must be defined");
+                    ivalue_utils::ivalue_ok(result)
+                }
+                Err(err) => ivalue_utils::error(json!(err.to_string())),
+            }
         })
     }
 }
