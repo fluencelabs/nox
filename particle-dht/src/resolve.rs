@@ -104,9 +104,8 @@ impl ParticleDHT {
                     peers.iter().map(|p| p.to_base58())
                 );
                 log::warn!("{}", err_msg);
-                // Peer wasn't found, send error
+                // TODO: Peer wasn't found, send error
                 // self.send_error_on_call(particle.into(), err_msg)
-                unimplemented!("error handling")
             }
         } else {
             for particle in particles {
