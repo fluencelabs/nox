@@ -1,5 +1,9 @@
 /**
+ *
+ * This is generated and patched code.
+ *
  */
+
 export function main(wasm) {
     wasm.main();
 }

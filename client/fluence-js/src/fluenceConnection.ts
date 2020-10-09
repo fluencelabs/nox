@@ -90,8 +90,6 @@ export class FluenceConnection {
                     async function (source: AsyncIterable<string>) {
                         for await (const msg of source) {
                             try {
-
-                                log.debug(_this.selfPeerIdStr);
                                 let particle = parseParticle(msg);
                                 log.debug("Particle is received:");
                                 log.debug(JSON.stringify(particle, undefined, 2));
