@@ -32,7 +32,7 @@ pub use wasmer_wit::vec1;
 use serde_json::{json, Value};
 use vec1::Vec1;
 
-pub fn into_str(v: &IValue) -> Option<&str> {
+pub fn as_str(v: &IValue) -> Option<&str> {
     if let IValue::String(s) = v {
         Some(s.as_str())
     } else {
@@ -49,7 +49,7 @@ pub fn into_string(v: IValue) -> Option<String> {
 }
 
 /// Converts result of call_service into `IValue::Record`
-pub fn as_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<IValue> {
+pub fn into_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<IValue> {
     match v {
         Ok(None) => unit(),
         Ok(Some(v)) => ok(v),
@@ -58,7 +58,7 @@ pub fn as_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<IVa
 }
 
 /// Converts result of call_service into `IValue::Record`
-pub fn as_record(v: std::result::Result<Value, Value>) -> Option<IValue> {
+pub fn into_record(v: std::result::Result<Value, Value>) -> Option<IValue> {
     match v {
         Ok(v) => ok(v),
         Err(e) => error(e),

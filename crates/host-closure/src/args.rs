@@ -17,10 +17,10 @@
 use crate::args_error::ArgsError::{self, MissingField, SerdeJson};
 
 use control_macro::ok_get;
-use ivalue_utils::{into_str, into_string, IValue};
+use ivalue_utils::{as_str, into_string, IValue};
 
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::Value as JValue;
 
 #[derive(Debug)]
 /// Arguments passed by VM to host on call_service
@@ -47,7 +47,7 @@ impl Args {
         let args = args
             .next()
             .as_ref()
-            .and_then(into_str)
+            .and_then(as_str)
             .ok_or(MissingField("args"))
             .and_then(|v| {
                 serde_json::from_str(v).map_err(|err| SerdeJson {
@@ -66,7 +66,7 @@ impl Args {
     /// Retrieves next json value from iterator, parse it to T
     pub fn next<T: for<'de> Deserialize<'de>>(
         field: &'static str,
-        args: &mut impl Iterator<Item = Value>,
+        args: &mut impl Iterator<Item = JValue>,
     ) -> Result<T, ArgsError> {
         let value = args.next().ok_or(MissingField(field))?;
         let value: T = Self::deserialize(field, value)?;
@@ -77,7 +77,7 @@ impl Args {
     /// Retrieves a json value from iterator if it's not empty, and parses it to T
     pub fn maybe_next<T: for<'de> Deserialize<'de>>(
         field: &'static str,
-        args: &mut impl Iterator<Item = Value>,
+        args: &mut impl Iterator<Item = JValue>,
     ) -> Result<Option<T>, ArgsError> {
         let value = ok_get!(args.next());
         let value: T = Self::deserialize(field, value)?;
@@ -87,7 +87,7 @@ impl Args {
 
     fn deserialize<T: for<'de> Deserialize<'de>>(
         field: &'static str,
-        v: Value,
+        v: JValue,
     ) -> Result<T, ArgsError> {
         serde_json::from_value(v).map_err(|err| SerdeJson { err, field })
     }

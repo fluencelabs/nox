@@ -19,7 +19,7 @@ use crate::{file_names, files};
 
 use host_closure::{closure, closure_opt, Args, Closure};
 
-use serde_json::Value;
+use serde_json::Value as JValue;
 use std::path::PathBuf;
 
 /// Adds a module to the filesystem, overwriting existing module.
@@ -42,7 +42,7 @@ pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
         let blueprint = Args::next("blueprint", &mut args)?;
         files::add_blueprint(&blueprint_dir, &blueprint)?;
 
-        Ok(Value::String(blueprint.id))
+        Ok(JValue::String(blueprint.id))
     })
 }
 
@@ -50,11 +50,11 @@ pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
 // TODO: load interfaces of these modules
 pub fn get_modules(modules_dir: PathBuf) -> Closure {
     closure(move |_| {
-        Ok(Value::Array(
+        Ok(JValue::Array(
             files::list_files(&modules_dir)
                 .into_iter()
                 .flatten()
-                .filter_map(|pb| extract_module_name(pb.file_name()?.to_str()?).map(Value::String))
+                .filter_map(|pb| extract_module_name(pb.file_name()?.to_str()?).map(JValue::String))
                 .collect(),
         ))
     })
@@ -63,7 +63,7 @@ pub fn get_modules(modules_dir: PathBuf) -> Closure {
 /// Get available blueprints
 pub fn get_blueprints(blueprint_dir: PathBuf) -> Closure {
     closure(move |_| {
-        Ok(Value::Array(
+        Ok(JValue::Array(
             files::list_files(&blueprint_dir)
                 .into_iter()
                 .flatten()

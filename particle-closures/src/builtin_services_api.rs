@@ -17,7 +17,7 @@
 use crate::mailbox::{BuiltinCommand, BuiltinCommandResult, Command, Destination, WaitResult};
 
 use host_closure::{Args, ArgsError, Closure};
-use ivalue_utils::as_record;
+use ivalue_utils::into_record;
 use json_utils::err_as_value;
 
 use libp2p::kad::record;
@@ -44,7 +44,7 @@ impl BuiltinServicesApi {
             let result = Self::route(self.clone(), args)
                 .map_err(err_as_value)
                 .and_then(Into::into);
-            as_record(result)
+            into_record(result)
         })
     }
 

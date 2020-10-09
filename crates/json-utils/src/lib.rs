@@ -25,11 +25,11 @@
     unreachable_patterns
 )]
 
-use serde_json::Value;
+use serde_json::Value as JValue;
 use std::fmt::Debug;
 
-pub fn into_string(v: Value) -> Option<String> {
-    if let Value::String(s) = v {
+pub fn into_string(v: JValue) -> Option<String> {
+    if let JValue::String(s) = v {
         return Some(s);
     }
 
@@ -37,6 +37,6 @@ pub fn into_string(v: Value) -> Option<String> {
 }
 
 /// Converts an error into IValue::String
-pub fn err_as_value<E: Debug>(err: E) -> Value {
-    Value::String(format!("Error: {:?}", err))
+pub fn err_as_value<E: Debug>(err: E) -> JValue {
+    JValue::String(format!("Error: {:?}", err))
 }
