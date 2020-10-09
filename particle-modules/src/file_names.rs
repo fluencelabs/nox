@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![allow(dead_code)]
 
 use crate::blueprint::Blueprint;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Calculates filename of the config for a wasm module
 pub(super) fn module_config_name<S: AsRef<str>>(module: S) -> String {
@@ -51,14 +50,4 @@ pub(super) fn extract_module_name(name: &str) -> Option<String> {
     path.extension().filter(|ext| ext == &"wasm")?;
     // strip extension
     path.file_stem()?.to_string_lossy().to_string().into()
-}
-
-pub(super) fn service_file_name(service_id: &str) -> String {
-    format!("{}_service.toml", service_id)
-}
-
-pub(super) fn is_service(path: &PathBuf) -> bool {
-    path.file_name()
-        .and_then(|n| n.to_str())
-        .map_or(false, |n| n.ends_with("_service.toml"))
 }

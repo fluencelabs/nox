@@ -1,0 +1,18 @@
+[package]
+name = "particle-modules"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+host-closure = { path = "../crates/host-closure" }
+ivalue-utils = { path = "../crates/ivalue-utils" }
+json-utils = { path = "../crates/json-utils" }
+
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "toml_fix" }
+
+serde = { version = "1.0.116", features = ["derive"] }
+serde_json = "1.0.58"
+uuid = "0.8.1"
+toml = "0.5.6"
+log = "0.4.11"

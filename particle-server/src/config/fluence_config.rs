@@ -105,7 +105,7 @@ pub struct ServerConfig {
     #[serde(default = "default_stepper_basedir")]
     pub stepper_base_dir: PathBuf,
 
-    #[serde(default, flatten)]
+    #[serde(default)]
     pub protocol_config: ProtocolConfig,
 }
 
@@ -214,7 +214,15 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
 
     let file_content =
         std::fs::read(config_file).context(format!("Config wasn't found at {}", config_file))?;
-    let mut config: toml::value::Table = toml::from_slice(&file_content)?;
+
+    deserialize_config(arguments, file_content)
+}
+
+pub(super) fn deserialize_config(
+    arguments: ArgMatches<'_>,
+    content: Vec<u8>,
+) -> anyhow::Result<FluenceConfig> {
+    let mut config: toml::value::Table = toml::from_slice(&content)?;
 
     insert_args_to_config(arguments, &mut config)?;
 
@@ -222,4 +230,22 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
     let config = FluenceConfig::deserialize(config)?;
 
     Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_config() {
+        let config = r#"
+            stepper_base_dir = "/stepper"
+            stepper_module_name = "aquamarine"
+
+            [root_weights]
+            Ct8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4 = 1
+        "#;
+
+        deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
+    }
 }

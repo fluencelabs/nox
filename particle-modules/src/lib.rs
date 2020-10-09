@@ -25,16 +25,13 @@
     unreachable_patterns
 )]
 
-use crate::error::ServiceError;
-
-mod app_services;
-mod config;
+mod blueprint;
 mod error;
-mod vm;
+mod file_names;
+mod files;
+mod modules;
 
-pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
-
-pub use app_services::ParticleAppServices;
-pub use config::ServicesConfig;
-
-pub use fluence_app_service::{IType, IValue};
+pub use blueprint::Blueprint;
+pub use error::ModuleError;
+pub use files::{load_blueprint, load_module_config};
+pub use modules::{add_blueprint, add_module, get_blueprints, get_modules};

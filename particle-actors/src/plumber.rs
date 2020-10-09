@@ -17,10 +17,12 @@
 use crate::actor::{Actor, ActorEvent};
 use crate::config::ActorConfig;
 
-use aquamarine_vm::{AquamarineVMError, HostImportDescriptor};
+use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
-use async_std::{sync::Arc, task};
+use aquamarine_vm::AquamarineVMError;
+
+use async_std::task;
 use futures::{future::BoxFuture, Future, FutureExt};
 use libp2p::PeerId;
 use std::{
@@ -32,7 +34,6 @@ use std::{
 };
 
 type Fut = BoxFuture<'static, Result<Actor, AquamarineVMError>>;
-pub(super) type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
 
 #[derive(Debug)]
 pub enum PlumberEvent {

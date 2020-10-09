@@ -17,10 +17,11 @@
 use crate::actor::VmState::{Executing, Idle};
 use crate::config::ActorConfig;
 use crate::invoke::parse_outcome;
-use crate::plumber::ClosureDescriptor;
+
+use host_closure::ClosureDescriptor;
+use particle_protocol::Particle;
 
 use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError};
-use particle_protocol::Particle;
 
 use async_std::{pin::Pin, task};
 use futures::{future::BoxFuture, Future, FutureExt};

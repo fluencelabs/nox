@@ -8,12 +8,16 @@ members = [
     "crates/waiting-queues",
     "crates/test-utils",
     "crates/config-utils",
+    "crates/ivalue-utils",
+    "crates/host-closure",
+    "crates/json-utils",
     "particle-server",
     "particle-actors",
     "particle-protocol",
     "particle-dht",
     "particle-services",
     "particle-closures",
+    "particle-modules"
 ]
 exclude = [
     "client/js-websocket/utils-wasm",

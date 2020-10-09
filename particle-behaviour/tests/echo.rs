@@ -53,7 +53,7 @@ fn echo_particle() {
     let particle = task::block_on(task::spawn(async move {
         loop {
             select!(
-                event = server.next_event().fuse() => {}/*println!("server event: {:?}", event)*/,
+                event = server.next_event().fuse() => {},
                 event = client.next_event().fuse() => {
                     println!("client got event: {:?}", event);
                     match event {
@@ -63,7 +63,7 @@ fn echo_particle() {
                                 init_peer_id: client_id.clone(),
                                 timestamp: 0,
                                 ttl: 1,
-                                script: format!("((call ({} (service_id fn_name) () result_name)))", client_id),
+                                script: format!("(call ({} (a b) (data) void))", client_id),
                                 signature: vec![],
                                 data: json!({"data": "none"}),
                             };

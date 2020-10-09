@@ -1,0 +1,15 @@
+[package]
+name = "host-closure"
+version = "0.0.1"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+ivalue-utils = { path = "../ivalue-utils" }
+json-utils = { path = "../json-utils" }
+control-macro = { path = "../control-macro" }
+
+fce = { git = "https://github.com/fluencelabs/fce", branch = "toml_fix" }
+
+serde_json = "1.0.58"
+serde = "1.0.116"

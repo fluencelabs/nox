@@ -22,7 +22,7 @@ use particle_services::ServicesConfig;
 use config_utils::to_peer_id;
 
 use libp2p::{identity::ed25519, PeerId};
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{collections::HashMap, fs::create_dir_all, io, path::PathBuf};
 
 pub struct ParticleConfig {
     pub protocol_config: ProtocolConfig,
@@ -58,6 +58,22 @@ impl ParticleConfig {
 
     pub fn services_config(&self) -> io::Result<ServicesConfig> {
         ServicesConfig::new(self.services_base_dir.clone(), self.services_envs.clone())
+    }
+
+    /// Creates and returns path for app service modules directory
+    pub fn modules_dir(&self) -> io::Result<PathBuf> {
+        let path = self.services_base_dir.join("modules");
+        create_dir_all(&path)?;
+
+        Ok(path)
+    }
+
+    /// Creates and returns path for app service blueprint directory
+    pub fn blueprint_dir(&self) -> io::Result<PathBuf> {
+        let path = self.services_base_dir.join("blueprint");
+        create_dir_all(&path)?;
+
+        Ok(path)
     }
 
     pub fn dht_config(&self) -> DHTConfig {
