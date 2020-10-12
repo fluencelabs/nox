@@ -20,7 +20,7 @@ use host_closure::{Args, ArgsError, Closure};
 use ivalue_utils::into_record;
 use json_utils::err_as_value;
 
-use libp2p::kad::record;
+use serde_json::Value as JValue;
 use std::{sync::mpsc as std_mpsc, sync::Arc};
 
 #[derive(Debug, Clone)]
@@ -29,7 +29,7 @@ pub struct BuiltinServicesApi {
 }
 
 impl BuiltinServicesApi {
-    const SERVICES: &'static [&'static str] = &["services"];
+    const SERVICES: &'static [&'static str] = &["resolve", "neighborhood"];
 
     pub fn new(mailbox: Destination) -> Self {
         Self { mailbox }
@@ -51,33 +51,39 @@ impl BuiltinServicesApi {
     fn route(api: BuiltinServicesApi, args: Args) -> Result<BuiltinCommandResult, ArgsError> {
         let wait = match args.service_id.as_str() {
             "resolve" => {
-                let key: String = Args::next("key", &mut args.args.into_iter())?;
-                let key = bs58::decode(key)
-                    .into_vec()
-                    .map_err(|err| ArgsError::InvalidFormat {
-                        field: "key",
-                        err: format!("not a base58: {:?}", err).into(),
-                    })?;
-
-                api.resolve(key.into())
+                let key = from_base58("key", &mut args.args.into_iter())?;
+                api.exec(BuiltinCommand::DHTResolve(key.into()))
             }
-            "add_certificate" => unimplemented!("FIXME"),
+            "neighborhood" => {
+                let key = from_base58("key", &mut args.args.into_iter())?;
+                api.exec(BuiltinCommand::DHTNeighborhood(key.into()))
+            }
             _ => unimplemented!("FIXME: unknown. return error? re-route to call service?"),
         };
 
         Ok(wait.recv().expect("receive BuiltinCommandResult"))
     }
 
-    fn resolve(&self, key: record::Key) -> WaitResult {
+    fn exec(&self, kind: BuiltinCommand) -> WaitResult {
         let (outlet, inlet) = std_mpsc::channel();
-        let cmd = Command {
-            outlet,
-            kind: BuiltinCommand::DHTResolve(key),
-        };
+        let cmd = Command { outlet, kind };
         self.mailbox
             .unbounded_send(cmd)
             .expect("builtin => mailbox");
 
         inlet
     }
+}
+
+fn from_base58(
+    name: &'static str,
+    args: &mut impl Iterator<Item = JValue>,
+) -> Result<Vec<u8>, ArgsError> {
+    let result: String = Args::next(name, args)?;
+    bs58::decode(result)
+        .into_vec()
+        .map_err(|err| ArgsError::InvalidFormat {
+            field: "key",
+            err: format!("not a base58: {:?}", err).into(),
+        })
 }

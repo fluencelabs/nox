@@ -15,15 +15,13 @@
  */
 
 use fluence_libp2p::RandomPeerId;
-use test_utils::{enable_logs, make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
 
 use serde_json::json;
 use std::thread::sleep;
 
 #[test]
 fn add_providers() {
-    enable_logs();
-
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");

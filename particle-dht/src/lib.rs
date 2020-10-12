@@ -36,4 +36,4 @@ mod routing;
 mod wait_peer;
 
 pub use dht::{DHTConfig, DHTEvent, ParticleDHT};
-pub use errors::{ResolveError, ResolveErrorKind};
+pub use errors::{NeighborhoodError, ResolveError, ResolveErrorKind};

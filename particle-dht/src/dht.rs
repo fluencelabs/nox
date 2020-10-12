@@ -15,7 +15,7 @@
  */
 
 use super::wait_peer::WaitPeer;
-use crate::errors::{PublishError, ResolveError};
+use crate::errors::{NeighborhoodError, PublishError, ResolveError};
 
 use particle_protocol::Particle;
 
@@ -57,6 +57,10 @@ pub enum DHTEvent {
     },
     ResolveFailed {
         err: ResolveError,
+    },
+    Neighborhood {
+        key: Vec<u8>,
+        value: Result<HashSet<PeerId>, NeighborhoodError>,
     },
 }
 
