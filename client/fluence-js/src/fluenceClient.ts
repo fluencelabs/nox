@@ -15,15 +15,30 @@
  */
 
 
-import {Particle} from "./particle";
+import {build, genUUID, Particle} from "./particle";
 import {StepperOutcome} from "./stepperOutcome";
 import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
-import {addParticle, getCurrentParticleId, popParticle, setCurrentParticleId} from "./globalState";
+import {
+    addParticle,
+    deleteService,
+    getCurrentParticleId,
+    popParticle,
+    registerService,
+    setCurrentParticleId
+} from "./globalState";
 import {instantiateStepper, Stepper} from "./stepper";
 import log from "loglevel";
+import {Service} from "./callService";
+import {delay} from "./utils";
+import {toByteArray} from "base64-js";
+
+interface WaitingService<T> {
+    promise: Promise<T>,
+    name: string
+}
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;
@@ -43,7 +58,7 @@ export class FluenceClient {
     /**
      * Pass a particle to a stepper and send a result to other services.
      */
-    private handleParticle(particle: Particle): void {
+    private async handleParticle(particle: Particle): Promise<void> {
 
         // if a current particle is processing, add new particle to the queue
         if (getCurrentParticleId() !== undefined) {
@@ -65,7 +80,7 @@ export class FluenceClient {
                     let newParticle: Particle = {...particle};
                     newParticle.data = JSON.parse(stepperOutcome.data);
 
-                    this.connection.sendParticle(newParticle).catch((reason) => {
+                    await this.connection.sendParticle(newParticle).catch((reason) => {
                         console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
                     });
                 }
@@ -88,16 +103,25 @@ export class FluenceClient {
     /**
      * Handle incoming particle from a relay.
      */
-    private handleExternalParticle(): (particle: Particle) => void {
+    private handleExternalParticle(): (particle: Particle) => Promise<void> {
 
         let _this = this;
 
-        return (particle: Particle) => {
+        return async (particle: Particle) => {
             let now = Date.now();
-            if (particle.timestamp + particle.ttl > now) {
-                _this.handleParticle(particle);
+            let data = particle.data;
+            let error: any = data["protocol!error"]
+            if (error !== undefined) {
+                log.error("error in external particle: ")
+                log.error(error)
             } else {
-                console.log(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
+                if (particle.timestamp + particle.ttl > now) {
+                    log.info("handle external particle: ")
+                    log.info(particle)
+                    await _this.handleParticle(particle);
+                } else {
+                    console.log(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
+                }
             }
         }
     }
@@ -139,9 +163,97 @@ export class FluenceClient {
         this.connection = connection;
     }
 
-    sendParticle(particle: Particle): string {
-        this.handleParticle(particle);
+    async sendParticle(particle: Particle): Promise<string> {
+        await this.handleParticle(particle);
         this.subscriptions.subscribe(particle.id, particle.ttl);
         return particle.id
+    }
+
+    /**
+     * Creates service that will wait for a response from external peers.
+     */
+    private waitService<T>(functionName: string, func: (args: any[]) => T): WaitingService<T> {
+        let serviceName = `${functionName}-${genUUID()}`;
+        log.info(`Create waiting service '${serviceName}'`)
+        let service = new Service(serviceName)
+        registerService(service)
+
+        let promise: Promise<T> = new Promise(function(resolve, reject){
+            service.registerFunction("", (args: any[]) => {
+                resolve(func(args))
+                return {}
+            })
+        })
+
+        let timeout = delay<T>(10000, "Timeout on waiting " + serviceName)
+
+        return {
+            name: serviceName,
+            promise: Promise.race([promise, timeout]).finally(() => {
+                deleteService(serviceName)
+            })
+        }
+    }
+
+    /**
+     * Send a script to add module to a relay. Waiting for a response from a relay.
+     */
+    async addModule(name: string, moduleBase64: string): Promise<void> {
+        let config = {
+            name: name,
+            mem_pages_count: 100,
+            logger_enabled: true,
+            wasi: {
+                envs: {},
+                preopened_files: ["/tmp"],
+                mapped_dirs: {},
+            }
+        }
+
+        let waitingService = this.waitService("addModule", (args: any[]) => {})
+
+        let script = `(seq (
+            (call ("${this.nodePeerIdStr}" ("identity" "") () void0))
+            (seq (           
+                (call ("${this.nodePeerIdStr}" ("add_module" "") (module_bytes module_config) void2))
+                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") () void1))
+            ))
+        ))
+        `
+
+        let data = {
+            module_bytes: Array.from(toByteArray(moduleBase64)),
+            module_config: config
+        }
+
+        let particle = await build(this.selfPeerId, script, data, 10000)
+        await this.sendParticle(particle);
+
+        return waitingService.promise
+    }
+
+    /**
+     * Send a script to add module to a relay. Waiting for a response from a relay.
+     */
+    async addBlueprint(name: string, dependencies: string[]): Promise<string> {
+        let waitingService = this.waitService("addBlueprint", (args: any[]) => args[0] as string)
+
+        let script = `(seq (
+            (call ("${this.nodePeerIdStr}" ("identity" "") () void0))
+            (seq (           
+                (call ("${this.nodePeerIdStr}" ("add_blueprint" "") (blueprint) blueprint_id))
+                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") (blueprint_id) void1))
+            ))
+        ))
+        `
+
+        let data = {
+            blueprint: { name: name, dependencies: dependencies }
+        }
+
+        let particle = await build(this.selfPeerId, script, data, 10000)
+        await this.sendParticle(particle);
+
+        return waitingService.promise
     }
 }

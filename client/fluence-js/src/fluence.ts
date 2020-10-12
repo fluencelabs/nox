@@ -19,6 +19,7 @@ import Multiaddr from "multiaddr"
 import {FluenceClient} from "./fluenceClient";
 import * as log from "loglevel";
 import {LogLevelDesc} from "loglevel";
+import {greetingWASM} from "./test/greeting_wasm";
 
 log.setLevel('info')
 
@@ -53,7 +54,20 @@ export default class Fluence {
 declare global {
     interface Window {
         Fluence: Fluence;
+        testModuleCreation: any;
     }
 }
 
+async function testModuleCreation() {
+    let pid = await Fluence.generatePeerId();
+
+    console.log("PID: " + pid.toB58String())
+
+    let client = await Fluence.connect("/ip4/134.209.186.43/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", pid);
+
+    let moduleId = await client.addModule("greeting", greetingWASM)
+    console.log("MODULE ID: " + moduleId)
+}
+
 window.Fluence = Fluence;
+window.testModuleCreation = testModuleCreation;
