@@ -42,12 +42,12 @@ fn create_service() {
 
     let script = format!(
         r#"(seq (
-            (call (%current_peer_id% (add_module ||) (module_bytes module_config) module))
+            (call (%current_peer_id% ("add_module" "") (module_bytes module_config) module))
             (seq (
-                (call (%current_peer_id% (add_blueprint ||) (blueprint) blueprint_id))
+                (call (%current_peer_id% ("add_blueprint" "") (blueprint) blueprint_id))
                 (seq (
-                    (call (%current_peer_id% (create ||) (blueprint_id) service_id))
-                    (call ({} (|| ||) (service_id) client_result))
+                    (call (%current_peer_id% ("create" "") (blueprint_id) service_id))
+                    (call ("{}" ("" "") ("service_id") client_result))
                 ))
             ))
         ))"#,
@@ -68,8 +68,8 @@ fn create_service() {
     let service_id = response.data.get("service_id").unwrap().as_str().unwrap();
     let script = format!(
         r#"(seq (
-            (call (%current_peer_id% ({} |greeting|) (my_name) greeting))
-            (call ({} (|| ||) (greeting) client_result))
+            (call (%current_peer_id% ("{}" "greeting") (my_name) greeting))
+            (call ("{}" ("" "") (greeting) client_result))
         ))"#,
         service_id, client2.peer_id
     );

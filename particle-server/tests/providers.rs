@@ -15,13 +15,15 @@
  */
 
 use fluence_libp2p::RandomPeerId;
-use test_utils::{make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{enable_logs, make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
 
 use serde_json::json;
 use std::thread::sleep;
 
 #[test]
 fn add_providers() {
+    enable_logs();
+
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -33,14 +35,14 @@ fn add_providers() {
         format!(
             r#"
                 (seq (
-                    (call (%current_peer_id% (add_provider ||) (key provider) void))
+                    (call (%current_peer_id% ("add_provider" "") (key provider) void))
                     (seq (
-                        (call (%current_peer_id% (add_provider ||) (key2 provider2) unit))
+                        (call (%current_peer_id% ("add_provider" "") (key2 provider2) unit))
                         (seq (
-                            (call (%current_peer_id% (get_providers ||) (key) providers[]))
+                            (call (%current_peer_id% ("get_providers" "") (key) providers[]))
                             (seq (
-                                (call (%current_peer_id% (get_providers ||) (key2) providers[]))
-                                (call ({} (|| ||) () none))
+                                (call (%current_peer_id% ("get_providers" "") (key2) providers[]))
+                                (call ("{}" ("" "") () none))
                             ))
                         ))
                     ))
@@ -61,18 +63,14 @@ fn add_providers() {
         .as_array()
         .expect("non empty providers");
     assert_eq!(providers.len(), 2);
+    #[rustfmt::skip]
     let get_provider = |i: usize| {
         providers
-            .get(i)
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .get("service_id")
-            .unwrap()
-            .as_str()
-            .unwrap()
+            .get(i).unwrap()
+            .as_array().unwrap()
+            .get(0).unwrap()
+            .get("service_id").unwrap()
+            .as_str().unwrap()
     };
     assert_eq!(get_provider(0), provider1);
     assert_eq!(get_provider(1), provider2);

@@ -29,8 +29,8 @@ fn identity() {
         format!(
             r#"
                 (seq (
-                    (call ({} (identity ||) () void0))
-                    (call ({} (identity ||) () void1))
+                    (call ("{}" ("identity" "") () void0))
+                    (call ("{}" ("identity" "") () void1))
                 ))
             "#,
             b.node, b.peer_id

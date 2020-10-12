@@ -32,11 +32,11 @@ fn neighborhood() {
     client.send_particle(
         format!(
             r#"
-        (seq (
-            (call (%current_peer_id% (neighborhood ||) (key) peers))
-            (call ({} (|| ||) () void))
-        ))
-    "#,
+                (seq (
+                    (call (%current_peer_id% ("neighborhood" "") (key) peers))
+                    (call ("{}" ("" "") () void))
+                ))
+            "#,
             client.peer_id
         ),
         json!({
