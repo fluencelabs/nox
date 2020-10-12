@@ -51,16 +51,7 @@ impl BuiltinServicesApi {
     fn route(api: BuiltinServicesApi, args: Args) -> Result<BuiltinCommandResult, ArgsError> {
         let wait = match args.service_id.as_str() {
             "resolve" => {
-                let key = args
-                    .args
-                    .iter()
-                    .next()
-                    .ok_or(ArgsError::MissingField("key"))?
-                    .as_str()
-                    .ok_or(ArgsError::InvalidFormat {
-                        field: "key",
-                        err: "expected str".into(),
-                    })?;
+                let key: String = Args::next("key", &mut args.args.into_iter())?;
                 let key = bs58::decode(key)
                     .into_vec()
                     .map_err(|err| ArgsError::InvalidFormat {
