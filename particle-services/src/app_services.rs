@@ -20,7 +20,7 @@ use crate::vm::create_vm;
 
 use fluence_app_service::{AppService, IValue};
 use host_closure::{closure, Args, Closure};
-use json_utils::as_value;
+use json_utils::err_as_value;
 
 use parking_lot::{Mutex, RwLock};
 use serde_json::{json, Value};
@@ -55,7 +55,7 @@ impl ParticleAppServices {
                 create_vm(config.clone(), blueprint_id, &service_id, user_id)
             };
 
-            make_vm().map_err(as_value).map(|vm| {
+            make_vm().map_err(err_as_value).map(|vm| {
                 let vm = Arc::new(Mutex::new(vm));
                 services.write().insert(service_id.clone(), vm);
                 json!(service_id)

@@ -16,7 +16,7 @@
 
 use crate::builtin_services_api::BuiltinServicesApi;
 
-use json_utils::as_value;
+use json_utils::err_as_value;
 use particle_dht::ResolveErrorKind;
 use waiting_queues::WaitingQueues;
 
@@ -66,7 +66,7 @@ pub enum BuiltinCommandResult {
 impl Into<Result<Value, Value>> for BuiltinCommandResult {
     fn into(self) -> Result<Value, Value> {
         match self {
-            BuiltinCommandResult::DHTResolved(v) => v.map(|vs| json!(vs)).map_err(as_value),
+            BuiltinCommandResult::DHTResolved(v) => v.map(|vs| json!(vs)).map_err(err_as_value),
         }
     }
 }

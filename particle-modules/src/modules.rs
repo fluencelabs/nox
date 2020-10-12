@@ -18,19 +18,18 @@ use crate::file_names::extract_module_name;
 use crate::{file_names, files};
 
 use host_closure::{closure, closure_opt, Args, Closure};
-use json_utils::as_value;
 
-use serde_json::Value;
+use serde_json::Value as JValue;
 use std::path::PathBuf;
 
 /// Adds a module to the filesystem, overwriting existing module.
 pub fn add_module(modules_dir: PathBuf) -> Closure {
     closure_opt(move |mut args| {
         log::debug!("add_module called");
-        let module = Args::next("module", &mut args).map_err(as_value)?;
-        let config = Args::next("config", &mut args).map_err(as_value)?;
+        let module = Args::next("module", &mut args)?;
+        let config = Args::next("config", &mut args)?;
         log::debug!("add_module parsed");
-        files::add_module(&modules_dir, module, config).map_err(as_value)?;
+        files::add_module(&modules_dir, module, config)?;
         log::debug!("add_module finished");
 
         Ok(None)
@@ -40,10 +39,10 @@ pub fn add_module(modules_dir: PathBuf) -> Closure {
 /// Saves new blueprint to disk
 pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
     closure(move |mut args| {
-        let blueprint = Args::next("blueprint", &mut args).map_err(as_value)?;
-        files::add_blueprint(&blueprint_dir, &blueprint).map_err(as_value)?;
+        let blueprint = Args::next("blueprint", &mut args)?;
+        files::add_blueprint(&blueprint_dir, &blueprint)?;
 
-        Ok(Value::String(blueprint.id))
+        Ok(JValue::String(blueprint.id))
     })
 }
 
@@ -51,11 +50,11 @@ pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
 // TODO: load interfaces of these modules
 pub fn get_modules(modules_dir: PathBuf) -> Closure {
     closure(move |_| {
-        Ok(Value::Array(
+        Ok(JValue::Array(
             files::list_files(&modules_dir)
                 .into_iter()
                 .flatten()
-                .filter_map(|pb| extract_module_name(pb.file_name()?.to_str()?).map(Value::String))
+                .filter_map(|pb| extract_module_name(pb.file_name()?.to_str()?).map(JValue::String))
                 .collect(),
         ))
     })
@@ -64,7 +63,7 @@ pub fn get_modules(modules_dir: PathBuf) -> Closure {
 /// Get available blueprints
 pub fn get_blueprints(blueprint_dir: PathBuf) -> Closure {
     closure(move |_| {
-        Ok(Value::Array(
+        Ok(JValue::Array(
             files::list_files(&blueprint_dir)
                 .into_iter()
                 .flatten()

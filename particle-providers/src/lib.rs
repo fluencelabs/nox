@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-#![warn(rust_2018_idioms)]
+//! This crate describes how providers are stored in memory
+
+#![warn(missing_debug_implementations, rust_2018_idioms, missing_docs)]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -25,18 +27,6 @@
     unreachable_patterns
 )]
 
-use serde_json::Value as JValue;
-use std::fmt::Debug;
+mod providers;
 
-pub fn into_string(v: JValue) -> Option<String> {
-    if let JValue::String(s) = v {
-        return Some(s);
-    }
-
-    None
-}
-
-/// Converts an error into IValue::String
-pub fn err_as_value<E: Debug>(err: E) -> JValue {
-    JValue::String(format!("Error: {:?}", err))
-}
+pub use providers::{ProviderError, ProviderRepository};

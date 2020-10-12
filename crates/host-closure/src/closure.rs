@@ -17,9 +17,9 @@
 use crate::args::Args;
 
 use fce::HostImportDescriptor;
-use ivalue_utils::{as_record, as_record_opt, IValue};
+use ivalue_utils::{into_record, into_record_opt, IValue};
 
-use serde_json::Value;
+use serde_json::Value as JValue;
 use std::sync::Arc;
 
 pub type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
@@ -28,15 +28,15 @@ pub type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync 
 /// Converts Fn into Closure, converting error into Option<IValue>
 pub fn closure_opt<F>(f: F) -> Closure
 where
-    F: Fn(std::vec::IntoIter<Value>) -> Result<Option<Value>, Value> + Send + Sync + 'static,
+    F: Fn(std::vec::IntoIter<JValue>) -> Result<Option<JValue>, JValue> + Send + Sync + 'static,
 {
-    Arc::new(move |Args { args, .. }| as_record_opt(f(args.into_iter())))
+    Arc::new(move |Args { args, .. }| into_record_opt(f(args.into_iter())))
 }
 
 /// Converts Fn into Closure, converting error into Option<IValue>
 pub fn closure<F>(f: F) -> Closure
 where
-    F: Fn(std::vec::IntoIter<Value>) -> Result<Value, Value> + Send + Sync + 'static,
+    F: Fn(std::vec::IntoIter<JValue>) -> Result<JValue, JValue> + Send + Sync + 'static,
 {
-    Arc::new(move |Args { args, .. }| as_record(f(args.into_iter())))
+    Arc::new(move |Args { args, .. }| into_record(f(args.into_iter())))
 }

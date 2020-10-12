@@ -38,3 +38,6 @@ pub use connected_point::*;
 pub use macros::*;
 pub use random_peer_id::RandomPeerId;
 pub use transport::{build_memory_transport, build_transport};
+
+// libp2p reexports
+pub use libp2p::PeerId;
