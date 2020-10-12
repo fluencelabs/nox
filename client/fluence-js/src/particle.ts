@@ -35,7 +35,7 @@ export async function build(peerId: PeerId, script: string, data: object, ttl?: 
     let id = genUUID();
     let currentTime = (new Date()).getTime();
 
-    if (ttl) {
+    if (ttl === undefined) {
         ttl = DEFAULT_TTL
     }
 

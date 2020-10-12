@@ -49,3 +49,11 @@ export default class Fluence {
         return client;
     }
 }
+
+declare global {
+    interface Window {
+        Fluence: Fluence;
+    }
+}
+
+window.Fluence = Fluence;
