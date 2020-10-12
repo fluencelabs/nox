@@ -27,16 +27,6 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-/*macro_rules! map_get {
-    ($providers:expr, $key:expr) => {{
-        {
-            let map = read_map(&$providers)?;
-            map.get(&$key)
-        }
-    }};
-}
-*/
-
 type ProviderMap = Arc<RwLock<ProviderMapInner>>;
 type ProviderMapInner = HashMap<String, RwLock<HashSet<Provider>>>;
 
@@ -78,16 +68,16 @@ impl ProviderRepository {
     /// Creates a closure that
     /// takes `key` as a parameter, and returns an array of `Provider` for that key
     pub fn get_providers(&self) -> Closure {
-        let providers = self.providers.clone();
+        let provider_map = self.providers.clone();
         closure_opt(move |mut args| {
             let key: String = Args::next("key", &mut args)?;
             println!("get_providers {:?}", key);
-            let providers = read_map(&providers)?;
-            let providers = ok_get!(providers.get(&key));
-            let providers = read_set(&providers, &key)?;
+            let provider_map = map_ref(&provider_map)?;
+            let provider_set = ok_get!(provider_map.get(&key));
+            let provider_set = set_ref(&provider_set, &key)?;
 
-            let providers = json!(providers.deref());
-            Ok(Some(providers))
+            let provider_set = json!(provider_set.deref());
+            Ok(Some(provider_set))
         })
     }
 
@@ -95,60 +85,62 @@ impl ProviderRepository {
     /// takes a `Provider` instance as an argument, adds it to the `ProviderRepository`,
     /// and returns nothing
     pub fn add_provider(&self) -> Closure {
-        let providers = self.providers.clone();
+        let provider_map = self.providers.clone();
         closure_opt(move |mut args| {
             let key: String = Args::next("key", &mut args)?;
             let provider: Provider = Args::next("provider", &mut args)?;
 
             println!("add_providers {:?} {:?}", key, provider);
 
-            let providers_r = read_map(&providers)?;
-            let empty = providers_r.get(&key).is_none();
-            drop(providers_r);
+            // check if there are providers for that key
+            let empty = {
+                let provider_map = map_ref(&provider_map)?;
+                provider_map.get(&key).is_none()
+            };
+
+            // if there's no providers for that key, insert empty collection into the map
             if empty {
-                let mut providers = write_map(&providers)?;
-                providers.insert(key.to_string(), <_>::default());
+                let mut provider_map = map_ref_mut(&provider_map)?;
+                let provider_set = <_>::default();
+                provider_map.insert(key.to_string(), provider_set);
             }
 
-            let providers = read_map(&providers)?;
-            let providers = ok_get!(providers.get(&key));
-            let mut providers = write_set(&providers, &key)?;
-            providers.insert(provider);
+            let provider_map = map_ref(&provider_map)?;
+            let provider_set = ok_get!(provider_map.get(&key));
+            let mut provider_set = set_ref_mut(&provider_set, &key)?;
+            provider_set.insert(provider);
 
             Ok(None)
         })
     }
 }
 
-fn read_map<'a>(
-    providers: &'a ProviderMap,
+/// Obtains a read lock on the `ProviderMap` (analogous to having a `&`)
+fn map_ref<'a>(
+    map: &'a ProviderMap,
 ) -> Result<RwLockReadGuard<'a, ProviderMapInner>, ProviderError<'static>> {
-    providers.read().map_err(|_| Poisoned)
+    map.read().map_err(|_| Poisoned)
 }
 
-fn write_map(
-    providers: &ProviderMap,
+/// Obtains a write lock on the `ProviderMap` (analogous to having a `&mut`)
+fn map_ref_mut(
+    map: &ProviderMap,
 ) -> Result<RwLockWriteGuard<'_, ProviderMapInner>, ProviderError<'static>> {
-    providers.write().map_err(|_| Poisoned)
+    map.write().map_err(|_| Poisoned)
 }
 
-// fn map_get<'a, 'b>(
-//     providers: &'a ProviderMap,
-//     key: &'b str,
-// ) -> Result<Option<&'a RwLock<HashSet<Provider>>>, ProviderError<'b>> {
-//     Ok(read_map(providers)?.get(key))
-// }
-
-fn read_set<'a, 'b>(
-    providers: &'a RwLock<HashSet<Provider>>,
+/// Obtains a read lock on the providers set (analogous to having a `&`)
+fn set_ref<'a, 'b>(
+    set: &'a RwLock<HashSet<Provider>>,
     key: &'b str,
 ) -> Result<RwLockReadGuard<'a, HashSet<Provider>>, ProviderError<'b>> {
-    providers.read().map_err(|_| KeyPoisoned(key))
+    set.read().map_err(|_| KeyPoisoned(key))
 }
 
-fn write_set<'a, 'b>(
-    providers: &'a RwLock<HashSet<Provider>>,
+/// Obtains a write lock on the providers set (analogous to having a `&mut`)
+fn set_ref_mut<'a, 'b>(
+    set: &'a RwLock<HashSet<Provider>>,
     key: &'b str,
 ) -> Result<RwLockWriteGuard<'a, HashSet<Provider>>, ProviderError<'b>> {
-    providers.write().map_err(|_| KeyPoisoned(key))
+    set.write().map_err(|_| KeyPoisoned(key))
 }
