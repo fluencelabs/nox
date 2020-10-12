@@ -63,8 +63,14 @@ impl Actor {
         particle: Particle,
         host_closure: ClosureDescriptor,
     ) -> Result<Self, AquamarineVMError> {
+        log::info!("preparing vm config");
+        let config = AquamarineVMConfig {
+            current_peer_id: config.current_peer_id.to_string(),
+            aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
+            call_service: host_closure(),
+        };
         log::info!("creating vm");
-        let vm = Self::create_vm(config, host_closure)?;
+        let vm = AquamarineVM::new(config)?;
         log::info!("vm created");
         let mut this = Self {
             vm: Idle(vm),
@@ -108,18 +114,6 @@ impl Actor {
 
         self.vm = state;
         return effects;
-    }
-
-    fn create_vm(
-        config: ActorConfig,
-        host_closure: ClosureDescriptor,
-    ) -> Result<AquamarineVM, AquamarineVMError> {
-        let config = AquamarineVMConfig {
-            current_peer_id: config.current_peer_id.to_string(),
-            aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
-            call_service: host_closure(),
-        };
-        AquamarineVM::new(config)
     }
 
     fn execute_next(&mut self, vm: AquamarineVM, waker: Waker) -> VmState {
