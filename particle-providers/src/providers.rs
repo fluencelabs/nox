@@ -71,7 +71,6 @@ impl ProviderRepository {
         let provider_map = self.providers.clone();
         closure_opt(move |mut args| {
             let key: String = Args::next("key", &mut args)?;
-            println!("get_providers {:?}", key);
             let provider_map = map_ref(&provider_map)?;
             let provider_set = ok_get!(provider_map.get(&key));
             let provider_set = set_ref(&provider_set, &key)?;
