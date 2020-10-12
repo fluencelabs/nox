@@ -36,7 +36,6 @@ enum Status {
 export class FluenceConnection {
 
     private readonly selfPeerId: PeerId;
-    readonly relay: PeerId;
     private node: LibP2p;
     private readonly address: Multiaddr;
     readonly nodePeerId: PeerId;
@@ -91,8 +90,9 @@ export class FluenceConnection {
                     async function (source: AsyncIterable<string>) {
                         for await (const msg of source) {
                             try {
-                                log.debug(_this.selfPeerIdStr);
                                 let particle = parseParticle(msg);
+                                log.debug("Particle is received:");
+                                log.debug(JSON.stringify(particle, undefined, 2));
                                 _this.handleCall(particle);
                             } catch(e) {
                                 log.error("error on handling a new incoming message: " + e);
@@ -123,7 +123,7 @@ export class FluenceConnection {
         this.checkConnectedOrThrow();
 
         let particleStr = stringifyParticle(particle);
-        log.debug("send function call: \n" + JSON.stringify(particle, undefined, 2));
+        log.debug("send particle: \n" + JSON.stringify(particle, undefined, 2));
 
         // create outgoing substream
         const conn = await this.node.dialProtocol(this.address, PROTOCOL_NAME) as {stream: Stream; protocol: string};
