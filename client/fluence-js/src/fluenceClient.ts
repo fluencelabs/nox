@@ -40,12 +40,18 @@ export class FluenceClient {
         this.selfPeerIdStr = selfPeerId.toB58String();
     }
 
-    handleParticle(particle: Particle): void {
+    /**
+     * Pass a particle to a stepper and send a result to other services.
+     */
+    private handleParticle(particle: Particle): void {
 
         // if a current particle is processing, add new particle to the queue
-        if (getCurrentParticleId()) {
+        if (getCurrentParticleId() !== undefined) {
             addParticle(particle);
         } else {
+            if (this.stepper === undefined) {
+                throw new Error("Undefined. Stepper is not initialized. User 'Fluence.connect' to create a client.")
+            }
             // start particle processing if queue is empty
             try {
                 let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(particle.data))
@@ -80,10 +86,9 @@ export class FluenceClient {
     }
 
     /**
-     * Handle incoming call.
-     * If FunctionCall returns - we should send it as a response.
+     * Handle incoming particle from a relay.
      */
-    handleExternalParticle(): (particle: Particle) => void {
+    private handleExternalParticle(): (particle: Particle) => void {
 
         let _this = this;
 

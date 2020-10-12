@@ -19,7 +19,6 @@ import Multiaddr from "multiaddr"
 import {FluenceClient} from "./fluenceClient";
 import * as log from "loglevel";
 import {LogLevelDesc} from "loglevel";
-import {build} from "./particle";
 
 log.setLevel('info')
 

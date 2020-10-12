@@ -1,6 +1,6 @@
 /**
  *
- * This is generated and patched code.
+ * This is generated and patched code. All functions are using local wasm as an argument for now, not a global wasm file.
  *
  */
 
