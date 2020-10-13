@@ -23,7 +23,7 @@ fn identity() {
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut a = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
-    let mut b = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
+    let mut b = ConnectedClient::connect_to(swarms[2].1.clone()).expect("connect client");
 
     a.send_particle(
         format!(
