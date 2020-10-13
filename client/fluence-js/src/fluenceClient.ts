@@ -169,6 +169,10 @@ export class FluenceClient {
         return particle.id
     }
 
+    nodeIdentityCall(): string {
+        return `(call ("${this.nodePeerIdStr}" ("identity" "") () void0))`
+    }
+
     /**
      * Creates service that will wait for a response from external peers.
      */
@@ -213,7 +217,7 @@ export class FluenceClient {
         let waitingService = this.waitService("addModule", (args: any[]) => {})
 
         let script = `(seq (
-            (call ("${this.nodePeerIdStr}" ("identity" "") () void0))
+            ${this.nodeIdentityCall()}
             (seq (           
                 (call ("${this.nodePeerIdStr}" ("add_module" "") (module_bytes module_config) void2))
                 (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") () void1))
@@ -239,7 +243,7 @@ export class FluenceClient {
         let waitingService = this.waitService("addBlueprint", (args: any[]) => args[0] as string)
 
         let script = `(seq (
-            (call ("${this.nodePeerIdStr}" ("identity" "") () void0))
+            ${this.nodeIdentityCall()}
             (seq (           
                 (call ("${this.nodePeerIdStr}" ("add_blueprint" "") (blueprint) blueprint_id))
                 (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") (blueprint_id) void1))
@@ -249,6 +253,31 @@ export class FluenceClient {
 
         let data = {
             blueprint: { name: name, dependencies: dependencies }
+        }
+
+        let particle = await build(this.selfPeerId, script, data, 10000)
+        await this.sendParticle(particle);
+
+        return waitingService.promise
+    }
+
+    /**
+     * Send a script to create a service to a relay. Waiting for a response from a relay.
+     */
+    async createService(blueprintId: string): Promise<string> {
+        let waitingService = this.waitService("createService", (args: any[]) => args[0] as string)
+
+        let script = `(seq (
+            ${this.nodeIdentityCall()}
+            (seq (           
+                (call ("${this.nodePeerIdStr}" ("create" "") (blueprint_id) service_id))
+                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") (service_id) void1))
+            ))
+        ))
+        `
+
+        let data = {
+            blueprint: { blueprint_id: blueprintId }
         }
 
         let particle = await build(this.selfPeerId, script, data, 10000)

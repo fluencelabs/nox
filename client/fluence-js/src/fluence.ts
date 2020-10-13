@@ -65,8 +65,11 @@ async function testModuleCreation() {
 
     let client = await Fluence.connect("/ip4/134.209.186.43/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", pid);
 
-    let moduleId = await client.addModule("greeting", greetingWASM)
-    console.log("MODULE ID: " + moduleId)
+    /*let moduleId = await client.addModule("greeting", greetingWASM)
+    console.log("MODULE ID: " + moduleId)*/
+
+    let blueprintId = await client.addBlueprint("greeting_bl", ["greeting"]);
+    console.log("BLUEPRINT ID: " + blueprintId)
 }
 
 window.Fluence = Fluence;
