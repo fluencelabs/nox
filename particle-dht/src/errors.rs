@@ -20,7 +20,7 @@ use libp2p::kad::store;
 #[derive(Debug)]
 pub enum PublishError {
     StoreError(store::Error),
-    TimedOut,
+    Timeout,
     QuorumFailed,
 }
 
@@ -32,7 +32,12 @@ pub struct ResolveError {
 
 #[derive(Debug, Clone)]
 pub enum ResolveErrorKind {
-    TimedOut,
+    Timeout,
     QuorumFailed,
     NotFound,
+}
+
+#[derive(Debug, Clone)]
+pub enum NeighborhoodError {
+    Timeout,
 }

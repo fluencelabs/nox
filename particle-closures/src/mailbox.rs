@@ -17,12 +17,12 @@
 use crate::builtin_services_api::BuiltinServicesApi;
 
 use json_utils::err_as_value;
-use particle_dht::ResolveErrorKind;
+use particle_dht::{NeighborhoodError, ResolveErrorKind};
 use waiting_queues::WaitingQueues;
 
 use futures::{channel::mpsc, StreamExt};
-use libp2p::kad::record;
-use serde_json::{json, Value};
+use libp2p::{kad::record, PeerId};
+use serde_json::{json, Value as JValue};
 use std::{
     collections::HashSet,
     sync::mpsc as std_mpsc,
@@ -40,40 +40,32 @@ pub struct Command {
     pub kind: BuiltinCommand,
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Eq)]
-pub enum Key {
-    DHT(libp2p::kad::record::Key),
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum BuiltinCommand {
     DHTResolve(record::Key),
-}
-
-impl BuiltinCommand {
-    pub fn key(&self) -> Key {
-        match self {
-            BuiltinCommand::DHTResolve(key) => Key::DHT(key.clone()),
-        }
-    }
+    DHTNeighborhood(Vec<u8>),
 }
 
 #[derive(Debug, Clone)]
 pub enum BuiltinCommandResult {
     DHTResolved(Result<Vec<Vec<u8>>, ResolveErrorKind>),
+    DHTNeighborhood(Result<Vec<PeerId>, NeighborhoodError>),
 }
 
-impl Into<Result<Value, Value>> for BuiltinCommandResult {
-    fn into(self) -> Result<Value, Value> {
+impl Into<Result<JValue, JValue>> for BuiltinCommandResult {
+    fn into(self) -> Result<JValue, JValue> {
         match self {
             BuiltinCommandResult::DHTResolved(v) => v.map(|vs| json!(vs)).map_err(err_as_value),
+            BuiltinCommandResult::DHTNeighborhood(v) => v
+                .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))
+                .map_err(err_as_value),
         }
     }
 }
 
 #[derive(Debug)]
 pub struct Mailbox {
-    waiting: WaitingQueues<Key, Command>,
+    waiting: WaitingQueues<BuiltinCommand, WaitingVM>,
     inbox: Inbox,
     destination: Destination,
 }
@@ -107,25 +99,40 @@ impl Mailbox {
     }
 }
 
-// Behaviour API
+/// Behaviour API
 impl Mailbox {
+    /// Called when `dht.get_record` for `key` is completed
     pub fn resolve_complete(
         &mut self,
         key: record::Key,
         value: Result<HashSet<Vec<u8>>, ResolveErrorKind>,
     ) {
         let value = value.map(|v| v.into_iter().collect());
-        for cmd in self.waiting.remove(&Key::DHT(key)) {
-            let result = BuiltinCommandResult::DHTResolved(value.clone());
-            cmd.outlet.send(result.clone()).expect("resolve_complete")
+        let result = BuiltinCommandResult::DHTResolved(value);
+        for outlet in self.waiting.remove(&BuiltinCommand::DHTResolve(key)) {
+            outlet.send(result.clone()).expect("resolve_complete")
+        }
+    }
+
+    /// Called when `dht.get_closest_peers` is completed
+    pub fn got_neighborhood(
+        &mut self,
+        key: Vec<u8>,
+        value: Result<HashSet<PeerId>, NeighborhoodError>,
+    ) {
+        let value = value.map(|v| v.into_iter().collect());
+        let result = BuiltinCommandResult::DHTNeighborhood(value);
+        for outlet in self.waiting.remove(&BuiltinCommand::DHTNeighborhood(key)) {
+            outlet.send(result.clone()).expect("resolve_complete")
         }
     }
 
     pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<BuiltinCommand> {
         match self.inbox.poll_next_unpin(cx) {
-            Poll::Ready(Some(cmd)) => {
-                let kind = cmd.kind.clone();
-                self.waiting.enqueue(kind.key(), cmd);
+            Poll::Ready(Some(Command { kind, outlet })) => {
+                // Enqueue VM's outlet to wait for command result
+                self.waiting.enqueue(kind.clone(), outlet);
+                // Return BuiltinCommand signaling outer world to start executing the command
                 Poll::Ready(kind)
             }
             Poll::Ready(None) => unreachable!("destination couldn't be dropped"),
