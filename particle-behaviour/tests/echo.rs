@@ -20,10 +20,10 @@ use particle_behaviour::{ParticleBehaviour, ParticleConfig};
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 
 use fluence_libp2p::{build_memory_transport, generate_swarm_event_type};
-use test_utils::{make_tmp_dir, put_aquamarine};
+use test_utils::{make_tmp_dir, put_aquamarine, TIMEOUT};
 use trust_graph::TrustGraph;
 
-use async_std::task;
+use async_std::{future::timeout, task};
 use futures::{
     future::FutureExt,
     select,
@@ -39,8 +39,7 @@ use libp2p::{
     PeerId, Swarm,
 };
 use serde_json::json;
-use std::collections::VecDeque;
-use std::time::Duration;
+use std::{collections::VecDeque, time::Duration};
 
 #[test]
 fn echo_particle() {
@@ -50,34 +49,37 @@ fn echo_particle() {
     // Poll server & client in background
     // Once client connected, send Particle
     // Exit when server echoes the particle
-    let particle = task::block_on(task::spawn(async move {
-        loop {
-            select!(
-                event = server.next_event().fuse() => {},
-                event = client.next_event().fuse() => {
-                    println!("client got event: {:?}", event);
-                    match event {
-                        SwarmEvent::ConnectionEstablished { .. } => {
-                            let p = Particle {
-                                id: "123".to_string(),
-                                init_peer_id: client_id.clone(),
-                                timestamp: 0,
-                                ttl: 1,
-                                script: format!(r#"(call ("{}" ("a" "b") (data) void))"#, client_id),
-                                signature: vec![],
-                                data: json!({"data": "none"}),
-                            };
-                            client.send(p.clone(), server_id.clone());
+    let particle = task::block_on(timeout(
+        TIMEOUT,
+        task::spawn(async move {
+            loop {
+                select!(
+                    event = server.next_event().fuse() => {},
+                    event = client.next_event().fuse() => {
+                        println!("client got event: {:?}", event);
+                        match event {
+                            SwarmEvent::ConnectionEstablished { .. } => {
+                                let p = Particle {
+                                    id: "123".to_string(),
+                                    init_peer_id: client_id.clone(),
+                                    timestamp: 0,
+                                    ttl: 1,
+                                    script: format!(r#"(call ("{}" ("a" "b") (data) void))"#, client_id),
+                                    signature: vec![],
+                                    data: json!({"data": "none"}),
+                                };
+                                client.send(p.clone(), server_id.clone());
+                            }
+                            SwarmEvent::Behaviour(particle) => {
+                                break particle
+                            }
+                            _ => {}
                         }
-                        SwarmEvent::Behaviour(particle) => {
-                            break particle
-                        }
-                        _ => {}
                     }
-                }
-            )
-        }
-    }));
+                )
+            }
+        }),
+    )).expect("timed out");
 
     assert_eq!(particle.id, "123".to_string());
     assert_eq!(particle.data, json!({"data": "none"}));

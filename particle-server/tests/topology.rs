@@ -38,5 +38,5 @@ fn identity() {
         json!({}),
     );
 
-    b.receive_particle();
+    b.receive();
 }

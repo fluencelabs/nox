@@ -42,7 +42,13 @@ use uuid::Uuid;
 /// Utility functions for tests.
 
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+
+/// In debug, VM startup time is big, account for that
+#[cfg(debug_assertions)]
+pub static TIMEOUT: Duration = Duration::from_secs(150);
+#[cfg(not(debug_assertions))]
 pub static TIMEOUT: Duration = Duration::from_secs(15);
+
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 

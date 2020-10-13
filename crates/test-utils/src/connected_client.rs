@@ -15,7 +15,9 @@
  */
 
 use super::misc::Result;
-use crate::{make_swarms, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
+use crate::{
+    make_swarms, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT, VM_DEBUG_TIMEOUT,
+};
 
 use fluence_client::{Client, ClientEvent, Transport};
 use particle_protocol::Particle;
@@ -156,19 +158,5 @@ impl ConnectedClient {
         particle.script = script;
         particle.data = data;
         self.send(particle.clone());
-    }
-
-    pub fn receive_particle(&mut self) -> Particle {
-        let timeout = self.timeout;
-        if cfg!(debug_assertions) {
-            // Account for slow VM in debug
-            self.timeout = Duration::from_secs(160);
-        }
-
-        let response = self.receive();
-
-        self.timeout = timeout;
-
-        response
     }
 }
