@@ -113,6 +113,7 @@ fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
             <_>::default(),
             tmp.clone(),
             keypair,
+            1,
         );
         let behaviour =
             ParticleBehaviour::new(config, trust_graph, registry).expect("particle behaviour");

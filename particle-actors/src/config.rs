@@ -19,7 +19,7 @@ use libp2p::PeerId;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
-pub struct ActorConfig {
+pub struct VmPoolConfig {
     pub current_peer_id: PeerId,
     /// Working dir for steppers
     pub workdir: PathBuf,
@@ -27,10 +27,16 @@ pub struct ActorConfig {
     pub modules_dir: PathBuf,
     /// Dir to persist info about running steppers
     pub services_dir: PathBuf,
+    /// Number of VMs to create
+    pub pool_size: usize,
 }
 
-impl ActorConfig {
-    pub fn new(current_peer_id: PeerId, base_dir: PathBuf) -> Result<Self, std::io::Error> {
+impl VmPoolConfig {
+    pub fn new(
+        current_peer_id: PeerId,
+        base_dir: PathBuf,
+        pool_size: usize,
+    ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
 
         let this = Self {
@@ -38,6 +44,7 @@ impl ActorConfig {
             workdir: config_utils::workdir(&base_dir),
             modules_dir: config_utils::modules_dir(&base_dir),
             services_dir: config_utils::services_dir(&base_dir),
+            pool_size,
         };
 
         this.create_dirs()?;

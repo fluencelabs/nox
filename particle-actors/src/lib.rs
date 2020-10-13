@@ -32,6 +32,6 @@ mod invoke;
 mod plumber;
 mod vm_pool;
 
-pub use crate::config::ActorConfig;
+pub use crate::config::VmPoolConfig;
 pub use crate::plumber::{Plumber, PlumberEvent};
 pub use aquamarine_vm::{vec1, HostImportDescriptor};

@@ -280,6 +280,8 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
     let peer_id = PeerId::from(public_key);
 
     let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
+    std::fs::create_dir_all(&tmp).expect("create tmp dir");
+    put_aquamarine(modules_dir(&tmp), aquamarine_file_name);
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
@@ -304,9 +306,9 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             services_envs: <_>::default(),
             stepper_base_dir: tmp.clone(),
             protocol_config: <_>::default(),
+            stepper_pool_size: 1,
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
-        put_aquamarine(modules_dir(&tmp), aquamarine_file_name);
         match transport {
             Transport::Memory => {
                 Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())
@@ -357,6 +359,8 @@ pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
     let aquamarine = to_abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
     let aquamarine =
         std::fs::read(&aquamarine).expect(format!("fs::read from {:?}", aquamarine).as_str());
+
+    std::fs::create_dir_all(&tmp).expect("create tmp dir");
 
     let tmp = to_abs_path(tmp.join(AQUAMARINE));
     std::fs::write(&tmp, aquamarine)

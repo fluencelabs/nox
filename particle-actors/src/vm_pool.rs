@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-#![allow(dead_code)]
-
-use crate::ActorConfig;
+use crate::VmPoolConfig;
 
 use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError};
 use host_closure::ClosureDescriptor;
-use particle_protocol::Particle;
 
 use async_std::task;
 use futures::{future::BoxFuture, Future, FutureExt};
@@ -32,11 +29,15 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-pub struct FutResult {}
-pub type Fut = BoxFuture<'static, FutResult>;
-pub type Closure = Box<dyn Fn(Particle, Waker) -> Fut + Send + Sync + 'static>;
-
-#[derive(Default)]
+/// Pool that owns and manages aquamarine stepper VMs
+/// VMs are created asynchronously after `VmPool` creation
+/// Futures representing background VM creation are stored in `VmPool::creating_vms`
+/// Created vms are moved to `VmPool::vms`
+///
+/// Main API consists of `VmPool::get_vm` and `VmPool::put_vm`.
+/// API allows taking VM for execution (via `get_vm`), and then it is expected that VM is
+/// returned back via `put_vm`.
+/// It is also expected that `VmPool::poll` is called periodically.
 pub struct VmPool {
     vms: VecDeque<AquamarineVM>,
     creating_vms: Vec<BoxFuture<'static, Result<AquamarineVM, AquamarineVMError>>>,
@@ -44,16 +45,13 @@ pub struct VmPool {
 }
 
 impl VmPool {
-    pub fn new(config: ActorConfig, host_closure: ClosureDescriptor) -> Self {
+    /// Creates `VmPool` and starts background tasks creating `config.pool_size` number of VMs
+    pub fn new(config: VmPoolConfig, host_closure: ClosureDescriptor) -> Self {
         let waker: Arc<RwLock<Option<Waker>>> = <_>::default();
-        let cores = 2; // TODO: gather number of cores from config and/or OS
-        log::info!("VmPool::new {:#?}", config);
-        let creating_vms = (1..cores)
-            .map(|i| {
-                log::info!("will create vm, i = {}", i);
+        let creating_vms = (0..config.pool_size)
+            .map(|_| {
                 let config = config.clone();
                 let host_closure = host_closure.clone();
-                // TODO: will captured waker be updated after VmPool::poll?
                 let waker = waker.clone();
 
                 create_vm(config, host_closure, waker)
@@ -67,14 +65,17 @@ impl VmPool {
         }
     }
 
+    /// Takes VM from pool
     pub fn get_vm(&mut self) -> Option<AquamarineVM> {
         self.vms.pop_front()
     }
 
+    /// Puts VM back to the pool
     pub fn put_vm(&mut self, vm: AquamarineVM) {
         self.vms.push_front(vm)
     }
 
+    /// Moves created VMs from `creating_vms` to `vms`
     pub fn poll(&mut self, cx: &mut Context<'_>) {
         // Save waker
         self.waker.write().replace(cx.waker().clone());
@@ -99,15 +100,16 @@ impl VmPool {
     }
 }
 
+/// Creates `AquamarineVM` in background (on blocking threadpool)
 fn create_vm(
-    config: ActorConfig,
+    config: VmPoolConfig,
     host_closure: ClosureDescriptor,
     waker: Arc<RwLock<Option<Waker>>>,
 ) -> BoxFuture<'static, Result<AquamarineVM, AquamarineVMError>> {
     task::spawn_blocking(move || {
         log::info!("preparing vm config");
         let config = AquamarineVMConfig {
-            current_peer_id: "123".to_string(), // TODO: remove current_peer_id from config?
+            current_peer_id: "".to_string(), // TODO: remove current_peer_id from config?
             aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
             call_service: host_closure(),
         };

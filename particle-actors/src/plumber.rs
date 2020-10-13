@@ -15,7 +15,7 @@
  */
 
 use crate::actor::{Actor, ActorEvent};
-use crate::config::ActorConfig;
+use crate::config::VmPoolConfig;
 
 use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
@@ -48,7 +48,7 @@ pub struct Plumber {
 }
 
 impl Plumber {
-    pub fn new(config: ActorConfig, host_closure: ClosureDescriptor) -> Self {
+    pub fn new(config: VmPoolConfig, host_closure: ClosureDescriptor) -> Self {
         let vm_pool = VmPool::new(config, host_closure);
         Self {
             vm_pool,

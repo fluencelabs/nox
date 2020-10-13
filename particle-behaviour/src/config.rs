@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use particle_actors::ActorConfig;
+use particle_actors::VmPoolConfig;
 use particle_dht::DHTConfig;
 use particle_protocol::ProtocolConfig;
 use particle_services::ServicesConfig;
@@ -31,6 +31,7 @@ pub struct ParticleConfig {
     pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
     pub stepper_base_dir: PathBuf,
     pub key_pair: ed25519::Keypair,
+    pub stepper_pool_size: usize,
 }
 
 impl ParticleConfig {
@@ -41,6 +42,7 @@ impl ParticleConfig {
         services_envs: HashMap<Vec<u8>, Vec<u8>>,
         stepper_base_dir: PathBuf,
         key_pair: ed25519::Keypair,
+        stepper_pool_size: usize,
     ) -> Self {
         Self {
             protocol_config,
@@ -49,11 +51,16 @@ impl ParticleConfig {
             services_envs,
             stepper_base_dir,
             key_pair,
+            stepper_pool_size,
         }
     }
 
-    pub fn actor_config(&self) -> io::Result<ActorConfig> {
-        ActorConfig::new(self.current_peer_id.clone(), self.stepper_base_dir.clone())
+    pub fn actor_config(&self) -> io::Result<VmPoolConfig> {
+        VmPoolConfig::new(
+            self.current_peer_id.clone(),
+            self.stepper_base_dir.clone(),
+            self.stepper_pool_size,
+        )
     }
 
     pub fn services_config(&self) -> io::Result<ServicesConfig> {

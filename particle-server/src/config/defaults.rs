@@ -54,3 +54,7 @@ pub fn default_services_basedir() -> PathBuf {
 pub fn default_stepper_basedir() -> PathBuf {
     DEFAULT_STEPPER_BASE_DIR.into()
 }
+
+pub fn default_stepper_pool_size() -> usize {
+    num_cpus::get() * 2
+}
