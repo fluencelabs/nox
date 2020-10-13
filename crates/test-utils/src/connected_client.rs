@@ -15,9 +15,7 @@
  */
 
 use super::misc::Result;
-use crate::{
-    make_swarms, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT, VM_DEBUG_TIMEOUT,
-};
+use crate::{make_swarms, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
 
 use fluence_client::{Client, ClientEvent, Transport};
 use particle_protocol::Particle;
