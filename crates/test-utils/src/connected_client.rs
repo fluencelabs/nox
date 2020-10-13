@@ -162,7 +162,7 @@ impl ConnectedClient {
         let timeout = self.timeout;
         if cfg!(debug_assertions) {
             // Account for slow VM in debug
-            self.timeout = Duration::from_secs(360);
+            self.timeout = Duration::from_secs(160);
         }
 
         let response = self.receive();

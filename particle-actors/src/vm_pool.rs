@@ -46,9 +46,11 @@ pub struct VmPool {
 impl VmPool {
     pub fn new(config: ActorConfig, host_closure: ClosureDescriptor) -> Self {
         let waker: Arc<RwLock<Option<Waker>>> = <_>::default();
-        let cores = 8; // TODO: gather number of cores from config and/or OS
+        let cores = 2; // TODO: gather number of cores from config and/or OS
+        log::info!("VmPool::new {:#?}", config);
         let creating_vms = (1..cores)
-            .map(|_| {
+            .map(|i| {
+                log::info!("will create vm, i = {}", i);
                 let config = config.clone();
                 let host_closure = host_closure.clone();
                 // TODO: will captured waker be updated after VmPool::poll?
@@ -90,21 +92,11 @@ impl VmPool {
                         cx.waker().wake_by_ref(); // TODO: will it wake multiple times?
                         vms.push_back(vm);
                     }
-                    Err(err) => panic!("Failed to create vm: {:?}", err), // TODO: don't panic
+                    Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
                 }
             }
         }
     }
-
-    /*pub fn execute(&self) -> Closure {
-        let vms = self.vms.clone();
-        move |particle, waker| {
-            task::spawn_blocking(move || {
-                let vms = vms.lock().expect("mutex poisoned"); // TODO: return error
-                vms.pop_front()
-            })
-        }
-    }*/
 }
 
 fn create_vm(
@@ -115,7 +107,7 @@ fn create_vm(
     task::spawn_blocking(move || {
         log::info!("preparing vm config");
         let config = AquamarineVMConfig {
-            current_peer_id: "".to_string(), // TODO: remove current_peer_id from config?
+            current_peer_id: "123".to_string(), // TODO: remove current_peer_id from config?
             aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
             call_service: host_closure(),
         };

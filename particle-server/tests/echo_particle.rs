@@ -21,6 +21,8 @@ use std::thread::sleep;
 
 #[test]
 fn echo_particle() {
+    enable_logs();
+
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
