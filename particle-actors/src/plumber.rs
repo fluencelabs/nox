@@ -22,6 +22,7 @@ use particle_protocol::Particle;
 
 use aquamarine_vm::AquamarineVMError;
 
+use crate::vm_pool::VmPool;
 use async_std::task;
 use futures::{future::BoxFuture, Future, FutureExt};
 use libp2p::PeerId;
@@ -50,6 +51,7 @@ pub struct Plumber {
     events: VecDeque<PlumberEvent>,
     actors: HashMap<String, ActorState>,
     host_closure: ClosureDescriptor,
+    vm_pool: VmPool,
     pub(super) waker: Option<Waker>,
 }
 
@@ -60,6 +62,7 @@ impl Plumber {
             host_closure,
             events: <_>::default(),
             actors: <_>::default(),
+            vm_pool: <_>::default(),
             waker: <_>::default(),
         }
     }

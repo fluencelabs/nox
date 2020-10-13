@@ -3151,6 +3151,7 @@ dependencies = [
  "host-closure",
  "libp2p",
  "log",
+ "parking_lot 0.11.0",
  "particle-protocol",
  "serde_json",
 ]

@@ -30,6 +30,7 @@ mod actor;
 mod config;
 mod invoke;
 mod plumber;
+mod vm_pool;
 
 pub use crate::config::ActorConfig;
 pub use crate::plumber::{Plumber, PlumberEvent};
