@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use crate::ParticleDHT;
+use crate::{DHTEvent, ParticleDHT};
 
 use control_macro::get_return;
 
+use crate::errors::NeighborhoodError;
 use libp2p::{
     kad::{GetClosestPeersError, GetClosestPeersOk, KademliaEvent, QueryResult},
     swarm::NetworkBehaviourEventProcess,
@@ -43,25 +44,34 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ParticleDHT {
                 result: QueryResult::GetClosestPeers(result),
                 ..
             } => {
+                // There are 2 possible goals:
+                //  1) find specific peers to send a message
+                //  2) resolve the whole neighborhood
+                // Either way, enough peers might be found even if the query has timed out
                 let (key, peers) = match result {
                     Ok(GetClosestPeersOk { key, peers }) => (key, peers),
                     Err(GetClosestPeersError::Timeout { key, peers }) => (key, peers),
                 };
-                let peer_id = match PeerId::from_bytes(key) {
-                    Err(err) => {
-                        log::warn!(
-                            "Found closest peers for invalid key {}: not a PeerId",
-                            bs58::encode(err).into_string()
-                        );
-                        return;
-                    }
-                    Ok(peer_id) => peer_id,
-                };
 
-                if self.is_local(&peer_id) {
-                    self.bootstrap_finished();
-                } else {
-                    self.found_closest(peer_id, peers);
+                // Emit event for goal 2)
+                self.emit(DHTEvent::Neighborhood {
+                    key: key.clone(),
+                    value: {
+                        if peers.is_empty() {
+                            Err(NeighborhoodError::Timeout)
+                        } else {
+                            Ok(peers.clone().into_iter().collect())
+                        }
+                    },
+                });
+
+                // If key is a valid peer id, we might found needed peer for goal 1)
+                if let Ok(peer_id) = PeerId::from_bytes(key) {
+                    if self.is_local(&peer_id) {
+                        self.bootstrap_finished();
+                    } else {
+                        self.found_closest(peer_id, peers);
+                    }
                 }
             }
             KademliaEvent::QueryResult {

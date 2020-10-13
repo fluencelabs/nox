@@ -45,7 +45,6 @@ pub struct ParticleBehaviour {
     pub(super) dht: ParticleDHT,
     #[allow(dead_code)]
     services: ParticleAppServices,
-    #[allow(dead_code)]
     pub(super) mailbox: Mailbox,
     #[allow(dead_code)]
     providers: ProviderRepository,

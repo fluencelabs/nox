@@ -41,6 +41,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour
             DHTEvent::ResolveFailed { err } => {
                 self.mailbox.resolve_complete(err.key, Err(err.kind))
             }
+            DHTEvent::Neighborhood { key, value } => self.mailbox.got_neighborhood(key, value),
         }
     }
 }
@@ -66,6 +67,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<BuiltinCommand> for ParticleBeh
     fn inject_event(&mut self, cmd: BuiltinCommand) {
         match cmd {
             BuiltinCommand::DHTResolve(key) => self.dht.resolve(key),
+            BuiltinCommand::DHTNeighborhood(key) => self.dht.get_neighborhood(key),
         }
     }
 }

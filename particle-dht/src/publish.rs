@@ -58,7 +58,7 @@ impl ParticleDHT {
         #[rustfmt::skip]
         let (found, quorum, reason, key) = match &err {
             PutRecordError::QuorumFailed { success, quorum, key, .. } => (success.len(), quorum.get(), PublishError::QuorumFailed, key),
-            PutRecordError::Timeout { success, quorum, key, .. } => (success.len(), quorum.get(), PublishError::TimedOut, key),
+            PutRecordError::Timeout { success, quorum, key, .. } => (success.len(), quorum.get(), PublishError::Timeout, key),
         };
 
         // TODO: is 50% a reasonable number?

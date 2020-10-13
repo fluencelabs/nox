@@ -30,6 +30,10 @@ impl ParticleDHT {
         self.kademlia.get_record(&key, Quorum::Majority);
     }
 
+    pub fn get_neighborhood(&mut self, key: Vec<u8>) {
+        self.kademlia.get_closest_peers(key);
+    }
+
     pub(super) fn resolved(&mut self, result: GetRecordResult) {
         match Self::recover_get(result) {
             Ok(records) => {
@@ -55,7 +59,7 @@ impl ParticleDHT {
         #[rustfmt::skip]
         let (found, quorum, reason, key) = match err {
             GetRecordError::QuorumFailed { records, quorum, key, .. } => (records, quorum.get(), ResolveErrorKind::QuorumFailed, key),
-            GetRecordError::Timeout { records, quorum, key, .. } => (records, quorum.get(), ResolveErrorKind::TimedOut, key),
+            GetRecordError::Timeout { records, quorum, key, .. } => (records, quorum.get(), ResolveErrorKind::Timeout, key),
             GetRecordError::NotFound { key, .. } => (vec![], 0, ResolveErrorKind::NotFound, key)
         };
 
