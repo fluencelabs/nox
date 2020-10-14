@@ -57,7 +57,7 @@ fn create_service() {
     client.send_particle(
         script,
         json!({
-            "module_bytes": test_module(),
+            "module_bytes": base64::encode(test_module()),
             "module_config": config,
             "blueprint": { "name": "blueprint", "dependencies": [module] },
         }),

@@ -39,4 +39,4 @@ num_cpus = "1.13.0"
 test-utils = { path = "../crates/test-utils" }
 fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "toml_fix" }
 fluence-libp2p = { path = "../crates/libp2p" }
-
+base64 = "0.13.0"
