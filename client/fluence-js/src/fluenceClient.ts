@@ -237,7 +237,7 @@ export class FluenceClient {
         }
 
         let data = {
-            module_bytes: Array.from(toByteArray(moduleBase64)),
+            module_bytes: moduleBase64,
             module_config: config
         }
 
@@ -274,6 +274,9 @@ export class FluenceClient {
         return this.requestResponse("createService", call, returnValue, data, (args: any[]) => args[0] as string, ttl)
     }
 
+    /**
+     * Get all available modules hosted on a connected relay.
+     */
     async getAvailableModules(ttl?: number): Promise<string[]> {
         let returnValue = "modules";
         let call = `(call ("${this.nodePeerIdStr}" ("get_available_modules" "") () ${returnValue}))`
@@ -281,6 +284,9 @@ export class FluenceClient {
         return this.requestResponse("getAvailableModules", call, returnValue, {}, (args: any[]) => args[0] as string[], ttl)
     }
 
+    /**
+     * Get all available blueprints hosted on a connected relay.
+     */
     async getBlueprints(ttl?: number): Promise<string[]> {
         let returnValue = "blueprints";
         let call = `(call ("${this.nodePeerIdStr}" ("get_available_modules" "") () ${returnValue}))`
@@ -288,6 +294,9 @@ export class FluenceClient {
         return this.requestResponse("getBlueprints", call, returnValue, {}, (args: any[]) => args[0] as string[], ttl)
     }
 
+    /**
+     * Call relays 'identity' method. It should return passed 'fields'
+     */
     async relayIdentity(fields: string[], data: any, ttl?: number): Promise<any> {
         let returnValue = "id";
         let call = `(call ("${this.nodePeerIdStr}" ("identity" "") (${fields.join(" ")}) ${returnValue}))`
