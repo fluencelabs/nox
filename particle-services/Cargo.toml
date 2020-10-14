@@ -12,8 +12,8 @@ ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
 host-closure = { path = "../crates/host-closure" }
 
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "toml_fix" }
-aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "toml_fix" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
