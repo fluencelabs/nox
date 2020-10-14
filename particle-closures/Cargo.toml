@@ -8,7 +8,6 @@ edition = "2018"
 particle-protocol = { path = "../particle-protocol"}
 particle-actors = { path = "../particle-actors"}
 particle-dht = { path = "../particle-dht"}
-particle-services = { path = "../particle-services"}
 
 config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
