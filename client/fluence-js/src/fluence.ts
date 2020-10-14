@@ -19,7 +19,6 @@ import Multiaddr from "multiaddr"
 import {FluenceClient} from "./fluenceClient";
 import * as log from "loglevel";
 import {LogLevelDesc} from "loglevel";
-import {greetingWASM} from "./test/greeting_wasm";
 
 log.setLevel('info')
 
@@ -68,12 +67,12 @@ async function testModuleCreation() {
     /*let moduleId = await client.addModule("greeting", greetingWASM)
     console.log("MODULE ID: " + moduleId)*/
 
-    let id = await client.relayIdentity(["papa", "mama"], {papa: "oleg", mama: "sophia"});
+    /*let id = await client.relayIdentity(["papa", "mama"], {papa: "oleg", mama: "sophia"});
     console.log("identity: " + id)
     console.log(id)
 
     let blueprintId = await client.addBlueprint("greeting_bl", ["greeting"]);
-    console.log("BLUEPRINT ID: " + blueprintId)
+    console.log("BLUEPRINT ID: " + blueprintId)*/
 }
 
 window.Fluence = Fluence;
