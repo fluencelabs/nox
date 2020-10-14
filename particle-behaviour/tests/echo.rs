@@ -82,7 +82,7 @@ fn echo_particle() {
     )).expect("timed out");
 
     assert_eq!(particle.id, "123".to_string());
-    assert_eq!(particle.data, json!({"data": "none"}));
+    assert_eq!(particle.data["data"], json!("none"));
 }
 
 macro_rules! make_swarm {
