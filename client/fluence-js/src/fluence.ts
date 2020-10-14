@@ -63,10 +63,14 @@ async function testModuleCreation() {
 
     console.log("PID: " + pid.toB58String())
 
-    let client = await Fluence.connect("/ip4/134.209.186.43/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", pid);
+    let client = await Fluence.connect("/ip4/134.209.186.43/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", pid);
 
     /*let moduleId = await client.addModule("greeting", greetingWASM)
     console.log("MODULE ID: " + moduleId)*/
+
+    let id = await client.relayIdentity(["papa", "mama"], {papa: "oleg", mama: "sophia"});
+    console.log("identity: " + id)
+    console.log(id)
 
     let blueprintId = await client.addBlueprint("greeting_bl", ["greeting"]);
     console.log("BLUEPRINT ID: " + blueprintId)

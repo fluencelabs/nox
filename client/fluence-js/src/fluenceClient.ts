@@ -176,7 +176,7 @@ export class FluenceClient {
     /**
      * Creates service that will wait for a response from external peers.
      */
-    private waitService<T>(functionName: string, func: (args: any[]) => T): WaitingService<T> {
+    private waitService<T>(functionName: string, func: (args: any[]) => T, ttl: number): WaitingService<T> {
         let serviceName = `${functionName}-${genUUID()}`;
         log.info(`Create waiting service '${serviceName}'`)
         let service = new Service(serviceName)
@@ -189,7 +189,7 @@ export class FluenceClient {
             })
         })
 
-        let timeout = delay<T>(10000, "Timeout on waiting " + serviceName)
+        let timeout = delay<T>(ttl, "Timeout on waiting " + serviceName)
 
         return {
             name: serviceName,
@@ -199,10 +199,32 @@ export class FluenceClient {
         }
     }
 
+    async requestResponse<T>(name: string, call: string, returnValue: string, data: any, handleResponse: (args: any[]) => T, ttl?: number): Promise<T> {
+        if (!ttl) {
+            ttl = 10000
+        }
+
+        let waitingService = this.waitService(name, handleResponse, ttl)
+
+        let script = `(seq (
+            ${this.nodeIdentityCall()}
+            (seq (           
+                ${call}
+                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") (${returnValue}) void1))
+            ))
+        ))
+        `
+
+        let particle = await build(this.selfPeerId, script, data, ttl)
+        await this.sendParticle(particle);
+
+        return waitingService.promise
+    }
+
     /**
      * Send a script to add module to a relay. Waiting for a response from a relay.
      */
-    async addModule(name: string, moduleBase64: string): Promise<void> {
+    async addModule(name: string, moduleBase64: string, ttl?: number): Promise<void> {
         let config = {
             name: name,
             mem_pages_count: 100,
@@ -214,75 +236,62 @@ export class FluenceClient {
             }
         }
 
-        let waitingService = this.waitService("addModule", (args: any[]) => {})
-
-        let script = `(seq (
-            ${this.nodeIdentityCall()}
-            (seq (           
-                (call ("${this.nodePeerIdStr}" ("add_module" "") (module_bytes module_config) void2))
-                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") () void1))
-            ))
-        ))
-        `
-
         let data = {
             module_bytes: Array.from(toByteArray(moduleBase64)),
             module_config: config
         }
 
-        let particle = await build(this.selfPeerId, script, data, 10000)
-        await this.sendParticle(particle);
+        let call = `(call ("${this.nodePeerIdStr}" ("add_module" "") (module_bytes module_config) void2))`
 
-        return waitingService.promise
+        return this.requestResponse("addModule", call, "", data, (args: any[]) => {}, ttl)
     }
 
     /**
      * Send a script to add module to a relay. Waiting for a response from a relay.
      */
-    async addBlueprint(name: string, dependencies: string[]): Promise<string> {
-        let waitingService = this.waitService("addBlueprint", (args: any[]) => args[0] as string)
-
-        let script = `(seq (
-            ${this.nodeIdentityCall()}
-            (seq (           
-                (call ("${this.nodePeerIdStr}" ("add_blueprint" "") (blueprint) blueprint_id))
-                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") (blueprint_id) void1))
-            ))
-        ))
-        `
+    async addBlueprint(name: string, dependencies: string[], ttl?: number): Promise<string> {
+        let returnValue = "blueprint_id";
+        let call = `(call ("${this.nodePeerIdStr}" ("add_blueprint" "") (blueprint) ${returnValue}))`
 
         let data = {
             blueprint: { name: name, dependencies: dependencies }
         }
 
-        let particle = await build(this.selfPeerId, script, data, 10000)
-        await this.sendParticle(particle);
-
-        return waitingService.promise
+        return this.requestResponse("addBlueprint", call, returnValue, data, (args: any[]) => args[0] as string, ttl)
     }
 
     /**
      * Send a script to create a service to a relay. Waiting for a response from a relay.
      */
-    async createService(blueprintId: string): Promise<string> {
-        let waitingService = this.waitService("createService", (args: any[]) => args[0] as string)
-
-        let script = `(seq (
-            ${this.nodeIdentityCall()}
-            (seq (           
-                (call ("${this.nodePeerIdStr}" ("create" "") (blueprint_id) service_id))
-                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") (service_id) void1))
-            ))
-        ))
-        `
+    async createService(blueprintId: string, ttl?: number): Promise<string> {
+        let returnValue = "service_id";
+        let call = `(call ("${this.nodePeerIdStr}" ("create" "") (blueprint_id) ${returnValue}))`
 
         let data = {
-            blueprint: { blueprint_id: blueprintId }
+            blueprint_id: blueprintId
         }
 
-        let particle = await build(this.selfPeerId, script, data, 10000)
-        await this.sendParticle(particle);
+        return this.requestResponse("createService", call, returnValue, data, (args: any[]) => args[0] as string, ttl)
+    }
 
-        return waitingService.promise
+    async getAvailableModules(ttl?: number): Promise<string[]> {
+        let returnValue = "modules";
+        let call = `(call ("${this.nodePeerIdStr}" ("get_available_modules" "") () ${returnValue}))`
+
+        return this.requestResponse("getAvailableModules", call, returnValue, {}, (args: any[]) => args[0] as string[], ttl)
+    }
+
+    async getBlueprints(ttl?: number): Promise<string[]> {
+        let returnValue = "blueprints";
+        let call = `(call ("${this.nodePeerIdStr}" ("get_available_modules" "") () ${returnValue}))`
+
+        return this.requestResponse("getBlueprints", call, returnValue, {}, (args: any[]) => args[0] as string[], ttl)
+    }
+
+    async relayIdentity(fields: string[], data: any, ttl?: number): Promise<any> {
+        let returnValue = "id";
+        let call = `(call ("${this.nodePeerIdStr}" ("identity" "") (${fields.join(" ")}) ${returnValue}))`
+
+        return this.requestResponse("getIdentity", call, returnValue, data, (args: any[]) => args[0], ttl)
     }
 }
