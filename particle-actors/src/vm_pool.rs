@@ -80,7 +80,8 @@ impl VmPool {
         // Save waker
         self.waker.write().replace(cx.waker().clone());
 
-        for i in 0..self.creating_vms.len() {
+        let mut i = 0;
+        while i < self.creating_vms.len() {
             let vms = &mut self.vms;
             let fut = &mut self.creating_vms[i];
             if let Poll::Ready(vm) = Pin::new(fut).poll(cx) {
@@ -96,6 +97,7 @@ impl VmPool {
                     Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
                 }
             }
+            i += 1;
         }
     }
 }
