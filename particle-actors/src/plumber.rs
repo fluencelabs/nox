@@ -69,7 +69,6 @@ impl Plumber {
     pub fn ingest(&mut self, particle: Particle) {
         if is_expired(now(), &particle) {
             log::info!("Particle {} is expired, ignoring", particle.id);
-            println!("Particle {} is expired, ignoring", particle.id);
             return;
         }
 

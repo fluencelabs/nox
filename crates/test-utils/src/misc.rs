@@ -380,3 +380,7 @@ pub fn test_module() -> Vec<u8> {
 
     module
 }
+
+pub fn now() -> u64 {
+    chrono::Utc::now().timestamp() as u64
+}

@@ -3872,6 +3872,7 @@ name = "test-utils"
 version = "0.0.1"
 dependencies = [
  "async-std",
+ "chrono",
  "config-utils",
  "env_logger",
  "fluence-client",

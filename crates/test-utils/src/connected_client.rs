@@ -15,7 +15,7 @@
  */
 
 use super::misc::Result;
-use crate::{make_swarms, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
+use crate::{make_swarms, now, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
 
 use fluence_client::{Client, ClientEvent, Transport};
 use particle_protocol::Particle;
@@ -155,6 +155,8 @@ impl ConnectedClient {
         particle.init_peer_id = self.peer_id.clone();
         particle.script = script;
         particle.data = data;
+        particle.timestamp = now();
+        particle.ttl = 1000;
         self.send(particle.clone());
     }
 }
