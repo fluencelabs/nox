@@ -15,7 +15,6 @@
  */
 
 use config_utils::{create_dirs, to_abs_path};
-use fluence_libp2p::RandomPeerId;
 use libp2p::PeerId;
 use std::path::PathBuf;
 
@@ -62,7 +61,7 @@ impl VmPoolConfig {
 impl Default for VmPoolConfig {
     fn default() -> Self {
         Self {
-            current_peer_id: RandomPeerId::random(),
+            current_peer_id: fluence_libp2p::RandomPeerId::random(),
             workdir: <_>::default(),
             modules_dir: <_>::default(),
             services_dir: <_>::default(),
