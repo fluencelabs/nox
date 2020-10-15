@@ -2790,6 +2790,7 @@ version = "0.0.1"
 dependencies = [
  "aquamarine-vm",
  "async-std",
+ "chrono",
  "config-utils",
  "fluence-libp2p",
  "futures",
