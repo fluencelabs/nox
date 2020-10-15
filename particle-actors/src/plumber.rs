@@ -123,7 +123,16 @@ impl Plumber {
 }
 
 fn is_expired(now: u64, particle: &Particle) -> bool {
-    now > particle.timestamp + particle.ttl as u64
+    particle
+        .timestamp
+        .checked_add(particle.ttl as u64)
+        // Whether ts is in the past
+        .map(|ts| ts < now)
+        // If timestamp + ttl gives overflow, consider particle expired
+        .unwrap_or_else(|| {
+            log::warn!("particle {} timestamp + ttl overflowed", particle.id);
+            true
+        })
 }
 
 /// Implements `now` by taking number of non-leap seconds from `Utc::now()`
