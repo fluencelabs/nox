@@ -50,16 +50,6 @@ pub fn load_module_config(
     Ok(config)
 }
 
-/*
-/// Persist service info to disk, so it is recreated after restart
-pub fn persist_service(services_dir: &PathBuf, service_id: &str, blueprint_id: &str) -> Result<()> {
-    let config = PersistedService::new(service_id, blueprint_id);
-    let bytes = toml::to_vec(&config).map_err(|err| SerializeConfig { err })?;
-    let path = services_dir.join(files::service_file_name(service_id));
-    std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
-}
-*/
-
 /// List files in directory
 pub fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {
     let dir = std::fs::read_dir(dir).ok()?;
