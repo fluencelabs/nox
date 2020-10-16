@@ -27,6 +27,7 @@ use std::{io, iter, time::Duration};
 
 pub use failure::Error;
 use libp2p::swarm::OneShotHandlerConfig;
+use std::fmt::Debug;
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct ProtocolConfig {
@@ -61,8 +62,8 @@ impl ProtocolConfig {
         }
     }
 
-    fn gen_error<E: std::error::Error>(&self, err: &E, data: &[u8]) -> ProtocolMessage {
-        ProtocolMessage::UpgradeError(json!({ "error": err.to_string(), "data": data }))
+    fn gen_error(&self, err: impl Debug) -> ProtocolMessage {
+        ProtocolMessage::UpgradeError(json!({ "error": format!("{:?}", err) }))
     }
 }
 
@@ -81,9 +82,9 @@ impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent>
     }
 }
 
-// 1 Mb
+// 100 Mb
 #[allow(clippy::identity_op)]
-const MAX_BUF_SIZE: usize = 1 * 1024 * 1024;
+const MAX_BUF_SIZE: usize = 100 * 1024 * 1024;
 const PROTOCOL_INFO: &[u8] = b"/fluence/faas/1.0.0";
 
 macro_rules! impl_upgrade_info {
@@ -112,21 +113,25 @@ where
 
     fn upgrade_inbound(self, mut socket: Socket, info: Self::Info) -> Self::Future {
         async move {
-            let packet = upgrade::read_one(&mut socket, MAX_BUF_SIZE).await?;
-            // TODO: remove that once debugged
-            match std::str::from_utf8(&packet) {
-                Ok(str) => log::debug!("Got inbound ProtocolMessage: {}", str),
-                Err(err) => log::warn!("Can't parse inbound ProtocolMessage to UTF8 {}", err),
-            }
+            let process = async move |socket| -> Result<_, Error> {
+                let packet = upgrade::read_one(socket, MAX_BUF_SIZE).await?;
+                match std::str::from_utf8(&packet) {
+                    Ok(str) => log::debug!("Got inbound ProtocolMessage: {}", str),
+                    Err(err) => log::warn!("Can't parse inbound ProtocolMessage to UTF8 {}", err),
+                }
 
-            match serde_json::from_slice(&packet) {
-                Ok(message) => {
+                Ok(serde_json::from_slice(&packet)?)
+            };
+
+            match process(&mut socket).await {
+                Ok(msg) => {
                     socket.close().await?;
-                    Ok(message)
+                    Ok(msg)
                 }
                 Err(err) => {
+                    log::warn!("Error processing inbound ProtocolMessage: {:?}", err);
                     // Generate and send error back through socket
-                    let err_msg = self.gen_error(&err, &packet);
+                    let err_msg = self.gen_error(&err);
                     err_msg.upgrade_outbound(socket, info).await?;
                     return Err(err.into());
                 }
@@ -151,10 +156,16 @@ where
                 Err(err) => log::warn!("Can't serialize {:?} to string {}", &self, err),
             }
 
-            let bytes = serde_json::to_vec(&self)?;
-            upgrade::write_one(&mut socket, bytes).await?;
+            let write = async move || -> Result<_, io::Error> {
+                let bytes = serde_json::to_vec(&self)?;
+                upgrade::write_one(&mut socket, bytes).await?;
+                Ok(())
+            };
 
-            Ok(())
+            write().await.map_err(|err| {
+                log::warn!("Error sending outbound ProtocolMessage: {:?}", err);
+                err
+            })
         }
         .boxed()
     }

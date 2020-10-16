@@ -22,8 +22,6 @@ use std::thread::sleep;
 
 #[test]
 fn add_providers() {
-    enable_logs();
-
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -58,7 +56,7 @@ fn add_providers() {
         }),
     );
 
-    let particle = client2.receive_particle();
+    let particle = client2.receive();
     let providers = particle.data["providers"]
         .as_array()
         .expect("non empty providers");
@@ -74,4 +72,59 @@ fn add_providers() {
     };
     assert_eq!(get_provider(0), provider1);
     assert_eq!(get_provider(1), provider2);
+}
+
+#[test]
+fn add_providers_to_neighborhood() {
+    enable_logs();
+
+    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
+    sleep(KAD_TIMEOUT);
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let provider1 = uuid();
+    let provider2 = uuid();
+    let script = format!(
+        r#"
+            (seq (
+                (call (%current_peer_id% ("neighborhood" "") (first_node) neighborhood))
+                (seq (
+                    (seq (
+                        (fold (neighborhood i
+                            (par (
+                                (call (i ("add_provider" "") (key provider) void[]))
+                                (next i)
+                            ))
+                        ))
+                        (fold (neighborhood i
+                            (par (
+                                (call (i ("get_providers" "") (key) providers[]))
+                                (next i)
+                            ))
+                        ))
+                    ))
+                    (seq (
+                        (call ("{}" ("identity" "") () void[]))
+                        (call ("{}" ("" "") () none))
+                    ))
+                ))
+            ))
+        "#,
+        client2.node, client2.peer_id
+    );
+
+    client.send_particle(
+        script,
+        json!({
+            "provider": {"peer": RandomPeerId::random().to_string(), "service_id": provider1},
+            "key": "folex",
+            "provider2": {"peer": RandomPeerId::random().to_string(), "service_id": provider2},
+            "key2": "folex2",
+            "first_node": swarms[0].0.to_string(),
+        }),
+    );
+
+    let response = client2.receive();
+    println!("response: {:#?}", response);
 }

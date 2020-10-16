@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-use crate::actor::VmState::{Executing, Idle};
-use crate::config::ActorConfig;
 use crate::invoke::parse_outcome;
 
-use host_closure::ClosureDescriptor;
+use aquamarine_vm::AquamarineVM;
 use particle_protocol::Particle;
-
-use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError};
 
 use async_std::{pin::Pin, task};
 use futures::{future::BoxFuture, Future, FutureExt};
@@ -29,61 +25,41 @@ use libp2p::PeerId;
 use serde_json::json;
 use std::{
     collections::VecDeque,
-    mem,
+    fmt::Debug,
     task::{Context, Poll, Waker},
 };
 
 pub(super) type Fut = BoxFuture<'static, FutResult>;
 
 pub struct FutResult {
-    vm: AquamarineVM,
-    effects: Vec<ActorEvent>,
+    pub vm: AquamarineVM,
+    pub effects: Vec<ActorEvent>,
 }
 
 pub enum ActorEvent {
     Forward { particle: Particle, target: PeerId },
 }
 
-enum VmState {
-    Idle(AquamarineVM),
-    Executing(Fut),
-    Polling,
-}
-
 pub struct Actor {
-    vm: VmState,
+    future: Option<Fut>,
+    // TODO: why keep particle here?
+    #[allow(dead_code)]
     particle: Particle,
     mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
 }
 
 impl Actor {
-    pub fn new(
-        config: ActorConfig,
-        particle: Particle,
-        host_closure: ClosureDescriptor,
-    ) -> Result<Self, AquamarineVMError> {
-        log::info!("preparing vm config");
-        let config = AquamarineVMConfig {
-            current_peer_id: config.current_peer_id.to_string(),
-            aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
-            call_service: host_closure(),
-        };
-        log::info!("creating vm");
-        let vm = AquamarineVM::new(config)?;
-        log::info!("vm created");
-        let mut this = Self {
-            vm: Idle(vm),
-            particle: particle.clone(),
+    pub fn new(particle: Particle) -> Self {
+        Self {
+            future: None,
+            particle,
             mailbox: <_>::default(),
             waker: <_>::default(),
-        };
-
-        this.ingest(particle);
-
-        Ok(this)
+        }
     }
 
+    #[allow(dead_code)]
     pub fn particle(&self) -> &Particle {
         &self.particle
     }
@@ -93,33 +69,47 @@ impl Actor {
         self.wake();
     }
 
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Vec<ActorEvent>> {
-        let waker = cx.waker().clone();
-        self.waker = Some(waker.clone());
+    /// Polls actor for result on previously ingested particle
+    pub fn poll_completed(&mut self, cx: &mut Context<'_>) -> Poll<FutResult> {
+        self.waker = Some(cx.waker().clone());
 
-        let vm = mem::replace(&mut self.vm, VmState::Polling);
-        let execute = |vm| self.execute_next(vm, waker);
+        // Poll self.future
+        let future = self
+            .future
+            .take()
+            .map(|mut fut| (Pin::new(&mut fut).poll(cx), fut));
 
-        let (state, effects) = match vm {
-            Idle(vm) => (execute(vm), Poll::Pending),
-            Executing(mut fut) => {
-                if let Poll::Ready(FutResult { vm, effects }) = Pin::new(&mut fut).poll(cx) {
-                    (execute(vm), Poll::Ready(effects))
-                } else {
-                    (Executing(fut), Poll::Pending)
-                }
+        match future {
+            // If future is ready, return effects and vm
+            Some((Poll::Ready(r), _)) => Poll::Ready(r),
+            o => {
+                // Either keep pending future or keep it None
+                self.future = o.map(|t| t.1);
+                Poll::Pending
             }
-            VmState::Polling => unreachable!("polling race"),
-        };
-
-        self.vm = state;
-        return effects;
+        }
     }
 
-    fn execute_next(&mut self, vm: AquamarineVM, waker: Waker) -> VmState {
+    /// Provide actor with new `vm` to execute particles, if there are any.
+    ///
+    /// If actor is in the middle of executing previous particle, vm is returned
+    /// If actor's mailbox is empty, vm is returned
+    pub fn poll_next(&mut self, vm: AquamarineVM, cx: &mut Context<'_>) -> Poll<AquamarineVM> {
+        self.waker = Some(cx.waker().clone());
+
+        // Return vm if previous particle is still executing
+        if self.future.is_some() {
+            return Poll::Ready(vm);
+        }
+
         match self.mailbox.pop_front() {
-            Some(p) => Executing(Self::execute(p, vm, waker)),
-            None => Idle(vm),
+            Some(p) => {
+                // Take ownership of vm to process particle
+                self.future = Self::execute(p, vm, cx.waker().clone()).into();
+                Poll::Pending
+            }
+            // Mailbox is empty, return vm
+            None => Poll::Ready(vm),
         }
     }
 
@@ -153,18 +143,8 @@ impl Actor {
                         .collect::<Vec<_>>()
                 }
                 Err(err) => {
-                    let mut particle = particle;
-                    let error = format!("{:?}", err);
-                    if let Some(map) = particle.data.as_object_mut() {
-                        map.insert("protocol!error".to_string(), json!(error));
-                    } else {
-                        particle.data = json!({"protocol!error": error, "data": particle.data})
-                    }
                     // Return error to the init peer id
-                    vec![ActorEvent::Forward {
-                        target: particle.init_peer_id.clone(),
-                        particle,
-                    }]
+                    vec![protocol_error(particle, err)]
                 }
             };
 
@@ -184,13 +164,16 @@ impl Actor {
     }
 }
 
-impl std::fmt::Display for VmState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self {
-            Idle(_) => "idle",
-            Executing(_) => "executing",
-            VmState::Polling => "polling",
-        };
-        write!(f, "{}", str)
+fn protocol_error(mut particle: Particle, err: impl Debug) -> ActorEvent {
+    let error = format!("{:?}", err);
+    if let Some(map) = particle.data.as_object_mut() {
+        map.insert("protocol!error".to_string(), json!(error));
+    } else {
+        particle.data = json!({"protocol!error": error, "data": particle.data})
+    }
+    // Return error to the init peer id
+    ActorEvent::Forward {
+        target: particle.init_peer_id.clone(),
+        particle,
     }
 }

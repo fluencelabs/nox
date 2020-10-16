@@ -157,18 +157,4 @@ impl ConnectedClient {
         particle.data = data;
         self.send(particle.clone());
     }
-
-    pub fn receive_particle(&mut self) -> Particle {
-        let timeout = self.timeout;
-        if cfg!(debug_assertions) {
-            // Account for slow VM in debug
-            self.timeout = Duration::from_secs(360);
-        }
-
-        let response = self.receive();
-
-        self.timeout = timeout;
-
-        response
-    }
 }

@@ -26,7 +26,10 @@ use std::path::PathBuf;
 pub fn add_module(modules_dir: PathBuf) -> Closure {
     closure_opt(move |mut args| {
         log::debug!("add_module called");
-        let module = Args::next("module", &mut args)?;
+        let module: String = Args::next("module", &mut args)?;
+        let module = base64::decode(&module).map_err(|err| {
+            JValue::String(format!("error decoding module from base64: {:?}", err))
+        })?;
         let config = Args::next("config", &mut args)?;
         log::debug!("add_module parsed");
         files::add_module(&modules_dir, module, config)?;

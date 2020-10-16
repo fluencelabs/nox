@@ -57,13 +57,13 @@ fn create_service() {
     client.send_particle(
         script,
         json!({
-            "module_bytes": test_module(),
+            "module_bytes": base64::encode(test_module()),
             "module_config": config,
             "blueprint": { "name": "blueprint", "dependencies": [module] },
         }),
     );
 
-    let response = client.receive_particle();
+    let response = client.receive();
 
     let service_id = response.data.get("service_id").unwrap().as_str().unwrap();
     let script = format!(
@@ -81,7 +81,7 @@ fn create_service() {
         }),
     );
 
-    let response = client2.receive_particle();
+    let response = client2.receive();
 
     assert_eq!(
         response.data.get("greeting").unwrap().as_str().unwrap(),

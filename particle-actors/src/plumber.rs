@@ -15,136 +15,84 @@
  */
 
 use crate::actor::{Actor, ActorEvent};
-use crate::config::ActorConfig;
+use crate::config::VmPoolConfig;
 
 use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
-use aquamarine_vm::AquamarineVMError;
-
-use async_std::task;
-use futures::{future::BoxFuture, Future, FutureExt};
+use crate::vm_pool::VmPool;
 use libp2p::PeerId;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
-    fmt::{Debug, Formatter},
-    mem,
-    pin::Pin,
-    task::{Context, Poll, Waker},
+    fmt::Debug,
+    task::{Context, Poll},
 };
-
-type Fut = BoxFuture<'static, Result<Actor, AquamarineVMError>>;
 
 #[derive(Debug)]
 pub enum PlumberEvent {
     Forward { target: PeerId, particle: Particle },
 }
 
-pub enum ActorState {
-    Creating { future: Fut, mailbox: Vec<Particle> },
-    Created(Actor),
+impl From<ActorEvent> for PlumberEvent {
+    fn from(event: ActorEvent) -> Self {
+        match event {
+            ActorEvent::Forward { particle, target } => PlumberEvent::Forward { target, particle },
+        }
+    }
 }
 
 pub struct Plumber {
-    config: ActorConfig,
     events: VecDeque<PlumberEvent>,
-    actors: HashMap<String, ActorState>,
-    host_closure: ClosureDescriptor,
-    pub(super) waker: Option<Waker>,
+    actors: HashMap<String, Actor>,
+    vm_pool: VmPool,
 }
 
 impl Plumber {
-    pub fn new(config: ActorConfig, host_closure: ClosureDescriptor) -> Self {
+    pub fn new(config: VmPoolConfig, host_closure: ClosureDescriptor) -> Self {
+        let vm_pool = VmPool::new(config, host_closure);
         Self {
-            config,
-            host_closure,
+            vm_pool,
             events: <_>::default(),
             actors: <_>::default(),
-            waker: <_>::default(),
         }
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
     pub fn ingest(&mut self, particle: Particle) {
         match self.actors.entry(particle.id.clone()) {
-            Entry::Vacant(entry) => {
-                // Create new actor
-                let config = self.config.clone();
-                let services = self.host_closure.clone();
-                let future = Self::create_actor(config, particle, services);
-                entry.insert(ActorState::Creating {
-                    future,
-                    mailbox: vec![],
-                });
-            }
-            Entry::Occupied(mut entry) => match entry.get_mut() {
-                // Forward to the mailbox
-                ActorState::Created(actor) => actor.ingest(particle),
-                // Actor is still creating, buffer particle until later
-                ActorState::Creating { mailbox, .. } => mailbox.push(particle),
-            },
+            Entry::Vacant(entry) => entry.insert(Actor::new(particle.clone())).ingest(particle),
+            Entry::Occupied(mut entry) => entry.get_mut().ingest(particle),
         }
     }
 
     pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<PlumberEvent> {
-        self.waker = Some(cx.waker().clone());
+        self.vm_pool.poll(cx);
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);
         }
 
-        // Vector of newly created actors
-        let mut created = vec![];
-        // Remove finished creation operations from hashmap
-        self.actors.retain(|id, s| {
-            if let ActorState::Creating { future, mailbox } = s {
-                if let Poll::Ready(r) = Pin::new(future).poll(cx) {
-                    // Take ownership of the mailbox
-                    let mailbox = mem::replace(mailbox, vec![]);
-                    created.push((id.clone(), r, mailbox));
-                    return false;
-                }
-            }
-            true
-        });
-        // We might have some work processed by newly created actors, so wake up!
-        if !created.is_empty() {
-            self.wake()
-        }
-        // Insert successfully created actors to hashmap
-        for (id, actor, mailbox) in created.into_iter() {
-            match actor {
-                Ok(mut actor) => {
-                    // Ingest buffered particles
-                    for particle in mailbox.into_iter() {
-                        actor.ingest(particle)
-                    }
-                    self.actors.insert(id, ActorState::Created(actor));
-                }
-                Err(err) => unimplemented!("error creating actor: {:?}", err),
+        // Gather effects and vms
+        let mut effects = vec![];
+        for actor in self.actors.values_mut() {
+            if let Poll::Ready(result) = actor.poll_completed(cx) {
+                effects.extend(result.effects);
+                self.vm_pool.put_vm(result.vm);
             }
         }
 
-        // Poll existing actors for results
-        let effects = self
-            .actors
-            .values_mut()
-            .flat_map(|mut actor| {
-                if let ActorState::Created(ref mut actor) = &mut actor {
-                    if let Poll::Ready(effects) = actor.poll(cx) {
-                        return effects;
-                    }
+        // Execute next messages
+        for actor in self.actors.values_mut() {
+            if let Some(vm) = self.vm_pool.get_vm() {
+                if let Poll::Ready(vm) = actor.poll_next(vm, cx) {
+                    self.vm_pool.put_vm(vm)
                 }
-
-                vec![]
-            })
-            .collect::<Vec<_>>();
+            }
+        }
 
         // Turn effects into events, and buffer them
         for effect in effects {
-            let ActorEvent::Forward { particle, target } = effect;
-            self.events
-                .push_back(PlumberEvent::Forward { particle, target });
+            self.events.push_back(effect.into());
         }
 
         // Return new event if there is some
@@ -153,36 +101,5 @@ impl Plumber {
         }
 
         Poll::Pending
-    }
-
-    fn wake(&self) {
-        if let Some(waker) = &self.waker {
-            waker.wake_by_ref();
-        }
-    }
-
-    fn create_actor(
-        config: ActorConfig,
-        particle: Particle,
-        host_closure: ClosureDescriptor,
-    ) -> Fut {
-        task::spawn_blocking(move || Actor::new(config, particle, host_closure)).boxed()
-    }
-}
-
-impl Debug for ActorState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ActorState::Creating { mailbox, .. } => write!(
-                f,
-                "ActorState::Creating {{ future: OPAQUE, mailbox: {:?} }}",
-                mailbox
-            ),
-            ActorState::Created(actor) => write!(
-                f,
-                "ActorState::Created {{ actor.particle: {:?} }}",
-                actor.particle()
-            ),
-        }
     }
 }

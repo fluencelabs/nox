@@ -14,17 +14,14 @@
  * limitations under the License.
  */
 
-use test_utils::{enable_logs, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
 use libp2p::PeerId;
-use serde_json::json;
-use serde_json::Value as JValue;
+use serde_json::{json, Value as JValue};
 use std::thread::sleep;
 
 #[test]
 fn neighborhood() {
-    enable_logs();
-
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -43,7 +40,7 @@ fn neighborhood() {
             "key": client.node.to_string()
         }),
     );
-    let response = client.receive_particle();
+    let response = client.receive();
     if let JValue::Array(neighborhood) = response.data["peers"].clone().take() {
         assert_eq!(neighborhood.len(), 2);
 
