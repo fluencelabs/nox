@@ -58,6 +58,7 @@ impl ServerBehaviour {
             cfg.services_envs,
             cfg.stepper_base_dir,
             cfg.key_pair,
+            cfg.stepper_pool_size,
         );
         let particle = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)?;
         let bootstrapper = Bootstrapper::new(cfg.bootstrap, cfg.local_peer_id, cfg.bootstrap_nodes);

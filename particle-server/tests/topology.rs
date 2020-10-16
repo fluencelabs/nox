@@ -16,10 +16,12 @@
 
 use serde_json::json;
 use std::thread::sleep;
-use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{enable_logs, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
 fn identity() {
+    enable_logs();
+
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut a = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -29,14 +31,20 @@ fn identity() {
         format!(
             r#"
                 (seq (
-                    (call ("{}" ("identity" "") () void0))
-                    (call ("{}" ("identity" "") () void1))
+                    (call ("{}" ("identity" "") () void[]))
+                    (seq (
+                        (call ("{}" ("identity" "") () void[]))
+                        (seq (
+                            (call ("{}" ("identity" "") () void[]))
+                            (call ("{}" ("identity" "") () void[]))
+                        ))
+                    ))
                 ))
             "#,
-            b.node, b.peer_id
+            swarms[2].0, a.node, b.node, b.peer_id
         ),
         json!({}),
     );
 
-    b.receive_particle();
+    b.receive();
 }

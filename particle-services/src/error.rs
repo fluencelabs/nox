@@ -26,12 +26,14 @@ pub enum ServiceError {
     NoSuchInstance(String),
     Engine(AppServiceError),
     ModuleError(ModuleError),
-    #[allow(dead_code)]
     ReadPersistedService {
         path: PathBuf,
         err: std::io::Error,
     },
-    #[allow(dead_code)]
+    DeserializePersistedService {
+        err: toml::de::Error,
+        path: PathBuf,
+    },
     CreateServicesDir {
         path: PathBuf,
         err: std::io::Error,
@@ -80,6 +82,11 @@ impl std::fmt::Display for ServiceError {
             ServiceError::ArgParseError(error) => {
                 write!(f, "Error parsing arguments on call_service: {:?}", error)
             }
+            ServiceError::DeserializePersistedService { err, path } => write!(
+                f,
+                "Error deserializing persisted service from {:?}: {:#?}",
+                path, err
+            ),
         }
     }
 }

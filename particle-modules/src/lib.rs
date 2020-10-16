@@ -33,5 +33,6 @@ mod modules;
 
 pub use blueprint::Blueprint;
 pub use error::ModuleError;
-pub use files::{load_blueprint, load_module_config};
+pub use file_names::{is_service, service_file_name};
+pub use files::{list_files, load_blueprint, load_module_config};
 pub use modules::{add_blueprint, add_module, get_blueprints, get_modules};

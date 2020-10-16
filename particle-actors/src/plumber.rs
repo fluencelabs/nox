@@ -15,136 +15,102 @@
  */
 
 use crate::actor::{Actor, ActorEvent};
-use crate::config::ActorConfig;
+use crate::config::VmPoolConfig;
 
 use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
-use aquamarine_vm::AquamarineVMError;
-
-use async_std::task;
-use futures::{future::BoxFuture, Future, FutureExt};
+use crate::vm_pool::VmPool;
 use libp2p::PeerId;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
-    fmt::{Debug, Formatter},
-    mem,
-    pin::Pin,
-    task::{Context, Poll, Waker},
+    fmt::Debug,
+    task::{Context, Poll},
 };
 
-type Fut = BoxFuture<'static, Result<Actor, AquamarineVMError>>;
+/// Get current time from OS
+#[cfg(not(test))]
+use real_time::now;
+
+/// For tests, mocked time is used
+#[cfg(test)]
+use mock_time::now;
 
 #[derive(Debug)]
 pub enum PlumberEvent {
     Forward { target: PeerId, particle: Particle },
 }
 
-pub enum ActorState {
-    Creating { future: Fut, mailbox: Vec<Particle> },
-    Created(Actor),
+impl From<ActorEvent> for PlumberEvent {
+    fn from(event: ActorEvent) -> Self {
+        match event {
+            ActorEvent::Forward { particle, target } => PlumberEvent::Forward { target, particle },
+        }
+    }
 }
 
 pub struct Plumber {
-    config: ActorConfig,
     events: VecDeque<PlumberEvent>,
-    actors: HashMap<String, ActorState>,
-    host_closure: ClosureDescriptor,
-    pub(super) waker: Option<Waker>,
+    actors: HashMap<String, Actor>,
+    vm_pool: VmPool,
 }
 
 impl Plumber {
-    pub fn new(config: ActorConfig, host_closure: ClosureDescriptor) -> Self {
+    pub fn new(config: VmPoolConfig, host_closure: ClosureDescriptor) -> Self {
+        let vm_pool = VmPool::new(config, host_closure);
         Self {
-            config,
-            host_closure,
+            vm_pool,
             events: <_>::default(),
             actors: <_>::default(),
-            waker: <_>::default(),
         }
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
     pub fn ingest(&mut self, particle: Particle) {
+        if is_expired(now(), &particle) {
+            log::info!("Particle {} is expired, ignoring", particle.id);
+            return;
+        }
+
         match self.actors.entry(particle.id.clone()) {
-            Entry::Vacant(entry) => {
-                // Create new actor
-                let config = self.config.clone();
-                let services = self.host_closure.clone();
-                let future = Self::create_actor(config, particle, services);
-                entry.insert(ActorState::Creating {
-                    future,
-                    mailbox: vec![],
-                });
-            }
-            Entry::Occupied(mut entry) => match entry.get_mut() {
-                // Forward to the mailbox
-                ActorState::Created(actor) => actor.ingest(particle),
-                // Actor is still creating, buffer particle until later
-                ActorState::Creating { mailbox, .. } => mailbox.push(particle),
-            },
+            Entry::Vacant(entry) => entry.insert(Actor::new(particle.clone())).ingest(particle),
+            Entry::Occupied(mut entry) => entry.get_mut().ingest(particle),
         }
     }
 
     pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<PlumberEvent> {
-        self.waker = Some(cx.waker().clone());
+        self.vm_pool.poll(cx);
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);
         }
 
-        // Vector of newly created actors
-        let mut created = vec![];
-        // Remove finished creation operations from hashmap
-        self.actors.retain(|id, s| {
-            if let ActorState::Creating { future, mailbox } = s {
-                if let Poll::Ready(r) = Pin::new(future).poll(cx) {
-                    // Take ownership of the mailbox
-                    let mailbox = mem::replace(mailbox, vec![]);
-                    created.push((id.clone(), r, mailbox));
-                    return false;
-                }
-            }
-            true
-        });
-        // We might have some work processed by newly created actors, so wake up!
-        if !created.is_empty() {
-            self.wake()
-        }
-        // Insert successfully created actors to hashmap
-        for (id, actor, mailbox) in created.into_iter() {
-            match actor {
-                Ok(mut actor) => {
-                    // Ingest buffered particles
-                    for particle in mailbox.into_iter() {
-                        actor.ingest(particle)
-                    }
-                    self.actors.insert(id, ActorState::Created(actor));
-                }
-                Err(err) => unimplemented!("error creating actor: {:?}", err),
+        // Remove expired actors
+        let now = now();
+        self.actors
+            .retain(|_, actor| !is_expired(now, actor.particle()));
+
+        // Gather effects and vms
+        let mut effects = vec![];
+        for actor in self.actors.values_mut() {
+            if let Poll::Ready(result) = actor.poll_completed(cx) {
+                effects.extend(result.effects);
+                self.vm_pool.put_vm(result.vm);
             }
         }
 
-        // Poll existing actors for results
-        let effects = self
-            .actors
-            .values_mut()
-            .flat_map(|mut actor| {
-                if let ActorState::Created(ref mut actor) = &mut actor {
-                    if let Poll::Ready(effects) = actor.poll(cx) {
-                        return effects;
-                    }
+        // Execute next messages
+        for actor in self.actors.values_mut() {
+            if let Some(vm) = self.vm_pool.get_vm() {
+                if let Poll::Ready(vm) = actor.poll_next(vm, cx) {
+                    self.vm_pool.put_vm(vm)
                 }
-
-                vec![]
-            })
-            .collect::<Vec<_>>();
+            }
+        }
 
         // Turn effects into events, and buffer them
         for effect in effects {
-            let ActorEvent::Forward { particle, target } = effect;
-            self.events
-                .push_back(PlumberEvent::Forward { particle, target });
+            self.events.push_back(effect.into());
         }
 
         // Return new event if there is some
@@ -154,35 +120,113 @@ impl Plumber {
 
         Poll::Pending
     }
+}
 
-    fn wake(&self) {
-        if let Some(waker) = &self.waker {
-            waker.wake_by_ref();
-        }
-    }
+fn is_expired(now: u64, particle: &Particle) -> bool {
+    particle
+        .timestamp
+        .checked_add(particle.ttl as u64)
+        // Whether ts is in the past
+        .map(|ts| ts < now)
+        // If timestamp + ttl gives overflow, consider particle expired
+        .unwrap_or_else(|| {
+            log::warn!("particle {} timestamp + ttl overflowed", particle.id);
+            true
+        })
+}
 
-    fn create_actor(
-        config: ActorConfig,
-        particle: Particle,
-        host_closure: ClosureDescriptor,
-    ) -> Fut {
-        task::spawn_blocking(move || Actor::new(config, particle, host_closure)).boxed()
+/// Implements `now` by taking number of non-leap seconds from `Utc::now()`
+mod real_time {
+    pub fn now() -> u64 {
+        chrono::Utc::now().timestamp() as u64
     }
 }
 
-impl Debug for ActorState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ActorState::Creating { mailbox, .. } => write!(
-                f,
-                "ActorState::Creating {{ future: OPAQUE, mailbox: {:?} }}",
-                mailbox
-            ),
-            ActorState::Created(actor) => write!(
-                f,
-                "ActorState::Created {{ actor.particle: {:?} }}",
-                actor.particle()
-            ),
-        }
+#[cfg(test)]
+mod tests {
+    use crate::plumber::{is_expired, now, real_time};
+    use crate::Plumber;
+    use particle_protocol::Particle;
+
+    use crate::plumber::mock_time::set_mock_time;
+    use futures::task::noop_waker_ref;
+    use std::{sync::Arc, task::Context};
+
+    fn plumber() -> Plumber {
+        let config = <_>::default();
+        let host_closure = Arc::new(|| panic!("no host_closure no no no"));
+        Plumber::new(config, host_closure)
+    }
+
+    fn particle(ts: u64, ttl: u32) -> Particle {
+        let mut particle = Particle::default();
+        particle.timestamp = ts;
+        particle.ttl = ttl;
+
+        particle
+    }
+
+    fn context() -> Context<'static> {
+        Context::from_waker(noop_waker_ref())
+    }
+
+    /// Checks that expired actor will be removed
+    #[test]
+    fn remove_expired() {
+        set_mock_time(real_time::now());
+
+        let mut plumber = plumber();
+
+        let particle = particle(now(), 1);
+        assert!(!is_expired(now(), &particle));
+
+        plumber.ingest(particle);
+
+        assert_eq!(plumber.actors.len(), 1);
+        let mut cx = context();
+        assert!(plumber.poll(&mut cx).is_pending());
+        assert_eq!(plumber.actors.len(), 1);
+
+        set_mock_time(now() + 2);
+        assert!(plumber.poll(&mut cx).is_pending());
+        assert_eq!(plumber.actors.len(), 0);
+    }
+
+    /// Checks that expired particle won't create an actor
+    #[test]
+    fn ignore_expired() {
+        set_mock_time(real_time::now());
+
+        let mut plumber = plumber();
+        let particle = particle(now() - 100, 99);
+        assert!(is_expired(now(), &particle));
+
+        plumber.ingest(particle);
+
+        assert_eq!(plumber.actors.len(), 0);
+
+        // Check actor doesn't appear after poll somehow
+        set_mock_time(now() + 1000);
+        assert!(plumber.poll(&mut context()).is_pending());
+        assert_eq!(plumber.actors.len(), 0);
+    }
+}
+
+/// Code taken from https://blog.iany.me/2019/03/how-to-mock-time-in-rust-tests-and-cargo-gotchas-we-met/
+/// And then modified to use u64 instead of `SystemTime`
+#[cfg(test)]
+pub mod mock_time {
+    use std::cell::RefCell;
+
+    thread_local! {
+        static MOCK_TIME: RefCell<u64> = RefCell::new(0);
+    }
+
+    pub fn now() -> u64 {
+        MOCK_TIME.with(|cell| cell.borrow().clone())
+    }
+
+    pub fn set_mock_time(time: u64) {
+        MOCK_TIME.with(|cell| *cell.borrow_mut() = time);
     }
 }
