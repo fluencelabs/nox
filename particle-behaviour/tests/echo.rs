@@ -20,7 +20,7 @@ use particle_behaviour::{ParticleBehaviour, ParticleConfig};
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 
 use fluence_libp2p::{build_memory_transport, generate_swarm_event_type};
-use test_utils::{make_tmp_dir, put_aquamarine, TIMEOUT};
+use test_utils::{make_tmp_dir, now, put_aquamarine, TIMEOUT};
 use trust_graph::TrustGraph;
 
 use async_std::{future::timeout, task};
@@ -62,8 +62,8 @@ fn echo_particle() {
                                 let p = Particle {
                                     id: "123".to_string(),
                                     init_peer_id: client_id.clone(),
-                                    timestamp: 0,
-                                    ttl: 1,
+                                    timestamp: now(),
+                                    ttl: 100,
                                     script: format!(r#"(call ("{}" ("a" "b") (data) void))"#, client_id),
                                     signature: vec![],
                                     data: json!({"data": "none"}),

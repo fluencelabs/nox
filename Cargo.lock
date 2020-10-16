@@ -2790,6 +2790,7 @@ version = "0.0.1"
 dependencies = [
  "aquamarine-vm",
  "async-std",
+ "chrono",
  "config-utils",
  "fluence-libp2p",
  "futures",
@@ -3871,6 +3872,7 @@ name = "test-utils"
 version = "0.0.1"
 dependencies = [
  "async-std",
+ "chrono",
  "config-utils",
  "env_logger",
  "fluence-client",

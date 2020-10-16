@@ -56,3 +56,16 @@ impl VmPoolConfig {
         create_dirs(&[&self.workdir, &self.modules_dir, &self.services_dir])
     }
 }
+
+#[cfg(test)]
+impl Default for VmPoolConfig {
+    fn default() -> Self {
+        Self {
+            current_peer_id: fluence_libp2p::RandomPeerId::random(),
+            workdir: <_>::default(),
+            modules_dir: <_>::default(),
+            services_dir: <_>::default(),
+            pool_size: 0,
+        }
+    }
+}
