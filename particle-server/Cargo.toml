@@ -37,6 +37,6 @@ num_cpus = "1.13.0"
 
 [dev-dependencies]
 test-utils = { path = "../crates/test-utils" }
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "persist_particles" }
 fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"

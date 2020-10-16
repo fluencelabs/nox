@@ -113,6 +113,7 @@ fn create_vm(
         let config = AquamarineVMConfig {
             current_peer_id: config.current_peer_id.to_string(),
             aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
+            particle_data_store: config.particles_dir,
             call_service: host_closure(),
         };
         log::info!("creating vm");

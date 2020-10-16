@@ -184,9 +184,10 @@ checksum = "a1fd36ffbb1fb7c834eac128ea8d0e310c5aeb635548f9d58861e1308d46e71c"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#05473672a15d368802cc525c6290eee11b7907ed"
+source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
 dependencies = [
  "fluence-faas",
+ "maplit",
  "serde",
  "serde_json",
 ]
@@ -249,9 +250,9 @@ dependencies = [
 
 [[package]]
 name = "async-global-executor"
-version = "1.3.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fefeb39da249f4c33af940b779a56723ce45809ef5c54dad84bb538d4ffb6d9e"
+checksum = "0659b83a146398616883aa5199cdd1b055ec088a83c9a338eab3534f33f0622e"
 dependencies = [
  "async-executor",
  "async-io",
@@ -1243,7 +1244,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.8"
-source = "git+https://github.com/fluencelabs/fce?branch=master#05473672a15d368802cc525c6290eee11b7907ed"
+source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1263,7 +1264,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.5"
-source = "git+https://github.com/fluencelabs/fce?branch=master#05473672a15d368802cc525c6290eee11b7907ed"
+source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1272,7 +1273,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.7"
-source = "git+https://github.com/fluencelabs/fce?branch=master#05473672a15d368802cc525c6290eee11b7907ed"
+source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1319,7 +1320,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.9"
-source = "git+https://github.com/fluencelabs/fce?branch=master#05473672a15d368802cc525c6290eee11b7907ed"
+source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1357,7 +1358,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.9"
-source = "git+https://github.com/fluencelabs/fce?branch=master#05473672a15d368802cc525c6290eee11b7907ed"
+source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -2484,6 +2485,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "maplit"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
+
+[[package]]
 name = "matches"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3497,9 +3504,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.116"
+version = "1.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96fe57af81d28386a513cbc6858332abc6117cfdb5999647c6444b8f43a370a5"
+checksum = "b88fa983de7720629c9387e9f517353ed404164b1e482c970a90c1a4aaf7dc1a"
 dependencies = [
  "serde_derive",
 ]
@@ -3525,9 +3532,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.116"
+version = "1.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f630a6370fd8e457873b4bd2ffdae75408bc291ba72be773772a4c2a065d9ae8"
+checksum = "cbd1ae72adb44aab48f325a02444a5fc079349a8d804c1fc922aed3f7454c74e"
 dependencies = [
  "proc-macro2",
  "quote",
