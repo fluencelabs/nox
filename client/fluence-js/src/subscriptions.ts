@@ -18,23 +18,36 @@ import {Particle} from "./particle";
 import log from "loglevel";
 
 export class Subscriptions {
-    private subscriptions: Set<string> = new Set();
+    private subscriptions: Map<string, Particle> = new Map();
 
     constructor() {}
 
     /**
      * Subscriptions will be applied by outside message if id will be the same.
      *
-     * @param id message identificator
+     * @param particle
      * @param ttl time to live, subscription will be deleted after this time
      */
-    subscribe(id: string, ttl: number) {
+    subscribe(particle: Particle, ttl: number) {
         let _this = this;
         setTimeout(() => {
-            _this.subscriptions.delete(id)
-            log.info(`Particle with id ${id} deleted by timeout`)
+            _this.subscriptions.delete(particle.id)
+            log.info(`Particle with id ${particle.id} deleted by timeout`)
         }, ttl)
-        this.subscriptions.add(id);
+        this.subscriptions.set(particle.id, particle);
+    }
+
+    update(particle: Particle): boolean {
+        if (this.subscriptions.has(particle.id)) {
+            this.subscriptions.set(particle.id, particle);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    get(id: string): Particle | undefined {
+        return this.subscriptions.get(id)
     }
 
     hasSubscription(particle: Particle): boolean {

@@ -33,7 +33,6 @@ import {instantiateStepper, Stepper} from "./stepper";
 import log from "loglevel";
 import {Service} from "./callService";
 import {delay} from "./utils";
-import {toByteArray} from "base64-js";
 
 interface WaitingService<T> {
     promise: Promise<T>,
@@ -69,20 +68,40 @@ export class FluenceClient {
             }
             // start particle processing if queue is empty
             try {
-                let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(particle.data))
-                let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
+                // check if a particle is relevant
+                let now = Date.now();
+                if (particle.timestamp + particle.ttl < now) {
+                    console.log(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
+                } else {
+                    log.info("handle external particle: ")
+                    log.info(particle)
 
-                log.info("inner stepper outcome:");
-                log.info(stepperOutcome);
+                    // if there is no subscription yet, previous data is empty
+                    let prevData = {};
+                    let prevParticle = this.subscriptions.get(particle.id);
+                    if (prevParticle) {
+                        prevData = prevParticle.data;
+                        // update a particle in a subscription
+                        this.subscriptions.update(particle)
+                    } else {
+                        // set a particle with actual ttl
+                        this.subscriptions.subscribe(particle, particle.ttl - (now - particle.timestamp))
+                    }
+                    let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(prevData), JSON.stringify(particle.data))
+                    let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
 
-                // do nothing if there is no `next_peer_pks`
-                if (stepperOutcome.next_peer_pks.length > 0) {
-                    let newParticle: Particle = {...particle};
-                    newParticle.data = JSON.parse(stepperOutcome.data);
+                    log.info("inner stepper outcome:");
+                    log.info(stepperOutcome);
 
-                    await this.connection.sendParticle(newParticle).catch((reason) => {
-                        console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
-                    });
+                    // do nothing if there is no `next_peer_pks`
+                    if (stepperOutcome.next_peer_pks.length > 0) {
+                        let newParticle: Particle = {...particle};
+                        newParticle.data = JSON.parse(stepperOutcome.data);
+
+                        await this.connection.sendParticle(newParticle).catch((reason) => {
+                            console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
+                        });
+                    }
                 }
             } finally {
                 // get last particle from the queue
@@ -91,7 +110,7 @@ export class FluenceClient {
                 if (nextParticle) {
                     // update current particle
                     setCurrentParticleId(nextParticle.id);
-                    this.handleParticle(nextParticle)
+                    await this.handleParticle(nextParticle)
                 } else {
                     // wait for a new call (do nothing) if there is no new particle in a queue
                     setCurrentParticleId(undefined);
@@ -108,20 +127,13 @@ export class FluenceClient {
         let _this = this;
 
         return async (particle: Particle) => {
-            let now = Date.now();
             let data = particle.data;
             let error: any = data["protocol!error"]
             if (error !== undefined) {
                 log.error("error in external particle: ")
                 log.error(error)
             } else {
-                if (particle.timestamp + particle.ttl > now) {
-                    log.info("handle external particle: ")
-                    log.info(particle)
-                    await _this.handleParticle(particle);
-                } else {
-                    console.log(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
-                }
+                await _this.handleParticle(particle);
             }
         }
     }
@@ -165,7 +177,6 @@ export class FluenceClient {
 
     async sendParticle(particle: Particle): Promise<string> {
         await this.handleParticle(particle);
-        this.subscriptions.subscribe(particle.id, particle.ttl);
         return particle.id
     }
 
@@ -182,7 +193,7 @@ export class FluenceClient {
         let service = new Service(serviceName)
         registerService(service)
 
-        let promise: Promise<T> = new Promise(function(resolve, reject){
+        let promise: Promise<T> = new Promise(function(resolve){
             service.registerFunction("", (args: any[]) => {
                 resolve(func(args))
                 return {}
@@ -243,7 +254,7 @@ export class FluenceClient {
 
         let call = `(call ("${this.nodePeerIdStr}" ("add_module" "") (module_bytes module_config) void2))`
 
-        return this.requestResponse("addModule", call, "", data, (args: any[]) => {}, ttl)
+        return this.requestResponse("addModule", call, "", data, () => {}, ttl)
     }
 
     /**

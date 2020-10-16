@@ -23,7 +23,7 @@ import {getInt32Memory0, getStringFromWasm0, passStringToWasm0, WASM_VECTOR_LEN}
 import PeerId from "peer-id";
 import log from "loglevel";
 
-export type Stepper = (init_user_id: string, script: string, data: string) => string
+export type Stepper = (init_user_id: string, script: string, prev_data: string, data: string) => string
 
 export async function instantiateStepper(pid: PeerId): Promise<Stepper> {
     // Fetch our Wasm File
@@ -78,8 +78,8 @@ export async function instantiateStepper(pid: PeerId): Promise<Stepper> {
 
     wasm.main();
 
-    let func = (init_user_id: string, script: string, data: string) => {
-        return aqua.invoke(wasm, init_user_id, script, data)
+    let func = (init_user_id: string, script: string, prev_data: string, data: string) => {
+        return aqua.invoke(wasm, init_user_id, script, prev_data, data)
     }
 
     return func
