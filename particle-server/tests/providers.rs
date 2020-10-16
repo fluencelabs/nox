@@ -15,9 +15,12 @@
  */
 
 use fluence_libp2p::RandomPeerId;
+use json_utils::into_array;
+use particle_providers::Provider;
 use test_utils::{enable_logs, make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
 
 use serde_json::json;
+use std::collections::HashSet;
 use std::thread::sleep;
 
 #[test]
@@ -91,16 +94,32 @@ fn add_providers_to_neighborhood() {
                 (call (%current_peer_id% ("neighborhood" "") (first_node) neighborhood))
                 (seq (
                     (seq (
-                        (fold (neighborhood i
-                            (par (
-                                (call (i ("add_provider" "") (key provider) void[]))
-                                (next i)
+                        (seq (
+                            (fold (neighborhood i
+                                (par (
+                                    (call (i ("add_provider" "") (key provider) void[]))
+                                    (next i)
+                                ))
+                            ))
+                            (fold (neighborhood i
+                                (par (
+                                    (call (i ("get_providers" "") (key) providers[]))
+                                    (next i)
+                                ))
                             ))
                         ))
-                        (fold (neighborhood i
-                            (par (
-                                (call (i ("get_providers" "") (key) providers[]))
-                                (next i)
+                        (seq (
+                            (fold (neighborhood i
+                                (par (
+                                    (call (i ("add_provider" "") (key2 provider2) void[]))
+                                    (next i)
+                                ))
+                            ))
+                            (fold (neighborhood i
+                                (par (
+                                    (call (i ("get_providers" "") (key2) providers[]))
+                                    (next i)
+                                ))
                             ))
                         ))
                     ))
@@ -114,17 +133,35 @@ fn add_providers_to_neighborhood() {
         client2.node, client2.peer_id
     );
 
+    let provider = Provider {
+        peer: RandomPeerId::random(),
+        service_id: provider1.into(),
+    };
+    let provider2 = Provider {
+        peer: RandomPeerId::random(),
+        service_id: provider2.into(),
+    };
     client.send_particle(
         script,
         json!({
-            "provider": {"peer": RandomPeerId::random().to_string(), "service_id": provider1},
+            "provider": provider,
             "key": "folex",
-            "provider2": {"peer": RandomPeerId::random().to_string(), "service_id": provider2},
+            "provider2": provider2,
             "key2": "folex2",
             "first_node": swarms[0].0.to_string(),
         }),
     );
 
     let response = client2.receive();
-    println!("response: {:#?}", response);
+    let providers = into_array(response.data["providers"].clone().take()).expect("must be array");
+    let providers: Vec<_> = providers
+        .into_iter()
+        .flat_map(|v| into_array(v).expect("must be array"))
+        .map(|v| serde_json::from_value::<Provider>(v).expect("be provider"))
+        .collect();
+    // assert_eq!(providers.len(), 4);
+    let providers: HashSet<_> = providers.into_iter().collect();
+    assert_eq!(providers.len(), 2);
+    assert!(providers.contains(&provider));
+    assert!(providers.contains(&provider2));
 }
