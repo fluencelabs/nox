@@ -184,7 +184,7 @@ checksum = "a1fd36ffbb1fb7c834eac128ea8d0e310c5aeb635548f9d58861e1308d46e71c"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
+source = "git+https://github.com/fluencelabs/fce?branch=master#693e8cdfb1dff3e2ad868b33bf352a8d8019669d"
 dependencies = [
  "fluence-faas",
  "maplit",
@@ -1244,7 +1244,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.8"
-source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
+source = "git+https://github.com/fluencelabs/fce?branch=master#693e8cdfb1dff3e2ad868b33bf352a8d8019669d"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1264,7 +1264,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.5"
-source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
+source = "git+https://github.com/fluencelabs/fce?branch=master#693e8cdfb1dff3e2ad868b33bf352a8d8019669d"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1273,7 +1273,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.7"
-source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
+source = "git+https://github.com/fluencelabs/fce?branch=master#693e8cdfb1dff3e2ad868b33bf352a8d8019669d"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1320,7 +1320,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.9"
-source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
+source = "git+https://github.com/fluencelabs/fce?branch=master#693e8cdfb1dff3e2ad868b33bf352a8d8019669d"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1358,7 +1358,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.9"
-source = "git+https://github.com/fluencelabs/fce?branch=persist_particles#6c01fa412b79115146f73011ff64d3d0ddb024a9"
+source = "git+https://github.com/fluencelabs/fce?branch=master#693e8cdfb1dff3e2ad868b33bf352a8d8019669d"
 dependencies = [
  "cmd_lib",
  "fce",

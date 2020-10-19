@@ -39,6 +39,6 @@ num_cpus = "1.13.0"
 particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }
 json-utils = { path = "../crates/json-utils" }
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "persist_particles" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"
