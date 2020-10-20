@@ -207,8 +207,8 @@ fn test_chat() {
     let providers = resolve_service("history", &mut client);
     println!("{:#?}", providers);
 
-    let result = call_service("history", "add", r#"("author" "msg")"#, &mut client);
-    println!("history.add result: {:?}", result);
+    call_service("history", "add", r#"("author" "msg1")"#, &mut client);
+    call_service("history", "add", r#"("author" "msg2")"#, &mut client);
 
     let result = call_service("history", "get_all", "()", &mut client);
     println!("history.get_all result: {:?}", result);
