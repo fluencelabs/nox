@@ -38,7 +38,7 @@ use config_utils::to_abs_path;
 use json_utils::into_array;
 use test_utils::{enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
-use fstrings::format_f;
+use fstrings::f;
 use libp2p::PeerId;
 use particle_providers::Provider;
 use serde_json::{json, Value as JValue};
@@ -107,10 +107,9 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
 
 fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut ConnectedClient) {
     let name = bs58::encode(name).into_string();
-    let script = format_f!(
-        r#"
+    let script = f!(r#"
         (seq (
-            (call ("{node}" ("neighborhood" "") ("{name}") neighbors))
+            (call ("{client.node}" ("neighborhood" "") ("{name}") neighbors))
             (fold (neighbors n
                 (seq (
                     (call (n ("add_provider" "") ("{name}" provider) void[]))
@@ -118,8 +117,7 @@ fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut Conn
                 ))
             ))
         ))
-        "#
-    );
+        "#);
     let provider = Provider {
         peer: node,
         service_id: Some(service_id),
@@ -127,13 +125,12 @@ fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut Conn
     client.send_particle(script, json!({ "provider": provider }));
 }
 
-fn resolve_service(name: &str, node: PeerId, client: &mut ConnectedClient) -> HashSet<Provider> {
+fn resolve_service(name: &str, client: &mut ConnectedClient) -> HashSet<Provider> {
     let name = bs58::encode(name).into_string();
-    let script = format_f!(
-        r#"
+    let script = f!(r#"
         (seq (
             (seq (
-                (call ("{node}" ("neighborhood" "") ("{name}") neighbors))
+                (call ("{client.node}" ("neighborhood" "") ("{name}") neighbors))
                 (fold (neighbors n
                     (seq (
                         (call (n ("get_providers" "") ("{name}") providers[]))
@@ -146,8 +143,7 @@ fn resolve_service(name: &str, node: PeerId, client: &mut ConnectedClient) -> Ha
                 (call ("{client.peer_id}" ("identity" "") (providers) void[]))
             ))
         ))
-    "#
-    );
+    "#);
 
     client.send_particle(script, json!({}));
     let response = client.receive();
@@ -165,16 +161,24 @@ fn resolve_service(name: &str, node: PeerId, client: &mut ConnectedClient) -> Ha
     providers
 }
 
-/*fn call_service(service: &str, fname: &str, client: &mut ConnectedClient) {
-    let script = f!(
-        r#"
+#[rustfmt::skip]
+fn call_service(alias: &str, fname: &str, arg_list: &str, client: &mut ConnectedClient) -> JValue {
+    let provider = resolve_service(alias, client).into_iter().next().expect("no providers found");
+    let service_id = provider.service_id.expect("get service id");
+
+    let script = f!(r#"
+        (seq (
+            (call ("{provider.peer}" ("{service_id}" "{fname}") {arg_list} result))
             (seq (
-                (call ("{}" ("{}" "{}"))
+                (call ("{client.node}" ("identity" "") () void[]))
+                (call ("{client.peer_id}" ("identity" "") (result) void[]))
             ))
-        "#,
-        node, service, fname
-    );
-}*/
+        ))
+    "#);
+    client.send_particle(script, json!({}));
+
+    client.receive().data["result"].take()
+}
 
 fn create_history(client: &mut ConnectedClient) -> String {
     create_service(client, "history")
@@ -200,6 +204,12 @@ fn test_chat() {
     println!("{} {}", history, members);
 
     alias_service("history", client.node.clone(), history, &mut client);
-    let providers = resolve_service("history", client.node.clone(), &mut client);
+    let providers = resolve_service("history", &mut client);
     println!("{:#?}", providers);
+
+    let result = call_service("history", "add", r#"("author" "msg")"#, &mut client);
+    println!("history.add result: {:?}", result);
+
+    let result = call_service("history", "get_all", "()", &mut client);
+    println!("history.get_all result: {:?}", result);
 }
