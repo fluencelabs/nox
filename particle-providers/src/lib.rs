@@ -29,4 +29,4 @@
 
 mod providers;
 
-pub use providers::{ProviderError, ProviderRepository};
+pub use providers::{Provider, ProviderError, ProviderRepository};

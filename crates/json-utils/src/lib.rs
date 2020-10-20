@@ -36,8 +36,8 @@ pub fn into_string(v: JValue) -> Option<String> {
     None
 }
 
-pub fn into_array(v: JValue) -> Option<String> {
-    if let JValue::String(s) = v {
+pub fn into_array(v: JValue) -> Option<Vec<JValue>> {
+    if let JValue::Array(s) = v {
         return Some(s);
     }
 

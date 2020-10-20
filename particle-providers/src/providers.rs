@@ -35,11 +35,11 @@ type ProviderMapInner = HashMap<String, RwLock<HashSet<Provider>>>;
 pub struct Provider {
     #[serde(with = "peerid_serializer")]
     /// Peer id of the node that acts as a provider
-    peer: PeerId,
+    pub peer: PeerId,
     /// Optional service_id
     /// If defined, an app service is considered to be a provider
     /// If None, the whole node (i.e., `peer`) is considered to be a provider
-    service_id: Option<String>,
+    pub service_id: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -88,8 +88,6 @@ impl ProviderRepository {
         closure_opt(move |mut args| {
             let key: String = Args::next("key", &mut args)?;
             let provider: Provider = Args::next("provider", &mut args)?;
-
-            println!("add_providers {:?} {:?}", key, provider);
 
             // check if there are providers for that key
             let empty = {

@@ -384,3 +384,13 @@ pub fn test_module() -> Vec<u8> {
 pub fn now() -> u64 {
     chrono::Utc::now().timestamp() as u64
 }
+
+pub async fn timeout<F, T>(dur: Duration, f: F) -> std::result::Result<T, anyhow::Error>
+where
+    F: std::future::Future<Output = T>,
+{
+    use anyhow::Context;
+    Ok(async_std::future::timeout(dur, f)
+        .await
+        .context(format!("timed out after {:?}", dur))?)
+}

@@ -25,12 +25,14 @@ fn echo_particle() {
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
+    let data = json!({"name": "folex"});
     client.send_particle(
         format!(
-            r#"(call ("{}" ("service_id" "fn_name") () result_name))"#,
+            r#"(call ("{}" ("service_id" "fn_name") (name) result_name))"#,
             client.peer_id
         ),
-        json!({}),
+        data.clone(),
     );
-    client.receive();
+    let particle = client.receive();
+    assert_eq!(data["name"], particle.data["name"]);
 }

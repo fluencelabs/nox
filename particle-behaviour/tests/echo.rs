@@ -20,10 +20,10 @@ use particle_behaviour::{ParticleBehaviour, ParticleConfig};
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 
 use fluence_libp2p::{build_memory_transport, generate_swarm_event_type};
-use test_utils::{make_tmp_dir, now, put_aquamarine, TIMEOUT};
+use test_utils::{make_tmp_dir, now, put_aquamarine, timeout, TIMEOUT};
 use trust_graph::TrustGraph;
 
-use async_std::{future::timeout, task};
+use async_std::task;
 use futures::{
     future::FutureExt,
     select,

@@ -113,26 +113,23 @@ impl Actor {
         }
     }
 
-    fn execute(particle: Particle, mut vm: AquamarineVM, waker: Waker) -> Fut {
-        log::info!("Scheduling particle for execution {:?}", particle.id);
+    fn execute(p: Particle, mut vm: AquamarineVM, waker: Waker) -> Fut {
+        log::info!("Scheduling particle for execution {:?}", p.id);
         task::spawn_blocking(move || {
-            let args = json!({
-                "init_user_id": particle.init_peer_id.to_string(),
-                "aqua": particle.script,
-                "data": particle.data.to_string()
-            });
-            log::info!("Executing particle {}, args {:?}", particle.id, args);
-            let result = vm.call(args);
+            #[rustfmt::skip]
+            log::info!("Executing particle {}, args init_peer_id: {} script: {} data: {}", p.id, p.init_peer_id, p.script, p.data);
 
+            let result = vm.call(p.init_peer_id.to_string(), &p.script, p.data.to_string(), &p.id);
             if let Err(err) = &result {
-                log::warn!("Error executing particle {}: {:?}", particle.id, err)
+                log::warn!("Error executing particle {}: {:?}", p.id, err)
             }
 
-            log::debug!("Executed particle: {:?}", result);
+            log::debug!("Executed particle {}: {:?}", p.id, result);
+            let id = p.id.clone();
 
             let effects = match parse_outcome(result) {
                 Ok((data, targets)) => {
-                    let mut particle = particle;
+                    let mut particle = p;
                     particle.data = data;
                     targets
                         .into_iter()
@@ -144,11 +141,11 @@ impl Actor {
                 }
                 Err(err) => {
                     // Return error to the init peer id
-                    vec![protocol_error(particle, err)]
+                    vec![protocol_error(p, err)]
                 }
             };
 
-            log::debug!("Parsed result on particle");
+            log::debug!("Parsed result on particle {}", id);
 
             waker.wake();
 

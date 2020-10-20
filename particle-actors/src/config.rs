@@ -27,6 +27,8 @@ pub struct VmPoolConfig {
     pub modules_dir: PathBuf,
     /// Dir to persist info about running steppers
     pub services_dir: PathBuf,
+    /// Dir for stepper to persist particle data to merge it
+    pub particles_dir: PathBuf,
     /// Number of VMs to create
     pub pool_size: usize,
 }
@@ -44,6 +46,7 @@ impl VmPoolConfig {
             workdir: config_utils::workdir(&base_dir),
             modules_dir: config_utils::modules_dir(&base_dir),
             services_dir: config_utils::services_dir(&base_dir),
+            particles_dir: config_utils::particles_dir(&base_dir),
             pool_size,
         };
 
@@ -65,6 +68,7 @@ impl Default for VmPoolConfig {
             workdir: <_>::default(),
             modules_dir: <_>::default(),
             services_dir: <_>::default(),
+            particles_dir: <_>::default(),
             pool_size: 0,
         }
     }
