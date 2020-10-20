@@ -45,7 +45,7 @@ pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
 /// In debug, VM startup time is big, account for that
 #[cfg(debug_assertions)]
-pub static TIMEOUT: Duration = Duration::from_secs(150);
+pub static TIMEOUT: Duration = Duration::from_secs(15);
 #[cfg(not(debug_assertions))]
 pub static TIMEOUT: Duration = Duration::from_secs(150);
 
@@ -89,6 +89,7 @@ pub fn enable_logs() {
 
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
+        .filter(Some("fluence_faas"), Warn)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)

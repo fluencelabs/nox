@@ -22,21 +22,20 @@
 //      fn get_all() -> String
 //      fn get_last(last: u64) -> String
 
-// members service:
-//      members.wasm
+// user-list service:
+//      user-list.wasm
 //      sqlite.wasm
 // API:
-//      fn init()
-//      fn user_exists(user: &str) -> bool
-//      fn update_name(user: String, name: String) -> String
-//      fn update_relay(user: String, relay: String, sig: String) -> String
-//      fn get_all_users() -> String
-//      fn add_user(user: String, relay: String, sig: String, name: String) -> String
-//      fn delete_user(user: &str) -> String
+//      fn join(user: String, relay: String, sig: String, name: String) -> String
+//      fn get_users() -> Vec<User>
+//      fn change_name(user: String, name: String, signature: String) -> String
+//      fn change_relay(user: String, relay: String, sig: String, signature: String) -> String
+//      fn delete(user: String, signature: String) -> String
+//      fn is_exists(user: String) -> bool
 
 use config_utils::to_abs_path;
 use json_utils::into_array;
-use test_utils::{enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use fstrings::f;
 use libp2p::PeerId;
@@ -183,33 +182,80 @@ fn call_service(alias: &str, fname: &str, arg_list: &str, client: &mut Connected
 fn create_history(client: &mut ConnectedClient) -> String {
     create_service(client, "history")
 }
-fn create_members(client: &mut ConnectedClient) -> String {
-    create_service(client, "members")
+fn create_userlist(client: &mut ConnectedClient) -> String {
+    create_service(client, "user-list")
 }
-fn join_chat() {}
-fn send_message() {}
-fn get_history() {}
-fn get_members() {}
+fn join_chat(name: String, client: &mut ConnectedClient) {
+    let sig = &client.peer_id;
+    call_service(
+        "user-list",
+        "join",
+        f!(r#"("{client.peer_id}" "{client.node}" "{sig}" "{name}")"#).as_str(),
+        client,
+    );
+}
+
+#[rustfmt::skip]
+fn send_message(msg: &str, client: &mut ConnectedClient) {
+    let provider = resolve_service("user-list", client).into_iter().next().expect("no providers found");
+    let service_id = provider.service_id.expect("get service id");
+    
+    // user = [0]
+    // relay = [1]
+    let script = f!(r#"
+        (seq (
+            (call ("{provider.peer}" ("{service_id}" "get_users") () users))
+            (fold (users u
+                (par (
+                    (seq (
+                        (call (u.$[1] ("identity" "") () void[]))
+                        (call (u.$[0] ("receive" "") (|"{msg}"|) void[]))
+                    )) 
+                    (next u)
+                ))
+            ))
+        ))
+    "#);
+    client.send_particle(script, json!({}));
+}
 
 #[test]
 fn test_chat() {
-    enable_logs();
-
     let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let history = create_history(&mut client);
-    let members = create_members(&mut client);
-
-    println!("{} {}", history, members);
+    let userlist = create_userlist(&mut client);
 
     alias_service("history", client.node.clone(), history, &mut client);
-    let providers = resolve_service("history", &mut client);
-    println!("{:#?}", providers);
+    assert!(!resolve_service("history", &mut client).is_empty());
 
     call_service("history", "add", r#"("author" "msg1")"#, &mut client);
     call_service("history", "add", r#"("author" "msg2")"#, &mut client);
 
     let result = call_service("history", "get_all", "()", &mut client);
-    println!("history.get_all result: {:?}", result);
+
+    alias_service("user-list", client.node.clone(), userlist, &mut client);
+    assert!(!resolve_service("user-list", &mut client).is_empty());
+
+    let result = call_service(
+        "user-list",
+        "join",
+        f!(r#"("{client.peer_id}" "{client.node}" "{client.peer_id}" "folex")"#).as_str(),
+        &mut client,
+    );
+
+    let result = call_service("user-list", "get_users", "()", &mut client);
+
+    let mut clients: Vec<_> = (0..swarms.len())
+        .map(|i| ConnectedClient::connect_to(swarms[i].1.clone()).expect("connect client"))
+        .collect();
+    for (i, c) in clients.iter_mut().enumerate() {
+        join_chat(f!("vovan{i}"), c);
+    }
+    send_message(r#"hello\ vovans"#, &mut client);
+    for mut c in clients {
+        c.receive();
+        println!("received");
+    }
 }

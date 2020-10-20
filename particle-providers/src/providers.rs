@@ -47,6 +47,8 @@ pub struct Provider {
 // TODO: remove on TTL?
 // TODO: disseminate
 pub struct ProviderRepository {
+    #[allow(dead_code)]
+    /// peer id is useful for debug purposes
     peer_id: PeerId,
     providers: ProviderMap,
 }
@@ -67,6 +69,7 @@ impl<'a> From<ProviderError<'a>> for Value {
 }
 
 impl ProviderRepository {
+    /// Constructor
     pub fn new(peer_id: PeerId) -> Self {
         Self {
             peer_id,
@@ -78,10 +81,8 @@ impl ProviderRepository {
     /// takes `key` as a parameter, and returns an array of `Provider` for that key
     pub fn get_providers(&self) -> Closure {
         let provider_map = self.providers.clone();
-        let peer_id = self.peer_id.to_string();
         closure_opt(move |mut args| {
             let key: String = Args::next("key", &mut args)?;
-            println!("{} Providers: {:#?}", peer_id, provider_map);
             let provider_map = map_ref(&provider_map)?;
             let provider_set = ok_get!(provider_map.get(&key));
             let provider_set = set_ref(&provider_set, &key)?;
@@ -99,11 +100,8 @@ impl ProviderRepository {
     /// and returns nothing
     pub fn add_provider(&self) -> Closure {
         let provider_map = self.providers.clone();
-        let peer_id = self.peer_id.to_string();
         closure_opt(move |mut args| {
-            println!("{} Inserting provider", peer_id);
             let key: String = Args::next("key", &mut args)?;
-            println!("{} Inserting provider for key {}", peer_id, key);
             let provider: Provider = Args::next("provider", &mut args)?;
 
             // check if there are providers for that key
@@ -123,10 +121,6 @@ impl ProviderRepository {
             let provider_set = ok_get!(provider_map.get(&key));
             let mut provider_set = set_ref_mut(&provider_set, &key)?;
             provider_set.insert(provider);
-            println!(
-                "{} Inserted provider for key {}: {:#?}",
-                peer_id, key, provider_map
-            );
 
             Ok(None)
         })
