@@ -41,6 +41,5 @@ test-utils = { path = "../crates/test-utils" }
 json-utils = { path = "../crates/json-utils" }
 fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 fluence-libp2p = { path = "../crates/libp2p" }
-json-utils = { path = "../crates/json-utils" }
 base64 = "0.13.0"
 fstrings = "0.2.3"
