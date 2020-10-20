@@ -34,6 +34,8 @@ import log from "loglevel";
 import {Service} from "./callService";
 import {delay} from "./utils";
 
+const bs58 = require('bs58')
+
 interface WaitingService<T> {
     promise: Promise<T>,
     name: string
@@ -73,9 +75,6 @@ export class FluenceClient {
                 if (particle.timestamp + particle.ttl < now) {
                     console.log(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
                 } else {
-                    log.info("handle external particle: ")
-                    log.info(particle)
-
                     // if there is no subscription yet, previous data is empty
                     let prevData = {};
                     let prevParticle = this.subscriptions.get(particle.id);
@@ -133,6 +132,8 @@ export class FluenceClient {
                 log.error("error in external particle: ")
                 log.error(error)
             } else {
+                log.info("handle external particle: ")
+                log.info(particle)
                 await _this.handleParticle(particle);
             }
         }
@@ -226,6 +227,8 @@ export class FluenceClient {
         ))
         `
 
+        console.log(script)
+
         let particle = await build(this.selfPeerId, script, data, ttl)
         await this.sendParticle(particle);
 
@@ -252,7 +255,7 @@ export class FluenceClient {
             module_config: config
         }
 
-        let call = `(call ("${this.nodePeerIdStr}" ("add_module" "") (module_bytes module_config) void2))`
+        let call = `(call ("${this.nodePeerIdStr}" ("add_module" "") (module_bytes module_config) void[]))`
 
         return this.requestResponse("addModule", call, "", data, () => {}, ttl)
     }
@@ -303,6 +306,44 @@ export class FluenceClient {
         let call = `(call ("${this.nodePeerIdStr}" ("get_available_modules" "") () ${returnValue}))`
 
         return this.requestResponse("getBlueprints", call, returnValue, {}, (args: any[]) => args[0] as string[], ttl)
+    }
+
+    /**
+     * Add a provider to DHT network to neighborhood around a key.
+     */
+    async addProvider(key: Buffer, providerPeer: string, providerServiceId?: string, ttl?: number): Promise<void> {
+        let call = `(call ("${this.nodePeerIdStr}" ("add_provider" "") (key provider) void[]))`
+
+        key = bs58.encode(key)
+
+        let provider = {
+            peer: providerPeer,
+            service_id: providerServiceId
+        }
+
+        return this.requestResponse("addProvider", call, "", {key, provider}, () => {}, ttl)
+    }
+
+    /**
+     * Get a provider from DHT network from neighborhood around a key..
+     */
+    async getProviders(key: Buffer, ttl?: number): Promise<any> {
+        key = bs58.encode(key)
+
+        let returnValue = "providers"
+        let call = `(call ("${this.nodePeerIdStr}" ("get_providers" "") (key) providers[]))`
+
+        return this.requestResponse("getProviders", call, returnValue, {key}, (args) => args[0], ttl)
+    }
+
+    /**
+     * Get relays neighborhood
+     */
+    async neighborhood(node: string, ttl?: number): Promise<string[]> {
+        let returnValue = "neighborhood"
+        let call = `(call ("${this.nodePeerIdStr}" ("neighborhood" "") (node) ${returnValue}))`
+
+        return this.requestResponse("neighborhood", call, returnValue, {node}, (args) => args[0] as string[], ttl)
     }
 
     /**
