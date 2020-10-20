@@ -42,10 +42,12 @@ pub struct Provider {
     pub service_id: Option<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 /// Thread-safe storage of providers
 // TODO: remove on TTL?
+// TODO: disseminate
 pub struct ProviderRepository {
+    peer_id: PeerId,
     providers: ProviderMap,
 }
 
@@ -65,16 +67,28 @@ impl<'a> From<ProviderError<'a>> for Value {
 }
 
 impl ProviderRepository {
+    pub fn new(peer_id: PeerId) -> Self {
+        Self {
+            peer_id,
+            providers: Arc::new(Default::default()),
+        }
+    }
+
     /// Creates a closure that
     /// takes `key` as a parameter, and returns an array of `Provider` for that key
     pub fn get_providers(&self) -> Closure {
         let provider_map = self.providers.clone();
+        let peer_id = self.peer_id.to_string();
         closure_opt(move |mut args| {
             let key: String = Args::next("key", &mut args)?;
+            println!("{} Providers: {:#?}", peer_id, provider_map);
             let provider_map = map_ref(&provider_map)?;
             let provider_set = ok_get!(provider_map.get(&key));
             let provider_set = set_ref(&provider_set, &key)?;
 
+            if provider_set.is_empty() {
+                return Ok(None);
+            }
             let provider_set = json!(provider_set.deref());
             Ok(Some(provider_set))
         })
@@ -85,8 +99,11 @@ impl ProviderRepository {
     /// and returns nothing
     pub fn add_provider(&self) -> Closure {
         let provider_map = self.providers.clone();
+        let peer_id = self.peer_id.to_string();
         closure_opt(move |mut args| {
+            println!("{} Inserting provider", peer_id);
             let key: String = Args::next("key", &mut args)?;
+            println!("{} Inserting provider for key {}", peer_id, key);
             let provider: Provider = Args::next("provider", &mut args)?;
 
             // check if there are providers for that key
@@ -106,6 +123,10 @@ impl ProviderRepository {
             let provider_set = ok_get!(provider_map.get(&key));
             let mut provider_set = set_ref_mut(&provider_set, &key)?;
             provider_set.insert(provider);
+            println!(
+                "{} Inserted provider for key {}: {:#?}",
+                peer_id, key, provider_map
+            );
 
             Ok(None)
         })

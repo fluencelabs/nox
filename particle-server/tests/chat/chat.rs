@@ -35,12 +35,14 @@
 //      fn delete_user(user: &str) -> String
 
 use config_utils::to_abs_path;
-use test_utils::{enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
 use json_utils::into_array;
+use test_utils::{enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
-use fstrings::f;
+use fstrings::format_f;
 use libp2p::PeerId;
+use particle_providers::Provider;
 use serde_json::{json, Value as JValue};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::thread::sleep;
 
@@ -103,41 +105,64 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
         .to_string()
 }
 
-fn alias_service(name: &str, node: &PeerId, service_id: String, client: &mut ConnectedClient) {
+fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut ConnectedClient) {
     let name = bs58::encode(name).into_string();
-    let script = f!(r#"
+    let script = format_f!(
+        r#"
         (seq (
-            (seq (
-                (call ("{node}" ("neighborhood" "") ("{service_id}") neighbors))
-                (fold (neighbors n
-                    (call (n ("add_provider" "") ("{name}") void[]))
+            (call ("{node}" ("neighborhood" "") ("{name}") neighbors))
+            (fold (neighbors n
+                (seq (
+                    (call (n ("add_provider" "") ("{name}" provider) void[]))
+                    (next n)
                 ))
             ))
-            (call ("{client.peer_id}" ("identity" "") () void[]))
         ))
-    "#);
-    client.send_particle(script, json!({}));
+        "#
+    );
+    let provider = Provider {
+        peer: node,
+        service_id: Some(service_id),
+    };
+    client.send_particle(script, json!({ "provider": provider }));
 }
 
-fn resolve_service(name: &str, node: &PeerId, client: &mut ConnectedClient) -> Vec<Provider> {
+fn resolve_service(name: &str, node: PeerId, client: &mut ConnectedClient) -> HashSet<Provider> {
     let name = bs58::encode(name).into_string();
-    let script = f!(r#"
+    let script = format_f!(
+        r#"
         (seq (
             (seq (
-                (call ("{node}" ("neighborhood" "") ("{service_id}") neighbors))
+                (call ("{node}" ("neighborhood" "") ("{name}") neighbors))
                 (fold (neighbors n
-                    (call (n ("get_providers" "") ("{name}") providers[]))
+                    (seq (
+                        (call (n ("get_providers" "") ("{name}") providers[]))
+                        (next n)
+                    ))
                 ))
             ))
-            (call ("{client.peer_id}" ("identity" "") (providers) void[]))
+            (seq (
+                (call ("{client.node}" ("identity" "") () void[]))
+                (call ("{client.peer_id}" ("identity" "") (providers) void[]))
+            ))
         ))
-    "#);
+    "#
+    );
 
     client.send_particle(script, json!({}));
     let response = client.receive();
     let providers = into_array(response.data["providers"].clone())
         .expect("missing providers")
-        .into_iter().map(|p| );
+        .into_iter()
+        .filter_map(|p| {
+            let p = into_array(p)?[0].clone();
+            serde_json::from_value::<Provider>(p.clone())
+                .expect(format!("deserialize provider: {:#?}", p).as_str())
+                .into()
+        })
+        .collect();
+
+    providers
 }
 
 /*fn call_service(service: &str, fname: &str, client: &mut ConnectedClient) {
@@ -166,14 +191,15 @@ fn get_members() {}
 fn test_chat() {
     enable_logs();
 
-    let swarms = make_swarms(3);
+    let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
-    let client = &mut client;
-    let history = create_history(client);
-    let members = create_members(client);
+    let history = create_history(&mut client);
+    let members = create_members(&mut client);
 
     println!("{} {}", history, members);
 
-    alias_service("history", &client.node, history, client);
+    alias_service("history", client.node.clone(), history, &mut client);
+    let providers = resolve_service("history", client.node.clone(), &mut client);
+    println!("{:#?}", providers);
 }

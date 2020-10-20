@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#[macro_use]
+extern crate fstrings;
+
 mod chat {
     mod chat;
 }

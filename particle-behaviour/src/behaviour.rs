@@ -62,7 +62,7 @@ impl ParticleBehaviour {
     ) -> io::Result<Self> {
         let services = ParticleAppServices::new(config.services_config()?);
         let mailbox = Mailbox::new();
-        let providers = ProviderRepository::default();
+        let providers = ProviderRepository::new(config.current_peer_id.clone());
         let closures = HostClosures {
             add_provider: providers.add_provider(),
             get_providers: providers.get_providers(),
