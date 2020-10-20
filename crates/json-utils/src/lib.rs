@@ -36,6 +36,14 @@ pub fn into_string(v: JValue) -> Option<String> {
     None
 }
 
+pub fn into_array(v: JValue) -> Option<String> {
+    if let JValue::String(s) = v {
+        return Some(s);
+    }
+
+    None
+}
+
 /// Converts an error into IValue::String
 pub fn err_as_value<E: Debug>(err: E) -> JValue {
     JValue::String(format!("Error: {:?}", err))
