@@ -182,7 +182,7 @@ export class FluenceClient {
     }
 
     nodeIdentityCall(): string {
-        return `(call ("${this.nodePeerIdStr}" ("identity" "") () void0))`
+        return `(call ("${this.nodePeerIdStr}" ("identity" "") () void[]))`
     }
 
     /**
@@ -211,18 +211,27 @@ export class FluenceClient {
         }
     }
 
-    async requestResponse<T>(name: string, call: string, returnValue: string, data: any, handleResponse: (args: any[]) => T, ttl?: number): Promise<T> {
+    async requestResponse<T>(name: string, call: (nodeId: string) => string, returnValue: string, data: any, handleResponse: (args: any[]) => T, nodeId?: string, ttl?: number): Promise<T> {
         if (!ttl) {
             ttl = 10000
         }
+
+        if (!nodeId) {
+            nodeId = this.nodePeerIdStr
+        }
+
+        let serviceCall = call(nodeId)
 
         let waitingService = this.waitService(name, handleResponse, ttl)
 
         let script = `(seq (
             ${this.nodeIdentityCall()}
-            (seq (           
-                ${call}
-                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") (${returnValue}) void1))
+            (seq ( 
+                (seq (          
+                    ${serviceCall}
+                    ${this.nodeIdentityCall()}
+                ))
+                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") (${returnValue}) void[]))
             ))
         ))
         `
@@ -238,7 +247,7 @@ export class FluenceClient {
     /**
      * Send a script to add module to a relay. Waiting for a response from a relay.
      */
-    async addModule(name: string, moduleBase64: string, ttl?: number): Promise<void> {
+    async addModule(name: string, moduleBase64: string, nodeId?: string, ttl?: number): Promise<void> {
         let config = {
             name: name,
             mem_pages_count: 100,
@@ -255,64 +264,64 @@ export class FluenceClient {
             module_config: config
         }
 
-        let call = `(call ("${this.nodePeerIdStr}" ("add_module" "") (module_bytes module_config) void[]))`
+        let call = (nodeId: string) => `(call ("${nodeId}" ("add_module" "") (module_bytes module_config) void[]))`
 
-        return this.requestResponse("addModule", call, "", data, () => {}, ttl)
+        return this.requestResponse("addModule", call, "", data, () => {}, nodeId, ttl)
     }
 
     /**
      * Send a script to add module to a relay. Waiting for a response from a relay.
      */
-    async addBlueprint(name: string, dependencies: string[], ttl?: number): Promise<string> {
+    async addBlueprint(name: string, dependencies: string[], nodeId?: string, ttl?: number): Promise<string> {
         let returnValue = "blueprint_id";
-        let call = `(call ("${this.nodePeerIdStr}" ("add_blueprint" "") (blueprint) ${returnValue}))`
+        let call = (nodeId: string) => `(call ("${nodeId}" ("add_blueprint" "") (blueprint) ${returnValue}))`
 
         let data = {
             blueprint: { name: name, dependencies: dependencies }
         }
 
-        return this.requestResponse("addBlueprint", call, returnValue, data, (args: any[]) => args[0] as string, ttl)
+        return this.requestResponse("addBlueprint", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
     }
 
     /**
      * Send a script to create a service to a relay. Waiting for a response from a relay.
      */
-    async createService(blueprintId: string, ttl?: number): Promise<string> {
+    async createService(blueprintId: string, nodeId?: string, ttl?: number): Promise<string> {
         let returnValue = "service_id";
-        let call = `(call ("${this.nodePeerIdStr}" ("create" "") (blueprint_id) ${returnValue}))`
+        let call = (nodeId: string) => `(call ("${nodeId}" ("create" "") (blueprint_id) ${returnValue}))`
 
         let data = {
             blueprint_id: blueprintId
         }
 
-        return this.requestResponse("createService", call, returnValue, data, (args: any[]) => args[0] as string, ttl)
+        return this.requestResponse("createService", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
     }
 
     /**
      * Get all available modules hosted on a connected relay.
      */
-    async getAvailableModules(ttl?: number): Promise<string[]> {
+    async getAvailableModules(nodeId?: string, ttl?: number): Promise<string[]> {
         let returnValue = "modules";
-        let call = `(call ("${this.nodePeerIdStr}" ("get_available_modules" "") () ${returnValue}))`
+        let call = (nodeId: string) => `(call ("${nodeId}" ("get_available_modules" "") () ${returnValue}))`
 
-        return this.requestResponse("getAvailableModules", call, returnValue, {}, (args: any[]) => args[0] as string[], ttl)
+        return this.requestResponse("getAvailableModules", call, returnValue, {}, (args: any[]) => args[0] as string[], nodeId, ttl)
     }
 
     /**
      * Get all available blueprints hosted on a connected relay.
      */
-    async getBlueprints(ttl?: number): Promise<string[]> {
+    async getBlueprints(nodeId: string, ttl?: number): Promise<string[]> {
         let returnValue = "blueprints";
-        let call = `(call ("${this.nodePeerIdStr}" ("get_available_modules" "") () ${returnValue}))`
+        let call = (nodeId: string) => `(call ("${nodeId}" ("get_available_modules" "") () ${returnValue}))`
 
-        return this.requestResponse("getBlueprints", call, returnValue, {}, (args: any[]) => args[0] as string[], ttl)
+        return this.requestResponse("getBlueprints", call, returnValue, {}, (args: any[]) => args[0] as string[], nodeId, ttl)
     }
 
     /**
      * Add a provider to DHT network to neighborhood around a key.
      */
-    async addProvider(key: Buffer, providerPeer: string, providerServiceId?: string, ttl?: number): Promise<void> {
-        let call = `(call ("${this.nodePeerIdStr}" ("add_provider" "") (key provider) void[]))`
+    async addProvider(key: Buffer, providerPeer: string, providerServiceId?: string, nodeId?: string, ttl?: number): Promise<void> {
+        let call = (nodeId: string) => `(call ("${nodeId}" ("add_provider" "") (key provider) void[]))`
 
         key = bs58.encode(key)
 
@@ -321,19 +330,19 @@ export class FluenceClient {
             service_id: providerServiceId
         }
 
-        return this.requestResponse("addProvider", call, "", {key, provider}, () => {}, ttl)
+        return this.requestResponse("addProvider", call, "", {key, provider}, () => {}, nodeId, ttl)
     }
 
     /**
      * Get a provider from DHT network from neighborhood around a key..
      */
-    async getProviders(key: Buffer, ttl?: number): Promise<any> {
+    async getProviders(key: Buffer, nodeId?: string, ttl?: number): Promise<any> {
         key = bs58.encode(key)
 
         let returnValue = "providers"
-        let call = `(call ("${this.nodePeerIdStr}" ("get_providers" "") (key) providers[]))`
+        let call = (nodeId: string) => `(call ("${nodeId}" ("get_providers" "") (key) providers[]))`
 
-        return this.requestResponse("getProviders", call, returnValue, {key}, (args) => args[0], ttl)
+        return this.requestResponse("getProviders", call, returnValue, {key}, (args) => args[0], nodeId, ttl)
     }
 
     /**
@@ -341,18 +350,18 @@ export class FluenceClient {
      */
     async neighborhood(node: string, ttl?: number): Promise<string[]> {
         let returnValue = "neighborhood"
-        let call = `(call ("${this.nodePeerIdStr}" ("neighborhood" "") (node) ${returnValue}))`
+        let call = (nodeId: string) => `(call ("${nodeId}" ("neighborhood" "") (node) ${returnValue}))`
 
-        return this.requestResponse("neighborhood", call, returnValue, {node}, (args) => args[0] as string[], ttl)
+        return this.requestResponse("neighborhood", call, returnValue, {node}, (args) => args[0] as string[], node, ttl)
     }
 
     /**
      * Call relays 'identity' method. It should return passed 'fields'
      */
-    async relayIdentity(fields: string[], data: any, ttl?: number): Promise<any> {
+    async relayIdentity(fields: string[], data: any, nodeId?: string, ttl?: number): Promise<any> {
         let returnValue = "id";
-        let call = `(call ("${this.nodePeerIdStr}" ("identity" "") (${fields.join(" ")}) ${returnValue}))`
+        let call = (nodeId: string) => `(call ("${nodeId}" ("identity" "") (${fields.join(" ")}) ${returnValue}))`
 
-        return this.requestResponse("getIdentity", call, returnValue, data, (args: any[]) => args[0], ttl)
+        return this.requestResponse("getIdentity", call, returnValue, data, (args: any[]) => args[0], nodeId, ttl)
     }
 }
