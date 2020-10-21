@@ -3910,6 +3910,7 @@ dependencies = [
  "env_logger",
  "fluence-client",
  "fluence-libp2p",
+ "fstrings",
  "futures",
  "futures-util",
  "libp2p",
