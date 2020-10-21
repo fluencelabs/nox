@@ -73,7 +73,7 @@ export class FluenceClient {
                 // check if a particle is relevant
                 let now = Date.now();
                 if (particle.timestamp + particle.ttl < now) {
-                    console.log(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
+                    log.info(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
                 } else {
                     // if there is no subscription yet, previous data is empty
                     let prevData = {};
@@ -235,8 +235,6 @@ export class FluenceClient {
             ))
         ))
         `
-
-        console.log(script)
 
         let particle = await build(this.selfPeerId, script, data, ttl)
         await this.sendParticle(particle);

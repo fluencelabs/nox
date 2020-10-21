@@ -65,17 +65,9 @@ async function testProviders() {
 
     let client = await Fluence.connect("/ip4/134.209.186.43/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", pid);
 
-
-    let n = await client.neighborhood("12D3KooWGGv3ZkcbxNtM7jPzrtgxprd2Ws4zm9z1JkNSUwUgyaUN")
-    console.log(n)
-
     let randomPid = (await Fluence.generatePeerId()).toB58String();
 
-    console.log("aaaaaa")
-
     await client.addProvider(Buffer.from(randomPid, 'utf8'), "12D3KooWCKCeqLPSgMnDjyFsJuWqREDtKNHx1JEBiwaMXhCLNTRb", "123", "12D3KooWGGv3ZkcbxNtM7jPzrtgxprd2Ws4zm9z1JkNSUwUgyaUN")
-
-    console.log("bbbbbb")
 
     let ap = await client.getProviders(Buffer.from(randomPid, 'utf8'), "12D3KooWGGv3ZkcbxNtM7jPzrtgxprd2Ws4zm9z1JkNSUwUgyaUN")
     console.log(ap)
