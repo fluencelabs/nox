@@ -45,14 +45,14 @@ pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
 /// In debug, VM startup time is big, account for that
 #[cfg(debug_assertions)]
-pub static TIMEOUT: Duration = Duration::from_secs(15);
-#[cfg(not(debug_assertions))]
 pub static TIMEOUT: Duration = Duration::from_secs(150);
+#[cfg(not(debug_assertions))]
+pub static TIMEOUT: Duration = Duration::from_secs(15);
 
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-const AQUAMARINE: &str = "aquamarine.wasm";
+const AQUAMARINE: &str = "aquamarine_join.wasm";
 const TEST_MODULE: &str = "greeting.wasm";
 
 pub fn uuid() -> String {
@@ -369,7 +369,7 @@ pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
 
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
 
-    let tmp = to_abs_path(tmp.join(AQUAMARINE));
+    let tmp = to_abs_path(tmp.join("aquamarine.wasm"));
     std::fs::write(&tmp, aquamarine)
         .expect(format!("fs::write aquamarine.wasm to {:?}", tmp).as_str())
 }

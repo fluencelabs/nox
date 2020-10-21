@@ -139,7 +139,8 @@ fn add_providers_to_neighborhood() {
     );
 
     let response = client2.receive();
-    let providers = into_array(response.data["providers"].clone().take()).expect("must be array");
+    let providers = into_array(response.data["providers"].clone().take())
+        .expect(format!("providers must be array, data was {:#?}", response.data).as_str());
     let providers: Vec<_> = providers
         .into_iter()
         .flat_map(|v| into_array(v).expect("must be array"))
