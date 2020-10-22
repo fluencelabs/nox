@@ -11,3 +11,4 @@ webpack.config.js
 
 bundle
 pkg
+wasmBs64.ts
