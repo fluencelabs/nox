@@ -35,7 +35,7 @@
 
 use config_utils::to_abs_path;
 use json_utils::into_array;
-use test_utils::{make_swarms, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use fstrings::f;
 use libp2p::core::Multiaddr;
@@ -46,7 +46,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread::sleep;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 fn load_module(name: &str) -> Vec<u8> {
     let module = to_abs_path(PathBuf::from("tests/chat/").join(name));
@@ -102,7 +102,7 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
     client.send_particle(script, data);
     let response = client.receive();
 
-    println!("create_service took {:?}", now.elapsed());
+    log::info!("create_service took {:?}", now.elapsed());
 
     response.data["service_id"]
         .as_str()
@@ -228,12 +228,14 @@ fn send_message(msg: &str, client: &mut ConnectedClient) {
 fn connect_swarms(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
     let swarms = make_swarms(node_count);
     sleep(KAD_TIMEOUT);
+    sleep(Duration::from_secs(3));
 
     move |i| ConnectedClient::connect_to(swarms[i].1.clone()).expect("connect client")
 }
 
 fn connect_real(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
     let nodes = vec![
+        /* STAGE
         "/ip4/134.209.186.43/tcp/7001",
         "/ip4/134.209.186.43/tcp/7002",
         "/ip4/134.209.186.43/tcp/7003",
@@ -241,6 +243,16 @@ fn connect_real(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
         "/ip4/134.209.186.43/tcp/7005",
         "/ip4/134.209.186.43/tcp/7770",
         "/ip4/134.209.186.43/tcp/7100",
+        */
+
+        /* DEV */
+        "/ip4/165.227.164.3/tcp/7001",
+        "/ip4/165.227.164.3/tcp/7002",
+        "/ip4/165.227.164.3/tcp/7003",
+        "/ip4/165.227.164.3/tcp/7004",
+        "/ip4/165.227.164.3/tcp/7005",
+        "/ip4/165.227.164.3/tcp/7770",
+        "/ip4/165.227.164.3/tcp/7100",
     ]
     .into_iter()
     .map(|addr| Multiaddr::from_str(addr).expect("valid multiaddr"))
@@ -253,12 +265,11 @@ fn connect_real(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
 
 #[test]
 fn test_chat() {
-    let node_count = 5;
-    /*let swarms = make_swarms(node_count);
-    sleep(KAD_TIMEOUT);
-    let connect = |i| ConnectedClient::connect_to(swarms[i].1.clone()).expect("connect client");*/
+    enable_logs();
 
-    let connect = connect_real(node_count);
+    let node_count = 5;
+
+    let connect = connect_swarms(node_count);
     let mut client = connect(0);
 
     let history = create_history(&mut client);
@@ -275,21 +286,20 @@ fn test_chat() {
     alias_service("user-list", client.node.clone(), userlist, &mut client);
     assert!(!resolve_service("user-list", &mut client).is_empty());
 
-    let result = call_service(
-        "user-list",
-        "join",
-        f!(r#"("{client.peer_id}" "{client.node}" "{client.peer_id}" "folex")"#).as_str(),
-        &mut client,
-    );
-
+    join_chat("folex".to_string(), &mut client);
     let result = call_service("user-list", "get_users", "()", &mut client);
+    println!("get_users result: {:#?}", result);
 
     let mut clients: Vec<_> = (0..node_count).map(|i| connect(i)).collect();
     for (i, c) in clients.iter_mut().enumerate() {
         join_chat(f!("vovan{i}"), c);
     }
+
+    let result = call_service("user-list", "get_users", "()", &mut client);
+    println!("get_users result: {:#?}", result);
+
     send_message(r#"hello\ vovans"#, &mut client);
-    for mut c in clients {
+    for mut c in clients.iter_mut() {
         c.receive();
         println!("received");
     }

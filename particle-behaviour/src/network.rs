@@ -63,7 +63,7 @@ impl NetworkBehaviour for ParticleBehaviour {
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        log::info!("New client connected: {}", peer_id);
+        log::debug!("New client connected: {}", peer_id);
         self.dht.connected(peer_id.clone());
         self.dht.inject_connected(peer_id);
         self.dht.publish_client(peer_id.clone());
@@ -88,7 +88,8 @@ impl NetworkBehaviour for ParticleBehaviour {
             First(event) => match event {
                 ProtocolMessage::Particle(particle) => {
                     log::info!("Ingesting particle {:?}", particle);
-                    self.plumber.ingest(particle)
+                    self.plumber.ingest(particle);
+                    self.wake();
                 }
                 ProtocolMessage::Upgrade => {}
                 ProtocolMessage::UpgradeError(err) => log::warn!("UpgradeError: {:?}", err),

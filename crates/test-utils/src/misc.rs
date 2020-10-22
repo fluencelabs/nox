@@ -88,6 +88,7 @@ pub fn enable_logs() {
     use log::LevelFilter::*;
 
     env_logger::builder()
+        .format_timestamp_millis()
         .filter_level(log::LevelFilter::Debug)
         .filter(Some("fluence_faas"), Warn)
         .filter(Some("yamux::connection::stream"), Info)
