@@ -153,7 +153,7 @@ fn resolve_service(name: &str, client: &mut ConnectedClient) -> HashSet<Provider
     client.send_particle(script, json!({}));
     let response = client.receive();
     let providers = into_array(response.data["providers"].clone())
-        .expect("missing providers")
+        .expect(format!("missing providers: {:#?}", response.data).as_str())
         .into_iter()
         .filter_map(|p| {
             let p = into_array(p)?[0].clone();
@@ -201,16 +201,31 @@ fn join_chat(name: String, client: &mut ConnectedClient) {
     );
 }
 
+fn get_users(client: &mut ConnectedClient) -> Vec<JValue> {
+    into_array(call_service(
+        "user-list",
+        "get_users",
+        f!(r"()").as_str(),
+        client,
+    ))
+    .expect("user list must be an array")
+}
+
 #[rustfmt::skip]
-fn send_message(msg: &str, client: &mut ConnectedClient) {
-    let provider = resolve_service("user-list", client).into_iter().next().expect("no providers found");
-    let service_id = provider.service_id.expect("get service id");
+fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
+    let history = resolve_service("history", client).into_iter().next().expect("no providers found");
+    let history_id = history.service_id.expect("get service id");
+    let userlist = resolve_service("user-list", client).into_iter().next().expect("no providers found");
+    let userlist_id = userlist.service_id.expect("get service id");
     
     // user = [0]
     // relay = [1]
     let script = f!(r#"
         (seq (
-            (call ("{provider.peer}" ("{service_id}" "get_users") () users))
+            (seq (
+                (call ("{history.peer}" ("{history_id}" "add") (|"{author}"| |"{msg}"|) void[]))
+                (call ("{userlist.peer}" ("{userlist_id}" "get_users") () users))
+            ))
             (fold (users u
                 (par (
                     (seq (
@@ -281,14 +296,16 @@ fn test_chat() {
     call_service("history", "add", r#"("author" "msg1")"#, &mut client);
     call_service("history", "add", r#"("author" "msg2")"#, &mut client);
 
-    let result = call_service("history", "get_all", "()", &mut client);
+    let history = call_service("history", "get_all", "()", &mut client);
+    let history = into_array(history).expect("history must be an array");
+    assert_eq!(2, history.len());
 
     alias_service("user-list", client.node.clone(), userlist, &mut client);
     assert!(!resolve_service("user-list", &mut client).is_empty());
 
-    join_chat("folex".to_string(), &mut client);
+    join_chat("кекекс".to_string(), &mut client);
     let result = call_service("user-list", "get_users", "()", &mut client);
-    println!("get_users result: {:#?}", result);
+    log::info!("get_users result: {:#?}", result);
 
     let mut clients: Vec<_> = (0..node_count).map(|i| connect(i)).collect();
     for (i, c) in clients.iter_mut().enumerate() {
@@ -296,11 +313,24 @@ fn test_chat() {
     }
 
     let result = call_service("user-list", "get_users", "()", &mut client);
-    println!("get_users result: {:#?}", result);
+    log::info!("get_users result: {:#?}", result);
 
-    send_message(r#"hello\ vovans"#, &mut client);
-    for mut c in clients.iter_mut() {
+    send_message(r#"привет\ вованы"#, r#"главный\ Вован🤡"#, &mut client);
+    client.receive();
+    for c in clients.iter_mut() {
         c.receive();
-        println!("received");
+        log::info!("received");
     }
+    let history = call_service("history", "get_all", "()", &mut client);
+    log::info!("history.get_all result: {:?}", result);
+    let history = into_array(history).expect("history must be an array");
+    assert_eq!(3, history.len());
+
+    join_chat("фолекс".to_string(), &mut client);
+    join_chat("шмолекс".to_string(), &mut client);
+    join_chat("кролекс".to_string(), &mut client);
+
+    let users = get_users(&mut client);
+    println!("users: {:#?}", users);
+    assert_eq!(1 + node_count, users.len())
 }
