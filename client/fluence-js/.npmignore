@@ -4,11 +4,9 @@ node_modules
 types
 
 src/
-aqua/
 
 tsconfig.json
 webpack.config.js
 
 bundle
 pkg
-wasmBs64.ts
