@@ -59,9 +59,9 @@ export async function instantiateStepper(pid: PeerId): Promise<Stepper> {
                 getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr0;
             }
             },
-        "host": { log_utf8_string: (arg0: any, arg1: any) => {
+        "host": { log_utf8_string: (level: any, target: any, offset: any, size: any) => {
                 try {
-                    let str = getStringFromWasm0(wasm, arg0, arg1)
+                    let str = getStringFromWasm0(wasm, offset, size)
                     log.debug(str)
                 } finally {
                 }
