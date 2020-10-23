@@ -42,6 +42,10 @@ export function registerService(service: Service) {
     services.set(service.serviceId, service)
 }
 
+export function deleteService(serviceId: string): boolean {
+    return services.delete(serviceId)
+}
+
 export function getService(serviceId: string): Service | undefined {
     return services.get(serviceId)
 }
