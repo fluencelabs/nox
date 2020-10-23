@@ -15,12 +15,12 @@
  */
 
 use super::misc::Result;
-use crate::{make_swarms, now, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
+use crate::{make_swarms, now, timeout, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
 
 use fluence_client::{Client, ClientEvent, Transport};
 use particle_protocol::Particle;
 
-use async_std::{future::timeout, task};
+use async_std::task;
 use core::ops::Deref;
 use libp2p::{core::Multiaddr, PeerId};
 use serde_json::Value as JValue;

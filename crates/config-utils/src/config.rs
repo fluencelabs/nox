@@ -33,6 +33,9 @@ pub fn modules_dir(path: &PathBuf) -> PathBuf {
 pub fn services_dir(path: &PathBuf) -> PathBuf {
     path.join("services")
 }
+pub fn particles_dir(path: &PathBuf) -> PathBuf {
+    path.join("particles")
+}
 pub fn blueprint_dir(path: &PathBuf) -> PathBuf {
     path.join("blueprint")
 }

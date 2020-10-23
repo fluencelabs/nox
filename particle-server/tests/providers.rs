@@ -15,10 +15,12 @@
  */
 
 use fluence_libp2p::RandomPeerId;
-use test_utils::{enable_logs, make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
+use json_utils::into_array;
+use particle_providers::Provider;
+use test_utils::{make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
 
 use serde_json::json;
-use std::thread::sleep;
+use std::{collections::HashSet, thread::sleep};
 
 #[test]
 fn add_providers() {
@@ -76,15 +78,14 @@ fn add_providers() {
 
 #[test]
 fn add_providers_to_neighborhood() {
-    enable_logs();
-
-    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
+    let swarms = make_swarms_with_cfg(10, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     let provider1 = uuid();
     let provider2 = uuid();
+    // TODO: add two more folds (for provider2), and this test will time out. Investigate reasons and fix.
     let script = format!(
         r#"
             (seq (
@@ -114,17 +115,39 @@ fn add_providers_to_neighborhood() {
         client2.node, client2.peer_id
     );
 
+    let provider = Provider {
+        peer: RandomPeerId::random(),
+        service_id: provider1.into(),
+    };
+    /*
+    let provider2 = Provider {
+        peer: RandomPeerId::random(),
+        service_id: provider2.into(),
+    };
+    */
     client.send_particle(
         script,
         json!({
-            "provider": {"peer": RandomPeerId::random().to_string(), "service_id": provider1},
+            "provider": provider,
             "key": "folex",
-            "provider2": {"peer": RandomPeerId::random().to_string(), "service_id": provider2},
+            /*
+            "provider2": provider2,
             "key2": "folex2",
+            */
             "first_node": swarms[0].0.to_string(),
         }),
     );
 
     let response = client2.receive();
-    println!("response: {:#?}", response);
+    let providers = into_array(response.data["providers"].clone().take()).expect("must be array");
+    let providers: Vec<_> = providers
+        .into_iter()
+        .flat_map(|v| into_array(v).expect("must be array"))
+        .map(|v| serde_json::from_value::<Provider>(v).expect("be provider"))
+        .collect();
+    // assert_eq!(providers.len(), 4);
+    let providers: HashSet<_> = providers.into_iter().collect();
+    assert_eq!(providers.len(), 1);
+    assert!(providers.contains(&provider));
+    // assert!(providers.contains(&provider2));
 }

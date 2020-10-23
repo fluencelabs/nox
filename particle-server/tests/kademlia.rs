@@ -54,6 +54,9 @@ fn neighborhood() {
         assert_contains(&swarms[1].0);
         assert_contains(&swarms[2].0);
     } else {
-        panic!("neighborhood must be array");
+        panic!(
+            "data[peers] must be an array, data was {:#?}",
+            response.data
+        );
     }
 }
