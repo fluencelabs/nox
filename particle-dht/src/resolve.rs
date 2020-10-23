@@ -103,7 +103,7 @@ impl ParticleDHT {
         if peers.is_empty() || !peers.iter().any(|p| p == &peer_id) {
             for _particle in particles {
                 let err_msg = format!(
-                    "peer {} wasn't found via closest query: {:?}",
+                    "peer {} wasn't found via closest query. Found peers {:?}",
                     peer_id,
                     peers.iter().map(|p| p.to_base58())
                 );

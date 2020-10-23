@@ -46,7 +46,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread::sleep;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 fn load_module(name: &str) -> Vec<u8> {
     let module = to_abs_path(PathBuf::from("tests/chat/").join(name));
@@ -102,7 +102,7 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
     client.send_particle(script, data);
     let response = client.receive();
 
-    println!("create_service took {:?}", now.elapsed());
+    log::info!("create_service took {:?}", now.elapsed());
 
     response.data["service_id"]
         .as_str()
@@ -153,7 +153,7 @@ fn resolve_service(name: &str, client: &mut ConnectedClient) -> HashSet<Provider
     client.send_particle(script, json!({}));
     let response = client.receive();
     let providers = into_array(response.data["providers"].clone())
-        .expect("missing providers")
+        .expect(format!("missing providers: {:#?}", response.data).as_str())
         .into_iter()
         .filter_map(|p| {
             let p = into_array(p)?[0].clone();
@@ -201,16 +201,31 @@ fn join_chat(name: String, client: &mut ConnectedClient) {
     );
 }
 
+fn get_users(client: &mut ConnectedClient) -> Vec<JValue> {
+    into_array(call_service(
+        "user-list",
+        "get_users",
+        f!(r"()").as_str(),
+        client,
+    ))
+    .expect("user list must be an array")
+}
+
 #[rustfmt::skip]
-fn send_message(msg: &str, client: &mut ConnectedClient) {
-    let provider = resolve_service("user-list", client).into_iter().next().expect("no providers found");
-    let service_id = provider.service_id.expect("get service id");
+fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
+    let history = resolve_service("history", client).into_iter().next().expect("no providers found");
+    let history_id = history.service_id.expect("get service id");
+    let userlist = resolve_service("user-list", client).into_iter().next().expect("no providers found");
+    let userlist_id = userlist.service_id.expect("get service id");
     
     // user = [0]
     // relay = [1]
     let script = f!(r#"
         (seq (
-            (call ("{provider.peer}" ("{service_id}" "get_users") () users))
+            (seq (
+                (call ("{history.peer}" ("{history_id}" "add") (|"{author}"| |"{msg}"|) void[]))
+                (call ("{userlist.peer}" ("{userlist_id}" "get_users") () users))
+            ))
             (fold (users u
                 (par (
                     (seq (
@@ -240,26 +255,38 @@ fn test_chat() {
     call_service("history", "add", r#"("author" "msg1")"#, &mut client);
     call_service("history", "add", r#"("author" "msg2")"#, &mut client);
 
-    let result = call_service("history", "get_all", "()", &mut client);
+    let history = call_service("history", "get_all", "()", &mut client);
+    let history = into_array(history).expect("history must be an array");
+    assert_eq!(2, history.len());
 
     alias_service("user-list", client.node.clone(), userlist, &mut client);
     assert!(!resolve_service("user-list", &mut client).is_empty());
 
-    let result = call_service(
-        "user-list",
-        "join",
-        f!(r#"("{client.peer_id}" "{client.node}" "{client.peer_id}" "folex")"#).as_str(),
-        &mut client,
-    );
-
+    join_chat("кекекс".to_string(), &mut client);
     let result = call_service("user-list", "get_users", "()", &mut client);
+    log::info!("get_users result: {:#?}", result);
 
     let mut clients: Vec<_> = (0..node_count).map(|i| connect(i)).collect();
     for (i, c) in clients.iter_mut().enumerate() {
         join_chat(f!("vovan{i}"), c);
     }
-    send_message(r#"hello\ vovans"#, &mut client);
-    for mut c in clients {
+
+    let result = call_service("user-list", "get_users", "()", &mut client);
+    log::info!("get_users result: {:#?}", result);
+
+    send_message(r#"привет\ вованы"#, r#"главный\ Вован🤡"#, &mut client);
+    client.receive();
+    for c in clients.iter_mut() {
         c.receive();
     }
+    let history = call_service("history", "get_all", "()", &mut client);
+    let history = into_array(history).expect("history must be an array");
+    assert_eq!(3, history.len());
+
+    join_chat("фолекс".to_string(), &mut client);
+    join_chat("шмолекс".to_string(), &mut client);
+    join_chat("кролекс".to_string(), &mut client);
+
+    let users = get_users(&mut client);
+    assert_eq!(1 + node_count, users.len())
 }

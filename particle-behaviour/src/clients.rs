@@ -29,7 +29,7 @@ impl ParticleBehaviour {
         log::debug!("Got new peer address {} -> {:?}", client, address);
 
         if let Some(addr) = self.clients.insert(client.clone(), address) {
-            log::info!("Replaced old addr {} for client {}", addr, client)
+            log::debug!("Replaced old addr {} for client {}", addr, client)
         }
     }
 

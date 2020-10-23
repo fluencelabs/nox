@@ -104,10 +104,7 @@ impl ParticleBehaviour {
     }
 
     pub(super) fn push_event(&mut self, event: SwarmEventType) {
-        if let Some(waker) = &self.waker {
-            waker.wake_by_ref();
-        }
-
+        self.wake();
         self.events.push_back(event);
     }
 
@@ -117,5 +114,11 @@ impl ParticleBehaviour {
             handler: NotifyHandler::Any,
             event: EitherOutput::First(ProtocolMessage::Particle(particle)),
         });
+    }
+
+    pub(super) fn wake(&self) {
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref();
+        }
     }
 }
