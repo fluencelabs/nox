@@ -28,7 +28,7 @@ export interface Particle {
     script: string,
     // sign upper fields
     signature: string,
-    data: object
+    data: any
 }
 
 export async function build(peerId: PeerId, script: string, data: object, ttl?: number): Promise<Particle> {

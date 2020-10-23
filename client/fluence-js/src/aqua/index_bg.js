@@ -90,10 +90,11 @@ export function getStringFromWasm0(wasm, ptr, len) {
  * @param {any} wasm
  * @param {string} init_user_id
  * @param {string} aqua
+ * @param {string} prev_data
  * @param {string} data
  * @returns {string}
  */
-export function invoke(wasm, init_user_id, aqua, data) {
+export function invoke(wasm, init_user_id, aqua, prev_data, data) {
     try {
         const retptr = wasm.__wbindgen_export_0.value - 16;
         wasm.__wbindgen_export_0.value = retptr;
@@ -101,9 +102,11 @@ export function invoke(wasm, init_user_id, aqua, data) {
         var len0 = WASM_VECTOR_LEN;
         var ptr1 = passStringToWasm0(wasm, aqua, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         var len1 = WASM_VECTOR_LEN;
-        var ptr2 = passStringToWasm0(wasm, data, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var ptr2 = passStringToWasm0(wasm, prev_data, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         var len2 = WASM_VECTOR_LEN;
-        wasm.invoke(retptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        var ptr3 = passStringToWasm0(wasm, data, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len3 = WASM_VECTOR_LEN;
+        wasm.invoke(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
         var r0 = getInt32Memory0(wasm)[retptr / 4 + 0];
         var r1 = getInt32Memory0(wasm)[retptr / 4 + 1];
         return getStringFromWasm0(wasm, r0, r1);

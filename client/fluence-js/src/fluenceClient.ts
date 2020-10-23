@@ -15,15 +15,31 @@
  */
 
 
-import {Particle} from "./particle";
+import {build, genUUID, Particle} from "./particle";
 import {StepperOutcome} from "./stepperOutcome";
 import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
-import {addParticle, getCurrentParticleId, popParticle, setCurrentParticleId} from "./globalState";
+import {
+    addParticle,
+    deleteService,
+    getCurrentParticleId,
+    popParticle,
+    registerService,
+    setCurrentParticleId
+} from "./globalState";
 import {instantiateStepper, Stepper} from "./stepper";
 import log from "loglevel";
+import {Service} from "./callService";
+import {delay} from "./utils";
+
+const bs58 = require('bs58')
+
+interface NamedPromise<T> {
+    promise: Promise<T>,
+    name: string
+}
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;
@@ -43,7 +59,7 @@ export class FluenceClient {
     /**
      * Pass a particle to a stepper and send a result to other services.
      */
-    private handleParticle(particle: Particle): void {
+    private async handleParticle(particle: Particle): Promise<void> {
 
         // if a current particle is processing, add new particle to the queue
         if (getCurrentParticleId() !== undefined) {
@@ -54,20 +70,38 @@ export class FluenceClient {
             }
             // start particle processing if queue is empty
             try {
-                let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(particle.data))
-                let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
+                // check if a particle is relevant
+                let now = Date.now();
+                let actualTtl = particle.timestamp + particle.ttl - now;
+                if (actualTtl <= 0) {
+                    log.info(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
+                } else {
+                    // if there is no subscription yet, previous data is empty
+                    let prevData = {};
+                    let prevParticle = this.subscriptions.get(particle.id);
+                    if (prevParticle) {
+                        prevData = prevParticle.data;
+                        // update a particle in a subscription
+                        this.subscriptions.update(particle)
+                    } else {
+                        // set a particle with actual ttl
+                        this.subscriptions.subscribe(particle, actualTtl)
+                    }
+                    let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(prevData), JSON.stringify(particle.data))
+                    let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
 
-                log.info("inner stepper outcome:");
-                log.info(stepperOutcome);
+                    log.info("inner stepper outcome:");
+                    log.info(stepperOutcome);
 
-                // do nothing if there is no `next_peer_pks`
-                if (stepperOutcome.next_peer_pks.length > 0) {
-                    let newParticle: Particle = {...particle};
-                    newParticle.data = JSON.parse(stepperOutcome.data);
+                    // do nothing if there is no `next_peer_pks`
+                    if (stepperOutcome.next_peer_pks.length > 0) {
+                        let newParticle: Particle = {...particle};
+                        newParticle.data = JSON.parse(stepperOutcome.data);
 
-                    this.connection.sendParticle(newParticle).catch((reason) => {
-                        console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
-                    });
+                        await this.connection.sendParticle(newParticle).catch((reason) => {
+                            console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
+                        });
+                    }
                 }
             } finally {
                 // get last particle from the queue
@@ -76,7 +110,7 @@ export class FluenceClient {
                 if (nextParticle) {
                     // update current particle
                     setCurrentParticleId(nextParticle.id);
-                    this.handleParticle(nextParticle)
+                    await this.handleParticle(nextParticle)
                 } else {
                     // wait for a new call (do nothing) if there is no new particle in a queue
                     setCurrentParticleId(undefined);
@@ -88,16 +122,20 @@ export class FluenceClient {
     /**
      * Handle incoming particle from a relay.
      */
-    private handleExternalParticle(): (particle: Particle) => void {
+    private handleExternalParticle(): (particle: Particle) => Promise<void> {
 
         let _this = this;
 
-        return (particle: Particle) => {
-            let now = Date.now();
-            if (particle.timestamp + particle.ttl > now) {
-                _this.handleParticle(particle);
+        return async (particle: Particle) => {
+            let data = particle.data;
+            let error: any = data["protocol!error"]
+            if (error !== undefined) {
+                log.error("error in external particle: ")
+                log.error(error)
             } else {
-                console.log(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
+                log.info("handle external particle: ")
+                log.info(particle)
+                await _this.handleParticle(particle);
             }
         }
     }
@@ -139,9 +177,190 @@ export class FluenceClient {
         this.connection = connection;
     }
 
-    sendParticle(particle: Particle): string {
-        this.handleParticle(particle);
-        this.subscriptions.subscribe(particle.id, particle.ttl);
+    async sendParticle(particle: Particle): Promise<string> {
+        await this.handleParticle(particle);
         return particle.id
+    }
+
+    nodeIdentityCall(): string {
+        return `(call ("${this.nodePeerIdStr}" ("identity" "") () void[]))`
+    }
+
+    /**
+     * Creates service that will wait for a response from external peers.
+     */
+    private waitService<T>(functionName: string, func: (args: any[]) => T, ttl: number): NamedPromise<T> {
+        let serviceName = `${functionName}-${genUUID()}`;
+        log.info(`Create waiting service '${serviceName}'`)
+        let service = new Service(serviceName)
+        registerService(service)
+
+        let promise: Promise<T> = new Promise(function(resolve){
+            service.registerFunction("", (args: any[]) => {
+                resolve(func(args))
+                return {}
+            })
+        })
+
+        let timeout = delay<T>(ttl, "Timeout on waiting " + serviceName)
+
+        return {
+            name: serviceName,
+            promise: Promise.race([promise, timeout]).finally(() => {
+                deleteService(serviceName)
+            })
+        }
+    }
+
+    async requestResponse<T>(name: string, call: (nodeId: string) => string, returnValue: string, data: any, handleResponse: (args: any[]) => T, nodeId?: string, ttl?: number): Promise<T> {
+        if (!ttl) {
+            ttl = 10000
+        }
+
+        if (!nodeId) {
+            nodeId = this.nodePeerIdStr
+        }
+
+        let serviceCall = call(nodeId)
+
+        let namedPromise = this.waitService(name, handleResponse, ttl)
+
+        let script = `(seq (
+            ${this.nodeIdentityCall()}
+            (seq ( 
+                (seq (          
+                    ${serviceCall}
+                    ${this.nodeIdentityCall()}
+                ))
+                (call ("${this.selfPeerIdStr}" ("${namedPromise.name}" "") (${returnValue}) void[]))
+            ))
+        ))
+        `
+
+        let particle = await build(this.selfPeerId, script, data, ttl)
+        await this.sendParticle(particle);
+
+        return namedPromise.promise
+    }
+
+    /**
+     * Send a script to add module to a relay. Waiting for a response from a relay.
+     */
+    async addModule(name: string, moduleBase64: string, nodeId?: string, ttl?: number): Promise<void> {
+        let config = {
+            name: name,
+            mem_pages_count: 100,
+            logger_enabled: true,
+            wasi: {
+                envs: {},
+                preopened_files: ["/tmp"],
+                mapped_dirs: {},
+            }
+        }
+
+        let data = {
+            module_bytes: moduleBase64,
+            module_config: config
+        }
+
+        let call = (nodeId: string) => `(call ("${nodeId}" ("add_module" "") (module_bytes module_config) void[]))`
+
+        return this.requestResponse("addModule", call, "", data, () => {}, nodeId, ttl)
+    }
+
+    /**
+     * Send a script to add module to a relay. Waiting for a response from a relay.
+     */
+    async addBlueprint(name: string, dependencies: string[], nodeId?: string, ttl?: number): Promise<string> {
+        let returnValue = "blueprint_id";
+        let call = (nodeId: string) => `(call ("${nodeId}" ("add_blueprint" "") (blueprint) ${returnValue}))`
+
+        let data = {
+            blueprint: { name: name, dependencies: dependencies }
+        }
+
+        return this.requestResponse("addBlueprint", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
+    }
+
+    /**
+     * Send a script to create a service to a relay. Waiting for a response from a relay.
+     */
+    async createService(blueprintId: string, nodeId?: string, ttl?: number): Promise<string> {
+        let returnValue = "service_id";
+        let call = (nodeId: string) => `(call ("${nodeId}" ("create" "") (blueprint_id) ${returnValue}))`
+
+        let data = {
+            blueprint_id: blueprintId
+        }
+
+        return this.requestResponse("createService", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
+    }
+
+    /**
+     * Get all available modules hosted on a connected relay.
+     */
+    async getAvailableModules(nodeId?: string, ttl?: number): Promise<string[]> {
+        let returnValue = "modules";
+        let call = (nodeId: string) => `(call ("${nodeId}" ("get_available_modules" "") () ${returnValue}))`
+
+        return this.requestResponse("getAvailableModules", call, returnValue, {}, (args: any[]) => args[0] as string[], nodeId, ttl)
+    }
+
+    /**
+     * Get all available blueprints hosted on a connected relay.
+     */
+    async getBlueprints(nodeId: string, ttl?: number): Promise<string[]> {
+        let returnValue = "blueprints";
+        let call = (nodeId: string) => `(call ("${nodeId}" ("get_available_modules" "") () ${returnValue}))`
+
+        return this.requestResponse("getBlueprints", call, returnValue, {}, (args: any[]) => args[0] as string[], nodeId, ttl)
+    }
+
+    /**
+     * Add a provider to DHT network to neighborhood around a key.
+     */
+    async addProvider(key: Buffer, providerPeer: string, providerServiceId?: string, nodeId?: string, ttl?: number): Promise<void> {
+        let call = (nodeId: string) => `(call ("${nodeId}" ("add_provider" "") (key provider) void[]))`
+
+        key = bs58.encode(key)
+
+        let provider = {
+            peer: providerPeer,
+            service_id: providerServiceId
+        }
+
+        return this.requestResponse("addProvider", call, "", {key, provider}, () => {}, nodeId, ttl)
+    }
+
+    /**
+     * Get a provider from DHT network from neighborhood around a key..
+     */
+    async getProviders(key: Buffer, nodeId?: string, ttl?: number): Promise<any> {
+        key = bs58.encode(key)
+
+        let returnValue = "providers"
+        let call = (nodeId: string) => `(call ("${nodeId}" ("get_providers" "") (key) providers[]))`
+
+        return this.requestResponse("getProviders", call, returnValue, {key}, (args) => args[0], nodeId, ttl)
+    }
+
+    /**
+     * Get relays neighborhood
+     */
+    async neighborhood(node: string, ttl?: number): Promise<string[]> {
+        let returnValue = "neighborhood"
+        let call = (nodeId: string) => `(call ("${nodeId}" ("neighborhood" "") (node) ${returnValue}))`
+
+        return this.requestResponse("neighborhood", call, returnValue, {node}, (args) => args[0] as string[], node, ttl)
+    }
+
+    /**
+     * Call relays 'identity' method. It should return passed 'fields'
+     */
+    async relayIdentity(fields: string[], data: any, nodeId?: string, ttl?: number): Promise<any> {
+        let returnValue = "id";
+        let call = (nodeId: string) => `(call ("${nodeId}" ("identity" "") (${fields.join(" ")}) ${returnValue}))`
+
+        return this.requestResponse("getIdentity", call, returnValue, data, (args: any[]) => args[0], nodeId, ttl)
     }
 }
