@@ -41,6 +41,6 @@ fstrings = "0.2.3"
 particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }
 json-utils = { path = "../crates/json-utils" }
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "log" }
 fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"
