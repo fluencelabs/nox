@@ -51,16 +51,19 @@ impl ParticleDHT {
     }
 
     // TODO: clear connected_peers on inject_listener_closed?
+    // TODO: handle waiting call (wait_peer.count > 0)
     pub fn disconnected(&mut self, peer_id: &PeerId) {
-        log::info!(
-            "Peer disconnected: {}. {} calls left waiting.",
-            peer_id,
-            self.wait_peer.count(&peer_id)
-        );
+        log::info!("Peer disconnected: {}{}", peer_id, {
+            let count = self.wait_peer.count(&peer_id);
+            if count > 0 {
+                format!(" {} calls left waiting", count)
+            } else {
+                "".to_string()
+            }
+        });
         self.connected_peers.remove(peer_id);
 
         let _waiting_calls = self.wait_peer.remove(peer_id);
-        log::error!("plz handle waiting calls");
         /*for waiting in waiting_calls.into_iter() {
             self.send_error_on_call(waiting.into(), format!("peer {} disconnected", peer_id));
         }*/

@@ -59,7 +59,7 @@ impl HostClosures {
                 return ivalue_utils::error(json!(err.to_string()));
             }
         };
-        log::info!("Host function call, service_id: {:?}", args.service_id);
+        log::info!("Host function call {:?} {}", args.service_id, args.fname);
         log::debug!("Host function call, args: {:#?}", args);
         // route
         match args.service_id.as_str() {

@@ -109,7 +109,7 @@ impl ParticleBehaviour {
     }
 
     pub(super) fn forward_particle(&mut self, target: PeerId, particle: Particle) {
-        log::info!("Forward particle {} to direct peer {}", particle.id, target);
+        log::info!("Sending {} to {} directly", particle.id, target);
         self.push_event(NetworkBehaviourAction::NotifyHandler {
             peer_id: target,
             handler: NotifyHandler::Any,
