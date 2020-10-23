@@ -87,6 +87,9 @@ impl VmPool {
             if let Poll::Ready(vm) = Pin::new(fut).poll(cx) {
                 // Remove completed future
                 self.creating_vms.remove(i);
+                if self.creating_vms.is_empty() {
+                    log::info!("All stepper VMs created.")
+                }
 
                 // Put created vm to self.vms
                 match vm {
@@ -109,16 +112,13 @@ fn create_vm(
     waker: Arc<RwLock<Option<Waker>>>,
 ) -> BoxFuture<'static, Result<AquamarineVM, AquamarineVMError>> {
     task::spawn_blocking(move || {
-        log::info!("preparing vm config");
         let config = AquamarineVMConfig {
             current_peer_id: config.current_peer_id.to_string(),
             aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
             particle_data_store: config.particles_dir,
             call_service: host_closure(),
         };
-        log::info!("creating vm");
         let vm = AquamarineVM::new(config)?;
-        log::info!("vm created");
         if let Some(waker) = waker.read().as_ref() {
             waker.wake_by_ref();
         }

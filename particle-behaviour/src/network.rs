@@ -61,7 +61,9 @@ impl NetworkBehaviour for ParticleBehaviour {
     fn inject_connected(&mut self, peer_id: &PeerId) {
         self.dht.connected(peer_id.clone());
         self.dht.inject_connected(peer_id);
-        self.dht.publish_client(peer_id.clone());
+
+        // TODO: check that peer_id belongs to client (not node), and publish it
+        //  self.dht.publish_client(peer_id.clone());
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {

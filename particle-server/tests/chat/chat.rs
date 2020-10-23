@@ -36,7 +36,7 @@
 use config_utils::to_abs_path;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{connect_swarms, ConnectedClient};
+use test_utils::{connect_swarms, enable_logs, ConnectedClient};
 
 use fstrings::f;
 use libp2p::PeerId;
@@ -234,6 +234,8 @@ fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
 
 #[test]
 fn test_chat() {
+    enable_logs();
+
     let node_count = 5;
     let connect = connect_swarms(node_count);
     let mut client = connect(0);
