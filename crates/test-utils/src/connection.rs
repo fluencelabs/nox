@@ -17,6 +17,7 @@
 use crate::{make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use libp2p::core::Multiaddr;
+use std::str::FromStr;
 use std::thread::sleep;
 
 pub fn connect_swarms(node_count: usize) -> impl Fn(usize) -> ConnectedClient {

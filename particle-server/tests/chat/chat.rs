@@ -35,18 +35,13 @@
 
 use config_utils::to_abs_path;
 use json_utils::into_array;
-use test_utils::{connect_swarms, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use particle_providers::Provider;
+use test_utils::{connect_swarms, ConnectedClient};
 
 use fstrings::f;
-use libp2p::core::Multiaddr;
 use libp2p::PeerId;
-use particle_providers::Provider;
 use serde_json::{json, Value as JValue};
-use std::collections::HashSet;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::{collections::HashSet, path::PathBuf};
 
 fn load_module(name: &str) -> Vec<u8> {
     let module = to_abs_path(PathBuf::from("tests/chat/").join(name));
@@ -71,7 +66,6 @@ fn module_config(module: &str) -> JValue {
 }
 
 fn create_service(client: &mut ConnectedClient, module: &str) -> String {
-    let now = Instant::now();
     let script = format!(
         r#"
         (seq (
@@ -101,8 +95,6 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
 
     client.send_particle(script, data);
     let response = client.receive();
-
-    log::info!("create_service took {:?}", now.elapsed());
 
     response.data["service_id"]
         .as_str()
@@ -263,16 +255,13 @@ fn test_chat() {
     assert!(!resolve_service("user-list", &mut client).is_empty());
 
     join_chat("кекекс".to_string(), &mut client);
-    let result = call_service("user-list", "get_users", "()", &mut client);
-    log::info!("get_users result: {:#?}", result);
+    assert_eq!(1, get_users(&mut client).len());
 
     let mut clients: Vec<_> = (0..node_count).map(|i| connect(i)).collect();
     for (i, c) in clients.iter_mut().enumerate() {
         join_chat(f!("vovan{i}"), c);
     }
-
-    let result = call_service("user-list", "get_users", "()", &mut client);
-    log::info!("get_users result: {:#?}", result);
+    assert_eq!(1 + node_count, get_users(&mut client).len());
 
     send_message(r#"привет\ вованы"#, r#"главный\ Вован🤡"#, &mut client);
     client.receive();
@@ -286,7 +275,5 @@ fn test_chat() {
     join_chat("фолекс".to_string(), &mut client);
     join_chat("шмолекс".to_string(), &mut client);
     join_chat("кролекс".to_string(), &mut client);
-
-    let users = get_users(&mut client);
-    assert_eq!(1 + node_count, users.len())
+    assert_eq!(1 + node_count, get_users(&mut client).len());
 }
