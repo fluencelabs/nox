@@ -114,18 +114,18 @@ impl Actor {
     }
 
     fn execute(p: Particle, mut vm: AquamarineVM, waker: Waker) -> Fut {
-        log::info!("Scheduling particle for execution {:?}", p.id);
         task::spawn_blocking(move || {
-            #[rustfmt::skip]
-            log::info!("Executing particle {}, args init_peer_id: {} script: {} data: {}", p.id, p.init_peer_id, p.script, p.data);
+            log::info!("Executing particle {}", p.id);
 
-            let result = vm.call(p.init_peer_id.to_string(), &p.script, p.data.to_string(), &p.id);
+            let result = vm.call(
+                p.init_peer_id.to_string(),
+                &p.script,
+                p.data.to_string(),
+                &p.id,
+            );
             if let Err(err) = &result {
-                log::warn!("Error executing particle {}: {:?}", p.id, err)
+                log::warn!("Error executing particle {:#?}: {:?}", p, err)
             }
-
-            log::debug!("Executed particle {}: {:?}", p.id, result);
-            let id = p.id.clone();
 
             let effects = match parse_outcome(result) {
                 Ok((data, targets)) => {
@@ -144,8 +144,6 @@ impl Actor {
                     vec![protocol_error(p, err)]
                 }
             };
-
-            log::debug!("Parsed result on particle {}", id);
 
             waker.wake();
 

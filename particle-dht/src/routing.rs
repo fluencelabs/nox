@@ -36,7 +36,7 @@ impl ParticleDHT {
         let status = self.peer_status(&to);
 
         #[rustfmt::skip]
-        log::debug!("Sending particle {} to peer {} ({:?})", particle.id, to, status);
+        log::trace!("Sending particle {} to peer {} ({:?})", particle.id, to, status);
 
         match status {
             Connected => self.send_to_connected(to, particle),

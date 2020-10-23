@@ -48,7 +48,7 @@ pub struct ParticleBehaviour {
     pub(super) mailbox: Mailbox,
     #[allow(dead_code)]
     providers: ProviderRepository,
-    pub(super) clients: HashMap<PeerId, Multiaddr>,
+    pub(super) connected_peers: HashMap<PeerId, Multiaddr>,
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
     pub(super) protocol_config: ProtocolConfig,
@@ -84,7 +84,7 @@ impl ParticleBehaviour {
             mailbox,
             providers,
             protocol_config: config.protocol_config,
-            clients: <_>::default(),
+            connected_peers: <_>::default(),
             events: <_>::default(),
             waker: <_>::default(),
         })
@@ -109,6 +109,7 @@ impl ParticleBehaviour {
     }
 
     pub(super) fn forward_particle(&mut self, target: PeerId, particle: Particle) {
+        log::info!("Forward particle {} to direct peer {}", particle.id, target);
         self.push_event(NetworkBehaviourAction::NotifyHandler {
             peer_id: target,
             handler: NotifyHandler::Any,
