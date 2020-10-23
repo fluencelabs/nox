@@ -31,11 +31,6 @@ impl ParticleDHT {
     }
 
     pub fn get_neighborhood(&mut self, key: Vec<u8>) {
-        log::info!(
-            "{} get_neighborhood {}",
-            self.config.peer_id,
-            bs58::encode(&key).into_string()
-        );
         self.kademlia.get_closest_peers(key);
     }
 

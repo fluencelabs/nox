@@ -35,7 +35,7 @@
 
 use config_utils::to_abs_path;
 use json_utils::into_array;
-use test_utils::{make_swarms, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{connect_swarms, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use fstrings::f;
 use libp2p::core::Multiaddr;
@@ -225,40 +225,10 @@ fn send_message(msg: &str, client: &mut ConnectedClient) {
     client.send_particle(script, json!({}));
 }
 
-fn connect_swarms(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
-    let swarms = make_swarms(node_count);
-    sleep(KAD_TIMEOUT);
-
-    move |i| ConnectedClient::connect_to(swarms[i].1.clone()).expect("connect client")
-}
-
-fn connect_real(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
-    let nodes = vec![
-        "/ip4/134.209.186.43/tcp/7001",
-        "/ip4/134.209.186.43/tcp/7002",
-        "/ip4/134.209.186.43/tcp/7003",
-        "/ip4/134.209.186.43/tcp/7004",
-        "/ip4/134.209.186.43/tcp/7005",
-        "/ip4/134.209.186.43/tcp/7770",
-        "/ip4/134.209.186.43/tcp/7100",
-    ]
-    .into_iter()
-    .map(|addr| Multiaddr::from_str(addr).expect("valid multiaddr"))
-    .cycle()
-    .take(node_count)
-    .collect::<Vec<_>>();
-
-    move |i| ConnectedClient::connect_to(nodes[i].clone()).expect("connect client")
-}
-
 #[test]
 fn test_chat() {
     let node_count = 5;
-    /*let swarms = make_swarms(node_count);
-    sleep(KAD_TIMEOUT);
-    let connect = |i| ConnectedClient::connect_to(swarms[i].1.clone()).expect("connect client");*/
-
-    let connect = connect_real(node_count);
+    let connect = connect_swarms(node_count);
     let mut client = connect(0);
 
     let history = create_history(&mut client);
@@ -291,6 +261,5 @@ fn test_chat() {
     send_message(r#"hello\ vovans"#, &mut client);
     for mut c in clients {
         c.receive();
-        println!("received");
     }
 }
