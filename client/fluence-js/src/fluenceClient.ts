@@ -72,7 +72,8 @@ export class FluenceClient {
             try {
                 // check if a particle is relevant
                 let now = Date.now();
-                if (particle.timestamp + particle.ttl < now) {
+                let ttl = particle.timestamp + particle.ttl - now;
+                if (ttl <= 0) {
                     log.info(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
                 } else {
                     // if there is no subscription yet, previous data is empty
@@ -84,7 +85,7 @@ export class FluenceClient {
                         this.subscriptions.update(particle)
                     } else {
                         // set a particle with actual ttl
-                        this.subscriptions.subscribe(particle, particle.ttl - (now - particle.timestamp))
+                        this.subscriptions.subscribe(particle, ttl)
                     }
                     let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(prevData), JSON.stringify(particle.data))
                     let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
