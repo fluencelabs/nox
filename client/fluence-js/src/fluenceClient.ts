@@ -36,7 +36,7 @@ import {delay} from "./utils";
 
 const bs58 = require('bs58')
 
-interface WaitingService<T> {
+interface NamedPromise<T> {
     promise: Promise<T>,
     name: string
 }
@@ -72,8 +72,8 @@ export class FluenceClient {
             try {
                 // check if a particle is relevant
                 let now = Date.now();
-                let ttl = particle.timestamp + particle.ttl - now;
-                if (ttl <= 0) {
+                let actualTtl = particle.timestamp + particle.ttl - now;
+                if (actualTtl <= 0) {
                     log.info(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
                 } else {
                     // if there is no subscription yet, previous data is empty
@@ -85,7 +85,7 @@ export class FluenceClient {
                         this.subscriptions.update(particle)
                     } else {
                         // set a particle with actual ttl
-                        this.subscriptions.subscribe(particle, ttl)
+                        this.subscriptions.subscribe(particle, actualTtl)
                     }
                     let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(prevData), JSON.stringify(particle.data))
                     let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
@@ -189,7 +189,7 @@ export class FluenceClient {
     /**
      * Creates service that will wait for a response from external peers.
      */
-    private waitService<T>(functionName: string, func: (args: any[]) => T, ttl: number): WaitingService<T> {
+    private waitService<T>(functionName: string, func: (args: any[]) => T, ttl: number): NamedPromise<T> {
         let serviceName = `${functionName}-${genUUID()}`;
         log.info(`Create waiting service '${serviceName}'`)
         let service = new Service(serviceName)
@@ -223,7 +223,7 @@ export class FluenceClient {
 
         let serviceCall = call(nodeId)
 
-        let waitingService = this.waitService(name, handleResponse, ttl)
+        let namedPromise = this.waitService(name, handleResponse, ttl)
 
         let script = `(seq (
             ${this.nodeIdentityCall()}
@@ -232,7 +232,7 @@ export class FluenceClient {
                     ${serviceCall}
                     ${this.nodeIdentityCall()}
                 ))
-                (call ("${this.selfPeerIdStr}" ("${waitingService.name}" "") (${returnValue}) void[]))
+                (call ("${this.selfPeerIdStr}" ("${namedPromise.name}" "") (${returnValue}) void[]))
             ))
         ))
         `
@@ -240,7 +240,7 @@ export class FluenceClient {
         let particle = await build(this.selfPeerId, script, data, ttl)
         await this.sendParticle(particle);
 
-        return waitingService.promise
+        return namedPromise.promise
     }
 
     /**
