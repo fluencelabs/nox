@@ -52,26 +52,23 @@ impl NetworkBehaviour for ParticleBehaviour {
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        let p = self.client_address(peer_id).cloned().into_iter();
+        let p = self.peer_address(peer_id).cloned().into_iter();
         let d = self.dht.addresses_of_peer(peer_id).into_iter();
 
-        let addrs = p.chain(d).collect();
-
-        log::debug!("Addresses of peer {}: {:?}", peer_id, addrs);
-
-        addrs
+        p.chain(d).collect()
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        log::info!("New client connected: {}", peer_id);
         self.dht.connected(peer_id.clone());
         self.dht.inject_connected(peer_id);
-        self.dht.publish_client(peer_id.clone());
+
+        // TODO: check that peer_id belongs to client (not node), and publish it
+        //  self.dht.publish_client(peer_id.clone());
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
         // TODO: self.dht.unpublish_client(peer_id)
-        self.remove_client(peer_id);
+        self.remove_peer(peer_id);
         self.dht.disconnected(peer_id);
         self.dht.inject_disconnected(peer_id);
     }
@@ -87,8 +84,8 @@ impl NetworkBehaviour for ParticleBehaviour {
         match event {
             First(event) => match event {
                 ProtocolMessage::Particle(particle) => {
-                    log::info!("Ingesting particle {:?}", particle);
-                    self.plumber.ingest(particle)
+                    self.plumber.ingest(particle);
+                    self.wake();
                 }
                 ProtocolMessage::Upgrade => {}
                 ProtocolMessage::UpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
@@ -175,7 +172,7 @@ impl NetworkBehaviour for ParticleBehaviour {
         cp: &ConnectedPoint,
     ) {
         let maddr = remote_multiaddr(cp);
-        self.add_client_address(id.clone(), maddr.clone());
+        self.add_peer(id.clone(), maddr.clone());
         self.dht.inject_connection_established(id, ci, cp);
     }
 

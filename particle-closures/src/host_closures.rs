@@ -55,11 +55,12 @@ impl HostClosures {
         let args = match Args::parse(args) {
             Ok(args) => args,
             Err(err) => {
-                log::warn!("error parsing args: {:?}", err);
+                log::warn!("host function args parse error: {:?}", err);
                 return ivalue_utils::error(json!(err.to_string()));
             }
         };
-        log::info!("Router args: {:?}", args);
+        log::info!("Host function call {:?} {}", args.service_id, args.fname);
+        log::debug!("Host function call, args: {:#?}", args);
         // route
         match args.service_id.as_str() {
             "create" => (self.create_service)(args),

@@ -47,12 +47,12 @@ pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 #[cfg(debug_assertions)]
 pub static TIMEOUT: Duration = Duration::from_secs(150);
 #[cfg(not(debug_assertions))]
-pub static TIMEOUT: Duration = Duration::from_secs(150);
+pub static TIMEOUT: Duration = Duration::from_secs(15);
 
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-const AQUAMARINE: &str = "aquamarine.wasm";
+const AQUAMARINE: &str = "aquamarine_join.wasm";
 const TEST_MODULE: &str = "greeting.wasm";
 
 pub fn uuid() -> String {
@@ -88,7 +88,9 @@ pub fn enable_logs() {
     use log::LevelFilter::*;
 
     env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
+        .format_timestamp_millis()
+        .filter_level(log::LevelFilter::Info)
+        .filter(Some("fluence_faas"), Warn)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)
@@ -101,8 +103,8 @@ pub fn enable_logs() {
         .filter(Some("libp2p_websocket::framed"), Info)
         .filter(Some("libp2p_ping"), Info)
         .filter(Some("libp2p_core::upgrade::apply"), Info)
-        .filter(Some("libp2p_kad::kbucket"), Warn)
-        .filter(Some("libp2p_kad"), Warn)
+        .filter(Some("libp2p_kad::kbucket"), Info)
+        .filter(Some("libp2p_kad"), Info)
         .filter(Some("libp2p_plaintext"), Info)
         .filter(Some("libp2p_identify::protocol"), Info)
         .filter(Some("cranelift_codegen"), Info)
@@ -368,7 +370,7 @@ pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
 
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
 
-    let tmp = to_abs_path(tmp.join(AQUAMARINE));
+    let tmp = to_abs_path(tmp.join("aquamarine.wasm"));
     std::fs::write(&tmp, aquamarine)
         .expect(format!("fs::write aquamarine.wasm to {:?}", tmp).as_str())
 }

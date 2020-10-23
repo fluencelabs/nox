@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::clients::PeerKind;
+use crate::clients::ConnectionKind;
 use crate::ParticleBehaviour;
 
 use particle_actors::PlumberEvent;
@@ -29,7 +29,6 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<()> for ParticleBehaviour {
 
 impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour {
     fn inject_event(&mut self, event: DHTEvent) {
-        log::info!("DHT event: {:?}", event);
         match event {
             DHTEvent::Published(_) => {}
             DHTEvent::PublishFailed(_, _) => {}
@@ -48,12 +47,10 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<DHTEvent> for ParticleBehaviour
 
 impl libp2p::swarm::NetworkBehaviourEventProcess<PlumberEvent> for ParticleBehaviour {
     fn inject_event(&mut self, event: PlumberEvent) {
-        log::info!("Plumber event: {:?}", event);
         match event {
             PlumberEvent::Forward { target, particle } => {
-                let kind = self.peer_kind(&target);
-                log::debug!("Peer {} is {:?} for the current node", target, kind);
-                if let PeerKind::Client = kind {
+                let kind = self.connection_kind(&target);
+                if let ConnectionKind::Direct = kind {
                     self.forward_particle(target, particle);
                 } else {
                     self.dht.send_to(target, particle)

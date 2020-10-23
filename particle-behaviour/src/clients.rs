@@ -19,34 +19,33 @@ use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 
 #[derive(Debug)]
-pub(super) enum PeerKind {
-    Client,
-    Unknown,
+/// Describes how peer is connected to this node
+pub(super) enum ConnectionKind {
+    /// Peer is connected to this node directly
+    Direct,
+    /// Peer isn't connected to this node
+    Disconnected,
 }
 
 impl ParticleBehaviour {
-    pub(super) fn add_client_address(&mut self, client: PeerId, address: Multiaddr) {
-        log::debug!("Got new peer address {} -> {:?}", client, address);
-
-        if let Some(addr) = self.clients.insert(client.clone(), address) {
-            log::info!("Replaced old addr {} for client {}", addr, client)
-        }
+    pub(super) fn add_peer(&mut self, peer: PeerId, address: Multiaddr) {
+        self.connected_peers.insert(peer.clone(), address);
     }
 
-    pub(super) fn client_address(&self, client: &PeerId) -> Option<&Multiaddr> {
-        self.clients.get(client)
+    pub(super) fn peer_address(&self, peer: &PeerId) -> Option<&Multiaddr> {
+        self.connected_peers.get(peer)
     }
 
-    pub(super) fn remove_client(&mut self, client: &PeerId) {
-        self.clients.remove(client);
+    pub(super) fn remove_peer(&mut self, peer: &PeerId) {
+        self.connected_peers.remove(peer);
     }
 
     /// Returns whether peer is a directly connected client or not
-    pub(super) fn peer_kind(&self, peer: &PeerId) -> PeerKind {
-        if let Some(_) = self.clients.get(peer) {
-            PeerKind::Client
+    pub(super) fn connection_kind(&self, peer: &PeerId) -> ConnectionKind {
+        if let Some(_) = self.connected_peers.get(peer) {
+            ConnectionKind::Direct
         } else {
-            PeerKind::Unknown
+            ConnectionKind::Disconnected
         }
     }
 }

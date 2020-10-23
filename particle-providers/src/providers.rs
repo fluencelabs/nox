@@ -42,10 +42,14 @@ pub struct Provider {
     pub service_id: Option<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 /// Thread-safe storage of providers
 // TODO: remove on TTL?
+// TODO: disseminate
 pub struct ProviderRepository {
+    #[allow(dead_code)]
+    /// peer id is useful for debug purposes
+    peer_id: PeerId,
     providers: ProviderMap,
 }
 
@@ -65,6 +69,14 @@ impl<'a> From<ProviderError<'a>> for Value {
 }
 
 impl ProviderRepository {
+    /// Constructor
+    pub fn new(peer_id: PeerId) -> Self {
+        Self {
+            peer_id,
+            providers: Arc::new(Default::default()),
+        }
+    }
+
     /// Creates a closure that
     /// takes `key` as a parameter, and returns an array of `Provider` for that key
     pub fn get_providers(&self) -> Closure {
@@ -75,6 +87,9 @@ impl ProviderRepository {
             let provider_set = ok_get!(provider_map.get(&key));
             let provider_set = set_ref(&provider_set, &key)?;
 
+            if provider_set.is_empty() {
+                return Ok(None);
+            }
             let provider_set = json!(provider_set.deref());
             Ok(Some(provider_set))
         })

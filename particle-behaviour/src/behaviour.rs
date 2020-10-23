@@ -48,7 +48,7 @@ pub struct ParticleBehaviour {
     pub(super) mailbox: Mailbox,
     #[allow(dead_code)]
     providers: ProviderRepository,
-    pub(super) clients: HashMap<PeerId, Multiaddr>,
+    pub(super) connected_peers: HashMap<PeerId, Multiaddr>,
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
     pub(super) protocol_config: ProtocolConfig,
@@ -62,7 +62,7 @@ impl ParticleBehaviour {
     ) -> io::Result<Self> {
         let services = ParticleAppServices::new(config.services_config()?);
         let mailbox = Mailbox::new();
-        let providers = ProviderRepository::default();
+        let providers = ProviderRepository::new(config.current_peer_id.clone());
         let closures = HostClosures {
             add_provider: providers.add_provider(),
             get_providers: providers.get_providers(),
@@ -84,7 +84,7 @@ impl ParticleBehaviour {
             mailbox,
             providers,
             protocol_config: config.protocol_config,
-            clients: <_>::default(),
+            connected_peers: <_>::default(),
             events: <_>::default(),
             waker: <_>::default(),
         })
@@ -104,18 +104,22 @@ impl ParticleBehaviour {
     }
 
     pub(super) fn push_event(&mut self, event: SwarmEventType) {
-        if let Some(waker) = &self.waker {
-            waker.wake_by_ref();
-        }
-
+        self.wake();
         self.events.push_back(event);
     }
 
     pub(super) fn forward_particle(&mut self, target: PeerId, particle: Particle) {
+        log::info!("Sending {} to {} directly", particle.id, target);
         self.push_event(NetworkBehaviourAction::NotifyHandler {
             peer_id: target,
             handler: NotifyHandler::Any,
             event: EitherOutput::First(ProtocolMessage::Particle(particle)),
         });
+    }
+
+    pub(super) fn wake(&self) {
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref();
+        }
     }
 }

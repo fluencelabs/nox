@@ -42,9 +42,7 @@ impl ParticleAppServices {
             services: <_>::default(),
         };
 
-        log::info!("Loading & creating persisted services...");
         this.create_persisted_services();
-        log::info!("Persisted service creation finished");
 
         this
     }

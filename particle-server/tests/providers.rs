@@ -84,7 +84,6 @@ fn add_providers_to_neighborhood() {
     let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     let provider1 = uuid();
-    let provider2 = uuid();
     // TODO: add two more folds (for provider2), and this test will time out. Investigate reasons and fix.
     let script = format!(
         r#"
@@ -119,33 +118,23 @@ fn add_providers_to_neighborhood() {
         peer: RandomPeerId::random(),
         service_id: provider1.into(),
     };
-    /*
-    let provider2 = Provider {
-        peer: RandomPeerId::random(),
-        service_id: provider2.into(),
-    };
-    */
     client.send_particle(
         script,
         json!({
             "provider": provider,
             "key": "folex",
-            /*
-            "provider2": provider2,
-            "key2": "folex2",
-            */
             "first_node": swarms[0].0.to_string(),
         }),
     );
 
     let response = client2.receive();
-    let providers = into_array(response.data["providers"].clone().take()).expect("must be array");
+    let providers = into_array(response.data["providers"].clone().take())
+        .expect(format!("providers must be array, data was {:#?}", response.data).as_str());
     let providers: Vec<_> = providers
         .into_iter()
         .flat_map(|v| into_array(v).expect("must be array"))
         .map(|v| serde_json::from_value::<Provider>(v).expect("be provider"))
         .collect();
-    // assert_eq!(providers.len(), 4);
     let providers: HashSet<_> = providers.into_iter().collect();
     assert_eq!(providers.len(), 1);
     assert!(providers.contains(&provider));

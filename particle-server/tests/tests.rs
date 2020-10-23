@@ -14,32 +14,9 @@
  * limitations under the License.
  */
 
-interface Relay {
-    action: string,
-    peer_id: string,
-    data: string,
-    p_key: string,
-    signature: string
-}
+#[macro_use]
+extern crate fstrings;
 
-export function genMessage(peerId: string, data: string, p_key: string, sign: string): Relay {
-    return {
-        action: "Relay",
-        peer_id: peerId,
-        data: data,
-        p_key: p_key,
-        signature: sign
-    }
-}
-
-interface GetNetworkState {
-    action: string
-}
-
-const getNetworkState: GetNetworkState = {
-    action: "GetNetworkState"
-};
-
-export function networkStateMessage(): GetNetworkState {
-  return getNetworkState;
+mod chat {
+    mod chat;
 }

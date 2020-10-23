@@ -140,7 +140,6 @@ impl ParticleDHT {
 
     /// Run kademlia bootstrap, to advertise ourselves in Kademlia
     pub fn bootstrap(&mut self) {
-        log::info!("Bootstrapping");
         use std::borrow::Borrow;
         // NOTE: Using Qm form of `peer_id` here (via peer_id.borrow), since kademlia uses that for keys
         self.kademlia

@@ -55,7 +55,7 @@ pub fn create_vm(
             envs.insert(b"owner_id".to_vec(), owner_id.into_bytes());
         };
 
-        log::info!("Creating service {}, envs: {:?}", service_id, envs);
+        log::debug!("Creating service {}, envs: {:?}", service_id, envs);
 
         let service =
             AppService::new(modules, service_id.clone(), envs).map_err(ServiceError::Engine)?;

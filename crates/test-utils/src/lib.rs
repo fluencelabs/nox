@@ -26,7 +26,9 @@
 )]
 
 mod connected_client;
+mod connection;
 mod misc;
 
 pub use connected_client::ConnectedClient;
+pub use connection::*;
 pub use misc::*;
