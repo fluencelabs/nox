@@ -90,7 +90,7 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
-        .filter(Some("fluence_faas"), Warn)
+        .filter(Some("aquamarine"), Warn)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)
