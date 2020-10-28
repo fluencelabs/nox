@@ -52,7 +52,7 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-const AQUAMARINE: &str = "aquamarine_logger.wasm";
+const AQUAMARINE: &str = "aquamarine.wasm";
 const TEST_MODULE: &str = "greeting.wasm";
 
 pub fn uuid() -> String {
