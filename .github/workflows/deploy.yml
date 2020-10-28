@@ -1,0 +1,11 @@
+name: Deploy
+on: [workflow_dispatch]
+jobs:
+  example:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v2
+      - name: make docker
+        run: make docker
