@@ -62,7 +62,24 @@ export async function instantiateStepper(pid: PeerId): Promise<Stepper> {
         "host": { log_utf8_string: (level: any, target: any, offset: any, size: any) => {
                 try {
                     let str = getStringFromWasm0(wasm, offset, size)
-                    log.debug(str)
+
+                    switch (level) {
+                        case 1:
+                            log.error(str)
+                            break;
+                        case 2:
+                            log.warn(str)
+                            break;
+                        case 3:
+                            log.info(str)
+                            break;
+                        case 4:
+                            log.debug(str)
+                            break;
+                        case 5:
+                            log.trace(str)
+                            break;
+                    }
                 } finally {
                 }
             }
