@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms_with_cfg, test_module, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{make_particle, make_swarms_with_cfg, test_module, ConnectedClient, KAD_TIMEOUT};
 
+use maplit::hashmap;
 use serde_json::json;
 use std::thread::sleep;
 
@@ -53,16 +54,13 @@ fn create_service() {
         ))"#,
         client.peer_id
     );
-
-    client.send_particle(
-        script,
-        json!({
-            "module_bytes": base64::encode(test_module()),
-            "module_config": config,
-            "blueprint": { "name": "blueprint", "dependencies": [module] },
-        }),
-    );
-
+    let data = hashmap! {
+        "module_bytes" => json!(base64::encode(test_module())),
+        "module_config" => json!(config),
+        "blueprint" => json!({ "name": "blueprint", "dependencies": [module] }),
+    };
+    let particle = make_particle(client.peer_id.clone(), data, script);
+    client.send(particle);
     let response = client.receive();
 
     let service_id = response.data.get("service_id").unwrap().as_str().unwrap();

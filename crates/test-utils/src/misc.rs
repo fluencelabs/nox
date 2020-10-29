@@ -90,7 +90,7 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
-        .filter(Some("aquamarine"), Warn)
+        // .filter(Some("aquamarine"), Info)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)
@@ -362,9 +362,16 @@ pub fn remove_dir(dir: &PathBuf) {
     std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
 }
 
-pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
+/// Returns path to test aquamarine.wasm
+/// `file_name` allows to override default `aquamarine.wasm` to something else (i.e., `aquamarine_join.wasm`)
+pub fn aquamarine_fname(file_name: Option<String>) -> PathBuf {
     let file_name = file_name.unwrap_or(AQUAMARINE.to_string());
     let aquamarine = to_abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
+    aquamarine
+}
+
+pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
+    let aquamarine = aquamarine_fname(file_name);
     let aquamarine =
         std::fs::read(&aquamarine).expect(format!("fs::read from {:?}", aquamarine).as_str());
 

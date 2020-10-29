@@ -8,10 +8,14 @@ edition = "2018"
 fluence-client = { path = "../../client/rust-libp2p" }
 trust-graph = { path = "../../trust-graph" }
 config-utils = { path = "../config-utils" }
+ivalue-utils = { path = "../ivalue-utils" }
+host-closure = { path = "../host-closure" }
 fluence-libp2p = { path = "../libp2p" }
 particle-server = { path = "../../particle-server" }
 particle-protocol = { path = "../../particle-protocol" }
 particle-actors = { path = "../../particle-actors" }
+
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
@@ -29,3 +33,5 @@ prometheus = "0.9.0"
 chrono = "0.4.19"
 anyhow = "1.0.33"
 fstrings = "0.2.3"
+maplit = "1.0.2"
+parking_lot = "0.11.0"
