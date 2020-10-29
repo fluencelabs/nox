@@ -20,9 +20,3 @@ extern crate fstrings;
 mod chat {
     mod chat;
 }
-
-mod echo_particle;
-mod kademlia;
-mod local_vm;
-mod providers;
-mod service;

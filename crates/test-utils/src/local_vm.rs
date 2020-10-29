@@ -161,7 +161,7 @@ pub fn make_particle(
     }
 }
 
-pub fn read_args(particle: Particle, peer_id: PeerId) -> Vec<JValue> {
+pub fn read_args(particle: Particle, peer_id: &PeerId) -> Vec<JValue> {
     let data: Arc<Mutex<Vec<JValue>>> = <_>::default();
     let mut vm = make_vm(
         particle.id.clone(),
