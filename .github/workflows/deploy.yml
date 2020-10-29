@@ -1,11 +1,45 @@
+X86_TARGET: "./target/x86_64-unknown-linux-gnu/release"
+SERVER_EXE: "{{ X86_TARGET }}/particle-server"
+SERVER: "--build-arg local_exe={{ SERVER_EXE }} --build-arg exe=particle-server"
+#BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+IPFS_DOCKERFILE: "./deploy/fluence-ipfs/Dockerfile"
+IPFS_TAG: "-with-ipfs"
+
 name: Deploy
 on: [workflow_dispatch]
 jobs:
-  deploy:
-    name: Deploy
+  branch:
+    name: Get Branch Name
+    steps:
+      - name: Get Branch Name
+        run: echo "BRANCH_NAME=$(git rev-parse --abrev-ref HEAD)"
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
-      - name: Clone Repository
-        uses: actions/checkout@v2
-      - name: make docker
-        run: make docker
+      - uses: actions/checkout@v2
+#      - uses: icepuma/rust-action@master
+#        with:
+#          args: cargo update -p libp2p && cargo +nightly build --release
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: fluencelabs/fluence:${{ env.BRANCH_NAME }}
+          build-args: |
+            local_exe=./target/x86_64-unknown-linux-gnu/release/particle-server
+            exe=particle-server
+      - name: Image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}
+  deploy:
+    name: Deploy
