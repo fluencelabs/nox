@@ -29,15 +29,14 @@ def install_docker():
 def do_install_docker():
     puts("TODO: WRITE LOGGING DRIVER SETUP TO daemon.json https://docs.docker.com/config/containers/logging/json-file/")
 
-    with hide('running', 'output'):
+    with hide('running'):
         sudo("apt-get remove --yes docker docker-engine docker.io containerd runc || true")
-        puts("apt-get update")
         sudo("apt-get update")
         puts("preparing to install docker")
         sudo("apt-get install --yes haveged apt-transport-https ca-certificates curl gnupg-agent software-properties-common")
         sudo("curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -")
         sudo("apt-key fingerprint 0EBFCD88")
-        sudo("""add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" """)
+        sudo("""add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable" """)
         sudo("apt-get update")
         puts("installing docker")
         sudo("apt-get install --yes docker-ce docker-ce-cli containerd.io")

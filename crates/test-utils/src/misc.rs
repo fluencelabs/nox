@@ -52,7 +52,7 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-const AQUAMARINE: &str = "aquamarine_logger.wasm";
+const AQUAMARINE: &str = "aquamarine.wasm";
 const TEST_MODULE: &str = "greeting.wasm";
 
 pub fn uuid() -> String {
@@ -90,7 +90,7 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
-        .filter(Some("fluence_faas"), Warn)
+        .filter(Some("aquamarine"), Warn)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)
