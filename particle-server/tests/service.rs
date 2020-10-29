@@ -17,10 +17,7 @@
 #[macro_use]
 extern crate fstrings;
 
-use test_utils::{
-    enable_logs, make_particle, make_swarms_with_cfg, read_args, test_module, ConnectedClient,
-    KAD_TIMEOUT,
-};
+use test_utils::{make_swarms_with_cfg, test_module, ConnectedClient, KAD_TIMEOUT};
 
 use fstrings::f;
 use maplit::hashmap;
@@ -65,27 +62,22 @@ fn create_service() {
         "module_config" => json!(config),
         "blueprint" => json!({ "name": "blueprint", "dependencies": [module] }),
     };
-    let particle = make_particle(client.peer_id.clone(), data, script);
-    client.send(particle);
-    let response = client.receive();
-    let args = read_args(response, &client.peer_id);
 
-    let service_id = args[0].as_str().expect("service_id");
+    client.send_particle(script, data);
+    let response = client.receive_args();
+
+    let service_id = response[0].as_str().expect("service_id");
     let script = f!(r#"(seq (
             (call ("{client2.node}" ("{service_id}" "greeting") (my_name) greeting))
             (call ("{client2.peer_id}" ("return" "") (greeting) void[]))
         ))"#);
-    let particle = make_particle(
-        client.peer_id.clone(),
+    client.send_particle(
+        script,
         hashmap! {
             "my_name" => json!("folex")
         },
-        script,
     );
-    client.send(particle);
 
-    let response = client2.receive();
-    let args = read_args(response, &client2.peer_id);
-
-    assert_eq!(args[0].as_str().unwrap(), "Hi, folex")
+    let response = client2.receive_args();
+    assert_eq!(response[0].as_str().unwrap(), "Hi, folex")
 }

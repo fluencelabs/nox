@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
+#[macro_use]
+extern crate fstrings;
+
 use fluence_libp2p::RandomPeerId;
-use test_utils::{enable_logs, make_particle, read_args};
+use test_utils::{make_particle, read_args};
 
 use fstrings::f;
 use maplit::hashmap;
@@ -23,13 +26,12 @@ use serde_json::json;
 
 #[test]
 fn make() {
-    enable_logs();
-
     let client_a = RandomPeerId::random();
     let client_b = RandomPeerId::random();
 
-    let script = f!(r#"(call ("{client_b}" ("return" "") (a b c) void[]))"#).to_string();
+    let script = r#"(call (client ("return" "") (a b c) void[]))"#.to_string();
     let data = hashmap! {
+        "client" => json!(client.peer_id.to_string()),
         "a" => json!("a_value"),
         "b" => json!(["b1", "b2", "b3"]),
         "c" => json!({"c1": "c1_value", "c2": "c2_value"})
@@ -37,7 +39,7 @@ fn make() {
 
     let particle = make_particle(client_a.clone(), data.clone(), script.clone());
 
-    let args = read_args(particle, client_b);
+    let args = read_args(particle, &client_b);
     assert_eq!(data["a"], args[0]);
     assert_eq!(data["b"], args[1]);
     assert_eq!(data["c"], args[2]);

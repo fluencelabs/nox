@@ -17,51 +17,57 @@
 use fluence_libp2p::RandomPeerId;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{enable_logs, make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
 
+use maplit::hashmap;
 use serde_json::json;
 use std::{collections::HashSet, thread::sleep};
 
 #[test]
 fn add_providers() {
+    enable_logs();
+
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
-    let provider1 = uuid();
-    let provider2 = uuid();
+    let provider1 = "provider1";
+    let provider2 = "provider2";
     client.send_particle(
-        format!(
-            r#"
+        r#"
+        (seq (
+            (call (node ("add_provider" "") (key provider) void[]))
+            (seq (
+                (call (node ("add_provider" "") (key2 provider2) void[]))
                 (seq (
-                    (call (%current_peer_id% ("add_provider" "") (key provider) void))
+                    (call (node ("get_providers" "") (key2) providers[]))
                     (seq (
-                        (call (%current_peer_id% ("add_provider" "") (key2 provider2) unit))
+                        (call (node ("get_providers" "") (key) providers[]))
                         (seq (
-                            (call (%current_peer_id% ("get_providers" "") (key) providers[]))
-                            (seq (
-                                (call (%current_peer_id% ("get_providers" "") (key2) providers[]))
-                                (call ("{}" ("" "") () none))
-                            ))
+                            (call (node2 ("identity" "") () void[]))
+                            (call (client2 ("return" "") (providers[]) void[]))
                         ))
                     ))
                 ))
+            ))
+        ))
         "#,
-            client2.peer_id
-        ),
-        json!({
-            "provider": {"peer": RandomPeerId::random().to_string(), "service_id": provider1},
-            "key": "folex",
-            "provider2": {"peer": RandomPeerId::random().to_string(), "service_id": provider2},
-            "key2": "folex2",
-        }),
+        hashmap!{
+            "client" => json!(client.peer_id.to_string()),
+            "node" => json!(client.node.to_string()),
+            "client2" => json!(client2.peer_id.to_string()),
+            "node2" => json!(client2.node.to_string()),
+            "provider" => json!({"peer": RandomPeerId::random().to_string(), "service_id": provider1}),
+            "key" => json!("folex"),
+            "provider2" => json!({"peer": RandomPeerId::random().to_string(), "service_id": provider2}),
+            "key2" => json!("folex2"),
+        },
     );
 
-    let particle = client2.receive();
-    let providers = particle.data["providers"]
-        .as_array()
-        .expect("non empty providers");
+    let particle = client2.receive_args();
+    let providers = particle[0].as_array().expect("non empty providers");
+    println!("providers: {:#?}", providers);
     assert_eq!(providers.len(), 2);
     #[rustfmt::skip]
     let get_provider = |i: usize| {
@@ -85,34 +91,31 @@ fn add_providers_to_neighborhood() {
 
     let provider1 = uuid();
     // TODO: add two more folds (for provider2), and this test will time out. Investigate reasons and fix.
-    let script = format!(
-        r#"
+    let script = r#"
+    (seq (
+        (call (node ("neighborhood" "") (first_node) neighborhood))
+        (seq (
             (seq (
-                (call (%current_peer_id% ("neighborhood" "") (first_node) neighborhood))
-                (seq (
-                    (seq (
-                        (fold (neighborhood i
-                            (par (
-                                (call (i ("add_provider" "") (key provider) void[]))
-                                (next i)
-                            ))
-                        ))
-                        (fold (neighborhood i
-                            (par (
-                                (call (i ("get_providers" "") (key) providers[]))
-                                (next i)
-                            ))
-                        ))
+                (fold (neighborhood i
+                    (par (
+                        (call (i ("add_provider" "") (key provider) void[]))
+                        (next i)
                     ))
-                    (seq (
-                        (call ("{}" ("identity" "") () void[]))
-                        (call ("{}" ("" "") () none))
+                ))
+                (fold (neighborhood i
+                    (par (
+                        (call (i ("get_providers" "") (key) providers[]))
+                        (next i)
                     ))
                 ))
             ))
-        "#,
-        client2.node, client2.peer_id
-    );
+            (seq (
+                (call (node ("identity" "") () void[]))
+                (call (client ("" "") () none))
+            ))
+        ))
+    ))
+        "#;
 
     let provider = Provider {
         peer: RandomPeerId::random(),
@@ -120,11 +123,13 @@ fn add_providers_to_neighborhood() {
     };
     client.send_particle(
         script,
-        json!({
-            "provider": provider,
-            "key": "folex",
-            "first_node": swarms[0].0.to_string(),
-        }),
+        hashmap! {
+            "client" => json!(client.peer_id.to_string()),
+            "node" => json!(client.node.to_string()),
+            "provider" => json!(provider),
+            "key" => json!("folex"),
+            "first_node" => json!(swarms[0].0.to_string()),
+        },
     );
 
     let response = client2.receive();

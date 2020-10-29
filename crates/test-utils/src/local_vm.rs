@@ -86,7 +86,6 @@ pub fn pass_data_func(data: HashMap<&'static str, JValue>) -> HostExportedFunc {
 
 pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> HostExportedFunc {
     Box::new(move |_, args| {
-        println!("return data func, args: {:#?}", args);
         let args = Args::parse(args).expect("valid args");
         match args.service_id.as_str() {
             "return" => (*out.lock()) = args.args,
@@ -129,10 +128,7 @@ pub fn make_particle(
     let load_variables = variable_names
         .into_iter()
         .map(|name| f!(r#"(call ("{peer_id}" ("load" "{name}") () {name}))"#))
-        .fold(Instruction::Null, |acc, call| {
-            println!("acc.add(call) => {:?}.add({:?})", acc, call);
-            acc.add(call)
-        })
+        .fold(Instruction::Null, |acc, call| acc.add(call))
         .into_air();
     let script = f!(r#"
 (seq (
@@ -141,7 +137,7 @@ pub fn make_particle(
 ))
     "#);
 
-    println!("script\n{}", script);
+    // log::info!("script\n{}", script);
 
     let id = uuid();
     let mut vm = make_vm(id.clone(), &peer_id, pass_data_func(data));

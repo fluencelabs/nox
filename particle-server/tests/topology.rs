@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use serde_json::json;
+use maplit::hashmap;
 use std::thread::sleep;
 use test_utils::{enable_logs, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
@@ -43,7 +43,7 @@ fn identity() {
             "#,
             swarms[2].0, a.node, b.node, b.peer_id
         ),
-        json!({}),
+        hashmap! {},
     );
 
     b.receive();
