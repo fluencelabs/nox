@@ -184,7 +184,7 @@ checksum = "a1fd36ffbb1fb7c834eac128ea8d0e310c5aeb635548f9d58861e1308d46e71c"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#eb5dfafa5e17121b61963b09aef6fa966223ee53"
+source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
 dependencies = [
  "fluence-faas",
  "maplit",
@@ -250,9 +250,9 @@ dependencies = [
 
 [[package]]
 name = "async-global-executor"
-version = "1.4.2"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "124ac8c265e407641c3362b8f4d39cdb4e243885b71eef087be27199790f5a3a"
+checksum = "73079b49cd26b8fd5a15f68fc7707fc78698dc2a3d61430f2a7a9430230dfa04"
 dependencies = [
  "async-executor",
  "async-io",
@@ -1253,7 +1253,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.9"
-source = "git+https://github.com/fluencelabs/fce?branch=master#eb5dfafa5e17121b61963b09aef6fa966223ee53"
+source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1274,7 +1274,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.6"
-source = "git+https://github.com/fluencelabs/fce?branch=master#eb5dfafa5e17121b61963b09aef6fa966223ee53"
+source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1283,7 +1283,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.8"
-source = "git+https://github.com/fluencelabs/fce?branch=master#eb5dfafa5e17121b61963b09aef6fa966223ee53"
+source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1330,7 +1330,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.10"
-source = "git+https://github.com/fluencelabs/fce?branch=master#eb5dfafa5e17121b61963b09aef6fa966223ee53"
+source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1369,7 +1369,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.10"
-source = "git+https://github.com/fluencelabs/fce?branch=master#eb5dfafa5e17121b61963b09aef6fa966223ee53"
+source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -2539,9 +2539,9 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
 name = "memchr"
-version = "2.3.3"
+version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
+checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 
 [[package]]
 name = "memmap"
@@ -2978,6 +2978,7 @@ dependencies = [
  "json-utils",
  "libp2p",
  "log",
+ "maplit",
  "multihash",
  "num_cpus",
  "particle-behaviour",
@@ -3127,9 +3128,9 @@ checksum = "c36fa947111f5c62a733b652544dd0016a43ce89619538a8ef92724a6f501a20"
 
 [[package]]
 name = "proc-macro-hack"
-version = "0.5.18"
+version = "0.5.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99c605b9a0adc77b7211c6b1f722dcb613d68d66859a44f3d485a6da332b0598"
+checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro-nested"
@@ -3386,18 +3387,18 @@ checksum = "41cc0f7e4d5d4544e8861606a285bb08d3e70712ccc7d2b84d7c0ccfaf4b05ce"
 
 [[package]]
 name = "ref-cast"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "745c1787167ddae5569661d5ffb8b25ae5fedbf46717eaa92d652221cec72623"
+checksum = "e17626b2f4bcf35b84bf379072a66e28cfe5c3c6ae58b38e4914bb8891dabece"
 dependencies = [
  "ref-cast-impl",
 ]
 
 [[package]]
 name = "ref-cast-impl"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d21b475ab879ef0e315ad99067fa25778c3b0377f57f1b00207448dac1a3144"
+checksum = "0c523ccaed8ac4b0288948849a350b37d3035827413c458b6a40ddb614bb4f72"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3937,6 +3938,7 @@ name = "test-utils"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "aquamarine-vm",
  "async-std",
  "chrono",
  "config-utils",
@@ -3946,8 +3948,12 @@ dependencies = [
  "fstrings",
  "futures",
  "futures-util",
+ "host-closure",
+ "ivalue-utils",
  "libp2p",
  "log",
+ "maplit",
+ "parking_lot 0.11.0",
  "particle-actors",
  "particle-protocol",
  "particle-server",

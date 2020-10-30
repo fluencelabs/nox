@@ -18,17 +18,22 @@
 #![deny(
     dead_code,
     nonstandard_style,
-    unused_imports,
+    // unused_imports,
     unused_mut,
     unused_variables,
     unused_unsafe,
     unreachable_patterns
 )]
 
+#[macro_use]
+extern crate fstrings;
+
 mod connected_client;
 mod connection;
+mod local_vm;
 mod misc;
 
 pub use connected_client::ConnectedClient;
 pub use connection::*;
+pub use local_vm::*;
 pub use misc::*;

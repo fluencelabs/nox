@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
+#[macro_use]
+extern crate fstrings;
+
 use test_utils::{make_swarms_with_cfg, test_module, ConnectedClient, KAD_TIMEOUT};
 
+use fstrings::f;
+use maplit::hashmap;
 use serde_json::json;
 use std::thread::sleep;
 
@@ -40,51 +45,39 @@ fn create_service() {
         }
     );
 
-    let script = format!(
-        r#"(seq (
-            (call (%current_peer_id% ("add_module" "") (module_bytes module_config) module))
+    let script = f!(r#"(seq (
+            (call (relay ("add_module" "") (module_bytes module_config) module))
             (seq (
-                (call (%current_peer_id% ("add_blueprint" "") (blueprint) blueprint_id))
+                (call (relay ("add_blueprint" "") (blueprint) blueprint_id))
                 (seq (
-                    (call (%current_peer_id% ("create" "") (blueprint_id) service_id))
-                    (call ("{}" ("" "") ("service_id") client_result))
+                    (call (relay ("create" "") (blueprint_id) service_id))
+                    (call (client ("return" "") (service_id) client_result))
                 ))
             ))
-        ))"#,
-        client.peer_id
-    );
+        ))"#);
+    let data = hashmap! {
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+        "module_bytes" => json!(base64::encode(test_module())),
+        "module_config" => json!(config),
+        "blueprint" => json!({ "name": "blueprint", "dependencies": [module] }),
+    };
 
+    client.send_particle(script, data);
+    let response = client.receive_args();
+
+    let service_id = response[0].as_str().expect("service_id");
+    let script = f!(r#"(seq (
+            (call ("{client2.node}" ("{service_id}" "greeting") (my_name) greeting))
+            (call ("{client2.peer_id}" ("return" "") (greeting) void[]))
+        ))"#);
     client.send_particle(
         script,
-        json!({
-            "module_bytes": base64::encode(test_module()),
-            "module_config": config,
-            "blueprint": { "name": "blueprint", "dependencies": [module] },
-        }),
+        hashmap! {
+            "my_name" => json!("folex")
+        },
     );
 
-    let response = client.receive();
-
-    let service_id = response.data.get("service_id").unwrap().as_str().unwrap();
-    let script = format!(
-        r#"(seq (
-            (call (%current_peer_id% ("{}" "greeting") (my_name) greeting))
-            (call ("{}" ("" "") (greeting) client_result))
-        ))"#,
-        service_id, client2.peer_id
-    );
-
-    client.send_particle(
-        script,
-        json!({
-            "my_name": "folex"
-        }),
-    );
-
-    let response = client2.receive();
-
-    assert_eq!(
-        response.data.get("greeting").unwrap().as_str().unwrap(),
-        "Hi, folex"
-    )
+    let response = client2.receive_args();
+    assert_eq!(response[0].as_str().unwrap(), "Hi, folex")
 }

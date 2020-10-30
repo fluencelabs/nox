@@ -14,36 +14,41 @@
  * limitations under the License.
  */
 
+use test_utils::{enable_logs, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
+
+use maplit::hashmap;
 use serde_json::json;
 use std::thread::sleep;
-use test_utils::{enable_logs, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
 fn identity() {
-    enable_logs();
-
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut a = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let mut b = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
 
     a.send_particle(
-        format!(
-            r#"
+        r#"
                 (seq (
-                    (call ("{}" ("identity" "") () void[]))
+                    (call (node_a ("identity" "") () void[]))
                     (seq (
-                        (call ("{}" ("identity" "") () void[]))
+                        (call (node_b ("identity" "") () void[]))
                         (seq (
-                            (call ("{}" ("identity" "") () void[]))
-                            (call ("{}" ("identity" "") () void[]))
+                            (call (node_c ("identity" "") () void[]))
+                            (seq (
+                                (call (node_b ("identity" "") () void[]))
+                                (call (client_b ("identity" "") () void[]))
+                            ))
                         ))
                     ))
                 ))
             "#,
-            swarms[2].0, a.node, b.node, b.peer_id
-        ),
-        json!({}),
+        hashmap! {
+            "node_a" => json!(swarms[0].0.to_string()),
+            "node_b" => json!(swarms[1].0.to_string()),
+            "node_c" => json!(swarms[2].0.to_string()),
+            "client_b" => json!(b.peer_id.to_string()),
+        },
     );
 
     b.receive();

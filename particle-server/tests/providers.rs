@@ -19,6 +19,7 @@ use json_utils::into_array;
 use particle_providers::Provider;
 use test_utils::{make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
 
+use maplit::hashmap;
 use serde_json::json;
 use std::{collections::HashSet, thread::sleep};
 
@@ -29,114 +30,137 @@ fn add_providers() {
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
-    let provider1 = uuid();
-    let provider2 = uuid();
+    let provider1 = "provider1";
+    let provider2 = "provider2";
     client.send_particle(
-        format!(
-            r#"
+        r#"
+        (seq (
+            (call (node ("add_provider" "") (key provider) void[]))
+            (seq (
+                (call (node ("add_provider" "") (key2 provider2) void[]))
                 (seq (
-                    (call (%current_peer_id% ("add_provider" "") (key provider) void))
+                    (call (node ("get_providers" "") (key2) providers[]))
                     (seq (
-                        (call (%current_peer_id% ("add_provider" "") (key2 provider2) unit))
+                        (call (node ("get_providers" "") (key) providers[]))
                         (seq (
-                            (call (%current_peer_id% ("get_providers" "") (key) providers[]))
-                            (seq (
-                                (call (%current_peer_id% ("get_providers" "") (key2) providers[]))
-                                (call ("{}" ("" "") () none))
-                            ))
+                            (call (node2 ("identity" "") () void[]))
+                            (call (client2 ("return" "") (providers) void[]))
                         ))
                     ))
                 ))
+            ))
+        ))
         "#,
-            client2.peer_id
-        ),
-        json!({
-            "provider": {"peer": RandomPeerId::random().to_string(), "service_id": provider1},
-            "key": "folex",
-            "provider2": {"peer": RandomPeerId::random().to_string(), "service_id": provider2},
-            "key2": "folex2",
-        }),
+        hashmap!{
+            "client" => json!(client.peer_id.to_string()),
+            "node" => json!(client.node.to_string()),
+            "client2" => json!(client2.peer_id.to_string()),
+            "node2" => json!(client2.node.to_string()),
+            "provider" => json!({"peer": RandomPeerId::random().to_string(), "service_id": provider1}),
+            "key" => json!("folex"),
+            "provider2" => json!({"peer": RandomPeerId::random().to_string(), "service_id": provider2}),
+            "key2" => json!("folex2"),
+        },
     );
 
-    let particle = client2.receive();
-    let providers = particle.data["providers"]
-        .as_array()
-        .expect("non empty providers");
+    let particle = client2.receive_args();
+    let providers = particle[0].as_array().expect("non empty providers");
+    println!("providers: {:#?}", providers);
     assert_eq!(providers.len(), 2);
     #[rustfmt::skip]
-    let get_provider = |i: usize| {
+    let find_provider = |service_id: &'static str| {
         providers
-            .get(i).unwrap()
-            .as_array().unwrap()
-            .get(0).unwrap()
-            .get("service_id").unwrap()
-            .as_str().unwrap()
+            .iter().find(|p| p.as_array().unwrap()[0]["service_id"].as_str().unwrap() == service_id)
     };
-    assert_eq!(get_provider(0), provider1);
-    assert_eq!(get_provider(1), provider2);
+    assert!(find_provider(provider1).is_some());
+    assert!(find_provider(provider2).is_some());
 }
 
 #[test]
 fn add_providers_to_neighborhood() {
     let swarms = make_swarms_with_cfg(10, |cfg| cfg);
+
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
-    let provider1 = uuid();
-    // TODO: add two more folds (for provider2), and this test will time out. Investigate reasons and fix.
-    let script = format!(
-        r#"
+    let script = r#"
+    (seq (
+        (call (node ("neighborhood" "") (first_node) neighborhood))
+        (seq (
             (seq (
-                (call (%current_peer_id% ("neighborhood" "") (first_node) neighborhood))
                 (seq (
-                    (seq (
-                        (fold (neighborhood i
-                            (par (
-                                (call (i ("add_provider" "") (key provider) void[]))
-                                (next i)
-                            ))
-                        ))
-                        (fold (neighborhood i
-                            (par (
-                                (call (i ("get_providers" "") (key) providers[]))
-                                (next i)
-                            ))
+                    (fold (neighborhood i
+                        (seq (
+                            (call (i ("add_provider" "") (key provider) void[]))
+                            (next i)
                         ))
                     ))
-                    (seq (
-                        (call ("{}" ("identity" "") () void[]))
-                        (call ("{}" ("" "") () none))
+                    (fold (neighborhood i
+                        (seq (
+                            (call (i ("get_providers" "") (key) providers[]))
+                            (next i)
+                        ))
+                    ))
+                ))
+                (seq (
+                    (fold (neighborhood i
+                        (seq (
+                            (call (i ("add_provider" "") (key2 provider2) void[]))
+                            (next i)
+                        ))
+                    ))
+                    (fold (neighborhood i
+                        (seq (
+                            (call (i ("get_providers" "") (key2) providers[]))
+                            (next i)
+                        ))
                     ))
                 ))
             ))
-        "#,
-        client2.node, client2.peer_id
-    );
+            (seq (
+                (call (node ("identity" "") () void[]))
+                (call (client2 ("return" "") (providers) void[]))
+            ))
+        ))
+    ))
+    "#;
+
+    let provider1 = uuid();
+    let provider2 = uuid();
 
     let provider = Provider {
         peer: RandomPeerId::random(),
         service_id: provider1.into(),
     };
+    let provider2 = Provider {
+        peer: RandomPeerId::random(),
+        service_id: provider2.into(),
+    };
     client.send_particle(
         script,
-        json!({
-            "provider": provider,
-            "key": "folex",
-            "first_node": swarms[0].0.to_string(),
-        }),
+        hashmap! {
+            "client" => json!(client.peer_id.to_string()),
+            "client2" => json!(client2.peer_id.to_string()),
+            "node" => json!(client.node.to_string()),
+            "provider" => json!(provider),
+            "key" => json!(uuid()),
+            "provider2" => json!(provider2),
+            "key2" => json!(uuid()),
+            "first_node" => json!(swarms[0].0.to_string()),
+        },
     );
 
-    let response = client2.receive();
-    let providers = into_array(response.data["providers"].clone().take())
-        .expect(format!("providers must be array, data was {:#?}", response.data).as_str());
+    let response = client2.receive_args();
+    let providers = into_array(response[0].clone())
+        .expect(format!("providers must be array, response was {:#?}", response).as_str());
     let providers: Vec<_> = providers
         .into_iter()
         .flat_map(|v| into_array(v).expect("must be array"))
         .map(|v| serde_json::from_value::<Provider>(v).expect("be provider"))
         .collect();
     let providers: HashSet<_> = providers.into_iter().collect();
-    assert_eq!(providers.len(), 1);
+    assert_eq!(providers.len(), 2);
     assert!(providers.contains(&provider));
-    // assert!(providers.contains(&provider2));
+    assert!(providers.contains(&provider2));
 }
