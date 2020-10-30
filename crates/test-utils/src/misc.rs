@@ -47,7 +47,7 @@ pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 #[cfg(debug_assertions)]
 pub static TIMEOUT: Duration = Duration::from_secs(150);
 #[cfg(not(debug_assertions))]
-pub static TIMEOUT: Duration = Duration::from_secs(15);
+pub static TIMEOUT: Duration = Duration::from_secs(150);
 
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
@@ -90,7 +90,8 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
-        // .filter(Some("aquamarine"), Info)
+        .filter(Some("particle_actors"), Debug)
+        .filter(Some("aquamarine"), Warn)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)

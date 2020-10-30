@@ -162,7 +162,6 @@ impl ConnectedClient {
 
     pub fn receive_args(&mut self) -> Vec<JValue> {
         let particle = self.receive();
-        println!("will read args from {:#?}", particle);
         read_args(particle, &self.peer_id)
     }
 }

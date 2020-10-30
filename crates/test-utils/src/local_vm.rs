@@ -112,6 +112,7 @@ fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -
         current_peer_id: peer_id.to_string(),
         particle_data_store: format!("/tmp/{}", particle_id).into(),
     };
+    log::info!("particle_data_store: {:?}", config.particle_data_store);
 
     let vm = AquamarineVM::new(config).expect("vm should be created");
 
@@ -145,6 +146,8 @@ pub fn make_particle(
     let StepperOutcome { data, .. } = vm
         .call(peer_id.to_string(), script.clone(), "[]", id.clone())
         .expect("execute & make particle");
+
+    log::info!("Made a particle {}", id);
 
     Particle {
         id,
