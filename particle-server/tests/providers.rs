@@ -17,7 +17,7 @@
 use fluence_libp2p::RandomPeerId;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{enable_logs, make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
 
 use maplit::hashmap;
 use serde_json::json;
@@ -84,23 +84,37 @@ fn add_providers_to_neighborhood() {
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
-    let provider1 = uuid();
-    // TODO: add two more folds (for provider2), and this test will time out. Investigate reasons and fix.
     let script = r#"
     (seq (
         (call (node ("neighborhood" "") (first_node) neighborhood))
         (seq (
             (seq (
-                (fold (neighborhood i
-                    (seq (
-                        (call (i ("add_provider" "") (key provider) void[]))
-                        (next i)
+                (seq (
+                    (fold (neighborhood i
+                        (seq (
+                            (call (i ("add_provider" "") (key provider) void[]))
+                            (next i)
+                        ))
+                    ))
+                    (fold (neighborhood i
+                        (seq (
+                            (call (i ("get_providers" "") (key) providers[]))
+                            (next i)
+                        ))
                     ))
                 ))
-                (fold (neighborhood i
-                    (seq (
-                        (call (i ("get_providers" "") (key) providers[]))
-                        (next i)
+                (seq (
+                    (fold (neighborhood i
+                        (seq (
+                            (call (i ("add_provider" "") (key2 provider2) void[]))
+                            (next i)
+                        ))
+                    ))
+                    (fold (neighborhood i
+                        (seq (
+                            (call (i ("get_providers" "") (key2) providers[]))
+                            (next i)
+                        ))
                     ))
                 ))
             ))
@@ -112,9 +126,16 @@ fn add_providers_to_neighborhood() {
     ))
     "#;
 
+    let provider1 = uuid();
+    let provider2 = uuid();
+
     let provider = Provider {
         peer: RandomPeerId::random(),
         service_id: provider1.into(),
+    };
+    let provider2 = Provider {
+        peer: RandomPeerId::random(),
+        service_id: provider2.into(),
     };
     client.send_particle(
         script,
@@ -123,7 +144,9 @@ fn add_providers_to_neighborhood() {
             "client2" => json!(client2.peer_id.to_string()),
             "node" => json!(client.node.to_string()),
             "provider" => json!(provider),
-            "key" => json!("folex"),
+            "key" => json!(uuid()),
+            "provider2" => json!(provider2),
+            "key2" => json!(uuid()),
             "first_node" => json!(swarms[0].0.to_string()),
         },
     );
@@ -137,7 +160,7 @@ fn add_providers_to_neighborhood() {
         .map(|v| serde_json::from_value::<Provider>(v).expect("be provider"))
         .collect();
     let providers: HashSet<_> = providers.into_iter().collect();
-    assert_eq!(providers.len(), 1);
+    assert_eq!(providers.len(), 2);
     assert!(providers.contains(&provider));
-    // assert!(providers.contains(&provider2));
+    assert!(providers.contains(&provider2));
 }
