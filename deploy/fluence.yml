@@ -9,7 +9,7 @@ services:
     command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7001 -w 9001"
     environment:
       RUST_BACKTRACE: "1"
-      RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
 ,cranelift_codegen=info,wasmer_wasi=info"
 
   fluence-2:
@@ -21,7 +21,7 @@ services:
     command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7002 -w 9002"
     environment:
       RUST_BACKTRACE: "1"
-      RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
 ,cranelift_codegen=info,wasmer_wasi=info"
 
   fluence-3:
@@ -33,7 +33,7 @@ services:
     command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7003 -w 9003"
     environment:
       RUST_BACKTRACE: "1"
-      RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
 ,cranelift_codegen=info,wasmer_wasi=info"
 
   fluence-4:
@@ -45,7 +45,7 @@ services:
     command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7004 -w 9004"
     environment:
       RUST_BACKTRACE: "1"
-      RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
 ,cranelift_codegen=info,wasmer_wasi=info"
 
   fluence-5:
@@ -57,5 +57,5 @@ services:
     command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7005 -w 9005"
     environment:
       RUST_BACKTRACE: "1"
-      RUST_LOG: "debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
 ,cranelift_codegen=info,wasmer_wasi=info"
