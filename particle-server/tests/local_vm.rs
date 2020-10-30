@@ -29,9 +29,9 @@ fn make() {
     let client_a = RandomPeerId::random();
     let client_b = RandomPeerId::random();
 
-    let script = r#"(call (client ("return" "") (a b c) void[]))"#.to_string();
+    let script = r#"(call (client_b ("return" "") (a b c) void[]))"#.to_string();
     let data = hashmap! {
-        "client" => json!(client.peer_id.to_string()),
+        "client_b" => json!(client_b.to_string()),
         "a" => json!("a_value"),
         "b" => json!(["b1", "b2", "b3"]),
         "c" => json!({"c1": "c1_value", "c2": "c2_value"})

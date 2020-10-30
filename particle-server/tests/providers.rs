@@ -25,8 +25,6 @@ use std::{collections::HashSet, thread::sleep};
 
 #[test]
 fn add_providers() {
-    enable_logs();
-
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -46,7 +44,7 @@ fn add_providers() {
                         (call (node ("get_providers" "") (key) providers[]))
                         (seq (
                             (call (node2 ("identity" "") () void[]))
-                            (call (client2 ("return" "") (providers[]) void[]))
+                            (call (client2 ("return" "") (providers) void[]))
                         ))
                     ))
                 ))
@@ -70,21 +68,18 @@ fn add_providers() {
     println!("providers: {:#?}", providers);
     assert_eq!(providers.len(), 2);
     #[rustfmt::skip]
-    let get_provider = |i: usize| {
+    let find_provider = |service_id: &'static str| {
         providers
-            .get(i).unwrap()
-            .as_array().unwrap()
-            .get(0).unwrap()
-            .get("service_id").unwrap()
-            .as_str().unwrap()
+            .iter().find(|p| p.as_array().unwrap()[0]["service_id"].as_str().unwrap() == service_id)
     };
-    assert_eq!(get_provider(0), provider1);
-    assert_eq!(get_provider(1), provider2);
+    assert!(find_provider(provider1).is_some());
+    assert!(find_provider(provider2).is_some());
 }
 
 #[test]
 fn add_providers_to_neighborhood() {
     let swarms = make_swarms_with_cfg(10, |cfg| cfg);
+
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -97,13 +92,13 @@ fn add_providers_to_neighborhood() {
         (seq (
             (seq (
                 (fold (neighborhood i
-                    (par (
+                    (seq (
                         (call (i ("add_provider" "") (key provider) void[]))
                         (next i)
                     ))
                 ))
                 (fold (neighborhood i
-                    (par (
+                    (seq (
                         (call (i ("get_providers" "") (key) providers[]))
                         (next i)
                     ))
@@ -111,11 +106,11 @@ fn add_providers_to_neighborhood() {
             ))
             (seq (
                 (call (node ("identity" "") () void[]))
-                (call (client ("" "") () none))
+                (call (client2 ("return" "") (providers) void[]))
             ))
         ))
     ))
-        "#;
+    "#;
 
     let provider = Provider {
         peer: RandomPeerId::random(),
@@ -125,6 +120,7 @@ fn add_providers_to_neighborhood() {
         script,
         hashmap! {
             "client" => json!(client.peer_id.to_string()),
+            "client2" => json!(client2.peer_id.to_string()),
             "node" => json!(client.node.to_string()),
             "provider" => json!(provider),
             "key" => json!("folex"),
@@ -132,9 +128,9 @@ fn add_providers_to_neighborhood() {
         },
     );
 
-    let response = client2.receive();
-    let providers = into_array(response.data["providers"].clone().take())
-        .expect(format!("providers must be array, data was {:#?}", response.data).as_str());
+    let response = client2.receive_args();
+    let providers = into_array(response[0].clone())
+        .expect(format!("providers must be array, response was {:#?}", response).as_str());
     let providers: Vec<_> = providers
         .into_iter()
         .flat_map(|v| into_array(v).expect("must be array"))

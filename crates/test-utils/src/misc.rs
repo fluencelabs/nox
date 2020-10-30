@@ -47,7 +47,7 @@ pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 #[cfg(debug_assertions)]
 pub static TIMEOUT: Duration = Duration::from_secs(150);
 #[cfg(not(debug_assertions))]
-pub static TIMEOUT: Duration = Duration::from_secs(150);
+pub static TIMEOUT: Duration = Duration::from_secs(35);
 
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);

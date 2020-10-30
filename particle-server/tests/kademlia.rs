@@ -17,6 +17,7 @@
 use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
 use libp2p::PeerId;
+use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 use std::thread::sleep;
 
@@ -27,21 +28,19 @@ fn neighborhood() {
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
     client.send_particle(
-        format!(
-            r#"
-                (seq (
-                    (call (%current_peer_id% ("neighborhood" "") (key) peers))
-                    (call ("{}" ("" "") () void))
-                ))
-            "#,
-            client.peer_id
-        ),
-        json!({
-            "key": client.node.to_string()
-        }),
+        r#"
+            (seq (
+                (call (node ("neighborhood" "") (node) peers))
+                (call (client ("return" "") (peers) void))
+            ))
+        "#,
+        hashmap! {
+            "node" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string())
+        },
     );
-    let response = client.receive();
-    if let JValue::Array(neighborhood) = response.data["peers"].clone().take() {
+    let response = client.receive_args();
+    if let JValue::Array(neighborhood) = response[0].clone() {
         assert_eq!(neighborhood.len(), 2);
 
         let assert_contains = |id: &PeerId| {
@@ -54,9 +53,6 @@ fn neighborhood() {
         assert_contains(&swarms[1].0);
         assert_contains(&swarms[2].0);
     } else {
-        panic!(
-            "data[peers] must be an array, data was {:#?}",
-            response.data
-        );
+        panic!("response[0] must be an array, response was {:#?}", response);
     }
 }
