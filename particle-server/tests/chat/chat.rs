@@ -180,7 +180,7 @@ fn call_service(alias: &str, fname: &str, arg_list: &str, client: &mut Connected
     let script = f!(r#"
         (seq (
             (seq (
-                (null ())
+                (call (node ("identity" "") () void[]))
                 (call (provider (service_id "{fname}") {arg_list} result))
             ))
             (seq (
@@ -267,8 +267,6 @@ fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
 
 #[test]
 fn test_chat() {
-    enable_logs();
-
     let node_count = 5;
     let connect = connect_swarms(node_count);
     let mut client = connect(0);

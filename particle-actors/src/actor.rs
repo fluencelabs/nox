@@ -142,7 +142,8 @@ impl Actor {
                         .collect::<Vec<_>>()
                 }
                 Ok(_) => {
-                    log::warn!("Executed particle {}, empty next_peer_pks. Won't send anywhere.")
+                    log::warn!("Executed particle {}, next_peer_pks is empty. Won't send anywhere", p.id);
+                    vec![]
                 }
                 Err(err) => {
                     log::warn!("Error parsing outcome for particle {:#?}: {:?}", p, err);
