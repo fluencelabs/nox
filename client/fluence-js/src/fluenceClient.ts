@@ -31,7 +31,7 @@ import {
 } from "./globalState";
 import {instantiateStepper, Stepper} from "./stepper";
 import log from "loglevel";
-import {Service} from "./callService";
+import {Service} from "./service";
 import {delay} from "./utils";
 
 const bs58 = require('bs58')
@@ -70,6 +70,7 @@ export class FluenceClient {
             }
             // start particle processing if queue is empty
             try {
+                setCurrentParticleId(particle.id)
                 // check if a particle is relevant
                 let now = Date.now();
                 let actualTtl = particle.timestamp + particle.ttl - now;
@@ -77,7 +78,7 @@ export class FluenceClient {
                     log.info(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
                 } else {
                     // if there is no subscription yet, previous data is empty
-                    let prevData = {};
+                    let prevData = [];
                     let prevParticle = this.subscriptions.get(particle.id);
                     if (prevParticle) {
                         prevData = prevParticle.data;

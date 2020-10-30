@@ -70,7 +70,7 @@ console.log(serviceId);
 // { some_arg: "1" } – arguments passed to the function
 // "ipfs_node.wasm" – name of the module to find function in
 
-let resp = await cl2.callService(peerAddr, serviceId, "ipfs_node.wasm", {some_arg: "1"}, "get_address")
+let resp = await cl2.service(peerAddr, serviceId, "ipfs_node.wasm", {some_arg: "1"}, "get_address")
 console.log(resp)
 ```
 

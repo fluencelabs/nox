@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Service} from "./callService";
+import {Service} from "./service";
 import {Particle} from "./particle";
 
 // TODO put state with wasm file in each created FluenceClient

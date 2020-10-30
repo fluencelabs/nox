@@ -1,6 +1,6 @@
 {
   "name": "fluence",
-  "version": "0.7.54",
+  "version": "0.7.55",
   "description": "the browser js-libp2p client for the Fluence network",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
