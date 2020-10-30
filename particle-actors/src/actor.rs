@@ -128,12 +128,9 @@ impl Actor {
             }
 
             let effects = match parse_outcome(result) {
-                Ok((data, targets)) => {
-                    log::debug!(
-                        "Particle {} executed, will be sent to {} targets",
-                        p.id,
-                        targets.len()
-                    );
+                Ok((data, targets)) if targets.len() > 0 => {
+                    #[rustfmt::skip]
+                    log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
                     let mut particle = p;
                     particle.data = data;
                     targets
@@ -143,6 +140,9 @@ impl Actor {
                             target,
                         })
                         .collect::<Vec<_>>()
+                }
+                Ok(_) => {
+                    log::warn!("Executed particle {}, empty next_peer_pks. Won't send anywhere.")
                 }
                 Err(err) => {
                     log::warn!("Error parsing outcome for particle {:#?}: {:?}", p, err);

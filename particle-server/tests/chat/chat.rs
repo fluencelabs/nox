@@ -180,7 +180,7 @@ fn call_service(alias: &str, fname: &str, arg_list: &str, client: &mut Connected
     let script = f!(r#"
         (seq (
             (seq (
-                (call (node ("identity" "") () void[]))
+                (null ())
                 (call (provider (service_id "{fname}") {arg_list} result))
             ))
             (seq (
