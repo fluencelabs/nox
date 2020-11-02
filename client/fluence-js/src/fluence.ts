@@ -19,9 +19,6 @@ import Multiaddr from "multiaddr"
 import {FluenceClient} from "./fluenceClient";
 import * as log from "loglevel";
 import {LogLevelDesc} from "loglevel";
-import {build} from "./particle";
-import {registerService} from "./globalState";
-import {Service} from "./service";
 
 log.setLevel('info')
 
@@ -60,28 +57,4 @@ declare global {
     }
 }
 
-async function test() {
-    let pid = await Fluence.generatePeerId()
-    let cl = await Fluence.connect("/ip4/138.197.177.2/tcp/9001/ws/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9", pid)
-
-    let service = new Service("test")
-    service.registerFunction("test", (args: any[]) => {
-        console.log("called: " + args)
-        return {}
-    })
-    registerService(service);
-
-    let script = `(call ( "${pid.toB58String()}" ("test" "test") (a b c d) result))`
-
-    let data: Map<string, any> = new Map();
-    data.set("a", "some a")
-    data.set("b", "some b")
-    data.set("c", "some c")
-    data.set("d", "some d")
-
-    let particle = await build(pid, script, data, 30000)
-    await cl.sendParticle(particle)
-}
-
 window.Fluence = Fluence;
-window.test = test;

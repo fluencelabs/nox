@@ -15,7 +15,7 @@
  */
 
 
-import {build, genUUID, Particle} from "./particle";
+import {build, Particle} from "./particle";
 import {StepperOutcome} from "./stepperOutcome";
 import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
@@ -23,23 +23,15 @@ import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
 import {
     addParticle,
-    deleteService,
     getCurrentParticleId,
     popParticle,
-    registerService,
     setCurrentParticleId
 } from "./globalState";
 import {instantiateStepper, Stepper} from "./stepper";
 import log from "loglevel";
-import {Service} from "./service";
-import {delay} from "./utils";
+import {waitService} from "./helpers/waitService";
 
 const bs58 = require('bs58')
-
-interface NamedPromise<T> {
-    promise: Promise<T>,
-    name: string
-}
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;
@@ -187,32 +179,6 @@ export class FluenceClient {
         return `(call ("${this.nodePeerIdStr}" ("identity" "") () void[]))`
     }
 
-    /**
-     * Creates service that will wait for a response from external peers.
-     */
-    private waitService<T>(functionName: string, func: (args: any[]) => T, ttl: number): NamedPromise<T> {
-        let serviceName = `${functionName}-${genUUID()}`;
-        log.info(`Create waiting service '${serviceName}'`)
-        let service = new Service(serviceName)
-        registerService(service)
-
-        let promise: Promise<T> = new Promise(function(resolve){
-            service.registerFunction("", (args: any[]) => {
-                resolve(func(args))
-                return {}
-            })
-        })
-
-        let timeout = delay<T>(ttl, "Timeout on waiting " + serviceName)
-
-        return {
-            name: serviceName,
-            promise: Promise.race([promise, timeout]).finally(() => {
-                deleteService(serviceName)
-            })
-        }
-    }
-
     async requestResponse<T>(name: string, call: (nodeId: string) => string, returnValue: string, data: any, handleResponse: (args: any[]) => T, nodeId?: string, ttl?: number): Promise<T> {
         if (!ttl) {
             ttl = 10000
@@ -224,7 +190,7 @@ export class FluenceClient {
 
         let serviceCall = call(nodeId)
 
-        let namedPromise = this.waitService(name, handleResponse, ttl)
+        let namedPromise = waitService(name, handleResponse, ttl)
 
         let script = `(seq (
             ${this.nodeIdentityCall()}
