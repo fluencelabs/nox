@@ -16,6 +16,6 @@
 
 export interface StepperOutcome {
     ret_code: number,
-    data: string,
+    call_path: string,
     next_peer_pks: string[]
 }
