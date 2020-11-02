@@ -15,7 +15,10 @@
  */
 
 use super::misc::Result;
-use crate::{make_swarms, now, timeout, uuid, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT};
+use crate::{
+    make_particle, make_swarms, read_args, timeout, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT,
+    TIMEOUT,
+};
 
 use fluence_client::{Client, ClientEvent, Transport};
 use particle_protocol::Particle;
@@ -24,6 +27,7 @@ use async_std::task;
 use core::ops::Deref;
 use libp2p::{core::Multiaddr, PeerId};
 use serde_json::Value as JValue;
+use std::collections::HashMap;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -124,6 +128,26 @@ impl ConnectedClient {
         self.client.send(particle, self.node.clone())
     }
 
+    pub fn send_particle(
+        &mut self,
+        script: impl Into<String>,
+        data: HashMap<&'static str, JValue>,
+    ) {
+        let particle = make_particle(self.peer_id.clone(), data, script.into());
+        self.send(particle);
+    }
+
+    pub fn maybe_receive(&mut self) -> Option<Particle> {
+        let short_timeout = self.short_timeout();
+        let receive = self.client.receive_one();
+        let particle = task::block_on(timeout(short_timeout, receive)).ok();
+
+        Option::flatten(particle).and_then(|particle| match particle {
+            ClientEvent::Particle { particle, .. } => Some(particle),
+            _ => None,
+        })
+    }
+
     pub fn receive(&mut self) -> Particle {
         let tout = self.timeout();
         let receive = self.client.receive_one();
@@ -136,27 +160,8 @@ impl ConnectedClient {
         }
     }
 
-    pub fn maybe_receive(&mut self) -> Option<Particle> {
-        let short_timeout = self.short_timeout();
-        let receive = self.client.receive_one();
-        let result = task::block_on(timeout(short_timeout, receive))
-            .ok()
-            .flatten();
-
-        result.and_then(|particle| match particle {
-            ClientEvent::Particle { particle, .. } => Some(particle),
-            _ => None,
-        })
-    }
-
-    pub fn send_particle(&mut self, script: String, data: JValue) {
-        let mut particle = Particle::default();
-        particle.id = uuid();
-        particle.init_peer_id = self.peer_id.clone();
-        particle.script = script;
-        particle.data = data;
-        particle.timestamp = now();
-        particle.ttl = 1000;
-        self.send(particle.clone());
+    pub fn receive_args(&mut self) -> Vec<JValue> {
+        let particle = self.receive();
+        read_args(particle, &self.peer_id)
     }
 }

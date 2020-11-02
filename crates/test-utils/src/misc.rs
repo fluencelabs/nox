@@ -47,7 +47,7 @@ pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 #[cfg(debug_assertions)]
 pub static TIMEOUT: Duration = Duration::from_secs(150);
 #[cfg(not(debug_assertions))]
-pub static TIMEOUT: Duration = Duration::from_secs(15);
+pub static TIMEOUT: Duration = Duration::from_secs(35);
 
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
@@ -90,6 +90,7 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
+        .filter(Some("particle_actors"), Debug)
         .filter(Some("aquamarine"), Warn)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
@@ -362,9 +363,16 @@ pub fn remove_dir(dir: &PathBuf) {
     std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
 }
 
-pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
+/// Returns path to test aquamarine.wasm
+/// `file_name` allows to override default `aquamarine.wasm` to something else (i.e., `aquamarine_join.wasm`)
+pub fn aquamarine_fname(file_name: Option<String>) -> PathBuf {
     let file_name = file_name.unwrap_or(AQUAMARINE.to_string());
     let aquamarine = to_abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
+    aquamarine
+}
+
+pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
+    let aquamarine = aquamarine_fname(file_name);
     let aquamarine =
         std::fs::read(&aquamarine).expect(format!("fs::read from {:?}", aquamarine).as_str());
 

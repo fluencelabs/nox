@@ -29,7 +29,7 @@ pub use wasmer_wit::types::InterfaceType as IType;
 pub use wasmer_wit::values::InterfaceValue as IValue;
 pub use wasmer_wit::vec1;
 
-use serde_json::{json, Value};
+use serde_json::{json, Value as JValue};
 use vec1::Vec1;
 
 pub fn as_str(v: &IValue) -> Option<&str> {
@@ -49,7 +49,7 @@ pub fn into_string(v: IValue) -> Option<String> {
 }
 
 /// Converts result of call_service into `IValue::Record`
-pub fn into_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<IValue> {
+pub fn into_record_opt(v: std::result::Result<Option<JValue>, JValue>) -> Option<IValue> {
     match v {
         Ok(None) => unit(),
         Ok(Some(v)) => ok(v),
@@ -58,7 +58,7 @@ pub fn into_record_opt(v: std::result::Result<Option<Value>, Value>) -> Option<I
 }
 
 /// Converts result of call_service into `IValue::Record`
-pub fn into_record(v: std::result::Result<Value, Value>) -> Option<IValue> {
+pub fn into_record(v: std::result::Result<JValue, JValue>) -> Option<IValue> {
     match v {
         Ok(v) => ok(v),
         Err(e) => error(e),
@@ -66,7 +66,7 @@ pub fn into_record(v: std::result::Result<Value, Value>) -> Option<IValue> {
 }
 
 /// Converts successful result of call_service into `IValue::Record`  
-pub fn ok(value: Value) -> Option<IValue> {
+pub fn ok(value: JValue) -> Option<IValue> {
     let value = IValue::String(value.to_string());
     Some(IValue::Record(
         Vec1::new(vec![IValue::U32(0), value]).unwrap(),
@@ -79,7 +79,7 @@ pub fn ivalue_ok(value: IValue) -> Option<IValue> {
 }
 
 /// Converts erroneous result of call_service into `IValue::Record`
-pub fn error(err: Value) -> Option<IValue> {
+pub fn error(err: JValue) -> Option<IValue> {
     let err = IValue::String(err.to_string());
     Some(IValue::Record(
         Vec1::new(vec![IValue::U32(1), err]).unwrap(),
@@ -94,7 +94,7 @@ pub fn unit() -> Option<IValue> {
 }
 
 /// Serializes IValue to json Value
-fn ivalue_to_jvalue(v: IValue) -> Value {
+fn ivalue_to_jvalue(v: IValue) -> JValue {
     match v {
         IValue::S8(v) => json!(v),
         IValue::S16(v) => json!(v),

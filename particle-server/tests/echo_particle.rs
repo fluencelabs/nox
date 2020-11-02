@@ -16,6 +16,7 @@
 
 use test_utils::{make_swarms, ConnectedClient, KAD_TIMEOUT};
 
+use maplit::hashmap;
 use serde_json::json;
 use std::thread::sleep;
 
@@ -25,14 +26,19 @@ fn echo_particle() {
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
-    let data = json!({"name": "folex"});
+    let data = hashmap! {
+        "name" => json!("folex"),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+    };
     client.send_particle(
-        format!(
-            r#"(call ("{}" ("service_id" "fn_name") (name) result_name))"#,
-            client.peer_id
-        ),
+        r#"
+        (seq (
+            (call (relay ("identity" "") () void[]))
+            (call (client ("return" "") (name) void[]))
+        ))"#,
         data.clone(),
     );
-    let particle = client.receive();
-    assert_eq!(data["name"], particle.data["name"]);
+    let response = client.receive_args();
+    assert_eq!(data["name"], response[0]);
 }
