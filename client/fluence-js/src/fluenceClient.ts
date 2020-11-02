@@ -54,7 +54,7 @@ export class FluenceClient {
     private async handleParticle(particle: Particle): Promise<void> {
 
         // if a current particle is processing, add new particle to the queue
-        if (getCurrentParticleId() !== undefined) {
+        if (getCurrentParticleId() !== undefined && getCurrentParticleId() !== particle.id) {
             addParticle(particle);
         } else {
             if (this.stepper === undefined) {
