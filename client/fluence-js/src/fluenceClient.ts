@@ -179,7 +179,7 @@ export class FluenceClient {
         return `(call ("${this.nodePeerIdStr}" ("identity" "") () void[]))`
     }
 
-    async requestResponse<T>(name: string, call: (nodeId: string) => string, returnValue: string, data: any, handleResponse: (args: any[]) => T, nodeId?: string, ttl?: number): Promise<T> {
+    async requestResponse<T>(name: string, call: (nodeId: string) => string, returnValue: string, data: Map<string, any>, handleResponse: (args: any[]) => T, nodeId?: string, ttl?: number): Promise<T> {
         if (!ttl) {
             ttl = 10000
         }
@@ -225,10 +225,9 @@ export class FluenceClient {
             }
         }
 
-        let data = {
-            module_bytes: moduleBase64,
-            module_config: config
-        }
+        let data = new Map()
+        data.set("module_bytes", moduleBase64)
+        data.set("module_config", config)
 
         let call = (nodeId: string) => `(call ("${nodeId}" ("add_module" "") (module_bytes module_config) void[]))`
 
@@ -242,9 +241,8 @@ export class FluenceClient {
         let returnValue = "blueprint_id";
         let call = (nodeId: string) => `(call ("${nodeId}" ("add_blueprint" "") (blueprint) ${returnValue}))`
 
-        let data = {
-            blueprint: { name: name, dependencies: dependencies }
-        }
+        let data = new Map()
+        data.set("blueprint", { name: name, dependencies: dependencies })
 
         return this.requestResponse("addBlueprint", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
     }
@@ -256,9 +254,8 @@ export class FluenceClient {
         let returnValue = "service_id";
         let call = (nodeId: string) => `(call ("${nodeId}" ("create" "") (blueprint_id) ${returnValue}))`
 
-        let data = {
-            blueprint_id: blueprintId
-        }
+        let data = new Map()
+        data.set("blueprint_id", blueprintId)
 
         return this.requestResponse("createService", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
     }
@@ -270,7 +267,7 @@ export class FluenceClient {
         let returnValue = "modules";
         let call = (nodeId: string) => `(call ("${nodeId}" ("get_available_modules" "") () ${returnValue}))`
 
-        return this.requestResponse("getAvailableModules", call, returnValue, {}, (args: any[]) => args[0] as string[], nodeId, ttl)
+        return this.requestResponse("getAvailableModules", call, returnValue, new Map(), (args: any[]) => args[0] as string[], nodeId, ttl)
     }
 
     /**
@@ -280,7 +277,7 @@ export class FluenceClient {
         let returnValue = "blueprints";
         let call = (nodeId: string) => `(call ("${nodeId}" ("get_available_modules" "") () ${returnValue}))`
 
-        return this.requestResponse("getBlueprints", call, returnValue, {}, (args: any[]) => args[0] as string[], nodeId, ttl)
+        return this.requestResponse("getBlueprints", call, returnValue, new Map(), (args: any[]) => args[0] as string[], nodeId, ttl)
     }
 
     /**
@@ -296,7 +293,11 @@ export class FluenceClient {
             service_id: providerServiceId
         }
 
-        return this.requestResponse("addProvider", call, "", {key, provider}, () => {}, nodeId, ttl)
+        let data = new Map()
+        data.set("key", key)
+        data.set("provider", provider)
+
+        return this.requestResponse("addProvider", call, "", data, () => {}, nodeId, ttl)
     }
 
     /**
@@ -308,7 +309,10 @@ export class FluenceClient {
         let returnValue = "providers"
         let call = (nodeId: string) => `(call ("${nodeId}" ("get_providers" "") (key) providers[]))`
 
-        return this.requestResponse("getProviders", call, returnValue, {key}, (args) => args[0], nodeId, ttl)
+        let data = new Map()
+        data.set("key", key)
+
+        return this.requestResponse("getProviders", call, returnValue, data, (args) => args[0], nodeId, ttl)
     }
 
     /**
@@ -318,13 +322,16 @@ export class FluenceClient {
         let returnValue = "neighborhood"
         let call = (nodeId: string) => `(call ("${nodeId}" ("neighborhood" "") (node) ${returnValue}))`
 
-        return this.requestResponse("neighborhood", call, returnValue, {node}, (args) => args[0] as string[], node, ttl)
+        let data = new Map()
+        data.set("node", node)
+
+        return this.requestResponse("neighborhood", call, returnValue, data, (args) => args[0] as string[], node, ttl)
     }
 
     /**
      * Call relays 'identity' method. It should return passed 'fields'
      */
-    async relayIdentity(fields: string[], data: any, nodeId?: string, ttl?: number): Promise<any> {
+    async relayIdentity(fields: string[], data: Map<string, any>, nodeId?: string, ttl?: number): Promise<any> {
         let returnValue = "id";
         let call = (nodeId: string) => `(call ("${nodeId}" ("identity" "") (${fields.join(" ")}) ${returnValue}))`
 
