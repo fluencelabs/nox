@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#[allow(unused_imports)]
 #[macro_use]
 extern crate fstrings;
 
 use fluence_libp2p::RandomPeerId;
 use test_utils::{make_particle, read_args};
 
-use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 
@@ -29,7 +29,7 @@ fn make() {
     let client_a = RandomPeerId::random();
     let client_b = RandomPeerId::random();
 
-    let script = r#"(call (client_b ("return" "") (a b c) void[]))"#.to_string();
+    let script = r#"(call client_b ("return" "") [a b c] void[])"#.to_string();
     let data = hashmap! {
         "client_b" => json!(client_b.to_string()),
         "a" => json!("a_value"),

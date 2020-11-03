@@ -45,16 +45,16 @@ fn create_service() {
         }
     );
 
-    let script = f!(r#"(seq (
-            (call (relay ("add_module" "") (module_bytes module_config) module))
-            (seq (
-                (call (relay ("add_blueprint" "") (blueprint) blueprint_id))
-                (seq (
-                    (call (relay ("create" "") (blueprint_id) service_id))
-                    (call (client ("return" "") (service_id) client_result))
-                ))
-            ))
-        ))"#);
+    let script = f!(r#"(seq
+            (call relay ("add_module" "") [module_bytes module_config] module)
+            (seq
+                (call relay ("add_blueprint" "") [blueprint] blueprint_id)
+                (seq
+                    (call relay ("create" "") [blueprint_id] service_id)
+                    (call client ("return" "") [service_id] client_result)
+                )
+            )
+        )"#);
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
@@ -67,10 +67,10 @@ fn create_service() {
     let response = client.receive_args();
 
     let service_id = response[0].as_str().expect("service_id");
-    let script = f!(r#"(seq (
-            (call ("{client2.node}" ("{service_id}" "greeting") (my_name) greeting))
-            (call ("{client2.peer_id}" ("return" "") (greeting) void[]))
-        ))"#);
+    let script = f!(r#"(seq
+            (call "{client2.node}" ("{service_id}" "greeting") [my_name] greeting)
+            (call "{client2.peer_id}" ("return" "") [greeting] void[])
+        )"#);
     client.send_particle(
         script,
         hashmap! {
