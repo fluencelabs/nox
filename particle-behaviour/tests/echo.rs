@@ -64,7 +64,7 @@ fn echo_particle() {
                                     init_peer_id: client_id.clone(),
                                     timestamp: now(),
                                     ttl: 100,
-                                    script: format!(r#"(call ("{}" ("a" "b") (data) void))"#, client_id),
+                                    script: format!(r#"(call "{}" ("a" "b") [data] void)"#, client_id),
                                     signature: vec![],
                                     data: json!({"data": "none"}),
                                 };

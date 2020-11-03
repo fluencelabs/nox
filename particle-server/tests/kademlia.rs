@@ -29,10 +29,10 @@ fn neighborhood() {
 
     client.send_particle(
         r#"
-            (seq (
-                (call (node ("neighborhood" "") (node) peers))
-                (call (client ("return" "") (peers) void))
-            ))
+            (seq
+                (call node ("neighborhood" "") [node] peers)
+                (call client ("return" "") [peers] void)
+            )
         "#,
         hashmap! {
             "node" => json!(client.node.to_string()),

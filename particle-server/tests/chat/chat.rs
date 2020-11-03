@@ -36,7 +36,7 @@
 use config_utils::to_abs_path;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{connect_swarms, enable_logs, ConnectedClient};
+use test_utils::{connect_swarms, ConnectedClient};
 
 use fstrings::f;
 use libp2p::PeerId;
@@ -68,19 +68,19 @@ fn module_config(module: &str) -> JValue {
 
 fn create_service(client: &mut ConnectedClient, module: &str) -> String {
     let script = r#"
-        (seq (
-            (seq (
-                (call (node ("add_module" "") (module_bytes module_config) void[]))
-                (call (node ("add_module" "") (sqlite_bytes sqlite_config) void[]))
-            ))
-            (seq (
-                (call (node ("add_blueprint" "") (blueprint) blueprint_id))
-                (seq (
-                    (call (node ("create" "") (blueprint_id) service_id))
-                    (call (client ("return" "") (service_id) client_result))
-                ))
-            ))
-        ))
+        (seq
+            (seq
+                (call node ("add_module" "") [module_bytes module_config] void[])
+                (call node ("add_module" "") [sqlite_bytes sqlite_config] void[])
+            )
+            (seq
+                (call node ("add_blueprint" "") [blueprint] blueprint_id)
+                (seq
+                    (call node ("create" "") [blueprint_id] service_id)
+                    (call client ("return" "") [service_id] client_result)
+                )
+            )
+        )
         "#;
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
@@ -104,15 +104,15 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
 fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut ConnectedClient) {
     let name = bs58::encode(name).into_string();
     let script = f!(r#"
-        (seq (
-            (call (node ("neighborhood" "") ("{name}") neighbors))
-            (fold (neighbors n
-                (seq (
-                    (call (n ("add_provider" "") ("{name}" provider) void[]))
+        (seq
+            (call node ("neighborhood" "") ["{name}"] neighbors)
+            (fold neighbors n
+                (seq
+                    (call n ("add_provider" "") ["{name}" provider] void[])
                     (next n)
-                ))
-            ))
-        ))
+                )
+            )
+        )
         "#);
     let provider = Provider {
         peer: node,
@@ -130,21 +130,21 @@ fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut Conn
 fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Provider> {
     let name = bs58::encode(orig_name).into_string();
     let script = f!(r#"
-        (seq (
-            (seq (
-                (call (node ("neighborhood" "") ("{name}") neighbors))
-                (fold (neighbors n
-                    (seq (
-                        (call (n ("get_providers" "") ("{name}") providers_{orig_name}[]))
+        (seq
+            (seq
+                (call node ("neighborhood" "") ["{name}"] neighbors)
+                (fold neighbors n
+                    (seq
+                        (call n ("get_providers" "") ["{name}"] providers_{orig_name}[])
                         (next n)
-                    ))
-                ))
-            ))
-            (seq (
-                (call (node ("identity" "") () void[]))
-                (call (client ("return" "") (providers_{orig_name}) void[]))
-            ))
-        ))
+                    )
+                )
+            )
+            (seq
+                (call node ("identity" "") [] void[])
+                (call client ("return" "") [providers_{orig_name}] void[])
+            )
+        )
     "#);
 
     client.send_particle(
@@ -178,16 +178,16 @@ fn call_service(alias: &str, fname: &str, arg_list: &str, client: &mut Connected
     let service_id = provider.service_id.expect("get service id");
 
     let script = f!(r#"
-        (seq (
-            (seq (
-                (call (node ("identity" "") () void[]))
-                (call (provider (service_id "{fname}") {arg_list} result))
-            ))
-            (seq (
-                (call (node ("identity" "") () void[]))
-                (call (client ("return" "") (result) void[]))
-            ))
-        ))
+        (seq
+            (seq
+                (call node ("identity" "") [] void[])
+                (call provider (service_id "{fname}") {arg_list} result)
+            )
+            (seq
+                (call node ("identity" "") [] void[])
+                (call client ("return" "") [result] void[])
+            )
+        )
     "#);
     client.send_particle(script, hashmap! {
         "provider" => json!(provider.peer.to_string()),
@@ -210,7 +210,7 @@ fn join_chat(name: String, client: &mut ConnectedClient) {
     call_service(
         "user-list",
         "join",
-        f!(r#"("{client.peer_id}" "{client.node}" "{sig}" "{name}")"#).as_str(),
+        f!(r#"["{client.peer_id}" "{client.node}" "{sig}" "{name}"]"#).as_str(),
         client,
     );
 }
@@ -219,7 +219,7 @@ fn get_users(client: &mut ConnectedClient) -> Vec<JValue> {
     into_array(call_service(
         "user-list",
         "get_users",
-        f!(r"()").as_str(),
+        f!(r"[]").as_str(),
         client,
     ))
     .expect("user list must be an array")
@@ -235,24 +235,24 @@ fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
     // user = [0]
     // relay = [1]
     let script = f!(r#"
-        (seq (
-            (seq (
-                (call (node ("identity" "") () void[]))
-                (seq (
-                    (call (history (history_id "add") (author msg) void[]))
-                    (call (userlist (userlist_id "get_users") () users))
-                ))
-            ))
-            (fold (users u
-                (par (
-                    (seq (
-                        (call (u.$[1] ("identity" "") () void[]))
-                        (call (u.$[0] ("receive" "") (msg) void[]))
-                    )) 
+        (seq
+            (seq
+                (call node ("identity" "") [] void[])
+                (seq
+                    (call history (history_id "add") [author msg] void[])
+                    (call userlist (userlist_id "get_users") [] users)
+                )
+            )
+            (fold users u
+                (par 
+                    (seq
+                        (call u.$[1] ("identity" "") [] void[])
+                        (call u.$[0] ("receive" "") [msg] void[])
+                    ) 
                     (next u)
-                ))
-            ))
-        ))
+                )
+            )
+        )
     "#);
     client.send_particle(script, hashmap!{
         "history" => json!(history.peer.to_string()),
@@ -277,10 +277,10 @@ fn test_chat() {
     alias_service("history", client.node.clone(), history, &mut client);
     assert!(!resolve_service("history", &mut client).is_empty());
 
-    call_service("history", "add", r#"("author" "msg1")"#, &mut client);
-    call_service("history", "add", r#"("author" "msg2")"#, &mut client);
+    call_service("history", "add", r#"["author" "msg1"]"#, &mut client);
+    call_service("history", "add", r#"["author" "msg2"]"#, &mut client);
 
-    let history = call_service("history", "get_all", "()", &mut client);
+    let history = call_service("history", "get_all", "[]", &mut client);
     let history = into_array(history).expect("history must be an array");
     assert_eq!(2, history.len());
 
@@ -305,7 +305,7 @@ fn test_chat() {
     for c in clients.iter_mut() {
         c.receive();
     }
-    let history = call_service("history", "get_all", "()", &mut client);
+    let history = call_service("history", "get_all", "[]", &mut client);
     let history = into_array(history).expect("history must be an array");
     assert_eq!(3, history.len());
 

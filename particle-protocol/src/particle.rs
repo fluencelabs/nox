@@ -28,7 +28,7 @@ pub struct Particle {
     pub ttl: u32,
     pub script: String,
     pub signature: Vec<u8>,
-    /// Must be an object
+    /// Must be an array
     pub data: serde_json::Value,
 }
 
@@ -42,7 +42,7 @@ impl Default for Particle {
             ttl: 0,
             script: "".to_string(),
             signature: vec![],
-            data: json!({}),
+            data: json!([]),
         }
     }
 }
