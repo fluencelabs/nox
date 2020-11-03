@@ -17,6 +17,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import PeerId from "peer-id";
 import {encode} from "bs58";
+import {addData} from "./dataStorage";
 
 const DEFAULT_TTL = 7000;
 
@@ -31,13 +32,29 @@ export interface Particle {
     data: any
 }
 
-export async function build(peerId: PeerId, script: string, data: object, ttl?: number): Promise<Particle> {
+function wrapScript(selfPeerId: string, script: string, fields: string[]): string {
+    fields.forEach((v) => {
+       script = `
+(seq
+    (call "${selfPeerId}" ("" "load") ["${v}"] ${v})
+    ${script}
+)
+                 `
+    });
+
+    return script;
+}
+
+export async function build(peerId: PeerId, script: string, data: Map<string, any>, ttl?: number): Promise<Particle> {
     let id = genUUID();
     let currentTime = (new Date()).getTime();
 
     if (ttl === undefined) {
         ttl = DEFAULT_TTL
     }
+
+    addData(id, data, ttl);
+    script = wrapScript(peerId.toB58String(), script, Array.from(data.keys()))
 
     let particle: Particle = {
         id: id,
@@ -46,7 +63,7 @@ export async function build(peerId: PeerId, script: string, data: object, ttl?: 
         ttl: ttl,
         script: script,
         signature: "",
-        data: data
+        data: []
     }
 
     particle.signature = await signParticle(peerId, particle);

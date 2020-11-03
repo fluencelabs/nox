@@ -15,31 +15,23 @@
  */
 
 
-import {build, genUUID, Particle} from "./particle";
+import {build, Particle} from "./particle";
 import {StepperOutcome} from "./stepperOutcome";
 import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
 import {
-    addParticle,
-    deleteService,
+    enqueueParticle,
     getCurrentParticleId,
     popParticle,
-    registerService,
     setCurrentParticleId
 } from "./globalState";
 import {instantiateStepper, Stepper} from "./stepper";
 import log from "loglevel";
-import {Service} from "./callService";
-import {delay} from "./utils";
+import {waitService} from "./helpers/waitService";
 
 const bs58 = require('bs58')
-
-interface NamedPromise<T> {
-    promise: Promise<T>,
-    name: string
-}
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;
@@ -62,14 +54,15 @@ export class FluenceClient {
     private async handleParticle(particle: Particle): Promise<void> {
 
         // if a current particle is processing, add new particle to the queue
-        if (getCurrentParticleId() !== undefined) {
-            addParticle(particle);
+        if (getCurrentParticleId() !== undefined && getCurrentParticleId() !== particle.id) {
+            enqueueParticle(particle);
         } else {
             if (this.stepper === undefined) {
                 throw new Error("Undefined. Stepper is not initialized. User 'Fluence.connect' to create a client.")
             }
             // start particle processing if queue is empty
             try {
+                setCurrentParticleId(particle.id)
                 // check if a particle is relevant
                 let now = Date.now();
                 let actualTtl = particle.timestamp + particle.ttl - now;
@@ -77,7 +70,7 @@ export class FluenceClient {
                     log.info(`Particle expired. Now: ${now}, ttl: ${particle.ttl}, ts: ${particle.timestamp}`)
                 } else {
                     // if there is no subscription yet, previous data is empty
-                    let prevData = {};
+                    let prevData = [];
                     let prevParticle = this.subscriptions.get(particle.id);
                     if (prevParticle) {
                         prevData = prevParticle.data;
@@ -96,7 +89,7 @@ export class FluenceClient {
                     // do nothing if there is no `next_peer_pks`
                     if (stepperOutcome.next_peer_pks.length > 0) {
                         let newParticle: Particle = {...particle};
-                        newParticle.data = JSON.parse(stepperOutcome.data);
+                        newParticle.data = JSON.parse(stepperOutcome.call_path);
 
                         await this.connection.sendParticle(newParticle).catch((reason) => {
                             console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
@@ -183,36 +176,10 @@ export class FluenceClient {
     }
 
     nodeIdentityCall(): string {
-        return `(call ("${this.nodePeerIdStr}" ("identity" "") () void[]))`
+        return `(call "${this.nodePeerIdStr}" ("identity" "") [] void[])`
     }
 
-    /**
-     * Creates service that will wait for a response from external peers.
-     */
-    private waitService<T>(functionName: string, func: (args: any[]) => T, ttl: number): NamedPromise<T> {
-        let serviceName = `${functionName}-${genUUID()}`;
-        log.info(`Create waiting service '${serviceName}'`)
-        let service = new Service(serviceName)
-        registerService(service)
-
-        let promise: Promise<T> = new Promise(function(resolve){
-            service.registerFunction("", (args: any[]) => {
-                resolve(func(args))
-                return {}
-            })
-        })
-
-        let timeout = delay<T>(ttl, "Timeout on waiting " + serviceName)
-
-        return {
-            name: serviceName,
-            promise: Promise.race([promise, timeout]).finally(() => {
-                deleteService(serviceName)
-            })
-        }
-    }
-
-    async requestResponse<T>(name: string, call: (nodeId: string) => string, returnValue: string, data: any, handleResponse: (args: any[]) => T, nodeId?: string, ttl?: number): Promise<T> {
+    async requestResponse<T>(name: string, call: (nodeId: string) => string, returnValue: string, data: Map<string, any>, handleResponse: (args: any[]) => T, nodeId?: string, ttl?: number): Promise<T> {
         if (!ttl) {
             ttl = 10000
         }
@@ -223,18 +190,18 @@ export class FluenceClient {
 
         let serviceCall = call(nodeId)
 
-        let namedPromise = this.waitService(name, handleResponse, ttl)
+        let namedPromise = waitService(name, handleResponse, ttl)
 
-        let script = `(seq (
+        let script = `(seq
             ${this.nodeIdentityCall()}
-            (seq ( 
-                (seq (          
+            (seq 
+                (seq          
                     ${serviceCall}
                     ${this.nodeIdentityCall()}
-                ))
-                (call ("${this.selfPeerIdStr}" ("${namedPromise.name}" "") (${returnValue}) void[]))
-            ))
-        ))
+                )
+                (call "${this.selfPeerIdStr}" ("${namedPromise.name}" "") [${returnValue}] void[])
+            )
+        )
         `
 
         let particle = await build(this.selfPeerId, script, data, ttl)
@@ -258,12 +225,11 @@ export class FluenceClient {
             }
         }
 
-        let data = {
-            module_bytes: moduleBase64,
-            module_config: config
-        }
+        let data = new Map()
+        data.set("module_bytes", moduleBase64)
+        data.set("module_config", config)
 
-        let call = (nodeId: string) => `(call ("${nodeId}" ("add_module" "") (module_bytes module_config) void[]))`
+        let call = (nodeId: string) => `(call "${nodeId}" ("add_module" "") [module_bytes module_config] void[])`
 
         return this.requestResponse("addModule", call, "", data, () => {}, nodeId, ttl)
     }
@@ -273,11 +239,10 @@ export class FluenceClient {
      */
     async addBlueprint(name: string, dependencies: string[], nodeId?: string, ttl?: number): Promise<string> {
         let returnValue = "blueprint_id";
-        let call = (nodeId: string) => `(call ("${nodeId}" ("add_blueprint" "") (blueprint) ${returnValue}))`
+        let call = (nodeId: string) => `(call "${nodeId}" ("add_blueprint" "") [blueprint] ${returnValue})`
 
-        let data = {
-            blueprint: { name: name, dependencies: dependencies }
-        }
+        let data = new Map()
+        data.set("blueprint", { name: name, dependencies: dependencies })
 
         return this.requestResponse("addBlueprint", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
     }
@@ -287,11 +252,10 @@ export class FluenceClient {
      */
     async createService(blueprintId: string, nodeId?: string, ttl?: number): Promise<string> {
         let returnValue = "service_id";
-        let call = (nodeId: string) => `(call ("${nodeId}" ("create" "") (blueprint_id) ${returnValue}))`
+        let call = (nodeId: string) => `(call "${nodeId}" ("create" "") [blueprint_id] ${returnValue})`
 
-        let data = {
-            blueprint_id: blueprintId
-        }
+        let data = new Map()
+        data.set("blueprint_id", blueprintId)
 
         return this.requestResponse("createService", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
     }
@@ -301,9 +265,9 @@ export class FluenceClient {
      */
     async getAvailableModules(nodeId?: string, ttl?: number): Promise<string[]> {
         let returnValue = "modules";
-        let call = (nodeId: string) => `(call ("${nodeId}" ("get_available_modules" "") () ${returnValue}))`
+        let call = (nodeId: string) => `(call "${nodeId}" ("get_available_modules" "") [] ${returnValue})`
 
-        return this.requestResponse("getAvailableModules", call, returnValue, {}, (args: any[]) => args[0] as string[], nodeId, ttl)
+        return this.requestResponse("getAvailableModules", call, returnValue, new Map(), (args: any[]) => args[0] as string[], nodeId, ttl)
     }
 
     /**
@@ -311,16 +275,16 @@ export class FluenceClient {
      */
     async getBlueprints(nodeId: string, ttl?: number): Promise<string[]> {
         let returnValue = "blueprints";
-        let call = (nodeId: string) => `(call ("${nodeId}" ("get_available_modules" "") () ${returnValue}))`
+        let call = (nodeId: string) => `(call "${nodeId}" ("get_available_modules" "") [] ${returnValue})`
 
-        return this.requestResponse("getBlueprints", call, returnValue, {}, (args: any[]) => args[0] as string[], nodeId, ttl)
+        return this.requestResponse("getBlueprints", call, returnValue, new Map(), (args: any[]) => args[0] as string[], nodeId, ttl)
     }
 
     /**
      * Add a provider to DHT network to neighborhood around a key.
      */
     async addProvider(key: Buffer, providerPeer: string, providerServiceId?: string, nodeId?: string, ttl?: number): Promise<void> {
-        let call = (nodeId: string) => `(call ("${nodeId}" ("add_provider" "") (key provider) void[]))`
+        let call = (nodeId: string) => `(call "${nodeId}" ("add_provider" "") [key provider] void[])`
 
         key = bs58.encode(key)
 
@@ -329,7 +293,11 @@ export class FluenceClient {
             service_id: providerServiceId
         }
 
-        return this.requestResponse("addProvider", call, "", {key, provider}, () => {}, nodeId, ttl)
+        let data = new Map()
+        data.set("key", key)
+        data.set("provider", provider)
+
+        return this.requestResponse("addProvider", call, "", data, () => {}, nodeId, ttl)
     }
 
     /**
@@ -339,9 +307,12 @@ export class FluenceClient {
         key = bs58.encode(key)
 
         let returnValue = "providers"
-        let call = (nodeId: string) => `(call ("${nodeId}" ("get_providers" "") (key) providers[]))`
+        let call = (nodeId: string) => `(call "${nodeId}" ("get_providers" "") [key] providers[])`
 
-        return this.requestResponse("getProviders", call, returnValue, {key}, (args) => args[0], nodeId, ttl)
+        let data = new Map()
+        data.set("key", key)
+
+        return this.requestResponse("getProviders", call, returnValue, data, (args) => args[0], nodeId, ttl)
     }
 
     /**
@@ -349,17 +320,20 @@ export class FluenceClient {
      */
     async neighborhood(node: string, ttl?: number): Promise<string[]> {
         let returnValue = "neighborhood"
-        let call = (nodeId: string) => `(call ("${nodeId}" ("neighborhood" "") (node) ${returnValue}))`
+        let call = (nodeId: string) => `(call "${nodeId}" ("neighborhood" "") [node] ${returnValue})`
 
-        return this.requestResponse("neighborhood", call, returnValue, {node}, (args) => args[0] as string[], node, ttl)
+        let data = new Map()
+        data.set("node", node)
+
+        return this.requestResponse("neighborhood", call, returnValue, data, (args) => args[0] as string[], node, ttl)
     }
 
     /**
      * Call relays 'identity' method. It should return passed 'fields'
      */
-    async relayIdentity(fields: string[], data: any, nodeId?: string, ttl?: number): Promise<any> {
+    async relayIdentity(fields: string[], data: Map<string, any>, nodeId?: string, ttl?: number): Promise<any> {
         let returnValue = "id";
-        let call = (nodeId: string) => `(call ("${nodeId}" ("identity" "") (${fields.join(" ")}) ${returnValue}))`
+        let call = (nodeId: string) => `(call "${nodeId}" ("identity" "") [${fields.join(" ")}] ${returnValue})`
 
         return this.requestResponse("getIdentity", call, returnValue, data, (args: any[]) => args[0], nodeId, ttl)
     }
