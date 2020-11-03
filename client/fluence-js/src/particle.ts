@@ -35,10 +35,10 @@ export interface Particle {
 function wrapScript(selfPeerId: string, script: string, fields: string[]): string {
     fields.forEach((v) => {
        script = `
-(seq (
-    (call ("${selfPeerId}" ("" "load") ("${v}") ${v}))
+(seq
+    (call "${selfPeerId}" ("" "load") ["${v}"] ${v})
     ${script}
-))
+)
                  `
     });
 
