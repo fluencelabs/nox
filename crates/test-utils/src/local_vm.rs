@@ -53,15 +53,15 @@ impl Instruction {
         use Instruction::*;
 
         match self {
-            Null => "(null ())".to_string(),
+            Null => "(null)".to_string(),
             Call(call) => call,
             Seq(l, r) => {
                 let l = l.into_air();
                 let r = r.into_air();
-                f!("(seq (
+                f!("(seq 
 {l}
 {r}
-))")
+)")
             }
         }
     }
@@ -129,14 +129,14 @@ pub fn make_particle(
 
     let load_variables = variable_names
         .into_iter()
-        .map(|name| f!(r#"(call ("{peer_id}" ("load" "{name}") () {name}))"#))
+        .map(|name| f!(r#"(call "{peer_id}" ("load" "{name}") [] {name})"#))
         .fold(Instruction::Null, |acc, call| acc.add(call))
         .into_air();
     let script = f!(r#"
-(seq (
+(seq
     {load_variables}
     {script}
-))
+)
     "#);
 
     // log::info!("script\n{}", script);

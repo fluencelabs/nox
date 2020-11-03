@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use test_utils::{enable_logs, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
 use maplit::hashmap;
 use serde_json::json;
@@ -29,20 +29,20 @@ fn identity() {
 
     a.send_particle(
         r#"
-                (seq (
-                    (call (node_a ("identity" "") () void[]))
-                    (seq (
-                        (call (node_b ("identity" "") () void[]))
-                        (seq (
-                            (call (node_c ("identity" "") () void[]))
-                            (seq (
-                                (call (node_b ("identity" "") () void[]))
-                                (call (client_b ("identity" "") () void[]))
-                            ))
-                        ))
-                    ))
-                ))
-            "#,
+        (seq
+            (call node_a ("identity" "") [] void[])
+            (seq
+                (call node_b ("identity" "") [] void[])
+                (seq
+                    (call node_c ("identity" "") [] void[])
+                    (seq
+                        (call node_b ("identity" "") [] void[])
+                        (call client_b ("identity" "") [] void[])
+                    )
+                )
+            )
+        )
+        "#,
         hashmap! {
             "node_a" => json!(swarms[0].0.to_string()),
             "node_b" => json!(swarms[1].0.to_string()),
