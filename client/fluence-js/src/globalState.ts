@@ -30,7 +30,7 @@ export function setCurrentParticleId(particle: string | undefined) {
     currentParticle = particle;
 }
 
-export function addParticle(particle: Particle): void {
+export function enqueueParticle(particle: Particle): void {
     particlesQueue.push(particle);
 }
 

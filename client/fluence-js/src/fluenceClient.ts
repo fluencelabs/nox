@@ -22,7 +22,7 @@ import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
 import {
-    addParticle,
+    enqueueParticle,
     getCurrentParticleId,
     popParticle,
     setCurrentParticleId
@@ -55,7 +55,7 @@ export class FluenceClient {
 
         // if a current particle is processing, add new particle to the queue
         if (getCurrentParticleId() !== undefined && getCurrentParticleId() !== particle.id) {
-            addParticle(particle);
+            enqueueParticle(particle);
         } else {
             if (this.stepper === undefined) {
                 throw new Error("Undefined. Stepper is not initialized. User 'Fluence.connect' to create a client.")
