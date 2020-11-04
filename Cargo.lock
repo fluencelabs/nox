@@ -183,8 +183,8 @@ checksum = "a1fd36ffbb1fb7c834eac128ea8d0e310c5aeb635548f9d58861e1308d46e71c"
 
 [[package]]
 name = "aquamarine-vm"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
+version = "0.1.2"
+source = "git+https://github.com/fluencelabs/fce?branch=return_object_instead_array#078dfbc29230a3a9375c5464ac4802e4aee4e2cc"
 dependencies = [
  "fluence-faas",
  "maplit",
@@ -1253,7 +1253,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.9"
-source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
+source = "git+https://github.com/fluencelabs/fce?branch=return_object_instead_array#078dfbc29230a3a9375c5464ac4802e4aee4e2cc"
 dependencies = [
  "boolinator",
  "fce-wit-interfaces",
@@ -1274,7 +1274,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.6"
-source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
+source = "git+https://github.com/fluencelabs/fce?branch=return_object_instead_array#078dfbc29230a3a9375c5464ac4802e4aee4e2cc"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1283,7 +1283,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.8"
-source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
+source = "git+https://github.com/fluencelabs/fce?branch=return_object_instead_array#078dfbc29230a3a9375c5464ac4802e4aee4e2cc"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1330,7 +1330,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.10"
-source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
+source = "git+https://github.com/fluencelabs/fce?branch=return_object_instead_array#078dfbc29230a3a9375c5464ac4802e4aee4e2cc"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1369,7 +1369,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.10"
-source = "git+https://github.com/fluencelabs/fce?branch=master#bfc69c8104bd00f0ae955242ff74900e0896d6a1"
+source = "git+https://github.com/fluencelabs/fce?branch=return_object_instead_array#078dfbc29230a3a9375c5464ac4802e4aee4e2cc"
 dependencies = [
  "cmd_lib",
  "fce",

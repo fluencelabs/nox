@@ -19,12 +19,12 @@ use crate::error::ServiceError;
 use crate::persistence::load_persisted_services;
 use crate::vm::create_vm;
 
-use fluence_app_service::{AppService, IValue};
+use fluence_app_service::AppService;
 use host_closure::{closure, Args, Closure};
 use json_utils::err_as_value;
 
 use parking_lot::{Mutex, RwLock};
-use serde_json::{json, Value};
+use serde_json::{json, Value as JValue};
 use std::{collections::HashMap, sync::Arc};
 
 type VM = Arc<Mutex<AppService>>;
@@ -72,25 +72,21 @@ impl ParticleAppServices {
         let services = self.services.clone();
 
         Arc::new(move |args| {
-            let call = || -> Result<Vec<IValue>, ServiceError> {
+            let call = || -> Result<JValue, ServiceError> {
                 let services = services.read();
                 let vm = services
                     .get(&args.service_id)
                     .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
                 let result = vm
                     .lock()
-                    .call(args.fname, Value::Array(args.args), <_>::default())
+                    .call(args.fname, JValue::Array(args.args), <_>::default())
                     .map_err(ServiceError::Engine)?;
 
                 Ok(result)
             };
 
             match call() {
-                // AppService always returns a single element
-                Ok(result) => {
-                    let result = result.into_iter().next().expect("must be defined");
-                    ivalue_utils::ivalue_ok(result)
-                }
+                Ok(result) => ivalue_utils::ok(result),
                 Err(err) => ivalue_utils::error(json!(err.to_string())),
             }
         })
