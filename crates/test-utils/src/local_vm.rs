@@ -90,7 +90,8 @@ pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> HostExportedFunc {
         let args = Args::parse(args).expect("valid args");
         match args.service_id.as_str() {
             "return" => {
-                (*out.lock()) = args.args;
+                log::warn!("return args {:?}", args.args);
+                out.lock().extend(args.args);
                 ivalue_utils::unit()
             }
             "identity" => ivalue_utils::ok(JValue::Array(args.args)),

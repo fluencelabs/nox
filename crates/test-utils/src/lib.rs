@@ -32,6 +32,7 @@ mod connected_client;
 mod connection;
 mod local_vm;
 mod misc;
+mod singleton_vm;
 
 pub use connected_client::ConnectedClient;
 pub use connection::*;
