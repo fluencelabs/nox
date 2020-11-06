@@ -1,4 +1,3 @@
-
 import {expect} from 'chai';
 
 import 'mocha';
@@ -9,6 +8,9 @@ import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
 import {peerIdToSeed, seedToPeerId} from "../seed";
 import {build} from "../particle";
+import {Service} from "../service";
+import {registerService} from "../globalState";
+import {waitResult} from "../helpers/waitService";
 
 describe("Typescript usage suite", () => {
 
@@ -38,29 +40,45 @@ describe("Typescript usage suite", () => {
         expect(ser).to.be.equal(cert);
     });
 
-    it("test new client", async function () {
-        let key1 = await Fluence.generatePeerId();
-        let key2 = await Fluence.generatePeerId();
-
-        let nodePeerId = "12D3KooWQ8x4SMBmSSUrMzY2m13uzC7UoSyvHaDhTKx7hH8aXxpt"
-        let addr = '/ip4/127.0.0.1/tcp/9001/ws/p2p/' + nodePeerId
-
-        // connect to two different nodes
-        let cl1 = await Fluence.connect(addr, key1);
-
-        let script = "((call (%current% (local_service_id local_fn_name) () result_name)) (call (remote_peer_id (service_id fn_name) () g)))"
-
-        let particle = await build(key1, script, {})
-
-        let result = await cl1.sendParticle(particle)
-        console.log(result)
-    });
-
     // delete `.skip` and run `npm run test` to check service's and certificate's api with Fluence nodes
     it.skip("test certs", async function () {
         this.timeout(15000);
         await testCerts();
     });
+
+    it.skip("", async function () {
+        let pid = await Fluence.generatePeerId()
+        let cl = await Fluence.connect("/ip4/138.197.177.2/tcp/9001/ws/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9", pid)
+
+        let service = new Service("test")
+        service.registerFunction("test", (args: any[]) => {
+            console.log("called: " + args)
+            return {}
+        })
+        registerService(service);
+
+        let namedPromise = waitResult(30000)
+
+        let script = `
+(seq (
+    (call ( "${pid.toB58String()}" ("test" "test") (a b c d) result))
+    (call ( "${pid.toB58String()}" ("${namedPromise.name}" "") (d c b a) void[]))
+))
+`
+
+        let data: Map<string, any> = new Map();
+        data.set("a", "some a")
+        data.set("b", "some b")
+        data.set("c", "some c")
+        data.set("d", "some d")
+
+        let particle = await build(pid, script, data, 30000)
+
+        await cl.sendParticle(particle)
+
+        let res = await namedPromise.promise
+        expect(res).to.be.equal(["some d", "some c", "some b", "some a"])
+    })
 });
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {getService, registerService} from "./globalState";
+import {getService} from "./globalState";
 
 export interface CallServiceResult {
     ret_code: number,
@@ -60,14 +60,7 @@ export class Service {
     }
 }
 
-let logger = new Service("")
-logger.registerFunction("", (args: any[]) => {
-    console.log("logger service: " + args)
-    return { result: "done" }
-})
-registerService(logger);
-
-export function callService(service_id: string, fn_name: string, args: string): CallServiceResult {
+export function service(service_id: string, fn_name: string, args: string): CallServiceResult {
     try {
         let argsObject = JSON.parse(args)
         if (!Array.isArray(argsObject)) {

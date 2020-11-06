@@ -53,6 +53,7 @@ export default class Fluence {
 declare global {
     interface Window {
         Fluence: Fluence;
+        test: any
     }
 }
 
