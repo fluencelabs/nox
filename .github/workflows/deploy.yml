@@ -1,10 +1,3 @@
-X86_TARGET: "./target/x86_64-unknown-linux-gnu/release"
-SERVER_EXE: "{{ X86_TARGET }}/particle-server"
-SERVER: "--build-arg local_exe={{ SERVER_EXE }} --build-arg exe=particle-server"
-#BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-IPFS_DOCKERFILE: "./deploy/fluence-ipfs/Dockerfile"
-IPFS_TAG: "-with-ipfs"
-
 name: Deploy
 on:
   push:
