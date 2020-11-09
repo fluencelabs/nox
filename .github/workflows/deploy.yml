@@ -65,7 +65,7 @@ jobs:
           push: true
           tags: fluencelabs/fluence:${{ env.BRANCH_NAME }}
           build-args: |
-            local_exe=./target/x86_64-unknown-linux-gnu/release/particle-server
+            local_exe=./target/release/particle-server
             exe=particle-server
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
