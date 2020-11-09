@@ -31,12 +31,14 @@ jobs:
 
       - uses: actions-rs/cargo@v1
         with:
+          toolchain: nightly
           command: update
           args: -p libp2p
 
       - name: Build particle-server
         uses: actions-rs/cargo@v1
         with:
+          toolchain: nightly
           command: build
           args: --release
 
