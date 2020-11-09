@@ -51,18 +51,18 @@ jobs:
         with:
           toolchain: nightly
 
-      - uses: actions-rs/cargo@v1
-        with:
-          toolchain: nightly
-          command: update
-          args: -p libp2p
+#      - uses: actions-rs/cargo@v1
+#        with:
+#          toolchain: nightly
+#          command: update
+#          args: -p libp2p
 
-      - name: Build particle-server
-        uses: actions-rs/cargo@v1
-        with:
-          toolchain: nightly
-          command: build
-          args: --release
+#      - name: Build particle-server
+#        uses: actions-rs/cargo@v1
+#        with:
+#          toolchain: nightly
+#          command: build
+#          args: --release
 
       - name: Ls
         shell: bash
