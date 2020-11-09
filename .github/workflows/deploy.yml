@@ -74,7 +74,11 @@ jobs:
 
       - name: ls -l
         shell: bash
-        run: ls -l
+        run: ls -l /home/runner/work/fluence/fluence/*/*
+
+      - name: stat
+        shell: bash
+        run: stat /home/runner/work/fluence/fluence/target/release/particle-server
 
       - name: Ls parent
         shell: bash
