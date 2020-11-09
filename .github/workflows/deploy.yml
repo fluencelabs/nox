@@ -5,6 +5,7 @@ on:
 jobs:
   branch:
     name: Get Branch Name
+    runs-on: ubuntu-latest
     steps:
       - name: Get Branch Name
         run: echo "BRANCH_NAME=$(git rev-parse --abrev-ref HEAD)"
