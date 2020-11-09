@@ -43,5 +43,3 @@ jobs:
             exe=particle-server
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
-  deploy:
-    name: Deploy
