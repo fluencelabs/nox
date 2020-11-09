@@ -108,10 +108,18 @@ jobs:
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
 
-# buildx call failed with: failed to solve: rpc error: code = Unknown desc = failed to compute cache key: failed to walk /tmp/buildkit-mount969910494/home/runner/work/fluence/fluence/target/release: lstat /tmp/buildkit-mount969910494/home/runner/work/fluence/fluence/target/release: no such file or directory
-
 #  Run pwd
 #  /home/runner/work/fluence/fluence
+
+
+#  target/release:
+#   total 0
+#   -rw-r--r-- 1 runner docker 0 Nov  9 22:36 particle-server
+
+# #  > [2/3] COPY /home/runner/work/fluence/fluence/target/release/particle-server /executable:
+# buildx call failed with: failed to solve: rpc error: code = Unknown desc = failed to compute cache key: failed to walk /tmp/buildkit-mount969910494/home/runner/work/fluence/fluence/target/release: lstat /tmp/buildkit-mount969910494/home/runner/work/fluence/fluence/target/release: no such file or directory
+
+
 
 
 #  0s
