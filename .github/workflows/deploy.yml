@@ -78,7 +78,7 @@ jobs:
 
       - name: Ls parent
         shell: bash
-        run: ls -l ../../*/*
+        run: ls -lR ../..
 
 #      - uses: icepuma/rust-action@master
 #        with:
