@@ -51,6 +51,10 @@ jobs:
         with:
           toolchain: nightly
 
+      - name: Mock create particle-server
+        shell: bash
+        run: mkdir -p ./target/release/ && touch ./target/release/particle-server
+
 #      - uses: actions-rs/cargo@v1
 #        with:
 #          toolchain: nightly
@@ -64,17 +68,17 @@ jobs:
 #          command: build
 #          args: --release
 
-      - name: Ls
-        shell: bash
-        run: ls -Rl .
-
       - name: pwd
         shell: bash
         run: pwd
 
+      - name: ls -l
+        shell: bash
+        run: ls -l
+
       - name: Ls parent
         shell: bash
-        run: ls -l ..
+        run: ls -l ../../*/*
 
 #      - uses: icepuma/rust-action@master
 #        with:
@@ -103,3 +107,39 @@ jobs:
             exe=particle-server
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
+
+# buildx call failed with: failed to solve: rpc error: code = Unknown desc = failed to compute cache key: failed to walk /tmp/buildkit-mount969910494/home/runner/work/fluence/fluence/target/release: lstat /tmp/buildkit-mount969910494/home/runner/work/fluence/fluence/target/release: no such file or directory
+
+#  Run pwd
+#  /home/runner/work/fluence/fluence
+
+
+#  0s
+#  Run ls -Rl .
+#.:
+#  total 216
+#  -rw-r--r--  1 runner docker   1483 Nov  9 21:35 CONTRIBUTING.md
+#  -rw-r--r--  1 runner docker 113387 Nov  9 21:35 Cargo.lock
+#  -rw-r--r--  1 runner docker    829 Nov  9 21:35 Cargo.toml
+#  -rw-r--r--  1 runner docker    150 Nov  9 21:35 Dockerfile
+#  -rw-r--r--  1 runner docker   5951 Nov  9 21:35 FluenceCLA.md
+#  -rw-r--r--  1 runner docker  11356 Nov  9 21:35 LICENSE
+#  -rw-r--r--  1 runner docker   2078 Nov  9 21:35 Makefile
+#  -rw-r--r--  1 runner docker   2300 Nov  9 21:35 README.md
+#  drwxr-xr-x  4 runner docker   4096 Nov  9 21:35 client
+#  drwxr-xr-x 11 runner docker   4096 Nov  9 21:35 crates
+#  drwxr-xr-x  4 runner docker   4096 Nov  9 21:35 deploy
+#  -rw-r--r--  1 runner docker   6604 Nov  9 21:35 node_client.mk
+#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-actors
+#  drwxr-xr-x  4 runner docker   4096 Nov  9 21:35 particle-behaviour
+#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-closures
+#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-dht
+#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-modules
+#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-protocol
+#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-providers
+#  drwxr-xr-x  4 runner docker   4096 Nov  9 21:35 particle-server
+#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-services
+#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:49 target
+#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 trust-graph
+
+
