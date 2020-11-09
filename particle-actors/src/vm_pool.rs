@@ -117,6 +117,7 @@ fn create_vm(
             aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
             particle_data_store: config.particles_dir,
             call_service: host_closure(),
+            logging_mask: i64::max_value(),
         };
         let vm = AquamarineVM::new(config)?;
         if let Some(waker) = waker.read().as_ref() {

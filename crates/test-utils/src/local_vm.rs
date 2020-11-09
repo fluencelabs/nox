@@ -90,7 +90,8 @@ pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> HostExportedFunc {
         let args = Args::parse(args).expect("valid args");
         match args.service_id.as_str() {
             "return" => {
-                (*out.lock()) = args.args;
+                log::warn!("return args {:?}", args.args);
+                out.lock().extend(args.args);
                 ivalue_utils::unit()
             }
             "identity" => ivalue_utils::ok(JValue::Array(args.args)),
@@ -108,10 +109,11 @@ fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -
     };
 
     let config = AquamarineVMConfig {
-        aquamarine_wasm_path: aquamarine_fname(None),
         call_service,
+        aquamarine_wasm_path: aquamarine_fname(None),
         current_peer_id: peer_id.to_string(),
         particle_data_store: format!("/tmp/{}", particle_id).into(),
+        logging_mask: i64::max_value(),
     };
     log::info!("particle_data_store: {:?}", config.particle_data_store);
 

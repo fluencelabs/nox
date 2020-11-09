@@ -246,8 +246,8 @@ fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
             (fold users u
                 (par 
                     (seq
-                        (call u.$[1] ("identity" "") [] void[])
-                        (call u.$[0] ("receive" "") [msg] void[])
+                        (call u.$["relay_id"] ("identity" "") [] void[])
+                        (call u.$["peer_id"] ("receive" "") [msg] void[])
                     ) 
                     (next u)
                 )
