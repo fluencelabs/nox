@@ -3,7 +3,8 @@ on:
   push:
   workflow_dispatch:
 jobs:
-  branch:
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       # extract branch name
@@ -21,10 +22,6 @@ jobs:
       - name: Debug
         run: echo ${{ env.BRANCH_NAME }}
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
       - uses: actions/checkout@v2
 #      - uses: icepuma/rust-action@master
 #        with:
