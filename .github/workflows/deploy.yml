@@ -6,7 +6,9 @@ IPFS_DOCKERFILE: "./deploy/fluence-ipfs/Dockerfile"
 IPFS_TAG: "-with-ipfs"
 
 name: Deploy
-on: [workflow_dispatch]
+on:
+  push:
+  workflow_dispatch:
 jobs:
   branch:
     name: Get Branch Name
