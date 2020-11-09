@@ -18,6 +18,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
 
+      - name: Debug
+        run: echo ${{ env.BRANCH_NAME }}
+
   build:
     name: Build
     runs-on: ubuntu-latest
