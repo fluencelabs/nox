@@ -70,7 +70,7 @@ jobs:
 
       - name: pwd
         shell: bash
-        run: ls -Rl .
+        run: pwd
 
       - name: Ls parent
         shell: bash
@@ -99,7 +99,7 @@ jobs:
           push: true
           tags: fluencelabs/fluence:${{ env.BRANCH_NAME }}
           build-args: |
-            local_exe={{ github.workspace }}/target/release/particle-server
+            local_exe=${{ github.workspace }}/target/release/particle-server
             exe=particle-server
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
