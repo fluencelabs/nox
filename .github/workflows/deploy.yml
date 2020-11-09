@@ -42,6 +42,14 @@ jobs:
           command: build
           args: --release
 
+      - name: Ls
+        shell: bash
+        run: ls -Rl .
+
+      - name: Ls root
+        shell: bash
+        run: ls -Rl /
+
 #      - uses: icepuma/rust-action@master
 #        with:
 #          args: cargo update -p libp2p && cargo +nightly build --release
