@@ -25,74 +25,65 @@ jobs:
 
       - uses: actions/checkout@v2
 
-#      - name: Cache Cargo registry
-#        uses: actions/cache@v1
-#        with:
-#          path: ~/.cargo/registry
-#          key: ${{ runner.os }}-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-#          restore-keys: |
-#            ${{ runner.os }}-stable-cargo-registry-
-#      - name: Cache Cargo index
-#        uses: actions/cache@v1
-#        with:
-#          path: ~/.cargo/git
-#          key: ${{ runner.os }}-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-#          restore-keys: |
-#            ${{ runner.os }}-stable-cargo-index-
-#      - name: Cache Cargo build
-#        uses: actions/cache@v1
-#        with:
-#          path: target/debug
-#          key: ${{ runner.os }}-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
-#          restore-keys: |
-#            ${{ runner.os }}-stable-debug-target-
-#
-#      - uses: actions-rs/toolchain@v1
-#        with:
-#          toolchain: nightly
+    ### Prepare cargo & toolchains
+      - name: Cache Cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-cargo-registry-
+      - name: Cache Cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-cargo-index-
+      - name: Cache Cargo build
+        uses: actions/cache@v1
+        with:
+          path: target/debug
+          key: ${{ runner.os }}-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-debug-target-
 
-      - name: Mock create particle-server
-        shell: bash
-        run: mkdir -p ./target/release/ && touch ./target/release/particle-server
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
 
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          toolchain: nightly
-#          command: update
-#          args: -p libp2p
+    ### Update & build
+      - uses: actions-rs/cargo@v1
+        with:
+          toolchain: nightly
+          command: update
+          args: -p libp2p
 
-#      - name: Build particle-server
-#        uses: actions-rs/cargo@v1
-#        with:
-#          toolchain: nightly
-#          command: build
-#          args: --release
-
-      - name: pwd
-        shell: bash
-        run: pwd
-
-      - name: ls -l
-        shell: bash
-        run: ls -l /home/runner/work/fluence/fluence/*/* || true
-
-      - name: stat
-        shell: bash
-        run: stat /home/runner/work/fluence/fluence/target/release/particle-server || true
-
-      - name: Ls parent
-        shell: bash
-        run: ls -lR ../..
+      - name: Build particle-server
+        uses: actions-rs/cargo@v1
+        with:
+          toolchain: nightly
+          command: build
+          args: --release
 
 #      - uses: icepuma/rust-action@master
 #        with:
 #          args: cargo update -p libp2p && cargo +nightly build --release
 
+    ### Prepare docker & login to Dockerhub
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
       - name: Login to DockerHub
         uses: docker/login-action@v1
@@ -100,6 +91,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+    ### Build and push docker image
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v2
@@ -113,47 +105,3 @@ jobs:
             exe=particle-server
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
-
-#  Run pwd
-#  /home/runner/work/fluence/fluence
-
-
-#  target/release:
-#   total 0
-#   -rw-r--r-- 1 runner docker 0 Nov  9 22:36 particle-server
-
-# #  > [2/3] COPY /home/runner/work/fluence/fluence/target/release/particle-server /executable:
-# buildx call failed with: failed to solve: rpc error: code = Unknown desc = failed to compute cache key: failed to walk /tmp/buildkit-mount969910494/home/runner/work/fluence/fluence/target/release: lstat /tmp/buildkit-mount969910494/home/runner/work/fluence/fluence/target/release: no such file or directory
-
-
-
-
-#  0s
-#  Run ls -Rl .
-#.:
-#  total 216
-#  -rw-r--r--  1 runner docker   1483 Nov  9 21:35 CONTRIBUTING.md
-#  -rw-r--r--  1 runner docker 113387 Nov  9 21:35 Cargo.lock
-#  -rw-r--r--  1 runner docker    829 Nov  9 21:35 Cargo.toml
-#  -rw-r--r--  1 runner docker    150 Nov  9 21:35 Dockerfile
-#  -rw-r--r--  1 runner docker   5951 Nov  9 21:35 FluenceCLA.md
-#  -rw-r--r--  1 runner docker  11356 Nov  9 21:35 LICENSE
-#  -rw-r--r--  1 runner docker   2078 Nov  9 21:35 Makefile
-#  -rw-r--r--  1 runner docker   2300 Nov  9 21:35 README.md
-#  drwxr-xr-x  4 runner docker   4096 Nov  9 21:35 client
-#  drwxr-xr-x 11 runner docker   4096 Nov  9 21:35 crates
-#  drwxr-xr-x  4 runner docker   4096 Nov  9 21:35 deploy
-#  -rw-r--r--  1 runner docker   6604 Nov  9 21:35 node_client.mk
-#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-actors
-#  drwxr-xr-x  4 runner docker   4096 Nov  9 21:35 particle-behaviour
-#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-closures
-#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-dht
-#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-modules
-#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-protocol
-#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-providers
-#  drwxr-xr-x  4 runner docker   4096 Nov  9 21:35 particle-server
-#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 particle-services
-#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:49 target
-#  drwxr-xr-x  3 runner docker   4096 Nov  9 21:35 trust-graph
-
-
