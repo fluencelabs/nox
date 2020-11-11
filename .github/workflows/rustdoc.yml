@@ -6,7 +6,7 @@ on:
 env:
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 10
-  RUSTFLAGS: " "
+  RUSTFLAGS: ""
   RUSTUP_MAX_RETRIES: 10
 
 jobs:
@@ -35,4 +35,4 @@ jobs:
           publish_branch: gh-pages
           publish_dir: ./target/doc
           force_orphan: true
-          cname: fluencelabs.github.io
+          cname: doc.fluence.dev
