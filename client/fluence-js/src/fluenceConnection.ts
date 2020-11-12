@@ -129,7 +129,7 @@ export class FluenceConnection {
         const conn = await this.node.dialProtocol(this.address, PROTOCOL_NAME) as {stream: Stream; protocol: string};
 
         pipe(
-            [particleStr],
+            [Buffer.from(particleStr, 'utf8')],
             // at first, make a message varint
             encode(),
             conn.stream.sink,
