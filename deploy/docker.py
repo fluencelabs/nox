@@ -72,7 +72,7 @@ def deploy_caddy():
     load_config()
 
     ports = [ '9002','9003','9005','9004','9001','9100','9990', '5001' ]
-    host = 'relay02.fluence.dev'
+    host = 'stage.fluence.dev'
     ip = env.host_string
     fname = 'Caddyfile'
     prefix = '1'
