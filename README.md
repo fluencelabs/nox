@@ -1,5 +1,14 @@
 # Fluence Project
 
+**Fluence is a peer-to-peer computing protocol and a software licensing system.** 
+
+*The project is a work in progress!* 
+
+See the [Motivation](http://fluence.network/manifesto.html), follow updates on [Twitter](https://twitter.com/fluence_project) or subscribe to the [newsletter](https://fluence.network/).
+
+# Fluence stack
+
+
 |         Layer         |                                                               Tech                                                               |              Scale              |               State               |                          Based on                          |
 | :-------------------: | :------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------: | :-------------------------------: | :--------------------------------------------------------: |
 |       Execution       |                                            [FCE](https://github.com/fluencelabs/fce)                                             |           Single peer           | Disk, network, external processes | Wasm, WIT, [Wasmer*](https://github.com/fluencelabs/wasmer) |
@@ -7,12 +16,9 @@
 |       Topology        | [TrustGraph](https://github.com/fluencelabs/fluence/tree/master/trust-graph), [DHT*](https://github.com/fluencelabs/rust-libp2p) | Distributed with Kademlia* algo |    Actual state of the network    |      [libp2p](https://github.com/libp2p/rust-libp2p)       |
 | Security & Accounting |                                                            Blockchain                                                            |          Whole network          |        Licenses & payments        |                         substrate?                         |
 
-
-**Fluence is a peer-to-peer computing protocol and a software licensing system.** 
-
-*The project is a work in progress!* 
-
-See the [Motivation](http://fluence.network/manifesto.html), follow updates on [Twitter](https://twitter.com/fluence_project) or subscribe to the [newsletter](https://fluence.network/).
+<p width="100%">
+<img alt="aquamarine scheme" align="center" src="images/stack.png"/>
+</p>
 
 ## Quick summary
 
