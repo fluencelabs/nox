@@ -1,6 +1,6 @@
 # Fluence Project
 
-|         Layer         |                                                               Tech                                                               |              Scale              |               State               |                          Based on                          |
+|         Layer         |                                                               <font color="red">Tech</font>                                                               |              Scale              |               State               |                          Based on                          |
 | :-------------------: | :------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------: | :-------------------------------: | :--------------------------------------------------------: |
 |       Execution       |                                            [FCE](https://github.com/fluencelabs/fce)                                             |           Single peer           | Disk, network, external processes | Wasm, WIT, [Wasmer*](https://github.com/fluencelabs/wasmer) |
 |      Composition      |                                     [Aquamarine](https://github.com/fluencelabs/aquamarine)                                      |         Involved peers          |      Results and signatures       |                       ⇅, π-calculus                        |
