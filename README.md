@@ -1,5 +1,13 @@
 # Fluence Project
 
+|         Layer         |                                                               Tech                                                               |              Scale              |               State               |                          Based on                          |
+| :-------------------: | :------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------: | :-------------------------------: | :--------------------------------------------------------: |
+|       Execution       |                                            [FCE](https://github.com/fluencelabs/fce)                                             |           Single peer           | Disk, network, external processes | Wasm, WIT, [Wasmer*](https://github.com/fluencelabs/wasmer) |
+|      Composition      |                                     [Aquamarine](https://github.com/fluencelabs/aquamarine)                                      |         Involved peers          |      Results and signatures       |                       ⇅, π-calculus                        |
+|       Topology        | [TrustGraph](https://github.com/fluencelabs/fluence/tree/master/trust-graph), [DHT*](https://github.com/fluencelabs/rust-libp2p) | Distributed with Kademlia* algo |    Actual state of the network    |      [libp2p](https://github.com/libp2p/rust-libp2p)       |
+| Security & Accounting |                                                            Blockchain                                                            |          Whole network          |        Licenses & payments        |                         substrate?                         |
+
+
 **Fluence is a peer-to-peer computing protocol and a software licensing system.** 
 
 *The project is a work in progress!* 
