@@ -16,6 +16,8 @@ See the [Motivation](http://fluence.network/manifesto.html), follow updates on [
 |       Topology        | [TrustGraph](https://github.com/fluencelabs/fluence/tree/master/trust-graph), [DHT*](https://github.com/fluencelabs/rust-libp2p) | Distributed with Kademlia* algo |    Actual state of the network    |      [libp2p](https://github.com/libp2p/rust-libp2p)       |
 | Security & Accounting |                                                            Blockchain                                                            |          Whole network          |        Licenses & payments        |                         substrate?                         |
 
+<br/>
+
 <p width="100%">
 <img alt="aquamarine scheme" align="center" src="images/stack.png"/>
 </p>
