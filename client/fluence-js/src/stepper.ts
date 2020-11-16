@@ -21,7 +21,7 @@ import {service} from "./service";
 import {getInt32Memory0, getStringFromWasm0, passStringToWasm0, WASM_VECTOR_LEN} from "./aqua";
 import PeerId from "peer-id";
 import log from "loglevel";
-import {wasmBs64} from "@fluencelabs/aquamarine-stepper/aquamarine.wasm.base64";
+import {wasmBs64} from "@fluencelabs/aquamarine-stepper";
 
 export type Stepper = (init_user_id: string, script: string, prev_data: string, data: string) => string
 
