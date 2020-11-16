@@ -11,7 +11,8 @@
     "package": "tsc && rsync -r src/aqua dist --exclude src/aqua/wasmBs64.ts",
     "compile": "tsc",
     "start": "webpack-dev-server -p",
-    "build": "webpack"
+    "build": "webpack",
+    "build-wasm": "wasm-pack build --no-typescript --release"
   },
   "author": "Fluence Labs",
   "license": "Apache 2.0",
