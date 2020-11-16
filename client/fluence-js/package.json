@@ -11,8 +11,7 @@
     "package": "tsc && rsync -r src/aqua dist --exclude src/aqua/wasmBs64.ts",
     "compile": "tsc",
     "start": "webpack-dev-server -p",
-    "build": "webpack",
-    "build-wasm": "wasm-pack build --no-typescript --release"
+    "build": "webpack"
   },
   "author": "Fluence Labs",
   "license": "Apache 2.0",
@@ -41,7 +40,7 @@
     "assert": "2.0.0",
     "chai": "4.2.0",
     "clean-webpack-plugin": "3.0.0",
-    "libp2p-ts": "https://github.com/ChainSafe/libp2p-ts.git",
+    "libp2p-ts": "https://github.com/ChainSafe/libp2p-ts.git#1306a2248294a89ca576ff4a7fc2c348169265c4",
     "mocha": "7.2.0",
     "ts-loader": "7.0.5",
     "ts-mocha": "7.0.0",
@@ -49,7 +48,6 @@
     "webpack": "4.43.0",
     "webpack-cli": "3.3.11",
     "webpack-dev-server": "3.11.0",
-    "@wasm-tool/wasm-pack-plugin": "1.0.1",
     "html-webpack-plugin": "^3.2.0",
     "text-encoding": "^0.7.0"
   }
