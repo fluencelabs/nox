@@ -26,9 +26,3 @@ Establish connections to predefined nodes.
 let client1 = await Fluence.connect("/dns4/134.209.186.43/tcp/9003/ws/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb", peerId1);
 let client2 = await Fluence.connect("/ip4/134.209.186.43/tcp/9002/ws/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er", peerId2);
 ```
-
-### Dev: Update Aquamarine in repo
-
-```
-./build-aqua.sh path-to-aquamarine-dir
-```
