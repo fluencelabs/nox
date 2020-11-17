@@ -8,8 +8,7 @@
     "test": "mocha -r ts-node/register src/**/*.spec.ts",
     "test-ts": "ts-mocha -p tsconfig.json src/**/*.spec.ts",
     "package:build": "NODE_ENV=production webpack && npm run package",
-    "package": "tsc && rsync -r src/aqua dist --exclude src/aqua/wasmBs64.ts",
-    "compile": "tsc",
+    "package": "tsc",
     "start": "webpack-dev-server -p",
     "build": "webpack"
   },
