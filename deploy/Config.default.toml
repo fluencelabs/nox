@@ -1,20 +1,33 @@
 ## ed25519 private key for this node. Can be either a path to base58 bytes, or base58 bytes directly
+## if root_key_pair is not defined, or path does not exist, new key pair will be generated
 root_key_pair = "./.fluence/secret_key"
+
+## example of root_key_pair specified as base58 directly:
 # root_key_pair = "5jvxDNS6ChWV5cyXQxs8pUBzVo2NkGc7pVbx2RS1LB94yJciY9n4SzCS7ECDQxSZ3Zb4hGidbuQeHznYgQSFRkjU"
+
+## Services will store their data here
+services_base_dir = "./.fluence/services"
+## AIR Interpreter (stepper) will store its data here
+stepper_base_dir = "./.fluence/stepper"
+## directory for TrustGraph certificates
+certificate_dir = "./.fluence/certificates"
 
 tcp_port = 7777
 listen_ip = "0.0.0.0"
 socket_timeout = "20s"
-bootstrap_nodes = []
+bootstrap_nodes = [
+    "/dns4/stage.fluence.dev/tcp/9001",
+    "/dns4/stage.fluence.dev/tcp/9002",
+]
+
 websocket_port = 9999
 #external_address = "85.85.35.35"
 prometheus_port = 18080
 stepper_pool_size = 16
 
-services_base_dir = "./.fluence/services"
+## environment variables that will be passed to each service
+## TODO: separate by service or move to service config
 services_envs = { name = "value" }
-stepper_base_dir = "/stepper"
-certificate_dir = "./.fluence/certificates"
 
 [bootstrap_config]
 reconnect_delay = "1s 729ms"

@@ -1,10 +1,10 @@
-name: Deploy
+name: Publish docker image
 on:
   push:
   workflow_dispatch:
 jobs:
   build:
-    name: Build
+    name: Build & publish docker image
     runs-on: ubuntu-latest
     steps:
     ### extract branch name
@@ -14,14 +14,9 @@ jobs:
         run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
         id: extract_branch
 
-      # extract branch name on pull request
       - name: Extract branch name
         if: github.event_name == 'pull_request'
         run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
-    ###
-
-      - name: Debug
-        run: echo "Current branch is ${{ env.BRANCH_NAME }}"
 
       - uses: actions/checkout@v2
 
@@ -91,6 +86,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+
+    ### Set container tag to 'latest' if branch is master, and to $BRANCH_NAME otherwise
+      - if: ${{ env.BRANCH_NAME }} == 'master'
+        run: echo "CONTAINER_TAG=latest" >> $GITHUB_ENV
+      - if: ${{ env.BRANCH_NAME }} != 'master'
+        run: echo "CONTAINER_TAG=${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
+
     ### Build and push docker image
       - name: Build and push
         id: docker_build
@@ -99,9 +101,11 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: fluencelabs/fluence:${{ env.BRANCH_NAME }}
+          tags: fluencelabs/fluence:${{ env.CONTAINER_TAG }}
           build-args: |
             local_exe=./target/release/particle-server
             exe=particle-server
+            config=./deploy/Config.default.toml
+
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
