@@ -5,5 +5,4 @@ target
 !target/**/particle-server
 !target/**/fluence-ipfs
 !target/**/deps/endurance*
-!deploy/fluence-ipfs/run_fluence_ipfs.sh
-!deploy/fluence-ipfs/wait.sh
+!deploy/**

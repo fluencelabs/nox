@@ -1,4 +1,4 @@
-from rust
+from minideb:latest
 
 ARG exe=particle-server
 ARG local_exe=
