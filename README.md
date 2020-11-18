@@ -6,6 +6,22 @@
 
 See the [Motivation](http://fluence.network/manifesto.html), follow updates on [Twitter](https://twitter.com/fluence_project) or subscribe to the [newsletter](https://fluence.network/).
 
+# Fluence stack
+
+
+|         Layer         |                                                               Tech                                                               |              Scale              |               State               |                          Based on                          |
+| :-------------------: | :------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------: | :-------------------------------: | :--------------------------------------------------------: |
+|       Execution       |                                            [FCE](https://github.com/fluencelabs/fce)                                             |           Single peer           | Disk, network, external processes | Wasm, [IT](https://github.com/fluencelabs/interface-types), [Wasmer*](https://github.com/fluencelabs/wasmer) |
+|      Composition      |                                     [Aquamarine](https://github.com/fluencelabs/aquamarine)                                      |         Involved peers          |      Results and signatures       |                       ⇅, π-calculus                        |
+|       Topology        | [TrustGraph](https://github.com/fluencelabs/fluence/tree/master/trust-graph), [DHT*](https://github.com/fluencelabs/rust-libp2p) | Distributed with Kademlia* algo |    Actual state of the network    |      [libp2p](https://github.com/libp2p/rust-libp2p)       |
+| Security & Accounting |                                                            Blockchain                                                            |          Whole network          |        Licenses & payments        |                         substrate?                         |
+
+<br/>
+
+<p width="100%">
+<img alt="aquamarine scheme" align="center" src="images/stack.png"/>
+</p>
+
 ## Quick summary
 
 Fluence protocol aims to empower internet applications with interoperability, resilience, and security. Fluence makes it possible to publish, run, compose, and monetize applications without intermediaries or central servers.
