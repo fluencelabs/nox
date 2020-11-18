@@ -2,8 +2,8 @@ target
 **/target
 **/**
 **
-!target/x86_64-unknown-linux-gnu/release/particle-server
-!target/x86_64-unknown-linux-gnu/release/fluence-ipfs
-!target/x86_64-unknown-linux-gnu/release/deps/endurance*
+!target/**/particle-server
+!target/**/fluence-ipfs
+!target/**/deps/endurance*
 !deploy/fluence-ipfs/run_fluence_ipfs.sh
 !deploy/fluence-ipfs/wait.sh
