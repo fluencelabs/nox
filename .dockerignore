@@ -2,7 +2,14 @@ target
 **/target
 **/**
 **
-!**/**/particle-server
-!**/fluence-ipfs
-!**/deps/endurance*
+
 !deploy/**
+
+!target/release/particle-server
+!target/x86_64-unknown-linux-gnu/release/particle-server
+
+!target/release/fluence-ipfs
+!target/x86_64-unknown-linux-gnu/release/fluence-ipfs
+
+!target/release/deps/endurance*
+!target/x86_64-unknown-linux-gnu/release/deps/endurance*
