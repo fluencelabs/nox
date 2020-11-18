@@ -1,0 +1,32 @@
+## ed25519 private key for this node. Can be either a path to base58 bytes, or base58 bytes directly
+root_key_pair = "./.fluence/secret_key"
+# root_key_pair = "5jvxDNS6ChWV5cyXQxs8pUBzVo2NkGc7pVbx2RS1LB94yJciY9n4SzCS7ECDQxSZ3Zb4hGidbuQeHznYgQSFRkjU"
+
+tcp_port = 7777
+listen_ip = "0.0.0.0"
+socket_timeout = "20s"
+bootstrap_nodes = []
+websocket_port = 9999
+#external_address = "85.85.35.35"
+prometheus_port = 18080
+stepper_pool_size = 16
+
+services_base_dir = "./.fluence/services"
+services_envs = { name = "value" }
+stepper_base_dir = "/stepper"
+certificate_dir = "./.fluence/certificates"
+
+[bootstrap_config]
+reconnect_delay = "1s 729ms"
+bootstrap_delay = "30s 45ms"
+bootstrap_max_delay = "60s"
+
+[root_weights]
+Ct8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4 = 1
+5i1Jr4x6cafoSPgBEAzY62ChJun4NFXFSvsFc1SwRqWD = 20
+
+[protocol_config]
+upgrade_timeout = "10s"
+keep_alive_timeout = "10s"
+outbound_substream_timeout = "10s"
+

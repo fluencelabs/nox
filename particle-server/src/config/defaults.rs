@@ -21,7 +21,7 @@ use std::time::Duration;
 
 pub const DEFAULT_CERT_DIR: &str = "./.fluence/certificates";
 pub const DEFAULT_KEY_DIR: &str = "./.fluence/secret_key";
-pub const DEFAULT_CONFIG_FILE: &str = "./server/Config.toml";
+pub const DEFAULT_CONFIG_FILE: &str = "./.fluence/Config.toml";
 pub const DEFAULT_SERVICES_BASE_DIR: &str = "./.fluence/services";
 pub const DEFAULT_STEPPER_BASE_DIR: &str = "./.fluence/stepper";
 

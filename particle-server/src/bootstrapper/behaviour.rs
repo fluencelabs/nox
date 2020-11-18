@@ -38,8 +38,11 @@ pub type SwarmEventType = generate_swarm_event_type!(Bootstrapper);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BootstrapConfig {
+    #[serde(with = "humantime_serde")]
     pub reconnect_delay: Duration,
+    #[serde(with = "humantime_serde")]
     pub bootstrap_delay: Duration,
+    #[serde(with = "humantime_serde")]
     pub bootstrap_max_delay: Duration,
 }
 
