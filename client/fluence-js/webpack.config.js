@@ -1,7 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 
 const production = (process.env.NODE_ENV === 'production');
 
@@ -30,11 +29,6 @@ const config = {
     },
     plugins: [
         new HtmlWebpackPlugin(),
-        new WasmPackPlugin({
-            // TODO use another path somehow
-            crateDirectory: path.resolve(__dirname, "../../../aquamarine/stepper"),
-            outDir:path.resolve(__dirname, "./pkg")
-        }),
         new webpack.ProvidePlugin({
             TextDecoder: ['text-encoding', 'TextDecoder'],
             TextEncoder: ['text-encoding', 'TextEncoder']
