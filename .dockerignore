@@ -2,7 +2,7 @@ target
 **/target
 **/**
 **
-!target/**/particle-server
-!target/**/fluence-ipfs
-!target/**/deps/endurance*
+!**/**/particle-server
+!**/fluence-ipfs
+!**/deps/endurance*
 !deploy/**
