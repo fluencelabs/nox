@@ -1,4 +1,4 @@
-from minideb:latest
+from bitnami/minideb:latest
 
 ARG exe=particle-server
 ARG local_exe=
