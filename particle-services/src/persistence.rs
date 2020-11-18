@@ -19,6 +19,7 @@ use crate::error::ServiceError::{
     CreateServicesDir, DeserializePersistedService, ReadPersistedService,
 };
 
+use config_utils::create_dirs;
 use particle_modules::{is_service, list_files, service_file_name, ModuleError};
 
 use serde::{Deserialize, Serialize};
@@ -66,7 +67,7 @@ pub fn load_persisted_services(
         Some(files) => files,
         None => {
             // Attempt to create directory and exit
-            return std::fs::create_dir_all(services_dir)
+            return create_dirs(services_dir)
                 .map_err(|err| CreateServicesDir {
                     path: services_dir.clone(),
                     err,

@@ -74,7 +74,7 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     certificates::init(config.certificate_dir.as_str(), &config.root_key_pair)
-        .context("init certificates")?;
+        .context("failed to init certificates")?;
 
     let key_pair = &config.root_key_pair.key_pair;
     log::info!(
@@ -82,7 +82,8 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
-    let node_service = Server::new(key_pair.clone(), config.server).context("create server")?;
+    let node_service =
+        Server::new(key_pair.clone(), config.server).context("failed to create server")?;
 
     let node_exit_outlet = node_service.start();
 
@@ -94,7 +95,7 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
         fn stop(self) {
             self.node_exit_outlet
                 .send(())
-                .expect("stop node through exit outlet");
+                .expect("failed to stop node through exit outlet");
         }
     }
 

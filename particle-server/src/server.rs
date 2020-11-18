@@ -21,6 +21,7 @@ use config_utils::to_peer_id;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use trust_graph::TrustGraph;
 
+use anyhow::Context;
 use async_std::task;
 use futures::{channel::oneshot, future::BoxFuture, select, stream::StreamExt, FutureExt};
 use libp2p::{
@@ -40,7 +41,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(key_pair: Keypair, config: ServerConfig) -> io::Result<Box<Self>> {
+    pub fn new(key_pair: Keypair, config: ServerConfig) -> anyhow::Result<Box<Self>> {
         let ServerConfig { socket_timeout, .. } = config;
 
         let local_peer_id = to_peer_id(&key_pair);
@@ -52,7 +53,8 @@ impl Server {
         let mut swarm = {
             let config =
                 BehaviourConfig::new(trust_graph, Some(&registry), key_pair.clone(), &config);
-            let behaviour = ServerBehaviour::new(config)?;
+            let behaviour =
+                ServerBehaviour::new(config).context("failed to crate ServerBehaviour")?;
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
 

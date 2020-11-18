@@ -2901,6 +2901,7 @@ dependencies = [
 name = "particle-behaviour"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "async-std",
  "bs58",
  "config-utils",

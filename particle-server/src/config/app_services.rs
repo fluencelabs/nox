@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use config_utils::create_dirs;
+
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
@@ -63,17 +65,11 @@ impl AppServicesConfig {
     }
 
     pub fn create_dirs(&self) -> Result<(), std::io::Error> {
-        let dirs = &[
+        create_dirs(&[
             &self.blueprint_dir,
             &self.workdir,
             &self.modules_dir,
             &self.services_dir,
-        ];
-
-        for dir in dirs {
-            std::fs::create_dir_all(dir)?;
-        }
-
-        Ok(())
+        ])
     }
 }

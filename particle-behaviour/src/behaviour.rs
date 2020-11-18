@@ -34,7 +34,6 @@ use particle_providers::ProviderRepository;
 use prometheus::Registry;
 use std::{
     collections::{HashMap, VecDeque},
-    io,
     task::Waker,
 };
 
@@ -59,7 +58,7 @@ impl ParticleBehaviour {
         config: ParticleConfig,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
-    ) -> io::Result<Self> {
+    ) -> anyhow::Result<Self> {
         let services = ParticleAppServices::new(config.services_config()?);
         let mailbox = Mailbox::new();
         let providers = ProviderRepository::new(config.current_peer_id.clone());

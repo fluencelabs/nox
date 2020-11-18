@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+use config_utils::create_dirs;
+use trust_graph::Certificate;
+use trust_graph::KeyPair;
+
 use log::info;
 use std::fs;
 use std::fs::File;
@@ -22,8 +26,6 @@ use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use trust_graph::Certificate;
-use trust_graph::KeyPair;
 
 /// Loads all certificates from a disk. Creates a root certificate for key pair if there is no one.
 pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> Result<Vec<Certificate>, Error> {
@@ -53,7 +55,7 @@ pub fn load_certificates(cert_dir: &str) -> Result<Vec<Certificate>, Error> {
 
     // cold start, if there is no directory, create a new one
     if !cert_dir.exists() {
-        fs::create_dir_all(cert_dir)?;
+        create_dirs(cert_dir)?;
     }
 
     if cert_dir.is_file() {
