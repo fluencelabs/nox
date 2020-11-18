@@ -105,6 +105,7 @@ jobs:
           build-args: |
             exe=./target/release/particle-server
             config=./deploy/Config.default.toml
+            air_interpreter=./deploy/aquamarine.wasm
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
