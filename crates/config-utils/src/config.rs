@@ -47,11 +47,15 @@ where
     I::Item: AsRef<Path> + Debug,
 {
     for dir in dirs {
-        std::fs::create_dir_all(&dir)
-            .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))?;
+        create_dir(dir)?;
     }
 
     Ok(())
+}
+
+pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
+    std::fs::create_dir_all(&dir)
+        .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
 }
 
 pub fn to_peer_id(kp: &Keypair) -> PeerId {
