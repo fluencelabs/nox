@@ -103,8 +103,7 @@ jobs:
           push: true
           tags: fluencelabs/fluence:${{ env.CONTAINER_TAG }}
           build-args: |
-            local_exe=./target/release/particle-server
-            exe=particle-server
+            exe=./target/release/particle-server
             config=./deploy/Config.default.toml
 
       - name: Image digest
