@@ -49,6 +49,9 @@ await client.executeParticle(particle)
 // "custom-function-name called" should be printed in a console
 ```
 
+### Pass arguments to a function
+...
+
 ### Call a function from a remote client
 
 Every peer in a Fluence network could have services, including clients and relay peers. Try to call a function that is registered on a relay that a client connected to. To do this, you just need to change the script.
