@@ -123,7 +123,7 @@ export class FluenceConnection {
         return build(this.selfPeerId, script, data, ttl)
     }
 
-    async sendParticle(particle: Particle): Promise<void> {
+    async executeParticle(particle: Particle): Promise<void> {
         this.checkConnectedOrThrow();
 
         let particleStr = stringifyParticle(particle);

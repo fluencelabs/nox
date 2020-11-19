@@ -91,7 +91,7 @@ export class FluenceClient {
                         let newParticle: Particle = {...particle};
                         newParticle.data = JSON.parse(stepperOutcome.call_path);
 
-                        await this.connection.sendParticle(newParticle).catch((reason) => {
+                        await this.connection.executeParticle(newParticle).catch((reason) => {
                             console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
                         });
                     }
