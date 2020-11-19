@@ -164,7 +164,7 @@ impl Bootstrapper {
 
         let (ready, not_ready) = delayed
             .into_iter()
-            .partition(|(deadline, _)| deadline.map(|d| d >= now).unwrap_or(true));
+            .partition(|(deadline, _)| deadline.map(|d| deadline_reached(d, now)).unwrap_or(true));
 
         self.delayed_events = not_ready;
         self.events = ready.into_iter().map(|(_, e)| e).collect();
@@ -177,6 +177,10 @@ impl Bootstrapper {
         self.complete_delayed(now);
         self.trigger_bootstrap(now);
     }
+}
+
+fn deadline_reached(deadline: Instant, now: Instant) -> bool {
+    now >= deadline
 }
 
 impl NetworkBehaviour for Bootstrapper {

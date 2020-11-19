@@ -30,7 +30,7 @@ stepper_pool_size = 16
 services_envs = { name = "value" }
 
 [bootstrap_config]
-reconnect_delay = "1s 729ms"
+reconnect_delay = "5s 500ms"
 bootstrap_delay = "30s 45ms"
 bootstrap_max_delay = "60s"
 
