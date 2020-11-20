@@ -20,7 +20,7 @@ use crate::persistence::load_persisted_services;
 use crate::vm::create_vm;
 
 use fluence_app_service::AppService;
-use host_closure::{closure, Args, Closure};
+use host_closure::{closure, closure_args, Args, Closure};
 use json_utils::err_as_value;
 
 use parking_lot::{Mutex, RwLock};
@@ -89,6 +89,49 @@ impl ParticleAppServices {
                 Ok(result) => ivalue_utils::ok(result),
                 Err(err) => ivalue_utils::error(json!(err.to_string())),
             }
+        })
+    }
+
+    pub fn get_interface(&self) -> Closure {
+        let services = self.services.clone();
+
+        closure_args(move |args| {
+            let services = services.read();
+            let vm = services
+                .get(&args.service_id)
+                .ok_or(ServiceError::NoSuchInstance(args.service_id))?
+                .lock();
+
+            let interface = vm.get_interface();
+            let interface = serde_json::to_value(interface)
+                .map_err(|e| ServiceError::CorruptedFaaSInterface(e))?;
+            Ok(interface)
+        })
+    }
+
+    pub fn get_active_interfaces(&self) -> Closure {
+        let services = self.services.clone();
+
+        closure(move |_| {
+            let services = services.read();
+            let interfaces = services
+                .iter()
+                .map(|(id, vm)| {
+                    let vm = vm.lock();
+                    let interface = serde_json::to_value(vm.get_interface());
+                    drop(vm); // unlock Mutex
+                    let interface = interface.map_err(|e| {
+                        JValue::String(format!("{:?}", ServiceError::CorruptedFaaSInterface(e)))
+                    });
+                    let interface = match interface {
+                        Ok(iface) => iface,
+                        Err(err) => err,
+                    };
+                    json!({ "service_id": id, "interface": interface })
+                })
+                .collect();
+
+            Ok(interfaces)
         })
     }
 

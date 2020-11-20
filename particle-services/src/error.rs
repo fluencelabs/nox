@@ -19,6 +19,7 @@ use particle_modules::ModuleError;
 use fluence_app_service::AppServiceError;
 use host_closure::ArgsError;
 
+use serde_json::Value as JValue;
 use std::{error::Error, path::PathBuf};
 
 #[derive(Debug)]
@@ -26,19 +27,10 @@ pub enum ServiceError {
     NoSuchInstance(String),
     Engine(AppServiceError),
     ModuleError(ModuleError),
-    ReadPersistedService {
-        path: PathBuf,
-        err: std::io::Error,
-    },
-    DeserializePersistedService {
-        err: toml::de::Error,
-        path: PathBuf,
-    },
-    CreateServicesDir {
-        path: PathBuf,
-        err: std::io::Error,
-    },
-    #[allow(dead_code)]
+    ReadPersistedService { path: PathBuf, err: std::io::Error },
+    DeserializePersistedService { err: toml::de::Error, path: PathBuf },
+    CreateServicesDir { path: PathBuf, err: std::io::Error },
+    CorruptedFaaSInterface(serde_json::Error),
     ArgParseError(ArgsError),
 }
 
@@ -58,6 +50,12 @@ impl From<ArgsError> for ServiceError {
 impl From<ModuleError> for ServiceError {
     fn from(err: ModuleError) -> Self {
         ServiceError::ModuleError(err)
+    }
+}
+
+impl From<ServiceError> for JValue {
+    fn from(err: ServiceError) -> Self {
+        JValue::String(err.to_string())
     }
 }
 
@@ -86,6 +84,11 @@ impl std::fmt::Display for ServiceError {
                 f,
                 "Error deserializing persisted service from {:?}: {:#?}",
                 path, err
+            ),
+            ServiceError::CorruptedFaaSInterface(err) => write!(
+                f,
+                "CorruptedFaaSInterface: can't serialize interface to JSON: {:#?}",
+                err
             ),
         }
     }
