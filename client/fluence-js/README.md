@@ -40,7 +40,8 @@ let client = await Fluence.connect(multiaddr);
 
 // a script, that will call registered function
 // call should be targeted with client's peer, name of a service and a function
-let script = `(call ${client.selfPeerIdStr} ("custom-service-id" "custom-function-name") [])`
+// %init_peer_id% - is a predefined variable with peerId of a caller 
+let script = `(call %init_peer_id% ("custom-service-id" "custom-function-name") [])`
 
 // build a particle, that combine script and data (that is empty for now)
 let particle = await build(client.selfPeerId, script, new Map())
@@ -50,7 +51,38 @@ await client.executeParticle(particle)
 ```
 
 ### Pass arguments to a function
-...
+It is possible to pass arguments to a function and use result in AIR scripts:
+```typescript
+let script = `(call %init_service_id% ("custom-service-id" "custom-function-name") ["arg1" "arg2" "arg3"] result)`
+```
+Result could be used strictly in AIR script. Arguments could be strings or variables with custom types. You can use it just like that:
+```typescript
+service.registerFunction("custom-function-name", (args: any[]) => {
+    console.log("arg1 = " + args[0])
+    console.log("arg2 = " + args[1])
+    console.log("arg3 = " + args[2])
+    let result = args.join(",")
+    return result 
+})
+``` 
+
+About variables in AIR in next part below.
+
+### Particle
+Particle is a combination of AIR script, data for script execution and utility information about security, time-to-live, etc. We only used scripts with hardcoded string arguments, but it could be more flexible with custom variables. Variables are specified without quotes. Client should add these variables to data or AIR script will be failed on execution. 
+```typescript
+let script = `(call %init_service_id% (service_id function_name) [arg1 arg2] result)`
+
+let data = new Map()
+data.set("service_id", "some-service")
+data.set("function_id", "some-function")
+data.set("arg1", {customObject: 12, withCustomTypes: {a: 1, b: "string"}})
+data.set("arg2", "arg2")
+
+let particle = await build(client.selfPeerId, script, data)
+```
+
+How to use variables in AIR script in details here (LINK).
 
 ### Call a function from a remote client
 
@@ -117,15 +149,16 @@ let client = await Fluence.connect(multiaddr);
 // remote peer could be 'undefined' for relay or peerId in base58 for other remote peers in Fluence network
 let remotePeerId = undefined
 
-await cl.addModule("wasm1 name", WASM1_BS64, remotePeerId);
-await cl.addModule("wasm2 name", WASM2_BS64, remotePeerId);
+await client.addModule("wasm1 name", WASM1_BS64, remotePeerId);
+await client.addModule("wasm2 name", WASM2_BS64, remotePeerId);
 ```
 
-Firstly, client should create a blueprint (combination of modules) to create services from it. It will return blueprint id.
+Firstly, client should create a blueprint (combination of modules) to create services from it. It will return blueprint id that client can use to create a service. Then services could be calles from AIR script.
 
 ```typescript
-let blueprintId = await cl.addBlueprint("blueprint name", ["wasm1 name", "wasm2 name"])
-
+// modules could be linked between each other. If so, dependent modules should be specified after dependencies.
+let blueprintId = await client.addBlueprint("blueprint name", ["wasm1 name", "wasm2 name"], remotePeerId)
+let serviceId = await client.createService(blueprintId, remotePeerId)
 ```
 
 ### Add providers of services in a Fluence network (Kademlia)
