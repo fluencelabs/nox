@@ -40,7 +40,7 @@ pub struct Blueprint {
 }
 
 #[test]
-fn get_active_interfaces() {
+fn get_interfaces() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
@@ -51,7 +51,7 @@ fn get_active_interfaces() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("srv" ""get_interfaces"") [] interfaces)
+            (call relay ("srv" "get_interfaces") [] interfaces)
             (call client ("return" "") [interfaces])
         )
         "#,
@@ -75,7 +75,7 @@ fn get_active_interfaces() {
 }
 
 #[test]
-fn get_available_modules() {
+fn get_modules() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
@@ -104,7 +104,7 @@ fn get_available_modules() {
 }
 
 #[test]
-fn get_available_blueprints() {
+fn get_blueprints() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
@@ -167,7 +167,7 @@ fn explore_services() {
                         (seq
                             (fold ns n
                                 (seq
-                                    (call n ("srv" ""get_interfaces"") [] services[])
+                                    (call n ("srv" "get_interfaces") [] services[])
                                     (next n)
                                 )
                             )
