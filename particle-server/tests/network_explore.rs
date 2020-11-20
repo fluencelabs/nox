@@ -141,7 +141,7 @@ fn explore_services() {
     let swarms = make_swarms(20);
     sleep(KAD_TIMEOUT);
 
-    let service_ids: Vec<_> = swarms
+    let _service_ids: Vec<_> = swarms
         .iter()
         .take(10)
         .map(|s| {

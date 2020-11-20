@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use crate::BuiltinServicesApi;
-
 use host_closure::{Args, Closure};
 use ivalue_utils::{IType, IValue};
 use particle_actors::HostImportDescriptor;
@@ -27,9 +25,10 @@ type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 's
 
 #[derive(Clone)]
 pub struct HostClosures {
+    pub resolve: Closure,
+    pub neighborhood: Closure,
     pub create_service: Closure,
     pub call_service: Closure,
-    pub builtin: Closure,
     pub add_module: Closure,
     pub add_blueprint: Closure,
     pub get_modules: Closure,
@@ -65,6 +64,8 @@ impl HostClosures {
         log::debug!("Host function call, args: {:#?}", args);
         // route
         match args.service_id.as_str() {
+            "resolve" => (self.resolve)(args),
+            "neighborhood" => (self.neighborhood)(args),
             "create" => (self.create_service)(args),
             "add_module" => (self.add_module)(args),
             "add_blueprint" => (self.add_blueprint)(args),
@@ -75,7 +76,6 @@ impl HostClosures {
             "get_interface" => (self.get_interface)(args),
             "get_active_interfaces" => (self.get_active_interfaces)(args),
             "identity" => ivalue_utils::ok(JValue::Array(args.args)),
-            s if BuiltinServicesApi::is_builtin(&s) => (self.builtin)(args),
             _ => (self.call_service)(args),
         }
     }

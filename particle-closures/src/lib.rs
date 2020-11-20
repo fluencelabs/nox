@@ -30,6 +30,6 @@ mod builtin_services_api;
 mod host_closures;
 mod mailbox;
 
-pub use builtin_services_api::BuiltinServicesApi;
+pub use builtin_services_api::BehaviourMailboxApi;
 pub use host_closures::HostClosures;
 pub use mailbox::{BuiltinCommand, Mailbox};
