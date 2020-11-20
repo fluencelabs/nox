@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{test_module, ConnectedClient};
+use crate::{test_module, test_module_cfg, ConnectedClient};
 use maplit::hashmap;
 use serde_json::json;
 
@@ -25,18 +25,6 @@ pub struct CreatedService {
 
 pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
     let module = "greeting";
-    let config = json!(
-        {
-            "name": module,
-            "mem_pages_count": 100,
-            "logger_enabled": true,
-            "wasi": {
-                "envs": json!({}),
-                "preopened_files": vec!["/tmp"],
-                "mapped_dirs": json!({}),
-            }
-        }
-    );
 
     let script = f!(r#"(seq
             (call relay ("add_module" "") [module_bytes module_config] module)
@@ -52,7 +40,7 @@ pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
         "module_bytes" => json!(base64::encode(test_module())),
-        "module_config" => json!(config),
+        "module_config" => test_module_cfg(module),
         "blueprint" => json!({ "name": "blueprint", "dependencies": [module] }),
     };
 

@@ -33,6 +33,7 @@ use libp2p::{
 };
 use prometheus::Registry;
 use rand::Rng;
+use serde_json::{json, Value as JValue};
 use std::{
     path::PathBuf,
     time::{Duration, Instant},
@@ -290,7 +291,8 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
 
     let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
-    put_aquamarine(modules_dir(&tmp), aquamarine_file_name);
+    let stepper_base_dir = tmp.join("stepper");
+    put_aquamarine(modules_dir(&stepper_base_dir), aquamarine_file_name);
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
@@ -311,9 +313,9 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             bootstrap_nodes: bootstraps,
             bootstrap: BootstrapConfig::zero(),
             registry,
-            services_base_dir: tmp.clone(),
+            services_base_dir: tmp.join("services"),
             services_envs: <_>::default(),
-            stepper_base_dir: tmp.clone(),
+            stepper_base_dir,
             protocol_config: <_>::default(),
             stepper_pool_size: 1,
         };
@@ -389,6 +391,21 @@ pub fn test_module() -> Vec<u8> {
     let module = std::fs::read(&module).expect(format!("fs::read from {:?}", module).as_str());
 
     module
+}
+
+pub fn test_module_cfg(name: &str) -> JValue {
+    json!(
+        {
+            "name": name,
+            "mem_pages_count": 100,
+            "logger_enabled": true,
+            "wasi": {
+                "envs": json!({}),
+                "preopened_files": vec!["/tmp"],
+                "mapped_dirs": json!({}),
+            }
+        }
+    )
 }
 
 pub fn now() -> u64 {
