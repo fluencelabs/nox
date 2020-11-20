@@ -23,6 +23,7 @@ use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
 use std::thread::sleep;
+use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
 pub struct VmDescriptor {
@@ -131,4 +132,66 @@ fn get_available_blueprints() {
     assert_eq!(bp.len(), 1);
     assert_eq!(bp[0].name, "blueprint");
     assert_eq!(bp[0].dependencies[0], "module_name");
+}
+
+#[test]
+fn explore_services() {
+    enable_logs();
+
+    let swarms = make_swarms(20);
+    sleep(KAD_TIMEOUT);
+
+    let service_ids: Vec<_> = swarms
+        .iter()
+        .take(10)
+        .map(|s| {
+            let mut client = ConnectedClient::connect_to(s.1.clone()).expect("connect client");
+            create_greeting_service(&mut client)
+        })
+        .collect();
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("neighborhood" "") [relay] neighs_top)
+                (seq
+                    (fold neighs_top n
+                        (seq
+                            (call n ("neighborhood" "") [n] neighs_inner[])
+                            (next n)
+                        )
+                    )
+                    (fold neighs_inner ns
+                        (seq
+                            (fold ns n
+                                (seq
+                                    (call n ("get_active_interfaces" "") [] services[])
+                                    (next n)
+                                )
+                            )
+                            (next ns)
+                        )
+                    )
+                )
+            )
+            (seq
+                (call relay ("identity" "") [])
+                (call client ("return" "") [services neighs_inner neighs_top])
+            )
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+
+    client.timeout = Duration::from_secs(120);
+    let mut args = client.receive_args().into_iter();
+    let services = args.next().unwrap();
+    println!("{}", services);
+
+    println!("neighborhood: {}", args.next().unwrap());
 }

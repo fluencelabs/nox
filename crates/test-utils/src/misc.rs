@@ -90,7 +90,7 @@ pub fn enable_logs() {
 
     env_logger::builder()
         .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(log::LevelFilter::Info)
         .filter(Some("particle_actors"), Debug)
         .filter(Some("aquamarine"), Warn)
         .filter(Some("yamux::connection::stream"), Info)
