@@ -15,9 +15,10 @@
  */
 
 use host_closure::{Args, Closure};
-use ivalue_utils::{IType, IValue};
+use ivalue_utils::{ok, IType, IValue};
 use particle_actors::HostImportDescriptor;
 
+use serde_json::value::Value::Array;
 use serde_json::{json, Value as JValue};
 use std::sync::Arc;
 
@@ -63,19 +64,24 @@ impl HostClosures {
         log::info!("Host function call {:?} {}", args.service_id, args.fname);
         log::debug!("Host function call, args: {:#?}", args);
         // route
-        match args.service_id.as_str() {
-            "resolve" => (self.resolve)(args),
-            "neighborhood" => (self.neighborhood)(args),
-            "create" => (self.create_service)(args),
-            "add_module" => (self.add_module)(args),
-            "add_blueprint" => (self.add_blueprint)(args),
-            "get_available_modules" => (self.get_modules)(args),
-            "get_available_blueprints" => (self.get_blueprints)(args),
-            "add_provider" => (self.add_provider)(args),
-            "get_providers" => (self.get_providers)(args),
-            "get_interface" => (self.get_interface)(args),
-            "get_active_interfaces" => (self.get_active_interfaces)(args),
-            "identity" => ivalue_utils::ok(JValue::Array(args.args)),
+        #[rustfmt::skip]
+        match (args.service_id.as_str(), args.fname.as_str()) {
+            ("dht", "resolve")         | ("resolve", _)        => (self.resolve)(args),
+            ("dht", "neighborhood")    | ("neighborhood", _)   => (self.neighborhood)(args),
+            ("dht", "add_provider")    | ("add_provider", _)   => (self.add_provider)(args),
+            ("dht", "get_providers")   | ("get_providers", _)  => (self.get_providers)(args),
+
+            ("srv", "create")          | ("create", _)         => (self.create_service)(args),
+            ("srv", "get_interface")   | ("get_interface", _)  => (self.get_interface)(args),
+            ("srv", "get_interfaces")  | ("get_interfaces", _) => (self.get_active_interfaces)(args),
+
+            ("dist", "add_module")     | ("add_module", _)     => (self.add_module)(args),
+            ("dist", "add_blueprint")  | ("add_blueprint", _)  => (self.add_blueprint)(args),
+            ("dist", "get_modules")    | ("get_modules", _)    => (self.get_modules)(args),
+            ("dist", "get_blueprints") | ("get_blueprints", _) => (self.get_blueprints)(args),
+
+            ("op", "identity") | ("", "identity") | ("identity", _) => ok(Array(args.args)),
+
             _ => (self.call_service)(args),
         }
     }
