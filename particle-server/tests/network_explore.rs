@@ -13,14 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use test_utils::{
-    create_greeting_service, enable_logs, make_swarms, make_swarms_with_cfg, ConnectedClient,
-    KAD_TIMEOUT,
-};
+use test_utils::{create_greeting_service, enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use maplit::hashmap;
+use serde::Deserialize;
 use serde_json::json;
+use serde_json::Value as JValue;
 use std::thread::sleep;
+
+#[derive(Debug, Deserialize)]
+pub struct VmDescriptor {
+    interface: JValue,
+    blueprint_id: String,
+    service_id: Option<String>,
+}
 
 #[test]
 fn get_active_interfaces() {
@@ -46,6 +52,15 @@ fn get_active_interfaces() {
         },
     );
 
-    let args = client.receive_args();
-    println!("{}", serde_json::Value::Array(args));
+    let args = client.receive_args().into_iter().next().unwrap();
+    let vm_descriptors: Vec<VmDescriptor> =
+        serde_json::from_value(args).expect("deserialize vm descriptors");
+    assert!(vm_descriptors
+        .iter()
+        .find(|d| d.service_id.as_ref().unwrap() == service1.id.as_str())
+        .is_some());
+    assert!(vm_descriptors
+        .iter()
+        .find(|d| d.service_id.as_ref().unwrap() == service2.id.as_str())
+        .is_some());
 }

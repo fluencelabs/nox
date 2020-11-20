@@ -18,7 +18,8 @@
 extern crate fstrings;
 
 use test_utils::{
-    create_greeting_service, enable_logs, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT,
+    create_greeting_service, enable_logs, make_swarms, make_swarms_with_cfg, ConnectedClient,
+    KAD_TIMEOUT,
 };
 
 use fstrings::f;
