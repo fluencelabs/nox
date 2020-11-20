@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{create_greeting_service, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
 use maplit::hashmap;
 use serde_json::json;
 use std::thread::sleep;
 
 #[test]
-fn get_active_interfaces() {}
+fn get_active_interfaces() {
+    // let service = create_greeting_service(3);
+}

@@ -17,20 +17,24 @@
 #[macro_use]
 extern crate fstrings;
 
-use test_utils::{create_greeting_service, enable_logs, ConnectedClient};
+use test_utils::{
+    create_greeting_service, enable_logs, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT,
+};
 
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
+use std::thread::sleep;
 
 #[test]
 fn create_service() {
-    enable_logs();
+    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
+    sleep(KAD_TIMEOUT);
 
-    let service = create_greeting_service(3);
+    let mut client1 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let service = create_greeting_service(&mut client1);
 
-    let mut client =
-        ConnectedClient::connect_to(service.other_hosts[0].1.clone()).expect("connect client");
+    let mut client2 = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
 
     let script = f!(r#"
         (seq
@@ -43,17 +47,17 @@ fn create_service() {
                 (call client ("return" "") [greeting])
             )
         )"#);
-    client.send_particle(
+    client2.send_particle(
         script,
         hashmap! {
-            "host" => json!(service.host.0.to_string()),
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "service_id" => json!(service.service_id),
+            "host" => json!(client1.node.to_string()),
+            "relay" => json!(client2.node.to_string()),
+            "client" => json!(client2.peer_id.to_string()),
+            "service_id" => json!(service.id),
             "my_name" => json!("folex"),
         },
     );
 
-    let response = client.receive_args();
+    let response = client2.receive_args();
     assert_eq!(response[0].as_str().unwrap(), "Hi, folex")
 }

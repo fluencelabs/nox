@@ -14,23 +14,16 @@
  * limitations under the License.
  */
 
-use crate::{make_swarms_with_cfg, test_module, ConnectedClient, CreatedSwarm, KAD_TIMEOUT};
+use crate::{test_module, ConnectedClient};
 use maplit::hashmap;
 use serde_json::json;
-use std::thread::sleep;
 
 #[derive(Debug, Clone)]
 pub struct CreatedService {
-    pub service_id: String,
-    pub host: CreatedSwarm,
-    pub other_hosts: Vec<CreatedSwarm>,
+    pub id: String,
 }
 
-pub fn create_greeting_service(nodes: usize) -> CreatedService {
-    let swarms = make_swarms_with_cfg(nodes, |cfg| cfg);
-    sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
-
+pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
     let module = "greeting";
     let config = json!(
         {
@@ -68,10 +61,5 @@ pub fn create_greeting_service(nodes: usize) -> CreatedService {
 
     let service_id = response[0].as_str().expect("service_id").to_string();
 
-    let mut swarms = swarms.into_iter();
-    CreatedService {
-        service_id,
-        host: swarms.next().unwrap(),
-        other_hosts: swarms.collect(),
-    }
+    CreatedService { id: service_id }
 }
