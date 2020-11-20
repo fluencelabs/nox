@@ -72,6 +72,8 @@ impl ParticleBehaviour {
             add_blueprint: particle_modules::add_blueprint(config.blueprint_dir()?),
             create_service: services.create_service(),
             call_service: services.call_service(),
+            get_interface: services.get_interface(),
+            get_active_interfaces: services.get_active_interfaces(),
             builtin: mailbox.get_api().router(),
         };
         let plumber = Plumber::new(config.actor_config()?, closures.descriptor());

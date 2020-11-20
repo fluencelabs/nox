@@ -36,6 +36,8 @@ pub struct HostClosures {
     pub get_blueprints: Closure,
     pub add_provider: Closure,
     pub get_providers: Closure,
+    pub get_interface: Closure,
+    pub get_active_interfaces: Closure,
 }
 
 impl HostClosures {
@@ -70,6 +72,8 @@ impl HostClosures {
             "get_available_blueprints" => (self.get_blueprints)(args),
             "add_provider" => (self.add_provider)(args),
             "get_providers" => (self.get_providers)(args),
+            "get_interface" => (self.get_interface)(args),
+            "get_active_interfaces" => (self.get_active_interfaces)(args),
             "identity" => ivalue_utils::ok(JValue::Array(args.args)),
             s if BuiltinServicesApi::is_builtin(&s) => (self.builtin)(args),
             _ => (self.call_service)(args),
