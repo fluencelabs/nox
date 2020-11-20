@@ -165,6 +165,5 @@ let serviceId = await client.createService(blueprintId, remotePeerId)
 TBD
 
 ## Examples 
-
-- complex example with registering services in a network, using call results in AIR and calling multiple remote clients and peers 
-- link to demo
+ 
+[Chat example](https://github.com/fluencelabs/aqua-demo/tree/master/demo)
