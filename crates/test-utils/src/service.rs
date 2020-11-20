@@ -27,11 +27,11 @@ pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
     let module = "greeting";
 
     let script = f!(r#"(seq
-            (call relay ("add_module" "") [module_bytes module_config] module)
+            (call relay ("dist" "add_module") [module_bytes module_config] module)
             (seq
-                (call relay ("add_blueprint" "") [blueprint] blueprint_id)
+                (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
                 (seq
-                    (call relay ("create" "") [blueprint_id] service_id)
+                    (call relay ("srv" "create") [blueprint_id] service_id)
                     (call client ("return" "") [service_id] client_result)
                 )
             )

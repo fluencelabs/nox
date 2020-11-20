@@ -40,11 +40,11 @@ fn create_service() {
     let script = f!(r#"
         (seq
             (seq
-                (call relay ("identity" "") [])
+                (call relay ("op" "identity") [])
                 (call host (service_id "greeting") [my_name] greeting)
             )
             (seq
-                (call relay ("identity" "") [])
+                (call relay ("op" "identity") [])
                 (call client ("return" "") [greeting])
             )
         )"#);

@@ -18,9 +18,9 @@ use host_closure::{Args, Closure};
 use ivalue_utils::{ok, IType, IValue};
 use particle_actors::HostImportDescriptor;
 
-use serde_json::value::Value::Array;
 use serde_json::{json, Value as JValue};
 use std::sync::Arc;
+use JValue::Array;
 
 type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
 

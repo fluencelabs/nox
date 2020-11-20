@@ -51,7 +51,7 @@ fn get_active_interfaces() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("get_active_interfaces" "") [] interfaces)
+            (call relay ("srv" ""get_interfaces"") [] interfaces)
             (call client ("return" "") [interfaces])
         )
         "#,
@@ -85,8 +85,8 @@ fn get_available_modules() {
         r#"
         (seq
             (seq
-                (call relay ("add_module" "") [module_bytes module_config] module)
-                (call relay ("get_available_modules" "") [] modules)
+                (call relay ("dist" "add_module") [module_bytes module_config] module)
+                (call relay ("dist" "get_modules") [] modules)
             )
             (call client ("return" "") [modules])
         )
@@ -114,8 +114,8 @@ fn get_available_blueprints() {
         r#"
         (seq
             (seq
-                (call relay ("add_blueprint" "") [blueprint] blueprint_id)
-                (call relay ("get_available_blueprints" "") [] blueprints)
+                (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                (call relay ("dist" "get_blueprints") [] blueprints)
             )
             (call client ("return" "") [blueprints blueprint_id])
         )
@@ -155,11 +155,11 @@ fn explore_services() {
         r#"
         (seq
             (seq
-                (call relay ("neighborhood" "") [relay] neighs_top)
+                (call relay ("dht" "neighborhood") [relay] neighs_top)
                 (seq
                     (fold neighs_top n
                         (seq
-                            (call n ("neighborhood" "") [n] neighs_inner[])
+                            (call n ("dht" "neighborhood") [n] neighs_inner[])
                             (next n)
                         )
                     )
@@ -167,7 +167,7 @@ fn explore_services() {
                         (seq
                             (fold ns n
                                 (seq
-                                    (call n ("get_active_interfaces" "") [] services[])
+                                    (call n ("srv" ""get_interfaces"") [] services[])
                                     (next n)
                                 )
                             )
@@ -177,7 +177,7 @@ fn explore_services() {
                 )
             )
             (seq
-                (call relay ("identity" "") [])
+                (call relay ("op" "identity") [])
                 (call client ("return" "") [services neighs_inner neighs_top])
             )
         )
