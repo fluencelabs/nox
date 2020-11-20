@@ -109,8 +109,24 @@ let peerId = seedToPeerId(peerId)
 ### How to control/use authentication & authorization from within JS SDK
 - TBD
 
-### Register wasms on a remote peers
-...
+### Upload wasm modules, add blueprints and create services on a remote peers   
+Client can upload wasm modules and other peers could use these modules to create their own services. These modules could be presented in a base64 encoding.
+```typescript
+let client = await Fluence.connect(multiaddr);
+
+// remote peer could be 'undefined' for relay or peerId in base58 for other remote peers in Fluence network
+let remotePeerId = undefined
+
+await cl.addModule("wasm1 name", WASM1_BS64, remotePeerId);
+await cl.addModule("wasm2 name", WASM2_BS64, remotePeerId);
+```
+
+Firstly, client should create a blueprint (combination of modules) to create services from it. It will return blueprint id.
+
+```typescript
+let blueprintId = await cl.addBlueprint("blueprint name", ["wasm1 name", "wasm2 name"])
+
+```
 
 ### Add providers of services in a Fluence network (Kademlia)
 ...
