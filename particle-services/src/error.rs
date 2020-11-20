@@ -55,7 +55,7 @@ impl From<ModuleError> for ServiceError {
 
 impl From<ServiceError> for JValue {
     fn from(err: ServiceError) -> Self {
-        JValue::String(err.to_string())
+        JValue::String(format!("{:?}", err))
     }
 }
 

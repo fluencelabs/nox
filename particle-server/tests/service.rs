@@ -28,7 +28,7 @@ use std::thread::sleep;
 
 #[test]
 fn create_service() {
-    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
+    let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
     let mut client1 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
