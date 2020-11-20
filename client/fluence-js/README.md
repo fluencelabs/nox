@@ -12,7 +12,7 @@ npm install fluence
 ## Documentation
 
 ### Register local services
-Firstly, let's register services, that could be called from AIR  scripts (later).
+First, let's register services, that could be called from AIR  scripts (later).
 
 ```typescript
 // TODO somehow delete 'dist' directory from paths
@@ -120,7 +120,7 @@ After execution of particle starting a path will be: `-> "client2-relay-peer-id"
 
 ### Identity
 
-Firstly, we don't want to generate a new `peerId` on each client creation. Let's create a new `peerId` separately.
+First, we don't want to generate a new `peerId` on each client creation. Let's create a new `peerId` separately.
 
 ```typescript
 let peerId = await Fluence.generatePeerId()
@@ -153,7 +153,7 @@ await client.addModule("wasm1 name", WASM1_BS64, remotePeerId);
 await client.addModule("wasm2 name", WASM2_BS64, remotePeerId);
 ```
 
-Firstly, the client should create a blueprint (a combination of modules) to create services from it. It will return a blueprint id that client can use to create a service. Then services could be called from AIR script.
+First, the client should create a blueprint (a combination of modules) to create services from it. It will return a blueprint id that client can use to create a service. Then services could be called from AIR script.
 
 ```typescript
 // modules could be linked to each other. If so, dependent modules should be specified after dependencies.
