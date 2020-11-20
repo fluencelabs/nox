@@ -89,7 +89,7 @@ pub fn enable_logs() {
 
     env_logger::builder()
         .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Info)
+        .filter_level(log::LevelFilter::Debug)
         .filter(Some("particle_actors"), Debug)
         .filter(Some("aquamarine"), Warn)
         .filter(Some("yamux::connection::stream"), Info)
@@ -114,7 +114,7 @@ pub fn enable_logs() {
         .ok();
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CreatedSwarm(
     pub PeerId,
     pub Multiaddr,

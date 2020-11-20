@@ -13,30 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    // unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use maplit::hashmap;
+use serde_json::json;
+use std::thread::sleep;
 
-#[macro_use]
-extern crate fstrings;
-
-mod connected_client;
-mod connection;
-mod local_vm;
-mod misc;
-mod service;
-mod singleton_vm;
-
-pub use connected_client::ConnectedClient;
-pub use connection::*;
-pub use local_vm::*;
-pub use misc::*;
-pub use service::*;
+#[test]
+fn get_active_interfaces() {}
