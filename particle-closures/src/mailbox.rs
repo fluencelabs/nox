@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::builtin_services_api::BuiltinServicesApi;
+use crate::builtin_services_api::BehaviourMailboxApi;
 
 use json_utils::err_as_value;
 use particle_dht::{NeighborhoodError, ResolveErrorKind};
@@ -29,7 +29,6 @@ use std::{
     task::{Context, Poll},
 };
 
-pub(super) type WaitResult = std_mpsc::Receiver<BuiltinCommandResult>;
 pub(super) type WaitingVM = std_mpsc::Sender<BuiltinCommandResult>;
 pub(super) type Inbox = mpsc::UnboundedReceiver<Command>;
 pub(super) type Destination = mpsc::UnboundedSender<Command>;
@@ -94,8 +93,8 @@ impl Mailbox {
         self.destination.clone()
     }
 
-    pub fn get_api(&self) -> BuiltinServicesApi {
-        BuiltinServicesApi::new(self.get_destination())
+    pub fn get_api(&self) -> BehaviourMailboxApi {
+        BehaviourMailboxApi::new(self.get_destination())
     }
 }
 

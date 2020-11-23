@@ -117,7 +117,14 @@ fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -
     };
     log::info!("particle_data_store: {:?}", config.particle_data_store);
 
-    let vm = AquamarineVM::new(config).expect("vm should be created");
+    let vm = AquamarineVM::new(config)
+        .map_err(|err| {
+            log::error!(
+                "\n\n\nFailed to create local AquamarinveVM: {:#?}\n\n\n",
+                err
+            )
+        })
+        .expect("vm should be created");
 
     vm
 }

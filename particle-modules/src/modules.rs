@@ -15,7 +15,7 @@
  */
 
 use crate::file_names::extract_module_name;
-use crate::{file_names, files};
+use crate::{file_names, files, Blueprint};
 
 use host_closure::{closure, closure_opt, Args, Closure};
 
@@ -69,16 +69,23 @@ pub fn get_blueprints(blueprint_dir: PathBuf) -> Closure {
                 .flatten()
                 .filter_map(|pb| {
                     // Check if file name matches blueprint schema
-                    pb.file_name()?
+                    let fname = pb
+                        .file_name()?
                         .to_str()
                         .filter(|s| file_names::is_blueprint(s))?;
 
                     // Read & deserialize TOML
-                    let bytes = std::fs::read(pb).ok()?;
-                    let config = toml::from_slice(bytes.as_slice()).ok()?;
+                    let bytes = std::fs::read(&pb)
+                        .map_err(|err| log::warn!("failed to read blueprint {}: {:#?}", fname, err))
+                        .ok()?;
+                    let blueprint: Blueprint = toml::from_slice(bytes.as_slice())
+                        .map_err(|err| {
+                            log::warn!("failed to deserialize blueprint {}: {:#?}", fname, err)
+                        })
+                        .ok()?;
 
                     // Convert to json
-                    serde_json::to_value(config).ok()
+                    serde_json::to_value(blueprint).ok()
                 })
                 .collect(),
         ))

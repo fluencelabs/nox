@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#![feature(stmt_expr_attributes)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
@@ -30,6 +31,6 @@ mod builtin_services_api;
 mod host_closures;
 mod mailbox;
 
-pub use builtin_services_api::BuiltinServicesApi;
+pub use builtin_services_api::BehaviourMailboxApi;
 pub use host_closures::HostClosures;
 pub use mailbox::{BuiltinCommand, Mailbox};
