@@ -1,5 +1,5 @@
 import {getCurrentParticleId, registerService} from "./globalState";
-import {Service} from "./service";
+import {ServiceMultiple} from "./service";
 import log from "loglevel";
 
 let storage: Map<string, Map<string, any>> = new Map();
@@ -12,7 +12,7 @@ export function addData(particleId: string, data: Map<string, any>, ttl: number)
     }, ttl)
 }
 
-export const storageService = new Service("")
+export const storageService = new ServiceMultiple("")
 storageService.registerFunction("load", (args: any[]) => {
     let current = getCurrentParticleId();
 
