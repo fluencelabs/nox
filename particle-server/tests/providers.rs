@@ -35,15 +35,15 @@ fn add_providers() {
     client.send_particle(
         r#"
         (seq
-            (call node ("add_provider" "") [key provider] void[])
+            (call node ("dht" "add_provider") [key provider] void[])
             (seq
-                (call node ("add_provider" "") [key2 provider2] void[])
+                (call node ("dht" "add_provider") [key2 provider2] void[])
                 (seq
-                    (call node ("get_providers" "") [key2] providers[])
+                    (call node ("dht" "get_providers") [key2] providers[])
                     (seq
-                        (call node ("get_providers" "") [key] providers[])
+                        (call node ("dht" "get_providers") [key] providers[])
                         (seq
-                            (call node2 ("identity" "") [] void[])
+                            (call node2 ("op" "identity") [] void[])
                             (call client2 ("return" "") [providers] void[])
                         )
                     )
@@ -86,19 +86,19 @@ fn add_providers_to_neighborhood() {
 
     let script = r#"
     (seq
-        (call node ("neighborhood" "") [first_node] neighborhood)
+        (call node ("dht" "neighborhood") [first_node] neighborhood)
         (seq
             (seq
                 (seq
                     (fold neighborhood i
                         (seq
-                            (call i ("add_provider" "") [key provider] void[])
+                            (call i ("dht" "add_provider") [key provider] void[])
                             (next i)
                         )
                     )
                     (fold neighborhood i
                         (seq
-                            (call i ("get_providers" "") [key] providers[])
+                            (call i ("dht" "get_providers") [key] providers[])
                             (next i)
                         )
                     )
@@ -106,20 +106,20 @@ fn add_providers_to_neighborhood() {
                 (seq
                     (fold neighborhood i
                         (seq
-                            (call i ("add_provider" "") [key2 provider2] void[])
+                            (call i ("dht" "add_provider") [key2 provider2] void[])
                             (next i)
                         )
                     )
                     (fold neighborhood i
                         (seq
-                            (call i ("get_providers" "") [key2] providers[])
+                            (call i ("dht" "get_providers") [key2] providers[])
                             (next i)
                         )
                     )
                 )
             )
             (seq
-                (call node ("identity" "") [] void[])
+                (call node ("op" "identity") [] void[])
                 (call client2 ("return" "") [providers] void[])
             )
         )

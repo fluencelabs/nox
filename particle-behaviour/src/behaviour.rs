@@ -71,7 +71,10 @@ impl ParticleBehaviour {
             add_blueprint: particle_modules::add_blueprint(config.blueprint_dir()?),
             create_service: services.create_service(),
             call_service: services.call_service(),
-            builtin: mailbox.get_api().router(),
+            get_interface: services.get_interface(),
+            get_active_interfaces: services.get_active_interfaces(),
+            resolve: mailbox.get_api().resolve(),
+            neighborhood: mailbox.get_api().neighborhood(),
         };
         let plumber = Plumber::new(config.actor_config()?, closures.descriptor());
         let dht = ParticleDHT::new(config.dht_config(), trust_graph, registry);

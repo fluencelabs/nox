@@ -40,3 +40,11 @@ where
 {
     Arc::new(move |Args { args, .. }| into_record(f(args.into_iter())))
 }
+
+/// Converts Fn into Closure, converting error into Option<IValue>
+pub fn closure_args<F>(f: F) -> Closure
+where
+    F: Fn(Args) -> Result<JValue, JValue> + Send + Sync + 'static,
+{
+    Arc::new(move |args| into_record(f(args)))
+}

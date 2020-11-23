@@ -14,64 +14,45 @@
  * limitations under the License.
  */
 
-use crate::mailbox::{BuiltinCommand, BuiltinCommandResult, Command, Destination, WaitResult};
+use crate::mailbox::{BuiltinCommand, Command, Destination};
 
-use host_closure::{Args, ArgsError, Closure};
-use ivalue_utils::into_record;
-use json_utils::err_as_value;
+use host_closure::{closure, Args, ArgsError, Closure};
 
 use serde_json::Value as JValue;
-use std::{sync::mpsc as std_mpsc, sync::Arc};
+use std::sync::mpsc as std_mpsc;
 
 #[derive(Debug, Clone)]
-pub struct BuiltinServicesApi {
+pub struct BehaviourMailboxApi {
     mailbox: Destination,
 }
 
-impl BuiltinServicesApi {
-    const SERVICES: &'static [&'static str] = &["resolve", "neighborhood"];
-
+impl BehaviourMailboxApi {
     pub fn new(mailbox: Destination) -> Self {
         Self { mailbox }
     }
 
-    pub fn is_builtin(service_id: &str) -> bool {
-        Self::SERVICES.contains(&service_id)
-    }
-
-    pub fn router(self) -> Closure {
-        Arc::new(move |args| {
-            let result = Self::route(self.clone(), args)
-                .map_err(err_as_value)
-                .and_then(Into::into);
-            into_record(result)
+    pub fn resolve(self) -> Closure {
+        closure(move |args| {
+            let key = from_base58("key", &mut args.into_iter())?.into();
+            self.clone().exec(BuiltinCommand::DHTResolve(key))
         })
     }
 
-    fn route(api: BuiltinServicesApi, args: Args) -> Result<BuiltinCommandResult, ArgsError> {
-        let wait = match args.service_id.as_str() {
-            "resolve" => {
-                let key = from_base58("key", &mut args.args.into_iter())?;
-                api.exec(BuiltinCommand::DHTResolve(key.into()))
-            }
-            "neighborhood" => {
-                let key = from_base58("key", &mut args.args.into_iter())?;
-                api.exec(BuiltinCommand::DHTNeighborhood(key.into()))
-            }
-            _ => unimplemented!("FIXME: unknown. return error? re-route to call service?"),
-        };
-
-        Ok(wait.recv().expect("receive BuiltinCommandResult"))
+    pub fn neighborhood(self) -> Closure {
+        closure(move |args| {
+            let key = from_base58("key", &mut args.into_iter())?.into();
+            self.clone().exec(BuiltinCommand::DHTNeighborhood(key))
+        })
     }
 
-    fn exec(&self, kind: BuiltinCommand) -> WaitResult {
+    fn exec(&self, kind: BuiltinCommand) -> Result<JValue, JValue> {
         let (outlet, inlet) = std_mpsc::channel();
         let cmd = Command { outlet, kind };
         self.mailbox
             .unbounded_send(cmd)
             .expect("builtin => mailbox");
 
-        inlet
+        inlet.recv().expect("receive from behaviour mailbox").into()
     }
 }
 
