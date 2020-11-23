@@ -16,6 +16,7 @@
 
 use crate::bootstrapper::Bootstrapper;
 use crate::config::BehaviourConfig;
+use anyhow::Context;
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
 use libp2p::core::Multiaddr;
 use libp2p::{
@@ -25,7 +26,6 @@ use libp2p::{
 };
 use particle_behaviour::{ParticleBehaviour, ParticleConfig};
 use std::collections::VecDeque;
-use std::io;
 
 pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
 
@@ -42,7 +42,7 @@ pub struct ServerBehaviour {
 }
 
 impl ServerBehaviour {
-    pub fn new(cfg: BehaviourConfig<'_>) -> io::Result<Self> {
+    pub fn new(cfg: BehaviourConfig<'_>) -> anyhow::Result<Self> {
         let local_public_key = PublicKey::Ed25519(cfg.key_pair.public());
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),
@@ -60,7 +60,8 @@ impl ServerBehaviour {
             cfg.key_pair,
             cfg.stepper_pool_size,
         );
-        let particle = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)?;
+        let particle = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)
+            .context("failed to create ParticleBehvaiour")?;
         let bootstrapper = Bootstrapper::new(cfg.bootstrap, cfg.local_peer_id, cfg.bootstrap_nodes);
 
         Ok(Self {

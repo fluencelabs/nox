@@ -32,10 +32,13 @@ use std::fmt::Debug;
 #[derive(Clone, Deserialize, Debug)]
 pub struct ProtocolConfig {
     /// Timeout for applying the given upgrade on a substream
+    #[serde(with = "humantime_serde")]
     pub upgrade_timeout: Duration,
     /// Keep-alive timeout for idle connections.
+    #[serde(with = "humantime_serde")]
     pub keep_alive_timeout: Duration,
     /// Timeout for outbound substream upgrades.
+    #[serde(with = "humantime_serde")]
     pub outbound_substream_timeout: Duration,
 }
 

@@ -14,20 +14,27 @@
  * limitations under the License.
  */
 
-use log::info;
-use std::fs;
-use std::fs::File;
-use std::io::Write;
-use std::io::{Error, ErrorKind};
-use std::path::Path;
-use std::str::FromStr;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use trust_graph::Certificate;
 use trust_graph::KeyPair;
 
+use anyhow::{anyhow, Context};
+use log::info;
+use std::fs;
+use std::fs::{create_dir, File};
+use std::io::Error;
+use std::io::Write;
+use std::path::Path;
+use std::str::FromStr;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 /// Loads all certificates from a disk. Creates a root certificate for key pair if there is no one.
-pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> Result<Vec<Certificate>, Error> {
-    let mut certs = load_certificates(certificate_dir)?;
+pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> anyhow::Result<Vec<Certificate>> {
+    let mut certs = load_certificates(certificate_dir).with_context(|| {
+        format!(
+            "failed to load root certificates on init from {:?}",
+            certificate_dir
+        )
+    })?;
 
     let public_key = key_pair.public_key();
 
@@ -39,7 +46,8 @@ pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> Result<Vec<Certificate
         let expires_at = now
             .checked_add(Duration::new(60 * 60 * 24 * 365, 0))
             .unwrap();
-        let root_cert = store_root_certificate(certificate_dir, key_pair, expires_at, now)?;
+        let root_cert = store_root_certificate(certificate_dir, key_pair, expires_at, now)
+            .context("Failed to store root certificates on init")?;
         certs.push(root_cert);
     }
 
@@ -48,32 +56,33 @@ pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> Result<Vec<Certificate
 
 /// Reads all files in `cert_dir` as certificates.
 /// Throw an error, if one of the files has an incorrect format.
-pub fn load_certificates(cert_dir: &str) -> Result<Vec<Certificate>, Error> {
+pub fn load_certificates(cert_dir: &str) -> anyhow::Result<Vec<Certificate>> {
     let cert_dir = Path::new(cert_dir);
 
     // cold start, if there is no directory, create a new one
     if !cert_dir.exists() {
-        fs::create_dir_all(cert_dir)?;
+        create_dir(&cert_dir)
+            .with_context(|| format!("failed to create cert_dir {:?}", cert_dir))?;
     }
 
     if cert_dir.is_file() {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            "Path to certificates is not a directory.".to_string(),
-        ));
+        return Err(anyhow!("Path to certificates is not a directory."));
     }
 
     let mut certs = Vec::new();
 
-    for entry in fs::read_dir(cert_dir)? {
-        let entry = entry?;
+    for entry in fs::read_dir(&cert_dir)
+        .with_context(|| format!("failed to read cert_dir {:?}", cert_dir))?
+    {
+        let entry = entry.context("read_dir entry failed")?;
         let path = entry.path();
 
         // ignore sub directories
         if !path.is_dir() {
-            let str_cert = fs::read_to_string(path)?;
+            let str_cert =
+                fs::read_to_string(&path).with_context(|| format!("can't read {:?}", path))?;
             let cert = Certificate::from_str(str_cert.as_str())
-                .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
+                .map_err(|e| anyhow!("error parsing certificate: {:#?}", e))?;
             certs.push(cert);
         }
     }

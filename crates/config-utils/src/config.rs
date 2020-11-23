@@ -15,6 +15,7 @@
  */
 
 use libp2p_core::{identity::ed25519::Keypair, PeerId, PublicKey};
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
@@ -43,13 +44,18 @@ pub fn blueprint_dir(path: &PathBuf) -> PathBuf {
 pub fn create_dirs<I>(dirs: I) -> Result<(), std::io::Error>
 where
     I: IntoIterator,
-    I::Item: AsRef<Path>,
+    I::Item: AsRef<Path> + Debug,
 {
     for dir in dirs {
-        std::fs::create_dir_all(dir)?;
+        create_dir(dir)?;
     }
 
     Ok(())
+}
+
+pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
+    std::fs::create_dir_all(&dir)
+        .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
 }
 
 pub fn to_peer_id(kp: &Keypair) -> PeerId {
