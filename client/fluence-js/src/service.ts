@@ -21,7 +21,45 @@ export interface CallServiceResult {
     result: string
 }
 
-export class Service {
+export abstract class Service {
+    serviceId: string;
+    abstract call(fnName: string, args: any[]): CallServiceResult
+}
+
+/**
+ * Creates one function for all function names.
+ */
+export class ServiceOne implements Service {
+
+    serviceId: string;
+    fn: (fnName: string, args: any[]) => object
+
+    constructor(serviceId: string, fn: (fnName: string, args: any[]) => object) {
+        this.serviceId = serviceId;
+        this.fn = fn;
+    }
+
+    call(fnName: string, args: any[]): CallServiceResult {
+        try {
+            let result = this.fn(fnName, args)
+            return {
+                ret_code: 0,
+                result: JSON.stringify(result)
+            }
+        } catch (err) {
+            return {
+                ret_code: 1,
+                result: JSON.stringify(err)
+            }
+        }
+    }
+
+}
+
+/**
+ * Creates function per function name. Returns an error when call a name without registered function.
+ */
+export class ServiceMultiple implements Service {
 
     serviceId: string;
     functions: Map<string, (args: any[]) => object> = new Map();

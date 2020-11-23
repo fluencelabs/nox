@@ -19,6 +19,9 @@ import Multiaddr from "multiaddr"
 import {FluenceClient} from "./fluenceClient";
 import * as log from "loglevel";
 import {LogLevelDesc} from "loglevel";
+import {ServiceMultiple} from "./service";
+import {registerService} from "./globalState";
+import {build} from "./particle";
 
 log.setLevel('info')
 
@@ -58,7 +61,6 @@ export default class Fluence {
 declare global {
     interface Window {
         Fluence: Fluence;
-        test: any
     }
 }
 

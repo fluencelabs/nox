@@ -3,7 +3,7 @@
  */
 import {genUUID} from "../particle";
 import log from "loglevel";
-import {Service} from "../service";
+import {ServiceMultiple} from "../service";
 import {deleteService, registerService} from "../globalState";
 import {delay} from "../utils";
 
@@ -25,7 +25,7 @@ export function waitResult(ttl: number): NamedPromise<any[]> {
 export function waitService<T>(functionName: string, func: (args: any[]) => T, ttl: number): NamedPromise<T> {
     let serviceName = `${functionName}-${genUUID()}`;
     log.info(`Create waiting service '${serviceName}'`)
-    let service = new Service(serviceName)
+    let service = new ServiceMultiple(serviceName)
     registerService(service)
 
     let promise: Promise<T> = new Promise(function (resolve) {
