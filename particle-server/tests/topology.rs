@@ -30,14 +30,14 @@ fn identity() {
     a.send_particle(
         r#"
         (seq
-            (call node_a ("op" "identity") [] void[])
+            (call node_a ("op" "identity") [])
             (seq
-                (call node_b ("op" "identity") [] void[])
+                (call node_b ("op" "identity") [])
                 (seq
-                    (call node_c ("op" "identity") [] void[])
+                    (call node_c ("op" "identity") [])
                     (seq
-                        (call node_b ("op" "identity") [] void[])
-                        (call client_b ("op" "identity") [] void[])
+                        (call node_b ("op" "identity") [])
+                        (call client_b ("op" "identity") [])
                     )
                 )
             )
@@ -52,4 +52,29 @@ fn identity() {
     );
 
     b.receive();
+}
+
+#[test]
+fn init_peer_id() {
+    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
+    sleep(KAD_TIMEOUT);
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("dht" "neighborhood") [client] peers)
+            (seq
+                (call relay ("op" "identity") [])
+                (call %init_peer_id% ("event" "peers_discovered") [relay peers])
+            )
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+
+    client.receive();
 }
