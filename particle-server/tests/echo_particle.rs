@@ -34,7 +34,7 @@ fn echo_particle() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("identity" "") [] void[])
+            (call relay ("op" "identity") [] void[])
             (call client ("return" "") [name] void[])
         )"#,
         data.clone(),

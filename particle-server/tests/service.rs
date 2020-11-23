@@ -17,7 +17,7 @@
 #[macro_use]
 extern crate fstrings;
 
-use test_utils::{make_swarms_with_cfg, test_module, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{create_greeting_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use fstrings::f;
 use maplit::hashmap;
@@ -26,55 +26,33 @@ use std::thread::sleep;
 
 #[test]
 fn create_service() {
-    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
+    let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
-    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
-    let module = "greeting";
-    let config = json!(
-        {
-            "name": module,
-            "mem_pages_count": 100,
-            "logger_enabled": true,
-            "wasi": {
-                "envs": json!({}),
-                "preopened_files": vec!["/tmp"],
-                "mapped_dirs": json!({}),
-            }
-        }
-    );
+    let mut client1 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let service = create_greeting_service(&mut client1);
 
-    let script = f!(r#"(seq
-            (call relay ("add_module" "") [module_bytes module_config] module)
+    let mut client2 = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
+
+    let script = f!(r#"
+        (seq
             (seq
-                (call relay ("add_blueprint" "") [blueprint] blueprint_id)
-                (seq
-                    (call relay ("create" "") [blueprint_id] service_id)
-                    (call client ("return" "") [service_id] client_result)
-                )
+                (call relay ("op" "identity") [])
+                (call host (service_id "greeting") [my_name] greeting)
+            )
+            (seq
+                (call relay ("op" "identity") [])
+                (call client ("return" "") [greeting])
             )
         )"#);
-    let data = hashmap! {
-        "client" => json!(client.peer_id.to_string()),
-        "relay" => json!(client.node.to_string()),
-        "module_bytes" => json!(base64::encode(test_module())),
-        "module_config" => json!(config),
-        "blueprint" => json!({ "name": "blueprint", "dependencies": [module] }),
-    };
-
-    client.send_particle(script, data);
-    let response = client.receive_args();
-
-    let service_id = response[0].as_str().expect("service_id");
-    let script = f!(r#"(seq
-            (call "{client2.node}" ("{service_id}" "greeting") [my_name] greeting)
-            (call "{client2.peer_id}" ("return" "") [greeting] void[])
-        )"#);
-    client.send_particle(
+    client2.send_particle(
         script,
         hashmap! {
-            "my_name" => json!("folex")
+            "host" => json!(client1.node.to_string()),
+            "relay" => json!(client2.node.to_string()),
+            "client" => json!(client2.peer_id.to_string()),
+            "service_id" => json!(service.id),
+            "my_name" => json!("folex"),
         },
     );
 

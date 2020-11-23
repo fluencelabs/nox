@@ -30,14 +30,14 @@ fn identity() {
     a.send_particle(
         r#"
         (seq
-            (call node_a ("identity" "") [] void[])
+            (call node_a ("op" "identity") [] void[])
             (seq
-                (call node_b ("identity" "") [] void[])
+                (call node_b ("op" "identity") [] void[])
                 (seq
-                    (call node_c ("identity" "") [] void[])
+                    (call node_c ("op" "identity") [] void[])
                     (seq
-                        (call node_b ("identity" "") [] void[])
-                        (call client_b ("identity" "") [] void[])
+                        (call node_b ("op" "identity") [] void[])
+                        (call client_b ("op" "identity") [] void[])
                     )
                 )
             )

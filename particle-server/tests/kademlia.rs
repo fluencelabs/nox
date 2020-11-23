@@ -30,7 +30,7 @@ fn neighborhood() {
     client.send_particle(
         r#"
             (seq
-                (call node ("neighborhood" "") [node] peers)
+                (call node ("dht" "neighborhood") [node] peers)
                 (call client ("return" "") [peers] void)
             )
         "#,
