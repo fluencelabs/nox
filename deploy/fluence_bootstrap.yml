@@ -8,6 +8,8 @@ services:
     ports:
       - "7770:7770" # Node service
       - "9990:9990" # Peer service
+    volumes:
+      - fluence_bootstrap:/.fluence
     environment:
       RUST_BACKTRACE: "full"
       RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info"
@@ -24,7 +26,13 @@ services:
 #    volumes:
 #      - $PWD/ipfs_node.wasm:/.fluence/services/modules/ipfs_node.wasm
 #      - $PWD/ipfs_node_config.toml:/.fluence/services/modules/ipfs_node_config.toml
+    volumes:
+      - fluence-ipfs:/.fluence
     environment:
       HOST: "$HOST"
       RUST_BACKTRACE: "full"
       RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info"
+
+volumes:
+  fluence_bootstrap:
+  fluence-ipfs:
