@@ -18,7 +18,9 @@ export function getUint8Memory0(wasm) {
     return cachegetUint8Memory0;
 }
 
-let cachedTextEncoder = new TextEncoder('utf-8');
+const lTextEncoder = typeof TextEncoder === 'undefined' ? (0, module.require)('util').TextEncoder : TextEncoder;
+
+let cachedTextEncoder = new lTextEncoder('utf-8');
 
 const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
     ? function (arg, view) {
@@ -79,7 +81,9 @@ export function getInt32Memory0(wasm) {
     return cachegetInt32Memory0;
 }
 
-let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+const lTextDecoder = typeof TextDecoder === 'undefined' ? (0, module.require)('util').TextDecoder : TextDecoder;
+
+let cachedTextDecoder = new lTextDecoder('utf-8', { ignoreBOM: true, fatal: true });
 
 cachedTextDecoder.decode();
 
@@ -96,8 +100,6 @@ export function getStringFromWasm0(wasm, ptr, len) {
  */
 export function invoke(wasm, init_user_id, aqua, prev_data, data) {
     try {
-        const retptr = wasm.__wbindgen_export_0.value - 16;
-        wasm.__wbindgen_export_0.value = retptr;
         var ptr0 = passStringToWasm0(wasm, init_user_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         var len0 = WASM_VECTOR_LEN;
         var ptr1 = passStringToWasm0(wasm, aqua, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -106,12 +108,11 @@ export function invoke(wasm, init_user_id, aqua, prev_data, data) {
         var len2 = WASM_VECTOR_LEN;
         var ptr3 = passStringToWasm0(wasm, data, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         var len3 = WASM_VECTOR_LEN;
-        wasm.invoke(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
-        var r0 = getInt32Memory0(wasm)[retptr / 4 + 0];
-        var r1 = getInt32Memory0(wasm)[retptr / 4 + 1];
+        wasm.invoke(8, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+        var r0 = getInt32Memory0(wasm)[8 / 4 + 0];
+        var r1 = getInt32Memory0(wasm)[8 / 4 + 1];
         return getStringFromWasm0(wasm, r0, r1);
     } finally {
-        wasm.__wbindgen_export_0.value += 16;
         wasm.__wbindgen_free(r0, r1);
     }
 }
