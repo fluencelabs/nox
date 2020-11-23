@@ -26,6 +26,7 @@
     unreachable_patterns
 )]
 
+use anyhow::Context;
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
 use futures::channel::oneshot;
@@ -72,7 +73,8 @@ trait Stoppable {
 fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
-    certificates::init(config.certificate_dir.as_str(), &config.root_key_pair)?;
+    certificates::init(config.certificate_dir.as_str(), &config.root_key_pair)
+        .context("failed to init certificates")?;
 
     let key_pair = &config.root_key_pair.key_pair;
     log::info!(
@@ -80,7 +82,8 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
-    let node_service = Server::new(key_pair.clone(), config.server)?;
+    let node_service =
+        Server::new(key_pair.clone(), config.server).context("failed to create server")?;
 
     let node_exit_outlet = node_service.start();
 
@@ -90,7 +93,9 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
 
     impl Stoppable for Fluence {
         fn stop(self) {
-            self.node_exit_outlet.send(()).unwrap();
+            self.node_exit_outlet
+                .send(())
+                .expect("failed to stop node through exit outlet");
         }
     }
 

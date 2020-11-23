@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
+use config_utils::create_dirs;
+use trust_graph::KeyPair;
+
 use log::info;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::io::{Error, ErrorKind};
 use std::path::Path;
-use trust_graph::KeyPair;
 
 /// Creates new key pair and store it in a `key_path` file.
 fn create_new_key_pair(key_path: &Path) -> Result<KeyPair, Error> {
     let parents = key_path.parent();
     if let Some(parent_path) = parents {
-        fs::create_dir_all(parent_path)?
+        create_dirs(parent_path)?
     }
 
     let key_pair = KeyPair::generate();

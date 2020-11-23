@@ -56,6 +56,10 @@ pub struct FluenceConfig {
     /// Directory, where all certificates are stored.
     #[serde(default = "default_cert_dir")]
     pub certificate_dir: String,
+
+    // TODO: Need better UX for configuring root key pair.
+    //       Currently if incorrect path is specified for root key pair, we silently create new keypair
+    //       this may be undesired and unexpected for users.
     #[serde(deserialize_with = "parse_or_load_keypair", default = "load_key_pair")]
     pub root_key_pair: KeyPair,
 }
@@ -72,6 +76,7 @@ pub struct ServerConfig {
 
     /// Socket timeout for main transport
     #[serde(default = "default_socket_timeout")]
+    #[serde(with = "humantime_serde")]
     pub socket_timeout: Duration,
 
     /// Bootstrap nodes to join to the Fluence network
@@ -99,6 +104,7 @@ pub struct ServerConfig {
     pub services_base_dir: PathBuf,
 
     #[serde(default)]
+    #[serde(deserialize_with = "parse_envs")]
     pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
 
     /// Base directory for resources needed by application services
@@ -172,6 +178,19 @@ where
             ))
         })
     }
+}
+
+fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let envs = HashMap::<String, String>::deserialize(deserializer)?;
+    let envs = envs
+        .into_iter()
+        .map(|(k, v)| (k.into_bytes(), v.into_bytes()))
+        .collect();
+
+    Ok(envs)
 }
 
 /// Take all command line arguments, and insert them into config appropriately
@@ -251,5 +270,19 @@ mod tests {
         "#;
 
         deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
+    }
+
+    #[test]
+    fn parse_default_config() {
+        let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
+        let config = deserialize_config(<_>::default(), config).expect("deserialize config");
+        println!("{:#?}", config)
+    }
+
+    #[test]
+    fn duration() {
+        let bs_config = BootstrapConfig::default();
+        let s = toml::to_string(&bs_config).expect("serialize");
+        println!("{}", s)
     }
 }

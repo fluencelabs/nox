@@ -19,10 +19,10 @@ use particle_dht::DHTConfig;
 use particle_protocol::ProtocolConfig;
 use particle_services::ServicesConfig;
 
-use config_utils::to_peer_id;
+use config_utils::{create_dirs, to_peer_id};
 
 use libp2p::{identity::ed25519, PeerId};
-use std::{collections::HashMap, fs::create_dir_all, io, path::PathBuf};
+use std::{collections::HashMap, io, path::PathBuf};
 
 pub struct ParticleConfig {
     pub protocol_config: ProtocolConfig,
@@ -70,7 +70,7 @@ impl ParticleConfig {
     /// Creates and returns path for app service modules directory
     pub fn modules_dir(&self) -> io::Result<PathBuf> {
         let path = self.services_base_dir.join("modules");
-        create_dir_all(&path)?;
+        create_dirs(&path)?;
 
         Ok(path)
     }
@@ -78,7 +78,7 @@ impl ParticleConfig {
     /// Creates and returns path for app service blueprint directory
     pub fn blueprint_dir(&self) -> io::Result<PathBuf> {
         let path = self.services_base_dir.join("blueprint");
-        create_dir_all(&path)?;
+        create_dirs(&path)?;
 
         Ok(path)
     }
