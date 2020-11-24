@@ -1,5 +1,11 @@
 # Fluence browser client
-Browser client for the Fluence network based on the js-libp2p. It could exchange messages between relay peer, process AIR (Aquamarine Intermediate Representation) <link to air part for explanations> scripts, register local services and publish them in the Fluence network.
+Fluence JS SDK is a bridge to Fluence Network. It provides you a local Fluence Peer, powering you to develop your application in p2p fashion. 
+
+SDK gives you the following: 
+- Means to create and manage identity of your local peer and applications
+- Ability to execute AIR scripts on local WASM runtime
+- Define behaviour of local function calls (i.e., when script calls function on your local peer)
+- Automatically forward AIR script execution to remote peers, according to script-defined topology
 
 ## How to install
 
@@ -11,23 +17,32 @@ npm install fluence
 
 ## Documentation
 
-### Register local services
-First, let's register services, that could be called from AIR  scripts (later).
+### Define local services
+First, let's register a local service `console` and define its behaviour by registering function `log`, as in `console.log`. We'll show how to call it in the next step.
 
 ```typescript
 // TODO somehow delete 'dist' directory from paths
 import {Service} from "fluence/dist/service";
 import {registerService} from "fluence/dist/globalState";
 
-let service = new Service("custom-service-id")
-service.registerFunction("custom-function-name", (args: any[]) => {
-    console.log("custom-function-name called")
+let service = new Service("console")
+service.registerFunction("log", (args: any[]) => {
+    console.log(`log: ${args}`)
 })
 ```
 
-### Call a local function from an AIR script
+### Call function on local service
 
-A function could be called from AIR that a client will create and execute or if a client will receive a script from a relay peer. Let's just consider now just calling a function locally. 
+As AIR scripts describe topology of execution functions on peers, we can write a script to call a function on our local `console` service.
+
+Script could be as follows
+```clojure
+(call %init_peer_id% ("console" "log") ["hello" "from" "WASM"])
+` ` `
+
+`init_peer_id` refers to a peer that initiated script execution. In that case it is us, so call of `console.log` will call previously defined function `call` on service `console`.
+
+Here's how this can be expressed in terms of Fluence JS SDK.
 ```typescript
 import Fluence from "fluence";
 import {build} from "fluence/dist/particle";
@@ -39,50 +54,30 @@ let multiaddr = "/ip4/1.1.1.1/tcp/19001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHX
 let client = await Fluence.connect(multiaddr);
 
 // a script, that will call registered function
-// a call should be targeted with the client's peer, name of a service and a function
+// call is an instruction that takes the following parameters
+// (call <Peer location> <Function location> <[argument list]> <optional output>)
 // %init_peer_id% - it is a predefined variable with peer id of a caller 
-let script = `(call %init_peer_id% ("custom-service-id" "custom-function-name") [])`
+let script = `(call %init_peer_id% ("console" "log") ["hello"])`
 
-// build a particle, that combines script and data (that is empty for now)
+// Wrap script into particle, so it can be executed by local WASM runtime
 let particle = await build(client.selfPeerId, script, new Map())
 
 await client.executeParticle(particle)
-// "custom-function-name called" should be printed in a console
+// "[hello]" should be printed in a console
 ```
 
-### Pass arguments to a function
-It is possible to pass arguments to a function and use the result in AIR scripts:
+### Pass values as function arguments
+We've seen how to pass literal arguments (i.e. values in quotes). Using literals can be tedious if you need to repeat values, or wish to keep script short and readable. To avoid that, you can use variables that refer to particle data.
+
 ```typescript
-let script = `(call %init_service_id% ("custom-service-id" "custom-function-name") ["arg1" "arg2" "arg3"] result)`
-```
-The result could be used strictly in the AIR script. Arguments could be strings or variables with custom types. You can use it just like that:
-```typescript
-service.registerFunction("custom-function-name", (args: any[]) => {
-    console.log("arg1 = " + args[0])
-    console.log("arg2 = " + args[1])
-    console.log("arg3 = " + args[2])
-    let result = args.join(",")
-    return result 
-})
-``` 
+let script = `(call %init_peer_id% ("console" "log") [msg])`;
+let particle = await build(client.selfPeerId, script, new Map("msg" -> "hello"));
+await client.executeParticle(particle)
+` ` `
+
+To learn more about writing AIR scripts, refer to [doc on AIR](https://fluence-labs.readme.io/docs/air-choreography-scripts).
 
 About variables in AIR in the next part below.
-
-### Particle
-Particle is a combination of AIR script, data for script execution and utility information about security, time-to-live, etc. We only used scripts with hardcoded string arguments, but it could be more flexible with custom variables. Variables are specified without quotes. Client should add these variables to data or AIR script will be failed on execution. 
-```typescript
-let script = `(call %init_service_id% (service_id function_name) [arg1 arg2] result)`
-
-let data = new Map()
-data.set("service_id", "some-service")
-data.set("function_id", "some-function")
-data.set("arg1", {customObject: 12, withCustomTypes: {a: 1, b: "string"}})
-data.set("arg2", "arg2")
-
-let particle = await build(client.selfPeerId, script, data)
-```
-
-How to use variables in AIR script in detail here (LINK).
 
 ### Call a function from a remote client
 
