@@ -53,10 +53,8 @@ let multiaddr = "/ip4/1.1.1.1/tcp/19001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHX
 // the second argument could be the client's peer id. If it is empty, a new peer id will be generated
 let client = await Fluence.connect(multiaddr);
 
-// a script, that will call registered function
 // call is an instruction that takes the following parameters
 // (call <Peer location> <Function location> <[argument list]> <optional output>)
-// %init_peer_id% - it is a predefined variable with peer id of a caller 
 let script = `(call %init_peer_id% ("console" "log") ["hello"])`
 
 // Wrap script into particle, so it can be executed by local WASM runtime
