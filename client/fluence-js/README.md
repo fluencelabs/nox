@@ -1,4 +1,4 @@
-# Fluence browser client
+# Fluence JS SDK
 Fluence JS SDK is a bridge to Fluence Network. It provides you a local Fluence Peer, powering you to develop your application in p2p fashion. 
 
 SDK gives you the following: 
@@ -38,7 +38,7 @@ As AIR scripts describe topology of execution functions on peers, we can write a
 Script could be as follows
 ```clojure
 (call %init_peer_id% ("console" "log") ["hello" "from" "WASM"])
-` ` `
+```
 
 `init_peer_id` refers to a peer that initiated script execution. In that case it is us, so call of `console.log` will call previously defined function `call` on service `console`.
 
@@ -73,11 +73,9 @@ We've seen how to pass literal arguments (i.e. values in quotes). Using literals
 let script = `(call %init_peer_id% ("console" "log") [msg])`;
 let particle = await build(client.selfPeerId, script, new Map("msg" -> "hello"));
 await client.executeParticle(particle)
-` ` `
+```
 
 To learn more about writing AIR scripts, refer to [doc on AIR](https://fluence-labs.readme.io/docs/air-choreography-scripts).
-
-About variables in AIR in the next part below.
 
 ### Call a function from a remote client
 
