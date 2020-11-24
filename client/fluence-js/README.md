@@ -9,7 +9,7 @@ SDK gives you the following:
 
 ## How to install
 
-With `npm` installed building could be done as follows:
+If you have `npm`, you can add fluence to your project by executing
 
 ```bash
 npm install fluence
