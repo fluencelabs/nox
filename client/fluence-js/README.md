@@ -47,11 +47,16 @@ Here's how this can be expressed in terms of Fluence JS SDK.
 import Fluence from "fluence";
 import {build} from "fluence/dist/particle";
 
+/* 
+
+TODO: How to avoid connecting to remote relay here? execute particle could work locally, and throw error if connection is required.
+
 // this is an address of a relay peer that a client will be connected with
 let multiaddr = "/ip4/1.1.1.1/tcp/19001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9"
 
 // the second argument could be the client's peer id. If it is empty, a new peer id will be generated
 let client = await Fluence.connect(multiaddr);
+*/
 
 // call is an instruction that takes the following parameters
 // (call <Peer location> <Function location> <[argument list]> <optional output>)
@@ -64,7 +69,7 @@ await client.executeParticle(particle)
 // "[hello]" should be printed in a console
 ```
 
-### Pass values as function arguments
+### Using variables as function arguments
 We've seen how to pass literal arguments (i.e. values in quotes). Using literals can be tedious if you need to repeat values, or wish to keep script short and readable. To avoid that, you can use variables that refer to particle data.
 
 ```typescript
@@ -75,39 +80,63 @@ await client.executeParticle(particle)
 
 To learn more about writing AIR scripts, refer to [doc on AIR](https://fluence-labs.readme.io/docs/air-choreography-scripts).
 
-### Call a function from a remote client
+### Showcase: relaying & remote execution
+Fluence network is made of peers of various execution power, availability guarantees and most importantly – various connectivity. To allow peers from non-public networks to communicate, Fluence employs *relay* mechanics. Currently, any Fluence Node can be used as a relay.
 
-Every peer in a Fluence network could have services, including clients and relay peers. Let's call a function that is registered on a relay that a client connected to. To do this, you just need to change the script.
+To learn more about relaying, refer to the [doc](https://fluence-labs.readme.io/docs/on-relays).
 
+For now, we'll use relay to connect two browser peers. You can emulate two peers by opening two browser tabs, for example. I'll assume that you have done so, and their peer ids are `123DPeerIdA` and `123DPeerIdB`.
+
+We'll use the following relays:
+- `/dns4/stage.fluence.dev/tcp/19001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9`
+- `/dns4/stage.fluence.dev/tcp/19002/wss/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er`
+
+On a first browser, connect to first relay, and register service with a single function as follows.
 ```typescript
-let script = `(call "relay-peer-id" ("custom-service-id" "custom-function-name") [])`
+// TODO somehow delete 'dist' directory from paths
+import {Service} from "fluence/dist/service";
+import {registerService} from "fluence/dist/globalState";
+
+let service = new Service("console")
+service.registerFunction("log", (args: any[]) => {
+    console.log(`log: ${args}`)
+})
+
+let multiaddr = "/dns4/stage.fluence.dev/tcp/19001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9"
+let client = await Fluence.connect(multiaddr);
+console.log(`First PeerId: ${client.selfPeerId}`);
 ```
 
-Aquamarine (a medium that could handle AIR) will see that call should be executed not on a client and give a signal to the client to send a particle to a relay.
-
-But we cannot control relay peers if they don't belong to us. So, let's call a remote function from another client. Create another client (in another tab, for example) and run a script that will describe the whole path from one client to another.
-
+On a second browser, connect to second relay, and call remote `console.log` as follows.
 ```typescript
-// second client that connected to another relay peer
-let multiaddr2 = "/ip4/2.2.2.2/tcp/19001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9"
-let client2 = await Fluence.connect(multiaddr2);
+let multiaddr = "/dns4/stage.fluence.dev/tcp/19002/wss/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er"
+let client = await Fluence.connect(multiaddr);
+console.log(`Second PeerId: ${client.selfPeerId}`);
 
-// here we will use 'seq' command to combine multiple calls
 let script = `
-(seq
-    (call "client2-relay-peer-id" ("identity" "") [])
     (seq
-        (call "client1-relay-peer-id" ("identity" "") [])  
+        (call second-relay ("op" "identity") [])
         (seq
-            (call "client1-peer-id" ("custom-service-id" "custom-function-name") [])
+            (call first-relay ("op" "identity") [])
+            (call first-peer ("console" "log") [msg])
         )
     )
-)
-`
+`;
+let particle = await build(
+    client.selfPeerId, script, 
+    new Map(
+        "first-peer" -> "123DPeerIdA" // <== Do not forget to change 123DPeerIdA to actual peer id
+        "second-relay" -> "12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er",
+        "first-relay" -> "12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9",
+        "msg" -> "hello"
+    )
+);
+await client.executeParticle(particle)
 ```
 
-The whole path described in a script. `identity` is only to indicate where to send a particle. 
-After execution of particle starting a path will be: `-> "client2-relay-peer-id" -> "client1-relay-peer-id" -> "client1-peer-id" -> call a function`. And then, as a result, `custom-function-name called` message will be in a console. 
+After that, you should see message `log: [hello]` in console of the first browser.
+
+To learn more about AIR scripts, refer to [doc](https://fluence-labs.readme.io/docs/air-scripts)
 
 ### Identity
 
