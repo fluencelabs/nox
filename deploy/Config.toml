@@ -1,6 +1,3 @@
-stepper_base_dir = "/stepper"
-stepper_module_name = "aquamarine"
-
 [root_weights]
 Ct8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4 = 1
 5i1Jr4x6cafoSPgBEAzY62ChJun4NFXFSvsFc1SwRqWD = 20
