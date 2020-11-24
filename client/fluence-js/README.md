@@ -1,7 +1,7 @@
 # Fluence JS SDK
 Fluence JS SDK is a bridge to Fluence Network. It provides you a local Fluence Peer, powering you to develop your application in p2p fashion. 
 
-SDK gives you the following: 
+SDK gives you the following powers: 
 - Means to create and manage identity of your local peer and applications
 - Ability to execute AIR scripts on local WASM runtime
 - Define behaviour of local function calls (i.e., when script calls function on your local peer)
