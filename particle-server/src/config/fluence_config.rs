@@ -120,7 +120,7 @@ pub struct ServerConfig {
 
     /// Path to AIR interpreter .wasm file (aquamarine.wasm)
     #[serde(default = "default_air_interpreter")]
-    pub air_interpreter: PathBuf,
+    pub air_interpreter_path: PathBuf,
 }
 
 impl ServerConfig {
@@ -232,18 +232,18 @@ fn insert_args_to_config(
 }
 
 fn validate_config(config: FluenceConfig) -> anyhow::Result<FluenceConfig> {
-    let exists = config.server.air_interpreter.as_path().exists();
-    let is_file = config.server.air_interpreter.is_file();
+    let exists = config.server.air_interpreter_path.as_path().exists();
+    let is_file = config.server.air_interpreter_path.is_file();
     if exists && !is_file {
         return Err(anyhow!(
             "Invalid path to air interpreter: {:?} is a directory, expected .wasm file",
-            config.server.air_interpreter
+            config.server.air_interpreter_path
         ));
     }
     if !exists {
         return Err(anyhow!(
             "Invalid path to air interpreter: path {:?} does not exists",
-            config.server.air_interpreter
+            config.server.air_interpreter_path
         ));
     }
 

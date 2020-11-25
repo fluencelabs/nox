@@ -9,7 +9,8 @@ root_key_pair = "./.fluence/secret_key"
 services_base_dir = "./.fluence/services"
 ## AIR Interpreter (stepper) will store its data here
 stepper_base_dir = "./.fluence/stepper"
-
+## Path to AIR interpreter .wasm
+air_interpreter_path = "./aquamarine.wasm"
 ## directory for TrustGraph certificates
 certificate_dir = "./.fluence/certificates"
 
