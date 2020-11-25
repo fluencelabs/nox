@@ -8,7 +8,7 @@ copy $exe /fluence
 run chmod +x /fluence
 
 copy $config /.fluence/Config.toml
-copy $air_interpreter /.fluence/stepper/modules/aquamarine.wasm
+copy $air_interpreter /aquamarine.wasm
 
 volume /.fluence
 
