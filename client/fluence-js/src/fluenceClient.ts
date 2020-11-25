@@ -176,7 +176,7 @@ export class FluenceClient {
     }
 
     nodeIdentityCall(): string {
-        return `(call "${this.nodePeerIdStr}" ("identity" "") [] void[])`
+        return `(call "${this.nodePeerIdStr}" ("op" "identity") [] void[])`
     }
 
     async requestResponse<T>(name: string, call: (nodeId: string) => string, returnValue: string, data: Map<string, any>, handleResponse: (args: any[]) => T, nodeId?: string, ttl?: number): Promise<T> {
@@ -229,7 +229,7 @@ export class FluenceClient {
         data.set("module_bytes", moduleBase64)
         data.set("module_config", config)
 
-        let call = (nodeId: string) => `(call "${nodeId}" ("add_module" "") [module_bytes module_config] void[])`
+        let call = (nodeId: string) => `(call "${nodeId}" ("dist" "add_module") [module_bytes module_config] void[])`
 
         return this.requestResponse("addModule", call, "", data, () => {}, nodeId, ttl)
     }
@@ -239,7 +239,7 @@ export class FluenceClient {
      */
     async addBlueprint(name: string, dependencies: string[], nodeId?: string, ttl?: number): Promise<string> {
         let returnValue = "blueprint_id";
-        let call = (nodeId: string) => `(call "${nodeId}" ("add_blueprint" "") [blueprint] ${returnValue})`
+        let call = (nodeId: string) => `(call "${nodeId}" ("dist" "add_blueprint") [blueprint] ${returnValue})`
 
         let data = new Map()
         data.set("blueprint", { name: name, dependencies: dependencies })
@@ -252,7 +252,7 @@ export class FluenceClient {
      */
     async createService(blueprintId: string, nodeId?: string, ttl?: number): Promise<string> {
         let returnValue = "service_id";
-        let call = (nodeId: string) => `(call "${nodeId}" ("create" "") [blueprint_id] ${returnValue})`
+        let call = (nodeId: string) => `(call "${nodeId}" ("srv" "create") [blueprint_id] ${returnValue})`
 
         let data = new Map()
         data.set("blueprint_id", blueprintId)
@@ -265,7 +265,7 @@ export class FluenceClient {
      */
     async getAvailableModules(nodeId?: string, ttl?: number): Promise<string[]> {
         let returnValue = "modules";
-        let call = (nodeId: string) => `(call "${nodeId}" ("get_available_modules" "") [] ${returnValue})`
+        let call = (nodeId: string) => `(call "${nodeId}" ("dist" "get_modules") [] ${returnValue})`
 
         return this.requestResponse("getAvailableModules", call, returnValue, new Map(), (args: any[]) => args[0] as string[], nodeId, ttl)
     }
@@ -275,7 +275,7 @@ export class FluenceClient {
      */
     async getBlueprints(nodeId: string, ttl?: number): Promise<string[]> {
         let returnValue = "blueprints";
-        let call = (nodeId: string) => `(call "${nodeId}" ("get_available_modules" "") [] ${returnValue})`
+        let call = (nodeId: string) => `(call "${nodeId}" ("dist" "get_blueprints") [] ${returnValue})`
 
         return this.requestResponse("getBlueprints", call, returnValue, new Map(), (args: any[]) => args[0] as string[], nodeId, ttl)
     }
@@ -284,7 +284,7 @@ export class FluenceClient {
      * Add a provider to DHT network to neighborhood around a key.
      */
     async addProvider(key: Buffer, providerPeer: string, providerServiceId?: string, nodeId?: string, ttl?: number): Promise<void> {
-        let call = (nodeId: string) => `(call "${nodeId}" ("add_provider" "") [key provider] void[])`
+        let call = (nodeId: string) => `(call "${nodeId}" ("dht" "add_provider") [key provider] void[])`
 
         key = bs58.encode(key)
 
@@ -307,7 +307,7 @@ export class FluenceClient {
         key = bs58.encode(key)
 
         let returnValue = "providers"
-        let call = (nodeId: string) => `(call "${nodeId}" ("get_providers" "") [key] providers[])`
+        let call = (nodeId: string) => `(call "${nodeId}" ("dht" "get_providers") [key] providers[])`
 
         let data = new Map()
         data.set("key", key)
@@ -320,7 +320,7 @@ export class FluenceClient {
      */
     async neighborhood(node: string, ttl?: number): Promise<string[]> {
         let returnValue = "neighborhood"
-        let call = (nodeId: string) => `(call "${nodeId}" ("neighborhood" "") [node] ${returnValue})`
+        let call = (nodeId: string) => `(call "${nodeId}" ("dht" "neighborhood") [node] ${returnValue})`
 
         let data = new Map()
         data.set("node", node)
@@ -333,7 +333,7 @@ export class FluenceClient {
      */
     async relayIdentity(fields: string[], data: Map<string, any>, nodeId?: string, ttl?: number): Promise<any> {
         let returnValue = "id";
-        let call = (nodeId: string) => `(call "${nodeId}" ("identity" "") [${fields.join(" ")}] ${returnValue})`
+        let call = (nodeId: string) => `(call "${nodeId}" ("op" "identity") [${fields.join(" ")}] ${returnValue})`
 
         return this.requestResponse("getIdentity", call, returnValue, data, (args: any[]) => args[0], nodeId, ttl)
     }
