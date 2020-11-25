@@ -23,9 +23,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum ClientEvent {
     Particle {
-        particle: Particle,
         #[serde(with = "peerid_serializer")]
         sender: PeerId,
+        particle: Particle,
     },
     NewConnection {
         #[serde(with = "peerid_serializer")]
