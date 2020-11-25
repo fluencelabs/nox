@@ -21,6 +21,8 @@ use particle_services::ServicesConfig;
 
 use config_utils::{create_dirs, to_peer_id};
 
+use crate::identify::NodeInfo;
+use libp2p::core::Multiaddr;
 use libp2p::{identity::ed25519, PeerId};
 use std::{collections::HashMap, io, path::PathBuf};
 
@@ -34,6 +36,7 @@ pub struct ParticleConfig {
     pub air_interpreter: PathBuf,
     pub key_pair: ed25519::Keypair,
     pub stepper_pool_size: usize,
+    pub node_info: NodeInfo,
 }
 
 impl ParticleConfig {
@@ -46,6 +49,7 @@ impl ParticleConfig {
         air_interpreter: PathBuf,
         key_pair: ed25519::Keypair,
         stepper_pool_size: usize,
+        external_addresses: Vec<Multiaddr>,
     ) -> Self {
         Self {
             protocol_config,
@@ -56,6 +60,7 @@ impl ParticleConfig {
             air_interpreter,
             key_pair,
             stepper_pool_size,
+            node_info: NodeInfo { external_addresses },
         }
     }
 

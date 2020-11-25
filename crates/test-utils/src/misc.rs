@@ -308,7 +308,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
         let config = BehaviourConfig {
             key_pair: kp.clone(),
             local_peer_id: peer_id.clone(),
-            listening_addresses: vec![listen_on.clone()],
+            external_addresses: vec![listen_on.clone()],
             trust_graph,
             bootstrap_nodes: bootstraps,
             bootstrap: BootstrapConfig::zero(),

@@ -29,7 +29,7 @@ use std::{collections::HashMap, path::PathBuf};
 pub struct BehaviourConfig<'a> {
     pub key_pair: ed25519::Keypair,
     pub local_peer_id: PeerId,
-    pub listening_addresses: Vec<Multiaddr>,
+    pub external_addresses: Vec<Multiaddr>,
     pub trust_graph: TrustGraph,
     pub bootstrap_nodes: Vec<Multiaddr>,
     pub bootstrap: BootstrapConfig,
@@ -54,7 +54,7 @@ impl<'a> BehaviourConfig<'a> {
             registry,
             local_peer_id: to_peer_id(&key_pair),
             key_pair,
-            listening_addresses: config.external_addresses(),
+            external_addresses: config.external_addresses(),
             bootstrap_nodes: config.bootstrap_nodes.clone(),
             bootstrap: config.bootstrap_config.clone(),
             services_base_dir: config.services_base_dir.clone(),
