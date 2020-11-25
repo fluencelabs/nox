@@ -15,7 +15,7 @@ particle-server = { path = "../../particle-server" }
 particle-protocol = { path = "../../particle-protocol" }
 particle-actors = { path = "../../particle-actors" }
 
-aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "facede_interface" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
