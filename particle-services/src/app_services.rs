@@ -43,9 +43,9 @@ impl Deref for VM {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 pub struct VmDescriptor<'a> {
-    interface: ServiceInterface<'a>,
+    interface: ServiceInterface,
     blueprint_id: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     service_id: Option<&'a str>,

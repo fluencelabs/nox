@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_greeting_service, enable_logs, make_swarms, test_module, test_module_cfg,
-    ConnectedClient, KAD_TIMEOUT,
+    create_greeting_service, enable_logs, make_swarms, read_args, test_module, test_module_cfg,
+    timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
+use futures::executor::block_on;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Deserialize)]
 pub struct VmDescriptor {
@@ -194,4 +195,93 @@ fn explore_services() {
     println!("{}", services);
 
     println!("neighborhood: {}", args.next().unwrap());
+}
+
+#[test]
+fn explore_services_fixed() {
+    let swarms = make_swarms(5);
+    sleep(KAD_TIMEOUT);
+
+    // language=Clojure
+    let script = r#"
+        (seq
+            (call relayId ("op" "identity") [])
+            (fold peers p
+                (par
+                    (seq
+                        (call p ("srv" "get_interfaces") [] interfaces[])
+                        (seq
+                            (call relayId ("op" "identity") [])
+                            (call %init_peer_id% ("return" "") [p interfaces])
+                        )
+                    )
+                    (next p)
+                )
+            )
+        )
+    "#;
+
+    let peers = swarms.iter().skip(1);
+    for peer in peers {
+        let mut client = ConnectedClient::connect_to(peer.1.clone()).expect("connect client");
+        create_greeting_service(&mut client);
+    }
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let peers: Vec<_> = swarms.iter().skip(1).map(|s| s.0.to_string()).collect();
+    let data = hashmap! {
+        "peers" => json!(peers),
+        "clientId" => json!(client.peer_id.to_string()),
+        "relayId" => json!(client.node.to_string()),
+    };
+
+    client.send_particle(script, data);
+
+    let now = Instant::now();
+    let tout = Duration::from_secs(10);
+    let mut received = Vec::new();
+
+    loop {
+        let receive = client.receive_one();
+        if let Some(Some(event)) = block_on(timeout(Duration::from_secs(1), receive)).ok() {
+            match event {
+                ClientEvent::Particle { particle, .. } => {
+                    let args = read_args(particle, &client.peer_id);
+                    received.push(args);
+                }
+                ClientEvent::NewConnection { .. } => {}
+            }
+        }
+
+        if received.len() == peers.len() {
+            // success, break
+            break;
+        }
+
+        if now.elapsed() > tout {
+            // failure, panic
+            panic!(
+                "Test timed out after {} secs, {}/{} results collected",
+                tout.as_secs(),
+                received.len(),
+                peers.len()
+            );
+        }
+    }
+
+    assert_eq!(received.len(), peers.len());
+
+    for (peer_id, interface) in received.into_iter().map(|v| {
+        let mut iter = v.into_iter();
+        (iter.next().unwrap(), iter.next().unwrap())
+    }) {
+        let peer_id = peer_id.as_str().unwrap();
+        peers
+            .iter()
+            .find(|node| peer_id == node.as_str())
+            .expect("find node with that peer id");
+
+        let _: Vec<Vec<VmDescriptor>> = serde_json::from_value(interface).unwrap();
+    }
 }

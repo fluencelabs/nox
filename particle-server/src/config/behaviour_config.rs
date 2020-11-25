@@ -37,6 +37,7 @@ pub struct BehaviourConfig<'a> {
     pub services_base_dir: PathBuf,
     pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
     pub stepper_base_dir: PathBuf,
+    pub air_interpreter: PathBuf,
     pub protocol_config: ProtocolConfig,
     pub stepper_pool_size: usize,
 }
@@ -59,6 +60,7 @@ impl<'a> BehaviourConfig<'a> {
             services_base_dir: config.services_base_dir.clone(),
             services_envs: config.services_envs.clone(),
             stepper_base_dir: config.stepper_base_dir.clone(),
+            air_interpreter: config.air_interpreter_path.clone(),
             protocol_config: config.protocol_config.clone(),
             stepper_pool_size: config.stepper_pool_size,
         }

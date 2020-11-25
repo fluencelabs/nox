@@ -30,6 +30,8 @@ pub struct ParticleConfig {
     pub services_base_dir: PathBuf,
     pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
     pub stepper_base_dir: PathBuf,
+    /// Path to aquamarine.wasm
+    pub air_interpreter: PathBuf,
     pub key_pair: ed25519::Keypair,
     pub stepper_pool_size: usize,
 }
@@ -41,6 +43,7 @@ impl ParticleConfig {
         services_base_dir: PathBuf,
         services_envs: HashMap<Vec<u8>, Vec<u8>>,
         stepper_base_dir: PathBuf,
+        air_interpreter: PathBuf,
         key_pair: ed25519::Keypair,
         stepper_pool_size: usize,
     ) -> Self {
@@ -50,6 +53,7 @@ impl ParticleConfig {
             services_base_dir,
             services_envs,
             stepper_base_dir,
+            air_interpreter,
             key_pair,
             stepper_pool_size,
         }
@@ -59,6 +63,7 @@ impl ParticleConfig {
         VmPoolConfig::new(
             self.current_peer_id.clone(),
             self.stepper_base_dir.clone(),
+            self.air_interpreter.clone(),
             self.stepper_pool_size,
         )
     }

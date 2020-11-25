@@ -20,7 +20,7 @@ use crate::BootstrapConfig;
 
 use trust_graph::{KeyPair, PublicKeyHashable};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::{ArgMatches, Values};
 use libp2p::core::{identity::ed25519::PublicKey, multiaddr::Protocol, Multiaddr};
 use particle_protocol::ProtocolConfig;
@@ -117,6 +117,10 @@ pub struct ServerConfig {
     /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
     #[serde(default = "default_stepper_pool_size")]
     pub stepper_pool_size: usize,
+
+    /// Path to AIR interpreter .wasm file (aquamarine.wasm)
+    #[serde(default = "default_air_interpreter")]
+    pub air_interpreter_path: PathBuf,
 }
 
 impl ServerConfig {
@@ -227,6 +231,25 @@ fn insert_args_to_config(
     Ok(())
 }
 
+fn validate_config(config: FluenceConfig) -> anyhow::Result<FluenceConfig> {
+    let exists = config.server.air_interpreter_path.as_path().exists();
+    let is_file = config.server.air_interpreter_path.is_file();
+    if exists && !is_file {
+        return Err(anyhow!(
+            "Invalid path to air interpreter: {:?} is a directory, expected .wasm file",
+            config.server.air_interpreter_path
+        ));
+    }
+    if !exists {
+        return Err(anyhow!(
+            "Invalid path to air interpreter: path {:?} does not exists",
+            config.server.air_interpreter_path
+        ));
+    }
+
+    Ok(config)
+}
+
 // loads config from arguments and a config file
 pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
     let config_file = arguments
@@ -237,8 +260,9 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
 
     let file_content =
         std::fs::read(config_file).context(format!("Config wasn't found at {}", config_file))?;
+    let config = deserialize_config(arguments, file_content)?;
 
-    deserialize_config(arguments, file_content)
+    validate_config(config)
 }
 
 pub(super) fn deserialize_config(

@@ -35,7 +35,7 @@ mod misc;
 mod service;
 mod singleton_vm;
 
-pub use connected_client::ConnectedClient;
+pub use connected_client::*;
 pub use connection::*;
 pub use local_vm::*;
 pub use misc::*;

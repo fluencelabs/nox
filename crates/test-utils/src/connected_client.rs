@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
+pub use fluence_client::ClientEvent;
+
 use super::misc::Result;
 use crate::{
     make_particle, make_swarms, read_args, timeout, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT,
     TIMEOUT,
 };
 
-use fluence_client::{Client, ClientEvent, Transport};
+use fluence_client::{Client, Transport};
 use particle_protocol::Particle;
 
 use async_std::task;
@@ -28,6 +30,7 @@ use core::ops::Deref;
 use libp2p::{core::Multiaddr, PeerId};
 use serde_json::Value as JValue;
 use std::collections::HashMap;
+use std::ops::DerefMut;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -59,6 +62,12 @@ impl Deref for ConnectedClient {
 
     fn deref(&self) -> &Self::Target {
         &self.client
+    }
+}
+
+impl DerefMut for ConnectedClient {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.client
     }
 }
 

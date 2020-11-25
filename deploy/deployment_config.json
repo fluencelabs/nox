@@ -1,5 +1,5 @@
 {
-    "branch": "master",
+    "branch": "interpreter_shadowing",
     "bootstrap": "134.209.186.43",
     "nodes": [
       "134.209.186.43"
