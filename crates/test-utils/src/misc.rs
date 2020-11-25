@@ -292,7 +292,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
     let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
     let stepper_base_dir = tmp.join("stepper");
-    put_aquamarine(modules_dir(&stepper_base_dir), aquamarine_file_name);
+    let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir), aquamarine_file_name);
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
@@ -314,6 +314,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             bootstrap: BootstrapConfig::zero(),
             registry,
             services_base_dir: tmp.join("services"),
+            air_interpreter,
             services_envs: <_>::default(),
             stepper_base_dir,
             protocol_config: <_>::default(),
@@ -373,16 +374,18 @@ pub fn aquamarine_fname(file_name: Option<String>) -> PathBuf {
     aquamarine
 }
 
-pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) {
+pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) -> PathBuf {
     let aquamarine = aquamarine_fname(file_name);
     let aquamarine =
         std::fs::read(&aquamarine).expect(format!("fs::read from {:?}", aquamarine).as_str());
 
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
 
-    let tmp = to_abs_path(tmp.join("aquamarine.wasm"));
-    std::fs::write(&tmp, aquamarine)
-        .expect(format!("fs::write aquamarine.wasm to {:?}", tmp).as_str())
+    let file = to_abs_path(tmp.join("aquamarine.wasm"));
+    std::fs::write(&file, aquamarine)
+        .expect(format!("fs::write aquamarine.wasm to {:?}", file).as_str());
+
+    file
 }
 
 pub fn test_module() -> Vec<u8> {

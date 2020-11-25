@@ -114,7 +114,7 @@ fn create_vm(
     task::spawn_blocking(move || {
         let config = AquamarineVMConfig {
             current_peer_id: config.current_peer_id.to_string(),
-            aquamarine_wasm_path: config.modules_dir.join("aquamarine.wasm"),
+            aquamarine_wasm_path: config.air_interpreter,
             particle_data_store: config.particles_dir,
             call_service: host_closure(),
             logging_mask: i64::max_value(),

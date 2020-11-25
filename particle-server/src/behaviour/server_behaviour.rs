@@ -57,6 +57,7 @@ impl ServerBehaviour {
             cfg.services_base_dir,
             cfg.services_envs,
             cfg.stepper_base_dir,
+            cfg.air_interpreter,
             cfg.key_pair,
             cfg.stepper_pool_size,
         );
