@@ -142,15 +142,6 @@ fn explore_services() {
     let swarms = make_swarms(20);
     sleep(KAD_TIMEOUT);
 
-    let _service_ids: Vec<_> = swarms
-        .iter()
-        .take(10)
-        .map(|s| {
-            let mut client = ConnectedClient::connect_to(s.1.clone()).expect("connect client");
-            create_greeting_service(&mut client)
-        })
-        .collect();
-
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
     client.send_particle(
         r#"
@@ -168,7 +159,7 @@ fn explore_services() {
                         (seq
                             (fold ns n
                                 (seq
-                                    (call n ("srv" "get_interfaces") [] services[])
+                                    (call n ("op" "identify") [] services[])
                                     (next n)
                                 )
                             )

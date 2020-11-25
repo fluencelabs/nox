@@ -81,7 +81,8 @@ impl HostClosures {
             ("dist", "get_modules")    => (self.get_modules)(args),
             ("dist", "get_blueprints") => (self.get_blueprints)(args),
 
-            ("op", "identity") | ("", "identity") | ("identity", _) => ok(Array(args.args)),
+            ("op", "identify") => (self.identify)(args),
+            ("op", "identity") => ok(Array(args.args)),
 
             _ => (self.call_service)(args),
         }
