@@ -1,8 +1,8 @@
 {
     "branch": "master",
-    "bootstrap": "138.197.177.2",
+    "bootstrap": "134.209.186.43",
     "nodes": [
-      "138.197.177.2"
+      "134.209.186.43"
     ],
     "ipfs_addr": "/dns4/relay02.fluence.dev/tcp/15001/https",
     "fluence": {
