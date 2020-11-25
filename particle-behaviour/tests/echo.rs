@@ -114,8 +114,8 @@ fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
             peer_id,
             tmp.clone(),
             <_>::default(),
-            interpreter,
             tmp.clone(),
+            interpreter,
             keypair,
             1,
         );
