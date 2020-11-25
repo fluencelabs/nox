@@ -209,14 +209,12 @@ fn explore_services_fixed() {
             (fold peers p
                 (par
                     (seq
-                        ; go to node `p`, from >> WHERE? << from different node each time, right?
                         (call p ("srv" "get_interfaces") [] interfaces[])
                         (seq
                             (call relayId ("op" "identity") [])
                             (call %init_peer_id% ("return" "") [p interfaces])
                         )
                     )
-                    ; where will execution of `next p` happen?
                     (next p)
                 )
             )
@@ -272,5 +270,18 @@ fn explore_services_fixed() {
         }
     }
 
-    assert_eq!(received.len(), peers.len())
+    assert_eq!(received.len(), peers.len());
+
+    for (peer_id, interface) in received.into_iter().map(|v| {
+        let mut iter = v.into_iter();
+        (iter.next().unwrap(), iter.next().unwrap())
+    }) {
+        let peer_id = peer_id.as_str().unwrap();
+        peers
+            .iter()
+            .find(|node| peer_id == node.as_str())
+            .expect("find node with that peer id");
+
+        let _: Vec<Vec<VmDescriptor>> = serde_json::from_value(interface).unwrap();
+    }
 }
