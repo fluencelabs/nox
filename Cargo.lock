@@ -184,7 +184,7 @@ checksum = "bf8dcb5b4bbaa28653b647d8c77bd4ed40183b48882e130c1f1ffb73de069fd7"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=master#e24bb8e1ac503cdde9b1397a34ebced0132feaf1"
+source = "git+https://github.com/fluencelabs/fce?branch=facede_interface#99266a2b37b26eefe1e159e06cfabac820d07f5a"
 dependencies = [
  "fluence-faas",
  "maplit",
@@ -1272,7 +1272,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.11"
-source = "git+https://github.com/fluencelabs/fce?branch=master#e24bb8e1ac503cdde9b1397a34ebced0132feaf1"
+source = "git+https://github.com/fluencelabs/fce?branch=facede_interface#99266a2b37b26eefe1e159e06cfabac820d07f5a"
 dependencies = [
  "boolinator",
  "fce-utils",
@@ -1294,12 +1294,12 @@ dependencies = [
 [[package]]
 name = "fce-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#e24bb8e1ac503cdde9b1397a34ebced0132feaf1"
+source = "git+https://github.com/fluencelabs/fce?branch=facede_interface#99266a2b37b26eefe1e159e06cfabac820d07f5a"
 
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.8"
-source = "git+https://github.com/fluencelabs/fce?branch=master#e24bb8e1ac503cdde9b1397a34ebced0132feaf1"
+source = "git+https://github.com/fluencelabs/fce?branch=facede_interface#99266a2b37b26eefe1e159e06cfabac820d07f5a"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1308,7 +1308,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.10"
-source = "git+https://github.com/fluencelabs/fce?branch=master#e24bb8e1ac503cdde9b1397a34ebced0132feaf1"
+source = "git+https://github.com/fluencelabs/fce?branch=facede_interface#99266a2b37b26eefe1e159e06cfabac820d07f5a"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1355,7 +1355,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.12"
-source = "git+https://github.com/fluencelabs/fce?branch=master#e24bb8e1ac503cdde9b1397a34ebced0132feaf1"
+source = "git+https://github.com/fluencelabs/fce?branch=facede_interface#99266a2b37b26eefe1e159e06cfabac820d07f5a"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1394,7 +1394,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.12"
-source = "git+https://github.com/fluencelabs/fce?branch=master#e24bb8e1ac503cdde9b1397a34ebced0132feaf1"
+source = "git+https://github.com/fluencelabs/fce?branch=facede_interface#99266a2b37b26eefe1e159e06cfabac820d07f5a"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -4519,9 +4519,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-interface-types-fl"
-version = "0.17.17"
+version = "0.17.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35785dfb889bbd6f83f5239fb1b950889368ceba23acf1603c371f337e8c4d1c"
+checksum = "9c01499babf417b51c28db8e735579d0645d89ee77a57f23492d61a610bb42b8"
 dependencies = [
  "log",
  "nom",
