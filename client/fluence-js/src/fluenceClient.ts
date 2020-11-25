@@ -86,9 +86,13 @@ export class FluenceClient {
                     log.info("inner stepper outcome:");
                     log.info(stepperOutcome);
 
+                    // update data
+                    let newParticle: Particle = {...particle};
+                    newParticle.data = JSON.parse(stepperOutcome.call_path)
+                    this.subscriptions.update(newParticle)
+
                     // do nothing if there is no `next_peer_pks`
                     if (stepperOutcome.next_peer_pks.length > 0) {
-                        let newParticle: Particle = {...particle};
                         newParticle.data = JSON.parse(stepperOutcome.call_path);
 
                         await this.connection.sendParticle(newParticle).catch((reason) => {
