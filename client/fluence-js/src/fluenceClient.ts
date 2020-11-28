@@ -241,12 +241,12 @@ export class FluenceClient {
     /**
      * Send a script to add module to a relay. Waiting for a response from a relay.
      */
-    async addBlueprint(name: string, dependencies: string[], nodeId?: string, ttl?: number): Promise<string> {
+    async addBlueprint(name: string, dependencies: string[], id?: string, nodeId?: string, ttl?: number): Promise<string> {
         let returnValue = "blueprint_id";
         let call = (nodeId: string) => `(call "${nodeId}" ("dist" "add_blueprint") [blueprint] ${returnValue})`
 
         let data = new Map()
-        data.set("blueprint", { name: name, dependencies: dependencies })
+        data.set("blueprint", { name, dependencies, id })
 
         return this.requestResponse("addBlueprint", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
     }
