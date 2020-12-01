@@ -2975,6 +2975,7 @@ name = "particle-modules"
 version = "0.0.1"
 dependencies = [
  "base64 0.13.0",
+ "fce-wit-parser",
  "fluence-app-service",
  "host-closure",
  "ivalue-utils",
