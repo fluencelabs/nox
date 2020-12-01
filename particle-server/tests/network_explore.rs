@@ -40,6 +40,12 @@ pub struct Blueprint {
     pub dependencies: Vec<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ModuleDescriptor {
+    pub name: String,
+    pub interface: JValue,
+}
+
 #[test]
 fn get_interfaces() {
     let swarms = make_swarms(3);
@@ -86,7 +92,7 @@ fn get_modules() {
         r#"
         (seq
             (seq
-                (call relay ("dist" "add_module") [module_bytes module_config] module)
+                (call relay ("dist" "add_module") [module_bytes module_config])
                 (call relay ("dist" "get_modules") [] modules)
             )
             (call client ("return" "") [modules])
@@ -101,7 +107,9 @@ fn get_modules() {
     );
 
     let value = client.receive_args().into_iter().next().unwrap();
-    assert_eq!(json!(["greeting"]), value);
+    let modules: Vec<ModuleDescriptor> = serde_json::from_value(value).unwrap();
+    assert_eq!(modules[0].name.as_str(), "greeting");
+    assert!(matches!(modules[0].interface, JValue::Object(_)));
 }
 
 #[test]
