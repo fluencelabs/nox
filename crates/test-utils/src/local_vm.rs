@@ -88,14 +88,14 @@ pub fn pass_data_func(data: HashMap<&'static str, JValue>) -> HostExportedFunc {
 pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> HostExportedFunc {
     Box::new(move |_, args| {
         let args = Args::parse(args).expect("valid args");
-        match args.service_id.as_str() {
-            "return" => {
+        match (args.service_id.as_str(), args.fname.as_str()) {
+            ("return", _) | ("op", "return") => {
                 log::warn!("return args {:?}", args.args);
                 out.lock().extend(args.args);
                 ivalue_utils::unit()
             }
-            "identity" => ivalue_utils::ok(JValue::Array(args.args)),
-            service => ivalue_utils::error(JValue::String(f!("service not found: {service}"))),
+            ("op", "identity") => ivalue_utils::ok(JValue::Array(args.args)),
+            service => ivalue_utils::error(JValue::String(f!("service not found: {:?}", service))),
         }
     })
 }

@@ -54,7 +54,7 @@ fn echo_particle() {
         task::spawn(async move {
             loop {
                 select!(
-                    event = server.next_event().fuse() => {},
+                    _event = server.next_event().fuse() => {},
                     event = client.next_event().fuse() => {
                         println!("client got event: {:?}", event);
                         match event {
@@ -118,6 +118,7 @@ fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
             interpreter,
             keypair,
             1,
+            <_>::default(),
         );
         let behaviour =
             ParticleBehaviour::new(config, trust_graph, registry).expect("particle behaviour");

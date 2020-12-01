@@ -1,5 +1,7 @@
 {
-    "branch": "interpreter_shadowing",
+    "dev_ip": "138.197.177.2",
+    "stage_ip": "134.209.186.43",
+    "branch": "identify",
     "bootstrap": "134.209.186.43",
     "nodes": [
       "134.209.186.43"
