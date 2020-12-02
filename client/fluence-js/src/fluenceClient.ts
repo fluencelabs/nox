@@ -213,15 +213,17 @@ export class FluenceClient {
     /**
      * Send a script to add module to a relay. Waiting for a response from a relay.
      */
-    async addModule(name: string, moduleBase64: string, nodeId?: string, ttl?: number): Promise<void> {
-        let config = {
-            name: name,
-            mem_pages_count: 100,
-            logger_enabled: true,
-            wasi: {
-                envs: {},
-                preopened_files: ["/tmp"],
-                mapped_dirs: {},
+    async addModule(name: string, moduleBase64: string, nodeId?: string, ttl?: number, config?: any): Promise<void> {
+        if (!config) {
+            config = {
+                name: name,
+                mem_pages_count: 100,
+                logger_enabled: true,
+                wasi: {
+                    envs: {},
+                    preopened_files: ["/tmp"],
+                    mapped_dirs: {},
+                }
             }
         }
 
