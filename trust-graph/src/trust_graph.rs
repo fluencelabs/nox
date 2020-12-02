@@ -202,7 +202,9 @@ impl TrustGraph {
             let auths: Vec<Auth> = self
                 .nodes
                 .get(&last.issued_by.clone().into())
-                .expect("there cannot be paths without any nodes after adding verified certificates")
+                .expect(
+                    "there cannot be paths without any nodes after adding verified certificates",
+                )
                 .authorizations()
                 .cloned()
                 .collect();
