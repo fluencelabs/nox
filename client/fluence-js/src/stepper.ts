@@ -25,6 +25,7 @@ import {wasmBs64} from "@fluencelabs/aquamarine-stepper-aquamarine_ast";
 import Instance = WebAssembly.Instance;
 import Exports = WebAssembly.Exports;
 import ExportValue = WebAssembly.ExportValue;
+import Imports = WebAssembly.Imports;
 
 export type InterpreterInvoke = (init_user_id: string, script: string, prev_data: string, data: string) => string
 type ImportObject = {
@@ -32,22 +33,30 @@ type ImportObject = {
         __wbg_callserviceimpl_7d3cf77a2722659e: (arg0: any, arg1: any, arg2: any, arg3: any, arg4: any, arg5: any, arg6: any) => void;
         __wbg_getcurrentpeeridimpl_154ce1848a306ff5: (arg0: any) => void
     };
-    host: {
-        log_utf8_string: (level: any, target: any, offset: any, size: any) => void
-    }
+    host: LogImport
 };
+
+type LogImport = {
+    log_utf8_string: (level: any, target: any, offset: any, size: any) => void
+}
 
 const interpreter_wasm = toByteArray(wasmBs64)
 
 /// Instantiates WebAssembly runtime with AIR interpreter module
-async function interpreterInstance(importObject?: ImportObject): Promise<Instance> {
-    let interpreter_module = await WebAssembly.compile(interpreter_wasm);
-    let instance: Instance = await WebAssembly.instantiate(interpreter_module, {
-        ...importObject
-    });
+async function interpreterInstance(hostImports: (wasm: Exports) => Imports): Promise<Instance> {
+    // Uninitialized exports reference that must be initialized after WebAssembly is instantiated
+    let exports: Exports = undefined;
+    /// Create host imports that use module exports internally
+    let imports = hostImports(exports);
 
-    let exports = instance.exports;
-    /// Initialize interpreter
+    /// Instantiate interpreter
+    let interpreter_module = await WebAssembly.compile(interpreter_wasm);
+    let instance: Instance = await WebAssembly.instantiate(interpreter_module, imports);
+
+    /// Finally initialize exports, so host imports can use them
+    exports = instance.exports;
+
+    /// Trigger interpreter initialization (i.e., call main function)
     call_export(exports.main);
 
     return instance;
@@ -61,6 +70,35 @@ function call_export(f: ExportValue, ...argArray: any[]): any {
     } else {
         log.warn(`can't call export ${f}: it is not a function, but ${typeof f}`)
     }
+}
+
+function log_import(wasm: Exports): LogImport {
+    return {
+        log_utf8_string: (level: any, target: any, offset: any, size: any) => {
+            try {
+                let str = getStringFromWasm0(wasm, offset, size)
+
+                switch (level) {
+                    case 1:
+                        log.error(str)
+                        break;
+                    case 2:
+                        log.warn(str)
+                        break;
+                    case 3:
+                        log.info(str)
+                        break;
+                    case 4:
+                        log.debug(str)
+                        break;
+                    case 5:
+                        log.trace(str)
+                        break;
+                }
+            } finally {
+            }
+        }
+    };
 }
 
 /// Returns import object that describes host functions called by AIR interpreter
@@ -94,51 +132,34 @@ function newImportObject(wasm: Exports, peerId: PeerId): ImportObject {
                 getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr0;
             }
         },
-        "host": {
-            log_utf8_string: (level: any, target: any, offset: any, size: any) => {
-                try {
-                    let str = getStringFromWasm0(wasm, offset, size)
+        host: log_import(wasm)
+    };
+}
 
-                    switch (level) {
-                        case 1:
-                            log.error(str)
-                            break;
-                        case 2:
-                            log.warn(str)
-                            break;
-                        case 3:
-                            log.info(str)
-                            break;
-                        case 4:
-                            log.debug(str)
-                            break;
-                        case 5:
-                            log.trace(str)
-                            break;
-                    }
-                } finally {
-                }
-            }
-        }
+function newLogImport(wasm: Exports): ImportObject {
+    return {
+        host: log_import(wasm),
+        "./aquamarine_client_bg.js": {
+            __wbg_callserviceimpl_7d3cf77a2722659e: _ => {},
+            __wbg_getcurrentpeeridimpl_154ce1848a306ff5: _ => {}
+        },
     };
 }
 
 /// Instantiates AIR interpreter, and returns its `invoke` function as closure
 /// NOTE: an interpreter is also called a stepper from time to time
 export async function instantiateInterpreter(peerId: PeerId): Promise<InterpreterInvoke> {
-    let wasm: Exports = undefined;
-    let importObject = newImportObject(wasm, peerId);
-    let instance = await interpreterInstance(importObject);
+    let instance = await interpreterInstance(wasm => newImportObject(wasm, peerId));
 
-    let invoke = (init_user_id: string, script: string, prev_data: string, data: string) => {
+    return (init_user_id: string, script: string, prev_data: string, data: string) => {
         return aqua.invoke(instance.exports, init_user_id, script, prev_data, data)
     }
-
-    return invoke
 }
 
+/// Instantiate AIR interpreter with host imports containing only logger, but not call_service
+/// peerId isn't actually required for AST parsing, but host imports require it, and I don't see any workaround
 export async function parseAstClosure(): Promise<(script: string) => string> {
-    let instance = await interpreterInstance();
+    let instance = await interpreterInstance(wasm => newLogImport(wasm));
 
     return (script: string) => {
         return aqua.ast(instance.exports, script)
