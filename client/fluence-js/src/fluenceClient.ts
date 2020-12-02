@@ -27,7 +27,7 @@ import {
     popParticle,
     setCurrentParticleId
 } from "./globalState";
-import {instantiateStepper, Stepper} from "./stepper";
+import {instantiateInterpreter, Stepper} from "./stepper";
 import log from "loglevel";
 import {waitService} from "./helpers/waitService";
 
@@ -161,7 +161,7 @@ export class FluenceClient {
 
         let peerId = PeerId.createFromB58String(nodePeerId);
 
-        this.stepper = await instantiateStepper(this.selfPeerId);
+        this.stepper = await instantiateInterpreter(this.selfPeerId);
 
         let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, this.handleExternalParticle());
 

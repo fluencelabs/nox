@@ -60,11 +60,11 @@ describe("Typescript usage suite", () => {
         let namedPromise = waitResult(30000)
 
         let script = `
-(seq (
-    (call ( "${pid.toB58String()}" ("test" "test") (a b c d) result))
-    (call ( "${pid.toB58String()}" ("${namedPromise.name}" "") (d c b a) void[]))
-))
-`
+            (seq (
+                (call ( "${pid.toB58String()}" ("test" "test") (a b c d) result))
+                (call ( "${pid.toB58String()}" ("${namedPromise.name}" "") (d c b a) void[]))
+            ))
+        `
 
         let data: Map<string, any> = new Map();
         data.set("a", "some a")
