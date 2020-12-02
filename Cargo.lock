@@ -184,7 +184,7 @@ checksum = "bf8dcb5b4bbaa28653b647d8c77bd4ed40183b48882e130c1f1ffb73de069fd7"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.2"
-source = "git+https://github.com/fluencelabs/fce?branch=module_interfaces#8f0885a85a117dbd6eb45575c38ebecb74b3ae5a"
+source = "git+https://github.com/fluencelabs/fce?branch=master#043e87623e56e79de25c9f5e912652ab65ce9aa0"
 dependencies = [
  "fluence-faas",
  "maplit",
@@ -1273,7 +1273,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.11"
-source = "git+https://github.com/fluencelabs/fce?branch=module_interfaces#8f0885a85a117dbd6eb45575c38ebecb74b3ae5a"
+source = "git+https://github.com/fluencelabs/fce?branch=master#043e87623e56e79de25c9f5e912652ab65ce9aa0"
 dependencies = [
  "boolinator",
  "fce-utils",
@@ -1295,12 +1295,12 @@ dependencies = [
 [[package]]
 name = "fce-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=module_interfaces#8f0885a85a117dbd6eb45575c38ebecb74b3ae5a"
+source = "git+https://github.com/fluencelabs/fce?branch=master#043e87623e56e79de25c9f5e912652ab65ce9aa0"
 
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.8"
-source = "git+https://github.com/fluencelabs/fce?branch=module_interfaces#8f0885a85a117dbd6eb45575c38ebecb74b3ae5a"
+source = "git+https://github.com/fluencelabs/fce?branch=master#043e87623e56e79de25c9f5e912652ab65ce9aa0"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1309,7 +1309,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.10"
-source = "git+https://github.com/fluencelabs/fce?branch=module_interfaces#8f0885a85a117dbd6eb45575c38ebecb74b3ae5a"
+source = "git+https://github.com/fluencelabs/fce?branch=master#043e87623e56e79de25c9f5e912652ab65ce9aa0"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1357,7 +1357,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.12"
-source = "git+https://github.com/fluencelabs/fce?branch=module_interfaces#8f0885a85a117dbd6eb45575c38ebecb74b3ae5a"
+source = "git+https://github.com/fluencelabs/fce?branch=master#043e87623e56e79de25c9f5e912652ab65ce9aa0"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1396,7 +1396,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.12"
-source = "git+https://github.com/fluencelabs/fce?branch=module_interfaces#8f0885a85a117dbd6eb45575c38ebecb74b3ae5a"
+source = "git+https://github.com/fluencelabs/fce?branch=master#043e87623e56e79de25c9f5e912652ab65ce9aa0"
 dependencies = [
  "cmd_lib",
  "fce",
