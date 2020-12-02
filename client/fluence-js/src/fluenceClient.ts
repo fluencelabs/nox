@@ -27,7 +27,7 @@ import {
     popParticle,
     setCurrentParticleId
 } from "./globalState";
-import {instantiateInterpreter, Stepper} from "./stepper";
+import {instantiateInterpreter, InterpreterInvoke} from "./stepper";
 import log from "loglevel";
 import {waitService} from "./helpers/waitService";
 
@@ -39,7 +39,7 @@ export class FluenceClient {
 
     private nodePeerIdStr: string;
     private subscriptions = new Subscriptions();
-    private interpreter: Stepper = undefined;
+    private interpreter: InterpreterInvoke = undefined;
 
     connection: FluenceConnection;
 
@@ -58,7 +58,7 @@ export class FluenceClient {
             enqueueParticle(particle);
         } else {
             if (this.interpreter === undefined) {
-                throw new Error("Undefined. Stepper is not initialized. User 'Fluence.connect' to create a client.")
+                throw new Error("Undefined. Interpreter is not initialized. User 'Fluence.connect' to create a client.")
             }
             // start particle processing if queue is empty
             try {

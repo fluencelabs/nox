@@ -26,7 +26,7 @@ import Instance = WebAssembly.Instance;
 import Exports = WebAssembly.Exports;
 import ExportValue = WebAssembly.ExportValue;
 
-export type Stepper = (init_user_id: string, script: string, prev_data: string, data: string) => string
+export type InterpreterInvoke = (init_user_id: string, script: string, prev_data: string, data: string) => string
 type ImportObject = {
     "./aquamarine_client_bg.js": {
         __wbg_callserviceimpl_7d3cf77a2722659e: (arg0: any, arg1: any, arg2: any, arg3: any, arg4: any, arg5: any, arg6: any) => void;
@@ -40,7 +40,7 @@ type ImportObject = {
 const interpreter_wasm = toByteArray(wasmBs64)
 
 /// Instantiates WebAssembly runtime with AIR interpreter module
-async function interpreterInstance(importObject: ImportObject): Promise<Instance> {
+async function interpreterInstance(importObject?: ImportObject): Promise<Instance> {
     let interpreter_module = await WebAssembly.compile(interpreter_wasm);
     let instance: Instance = await WebAssembly.instantiate(interpreter_module, {
         ...importObject
@@ -125,7 +125,7 @@ function newImportObject(wasm: Exports, peerId: PeerId): ImportObject {
 
 /// Instantiates AIR interpreter, and returns its `invoke` function as closure
 /// NOTE: an interpreter is also called a stepper from time to time
-export async function instantiateInterpreter(peerId: PeerId): Promise<Stepper> {
+export async function instantiateInterpreter(peerId: PeerId): Promise<InterpreterInvoke> {
     let wasm: Exports = undefined;
     let importObject = newImportObject(wasm, peerId);
     let instance = await interpreterInstance(importObject);
@@ -135,4 +135,12 @@ export async function instantiateInterpreter(peerId: PeerId): Promise<Stepper> {
     }
 
     return invoke
+}
+
+export async function parseAstClosure(): Promise<(script: string) => string> {
+    let instance = await interpreterInstance();
+
+    return (script: string) => {
+        return aqua.ast(instance.exports, script)
+    };
 }
