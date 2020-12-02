@@ -24,6 +24,7 @@ import log from "loglevel";
 import {wasmBs64} from "@fluencelabs/aquamarine-stepper-aquamarine_ast";
 import Instance = WebAssembly.Instance;
 import Exports = WebAssembly.Exports;
+import ExportValue = WebAssembly.ExportValue;
 
 export type Stepper = (init_user_id: string, script: string, prev_data: string, data: string) => string
 type ImportObject = {
@@ -47,9 +48,19 @@ async function interpreterInstance(importObject: ImportObject): Promise<Instance
 
     let exports = instance.exports;
     /// Initialize interpreter
-    exports.main();
+    call_export(exports.main);
 
     return instance;
+}
+
+/// If export is a function, call it. Otherwise log a warning.
+/// NOTE: any here is unavoidable, see Function interface definition
+function call_export(f: ExportValue, ...argArray: any[]): any {
+    if (typeof f === "function") {
+        return f();
+    } else {
+        log.warn(`can't call export ${f}: it is not a function, but ${typeof f}`)
+    }
 }
 
 /// Returns import object that describes host functions called by AIR interpreter
@@ -70,9 +81,9 @@ function newImportObject(wasm: Exports, peerId: PeerId): ImportObject {
                     getInt32Memory0(wasm)[arg0 / 4 + 1] = len0;
                     getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr0;
                 } finally {
-                    wasm.__wbindgen_free(arg1, arg2);
-                    wasm.__wbindgen_free(arg3, arg4);
-                    wasm.__wbindgen_free(arg5, arg6);
+                    call_export(wasm.__wbindgen_free, arg1, arg2);
+                    call_export(wasm.__wbindgen_free, arg3, arg4);
+                    call_export(wasm.__wbindgen_free, arg5, arg6);
                 }
             },
             __wbg_getcurrentpeeridimpl_154ce1848a306ff5: (arg0: any) => {
