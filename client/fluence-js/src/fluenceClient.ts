@@ -39,7 +39,7 @@ export class FluenceClient {
 
     private nodePeerIdStr: string;
     private subscriptions = new Subscriptions();
-    private stepper: Stepper = undefined;
+    private interpreter: Stepper = undefined;
 
     connection: FluenceConnection;
 
@@ -49,7 +49,7 @@ export class FluenceClient {
     }
 
     /**
-     * Pass a particle to a stepper and send a result to other services.
+     * Pass a particle to a interpreter and send a result to other services.
      */
     private async handleParticle(particle: Particle): Promise<void> {
 
@@ -57,7 +57,7 @@ export class FluenceClient {
         if (getCurrentParticleId() !== undefined && getCurrentParticleId() !== particle.id) {
             enqueueParticle(particle);
         } else {
-            if (this.stepper === undefined) {
+            if (this.interpreter === undefined) {
                 throw new Error("Undefined. Stepper is not initialized. User 'Fluence.connect' to create a client.")
             }
             // start particle processing if queue is empty
@@ -80,10 +80,10 @@ export class FluenceClient {
                         // set a particle with actual ttl
                         this.subscriptions.subscribe(particle, actualTtl)
                     }
-                    let stepperOutcomeStr = this.stepper(particle.init_peer_id, particle.script, JSON.stringify(prevData), JSON.stringify(particle.data))
+                    let stepperOutcomeStr = this.interpreter(particle.init_peer_id, particle.script, JSON.stringify(prevData), JSON.stringify(particle.data))
                     let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
 
-                    log.info("inner stepper outcome:");
+                    log.info("inner interpreter outcome:");
                     log.info(stepperOutcome);
 
                     // do nothing if there is no `next_peer_pks`
@@ -161,7 +161,7 @@ export class FluenceClient {
 
         let peerId = PeerId.createFromB58String(nodePeerId);
 
-        this.stepper = await instantiateInterpreter(this.selfPeerId);
+        this.interpreter = await instantiateInterpreter(this.selfPeerId);
 
         let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, this.handleExternalParticle());
 
