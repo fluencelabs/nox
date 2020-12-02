@@ -4,6 +4,7 @@
   "description": "the browser js-libp2p client for the Fluence network",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
+  "type": "module",
   "scripts": {
     "test": "mocha -r ts-node/register src/**/*.spec.ts",
     "test-ts": "ts-mocha -p tsconfig.json src/**/*.spec.ts",
