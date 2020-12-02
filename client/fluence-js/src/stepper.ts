@@ -21,7 +21,7 @@ import {getInt32Memory0, getStringFromWasm0, passStringToWasm0, WASM_VECTOR_LEN}
 import {service} from "./service";
 import PeerId from "peer-id";
 import log from "loglevel";
-import {wasmBs64} from "@fluencelabs/aquamarine-stepper-aquamarine_ast";
+import {wasmBs64} from "@fluencelabs/aquamarine-stepper";
 import Instance = WebAssembly.Instance;
 import Exports = WebAssembly.Exports;
 import ExportValue = WebAssembly.ExportValue;
