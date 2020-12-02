@@ -191,15 +191,18 @@ impl TrustGraph {
         let mut terminated_chains: Vec<Vec<Auth>> = Vec::new();
 
         while !chains_queue.is_empty() {
-            let cur_chain = chains_queue.pop_front().unwrap();
-            // The error is unreachable. `cur_chain` is always have at least one element.
-            let last = cur_chain.last().unwrap();
+            let cur_chain = chains_queue
+                .pop_front()
+                .expect("`chains_queue` always has at least one element");
+
+            let last = cur_chain
+                .last()
+                .expect("`cur_chain` always has at least one element");
 
             let auths: Vec<Auth> = self
                 .nodes
                 .get(&last.issued_by.clone().into())
-                // The error is unreachable. There cannot be paths without any nodes after adding verified certificates.
-                .unwrap()
+                .expect("there cannot be paths without any nodes after adding verified certificates")
                 .authorizations()
                 .cloned()
                 .collect();
