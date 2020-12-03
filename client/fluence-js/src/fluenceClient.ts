@@ -245,7 +245,7 @@ export class FluenceClient {
         let call = (nodeId: string) => `(call "${nodeId}" ("dist" "add_blueprint") [blueprint] ${returnValue})`
 
         let data = new Map()
-        data.set("blueprint", { name: name, dependencies: dependencies, blueprint_id: blueprintId })
+        data.set("blueprint", { name: name, dependencies: dependencies, id: blueprintId })
 
         return this.requestResponse("addBlueprint", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
     }
