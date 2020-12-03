@@ -67,12 +67,16 @@ def do_deploy_watchdog():
 
 @task
 @parallel
-@hosts('134.209.186.43')
 def deploy_caddy():
     load_config()
 
-    ports = [ '9002','9003','9005','9004','9001','9100','9990', '5001' ]
-    host = 'stage.fluence.dev'
+    for node in env.config['caddy']['nodes']:
+        env.hosts = [node['addr']]
+        puts("node: {}".format(node))
+        execute(do_deploy_caddy, node['ports'], node['host'])
+
+@task
+def do_deploy_caddy(ports, host):
     ip = env.host_string
     fname = 'Caddyfile'
     prefix = '1'
