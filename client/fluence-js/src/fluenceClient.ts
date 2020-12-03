@@ -30,6 +30,7 @@ import {
 import {instantiateStepper, Stepper} from "./stepper";
 import log from "loglevel";
 import {waitService} from "./helpers/waitService";
+import {ModuleConfig} from "./moduleConfig";
 
 const bs58 = require('bs58')
 
@@ -213,7 +214,7 @@ export class FluenceClient {
     /**
      * Send a script to add module to a relay. Waiting for a response from a relay.
      */
-    async addModule(name: string, moduleBase64: string, nodeId?: string, ttl?: number, config?: any): Promise<void> {
+    async addModule(name: string, moduleBase64: string, config?: ModuleConfig, nodeId?: string, ttl?: number): Promise<void> {
         if (!config) {
             config = {
                 name: name,
@@ -239,12 +240,12 @@ export class FluenceClient {
     /**
      * Send a script to add module to a relay. Waiting for a response from a relay.
      */
-    async addBlueprint(name: string, dependencies: string[], nodeId?: string, ttl?: number): Promise<string> {
+    async addBlueprint(name: string, dependencies: string[], blueprintId?: string, nodeId?: string, ttl?: number): Promise<string> {
         let returnValue = "blueprint_id";
         let call = (nodeId: string) => `(call "${nodeId}" ("dist" "add_blueprint") [blueprint] ${returnValue})`
 
         let data = new Map()
-        data.set("blueprint", { name: name, dependencies: dependencies })
+        data.set("blueprint", { name: name, dependencies: dependencies, blueprint_id: blueprintId })
 
         return this.requestResponse("addBlueprint", call, returnValue, data, (args: any[]) => args[0] as string, nodeId, ttl)
     }
