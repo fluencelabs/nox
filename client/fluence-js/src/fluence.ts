@@ -64,4 +64,6 @@ declare global {
     }
 }
 
-window.Fluence = Fluence;
+if (window) {
+    window.Fluence = Fluence;
+}
