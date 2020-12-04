@@ -94,16 +94,28 @@ def do_deploy_caddy(ports, host):
     # }
     #
     # host:prefixport {       # add 'prefix', e.g.: 9001 => 19001
+    #   log {
+    #       format console
+    #   }
     #   reverse_proxy ip:port
     # }
-    
-    append('{\n\temail    alexey@fluence.one\n}')
+
+    append('''
+{
+    email alexey@fluence.one
+}
+''')
     for port in ports:
-        append("wss://{}:{}{} {{".format(host, prefix, port))
-        append('\treverse_proxy wss://{}:{}'.format(ip, port))
-        append("}\n")
+        append('''
+wss://{}:{}{} {{
+    log {{
+        format console
+    }}
+    reverse_proxy wss://{}:{}
+}}'''.format(host, prefix, port, ip, port))
 
     # -p prefixport:prefixport
     open_ports = " ".join("-p {}{}:{}{}".format(prefix, p, prefix, p) for p in ports)
     run('docker rm -f {} || true'.format(container))
+    run('docker pull caddy:latest')
     run('docker run --name {} -d -p 80:80 {} -v $PWD/Caddyfile:/etc/caddy/Caddyfile -v caddy_data:/data caddy:latest'.format(container, open_ports))
