@@ -64,6 +64,6 @@ declare global {
     }
 }
 
-if (window) {
+if (typeof window !== "undefined") {
     window.Fluence = Fluence;
 }
