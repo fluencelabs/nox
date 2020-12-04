@@ -77,7 +77,8 @@ export async function instantiateStepper(pid: PeerId): Promise<Stepper> {
                             log.debug(str)
                             break;
                         case 5:
-                            log.trace(str)
+                            // we don't want a trace in trace logs
+                            log.debug(str)
                             break;
                     }
                 } finally {
