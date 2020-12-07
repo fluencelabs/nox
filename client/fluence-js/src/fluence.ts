@@ -22,6 +22,7 @@ import {LogLevelDesc} from "loglevel";
 import {ServiceMultiple} from "./service";
 import {registerService} from "./globalState";
 import {build} from "./particle";
+import {instantiateInterpreter, parseAstClosure} from "./stepper";
 
 log.setLevel('info')
 
@@ -55,6 +56,13 @@ export default class Fluence {
         await client.connect(multiaddr);
 
         return client;
+    }
+
+    /// Parses script and returns AST in JSON format
+    /// NOTE & TODO: interpreter is instantiated every time, make it a lazy constant?
+    static async parseAIR(script: string): Promise<string> {
+        let closure = await parseAstClosure();
+        return closure(script)
     }
 }
 

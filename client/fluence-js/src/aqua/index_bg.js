@@ -117,3 +117,15 @@ export function invoke(wasm, init_user_id, aqua, prev_data, data) {
     }
 }
 
+export function ast(wasm, script) {
+    try {
+        var ptr0 = passStringToWasm0(wasm, script, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        wasm.ast(8, ptr0, len0);
+        var r0 = getInt32Memory0(wasm)[8 / 4 + 0];
+        var r1 = getInt32Memory0(wasm)[8 / 4 + 1];
+        return getStringFromWasm0(wasm, r0, r1);
+    } finally {
+        wasm.__wbindgen_free(r0, r1);
+    }
+}

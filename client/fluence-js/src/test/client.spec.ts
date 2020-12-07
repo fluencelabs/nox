@@ -8,7 +8,7 @@ import {TrustGraph} from "../trust/trust_graph";
 import {nodeRootCert} from "../trust/misc";
 import {peerIdToSeed, seedToPeerId} from "../seed";
 import {build} from "../particle";
-import {Service} from "../service";
+import {Service, ServiceOne} from "../service";
 import {registerService} from "../globalState";
 import {waitResult} from "../helpers/waitService";
 
@@ -50,21 +50,20 @@ describe("Typescript usage suite", () => {
         let pid = await Fluence.generatePeerId()
         let cl = await Fluence.connect("/ip4/138.197.177.2/tcp/9001/ws/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9", pid)
 
-        let service = new Service("test")
-        service.registerFunction("test", (args: any[]) => {
+        let service = new ServiceOne("test", (fnName: string, args: any[]) => {
             console.log("called: " + args)
             return {}
-        })
+        });
         registerService(service);
 
         let namedPromise = waitResult(30000)
 
         let script = `
-(seq (
-    (call ( "${pid.toB58String()}" ("test" "test") (a b c d) result))
-    (call ( "${pid.toB58String()}" ("${namedPromise.name}" "") (d c b a) void[]))
-))
-`
+            (seq (
+                (call ( "${pid.toB58String()}" ("test" "test") (a b c d) result))
+                (call ( "${pid.toB58String()}" ("${namedPromise.name}" "") (d c b a) void[]))
+            ))
+        `
 
         let data: Map<string, any> = new Map();
         data.set("a", "some a")
