@@ -93,6 +93,7 @@ jobs:
             echo "CONTAINER_TAG=latest" >> $GITHUB_ENV
           else
             echo "CONTAINER_TAG=$BRANCH_NAME" >> $GITHUB_ENV
+          fi
 
     ### Build and push docker image
       - name: Build and push
