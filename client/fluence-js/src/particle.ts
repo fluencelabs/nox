@@ -36,7 +36,7 @@ function wrapScript(selfPeerId: string, script: string, fields: string[]): strin
     fields.forEach((v) => {
        script = `
 (seq
-    (call "${selfPeerId}" ("" "load") ["${v}"] ${v})
+    (call %init_peer_id% ("" "load") ["${v}"] ${v})
     ${script}
 )
                  `

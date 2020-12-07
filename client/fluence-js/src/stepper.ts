@@ -92,7 +92,8 @@ function log_import(wasm: Exports): LogImport {
                         log.debug(str)
                         break;
                     case 5:
-                        log.trace(str)
+                        // we don't want a trace in trace logs
+                            log.debug(str)
                         break;
                 }
             } finally {
