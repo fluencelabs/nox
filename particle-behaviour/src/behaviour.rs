@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::identify::identify;
 use crate::ParticleConfig;
 
 use particle_actors::Plumber;
@@ -75,6 +76,7 @@ impl ParticleBehaviour {
             get_active_interfaces: services.get_active_interfaces(),
             resolve: mailbox.get_api().resolve(),
             neighborhood: mailbox.get_api().neighborhood(),
+            identify: identify(config.node_info.clone()),
         };
         let plumber = Plumber::new(config.actor_config()?, closures.descriptor());
         let dht = ParticleDHT::new(config.dht_config(), trust_graph, registry);

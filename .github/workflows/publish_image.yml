@@ -88,10 +88,12 @@ jobs:
 
 
     ### Set container tag to 'latest' if branch is master, and to $BRANCH_NAME otherwise
-      - if: ${{ env.BRANCH_NAME }} == 'master'
-        run: echo "CONTAINER_TAG=latest" >> $GITHUB_ENV
-      - if: ${{ env.BRANCH_NAME }} != 'master'
-        run: echo "CONTAINER_TAG=${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
+      - run: |
+          if [ "$BRANCH_NAME" = "master" ]; then
+            echo "CONTAINER_TAG=latest" >> $GITHUB_ENV
+          else
+            echo "CONTAINER_TAG=$BRANCH_NAME" >> $GITHUB_ENV
+          fi
 
     ### Build and push docker image
       - name: Build and push

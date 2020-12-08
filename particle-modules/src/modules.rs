@@ -17,9 +17,10 @@
 use crate::file_names::extract_module_name;
 use crate::{file_names, files, Blueprint};
 
+use fce_wit_parser::module_interface;
 use host_closure::{closure, closure_opt, Args, Closure};
 
-use serde_json::Value as JValue;
+use serde_json::{json, Value as JValue};
 use std::path::PathBuf;
 
 /// Adds a module to the filesystem, overwriting existing module.
@@ -50,13 +51,41 @@ pub fn add_blueprint(blueprint_dir: PathBuf) -> Closure {
 // TODO: load interfaces of these modules
 pub fn get_modules(modules_dir: PathBuf) -> Closure {
     closure(move |_| {
-        Ok(JValue::Array(
-            files::list_files(&modules_dir)
-                .into_iter()
-                .flatten()
-                .filter_map(|pb| extract_module_name(pb.file_name()?.to_str()?).map(JValue::String))
-                .collect(),
-        ))
+        let modules = files::list_files(&modules_dir)
+            .into_iter()
+            .flatten()
+            .filter_map(|path| {
+                let fname = extract_module_name(path.file_name()?.to_str()?)?;
+                let interface = module_interface(path)
+                    .map_err(|err| {
+                        log::warn!(
+                            "Failed to retrieve interface for module {}: {:#?}",
+                            fname,
+                            err
+                        )
+                    })
+                    .ok()?;
+                let interface = serde_json::to_value(interface).map_err(|err| {
+                    log::warn!(
+                        "Failed to serialize interface for module {}: {:#?}",
+                        fname,
+                        err
+                    );
+                    JValue::String(format!("Corrupted interface: {:?}", err))
+                });
+                let interface = match interface {
+                    Ok(value) => value,
+                    Err(value) => value,
+                };
+
+                Some(json!({
+                    "name": fname,
+                    "interface": interface
+                }))
+            })
+            .collect();
+
+        Ok(JValue::Array(modules))
     })
 }
 

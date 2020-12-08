@@ -14,29 +14,16 @@
  * limitations under the License.
  */
 
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+export interface ModuleConfig {
+    name: string,
+    mem_pages_count?: number,
+    logger_enabled?: boolean,
+    wasi?: Wasi,
+    mounted_binaries?: object
+}
 
-#[macro_use]
-extern crate fstrings;
-
-mod connected_client;
-mod connection;
-mod local_vm;
-mod misc;
-mod service;
-mod singleton_vm;
-
-pub use connected_client::*;
-pub use connection::*;
-pub use local_vm::*;
-pub use misc::*;
-pub use service::*;
+export interface Wasi {
+    envs?: object,
+    preopened_files?: string[],
+    mapped_dirs?: object,
+}

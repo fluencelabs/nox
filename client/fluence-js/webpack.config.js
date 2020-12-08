@@ -14,7 +14,13 @@ const config = {
                 test: /\.tsx?$/,
                 loader: 'ts-loader',
                 exclude: /node_modules/
-            }
+            },
+            {
+                test: /\.spec\.ts$/,
+                use: 'mocha-loader',
+                exclude: /node_modules/,
+            },
+
         ]
     },
     resolve: {

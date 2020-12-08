@@ -12,28 +12,28 @@ services:
       - fluence_bootstrap:/.fluence
     environment:
       RUST_BACKTRACE: "full"
-      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info"
+      RUST_LOG: "info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info"
 
-  # It does not contain IPFS currently, because it is not needed
-  fluence-ipfs:
-    image: fluencelabs/fluence:$BRANCH
-    restart: always
-    ports:
-      - "7100:7100" # Node service
-      - "9100:9100" # Peer service
-      - "4001:4001" # IPFS Swarm
-      - "5001:5001" # IPFS API
-    command: "-c /Config.toml -k /node.key -b /ip4/$HOST/tcp/7770 -x $HOST -t 7100 -w 9100 -e IPFS_ADDR=$IPFS_ADDR"
+#  # It does not contain IPFS currently, because it is not needed
+#  fluence-ipfs:
+#    image: fluencelabs/fluence:$BRANCH
+#    restart: always
+#    ports:
+#      - "7100:7100" # Node service
+#      - "9100:9100" # Peer service
+#      - "4001:4001" # IPFS Swarm
+#      - "5001:5001" # IPFS API
+#    command: "-c /Config.toml -k /node.key -b /ip4/$HOST/tcp/7770 -x $HOST -t 7100 -w 9100 -e IPFS_ADDR=$IPFS_ADDR"
+##    volumes:
+##      - $PWD/ipfs_node.wasm:/.fluence/services/modules/ipfs_node.wasm
+##      - $PWD/ipfs_node_config.toml:/.fluence/services/modules/ipfs_node_config.toml
 #    volumes:
-#      - $PWD/ipfs_node.wasm:/.fluence/services/modules/ipfs_node.wasm
-#      - $PWD/ipfs_node_config.toml:/.fluence/services/modules/ipfs_node_config.toml
-    volumes:
-      - fluence-ipfs:/.fluence
-    environment:
-      HOST: "$HOST"
-      RUST_BACKTRACE: "full"
-      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info"
+#      - fluence-ipfs:/.fluence
+#    environment:
+#      HOST: "$HOST"
+#      RUST_BACKTRACE: "full"
+#      RUST_LOG: "info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info"
 
 volumes:
   fluence_bootstrap:
-  fluence-ipfs:
+#  fluence-ipfs:

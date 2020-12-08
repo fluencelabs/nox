@@ -1,10 +1,47 @@
 {
-    "branch": "interpreter_shadowing",
-    "bootstrap": "134.209.186.43",
+    "dev_ip": "138.197.177.2",
+    "stage_ip": "134.209.186.43",
+    "faas-net": [
+      "138.197.189.50",
+      "157.230.23.49",
+      "159.65.126.102",
+      "157.230.98.51",
+      "157.230.98.75",
+      "165.227.164.206",
+      "142.93.169.49",
+      "139.59.148.53",
+      "206.81.30.129",
+      "159.89.2.70"
+    ],
+    "branch": "aquamarine_patch",
+    "bootstrap": "165.227.164.206",
     "nodes": [
-      "134.209.186.43"
+      "165.227.164.206",
+      "138.197.189.50",
+      "157.230.23.49",
+      "159.65.126.102",
+      "142.93.169.49",
+      "139.59.148.53",
+      "206.81.30.129",
+      "157.230.98.51",
+      "159.89.2.70",
+      "157.230.98.75"
     ],
     "ipfs_addr": "/dns4/relay02.fluence.dev/tcp/15001/https",
+    "caddy": {
+      "nodes": [
+        { "host": "net01.fluence.dev", "ports": [9001, 9990], "addr":"165.227.164.206" },
+        { "host": "net02.fluence.dev", "ports": [9001], "addr":"138.197.189.50" },
+        { "host": "net03.fluence.dev", "ports": [9001], "addr":"157.230.23.49" },
+        { "host": "net04.fluence.dev", "ports": [9001], "addr":"159.65.126.102" },
+        { "host": "net05.fluence.dev", "ports": [9001], "addr":"142.93.169.49" },
+        { "host": "net06.fluence.dev", "ports": [9001], "addr":"139.59.148.53" },
+        { "host": "net07.fluence.dev", "ports": [9001], "addr":"206.81.30.129" },
+        { "host": "net08.fluence.dev", "ports": [9001], "addr":"157.230.98.51" },
+        { "host": "net09.fluence.dev", "ports": [9001], "addr":"159.89.2.70" },
+        { "host": "net10.fluence.dev", "ports": [9001], "addr":"157.230.98.75" }
+      ]
+    },
     "fluence": {
       "keypairs": {
         "fluence_bootstrap.yml": [

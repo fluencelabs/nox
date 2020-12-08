@@ -60,6 +60,7 @@ impl ServerBehaviour {
             cfg.air_interpreter,
             cfg.key_pair,
             cfg.stepper_pool_size,
+            cfg.external_addresses,
         );
         let particle = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)
             .context("failed to create ParticleBehvaiour")?;

@@ -38,6 +38,7 @@ pub struct HostClosures {
     pub get_providers: Closure,
     pub get_interface: Closure,
     pub get_active_interfaces: Closure,
+    pub identify: Closure,
 }
 
 impl HostClosures {
@@ -66,21 +67,22 @@ impl HostClosures {
         // route
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.fname.as_str()) {
-            ("dht", "resolve")         | ("resolve", _)        => (self.resolve)(args),
-            ("dht", "neighborhood")    | ("neighborhood", _)   => (self.neighborhood)(args),
-            ("dht", "add_provider")    | ("add_provider", _)   => (self.add_provider)(args),
-            ("dht", "get_providers")   | ("get_providers", _)  => (self.get_providers)(args),
+            ("dht", "resolve")         => (self.resolve)(args),
+            ("dht", "neighborhood")    => (self.neighborhood)(args),
+            ("dht", "add_provider")    => (self.add_provider)(args),
+            ("dht", "get_providers")   => (self.get_providers)(args),
 
-            ("srv", "create")          | ("create", _)         => (self.create_service)(args),
-            ("srv", "get_interface")   | ("get_interface", _)  => (self.get_interface)(args),
-            ("srv", "get_interfaces")  | ("get_interfaces", _) => (self.get_active_interfaces)(args),
+            ("srv", "create")          => (self.create_service)(args),
+            ("srv", "get_interface")   => (self.get_interface)(args),
+            ("srv", "get_interfaces")  => (self.get_active_interfaces)(args),
 
-            ("dist", "add_module")     | ("add_module", _)     => (self.add_module)(args),
-            ("dist", "add_blueprint")  | ("add_blueprint", _)  => (self.add_blueprint)(args),
-            ("dist", "get_modules")    | ("get_modules", _)    => (self.get_modules)(args),
-            ("dist", "get_blueprints") | ("get_blueprints", _) => (self.get_blueprints)(args),
+            ("dist", "add_module")     => (self.add_module)(args),
+            ("dist", "add_blueprint")  => (self.add_blueprint)(args),
+            ("dist", "get_modules")    => (self.get_modules)(args),
+            ("dist", "get_blueprints") => (self.get_blueprints)(args),
 
-            ("op", "identity") | ("", "identity") | ("identity", _) => ok(Array(args.args)),
+            ("op", "identify") => (self.identify)(args),
+            ("op", "identity") => ok(Array(args.args)),
 
             _ => (self.call_service)(args),
         }

@@ -14,29 +14,18 @@
  * limitations under the License.
  */
 
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use host_closure::{closure, Closure};
 
-#[macro_use]
-extern crate fstrings;
+use libp2p::core::Multiaddr;
+use serde::Serialize;
+use serde_json::json;
 
-mod connected_client;
-mod connection;
-mod local_vm;
-mod misc;
-mod service;
-mod singleton_vm;
+#[derive(Serialize, Clone, Debug)]
+pub struct NodeInfo {
+    pub external_addresses: Vec<Multiaddr>,
+}
 
-pub use connected_client::*;
-pub use connection::*;
-pub use local_vm::*;
-pub use misc::*;
-pub use service::*;
+/// Information about current node
+pub fn identify(info: NodeInfo) -> Closure {
+    closure(move |_| Ok(json!(info.clone())))
+}
