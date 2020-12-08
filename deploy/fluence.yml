@@ -11,8 +11,8 @@ services:
       - fluence-1:/.fluence
     environment:
       RUST_BACKTRACE: "1"
-      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
-,cranelift_codegen=info,wasmer_wasi=info"
+      RUST_LOG: "info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+,cranelift_codegen=info,wasmer_wasi=info,particle_server::behaviour::identify=info,particle_protocol::libp2p_protocol::upgrade=info"
 
 #  fluence-2:
 #    image: fluencelabs/fluence:$BRANCH
@@ -25,7 +25,7 @@ services:
 #      - fluence-2:/.fluence
 #    environment:
 #      RUST_BACKTRACE: "1"
-#      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+#      RUST_LOG: "info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
 #,cranelift_codegen=info,wasmer_wasi=info"
 #
 #  fluence-3:
@@ -39,7 +39,7 @@ services:
 #      - fluence-3:/.fluence
 #    environment:
 #      RUST_BACKTRACE: "1"
-#      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+#      RUST_LOG: "info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
 #,cranelift_codegen=info,wasmer_wasi=info"
 #
 #  fluence-4:
@@ -53,7 +53,7 @@ services:
 #      - fluence-4:/.fluence
 #    environment:
 #      RUST_BACKTRACE: "1"
-#      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+#      RUST_LOG: "info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
 #,cranelift_codegen=info,wasmer_wasi=info"
 #
 #  fluence-5:
@@ -67,8 +67,22 @@ services:
 #      - fluence-5:/.fluence
 #    environment:
 #      RUST_BACKTRACE: "1"
-#      RUST_LOG: "info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+#      RUST_LOG: "info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
 #,cranelift_codegen=info,wasmer_wasi=info"
+#
+#  fluence-6:
+#    image: fluencelabs/fluence:$BRANCH
+#    restart: always
+#    ports:
+#      - "7006:7006" # Node service
+#      - "9006:9006" # Peer service
+#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7006 -w 9006"
+#    volumes:
+#      - fluence-5:/.fluence
+#    environment:
+#      RUST_BACKTRACE: "1"
+#      RUST_LOG: "info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info
+#  ,cranelift_codegen=info,wasmer_wasi=info"
 
 volumes:
   fluence-1:
@@ -76,3 +90,4 @@ volumes:
 #  fluence-3:
 #  fluence-4:
 #  fluence-5:
+#  fluence-6:
