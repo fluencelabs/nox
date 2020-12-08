@@ -87,8 +87,8 @@ export class FluenceClient {
                     log.info("inner interpreter outcome:");
                     log.info(stepperOutcome);
 
-                    // do nothing if there is no `next_peer_pks`
-                    if (stepperOutcome.next_peer_pks.length > 0) {
+                    // do nothing if there is no `next_peer_pks` or if client isn't connected to the network
+                    if (stepperOutcome.next_peer_pks.length > 0 && this.connection) {
                         let newParticle: Particle = {...particle};
                         newParticle.data = JSON.parse(stepperOutcome.call_path);
 
@@ -179,6 +179,10 @@ export class FluenceClient {
     async sendParticle(particle: Particle): Promise<string> {
         await this.handleParticle(particle);
         return particle.id
+    }
+
+    async executeParticle(particle: Particle) {
+        await this.handleParticle(particle);
     }
 
     nodeIdentityCall(): string {
