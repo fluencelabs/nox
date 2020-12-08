@@ -59,7 +59,7 @@ export class FluenceClient {
             enqueueParticle(particle);
         } else {
             if (this.interpreter === undefined) {
-                throw new Error("Undefined. Interpreter is not initialized. User 'Fluence.connect' to create a client.")
+                throw new Error("Undefined. Interpreter is not initialized. Use 'Fluence.connect' to create a client.")
             }
             // start particle processing if queue is empty
             try {

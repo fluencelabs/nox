@@ -49,7 +49,10 @@ export default class Fluence {
             peerId = await Fluence.generatePeerId()
         }
 
-        return new FluenceClient(peerId);
+        let client =  new FluenceClient(peerId);
+        await client.instantiateInterpreter();
+
+        return client;
     }
 
     /**
