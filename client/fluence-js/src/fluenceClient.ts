@@ -87,7 +87,7 @@ export class FluenceClient {
                     log.info("inner interpreter outcome:");
                     log.info(stepperOutcome);
 
-                    // update data
+                    // update data after aquamarine execution
                     let newParticle: Particle = {...particle};
                     newParticle.data = JSON.parse(stepperOutcome.call_path)
                     this.subscriptions.update(newParticle)
