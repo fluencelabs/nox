@@ -69,7 +69,7 @@ async function interpreterInstance(cfg: HostImportsConfig): Promise<Instance> {
     cfg.setExports(instance.exports);
 
     /// Trigger interpreter initialization (i.e., call main function)
-    call_export(instances.exports.main);
+    call_export(instance.exports.main);
 
     return instance;
 }
