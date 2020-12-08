@@ -19,10 +19,7 @@ import Multiaddr from "multiaddr"
 import {FluenceClient} from "./fluenceClient";
 import * as log from "loglevel";
 import {LogLevelDesc} from "loglevel";
-import {ServiceMultiple} from "./service";
-import {registerService} from "./globalState";
-import {build} from "./particle";
-import {instantiateInterpreter, parseAstClosure} from "./stepper";
+import {parseAstClosure} from "./stepper";
 
 log.setLevel('info')
 

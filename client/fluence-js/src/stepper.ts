@@ -169,7 +169,24 @@ export async function instantiateInterpreter(peerId: PeerId): Promise<Interprete
     let instance = await interpreterInstance(cfg);
 
     return (init_user_id: string, script: string, prev_data: string, data: string) => {
-        return aqua.invoke(instance.exports, init_user_id, script, prev_data, data)
+
+        let logLevel = log.getLevel()
+        let logLevelStr = "info"
+        if (logLevel === 0) {
+            logLevelStr = "trace"
+        } else if (logLevel === 1) {
+            logLevelStr = "debug"
+        } else if (logLevel === 2) {
+            logLevelStr = "info"
+        } else if (logLevel === 3) {
+            logLevelStr = "warn"
+        } else if (logLevel === 4) {
+            logLevelStr = "error"
+        } else if (logLevel === 5) {
+            logLevelStr = "off"
+        }
+
+        return aqua.invoke(instance.exports, init_user_id, script, prev_data, data, logLevelStr)
     }
 }
 
