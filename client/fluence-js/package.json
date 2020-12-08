@@ -1,6 +1,6 @@
 {
   "name": "fluence",
-  "version": "0.7.97",
+  "version": "0.7.100",
   "description": "the browser js-libp2p client for the Fluence network",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
@@ -10,12 +10,13 @@
     "package:build": "NODE_ENV=production webpack && npm run package",
     "package": "tsc && rsync -r src/aqua/*.js dist/aqua",
     "start": "webpack-dev-server -p",
-    "build": "webpack"
+    "build": "webpack --mode production"
   },
+  "repository": "https://github.com/fluencelabs/fluence",
   "author": "Fluence Labs",
-  "license": "Apache 2.0",
+  "license": "Apache-2.0",
   "dependencies": {
-    "@fluencelabs/aquamarine-stepper": "0.0.15",
+    "@fluencelabs/aquamarine-stepper": "0.0.16",
     "async": "3.2.0",
     "base64-js": "1.3.1",
     "bs58": "4.0.1",
