@@ -10,7 +10,7 @@
     "package:build": "NODE_ENV=production webpack && npm run package",
     "package": "tsc && rsync -r src/aqua/*.js dist/aqua",
     "start": "webpack-dev-server -p",
-    "build": "webpack"
+    "build": "webpack --mode production"
   },
   "repository": "https://github.com/fluencelabs/fluence",
   "author": "Fluence Labs",
