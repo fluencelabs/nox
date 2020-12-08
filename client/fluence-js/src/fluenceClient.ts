@@ -59,7 +59,7 @@ export class FluenceClient {
             enqueueParticle(particle);
         } else {
             if (this.interpreter === undefined) {
-                throw new Error("Undefined. Interpreter is not initialized. User 'Fluence.connect' to create a client.")
+                throw new Error("Undefined. Interpreter is not initialized. Use 'Fluence.connect' to create a client.")
             }
             // start particle processing if queue is empty
             try {
@@ -87,8 +87,8 @@ export class FluenceClient {
                     log.info("inner interpreter outcome:");
                     log.info(stepperOutcome);
 
-                    // do nothing if there is no `next_peer_pks`
-                    if (stepperOutcome.next_peer_pks.length > 0) {
+                    // do nothing if there is no `next_peer_pks` or if client isn't connected to the network
+                    if (stepperOutcome.next_peer_pks.length > 0 && this.connection) {
                         let newParticle: Particle = {...particle};
                         newParticle.data = JSON.parse(stepperOutcome.call_path);
 
@@ -139,17 +139,26 @@ export class FluenceClient {
     }
 
     /**
+     * Instantiate WebAssembly with AIR interpreter to execute AIR scripts
+     */
+    async instantiateInterpreter() {
+        this.interpreter = await instantiateInterpreter(this.selfPeerId);
+    }
+
+    /**
      * Establish a connection to the node. If the connection is already established, disconnect and reregister all services in a new connection.
      *
      * @param multiaddr
      */
-    async connect(multiaddr: string | Multiaddr): Promise<void> {
-
+    async connect(multiaddr: string | Multiaddr) {
         multiaddr = Multiaddr(multiaddr);
+
+        if (!this.interpreter) {
+            throw Error("you must call 'instantiateInterpreter' before 'connect'")
+        }
 
         let nodePeerId = multiaddr.getPeerId();
         this.nodePeerIdStr = nodePeerId;
-
         if (!nodePeerId) {
             throw Error("'multiaddr' did not contain a valid peer id")
         }
@@ -160,12 +169,8 @@ export class FluenceClient {
             await this.connection.disconnect();
         }
 
-        let peerId = PeerId.createFromB58String(nodePeerId);
-
-        this.interpreter = await instantiateInterpreter(this.selfPeerId);
-
-        let connection = new FluenceConnection(multiaddr, peerId, this.selfPeerId, this.handleExternalParticle());
-
+        let node = PeerId.createFromB58String(nodePeerId);
+        let connection = new FluenceConnection(multiaddr, node, this.selfPeerId, this.handleExternalParticle());
         await connection.connect();
 
         this.connection = connection;
@@ -174,6 +179,10 @@ export class FluenceClient {
     async sendParticle(particle: Particle): Promise<string> {
         await this.handleParticle(particle);
         return particle.id
+    }
+
+    async executeParticle(particle: Particle) {
+        await this.handleParticle(particle);
     }
 
     nodeIdentityCall(): string {

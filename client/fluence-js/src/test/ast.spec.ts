@@ -3,7 +3,7 @@ import Fluence from "../fluence";
 
 describe("AIR AST parsing suite", () => {
     it("parse simple script and return ast", async function () {
-        let ast = Fluence.parseAIR(`
+        let ast = await Fluence.parseAIR(`
             (call node ("service" "function") [1 2 3 arg] output)
         `);
 
