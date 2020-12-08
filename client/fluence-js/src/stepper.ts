@@ -40,21 +40,33 @@ type LogImport = {
     log_utf8_string: (level: any, target: any, offset: any, size: any) => void
 }
 
+class HostImportsConfig {
+    exports: Exports | undefined;
+    newImportObject: () => ImportObject;
+
+    constructor(create: (cfg: HostImportsConfig) => ImportObject) {
+        this.exports = undefined;
+        this.newImportObject = () => create(this);
+    }
+
+    setExports(exports: Exports) {
+        this.exports = exports;
+    }
+}
+
 const interpreter_wasm = toByteArray(wasmBs64)
 
 /// Instantiates WebAssembly runtime with AIR interpreter module
-async function interpreterInstance(hostImports: (wasm: Exports) => Imports): Promise<Instance> {
-    // Uninitialized exports reference that must be initialized after WebAssembly is instantiated
-    let exports: Exports = undefined;
+async function interpreterInstance(cfg: HostImportsConfig): Promise<Instance> {
     /// Create host imports that use module exports internally
-    let imports = hostImports(exports);
+    let imports = cfg.newImportObject();
 
     /// Instantiate interpreter
     let interpreter_module = await WebAssembly.compile(interpreter_wasm);
     let instance: Instance = await WebAssembly.instantiate(interpreter_module, imports);
 
-    /// Finally initialize exports, so host imports can use them
-    exports = instance.exports;
+    /// Set exports, so host imports can use them
+    cfg.setExports(instance.exports);
 
     /// Trigger interpreter initialization (i.e., call main function)
     call_export(exports.main);
@@ -150,7 +162,8 @@ function newLogImport(wasm: Exports): ImportObject {
 /// Instantiates AIR interpreter, and returns its `invoke` function as closure
 /// NOTE: an interpreter is also called a stepper from time to time
 export async function instantiateInterpreter(peerId: PeerId): Promise<InterpreterInvoke> {
-    let instance = await interpreterInstance(wasm => newImportObject(wasm, peerId));
+    let cfg = new HostImportsConfig((cfg) => newImportObject(cfg.exports, peerId))
+    let instance = await interpreterInstance(cfg);
 
     return (init_user_id: string, script: string, prev_data: string, data: string) => {
         return aqua.invoke(instance.exports, init_user_id, script, prev_data, data)
@@ -160,7 +173,8 @@ export async function instantiateInterpreter(peerId: PeerId): Promise<Interprete
 /// Instantiate AIR interpreter with host imports containing only logger, but not call_service
 /// peerId isn't actually required for AST parsing, but host imports require it, and I don't see any workaround
 export async function parseAstClosure(): Promise<(script: string) => string> {
-    let instance = await interpreterInstance(wasm => newLogImport(wasm));
+    let cfg = new HostImportsConfig((cfg) => newLogImport(cfg.exports));
+    let instance = await interpreterInstance(cfg);
 
     return (script: string) => {
         return aqua.ast(instance.exports, script)
