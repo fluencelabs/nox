@@ -12,8 +12,9 @@
     "start": "webpack-dev-server -p",
     "build": "webpack"
   },
+  "repository": "https://github.com/fluencelabs/fluence",
   "author": "Fluence Labs",
-  "license": "Apache 2.0",
+  "license": "Apache-2.0",
   "dependencies": {
     "@fluencelabs/aquamarine-stepper": "0.0.16",
     "async": "3.2.0",

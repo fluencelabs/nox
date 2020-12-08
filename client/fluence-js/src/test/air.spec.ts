@@ -2,10 +2,12 @@ import 'mocha';
 import Fluence from "../fluence";
 import {build} from "../particle";
 import { ServiceMultiple } from "../service";
+import { registerService } from "../globalState";
 
 describe("AIR", () => {
     it("call local function", async function () {
         let service = new ServiceMultiple("console");
+        registerService(service);
         service.registerFunction('log', (args: any[]) => {
             console.log(`log: ${args}`);
 
