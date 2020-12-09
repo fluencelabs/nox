@@ -52,7 +52,7 @@ jobs:
         with:
           toolchain: nightly
           command: update
-          args: -p libp2p
+          args: --aggressive
 
       - name: Build particle-server
         uses: actions-rs/cargo@v1
