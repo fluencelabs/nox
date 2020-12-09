@@ -94,8 +94,6 @@ export class FluenceClient {
 
                     // do nothing if there is no `next_peer_pks` or if client isn't connected to the network
                     if (stepperOutcome.next_peer_pks.length > 0 && this.connection) {
-                        newParticle.data = JSON.parse(stepperOutcome.call_path);
-
                         await this.connection.sendParticle(newParticle).catch((reason) => {
                             console.error(`Error on sending particle with id ${particle.id}: ${reason}`)
                         });
