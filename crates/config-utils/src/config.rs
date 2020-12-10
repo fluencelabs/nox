@@ -55,7 +55,6 @@ where
 pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
     std::fs::create_dir_all(&dir)
         .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
-    Ok(())
 }
 
 pub fn to_peer_id(kp: &Keypair) -> PeerId {
