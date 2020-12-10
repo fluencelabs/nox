@@ -5,4 +5,4 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "neigh_debug" }

@@ -13,7 +13,7 @@ trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
 
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "neigh_debug" }
 multihash ="0.11.4"
 futures = "0.3.5"
 futures-util = "0.3.5"
