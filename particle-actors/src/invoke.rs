@@ -16,12 +16,24 @@
 
 use aquamarine_vm::{AquamarineVMError, StepperOutcome};
 use libp2p::PeerId;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Debug)]
 pub enum FieldError {
     InvalidJson(serde_json::Error),
     InvalidPeerId(String),
+}
+
+impl Error for FieldError {}
+impl Display for FieldError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldError::InvalidJson(err) => write!(f, "invalid json: {}", err),
+            FieldError::InvalidPeerId(err) => write!(f, "invalid PeerId: {}", err),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -31,6 +43,30 @@ pub enum ExecutionError {
         error: FieldError,
     },
     AquamarineError(AquamarineVMError),
+}
+
+impl Error for ExecutionError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match &self {
+            ExecutionError::InvalidResultField { error, .. } => Some(error),
+            ExecutionError::AquamarineError(err) => Some(err),
+        }
+    }
+}
+
+impl Display for ExecutionError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExecutionError::InvalidResultField { field, error } => write!(
+                f,
+                "Execution error: invalid result field {}: {}",
+                field, error
+            ),
+            ExecutionError::AquamarineError(err) => {
+                write!(f, "Execution error: aquamarine error: {}", err)
+            }
+        }
+    }
 }
 
 fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {

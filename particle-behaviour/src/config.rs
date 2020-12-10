@@ -80,7 +80,7 @@ impl ParticleConfig {
     /// Creates and returns path for app service modules directory
     pub fn modules_dir(&self) -> io::Result<PathBuf> {
         let path = self.services_base_dir.join("modules");
-        create_dirs(&path)?;
+        create_dirs(&[&path])?;
 
         Ok(path)
     }
@@ -88,7 +88,7 @@ impl ParticleConfig {
     /// Creates and returns path for app service blueprint directory
     pub fn blueprint_dir(&self) -> io::Result<PathBuf> {
         let path = self.services_base_dir.join("blueprint");
-        create_dirs(&path)?;
+        create_dirs(&[&path])?;
 
         Ok(path)
     }

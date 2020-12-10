@@ -41,10 +41,9 @@ pub fn blueprint_dir(path: &PathBuf) -> PathBuf {
     path.join("blueprint")
 }
 
-pub fn create_dirs<I>(dirs: I) -> Result<(), std::io::Error>
+pub fn create_dirs<Item>(dirs: &[Item]) -> Result<(), std::io::Error>
 where
-    I: IntoIterator,
-    I::Item: AsRef<Path> + Debug,
+    Item: AsRef<Path> + Debug,
 {
     for dir in dirs {
         create_dir(dir)?;
@@ -54,8 +53,10 @@ where
 }
 
 pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
-    std::fs::create_dir_all(&dir)
-        .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
+    println!("creating dir {:?}", dir);
+    // std::fs::create_dir_all(&dir)
+    //     .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
+    Ok(())
 }
 
 pub fn to_peer_id(kp: &Keypair) -> PeerId {

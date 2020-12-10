@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::invoke::parse_outcome;
+use crate::invoke::{parse_outcome, ExecutionError};
 
 use aquamarine_vm::AquamarineVM;
 use particle_protocol::Particle;
@@ -124,7 +124,7 @@ impl Actor {
                 &p.id,
             );
             if let Err(err) = &result {
-                log::warn!("Error executing particle {:#?}: {:?}", p, err)
+                log::warn!("Error executing particle {:#?}: {}", p, err)
             }
 
             let effects = match parse_outcome(result) {
@@ -145,8 +145,12 @@ impl Actor {
                     log::warn!("Executed particle {}, next_peer_pks is empty. Won't send anywhere", p.id);
                     vec![]
                 }
+                Err(ExecutionError::AquamarineError(err)) => {
+                    log::warn!("Error executing particle {:#?}: {}", p, err);
+                    vec![]
+                }
                 Err(err) => {
-                    log::warn!("Error parsing outcome for particle {:#?}: {:?}", p, err);
+                    log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
                     // Return error to the init peer id
                     vec![protocol_error(p, err)]
                 }
