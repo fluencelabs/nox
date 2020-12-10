@@ -53,9 +53,8 @@ where
 }
 
 pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
-    println!("creating dir {:?}", dir);
-    // std::fs::create_dir_all(&dir)
-    //     .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
+    std::fs::create_dir_all(&dir)
+        .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
     Ok(())
 }
 
