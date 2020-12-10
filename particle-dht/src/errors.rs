@@ -16,6 +16,9 @@
 
 use libp2p::kad::record::Key;
 use libp2p::kad::store;
+use smallvec::alloc::fmt::Formatter;
+use std::error::Error;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum PublishError {
@@ -37,7 +40,28 @@ pub enum ResolveErrorKind {
     NotFound,
 }
 
+impl Display for ResolveErrorKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResolveErrorKind::Timeout => write!(f, "ResolveErrorKind::Timeout"),
+            ResolveErrorKind::QuorumFailed => write!(f, "ResolveErrorKind::QuorumFailed"),
+            ResolveErrorKind::NotFound => write!(f, "ResolveErrorKind::NotFound"),
+        }
+    }
+}
+
+impl Error for ResolveErrorKind {}
+
 #[derive(Debug, Clone)]
 pub enum NeighborhoodError {
     Timeout,
 }
+
+impl Display for NeighborhoodError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NeighborhoodError::Timeout => write!(f, "DHT NeighborhoodError::Timeout"),
+        }
+    }
+}
+impl Error for NeighborhoodError {}
