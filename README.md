@@ -29,7 +29,6 @@ Fluence protocol aims to empower internet applications with interoperability, re
 - **Fluence** is an open runtime for internet applications. A purely peer-to-peer architecture allows to build distributed applications without reliance on centralized platforms. Fluence incorporates concepts of Web of Trust, DPKI, S/Kademlia, and is built with libp2p and WebAssembly.
 - **Fluence** is a business model for the open source. Fluence enables the blockchain-based software licensing system, allowing authors to earn income from their applications usage over the protocol. The infrastructure maintenance is outsourced to the open market of compute providers via the Open Source as a Service (OSaaS) model.
 
-**Test the live demo** of the [p2p file-sharing](https://relay01.fluence.dev/) app over the Fluence protocol.
 
 ## Run
 ### Prebuilt docker image
