@@ -19,7 +19,7 @@ fluence-libp2p = { path = "../crates/libp2p" }
 waiting-queues = { path = "../crates/waiting-queues" }
 host-closure = { path = "../crates/host-closure" }
 
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "neigh_debug" }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 prometheus = "0.9.0"
 log = "0.4.11"
 futures = "0.3.5"

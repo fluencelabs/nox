@@ -7,7 +7,7 @@ description = "trust graph"
 license = "Apache 2.0"
 
 [dependencies]
-libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "neigh_debug" }
+libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 serde = { version = "1.0.116", features = ["derive"] }
 bs58 = "0.3.1"
 failure = "0.1.6"

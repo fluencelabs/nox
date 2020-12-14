@@ -17,7 +17,7 @@ particle-actors = { path = "../../particle-actors" }
 
 aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "neigh_debug" }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
 rand = "0.7.3"
 async-std = "1.6.5"
