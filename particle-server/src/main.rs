@@ -30,6 +30,7 @@ use anyhow::Context;
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
 use futures::channel::oneshot;
+use particle_server::config::default_air_interpreter_path;
 use particle_server::{
     config::{certificates, create_args, load_config, FluenceConfig},
     Server,
@@ -38,6 +39,10 @@ use particle_server::{
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
+
+trait Stoppable {
+    fn stop(self);
+}
 
 fn main() -> anyhow::Result<()> {
     // TODO: set level to info by default (todo: check that RUST_LOG will still work)
@@ -53,6 +58,13 @@ fn main() -> anyhow::Result<()> {
 
     let fluence_config = load_config(arg_matches)?;
 
+    write_default_air_interpreter()?;
+
+    log::info!(
+        "AIR interpreter: {:?}",
+        fluence_config.server.air_interpreter_path
+    );
+
     let fluence = start_fluence(fluence_config)?;
     log::info!("Fluence has been successfully started.");
 
@@ -65,8 +77,15 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-trait Stoppable {
-    fn stop(self);
+fn write_default_air_interpreter() -> anyhow::Result<()> {
+    use air_interpreter_wasm::INTERPRETER_WASM;
+    use std::fs::write;
+
+    let destination = default_air_interpreter_path();
+    write(&destination, INTERPRETER_WASM).context(format!(
+        "writing default INTERPRETER_WASM to {:?}",
+        destination
+    ))
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()

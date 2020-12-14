@@ -104,7 +104,7 @@ macro_rules! make_swarm {
 fn make_server() -> (Swarm<ParticleBehaviour>, Multiaddr, PeerId) {
     let mut swarm = make_swarm!(|peer_id: PeerId, keypair: Keypair| {
         let tmp = make_tmp_dir();
-        let interpreter = put_aquamarine(tmp.join("modules"), None);
+        let interpreter = put_aquamarine(tmp.join("modules"));
         let trust_graph = TrustGraph::new(<_>::default());
         let registry = None;
         let tout = Duration::from_secs(100);

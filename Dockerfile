@@ -2,13 +2,11 @@ from bitnami/minideb:latest
 
 ARG exe=
 ARG config=
-ARG air_interpreter=
 
 copy $exe /fluence
 run chmod +x /fluence
 
 copy $config /.fluence/Config.toml
-copy $air_interpreter /aquamarine.wasm
 
 volume /.fluence
 
