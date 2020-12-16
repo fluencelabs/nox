@@ -1,10 +1,10 @@
-name: Publish docker image
+name: Docker image
 on:
   push:
   workflow_dispatch:
 jobs:
   build:
-    name: Build & publish docker image
+    name: publish
     runs-on: ubuntu-latest
     steps:
     ### extract branch name

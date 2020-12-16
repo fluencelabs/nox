@@ -20,7 +20,7 @@ use particle_behaviour::{ParticleBehaviour, ParticleConfig};
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
 
 use fluence_libp2p::{build_memory_transport, generate_swarm_event_type};
-use test_utils::{make_tmp_dir, now, put_aquamarine, timeout, TIMEOUT};
+use test_utils::{enable_logs, make_tmp_dir, now, put_aquamarine, timeout, TIMEOUT};
 use trust_graph::TrustGraph;
 
 use async_std::task;
@@ -43,6 +43,8 @@ use std::{collections::VecDeque, time::Duration};
 
 #[test]
 fn echo_particle() {
+    enable_logs();
+
     let (mut server, addr, server_id) = make_server();
     let (mut client, client_id) = make_client(addr);
 

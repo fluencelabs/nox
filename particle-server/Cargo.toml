@@ -13,7 +13,7 @@ trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
 
-air-interpreter-wasm = "0.0.8"
+air-interpreter-wasm = { package = "air-interpreter-wasm_crate_release", version = "0.0.18" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 multihash ="0.11.4"
@@ -46,7 +46,7 @@ fstrings = "0.2.3"
 particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }
 json-utils = { path = "../crates/json-utils" }
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "aquamarine_filename" }
 fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"
 maplit = "1.0.2"
