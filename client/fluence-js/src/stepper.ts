@@ -25,7 +25,6 @@ import {wasmBs64} from "@fluencelabs/aquamarine-stepper";
 import Instance = WebAssembly.Instance;
 import Exports = WebAssembly.Exports;
 import ExportValue = WebAssembly.ExportValue;
-import Imports = WebAssembly.Imports;
 
 export type InterpreterInvoke = (init_user_id: string, script: string, prev_data: string, data: string) => string
 type ImportObject = {
