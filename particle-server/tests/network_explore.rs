@@ -145,9 +145,7 @@ fn get_blueprints() {
 
 #[test]
 fn explore_services() {
-    enable_logs();
-
-    let swarms = make_swarms(20);
+    let swarms = make_swarms(10);
     sleep(KAD_TIMEOUT);
 
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
