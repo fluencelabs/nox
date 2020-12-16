@@ -36,17 +36,25 @@ const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
     });
 
 export function passStringToWasm0(wasm, arg, malloc, realloc) {
+    console.log("passStringToWasm0 start");
 
     if (realloc === undefined) {
+        console.log("passStringToWasm0 realloc === undefined");
+
         const buf = cachedTextEncoder.encode(arg);
         const ptr = malloc(buf.length);
         getUint8Memory0(wasm).subarray(ptr, ptr + buf.length).set(buf);
         WASM_VECTOR_LEN = buf.length;
+
+        console.log(`passStringToWasm0 realloc === undefined: WASM_VECTOR_LEN ${WASM_VECTOR_LEN}`);
+        console.log(`passStringToWasm0 realloc === undefined: buf: ${JSON.stringify(buf)}`);
         return ptr;
     }
 
     let len = arg.length;
     let ptr = malloc(len);
+
+    console.log(`passStringToWasm0 len ${len} ptr ${ptr}`);
 
     const mem = getUint8Memory0(wasm);
 
@@ -54,14 +62,19 @@ export function passStringToWasm0(wasm, arg, malloc, realloc) {
 
     for (; offset < len; offset++) {
         const code = arg.charCodeAt(offset);
+        // console.log(`passStringToWasm0 code ${code}`);
         if (code > 0x7F) break;
         mem[ptr + offset] = code;
     }
 
+    console.log(`passStringToWasm0 after cycle offset ${offset}`);
     if (offset !== len) {
+
         if (offset !== 0) {
             arg = arg.slice(offset);
         }
+
+        console.log(`passStringToWasm0 doing realloc ${offset} ${arg.length}`);
         ptr = realloc(ptr, len, len = offset + arg.length * 3);
         const view = getUint8Memory0(wasm).subarray(ptr + offset, ptr + len);
         const ret = encodeString(arg, view);
@@ -69,7 +82,11 @@ export function passStringToWasm0(wasm, arg, malloc, realloc) {
         offset += ret.written;
     }
 
+
     WASM_VECTOR_LEN = offset;
+
+    console.log(`passStringToWasm0 end offset ${offset} WASM_VECTOR_LEN ${WASM_VECTOR_LEN}`)
+
     return ptr;
 }
 
@@ -130,5 +147,25 @@ export function ast(wasm, script) {
         return getStringFromWasm0(wasm, r0, r1);
     } finally {
         wasm.__wbindgen_free(r0, r1);
+    }
+}
+
+export function return_current_peer_id(wasm, peerId, arg0) {
+    var ptr0 = passStringToWasm0(wasm, peerId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    getInt32Memory0(wasm)[arg0 / 4 + 1] = len0;
+    getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr0;
+}
+
+export function return_call_service_result(wasm, ret, arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+    try {
+        var ptr1 = passStringToWasm0(wasm, ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        getInt32Memory0(wasm)[arg0 / 4 + 1] = len1;
+        getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr1;
+    } finally {
+        wasm.__wbindgen_free(arg1, arg2);
+        wasm.__wbindgen_free(arg3, arg4);
+        wasm.__wbindgen_free(arg5, arg6);
     }
 }

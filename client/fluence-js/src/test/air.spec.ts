@@ -6,6 +6,8 @@ import { registerService } from "../globalState";
 
 describe("AIR", () => {
     it("call local function", async function () {
+        Fluence.setLogLevel('debug');
+
         let service = new ServiceMultiple("console");
         registerService(service);
         service.registerFunction('log', (args: any[]) => {

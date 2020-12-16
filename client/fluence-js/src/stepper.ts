@@ -16,12 +16,12 @@
 
 import {toByteArray} from "base64-js";
 import * as aqua from "./aqua"
-import {getInt32Memory0, getStringFromWasm0, passStringToWasm0, WASM_VECTOR_LEN} from "./aqua"
+import {return_current_peer_id, return_call_service_result, getStringFromWasm0} from "./aqua"
 
 import {service} from "./service";
 import PeerId from "peer-id";
 import log from "loglevel";
-import {wasmBs64} from "@fluencelabs/aquamarine-stepper";
+import {wasmBs64} from "@fluencelabs/aquamarine-stepper-logger-i32";
 import Instance = WebAssembly.Instance;
 import Exports = WebAssembly.Exports;
 import ExportValue = WebAssembly.ExportValue;
@@ -31,13 +31,14 @@ export type InterpreterInvoke = (init_user_id: string, script: string, prev_data
 type ImportObject = {
     "./aquamarine_client_bg.js": {
         __wbg_callserviceimpl_7d3cf77a2722659e: (arg0: any, arg1: any, arg2: any, arg3: any, arg4: any, arg5: any, arg6: any) => void;
-        __wbg_getcurrentpeeridimpl_154ce1848a306ff5: (arg0: any) => void
+        __wbg_getcurrentpeeridimpl_154ce1848a306ff5: (arg0: any) => void;
+        __wbindgen_throw: (arg: any) => void;
     };
     host: LogImport
 };
 
 type LogImport = {
-    log_utf8_string: (level: any, target: any, offset: any, size: any) => void
+    log_utf8_string: (level: number, target: BigInt, offset: number, size: number) => void
 }
 
 class HostImportsConfig {
@@ -87,9 +88,11 @@ function call_export(f: ExportValue, ...argArray: any[]): any {
 function log_import(cfg: HostImportsConfig): LogImport {
     return {
         log_utf8_string: (level: any, target: any, offset: any, size: any) => {
+            console.log('log_utf8_string happened');
             let wasm = cfg.exports;
             try {
-                let str = getStringFromWasm0(wasm, offset, size)
+                let str = getStringFromWasm0(wasm, offset, size);
+                console.log(str);
 
                 switch (level) {
                     case 1:
@@ -106,7 +109,7 @@ function log_import(cfg: HostImportsConfig): LogImport {
                         break;
                     case 5:
                         // we don't want a trace in trace logs
-                            log.debug(str)
+                        log.debug(str)
                         break;
                 }
             } finally {
@@ -123,29 +126,21 @@ function newImportObject(cfg: HostImportsConfig, peerId: PeerId): ImportObject {
         "./aquamarine_client_bg.js": {
             __wbg_callserviceimpl_7d3cf77a2722659e: (arg0: any, arg1: any, arg2: any, arg3: any, arg4: any, arg5: any, arg6: any) => {
                 let wasm = cfg.exports;
-                try {
-                    let serviceId = getStringFromWasm0(wasm, arg1, arg2)
-                    let fnName = getStringFromWasm0(wasm, arg3, arg4)
-                    let args = getStringFromWasm0(wasm, arg5, arg6);
-                    var ret = service(serviceId, fnName, args);
-                    let retStr = JSON.stringify(ret)
-                    var ptr0 = passStringToWasm0(wasm, retStr, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-                    var len0 = WASM_VECTOR_LEN;
-                    getInt32Memory0(wasm)[arg0 / 4 + 1] = len0;
-                    getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr0;
-                } finally {
-                    call_export(wasm.__wbindgen_free, arg1, arg2);
-                    call_export(wasm.__wbindgen_free, arg3, arg4);
-                    call_export(wasm.__wbindgen_free, arg5, arg6);
-                }
+                let serviceId = getStringFromWasm0(wasm, arg1, arg2)
+                let fnName = getStringFromWasm0(wasm, arg3, arg4)
+                let args = getStringFromWasm0(wasm, arg5, arg6);
+                let serviceResult = service(serviceId, fnName, args);
+                let resultStr = JSON.stringify(serviceResult)
+                return_call_service_result(wasm, resultStr, arg0, arg1, arg2, arg3, arg4, arg5, arg6);
             },
             __wbg_getcurrentpeeridimpl_154ce1848a306ff5: (arg0: any) => {
+                let peerIdStr = peerId.toB58String();
+                console.log(`got getcurrentpeeridimpl call, peerId: ${peerIdStr}`)
                 let wasm = cfg.exports;
-                var ret = peerId.toB58String();
-                var ptr0 = passStringToWasm0(wasm, ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-                var len0 = WASM_VECTOR_LEN;
-                getInt32Memory0(wasm)[arg0 / 4 + 1] = len0;
-                getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr0;
+                return_current_peer_id(wasm, peerIdStr, arg0);
+            },
+            __wbindgen_throw: (arg: any) => {
+                console.log(`wbindgen throw: ${JSON.stringify(arg)}`);
             }
         },
         host: log_import(cfg)
@@ -157,7 +152,8 @@ function newLogImport(cfg: HostImportsConfig): ImportObject {
         host: log_import(cfg),
         "./aquamarine_client_bg.js": {
             __wbg_callserviceimpl_7d3cf77a2722659e: _ => {},
-            __wbg_getcurrentpeeridimpl_154ce1848a306ff5: _ => {}
+            __wbg_getcurrentpeeridimpl_154ce1848a306ff5: _ => {},
+            __wbindgen_throw: _ => {}
         },
     };
 }
@@ -165,7 +161,11 @@ function newLogImport(cfg: HostImportsConfig): ImportObject {
 /// Instantiates AIR interpreter, and returns its `invoke` function as closure
 /// NOTE: an interpreter is also called a stepper from time to time
 export async function instantiateInterpreter(peerId: PeerId): Promise<InterpreterInvoke> {
-    let cfg = new HostImportsConfig((cfg) => newImportObject(cfg, peerId))
+    console.log(`instantiateInterpreter: ${peerId}`);
+    let cfg = new HostImportsConfig((cfg) => {
+        console.log(`instantiateInterpreter inside cfg: ${peerId}`);
+        return newImportObject(cfg, peerId);
+    })
     let instance = await interpreterInstance(cfg);
 
     return (init_user_id: string, script: string, prev_data: string, data: string) => {
