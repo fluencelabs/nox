@@ -89,7 +89,12 @@ export class FluenceClient {
 
                     // update data after aquamarine execution
                     let newParticle: Particle = {...particle};
-                    newParticle.data = JSON.parse(stepperOutcome.call_path)
+                    try {
+                        newParticle.data = JSON.parse(stepperOutcome.data)
+                    } catch (e) {
+                        log.error(`Error parsing stepperOutcome.call_path ${stepperOutcome.data}: ${e} ${JSON.stringify(e)}`);
+                        throw e;
+                    }
                     this.subscriptions.update(newParticle)
 
                     // do nothing if there is no `next_peer_pks` or if client isn't connected to the network
