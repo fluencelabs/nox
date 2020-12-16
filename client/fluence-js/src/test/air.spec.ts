@@ -4,7 +4,7 @@ import {build} from "../particle";
 import { ServiceMultiple } from "../service";
 import { registerService } from "../globalState";
 
-describe("AIR", () => {
+describe("== AIR suite", () => {
     it("call local function", async function () {
         Fluence.setLogLevel('debug');
 

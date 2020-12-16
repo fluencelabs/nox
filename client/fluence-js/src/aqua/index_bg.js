@@ -36,45 +36,30 @@ const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
     });
 
 export function passStringToWasm0(wasm, arg, malloc, realloc) {
-    console.log("passStringToWasm0 start");
-
     if (realloc === undefined) {
-        console.log("passStringToWasm0 realloc === undefined");
-
         const buf = cachedTextEncoder.encode(arg);
         const ptr = malloc(buf.length);
         getUint8Memory0(wasm).subarray(ptr, ptr + buf.length).set(buf);
         WASM_VECTOR_LEN = buf.length;
-
-        console.log(`passStringToWasm0 realloc === undefined: WASM_VECTOR_LEN ${WASM_VECTOR_LEN}`);
-        console.log(`passStringToWasm0 realloc === undefined: buf: ${JSON.stringify(buf)}`);
         return ptr;
     }
 
     let len = arg.length;
     let ptr = malloc(len);
 
-    console.log(`passStringToWasm0 len ${len} ptr ${ptr}`);
-
     const mem = getUint8Memory0(wasm);
 
     let offset = 0;
 
     for (; offset < len; offset++) {
-        const code = arg.charCodeAt(offset);
-        // console.log(`passStringToWasm0 code ${code}`);
-        if (code > 0x7F) break;
+        const code = arg.charCodeAt(offset);if (code > 0x7F) break;
         mem[ptr + offset] = code;
     }
-
-    console.log(`passStringToWasm0 after cycle offset ${offset}`);
     if (offset !== len) {
 
         if (offset !== 0) {
             arg = arg.slice(offset);
         }
-
-        console.log(`passStringToWasm0 doing realloc ${offset} ${arg.length}`);
         ptr = realloc(ptr, len, len = offset + arg.length * 3);
         const view = getUint8Memory0(wasm).subarray(ptr + offset, ptr + len);
         const ret = encodeString(arg, view);
@@ -84,8 +69,6 @@ export function passStringToWasm0(wasm, arg, malloc, realloc) {
 
 
     WASM_VECTOR_LEN = offset;
-
-    console.log(`passStringToWasm0 end offset ${offset} WASM_VECTOR_LEN ${WASM_VECTOR_LEN}`)
 
     return ptr;
 }

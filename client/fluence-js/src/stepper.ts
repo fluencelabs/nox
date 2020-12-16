@@ -88,11 +88,9 @@ function call_export(f: ExportValue, ...argArray: any[]): any {
 function log_import(cfg: HostImportsConfig): LogImport {
     return {
         log_utf8_string: (level: any, target: any, offset: any, size: any) => {
-            console.log('log_utf8_string happened');
             let wasm = cfg.exports;
             try {
                 let str = getStringFromWasm0(wasm, offset, size);
-                console.log(str);
 
                 switch (level) {
                     case 1:
@@ -135,7 +133,6 @@ function newImportObject(cfg: HostImportsConfig, peerId: PeerId): ImportObject {
             },
             __wbg_getcurrentpeeridimpl_154ce1848a306ff5: (arg0: any) => {
                 let peerIdStr = peerId.toB58String();
-                console.log(`got getcurrentpeeridimpl call, peerId: ${peerIdStr}`)
                 let wasm = cfg.exports;
                 return_current_peer_id(wasm, peerIdStr, arg0);
             },
@@ -161,9 +158,7 @@ function newLogImport(cfg: HostImportsConfig): ImportObject {
 /// Instantiates AIR interpreter, and returns its `invoke` function as closure
 /// NOTE: an interpreter is also called a stepper from time to time
 export async function instantiateInterpreter(peerId: PeerId): Promise<InterpreterInvoke> {
-    console.log(`instantiateInterpreter: ${peerId}`);
     let cfg = new HostImportsConfig((cfg) => {
-        console.log(`instantiateInterpreter inside cfg: ${peerId}`);
         return newImportObject(cfg, peerId);
     })
     let instance = await interpreterInstance(cfg);
