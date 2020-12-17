@@ -16,7 +16,7 @@
 
 import {toByteArray} from "base64-js";
 import * as aqua from "./aqua"
-import {return_current_peer_id, return_call_service_result, getStringFromWasm0} from "./aqua"
+import {return_current_peer_id, return_call_service_result, getStringFromWasm0, free} from "./aqua"
 
 import {service} from "./service";
 import PeerId from "peer-id";
@@ -123,12 +123,18 @@ function newImportObject(cfg: HostImportsConfig, peerId: PeerId): ImportObject {
         "./aquamarine_client_bg.js": {
             __wbg_callserviceimpl_7d3cf77a2722659e: (arg0: any, arg1: any, arg2: any, arg3: any, arg4: any, arg5: any, arg6: any) => {
                 let wasm = cfg.exports;
-                let serviceId = getStringFromWasm0(wasm, arg1, arg2)
-                let fnName = getStringFromWasm0(wasm, arg3, arg4)
-                let args = getStringFromWasm0(wasm, arg5, arg6);
-                let serviceResult = service(serviceId, fnName, args);
-                let resultStr = JSON.stringify(serviceResult)
-                return_call_service_result(wasm, resultStr, arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                try {
+                    let serviceId = getStringFromWasm0(wasm, arg1, arg2)
+                    let fnName = getStringFromWasm0(wasm, arg3, arg4)
+                    let args = getStringFromWasm0(wasm, arg5, arg6);
+                    let serviceResult = service(serviceId, fnName, args);
+                    let resultStr = JSON.stringify(serviceResult)
+                    return_call_service_result(wasm, resultStr, arg0);
+                } finally {
+                    free(wasm, arg1, arg2)
+                    free(wasm, arg3, arg4)
+                    free(wasm, arg5, arg6)
+                }
             },
             __wbg_getcurrentpeeridimpl_154ce1848a306ff5: (arg0: any) => {
                 let peerIdStr = peerId.toB58String();

@@ -140,15 +140,14 @@ export function return_current_peer_id(wasm, peerId, arg0) {
     getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr0;
 }
 
-export function return_call_service_result(wasm, ret, arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
-    try {
-        var ptr1 = passStringToWasm0(wasm, ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        getInt32Memory0(wasm)[arg0 / 4 + 1] = len1;
-        getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr1;
-    } finally {
-        wasm.__wbindgen_free(arg1, arg2);
-        wasm.__wbindgen_free(arg3, arg4);
-        wasm.__wbindgen_free(arg5, arg6);
-    }
+export function return_call_service_result(wasm, ret, arg0) {
+    var ptr1 = passStringToWasm0(wasm, ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    getInt32Memory0(wasm)[arg0 / 4 + 1] = len1;
+    getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr1;
+
+}
+
+export function free(wasm, ptr, len) {
+    wasm.__wbindgen_free(ptr, len);
 }
