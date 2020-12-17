@@ -119,7 +119,7 @@ pub struct ServerConfig {
     pub stepper_pool_size: usize,
 
     /// Path to AIR interpreter .wasm file (aquamarine.wasm)
-    #[serde(default = "default_air_interpreter")]
+    #[serde(default = "default_air_interpreter_path")]
     pub air_interpreter_path: PathBuf,
 }
 

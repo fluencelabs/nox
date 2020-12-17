@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{aquamarine_fname, now, uuid};
+use crate::{make_tmp_dir, now, put_aquamarine, uuid};
 
 use host_closure::Args;
 use ivalue_utils::{IType, IValue};
@@ -108,9 +108,12 @@ fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -
         error_handler: None,
     };
 
+    let tmp = make_tmp_dir();
+    let interpreter = put_aquamarine(tmp.join("modules"));
+
     let config = AquamarineVMConfig {
         call_service,
-        aquamarine_wasm_path: aquamarine_fname(None),
+        aquamarine_wasm_path: interpreter,
         current_peer_id: peer_id.to_string(),
         particle_data_store: format!("/tmp/{}", particle_id).into(),
         logging_mask: i64::max_value(),
@@ -120,9 +123,14 @@ fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -
     let vm = AquamarineVM::new(config)
         .map_err(|err| {
             log::error!(
-                "\n\n\nFailed to create local AquamarinveVM: {:#?}\n\n\n",
+                "\n\n\nFailed to create local AquamarineVM: {:#?}\n\n\n",
                 err
-            )
+            );
+
+            println!(
+                "\n\n\nFailed to create local AquamarineVM: {:#?}\n\n\n",
+                err
+            );
         })
         .expect("vm should be created");
 

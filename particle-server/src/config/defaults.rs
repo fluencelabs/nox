@@ -24,7 +24,6 @@ pub const DEFAULT_KEY_DIR: &str = ".fluence/secret_key";
 pub const DEFAULT_CONFIG_FILE: &str = ".fluence/Config.toml";
 pub const DEFAULT_SERVICES_BASE_DIR: &str = ".fluence/services";
 pub const DEFAULT_STEPPER_BASE_DIR: &str = ".fluence/stepper";
-pub const DEFAULT_AIR_INTERPRETER_PATH: &str = "./aquamarine.wasm";
 
 pub fn default_tcp_port() -> u16 {
     7777
@@ -56,8 +55,10 @@ pub fn default_stepper_basedir() -> PathBuf {
     DEFAULT_STEPPER_BASE_DIR.into()
 }
 
-pub fn default_air_interpreter() -> PathBuf {
-    DEFAULT_AIR_INTERPRETER_PATH.into()
+pub fn default_air_interpreter_path() -> PathBuf {
+    use air_interpreter_wasm as interpreter;
+
+    PathBuf::from(format!("./aquamarine_{}.wasm", interpreter::VERSION))
 }
 
 pub fn default_stepper_pool_size() -> usize {
