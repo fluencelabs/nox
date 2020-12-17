@@ -34,10 +34,10 @@ pub fn build_transport(
     Output = (
         PeerId,
         impl StreamMuxer<
-                OutboundSubstream = impl Send,
-                Substream = impl Send,
-                Error = impl Into<std::io::Error>,
-            > + Send
+            OutboundSubstream = impl Send,
+            Substream = impl Send,
+            Error = impl Into<std::io::Error>,
+        > + Send
             + Sync,
     ),
     Error = impl std::error::Error + Send,
@@ -74,10 +74,10 @@ pub fn build_memory_transport(
     Output = (
         PeerId,
         impl StreamMuxer<
-                OutboundSubstream = impl Send,
-                Substream = impl Send,
-                Error = impl Into<std::io::Error>,
-            > + Send
+            OutboundSubstream = impl Send,
+            Substream = impl Send,
+            Error = impl Into<std::io::Error>,
+        > + Send
             + Sync,
     ),
     Error = impl std::error::Error + Send,

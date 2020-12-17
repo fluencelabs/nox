@@ -53,7 +53,6 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-const AQUAMARINE: &str = "aquamarine.wasm";
 const TEST_MODULE: &str = "greeting.wasm";
 
 pub fn uuid() -> String {
@@ -241,7 +240,6 @@ pub struct SwarmConfig<'a> {
     pub transport: Transport,
     pub registry: Option<&'a Registry>,
     pub tmp_dir: Option<PathBuf>,
-    pub aquamarine_file_name: Option<String>,
 }
 
 impl<'a> Default for SwarmConfig<'a> {
@@ -253,7 +251,6 @@ impl<'a> Default for SwarmConfig<'a> {
             transport: Transport::Memory,
             registry: <_>::default(),
             tmp_dir: <_>::default(),
-            aquamarine_file_name: <_>::default(),
         }
     }
 }
@@ -273,17 +270,12 @@ impl<'a> SwarmConfig<'a> {
         this.trust = Some(trust);
         this
     }
-
-    pub fn with_aquamarine<S: Into<String>>(mut self, file_name: S) -> Self {
-        self.aquamarine_file_name = Some(file_name.into());
-        self
-    }
 }
 
 pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>, PathBuf) {
     use libp2p::identity;
     #[rustfmt::skip]
-    let SwarmConfig { bootstraps, listen_on, trust, transport, registry, aquamarine_file_name, .. } = config;
+    let SwarmConfig { bootstraps, listen_on, trust, transport, registry, .. } = config;
 
     let kp = Keypair::generate();
     let public_key = Ed25519(kp.public());
@@ -292,7 +284,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
     let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
     let stepper_base_dir = tmp.join("stepper");
-    let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir), aquamarine_file_name);
+    let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir));
 
     let mut swarm: Swarm<ServerBehaviour> = {
         use identity::Keypair::Ed25519;
@@ -366,23 +358,13 @@ pub fn remove_dir(dir: &PathBuf) {
     std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
 }
 
-/// Returns path to test aquamarine.wasm
-/// `file_name` allows to override default `aquamarine.wasm` to something else (i.e., `aquamarine_join.wasm`)
-pub fn aquamarine_fname(file_name: Option<String>) -> PathBuf {
-    let file_name = file_name.unwrap_or(AQUAMARINE.to_string());
-    let aquamarine = to_abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
-    aquamarine
-}
-
-pub fn put_aquamarine(tmp: PathBuf, file_name: Option<String>) -> PathBuf {
-    let aquamarine = aquamarine_fname(file_name);
-    let aquamarine =
-        std::fs::read(&aquamarine).expect(format!("fs::read from {:?}", aquamarine).as_str());
+pub fn put_aquamarine(tmp: PathBuf) -> PathBuf {
+    use air_interpreter_wasm::{INTERPRETER_WASM, VERSION};
 
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
 
-    let file = to_abs_path(tmp.join("aquamarine.wasm"));
-    std::fs::write(&file, aquamarine)
+    let file = to_abs_path(tmp.join(format!("aquamarine_{}.wasm", VERSION)));
+    std::fs::write(&file, INTERPRETER_WASM)
         .expect(format!("fs::write aquamarine.wasm to {:?}", file).as_str());
 
     file

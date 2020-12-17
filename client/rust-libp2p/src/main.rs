@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#![feature(stmt_expr_attributes)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
@@ -106,6 +107,7 @@ async fn run_client(
                 match incoming {
                     Some(ClientEvent::NewConnection{ peer_id, ..}) => {
                         log::info!("Connected to {}", peer_id);
+                        #[allow(unused_assignments)] // seems like a linter bug
                         node = Some(peer_id.clone());
                         unimplemented!("print example");
                         /*print_example(Protocol::Peer(peer_id.clone()).into(), client.relay_address(peer_id.clone()));*/
