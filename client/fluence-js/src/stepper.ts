@@ -37,7 +37,7 @@ type ImportObject = {
 };
 
 type LogImport = {
-    log_utf8_string: (level: number, target: BigInt, offset: number, size: number) => void
+    log_utf8_string: (level: any, target: any, offset: any, size: any) => void
 }
 
 class HostImportsConfig {

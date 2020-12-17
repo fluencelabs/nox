@@ -52,7 +52,8 @@ export function passStringToWasm0(wasm, arg, malloc, realloc) {
     let offset = 0;
 
     for (; offset < len; offset++) {
-        const code = arg.charCodeAt(offset);if (code > 0x7F) break;
+        const code = arg.charCodeAt(offset);
+        if (code > 0x7F) break;
         mem[ptr + offset] = code;
     }
     if (offset !== len) {
