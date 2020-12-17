@@ -58,15 +58,13 @@ impl<K: Eq + Hash + Debug, V: Debug> WaitingQueues<K, V> {
 
     /// Inserts `item` in the queue associated with `key`
     pub fn enqueue(&mut self, key: K, item: V) -> Enqueued {
-        use std::iter::FromIterator;
-
         match self.map.entry(key) {
             Entry::Occupied(mut entry) => {
                 entry.get_mut().push_back(item);
                 Enqueued::Existing
             }
             Entry::Vacant(entry) => {
-                entry.insert(VecDeque::from_iter(std::iter::once(item)));
+                entry.insert(std::iter::once(item).collect());
                 Enqueued::New
             }
         }
