@@ -92,7 +92,7 @@ export class FluenceClient {
                     try {
                         newParticle.data = JSON.parse(stepperOutcome.data)
                     } catch (e) {
-                        log.error(`Error parsing stepperOutcome.call_path ${stepperOutcome.data}: ${e} ${JSON.stringify(e)}`);
+                        log.error(`Error parsing stepperOutcome.data ${stepperOutcome.data}: ${e} ${JSON.stringify(e)}`);
                         throw e;
                     }
                     this.subscriptions.update(newParticle)
