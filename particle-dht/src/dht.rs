@@ -37,7 +37,6 @@ use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
     task::{Context, Poll, Waker},
-    time::Duration,
 };
 
 #[derive(Debug)]
@@ -83,18 +82,13 @@ pub struct DHTConfig {
 
 impl ParticleDHT {
     pub fn new(config: DHTConfig, trust_graph: TrustGraph, registry: Option<&Registry>) -> Self {
-        let mut cfg = libp2p::kad::KademliaConfig::default();
-        cfg.set_max_packet_size(100 * 4096 * 4096) // 100 Mb
-            // .set_query_timeout(Duration::from_secs(5))
-            // .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())
-            .set_connection_idle_timeout(Duration::from_secs(2_628_000_000)); // ~month
         let store = MemoryStore::new(config.peer_id.clone());
 
         let mut kademlia = Kademlia::with_config(
             config.keypair.clone(),
             config.peer_id.clone(),
             store,
-            cfg,
+            config.kad_config.clone().into(),
             trust_graph,
         );
 
