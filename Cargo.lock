@@ -167,10 +167,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "air-interpreter-wasm_crate_release"
-version = "0.0.18"
+name = "air-interpreter-wasm"
+version = "0.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3323feefccd058c3a8b11e9fa9f1f095face60bed3f35845e53eecdfd2e43339"
+checksum = "5c1463b40fec7e4c8d67d1f6dac3ea2d2626ef5f3b72aa8c54f8dc49deff744d"
 dependencies = [
  "built",
 ]
@@ -3064,7 +3064,7 @@ dependencies = [
 name = "particle-server"
 version = "0.0.1"
 dependencies = [
- "air-interpreter-wasm_crate_release",
+ "air-interpreter-wasm",
  "anyhow",
  "async-std",
  "base64 0.13.0",
@@ -4070,7 +4070,7 @@ dependencies = [
 name = "test-utils"
 version = "0.0.1"
 dependencies = [
- "air-interpreter-wasm_crate_release",
+ "air-interpreter-wasm",
  "anyhow",
  "aquamarine-vm",
  "async-std",
