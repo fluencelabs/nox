@@ -15,7 +15,7 @@
  */
 
 use particle_actors::VmPoolConfig;
-use particle_dht::DHTConfig;
+use particle_dht::{DHTConfig, KademliaConfig};
 use particle_protocol::ProtocolConfig;
 use particle_services::ServicesConfig;
 
@@ -37,6 +37,7 @@ pub struct ParticleConfig {
     pub key_pair: ed25519::Keypair,
     pub stepper_pool_size: usize,
     pub node_info: NodeInfo,
+    pub kad_config: KademliaConfig,
 }
 
 impl ParticleConfig {
@@ -50,6 +51,7 @@ impl ParticleConfig {
         key_pair: ed25519::Keypair,
         stepper_pool_size: usize,
         external_addresses: Vec<Multiaddr>,
+        kad_config: KademliaConfig,
     ) -> Self {
         Self {
             protocol_config,
@@ -60,6 +62,7 @@ impl ParticleConfig {
             air_interpreter,
             key_pair,
             stepper_pool_size,
+            kad_config,
             node_info: NodeInfo { external_addresses },
         }
     }
@@ -97,6 +100,7 @@ impl ParticleConfig {
         DHTConfig {
             peer_id: to_peer_id(&self.key_pair),
             keypair: self.key_pair.clone(),
+            kad_config,
         }
     }
 }

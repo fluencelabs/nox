@@ -22,11 +22,12 @@ use particle_protocol::Particle;
 use trust_graph::TrustGraph;
 use waiting_queues::WaitingQueues;
 
+use libp2p::kad::KademliaConfig;
 use libp2p::{
     core::{identity::ed25519, Multiaddr},
     identity::ed25519::Keypair,
     kad::record::Key,
-    kad::{store::MemoryStore, Kademlia, KademliaConfig, QueryId},
+    kad::{store::MemoryStore, Kademlia, QueryId},
     swarm::DialPeerCondition,
     PeerId,
 };
@@ -77,11 +78,12 @@ pub struct ParticleDHT {
 pub struct DHTConfig {
     pub peer_id: PeerId,
     pub keypair: Keypair,
+    pub kad_config: KademliaConfig,
 }
 
 impl ParticleDHT {
     pub fn new(config: DHTConfig, trust_graph: TrustGraph, registry: Option<&Registry>) -> Self {
-        let mut cfg = KademliaConfig::default();
+        let mut cfg = libp2p::kad::KademliaConfig::default();
         cfg.set_max_packet_size(100 * 4096 * 4096) // 100 Mb
             // .set_query_timeout(Duration::from_secs(5))
             // .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())

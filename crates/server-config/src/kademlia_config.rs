@@ -14,26 +14,19 @@
  * limitations under the License.
  */
 
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use std::time::Duration;
 
-mod connections;
-mod dht;
-mod errors;
-mod kademlia;
-mod publish;
-mod resolve;
-mod routing;
-mod wait_peer;
+/// see `libp2p_kad::KademliaConfig`
+pub struct KademliaConfig {
+    pub max_packet_size: usize,
+    pub query_timeout: Duration,
+    pub replication_factor: usize,
+    pub connection_idle_timeout: Duration,
+}
 
-pub use dht::{DHTConfig, DHTEvent, KademliaConfig, ParticleDHT};
-pub use errors::{NeighborhoodError, ResolveError, ResolveErrorKind};
+// Defaults:
+//
+// cfg.set_max_packet_size(100 * 4096 * 4096) // 100 Mb
+// // .set_query_timeout(Duration::from_secs(5))
+// // .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())
+// .set_connection_idle_timeout(Duration::from_secs(2_628_000_000)); // ~month
