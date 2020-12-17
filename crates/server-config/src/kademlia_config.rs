@@ -16,12 +16,58 @@
 
 use std::time::Duration;
 
+use libp2p::kad::KademliaConfig as LibP2PKadConfig;
+use serde::Deserialize;
+
 /// see `libp2p_kad::KademliaConfig`
+#[derive(Debug, Clone, Deserialize)]
 pub struct KademliaConfig {
-    pub max_packet_size: usize,
-    pub query_timeout: Duration,
-    pub replication_factor: usize,
-    pub connection_idle_timeout: Duration,
+    pub max_packet_size: Option<usize>,
+    pub query_timeout: Option<Duration>,
+    pub replication_factor: Option<usize>,
+    pub connection_idle_timeout: Option<Duration>,
+}
+
+impl Default for KademliaConfig {
+    fn default() -> Self {
+        Self {
+            max_packet_size: Some(100 * 4096 * 4096), // 100Mb
+            query_timeout: None,
+            replication_factor: None,
+            connection_idle_timeout: Some(Duration::from_secs(2_628_000_000)), // ~month
+        }
+    }
+}
+
+impl Into<LibP2PKadConfig> for KademliaConfig {
+    fn into(self) -> LibP2PKadConfig {
+        let mut cfg = LibP2PKadConfig::default();
+
+        if let Some(max_packet_size) = self.max_packet_size {
+            cfg.set_max_packet_size(max_packet_size);
+        }
+
+        if let Some(query_timeout) = self.query_timeout {
+            cfg.set_query_timeout(query_timeout);
+        }
+
+        if let Some(replication_factor) = self.replication_factor {
+            if let Some(replication_factor) = std::num::NonZeroUsize::new(replication_factor) {
+                cfg.set_replication_factor(replication_factor);
+            } else {
+                log::warn!(
+                    "Invalid config value: replication_factor must be > 0, was {:?}",
+                    self.replication_factor
+                )
+            }
+        }
+
+        if let Some(connection_idle_timeout) = self.connection_idle_timeout {
+            cfg.set_connection_idle_timeout(connection_idle_timeout);
+        }
+
+        cfg
+    }
 }
 
 // Defaults:

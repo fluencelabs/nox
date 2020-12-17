@@ -15,11 +15,12 @@
  */
 
 use particle_actors::VmPoolConfig;
-use particle_dht::{DHTConfig, KademliaConfig};
+use particle_dht::DHTConfig;
 use particle_protocol::ProtocolConfig;
 use particle_services::ServicesConfig;
 
 use config_utils::{create_dirs, to_peer_id};
+use server_config::KademliaConfig;
 
 use crate::identify::NodeInfo;
 use libp2p::core::Multiaddr;
@@ -100,7 +101,7 @@ impl ParticleConfig {
         DHTConfig {
             peer_id: to_peer_id(&self.key_pair),
             keypair: self.key_pair.clone(),
-            kad_config,
+            kad_config: self.kad_config.clone(),
         }
     }
 }

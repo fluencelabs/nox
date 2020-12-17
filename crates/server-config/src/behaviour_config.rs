@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use crate::BootstrapConfig;
 use crate::ServerConfig;
+use crate::{BootstrapConfig, KademliaConfig};
 
 use particle_protocol::ProtocolConfig;
 
@@ -40,6 +40,7 @@ pub struct BehaviourConfig<'a> {
     pub air_interpreter: PathBuf,
     pub protocol_config: ProtocolConfig,
     pub stepper_pool_size: usize,
+    pub kademlia_config: KademliaConfig,
 }
 
 impl<'a> BehaviourConfig<'a> {
@@ -63,6 +64,7 @@ impl<'a> BehaviourConfig<'a> {
             air_interpreter: config.air_interpreter_path.clone(),
             protocol_config: config.protocol_config.clone(),
             stepper_pool_size: config.stepper_pool_size,
+            kademlia_config: config.kademlia.clone(),
         }
     }
 }

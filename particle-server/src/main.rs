@@ -26,15 +26,16 @@
     unreachable_patterns
 )]
 
+use particle_server::{
+    config::{certificates, create_args},
+    Server,
+};
+use server_config::{default_air_interpreter_path, load_config, FluenceConfig};
+
 use anyhow::Context;
 use clap::App;
 use ctrlc_adapter::block_until_ctrlc;
 use futures::channel::oneshot;
-use particle_server::config::default_air_interpreter_path;
-use particle_server::{
-    config::{certificates, create_args, load_config, FluenceConfig},
-    Server,
-};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");

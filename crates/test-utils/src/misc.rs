@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use particle_server::{config::BehaviourConfig, BootstrapConfig, ServerBehaviour};
+use particle_server::ServerBehaviour;
 
 use config_utils::{modules_dir, to_abs_path};
 use fluence_client::Transport;
 use fluence_libp2p::{build_memory_transport, build_transport};
+use server_config::{BehaviourConfig, BootstrapConfig};
 use trust_graph::{Certificate, TrustGraph};
 
 use async_std::task;
@@ -312,6 +313,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             stepper_base_dir,
             protocol_config: <_>::default(),
             stepper_pool_size: 1,
+            kademlia_config: <_>::default(),
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
         match transport {

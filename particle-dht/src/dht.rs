@@ -19,10 +19,10 @@ use crate::errors::{NeighborhoodError, PublishError, ResolveError};
 
 use particle_protocol::Particle;
 
+use server_config::KademliaConfig;
 use trust_graph::TrustGraph;
 use waiting_queues::WaitingQueues;
 
-use libp2p::kad::KademliaConfig;
 use libp2p::{
     core::{identity::ed25519, Multiaddr},
     identity::ed25519::Keypair,

@@ -16,7 +16,7 @@
 
 use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
-use crate::BootstrapConfig;
+use crate::{BootstrapConfig, KademliaConfig};
 
 use trust_graph::{KeyPair, PublicKeyHashable};
 
@@ -121,6 +121,9 @@ pub struct ServerConfig {
     /// Path to AIR interpreter .wasm file (aquamarine.wasm)
     #[serde(default = "default_air_interpreter_path")]
     pub air_interpreter_path: PathBuf,
+
+    #[serde(default)]
+    pub kademlia: KademliaConfig,
 }
 
 impl ServerConfig {

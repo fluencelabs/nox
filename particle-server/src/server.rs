@@ -15,10 +15,10 @@
  */
 
 use super::behaviour::ServerBehaviour;
-use crate::config::{BehaviourConfig, ServerConfig};
 
 use config_utils::to_peer_id;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
+use server_config::{BehaviourConfig, ServerConfig};
 use trust_graph::TrustGraph;
 
 use anyhow::Context;

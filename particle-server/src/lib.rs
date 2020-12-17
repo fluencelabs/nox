@@ -36,33 +36,20 @@ mod behaviour {
 }
 
 pub mod config {
-    mod app_services;
     mod args;
-    mod behaviour_config;
-    mod defaults;
-    mod fluence_config;
-    mod keys;
 
     pub mod certificates;
 
-    pub use app_services::AppServicesConfig;
     pub use args::create_args;
-    pub use behaviour_config::BehaviourConfig;
-    pub use defaults::default_air_interpreter_path;
-    pub use fluence_config::load_config;
-    pub use fluence_config::FluenceConfig;
-    pub use fluence_config::ServerConfig;
 }
 
 mod bootstrapper {
     mod behaviour;
     mod event;
 
-    pub use behaviour::BootstrapConfig;
     pub(crate) use behaviour::Bootstrapper;
     pub(crate) use event::BootstrapperEvent;
 }
 
 pub use behaviour::ServerBehaviour;
-pub use bootstrapper::BootstrapConfig;
 pub use server::Server;

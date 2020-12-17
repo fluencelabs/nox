@@ -35,5 +35,5 @@ mod resolve;
 mod routing;
 mod wait_peer;
 
-pub use dht::{DHTConfig, DHTEvent, KademliaConfig, ParticleDHT};
+pub use dht::{DHTConfig, DHTEvent, ParticleDHT};
 pub use errors::{NeighborhoodError, ResolveError, ResolveErrorKind};

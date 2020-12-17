@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use crate::config::fluence_config::*;
+use server_config::config_keys::*;
+
 use clap::Arg;
 
 pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {

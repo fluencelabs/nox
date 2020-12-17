@@ -12,6 +12,7 @@ config-utils = { path = "../crates/config-utils" }
 trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
+server-config = { path = "../crates/server-config" }
 
 air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.19" }
 

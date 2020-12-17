@@ -2982,6 +2982,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "particle-protocol",
  "serde_json",
+ "stepper-interface",
 ]
 
 [[package]]
@@ -3008,6 +3009,7 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_json",
+ "server-config",
  "test-utils",
  "trust-graph",
  "waiting-queues",
@@ -3050,6 +3052,7 @@ dependencies = [
  "prometheus",
  "prost",
  "serde_json",
+ "server-config",
  "smallvec",
  "trust-graph",
  "waiting-queues",
@@ -3135,6 +3138,7 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_json",
+ "server-config",
  "test-utils",
  "tide",
  "toml",
@@ -4167,6 +4171,8 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_json",
+ "server-config",
+ "stepper-interface",
  "toml",
  "trust-graph",
  "uuid",
