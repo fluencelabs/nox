@@ -345,15 +345,12 @@ pub fn make_tmp_dir() -> PathBuf {
     use rand::distributions::Alphanumeric;
 
     let mut tmp = std::env::temp_dir();
-    println!("make_tmp_dir 0 tmp: {:?}", tmp);
     tmp.push("fluence_test/");
-    println!("make_tmp_dir 1 tmp: {:?}", tmp);
     let dir: String = rand::thread_rng()
         .sample_iter(Alphanumeric)
         .take(16)
         .collect();
     tmp.push(dir);
-    println!("make_tmp_dir 2 tmp: {:?}", tmp);
 
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
 
