@@ -21,18 +21,15 @@ import * as PeerId from "peer-id";
 import Multiaddr from "multiaddr"
 import {FluenceConnection} from "./fluenceConnection";
 import {Subscriptions} from "./subscriptions";
-import {
-    enqueueParticle,
-    getCurrentParticleId,
-    popParticle,
-    setCurrentParticleId
-} from "./globalState";
+import {enqueueParticle, getCurrentParticleId, popParticle, setCurrentParticleId} from "./globalState";
 import {instantiateInterpreter, InterpreterInvoke} from "./stepper";
 import log from "loglevel";
 import {waitService} from "./helpers/waitService";
 import {ModuleConfig} from "./moduleConfig";
 
 const bs58 = require('bs58')
+
+const INFO_LOG_LEVEL = 2
 
 export class FluenceClient {
     readonly selfPeerId: PeerId;
@@ -84,17 +81,21 @@ export class FluenceClient {
                     let stepperOutcomeStr = this.interpreter(particle.init_peer_id, particle.script, JSON.stringify(prevData), JSON.stringify(particle.data))
                     let stepperOutcome: StepperOutcome = JSON.parse(stepperOutcomeStr);
 
-                    log.info("inner interpreter outcome:");
-                    log.info(stepperOutcome);
+                    if (log.getLevel() <= INFO_LOG_LEVEL) {
+                        log.info("inner interpreter outcome:");
+                        let so = {...stepperOutcome}
+                        try {
+                            so.data = JSON.parse(Buffer.from(so.data).toString("utf8"));
+                            log.info(so);
+                        } catch (e) {
+                            log.info("cannot parse StepperOutcome data as JSON: ", e);
+                        }
+                    }
 
                     // update data after aquamarine execution
                     let newParticle: Particle = {...particle};
-                    try {
-                        newParticle.data = JSON.parse(stepperOutcome.data)
-                    } catch (e) {
-                        log.error(`Error parsing stepperOutcome.data ${stepperOutcome.data}: ${e} ${JSON.stringify(e)}`);
-                        throw e;
-                    }
+                    newParticle.data = stepperOutcome.data
+
                     this.subscriptions.update(newParticle)
 
                     // do nothing if there is no `next_peer_pks` or if client isn't connected to the network

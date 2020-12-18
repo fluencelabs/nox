@@ -21,7 +21,7 @@ import {return_current_peer_id, return_call_service_result, getStringFromWasm0, 
 import {service} from "./service";
 import PeerId from "peer-id";
 import log from "loglevel";
-import {wasmBs64} from "@fluencelabs/aquamarine-stepper-logger-i32";
+import {wasmBs64} from "@fluencelabs/aquamarine-stepper";
 import Instance = WebAssembly.Instance;
 import Exports = WebAssembly.Exports;
 import ExportValue = WebAssembly.ExportValue;
