@@ -302,9 +302,9 @@ mod tests {
 
     #[test]
     fn parse_default_config() {
-        let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
-        let config = deserialize_config(<_>::default(), config).expect("deserialize config");
-        println!("{:#?}", config)
+        let config =
+            std::fs::read("../../deploy/Config.default.toml").expect("find default config");
+        let _config = deserialize_config(<_>::default(), config).expect("deserialize config");
     }
 
     #[test]
