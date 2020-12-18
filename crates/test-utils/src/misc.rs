@@ -283,7 +283,6 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
     let peer_id = PeerId::from(public_key);
 
     let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
-    println!("tmp dir is {:?}", tmp);
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
     let stepper_base_dir = tmp.join("stepper");
     let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir));
