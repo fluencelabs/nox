@@ -199,7 +199,7 @@ dependencies = [
  "maplit",
  "serde",
  "serde_json",
- "stepper-interface",
+ "stepper-interface 0.1.0 (git+https://github.com/fluencelabs/aquamarine?branch=new_stepper_outcome)",
 ]
 
 [[package]]
@@ -2982,7 +2982,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "particle-protocol",
  "serde_json",
- "stepper-interface",
+ "stepper-interface 0.1.0 (git+https://github.com/fluencelabs/aquamarine)",
 ]
 
 [[package]]
@@ -4045,6 +4045,16 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 [[package]]
 name = "stepper-interface"
 version = "0.1.0"
+source = "git+https://github.com/fluencelabs/aquamarine?branch=master#8e41b7666129a7ff360f66a0b80c0abaf34305b7"
+dependencies = [
+ "fluence",
+ "serde",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "stepper-interface"
+version = "0.1.0"
 source = "git+https://github.com/fluencelabs/aquamarine?branch=new_stepper_outcome#7b70f015be7297f1d53336d64d2119148b1d44cc"
 dependencies = [
  "fluence",
@@ -4172,7 +4182,7 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
- "stepper-interface",
+ "stepper-interface 0.1.0 (git+https://github.com/fluencelabs/aquamarine)",
  "toml",
  "trust-graph",
  "uuid",
