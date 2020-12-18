@@ -111,7 +111,10 @@ impl ParticleAppServices {
 
             match call() {
                 Ok(result) => ivalue_utils::ok(result),
-                Err(err) => ivalue_utils::error(json!(err.to_string())),
+                Err(err) => {
+                    log::warn!("call_service error: {}", err);
+                    ivalue_utils::error(json!(err.to_string()))
+                }
             }
         })
     }

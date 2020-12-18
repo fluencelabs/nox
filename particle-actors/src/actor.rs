@@ -141,8 +141,9 @@ impl Actor {
                         })
                         .collect::<Vec<_>>()
                 }
-                Ok(_) => {
+                Ok((data, _)) => {
                     log::warn!("Executed particle {}, next_peer_pks is empty. Won't send anywhere", p.id);
+                    log::debug!("particle {} next_peer_pks = [], data: {:#?}", p.id, data);
                     vec![]
                 }
                 Err(ExecutionError::AquamarineError(err)) => {
