@@ -41,7 +41,7 @@ pub fn parse_outcome(
     outcome: Result<StepperOutcome, AquamarineVMError>,
 ) -> Result<(serde_json::Value, Vec<PeerId>), ExecutionError> {
     let outcome = outcome.map_err(|err| ExecutionError::AquamarineError(err))?;
-    let data = serde_json::from_str(outcome.data.as_str()).map_err(|err| {
+    let data = serde_json::from_slice(&outcome.data).map_err(|err| {
         ExecutionError::InvalidResultField {
             field: "data",
             error: FieldError::InvalidJson(err),

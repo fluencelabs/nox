@@ -116,7 +116,7 @@ fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -
         aquamarine_wasm_path: interpreter,
         current_peer_id: peer_id.to_string(),
         particle_data_store: format!("/tmp/{}", particle_id).into(),
-        logging_mask: i64::max_value(),
+        logging_mask: i32::max_value(),
     };
     log::info!("particle_data_store: {:?}", config.particle_data_store);
 
@@ -174,7 +174,7 @@ pub fn make_particle(
         ttl: 10000,
         script,
         signature: vec![],
-        data: serde_json::from_str(&data).expect("valid json"),
+        data: serde_json::from_slice(&data).expect("valid json"),
     }
 }
 
