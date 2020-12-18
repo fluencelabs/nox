@@ -28,7 +28,7 @@ use std::path::Path;
 fn create_new_key_pair(key_path: &Path) -> Result<KeyPair, Error> {
     let parents = key_path.parent();
     if let Some(parent_path) = parents {
-        create_dirs(parent_path)?
+        create_dirs(&[&parent_path])?
     }
 
     let key_pair = KeyPair::generate();

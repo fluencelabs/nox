@@ -26,6 +26,9 @@ use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 // TODO: use parking_lot
+use serde::export::Formatter;
+use std::error::Error;
+use std::fmt::Display;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 type ProviderMap = Arc<RwLock<ProviderMapInner>>;
@@ -61,6 +64,20 @@ pub enum ProviderError<'a> {
     Poisoned,
     /// Only a single key was poisoned by a panic
     KeyPoisoned(&'a str),
+}
+
+impl<'a> Error for ProviderError<'a> {}
+
+impl<'a> Display for ProviderError<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Poisoned => write!(
+                f,
+                "RWLock of the whole provider repository was poisoned by a panic"
+            ),
+            KeyPoisoned(key) => write!(f, "RWLock of the key {} was poisoned by a panic", key),
+        }
+    }
 }
 
 impl<'a> From<ProviderError<'a>> for Value {

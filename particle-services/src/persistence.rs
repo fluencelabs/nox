@@ -67,14 +67,14 @@ pub fn load_persisted_services(
         Some(files) => files,
         None => {
             // Attempt to create directory and exit
-            return create_dirs(services_dir)
+            return create_dirs(&[&services_dir])
                 .map_err(|err| CreateServicesDir {
                     path: services_dir.clone(),
                     err,
                 })
                 .err()
                 .into_iter()
-                .map(|err| Err(err))
+                .map(Err)
                 .collect();
         }
     };

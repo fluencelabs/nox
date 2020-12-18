@@ -64,7 +64,8 @@ impl HostClosures {
         };
         log::info!("Host function call {:?} {}", args.service_id, args.fname);
         log::debug!("Host function call, args: {:#?}", args);
-        // route
+
+        // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.fname.as_str()) {
             ("dht", "resolve")         => (self.resolve)(args),

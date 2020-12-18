@@ -20,6 +20,7 @@ use particle_protocol::ProtocolConfig;
 use particle_services::ServicesConfig;
 
 use config_utils::{create_dirs, to_peer_id};
+use server_config::KademliaConfig;
 
 use crate::identify::NodeInfo;
 use libp2p::core::Multiaddr;
@@ -37,6 +38,7 @@ pub struct ParticleConfig {
     pub key_pair: ed25519::Keypair,
     pub stepper_pool_size: usize,
     pub node_info: NodeInfo,
+    pub kad_config: KademliaConfig,
 }
 
 impl ParticleConfig {
@@ -50,6 +52,7 @@ impl ParticleConfig {
         key_pair: ed25519::Keypair,
         stepper_pool_size: usize,
         external_addresses: Vec<Multiaddr>,
+        kad_config: KademliaConfig,
     ) -> Self {
         Self {
             protocol_config,
@@ -60,6 +63,7 @@ impl ParticleConfig {
             air_interpreter,
             key_pair,
             stepper_pool_size,
+            kad_config,
             node_info: NodeInfo { external_addresses },
         }
     }
@@ -80,7 +84,7 @@ impl ParticleConfig {
     /// Creates and returns path for app service modules directory
     pub fn modules_dir(&self) -> io::Result<PathBuf> {
         let path = self.services_base_dir.join("modules");
-        create_dirs(&path)?;
+        create_dirs(&[&path])?;
 
         Ok(path)
     }
@@ -88,7 +92,7 @@ impl ParticleConfig {
     /// Creates and returns path for app service blueprint directory
     pub fn blueprint_dir(&self) -> io::Result<PathBuf> {
         let path = self.services_base_dir.join("blueprint");
-        create_dirs(&path)?;
+        create_dirs(&[&path])?;
 
         Ok(path)
     }
@@ -97,6 +101,7 @@ impl ParticleConfig {
         DHTConfig {
             peer_id: to_peer_id(&self.key_pair),
             keypair: self.key_pair.clone(),
+            kad_config: self.kad_config.clone(),
         }
     }
 }

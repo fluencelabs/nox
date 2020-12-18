@@ -168,9 +168,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.0.19"
+version = "0.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c1463b40fec7e4c8d67d1f6dac3ea2d2626ef5f3b72aa8c54f8dc49deff744d"
+checksum = "dbd99fb6da963947bee34a50b34f65cf232d0a41f64e759811a8b9295d185238"
 dependencies = [
  "built",
 ]
@@ -2994,6 +2994,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "particle-protocol",
  "serde_json",
+ "stepper-interface",
 ]
 
 [[package]]
@@ -3020,6 +3021,7 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_json",
+ "server-config",
  "test-utils",
  "trust-graph",
  "waiting-queues",
@@ -3062,6 +3064,7 @@ dependencies = [
  "prometheus",
  "prost",
  "serde_json",
+ "server-config",
  "smallvec",
  "trust-graph",
  "waiting-queues",
@@ -3147,6 +3150,7 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_json",
+ "server-config",
  "test-utils",
  "tide",
  "toml",
@@ -3803,6 +3807,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "server-config"
+version = "0.1.0"
+dependencies = [
+ "air-interpreter-wasm",
+ "anyhow",
+ "bs58",
+ "clap",
+ "config-utils",
+ "humantime-serde",
+ "libp2p",
+ "log",
+ "num_cpus",
+ "particle-protocol",
+ "prometheus",
+ "rand 0.7.3",
+ "serde",
+ "toml",
+ "trust-graph",
+]
+
+[[package]]
 name = "sha-1"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4167,6 +4192,8 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_json",
+ "server-config",
+ "stepper-interface",
  "toml",
  "trust-graph",
  "uuid",

@@ -21,13 +21,14 @@ use ivalue_utils::{IType, IValue};
 use particle_actors::HostImportDescriptor;
 use particle_protocol::Particle;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, HostExportedFunc, StepperOutcome};
+use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, HostExportedFunc};
 
 use fstrings::f;
 use libp2p::PeerId;
 use parking_lot::Mutex;
 use serde_json::Value as JValue;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
+use stepper_interface::StepperOutcome;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
@@ -174,7 +175,7 @@ pub fn make_particle(
         ttl: 10000,
         script,
         signature: vec![],
-        data: serde_json::from_slice(&data).expect("valid json"),
+        data: serde_json::from_slice(data.as_slice()).expect("valid json"),
     }
 }
 

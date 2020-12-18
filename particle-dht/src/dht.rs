@@ -19,6 +19,7 @@ use crate::errors::{NeighborhoodError, PublishError, ResolveError};
 
 use particle_protocol::Particle;
 
+use server_config::KademliaConfig;
 use trust_graph::TrustGraph;
 use waiting_queues::WaitingQueues;
 
@@ -26,7 +27,7 @@ use libp2p::{
     core::{identity::ed25519, Multiaddr},
     identity::ed25519::Keypair,
     kad::record::Key,
-    kad::{store::MemoryStore, Kademlia, KademliaConfig, QueryId},
+    kad::{store::MemoryStore, Kademlia, QueryId},
     swarm::DialPeerCondition,
     PeerId,
 };
@@ -36,7 +37,6 @@ use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
     task::{Context, Poll, Waker},
-    time::Duration,
 };
 
 #[derive(Debug)]
@@ -77,22 +77,18 @@ pub struct ParticleDHT {
 pub struct DHTConfig {
     pub peer_id: PeerId,
     pub keypair: Keypair,
+    pub kad_config: KademliaConfig,
 }
 
 impl ParticleDHT {
     pub fn new(config: DHTConfig, trust_graph: TrustGraph, registry: Option<&Registry>) -> Self {
-        let mut cfg = KademliaConfig::default();
-        cfg.set_query_timeout(Duration::from_secs(5))
-            .set_max_packet_size(100 * 4096 * 4096) // 100 Mb
-            .set_replication_factor(std::num::NonZeroUsize::new(5).unwrap())
-            .set_connection_idle_timeout(Duration::from_secs(2_628_000_000)); // ~month
         let store = MemoryStore::new(config.peer_id.clone());
 
         let mut kademlia = Kademlia::with_config(
             config.keypair.clone(),
             config.peer_id.clone(),
             store,
-            cfg,
+            config.kad_config.clone().into(),
             trust_graph,
         );
 

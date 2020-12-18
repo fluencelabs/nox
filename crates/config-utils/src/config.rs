@@ -41,10 +41,9 @@ pub fn blueprint_dir(path: &PathBuf) -> PathBuf {
     path.join("blueprint")
 }
 
-pub fn create_dirs<I>(dirs: I) -> Result<(), std::io::Error>
+pub fn create_dirs<Item>(dirs: &[Item]) -> Result<(), std::io::Error>
 where
-    I: IntoIterator,
-    I::Item: AsRef<Path> + Debug,
+    Item: AsRef<Path> + Debug,
 {
     for dir in dirs {
         create_dir(dir)?;

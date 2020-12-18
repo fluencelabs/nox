@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use particle_server::{config::BehaviourConfig, BootstrapConfig, ServerBehaviour};
+use particle_server::ServerBehaviour;
 
 use config_utils::{modules_dir, to_abs_path};
 use fluence_client::Transport;
 use fluence_libp2p::{build_memory_transport, build_transport};
+use server_config::{BehaviourConfig, BootstrapConfig};
 use trust_graph::{Certificate, TrustGraph};
 
 use async_std::task;
@@ -90,8 +91,7 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
-        .filter(Some("particle_actors"), Info)
-        .filter(Some("aquamarine"), Info)
+        // .filter(Some("particle_actors::actor"), Info)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)
@@ -110,6 +110,7 @@ pub fn enable_logs() {
         .filter(Some("libp2p_identify::protocol"), Info)
         .filter(Some("cranelift_codegen"), Info)
         .filter(Some("wasmer_wasi"), Info)
+        .filter(Some("wasmer_interface_types_fl"), Info)
         .try_init()
         .ok();
 }
@@ -311,6 +312,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             stepper_base_dir,
             protocol_config: <_>::default(),
             stepper_pool_size: 1,
+            kademlia_config: <_>::default(),
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
         match transport {
