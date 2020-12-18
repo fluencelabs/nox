@@ -74,7 +74,7 @@ pub fn load_persisted_services(
                 })
                 .err()
                 .into_iter()
-                .map(|err| Err(err))
+                .map(Err)
                 .collect();
         }
     };

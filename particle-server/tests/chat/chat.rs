@@ -225,7 +225,6 @@ fn join_chat(name: String, client: &mut ConnectedClient) {
                 "name": name,
             }),
         )],
-        // f!(r#"["{client.peer_id}" "{client.node}" "{sig}" "{name}"]"#).as_str(),
         client,
     );
 }
