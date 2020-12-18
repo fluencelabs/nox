@@ -16,7 +16,7 @@
 
 use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
-use crate::BootstrapConfig;
+use crate::{BootstrapConfig, KademliaConfig};
 
 use trust_graph::{KeyPair, PublicKeyHashable};
 
@@ -121,6 +121,9 @@ pub struct ServerConfig {
     /// Path to AIR interpreter .wasm file (aquamarine.wasm)
     #[serde(default = "default_air_interpreter_path")]
     pub air_interpreter_path: PathBuf,
+
+    #[serde(default)]
+    pub kademlia: KademliaConfig,
 }
 
 impl ServerConfig {
@@ -251,6 +254,7 @@ fn validate_config(config: FluenceConfig) -> anyhow::Result<FluenceConfig> {
 }
 
 // loads config from arguments and a config file
+// TODO: avoid depending on ArgMatches
 pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
@@ -298,9 +302,9 @@ mod tests {
 
     #[test]
     fn parse_default_config() {
-        let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
-        let config = deserialize_config(<_>::default(), config).expect("deserialize config");
-        println!("{:#?}", config)
+        let config =
+            std::fs::read("../../deploy/Config.default.toml").expect("find default config");
+        let _config = deserialize_config(<_>::default(), config).expect("deserialize config");
     }
 
     #[test]

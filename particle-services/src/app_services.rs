@@ -111,7 +111,10 @@ impl ParticleAppServices {
 
             match call() {
                 Ok(result) => ivalue_utils::ok(result),
-                Err(err) => ivalue_utils::error(json!(err.to_string())),
+                Err(err) => {
+                    log::warn!("call_service error: {}", err);
+                    ivalue_utils::error(json!(err.to_string()))
+                }
             }
         })
     }
@@ -157,7 +160,7 @@ impl ParticleAppServices {
         });
 
         for s in services {
-            let owner_id = s.owner_id.map(|s| s.to_string());
+            let owner_id = s.owner_id;
             let service_id = s.service_id.clone();
             let blueprint_id = s.blueprint_id.clone();
             let config = self.config.clone();
@@ -196,7 +199,7 @@ fn get_vm_interface(vm: &VM, service_id: Option<&str>) -> Result<JValue, Service
         service_id,
     };
     let descriptor =
-        serde_json::to_value(descriptor).map_err(|e| ServiceError::CorruptedFaaSInterface(e))?;
+        serde_json::to_value(descriptor).map_err(ServiceError::CorruptedFaaSInterface)?;
 
     Ok(descriptor)
 }

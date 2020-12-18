@@ -14,14 +14,28 @@
  * limitations under the License.
  */
 
-use aquamarine_vm::{AquamarineVMError, StepperOutcome};
+use aquamarine_vm::AquamarineVMError;
+use stepper_interface::StepperOutcome;
+
 use libp2p::PeerId;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Debug)]
 pub enum FieldError {
     InvalidJson(serde_json::Error),
     InvalidPeerId(String),
+}
+
+impl Error for FieldError {}
+impl Display for FieldError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldError::InvalidJson(err) => write!(f, "invalid json: {}", err),
+            FieldError::InvalidPeerId(err) => write!(f, "invalid PeerId: {}", err),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -33,6 +47,30 @@ pub enum ExecutionError {
     AquamarineError(AquamarineVMError),
 }
 
+impl Error for ExecutionError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match &self {
+            ExecutionError::InvalidResultField { error, .. } => Some(error),
+            ExecutionError::AquamarineError(err) => Some(err),
+        }
+    }
+}
+
+impl Display for ExecutionError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExecutionError::InvalidResultField { field, error } => write!(
+                f,
+                "Execution error: invalid result field {}: {}",
+                field, error
+            ),
+            ExecutionError::AquamarineError(err) => {
+                write!(f, "Execution error: aquamarine error: {}", err)
+            }
+        }
+    }
+}
+
 fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
     PeerId::from_str(s).map_err(|err| FieldError::InvalidPeerId(err.to_string()))
 }
@@ -41,7 +79,7 @@ pub fn parse_outcome(
     outcome: Result<StepperOutcome, AquamarineVMError>,
 ) -> Result<(serde_json::Value, Vec<PeerId>), ExecutionError> {
     let outcome = outcome.map_err(|err| ExecutionError::AquamarineError(err))?;
-    let data = serde_json::from_str(outcome.data.as_str()).map_err(|err| {
+    let data = serde_json::from_slice(outcome.data.as_slice()).map_err(|err| {
         ExecutionError::InvalidResultField {
             field: "data",
             error: FieldError::InvalidJson(err),

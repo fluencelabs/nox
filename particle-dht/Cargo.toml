@@ -11,6 +11,7 @@ trust-graph = { path = "../trust-graph" }
 control-macro = { path = "../crates/control-macro" }
 waiting-queues = { path = "../crates/waiting-queues" }
 fluence-libp2p = { path = "../crates/libp2p" }
+server-config = { path = "../crates/server-config" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 

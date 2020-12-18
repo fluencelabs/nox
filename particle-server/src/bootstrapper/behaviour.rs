@@ -17,6 +17,7 @@
 use crate::bootstrapper::event::BootstrapperEvent;
 
 use fluence_libp2p::{event_polling, generate_swarm_event_type, remote_multiaddr};
+use server_config::BootstrapConfig;
 
 use libp2p::{
     core::{
@@ -26,7 +27,6 @@ use libp2p::{
     swarm::{protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction},
     PeerId,
 };
-use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     error::Error,
@@ -35,40 +35,6 @@ use std::{
 };
 
 pub type SwarmEventType = generate_swarm_event_type!(Bootstrapper);
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BootstrapConfig {
-    #[serde(with = "humantime_serde")]
-    pub reconnect_delay: Duration,
-    #[serde(with = "humantime_serde")]
-    pub bootstrap_delay: Duration,
-    #[serde(with = "humantime_serde")]
-    pub bootstrap_max_delay: Duration,
-}
-
-impl BootstrapConfig {
-    /// Creates config with all values to zero, so no delays. Useful for tests.
-    pub fn zero() -> BootstrapConfig {
-        BootstrapConfig {
-            reconnect_delay: <_>::default(),
-            bootstrap_delay: <_>::default(),
-            bootstrap_max_delay: <_>::default(),
-        }
-    }
-}
-
-impl Default for BootstrapConfig {
-    fn default() -> Self {
-        use rand::prelude::*;
-        let mut rng = rand::thread_rng();
-        BootstrapConfig {
-            // TODO: make it exponential
-            reconnect_delay: Duration::from_millis(1500 + rng.gen_range(0, 500)),
-            bootstrap_delay: Duration::from_millis(30000 + rng.gen_range(0, 2000)),
-            bootstrap_max_delay: Duration::from_secs(60),
-        }
-    }
-}
 
 #[derive(Default, Debug)]
 struct Backoff(u32, Duration);

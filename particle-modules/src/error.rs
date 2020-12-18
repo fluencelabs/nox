@@ -18,6 +18,7 @@ use fluence_app_service::FaaSError;
 use json_utils::err_as_value;
 
 use serde_json::Value as JValue;
+use std::error::Error;
 use std::path::PathBuf;
 
 pub(super) type Result<T> = std::result::Result<T, ModuleError>;
@@ -34,6 +35,8 @@ pub enum ModuleError {
     ModuleConvertError { err: FaaSError },
     WriteBlueprint { path: PathBuf, err: std::io::Error },
 }
+
+impl Error for ModuleError {}
 
 impl From<ModuleError> for JValue {
     fn from(err: ModuleError) -> Self {

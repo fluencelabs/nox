@@ -15,16 +15,20 @@
  */
 
 use crate::bootstrapper::Bootstrapper;
-use crate::config::BehaviourConfig;
-use anyhow::Context;
+
+use particle_behaviour::{ParticleBehaviour, ParticleConfig};
+
 use fluence_libp2p::{event_polling, generate_swarm_event_type};
+use server_config::BehaviourConfig;
+
 use libp2p::core::Multiaddr;
 use libp2p::{
     identify::Identify,
     identity::PublicKey,
     ping::{Ping, PingConfig, PingEvent},
 };
-use particle_behaviour::{ParticleBehaviour, ParticleConfig};
+
+use anyhow::Context;
 use std::collections::VecDeque;
 
 pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
@@ -61,6 +65,7 @@ impl ServerBehaviour {
             cfg.key_pair,
             cfg.stepper_pool_size,
             cfg.external_addresses,
+            cfg.kademlia_config,
         );
         let particle = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)
             .context("failed to create ParticleBehvaiour")?;
