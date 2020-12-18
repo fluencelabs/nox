@@ -117,7 +117,7 @@ fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -
         aquamarine_wasm_path: interpreter,
         current_peer_id: peer_id.to_string(),
         particle_data_store: format!("/tmp/{}", particle_id).into(),
-        logging_mask: i64::max_value(),
+        logging_mask: i32::max_value(),
     };
     log::info!("particle_data_store: {:?}", config.particle_data_store);
 
