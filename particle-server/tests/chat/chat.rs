@@ -16,7 +16,7 @@
 
 // history service:
 //      history.wasm
-//      sqlite.wasm
+//      sqlite3.wasm
 // API:
 //      fn add(author: String, msg: String) -> String
 //      fn get_all() -> String
@@ -24,7 +24,7 @@
 
 // user-list service:
 //      user-list.wasm
-//      sqlite.wasm
+//      sqlite3.wasm
 // API:
 //      fn join(user: String, relay: String, sig: String, name: String) -> String
 //      fn get_users() -> Vec<User>
@@ -36,9 +36,10 @@
 use config_utils::to_abs_path;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{connect_swarms, ConnectedClient};
+use test_utils::{connect_swarms, enable_logs, ConnectedClient};
 
 use fstrings::f;
+use itertools::Itertools;
 use libp2p::PeerId;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
@@ -87,9 +88,9 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
         "node" => json!(client.node.to_string()),
         "module_bytes" => json!(base64::encode(load_module(format!("{}.wasm", module).as_str()))),
         "module_config" => json!(module_config(module)),
-        "sqlite_bytes" => json!(base64::encode(load_module("sqlite.wasm"))),
-        "sqlite_config" => json!(module_config("sqlite")),
-        "blueprint" => json!({ "name": module, "dependencies": ["sqlite", module] }),
+        "sqlite_bytes" => json!(base64::encode(load_module("sqlite3.wasm"))),
+        "sqlite_config" => json!(module_config("sqlite3")),
+        "blueprint" => json!({ "name": module, "dependencies": ["sqlite3", module] }),
     };
 
     client.send_particle(script, data);
@@ -173,15 +174,16 @@ fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Pro
 }
 
 #[rustfmt::skip]
-fn call_service(alias: &str, fname: &str, arg_list: &str, client: &mut ConnectedClient) -> JValue {
+fn call_service(alias: &str, fname: &str, args: &[(&'static str, JValue)], client: &mut ConnectedClient) -> JValue {
     let provider = resolve_service(alias, client).into_iter().next().expect(f!("no providers found for {alias}").as_str());
     let service_id = provider.service_id.expect("get service id");
 
+    let arg_names = args.iter().map(|(name, _)| *name).join(" ");
     let script = f!(r#"
         (seq
             (seq
                 (call node ("op" "identity") [] void[])
-                (call provider (service_id "{fname}") {arg_list} result)
+                (call provider (service_id "{fname}") [{arg_names}] result)
             )
             (seq
                 (call node ("op" "identity") [] void[])
@@ -189,12 +191,17 @@ fn call_service(alias: &str, fname: &str, arg_list: &str, client: &mut Connected
             )
         )
     "#);
-    client.send_particle(script, hashmap! {
+    
+    let mut data = hashmap! {
         "provider" => json!(provider.peer.to_string()),
         "service_id" => json!(service_id),
         "client" => json!(client.peer_id.to_string()),
         "node" => json!(client.node.to_string()),
-    });
+    }; 
+    let args = args.iter().map(|t| t.clone());
+    data.extend(args);
+    
+    client.send_particle(script, data);
 
     client.receive_args()[0].take()
 }
@@ -206,23 +213,41 @@ fn create_userlist(client: &mut ConnectedClient) -> String {
     create_service(client, "user-list")
 }
 fn join_chat(name: String, client: &mut ConnectedClient) {
-    let sig = &client.peer_id;
     call_service(
         "user-list",
         "join",
-        f!(r#"["{client.peer_id}" "{client.node}" "{sig}" "{name}"]"#).as_str(),
+        &[(
+            "user",
+            json!({
+                "peer_id": client.peer_id.to_string(),
+                "relay_id": client.node.to_string(),
+                "signature": client.peer_id.to_string(),
+                "name": name,
+            }),
+        )],
+        // f!(r#"["{client.peer_id}" "{client.node}" "{sig}" "{name}"]"#).as_str(),
         client,
     );
 }
 
 fn get_users(client: &mut ConnectedClient) -> Vec<JValue> {
-    into_array(call_service(
-        "user-list",
-        "get_users",
-        f!(r"[]").as_str(),
-        client,
-    ))
+    into_array(
+        call_service("user-list", "get_users", &[], client)
+            .as_object_mut()
+            .unwrap()
+            .remove("users")
+            .unwrap(),
+    )
     .expect("user list must be an array")
+}
+
+fn get_history(client: &mut ConnectedClient) -> Vec<JValue> {
+    let mut response = call_service("history", "get_all", &[], client);
+    #[rustfmt::skip]
+    let history = response.as_object_mut().unwrap().remove("messages").unwrap();
+    let history = into_array(history).expect("history must be an array");
+
+    history
 }
 
 #[rustfmt::skip]
@@ -239,11 +264,11 @@ fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
             (seq
                 (call node ("op" "identity") [] void[])
                 (seq
-                    (call history (history_id "add") [author msg] void[])
+                    (call history (history_id "add") [author msg zero] void[])
                     (call userlist (userlist_id "get_users") [] users)
                 )
             )
-            (fold users u
+            (fold users.$.users u
                 (par 
                     (seq
                         (call u.$["relay_id"] ("op" "identity") [] void[])
@@ -262,6 +287,7 @@ fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
         "author" => json!(author),
         "msg" => json!(msg),
         "node" => json!(client.node.to_string()),
+        "zero" => json!(0)
     });
 }
 
@@ -277,11 +303,28 @@ fn test_chat() {
     alias_service("history", client.node.clone(), history, &mut client);
     assert!(!resolve_service("history", &mut client).is_empty());
 
-    call_service("history", "add", r#"["author" "msg1"]"#, &mut client);
-    call_service("history", "add", r#"["author" "msg2"]"#, &mut client);
+    call_service(
+        "history",
+        "add",
+        &[
+            ("author", json!("author")),
+            ("msg", json!("message one")),
+            ("zero", json!(0)),
+        ],
+        &mut client,
+    );
+    call_service(
+        "history",
+        "add",
+        &[
+            ("author", json!("author")),
+            ("msg", json!("message 2")),
+            ("zero", json!(0)),
+        ],
+        &mut client,
+    );
 
-    let history = call_service("history", "get_all", "[]", &mut client);
-    let history = into_array(history).expect("history must be an array");
+    let history = get_history(&mut client);
     assert_eq!(2, history.len());
 
     alias_service("user-list", client.node.clone(), userlist, &mut client);
@@ -305,8 +348,7 @@ fn test_chat() {
     for c in clients.iter_mut() {
         c.receive();
     }
-    let history = call_service("history", "get_all", "[]", &mut client);
-    let history = into_array(history).expect("history must be an array");
+    let history = get_history(&mut client);
     assert_eq!(3, history.len());
 
     join_chat("фолекс".to_string(), &mut client);

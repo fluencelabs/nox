@@ -91,8 +91,7 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
-        .filter(Some("particle_actors"), Info)
-        .filter(Some("aquamarine"), Info)
+        // .filter(Some("particle_actors::actor"), Info)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)
@@ -111,6 +110,7 @@ pub fn enable_logs() {
         .filter(Some("libp2p_identify::protocol"), Info)
         .filter(Some("cranelift_codegen"), Info)
         .filter(Some("wasmer_wasi"), Info)
+        .filter(Some("wasmer_interface_types_fl"), Info)
         .try_init()
         .ok();
 }
