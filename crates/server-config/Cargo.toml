@@ -10,7 +10,7 @@ trust-graph = { path = "../../trust-graph" }
 #fluence-libp2p = { path = "../libp2p" }
 particle-protocol = { path = "../../particle-protocol"}
 
-air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.19" }
+air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.21" }
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
 serde = { version = "1.0.118", features = ["derive"] }
