@@ -1,12 +1,12 @@
 version: 2
 jobs:
-  rust:
+  Rust Tests:
     docker:
       - image: circleci/rust:latest
-    resource_class: medium+
+    resource_class: xlarge
     environment:
       RUST_BACKTRACE: 1
-      RUST_TEST_THREADS: 1
+#      RUST_TEST_THREADS: 1
     steps:
       - checkout
       - restore_cache:
@@ -25,6 +25,6 @@ jobs:
 
 workflows:
   version: 2
-  tests:
+  CircleCI:
     jobs:
-      - rust
+      - Rust Tests
