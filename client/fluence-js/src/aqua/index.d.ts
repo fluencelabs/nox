@@ -11,7 +11,8 @@
  */
 export function invoke(wasm: any, init_user_id: string, aqua: string, prev_data: string, data: string, log_level: string): string;
 export function ast(wasm: any, script: string): string;
+export function return_current_peer_id(wasm: any, peerId: string, arg0: any): void;
+export function return_call_service_result(wasm: any, ret: string, arg0: any): void;
 export function getStringFromWasm0(wasm: any, arg1: any, arg2: any): string
-export function getInt32Memory0(wasm: any): number[]
-export function passStringToWasm0(wasm: any, arg: any, malloc: any, realloc: any): number
-export let WASM_VECTOR_LEN: number;
+export function free(wasm: any, ptr: any, len: any): void
+

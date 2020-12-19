@@ -36,7 +36,6 @@ const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
     });
 
 export function passStringToWasm0(wasm, arg, malloc, realloc) {
-
     if (realloc === undefined) {
         const buf = cachedTextEncoder.encode(arg);
         const ptr = malloc(buf.length);
@@ -57,8 +56,8 @@ export function passStringToWasm0(wasm, arg, malloc, realloc) {
         if (code > 0x7F) break;
         mem[ptr + offset] = code;
     }
-
     if (offset !== len) {
+
         if (offset !== 0) {
             arg = arg.slice(offset);
         }
@@ -69,7 +68,9 @@ export function passStringToWasm0(wasm, arg, malloc, realloc) {
         offset += ret.written;
     }
 
+
     WASM_VECTOR_LEN = offset;
+
     return ptr;
 }
 
@@ -131,4 +132,23 @@ export function ast(wasm, script) {
     } finally {
         wasm.__wbindgen_free(r0, r1);
     }
+}
+
+export function return_current_peer_id(wasm, peerId, arg0) {
+    var ptr0 = passStringToWasm0(wasm, peerId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    getInt32Memory0(wasm)[arg0 / 4 + 1] = len0;
+    getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr0;
+}
+
+export function return_call_service_result(wasm, ret, arg0) {
+    var ptr1 = passStringToWasm0(wasm, ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    getInt32Memory0(wasm)[arg0 / 4 + 1] = len1;
+    getInt32Memory0(wasm)[arg0 / 4 + 0] = ptr1;
+
+}
+
+export function free(wasm, ptr, len) {
+    wasm.__wbindgen_free(ptr, len);
 }
