@@ -1966,6 +1966,7 @@ version = "0.0.1"
 dependencies = [
  "control-macro",
  "fce",
+ "fluence-app-service",
  "ivalue-utils",
  "json-utils",
  "serde",
