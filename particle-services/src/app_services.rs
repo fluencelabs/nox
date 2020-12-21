@@ -103,7 +103,7 @@ impl ParticleAppServices {
                     .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
                 let params = CallParameters {
                     tetraplets: args.tetraplets,
-                    ..<_>::default
+                    ..<_>::default()
                 };
                 let result = vm
                     .lock()
