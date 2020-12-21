@@ -17,8 +17,8 @@ particle-protocol = { path = "../../particle-protocol" }
 particle-actors = { path = "../../particle-actors" }
 
 stepper-interface = { git = "https://github.com/fluencelabs/aquamarine", branch = "master" }
-air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.21" }
-aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+air-interpreter-wasm = { package = "air-interpreter-wasm_security_tetraplets_reborn", version = "0.0.6" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "tetraplets" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
