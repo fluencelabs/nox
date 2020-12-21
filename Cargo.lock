@@ -199,7 +199,7 @@ dependencies = [
  "maplit",
  "serde",
  "serde_json",
- "stepper-interface 0.1.0 (git+https://github.com/fluencelabs/aquamarine)",
+ "stepper-interface",
 ]
 
 [[package]]
@@ -2995,7 +2995,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "particle-protocol",
  "serde_json",
- "stepper-interface 0.1.0 (git+https://github.com/fluencelabs/aquamarine?branch=security_tetraplets_reborn)",
+ "stepper-interface",
 ]
 
 [[package]]
@@ -4075,16 +4075,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "stepper-interface"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquamarine?branch=security_tetraplets_reborn#754931fa8f344b656844197ab1ff088d22019210"
-dependencies = [
- "fluence",
- "serde",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
 name = "stream-cipher"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4204,7 +4194,7 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
- "stepper-interface 0.1.0 (git+https://github.com/fluencelabs/aquamarine?branch=security_tetraplets_reborn)",
+ "stepper-interface",
  "toml",
  "trust-graph",
  "uuid",

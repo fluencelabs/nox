@@ -11,7 +11,7 @@ fluence-libp2p = { path = "../crates/libp2p" }
 config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
 aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
-stepper-interface = { git = "https://github.com/fluencelabs/aquamarine", branch = "security_tetraplets_reborn" }
+stepper-interface = { git = "https://github.com/fluencelabs/aquamarine", branch = "master" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
