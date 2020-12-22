@@ -104,7 +104,7 @@ pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> HostExportedFunc {
 fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -> AquamarineVM {
     let call_service = HostImportDescriptor {
         host_exported_func: host_func,
-        argument_types: vec![IType::String, IType::String, IType::String],
+        argument_types: vec![IType::String, IType::String, IType::String, IType::String],
         output_type: Some(IType::Record(0)),
         error_handler: None,
     };
