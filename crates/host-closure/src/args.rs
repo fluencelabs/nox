@@ -61,8 +61,6 @@ impl Args {
             .and_then(as_str)
             .ok_or(MissingField("tetraplets"))?;
 
-        println!("tetraplets: {}", tetraplets);
-
         let tetraplets: Vec<Vec<SecurityTetraplet>> =
             serde_json::from_str(tetraplets).map_err(|err| SerdeJson {
                 field: "tetraplets",

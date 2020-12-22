@@ -168,9 +168,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm_security_tetraplets_reborn"
-version = "0.0.12"
+version = "0.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "153c55d41429cc79113c897efb67ca46040a53719746fa84160450979bcca11d"
+checksum = "0b68d4ca55663f2d3db1c7babba4fea2b867dcddcf4c8727b04536a638e77166"
 dependencies = [
  "built",
 ]
