@@ -107,7 +107,11 @@ impl ParticleAppServices {
                 };
                 let result = vm
                     .lock()
-                    .call(args.fname, JValue::Array(args.args), params)
+                    .call(
+                        args.function_name,
+                        JValue::Array(args.function_args),
+                        params,
+                    )
                     .map_err(ServiceError::Engine)?;
 
                 Ok(result)

@@ -27,8 +27,8 @@ use serde_json::Value as JValue;
 /// Arguments passed by VM to host on call_service
 pub struct Args {
     pub service_id: String,
-    pub fname: String,
-    pub args: Vec<serde_json::Value>,
+    pub function_name: String,
+    pub function_args: Vec<serde_json::Value>,
     pub tetraplets: Vec<Vec<SecurityTetraplet>>,
 }
 
@@ -55,22 +55,22 @@ impl Args {
                 serde_json::from_str(v).map_err(|err| SerdeJson { field: "args", err })
             })?;
 
-        let tetraplets = call_args.next();
-        let tetraplets = tetraplets
+        let tetraplets: Vec<Vec<SecurityTetraplet>> = call_args
+            .next()
             .as_ref()
             .and_then(as_str)
-            .ok_or(MissingField("tetraplets"))?;
-
-        let tetraplets: Vec<Vec<SecurityTetraplet>> =
-            serde_json::from_str(tetraplets).map_err(|err| SerdeJson {
-                field: "tetraplets",
-                err,
+            .ok_or(MissingField("tetraplets"))
+            .and_then(|v| {
+                serde_json::from_str(v).map_err(|err| SerdeJson {
+                    field: "tetraplets",
+                    err,
+                })
             })?;
 
         Ok(Args {
             service_id,
-            fname,
-            args: function_args,
+            function_name: fname,
+            function_args: function_args,
             tetraplets,
         })
     }

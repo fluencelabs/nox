@@ -62,12 +62,16 @@ impl HostClosures {
                 return ivalue_utils::error(json!(err.to_string()));
             }
         };
-        log::info!("Host function call {:?} {}", args.service_id, args.fname);
+        log::info!(
+            "Host function call {:?} {}",
+            args.service_id,
+            args.function_name
+        );
         log::debug!("Host function call, args: {:#?}", args);
 
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
-        match (args.service_id.as_str(), args.fname.as_str()) {
+        match (args.service_id.as_str(), args.function_name.as_str()) {
             ("dht", "resolve")         => (self.resolve)(args),
             ("dht", "neighborhood")    => (self.neighborhood)(args),
             ("dht", "add_provider")    => (self.add_provider)(args),
@@ -83,7 +87,7 @@ impl HostClosures {
             ("dist", "get_blueprints") => (self.get_blueprints)(args),
 
             ("op", "identify") => (self.identify)(args),
-            ("op", "identity") => ok(Array(args.args)),
+            ("op", "identity") => ok(Array(args.function_args)),
 
             _ => (self.call_service)(args),
         }
