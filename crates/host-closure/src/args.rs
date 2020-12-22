@@ -55,16 +55,18 @@ impl Args {
                 serde_json::from_str(v).map_err(|err| SerdeJson { field: "args", err })
             })?;
 
-        let tetraplets: Vec<Vec<SecurityTetraplet>> = call_args
-            .next()
+        let tetraplets = call_args.next();
+        let tetraplets = tetraplets
             .as_ref()
             .and_then(as_str)
-            .ok_or(MissingField("tetraplets"))
-            .and_then(|v| {
-                serde_json::from_str(v).map_err(|err| SerdeJson {
-                    field: "tetraplets",
-                    err,
-                })
+            .ok_or(MissingField("tetraplets"))?;
+
+        println!("tetraplets: {}", tetraplets);
+
+        let tetraplets: Vec<Vec<SecurityTetraplet>> =
+            serde_json::from_str(tetraplets).map_err(|err| SerdeJson {
+                field: "tetraplets",
+                err,
             })?;
 
         Ok(Args {
