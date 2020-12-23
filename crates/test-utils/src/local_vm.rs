@@ -72,12 +72,12 @@ fn route(args: Vec<IValue>, data: HashMap<&'static str, JValue>) -> Option<IValu
     let args = Args::parse(args).expect("valid args");
     match args.service_id.as_str() {
         "load" => data
-            .get(args.fname.as_str())
+            .get(args.function_name.as_str())
             .map(|v| ivalue_utils::ok(v.clone()))
             .unwrap_or(ivalue_utils::error(JValue::String(f!(
-                "variable not found: {args.fname}"
+                "variable not found: {args.function_name}"
             )))),
-        "identity" => ivalue_utils::ok(JValue::Array(args.args)),
+        "identity" => ivalue_utils::ok(JValue::Array(args.function_args)),
         service => ivalue_utils::error(JValue::String(f!("service not found: {service}"))),
     }
 }
@@ -89,13 +89,13 @@ pub fn pass_data_func(data: HashMap<&'static str, JValue>) -> HostExportedFunc {
 pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> HostExportedFunc {
     Box::new(move |_, args| {
         let args = Args::parse(args).expect("valid args");
-        match (args.service_id.as_str(), args.fname.as_str()) {
+        match (args.service_id.as_str(), args.function_name.as_str()) {
             ("return", _) | ("op", "return") => {
-                log::warn!("return args {:?}", args.args);
-                out.lock().extend(args.args);
+                log::warn!("return args {:?}", args.function_args);
+                out.lock().extend(args.function_args);
                 ivalue_utils::unit()
             }
-            ("op", "identity") => ivalue_utils::ok(JValue::Array(args.args)),
+            ("op", "identity") => ivalue_utils::ok(JValue::Array(args.function_args)),
             service => ivalue_utils::error(JValue::String(f!("service not found: {:?}", service))),
         }
     })
@@ -104,7 +104,7 @@ pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> HostExportedFunc {
 fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -> AquamarineVM {
     let call_service = HostImportDescriptor {
         host_exported_func: host_func,
-        argument_types: vec![IType::String, IType::String, IType::String],
+        argument_types: vec![IType::String, IType::String, IType::String, IType::String],
         output_type: Some(IType::Record(0)),
         error_handler: None,
     };
@@ -166,7 +166,7 @@ pub fn make_particle(
         .call(peer_id.to_string(), script.clone(), "[]", id.clone())
         .expect("execute & make particle");
 
-    log::info!("Made a particle {}", id);
+    log::info!("Made a particle {} {}", id, script);
 
     Particle {
         id,

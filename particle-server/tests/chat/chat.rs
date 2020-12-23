@@ -36,7 +36,7 @@
 use config_utils::to_abs_path;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{connect_swarms, ConnectedClient};
+use test_utils::{connect_swarms, enable_logs, ConnectedClient};
 
 use fstrings::f;
 use itertools::Itertools;
@@ -267,7 +267,7 @@ fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
                     (call userlist (userlist_id "get_users") [] users)
                 )
             )
-            (fold users.$.users u
+            (fold users.$.users! u
                 (par 
                     (seq
                         (call u.$["relay_id"] ("op" "identity") [] void[])

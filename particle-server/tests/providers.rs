@@ -65,7 +65,6 @@ fn add_providers() {
 
     let particle = client2.receive_args();
     let providers = particle[0].as_array().expect("non empty providers");
-    println!("providers: {:#?}", providers);
     assert_eq!(providers.len(), 2);
     #[rustfmt::skip]
     let find_provider = |service_id: &'static str| {

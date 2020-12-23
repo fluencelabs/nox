@@ -10,6 +10,7 @@ json-utils = { path = "../json-utils" }
 control-macro = { path = "../control-macro" }
 
 fce = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 
 serde_json = "1.0.58"
 serde = "1.0.116"

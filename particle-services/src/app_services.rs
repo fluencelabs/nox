@@ -19,7 +19,7 @@ use crate::error::ServiceError;
 use crate::persistence::load_persisted_services;
 use crate::vm::create_vm;
 
-use fluence_app_service::{AppService, ServiceInterface};
+use fluence_app_service::{AppService, CallParameters, ServiceInterface};
 use host_closure::{closure, closure_args, Args, Closure};
 
 use parking_lot::{Mutex, RwLock};
@@ -101,9 +101,17 @@ impl ParticleAppServices {
                 let vm = services
                     .get(&args.service_id)
                     .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
+                let params = CallParameters {
+                    tetraplets: args.tetraplets,
+                    ..<_>::default()
+                };
                 let result = vm
                     .lock()
-                    .call(args.fname, JValue::Array(args.args), <_>::default())
+                    .call(
+                        args.function_name,
+                        JValue::Array(args.function_args),
+                        params,
+                    )
                     .map_err(ServiceError::Engine)?;
 
                 Ok(result)

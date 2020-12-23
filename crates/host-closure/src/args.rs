@@ -17,6 +17,7 @@
 use crate::args_error::ArgsError::{self, MissingField, SerdeJson};
 
 use control_macro::ok_get;
+use fluence_app_service::SecurityTetraplet;
 use ivalue_utils::{as_str, into_string, IValue};
 
 use serde::Deserialize;
@@ -26,40 +27,51 @@ use serde_json::Value as JValue;
 /// Arguments passed by VM to host on call_service
 pub struct Args {
     pub service_id: String,
-    pub fname: String,
-    pub args: Vec<serde_json::Value>,
+    pub function_name: String,
+    pub function_args: Vec<serde_json::Value>,
+    pub tetraplets: Vec<Vec<SecurityTetraplet>>,
 }
 
 impl Args {
     /// Construct Args from `Vec<IValue>`
-    pub fn parse(args: Vec<IValue>) -> Result<Args, ArgsError> {
-        let mut args = args.into_iter();
-        let service_id = args
+    pub fn parse(call_args: Vec<IValue>) -> Result<Args, ArgsError> {
+        let mut call_args = call_args.into_iter();
+        let service_id = call_args
             .next()
             .and_then(into_string)
             .ok_or(MissingField("service_id"))?;
 
-        let fname = args
+        let fname = call_args
             .next()
             .and_then(into_string)
             .ok_or(MissingField("fname"))?;
 
-        let args = args
+        let function_args = call_args
             .next()
             .as_ref()
             .and_then(as_str)
             .ok_or(MissingField("args"))
             .and_then(|v| {
+                serde_json::from_str(v).map_err(|err| SerdeJson { field: "args", err })
+            })?;
+
+        let tetraplets: Vec<Vec<SecurityTetraplet>> = call_args
+            .next()
+            .as_ref()
+            .and_then(as_str)
+            .ok_or(MissingField("tetraplets"))
+            .and_then(|v| {
                 serde_json::from_str(v).map_err(|err| SerdeJson {
-                    field: "service_id",
+                    field: "tetraplets",
                     err,
                 })
             })?;
 
         Ok(Args {
             service_id,
-            fname,
-            args,
+            function_name: fname,
+            function_args: function_args,
+            tetraplets,
         })
     }
 
