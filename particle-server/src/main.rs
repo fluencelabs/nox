@@ -57,9 +57,9 @@ fn main() -> anyhow::Result<()> {
         .args(create_args().as_slice())
         .get_matches();
 
-    let fluence_config = load_config(arg_matches)?;
-
     write_default_air_interpreter()?;
+
+    let fluence_config = load_config(arg_matches)?;
 
     log::info!(
         "AIR interpreter: {:?}",
