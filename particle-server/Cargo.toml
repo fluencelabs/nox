@@ -14,7 +14,7 @@ fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
 server-config = { path = "../crates/server-config" }
 
-air-interpreter-wasm = { package = "air-interpreter-wasm_security_tetraplets_reborn", version = "0.0.14" }
+air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.29" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 multihash ="0.11.4"

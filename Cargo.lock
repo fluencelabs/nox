@@ -167,10 +167,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "air-interpreter-wasm_security_tetraplets_reborn"
-version = "0.0.14"
+name = "air-interpreter-wasm"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b68d4ca55663f2d3db1c7babba4fea2b867dcddcf4c8727b04536a638e77166"
+checksum = "d13b1035d62213a31e02cb537a472d3ddf3c2c6315a6d7bb3eb3d2c2bc97887a"
 dependencies = [
  "built",
 ]
@@ -3121,7 +3121,7 @@ dependencies = [
 name = "particle-server"
 version = "0.0.1"
 dependencies = [
- "air-interpreter-wasm_security_tetraplets_reborn",
+ "air-interpreter-wasm",
  "anyhow",
  "async-std",
  "base64 0.13.0",
@@ -3811,7 +3811,7 @@ dependencies = [
 name = "server-config"
 version = "0.1.0"
 dependencies = [
- "air-interpreter-wasm_security_tetraplets_reborn",
+ "air-interpreter-wasm",
  "anyhow",
  "bs58",
  "clap",
@@ -4167,7 +4167,7 @@ dependencies = [
 name = "test-utils"
 version = "0.0.1"
 dependencies = [
- "air-interpreter-wasm_security_tetraplets_reborn",
+ "air-interpreter-wasm",
  "anyhow",
  "aquamarine-vm",
  "async-std",
