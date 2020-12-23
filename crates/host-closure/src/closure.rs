@@ -30,7 +30,12 @@ pub fn closure_opt<F>(f: F) -> Closure
 where
     F: Fn(std::vec::IntoIter<JValue>) -> Result<Option<JValue>, JValue> + Send + Sync + 'static,
 {
-    Arc::new(move |Args { args, .. }| into_record_opt(f(args.into_iter())))
+    Arc::new(
+        move |Args {
+                  function_args: args,
+                  ..
+              }| into_record_opt(f(args.into_iter())),
+    )
 }
 
 /// Converts Fn into Closure, converting error into Option<IValue>
@@ -38,7 +43,12 @@ pub fn closure<F>(f: F) -> Closure
 where
     F: Fn(std::vec::IntoIter<JValue>) -> Result<JValue, JValue> + Send + Sync + 'static,
 {
-    Arc::new(move |Args { args, .. }| into_record(f(args.into_iter())))
+    Arc::new(
+        move |Args {
+                  function_args: args,
+                  ..
+              }| into_record(f(args.into_iter())),
+    )
 }
 
 /// Converts Fn into Closure, converting error into Option<IValue>
