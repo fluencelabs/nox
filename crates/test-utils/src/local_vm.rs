@@ -166,7 +166,7 @@ pub fn make_particle(
         .call(peer_id.to_string(), script.clone(), "[]", id.clone())
         .expect("execute & make particle");
 
-    log::info!("Made a particle {} {}", id, script);
+    log::info!("Made a particle {}", id);
 
     Particle {
         id,

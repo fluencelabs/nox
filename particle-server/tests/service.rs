@@ -24,12 +24,10 @@ use maplit::hashmap;
 use serde_json::json;
 
 use particle_protocol::Particle;
-use test_utils::{create_greeting_service, enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{create_greeting_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
 fn create_service() {
-    enable_logs();
-
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 

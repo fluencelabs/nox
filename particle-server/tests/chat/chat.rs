@@ -36,7 +36,7 @@
 use config_utils::to_abs_path;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{connect_swarms, enable_logs, ConnectedClient};
+use test_utils::{connect_swarms, ConnectedClient};
 
 use fstrings::f;
 use itertools::Itertools;
