@@ -168,9 +168,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.0.29"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d13b1035d62213a31e02cb537a472d3ddf3c2c6315a6d7bb3eb3d2c2bc97887a"
+checksum = "5dfd52d153d3f04380e6466fb2cb69e1a3893f39b58d2dc5ac8839249ee113d5"
 dependencies = [
  "built",
 ]
@@ -3041,6 +3041,7 @@ dependencies = [
  "json-utils",
  "libp2p",
  "log",
+ "parking_lot 0.11.1",
  "particle-actors",
  "particle-dht",
  "particle-protocol",
