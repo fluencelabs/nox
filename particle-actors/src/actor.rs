@@ -146,8 +146,8 @@ impl Actor {
                     log::warn!("Executed particle {}, next_peer_pks is empty. Won't send anywhere", p.id);
                     if log::max_level() >= LevelFilter::Debug {
                         let data = if let JValue::Array(data) = data {
-                            let bytes: &[u8] = data.iter().flat_map(|v| v.as_i64().map(|i| i as u8)).collect();
-                            let str: String = String::from_utf8_lossy(bytes).to_string();
+                            let bytes: Vec<u8> = data.iter().flat_map(|v| v.as_i64().map(|i| i as u8)).collect();
+                            let str: String = String::from_utf8_lossy(bytes.as_slice()).to_string();
                             JValue::String(str)
                         } else {
                             data
