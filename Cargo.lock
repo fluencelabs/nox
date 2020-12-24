@@ -833,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "config-utils"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "libp2p-core",
 ]
@@ -874,7 +874,7 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "control-macro"
-version = "0.0.1"
+version = "0.1.0"
 
 [[package]]
 name = "cookie"
@@ -1119,7 +1119,7 @@ dependencies = [
 
 [[package]]
 name = "ctrlc-adapter"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "ctrlc",
@@ -1484,7 +1484,7 @@ dependencies = [
 
 [[package]]
 name = "fluence-libp2p"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "base64 0.13.0",
@@ -1965,7 +1965,7 @@ dependencies = [
 
 [[package]]
 name = "host-closure"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "control-macro",
  "fce",
@@ -2126,7 +2126,7 @@ checksum = "dc6f3ad7b9d11a0c00842ff8de1b60ee58661048eb8049ed33c73594f359d7e6"
 
 [[package]]
 name = "ivalue-utils"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde_json",
  "wasmer-interface-types-fl",
@@ -2983,7 +2983,7 @@ dependencies = [
 
 [[package]]
 name = "particle-actors"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "aquamarine-vm",
  "async-std",
@@ -3003,7 +3003,7 @@ dependencies = [
 
 [[package]]
 name = "particle-behaviour"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3033,7 +3033,7 @@ dependencies = [
 
 [[package]]
 name = "particle-closures"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bs58",
  "config-utils",
@@ -3056,7 +3056,7 @@ dependencies = [
 
 [[package]]
 name = "particle-dht"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bs58",
  "control-macro",
@@ -3077,7 +3077,7 @@ dependencies = [
 
 [[package]]
 name = "particle-modules"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "fce-wit-parser",
@@ -3094,7 +3094,7 @@ dependencies = [
 
 [[package]]
 name = "particle-protocol"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "async-std",
  "failure",
@@ -3112,7 +3112,7 @@ dependencies = [
 
 [[package]]
 name = "particle-providers"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "control-macro",
  "fluence-libp2p",
@@ -3124,7 +3124,7 @@ dependencies = [
 
 [[package]]
 name = "particle-server"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "air-interpreter-wasm",
  "anyhow",
@@ -3166,7 +3166,7 @@ dependencies = [
 
 [[package]]
 name = "particle-services"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "config-utils",
  "fluence-app-service",
@@ -4170,7 +4170,7 @@ dependencies = [
 
 [[package]]
 name = "test-utils"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "air-interpreter-wasm",
  "anyhow",
@@ -4348,7 +4348,7 @@ dependencies = [
 
 [[package]]
 name = "trust-graph"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bs58",
  "derivative",
@@ -4536,7 +4536,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "waiting-queues"
-version = "0.0.1"
+version = "0.1.0"
 
 [[package]]
 name = "waker-fn"
