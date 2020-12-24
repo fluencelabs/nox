@@ -175,7 +175,7 @@ pub fn make_particle(
         ttl: 10000,
         script,
         signature: vec![],
-        data: serde_json::from_slice(data.as_slice()).expect("valid json"),
+        data,
     }
 }
 
