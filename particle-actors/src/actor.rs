@@ -22,7 +22,8 @@ use particle_protocol::Particle;
 use async_std::{pin::Pin, task};
 use futures::{future::BoxFuture, Future, FutureExt};
 use libp2p::PeerId;
-use serde_json::json;
+use log::LevelFilter;
+use serde_json::{json, Value as JValue};
 use std::{
     collections::VecDeque,
     fmt::Debug,
@@ -143,7 +144,16 @@ impl Actor {
                 }
                 Ok((data, _)) => {
                     log::warn!("Executed particle {}, next_peer_pks is empty. Won't send anywhere", p.id);
-                    log::debug!("particle {} next_peer_pks = [], data: {:#?}", p.id, data);
+                    if log::max_level() >= LevelFilter::Debug {
+                        let data = if let JValue::Array(data) = data {
+                            let bytes: &[u8] = data.iter().flat_map(|v| v.as_i64().map(|i| i as u8)).collect();
+                            let str: String = String::from_utf8_lossy(bytes).to_string();
+                            JValue::String(str)
+                        } else {
+                            data
+                        };
+                        log::debug!("particle {} next_peer_pks = [], data: {:#?}", p.id, data);
+                    }
                     vec![]
                 }
                 Err(ExecutionError::AquamarineError(err)) => {
