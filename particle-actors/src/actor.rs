@@ -160,7 +160,12 @@ impl Actor {
                     log::warn!("Error executing particle {:#?}: {}", p, err);
                     vec![]
                 }
-                Err(err) => {
+                Err(err @ ExecutionError::StepperOutcome { .. }) => {
+                    log::warn!("Error executing script: {}", err);
+                    // Return error to the init peer id
+                    vec![protocol_error(p, err)]
+                },
+                Err(err @ ExecutionError::InvalidResultField { .. }) => {
                     log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
                     // Return error to the init peer id
                     vec![protocol_error(p, err)]

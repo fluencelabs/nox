@@ -18,6 +18,7 @@ use aquamarine_vm::AquamarineVMError;
 use stepper_interface::StepperOutcome;
 
 use libp2p::PeerId;
+use log::LevelFilter;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -44,6 +45,11 @@ pub enum ExecutionError {
         field: &'static str,
         error: FieldError,
     },
+    StepperOutcome {
+        error_message: String,
+        ret_code: i32,
+        readable_data: String,
+    },
     AquamarineError(AquamarineVMError),
 }
 
@@ -52,6 +58,7 @@ impl Error for ExecutionError {
         match &self {
             ExecutionError::InvalidResultField { error, .. } => Some(error),
             ExecutionError::AquamarineError(err) => Some(err),
+            ExecutionError::StepperOutcome { .. } => None,
         }
     }
 }
@@ -67,6 +74,17 @@ impl Display for ExecutionError {
             ExecutionError::AquamarineError(err) => {
                 write!(f, "Execution error: aquamarine error: {}", err)
             }
+            ExecutionError::StepperOutcome {
+                error_message,
+                ret_code,
+                readable_data,
+            } => {
+                write!(
+                    f,
+                    "Execution error: StepperOutcome (ret_code = {}): {} {}",
+                    ret_code, error_message, readable_data
+                )
+            }
         }
     }
 }
@@ -79,6 +97,19 @@ pub fn parse_outcome(
     outcome: Result<StepperOutcome, AquamarineVMError>,
 ) -> Result<(serde_json::Value, Vec<PeerId>), ExecutionError> {
     let outcome = outcome.map_err(|err| ExecutionError::AquamarineError(err))?;
+
+    if outcome.ret_code != 0 {
+        return Err(ExecutionError::StepperOutcome {
+            error_message: outcome.error_message,
+            ret_code: outcome.ret_code,
+            readable_data: if log::max_level() > LevelFilter::Debug {
+                String::from_utf8_lossy(outcome.data.as_slice()).to_string()
+            } else {
+                String::new()
+            },
+        });
+    }
+
     let data = serde_json::from_slice(outcome.data.as_slice()).map_err(|err| {
         ExecutionError::InvalidResultField {
             field: "data",

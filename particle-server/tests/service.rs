@@ -17,7 +17,7 @@
 #[macro_use]
 extern crate fstrings;
 
-use test_utils::{create_greeting_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{create_greeting_service, enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use fstrings::f;
 use maplit::hashmap;
@@ -26,6 +26,8 @@ use std::thread::sleep;
 
 #[test]
 fn create_service() {
+    enable_logs();
+
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
@@ -37,12 +39,12 @@ fn create_service() {
     let script = f!(r#"
         (seq
             (seq
-                (call relay ("op" "identity") [])
-                (call host (service_id "greeting") [my_name] greeting)
+                (call "{client2.node}" ("op" "identity") [])
+                (call "{client1.node}" (service_id "greeting") [my_name] greeting)
             )
             (seq
-                (call relay ("op" "identity") [])
-                (call client ("return" "") [greeting])
+                (call "{client2.node}" ("op" "identity") [])
+                (call "{client2.peer_id}" ("return" "") [greeting])
             )
         )"#);
     client2.send_particle(
