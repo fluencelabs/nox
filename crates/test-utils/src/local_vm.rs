@@ -189,7 +189,7 @@ pub fn read_args(particle: Particle, peer_id: &PeerId) -> Vec<JValue> {
     vm.call(
         peer_id.to_string(),
         particle.script,
-        particle.data.to_string(),
+        particle.data,
         particle.id,
     )
     .expect("execute read_args vm");

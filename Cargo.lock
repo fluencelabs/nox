@@ -2143,8 +2143,10 @@ dependencies = [
 
 [[package]]
 name = "json-utils"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
+ "base64 0.13.0",
+ "serde",
  "serde_json",
 ]
 
@@ -2985,6 +2987,7 @@ version = "0.0.1"
 dependencies = [
  "aquamarine-vm",
  "async-std",
+ "base64 0.13.0",
  "chrono",
  "config-utils",
  "fluence-libp2p",
@@ -3098,6 +3101,7 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "humantime-serde",
+ "json-utils",
  "libp2p",
  "log",
  "rand 0.7.3",

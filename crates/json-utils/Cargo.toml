@@ -1,8 +1,10 @@
 [package]
 name = "json-utils"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-serde_json = "1.0.58"
+serde = "1.0.118"
+serde_json = "1.0.60"
+base64 = "0.13.0"

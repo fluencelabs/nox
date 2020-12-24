@@ -25,7 +25,6 @@ use std::str::FromStr;
 
 #[derive(Debug)]
 pub enum FieldError {
-    InvalidJson(serde_json::Error),
     InvalidPeerId(String),
 }
 
@@ -33,7 +32,6 @@ impl Error for FieldError {}
 impl Display for FieldError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            FieldError::InvalidJson(err) => write!(f, "invalid json: {}", err),
             FieldError::InvalidPeerId(err) => write!(f, "invalid PeerId: {}", err),
         }
     }
@@ -95,7 +93,7 @@ fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
 
 pub fn parse_outcome(
     outcome: Result<StepperOutcome, AquamarineVMError>,
-) -> Result<(serde_json::Value, Vec<PeerId>), ExecutionError> {
+) -> Result<(Vec<u8>, Vec<PeerId>), ExecutionError> {
     let outcome = outcome.map_err(|err| ExecutionError::AquamarineError(err))?;
 
     if outcome.ret_code != 0 {
@@ -110,12 +108,6 @@ pub fn parse_outcome(
         });
     }
 
-    let data = serde_json::from_slice(outcome.data.as_slice()).map_err(|err| {
-        ExecutionError::InvalidResultField {
-            field: "data",
-            error: FieldError::InvalidJson(err),
-        }
-    })?;
     let peer_ids = outcome
         .next_peer_pks
         .into_iter()
@@ -127,5 +119,5 @@ pub fn parse_outcome(
         })
         .collect::<Result<_, ExecutionError>>()?;
 
-    Ok((data, peer_ids))
+    Ok((outcome.data, peer_ids))
 }

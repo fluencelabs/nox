@@ -25,6 +25,8 @@
     unreachable_patterns
 )]
 
+pub mod base64_serde;
+
 use serde_json::Value as JValue;
 use std::error::Error;
 

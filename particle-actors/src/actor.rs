@@ -23,7 +23,7 @@ use async_std::{pin::Pin, task};
 use futures::{future::BoxFuture, Future, FutureExt};
 use libp2p::PeerId;
 use log::LevelFilter;
-use serde_json::{json, Value as JValue};
+use serde_json::json;
 use std::{
     collections::VecDeque,
     fmt::Debug,
@@ -121,7 +121,7 @@ impl Actor {
             let result = vm.call(
                 p.init_peer_id.to_string(),
                 &p.script,
-                p.data.to_string(),
+                p.data.clone(),
                 &p.id,
             );
             if let Err(err) = &result {
@@ -132,8 +132,10 @@ impl Actor {
                 Ok((data, targets)) if targets.len() > 0 => {
                     #[rustfmt::skip]
                     log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
-                    let mut particle = p;
-                    particle.data = data;
+                    let particle = Particle {
+                        data,
+                        ..p
+                    };
                     targets
                         .into_iter()
                         .map(|target| ActorEvent::Forward {
@@ -145,14 +147,8 @@ impl Actor {
                 Ok((data, _)) => {
                     log::warn!("Executed particle {}, next_peer_pks is empty. Won't send anywhere", p.id);
                     if log::max_level() >= LevelFilter::Debug {
-                        let data = if let JValue::Array(data) = data {
-                            let bytes: Vec<u8> = data.iter().flat_map(|v| v.as_i64().map(|i| i as u8)).collect();
-                            let str: String = String::from_utf8_lossy(bytes.as_slice()).to_string();
-                            JValue::String(str)
-                        } else {
-                            data
-                        };
-                        log::debug!("particle {} next_peer_pks = [], data: {:#?}", p.id, data);
+                        let data = String::from_utf8_lossy(data.as_slice());
+                        log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
                     }
                     vec![]
                 }
@@ -188,11 +184,9 @@ impl Actor {
 
 fn protocol_error(mut particle: Particle, err: impl Debug) -> ActorEvent {
     let error = format!("{:?}", err);
-    if let Some(map) = particle.data.as_object_mut() {
-        map.insert("protocol!error".to_string(), json!(error));
-    } else {
-        particle.data = json!({"protocol!error": error, "data": particle.data})
-    }
+    particle.data = json!({"protocol!error": error, "data": base64::encode(particle.data)})
+        .to_string()
+        .into_bytes();
     // Return error to the init peer id
     ActorEvent::Forward {
         target: particle.init_peer_id.clone(),

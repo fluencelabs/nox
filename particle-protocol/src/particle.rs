@@ -15,9 +15,10 @@
  */
 
 use fluence_libp2p::{peerid_serializer, RandomPeerId};
+use json_utils::base64_serde;
+
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Particle {
@@ -28,8 +29,9 @@ pub struct Particle {
     pub ttl: u32,
     pub script: String,
     pub signature: Vec<u8>,
-    /// Must be an array
-    pub data: serde_json::Value,
+    /// base64-encoded
+    #[serde(with = "base64_serde")]
+    pub data: Vec<u8>,
 }
 
 impl Default for Particle {
@@ -42,7 +44,7 @@ impl Default for Particle {
             ttl: 0,
             script: "".to_string(),
             signature: vec![],
-            data: json!([]),
+            data: vec![],
         }
     }
 }
