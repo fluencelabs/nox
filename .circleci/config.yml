@@ -56,4 +56,4 @@ workflows:
       - Rust Tests
       - Publish Docker Container:
           requires:
-            Rust Tests
+            - Rust Tests
