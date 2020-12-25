@@ -18,7 +18,7 @@ particle-actors = { path = "../../particle-actors" }
 
 stepper-interface = { git = "https://github.com/fluencelabs/aquamarine", branch = "master" }
 air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.30" }
-aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "call_params" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
 
