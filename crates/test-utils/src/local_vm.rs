@@ -17,11 +17,10 @@
 use crate::{make_tmp_dir, now, put_aquamarine, uuid};
 
 use host_closure::Args;
-use ivalue_utils::{IType, IValue};
-use particle_actors::HostImportDescriptor;
+use ivalue_utils::IValue;
 use particle_protocol::Particle;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, HostExportedFunc};
+use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, CallServiceClosure};
 
 use fstrings::f;
 use libp2p::PeerId;
@@ -82,11 +81,11 @@ fn route(args: Vec<IValue>, data: HashMap<&'static str, JValue>) -> Option<IValu
     }
 }
 
-pub fn pass_data_func(data: HashMap<&'static str, JValue>) -> HostExportedFunc {
+pub fn pass_data_func(data: HashMap<&'static str, JValue>) -> CallServiceClosure {
     Box::new(move |_, args| route(args, data.clone()))
 }
 
-pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> HostExportedFunc {
+pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> CallServiceClosure {
     Box::new(move |_, args| {
         let args = Args::parse(args).expect("valid args");
         match (args.service_id.as_str(), args.function_name.as_str()) {
@@ -101,14 +100,11 @@ pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> HostExportedFunc {
     })
 }
 
-fn make_vm(particle_id: String, peer_id: &PeerId, host_func: HostExportedFunc) -> AquamarineVM {
-    let call_service = HostImportDescriptor {
-        host_exported_func: host_func,
-        argument_types: vec![IType::String, IType::String, IType::String, IType::String],
-        output_type: Some(IType::Record(0)),
-        error_handler: None,
-    };
-
+fn make_vm(
+    particle_id: String,
+    peer_id: &PeerId,
+    call_service: CallServiceClosure,
+) -> AquamarineVM {
     let tmp = make_tmp_dir();
     let interpreter = put_aquamarine(tmp.join("modules"));
 

@@ -16,14 +16,16 @@
 
 use crate::args::Args;
 
-use fce::HostImportDescriptor;
+use aquamarine_vm::{CallServiceClosure, ParticleParams};
 use ivalue_utils::{into_record, into_record_opt, IValue};
 
 use serde_json::Value as JValue;
 use std::sync::Arc;
 
 pub type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
-pub type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
+pub type FCEServiceClosure =
+    Arc<dyn Fn(ParticleParams, Args) -> Option<IValue> + Send + Sync + 'static>;
+pub type ClosureDescriptor = Arc<dyn Fn() -> CallServiceClosure + Send + Sync + 'static>;
 
 /// Converts Fn into Closure, converting error into Option<IValue>
 pub fn closure_opt<F>(f: F) -> Closure

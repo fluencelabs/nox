@@ -33,3 +33,16 @@ where
     base64::decode(str)
         .map_err(|e| serde::de::Error::custom(format!("base64 deserialization failed: {:?}", e)))
 }
+
+#[cfg(tests)]
+mod tests {
+
+    #[derive(Serialize, Deserialize)]
+    struct Wrapper {
+        #[serde(with = "base64_serde")]
+        pub bytes: Vec<u8>,
+    }
+
+    #[tests]
+    fn serde() {}
+}
