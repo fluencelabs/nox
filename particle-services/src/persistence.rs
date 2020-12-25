@@ -30,11 +30,11 @@ use std::path::PathBuf;
 pub struct PersistedService {
     pub service_id: String,
     pub blueprint_id: String,
-    pub owner_id: Option<String>,
+    pub owner_id: String,
 }
 
 impl PersistedService {
-    pub fn new(service_id: String, blueprint_id: String, owner_id: Option<String>) -> Self {
+    pub fn new(service_id: String, blueprint_id: String, owner_id: String) -> Self {
         Self {
             service_id,
             blueprint_id,
@@ -48,7 +48,7 @@ pub fn persist_service(
     services_dir: &PathBuf,
     service_id: String,
     blueprint_id: String,
-    owner_id: Option<String>,
+    owner_id: String,
 ) -> Result<(), ModuleError> {
     use ModuleError::*;
 
