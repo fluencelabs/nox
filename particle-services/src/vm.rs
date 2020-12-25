@@ -27,7 +27,7 @@ pub fn create_vm(
     config: ServicesConfig,
     blueprint_id: String,
     service_id: String,
-    owner_id: Option<String>,
+    owner_id: String,
 ) -> Result<AppService> {
     // Load configs for all modules in blueprint
     let make_service = move |service_id: String| -> Result<_> {
@@ -50,15 +50,10 @@ pub fn create_vm(
             },
         };
 
-        let mut envs = config.envs;
-        if let Some(owner_id) = owner_id.clone() {
-            envs.insert(b"owner_id".to_vec(), owner_id.into_bytes());
-        };
+        log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
 
-        log::debug!("Creating service {}, envs: {:?}", service_id, envs);
-
-        let service =
-            AppService::new(modules, service_id.clone(), envs).map_err(ServiceError::Engine)?;
+        let service = AppService::new(modules, service_id.clone(), config.envs)
+            .map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
         persist_service(&config.services_dir, service_id, blueprint_id, owner_id)?;

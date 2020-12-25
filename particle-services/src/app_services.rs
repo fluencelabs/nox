@@ -20,7 +20,7 @@ use crate::persistence::load_persisted_services;
 use crate::vm::create_vm;
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use host_closure::{closure, closure_args, Args, Closure, FCEServiceClosure};
+use host_closure::{closure, closure_args, closure_params, Args, Closure, ParticleClosure};
 
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -68,20 +68,20 @@ impl ParticleAppServices {
         this
     }
 
-    pub fn create_service(&self) -> Closure {
+    pub fn create_service(&self) -> ParticleClosure {
         let services = self.services.clone();
         let config = self.config.clone();
 
-        closure(move |mut args| {
+        closure_params(move |particle, args| {
             let service_id = uuid::Uuid::new_v4().to_string();
-            let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
-            let user_id = Args::maybe_next("user_id", &mut args)?;
+            let blueprint_id: String =
+                Args::next("blueprint_id", &mut args.function_args.into_iter())?;
 
             let vm = create_vm(
                 config.clone(),
                 blueprint_id.clone(),
                 service_id.clone(),
-                user_id,
+                particle.init_user_id,
             )?;
             let vm = Arc::new(Mutex::new(vm));
             let vm = VM { vm, blueprint_id };
@@ -92,7 +92,7 @@ impl ParticleAppServices {
         })
     }
 
-    pub fn call_service(&self) -> FCEServiceClosure {
+    pub fn call_service(&self) -> ParticleClosure {
         let services = self.services.clone();
 
         Arc::new(move |particle_params, args| {

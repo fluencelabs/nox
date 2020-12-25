@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use host_closure::{Args, Closure, ClosureDescriptor, FCEServiceClosure, ParticleParameters};
+use host_closure::{Args, Closure, ClosureDescriptor, ParticleClosure, ParticleParameters};
 use ivalue_utils::{ok, IValue};
 
 use serde_json::{json, Value as JValue};
@@ -25,8 +25,8 @@ use JValue::Array;
 pub struct HostClosures {
     pub resolve: Closure,
     pub neighborhood: Closure,
-    pub create_service: Closure,
-    pub call_service: FCEServiceClosure,
+    pub create_service: ParticleClosure,
+    pub call_service: ParticleClosure,
     pub add_module: Closure,
     pub add_blueprint: Closure,
     pub get_modules: Closure,
@@ -69,7 +69,7 @@ impl HostClosures {
             ("dht", "add_provider")    => (self.add_provider)(args),
             ("dht", "get_providers")   => (self.get_providers)(args),
 
-            ("srv", "create")          => (self.create_service)(args),
+            ("srv", "create")          => (self.create_service)(particle, args),
             ("srv", "get_interface")   => (self.get_interface)(args),
             ("srv", "get_interfaces")  => (self.get_active_interfaces)(args),
 
