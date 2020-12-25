@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-use host_closure::{Args, Closure};
-use ivalue_utils::{ok, IType, IValue};
-use particle_actors::HostImportDescriptor;
+use host_closure::{Args, Closure, ClosureDescriptor, ParticleClosure, ParticleParameters};
+use ivalue_utils::{ok, IValue};
 
 use serde_json::{json, Value as JValue};
 use std::sync::Arc;
 use JValue::Array;
 
-type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
-
 #[derive(Clone)]
 pub struct HostClosures {
     pub resolve: Closure,
     pub neighborhood: Closure,
-    pub create_service: Closure,
-    pub call_service: Closure,
+    pub create_service: ParticleClosure,
+    pub call_service: ParticleClosure,
     pub add_module: Closure,
     pub add_blueprint: Closure,
     pub get_modules: Closure,
@@ -45,16 +42,11 @@ impl HostClosures {
     pub fn descriptor(self) -> ClosureDescriptor {
         Arc::new(move || {
             let this = self.clone();
-            HostImportDescriptor {
-                host_exported_func: Box::new(move |_, args| this.route(args)),
-                argument_types: vec![IType::String, IType::String, IType::String, IType::String],
-                output_type: Some(IType::Record(0)),
-                error_handler: None,
-            }
+            Box::new(move |particle, args| this.route(particle, args))
         })
     }
 
-    fn route(&self, args: Vec<IValue>) -> Option<IValue> {
+    fn route(&self, particle: ParticleParameters, args: Vec<IValue>) -> Option<IValue> {
         let args = match Args::parse(args) {
             Ok(args) => args,
             Err(err) => {
@@ -77,7 +69,7 @@ impl HostClosures {
             ("dht", "add_provider")    => (self.add_provider)(args),
             ("dht", "get_providers")   => (self.get_providers)(args),
 
-            ("srv", "create")          => (self.create_service)(args),
+            ("srv", "create")          => (self.create_service)(particle, args),
             ("srv", "get_interface")   => (self.get_interface)(args),
             ("srv", "get_interfaces")  => (self.get_active_interfaces)(args),
 
@@ -89,7 +81,7 @@ impl HostClosures {
             ("op", "identify") => (self.identify)(args),
             ("op", "identity") => ok(Array(args.function_args)),
 
-            _ => (self.call_service)(args),
+            _ => (self.call_service)(particle, args),
         }
     }
 }

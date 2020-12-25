@@ -16,26 +16,25 @@
 
 use crate::args::Args;
 
-use fce::HostImportDescriptor;
+use aquamarine_vm::{CallServiceClosure, ParticleParameters};
 use ivalue_utils::{into_record, into_record_opt, IValue};
 
 use serde_json::Value as JValue;
 use std::sync::Arc;
 
+pub type ClosureDescriptor = Arc<dyn Fn() -> CallServiceClosure + Send + Sync + 'static>;
+
+/// Closure that cares about [[ParticleParameters]]
+pub type ParticleClosure =
+    Arc<dyn Fn(ParticleParameters, Args) -> Option<IValue> + Send + Sync + 'static>;
 pub type Closure = Arc<dyn Fn(Args) -> Option<IValue> + Send + Sync + 'static>;
-pub type ClosureDescriptor = Arc<dyn Fn() -> HostImportDescriptor + Send + Sync + 'static>;
 
 /// Converts Fn into Closure, converting error into Option<IValue>
 pub fn closure_opt<F>(f: F) -> Closure
 where
     F: Fn(std::vec::IntoIter<JValue>) -> Result<Option<JValue>, JValue> + Send + Sync + 'static,
 {
-    Arc::new(
-        move |Args {
-                  function_args: args,
-                  ..
-              }| into_record_opt(f(args.into_iter())),
-    )
+    Arc::new(move |Args { function_args, .. }| into_record_opt(f(function_args.into_iter())))
 }
 
 /// Converts Fn into Closure, converting error into Option<IValue>
@@ -43,12 +42,7 @@ pub fn closure<F>(f: F) -> Closure
 where
     F: Fn(std::vec::IntoIter<JValue>) -> Result<JValue, JValue> + Send + Sync + 'static,
 {
-    Arc::new(
-        move |Args {
-                  function_args: args,
-                  ..
-              }| into_record(f(args.into_iter())),
-    )
+    Arc::new(move |Args { function_args, .. }| into_record(f(function_args.into_iter())))
 }
 
 /// Converts Fn into Closure, converting error into Option<IValue>
@@ -57,4 +51,12 @@ where
     F: Fn(Args) -> Result<JValue, JValue> + Send + Sync + 'static,
 {
     Arc::new(move |args| into_record(f(args)))
+}
+
+/// Converts Fn into Closure, converting error into Option<IValue>
+pub fn closure_params<F>(f: F) -> ParticleClosure
+where
+    F: Fn(ParticleParameters, Args) -> Result<JValue, JValue> + Send + Sync + 'static,
+{
+    Arc::new(move |particle, args| into_record(f(particle, args)))
 }

@@ -193,10 +193,12 @@ checksum = "68803225a7b13e47191bab76f2687382b60d259e8cf37f6e1893658b84bb9479"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.6"
-source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
+source = "git+https://github.com/fluencelabs/fce?branch=master#d25f2245581ac5de25a3540838633301c094ffde"
 dependencies = [
  "fluence-faas",
+ "log",
  "maplit",
+ "parking_lot 0.11.1",
  "serde",
  "serde_json",
  "stepper-interface",
@@ -1331,7 +1333,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.14"
-source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
+source = "git+https://github.com/fluencelabs/fce?branch=master#d25f2245581ac5de25a3540838633301c094ffde"
 dependencies = [
  "boolinator",
  "fce-utils",
@@ -1353,12 +1355,12 @@ dependencies = [
 [[package]]
 name = "fce-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
+source = "git+https://github.com/fluencelabs/fce?branch=master#d25f2245581ac5de25a3540838633301c094ffde"
 
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.9"
-source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
+source = "git+https://github.com/fluencelabs/fce?branch=master#d25f2245581ac5de25a3540838633301c094ffde"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1367,7 +1369,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.11"
-source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
+source = "git+https://github.com/fluencelabs/fce?branch=master#d25f2245581ac5de25a3540838633301c094ffde"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1425,7 +1427,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.18"
-source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
+source = "git+https://github.com/fluencelabs/fce?branch=master#d25f2245581ac5de25a3540838633301c094ffde"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1464,7 +1466,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.18"
-source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
+source = "git+https://github.com/fluencelabs/fce?branch=master#d25f2245581ac5de25a3540838633301c094ffde"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -1937,6 +1939,7 @@ dependencies = [
 name = "host-closure"
 version = "0.1.0"
 dependencies = [
+ "aquamarine-vm",
  "control-macro",
  "fce",
  "fluence-app-service",
@@ -2996,7 +2999,6 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
- "test-utils",
  "trust-graph",
  "waiting-queues",
 ]
@@ -3015,7 +3017,6 @@ dependencies = [
  "libp2p",
  "log",
  "parking_lot 0.11.1",
- "particle-actors",
  "particle-dht",
  "particle-protocol",
  "ref-cast",
@@ -4042,7 +4043,7 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 [[package]]
 name = "stepper-interface"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquamarine?branch=master#5cb4cc0fb0c149a4bd3160dd0bac9c3d5ac3db7d"
+source = "git+https://github.com/fluencelabs/aquamarine?branch=master#cdaa24dc03a7eebc8ea89a5cc94241d865b1c145"
 dependencies = [
  "fluence",
  "serde",

@@ -78,7 +78,11 @@ impl ParticleConfig {
     }
 
     pub fn services_config(&self) -> io::Result<ServicesConfig> {
-        ServicesConfig::new(self.services_base_dir.clone(), self.services_envs.clone())
+        ServicesConfig::new(
+            self.current_peer_id.to_string(),
+            self.services_base_dir.clone(),
+            self.services_envs.clone(),
+        )
     }
 
     /// Creates and returns path for app service modules directory
