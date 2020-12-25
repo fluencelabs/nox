@@ -28,14 +28,15 @@ use serde_json::{json, Value as JValue};
 use std::ops::Deref;
 use std::{collections::HashMap, sync::Arc};
 
-type Services = Arc<RwLock<HashMap<String, VM>>>;
+type Services = Arc<RwLock<HashMap<String, Service>>>;
 
-pub struct VM {
+pub struct Service {
     vm: Arc<Mutex<AppService>>,
     blueprint_id: String,
+    owner_id: String,
 }
 
-impl Deref for VM {
+impl Deref for Service {
     type Target = Arc<Mutex<AppService>>;
 
     fn deref(&self) -> &Self::Target {
@@ -49,6 +50,7 @@ pub struct VmDescriptor<'a> {
     blueprint_id: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     service_id: Option<&'a str>,
+    owner_id: &'a str,
 }
 
 pub struct ParticleAppServices {
@@ -81,10 +83,14 @@ impl ParticleAppServices {
                 config.clone(),
                 blueprint_id.clone(),
                 service_id.clone(),
-                particle.init_user_id,
+                particle.init_user_id.clone(),
             )?;
             let vm = Arc::new(Mutex::new(vm));
-            let vm = VM { vm, blueprint_id };
+            let vm = Service {
+                vm,
+                blueprint_id,
+                owner_id: particle.init_user_id,
+            };
 
             services.write().insert(service_id.clone(), vm);
 
@@ -100,13 +106,17 @@ impl ParticleAppServices {
                 let services = services.read();
                 let vm = services
                     .get(&args.service_id)
-                    .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
+                    .ok_or_else(|| ServiceError::NoSuchInstance(args.service_id.clone()))?;
+
                 let params = CallParameters {
-                    tetraplets: args.tetraplets,
+                    host_id: "".to_string(), // TODO: pass host_id
                     init_peer_id: particle_params.init_user_id,
                     particle_id: particle_params.particle_id,
-                    ..<_>::default()
+                    tetraplets: args.tetraplets,
+                    service_id: args.service_id,
+                    service_creator_peer_id: vm.owner_id.clone(),
                 };
+
                 let result = vm
                     .lock()
                     .call(
@@ -174,7 +184,7 @@ impl ParticleAppServices {
             let service_id = s.service_id.clone();
             let blueprint_id = s.blueprint_id.clone();
             let config = self.config.clone();
-            let vm = match create_vm(config, blueprint_id, service_id, owner_id) {
+            let vm = match create_vm(config, blueprint_id, service_id, owner_id.clone()) {
                 Ok(vm) => vm,
                 Err(err) => {
                     #[rustfmt::skip]
@@ -183,9 +193,10 @@ impl ParticleAppServices {
                 }
             };
 
-            let vm = VM {
+            let vm = Service {
                 vm: Arc::new(Mutex::new(vm)),
                 blueprint_id: s.blueprint_id,
+                owner_id,
             };
             let replaced = self.services.write().insert(s.service_id.clone(), vm);
 
@@ -199,7 +210,7 @@ impl ParticleAppServices {
     }
 }
 
-fn get_vm_interface(vm: &VM, service_id: Option<&str>) -> Result<JValue, ServiceError> {
+fn get_vm_interface(vm: &Service, service_id: Option<&str>) -> Result<JValue, ServiceError> {
     let lock = vm.lock();
     let interface = lock.get_interface();
 
@@ -207,6 +218,7 @@ fn get_vm_interface(vm: &VM, service_id: Option<&str>) -> Result<JValue, Service
         interface,
         blueprint_id: &vm.blueprint_id,
         service_id,
+        owner_id: &vm.owner_id,
     };
     let descriptor =
         serde_json::to_value(descriptor).map_err(ServiceError::CorruptedFaaSInterface)?;
