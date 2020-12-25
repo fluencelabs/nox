@@ -16,6 +16,7 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+#[allow(clippy::ptr_arg)] // This is a serializer for Vec<u8>, it is required to be of that type
 pub fn serialize<S>(value: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,

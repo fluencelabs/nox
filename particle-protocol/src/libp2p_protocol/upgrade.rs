@@ -136,7 +136,7 @@ where
                     // Generate and send error back through socket
                     let err_msg = self.gen_error(&err);
                     err_msg.upgrade_outbound(socket, info).await?;
-                    return Err(err.into());
+                    Err(err)
                 }
             }
         }
