@@ -1,4 +1,8 @@
 version: 2.1
+
+orbs:
+  docker: circleci/docker@1.5.0
+
 jobs:
   Rust Tests:
     docker:
@@ -47,10 +51,9 @@ jobs:
           extra_build_args: --build-arg exe=./target/release/particle-server --build-arg config=./deploy/Config.default.toml
           docker-password: DOCKERHUB_TOKEN
           docker-username: DOCKERHUB_USERNAME
-orbs:
-  docker: circleci/docker@1.5.0
 
 workflows:
+  version: 2
   CircleCI:
     jobs:
       - Rust Tests
