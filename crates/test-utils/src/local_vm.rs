@@ -166,7 +166,7 @@ pub fn make_particle(
         .call(peer_id.to_string(), script.clone(), "[]", id.clone())
         .expect("execute & make particle");
 
-    log::info!("Made a particle {} {}", id, script);
+    log::info!("Made a particle {}", id);
 
     Particle {
         id,
@@ -175,7 +175,7 @@ pub fn make_particle(
         ttl: 10000,
         script,
         signature: vec![],
-        data: serde_json::from_slice(data.as_slice()).expect("valid json"),
+        data,
     }
 }
 
@@ -189,7 +189,7 @@ pub fn read_args(particle: Particle, peer_id: &PeerId) -> Vec<JValue> {
     vm.call(
         peer_id.to_string(),
         particle.script,
-        particle.data.to_string(),
+        particle.data,
         particle.id,
     )
     .expect("execute read_args vm");

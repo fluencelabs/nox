@@ -70,7 +70,7 @@ impl Args {
         Ok(Args {
             service_id,
             function_name: fname,
-            function_args: function_args,
+            function_args,
             tetraplets,
         })
     }

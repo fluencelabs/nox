@@ -168,9 +168,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.0.29"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d13b1035d62213a31e02cb537a472d3ddf3c2c6315a6d7bb3eb3d2c2bc97887a"
+checksum = "5dfd52d153d3f04380e6466fb2cb69e1a3893f39b58d2dc5ac8839249ee113d5"
 dependencies = [
  "built",
 ]
@@ -192,8 +192,8 @@ checksum = "68803225a7b13e47191bab76f2687382b60d259e8cf37f6e1893658b84bb9479"
 
 [[package]]
 name = "aquamarine-vm"
-version = "0.1.5"
-source = "git+https://github.com/fluencelabs/fce?branch=master#725f6e65f32b8503faae49c875187db6fbdc3d1e"
+version = "0.1.6"
+source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
 dependencies = [
  "fluence-faas",
  "maplit",
@@ -833,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "config-utils"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "libp2p-core",
 ]
@@ -874,7 +874,7 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "control-macro"
-version = "0.0.1"
+version = "0.1.0"
 
 [[package]]
 name = "cookie"
@@ -1119,7 +1119,7 @@ dependencies = [
 
 [[package]]
 name = "ctrlc-adapter"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "ctrlc",
@@ -1331,7 +1331,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.14"
-source = "git+https://github.com/fluencelabs/fce?branch=master#725f6e65f32b8503faae49c875187db6fbdc3d1e"
+source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
 dependencies = [
  "boolinator",
  "fce-utils",
@@ -1353,12 +1353,12 @@ dependencies = [
 [[package]]
 name = "fce-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#725f6e65f32b8503faae49c875187db6fbdc3d1e"
+source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
 
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.9"
-source = "git+https://github.com/fluencelabs/fce?branch=master#725f6e65f32b8503faae49c875187db6fbdc3d1e"
+source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1367,7 +1367,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.11"
-source = "git+https://github.com/fluencelabs/fce?branch=master#725f6e65f32b8503faae49c875187db6fbdc3d1e"
+source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1415,16 +1415,17 @@ dependencies = [
 [[package]]
 name = "fluence"
 version = "0.2.13"
-source = "git+https://github.com/fluencelabs/rust-sdk#71591f412cb65879d74e8c38838e827ab74d8802"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "083f40a5d000b28b74f10d824925eccf1fbdf6dbb8881e6d052c6183b2bc615e"
 dependencies = [
- "fluence-sdk-macro 0.2.13 (git+https://github.com/fluencelabs/rust-sdk)",
- "fluence-sdk-main 0.2.13 (git+https://github.com/fluencelabs/rust-sdk)",
+ "fluence-sdk-macro",
+ "fluence-sdk-main",
 ]
 
 [[package]]
 name = "fluence-app-service"
-version = "0.1.17"
-source = "git+https://github.com/fluencelabs/fce?branch=master#725f6e65f32b8503faae49c875187db6fbdc3d1e"
+version = "0.1.18"
+source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1462,13 +1463,13 @@ dependencies = [
 
 [[package]]
 name = "fluence-faas"
-version = "0.1.17"
-source = "git+https://github.com/fluencelabs/fce?branch=master#725f6e65f32b8503faae49c875187db6fbdc3d1e"
+version = "0.1.18"
+source = "git+https://github.com/fluencelabs/fce?branch=master#f022a2dec4229f1dd739794e98a0e5d080ea13d5"
 dependencies = [
  "cmd_lib",
  "fce",
  "fce-utils",
- "fluence-sdk-main 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fluence-sdk-main",
  "itertools 0.9.0",
  "log",
  "safe-transmute",
@@ -1484,7 +1485,7 @@ dependencies = [
 
 [[package]]
 name = "fluence-libp2p"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "base64 0.13.0",
@@ -1506,15 +1507,7 @@ version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f79abced6cdfdd7089b0accad0d9c760bf9d2e82ae1bec851383e061cb40790"
 dependencies = [
- "fluence-sdk-wit 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "fluence-sdk-macro"
-version = "0.2.13"
-source = "git+https://github.com/fluencelabs/rust-sdk#71591f412cb65879d74e8c38838e827ab74d8802"
-dependencies = [
- "fluence-sdk-wit 0.2.13 (git+https://github.com/fluencelabs/rust-sdk)",
+ "fluence-sdk-wit",
 ]
 
 [[package]]
@@ -1523,17 +1516,7 @@ version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2348d5b5000012f9da835e52f7473e08dff6345e9beba2e80a91b801e48ac0b6"
 dependencies = [
- "fluence-sdk-macro 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "log",
- "serde",
-]
-
-[[package]]
-name = "fluence-sdk-main"
-version = "0.2.13"
-source = "git+https://github.com/fluencelabs/rust-sdk#71591f412cb65879d74e8c38838e827ab74d8802"
-dependencies = [
- "fluence-sdk-macro 0.2.13 (git+https://github.com/fluencelabs/rust-sdk)",
+ "fluence-sdk-macro",
  "log",
  "serde",
 ]
@@ -1543,19 +1526,6 @@ name = "fluence-sdk-wit"
 version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da5f51cddeae52ff5b91d1a5d8be90e54629f4887f89f8d7501b829b374fe6a"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
- "uuid",
-]
-
-[[package]]
-name = "fluence-sdk-wit"
-version = "0.2.13"
-source = "git+https://github.com/fluencelabs/rust-sdk#71591f412cb65879d74e8c38838e827ab74d8802"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1965,7 +1935,7 @@ dependencies = [
 
 [[package]]
 name = "host-closure"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "control-macro",
  "fce",
@@ -2126,7 +2096,7 @@ checksum = "dc6f3ad7b9d11a0c00842ff8de1b60ee58661048eb8049ed33c73594f359d7e6"
 
 [[package]]
 name = "ivalue-utils"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde_json",
  "wasmer-interface-types-fl",
@@ -2143,8 +2113,10 @@ dependencies = [
 
 [[package]]
 name = "json-utils"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
+ "base64 0.13.0",
+ "serde",
  "serde_json",
 ]
 
@@ -2981,10 +2953,11 @@ dependencies = [
 
 [[package]]
 name = "particle-actors"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "aquamarine-vm",
  "async-std",
+ "base64 0.13.0",
  "chrono",
  "config-utils",
  "fluence-libp2p",
@@ -3000,7 +2973,7 @@ dependencies = [
 
 [[package]]
 name = "particle-behaviour"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3030,7 +3003,7 @@ dependencies = [
 
 [[package]]
 name = "particle-closures"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bs58",
  "config-utils",
@@ -3041,6 +3014,7 @@ dependencies = [
  "json-utils",
  "libp2p",
  "log",
+ "parking_lot 0.11.1",
  "particle-actors",
  "particle-dht",
  "particle-protocol",
@@ -3052,7 +3026,7 @@ dependencies = [
 
 [[package]]
 name = "particle-dht"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bs58",
  "control-macro",
@@ -3073,7 +3047,7 @@ dependencies = [
 
 [[package]]
 name = "particle-modules"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "fce-wit-parser",
@@ -3090,13 +3064,14 @@ dependencies = [
 
 [[package]]
 name = "particle-protocol"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "async-std",
  "failure",
  "fluence-libp2p",
  "futures",
  "humantime-serde",
+ "json-utils",
  "libp2p",
  "log",
  "rand 0.7.3",
@@ -3107,7 +3082,7 @@ dependencies = [
 
 [[package]]
 name = "particle-providers"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "control-macro",
  "fluence-libp2p",
@@ -3119,7 +3094,7 @@ dependencies = [
 
 [[package]]
 name = "particle-server"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "air-interpreter-wasm",
  "anyhow",
@@ -3161,7 +3136,7 @@ dependencies = [
 
 [[package]]
 name = "particle-services"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "config-utils",
  "fluence-app-service",
@@ -4067,7 +4042,7 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 [[package]]
 name = "stepper-interface"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquamarine?branch=master#b967a63abca9742d6764e9b27926025d5e2b2efb"
+source = "git+https://github.com/fluencelabs/aquamarine?branch=master#5cb4cc0fb0c149a4bd3160dd0bac9c3d5ac3db7d"
 dependencies = [
  "fluence",
  "serde",
@@ -4165,7 +4140,7 @@ dependencies = [
 
 [[package]]
 name = "test-utils"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "air-interpreter-wasm",
  "anyhow",
@@ -4343,7 +4318,7 @@ dependencies = [
 
 [[package]]
 name = "trust-graph"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bs58",
  "derivative",
@@ -4531,7 +4506,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "waiting-queues"
-version = "0.0.1"
+version = "0.1.0"
 
 [[package]]
 name = "waker-fn"

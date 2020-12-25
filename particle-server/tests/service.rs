@@ -17,12 +17,13 @@
 #[macro_use]
 extern crate fstrings;
 
-use test_utils::{create_greeting_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use std::thread::sleep;
 
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
-use std::thread::sleep;
+
+use test_utils::{create_greeting_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
 fn create_service() {
@@ -37,12 +38,12 @@ fn create_service() {
     let script = f!(r#"
         (seq
             (seq
-                (call relay ("op" "identity") [])
-                (call host (service_id "greeting") [my_name] greeting)
+                (call "{client2.node}" ("op" "identity") [])
+                (call "{client1.node}" (service_id "greeting") [my_name] greeting)
             )
             (seq
-                (call relay ("op" "identity") [])
-                (call client ("return" "") [greeting])
+                (call "{client2.node}" ("op" "identity") [])
+                (call "{client2.peer_id}" ("return" "") [greeting])
             )
         )"#);
     client2.send_particle(
