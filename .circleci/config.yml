@@ -29,7 +29,7 @@ jobs:
           paths:
             - .dockerignore
             - Dockerfile
-            - target/release-particle-server
+            - target/release/particle-server
             - deploy/Config.default.toml
       - save_cache:
           paths:
@@ -47,7 +47,7 @@ jobs:
           docker-password: DOCKERHUB_TOKEN
           docker-username: DOCKERHUB_USERNAME
       - docker/build:
-          image: fluencelabs/fluence:${CIRCLE_BRANCH}
+          image: fluencelabs/fluence
           tag: ${CIRCLE_BRANCH}
           extra_build_args: --build-arg exe=./target/release/particle-server --build-arg config=./deploy/Config.default.toml
       - docker/push:
