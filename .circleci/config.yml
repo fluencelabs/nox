@@ -45,12 +45,19 @@ jobs:
       - docker/check:
           docker-password: DOCKERHUB_TOKEN
           docker-username: DOCKERHUB_USERNAME
-      - docker/publish:
+      - docker/build:
           image: fluencelabs/fluence:${CIRCLE_BRANCH}
           tag: ${CIRCLE_BRANCH}
           extra_build_args: --build-arg exe=./target/release/particle-server --build-arg config=./deploy/Config.default.toml
-          docker-password: DOCKERHUB_TOKEN
-          docker-username: DOCKERHUB_USERNAME
+      - docker/push:
+          image: fluencelabs/fluence:${CIRCLE_BRANCH}
+          tag: ${CIRCLE_BRANCH}
+#      - docker/publish:
+#          image: fluencelabs/fluence:${CIRCLE_BRANCH}
+#          tag: ${CIRCLE_BRANCH}
+#          extra_build_args: --build-arg exe=./target/release/particle-server --build-arg config=./deploy/Config.default.toml
+#          docker-password: DOCKERHUB_TOKEN
+#          docker-username: DOCKERHUB_USERNAME
 
 workflows:
   version: 2
