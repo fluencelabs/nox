@@ -46,8 +46,8 @@ jobs:
           at: .
       - setup_remote_docker
       - docker/check:
-          docker-password: $DOCKERHUB_TOKEN
-          docker-username: $DOCKERHUB_USERNAME
+          docker-password: DOCKERHUB_TOKEN
+          docker-username: DOCKERHUB_USERNAME
       - docker/build:
           image: fluencelabs/fluence
           tag: ${CIRCLE_BRANCH}
