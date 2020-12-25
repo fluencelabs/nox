@@ -30,6 +30,8 @@ use std::path::PathBuf;
 pub struct PersistedService {
     pub service_id: String,
     pub blueprint_id: String,
+    // Old versions of PersistedService may omit `owner` field, tolerate that
+    #[serde(default)]
     pub owner_id: String,
 }
 
