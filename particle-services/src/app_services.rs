@@ -100,6 +100,7 @@ impl ParticleAppServices {
 
     pub fn call_service(&self) -> ParticleClosure {
         let services = self.services.clone();
+        let host_id = self.config.current_peer_id.clone();
 
         Arc::new(move |particle_params, args| {
             let call = || -> Result<JValue, ServiceError> {
@@ -109,7 +110,7 @@ impl ParticleAppServices {
                     .ok_or_else(|| ServiceError::NoSuchInstance(args.service_id.clone()))?;
 
                 let params = CallParameters {
-                    host_id: "".to_string(), // TODO: pass host_id
+                    host_id: host_id.clone(),
                     init_peer_id: particle_params.init_user_id,
                     particle_id: particle_params.particle_id,
                     tetraplets: args.tetraplets,
