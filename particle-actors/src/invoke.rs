@@ -94,7 +94,7 @@ fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
 pub fn parse_outcome(
     outcome: Result<StepperOutcome, AquamarineVMError>,
 ) -> Result<(Vec<u8>, Vec<PeerId>), ExecutionError> {
-    let outcome = outcome.map_err(|err| ExecutionError::AquamarineError(err))?;
+    let outcome = outcome.map_err(ExecutionError::AquamarineError)?;
 
     if outcome.ret_code != 0 {
         return Err(ExecutionError::StepperOutcome {

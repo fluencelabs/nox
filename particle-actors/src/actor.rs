@@ -129,7 +129,7 @@ impl Actor {
             }
 
             let effects = match parse_outcome(result) {
-                Ok((data, targets)) if targets.len() > 0 => {
+                Ok((data, targets)) if !targets.is_empty() => {
                     #[rustfmt::skip]
                     log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
                     let particle = Particle {
@@ -184,6 +184,7 @@ impl Actor {
 
 fn protocol_error(mut particle: Particle, err: impl Debug) -> ActorEvent {
     let error = format!("{:?}", err);
+    // Convert error to JSON string so client can read it
     particle.data = json!({"protocol!error": error, "data": base64::encode(particle.data)})
         .to_string()
         .into_bytes();
