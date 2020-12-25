@@ -2999,7 +2999,6 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
- "test-utils",
  "trust-graph",
  "waiting-queues",
 ]
@@ -3018,7 +3017,6 @@ dependencies = [
  "libp2p",
  "log",
  "parking_lot 0.11.1",
- "particle-actors",
  "particle-dht",
  "particle-protocol",
  "ref-cast",

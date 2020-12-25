@@ -32,4 +32,3 @@ anyhow = "1.0.34"
 [dev-dependencies]
 async-std = { version = "1.6.5", features = ["unstable"] }
 rand = "0.7.3"
-test-utils = { path = "../crates/test-utils" }
