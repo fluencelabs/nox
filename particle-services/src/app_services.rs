@@ -20,7 +20,7 @@ use crate::persistence::load_persisted_services;
 use crate::vm::create_vm;
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use host_closure::{closure, closure_args, Args, Closure};
+use host_closure::{closure, closure_args, Args, Closure, FCEServiceClosure};
 
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -92,10 +92,10 @@ impl ParticleAppServices {
         })
     }
 
-    pub fn call_service(&self) -> Closure {
+    pub fn call_service(&self) -> FCEServiceClosure {
         let services = self.services.clone();
 
-        Arc::new(move |args| {
+        Arc::new(move |particle_params, args| {
             let call = || -> Result<JValue, ServiceError> {
                 let services = services.read();
                 let vm = services
@@ -103,6 +103,8 @@ impl ParticleAppServices {
                     .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
                 let params = CallParameters {
                     tetraplets: args.tetraplets,
+                    init_peer_id: particle_params.init_user_id,
+                    particle_id: particle_params.particle_id,
                     ..<_>::default()
                 };
                 let result = vm

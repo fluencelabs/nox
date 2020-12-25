@@ -23,7 +23,6 @@ use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 
-use particle_protocol::Particle;
 use test_utils::{create_greeting_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
