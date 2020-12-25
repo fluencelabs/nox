@@ -8,6 +8,3 @@ edition = "2018"
 serde = "1.0.118"
 serde_json = "1.0.60"
 base64 = "0.13.0"
-
-[dev-dependencies]
-serde = { version = ""}
