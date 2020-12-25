@@ -20,15 +20,17 @@ jobs:
           rustup toolchain install nightly-2020-12-15-x86_64-unknown-linux-gnu
           rustup default nightly-2020-12-15-x86_64-unknown-linux-gnu
           cargo build --release --all-features
-          cargo test --release --all-features
+#          cargo test --release --all-features
       - persist_to_workspace:
           # Must be an absolute path, or relative path from working_directory.
           # This is a directory on the container which is taken to be the root directory of the workspace.
           root: .
           # Must be relative path from root
           paths:
-            - target
-            - deploy
+            - .dockerignore
+            - Dockerfile
+            - target/release-particle-server
+            - deploy/Config.default.toml
       - save_cache:
           paths:
             - ~/.cargo
@@ -41,7 +43,6 @@ jobs:
       - attach_workspace:
           at: .
       - setup_remote_docker
-      - checkout
       - docker/check:
           docker-password: DOCKERHUB_TOKEN
           docker-username: DOCKERHUB_USERNAME
