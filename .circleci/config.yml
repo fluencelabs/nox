@@ -53,7 +53,7 @@ jobs:
           tag: ${CIRCLE_BRANCH}
           extra_build_args: --build-arg exe=./target/release/particle-server --build-arg config=./deploy/Config.default.toml
       - docker/push:
-          image: fluencelabs/fluence:${CIRCLE_BRANCH}
+          image: fluencelabs/fluence
           tag: ${CIRCLE_BRANCH}
 #      - docker/publish:
 #          image: fluencelabs/fluence:${CIRCLE_BRANCH}
