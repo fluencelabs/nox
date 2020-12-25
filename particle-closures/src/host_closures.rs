@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use host_closure::{Args, Closure, ClosureDescriptor, FCEServiceClosure, ParticleParams};
+use host_closure::{Args, Closure, ClosureDescriptor, FCEServiceClosure, ParticleParameters};
 use ivalue_utils::{ok, IValue};
 
 use serde_json::{json, Value as JValue};
@@ -46,7 +46,7 @@ impl HostClosures {
         })
     }
 
-    fn route(&self, particle: ParticleParams, args: Vec<IValue>) -> Option<IValue> {
+    fn route(&self, particle: ParticleParameters, args: Vec<IValue>) -> Option<IValue> {
         let args = match Args::parse(args) {
             Ok(args) => args,
             Err(err) => {

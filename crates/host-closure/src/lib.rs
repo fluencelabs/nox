@@ -8,4 +8,4 @@ pub use closure::{
     closure, closure_args, closure_opt, Closure, ClosureDescriptor, FCEServiceClosure,
 };
 
-pub use aquamarine_vm::ParticleParams;
+pub use aquamarine_vm::ParticleParameters;
