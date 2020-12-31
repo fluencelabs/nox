@@ -193,7 +193,8 @@ checksum = "ee67c11feeac938fae061b232e38e0b6d94f97a9df10e6271319325ac4c56a86"
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.7"
-source = "git+https://github.com/fluencelabs/fce?branch=master#849903372042a8dae5da1d491024aea8682d4771"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adc9d47edd484f08eca1763b524ebcc463ff5da570039250421108677ccd8326"
 dependencies = [
  "fluence-faas",
  "log",
@@ -201,7 +202,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "serde",
  "serde_json",
- "stepper-interface 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stepper-interface",
 ]
 
 [[package]]
@@ -1333,7 +1334,8 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.15"
-source = "git+https://github.com/fluencelabs/fce?branch=master#849903372042a8dae5da1d491024aea8682d4771"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fef29a9a40176efd316d4d3b1ee1b175bab9dcc499d34865085254ae499ec235"
 dependencies = [
  "boolinator",
  "fce-utils",
@@ -1355,12 +1357,14 @@ dependencies = [
 [[package]]
 name = "fce-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=master#849903372042a8dae5da1d491024aea8682d4771"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcdd9d63fa5f87e03514ba8ca3bb91a25121bbf1c63a26df710f166ab8f274f7"
 
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.10"
-source = "git+https://github.com/fluencelabs/fce?branch=master#849903372042a8dae5da1d491024aea8682d4771"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55abe4c58cc4dcc12b7de74cc2f71d7c5e9160ace70231e2de1a7a34f282ff67"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1369,7 +1373,8 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.12"
-source = "git+https://github.com/fluencelabs/fce?branch=master#849903372042a8dae5da1d491024aea8682d4771"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa833e5c679fda89a13ef060a73d5b9e0cb2b269e73411ed33386286c9ddff9a"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1427,7 +1432,8 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.19"
-source = "git+https://github.com/fluencelabs/fce?branch=master#849903372042a8dae5da1d491024aea8682d4771"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e6e7d4419378ee320eeab555195cc94df1c4cba009e8a008bebfade9f12c15d"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1466,7 +1472,8 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.19"
-source = "git+https://github.com/fluencelabs/fce?branch=master#849903372042a8dae5da1d491024aea8682d4771"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54c16512a90ae9c97c6d475084540728ccb8738c2049c46bcad97e18435e39fd"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -3015,7 +3022,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "particle-protocol",
  "serde_json",
- "stepper-interface 0.1.1 (git+https://github.com/fluencelabs/aquamarine)",
+ "stepper-interface",
 ]
 
 [[package]]
@@ -4097,16 +4104,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "stepper-interface"
-version = "0.1.1"
-source = "git+https://github.com/fluencelabs/aquamarine?branch=master#8ad7c0c7658da7167e040a1d8dc1c54cc5c30ba3"
-dependencies = [
- "fluence",
- "fluence-it-types",
- "serde",
-]
-
-[[package]]
 name = "stream-cipher"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4226,7 +4223,7 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
- "stepper-interface 0.1.1 (git+https://github.com/fluencelabs/aquamarine)",
+ "stepper-interface",
  "toml",
  "trust-graph",
  "uuid",

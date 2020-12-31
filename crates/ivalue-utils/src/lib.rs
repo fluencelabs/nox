@@ -25,6 +25,7 @@
     unreachable_patterns
 )]
 
+use fluence_it_types::ne_vec::NEVec;
 pub use fluence_it_types::IType;
 pub use fluence_it_types::IValue;
 
