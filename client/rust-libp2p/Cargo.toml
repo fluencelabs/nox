@@ -9,7 +9,7 @@ particle-protocol = { path = "../../particle-protocol" }
 fluence-libp2p = { path = "../../crates/libp2p" }
 ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
 
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
 
 multihash ="0.11.4"
 async-std = "1.6.5"

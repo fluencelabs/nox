@@ -25,12 +25,10 @@
     unreachable_patterns
 )]
 
-pub use wasmer_wit::types::InterfaceType as IType;
-pub use wasmer_wit::values::InterfaceValue as IValue;
-pub use wasmer_wit::vec1;
+pub use fluence_it_types::IType;
+pub use fluence_it_types::IValue;
 
 use serde_json::{json, Value as JValue};
-use vec1::Vec1;
 
 pub fn as_str(v: &IValue) -> Option<&str> {
     if let IValue::String(s) = v {
@@ -69,7 +67,7 @@ pub fn into_record(v: std::result::Result<JValue, JValue>) -> Option<IValue> {
 pub fn ok(value: JValue) -> Option<IValue> {
     let value = IValue::String(value.to_string());
     Some(IValue::Record(
-        Vec1::new(vec![IValue::U32(0), value]).unwrap(),
+        NEVec::new(vec![IValue::U32(0), value]).unwrap(),
     ))
 }
 
@@ -82,14 +80,14 @@ pub fn ivalue_ok(value: IValue) -> Option<IValue> {
 pub fn error(err: JValue) -> Option<IValue> {
     let err = IValue::String(err.to_string());
     Some(IValue::Record(
-        Vec1::new(vec![IValue::U32(1), err]).unwrap(),
+        NEVec::new(vec![IValue::U32(1), err]).unwrap(),
     ))
 }
 
 /// Converts empty result of call_service into `IValue::Record`
 pub fn unit() -> Option<IValue> {
     Some(IValue::Record(
-        Vec1::new(vec![IValue::S32(0), IValue::String("\"\"".to_string())]).unwrap(),
+        NEVec::new(vec![IValue::S32(0), IValue::String("\"\"".to_string())]).unwrap(),
     ))
 }
 

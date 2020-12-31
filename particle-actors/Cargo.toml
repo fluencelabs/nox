@@ -13,7 +13,7 @@ host-closure = { path = "../crates/host-closure" }
 aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
 stepper-interface = { git = "https://github.com/fluencelabs/aquamarine", branch = "master" }
 
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
 
 futures = "0.3.5"
 log = "0.4.11"
