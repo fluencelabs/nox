@@ -1486,6 +1486,73 @@ dependencies = [
 ]
 
 [[package]]
+name = "fluence-fork-libp2p-core"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f368a67c40d664b3fa3acec07c1fe0a0928fc43abc124e2085673abfd5f82e09"
+dependencies = [
+ "asn1_der",
+ "bs58",
+ "ed25519-dalek",
+ "either",
+ "fluence-fork-multistream-select",
+ "fluence-fork-parity-multiaddr",
+ "fnv",
+ "futures",
+ "futures-timer",
+ "lazy_static",
+ "libsecp256k1",
+ "log",
+ "multihash",
+ "parking_lot 0.10.2",
+ "pin-project 0.4.27",
+ "prost",
+ "prost-build",
+ "rand 0.7.3",
+ "ring",
+ "rw-stream-sink",
+ "serde",
+ "sha2 0.8.2",
+ "smallvec",
+ "thiserror",
+ "unsigned-varint 0.4.0",
+ "void",
+ "zeroize",
+]
+
+[[package]]
+name = "fluence-fork-multistream-select"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d74cf6df169bacfb05aaf5ecc6fbea7b9831c1d9783b8090fc08ebfda5cbb919"
+dependencies = [
+ "bytes",
+ "futures",
+ "log",
+ "pin-project 0.4.27",
+ "smallvec",
+ "unsigned-varint 0.4.0",
+]
+
+[[package]]
+name = "fluence-fork-parity-multiaddr"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06d417bafe2102ec4b7d2b239f36b2bd05f7a112113ffc0223af9e0a15f503af"
+dependencies = [
+ "arrayref",
+ "bs58",
+ "byteorder 1.3.4",
+ "data-encoding",
+ "multihash",
+ "percent-encoding",
+ "serde",
+ "static_assertions",
+ "unsigned-varint 0.4.0",
+ "url",
+]
+
+[[package]]
 name = "fluence-libp2p"
 version = "0.1.0"
 dependencies = [
@@ -4325,7 +4392,7 @@ dependencies = [
  "derivative",
  "ed25519-dalek",
  "failure",
- "libp2p-core",
+ "fluence-fork-libp2p-core",
  "log",
  "rand 0.7.3",
  "ref-cast",
