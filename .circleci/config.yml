@@ -4,44 +4,53 @@ orbs:
   docker: circleci/docker@1.5.0
 
 jobs:
+  Build:
+    docker:
+      - image: circleci/rust:latest
+      resource_class: xlarge
+      environment:
+        RUST_BACKTRACE: 1
+      steps:
+        - checkout
+        - restore_cache:
+            keys:
+              - fluence03-{{ checksum "Cargo.lock" }}
+        - run: |
+            rustup toolchain install nightly-2020-12-15-x86_64-unknown-linux-gnu
+            rustup default nightly-2020-12-15-x86_64-unknown-linux-gnu
+            cargo build --release --all-features
+        - persist_to_workspace:
+            # Must be an absolute path, or relative path from working_directory.
+            # This is a directory on the container which is taken to be the root directory of the workspace.
+            root: .
+            # Must be relative path from root
+            paths:
+              - .dockerignore
+              - Dockerfile
+              - target/release/particle-server
+              - deploy/Config.default.toml
+        - save_cache:
+            paths:
+              - ~/.cargo
+              - ~/.rustup
+            key: fluence03-{{ checksum "Cargo.lock" }}
+
   Rust Tests:
     docker:
       - image: circleci/rust:latest
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: 1
-#      RUST_TEST_THREADS: 1
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - fluence03-{{ checksum "Cargo.lock" }}
-      - run: |
-          rustup toolchain install nightly-2020-12-15-x86_64-unknown-linux-gnu
-          rustup default nightly-2020-12-15-x86_64-unknown-linux-gnu
-          cargo build --release --all-features
-#          cargo test --release --all-features
-      - persist_to_workspace:
-          # Must be an absolute path, or relative path from working_directory.
-          # This is a directory on the container which is taken to be the root directory of the workspace.
-          root: .
-          # Must be relative path from root
-          paths:
-            - .dockerignore
-            - Dockerfile
-            - target/release/particle-server
-            - deploy/Config.default.toml
-      - save_cache:
-          paths:
-            - ~/.cargo
-            - ~/.rustup
-          key: fluence03-{{ checksum "Cargo.lock" }}
+      - attach_workspace:
+          at: .
+      - run: cargo test --release --all-features
+
   Publish Docker Container:
     executor: docker/docker
     resource_class: xlarge
     steps:
-      - run: |
-          echo "username is $DOCKERHUB_USERNAME"
       - attach_workspace:
           at: .
       - setup_remote_docker
@@ -55,18 +64,16 @@ jobs:
       - docker/push:
           image: fluencelabs/fluence
           tag: ${CIRCLE_BRANCH}
-#      - docker/publish:
-#          image: fluencelabs/fluence:${CIRCLE_BRANCH}
-#          tag: ${CIRCLE_BRANCH}
-#          extra_build_args: --build-arg exe=./target/release/particle-server --build-arg config=./deploy/Config.default.toml
-#          docker-password: DOCKERHUB_TOKEN
-#          docker-username: DOCKERHUB_USERNAME
+
 
 workflows:
   version: 2
   CircleCI:
     jobs:
-      - Rust Tests
+      - Build
+      - Rust Tests:
+          requires:
+            - Build
       - Publish Docker Container:
           requires:
-            - Rust Tests
+            - Build
