@@ -16,7 +16,7 @@ server-config = { path = "../crates/server-config" }
 
 air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.30" }
 
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
 multihash ="0.11.4"
 futures = "0.3.5"
 futures-util = "0.3.5"
@@ -47,7 +47,7 @@ fstrings = "0.2.3"
 particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }
 json-utils = { path = "../crates/json-utils" }
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+fluence-app-service = "0.1.19"
 fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"
 maplit = "1.0.2"

@@ -26,8 +26,5 @@ exclude = [
 ]
 
 [patch.crates-io]
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
-libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
-
-[patch.'https://github.com/fluencelabs/fluence']
 trust-graph = { path = "trust-graph" }
+

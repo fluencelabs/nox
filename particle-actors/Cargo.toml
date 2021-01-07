@@ -10,10 +10,10 @@ particle-protocol = { path = "../particle-protocol"}
 fluence-libp2p = { path = "../crates/libp2p" }
 config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
-aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
-stepper-interface = { git = "https://github.com/fluencelabs/aquamarine", branch = "master" }
+aquamarine-vm = "0.1.7"
+stepper-interface = "0.1.1"
 
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
 
 futures = "0.3.5"
 log = "0.4.11"

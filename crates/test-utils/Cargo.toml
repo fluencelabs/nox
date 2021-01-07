@@ -16,11 +16,11 @@ particle-server = { path = "../../particle-server" }
 particle-protocol = { path = "../../particle-protocol" }
 particle-actors = { path = "../../particle-actors" }
 
-stepper-interface = { git = "https://github.com/fluencelabs/aquamarine", branch = "master" }
-air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.30" }
-aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "master" }
+stepper-interface = "0.1.1"
+air-interpreter-wasm = "0.0.30"
+aquamarine-vm = "0.1.7"
 
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "master" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
 
 rand = "0.7.3"
 async-std = "1.6.5"
