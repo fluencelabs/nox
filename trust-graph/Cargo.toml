@@ -14,7 +14,7 @@ failure = "0.1.6"
 log = "0.4.11"
 ref-cast = "1.0.2"
 derivative = "2.1.1"
-ed25519-dalek = "1.0.0-pre.3"
+ed25519-dalek = "1.0.1"
 
 [dev-dependencies]
 rand = "0.7.3"

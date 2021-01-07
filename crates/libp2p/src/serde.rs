@@ -25,9 +25,7 @@ pub mod peerid_serializer {
     where
         S: Serializer,
     {
-        bs58::encode(value.as_bytes())
-            .into_string()
-            .serialize(serializer)
+        value.to_base58().serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
@@ -37,28 +35,6 @@ pub mod peerid_serializer {
         let str = String::deserialize(deserializer)?;
         PeerId::from_str(&str).map_err(|e| {
             serde::de::Error::custom(format!("peer id deserialization failed for {:?}", e))
-        })
-    }
-}
-
-pub mod multihash_serializer {
-    use multihash::Multihash;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    pub fn serialize<S>(value: &Multihash, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        value.as_bytes().serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Multihash, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let vec = Vec::<u8>::deserialize(deserializer)?;
-        Multihash::from_bytes(vec).map_err(|e| {
-            serde::de::Error::custom(format!("peer id deserialization failed with {:?}", e))
         })
     }
 }
@@ -80,7 +56,7 @@ pub mod provider_serializer {
         let mut seq = serializer.serialize_seq(Some(2 * value.len()))?;
         for (multiaddr, peerid) in value {
             seq.serialize_element(multiaddr)?;
-            seq.serialize_element(&bs58::encode(peerid.as_bytes()).into_string())?;
+            seq.serialize_element(&peerid.to_base58())?;
         }
         seq.end()
     }
@@ -146,7 +122,7 @@ mod tests {
             peer_id_1: PeerId,
             #[serde(with = "peerid_serializer")]
             peer_id_2: PeerId,
-        };
+        }
 
         let peer_id_1 = RandomPeerId::random();
         let peer_id_2 = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
@@ -174,16 +150,13 @@ mod tests {
 
     #[test]
     fn multihash() {
-        use super::multihash_serializer;
         use multihash::Multihash;
 
         #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
         struct Test {
-            #[serde(with = "multihash_serializer")]
             multihash_1: Multihash,
-            #[serde(with = "multihash_serializer")]
             multihash_2: Multihash,
-        };
+        }
 
         let peer_id_1 = RandomPeerId::random();
         let peer_id_2 = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
@@ -218,7 +191,7 @@ mod tests {
         struct Test {
             #[serde(with = "provider_serializer")]
             providers: Vec<(Multiaddr, PeerId)>,
-        };
+        }
 
         let mut providers = Vec::new();
         let mut test_peer_ids = Vec::new();

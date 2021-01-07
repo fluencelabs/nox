@@ -1,11 +1,11 @@
 [package]
 name = "particle-protocol"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
 fluence-libp2p = { path = "../crates/libp2p" }
 json-utils = { path = "../crates/json-utils" }
 

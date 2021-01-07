@@ -1,6 +1,6 @@
 [package]
 name = "particle-actors"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 
@@ -13,7 +13,7 @@ host-closure = { path = "../crates/host-closure" }
 aquamarine-vm = "0.1.7"
 stepper-interface = "0.1.1"
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
 
 futures = "0.3.5"
 log = "0.4.11"

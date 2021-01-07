@@ -1,6 +1,6 @@
 [package]
 name = "fluence-client"
-version = "0.0.5"
+version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 
@@ -9,9 +9,9 @@ particle-protocol = { path = "../../particle-protocol" }
 fluence-libp2p = { path = "../../crates/libp2p" }
 ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
 
-multihash ="0.11.4"
+multihash ="0.13"
 async-std = "1.6.5"
 futures = "0.3.5"
 futures-util = "0.3.5"

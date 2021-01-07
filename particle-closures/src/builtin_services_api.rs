@@ -18,6 +18,7 @@ use crate::mailbox::{BuiltinCommand, Command, Destination};
 
 use host_closure::{closure, Args, ArgsError, Closure};
 
+use multihash::Multihash;
 use serde_json::Value as JValue;
 use std::sync::mpsc as std_mpsc;
 
@@ -40,7 +41,11 @@ impl BehaviourMailboxApi {
 
     pub fn neighborhood(self) -> Closure {
         closure(move |args| {
-            let key = from_base58("key", &mut args.into_iter())?.into();
+            let key = from_base58("key", &mut args.into_iter())?;
+            let key = Multihash::from_bytes(&key).map_err(|err| ArgsError::InvalidFormat {
+                field: "key",
+                err: format!("not a multihash: {}", err).into(),
+            })?;
             self.clone().exec(BuiltinCommand::DHTNeighborhood(key))
         })
     }
@@ -65,6 +70,6 @@ fn from_base58(
         .into_vec()
         .map_err(|err| ArgsError::InvalidFormat {
             field: "key",
-            err: format!("not a base58: {:?}", err).into(),
+            err: format!("not a base58: {}", err).into(),
         })
 }

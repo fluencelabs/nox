@@ -75,7 +75,7 @@ impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent>
 {
     fn into(self) -> OneShotHandler<ProtocolConfig, OutProto, OutEvent> {
         OneShotHandler::new(
-            protocols_handler::SubstreamProtocol::new(self.clone())
+            protocols_handler::SubstreamProtocol::new(self.clone(), ())
                 .with_timeout(self.upgrade_timeout),
             OneShotHandlerConfig {
                 keep_alive_timeout: self.keep_alive_timeout,

@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-use libp2p::{
-    core::{self, muxing::StreamMuxer},
-    dns,
-    identity::Keypair,
-    secio::SecioConfig,
-    PeerId, Transport,
-};
+use libp2p::core::muxing::StreamMuxerBox;
+use libp2p::core::transport::Boxed;
+use libp2p::{core, dns, identity::Keypair, PeerId, Transport};
+use libp2p_secio::SecioConfig;
 use std::time::Duration;
 
 /// Creates transport that is common for all connections.
@@ -30,25 +27,11 @@ use std::time::Duration;
 pub fn build_transport(
     key_pair: Keypair,
     socket_timeout: Duration,
-) -> impl Transport<
-    Output = (
-        PeerId,
-        impl StreamMuxer<
-            OutboundSubstream = impl Send,
-            Substream = impl Send,
-            Error = impl Into<std::io::Error>,
-        > + Send
-            + Sync,
-    ),
-    Error = impl std::error::Error + Send,
-    Listener = impl Send,
-    Dial = impl Send,
-    ListenerUpgrade = impl Send,
-> + Clone {
+) -> Boxed<(PeerId, StreamMuxerBox)> {
     let multiplex = {
         let mut mplex = libp2p::mplex::MplexConfig::default();
-        mplex.max_substreams(1024 * 1024);
-        let mut yamux = libp2p::yamux::Config::default();
+        mplex.set_max_num_streams(1024 * 1024);
+        let mut yamux = libp2p::yamux::YamuxConfig::server();
         yamux.set_max_num_streams(1024 * 1024);
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
@@ -66,27 +49,12 @@ pub fn build_transport(
         .authenticate(secio)
         .multiplex(multiplex)
         .timeout(socket_timeout)
+        .boxed()
 }
 
-pub fn build_memory_transport(
-    key_pair: Keypair,
-) -> impl Transport<
-    Output = (
-        PeerId,
-        impl StreamMuxer<
-            OutboundSubstream = impl Send,
-            Substream = impl Send,
-            Error = impl Into<std::io::Error>,
-        > + Send
-            + Sync,
-    ),
-    Error = impl std::error::Error + Send,
-    Listener = impl Send,
-    Dial = impl Send,
-    ListenerUpgrade = impl Send,
-> + Clone {
+pub fn build_memory_transport(key_pair: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     use libp2p::{
-        core::{muxing::StreamMuxerBox, transport::MemoryTransport, upgrade},
+        core::{transport::MemoryTransport, upgrade},
         plaintext::PlainText2Config,
         yamux,
     };
@@ -95,7 +63,7 @@ pub fn build_memory_transport(
         .authenticate(PlainText2Config {
             local_public_key: key_pair.public(),
         })
-        .multiplex(yamux::Config::default())
+        .multiplex(yamux::YamuxConfig::server())
         .map(|(p, m), _| (p, StreamMuxerBox::new(m)))
         .boxed()
 }
