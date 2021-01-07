@@ -38,14 +38,14 @@ jobs:
   Rust Tests:
     docker:
       - image: circleci/rust:latest
-    resource_class: xlarge
-    environment:
-      RUST_BACKTRACE: 1
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run: cargo test --release --all-features
+      resource_class: xlarge
+      environment:
+        RUST_BACKTRACE: 1
+      steps:
+        - checkout
+        - attach_workspace:
+            at: .
+        - run: cargo test --release --all-features
 
   Publish Docker Container:
     executor: docker/docker
