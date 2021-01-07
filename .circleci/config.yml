@@ -57,13 +57,21 @@ jobs:
       - docker/check:
           docker-password: DOCKERHUB_TOKEN
           docker-username: DOCKERHUB_USERNAME
+
+      run: |
+        if [ "$CIRCLE_BRANCH" = "master" ]; then
+          echo "export DOCKER_TAG=latest" >> $BASH_ENV
+        elif
+          echo "export DOCKER_TAG=$CIRCLE_BRANCH" >> $BASH_ENV
+        fi
+
       - docker/build:
           image: fluencelabs/fluence
-          tag: ${CIRCLE_BRANCH}
+          tag: ${DOCKER_TAG}
           extra_build_args: --build-arg exe=./target/release/particle-server --build-arg config=./deploy/Config.default.toml
       - docker/push:
           image: fluencelabs/fluence
-          tag: ${CIRCLE_BRANCH}
+          tag: ${DOCKER_TAG}
 
 
 workflows:
