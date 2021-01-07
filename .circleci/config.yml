@@ -58,7 +58,7 @@ jobs:
           docker-password: DOCKERHUB_TOKEN
           docker-username: DOCKERHUB_USERNAME
 
-      run: |
+      - run: |
         if [ "$CIRCLE_BRANCH" = "master" ]; then
           echo "export DOCKER_TAG=latest" >> $BASH_ENV
         elif
