@@ -31,7 +31,7 @@ pub fn build_transport(
     let multiplex = {
         let mut mplex = libp2p::mplex::MplexConfig::default();
         mplex.set_max_num_streams(1024 * 1024);
-        let mut yamux = libp2p::yamux::YamuxConfig::server();
+        let mut yamux = libp2p::yamux::YamuxConfig::default();
         yamux.set_max_num_streams(1024 * 1024);
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
@@ -63,7 +63,7 @@ pub fn build_memory_transport(key_pair: Keypair) -> Boxed<(PeerId, StreamMuxerBo
         .authenticate(PlainText2Config {
             local_public_key: key_pair.public(),
         })
-        .multiplex(yamux::YamuxConfig::server())
+        .multiplex(yamux::YamuxConfig::default())
         .map(|(p, m), _| (p, StreamMuxerBox::new(m)))
         .boxed()
 }
