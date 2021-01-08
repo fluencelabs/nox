@@ -41,9 +41,7 @@ impl BehaviourMailboxApi {
 
     pub fn neighborhood(self) -> Closure {
         closure(move |args| {
-            log::warn!("neighborhood args: {:#?}", args);
             let key = from_base58("key", &mut args.into_iter())?;
-            log::warn!("neighborhood key from base58: {:?}", key);
             let key = Code::Sha2_256.digest(&key);
             self.clone().exec(BuiltinCommand::DHTNeighborhood(key))
         })
