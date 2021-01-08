@@ -1,0 +1,13 @@
+[package]
+name = "connection-pool"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+particle-protocol = { path = "../particle-protocol"}
+fluence-libp2p = { path = "../crates/libp2p" }
+
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
+
+futures = "0.3.8"

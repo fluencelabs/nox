@@ -19,7 +19,8 @@ members = [
     "particle-services",
     "particle-closures",
     "particle-modules",
-    "particle-providers"
+    "particle-providers",
+    "connection-pool"
 ]
 exclude = [
     "client/js-websocket/utils-wasm",
