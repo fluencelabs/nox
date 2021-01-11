@@ -14,11 +14,19 @@
  * limitations under the License.
  */
 
+use crate::connection_pool::{ConnectionPool, Contact};
+
+use fluence_libp2p::generate_swarm_event_type;
+use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
 use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
-use std::collections::VecDeque;
+
+use std::collections::{HashMap, VecDeque};
 use std::task::{Context, Poll, Waker};
 
-use fluence_libp2p::types::Outlet;
+use futures::channel::mpsc;
+use futures::future;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use libp2p::core::connection::ConnectionId;
 use libp2p::core::either::EitherOutput::{First, Second};
 use libp2p::core::Multiaddr;
@@ -28,13 +36,106 @@ use libp2p::swarm::{
 };
 use libp2p::PeerId;
 
-#[derive(::libp2p::NetworkBehaviour)]
+type SwarmEventType = generate_swarm_event_type!(NodeBehaviour);
+
+// #[derive(::libp2p::NetworkBehaviour)]
 struct NodeBehaviour {
-    pub(super) outlet: Outlet<Particle>,
+    pub(super) outlet: BackPressuredOutlet<Particle>,
+
+    pub(super) contacts: HashMap<PeerId, Contact>,
 
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
     pub(super) protocol_config: ProtocolConfig,
+}
+
+impl ConnectionPool for NodeBehaviour {
+    fn connect(&mut self, contact: Contact) -> BoxFuture<'_, bool> {
+        todo!()
+    }
+
+    fn disconnect(&mut self, contact: Contact) -> BoxFuture<'_, bool> {
+        todo!()
+    }
+
+    fn is_connected(&self, peer_id: &PeerId) -> bool {
+        self.contacts.contains_key(peer_id)
+    }
+
+    fn get_contact(&self, peer_id: &PeerId) -> Option<Contact> {
+        todo!()
+    }
+
+    fn send(&mut self, to: Contact, particle: Particle) -> BoxFuture<'_, bool> {
+        todo!()
+    }
+}
+
+impl NodeBehaviour {
+    pub fn new(buffer: usize) -> (Self, BackPressuredInlet<Particle>) {
+        let (outlet, inlet) = mpsc::channel(buffer);
+        let this = Self {
+            outlet,
+            contacts: <_>::default(),
+            events: VecDeque::<SwarmEventType>::default(),
+            waker: None,
+            protocol_config: <_>::default(),
+        };
+
+        (this, inlet)
+    }
+
+    pub fn kad_discover(&self, peer_id: PeerId) -> BoxFuture<'_, Contact> {
+        futures::future::ready(Contact {
+            peer_id,
+            addr: None,
+        })
+        .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::behaviour::NodeBehaviour;
+    use crate::connection_pool::ConnectionPool;
+
+    use async_std::task;
+    use futures::future::BoxFuture;
+    use futures::FutureExt;
+    use futures::StreamExt;
+    use libp2p::PeerId;
+    use particle_protocol::Particle;
+
+    fn fce_exec(particle: Particle) -> BoxFuture<'static, (Vec<PeerId>, Particle)> {
+        futures::future::ready((vec![particle.init_peer_id.clone()], particle)).boxed()
+    }
+
+    #[test]
+    fn run() {
+        let spawned = task::spawn(async move {
+            let (mut node, mut particles) = NodeBehaviour::new(100);
+
+            loop {
+                if let Some(particle) = particles.next().await {
+                    let (next_peers, particle) = fce_exec(particle).await;
+                    for peer in next_peers {
+                        let contact = match node.get_contact(&peer) {
+                            Some(contact) => contact,
+                            _ => {
+                                let contact = node.kad_discover(peer).await;
+                                node.connect(contact.clone()).await;
+                                contact
+                            }
+                        };
+
+                        node.send(contact, particle.clone()).await;
+                    }
+                }
+            }
+        });
+
+        task::block_on(spawned);
+    }
 }
 
 impl NetworkBehaviour for NodeBehaviour {
@@ -59,8 +160,6 @@ impl NetworkBehaviour for NodeBehaviour {
         connection: ConnectionId,
         event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent,
     ) {
-        use EitherOutput::{First, Second};
-
         match event {
             ProtocolMessage::Particle(particle) => {
                 // self.outlet.ingest(particle);

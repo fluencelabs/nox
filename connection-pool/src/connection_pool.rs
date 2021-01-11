@@ -14,29 +14,26 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::types::Outlet;
+use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use particle_protocol::Particle;
 
+use futures::future::BoxFuture;
 use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 
-struct Contact {
-    peer_id: PeerId,
-    addr: Option<Multiaddr>,
+#[derive(Debug, Clone)]
+pub struct Contact {
+    pub peer_id: PeerId,
+    pub addr: Option<Multiaddr>,
 }
 
-trait ConnectionPool {
-    // TODO: return error? How, when?
-    //      for example if contact isn't reachable, but is that possible?
-    //      for client – NO. At first seems like yes, but if a client isn't connected, how do we know it's a client?
-    //      for peer – not sure.
-    fn send(to: Contact, particle: Particle);
+pub trait ConnectionPool {
+    fn connect(&mut self, contact: Contact) -> BoxFuture<bool>;
+    fn disconnect(&mut self, contact: Contact) -> BoxFuture<bool>;
+    fn is_connected(&self, peer_id: &PeerId) -> bool;
+    fn get_contact(&self, peer_id: &PeerId) -> Option<Contact>;
 
-    // TODO: how to implement it?
-    //       for clients – seems easy, but we only know it is a client if it is connected
-    //       for peers – how? Maybe only implement for clients, and for peers always return 'false'
-    // TODO: maybe name it 'is_client_connected'
-    fn is_connected(peer_id: PeerId) -> Outlet<bool>;
+    fn send(&mut self, to: Contact, particle: Particle) -> BoxFuture<bool>;
 }
 
 /*
