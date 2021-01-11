@@ -94,6 +94,8 @@ impl ParticleBehaviour {
         })
     }
 
+    /// Called on Identify event. That's when we got remote node's public key
+    /// TODO: why not take public key from PeerId and get rid of identify altogether?
     pub fn add_kad_node(
         &mut self,
         node_id: PeerId,

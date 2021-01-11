@@ -26,22 +26,24 @@ use std::task::{Context, Poll, Waker};
 use futures::channel::mpsc;
 use futures::channel::mpsc::SendError;
 use futures::future::BoxFuture;
-use futures::FutureExt;
 use futures::{future, SinkExt};
+use futures::{FutureExt, TryFutureExt};
 use libp2p::core::connection::ConnectionId;
 use libp2p::core::either::EitherOutput::{First, Second};
 use libp2p::core::{ConnectedPoint, Multiaddr};
 use libp2p::swarm::{
     DialPeerCondition, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
-    NetworkBehaviourEventProcess, OneShotHandler, PollParameters, ProtocolsHandler,
+    NetworkBehaviourEventProcess, NotifyHandler, OneShotHandler, PollParameters, ProtocolsHandler,
 };
 use libp2p::PeerId;
+use std::collections::hash_map::Entry;
 
 type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
+#[derive(Debug)]
 enum Peer {
     Connected(Multiaddr),
-    Dialing(Multiaddr, OneshotOutlet<bool>),
+    Dialing(Option<Multiaddr>, Vec<OneshotOutlet<bool>>),
 }
 
 // #[derive(::libp2p::NetworkBehaviour)]
@@ -49,7 +51,7 @@ struct ConnectionPoolBehaviour {
     pub(super) outlet: BackPressuredOutlet<Particle>,
     pub(super) queue: VecDeque<Particle>,
 
-    pub(super) contacts: HashMap<PeerId, Multiaddr>,
+    pub(super) contacts: HashMap<PeerId, Peer>,
 
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
@@ -60,15 +62,33 @@ impl ConnectionPool for ConnectionPoolBehaviour {
     fn connect(&mut self, contact: Contact) -> BoxFuture<'_, bool> {
         let (outlet, inlet) = futures::channel::oneshot::channel();
         self.events.push_back(NetworkBehaviourAction::DialPeer {
-            peer_id: contact.peer_id,
+            peer_id: contact.peer_id.clone(),
             condition: DialPeerCondition::Always,
         });
 
-        inlet.await
+        match self.contacts.entry(contact.peer_id.clone()) {
+            Entry::Occupied(mut entry) => match entry.get_mut() {
+                // TODO: add/replace multiaddr? if yes, do not forget to check connectivity
+                Peer::Connected(_) => return future::ready(true).boxed(),
+                Peer::Dialing(_, outlets) => outlets.push(outlet),
+            },
+            Entry::Vacant(slot) => {
+                slot.insert(Peer::Dialing(contact.addr, vec![outlet]));
+            }
+        }
+
+        inlet
+            .map(|r| {
+                r.map(|_| true).unwrap_or_else(|err| {
+                    log::warn!("error connecting to {}, oneshot cancelled", contact.peer_id);
+                    false
+                })
+            })
+            .boxed()
     }
 
     fn disconnect(&mut self, contact: Contact) -> BoxFuture<'_, bool> {
-        todo!()
+        todo!("haha, libp2p won't allow me doing that! {:?}", contact)
     }
 
     fn is_connected(&self, peer_id: &PeerId) -> bool {
@@ -76,11 +96,26 @@ impl ConnectionPool for ConnectionPoolBehaviour {
     }
 
     fn get_contact(&self, peer_id: &PeerId) -> Option<Contact> {
-        todo!()
+        match self.contacts.get(peer_id) {
+            Some(Peer::Connected(maddr)) => Some(Contact {
+                peer_id: peer_id.clone(),
+                addr: maddr.clone().into(),
+            }),
+            _ => None,
+        }
     }
 
     fn send(&mut self, to: Contact, particle: Particle) -> BoxFuture<'_, bool> {
-        todo!()
+        self.events
+            .push_back(NetworkBehaviourAction::NotifyHandler {
+                peer_id: to.peer_id,
+                handler: NotifyHandler::Any,
+                event: particle,
+            });
+
+        // TODO: how to check if a message was delivered? I mean... implementing custom ProtocolHandler, right?
+        //       gotta try RequestResponse handler.
+        future::ready(true).boxed()
     }
 }
 
@@ -133,7 +168,8 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         cp: &ConnectedPoint,
     ) {
         let multiaddr = remote_multiaddr(cp);
-        self.contacts.insert(peer_id.clone(), multiaddr.clone());
+        self.contacts
+            .insert(peer_id.clone(), Peer::Connected(multiaddr.clone()));
     }
 
     fn inject_event(
@@ -160,22 +196,25 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
 
         loop {
+            // Check backpressure on the outlet
             match self.outlet.poll_ready(cx) {
                 Poll::Ready(Ok(_)) => {
+                    // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
                         self.outlet.start_send(particle);
                     } else {
                         break;
                     }
                 }
-                Poll::Ready(Err(err)) => {
-                    log::warn!("ConnectionPool particle inlet has been dropped: {}", err);
-                    break;
-                }
                 Poll::Pending => {
+                    // if channel is full, then keep particles in the queue
                     if self.queue.len() > 100 {
                         log::warn!("Particle queue seems to have stalled");
                     }
+                    break;
+                }
+                Poll::Ready(Err(err)) => {
+                    log::warn!("ConnectionPool particle inlet has been dropped: {}", err);
                     break;
                 }
             }
