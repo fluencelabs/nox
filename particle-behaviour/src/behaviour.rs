@@ -19,7 +19,7 @@ use crate::ParticleConfig;
 
 use particle_actors::Plumber;
 use particle_dht::ParticleDHT;
-use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
+use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 use particle_services::ParticleAppServices;
 
 use fluence_libp2p::generate_swarm_event_type;
@@ -119,7 +119,7 @@ impl ParticleBehaviour {
         self.push_event(NetworkBehaviourAction::NotifyHandler {
             peer_id: target,
             handler: NotifyHandler::Any,
-            event: EitherOutput::First(ProtocolMessage::Particle(particle)),
+            event: EitherOutput::First(HandlerMessage::Particle(particle)),
         });
     }
 

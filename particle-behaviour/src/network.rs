@@ -17,7 +17,7 @@
 use crate::behaviour::SwarmEventType;
 use crate::ParticleBehaviour;
 
-use particle_protocol::{ProtocolConfig, ProtocolMessage};
+use particle_protocol::{HandlerMessage, ProtocolConfig};
 
 use fluence_libp2p::{poll_loop, remote_multiaddr};
 
@@ -42,7 +42,7 @@ use std::{
 
 impl NetworkBehaviour for ParticleBehaviour {
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
-        OneShotHandler<ProtocolConfig, ProtocolMessage, ProtocolMessage>,
+        OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>,
         <Kademlia<MemoryStore> as NetworkBehaviour>::ProtocolsHandler,
     >;
     type OutEvent = ();
@@ -83,12 +83,12 @@ impl NetworkBehaviour for ParticleBehaviour {
 
         match event {
             First(event) => match event {
-                ProtocolMessage::Particle(particle) => {
+                HandlerMessage::Particle(particle) => {
                     self.plumber.ingest(particle);
                     self.wake();
                 }
-                ProtocolMessage::Upgrade => {}
-                ProtocolMessage::UpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
+                HandlerMessage::Upgrade => {}
+                HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
             },
             Second(event) => {
                 NetworkBehaviour::inject_event(self.dht.deref_mut(), peer_id, connection, event)

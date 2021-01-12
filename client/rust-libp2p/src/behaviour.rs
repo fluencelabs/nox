@@ -26,7 +26,7 @@ use libp2p::swarm::{
     NotifyHandler, OneShotHandler, PollParameters,
 };
 use libp2p::PeerId;
-use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
+use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 use std::collections::VecDeque;
 use std::error::Error;
 
@@ -49,7 +49,7 @@ impl ClientBehaviour {
     pub fn call(&mut self, peer_id: PeerId, call: Particle) {
         self.events
             .push_back(NetworkBehaviourAction::NotifyHandler {
-                event: EitherOutput::First(ProtocolMessage::Particle(call)),
+                event: EitherOutput::First(HandlerMessage::Particle(call)),
                 handler: NotifyHandler::Any,
                 peer_id,
             })
@@ -58,7 +58,7 @@ impl ClientBehaviour {
 
 impl NetworkBehaviour for ClientBehaviour {
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
-        <OneShotHandler<ProtocolConfig, ProtocolMessage, ProtocolMessage> as IntoProtocolsHandler>::Handler,
+        <OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> as IntoProtocolsHandler>::Handler,
         <Ping as NetworkBehaviour>::ProtocolsHandler,
     >;
 
@@ -143,14 +143,14 @@ impl NetworkBehaviour for ClientBehaviour {
         &mut self,
         peer_id: PeerId,
         cid: ConnectionId,
-        event: EitherOutput<ProtocolMessage, PingResult>,
+        event: EitherOutput<HandlerMessage, PingResult>,
     ) {
         use ClientEvent::Particle;
         use EitherOutput::*;
         use NetworkBehaviourAction::GenerateEvent;
 
         match event {
-            First(ProtocolMessage::Particle(particle)) => {
+            First(HandlerMessage::Particle(particle)) => {
                 self.events.push_back(GenerateEvent(Particle {
                     particle,
                     sender: peer_id,

@@ -833,6 +833,7 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "log",
+ "parking_lot 0.11.1",
  "particle-protocol",
 ]
 

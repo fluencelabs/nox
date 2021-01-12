@@ -29,5 +29,7 @@
     - resolve?
 */
 
+#![allow(unused_imports, dead_code)]
+
 mod behaviour;
 mod connection_pool;
