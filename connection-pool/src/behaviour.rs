@@ -335,6 +335,8 @@ mod tests {
             };
 
             futures::future::poll_fn::<(), _>(move |cx: &mut Context<'_>| {
+                let mut ready = false;
+
                 if let Poll::Ready(mut node) = {
                     println!("poll_fn before node lock");
                     let mut lock = node.lock().boxed();
@@ -343,17 +345,19 @@ mod tests {
                     res
                 } {
                     println!("poll_fn node lock READY");
-                    dbg!(ExpandedSwarm::poll_next_unpin(&mut node, cx));
+                    ready = dbg!(ExpandedSwarm::poll_next_unpin(&mut node, cx)).is_ready();
                 } else {
                     println!("poll_fn node lock PENDING");
                 }
 
-                futures::ready!(dbg!(futures::FutureExt::poll_unpin(
-                    &mut particle_processor,
-                    cx
-                )));
+                ready =
+                    dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
 
-                Poll::Pending
+                if ready {
+                    Poll::Ready(())
+                } else {
+                    Poll::Pending
+                }
             })
             .await;
 
