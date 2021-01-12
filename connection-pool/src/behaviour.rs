@@ -72,7 +72,7 @@ struct ConnectionPoolBehaviour {
 }
 
 impl ConnectionPool for ConnectionPoolBehaviour {
-    fn connect(&mut self, contact: Contact) -> OneshotInlet<bool> {
+    fn connect(&mut self, contact: Contact) -> BoxFuture<'static, bool> {
         let (outlet, inlet) = futures::channel::oneshot::channel();
         self.events.push_back(NetworkBehaviourAction::DialPeer {
             peer_id: contact.peer_id.clone(),
@@ -92,18 +92,18 @@ impl ConnectionPool for ConnectionPoolBehaviour {
             }
         }
 
-        // let peer_id = contact.peer_id;
+        let peer_id = contact.peer_id;
         inlet
-        // .map(move |r| {
-        //     r.map(|_| true).unwrap_or_else(|err| {
-        //         log::warn!("error connecting to {}, oneshot cancelled", peer_id);
-        //         false
-        //     })
-        // })
-        // .boxed()
+            .map(move |r| {
+                r.map(|_| true).unwrap_or_else(|err| {
+                    log::warn!("error connecting to {}, oneshot cancelled", peer_id);
+                    false
+                })
+            })
+            .boxed()
     }
 
-    fn disconnect(&mut self, contact: Contact) -> OneshotInlet<bool> {
+    fn disconnect(&mut self, contact: Contact) -> BoxFuture<'static, bool> {
         todo!("haha, libp2p won't allow me doing that! {:?}", contact)
     }
 
@@ -121,7 +121,7 @@ impl ConnectionPool for ConnectionPoolBehaviour {
         }
     }
 
-    fn send(&mut self, to: Contact, particle: Particle) -> OneshotInlet<bool> {
+    fn send(&mut self, to: Contact, particle: Particle) -> BoxFuture<'static, bool> {
         let (outlet, inlet) = oneshot::channel();
 
         self.events
@@ -131,7 +131,7 @@ impl ConnectionPool for ConnectionPoolBehaviour {
                 event: HandlerMessage::OutParticle(particle, outlet),
             });
 
-        inlet
+        inlet.map(|r| r.is_ok()).boxed()
     }
 }
 
@@ -314,7 +314,11 @@ mod tests {
                                 Some(contact) => contact,
                                 _ => {
                                     println!("before lock 2");
-                                    let contact = node.lock().await.kad_discover(peer).await;
+                                    let contact = {
+                                        let mut guard = node.lock().await;
+                                        guard.kad_discover(peer)
+                                    }
+                                    .await;
                                     println!("after lock 2");
                                     {
                                         let mut guard = node.lock().await;
@@ -328,7 +332,10 @@ mod tests {
 
                             dbg!(&contact);
 
-                            node.lock().await.send(contact, particle.clone()).await.ok();
+                            {
+                                let mut guard = node.lock().await;
+                                guard.send(contact, particle.clone()).await;
+                            }
                         }
                     }
                 })
@@ -354,29 +361,13 @@ mod tests {
                     dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
 
                 if ready {
+                    // TODO: is this neeeded?
                     Poll::Ready(())
                 } else {
                     Poll::Pending
                 }
             })
             .await;
-
-            // loop {
-            //     println!("loop!");
-            //     // TODO: will that deadlock?
-            //     let mut node = node.lock().await;
-            //     println!("loop after lock!");
-            //
-            //     select! {
-            //         _ = particle_processor => {
-            //             println!("particle_processor fired");
-            //         },
-            //         // TODO: when is SelectNextSome future dropped?
-            //         _ = node.select_next_some() => {
-            //             println!("connection_pool fired");
-            //         }
-            //     };
-            // }
         });
 
         task::block_on(spawned);
