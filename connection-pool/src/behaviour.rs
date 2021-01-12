@@ -46,6 +46,15 @@ enum Peer {
     Dialing(Option<Multiaddr>, Vec<OneshotOutlet<bool>>),
 }
 
+impl Peer {
+    fn multiaddr(&self) -> Option<&Multiaddr> {
+        match self {
+            Peer::Connected(maddr) => Some(maddr),
+            Peer::Dialing(maddr, _) => maddr.as_ref(),
+        }
+    }
+}
+
 // #[derive(::libp2p::NetworkBehaviour)]
 struct ConnectionPoolBehaviour {
     pub(super) outlet: BackPressuredOutlet<Particle>,
@@ -77,10 +86,11 @@ impl ConnectionPool for ConnectionPoolBehaviour {
             }
         }
 
+        let peer_id = contact.peer_id;
         inlet
-            .map(|r| {
+            .map(move |r| {
                 r.map(|_| true).unwrap_or_else(|err| {
-                    log::warn!("error connecting to {}, oneshot cancelled", contact.peer_id);
+                    log::warn!("error connecting to {}, oneshot cancelled", peer_id);
                     false
                 })
             })
@@ -110,7 +120,7 @@ impl ConnectionPool for ConnectionPoolBehaviour {
             .push_back(NetworkBehaviourAction::NotifyHandler {
                 peer_id: to.peer_id,
                 handler: NotifyHandler::Any,
-                event: particle,
+                event: ProtocolMessage::Particle(particle),
             });
 
         // TODO: how to check if a message was delivered? I mean... implementing custom ProtocolHandler, right?
@@ -141,6 +151,12 @@ impl ConnectionPoolBehaviour {
         })
         .boxed()
     }
+
+    fn wake(&self) {
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref();
+        }
+    }
 }
 
 impl NetworkBehaviour for ConnectionPoolBehaviour {
@@ -152,7 +168,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        self.contacts.get(peer_id).into_iter().cloned().collect()
+        self.contacts
+            .get(peer_id)
+            .into_iter()
+            .flat_map(|p| p.multiaddr().cloned())
+            .collect()
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {}
@@ -201,7 +221,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 Poll::Ready(Ok(_)) => {
                     // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
-                        self.outlet.start_send(particle);
+                        self.outlet.start_send(particle).ok();
                     } else {
                         break;
                     }
@@ -220,12 +240,6 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             }
         }
 
-        while let Some(Ok(_)) = self.outlet.poll_ready(cx) {
-            if let Some(particle) = self.queue.pop_front() {
-                self.outlet.start_send(particle)
-            }
-        }
-
         Poll::Pending
     }
 }
@@ -236,11 +250,16 @@ mod tests {
     use crate::connection_pool::ConnectionPool;
 
     use async_std::task;
+    use fluence_libp2p::{build_memory_transport, RandomPeerId};
     use futures::future::BoxFuture;
+    use futures::select;
     use futures::FutureExt;
     use futures::StreamExt;
-    use libp2p::PeerId;
-    use particle_protocol::Particle;
+    use libp2p::core::connection::ConnectionId;
+    use libp2p::identity::ed25519::Keypair;
+    use libp2p::swarm::NetworkBehaviour;
+    use libp2p::{identity, PeerId, Swarm};
+    use particle_protocol::{Particle, ProtocolMessage};
 
     fn fce_exec(particle: Particle) -> BoxFuture<'static, (Vec<PeerId>, Particle)> {
         futures::future::ready((vec![particle.init_peer_id.clone()], particle)).boxed()
@@ -249,24 +268,52 @@ mod tests {
     #[test]
     fn run() {
         let spawned = task::spawn(async move {
-            let (mut node, mut particles) = ConnectionPoolBehaviour::new(100);
+            let (node, particles) = ConnectionPoolBehaviour::new(100);
+            let keypair = Keypair::generate();
+            let kp = identity::Keypair::Ed25519(keypair.clone());
+            let peer_id = kp.public().into_peer_id();
+            let mut node = Swarm::new(build_memory_transport(kp), node, peer_id);
+            node.inject_event(
+                RandomPeerId::random(),
+                ConnectionId::new(0),
+                ProtocolMessage::Particle(Particle::default()),
+            );
+
+            node.inject_event(
+                RandomPeerId::random(),
+                ConnectionId::new(0),
+                ProtocolMessage::Particle(Particle::default()),
+            );
+
+            let mut particles = particles.fuse();
 
             loop {
-                if let Some(particle) = particles.next().await {
-                    let (next_peers, particle) = fce_exec(particle).await;
-                    for peer in next_peers {
-                        let contact = match node.get_contact(&peer) {
-                            Some(contact) => contact,
-                            _ => {
-                                let contact = node.kad_discover(peer).await;
-                                node.connect(contact.clone()).await;
-                                contact
-                            }
-                        };
+                select! {
+                    particle = particles.next() => {
+                        dbg!(&particle);
+                        if let Some(particle) = particle {
+                            let (next_peers, particle) = fce_exec(particle).await;
+                            dbg!(&next_peers);
+                            for peer in next_peers {
+                                let contact = match node.get_contact(&peer) {
+                                    Some(contact) => contact,
+                                    _ => {
+                                        let contact = node.kad_discover(peer).await;
+                                        node.connect(contact.clone()).await;
+                                        contact
+                                    }
+                                };
 
-                        node.send(contact, particle.clone()).await;
+                                dbg!(&contact);
+
+                                node.send(contact, particle.clone()).await;
+                            }
+                        }
+                    },
+                    _ = node.select_next_some() => {
+
                     }
-                }
+                };
             }
         });
 
