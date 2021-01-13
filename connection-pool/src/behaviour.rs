@@ -287,6 +287,7 @@ mod tests {
     macro_rules! lock (
         ($lock:ident.$method:ident($($args:expr),*)$(.$await:ident)?) => (
             {
+                #[allow(unused_mut)]
                 let mut guard = $lock.lock().await;
                 let result = guard.$method($($args),*);
                 drop(guard);
@@ -353,7 +354,7 @@ mod tests {
                                     println!("before lock 2");
                                     let contact = lock!(node.kad_discover(peer).await);
                                     println!("after lock 2");
-                                    lock!(node.connect(contact.clone()));
+                                    lock!(node.connect(contact.clone()).await);
                                     println!("after lock 3");
                                     contact
                                 }
@@ -383,8 +384,8 @@ mod tests {
                     println!("poll_fn node lock PENDING");
                 }
 
-                ready =
-                    dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
+                ready = ready
+                    || dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
 
                 if ready {
                     // TODO: is this neeeded?
