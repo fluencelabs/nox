@@ -269,11 +269,53 @@ mod tests {
     use libp2p::swarm::{ExpandedSwarm, NetworkBehaviour};
     use libp2p::{identity, PeerId, Swarm};
     use particle_protocol::{HandlerMessage, Particle};
+    use std::ops::{Deref, DerefMut};
     use std::pin::Pin;
     use std::sync::Arc;
 
     fn fce_exec(particle: Particle) -> BoxFuture<'static, (Vec<PeerId>, Particle)> {
         futures::future::ready((vec![particle.init_peer_id.clone()], particle)).boxed()
+    }
+
+    // macro_rules! lock {
+    //     ($lock:ident, $f:tt) => {{
+    //         let guard = $lock.lock().await;
+    //         guard.$f
+    //     }};
+    // }
+
+    macro_rules! lock (
+        ($lock:ident.$method:ident($($args:expr),*)$(.$await:ident)?) => (
+            {
+                let mut guard = $lock.lock().await;
+                let result = guard.$method($($args),*);
+                drop(guard);
+                $(let result = result.$await;)?
+                result
+            }
+        );
+    );
+
+    async fn lockF<T, R, F: Future<Output = R>>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> F) -> R {
+        let mut guard = m.lock().await;
+        let result = f(guard.deref_mut());
+        drop(guard);
+        result.await
+    }
+
+    async fn lockF2<T, R, F: Future<Output = R>>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> F) -> R {
+        let result = {
+            let mut guard = m.lock().await;
+            f(guard.deref_mut())
+        };
+        result.await
+    }
+
+    async fn lock<T, R>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> R) -> R {
+        let mut guard = m.lock().await;
+        let result = f(guard.deref_mut());
+        drop(guard);
+        result
     }
 
     #[test]
@@ -303,28 +345,15 @@ mod tests {
                         let (next_peers, particle) = fce_exec(particle).await;
                         dbg!(&next_peers);
                         for peer in next_peers {
-                            let contact = {
-                                println!("before lock 1");
-                                let guard = node.lock().await;
-                                println!("after lock 1");
-                                guard.get_contact(&peer)
-                            };
+                            let contact = lock!(node.get_contact(&peer));
                             dbg!(&contact);
                             let contact = match contact {
                                 Some(contact) => contact,
                                 _ => {
                                     println!("before lock 2");
-                                    let contact = {
-                                        let mut guard = node.lock().await;
-                                        guard.kad_discover(peer)
-                                    }
-                                    .await;
+                                    let contact = lock!(node.kad_discover(peer).await);
                                     println!("after lock 2");
-                                    {
-                                        let mut guard = node.lock().await;
-                                        guard.connect(contact.clone())
-                                    }
-                                    .await;
+                                    lock!(node.connect(contact.clone()));
                                     println!("after lock 3");
                                     contact
                                 }
@@ -332,10 +361,7 @@ mod tests {
 
                             dbg!(&contact);
 
-                            {
-                                let mut guard = node.lock().await;
-                                guard.send(contact, particle.clone()).await;
-                            }
+                            lock!(node.send(contact, particle.clone()));
                         }
                     }
                 })
