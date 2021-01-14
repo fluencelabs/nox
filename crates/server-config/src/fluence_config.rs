@@ -22,6 +22,7 @@ use trust_graph::{KeyPair, PublicKeyHashable};
 
 use anyhow::{anyhow, Context};
 use clap::{ArgMatches, Values};
+use config_utils::to_abs_path;
 use libp2p::core::{identity::ed25519::PublicKey, multiaddr::Protocol, Multiaddr};
 use particle_protocol::ProtocolConfig;
 use serde::Deserialize;
@@ -260,10 +261,12 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
         .value_of(CONFIG_FILE)
         .unwrap_or(DEFAULT_CONFIG_FILE);
 
-    log::info!("Loading config from {}", config_file);
+    let config_file = to_abs_path(config_file.into());
+
+    log::info!("Loading config from {:?}", config_file);
 
     let file_content =
-        std::fs::read(config_file).context(format!("Config wasn't found at {}", config_file))?;
+        std::fs::read(&config_file).context(format!("Config wasn't found at {:?}", config_file))?;
     let config = deserialize_config(arguments, file_content)?;
 
     validate_config(config)

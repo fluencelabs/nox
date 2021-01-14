@@ -146,7 +146,7 @@ mod tests {
             peer_id_1: PeerId,
             #[serde(with = "peerid_serializer")]
             peer_id_2: PeerId,
-        };
+        }
 
         let peer_id_1 = RandomPeerId::random();
         let peer_id_2 = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
@@ -183,7 +183,7 @@ mod tests {
             multihash_1: Multihash,
             #[serde(with = "multihash_serializer")]
             multihash_2: Multihash,
-        };
+        }
 
         let peer_id_1 = RandomPeerId::random();
         let peer_id_2 = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
@@ -218,7 +218,7 @@ mod tests {
         struct Test {
             #[serde(with = "provider_serializer")]
             providers: Vec<(Multiaddr, PeerId)>,
-        };
+        }
 
         let mut providers = Vec::new();
         let mut test_peer_ids = Vec::new();
