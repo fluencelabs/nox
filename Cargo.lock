@@ -825,6 +825,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "connection-pool"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "fluence-fork-libp2p",
+ "fluence-libp2p",
+ "futures",
+ "log",
+ "parking_lot 0.11.1",
+ "particle-protocol",
+]
+
+[[package]]
 name = "const_fn"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
