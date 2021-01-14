@@ -24,6 +24,7 @@ use trust_graph::TrustGraph;
 use anyhow::Context;
 use async_std::task;
 use futures::{channel::oneshot, future::BoxFuture, select, stream::StreamExt, FutureExt};
+use libp2p::swarm::AddressScore;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
     identity::ed25519::Keypair,
@@ -62,10 +63,9 @@ impl Server {
         };
 
         // Add external addresses to Swarm
-        config
-            .external_addresses()
-            .into_iter()
-            .for_each(|addr| Swarm::add_external_address(&mut swarm, addr));
+        config.external_addresses().into_iter().for_each(|addr| {
+            Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
+        });
 
         let node_service = Self {
             swarm,

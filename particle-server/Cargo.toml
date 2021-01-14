@@ -1,6 +1,6 @@
 [package]
 name = "particle-server"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 
@@ -16,8 +16,8 @@ server-config = { path = "../crates/server-config" }
 
 air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.30" }
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
-multihash ="0.11.4"
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
+multihash ="0.13"
 futures = "0.3.5"
 futures-util = "0.3.5"
 async-std = { version = "1.6.5", features = ["unstable"] }

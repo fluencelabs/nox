@@ -214,7 +214,7 @@ mod tests {
     use super::*;
     use crate::bootstrapper::event::BootstrapperEvent::RunBootstrap;
     use fluence_libp2p::RandomPeerId;
-    use libp2p::swarm::PollParameters;
+    use libp2p::swarm::{AddressRecord, PollParameters};
     use std::net::IpAddr;
     use std::task::{Context, Poll};
     use std::thread::sleep;
@@ -225,7 +225,7 @@ mod tests {
     impl PollParameters for PollParams {
         type SupportedProtocolsIter = std::iter::Empty<Vec<u8>>;
         type ListenedAddressesIter = std::iter::Empty<Multiaddr>;
-        type ExternalAddressesIter = std::iter::Empty<Multiaddr>;
+        type ExternalAddressesIter = std::iter::Empty<AddressRecord>;
 
         fn supported_protocols(&self) -> Self::SupportedProtocolsIter {
             std::iter::empty()

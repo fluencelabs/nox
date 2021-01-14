@@ -20,14 +20,13 @@ use libp2p::{
     kad::{PutRecordError, PutRecordResult, Quorum, Record},
     PeerId,
 };
-use std::borrow::Borrow;
 
 impl ParticleDHT {
     pub fn publish_client(&mut self, client: PeerId) {
-        let bytes = [client.as_bytes(), self.config.peer_id.as_bytes()].concat();
+        let bytes = [client.to_bytes(), self.config.peer_id.to_bytes()].concat();
         let signature = self.config.keypair.sign(bytes.as_slice());
-        let key: &[u8] = client.borrow();
-        let record = Record::new(key.to_vec(), signature);
+        let key = client.to_bytes();
+        let record = Record::new(key, signature);
 
         match self.kademlia.put_record(record, Quorum::Majority) {
             Ok(query_id) => {
