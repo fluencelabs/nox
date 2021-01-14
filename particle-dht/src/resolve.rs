@@ -18,6 +18,7 @@ use crate::errors::{ResolveError, ResolveErrorKind};
 use crate::wait_peer::WaitPeer;
 use crate::{DHTEvent, ParticleDHT};
 
+use multihash::Multihash;
 use particle_protocol::Particle;
 
 use libp2p::{
@@ -30,7 +31,7 @@ impl ParticleDHT {
         self.kademlia.get_record(&key, Quorum::Majority);
     }
 
-    pub fn get_neighborhood(&mut self, key: Vec<u8>) {
+    pub fn get_neighborhood(&mut self, key: Multihash) {
         self.kademlia.get_closest_peers(key);
     }
 

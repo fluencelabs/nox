@@ -53,26 +53,26 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ParticleDHT {
                     Err(GetClosestPeersError::Timeout { key, peers }) => (key, peers),
                 };
 
-                // Emit event for goal 2)
+                // If key is a valid peer id, we might found needed peer for the goal 1)
+                if let Ok(peer_id) = PeerId::from_bytes(&key) {
+                    if self.is_local(&peer_id) {
+                        self.bootstrap_finished();
+                    } else {
+                        self.found_closest(peer_id, peers.clone());
+                    }
+                }
+
+                // Emit event for the goal 2)
                 self.emit(DHTEvent::Neighborhood {
-                    key: key.clone(),
+                    key,
                     value: {
                         if peers.is_empty() {
                             Err(NeighborhoodError::Timeout)
                         } else {
-                            Ok(peers.clone().into_iter().collect())
+                            Ok(peers.into_iter().collect())
                         }
                     },
                 });
-
-                // If key is a valid peer id, we might found needed peer for goal 1)
-                if let Ok(peer_id) = PeerId::from_bytes(key) {
-                    if self.is_local(&peer_id) {
-                        self.bootstrap_finished();
-                    } else {
-                        self.found_closest(peer_id, peers);
-                    }
-                }
             }
             KademliaEvent::QueryResult {
                 result: QueryResult::GetRecord(result),

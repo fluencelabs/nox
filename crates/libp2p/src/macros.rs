@@ -73,8 +73,8 @@ macro_rules! poll_loop {
                 Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::DialAddress { address }) => {
                     return Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::DialAddress { address })
                 }
-                Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::ReportObservedAddr { address }) => {
-                    return Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::ReportObservedAddr { address })
+                Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::ReportObservedAddr { address, score }) => {
+                    return Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::ReportObservedAddr { address, score })
                 }
                 Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::DialPeer { peer_id, condition }) => {
                     return Poll::Ready(::libp2p::swarm::NetworkBehaviourAction::DialPeer { peer_id, condition })

@@ -1,3 +1,5 @@
+![trust-graph version on crates.io](https://img.shields.io/crates/v/trust-graph?color=green&style=flat-square)
+
 # Fluence Project
 
 **Fluence is a peer-to-peer computing protocol and a software licensing system.** 

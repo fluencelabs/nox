@@ -1,6 +1,6 @@
 [package]
 name = "server-config"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 
@@ -10,7 +10,7 @@ trust-graph = { path = "../../trust-graph" }
 particle-protocol = { path = "../../particle-protocol"}
 
 air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.30" }
-libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
 
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"

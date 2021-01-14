@@ -22,6 +22,7 @@ use waiting_queues::WaitingQueues;
 
 use futures::{channel::mpsc, StreamExt};
 use libp2p::{kad::record, PeerId};
+use multihash::Multihash;
 use serde_json::{json, Value as JValue};
 use std::{
     collections::HashSet,
@@ -42,7 +43,7 @@ pub struct Command {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum BuiltinCommand {
     DHTResolve(record::Key),
-    DHTNeighborhood(Vec<u8>),
+    DHTNeighborhood(Multihash),
 }
 
 #[derive(Debug, Clone)]
@@ -119,10 +120,22 @@ impl Mailbox {
         key: Vec<u8>,
         value: Result<HashSet<PeerId>, NeighborhoodError>,
     ) {
-        let value = value.map(|v| v.into_iter().collect());
-        let result = BuiltinCommandResult::DHTNeighborhood(value);
-        for outlet in self.waiting.remove(&BuiltinCommand::DHTNeighborhood(key)) {
-            outlet.send(result.clone()).expect("resolve_complete")
+        match Multihash::from_bytes(&key) {
+            Ok(key) => {
+                // Send result to those who are waiting
+                let value = value.map(|v| v.into_iter().collect());
+                let result = BuiltinCommandResult::DHTNeighborhood(value);
+                for outlet in self.waiting.remove(&BuiltinCommand::DHTNeighborhood(key)) {
+                    outlet.send(result.clone()).expect("resolve_complete")
+                }
+            }
+            Err(e) => {
+                log::warn!(
+                    "Neighborhood key {} isn't a valid multihash. Impossible! {}",
+                    bs58::encode(key).into_string(),
+                    e
+                )
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 [package]
 name = "test-utils"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 
@@ -20,7 +20,7 @@ stepper-interface = "0.1.1"
 air-interpreter-wasm = "0.0.30"
 aquamarine-vm = "0.1.7"
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
 
 rand = "0.7.3"
 async-std = "1.6.5"

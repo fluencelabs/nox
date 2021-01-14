@@ -1,12 +1,13 @@
 [package]
 name = "fluence-libp2p"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p = { package = "fluence-fork-libp2p", version = "0.22.0" }
-multihash ="0.11.4"
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
+libp2p-secio = { package = "fluence-fork-libp2p-secio", version = "0.26.0" }
+multihash = { version = "0.13", features = ["serde-codec"] }
 futures = "0.3.5"
 futures-util = "0.3.5"
 async-std = "1.6.5"
