@@ -35,7 +35,7 @@ Fluence protocol aims to empower internet applications with interoperability, re
 ## Run
 ### Prebuilt docker image
 ```bash
-docker run -d --name fluence -v $PWD:/.fluence -e RUST_LOG="info" -p 7777 -p 9999 fluencelabs/fluence
+docker run -d --name fluence -e RUST_LOG="info" -p 7777 -p 9999 fluencelabs/fluence
 ```
 Ports will be assigned randomly by your OS.
 

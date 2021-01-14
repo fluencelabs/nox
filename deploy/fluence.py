@@ -60,14 +60,9 @@ def do_deploy_bootstrap():
 def do_deploy_fluence(yml="fluence.yml"):
     with hide():
         put(yml, './')
-        run('rm -rf ./ipfs_node.wasm')
-        put("ipfs_node.wasm", './')
-        put("ipfs_node_config.toml", './')
         kwargs = {'HOST': env.host_string, 'BRANCH': env.config['branch']}
         if 'bootstrap' in env:
             kwargs['BOOTSTRAP'] = env.bootstrap
-        if 'ipfs_addr' in env.config:
-            kwargs['IPFS_ADDR'] = env.config['ipfs_addr']
 
         with shell_env(**kwargs):
             # compose('config', yml)
