@@ -18,7 +18,6 @@
     "nodes": [
       "138.197.177.2"
     ],
-    "ipfs_addr": "/dns4/relay02.fluence.dev/tcp/15001/https",
     "caddy": {
       "nodes": [
         { "host": "net01.fluence.dev", "ports": [9001, 9990], "addr":"165.227.164.206" },
