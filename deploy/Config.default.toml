@@ -19,9 +19,9 @@ tcp_port = 7777
 listen_ip = "0.0.0.0"
 socket_timeout = "20s"
 bootstrap_nodes = [
-    "/dns4/net01.fluence.dev/tcp/9001",
-    "/dns4/net01.fluence.dev/tcp/9990",
-    "/dns4/net02.fluence.dev/tcp/9002",
+    "/dns4/net01.fluence.dev/tcp/7001",
+    "/dns4/net01.fluence.dev/tcp/7990",
+    "/dns4/net02.fluence.dev/tcp/7002",
 ]
 
 websocket_port = 9999
