@@ -1,8 +1,3 @@
-include node_client.mk
-
-default:
-	make release
-
 release:
 	cargo +nightly build --release
 
@@ -43,6 +38,7 @@ server-debug:
 
 # build x86_64 binaries
 cross-build:
+	command -v cross || cargo install cross
 	cargo +nightly update --aggressive
 	cross +nightly build --release --target x86_64-unknown-linux-gnu
 
