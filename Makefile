@@ -42,7 +42,7 @@ server-debug:
 
 # build x86_64 binaries
 cross-build:
-	cargo update -p libp2p
+	cargo update --aggressive
 	cross build --release --target x86_64-unknown-linux-gnu
 
 X86_TARGET=./target/x86_64-unknown-linux-gnu/release
@@ -82,7 +82,7 @@ containers-deploy: containers push deploy
 ENDURANCE_EXE=$(shell find ${X86_TARGET} -name "endurance*" -perm +111 -type f)
 ENDURANCE=--build-arg exe=endurance --build-arg local_exe=${ENDURANCE_EXE}
 endurance-docker:
-	cargo update -p libp2p
+	cargo update --aggressive
 	cross build --release --target x86_64-unknown-linux-gnu --test endurance
 	docker build ${ENDURANCE} -t fluencelabs/fluence-endurance:${BRANCH} .
 	docker push fluencelabs/fluence-endurance:${BRANCH}

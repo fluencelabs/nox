@@ -28,7 +28,7 @@ fluence-ipfs:
 	cargo run -p fluence-ipfs /ip4/127.0.0.1/tcp/7770 /dns4/ipfs2.fluence.one/tcp/5001
 
 node-tmux:
-	cargo update -p libp2p
+	cargo update --aggressive
 	cargo build
 	tmux \
 	new-session  'make node-bootstrap' \; \
@@ -57,7 +57,7 @@ RUST_ENV=RUST_BACKTRACE=1 RUST_LOG="info,libp2p_kad=trace,fluence_server=trace"
 FLUENCE=${RUST_ENV} ./target/debug/particle-server
 BOOTSTRAP=/ip4/127.0.0.1/tcp/7770
 node-many:
-	cargo update -p libp2p
+	cargo update --aggressive
 	cargo build
 	tmux \
 	new-session '${FLUENCE} -d ./.fluence/7770 -t 7770 -w 9990 -k wCUPkGaBypwbeuUnmgVyN37j9iavRoqzAkddDUzx3Yir7q1yuTp3H8cdUZERYxeQ8PEiMYcDuiy1DDkfueNh1Y6' \; \
