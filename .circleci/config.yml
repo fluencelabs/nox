@@ -48,6 +48,7 @@ jobs:
       - run: |
           rustup default nightly-2020-12-15-x86_64-unknown-linux-gnu
           cargo test --release --all-features
+          make server-debug
 
   Publish Docker Container:
     executor: docker/docker

@@ -1,7 +1,5 @@
 include node_client.mk
 
-BOOTSTRAP_NODE=/ip4/207.154.232.92/tcp/7777
-
 default:
 	cargo build
 
@@ -14,14 +12,33 @@ test:
 	cargo test
 
 server:
-	cargo run -p particle-server -- -b ${BOOTSTRAP_NODE}
+	RUST_LOG="info,tide=off" \
+	cargo run -p particle-server -- -c ./deploy/Config.default.toml
 
 server-debug:
-	RUST_LOG="trace,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info" \
-	cargo run -p particle-server -- -b ${BOOTSTRAP_NODE}
-
-clean:
-	cargo clean
+	RUST_LOG="debug,\
+	tide=off,\
+	cranelift_codegen=info,\
+    yamux::connection::stream=info,\
+    tokio_threadpool=info,\
+    tokio_reactor=info,\
+    mio=info,\
+    tokio_io=info,\
+    soketto=info,\
+    yamux=info,\
+    multistream_select=info,\
+    libp2p_secio=info,\
+    libp2p_websocket::framed=info,\
+    libp2p_ping=info,\
+    libp2p_core::upgrade::apply=info,\
+    libp2p_plaintext=info,\
+    cranelift_codegen=info,\
+    wasmer_wasi=info,\
+    wasmer_interface_types_fl=info,\
+    async_std=info,\
+    async_io=info,\
+    polling=info" \
+	cargo run -p particle-server -- -c ./deploy/Config.default.toml
 
 # build x86_64 binaries
 cross-build:
