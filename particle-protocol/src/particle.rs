@@ -17,10 +17,12 @@
 use fluence_libp2p::{peerid_serializer, RandomPeerId};
 use json_utils::base64_serde;
 
+use derivative::Derivative;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
+#[derivative(Debug)]
 pub struct Particle {
     pub id: String,
     #[serde(with = "peerid_serializer")]
@@ -31,6 +33,7 @@ pub struct Particle {
     pub signature: Vec<u8>,
     /// base64-encoded
     #[serde(with = "base64_serde")]
+    #[derivative(Debug(format_with = "fmt_data"))]
     pub data: Vec<u8>,
 }
 
@@ -47,4 +50,8 @@ impl Default for Particle {
             data: vec![],
         }
     }
+}
+
+fn fmt_data(data: &Vec<u8>, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    write!(f, "{}", bs58::encode(data).into_string())
 }
