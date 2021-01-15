@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 fluence-client = { path = "../../client/rust-libp2p" }
-trust-graph = { path = "../../trust-graph" }
+trust-graph = "0.2.0"
 config-utils = { path = "../config-utils" }
 server-config = { path = "../server-config" }
 ivalue-utils = { path = "../ivalue-utils" }

@@ -14,7 +14,7 @@ particle-modules = { path = "../particle-modules"}
 particle-providers = { path = "../particle-providers"}
 
 config-utils = { path = "../crates/config-utils" }
-trust-graph = { path = "../trust-graph" }
+trust-graph = "0.2.0"
 fluence-libp2p = { path = "../crates/libp2p" }
 waiting-queues = { path = "../crates/waiting-queues" }
 host-closure = { path = "../crates/host-closure" }
