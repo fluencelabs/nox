@@ -2613,6 +2613,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "kademlia"
+version = "0.1.0"
+dependencies = [
+ "bs58 0.3.1",
+ "control-macro",
+ "fluence-fork-libp2p",
+ "fluence-libp2p",
+ "futures",
+ "log",
+ "multihash",
+ "once_cell",
+ "particle-protocol",
+ "prometheus",
+ "prost",
+ "serde_json",
+ "server-config",
+ "smallvec",
+ "trust-graph",
+ "waiting-queues",
+]
+
+[[package]]
 name = "keccak"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

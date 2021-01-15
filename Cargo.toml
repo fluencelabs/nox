@@ -12,6 +12,7 @@ members = [
     "crates/host-closure",
     "crates/json-utils",
     "crates/server-config",
+    "crates/kademlia",
     "particle-server",
     "particle-actors",
     "particle-protocol",
