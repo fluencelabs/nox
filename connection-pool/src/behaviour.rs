@@ -34,13 +34,17 @@ use futures::{future, SinkExt};
 use libp2p::core::connection::ConnectionId;
 use libp2p::core::either::EitherOutput::{First, Second};
 use libp2p::core::{ConnectedPoint, Multiaddr};
+use libp2p::identity::ed25519::Keypair;
+use libp2p::identity::PublicKey::Ed25519;
 use libp2p::swarm::{
     DialPeerCondition, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
     NetworkBehaviourEventProcess, NotifyHandler, OneShotHandler, PollParameters, ProtocolsHandler,
 };
 use libp2p::PeerId;
+use particle_dht::{DHTConfig, ParticleDHT};
 use std::collections::hash_map::Entry;
 use std::hint::unreachable_unchecked;
+use trust_graph::TrustGraph;
 
 type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
@@ -65,6 +69,8 @@ struct ConnectionPoolBehaviour {
     pub(super) queue: VecDeque<Particle>,
 
     pub(super) contacts: HashMap<PeerId, Peer>,
+
+    pub(super) dht: ParticleDHT,
 
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
@@ -104,7 +110,10 @@ impl ConnectionPool for ConnectionPoolBehaviour {
     }
 
     fn disconnect(&mut self, contact: Contact) -> BoxFuture<'static, bool> {
-        todo!("haha, libp2p won't allow me doing that! {:?}", contact)
+        todo!(
+            "this doesn't make sense with OneShotHandler since connections are short-lived {:?}",
+            contact
+        )
     }
 
     fn is_connected(&self, peer_id: &PeerId) -> bool {
@@ -136,12 +145,20 @@ impl ConnectionPool for ConnectionPoolBehaviour {
 }
 
 impl ConnectionPoolBehaviour {
-    pub fn new(buffer: usize) -> (Self, BackPressuredInlet<Particle>) {
+    pub fn new(
+        buffer: usize,
+        dht_config: DHTConfig,
+        trust_graph: TrustGraph,
+    ) -> (Self, BackPressuredInlet<Particle>) {
         let (outlet, inlet) = mpsc::channel(buffer);
+
+        let dht = ParticleDHT::new(dht_config, trust_graph, None);
+
         let this = Self {
             outlet,
             queue: <_>::default(),
             contacts: <_>::default(),
+            dht,
             events: <_>::default(),
             waker: None,
             protocol_config: <_>::default(),
@@ -266,25 +283,21 @@ mod tests {
     use futures::{Future, FutureExt};
     use libp2p::core::connection::ConnectionId;
     use libp2p::identity::ed25519::Keypair;
+    use libp2p::identity::PublicKey::Ed25519;
     use libp2p::swarm::{ExpandedSwarm, NetworkBehaviour};
     use libp2p::{identity, PeerId, Swarm};
+    use particle_dht::DHTConfig;
     use particle_protocol::{HandlerMessage, Particle};
     use std::ops::{Deref, DerefMut};
     use std::pin::Pin;
     use std::sync::Arc;
+    use trust_graph::TrustGraph;
 
     fn fce_exec(particle: Particle) -> BoxFuture<'static, (Vec<PeerId>, Particle)> {
         futures::future::ready((vec![particle.init_peer_id.clone()], particle)).boxed()
     }
 
-    // macro_rules! lock {
-    //     ($lock:ident, $f:tt) => {{
-    //         let guard = $lock.lock().await;
-    //         guard.$f
-    //     }};
-    // }
-
-    macro_rules! lock (
+    macro_rules! unlock (
         ($lock:ident.$method:ident($($args:expr),*)$(.$await:ident)?) => (
             {
                 #[allow(unused_mut)]
@@ -304,14 +317,6 @@ mod tests {
         result.await
     }
 
-    async fn lockF2<T, R, F: Future<Output = R>>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> F) -> R {
-        let result = {
-            let mut guard = m.lock().await;
-            f(guard.deref_mut())
-        };
-        result.await
-    }
-
     async fn lock<T, R>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> R) -> R {
         let mut guard = m.lock().await;
         let result = f(guard.deref_mut());
@@ -319,10 +324,23 @@ mod tests {
         result
     }
 
+    fn dht_config() -> DHTConfig {
+        let keypair = Keypair::generate();
+        let public_key = Ed25519(keypair.public());
+        let peer_id = PeerId::from(public_key);
+
+        DHTConfig {
+            peer_id,
+            keypair,
+            kad_config: Default::default(),
+        }
+    }
+
     #[test]
     fn run() {
         let spawned = task::spawn(async move {
-            let (node, particles) = ConnectionPoolBehaviour::new(100);
+            let (node, particles) =
+                ConnectionPoolBehaviour::new(100, dht_config(), TrustGraph::new(vec![]));
             let keypair = Keypair::generate();
             let kp = identity::Keypair::Ed25519(keypair.clone());
             let peer_id = kp.public().into_peer_id();
@@ -346,15 +364,15 @@ mod tests {
                         let (next_peers, particle) = fce_exec(particle).await;
                         dbg!(&next_peers);
                         for peer in next_peers {
-                            let contact = lock!(node.get_contact(&peer));
+                            let contact = unlock!(node.get_contact(&peer));
                             dbg!(&contact);
                             let contact = match contact {
                                 Some(contact) => contact,
                                 _ => {
                                     println!("before lock 2");
-                                    let contact = lock!(node.kad_discover(peer).await);
+                                    let contact = unlock!(node.kad_discover(peer).await);
                                     println!("after lock 2");
-                                    lock!(node.connect(contact.clone()).await);
+                                    unlock!(node.connect(contact.clone()).await);
                                     println!("after lock 3");
                                     contact
                                 }
@@ -362,7 +380,7 @@ mod tests {
 
                             dbg!(&contact);
 
-                            lock!(node.send(contact, particle.clone()));
+                            unlock!(node.send(contact, particle.clone()));
                         }
                     }
                 })
@@ -388,7 +406,7 @@ mod tests {
                     || dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
 
                 if ready {
-                    // TODO: is this neeeded?
+                    // Return this so task is awaken again immediately
                     Poll::Ready(())
                 } else {
                     Poll::Pending

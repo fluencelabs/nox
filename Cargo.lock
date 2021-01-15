@@ -834,7 +834,9 @@ dependencies = [
  "futures",
  "log",
  "parking_lot 0.11.1",
+ "particle-dht",
  "particle-protocol",
+ "trust-graph",
 ]
 
 [[package]]
