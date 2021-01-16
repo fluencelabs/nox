@@ -119,7 +119,7 @@ impl ParticleBehaviour {
         self.push_event(NetworkBehaviourAction::NotifyHandler {
             peer_id: target,
             handler: NotifyHandler::Any,
-            event: EitherOutput::First(HandlerMessage::Particle(particle)),
+            event: EitherOutput::First(HandlerMessage::OutParticle(particle, <_>::default())),
         });
     }
 

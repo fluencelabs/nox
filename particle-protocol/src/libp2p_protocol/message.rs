@@ -18,7 +18,26 @@ use crate::Particle;
 use fluence_libp2p::types::OneshotOutlet;
 use serde::{Deserialize, Serialize};
 
-type CompletionChannel = OneshotOutlet<bool>;
+#[derive(Debug)]
+pub enum CompletionChannel {
+    Ignore,
+    Channel(OneshotOutlet<bool>),
+}
+
+impl CompletionChannel {
+    pub fn outlet(self) -> Option<OneshotOutlet<bool>> {
+        match self {
+            CompletionChannel::Ignore => None,
+            CompletionChannel::Channel(outlet) => Some(outlet),
+        }
+    }
+}
+
+impl Default for CompletionChannel {
+    fn default() -> Self {
+        CompletionChannel::Ignore
+    }
+}
 
 #[derive(Debug)]
 pub enum HandlerMessage {
@@ -59,11 +78,11 @@ pub enum ProtocolMessage {
     Upgrade,
 }
 
-impl Into<(ProtocolMessage, Option<CompletionChannel>)> for HandlerMessage {
-    fn into(self) -> (ProtocolMessage, Option<CompletionChannel>) {
+impl Into<(ProtocolMessage, Option<OneshotOutlet<bool>>)> for HandlerMessage {
+    fn into(self) -> (ProtocolMessage, Option<OneshotOutlet<bool>>) {
         match self {
             HandlerMessage::OutParticle(particle, channel) => {
-                (ProtocolMessage::Particle(particle), Some(channel))
+                (ProtocolMessage::Particle(particle), channel.outlet())
             }
             HandlerMessage::InboundUpgradeError(err) => {
                 (ProtocolMessage::InboundUpgradeError(err), None)

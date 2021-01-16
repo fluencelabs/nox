@@ -49,7 +49,7 @@ impl ClientBehaviour {
     pub fn call(&mut self, peer_id: PeerId, call: Particle) {
         self.events
             .push_back(NetworkBehaviourAction::NotifyHandler {
-                event: EitherOutput::First(HandlerMessage::Particle(call)),
+                event: EitherOutput::First(HandlerMessage::OutParticle(call, <_>::default())),
                 handler: NotifyHandler::Any,
                 peer_id,
             })
@@ -150,7 +150,7 @@ impl NetworkBehaviour for ClientBehaviour {
         use NetworkBehaviourAction::GenerateEvent;
 
         match event {
-            First(HandlerMessage::Particle(particle)) => {
+            First(HandlerMessage::InParticle(particle)) => {
                 self.events.push_back(GenerateEvent(Particle {
                     particle,
                     sender: peer_id,

@@ -83,12 +83,13 @@ impl NetworkBehaviour for ParticleBehaviour {
 
         match event {
             First(event) => match event {
-                HandlerMessage::Particle(particle) => {
+                HandlerMessage::InParticle(particle) => {
                     self.plumber.ingest(particle);
                     self.wake();
                 }
                 HandlerMessage::Upgrade => {}
                 HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
+                HandlerMessage::OutParticle(_, _) => unreachable!("can't receive OutParticle"),
             },
             Second(event) => {
                 NetworkBehaviour::inject_event(self.dht.deref_mut(), peer_id, connection, event)
