@@ -29,6 +29,7 @@ use multihash::Multihash;
 use particle_dht::DHTConfig;
 use prometheus::Registry;
 use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
 use std::task::Waker;
 use trust_graph::TrustGraph;
 
@@ -54,7 +55,7 @@ pub struct Kademlia {
     #[behaviour(ignore)]
     pub(super) queries: HashMap<QueryId, QueryPromise>,
     #[behaviour(ignore)]
-    pub(super) pending_peers: HashMap<PeerId, Vec<OneshotOutlet<Multiaddr>>>,
+    pub(super) pending_peers: HashMap<PeerId, Vec<OneshotOutlet<Vec<Multiaddr>>>>,
 
     #[behaviour(ignore)]
     pub(super) waker: Option<Waker>,
@@ -88,7 +89,7 @@ impl Kademlia {
 impl Kademlia {
     pub async fn bootstrap(&mut self) {}
 
-    pub fn discover_peer(&mut self, peer: PeerId) -> BoxFuture<'static, Result<Multiaddr>> {
+    pub fn discover_peer(&mut self, peer: PeerId) -> BoxFuture<'static, Result<Vec<Multiaddr>>> {
         let (outlet, inlet) = oneshot::channel();
 
         self.kademlia.get_closest_peers(peer.clone());
@@ -105,10 +106,11 @@ impl Kademlia {
 }
 
 impl Kademlia {
-    pub(super) fn peer_discovered(&mut self, peer: &PeerId, maddr: Multiaddr) {
+    pub(super) fn peer_discovered(&mut self, peer: &PeerId, maddrs: Vec<Multiaddr>) {
+        println!("peer discovered {} {:?}", peer, maddrs);
         if let Some(outlets) = self.pending_peers.remove(peer) {
             for outlet in outlets {
-                outlet.send(maddr.clone()).ok();
+                outlet.send(maddrs.clone()).ok();
             }
         }
     }
@@ -124,15 +126,32 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
                 ..
             } => {}
             KademliaEvent::UnroutablePeer { .. } => {}
-            r @ KademliaEvent::RoutingUpdated { .. } => {
-                log::info!(target: "debug_kademlia", "routing updated {:#?}", r)
+            KademliaEvent::RoutingUpdated {
+                peer, addresses, ..
+            } => {
+                log::info!(target: "debug_kademlia", "routing updated {} {:#?}", peer, addresses);
+                self.peer_discovered(&peer, addresses.into_vec())
             }
             KademliaEvent::RoutablePeer { peer, address }
             | KademliaEvent::PendingRoutablePeer { peer, address } => {
-                self.peer_discovered(&peer, address)
+                self.peer_discovered(&peer, vec![address])
             }
             _ => {}
         }
+    }
+}
+
+impl Deref for Kademlia {
+    type Target = kad::Kademlia<MemoryStore>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.kademlia
+    }
+}
+
+impl DerefMut for Kademlia {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.kademlia
     }
 }
 
@@ -145,11 +164,12 @@ mod tests {
     use fluence_libp2p::build_memory_transport;
     use futures::channel::oneshot;
     use futures::future::Fuse;
+    use futures::ready;
     use futures::select;
     use futures::FutureExt;
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
-    use libp2p::identity::ed25519::Keypair;
+    use libp2p::identity::ed25519::{Keypair, PublicKey};
     use libp2p::identity::PublicKey::Ed25519;
     use libp2p::swarm::SwarmEvent;
     use libp2p::PeerId;
@@ -157,6 +177,7 @@ mod tests {
     use particle_dht::DHTConfig;
     use std::pin::Pin;
     use std::sync::mpsc;
+    use std::task::Poll;
     use test_utils::{create_memory_maddr, enable_logs};
     use trust_graph::TrustGraph;
 
@@ -172,94 +193,68 @@ mod tests {
         }
     }
 
-    fn make_node() -> (Swarm<Kademlia>, Multiaddr) {
+    fn make_node() -> (Swarm<Kademlia>, Multiaddr, PublicKey) {
         let trust_graph = TrustGraph::new(vec![]);
         let config = dht_config();
         let kp = libp2p::identity::Keypair::Ed25519(config.keypair.clone());
         let peer_id = config.peer_id.clone();
+        let pk = config.keypair.public();
         let kad = Kademlia::new(config, trust_graph, None);
 
         let mut swarm = Swarm::new(build_memory_transport(kp), kad, peer_id);
         let maddr = create_memory_maddr();
         Swarm::listen_on(&mut swarm, maddr.clone());
 
-        (swarm, maddr)
+        (swarm, maddr, pk)
     }
 
     #[test]
     fn discovery() {
         enable_logs();
 
-        let (mut a, a_addr) = make_node();
-        let (mut b, b_addr) = make_node();
-        let (c, c_addr) = make_node();
-        let (d, d_addr) = make_node();
-        let (e, e_addr) = make_node();
+        let (mut a, a_addr, a_pk) = make_node();
+        let (mut b, b_addr, b_pk) = make_node();
+        let (c, c_addr, c_pk) = make_node();
+        let (d, d_addr, d_pk) = make_node();
+        let (e, e_addr, e_pk) = make_node();
 
         // a knows everybody
-        Swarm::dial_addr(&mut a, b_addr).unwrap();
-        Swarm::dial_addr(&mut a, c_addr).unwrap();
+        Swarm::dial_addr(&mut a, b_addr.clone()).unwrap();
+        Swarm::dial_addr(&mut a, c_addr.clone()).unwrap();
+        Swarm::dial_addr(&mut a, d_addr.clone()).unwrap();
+        Swarm::dial_addr(&mut a, e_addr.clone()).unwrap();
+        a.kademlia
+            .add_address(Swarm::local_peer_id(&b), b_addr.clone(), b_pk);
+        a.kademlia
+            .add_address(Swarm::local_peer_id(&c), c_addr.clone(), c_pk);
+        a.kademlia
+            .add_address(Swarm::local_peer_id(&d), d_addr.clone(), d_pk);
+        a.kademlia
+            .add_address(Swarm::local_peer_id(&e), e_addr.clone(), e_pk);
+        a.kademlia.bootstrap();
 
         // b knows only a, wants to discover c
-        Swarm::dial_addr(&mut b, a_addr).unwrap();
+        Swarm::dial_addr(&mut b, a_addr.clone()).unwrap();
+        b.kademlia
+            .add_address(Swarm::local_peer_id(&a), a_addr, a_pk);
+        let discover_fut = b.discover_peer(Swarm::local_peer_id(&c).clone());
 
         let maddr = async_std::task::block_on(async move {
-            let mut a = a;
-            let mut b = b;
-            let mut c = c;
-            let mut d = d;
-            let mut e = e;
-
-            // let b_thread = task::spawn(async move {
-            //     loop {
-            //         match b.next_event().await {
-            //             SwarmEvent::ConnectionEstablished { .. } => {
-            //                 let maddr = b.discover_peer(Swarm::local_peer_id(&c).clone()).await;
-            //                 break maddr;
-            //             }
-            //             _ => {}
-            //         }
-            //     }
-            // });
-
-            let c_peer_id = Swarm::local_peer_id(&c).clone();
-            task::spawn(async move {
-                loop {
-                    select!(
-                        _ = a.select_next_some() => {},
-                        _ = c.select_next_some() => {},
-                        _ = d.select_next_some() => {},
-                        _ = e.select_next_some() => {},
-                    )
-                }
-            });
-
-            println!("starting loop");
-
-            let (outlet, inlet) = async_std::channel::unbounded();
-            task::spawn(async move {
-                loop {
-                    let outlet = outlet.clone();
-                    match b.next_event().await {
-                        SwarmEvent::ConnectionEstablished { .. } => {
-                            println!("connection established, discovering");
-
-                            let promise = b.discover_peer(c_peer_id.clone());
-                            task::spawn(async move {
-                                let maddr = promise.await;
-                                outlet.clone().send(maddr).await.ok();
-                            });
-                        }
-                        e => {
-                            println!("swarm event: {:#?}", e);
-                        }
+            let mut swarms = vec![a, b, c, d, e];
+            task::spawn(futures::future::poll_fn(move |ctx| {
+                for (i, swarm) in swarms.iter_mut().enumerate() {
+                    if let Poll::Ready(Some(e)) = swarm.poll_next_unpin(ctx) {
+                        println!("event: {:#?}", e);
+                        return Poll::Ready(());
                     }
                 }
-            });
+                Poll::Pending
+            }));
 
-            inlet.recv().await;
+            discover_fut.await
         });
 
-        println!("{:?}", maddr);
+        println!("maddr: {:?}", maddr);
+        assert_eq!(maddr.unwrap()[0], c_addr);
     }
 }
