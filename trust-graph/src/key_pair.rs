@@ -19,6 +19,8 @@ use ed25519_dalek::SignatureError;
 use libp2p_core::identity::error::DecodingError;
 use std::fmt;
 
+// switch to 
+// use ed25519_dalek::Signature; ?
 pub type Signature = Vec<u8>;
 
 /// An Ed25519 keypair.
@@ -68,11 +70,12 @@ impl KeyPair {
     }
 
     /// Verify the Ed25519 signature on a message using the public key.
-    pub fn verify(pk: &PublicKey, msg: &[u8], signature: &[u8]) -> Result<(), String> {
+    pub fn verify(pk: &PublicKey, msg: &[u8], signature: &Signature) -> Result<(), String> {
         if pk.verify(msg, signature) {
             return Ok(());
         }
 
+        // use SignatureError ?
         Err("Signature is not valid.".to_string())
     }
 }

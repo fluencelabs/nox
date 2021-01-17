@@ -16,5 +16,7 @@ ref-cast = "1.0.2"
 derivative = "2.1.1"
 ed25519-dalek = "1.0.1"
 
-[dev-dependencies]
-rand = "0.7.3"
+# currently not used
+# [dev-dependencies]
+# rand = "0.7.3"
+
