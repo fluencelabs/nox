@@ -48,29 +48,27 @@ impl NetworkBehaviour for ParticleBehaviour {
     type OutEvent = ();
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        IntoProtocolsHandler::select(self.protocol_config.clone().into(), self.dht.new_handler())
+        IntoProtocolsHandler::select(
+            self.connection_pool.new_handler(),
+            self.kademlia.new_handler(),
+        )
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        let p = self.peer_address(peer_id).cloned().into_iter();
-        let d = self.dht.addresses_of_peer(peer_id).into_iter();
+        let p = self.connection_pool.addresses_of_peer(peer_id).into_iter();
+        let d = self.kademlia.addresses_of_peer(peer_id).into_iter();
 
         p.chain(d).collect()
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        self.dht.connected(peer_id.clone());
-        self.dht.inject_connected(peer_id);
-
-        // TODO: check that peer_id belongs to client (not node), and publish it
-        //  self.dht.publish_client(peer_id.clone());
+        self.connection_pool.inject_connected(peer_id);
+        self.kademlia.inject_connected(peer_id);
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        // TODO: self.dht.unpublish_client(peer_id)
-        self.remove_peer(peer_id);
-        self.dht.disconnected(peer_id);
-        self.dht.inject_disconnected(peer_id);
+        self.connection_pool.inject_disconnected(peer_id);
+        self.kademlia.inject_disconnected(peer_id);
     }
 
     fn inject_event(
@@ -82,17 +80,14 @@ impl NetworkBehaviour for ParticleBehaviour {
         use EitherOutput::{First, Second};
 
         match event {
-            First(event) => match event {
-                HandlerMessage::InParticle(particle) => {
-                    self.plumber.ingest(particle);
-                    self.wake();
-                }
-                HandlerMessage::Upgrade => {}
-                HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
-                HandlerMessage::OutParticle(_, _) => unreachable!("can't receive OutParticle"),
-            },
+            First(event) => NetworkBehaviour::inject_event(
+                &mut self.connection_pool,
+                peer_id,
+                connection,
+                event,
+            ),
             Second(event) => {
-                NetworkBehaviour::inject_event(self.dht.deref_mut(), peer_id, connection, event)
+                NetworkBehaviour::inject_event(&mut self.kademlia, peer_id, connection, event)
             }
         }
     }
@@ -104,30 +99,7 @@ impl NetworkBehaviour for ParticleBehaviour {
     ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
-        if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(event);
-        }
-
-        if let Poll::Ready(event) = self.plumber.poll(cx) {
-            NetworkBehaviourEventProcess::inject_event(self, event);
-        }
-
-        if let Poll::Ready(event) = self.dht.poll(cx) {
-            NetworkBehaviourEventProcess::inject_event(self, event);
-        }
-
-        if let Poll::Ready(cmd) = self.mailbox.poll(cx) {
-            NetworkBehaviourEventProcess::inject_event(self, cmd);
-        }
-
-        // Poll kademlia and forward GenerateEvent to self.dht
-        poll_loop!(
-            &mut self.dht,
-            self.dht.deref_mut(),
-            cx,
-            params,
-            EitherOutput::Second
-        );
+        // self.kademlia.poll(cx, params)
 
         Poll::Pending
     }

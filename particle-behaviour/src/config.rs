@@ -28,6 +28,7 @@ use libp2p::{identity::ed25519, PeerId};
 use std::{collections::HashMap, io, path::PathBuf};
 
 pub struct ParticleConfig {
+    pub particle_queue_buffer: usize,
     pub protocol_config: ProtocolConfig,
     pub current_peer_id: PeerId,
     pub services_base_dir: PathBuf,
@@ -43,6 +44,7 @@ pub struct ParticleConfig {
 
 impl ParticleConfig {
     pub fn new(
+        particle_queue_buffer: usize,
         protocol_config: ProtocolConfig,
         current_peer_id: PeerId,
         services_base_dir: PathBuf,
@@ -55,6 +57,7 @@ impl ParticleConfig {
         kad_config: KademliaConfig,
     ) -> Self {
         Self {
+            particle_queue_buffer,
             protocol_config,
             current_peer_id,
             services_base_dir,

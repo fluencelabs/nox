@@ -20,9 +20,9 @@ use fluence_libp2p::types::{
     BackPressuredInlet, BackPressuredOutlet, OneshotInlet, OneshotOutlet, Outlet,
 };
 use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
-use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
+use particle_protocol::{CompletionChannel, HandlerMessage, Particle, ProtocolConfig};
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::task::{Context, Poll, Waker};
 
 use futures::channel::mpsc::SendError;
@@ -36,12 +36,12 @@ use libp2p::core::either::EitherOutput::{First, Second};
 use libp2p::core::{ConnectedPoint, Multiaddr};
 use libp2p::identity::ed25519::Keypair;
 use libp2p::identity::PublicKey::Ed25519;
+use libp2p::kad::Kademlia;
 use libp2p::swarm::{
     DialPeerCondition, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
     NetworkBehaviourEventProcess, NotifyHandler, OneShotHandler, PollParameters, ProtocolsHandler,
 };
 use libp2p::PeerId;
-use particle_dht::{DHTConfig, ParticleDHT};
 use std::collections::hash_map::Entry;
 use std::hint::unreachable_unchecked;
 use trust_graph::TrustGraph;
@@ -50,27 +50,25 @@ type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
 #[derive(Debug)]
 enum Peer {
-    Connected(Multiaddr),
-    Dialing(Option<Multiaddr>, Vec<OneshotOutlet<bool>>),
+    Connected(HashSet<Multiaddr>),
+    // TODO: not sure if neet to store multiaddrs in dialing
+    Dialing(HashSet<Multiaddr>, Vec<OneshotOutlet<bool>>),
 }
 
 impl Peer {
-    fn multiaddr(&self) -> Option<&Multiaddr> {
+    fn addresses(&self) -> impl Iterator<Item = &Multiaddr> {
         match self {
-            Peer::Connected(maddr) => Some(maddr),
-            Peer::Dialing(maddr, _) => maddr.as_ref(),
+            Peer::Connected(addrs) => addrs.iter(),
+            Peer::Dialing(addrs, _) => addrs.iter(),
         }
     }
 }
 
-// #[derive(::libp2p::NetworkBehaviour)]
-struct ConnectionPoolBehaviour {
+pub struct ConnectionPoolBehaviour {
     pub(super) outlet: BackPressuredOutlet<Particle>,
     pub(super) queue: VecDeque<Particle>,
 
     pub(super) contacts: HashMap<PeerId, Peer>,
-
-    pub(super) dht: ParticleDHT,
 
     pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
@@ -91,10 +89,18 @@ impl ConnectionPool for ConnectionPoolBehaviour {
                 Peer::Connected(_) => {
                     outlet.send(true).ok();
                 }
-                Peer::Dialing(_, outlets) => outlets.push(outlet),
+                Peer::Dialing(addrs, outlets) => {
+                    if let Some(maddr) = contact.addr {
+                        addrs.insert(maddr);
+                    }
+                    outlets.push(outlet)
+                }
             },
             Entry::Vacant(slot) => {
-                slot.insert(Peer::Dialing(contact.addr, vec![outlet]));
+                slot.insert(Peer::Dialing(
+                    contact.addr.into_iter().collect(),
+                    vec![outlet],
+                ));
             }
         }
 
@@ -122,9 +128,9 @@ impl ConnectionPool for ConnectionPoolBehaviour {
 
     fn get_contact(&self, peer_id: &PeerId) -> Option<Contact> {
         match self.contacts.get(peer_id) {
-            Some(Peer::Connected(maddr)) => Some(Contact {
+            Some(Peer::Connected(addrs)) => Some(Contact {
                 peer_id: peer_id.clone(),
-                addr: maddr.clone().into(),
+                addr: addrs.iter().next().cloned(),
             }),
             _ => None,
         }
@@ -137,7 +143,7 @@ impl ConnectionPool for ConnectionPoolBehaviour {
             .push_back(NetworkBehaviourAction::NotifyHandler {
                 peer_id: to.peer_id,
                 handler: NotifyHandler::Any,
-                event: HandlerMessage::OutParticle(particle, outlet),
+                event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),
             });
 
         inlet.map(|r| r.is_ok()).boxed()
@@ -147,21 +153,17 @@ impl ConnectionPool for ConnectionPoolBehaviour {
 impl ConnectionPoolBehaviour {
     pub fn new(
         buffer: usize,
-        dht_config: DHTConfig,
-        trust_graph: TrustGraph,
+        protocol_config: ProtocolConfig,
     ) -> (Self, BackPressuredInlet<Particle>) {
         let (outlet, inlet) = mpsc::channel(buffer);
-
-        let dht = ParticleDHT::new(dht_config, trust_graph, None);
 
         let this = Self {
             outlet,
             queue: <_>::default(),
             contacts: <_>::default(),
-            dht,
             events: <_>::default(),
             waker: None,
-            protocol_config: <_>::default(),
+            protocol_config,
         };
 
         (this, inlet)
@@ -194,7 +196,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         self.contacts
             .get(peer_id)
             .into_iter()
-            .flat_map(|p| p.multiaddr().cloned())
+            .flat_map(|p| p.addresses().cloned())
             .collect()
     }
 
@@ -210,9 +212,51 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         _: &ConnectionId,
         cp: &ConnectedPoint,
     ) {
-        let multiaddr = remote_multiaddr(cp);
-        self.contacts
-            .insert(peer_id.clone(), Peer::Connected(multiaddr.clone()));
+        let multiaddr = remote_multiaddr(cp).clone();
+        match self.contacts.entry(peer_id.clone()) {
+            Entry::Occupied(mut entry) => {
+                match entry.get_mut() {
+                    Peer::Connected(addrs) => {
+                        addrs.insert(multiaddr);
+                    }
+                    Peer::Dialing(_, _) => {
+                        let mut set = HashSet::new();
+                        set.insert(multiaddr);
+                        let value = entry.insert(Peer::Connected(set));
+                        if let Peer::Dialing(_, outlets) = value {
+                            for outlet in outlets {
+                                outlet.send(true).ok();
+                            }
+                        }
+                    }
+                };
+            }
+            Entry::Vacant(mut e) => {
+                let mut set = HashSet::new();
+                set.insert(multiaddr);
+                e.insert(Peer::Connected(set));
+            }
+        }
+
+        // let entry = self
+        //     .contacts
+        //     .entry(peer_id.clone())
+        //     .or_insert(Peer::Connected(<_>::default()));
+        //
+        // match entry {
+        //     Peer::Connected(addrs) => {
+        //         addrs.insert(multiaddr.clone());
+        //     }
+        //     ref mut e @ Peer::Dialing(_, ref outlets) => {
+        //         for outlet in outlets {
+        //             outlet.send(true).ok();
+        //         }
+        //
+        //         let mut set = HashSet::new();
+        //         set.insert(multiaddr.clone());
+        //         **e = Peer::Connected(set);
+        //     }
+        // }
     }
 
     fn inject_event(

@@ -125,6 +125,9 @@ pub struct ServerConfig {
 
     #[serde(default)]
     pub kademlia: KademliaConfig,
+
+    #[serde(default = "default_particle_queue_buffer_size")]
+    pub particle_queue_buffer: usize,
 }
 
 impl ServerConfig {

@@ -23,8 +23,6 @@ use JValue::Array;
 
 #[derive(Clone)]
 pub struct HostClosures {
-    pub resolve: Closure,
-    pub neighborhood: Closure,
     pub create_service: ParticleClosure,
     pub call_service: ParticleClosure,
     pub add_module: Closure,
@@ -64,8 +62,7 @@ impl HostClosures {
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("dht", "resolve")         => (self.resolve)(args),
-            ("dht", "neighborhood")    => (self.neighborhood)(args),
+            ("dht", "neighborhood")    => todo!("implement neighborhood"),
             ("dht", "add_provider")    => (self.add_provider)(args),
             ("dht", "get_providers")   => (self.get_providers)(args),
 

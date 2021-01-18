@@ -34,6 +34,7 @@ mod libp2p_protocol {
 
 mod particle;
 
+pub use libp2p_protocol::message::CompletionChannel;
 pub use libp2p_protocol::message::HandlerMessage;
 pub use libp2p_protocol::upgrade::ProtocolConfig;
 pub use particle::Particle;

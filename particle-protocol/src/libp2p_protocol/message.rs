@@ -21,14 +21,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug)]
 pub enum CompletionChannel {
     Ignore,
-    Channel(OneshotOutlet<bool>),
+    Oneshot(OneshotOutlet<bool>),
 }
 
 impl CompletionChannel {
     pub fn outlet(self) -> Option<OneshotOutlet<bool>> {
         match self {
             CompletionChannel::Ignore => None,
-            CompletionChannel::Channel(outlet) => Some(outlet),
+            CompletionChannel::Oneshot(outlet) => Some(outlet),
         }
     }
 }

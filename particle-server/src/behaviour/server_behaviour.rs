@@ -56,6 +56,7 @@ impl ServerBehaviour {
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
 
         let config = ParticleConfig::new(
+            cfg.particle_queue_buffer,
             cfg.protocol_config,
             cfg.local_peer_id.clone(),
             cfg.services_base_dir,

@@ -41,6 +41,7 @@ pub struct BehaviourConfig<'a> {
     pub protocol_config: ProtocolConfig,
     pub stepper_pool_size: usize,
     pub kademlia_config: KademliaConfig,
+    pub particle_queue_buffer: usize,
 }
 
 impl<'a> BehaviourConfig<'a> {
@@ -65,6 +66,7 @@ impl<'a> BehaviourConfig<'a> {
             protocol_config: config.protocol_config.clone(),
             stepper_pool_size: config.stepper_pool_size,
             kademlia_config: config.kademlia.clone(),
+            particle_queue_buffer: config.particle_queue_buffer,
         }
     }
 }

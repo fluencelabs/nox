@@ -33,3 +33,6 @@
 
 mod behaviour;
 mod connection_pool;
+
+pub use behaviour::ConnectionPoolBehaviour;
+pub use connection_pool::ConnectionPool;

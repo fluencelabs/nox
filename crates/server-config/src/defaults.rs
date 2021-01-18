@@ -64,3 +64,7 @@ pub fn default_air_interpreter_path() -> PathBuf {
 pub fn default_stepper_pool_size() -> usize {
     num_cpus::get() * 2
 }
+
+pub fn default_particle_queue_buffer_size() -> usize {
+    100
+}

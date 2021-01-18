@@ -34,7 +34,7 @@ type Weight = u32;
 /// TODO serialization/deserialization
 /// TODO export a certificate from graph
 #[allow(dead_code)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TrustGraph {
     // TODO abstract this into a trait with key access methods
     // TODO: add docs on fields

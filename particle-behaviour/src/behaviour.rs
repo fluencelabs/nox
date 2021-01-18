@@ -17,6 +17,8 @@
 use crate::identify::identify;
 use crate::ParticleConfig;
 
+use connection_pool::ConnectionPoolBehaviour;
+use kademlia::Kademlia;
 use particle_actors::Plumber;
 use particle_dht::ParticleDHT;
 use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
@@ -25,6 +27,7 @@ use particle_services::ParticleAppServices;
 use fluence_libp2p::generate_swarm_event_type;
 use trust_graph::TrustGraph;
 
+use fluence_libp2p::types::BackPressuredInlet;
 use libp2p::{
     core::{either::EitherOutput, identity::ed25519, Multiaddr},
     swarm::{NetworkBehaviourAction, NotifyHandler},
@@ -41,17 +44,15 @@ use std::{
 pub(crate) type SwarmEventType = generate_swarm_event_type!(ParticleBehaviour);
 
 pub struct ParticleBehaviour {
+    pub(super) connection_pool: ConnectionPoolBehaviour,
+    pub(super) kademlia: Kademlia,
+
     pub(super) plumber: Plumber,
-    pub(super) dht: ParticleDHT,
     #[allow(dead_code)]
     services: ParticleAppServices,
-    pub(super) mailbox: Mailbox,
     #[allow(dead_code)]
     providers: ProviderRepository,
-    pub(super) connected_peers: HashMap<PeerId, Multiaddr>,
-    pub(super) events: VecDeque<SwarmEventType>,
     pub(super) waker: Option<Waker>,
-    pub(super) protocol_config: ProtocolConfig,
 }
 
 impl ParticleBehaviour {
@@ -59,10 +60,10 @@ impl ParticleBehaviour {
         config: ParticleConfig,
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<(Self, BackPressuredInlet<Particle>)> {
         let services = ParticleAppServices::new(config.services_config()?);
-        let mailbox = Mailbox::new();
         let providers = ProviderRepository::new(config.current_peer_id.clone());
+
         let closures = HostClosures {
             add_provider: providers.add_provider(),
             get_providers: providers.get_providers(),
@@ -74,53 +75,36 @@ impl ParticleBehaviour {
             call_service: services.call_service(),
             get_interface: services.get_interface(),
             get_active_interfaces: services.get_active_interfaces(),
-            resolve: mailbox.get_api().resolve(),
-            neighborhood: mailbox.get_api().neighborhood(),
             identify: identify(config.node_info.clone()),
         };
         let plumber = Plumber::new(config.actor_config()?, closures.descriptor());
-        let dht = ParticleDHT::new(config.dht_config(), trust_graph, registry);
 
-        Ok(Self {
-            plumber,
-            dht,
-            services,
-            mailbox,
-            providers,
-            protocol_config: config.protocol_config,
-            connected_peers: <_>::default(),
-            events: <_>::default(),
-            waker: <_>::default(),
-        })
+        let (connection_pool, particle_stream) =
+            ConnectionPoolBehaviour::new(config.particle_queue_buffer, config.protocol_config);
+        let kademlia = Kademlia::new(config.dht_config(), trust_graph, registry);
+
+        Ok((
+            Self {
+                connection_pool,
+                kademlia,
+                plumber,
+                services,
+                providers,
+                waker: <_>::default(),
+            },
+            particle_stream,
+        ))
     }
 
     /// Called on Identify event. That's when we got remote node's public key
     /// TODO: why not take public key from PeerId and get rid of identify altogether?
     pub fn add_kad_node(
         &mut self,
-        node_id: PeerId,
-        addresses: Vec<Multiaddr>,
-        public_key: ed25519::PublicKey,
+        _node_id: PeerId,
+        _addresses: Vec<Multiaddr>,
+        _public_key: ed25519::PublicKey,
     ) {
-        self.dht.add_kad_node(node_id, addresses, public_key)
-    }
-
-    pub fn bootstrap(&mut self) {
-        self.dht.bootstrap()
-    }
-
-    pub(super) fn push_event(&mut self, event: SwarmEventType) {
-        self.wake();
-        self.events.push_back(event);
-    }
-
-    pub(super) fn forward_particle(&mut self, target: PeerId, particle: Particle) {
-        log::info!("Sending {} to {} directly", particle.id, target);
-        self.push_event(NetworkBehaviourAction::NotifyHandler {
-            peer_id: target,
-            handler: NotifyHandler::Any,
-            event: EitherOutput::First(HandlerMessage::OutParticle(particle, <_>::default())),
-        });
+        // self.dht.add_kad_node(node_id, addresses, public_key)
     }
 
     pub(super) fn wake(&self) {
