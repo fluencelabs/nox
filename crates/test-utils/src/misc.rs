@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use particle_server::ServerBehaviour;
+use particle_server::NetworkBehaviour;
 
 use config_utils::{modules_dir, to_abs_path};
 use fluence_client::Transport;
@@ -156,7 +156,7 @@ pub fn make_swarms_with<F, M>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<ServerBehaviour>, PathBuf),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<NetworkBehaviour>, PathBuf),
     M: FnMut() -> Multiaddr,
 {
     use futures::stream::FuturesUnordered;
@@ -279,7 +279,7 @@ impl<'a> SwarmConfig<'a> {
     }
 }
 
-pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>, PathBuf) {
+pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<NetworkBehaviour>, PathBuf) {
     use libp2p::identity;
     #[rustfmt::skip]
     let SwarmConfig { bootstraps, listen_on, trust, transport, registry, .. } = config;
@@ -293,7 +293,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
     let stepper_base_dir = tmp.join("stepper");
     let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir));
 
-    let mut swarm: Swarm<ServerBehaviour> = {
+    let mut swarm: Swarm<NetworkBehaviour> = {
         use identity::Keypair::Ed25519;
 
         let root_weights: &[_] = trust.as_ref().map_or(&[], |t| &t.root_weights);
@@ -321,7 +321,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             kademlia_config: <_>::default(),
             particle_queue_buffer: 100,
         };
-        let server = ServerBehaviour::new(config).expect("create server behaviour");
+        let server = NetworkBehaviour::new(config).expect("create server behaviour");
         match transport {
             Transport::Memory => {
                 Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())

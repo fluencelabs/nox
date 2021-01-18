@@ -17,7 +17,7 @@
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
-    dead_code,
+    // dead_code,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -32,7 +32,7 @@ mod behaviour {
     mod identify;
     mod server_behaviour;
 
-    pub use server_behaviour::ServerBehaviour;
+    pub use server_behaviour::NetworkBehaviour;
 }
 
 pub mod config {
@@ -51,5 +51,5 @@ mod bootstrapper {
     pub(crate) use event::BootstrapperEvent;
 }
 
-pub use behaviour::ServerBehaviour;
-pub use server::Server;
+pub use behaviour::NetworkBehaviour;
+pub use server::Node;

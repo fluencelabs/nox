@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use super::ServerBehaviour;
+use super::NetworkBehaviour;
 use itertools::Itertools;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
@@ -26,7 +26,7 @@ use std::net::IpAddr;
 
 /// Network address information is exchanged via Identify protocol.
 /// That information is passed to relay, so nodes know each other's addresses
-impl NetworkBehaviourEventProcess<IdentifyEvent> for ServerBehaviour {
+impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
     fn inject_event(&mut self, event: IdentifyEvent) {
         match event {
             IdentifyEvent::Received { peer_id, info, .. } => {
@@ -42,7 +42,8 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for ServerBehaviour {
                 match info.public_key {
                     PublicKey::Ed25519(public_key) if supports_kademlia => {
                         let addresses = filter_addresses(info.listen_addrs);
-                        self.particle.add_kad_node(peer_id, addresses, public_key);
+                        todo!("add addresses {:?} and pk {:?}", addresses, public_key);
+                        // self.kademlia.add_kad_node(peer_id, addresses, public_key);
                     }
                     _ if supports_kademlia => {
                         log::error!(

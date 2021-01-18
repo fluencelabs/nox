@@ -14,27 +14,28 @@
  * limitations under the License.
  */
 
-use super::server_behaviour::ServerBehaviour;
+use super::server_behaviour::NetworkBehaviour;
 use crate::bootstrapper::BootstrapperEvent;
 use libp2p::swarm::NetworkBehaviourEventProcess;
 
-impl NetworkBehaviourEventProcess<BootstrapperEvent> for ServerBehaviour {
-    fn inject_event(&mut self, event: BootstrapperEvent) {
+impl NetworkBehaviourEventProcess<BootstrapperEvent> for NetworkBehaviour {
+    fn inject_event(&mut self, _event: BootstrapperEvent) {
+        todo!("implement bootstrapper as a part of kademlia")
         // TODO: do not reconnect to boostraps all the time, make it stop after a few minutes after node was started
         //       In other words, reconnect first 5 minutes or so, then stop. No reason to treat bootstrap nodes in a special way anymore.
-        match event {
-            BootstrapperEvent::RunBootstrap => {
-                log::debug!("Running bootstrap procedure");
-                self.bootstrap()
-            }
-            BootstrapperEvent::ReconnectToBootstrap { multiaddr, error } => {
-                log::debug!(
-                    "Bootstrap disconnected {} {}, reconnecting",
-                    multiaddr,
-                    error.unwrap_or_default()
-                );
-                self.dial(multiaddr);
-            }
-        }
+        // match event {
+        //     BootstrapperEvent::RunBootstrap => {
+        //         log::debug!("Running bootstrap procedure");
+        //         self.bootstrap()
+        //     }
+        //     BootstrapperEvent::ReconnectToBootstrap { multiaddr, error } => {
+        //         log::debug!(
+        //             "Bootstrap disconnected {} {}, reconnecting",
+        //             multiaddr,
+        //             error.unwrap_or_default()
+        //         );
+        //         self.dial(multiaddr);
+        //     }
+        // }
     }
 }

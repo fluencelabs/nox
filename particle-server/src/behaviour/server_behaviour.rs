@@ -16,37 +16,39 @@
 
 use crate::bootstrapper::Bootstrapper;
 
-use particle_behaviour::{ParticleBehaviour, ParticleConfig};
+use particle_behaviour::ParticleConfig;
 
-use fluence_libp2p::{event_polling, generate_swarm_event_type};
+use fluence_libp2p::generate_swarm_event_type;
 use server_config::BehaviourConfig;
 
-use libp2p::core::Multiaddr;
 use libp2p::{
     identify::Identify,
     identity::PublicKey,
     ping::{Ping, PingConfig, PingEvent},
 };
 
-use anyhow::Context;
-use std::collections::VecDeque;
+use connection_pool::ConnectionPoolBehaviour;
+use fluence_libp2p::types::BackPressuredInlet;
+use kademlia::Kademlia;
+use particle_protocol::Particle;
 
-pub type SwarmEventType = generate_swarm_event_type!(ServerBehaviour);
+pub type SwarmEventType = generate_swarm_event_type!(NetworkBehaviour);
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
-#[behaviour(poll_method = "custom_poll")]
-pub struct ServerBehaviour {
+pub struct NetworkBehaviour {
+    // TODO: move bootstrapper inside kademlia?
     bootstrapper: Bootstrapper,
+    // TODO: move identify inside ConnectionPoolBehaviour?
     identity: Identify,
+    // TODO: move ping inside ConnectionPoolBehaviour?
     ping: Ping,
-    pub(super) particle: ParticleBehaviour,
-    #[behaviour(ignore)]
-    events: VecDeque<SwarmEventType>,
+    pub(crate) connection_pool: ConnectionPoolBehaviour,
+    pub(crate) kademlia: Kademlia,
 }
 
-impl ServerBehaviour {
-    pub fn new(cfg: BehaviourConfig<'_>) -> anyhow::Result<Self> {
+impl NetworkBehaviour {
+    pub fn new(cfg: BehaviourConfig<'_>) -> anyhow::Result<(Self, BackPressuredInlet<Particle>)> {
         let local_public_key = PublicKey::Ed25519(cfg.key_pair.public());
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),
@@ -68,48 +70,49 @@ impl ServerBehaviour {
             cfg.external_addresses,
             cfg.kademlia_config,
         );
-        let (particle, _) = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)
-            .context("failed to create ParticleBehvaiour")?;
+
+        let kademlia = Kademlia::new(config.dht_config(), cfg.trust_graph, cfg.registry);
+        let (connection_pool, particle_stream) =
+            ConnectionPoolBehaviour::new(config.particle_queue_buffer, config.protocol_config);
+
         let bootstrapper = Bootstrapper::new(cfg.bootstrap, cfg.local_peer_id, cfg.bootstrap_nodes);
 
-        Ok(Self {
-            identity,
-            ping,
-            particle,
-            bootstrapper,
-            events: <_>::default(),
-        })
+        Ok((
+            Self {
+                kademlia,
+                connection_pool,
+                identity,
+                ping,
+                bootstrapper,
+            },
+            particle_stream,
+        ))
     }
 
     /// Dials bootstrap nodes
     pub fn dial_bootstrap_nodes(&mut self) {
-        // TODO: how to avoid collect?
-        let bootstrap_nodes: Vec<_> = self.bootstrapper.bootstrap_nodes.iter().cloned().collect();
-        if bootstrap_nodes.is_empty() {
-            log::warn!("No bootstrap nodes found. Am I the only one? :(");
-        }
-        for maddr in bootstrap_nodes {
-            self.dial(maddr)
-        }
+        // // TODO: how to avoid collect?
+        // let bootstrap_nodes: Vec<_> = self.bootstrapper.bootstrap_nodes.iter().cloned().collect();
+        // if bootstrap_nodes.is_empty() {
+        //     log::warn!("No bootstrap nodes found. Am I the only one? :(");
+        // }
+        // for maddr in bootstrap_nodes {
+        //     self.dial(maddr)
+        // }
+
+        todo!("dial bootstrap nodes")
     }
 
     pub fn bootstrap(&mut self) {
         // self.particle.bootstrap()
         todo!("bootstrap? or delete")
     }
-
-    pub(super) fn dial(&mut self, maddr: Multiaddr) {
-        self.events
-            .push_back(libp2p::swarm::NetworkBehaviourAction::DialAddress { address: maddr })
-    }
-
-    event_polling!(custom_poll, events, SwarmEventType);
 }
 
-impl libp2p::swarm::NetworkBehaviourEventProcess<()> for ServerBehaviour {
+impl libp2p::swarm::NetworkBehaviourEventProcess<()> for NetworkBehaviour {
     fn inject_event(&mut self, _: ()) {}
 }
 
-impl libp2p::swarm::NetworkBehaviourEventProcess<PingEvent> for ServerBehaviour {
+impl libp2p::swarm::NetworkBehaviourEventProcess<PingEvent> for NetworkBehaviour {
     fn inject_event(&mut self, _: PingEvent) {}
 }

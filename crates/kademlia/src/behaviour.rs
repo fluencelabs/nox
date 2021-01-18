@@ -62,7 +62,7 @@ pub struct Kademlia {
     #[behaviour(ignore)]
     pub(super) queries: HashMap<QueryId, PendingQuery>,
     #[behaviour(ignore)]
-    pub(super) pending_peers: HashMap<PeerId, Vec<OneshotOutlet<Vec<Multiaddr>>>>,
+    pub(super) pending_peers: HashMap<PeerId, Vec<OneshotOutlet<(PeerId, Vec<Multiaddr>)>>>,
 
     #[behaviour(ignore)]
     pub(super) waker: Option<Waker>,
@@ -110,7 +110,10 @@ impl Kademlia {
         self.kademlia.addresses_of_peer(peer)
     }
 
-    pub fn discover_peer(&mut self, peer: PeerId) -> BoxFuture<'static, Result<Vec<Multiaddr>>> {
+    pub fn discover_peer(
+        &mut self,
+        peer: PeerId,
+    ) -> BoxFuture<'static, Result<(PeerId, Vec<Multiaddr>)>> {
         let query_id = self.kademlia.get_closest_peers(peer.clone());
 
         let (outlet, inlet) = oneshot::channel();
@@ -136,10 +139,10 @@ impl Kademlia {
 }
 
 impl Kademlia {
-    pub(super) fn peer_discovered(&mut self, peer: &PeerId, addresses: Vec<Multiaddr>) {
-        if let Some(outlets) = self.pending_peers.remove(peer) {
+    pub(super) fn peer_discovered(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
+        if let Some(outlets) = self.pending_peers.remove(&peer) {
             for outlet in outlets {
-                outlet.send(addresses.clone()).ok();
+                outlet.send((peer.clone(), addresses.clone())).ok();
             }
         }
     }
@@ -151,7 +154,7 @@ impl Kademlia {
                 // if addresses are empty - do nothing, let it be finished by timeout
                 // motivation: more addresses might appear later through other events
                 if !addresses.is_empty() {
-                    self.peer_discovered(&peer_id, addresses)
+                    self.peer_discovered(peer_id, addresses)
                 }
             }
             PendingQuery::Neighborhood(outlet) => {
@@ -209,11 +212,11 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
                 peer, addresses, ..
             } => {
                 log::info!(target: "debug_kademlia", "routing updated {} {:#?}", peer, addresses);
-                self.peer_discovered(&peer, addresses.into_vec())
+                self.peer_discovered(peer, addresses.into_vec())
             }
             KademliaEvent::RoutablePeer { peer, address }
             | KademliaEvent::PendingRoutablePeer { peer, address } => {
-                self.peer_discovered(&peer, vec![address])
+                self.peer_discovered(peer, vec![address])
             }
             _ => {}
         }

@@ -31,6 +31,8 @@ use libp2p::swarm::OneShotHandlerConfig;
 use log::LevelFilter;
 use std::fmt::Debug;
 
+// TODO: embed pings into the protocol?
+// TODO: embed identify into the protocol?
 #[derive(Clone, Deserialize, Debug)]
 pub struct ProtocolConfig {
     /// Timeout for applying the given upgrade on a substream

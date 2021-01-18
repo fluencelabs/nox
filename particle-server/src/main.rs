@@ -28,7 +28,7 @@
 
 use particle_server::{
     config::{certificates, create_args},
-    Server,
+    Node,
 };
 use server_config::{default_air_interpreter_path, load_config, FluenceConfig};
 
@@ -103,7 +103,7 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
     );
 
     let node_service =
-        Server::new(key_pair.clone(), config.server).context("failed to create server")?;
+        Node::new(key_pair.clone(), config.server).context("failed to create server")?;
 
     let node_exit_outlet = node_service.start();
 

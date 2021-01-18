@@ -7,12 +7,14 @@ edition = "2018"
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
 particle-behaviour = { path = "../particle-behaviour"}
+connection-pool = { path = "../connection-pool"}
 
 config-utils = { path = "../crates/config-utils" }
 trust-graph = { path = "../trust-graph" }
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
 server-config = { path = "../crates/server-config" }
+kademlia = { path = "../crates/kademlia" }
 
 air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.30" }
 
