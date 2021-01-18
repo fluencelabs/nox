@@ -3106,6 +3106,7 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
+ "test-utils",
  "trust-graph",
  "waiting-queues",
 ]

@@ -21,6 +21,7 @@ use particle_protocol::{HandlerMessage, ProtocolConfig};
 
 use fluence_libp2p::{poll_loop, remote_multiaddr};
 
+use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{
     core::{
         connection::{ConnectionId, ListenerId},
@@ -95,11 +96,16 @@ impl NetworkBehaviour for ParticleBehaviour {
     fn poll(
         &mut self,
         cx: &mut Context<'_>,
-        _params: &mut impl PollParameters,
+        params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
-        // self.kademlia.poll(cx, params)
+        let kad_ready = self.kademlia.poll(cx, params).is_ready();
+        let pool_ready = self.connection_pool.poll(cx, params).is_ready();
+
+        if kad_ready || pool_ready {
+            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(()));
+        }
 
         Poll::Pending
     }
