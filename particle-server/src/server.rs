@@ -117,6 +117,7 @@ impl InterpreterPoolSender {
         Self { outlet }
     }
 
+    /// Send particle to interpreters pool and wait response back
     pub fn ingest(
         self,
         particle: Particle,
@@ -128,7 +129,6 @@ impl InterpreterPoolSender {
                 .send((particle, outlet))
                 .await
                 .expect("interpreter pool died?");
-            // futures::future::ready((vec![particle.init_peer_id.clone()], particle)).boxed()
             inlet.await.map_err(Into::into)
         }
         .boxed()
