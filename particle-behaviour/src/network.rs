@@ -95,7 +95,7 @@ impl NetworkBehaviour for ParticleBehaviour {
     fn poll(
         &mut self,
         cx: &mut Context<'_>,
-        params: &mut impl PollParameters,
+        _params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
@@ -104,38 +104,47 @@ impl NetworkBehaviour for ParticleBehaviour {
         Poll::Pending
     }
 
-    // ==== useless repetition below ====
+    // ==== tedious repetition below ====
     fn inject_addr_reach_failure(
         &mut self,
         peer_id: Option<&PeerId>,
         addr: &Multiaddr,
         error: &dyn Error,
     ) {
-        self.dht.inject_addr_reach_failure(peer_id, addr, error);
+        self.connection_pool
+            .inject_addr_reach_failure(peer_id, addr, error);
+        self.kademlia
+            .inject_addr_reach_failure(peer_id, addr, error);
     }
 
     fn inject_dial_failure(&mut self, peer_id: &PeerId) {
-        self.dht.inject_dial_failure(peer_id);
+        self.connection_pool.inject_dial_failure(peer_id);
+        self.kademlia.inject_dial_failure(peer_id);
     }
 
     fn inject_new_listen_addr(&mut self, addr: &Multiaddr) {
-        self.dht.inject_new_listen_addr(addr);
+        self.connection_pool.inject_new_listen_addr(addr);
+        self.kademlia.inject_new_listen_addr(addr);
     }
 
     fn inject_expired_listen_addr(&mut self, addr: &Multiaddr) {
-        self.dht.inject_expired_listen_addr(addr);
+        self.connection_pool.inject_expired_listen_addr(addr);
+        self.kademlia.inject_expired_listen_addr(addr);
     }
 
     fn inject_new_external_addr(&mut self, addr: &Multiaddr) {
-        self.dht.inject_new_external_addr(addr);
+        self.connection_pool.inject_new_external_addr(addr);
+        self.kademlia.inject_new_external_addr(addr);
     }
 
     fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
-        self.dht.inject_listener_error(id, err);
+        self.connection_pool.inject_listener_error(id, err);
+        self.kademlia.inject_listener_error(id, err);
     }
 
     fn inject_listener_closed(&mut self, id: ListenerId, reason: Result<(), &std::io::Error>) {
-        self.dht.inject_listener_closed(id, reason);
+        self.connection_pool.inject_listener_closed(id, reason);
+        self.kademlia.inject_listener_closed(id, reason);
     }
 
     fn inject_connection_established(
@@ -144,13 +153,14 @@ impl NetworkBehaviour for ParticleBehaviour {
         ci: &ConnectionId,
         cp: &ConnectedPoint,
     ) {
-        let maddr = remote_multiaddr(cp);
-        self.add_peer(id.clone(), maddr.clone());
-        self.dht.inject_connection_established(id, ci, cp);
+        self.connection_pool
+            .inject_connection_established(id, ci, cp);
+        self.kademlia.inject_connection_established(id, ci, cp);
     }
 
     fn inject_connection_closed(&mut self, id: &PeerId, ci: &ConnectionId, cp: &ConnectedPoint) {
-        self.dht.inject_connection_closed(id, ci, cp);
+        self.connection_pool.inject_connection_closed(id, ci, cp);
+        self.kademlia.inject_connection_closed(id, ci, cp);
     }
 
     fn inject_address_change(
@@ -160,6 +170,7 @@ impl NetworkBehaviour for ParticleBehaviour {
         old: &ConnectedPoint,
         new: &ConnectedPoint,
     ) {
-        self.dht.inject_address_change(id, ci, old, new);
+        self.connection_pool.inject_address_change(id, ci, old, new);
+        self.kademlia.inject_address_change(id, ci, old, new);
     }
 }

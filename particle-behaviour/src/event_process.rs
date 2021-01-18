@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use crate::clients::ConnectionKind;
 use crate::ParticleBehaviour;
 
 use particle_actors::PlumberEvent;

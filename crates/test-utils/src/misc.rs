@@ -319,6 +319,7 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<ServerBehaviour>,
             protocol_config: <_>::default(),
             stepper_pool_size: 1,
             kademlia_config: <_>::default(),
+            particle_queue_buffer: 100,
         };
         let server = ServerBehaviour::new(config).expect("create server behaviour");
         match transport {

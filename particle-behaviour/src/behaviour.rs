@@ -20,7 +20,6 @@ use crate::ParticleConfig;
 use connection_pool::ConnectionPoolBehaviour;
 use kademlia::Kademlia;
 use particle_actors::Plumber;
-use particle_dht::ParticleDHT;
 use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 use particle_services::ParticleAppServices;
 
@@ -47,6 +46,7 @@ pub struct ParticleBehaviour {
     pub(super) connection_pool: ConnectionPoolBehaviour,
     pub(super) kademlia: Kademlia,
 
+    #[allow(dead_code)]
     pub(super) plumber: Plumber,
     #[allow(dead_code)]
     services: ParticleAppServices,
@@ -79,9 +79,9 @@ impl ParticleBehaviour {
         };
         let plumber = Plumber::new(config.actor_config()?, closures.descriptor());
 
+        let kademlia = Kademlia::new(config.dht_config(), trust_graph, registry);
         let (connection_pool, particle_stream) =
             ConnectionPoolBehaviour::new(config.particle_queue_buffer, config.protocol_config);
-        let kademlia = Kademlia::new(config.dht_config(), trust_graph, registry);
 
         Ok((
             Self {

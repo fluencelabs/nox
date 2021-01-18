@@ -65,14 +65,14 @@ impl Peer {
 }
 
 pub struct ConnectionPoolBehaviour {
-    pub(super) outlet: BackPressuredOutlet<Particle>,
-    pub(super) queue: VecDeque<Particle>,
+    outlet: BackPressuredOutlet<Particle>,
+    queue: VecDeque<Particle>,
 
-    pub(super) contacts: HashMap<PeerId, Peer>,
+    contacts: HashMap<PeerId, Peer>,
 
-    pub(super) events: VecDeque<SwarmEventType>,
-    pub(super) waker: Option<Waker>,
-    pub(super) protocol_config: ProtocolConfig,
+    events: VecDeque<SwarmEventType>,
+    waker: Option<Waker>,
+    protocol_config: ProtocolConfig,
 }
 
 impl ConnectionPool for ConnectionPoolBehaviour {
@@ -219,7 +219,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     Peer::Connected(addrs) => {
                         addrs.insert(multiaddr);
                     }
-                    Peer::Dialing(_, _) => {
+                    Peer::Dialing(..) => {
                         let mut set = HashSet::new();
                         set.insert(multiaddr);
                         let value = entry.insert(Peer::Connected(set));

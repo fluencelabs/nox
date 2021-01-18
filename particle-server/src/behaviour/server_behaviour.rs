@@ -68,7 +68,7 @@ impl ServerBehaviour {
             cfg.external_addresses,
             cfg.kademlia_config,
         );
-        let particle = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)
+        let (particle, _) = ParticleBehaviour::new(config, cfg.trust_graph, cfg.registry)
             .context("failed to create ParticleBehvaiour")?;
         let bootstrapper = Bootstrapper::new(cfg.bootstrap, cfg.local_peer_id, cfg.bootstrap_nodes);
 
@@ -94,7 +94,8 @@ impl ServerBehaviour {
     }
 
     pub fn bootstrap(&mut self) {
-        self.particle.bootstrap()
+        // self.particle.bootstrap()
+        todo!("bootstrap? or delete")
     }
 
     pub(super) fn dial(&mut self, maddr: Multiaddr) {
