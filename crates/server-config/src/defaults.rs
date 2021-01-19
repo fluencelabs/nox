@@ -68,3 +68,7 @@ pub fn default_stepper_pool_size() -> usize {
 pub fn default_particle_queue_buffer_size() -> usize {
     100
 }
+
+pub fn default_particle_processor_parallelism() -> usize {
+    num_cpus::get()
+}

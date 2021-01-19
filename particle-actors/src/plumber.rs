@@ -14,17 +14,14 @@
  * limitations under the License.
  */
 
-use crate::actor::{Actor, ActorEvent};
+use crate::actor::{Actor, Deadline};
 use crate::config::VmPoolConfig;
 
 use host_closure::ClosureDescriptor;
-use particle_protocol::Particle;
 
 use crate::vm_pool::VmPool;
-use libp2p::PeerId;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
-    fmt::Debug,
     task::{Context, Poll},
 };
 
@@ -32,25 +29,13 @@ use std::{
 #[cfg(not(test))]
 use real_time::now;
 
+use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now;
 
-#[derive(Debug)]
-pub enum PlumberEvent {
-    Forward { target: PeerId, particle: Particle },
-}
-
-impl From<ActorEvent> for PlumberEvent {
-    fn from(event: ActorEvent) -> Self {
-        match event {
-            ActorEvent::Forward { particle, target } => PlumberEvent::Forward { target, particle },
-        }
-    }
-}
-
 pub struct Plumber {
-    events: VecDeque<PlumberEvent>,
+    events: VecDeque<AwaitedEffects>,
     actors: HashMap<String, Actor>,
     vm_pool: VmPool,
 }
@@ -66,19 +51,20 @@ impl Plumber {
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
-    pub fn ingest(&mut self, particle: Particle) {
-        if is_expired(now(), &particle) {
+    pub fn ingest(&mut self, particle: AwaitedParticle) {
+        let deadline = Deadline::from(&particle);
+        if deadline.is_expired(now()) {
             log::info!("Particle {} is expired, ignoring", particle.id);
             return;
         }
 
         match self.actors.entry(particle.id.clone()) {
-            Entry::Vacant(entry) => entry.insert(Actor::new(particle.clone())).ingest(particle),
+            Entry::Vacant(entry) => entry.insert(Actor::new(deadline)).ingest(particle),
             Entry::Occupied(mut entry) => entry.get_mut().ingest(particle),
         }
     }
 
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<PlumberEvent> {
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<AwaitedEffects> {
         self.vm_pool.poll(cx);
 
         if let Some(event) = self.events.pop_front() {
@@ -87,14 +73,13 @@ impl Plumber {
 
         // Remove expired actors
         let now = now();
-        self.actors
-            .retain(|_, actor| !is_expired(now, actor.particle()));
+        self.actors.retain(|_, actor| !actor.is_expired(now));
 
-        // Gather effects and vms
+        // Gather effects and put VMs back
         let mut effects = vec![];
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
-                effects.extend(result.effects);
+                effects.push(result.effects);
                 self.vm_pool.put_vm(result.vm);
             }
         }
@@ -122,19 +107,6 @@ impl Plumber {
     }
 }
 
-fn is_expired(now: u64, particle: &Particle) -> bool {
-    particle
-        .timestamp
-        .checked_add(particle.ttl as u64)
-        // Whether ts is in the past
-        .map(|ts| ts < now)
-        // If timestamp + ttl gives overflow, consider particle expired
-        .unwrap_or_else(|| {
-            log::warn!("particle {} timestamp + ttl overflowed", particle.id);
-            true
-        })
-}
-
 /// Implements `now` by taking number of non-leap seconds from `Utc::now()`
 mod real_time {
     pub fn now() -> u64 {
@@ -144,11 +116,13 @@ mod real_time {
 
 #[cfg(test)]
 mod tests {
+    use crate::actor::Deadline;
+    use crate::plumber::mock_time::set_mock_time;
     use crate::plumber::{is_expired, now, real_time};
     use crate::Plumber;
+
     use particle_protocol::Particle;
 
-    use crate::plumber::mock_time::set_mock_time;
     use futures::task::noop_waker_ref;
     use std::{sync::Arc, task::Context};
 
@@ -178,7 +152,8 @@ mod tests {
         let mut plumber = plumber();
 
         let particle = particle(now(), 1);
-        assert!(!is_expired(now(), &particle));
+        let deadline = Deadline::from(&particle);
+        assert!(!deadline.is_expired(now()));
 
         plumber.ingest(particle);
 

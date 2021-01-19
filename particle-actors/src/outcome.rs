@@ -14,30 +14,16 @@
  * limitations under the License.
  */
 
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use libp2p::PeerId;
+use particle_protocol::Particle;
 
-mod actor;
-mod awaited_particle;
-mod config;
-mod invoke;
-mod outcome;
-mod particle_executor;
-mod plumber;
-mod stepper_pool;
-mod vm_pool;
+#[derive(Clone, Debug)]
+pub struct SendParticle {
+    pub particle: Particle,
+    pub target: PeerId,
+}
 
-pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
-pub use config::VmPoolConfig;
-pub use outcome::{SendParticle, StepperEffects};
-pub use plumber::Plumber;
-pub use stepper_pool::{InterepreterPoolProcessor, InterpreterPoolSender};
+#[derive(Clone, Debug)]
+pub struct StepperEffects {
+    pub particles: Vec<SendParticle>,
+}

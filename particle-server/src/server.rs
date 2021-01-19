@@ -70,69 +70,6 @@ pub struct Node {
     registry: Registry,
 }
 
-struct InterepreterPoolProcessor {
-    inlet: BackPressuredInlet<(Particle, OneshotOutlet<(Vec<PeerId>, Particle)>)>,
-}
-
-impl InterepreterPoolProcessor {
-    pub fn new() -> (Self, InterpreterPoolSender) {
-        let (outlet, inlet) = mpsc::channel(100);
-        let this = Self { inlet };
-        let sender = InterpreterPoolSender::new(outlet);
-
-        (this, sender)
-    }
-
-    pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> Poll<()> {
-        if let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
-            out.send((vec![particle.init_peer_id.clone()], particle))
-                .ok();
-            return Poll::Ready(());
-        }
-
-        Poll::Pending
-    }
-
-    pub fn run(mut self) {
-        let mut future = futures::future::poll_fn(move |cx| self.poll(cx)).into_stream();
-        task::spawn(async move {
-            loop {
-                future.next().await;
-            }
-        });
-    }
-}
-
-#[derive(Clone)]
-pub struct InterpreterPoolSender {
-    // send particle along with a "return address"; it's like the Ask pattern in Akka
-    outlet: BackPressuredOutlet<(Particle, OneshotOutlet<(Vec<PeerId>, Particle)>)>,
-}
-impl InterpreterPoolSender {
-    pub fn new(
-        outlet: BackPressuredOutlet<(Particle, OneshotOutlet<(Vec<PeerId>, Particle)>)>,
-    ) -> Self {
-        Self { outlet }
-    }
-
-    /// Send particle to interpreters pool and wait response back
-    pub fn ingest(
-        self,
-        particle: Particle,
-    ) -> BoxFuture<'static, anyhow::Result<(Vec<PeerId>, Particle)>> {
-        let mut interpreters = self.outlet;
-        async move {
-            let (outlet, inlet) = oneshot::channel();
-            interpreters
-                .send((particle, outlet))
-                .await
-                .expect("interpreter pool died?");
-            inlet.await.map_err(Into::into)
-        }
-        .boxed()
-    }
-}
-
 impl Node {
     pub fn new(key_pair: Keypair, config: ServerConfig) -> anyhow::Result<Box<Self>> {
         let ServerConfig { socket_timeout, .. } = config;
@@ -176,8 +113,8 @@ impl Node {
         air_processor.run();
 
         let network = Arc::new(Mutex::new(self.network));
-        // TODO: take cfg_parallelism from ServerConfig
-        let cfg_parallelism = 4;
+
+        let cfg_parallelism = self.config.particle_processor_parallelism;
         let mut particle_processor = {
             let network = network.clone();
             self.particle_stream

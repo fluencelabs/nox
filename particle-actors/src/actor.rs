@@ -14,58 +14,71 @@
  * limitations under the License.
  */
 
-use crate::invoke::{parse_outcome, ExecutionError};
+use crate::awaited_particle::AwaitedParticle;
+use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
 
 use aquamarine_vm::AquamarineVM;
 use particle_protocol::Particle;
 
-use async_std::{pin::Pin, task};
-use futures::{future::BoxFuture, Future, FutureExt};
-use libp2p::PeerId;
-use log::LevelFilter;
-use serde_json::json;
+use async_std::pin::Pin;
+use futures::Future;
 use std::{
     collections::VecDeque,
     fmt::Debug,
     task::{Context, Poll, Waker},
 };
 
-pub(super) type Fut = BoxFuture<'static, FutResult>;
-
-pub struct FutResult {
-    pub vm: AquamarineVM,
-    pub effects: Vec<ActorEvent>,
+#[derive(Debug, Clone)]
+pub struct Deadline {
+    timestamp: u64,
+    ttl: u32,
 }
 
-pub enum ActorEvent {
-    Forward { particle: Particle, target: PeerId },
+impl Deadline {
+    pub fn from(particle: impl AsRef<Particle>) -> Self {
+        let particle = particle.as_ref();
+        Self {
+            timestamp: particle.timestamp,
+            ttl: particle.ttl,
+        }
+    }
+
+    pub fn is_expired(&self, now: u64) -> bool {
+        self.timestamp
+            .checked_add(self.ttl as u64)
+            // Whether ts is in the past
+            .map(|ts| ts < now)
+            // If timestamp + ttl gives overflow, consider particle expired
+            .unwrap_or_else(|| {
+                log::warn!("timestamp {} + ttl {} overflowed", self.timestamp, self.ttl);
+                true
+            })
+    }
 }
 
 pub struct Actor {
+    /// Particle of that actor is expired after that deadline
+    deadline: Deadline,
     future: Option<Fut>,
-    // TODO: why keep particle here?
-    #[allow(dead_code)]
-    particle: Particle,
-    mailbox: VecDeque<Particle>,
+    mailbox: VecDeque<AwaitedParticle>,
     waker: Option<Waker>,
 }
 
 impl Actor {
-    pub fn new(particle: Particle) -> Self {
+    pub fn new(deadline: Deadline) -> Self {
         Self {
+            deadline,
             future: None,
-            particle,
             mailbox: <_>::default(),
             waker: <_>::default(),
         }
     }
 
-    #[allow(dead_code)]
-    pub fn particle(&self) -> &Particle {
-        &self.particle
+    pub fn is_expired(&self, now: u64) -> bool {
+        self.deadline.is_expired(now)
     }
 
-    pub fn ingest(&mut self, particle: Particle) {
+    pub fn ingest(&mut self, particle: AwaitedParticle) {
         self.mailbox.push_back(particle);
         self.wake();
     }
@@ -106,7 +119,7 @@ impl Actor {
         match self.mailbox.pop_front() {
             Some(p) => {
                 // Take ownership of vm to process particle
-                self.future = Self::execute(p, vm, cx.waker().clone()).into();
+                self.future = vm.execute(p, cx.waker().clone()).into();
                 Poll::Pending
             }
             // Mailbox is empty, return vm
@@ -114,83 +127,9 @@ impl Actor {
         }
     }
 
-    fn execute(p: Particle, mut vm: AquamarineVM, waker: Waker) -> Fut {
-        task::spawn_blocking(move || {
-            log::info!("Executing particle {}", p.id);
-
-            let result = vm.call(
-                p.init_peer_id.to_string(),
-                &p.script,
-                p.data.clone(),
-                &p.id,
-            );
-            if let Err(err) = &result {
-                log::warn!("Error executing particle {:#?}: {}", p, err)
-            }
-
-            let effects = match parse_outcome(result) {
-                Ok((data, targets)) if !targets.is_empty() => {
-                    #[rustfmt::skip]
-                    log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
-                    let particle = Particle {
-                        data,
-                        ..p
-                    };
-                    targets
-                        .into_iter()
-                        .map(|target| ActorEvent::Forward {
-                            particle: particle.clone(),
-                            target,
-                        })
-                        .collect::<Vec<_>>()
-                }
-                Ok((data, _)) => {
-                    log::warn!("Executed particle {}, next_peer_pks is empty. Won't send anywhere", p.id);
-                    if log::max_level() >= LevelFilter::Debug {
-                        let data = String::from_utf8_lossy(data.as_slice());
-                        log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
-                    }
-                    vec![]
-                }
-                Err(ExecutionError::AquamarineError(err)) => {
-                    log::warn!("Error executing particle {:#?}: {}", p, err);
-                    vec![]
-                }
-                Err(err @ ExecutionError::StepperOutcome { .. }) => {
-                    log::warn!("Error executing script: {}", err);
-                    // Return error to the init peer id
-                    vec![protocol_error(p, err)]
-                },
-                Err(err @ ExecutionError::InvalidResultField { .. }) => {
-                    log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
-                    // Return error to the init peer id
-                    vec![protocol_error(p, err)]
-                }
-            };
-
-            waker.wake();
-
-            FutResult { vm, effects }
-        })
-        .boxed()
-    }
-
     fn wake(&self) {
         if let Some(waker) = &self.waker {
             waker.wake_by_ref();
         }
-    }
-}
-
-fn protocol_error(mut particle: Particle, err: impl Debug) -> ActorEvent {
-    let error = format!("{:?}", err);
-    // Convert error to JSON string so client can read it
-    particle.data = json!({"protocol!error": error, "data": base64::encode(particle.data)})
-        .to_string()
-        .into_bytes();
-    // Return error to the init peer id
-    ActorEvent::Forward {
-        target: particle.init_peer_id.clone(),
-        particle,
     }
 }

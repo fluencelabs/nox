@@ -128,6 +128,8 @@ pub struct ServerConfig {
 
     #[serde(default = "default_particle_queue_buffer_size")]
     pub particle_queue_buffer: usize,
+    #[serde(default = "default_particle_processor_parallelism")]
+    pub particle_processor_parallelism: usize,
 }
 
 impl ServerConfig {
