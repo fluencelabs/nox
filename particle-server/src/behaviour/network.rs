@@ -25,12 +25,16 @@ use libp2p::{
     identify::Identify,
     identity::PublicKey,
     ping::{Ping, PingConfig, PingEvent},
+    PeerId, Swarm,
 };
 
-use connection_pool::ConnectionPoolBehaviour;
+use crate::server::unlocks::{unlock, unlock_f};
+use async_std::sync::Mutex;
+use connection_pool::{ConnectionPool, ConnectionPoolBehaviour, Contact};
 use fluence_libp2p::types::BackPressuredInlet;
 use kademlia::Kademlia;
 use particle_protocol::Particle;
+use std::sync::Arc;
 
 pub type SwarmEventType = generate_swarm_event_type!(NetworkBehaviour);
 
@@ -106,6 +110,40 @@ impl NetworkBehaviour {
     pub fn bootstrap(&mut self) {
         // self.particle.bootstrap()
         todo!("bootstrap? or delete")
+    }
+}
+
+pub async fn execute_particle(
+    network: Arc<Mutex<Swarm<NetworkBehaviour>>>,
+    next_peers: Vec<PeerId>,
+    particle: Particle,
+) {
+    dbg!(&next_peers);
+    for peer in next_peers {
+        let contact = unlock(&network, |n| n.connection_pool.get_contact(&peer)).await;
+        dbg!(&contact);
+        let contact = match contact {
+            Some(contact) => contact,
+            _ => {
+                let (peer_id, addresses) = unlock_f(&network, |n| n.kademlia.discover_peer(peer))
+                    .await
+                    .expect("failed to discover peer");
+                let contact = Contact {
+                    peer_id,
+                    // TODO: take all addresses
+                    addr: addresses.into_iter().next(),
+                };
+                unlock_f(&network, |n| n.connection_pool.connect(contact.clone())).await;
+                contact
+            }
+        };
+
+        dbg!(&contact);
+
+        unlock(&network, |n| {
+            n.connection_pool.send(contact, particle.clone())
+        })
+        .await;
     }
 }
 

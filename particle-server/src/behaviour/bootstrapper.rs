@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use super::server_behaviour::NetworkBehaviour;
+use super::network::NetworkBehaviour;
 use crate::bootstrapper::BootstrapperEvent;
 use libp2p::swarm::NetworkBehaviourEventProcess;
 

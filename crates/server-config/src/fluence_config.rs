@@ -275,7 +275,7 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
     validate_config(config)
 }
 
-pub(super) fn deserialize_config(
+pub fn deserialize_config(
     arguments: ArgMatches<'_>,
     content: Vec<u8>,
 ) -> anyhow::Result<FluenceConfig> {

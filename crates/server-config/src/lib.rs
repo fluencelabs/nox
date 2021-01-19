@@ -35,7 +35,7 @@ mod kademlia_config;
 mod keys;
 
 pub use defaults::default_air_interpreter_path;
-pub use fluence_config::load_config;
+pub use fluence_config::{deserialize_config, load_config};
 
 pub use app_services::AppServicesConfig;
 pub use behaviour_config::BehaviourConfig;

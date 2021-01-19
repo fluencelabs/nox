@@ -24,7 +24,6 @@ use trust_graph::TrustGraph;
 use anyhow::Context;
 use async_std::sync::Mutex;
 use async_std::task;
-use connection_pool::{ConnectionPool, Contact};
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
 use futures::{channel::oneshot, future::BoxFuture, select, stream::StreamExt, FutureExt, SinkExt};
 use libp2p::swarm::{AddressScore, ExpandedSwarm};
@@ -40,7 +39,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::task::Poll;
 
-mod unlocks {
+pub mod unlocks {
     use async_std::sync::Mutex;
     use futures::Future;
     use std::ops::DerefMut;
@@ -60,9 +59,8 @@ mod unlocks {
     }
 }
 
-use crate::server::unlocks::unlock_f;
+use crate::execute_particle;
 use futures::channel::mpsc;
-use unlocks::*;
 
 // TODO: documentation
 pub struct Node {
@@ -106,7 +104,7 @@ impl InterepreterPoolProcessor {
 }
 
 #[derive(Clone)]
-struct InterpreterPoolSender {
+pub struct InterpreterPoolSender {
     // send particle along with a "return address"; it's like the Ask pattern in Akka
     outlet: BackPressuredOutlet<(Particle, OneshotOutlet<(Vec<PeerId>, Particle)>)>,
 }
@@ -173,7 +171,7 @@ impl Node {
     }
 
     fn process_particles(self: Box<Self>) {
-        let (air_processor, air_sender) = InterepreterPoolProcessor::new();
+        let (air_processor, aquamarine) = InterepreterPoolProcessor::new();
 
         air_processor.run();
 
@@ -181,49 +179,19 @@ impl Node {
         // TODO: take cfg_parallelism from ServerConfig
         let cfg_parallelism = 4;
         let mut particle_processor = {
-            let air_sender = air_sender.clone();
             let network = network.clone();
             self.particle_stream
                 .for_each_concurrent(cfg_parallelism, move |particle| {
-                    let air_sender = air_sender.clone();
                     let network = network.clone();
+                    let aquamarine = aquamarine.clone();
                     async move {
-                        let (next_peers, particle) = air_sender
-                            .ingest(particle)
-                            .await
-                            .expect("air sender failed");
-                        dbg!(&next_peers);
-                        for peer in next_peers {
-                            let contact =
-                                unlock(&network, |n| n.connection_pool.get_contact(&peer)).await;
-                            dbg!(&contact);
-                            let contact = match contact {
-                                Some(contact) => contact,
-                                _ => {
-                                    let (peer_id, addresses) =
-                                        unlock_f(&network, |n| n.kademlia.discover_peer(peer))
-                                            .await
-                                            .expect("failed to discover peer");
-                                    let contact = Contact {
-                                        peer_id,
-                                        // TODO: take all addresses
-                                        addr: addresses.into_iter().next(),
-                                    };
-                                    unlock_f(&network, |n| {
-                                        n.connection_pool.connect(contact.clone())
-                                    })
-                                    .await;
-                                    contact
-                                }
-                            };
+                        let (next_peers, particle) = {
+                            let aquamarine = aquamarine.clone();
+                            let fut = aquamarine.ingest(particle);
+                            fut.await.expect("air sender failed")
+                        };
 
-                            dbg!(&contact);
-
-                            unlock(&network, |n| {
-                                n.connection_pool.send(contact, particle.clone())
-                            })
-                            .await;
-                        }
+                        execute_particle(network.clone(), next_peers, particle).await
                     }
                 })
         };
@@ -247,7 +215,7 @@ impl Node {
                     println!("poll_fn network lock PENDING");
                 }
 
-                // TODO: move to a separate task?
+                // TODO: move to a separate task? or keep here to define precedence
                 ready = ready
                     || dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
 
@@ -272,10 +240,13 @@ impl Node {
 
         task::spawn(async move {
             let mut metrics = Self::start_metrics_endpoint(
-                self.registry,
+                self.registry.clone(),
                 SocketAddr::new(self.config.listen_ip, self.config.prometheus_port),
             )
             .fuse();
+
+            self.process_particles();
+
             loop {
                 select!(
                     // _ = self.swarm.select_next_some() => {},
@@ -337,5 +308,77 @@ impl Node {
         Swarm::listen_on(&mut self.network, tcp)?;
         Swarm::listen_on(&mut self.network, ws)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Node;
+    use ctrlc_adapter::block_until_ctrlc;
+    use fluence_libp2p::RandomPeerId;
+    use libp2p::core::connection::ConnectionId;
+    use libp2p::core::Multiaddr;
+    use libp2p::identity::ed25519::Keypair;
+    use libp2p::swarm::NetworkBehaviour;
+    use libp2p::Swarm;
+    use maplit::hashmap;
+    use particle_protocol::{HandlerMessage, Particle};
+    use serde_json::json;
+    use server_config::{deserialize_config, ServerConfig};
+    use test_utils::enable_logs;
+    use test_utils::ConnectedClient;
+
+    #[test]
+    fn run_node() {
+        enable_logs();
+
+        let keypair = Keypair::generate();
+
+        let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
+        let config = deserialize_config(<_>::default(), config).expect("deserialize config");
+        let mut node = Node::new(keypair, config.server).unwrap();
+
+        // for i in 1..10 {
+        //     node.network.connection_pool.inject_event(
+        //         RandomPeerId::random(),
+        //         ConnectionId::new(i),
+        //         HandlerMessage::InParticle(Particle::default()),
+        //     );
+        // }
+
+        Box::new(node).start();
+
+        let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
+        let mut client = ConnectedClient::connect_to(listening_address).expect("connect client");
+        // let data = hashmap! {
+        //     "name" => json!("folex"),
+        //     "client" => json!(client.peer_id.to_string()),
+        //     "relay" => json!(client.node.to_string()),
+        // };
+        // client.send_particle(
+        //     r#"
+        //         (seq
+        //             (call relay ("op" "identity") [] void[])
+        //             (call client ("return" "") [name] void[])
+        //         )
+        //     "#,
+        //     data.clone(),
+        // );
+        let mut particle = Particle::default();
+        particle.script = format!(
+            r#"
+            (seq
+                (call {} ("op" "identity") [] void[])
+                (call {} ("return" "") ["folex"] void[])
+            )
+        "#,
+            client.peer_id.to_string(),
+            client.node.to_string()
+        )
+        .to_string();
+        client.send(particle);
+        let response = client.receive_args();
+
+        // block_until_ctrlc();
     }
 }

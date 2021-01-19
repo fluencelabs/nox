@@ -321,22 +321,25 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<NetworkBehaviour>
             kademlia_config: <_>::default(),
             particle_queue_buffer: 100,
         };
-        let server = NetworkBehaviour::new(config).expect("create server behaviour");
-        match transport {
-            Transport::Memory => {
-                Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())
-            }
-            Transport::Network => Swarm::new(
-                build_transport(Ed25519(kp), Duration::from_secs(10)),
-                server,
-                peer_id.clone(),
-            ),
-        }
+        let _server = NetworkBehaviour::new(config).expect("create server behaviour");
+        todo!("fix tests")
+        // match transport {
+        //     Transport::Memory => {
+        //         Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())
+        //     }
+        //     Transport::Network => Swarm::new(
+        //         build_transport(Ed25519(kp), Duration::from_secs(10)),
+        //         server,
+        //         peer_id.clone(),
+        //     ),
+        // }
     };
 
-    Swarm::listen_on(&mut swarm, listen_on).unwrap();
+    // Swarm::listen_on(&mut swarm, listen_on).unwrap();
+    //
+    // (peer_id, swarm, tmp)
 
-    (peer_id, swarm, tmp)
+    todo!("fix tests")
 }
 
 pub fn create_memory_maddr() -> Multiaddr {
