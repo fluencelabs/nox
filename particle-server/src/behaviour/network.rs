@@ -127,6 +127,7 @@ pub async fn execute_particle(
             _ => {
                 let (peer_id, addresses) = unlock_f(&network, |n| n.kademlia.discover_peer(peer))
                     .await
+                    // TODO: handle error
                     .expect("failed to discover peer");
                 let contact = Contact {
                     peer_id,

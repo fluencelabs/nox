@@ -199,29 +199,18 @@ impl Node {
 
         task::spawn(async move {
             futures::future::poll_fn::<(), _>(move |cx: &mut std::task::Context<'_>| {
-                let mut ready = false;
+                let mut net_ready = false;
+                if let Some(mut network) = network.try_lock() {
+                    net_ready = dbg!(ExpandedSwarm::poll_next_unpin(&mut network, cx)).is_ready();
+                    // drop mutex guard explicitly
+                    drop(network);
+                };
 
-                if let Poll::Ready(mut network) = {
-                    println!("poll_fn before network lock");
+                let particles_ready =
+                    dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
 
-                    // TODO: use try_lock or try_lock_arc to avoid slow locking for no reason... or is there a reason?
-                    let mut lock = network.lock().boxed();
-                    let res = futures::FutureExt::poll_unpin(&mut lock, cx);
-                    drop(lock);
-                    res
-                } {
-                    println!("poll_fn network lock READY");
-                    ready = dbg!(ExpandedSwarm::poll_next_unpin(&mut network, cx)).is_ready();
-                } else {
-                    println!("poll_fn network lock PENDING");
-                }
-
-                // TODO: move to a separate task? or keep here to define precedence
-                ready = ready
-                    || dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
-
-                if ready {
-                    // Return this so task is awaken again immediately
+                if net_ready || particles_ready {
+                    // Return Ready so task is awaken again immediately
                     Poll::Ready(())
                 } else {
                     Poll::Pending
