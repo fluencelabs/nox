@@ -182,6 +182,7 @@ impl Node {
             let network = network.clone();
             self.particle_stream
                 .for_each_concurrent(cfg_parallelism, move |particle| {
+                    println!("got particle! {:?}", particle);
                     let network = network.clone();
                     let aquamarine = aquamarine.clone();
                     async move {
@@ -350,6 +351,7 @@ mod tests {
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         let mut client = ConnectedClient::connect_to(listening_address).expect("connect client");
+        println!("client: {}", client.peer_id);
         // let data = hashmap! {
         //     "name" => json!("folex"),
         //     "client" => json!(client.peer_id.to_string()),
@@ -365,6 +367,7 @@ mod tests {
         //     data.clone(),
         // );
         let mut particle = Particle::default();
+        particle.init_peer_id = client.peer_id.clone();
         particle.script = format!(
             r#"
             (seq
@@ -377,7 +380,8 @@ mod tests {
         )
         .to_string();
         client.send(particle);
-        let response = client.receive_args();
+        let response = client.receive();
+        println!("got response!: {:#?}", response);
 
         // block_until_ctrlc();
     }
