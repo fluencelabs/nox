@@ -3232,7 +3232,7 @@ dependencies = [
  "maplit",
  "multihash",
  "num_cpus",
- "particle-behaviour",
+ "particle-actors",
  "particle-protocol",
  "particle-providers",
  "prometheus",

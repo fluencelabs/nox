@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
-particle-behaviour = { path = "../particle-behaviour"}
+particle-actors = { path = "../particle-actors"}
 connection-pool = { path = "../connection-pool"}
 
 config-utils = { path = "../crates/config-utils" }

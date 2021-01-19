@@ -20,6 +20,7 @@ use futures::channel::oneshot;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use libp2p::core::Multiaddr;
+use libp2p::identity::ed25519::Keypair;
 use libp2p::kad;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::{
@@ -38,8 +39,15 @@ use std::sync::Arc;
 use std::task::Waker;
 use trust_graph::TrustGraph;
 
+pub struct KademliaConfig {
+    pub peer_id: PeerId,
+    pub keypair: Keypair,
+    // TODO: wonderful name clashing. I guess it is better to rename one of the KademliaConfig's to something else. You'll figure it out.
+    pub kad_config: server_config::KademliaConfig,
+}
+
 #[derive(Debug)]
-// TODO: impl error
+// TODO: implement Error trait
 pub enum KademliaError {
     Timeout,
     Cancelled,
@@ -69,7 +77,11 @@ pub struct Kademlia {
 }
 
 impl Kademlia {
-    pub fn new(config: DHTConfig, trust_graph: TrustGraph, registry: Option<&Registry>) -> Self {
+    pub fn new(
+        config: KademliaConfig,
+        trust_graph: TrustGraph,
+        registry: Option<&Registry>,
+    ) -> Self {
         let store = MemoryStore::new(config.peer_id.clone());
 
         let mut kademlia = kad::Kademlia::with_config(

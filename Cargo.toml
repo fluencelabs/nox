@@ -21,6 +21,7 @@ members = [
     "particle-closures",
     "particle-modules",
     "particle-providers",
+    "particle-behaviour",
     "connection-pool"
 ]
 exclude = [

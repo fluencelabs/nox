@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::{AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
+use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
 use async_std::task;
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet};
 use futures::channel::oneshot::Canceled;
@@ -24,20 +24,20 @@ use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 use std::task::Poll;
 
-pub struct InterepreterPoolProcessor {
+pub struct StepperPoolProcessor {
     inlet: BackPressuredInlet<(Particle, OneshotOutlet<StepperEffects>)>,
     plumber: Plumber,
 }
 
-impl InterepreterPoolProcessor {
+impl StepperPoolProcessor {
     pub fn new(
         config: VmPoolConfig,
         host_closures: ClosureDescriptor,
-    ) -> (Self, InterpreterPoolSender) {
+    ) -> (Self, StepperPoolSender) {
         let (outlet, inlet) = mpsc::channel(100);
         let plumber = Plumber::new(config, host_closures);
         let this = Self { inlet, plumber };
-        let sender = InterpreterPoolSender::new(outlet);
+        let sender = StepperPoolSender::new(outlet);
 
         (this, sender)
     }
@@ -45,6 +45,10 @@ impl InterepreterPoolProcessor {
     pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> Poll<()> {
         if let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
             self.plumber.ingest(AwaitedParticle { particle, out });
+        }
+
+        if let Poll::Ready(AwaitedEffects { effects, out }) = self.plumber.poll(cx) {
+            out.send(effects).ok();
         }
 
         Poll::Pending
@@ -61,11 +65,11 @@ impl InterepreterPoolProcessor {
 }
 
 #[derive(Clone)]
-pub struct InterpreterPoolSender {
+pub struct StepperPoolSender {
     // send particle along with a "return address"; it's like the Ask pattern in Akka
     outlet: BackPressuredOutlet<(Particle, OneshotOutlet<StepperEffects>)>,
 }
-impl InterpreterPoolSender {
+impl StepperPoolSender {
     pub fn new(outlet: BackPressuredOutlet<(Particle, OneshotOutlet<StepperEffects>)>) -> Self {
         Self { outlet }
     }

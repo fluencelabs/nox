@@ -16,7 +16,6 @@
 
 use crate::ParticleBehaviour;
 
-use particle_actors::PlumberEvent;
 use particle_closures::BuiltinCommand;
 use particle_dht::DHTEvent;
 

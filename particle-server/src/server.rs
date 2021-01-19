@@ -59,14 +59,17 @@ pub mod unlocks {
     }
 }
 
-use crate::execute_particle;
+use crate::execute_effect;
 use futures::channel::mpsc;
+use futures::channel::oneshot::Canceled;
+use particle_actors::{StepperEffects, StepperPoolProcessor, VmPoolConfig};
 
 // TODO: documentation
 pub struct Node {
     particle_stream: BackPressuredInlet<Particle>,
     network: Swarm<NetworkBehaviour>,
     config: ServerConfig,
+    local_peer_id: PeerId,
     registry: Registry,
 }
 
@@ -87,7 +90,7 @@ impl Node {
                 NetworkBehaviour::new(config).context("failed to crate ServerBehaviour")?;
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
-            let swarm = Swarm::new(transport, behaviour, local_peer_id);
+            let swarm = Swarm::new(transport, behaviour, local_peer_id.clone());
 
             (swarm, particle_stream)
         };
@@ -101,6 +104,7 @@ impl Node {
             particle_stream,
             network,
             config,
+            local_peer_id,
             registry,
         };
 
@@ -108,7 +112,17 @@ impl Node {
     }
 
     fn process_particles(self: Box<Self>) {
-        let (air_processor, aquamarine) = InterepreterPoolProcessor::new();
+        let pool_config = VmPoolConfig::new(
+            self.local_peer_id,
+            self.config.stepper_base_dir,
+            self.config.air_interpreter_path,
+            self.config.stepper_pool_size,
+        )
+        .expect("create vm pool config");
+        let (air_processor, aquamarine) = StepperPoolProcessor::new(
+            pool_config,
+            Arc::new(move || Box::new(move |_particle, _args| None)),
+        );
 
         air_processor.run();
 
@@ -123,13 +137,20 @@ impl Node {
                     let network = network.clone();
                     let aquamarine = aquamarine.clone();
                     async move {
-                        let (next_peers, particle) = {
+                        let stepper_effects = {
                             let aquamarine = aquamarine.clone();
-                            let fut = aquamarine.ingest(particle);
-                            fut.await.expect("air sender failed")
+                            aquamarine.ingest(particle).await
                         };
 
-                        execute_particle(network.clone(), next_peers, particle).await
+                        match stepper_effects {
+                            Ok(stepper_effects) => {
+                                execute_effect(network.clone(), stepper_effects).await
+                            }
+                            Err(err) => {
+                                // maybe particle was expired
+                                log::warn!("Error executing particle, aquamarine refused")
+                            }
+                        };
                     }
                 })
         };
@@ -138,13 +159,13 @@ impl Node {
             futures::future::poll_fn::<(), _>(move |cx: &mut std::task::Context<'_>| {
                 let mut net_ready = false;
                 if let Some(mut network) = network.try_lock() {
-                    net_ready = dbg!(ExpandedSwarm::poll_next_unpin(&mut network, cx)).is_ready();
+                    net_ready = ExpandedSwarm::poll_next_unpin(&mut network, cx).is_ready();
                     // drop mutex guard explicitly
                     drop(network);
                 };
 
                 let particles_ready =
-                    dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
+                    futures::FutureExt::poll_unpin(&mut particle_processor, cx).is_ready();
 
                 if net_ready || particles_ready {
                     // Return Ready so task is awaken again immediately
@@ -252,6 +273,7 @@ mod tests {
     use particle_protocol::{HandlerMessage, Particle};
     use serde_json::json;
     use server_config::{deserialize_config, ServerConfig};
+    use std::path::PathBuf;
     use test_utils::enable_logs;
     use test_utils::ConnectedClient;
 
@@ -262,51 +284,31 @@ mod tests {
         let keypair = Keypair::generate();
 
         let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
-        let config = deserialize_config(<_>::default(), config).expect("deserialize config");
+        let mut config = deserialize_config(<_>::default(), config).expect("deserialize config");
+        config.server.stepper_pool_size = 1;
+        config.server.air_interpreter_path = PathBuf::from("../aquamarine_0.0.30.wasm");
         let mut node = Node::new(keypair, config.server).unwrap();
-
-        // for i in 1..10 {
-        //     node.network.connection_pool.inject_event(
-        //         RandomPeerId::random(),
-        //         ConnectionId::new(i),
-        //         HandlerMessage::InParticle(Particle::default()),
-        //     );
-        // }
 
         Box::new(node).start();
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         let mut client = ConnectedClient::connect_to(listening_address).expect("connect client");
         println!("client: {}", client.peer_id);
-        // let data = hashmap! {
-        //     "name" => json!("folex"),
-        //     "client" => json!(client.peer_id.to_string()),
-        //     "relay" => json!(client.node.to_string()),
-        // };
-        // client.send_particle(
-        //     r#"
-        //         (seq
-        //             (call relay ("op" "identity") [] void[])
-        //             (call client ("return" "") [name] void[])
-        //         )
-        //     "#,
-        //     data.clone(),
-        // );
-        let mut particle = Particle::default();
-        particle.init_peer_id = client.peer_id.clone();
-        particle.script = format!(
+        let data = hashmap! {
+            "name" => json!("folex"),
+            "client" => json!(client.peer_id.to_string()),
+            "relay" => json!(client.node.to_string()),
+        };
+        client.send_particle(
             r#"
-            (seq
-                (call {} ("op" "identity") [] void[])
-                (call {} ("return" "") ["folex"] void[])
-            )
-        "#,
-            client.peer_id.to_string(),
-            client.node.to_string()
-        )
-        .to_string();
-        client.send(particle);
-        let response = client.receive();
+                (seq
+                    (call relay ("op" "identity") [] void[])
+                    (call client ("return" "") [name] void[])
+                )
+            "#,
+            data.clone(),
+        );
+        let response = client.receive_args();
         println!("got response!: {:#?}", response);
 
         // block_until_ctrlc();

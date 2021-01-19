@@ -16,8 +16,6 @@
 
 use crate::bootstrapper::Bootstrapper;
 
-use particle_behaviour::ParticleConfig;
-
 use fluence_libp2p::generate_swarm_event_type;
 use server_config::BehaviourConfig;
 
@@ -32,7 +30,8 @@ use crate::server::unlocks::{unlock, unlock_f};
 use async_std::sync::Mutex;
 use connection_pool::{ConnectionPool, ConnectionPoolBehaviour, Contact};
 use fluence_libp2p::types::BackPressuredInlet;
-use kademlia::Kademlia;
+use kademlia::{Kademlia, KademliaConfig};
+use particle_actors::{SendParticle, StepperEffects};
 use particle_protocol::Particle;
 use std::sync::Arc;
 
@@ -61,23 +60,14 @@ impl NetworkBehaviour {
         );
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
 
-        let config = ParticleConfig::new(
-            cfg.particle_queue_buffer,
-            cfg.protocol_config,
-            cfg.local_peer_id.clone(),
-            cfg.services_base_dir,
-            cfg.services_envs,
-            cfg.stepper_base_dir,
-            cfg.air_interpreter,
-            cfg.key_pair,
-            cfg.stepper_pool_size,
-            cfg.external_addresses,
-            cfg.kademlia_config,
-        );
-
-        let kademlia = Kademlia::new(config.dht_config(), cfg.trust_graph, cfg.registry);
+        let kad_config = KademliaConfig {
+            peer_id: cfg.local_peer_id.clone(),
+            keypair: cfg.key_pair,
+            kad_config: cfg.kademlia_config,
+        };
+        let kademlia = Kademlia::new(kad_config, cfg.trust_graph, cfg.registry);
         let (connection_pool, particle_stream) =
-            ConnectionPoolBehaviour::new(config.particle_queue_buffer, config.protocol_config);
+            ConnectionPoolBehaviour::new(cfg.particle_queue_buffer, cfg.protocol_config);
 
         let bootstrapper = Bootstrapper::new(cfg.bootstrap, cfg.local_peer_id, cfg.bootstrap_nodes);
 
@@ -113,19 +103,14 @@ impl NetworkBehaviour {
     }
 }
 
-pub async fn execute_particle(
-    network: Arc<Mutex<Swarm<NetworkBehaviour>>>,
-    next_peers: Vec<PeerId>,
-    particle: Particle,
-) {
-    dbg!(&next_peers);
-    for peer in next_peers {
-        let contact = unlock(&network, |n| n.connection_pool.get_contact(&peer)).await;
+pub async fn execute_effect(network: Arc<Mutex<Swarm<NetworkBehaviour>>>, effects: StepperEffects) {
+    for SendParticle { target, particle } in effects.particles {
+        let contact = unlock(&network, |n| n.connection_pool.get_contact(&target)).await;
         dbg!(&contact);
         let contact = match contact {
             Some(contact) => contact,
             _ => {
-                let (peer_id, addresses) = unlock_f(&network, |n| n.kademlia.discover_peer(peer))
+                let (peer_id, addresses) = unlock_f(&network, |n| n.kademlia.discover_peer(target))
                     .await
                     // TODO: handle error
                     .expect("failed to discover peer");
@@ -141,10 +126,7 @@ pub async fn execute_particle(
 
         dbg!(&contact);
 
-        unlock(&network, |n| {
-            n.connection_pool.send(contact, particle.clone())
-        })
-        .await;
+        unlock(&network, |n| n.connection_pool.send(contact, particle)).await;
     }
 }
 

@@ -32,7 +32,7 @@ mod behaviour {
     mod identify;
     mod network;
 
-    pub use network::execute_particle;
+    pub use network::execute_effect;
     pub use network::NetworkBehaviour;
 }
 
@@ -52,6 +52,6 @@ mod bootstrapper {
     pub(crate) use event::BootstrapperEvent;
 }
 
-pub(crate) use behaviour::execute_particle;
+pub(crate) use behaviour::execute_effect;
 pub use behaviour::NetworkBehaviour;
 pub use server::Node;

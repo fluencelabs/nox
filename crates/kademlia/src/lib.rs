@@ -17,3 +17,4 @@
 mod behaviour;
 
 pub use behaviour::Kademlia;
+pub use behaviour::KademliaConfig;

@@ -40,4 +40,4 @@ pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
 pub use config::VmPoolConfig;
 pub use outcome::{SendParticle, StepperEffects};
 pub use plumber::Plumber;
-pub use stepper_pool::{InterepreterPoolProcessor, InterpreterPoolSender};
+pub use stepper_pool::{StepperPoolProcessor, StepperPoolSender};
