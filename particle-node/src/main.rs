@@ -26,7 +26,7 @@
     unreachable_patterns
 )]
 
-use particle_server::{
+use particle_node::{
     config::{certificates, create_args},
     Node,
 };

@@ -12,7 +12,7 @@ server-config = { path = "../server-config" }
 ivalue-utils = { path = "../ivalue-utils" }
 host-closure = { path = "../host-closure" }
 fluence-libp2p = { path = "../libp2p" }
-particle-server = { path = "../../particle-server" }
+particle-node = { path = "../../particle-node" }
 particle-protocol = { path = "../../particle-protocol" }
 particle-actors = { path = "../../particle-actors" }
 

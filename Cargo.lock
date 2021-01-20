@@ -3080,38 +3080,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "particle-behaviour"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "async-std",
- "bs58 0.3.1",
- "config-utils",
- "connection-pool",
- "fluence-fork-libp2p",
- "fluence-libp2p",
- "futures",
- "host-closure",
- "kademlia",
- "log",
- "particle-actors",
- "particle-closures",
- "particle-dht",
- "particle-modules",
- "particle-protocol",
- "particle-providers",
- "particle-services",
- "prometheus",
- "rand 0.7.3",
- "serde",
- "serde_json",
- "server-config",
- "test-utils",
- "trust-graph",
- "waiting-queues",
-]
-
-[[package]]
 name = "particle-closures"
 version = "0.2.0"
 dependencies = [
@@ -3178,38 +3146,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "particle-protocol"
-version = "0.3.0"
-dependencies = [
- "async-std",
- "failure",
- "fluence-fork-libp2p",
- "fluence-libp2p",
- "futures",
- "humantime-serde",
- "json-utils",
- "log",
- "rand 0.7.3",
- "serde",
- "serde_derive",
- "serde_json",
-]
-
-[[package]]
-name = "particle-providers"
-version = "0.1.0"
-dependencies = [
- "control-macro",
- "fluence-libp2p",
- "host-closure",
- "json-utils",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "particle-server"
-version = "0.3.0"
+name = "particle-node"
+version = "0.4.0"
 dependencies = [
  "air-interpreter-wasm",
  "anyhow",
@@ -3250,6 +3188,36 @@ dependencies = [
  "toml",
  "trust-graph",
  "void",
+]
+
+[[package]]
+name = "particle-protocol"
+version = "0.3.0"
+dependencies = [
+ "async-std",
+ "failure",
+ "fluence-fork-libp2p",
+ "fluence-libp2p",
+ "futures",
+ "humantime-serde",
+ "json-utils",
+ "log",
+ "rand 0.7.3",
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
+name = "particle-providers"
+version = "0.1.0"
+dependencies = [
+ "control-macro",
+ "fluence-libp2p",
+ "host-closure",
+ "json-utils",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4293,8 +4261,8 @@ dependencies = [
  "maplit",
  "parking_lot 0.11.1",
  "particle-actors",
+ "particle-node",
  "particle-protocol",
- "particle-server",
  "prometheus",
  "rand 0.7.3",
  "serde",

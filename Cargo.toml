@@ -13,7 +13,7 @@ members = [
     "crates/json-utils",
     "crates/server-config",
     "crates/kademlia",
-    "particle-server",
+    "particle-node",
     "particle-actors",
     "particle-protocol",
     "particle-dht",
@@ -21,7 +21,6 @@ members = [
     "particle-closures",
     "particle-modules",
     "particle-providers",
-    "particle-behaviour",
     "connection-pool"
 ]
 exclude = [

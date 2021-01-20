@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use particle_server::NetworkBehaviour;
+use particle_node::NetworkBehaviour;
 
 use config_utils::{modules_dir, to_abs_path};
 use fluence_client::Transport;
@@ -304,24 +304,24 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<NetworkBehaviour>
             }
         }
 
-        let config = BehaviourConfig {
-            key_pair: kp.clone(),
-            local_peer_id: peer_id.clone(),
-            external_addresses: vec![listen_on.clone()],
-            trust_graph,
-            bootstrap_nodes: bootstraps,
-            bootstrap: BootstrapConfig::zero(),
-            registry,
-            services_base_dir: tmp.join("services"),
-            air_interpreter,
-            services_envs: <_>::default(),
-            stepper_base_dir,
-            protocol_config: <_>::default(),
-            stepper_pool_size: 1,
-            kademlia_config: <_>::default(),
-            particle_queue_buffer: 100,
-        };
-        let _server = NetworkBehaviour::new(config).expect("create server behaviour");
+        // let config = BehaviourConfig {
+        //     key_pair: kp.clone(),
+        //     local_peer_id: peer_id.clone(),
+        //     external_addresses: vec![listen_on.clone()],
+        //     trust_graph,
+        //     bootstrap_nodes: bootstraps,
+        //     bootstrap: BootstrapConfig::zero(),
+        //     registry,
+        //     services_base_dir: tmp.join("services"),
+        //     air_interpreter,
+        //     services_envs: <_>::default(),
+        //     stepper_base_dir,
+        //     protocol_config: <_>::default(),
+        //     stepper_pool_size: 1,
+        //     kademlia_config: <_>::default(),
+        //     particle_queue_buffer: 100,
+        // };
+        // let _server = NetworkBehaviour::new(config).expect("create server behaviour");
         todo!("fix tests")
         // match transport {
         //     Transport::Memory => {

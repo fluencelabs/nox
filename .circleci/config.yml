@@ -27,7 +27,7 @@ jobs:
           paths:
             - .dockerignore
             - Dockerfile
-            - target/release/particle-server
+            - target/release/particle-node
             - deploy/Config.default.toml
       - save_cache:
           paths:
@@ -70,7 +70,7 @@ jobs:
       - docker/build:
           image: fluencelabs/fluence
           tag: ${DOCKER_TAG}
-          extra_build_args: --build-arg exe=./target/release/particle-server --build-arg config=./deploy/Config.default.toml
+          extra_build_args: --build-arg exe=./target/release/particle-node --build-arg config=./deploy/Config.default.toml
       - docker/push:
           image: fluencelabs/fluence
           tag: ${DOCKER_TAG}
