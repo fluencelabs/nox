@@ -26,7 +26,7 @@ use libp2p::{
     PeerId, Swarm,
 };
 
-use crate::server::unlocks::{unlock, unlock_f};
+use crate::node::unlocks::{unlock, unlock_f};
 use async_std::sync::Mutex;
 use connection_pool::{ConnectionPool, ConnectionPoolBehaviour, Contact};
 use fluence_libp2p::types::BackPressuredInlet;

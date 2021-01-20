@@ -14,25 +14,18 @@
  * limitations under the License.
  */
 
-#![feature(stmt_expr_attributes)]
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use host_closure::{closure, Closure};
 
-mod builtin_services_api;
-mod host_closures;
-mod identify;
-mod mailbox;
+use libp2p::core::Multiaddr;
+use serde::Serialize;
+use serde_json::json;
 
-pub use builtin_services_api::BehaviourMailboxApi;
-pub use host_closures::HostClosures;
-pub use identify::NodeInfo;
-pub use mailbox::{BuiltinCommand, Mailbox};
+#[derive(Serialize, Clone, Debug)]
+pub struct NodeInfo {
+    pub external_addresses: Vec<Multiaddr>,
+}
+
+/// Information about current node
+pub fn identify(info: NodeInfo) -> Closure {
+    closure(move |_| Ok(json!(info.clone())))
+}

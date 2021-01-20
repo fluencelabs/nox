@@ -200,7 +200,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             .collect()
     }
 
-    fn inject_connected(&mut self, peer_id: &PeerId) {}
+    fn inject_connected(&mut self, _: &PeerId) {}
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
         self.contacts.remove(peer_id);
@@ -231,32 +231,12 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     }
                 };
             }
-            Entry::Vacant(mut e) => {
+            Entry::Vacant(e) => {
                 let mut set = HashSet::new();
                 set.insert(multiaddr);
                 e.insert(Peer::Connected(set));
             }
         }
-
-        // let entry = self
-        //     .contacts
-        //     .entry(peer_id.clone())
-        //     .or_insert(Peer::Connected(<_>::default()));
-        //
-        // match entry {
-        //     Peer::Connected(addrs) => {
-        //         addrs.insert(multiaddr.clone());
-        //     }
-        //     ref mut e @ Peer::Dialing(_, ref outlets) => {
-        //         for outlet in outlets {
-        //             outlet.send(true).ok();
-        //         }
-        //
-        //         let mut set = HashSet::new();
-        //         set.insert(multiaddr.clone());
-        //         **e = Peer::Connected(set);
-        //     }
-        // }
     }
 
     fn inject_event(

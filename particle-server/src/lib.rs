@@ -26,7 +26,9 @@
     unreachable_patterns
 )]
 
-mod server;
+mod metrics;
+mod node;
+
 mod behaviour {
     mod bootstrapper;
     mod identify;
@@ -54,4 +56,4 @@ mod bootstrapper {
 
 pub(crate) use behaviour::execute_effect;
 pub use behaviour::NetworkBehaviour;
-pub use server::Node;
+pub use node::Node;

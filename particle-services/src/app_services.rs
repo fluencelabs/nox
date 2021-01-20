@@ -100,7 +100,7 @@ impl ParticleAppServices {
 
     pub fn call_service(&self) -> ParticleClosure {
         let services = self.services.clone();
-        let host_id = self.config.current_peer_id.clone();
+        let host_id = self.config.local_peer_id.clone();
 
         Arc::new(move |particle_params, args| {
             let call = || -> Result<JValue, ServiceError> {

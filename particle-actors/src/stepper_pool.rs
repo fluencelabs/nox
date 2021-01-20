@@ -15,6 +15,7 @@
  */
 use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
 use async_std::task;
+use async_std::task::JoinHandle;
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet};
 use futures::channel::oneshot::Canceled;
 use futures::channel::{mpsc, oneshot};
@@ -54,13 +55,13 @@ impl StepperPoolProcessor {
         Poll::Pending
     }
 
-    pub fn start(mut self) {
+    pub fn start(mut self) -> JoinHandle<()> {
         let mut future = futures::future::poll_fn(move |cx| self.poll(cx)).into_stream();
         task::spawn(async move {
             loop {
                 future.next().await;
             }
-        });
+        })
     }
 }
 

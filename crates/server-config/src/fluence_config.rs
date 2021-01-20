@@ -26,6 +26,7 @@ use config_utils::to_abs_path;
 use libp2p::core::{identity::ed25519::PublicKey, multiaddr::Protocol, Multiaddr};
 use particle_protocol::ProtocolConfig;
 use serde::Deserialize;
+use std::net::SocketAddr;
 use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
@@ -160,6 +161,10 @@ impl ServerConfig {
             .into_iter()
             .map(|(k, v)| (k.into(), v))
             .collect()
+    }
+
+    pub fn metrics_listen_addr(&self) -> SocketAddr {
+        SocketAddr::new(self.listen_ip, self.prometheus_port)
     }
 }
 

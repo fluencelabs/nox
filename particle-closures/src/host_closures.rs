@@ -14,10 +14,17 @@
  * limitations under the License.
  */
 
+use crate::identify::{identify, NodeInfo};
+
 use host_closure::{Args, Closure, ClosureDescriptor, ParticleClosure, ParticleParameters};
 use ivalue_utils::{ok, IValue};
+use particle_providers::ProviderRepository;
+use particle_services::{ParticleAppServices, ServicesConfig};
 
+use libp2p::PeerId;
 use serde_json::{json, Value as JValue};
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use JValue::Array;
 
@@ -37,6 +44,33 @@ pub struct HostClosures {
 }
 
 impl HostClosures {
+    pub fn new(
+        node_info: NodeInfo,
+        local_peer_id: PeerId,
+        services_base_dir: PathBuf,
+        envs: HashMap<Vec<u8>, Vec<u8>>,
+    ) -> Result<Self, std::io::Error> {
+        let config = ServicesConfig::new(local_peer_id.to_string(), services_base_dir, envs)?;
+        let modules_dir = config.modules_dir.clone();
+        let blueprint_dir = config.blueprint_dir.clone();
+        let services = ParticleAppServices::new(config);
+        let providers = ProviderRepository::new(local_peer_id);
+
+        Ok(Self {
+            add_provider: providers.add_provider(),
+            get_providers: providers.get_providers(),
+            get_modules: particle_modules::get_modules(modules_dir.clone()),
+            get_blueprints: particle_modules::get_blueprints(blueprint_dir.clone()),
+            add_module: particle_modules::add_module(modules_dir),
+            add_blueprint: particle_modules::add_blueprint(blueprint_dir),
+            create_service: services.create_service(),
+            call_service: services.call_service(),
+            get_interface: services.get_interface(),
+            get_active_interfaces: services.get_active_interfaces(),
+            identify: identify(node_info),
+        })
+    }
+
     pub fn descriptor(self) -> ClosureDescriptor {
         Arc::new(move || {
             let this = self.clone();

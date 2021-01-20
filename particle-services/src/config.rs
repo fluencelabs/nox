@@ -21,7 +21,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 pub struct ServicesConfig {
     /// Peer id of the current node
-    pub current_peer_id: String,
+    pub local_peer_id: String,
     /// Path of the blueprint directory containing blueprints and wasm modules
     pub blueprint_dir: PathBuf,
     /// Opaque environment variables to be passed on each service creation
@@ -37,14 +37,14 @@ pub struct ServicesConfig {
 
 impl ServicesConfig {
     pub fn new(
-        current_peer_id: String,
+        local_peer_id: String,
         base_dir: PathBuf,
         envs: HashMap<Vec<u8>, Vec<u8>>,
     ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
 
         let this = Self {
-            current_peer_id,
+            local_peer_id,
             blueprint_dir: config_utils::blueprint_dir(&base_dir),
             workdir: config_utils::workdir(&base_dir),
             modules_dir: config_utils::modules_dir(&base_dir),

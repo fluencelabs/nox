@@ -30,11 +30,9 @@ use libp2p::kad::{
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::{kad::KademliaEvent, swarm::NetworkBehaviourEventProcess, PeerId};
 use multihash::Multihash;
-use particle_dht::DHTConfig;
 use prometheus::Registry;
 use std::collections::HashMap;
 use std::convert::identity;
-use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::task::Waker;
 use trust_graph::TrustGraph;
@@ -230,7 +228,6 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
             | KademliaEvent::PendingRoutablePeer { peer, address } => {
                 self.peer_discovered(peer, vec![address])
             }
-            _ => {}
         }
     }
 }
