@@ -62,12 +62,14 @@ pub mod unlocks {
 use crate::execute_effect;
 use futures::channel::mpsc;
 use futures::channel::oneshot::Canceled;
-use particle_actors::{StepperEffects, StepperPoolProcessor, VmPoolConfig};
+use particle_actors::{StepperEffects, StepperPoolProcessor, StepperPoolSender, VmPoolConfig};
 
 // TODO: documentation
 pub struct Node {
     particle_stream: BackPressuredInlet<Particle>,
     network: Swarm<NetworkBehaviour>,
+    stepper_pool: StepperPoolProcessor,
+    particle_ingestor: StepperPoolSender,
     config: ServerConfig,
     local_peer_id: PeerId,
     registry: Registry,
@@ -100,9 +102,23 @@ impl Node {
             Swarm::add_external_address(&mut network, addr, AddressScore::Finite(1));
         });
 
+        let pool_config = VmPoolConfig::new(
+            local_peer_id,
+            config.stepper_base_dir.clone(),
+            config.air_interpreter_path.clone(),
+            config.stepper_pool_size.clone(),
+        )
+        .expect("create vm pool config");
+        let (stepper_pool, particle_ingestor) = StepperPoolProcessor::new(
+            pool_config,
+            Arc::new(move || Box::new(move |_particle, _args| None)),
+        );
+
         let node_service = Self {
             particle_stream,
             network,
+            stepper_pool,
+            particle_ingestor,
             config,
             local_peer_id,
             registry,
@@ -111,21 +127,8 @@ impl Node {
         Ok(Box::new(node_service))
     }
 
+    // TODO: AAAAAA! particle_ingestor?! aquamarine?! stepper_pool?! StepperPoolProcessor?! StepperPoolSender?!?!?! Arrrghh. Good coffee though.
     fn process_particles(self: Box<Self>) {
-        let pool_config = VmPoolConfig::new(
-            self.local_peer_id,
-            self.config.stepper_base_dir,
-            self.config.air_interpreter_path,
-            self.config.stepper_pool_size,
-        )
-        .expect("create vm pool config");
-        let (air_processor, aquamarine) = StepperPoolProcessor::new(
-            pool_config,
-            Arc::new(move || Box::new(move |_particle, _args| None)),
-        );
-
-        air_processor.run();
-
         let network = Arc::new(Mutex::new(self.network));
 
         let cfg_parallelism = self.config.particle_processor_parallelism;
@@ -185,6 +188,8 @@ impl Node {
 
         self.listen().expect("Error on starting node listener");
         // self.swarm.dial_bootstrap_nodes();
+
+        self.stepper_pool.start();
 
         task::spawn(async move {
             let mut metrics = Self::start_metrics_endpoint(

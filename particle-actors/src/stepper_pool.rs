@@ -54,7 +54,7 @@ impl StepperPoolProcessor {
         Poll::Pending
     }
 
-    pub fn run(mut self) {
+    pub fn start(mut self) {
         let mut future = futures::future::poll_fn(move |cx| self.poll(cx)).into_stream();
         task::spawn(async move {
             loop {
