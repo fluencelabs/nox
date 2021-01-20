@@ -27,6 +27,7 @@
 )]
 
 mod metrics;
+mod network_api;
 mod node;
 
 mod behaviour {
@@ -35,7 +36,7 @@ mod behaviour {
     mod network;
 
     pub use network::execute_effect;
-    pub use network::NetworkBehaviour;
+    pub use network::{NetworkApi, NetworkBehaviour};
 }
 
 pub mod config {

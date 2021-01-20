@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use crate::error::{KademliaError, Result};
+
 use control_macro::get_return;
 use fluence_libp2p::types::OneshotOutlet;
 use futures::channel::oneshot;
@@ -45,21 +47,11 @@ pub struct KademliaConfig {
 }
 
 #[derive(Debug)]
-// TODO: implement Error trait
-pub enum KademliaError {
-    Timeout,
-    Cancelled,
-    NoKnownPeers,
-}
-
-#[derive(Debug)]
 pub enum PendingQuery {
     Peer(PeerId),
     Neighborhood(OneshotOutlet<Result<Vec<PeerId>>>),
-    Unit(OneshotOutlet<()>),
+    Unit(OneshotOutlet<Result<()>>),
 }
-
-type Result<T> = std::result::Result<T, KademliaError>;
 
 #[derive(::libp2p::NetworkBehaviour)]
 pub struct Kademlia {
@@ -68,10 +60,7 @@ pub struct Kademlia {
     #[behaviour(ignore)]
     pub(super) queries: HashMap<QueryId, PendingQuery>,
     #[behaviour(ignore)]
-    pub(super) pending_peers: HashMap<PeerId, Vec<OneshotOutlet<(PeerId, Vec<Multiaddr>)>>>,
-
-    #[behaviour(ignore)]
-    pub(super) waker: Option<Waker>,
+    pub(super) pending_peers: HashMap<PeerId, Vec<OneshotOutlet<Result<(PeerId, Vec<Multiaddr>)>>>>,
 }
 
 impl Kademlia {
@@ -98,66 +87,51 @@ impl Kademlia {
             kademlia,
             queries: <_>::default(),
             pending_peers: <_>::default(),
-            waker: None,
         }
     }
 }
 
 impl Kademlia {
-    pub fn bootstrap(&mut self) -> BoxFuture<'static, Result<()>> {
+    pub fn bootstrap(&mut self, outlet: OneshotOutlet<Result<()>>) {
         if let Ok(query_id) = self.kademlia.bootstrap() {
-            let (outlet, inlet) = oneshot::channel();
             self.queries.insert(query_id, PendingQuery::Unit(outlet));
-            inlet
-                .map(|r| r.map_err(|_| KademliaError::Cancelled))
-                .boxed()
         } else {
-            futures::future::err(KademliaError::NoKnownPeers).boxed()
+            outlet.send(Err(KademliaError::NoKnownPeers)).ok();
         }
     }
 
-    pub fn local_lookup(&mut self, peer: &PeerId) -> Vec<Multiaddr> {
-        self.kademlia.addresses_of_peer(peer)
+    pub fn local_lookup(&mut self, peer: &PeerId, outlet: OneshotOutlet<Vec<Multiaddr>>) {
+        outlet.send(self.kademlia.addresses_of_peer(peer)).ok();
     }
 
     pub fn discover_peer(
         &mut self,
         peer: PeerId,
-    ) -> BoxFuture<'static, Result<(PeerId, Vec<Multiaddr>)>> {
-        let query_id = self.kademlia.get_closest_peers(peer.clone());
-
-        let (outlet, inlet) = oneshot::channel();
-        self.queries
-            .insert(query_id, PendingQuery::Peer(peer.clone()));
+        outlet: OneshotOutlet<Result<(PeerId, Vec<Multiaddr>)>>,
+    ) {
+        let query_id = self.kademlia.get_closest_peers(peer);
+        self.queries.insert(query_id, PendingQuery::Peer(peer));
         self.pending_peers.entry(peer).or_default().push(outlet);
-        inlet
-            .map(|r| r.map_err(|_| KademliaError::Cancelled))
-            .boxed()
     }
 
-    pub fn neighborhood(&mut self, key: Multihash) -> BoxFuture<'static, Result<Vec<PeerId>>> {
+    pub fn neighborhood(&mut self, key: Multihash, outlet: OneshotOutlet<(Result<Vec<PeerId>>)>) {
         let query_id = self.kademlia.get_closest_peers(key);
-
-        let (outlet, inlet) = oneshot::channel();
         self.queries
             .insert(query_id, PendingQuery::Neighborhood(outlet));
-
-        inlet
-            .map(|r| r.map_err(|_| KademliaError::Cancelled).and_then(identity))
-            .boxed()
     }
 }
 
 impl Kademlia {
-    pub(super) fn peer_discovered(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
+    // TODO: timeout & non-discovered errors
+    fn peer_discovered(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
         if let Some(outlets) = self.pending_peers.remove(&peer) {
             for outlet in outlets {
-                outlet.send((peer.clone(), addresses.clone())).ok();
+                outlet.send(Ok((peer.clone(), addresses.clone()))).ok();
             }
         }
     }
 
-    pub(super) fn closest_finished(&mut self, id: QueryId, result: GetClosestPeersResult) {
+    fn closest_finished(&mut self, id: QueryId, result: GetClosestPeersResult) {
         match get_return!(self.queries.remove(&id)) {
             PendingQuery::Peer(peer_id) => {
                 let addresses = self.kademlia.addresses_of_peer(&peer_id);
@@ -180,12 +154,12 @@ impl Kademlia {
                 outlet.send(result).ok();
             }
             PendingQuery::Unit(outlet) => {
-                outlet.send(()).ok();
+                outlet.send(Ok(())).ok();
             }
         }
     }
 
-    pub(super) fn bootstrap_finished(&mut self, id: QueryId, result: BootstrapResult) {
+    fn bootstrap_finished(&mut self, id: QueryId, result: BootstrapResult) {
         // how many buckets there are left to try
         let num_remaining = match result {
             Ok(BootstrapOk { num_remaining, .. }) => Some(num_remaining),
@@ -197,7 +171,7 @@ impl Kademlia {
         // going through next buckets even if it failed on previous buckets
         if num_remaining == Some(0) {
             if let Some(PendingQuery::Unit(outlet)) = self.queries.remove(&id) {
-                outlet.send(()).ok();
+                outlet.send(Ok(())).ok();
             }
         }
     }
@@ -236,6 +210,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
 mod tests {
     use super::Kademlia;
     use crate::behaviour::KademliaError;
+    use crate::KademliaConfig;
     use async_std::stream::IntoStream;
     use async_std::task;
     use fluence_libp2p::build_memory_transport;
@@ -258,12 +233,12 @@ mod tests {
     use test_utils::{create_memory_maddr, enable_logs};
     use trust_graph::TrustGraph;
 
-    fn dht_config() -> DHTConfig {
+    fn kad_config() -> KademliaConfig {
         let keypair = Keypair::generate();
         let public_key = Ed25519(keypair.public());
         let peer_id = PeerId::from(public_key);
 
-        DHTConfig {
+        KademliaConfig {
             peer_id,
             keypair,
             kad_config: Default::default(),
@@ -272,7 +247,7 @@ mod tests {
 
     fn make_node() -> (Swarm<Kademlia>, Multiaddr, PublicKey) {
         let trust_graph = TrustGraph::new(vec![]);
-        let config = dht_config();
+        let config = kad_config();
         let kp = libp2p::identity::Keypair::Ed25519(config.keypair.clone());
         let peer_id = config.peer_id.clone();
         let pk = config.keypair.public();
@@ -314,7 +289,9 @@ mod tests {
         Swarm::dial_addr(&mut b, a_addr.clone()).unwrap();
         b.kademlia
             .add_address(Swarm::local_peer_id(&a), a_addr, a_pk);
-        let discover_fut = b.discover_peer(Swarm::local_peer_id(&c).clone());
+        let (out, inlet) = oneshot::channel();
+        b.discover_peer(Swarm::local_peer_id(&c).clone(), out);
+        let discover_fut = inlet;
 
         let maddr = async_std::task::block_on(async move {
             let mut swarms = vec![a, b, c, d, e];

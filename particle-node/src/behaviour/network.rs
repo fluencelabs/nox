@@ -26,14 +26,20 @@ use libp2p::{
     PeerId, Swarm,
 };
 
+use crate::network_api::NetworkApi;
 use crate::node::unlocks::{unlock, unlock_f};
 use async_std::sync::Mutex;
+use async_std::task::JoinHandle;
 use connection_pool::{ConnectionPool, ConnectionPoolBehaviour, Contact};
 use fluence_libp2p::types::BackPressuredInlet;
-use kademlia::{Kademlia, KademliaConfig};
+use futures::select;
+use futures::StreamExt;
+use kademlia::{Kademlia, KademliaApiInlet, KademliaApiOutlet, KademliaConfig};
+use libp2p::swarm::ExpandedSwarm;
 use particle_actors::{SendParticle, StepperEffects};
 use particle_protocol::Particle;
 use std::sync::Arc;
+use std::task::Poll;
 
 pub type SwarmEventType = generate_swarm_event_type!(NetworkBehaviour);
 
@@ -47,11 +53,11 @@ pub struct NetworkBehaviour {
     // TODO: move ping inside ConnectionPoolBehaviour?
     ping: Ping,
     pub(crate) connection_pool: ConnectionPoolBehaviour,
-    pub(crate) kademlia: Kademlia,
+    pub(crate) kademlia: KademliaApiInlet,
 }
 
 impl NetworkBehaviour {
-    pub fn new(cfg: BehaviourConfig<'_>) -> anyhow::Result<(Self, BackPressuredInlet<Particle>)> {
+    pub fn new(cfg: BehaviourConfig<'_>) -> anyhow::Result<(Self, NetworkApi)> {
         let local_public_key = PublicKey::Ed25519(cfg.key_pair.public());
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),
@@ -66,6 +72,7 @@ impl NetworkBehaviour {
             kad_config: cfg.kademlia_config,
         };
         let kademlia = Kademlia::new(kad_config, cfg.trust_graph, cfg.registry);
+        let (kademlia_api, kademlia) = kademlia.into();
         let (connection_pool, particle_stream) =
             ConnectionPoolBehaviour::new(cfg.particle_queue_buffer, cfg.protocol_config);
 
@@ -79,7 +86,10 @@ impl NetworkBehaviour {
                 ping,
                 bootstrapper,
             },
-            particle_stream,
+            NetworkApi {
+                particle_stream,
+                kademlia_api,
+            },
         ))
     }
 
@@ -100,33 +110,6 @@ impl NetworkBehaviour {
     pub fn bootstrap(&mut self) {
         // self.particle.bootstrap()
         todo!("bootstrap? or delete")
-    }
-}
-
-pub async fn execute_effect(network: Arc<Mutex<Swarm<NetworkBehaviour>>>, effects: StepperEffects) {
-    for SendParticle { target, particle } in effects.particles {
-        let contact = unlock(&network, |n| n.connection_pool.get_contact(&target)).await;
-        dbg!(&contact);
-        let contact = match contact {
-            Some(contact) => contact,
-            _ => {
-                let (peer_id, addresses) = unlock_f(&network, |n| n.kademlia.discover_peer(target))
-                    .await
-                    // TODO: handle error
-                    .expect("failed to discover peer");
-                let contact = Contact {
-                    peer_id,
-                    // TODO: take all addresses
-                    addr: addresses.into_iter().next(),
-                };
-                unlock_f(&network, |n| n.connection_pool.connect(contact.clone())).await;
-                contact
-            }
-        };
-
-        dbg!(&contact);
-
-        unlock(&network, |n| n.connection_pool.send(contact, particle)).await;
     }
 }
 

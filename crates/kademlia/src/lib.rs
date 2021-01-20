@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+mod api;
 mod behaviour;
+mod error;
 
+pub use api::KademliaApi;
+pub use api::{KademliaApiInlet, KademliaApiOutlet};
 pub use behaviour::Kademlia;
 pub use behaviour::KademliaConfig;

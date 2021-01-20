@@ -16,7 +16,6 @@ members = [
     "particle-node",
     "particle-actors",
     "particle-protocol",
-    "particle-dht",
     "particle-services",
     "particle-closures",
     "particle-modules",

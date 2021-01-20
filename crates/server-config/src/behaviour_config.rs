@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::ServerConfig;
+use crate::NodeConfig;
 use crate::{BootstrapConfig, KademliaConfig};
 
 use particle_protocol::ProtocolConfig;
@@ -49,7 +49,7 @@ impl<'a> BehaviourConfig<'a> {
         trust_graph: TrustGraph,
         registry: Option<&'a Registry>,
         key_pair: ed25519::Keypair,
-        config: &ServerConfig,
+        config: &NodeConfig,
     ) -> Self {
         Self {
             trust_graph,

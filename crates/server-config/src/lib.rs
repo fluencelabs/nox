@@ -41,7 +41,7 @@ pub use app_services::AppServicesConfig;
 pub use behaviour_config::BehaviourConfig;
 pub use bootstrap_config::BootstrapConfig;
 pub use fluence_config::FluenceConfig;
-pub use fluence_config::ServerConfig;
+pub use fluence_config::NodeConfig;
 pub use kademlia_config::KademliaConfig;
 
 pub mod config_keys {

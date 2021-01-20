@@ -18,7 +18,7 @@ use super::behaviour::NetworkBehaviour;
 
 use config_utils::to_peer_id;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
-use server_config::{BehaviourConfig, ServerConfig};
+use server_config::{BehaviourConfig, NodeConfig};
 use trust_graph::TrustGraph;
 
 use anyhow::Context;
@@ -59,33 +59,35 @@ pub mod unlocks {
     }
 }
 
+use crate::behaviour::NetworkApi;
 use crate::execute_effect;
 use crate::metrics::start_metrics_endpoint;
+use crate::network_api::NetworkApi;
 use async_std::task::JoinHandle;
 use futures::channel::mpsc;
 use futures::channel::oneshot::Canceled;
-use particle_actors::{StepperEffects, StepperPoolProcessor, StepperPoolSender, VmPoolConfig};
+use particle_actors::{StepperEffects, StepperPoolApi, StepperPoolProcessor, VmPoolConfig};
 use particle_closures::{HostClosures, NodeInfo};
 
 // TODO: documentation
 pub struct Node {
-    particle_stream: BackPressuredInlet<Particle>,
-    network: Swarm<NetworkBehaviour>,
+    network_api: NetworkApi,
+    swarm: Swarm<NetworkBehaviour>,
     stepper_pool: StepperPoolProcessor,
-    particle_ingestor: StepperPoolSender,
+    stepper_pool_api: StepperPoolApi,
     // TODO: split config into several parts to avoid clones
     //       narrow scope of the configuration that is stored in Node
     //       cut parts of the ServerConfig along with creation of corresponding components
     //       e.g., no need to store services_base_dir and services_envs in Node – split it to separate config
     //       and move it to HostClosures on creation. Same with VmPoolConfig.
-    config: ServerConfig,
+    config: NodeConfig,
     local_peer_id: PeerId,
     registry: Registry,
 }
 
 impl Node {
-    pub fn new(key_pair: Keypair, config: ServerConfig) -> anyhow::Result<Box<Self>> {
-        let ServerConfig { socket_timeout, .. } = config;
+    pub fn new(key_pair: Keypair, config: NodeConfig) -> anyhow::Result<Box<Self>> {
+        let NodeConfig { socket_timeout, .. } = config;
 
         let local_peer_id = to_peer_id(&key_pair);
         log::info!("server peer id = {}", local_peer_id);
@@ -93,21 +95,21 @@ impl Node {
         let trust_graph = TrustGraph::new(config.root_weights());
         let registry = Registry::new();
 
-        let (mut network, particle_stream) = {
+        let (mut swarm, network_api) = {
             let config =
                 BehaviourConfig::new(trust_graph, Some(&registry), key_pair.clone(), &config);
-            let (behaviour, particle_stream) =
+            let (behaviour, network_api) =
                 NetworkBehaviour::new(config).context("failed to crate ServerBehaviour")?;
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
             let transport = build_transport(key_pair, socket_timeout);
             let swarm = Swarm::new(transport, behaviour, local_peer_id);
 
-            (swarm, particle_stream)
+            (swarm, network_api)
         };
 
         // Add external addresses to Swarm
         config.external_addresses().into_iter().for_each(|addr| {
-            Swarm::add_external_address(&mut network, addr, AddressScore::Finite(1));
+            Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
         });
 
         let pool_config = VmPoolConfig::new(
@@ -129,14 +131,14 @@ impl Node {
         )
         .expect("create host closures");
 
-        let (stepper_pool, particle_ingestor) =
+        let (stepper_pool, stepper_pool_api) =
             StepperPoolProcessor::new(pool_config, host_closures.descriptor());
 
         let node_service = Self {
-            particle_stream,
-            network,
+            network_api,
+            swarm,
             stepper_pool,
-            particle_ingestor,
+            stepper_pool_api,
             config,
             local_peer_id,
             registry,
@@ -158,14 +160,13 @@ impl Node {
                 start_metrics_endpoint(self.registry, self.config.metrics_listen_addr()).fuse();
 
             let pool = self.stepper_pool.start();
-            let particles = start_process_particles(
-                self.particle_stream,
-                self.network,
-                self.particle_ingestor,
-                self.config,
+            let network = self.network_api.start(
+                self.stepper_pool_api,
+                self.config.particle_processor_parallelism,
             );
             loop {
                 select!(
+                    _ = self.swarm.select_next_some() => {},
                     _ = metrics => {},
                     event = exit_inlet.next() => {
                         // Ignore Err and None – if exit_outlet is dropped, we'll run forever!
@@ -177,7 +178,7 @@ impl Node {
             }
 
             log::info!("Stopping node");
-            particles.cancel().await;
+            network.cancel().await;
             pool.cancel().await;
         });
 
@@ -196,67 +197,10 @@ impl Node {
 
         log::info!("Fluence listening on {} and {}", tcp, ws);
 
-        Swarm::listen_on(&mut self.network, tcp)?;
-        Swarm::listen_on(&mut self.network, ws)?;
+        Swarm::listen_on(&mut self.swarm, tcp)?;
+        Swarm::listen_on(&mut self.swarm, ws)?;
         Ok(())
     }
-}
-
-// TODO: AAAAAA! particle_ingestor?! aquamarine?! stepper_pool?! StepperPoolProcessor?! StepperPoolSender?!?!?! Arrrghh. Good coffee though.
-fn start_process_particles(
-    particle_stream: BackPressuredInlet<Particle>,
-    network: Swarm<NetworkBehaviour>,
-    particle_ingestor: StepperPoolSender,
-    config: ServerConfig,
-) -> JoinHandle<()> {
-    let network = Arc::new(Mutex::new(network));
-
-    let cfg_parallelism = config.particle_processor_parallelism;
-    let mut particle_processor = {
-        let network = network.clone();
-        let aquamarine = particle_ingestor;
-        particle_stream.for_each_concurrent(cfg_parallelism, move |particle| {
-            println!("got particle! {:?}", particle);
-            let network = network.clone();
-            let aquamarine = aquamarine.clone();
-            async move {
-                let stepper_effects = {
-                    let aquamarine = aquamarine.clone();
-                    aquamarine.ingest(particle).await
-                };
-
-                match stepper_effects {
-                    Ok(stepper_effects) => execute_effect(network.clone(), stepper_effects).await,
-                    Err(err) => {
-                        // maybe particle was expired
-                        log::warn!("Error executing particle, aquamarine refused")
-                    }
-                };
-            }
-        })
-    };
-
-    task::spawn(async move {
-        futures::future::poll_fn::<(), _>(move |cx: &mut std::task::Context<'_>| {
-            let mut net_ready = false;
-            if let Some(mut network) = network.try_lock() {
-                net_ready = ExpandedSwarm::poll_next_unpin(&mut network, cx).is_ready();
-                // drop mutex guard explicitly
-                drop(network);
-            };
-
-            let particles_ready =
-                futures::FutureExt::poll_unpin(&mut particle_processor, cx).is_ready();
-
-            if net_ready || particles_ready {
-                // Return Ready so task is awaken again immediately
-                Poll::Ready(())
-            } else {
-                Poll::Pending
-            }
-        })
-        .await
-    })
 }
 
 #[cfg(test)]
@@ -272,7 +216,7 @@ mod tests {
     use maplit::hashmap;
     use particle_protocol::{HandlerMessage, Particle};
     use serde_json::json;
-    use server_config::{deserialize_config, ServerConfig};
+    use server_config::{deserialize_config, NodeConfig};
     use std::path::PathBuf;
     use test_utils::enable_logs;
     use test_utils::ConnectedClient;

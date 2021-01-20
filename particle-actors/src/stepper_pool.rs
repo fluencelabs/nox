@@ -31,14 +31,11 @@ pub struct StepperPoolProcessor {
 }
 
 impl StepperPoolProcessor {
-    pub fn new(
-        config: VmPoolConfig,
-        host_closures: ClosureDescriptor,
-    ) -> (Self, StepperPoolSender) {
+    pub fn new(config: VmPoolConfig, host_closures: ClosureDescriptor) -> (Self, StepperPoolApi) {
         let (outlet, inlet) = mpsc::channel(100);
         let plumber = Plumber::new(config, host_closures);
         let this = Self { inlet, plumber };
-        let sender = StepperPoolSender::new(outlet);
+        let sender = StepperPoolApi::new(outlet);
 
         (this, sender)
     }
@@ -66,11 +63,11 @@ impl StepperPoolProcessor {
 }
 
 #[derive(Clone)]
-pub struct StepperPoolSender {
+pub struct StepperPoolApi {
     // send particle along with a "return address"; it's like the Ask pattern in Akka
     outlet: BackPressuredOutlet<(Particle, OneshotOutlet<StepperEffects>)>,
 }
-impl StepperPoolSender {
+impl StepperPoolApi {
     pub fn new(outlet: BackPressuredOutlet<(Particle, OneshotOutlet<StepperEffects>)>) -> Self {
         Self { outlet }
     }

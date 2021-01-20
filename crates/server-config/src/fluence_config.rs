@@ -54,7 +54,7 @@ const ARGS: &[&str] = &[
 #[derive(Deserialize, Debug)]
 pub struct FluenceConfig {
     #[serde(flatten)]
-    pub server: ServerConfig,
+    pub server: NodeConfig,
     /// Directory, where all certificates are stored.
     #[serde(default = "default_cert_dir")]
     pub certificate_dir: String,
@@ -67,7 +67,7 @@ pub struct FluenceConfig {
 }
 
 #[derive(Clone, Deserialize, Debug)]
-pub struct ServerConfig {
+pub struct NodeConfig {
     /// For TCP connections
     #[serde(default = "default_tcp_port")]
     pub tcp_port: u16,
@@ -133,7 +133,7 @@ pub struct ServerConfig {
     pub particle_processor_parallelism: usize,
 }
 
-impl ServerConfig {
+impl NodeConfig {
     pub fn external_addresses(&self) -> Vec<Multiaddr> {
         if let Some(external_address) = self.external_address {
             let external_tcp = {
