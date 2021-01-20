@@ -35,8 +35,7 @@ mod behaviour {
     mod identify;
     mod network;
 
-    pub use network::execute_effect;
-    pub use network::{NetworkApi, NetworkBehaviour};
+    pub use network::NetworkBehaviour;
 }
 
 pub mod config {
@@ -55,6 +54,5 @@ mod bootstrapper {
     pub(crate) use event::BootstrapperEvent;
 }
 
-pub(crate) use behaviour::execute_effect;
 pub use behaviour::NetworkBehaviour;
 pub use node::Node;

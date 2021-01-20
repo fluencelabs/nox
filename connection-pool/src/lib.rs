@@ -31,9 +31,11 @@
 
 #![allow(unused_imports, dead_code)]
 
+mod api;
 mod behaviour;
 mod connection_pool;
 
+pub use api::{ConnectionPoolApi, ConnectionPoolInlet};
 pub use behaviour::ConnectionPoolBehaviour;
 pub use connection_pool::ConnectionPool;
 pub use connection_pool::Contact;

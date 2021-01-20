@@ -17,27 +17,29 @@
 use crate::error::{KademliaError, Result};
 use crate::Kademlia;
 
-type Future<T> = BoxFuture<'static, T>;
-
+use fluence_libp2p::generate_swarm_event_type;
 use fluence_libp2p::types::{Inlet, OneshotInlet, OneshotOutlet, Outlet};
+
 use futures::channel::mpsc::unbounded;
 use futures::channel::oneshot;
 use futures::future::BoxFuture;
 use futures::{FutureExt, SinkExt, StreamExt, TryFutureExt};
 use libp2p::core::Multiaddr;
+use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::PeerId;
 use multihash::Multihash;
 use std::convert::identity;
 
-pub trait KademliaApi {
-    fn local_lookup(self, peer: PeerId) -> Future<Vec<Multiaddr>>;
+type Future<T> = BoxFuture<'static, T>;
 
-    fn bootstrap(self) -> Future<Result<()>>;
-    fn discover_peer(self, peer: PeerId) -> Future<Result<(PeerId, Vec<Multiaddr>)>>;
-    fn neighborhood(self, key: Multihash) -> Future<Result<Vec<PeerId>>>;
+pub trait KademliaApi {
+    fn bootstrap(&self) -> Future<Result<()>>;
+    fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>>;
+    fn discover_peer(&self, peer: PeerId) -> Future<Result<(PeerId, Vec<Multiaddr>)>>;
+    fn neighborhood(&self, key: Multihash) -> Future<Result<Vec<PeerId>>>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 enum Command {
     LocalLookup {
         peer: PeerId,
@@ -48,6 +50,7 @@ enum Command {
     },
     DiscoverPeer {
         peer: PeerId,
+        // TODO: Why returning PeerId back?
         out: OneshotOutlet<Result<(PeerId, Vec<Multiaddr>)>>,
     },
     Neighborhood {
@@ -56,7 +59,7 @@ enum Command {
     },
 }
 
-pub type SwarmEventType = generate_swarm_event_type!(ChannelApiInlet);
+pub type SwarmEventType = generate_swarm_event_type!(KademliaApiInlet);
 
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll")]
@@ -84,17 +87,21 @@ impl KademliaApiInlet {
 
     fn custom_poll(
         &mut self,
-        _: &mut std::task::Context,
+        cx: &mut std::task::Context,
         _: &mut impl libp2p::swarm::PollParameters,
     ) -> std::task::Poll<SwarmEventType> {
         use std::task::Poll;
 
-        if let Poll::Ready(Some(cmd)) = self.inlet.poll_next_unpin(cx) {
+        while let Poll::Ready(Some(cmd)) = self.inlet.poll_next_unpin(cx) {
             self.execute(cmd)
         }
 
         Poll::Pending
     }
+}
+
+impl NetworkBehaviourEventProcess<()> for KademliaApiInlet {
+    fn inject_event(&mut self, _: ()) {}
 }
 
 impl From<Kademlia> for (KademliaApiOutlet, KademliaApiInlet) {
@@ -109,8 +116,13 @@ pub struct KademliaApiOutlet {
 }
 
 impl KademliaApiOutlet {
-    fn execute<R>(self, cmd: Command, inlet: OneshotInlet<Result<R>>) -> Future<T> {
-        if let Err(_) = self.outlet.unbounded_send(cmd) {
+    fn execute<R, F>(&self, cmd: F) -> Future<Result<R>>
+    where
+        R: Send + Sync + 'static,
+        F: FnOnce(OneshotOutlet<Result<R>>) -> Command,
+    {
+        let (out, inlet) = oneshot::channel();
+        if let Err(_) = self.outlet.unbounded_send(cmd(out)) {
             return futures::future::err(KademliaError::Cancelled).boxed();
         }
         inlet
@@ -120,27 +132,24 @@ impl KademliaApiOutlet {
 }
 
 impl KademliaApi for KademliaApiOutlet {
-    fn local_lookup(self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {
+    fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {
         let (out, inlet) = oneshot::channel();
         self.outlet
-            .unbounded_send(Command::DiscoverPeer { peer, out })
+            .unbounded_send(Command::LocalLookup { peer, out })
             .expect("kademlia api died");
 
         inlet.map_err(|err| KademliaError::Cancelled).boxed()
     }
 
-    fn bootstrap(self) -> Future<Result<()>> {
-        let (out, inlet) = oneshot::channel();
-        self.execute(Command::Bootstrap { out }, inlet)
+    fn bootstrap(&self) -> Future<Result<()>> {
+        self.execute(|out| Command::Bootstrap { out })
     }
 
-    fn discover_peer(self, peer: PeerId) -> Future<Result<(PeerId, Vec<Multiaddr>)>> {
-        let (out, inlet) = oneshot::channel();
-        self.execute(Command::DiscoverPeer { peer, out }, inlet)
+    fn discover_peer(&self, peer: PeerId) -> Future<Result<(PeerId, Vec<Multiaddr>)>> {
+        self.execute(|out| Command::DiscoverPeer { peer, out })
     }
 
-    fn neighborhood(self, key: Multihash) -> Future<Result<Vec<PeerId>>> {
-        let (out, inlet) = oneshot::channel();
-        self.execute(Command::Neighborhood { key, out }, inlet)
+    fn neighborhood(&self, key: Multihash) -> Future<Result<Vec<PeerId>>> {
+        self.execute(|out| Command::Neighborhood { key, out })
     }
 }

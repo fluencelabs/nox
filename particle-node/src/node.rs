@@ -59,8 +59,6 @@ pub mod unlocks {
     }
 }
 
-use crate::behaviour::NetworkApi;
-use crate::execute_effect;
 use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
 use async_std::task::JoinHandle;

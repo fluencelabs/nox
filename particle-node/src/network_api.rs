@@ -15,9 +15,10 @@
  */
 
 use crate::node::unlocks::{unlock, unlock_f};
+
 use async_std::sync::Mutex;
 use async_std::task::JoinHandle;
-use connection_pool::Contact;
+use connection_pool::{ConnectionPool, ConnectionPoolApi, Contact};
 use fluence_libp2p::types::BackPressuredInlet;
 use futures::{task, StreamExt};
 use kademlia::{KademliaApi, KademliaApiOutlet};
@@ -30,8 +31,9 @@ use std::sync::Arc;
 use std::task::Poll;
 
 pub struct NetworkApi {
-    particle_stream: BackPressuredInlet<Particle>,
-    kademlia_api: KademliaApiOutlet,
+    pub particle_stream: BackPressuredInlet<Particle>,
+    pub kademlia: KademliaApiOutlet,
+    pub connection_pool: ConnectionPoolApi,
 }
 
 impl NetworkApi {
@@ -39,11 +41,15 @@ impl NetworkApi {
         async_std::task::spawn(async move {
             let NetworkApi {
                 particle_stream,
-                kademlia_api,
+                kademlia,
+                connection_pool,
             } = self;
-            self.particle_stream
+
+            particle_stream
                 .for_each_concurrent(parallelism, move |particle| {
                     println!("got particle! {:?}", particle);
+                    let kademlia = kademlia.clone();
+                    let connection_pool = connection_pool.clone();
                     let stepper_pool = stepper_pool.clone();
                     async move {
                         let stepper_effects = {
@@ -52,7 +58,9 @@ impl NetworkApi {
                         };
 
                         match stepper_effects {
-                            Ok(stepper_effects) => network.execute_effect(stepper_effects).await,
+                            Ok(stepper_effects) => {
+                                execute_effect(kademlia, connection_pool, stepper_effects).await
+                            }
                             Err(err) => {
                                 // maybe particle was expired
                                 log::warn!("Error executing particle, aquamarine refused")
@@ -67,11 +75,11 @@ impl NetworkApi {
 
 pub async fn execute_effect(
     kademlia: KademliaApiOutlet,
-    connection_pool: ConnectionPoolApiOutlet,
+    connection_pool: ConnectionPoolApi,
     effects: StepperEffects,
 ) {
     for SendParticle { target, particle } in effects.particles {
-        let contact = connection_pool.get_contact(&target).await;
+        let contact = connection_pool.get_contact(target).await;
         let contact = match contact {
             Some(contact) => contact,
             None => {

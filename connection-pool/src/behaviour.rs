@@ -66,8 +66,8 @@ impl Peer {
 
 pub struct ConnectionPoolBehaviour {
     outlet: BackPressuredOutlet<Particle>,
-    queue: VecDeque<Particle>,
 
+    queue: VecDeque<Particle>,
     contacts: HashMap<PeerId, Peer>,
 
     events: VecDeque<SwarmEventType>,
@@ -75,9 +75,8 @@ pub struct ConnectionPoolBehaviour {
     protocol_config: ProtocolConfig,
 }
 
-impl ConnectionPool for ConnectionPoolBehaviour {
-    fn connect(&mut self, contact: Contact) -> BoxFuture<'static, bool> {
-        let (outlet, inlet) = futures::channel::oneshot::channel();
+impl ConnectionPoolBehaviour {
+    pub fn connect(&mut self, contact: Contact, outlet: OneshotOutlet<bool>) {
         self.events.push_back(NetworkBehaviourAction::DialPeer {
             peer_id: contact.peer_id.clone(),
             condition: DialPeerCondition::Always,
@@ -102,51 +101,39 @@ impl ConnectionPool for ConnectionPoolBehaviour {
                     vec![outlet],
                 ));
             }
-        }
-
-        let peer_id = contact.peer_id;
-        inlet
-            .map(move |r| {
-                r.map(|_| true).unwrap_or_else(|err| {
-                    log::warn!("error connecting to {}, oneshot cancelled", peer_id);
-                    false
-                })
-            })
-            .boxed()
+        };
     }
 
-    fn disconnect(&mut self, contact: Contact) -> BoxFuture<'static, bool> {
+    pub fn disconnect(&mut self, contact: Contact, _outlet: OneshotOutlet<bool>) {
         todo!(
             "this doesn't make sense with OneShotHandler since connections are short-lived {:?}",
             contact
         )
     }
 
-    fn is_connected(&self, peer_id: &PeerId) -> bool {
-        self.contacts.contains_key(peer_id)
+    pub fn is_connected(&self, peer_id: PeerId, outlet: OneshotOutlet<bool>) {
+        outlet.send(self.contacts.contains_key(&peer_id)).ok();
     }
 
-    fn get_contact(&self, peer_id: &PeerId) -> Option<Contact> {
-        match self.contacts.get(peer_id) {
+    pub fn get_contact(&self, peer_id: PeerId, outlet: OneshotOutlet<Option<Contact>>) {
+        let contact = match self.contacts.get(&peer_id) {
             Some(Peer::Connected(addrs)) => Some(Contact {
-                peer_id: peer_id.clone(),
+                peer_id,
+                // TODO: take all addresses
                 addr: addrs.iter().next().cloned(),
             }),
             _ => None,
-        }
+        };
+        outlet.send(contact).ok();
     }
 
-    fn send(&mut self, to: Contact, particle: Particle) -> BoxFuture<'static, bool> {
-        let (outlet, inlet) = oneshot::channel();
-
+    pub fn send(&mut self, to: Contact, particle: Particle, outlet: OneshotOutlet<bool>) {
         self.events
             .push_back(NetworkBehaviourAction::NotifyHandler {
                 peer_id: to.peer_id,
                 handler: NotifyHandler::Any,
                 event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),
             });
-
-        inlet.map(|r| r.is_ok()).boxed()
     }
 }
 
@@ -167,14 +154,6 @@ impl ConnectionPoolBehaviour {
         };
 
         (this, inlet)
-    }
-
-    pub fn kad_discover(&mut self, peer_id: PeerId) -> BoxFuture<'static, Contact> {
-        futures::future::ready(Contact {
-            peer_id,
-            addr: None,
-        })
-        .boxed()
     }
 
     fn wake(&self) {
@@ -292,153 +271,153 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::behaviour::ConnectionPoolBehaviour;
-    use crate::connection_pool::ConnectionPool;
-
-    use async_std::sync::Mutex;
-    use async_std::task;
-    use fluence_libp2p::{build_memory_transport, RandomPeerId};
-    use futures::future::BoxFuture;
-    use futures::task::{Context, Poll};
-    use futures::StreamExt;
-    use futures::{select, Stream};
-    use futures::{Future, FutureExt};
-    use libp2p::core::connection::ConnectionId;
-    use libp2p::identity::ed25519::Keypair;
-    use libp2p::identity::PublicKey::Ed25519;
-    use libp2p::swarm::{ExpandedSwarm, NetworkBehaviour};
-    use libp2p::{identity, PeerId, Swarm};
-    use particle_dht::DHTConfig;
-    use particle_protocol::{HandlerMessage, Particle};
-    use std::ops::{Deref, DerefMut};
-    use std::pin::Pin;
-    use std::sync::Arc;
-    use trust_graph::TrustGraph;
-
-    fn fce_exec(particle: Particle) -> BoxFuture<'static, (Vec<PeerId>, Particle)> {
-        futures::future::ready((vec![particle.init_peer_id.clone()], particle)).boxed()
-    }
-
-    macro_rules! unlock (
-        ($lock:ident.$method:ident($($args:expr),*)$(.$await:ident)?) => (
-            {
-                #[allow(unused_mut)]
-                let mut guard = $lock.lock().await;
-                let result = guard.$method($($args),*);
-                drop(guard);
-                $(let result = result.$await;)?
-                result
-            }
-        );
-    );
-
-    async fn lockF<T, R, F: Future<Output = R>>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> F) -> R {
-        let mut guard = m.lock().await;
-        let result = f(guard.deref_mut());
-        drop(guard);
-        result.await
-    }
-
-    async fn lock<T, R>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> R) -> R {
-        let mut guard = m.lock().await;
-        let result = f(guard.deref_mut());
-        drop(guard);
-        result
-    }
-
-    fn dht_config() -> DHTConfig {
-        let keypair = Keypair::generate();
-        let public_key = Ed25519(keypair.public());
-        let peer_id = PeerId::from(public_key);
-
-        DHTConfig {
-            peer_id,
-            keypair,
-            kad_config: Default::default(),
-        }
-    }
-
-    #[test]
-    fn run() {
-        let spawned = task::spawn(async move {
-            let (node, particles) =
-                ConnectionPoolBehaviour::new(100, dht_config(), TrustGraph::new(vec![]));
-            let keypair = Keypair::generate();
-            let kp = identity::Keypair::Ed25519(keypair.clone());
-            let peer_id = kp.public().into_peer_id();
-            let mut node = Swarm::new(build_memory_transport(kp), node, peer_id);
-
-            for i in 1..10 {
-                node.inject_event(
-                    RandomPeerId::random(),
-                    ConnectionId::new(i),
-                    HandlerMessage::InParticle(Particle::default()),
-                );
-            }
-
-            let node = Arc::new(Mutex::new(node));
-            let cfg_parallelism = 4;
-            let mut particle_processor = {
-                let cloned_node = node.clone();
-                particles.for_each_concurrent(cfg_parallelism, move |particle| {
-                    let node = cloned_node.clone();
-                    async move {
-                        let (next_peers, particle) = fce_exec(particle).await;
-                        dbg!(&next_peers);
-                        for peer in next_peers {
-                            let contact = unlock!(node.get_contact(&peer));
-                            dbg!(&contact);
-                            let contact = match contact {
-                                Some(contact) => contact,
-                                _ => {
-                                    println!("before lock 2");
-                                    let contact = unlock!(node.kad_discover(peer).await);
-                                    println!("after lock 2");
-                                    unlock!(node.connect(contact.clone()).await);
-                                    println!("after lock 3");
-                                    contact
-                                }
-                            };
-
-                            dbg!(&contact);
-
-                            unlock!(node.send(contact, particle.clone()));
-                        }
-                    }
-                })
-            };
-
-            futures::future::poll_fn::<(), _>(move |cx: &mut Context<'_>| {
-                let mut ready = false;
-
-                if let Poll::Ready(mut node) = {
-                    println!("poll_fn before node lock");
-                    let mut lock = node.lock().boxed();
-                    let res = futures::FutureExt::poll_unpin(&mut lock, cx);
-                    drop(lock);
-                    res
-                } {
-                    println!("poll_fn node lock READY");
-                    ready = dbg!(ExpandedSwarm::poll_next_unpin(&mut node, cx)).is_ready();
-                } else {
-                    println!("poll_fn node lock PENDING");
-                }
-
-                ready = ready
-                    || dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
-
-                if ready {
-                    // Return this so task is awaken again immediately
-                    Poll::Ready(())
-                } else {
-                    Poll::Pending
-                }
-            })
-            .await;
-        });
-
-        task::block_on(spawned);
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use crate::behaviour::ConnectionPoolBehaviour;
+//     use crate::connection_pool::ConnectionPool;
+//
+//     use async_std::sync::Mutex;
+//     use async_std::task;
+//     use fluence_libp2p::{build_memory_transport, RandomPeerId};
+//     use futures::future::BoxFuture;
+//     use futures::task::{Context, Poll};
+//     use futures::StreamExt;
+//     use futures::{select, Stream};
+//     use futures::{Future, FutureExt};
+//     use libp2p::core::connection::ConnectionId;
+//     use libp2p::identity::ed25519::Keypair;
+//     use libp2p::identity::PublicKey::Ed25519;
+//     use libp2p::swarm::{ExpandedSwarm, NetworkBehaviour};
+//     use libp2p::{identity, PeerId, Swarm};
+//     use particle_dht::DHTConfig;
+//     use particle_protocol::{HandlerMessage, Particle};
+//     use std::ops::{Deref, DerefMut};
+//     use std::pin::Pin;
+//     use std::sync::Arc;
+//     use trust_graph::TrustGraph;
+//
+//     fn fce_exec(particle: Particle) -> BoxFuture<'static, (Vec<PeerId>, Particle)> {
+//         futures::future::ready((vec![particle.init_peer_id.clone()], particle)).boxed()
+//     }
+//
+//     macro_rules! unlock (
+//         ($lock:ident.$method:ident($($args:expr),*)$(.$await:ident)?) => (
+//             {
+//                 #[allow(unused_mut)]
+//                 let mut guard = $lock.lock().await;
+//                 let result = guard.$method($($args),*);
+//                 drop(guard);
+//                 $(let result = result.$await;)?
+//                 result
+//             }
+//         );
+//     );
+//
+//     async fn lockF<T, R, F: Future<Output = R>>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> F) -> R {
+//         let mut guard = m.lock().await;
+//         let result = f(guard.deref_mut());
+//         drop(guard);
+//         result.await
+//     }
+//
+//     async fn lock<T, R>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> R) -> R {
+//         let mut guard = m.lock().await;
+//         let result = f(guard.deref_mut());
+//         drop(guard);
+//         result
+//     }
+//
+//     fn dht_config() -> DHTConfig {
+//         let keypair = Keypair::generate();
+//         let public_key = Ed25519(keypair.public());
+//         let peer_id = PeerId::from(public_key);
+//
+//         DHTConfig {
+//             peer_id,
+//             keypair,
+//             kad_config: Default::default(),
+//         }
+//     }
+//
+//     #[test]
+//     fn run() {
+//         let spawned = task::spawn(async move {
+//             let (node, particles) =
+//                 ConnectionPoolBehaviour::new(100, dht_config(), TrustGraph::new(vec![]));
+//             let keypair = Keypair::generate();
+//             let kp = identity::Keypair::Ed25519(keypair.clone());
+//             let peer_id = kp.public().into_peer_id();
+//             let mut node = Swarm::new(build_memory_transport(kp), node, peer_id);
+//
+//             for i in 1..10 {
+//                 node.inject_event(
+//                     RandomPeerId::random(),
+//                     ConnectionId::new(i),
+//                     HandlerMessage::InParticle(Particle::default()),
+//                 );
+//             }
+//
+//             let node = Arc::new(Mutex::new(node));
+//             let cfg_parallelism = 4;
+//             let mut particle_processor = {
+//                 let cloned_node = node.clone();
+//                 particles.for_each_concurrent(cfg_parallelism, move |particle| {
+//                     let node = cloned_node.clone();
+//                     async move {
+//                         let (next_peers, particle) = fce_exec(particle).await;
+//                         dbg!(&next_peers);
+//                         for peer in next_peers {
+//                             let contact = unlock!(node.get_contact(&peer));
+//                             dbg!(&contact);
+//                             let contact = match contact {
+//                                 Some(contact) => contact,
+//                                 _ => {
+//                                     println!("before lock 2");
+//                                     let contact = unlock!(node.kad_discover(peer).await);
+//                                     println!("after lock 2");
+//                                     unlock!(node.connect(contact.clone()).await);
+//                                     println!("after lock 3");
+//                                     contact
+//                                 }
+//                             };
+//
+//                             dbg!(&contact);
+//
+//                             unlock!(node.send(contact, particle.clone()));
+//                         }
+//                     }
+//                 })
+//             };
+//
+//             futures::future::poll_fn::<(), _>(move |cx: &mut Context<'_>| {
+//                 let mut ready = false;
+//
+//                 if let Poll::Ready(mut node) = {
+//                     println!("poll_fn before node lock");
+//                     let mut lock = node.lock().boxed();
+//                     let res = futures::FutureExt::poll_unpin(&mut lock, cx);
+//                     drop(lock);
+//                     res
+//                 } {
+//                     println!("poll_fn node lock READY");
+//                     ready = dbg!(ExpandedSwarm::poll_next_unpin(&mut node, cx)).is_ready();
+//                 } else {
+//                     println!("poll_fn node lock PENDING");
+//                 }
+//
+//                 ready = ready
+//                     || dbg!(futures::FutureExt::poll_unpin(&mut particle_processor, cx)).is_ready();
+//
+//                 if ready {
+//                     // Return this so task is awaken again immediately
+//                     Poll::Ready(())
+//                 } else {
+//                     Poll::Pending
+//                 }
+//             })
+//             .await;
+//         });
+//
+//         task::block_on(spawned);
+//     }
+// }

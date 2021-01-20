@@ -28,12 +28,11 @@ pub struct Contact {
 }
 
 pub trait ConnectionPool {
-    fn connect(&mut self, contact: Contact) -> BoxFuture<'static, bool>;
-    fn disconnect(&mut self, contact: Contact) -> BoxFuture<'static, bool>;
-    fn is_connected(&self, peer_id: &PeerId) -> bool;
-    fn get_contact(&self, peer_id: &PeerId) -> Option<Contact>;
-
-    fn send(&mut self, to: Contact, particle: Particle) -> BoxFuture<'static, bool>;
+    fn connect(&self, contact: Contact) -> BoxFuture<'static, bool>;
+    fn disconnect(&self, contact: Contact) -> BoxFuture<'static, bool>;
+    fn is_connected(&self, peer_id: PeerId) -> BoxFuture<'static, bool>;
+    fn get_contact(&self, peer_id: PeerId) -> BoxFuture<'static, Option<Contact>>;
+    fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, bool>;
 }
 
 /*

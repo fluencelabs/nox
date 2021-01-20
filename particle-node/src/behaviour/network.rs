@@ -30,7 +30,7 @@ use crate::network_api::NetworkApi;
 use crate::node::unlocks::{unlock, unlock_f};
 use async_std::sync::Mutex;
 use async_std::task::JoinHandle;
-use connection_pool::{ConnectionPool, ConnectionPoolBehaviour, Contact};
+use connection_pool::{ConnectionPool, ConnectionPoolBehaviour, ConnectionPoolInlet, Contact};
 use fluence_libp2p::types::BackPressuredInlet;
 use futures::select;
 use futures::StreamExt;
@@ -52,7 +52,7 @@ pub struct NetworkBehaviour {
     identity: Identify,
     // TODO: move ping inside ConnectionPoolBehaviour?
     ping: Ping,
-    pub(crate) connection_pool: ConnectionPoolBehaviour,
+    pub(crate) connection_pool: ConnectionPoolInlet,
     pub(crate) kademlia: KademliaApiInlet,
 }
 
@@ -71,10 +71,13 @@ impl NetworkBehaviour {
             keypair: cfg.key_pair,
             kad_config: cfg.kademlia_config,
         };
+
+        // TODO: this is hazy; names are bad, conversion is far from transparent. Hide behaviours?
         let kademlia = Kademlia::new(kad_config, cfg.trust_graph, cfg.registry);
         let (kademlia_api, kademlia) = kademlia.into();
         let (connection_pool, particle_stream) =
             ConnectionPoolBehaviour::new(cfg.particle_queue_buffer, cfg.protocol_config);
+        let (connection_pool_api, connection_pool) = connection_pool.into();
 
         let bootstrapper = Bootstrapper::new(cfg.bootstrap, cfg.local_peer_id, cfg.bootstrap_nodes);
 
@@ -88,7 +91,8 @@ impl NetworkBehaviour {
             },
             NetworkApi {
                 particle_stream,
-                kademlia_api,
+                kademlia: kademlia_api,
+                connection_pool: connection_pool_api,
             },
         ))
     }
