@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use maplit::hashmap;
 use serde_json::json;
@@ -22,6 +22,8 @@ use std::thread::sleep;
 
 #[test]
 fn echo_particle() {
+    enable_logs();
+
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");

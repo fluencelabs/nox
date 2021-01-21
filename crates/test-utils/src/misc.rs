@@ -136,7 +136,9 @@ pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
         n,
         |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
         create_memory_maddr,
-        true,
+        // TODO: set to true to wait until nodes connect to each other
+        //       currently it doesn't work – maybe Lifecycle events aren't working
+        false,
     )
 }
 
