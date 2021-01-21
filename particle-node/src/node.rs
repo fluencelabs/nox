@@ -18,7 +18,7 @@ use super::behaviour::NetworkBehaviour;
 
 use config_utils::to_peer_id;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
-use server_config::{BehaviourConfig, NodeConfig};
+use server_config::{ListenConfig, NetworkConfig, NodeConfig, ServicesConfig};
 use trust_graph::TrustGraph;
 
 use anyhow::Context;
@@ -64,71 +64,92 @@ use crate::network_api::NetworkApi;
 use async_std::task::JoinHandle;
 use futures::channel::mpsc;
 use futures::channel::oneshot::Canceled;
+use libp2p::core::muxing::StreamMuxerBox;
+use libp2p::core::transport::Boxed;
 use particle_actors::{StepperEffects, StepperPoolApi, StepperPoolProcessor, VmPoolConfig};
 use particle_closures::{HostClosures, NodeInfo};
+use std::time::Duration;
 
 // TODO: documentation
 pub struct Node {
-    network_api: NetworkApi,
+    pub network_api: NetworkApi,
     swarm: Swarm<NetworkBehaviour>,
     stepper_pool: StepperPoolProcessor,
     stepper_pool_api: StepperPoolApi,
-    // TODO: split config into several parts to avoid clones
-    //       narrow scope of the configuration that is stored in Node
-    //       cut parts of the ServerConfig along with creation of corresponding components
-    //       e.g., no need to store services_base_dir and services_envs in Node – split it to separate config
-    //       and move it to HostClosures on creation. Same with VmPoolConfig.
-    config: NodeConfig,
     local_peer_id: PeerId,
-    registry: Registry,
+    registry: Option<Registry>,
+    metrics_listen_addr: SocketAddr,
 }
 
 impl Node {
     pub fn new(key_pair: Keypair, config: NodeConfig) -> anyhow::Result<Box<Self>> {
-        let NodeConfig { socket_timeout, .. } = config;
+        let transport = {
+            let key_pair = libp2p::identity::Keypair::Ed25519(key_pair.clone());
+            build_transport(key_pair, config.socket_timeout)
+        };
+        let trust_graph = TrustGraph::new(config.root_weights());
 
         let local_peer_id = to_peer_id(&key_pair);
+
+        let pool_config = VmPoolConfig::new(
+            local_peer_id,
+            config.stepper_base_dir.clone(),
+            config.air_interpreter_path.clone(),
+            config.stepper_pool_size,
+        )
+        .expect("create vm pool config");
+
+        let services_config = ServicesConfig::new(
+            local_peer_id,
+            config.services_base_dir.clone(),
+            config.services_envs.clone(),
+        )
+        .expect("create services config");
+
+        let registry = Registry::new();
+        let network_config =
+            NetworkConfig::new(trust_graph, Some(registry.clone()), key_pair, &config);
+
+        Self::with(
+            local_peer_id,
+            transport,
+            services_config,
+            pool_config,
+            network_config,
+            config.external_addresses(),
+            registry.into(),
+            config.metrics_listen_addr(),
+        )
+    }
+
+    pub fn with(
+        local_peer_id: PeerId,
+        transport: Boxed<(PeerId, StreamMuxerBox)>,
+        services_config: ServicesConfig,
+        pool_config: VmPoolConfig,
+        network_config: NetworkConfig,
+        external_addresses: Vec<Multiaddr>,
+        registry: Option<Registry>,
+        metrics_listen_addr: SocketAddr,
+    ) -> anyhow::Result<Box<Self>> {
         log::info!("server peer id = {}", local_peer_id);
 
-        let trust_graph = TrustGraph::new(config.root_weights());
-        let registry = Registry::new();
-
         let (mut swarm, network_api) = {
-            let config =
-                BehaviourConfig::new(trust_graph, Some(&registry), key_pair.clone(), &config);
-            let (behaviour, network_api) =
-                NetworkBehaviour::new(config).context("failed to crate ServerBehaviour")?;
-            let key_pair = libp2p::identity::Keypair::Ed25519(key_pair);
-            let transport = build_transport(key_pair, socket_timeout);
+            let (behaviour, network_api) = NetworkBehaviour::new(network_config)
+                .context("failed to crate NetworkBehaviour")?;
             let swarm = Swarm::new(transport, behaviour, local_peer_id);
 
             (swarm, network_api)
         };
 
         // Add external addresses to Swarm
-        config.external_addresses().into_iter().for_each(|addr| {
+        external_addresses.iter().cloned().for_each(|addr| {
             Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
         });
 
-        let pool_config = VmPoolConfig::new(
-            local_peer_id,
-            config.stepper_base_dir.clone(),
-            config.air_interpreter_path.clone(),
-            config.stepper_pool_size.clone(),
-        )
-        .expect("create vm pool config");
-
-        let node_info = NodeInfo {
-            external_addresses: config.external_addresses(),
-        };
-        let host_closures = HostClosures::new(
-            network_api.connectivity(),
-            node_info,
-            local_peer_id,
-            config.services_base_dir.clone(),
-            config.services_envs.clone(),
-        )
-        .expect("create host closures");
+        let node_info = NodeInfo { external_addresses };
+        let host_closures =
+            HostClosures::new(network_api.connectivity(), node_info, services_config);
 
         let (stepper_pool, stepper_pool_api) =
             StepperPoolProcessor::new(pool_config, host_closures.descriptor());
@@ -138,9 +159,9 @@ impl Node {
             swarm,
             stepper_pool,
             stepper_pool_api,
-            config,
             local_peer_id,
             registry,
+            metrics_listen_addr,
         };
 
         Ok(Box::new(node_service))
@@ -151,18 +172,16 @@ impl Node {
         let (exit_outlet, exit_inlet) = oneshot::channel();
         let mut exit_inlet = exit_inlet.into_stream().fuse();
 
-        self.listen().expect("Error on starting node listener");
-        // self.swarm.dial_bootstrap_nodes();
-
         task::spawn(async move {
-            let mut metrics =
-                start_metrics_endpoint(self.registry, self.config.metrics_listen_addr()).fuse();
+            let mut metrics = if let Some(registry) = self.registry {
+                start_metrics_endpoint(registry, self.metrics_listen_addr)
+            } else {
+                futures::future::ready(Ok(())).boxed()
+            }
+            .fuse();
 
             let pool = self.stepper_pool.start();
-            let network = self.network_api.start(
-                self.stepper_pool_api,
-                self.config.particle_processor_parallelism,
-            );
+            let network = self.network_api.start(self.stepper_pool_api);
             loop {
                 select!(
                     _ = self.swarm.select_next_some() => {},
@@ -186,18 +205,16 @@ impl Node {
 
     /// Starts node service listener.
     #[inline]
-    fn listen(&mut self) -> Result<(), TransportError<io::Error>> {
-        let mut tcp = Multiaddr::from(self.config.listen_ip);
-        tcp.push(Protocol::Tcp(self.config.tcp_port));
+    pub fn listen(
+        &mut self,
+        addrs: impl Into<Vec<Multiaddr>>,
+    ) -> Result<(), TransportError<io::Error>> {
+        let addrs = addrs.into();
+        log::info!("Fluence listening on {:?}", addrs);
 
-        let mut ws = Multiaddr::from(self.config.listen_ip);
-        ws.push(Protocol::Tcp(self.config.websocket_port));
-        ws.push(Protocol::Ws("/".into()));
-
-        log::info!("Fluence listening on {} and {}", tcp, ws);
-
-        Swarm::listen_on(&mut self.swarm, tcp)?;
-        Swarm::listen_on(&mut self.swarm, ws)?;
+        for addr in addrs {
+            Swarm::listen_on(&mut self.swarm, addr)?;
+        }
         Ok(())
     }
 }
@@ -232,6 +249,7 @@ mod tests {
         config.server.air_interpreter_path = PathBuf::from("../aquamarine_0.0.30.wasm");
         let mut node = Node::new(keypair, config.server).unwrap();
 
+        node.listen().unwrap();
         Box::new(node).start();
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();

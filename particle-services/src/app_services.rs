@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use crate::config::ServicesConfig;
 use crate::error::ServiceError;
 use crate::persistence::load_persisted_services;
 use crate::vm::create_vm;
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
 use host_closure::{closure, closure_args, closure_params, Args, Closure, ParticleClosure};
+use server_config::ServicesConfig;
 
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -100,7 +100,7 @@ impl ParticleAppServices {
 
     pub fn call_service(&self) -> ParticleClosure {
         let services = self.services.clone();
-        let host_id = self.config.local_peer_id.clone();
+        let host_id = self.config.local_peer_id.to_string();
 
         Arc::new(move |particle_params, args| {
             let call = || -> Result<JValue, ServiceError> {

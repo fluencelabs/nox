@@ -23,15 +23,14 @@ use host_closure::{
 use ivalue_utils::{into_record, into_record_opt, ok, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use particle_providers::ProviderRepository;
-use particle_services::{ParticleAppServices, ServicesConfig};
+use particle_services::ParticleAppServices;
+use server_config::ServicesConfig;
 
 use async_std::task;
 use libp2p::PeerId;
 use multihash::Code;
 use multihash::MultihashDigest;
 use serde_json::{json, Value as JValue};
-use std::collections::HashMap;
-use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use JValue::Array;
@@ -55,20 +54,13 @@ pub struct HostClosures<C> {
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
     HostClosures<C>
 {
-    pub fn new(
-        connectivity: C,
-        node_info: NodeInfo,
-        local_peer_id: PeerId,
-        services_base_dir: PathBuf,
-        envs: HashMap<Vec<u8>, Vec<u8>>,
-    ) -> Result<Self, std::io::Error> {
-        let config = ServicesConfig::new(local_peer_id.to_string(), services_base_dir, envs)?;
+    pub fn new(connectivity: C, node_info: NodeInfo, config: ServicesConfig) -> Self {
         let modules_dir = config.modules_dir.clone();
         let blueprint_dir = config.blueprint_dir.clone();
+        let providers = ProviderRepository::new(config.local_peer_id);
         let services = ParticleAppServices::new(config);
-        let providers = ProviderRepository::new(local_peer_id);
 
-        Ok(Self {
+        Self {
             add_provider: providers.add_provider(),
             get_providers: providers.get_providers(),
             get_modules: particle_modules::get_modules(modules_dir.clone()),
@@ -81,7 +73,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             get_active_interfaces: services.get_active_interfaces(),
             identify: identify(node_info),
             connectivity,
-        })
+        }
     }
 
     pub fn descriptor(self) -> ClosureDescriptor {

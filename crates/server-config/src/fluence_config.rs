@@ -16,7 +16,7 @@
 
 use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
-use crate::{BootstrapConfig, KademliaConfig};
+use crate::{BootstrapConfig, KademliaConfig, ListenConfig};
 
 use trust_graph::{KeyPair, PublicKeyHashable};
 
@@ -92,6 +92,9 @@ pub struct NodeConfig {
     /// External address to advertise via identify protocol
     pub external_address: Option<IpAddr>,
 
+    /// External multiaddresses to advertise; more flexible that IpAddr
+    pub external_multiaddresses: Vec<Multiaddr>,
+
     /// Prometheus port
     #[serde(default = "default_prometheus_port")]
     pub prometheus_port: u16,
@@ -135,7 +138,7 @@ pub struct NodeConfig {
 
 impl NodeConfig {
     pub fn external_addresses(&self) -> Vec<Multiaddr> {
-        if let Some(external_address) = self.external_address {
+        let mut addrs = if let Some(external_address) = self.external_address {
             let external_tcp = {
                 let mut maddr = Multiaddr::from(external_address);
                 maddr.push(Protocol::Tcp(self.tcp_port));
@@ -152,7 +155,11 @@ impl NodeConfig {
             vec![external_tcp, external_ws]
         } else {
             vec![]
-        }
+        };
+
+        addrs.extend(self.external_multiaddresses.iter().cloned());
+
+        addrs
     }
 
     pub fn root_weights(&self) -> Vec<(PublicKey, u32)> {
@@ -165,6 +172,14 @@ impl NodeConfig {
 
     pub fn metrics_listen_addr(&self) -> SocketAddr {
         SocketAddr::new(self.listen_ip, self.prometheus_port)
+    }
+
+    pub fn listen_config(&self) -> ListenConfig {
+        ListenConfig {
+            listen_ip: self.listen_ip,
+            tcp_port: self.tcp_port,
+            websocket_port: self.websocket_port,
+        }
     }
 }
 

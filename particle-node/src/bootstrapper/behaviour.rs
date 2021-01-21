@@ -61,7 +61,7 @@ pub struct Bootstrapper {
 
 impl Bootstrapper {
     pub fn new(config: BootstrapConfig, peer_id: PeerId, bootstrap_nodes: Vec<Multiaddr>) -> Self {
-        Self {
+        let mut this = Self {
             config,
             peer_id,
             bootstrap_nodes: bootstrap_nodes.into_iter().collect(),
@@ -69,6 +69,18 @@ impl Bootstrapper {
             events: <_>::default(),
             bootstrap_scheduled: None,
             bootstrap_backoff: <_>::default(),
+        };
+
+        this.dial_bootstrap_nodes();
+
+        this
+    }
+
+    fn dial_bootstrap_nodes(&mut self) {
+        for addr in self.bootstrap_nodes.iter() {
+            self.events.push_back(NetworkBehaviourAction::DialAddress {
+                address: addr.clone(),
+            })
         }
     }
 

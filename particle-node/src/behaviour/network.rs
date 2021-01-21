@@ -17,7 +17,7 @@
 use crate::bootstrapper::Bootstrapper;
 
 use fluence_libp2p::generate_swarm_event_type;
-use server_config::BehaviourConfig;
+use server_config::NetworkConfig;
 
 use libp2p::{
     identify::Identify,
@@ -57,7 +57,7 @@ pub struct NetworkBehaviour {
 }
 
 impl NetworkBehaviour {
-    pub fn new(cfg: BehaviourConfig<'_>) -> anyhow::Result<(Self, NetworkApi)> {
+    pub fn new(cfg: NetworkConfig) -> anyhow::Result<(Self, NetworkApi)> {
         let local_public_key = PublicKey::Ed25519(cfg.key_pair.public());
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),
@@ -73,7 +73,7 @@ impl NetworkBehaviour {
         };
 
         // TODO: this is hazy; names are bad, conversion is far from transparent. Hide behaviours?
-        let kademlia = Kademlia::new(kad_config, cfg.trust_graph, cfg.registry);
+        let kademlia = Kademlia::new(kad_config, cfg.trust_graph, cfg.registry.as_ref());
         let (kademlia_api, kademlia) = kademlia.into();
         let (connection_pool, particle_stream) =
             ConnectionPoolBehaviour::new(cfg.particle_queue_buffer, cfg.protocol_config);
@@ -89,27 +89,13 @@ impl NetworkBehaviour {
                 ping,
                 bootstrapper,
             },
-            NetworkApi::new(particle_stream, kademlia_api, connection_pool_api),
+            NetworkApi::new(
+                particle_stream,
+                cfg.particle_parallelism,
+                kademlia_api,
+                connection_pool_api,
+            ),
         ))
-    }
-
-    /// Dials bootstrap nodes
-    pub fn dial_bootstrap_nodes(&mut self) {
-        // // TODO: how to avoid collect?
-        // let bootstrap_nodes: Vec<_> = self.bootstrapper.bootstrap_nodes.iter().cloned().collect();
-        // if bootstrap_nodes.is_empty() {
-        //     log::warn!("No bootstrap nodes found. Am I the only one? :(");
-        // }
-        // for maddr in bootstrap_nodes {
-        //     self.dial(maddr)
-        // }
-
-        todo!("dial bootstrap nodes")
-    }
-
-    pub fn bootstrap(&mut self) {
-        // self.particle.bootstrap()
-        todo!("bootstrap? or delete")
     }
 }
 

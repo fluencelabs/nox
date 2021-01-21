@@ -27,22 +27,26 @@
 )]
 
 mod app_services;
-mod behaviour_config;
 mod bootstrap_config;
 mod defaults;
 mod fluence_config;
 mod kademlia_config;
 mod keys;
+mod listen_config;
+mod network_config;
+mod services_config;
 
 pub use defaults::default_air_interpreter_path;
 pub use fluence_config::{deserialize_config, load_config};
 
 pub use app_services::AppServicesConfig;
-pub use behaviour_config::BehaviourConfig;
 pub use bootstrap_config::BootstrapConfig;
 pub use fluence_config::FluenceConfig;
 pub use fluence_config::NodeConfig;
 pub use kademlia_config::KademliaConfig;
+pub use listen_config::ListenConfig;
+pub use network_config::NetworkConfig;
+pub use services_config::ServicesConfig;
 
 pub mod config_keys {
     pub use crate::fluence_config::{

@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
+use crate::connection_pool::LifecycleEvent;
 use crate::{ConnectionPoolBehaviour, ConnectionPoolT, Contact};
 
-use fluence_libp2p::generate_swarm_event_type;
-use fluence_libp2p::types::{Inlet, OneshotInlet, OneshotOutlet, Outlet};
+use fluence_libp2p::{
+    generate_swarm_event_type,
+    types::{Inlet, OneshotInlet, OneshotOutlet, Outlet},
+};
 use particle_protocol::Particle;
 
-use futures::channel::mpsc::unbounded;
-use futures::channel::oneshot;
-use futures::future::BoxFuture;
-use futures::FutureExt;
-use futures::StreamExt;
+use futures::{
+    channel::{mpsc::unbounded, oneshot},
+    future::BoxFuture,
+    stream::BoxStream,
+    FutureExt, StreamExt,
+};
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::PeerId;
 use std::convert::identity;
@@ -50,6 +54,12 @@ enum Command {
         to: Contact,
         particle: Particle,
         out: OneshotOutlet<bool>,
+    },
+    CountConnections {
+        out: OneshotOutlet<usize>,
+    },
+    LifecycleEvents {
+        out: Outlet<LifecycleEvent>,
     },
 }
 
@@ -83,6 +93,8 @@ impl ConnectionPoolInlet {
             }
             Command::GetContact { peer_id, out } => self.connection_pool.get_contact(peer_id, out),
             Command::Send { to, particle, out } => self.connection_pool.send(to, particle, out),
+            Command::CountConnections { out } => self.connection_pool.count_connections(out),
+            Command::LifecycleEvents { out } => self.connection_pool.add_subscriber(out),
         }
     }
 
@@ -143,6 +155,20 @@ impl ConnectionPoolT for ConnectionPoolApi {
 
     fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, bool> {
         self.execute(|out| Command::Send { to, particle, out })
+    }
+
+    fn count_connections(&self) -> BoxFuture<'static, usize> {
+        self.execute(|out| Command::CountConnections { out })
+    }
+
+    fn lifecycle_events(&self) -> BoxStream<'static, LifecycleEvent> {
+        let (out, inlet) = unbounded();
+        let cmd = Command::LifecycleEvents { out };
+        if let Err(_) = self.outlet.unbounded_send(cmd) {
+            return futures::stream::empty().boxed();
+        };
+
+        inlet.boxed()
     }
 }
 

@@ -11,6 +11,7 @@ particle-services = { path = "../particle-services"}
 particle-modules = { path = "../particle-modules"}
 connection-pool = { path = "../connection-pool"}
 
+server-config = { path = "../crates/server-config"}
 kademlia = { path = "../crates/kademlia"}
 config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }

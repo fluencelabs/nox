@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connection_pool::{ConnectionPoolT, Contact};
+use crate::connection_pool::{ConnectionPoolT, Contact, LifecycleEvent};
 
 use fluence_libp2p::types::{
     BackPressuredInlet, BackPressuredOutlet, OneshotInlet, OneshotOutlet, Outlet,
@@ -72,6 +72,7 @@ impl Peer {
 
 pub struct ConnectionPoolBehaviour {
     outlet: BackPressuredOutlet<Particle>,
+    subscribers: Vec<Outlet<LifecycleEvent>>,
 
     queue: VecDeque<Particle>,
     contacts: HashMap<PeerId, Peer>,
@@ -141,6 +142,14 @@ impl ConnectionPoolBehaviour {
                 event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),
             });
     }
+
+    pub fn count_connections(&mut self, outlet: OneshotOutlet<usize>) {
+        outlet.send(self.contacts.len()).ok();
+    }
+
+    pub fn add_subscriber(&mut self, outlet: Outlet<LifecycleEvent>) {
+        self.subscribers.push(outlet);
+    }
 }
 
 impl ConnectionPoolBehaviour {
@@ -152,6 +161,7 @@ impl ConnectionPoolBehaviour {
 
         let this = Self {
             outlet,
+            subscribers: <_>::default(),
             queue: <_>::default(),
             contacts: <_>::default(),
             events: <_>::default(),
@@ -166,6 +176,38 @@ impl ConnectionPoolBehaviour {
         if let Some(waker) = &self.waker {
             waker.wake_by_ref();
         }
+    }
+
+    fn add_address(&mut self, peer_id: PeerId, addr: Multiaddr) {
+        match self.contacts.entry(peer_id) {
+            Entry::Occupied(mut entry) => {
+                match entry.get_mut() {
+                    Peer::Connected(addrs) => {
+                        addrs.insert(addr);
+                    }
+                    Peer::Dialing(..) => {
+                        let mut set = HashSet::new();
+                        set.insert(addr);
+                        let value = entry.insert(Peer::Connected(set));
+                        if let Peer::Dialing(_, outlets) = value {
+                            for outlet in outlets {
+                                outlet.send(true).ok();
+                            }
+                        }
+                    }
+                };
+            }
+            Entry::Vacant(e) => {
+                let mut set = HashSet::new();
+                set.insert(addr);
+                e.insert(Peer::Connected(set));
+            }
+        }
+    }
+
+    fn lifecycle_event(&mut self, event: LifecycleEvent) {
+        self.subscribers
+            .retain(|out| out.unbounded_send(event.clone()).is_ok())
     }
 }
 
@@ -188,7 +230,17 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     fn inject_connected(&mut self, _: &PeerId) {}
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        self.contacts.remove(peer_id);
+        let addrs = self.contacts.remove(peer_id);
+        // TODO: use all addresses, not just the first one
+        let addr = addrs
+            .into_iter()
+            .next()
+            .and_then(|p| p.addresses().next().cloned());
+
+        self.lifecycle_event(LifecycleEvent::Connected(Contact {
+            peer_id: peer_id.clone(),
+            addr,
+        }))
     }
 
     fn inject_connection_established(
@@ -198,30 +250,13 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         cp: &ConnectedPoint,
     ) {
         let multiaddr = remote_multiaddr(cp).clone();
-        match self.contacts.entry(peer_id.clone()) {
-            Entry::Occupied(mut entry) => {
-                match entry.get_mut() {
-                    Peer::Connected(addrs) => {
-                        addrs.insert(multiaddr);
-                    }
-                    Peer::Dialing(..) => {
-                        let mut set = HashSet::new();
-                        set.insert(multiaddr);
-                        let value = entry.insert(Peer::Connected(set));
-                        if let Peer::Dialing(_, outlets) = value {
-                            for outlet in outlets {
-                                outlet.send(true).ok();
-                            }
-                        }
-                    }
-                };
-            }
-            Entry::Vacant(e) => {
-                let mut set = HashSet::new();
-                set.insert(multiaddr);
-                e.insert(Peer::Connected(set));
-            }
-        }
+
+        self.add_address(peer_id.clone(), multiaddr.clone());
+
+        self.lifecycle_event(LifecycleEvent::Connected(Contact {
+            peer_id: peer_id.clone(),
+            addr: multiaddr.into(),
+        }))
     }
 
     fn inject_event(

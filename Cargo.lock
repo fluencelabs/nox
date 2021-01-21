@@ -3105,6 +3105,7 @@ dependencies = [
  "ref-cast",
  "serde",
  "serde_json",
+ "server-config",
  "trust-graph",
  "waiting-queues",
 ]
@@ -3216,6 +3217,7 @@ dependencies = [
  "particle-modules",
  "serde",
  "serde_json",
+ "server-config",
  "toml",
  "uuid",
 ]
@@ -4229,6 +4231,7 @@ dependencies = [
  "base64 0.13.0",
  "chrono",
  "config-utils",
+ "connection-pool",
  "env_logger",
  "fluence-client",
  "fluence-fork-libp2p",

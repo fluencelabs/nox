@@ -102,10 +102,12 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
         bs58::encode(key_pair.public().encode().to_vec().as_slice()).into_string()
     );
 
-    let node_service =
-        Node::new(key_pair.clone(), config.server).context("failed to create server")?;
+    let listen_config = config.server.listen_config();
+    let mut node = Node::new(key_pair.clone(), config.server).context("failed to create server")?;
+    node.listen(&listen_config)
+        .expect("Error starting node listener");
 
-    let node_exit_outlet = node_service.start();
+    let node_exit_outlet = node.start();
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,

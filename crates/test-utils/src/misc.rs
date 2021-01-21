@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
-use particle_node::NetworkBehaviour;
+use particle_node::{NetworkBehaviour, Node};
 
 use config_utils::{modules_dir, to_abs_path};
 use fluence_client::Transport;
 use fluence_libp2p::{build_memory_transport, build_transport};
-use server_config::{BehaviourConfig, BootstrapConfig};
+use server_config::{BootstrapConfig, NetworkConfig, NodeConfig, ServicesConfig};
 use trust_graph::{Certificate, TrustGraph};
 
+use async_std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use async_std::task;
-use futures::StreamExt;
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
+use futures::{stream::SelectAll, StreamExt};
 use libp2p::{
     core::Multiaddr,
     identity::{
@@ -32,6 +34,7 @@ use libp2p::{
     },
     PeerId, Swarm,
 };
+use particle_actors::VmPoolConfig;
 use prometheus::Registry;
 use rand::Rng;
 use serde_json::{json, Value as JValue};
@@ -139,7 +142,7 @@ pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
 
 pub fn make_swarms_with_cfg<F>(n: usize, update_cfg: F) -> Vec<CreatedSwarm>
 where
-    F: Fn(SwarmConfig<'_>) -> SwarmConfig<'_>,
+    F: Fn(SwarmConfig) -> SwarmConfig,
 {
     make_swarms_with(
         n,
@@ -156,7 +159,7 @@ pub fn make_swarms_with<F, M>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Swarm<NetworkBehaviour>, PathBuf),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node>, PathBuf),
     M: FnMut() -> Multiaddr,
 {
     use futures::stream::FuturesUnordered;
@@ -177,50 +180,41 @@ where
         })
         .collect::<Vec<_>>();
 
-    #[rustfmt::skip]
-    swarms.iter_mut().for_each(|(_, s)| s.dial_bootstrap_nodes());
-
-    let (infos, swarms): (Vec<CreatedSwarm>, Vec<_>) = swarms.into_iter().unzip();
+    let (infos, nodes): (Vec<CreatedSwarm>, Vec<_>) = swarms.into_iter().unzip();
 
     let connected = Arc::new(AtomicUsize::new(0));
+
+    let start = Instant::now();
+    let mut local_start = Instant::now();
+
+    let mut lifecycle_streams: SelectAll<_> = nodes
+        .iter()
+        .map(|node| {
+            AsRef::<ConnectionPoolApi>::as_ref(&node.network_api.connectivity()).lifecycle_events()
+        })
+        .collect();
+
     let shared_connected = connected.clone();
-
-    // Run this task in background to poll swarms
     task::spawn(async move {
-        let start = Instant::now();
-        let mut local_start = Instant::now();
+        let connected = shared_connected;
+        if let Some(LifecycleEvent::Connected(_)) = lifecycle_streams.next().await {
+            connected.fetch_add(1, Ordering::SeqCst);
+            let total = connected.load(Ordering::Relaxed);
+            if total % 10 == 0 {
+                log::info!(
+                    "established {: <10} +{: <10} (= {:<5})",
+                    total,
+                    format_args!("{:.3}s", start.elapsed().as_secs_f32()),
+                    format_args!("{}ms", local_start.elapsed().as_millis())
+                );
+                local_start = Instant::now();
+            }
+        }
+    });
 
-        swarms
-            .into_iter()
-            .map(|mut s| {
-                let connected = shared_connected.clone();
-                task::spawn(async move {
-                    loop {
-                        let event = s.next_event().await;
-                        if let ConnectionEstablished {
-                            endpoint: Dialer { .. },
-                            ..
-                        } = event
-                        {
-                            connected.fetch_add(1, Ordering::SeqCst);
-                            let total = connected.load(Ordering::Relaxed);
-                            if total % 10 == 0 {
-                                log::info!(
-                                    "established {: <10} +{: <10} (= {:<5})",
-                                    total,
-                                    format_args!("{:.3}s", start.elapsed().as_secs_f32()),
-                                    format_args!("{}ms", local_start.elapsed().as_millis())
-                                );
-                                local_start = Instant::now();
-                            }
-                        }
-                    }
-                })
-            })
-            .collect::<FuturesUnordered<_>>()
-            .forward(futures::sink::drain::<()>())
-            .await
-            .expect("drain");
+    // start all nodes
+    nodes.into_iter().for_each(|node| {
+        node.start();
     });
 
     if wait_connected {
@@ -240,29 +234,27 @@ pub struct Trust {
 }
 
 #[derive(Clone, Debug)]
-pub struct SwarmConfig<'a> {
+pub struct SwarmConfig {
     pub bootstraps: Vec<Multiaddr>,
     pub listen_on: Multiaddr,
     pub trust: Option<Trust>,
     pub transport: Transport,
-    pub registry: Option<&'a Registry>,
     pub tmp_dir: Option<PathBuf>,
 }
 
-impl<'a> Default for SwarmConfig<'a> {
+impl Default for SwarmConfig {
     fn default() -> Self {
         Self {
             bootstraps: <_>::default(),
             listen_on: Multiaddr::empty(),
             trust: <_>::default(),
             transport: Transport::Memory,
-            registry: <_>::default(),
             tmp_dir: <_>::default(),
         }
     }
 }
 
-impl<'a> SwarmConfig<'a> {
+impl SwarmConfig {
     pub fn new(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr) -> Self {
         Self {
             bootstraps,
@@ -279,13 +271,14 @@ impl<'a> SwarmConfig<'a> {
     }
 }
 
-pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<NetworkBehaviour>, PathBuf) {
+pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
     use libp2p::identity;
+
     #[rustfmt::skip]
-    let SwarmConfig { bootstraps, listen_on, trust, transport, registry, .. } = config;
+    let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config;
 
     let kp = Keypair::generate();
-    let public_key = Ed25519(kp.public());
+    let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());
     let peer_id = PeerId::from(public_key);
 
     let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
@@ -293,53 +286,54 @@ pub fn create_swarm(config: SwarmConfig<'_>) -> (PeerId, Swarm<NetworkBehaviour>
     let stepper_base_dir = tmp.join("stepper");
     let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir));
 
-    let mut swarm: Swarm<NetworkBehaviour> = {
-        use identity::Keypair::Ed25519;
-
-        let root_weights: &[_] = trust.as_ref().map_or(&[], |t| &t.root_weights);
-        let mut trust_graph = TrustGraph::new(root_weights.to_vec());
-        if let Some(trust) = trust {
-            for cert in trust.certificates.into_iter() {
-                trust_graph.add(cert, trust.cur_time).expect("add cert");
-            }
+    let root_weights: &[_] = trust.as_ref().map_or(&[], |t| &t.root_weights);
+    let mut trust_graph = TrustGraph::new(root_weights.to_vec());
+    if let Some(trust) = trust {
+        for cert in trust.certificates.into_iter() {
+            trust_graph.add(cert, trust.cur_time).expect("add cert");
         }
+    }
 
-        // let config = BehaviourConfig {
-        //     key_pair: kp.clone(),
-        //     local_peer_id: peer_id.clone(),
-        //     external_addresses: vec![listen_on.clone()],
-        //     trust_graph,
-        //     bootstrap_nodes: bootstraps,
-        //     bootstrap: BootstrapConfig::zero(),
-        //     registry,
-        //     services_base_dir: tmp.join("services"),
-        //     air_interpreter,
-        //     services_envs: <_>::default(),
-        //     stepper_base_dir,
-        //     protocol_config: <_>::default(),
-        //     stepper_pool_size: 1,
-        //     kademlia_config: <_>::default(),
-        //     particle_queue_buffer: 100,
-        // };
-        // let _server = NetworkBehaviour::new(config).expect("create server behaviour");
-        todo!("fix tests")
-        // match transport {
-        //     Transport::Memory => {
-        //         Swarm::new(build_memory_transport(Ed25519(kp)), server, peer_id.clone())
-        //     }
-        //     Transport::Network => Swarm::new(
-        //         build_transport(Ed25519(kp), Duration::from_secs(10)),
-        //         server,
-        //         peer_id.clone(),
-        //     ),
-        // }
+    let pool_config = VmPoolConfig::new(peer_id, stepper_base_dir, air_interpreter, 1)
+        .expect("create vm pool config");
+
+    let services_config = ServicesConfig::new(peer_id, tmp.join("services"), <_>::default())
+        .expect("create services config");
+
+    let network_config = NetworkConfig {
+        key_pair: kp.clone(),
+        local_peer_id: peer_id,
+        trust_graph,
+        bootstrap_nodes: bootstraps,
+        bootstrap: BootstrapConfig::zero(),
+        registry: None,
+        protocol_config: Default::default(),
+        kademlia_config: Default::default(),
+        particle_queue_buffer: 100,
+        particle_parallelism: 16,
     };
 
-    // Swarm::listen_on(&mut swarm, listen_on).unwrap();
-    //
-    // (peer_id, swarm, tmp)
+    use identity::Keypair::Ed25519;
+    let transport = match transport {
+        Transport::Memory => build_memory_transport(Ed25519(kp)),
+        Transport::Network => build_transport(Ed25519(kp), Duration::from_secs(10)),
+    };
 
-    todo!("fix tests")
+    let mut node = Node::with(
+        peer_id,
+        transport,
+        services_config,
+        pool_config,
+        network_config,
+        vec![listen_on.clone()],
+        None,
+        "0.0.0.0:0".parse().unwrap(),
+    )
+    .expect("create node");
+
+    node.listen(vec![listen_on]).expect("listen");
+
+    (peer_id, node, tmp)
 }
 
 pub fn create_memory_maddr() -> Multiaddr {

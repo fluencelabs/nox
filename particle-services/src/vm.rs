@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use crate::config::ServicesConfig;
 use crate::error::ServiceError;
+use crate::persistence::persist_service;
 use crate::Result;
 
 use particle_modules::{load_blueprint, load_module_config};
+use server_config::ServicesConfig;
 
-use crate::persistence::persist_service;
 use fluence_app_service::{AppService, AppServiceConfig, FaaSConfig};
 
 pub fn create_vm(

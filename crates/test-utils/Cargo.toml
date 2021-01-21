@@ -15,6 +15,7 @@ fluence-libp2p = { path = "../libp2p" }
 particle-node = { path = "../../particle-node" }
 particle-protocol = { path = "../../particle-protocol" }
 particle-actors = { path = "../../particle-actors" }
+connection-pool = { path = "../../connection-pool" }
 
 stepper-interface = "0.1.1"
 air-interpreter-wasm = "0.0.30"

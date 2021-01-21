@@ -19,6 +19,7 @@ use fluence_libp2p::types::{OneshotInlet, OneshotOutlet, Outlet};
 use particle_protocol::Particle;
 
 use futures::future::BoxFuture;
+use futures::stream::BoxStream;
 use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
@@ -30,10 +31,23 @@ pub struct Contact {
     pub addr: Option<Multiaddr>,
 }
 
+#[derive(Debug, Clone)]
+pub enum LifecycleEvent {
+    Connected(Contact),
+    Disconnected(Contact),
+}
+
 pub trait ConnectionPoolT {
     fn connect(&self, contact: Contact) -> BoxFuture<'static, bool>;
     fn disconnect(&self, contact: Contact) -> BoxFuture<'static, bool>;
     fn is_connected(&self, peer_id: PeerId) -> BoxFuture<'static, bool>;
     fn get_contact(&self, peer_id: PeerId) -> BoxFuture<'static, Option<Contact>>;
     fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, bool>;
+    fn count_connections(&self) -> BoxFuture<'static, usize>;
+    fn lifecycle_events(&self) -> BoxStream<'static, LifecycleEvent>;
+
+    /* TODO:
+        count_connections: {clients: Int, peers: Int}
+        lifecycle_events: (  Connected(Contact) | Disconnected(Contact)  )*
+    */
 }

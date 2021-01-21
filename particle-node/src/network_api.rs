@@ -42,6 +42,8 @@ use std::{sync::Arc, task::Poll};
 pub struct NetworkApi {
     /// Stream of particles coming from other peers, lifted here from [[ConnectionPoolBehaviour]]
     particle_stream: BackPressuredInlet<Particle>,
+    /// Number of concurrently processed particles
+    particle_parallelism: usize,
     /// Kademlia and ConnectionPool in a single Clone-able structure
     connectivity: Connectivity,
 }
@@ -49,11 +51,13 @@ pub struct NetworkApi {
 impl NetworkApi {
     pub fn new(
         particle_stream: BackPressuredInlet<Particle>,
+        particle_parallelism: usize,
         kademlia: KademliaApi,
         connection_pool: ConnectionPoolApi,
     ) -> Self {
         Self {
             particle_stream,
+            particle_parallelism,
             connectivity: Connectivity {
                 kademlia,
                 connection_pool,
@@ -69,15 +73,16 @@ impl NetworkApi {
     /// then executes them on `stepper_pool`, and sends to other peers through `execute_effects`
     ///
     /// `parallelism` sets the number of simultaneously processed particles
-    pub fn start(self, stepper_pool: StepperPoolApi, parallelism: usize) -> JoinHandle<()> {
+    pub fn start(self, stepper_pool: StepperPoolApi) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let NetworkApi {
                 particle_stream,
+                particle_parallelism,
                 connectivity,
             } = self;
 
             particle_stream
-                .for_each_concurrent(parallelism, move |particle| {
+                .for_each_concurrent(particle_parallelism, move |particle| {
                     let stepper_pool = stepper_pool.clone();
                     let connectivity = connectivity.clone();
                     async move {
@@ -106,8 +111,8 @@ impl NetworkApi {
 /// It exists solely for code conciseness (i.e. avoid tuples);
 /// there's no architectural motivation behind
 pub struct Connectivity {
-    pub(self) kademlia: KademliaApi,
-    pub(self) connection_pool: ConnectionPoolApi,
+    pub kademlia: KademliaApi,
+    pub connection_pool: ConnectionPoolApi,
 }
 
 impl Connectivity {
