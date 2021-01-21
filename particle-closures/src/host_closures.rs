@@ -16,21 +16,23 @@
 
 use crate::identify::{identify, NodeInfo};
 
-use connection_pool::ConnectionPoolApi;
+use connection_pool::{ConnectionPool, ConnectionPoolApi, Contact};
 use host_closure::{
     from_base58, Args, Closure, ClosureDescriptor, JError, ParticleClosure, ParticleParameters,
 };
-use ivalue_utils::{into_record, ok, IValue};
+use ivalue_utils::{into_record, into_record_opt, ok, IValue};
 use kademlia::{KademliaApi, KademliaApiOutlet};
 use particle_providers::ProviderRepository;
 use particle_services::{ParticleAppServices, ServicesConfig};
 
+use async_std::task;
 use libp2p::PeerId;
 use multihash::Code;
 use multihash::MultihashDigest;
 use serde_json::{json, Value as JValue};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use JValue::Array;
 
@@ -107,7 +109,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApiOutlet> + AsRef<Connect
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("dht", "neighborhood")    => todo!("implement neighborhood"),
+            ("peer", "is_connected")   => wrap(self.is_connected(args)),
+            ("peer", "connect")        => wrap(self.connect(args)),
+            ("peer", "get_contact")    => wrap_opt(self.get_contact(args)),
+
+            ("dht", "neighborhood")    => wrap(self.neighborhood(args)),
             ("dht", "add_provider")    => (self.add_provider)(args),
             ("dht", "get_providers")   => (self.get_providers)(args),
 
@@ -123,8 +129,6 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApiOutlet> + AsRef<Connect
             ("op", "identify") => (self.identify)(args),
             ("op", "identity") => ok(Array(args.function_args)),
 
-            ("kad", "neighborhood") => into_record(self.neighborhood(args).map_err(Into::into)),
-
             _ => (self.call_service)(particle, args),
         }
     }
@@ -132,11 +136,31 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApiOutlet> + AsRef<Connect
     fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
         let key = from_base58("key", &mut args.function_args.into_iter())?;
         let key = Code::Sha2_256.digest(&key);
-        let neighbors = async_std::task::block_on(self.kademlia().neighborhood(key));
+        let neighbors = task::block_on(self.kademlia().neighborhood(key));
         let neighbors = neighbors
             .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))?;
 
         Ok(neighbors)
+    }
+
+    fn is_connected(&self, args: Args) -> Result<JValue, JError> {
+        let peer: String = Args::next("peer_id", &mut args.function_args.into_iter())?;
+        let peer = PeerId::from_str(peer.as_str())?;
+        let ok = task::block_on(self.connection_pool().is_connected(peer));
+        Ok(json!(ok))
+    }
+
+    fn connect(&self, args: Args) -> Result<JValue, JError> {
+        let contact: Contact = Args::next("peer_id", &mut args.function_args.into_iter())?;
+        let ok = task::block_on(self.connection_pool().connect(contact));
+        Ok(json!(ok))
+    }
+
+    fn get_contact(&self, args: Args) -> Result<Option<JValue>, JError> {
+        let peer: String = Args::next("peer_id", &mut args.function_args.into_iter())?;
+        let peer = PeerId::from_str(peer.as_str())?;
+        let contact = task::block_on(self.connection_pool().get_contact(peer));
+        Ok(contact.map(|c| json!(c)))
     }
 
     fn kademlia(&self) -> &KademliaApiOutlet {
@@ -149,4 +173,12 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApiOutlet> + AsRef<Connect
         // AsRef::<ConnectionPoolApi>::as_ref(&self.connectivity)
         self.connectivity.as_ref()
     }
+}
+
+fn wrap(r: Result<JValue, JError>) -> Option<IValue> {
+    into_record(r.map_err(Into::into))
+}
+
+fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {
+    into_record_opt(r.map_err(Into::into))
 }

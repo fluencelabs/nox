@@ -13,6 +13,7 @@ libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
 
 futures = "0.3.8"
 log = "0.4.13"
+serde = "1.0.118"
 
 [dev-dependencies]
 async-std = "1.8.0"

@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
+use fluence_libp2p::peerid_serializer;
 use fluence_libp2p::types::{OneshotInlet, OneshotOutlet, Outlet};
 use particle_protocol::Particle;
 
 use futures::future::BoxFuture;
 use libp2p::core::Multiaddr;
 use libp2p::PeerId;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Contact {
+    #[serde(with = "peerid_serializer")]
     pub peer_id: PeerId,
     pub addr: Option<Multiaddr>,
 }

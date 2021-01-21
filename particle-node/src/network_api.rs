@@ -63,7 +63,6 @@ impl NetworkApi {
 
             particle_stream
                 .for_each_concurrent(parallelism, move |particle| {
-                    println!("got particle! {:?}", particle);
                     let stepper_pool = stepper_pool.clone();
                     let connectivity = connectivity.clone();
                     async move {
