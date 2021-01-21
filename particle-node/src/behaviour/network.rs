@@ -89,11 +89,7 @@ impl NetworkBehaviour {
                 ping,
                 bootstrapper,
             },
-            NetworkApi {
-                particle_stream,
-                kademlia: kademlia_api,
-                connection_pool: connection_pool_api,
-            },
+            NetworkApi::new(particle_stream, kademlia_api, connection_pool_api),
         ))
     }
 

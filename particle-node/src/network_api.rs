@@ -31,35 +31,43 @@ use std::sync::Arc;
 use std::task::Poll;
 
 pub struct NetworkApi {
-    pub particle_stream: BackPressuredInlet<Particle>,
-    pub kademlia: KademliaApiOutlet,
-    pub connection_pool: ConnectionPoolApi,
+    particle_stream: BackPressuredInlet<Particle>,
+    connectivity: Connectivity,
 }
 
 impl NetworkApi {
+    pub fn new(
+        particle_stream: BackPressuredInlet<Particle>,
+        kademlia: KademliaApiOutlet,
+        connection_pool: ConnectionPoolApi,
+    ) -> Self {
+        Self {
+            particle_stream,
+            connectivity: Connectivity {
+                kademlia,
+                connection_pool,
+            },
+        }
+    }
+
     pub fn start(self, stepper_pool: StepperPoolApi, parallelism: usize) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let NetworkApi {
                 particle_stream,
-                kademlia,
-                connection_pool,
+                connectivity,
             } = self;
 
             particle_stream
                 .for_each_concurrent(parallelism, move |particle| {
                     println!("got particle! {:?}", particle);
-                    let kademlia = kademlia.clone();
-                    let connection_pool = connection_pool.clone();
                     let stepper_pool = stepper_pool.clone();
+                    let connectivity = connectivity.clone();
                     async move {
-                        let stepper_effects = {
-                            let stepper_pool = stepper_pool.clone();
-                            stepper_pool.ingest(particle).await
-                        };
+                        let stepper_effects = stepper_pool.ingest(particle).await;
 
                         match stepper_effects {
                             Ok(stepper_effects) => {
-                                execute_effect(kademlia, connection_pool, stepper_effects).await
+                                connectivity.execute_effects(stepper_effects).await
                             }
                             Err(err) => {
                                 // maybe particle was expired
@@ -73,31 +81,35 @@ impl NetworkApi {
     }
 }
 
-pub async fn execute_effect(
-    kademlia: KademliaApiOutlet,
-    connection_pool: ConnectionPoolApi,
-    effects: StepperEffects,
-) {
-    for SendParticle { target, particle } in effects.particles {
-        let contact = connection_pool.get_contact(target).await;
-        let contact = match contact {
-            Some(contact) => contact,
-            None => {
-                let (peer_id, addresses) = {
-                    let r = kademlia.discover_peer(target).await;
-                    // TODO: handle error
-                    r.expect("failed to discover peer")
-                };
-                let contact = Contact {
-                    peer_id,
-                    // TODO: take all addresses
-                    addr: addresses.into_iter().next(),
-                };
-                connection_pool.connect(contact.clone()).await;
-                contact
-            }
-        };
+#[derive(Clone)]
+pub struct Connectivity {
+    pub(self) kademlia: KademliaApiOutlet,
+    pub(self) connection_pool: ConnectionPoolApi,
+}
 
-        connection_pool.send(contact, particle).await;
+impl Connectivity {
+    pub async fn execute_effects(&self, effects: StepperEffects) {
+        for SendParticle { target, particle } in effects.particles {
+            let contact = self.connection_pool.get_contact(target).await;
+            let contact = match contact {
+                Some(contact) => contact,
+                None => {
+                    let (peer_id, addresses) = {
+                        let r = self.kademlia.discover_peer(target).await;
+                        // TODO: handle error
+                        r.expect("failed to discover peer")
+                    };
+                    let contact = Contact {
+                        peer_id,
+                        // TODO: take all addresses
+                        addr: addresses.into_iter().next(),
+                    };
+                    self.connection_pool.connect(contact.clone()).await;
+                    contact
+                }
+            };
+
+            self.connection_pool.send(contact, particle).await;
+        }
     }
 }
