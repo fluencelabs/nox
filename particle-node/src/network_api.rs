@@ -67,6 +67,8 @@ impl NetworkApi {
 
     /// Spawns a new task that pulls particles from `particle_stream`,
     /// then executes them on `stepper_pool`, and sends to other peers through `execute_effects`
+    ///
+    /// `parallelism` sets the number of simultaneously processed particles
     pub fn start(self, stepper_pool: StepperPoolApi, parallelism: usize) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let NetworkApi {
@@ -79,10 +81,12 @@ impl NetworkApi {
                     let stepper_pool = stepper_pool.clone();
                     let connectivity = connectivity.clone();
                     async move {
+                        // execute particle on Aquamarine
                         let stepper_effects = stepper_pool.ingest(particle).await;
 
                         match stepper_effects {
                             Ok(stepper_effects) => {
+                                // perform effects as instructed by aquamarine
                                 connectivity.execute_effects(stepper_effects).await
                             }
                             Err(err) => {
@@ -99,7 +103,7 @@ impl NetworkApi {
 
 #[derive(Clone)]
 /// This structure is just a composition of Kademlia and ConnectionPool.
-/// It exists only for code conciseness (i.e. avoid tuples);
+/// It exists solely for code conciseness (i.e. avoid tuples);
 /// there's no architectural motivation behind
 pub struct Connectivity {
     pub(self) kademlia: KademliaApi,
