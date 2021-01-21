@@ -249,10 +249,10 @@ mod tests {
         config.server.air_interpreter_path = PathBuf::from("../aquamarine_0.0.30.wasm");
         let mut node = Node::new(keypair, config.server).unwrap();
 
-        node.listen().unwrap();
+        let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
+        node.listen(vec![listening_address.clone()]).unwrap();
         Box::new(node).start();
 
-        let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         let mut client = ConnectedClient::connect_to(listening_address).expect("connect client");
         println!("client: {}", client.peer_id);
         let data = hashmap! {

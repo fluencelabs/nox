@@ -93,6 +93,7 @@ pub struct NodeConfig {
     pub external_address: Option<IpAddr>,
 
     /// External multiaddresses to advertise; more flexible that IpAddr
+    #[serde(default)]
     pub external_multiaddresses: Vec<Multiaddr>,
 
     /// Prometheus port

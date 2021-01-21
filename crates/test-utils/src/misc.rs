@@ -197,19 +197,25 @@ where
         .collect();
 
     let shared_connected = connected.clone();
-    task::spawn(async move {
+    let connected = task::spawn(async move {
         let connected = shared_connected;
-        if let Some(LifecycleEvent::Connected(_)) = lifecycle_streams.next().await {
-            connected.fetch_add(1, Ordering::SeqCst);
-            let total = connected.load(Ordering::Relaxed);
-            if total % 10 == 0 {
-                log::info!(
-                    "established {: <10} +{: <10} (= {:<5})",
-                    total,
-                    format_args!("{:.3}s", start.elapsed().as_secs_f32()),
-                    format_args!("{}ms", local_start.elapsed().as_millis())
-                );
-                local_start = Instant::now();
+        loop {
+            if let Some(LifecycleEvent::Connected(_)) = lifecycle_streams.next().await {
+                connected.fetch_add(1, Ordering::SeqCst);
+                let total = connected.load(Ordering::Relaxed);
+                if total % 10 == 0 {
+                    log::info!(
+                        "established {: <10} +{: <10} (= {:<5})",
+                        total,
+                        format_args!("{:.3}s", start.elapsed().as_secs_f32()),
+                        format_args!("{}ms", local_start.elapsed().as_millis())
+                    );
+                    local_start = Instant::now();
+                }
+
+                if total >= (n * (n - 1)) {
+                    break;
+                }
             }
         }
     });
@@ -221,7 +227,7 @@ where
 
     if wait_connected {
         let now = Instant::now();
-        while connected.load(Ordering::SeqCst) < (n * (n - 1)) {}
+        task::block_on(connected);
         log::info!("Connection took {}s", now.elapsed().as_secs_f32());
     }
 
