@@ -16,12 +16,12 @@
 
 use crate::identify::{identify, NodeInfo};
 
-use connection_pool::{ConnectionPool, ConnectionPoolApi, Contact};
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
 use host_closure::{
     from_base58, Args, Closure, ClosureDescriptor, JError, ParticleClosure, ParticleParameters,
 };
 use ivalue_utils::{into_record, into_record_opt, ok, IValue};
-use kademlia::{KademliaApi, KademliaApiOutlet};
+use kademlia::{KademliaApi, KademliaApiT};
 use particle_providers::ProviderRepository;
 use particle_services::{ParticleAppServices, ServicesConfig};
 
@@ -52,7 +52,7 @@ pub struct HostClosures<C> {
     pub connectivity: C,
 }
 
-impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApiOutlet> + AsRef<ConnectionPoolApi>>
+impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
     HostClosures<C>
 {
     pub fn new(
@@ -163,7 +163,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApiOutlet> + AsRef<Connect
         Ok(contact.map(|c| json!(c)))
     }
 
-    fn kademlia(&self) -> &KademliaApiOutlet {
+    fn kademlia(&self) -> &KademliaApi {
         self.connectivity.as_ref()
     }
 

@@ -14,31 +14,42 @@
  * limitations under the License.
  */
 
+//! This file describes `NetworkApi` and `Connectivity`.
+//!
+//! These are basically the things we can call and manipulate in order to
+//! change something in the network, or receive something from it.
+//!
+//! The most fundamental effect here is that of
+//! - receiving a particle
+//! - executing it through Aquamarine (via [[StepperPoolApi]])
+//! - forwarding the particle to the next peers
+
 use crate::node::unlocks::{unlock, unlock_f};
 
-use async_std::sync::Mutex;
-use async_std::task::JoinHandle;
-use connection_pool::{ConnectionPool, ConnectionPoolApi, Contact};
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
 use fluence_libp2p::types::BackPressuredInlet;
-use futures::{task, StreamExt};
-use kademlia::{KademliaApi, KademliaApiOutlet};
-use libp2p::swarm::NetworkBehaviour;
-use libp2p::Swarm;
+use kademlia::{KademliaApi, KademliaApiT};
 use particle_actors::{SendParticle, StepperEffects, StepperPoolApi};
 use particle_protocol::Particle;
 use server_config::NodeConfig;
-use std::sync::Arc;
-use std::task::Poll;
 
+use async_std::{sync::Mutex, task::JoinHandle};
+use futures::{task, StreamExt};
+use libp2p::{swarm::NetworkBehaviour, PeerId, Swarm};
+use std::{sync::Arc, task::Poll};
+
+/// API provided by the network
 pub struct NetworkApi {
+    /// Stream of particles coming from other peers, lifted here from [[ConnectionPoolBehaviour]]
     particle_stream: BackPressuredInlet<Particle>,
+    /// Kademlia and ConnectionPool in a single Clone-able structure
     connectivity: Connectivity,
 }
 
 impl NetworkApi {
     pub fn new(
         particle_stream: BackPressuredInlet<Particle>,
-        kademlia: KademliaApiOutlet,
+        kademlia: KademliaApi,
         connection_pool: ConnectionPoolApi,
     ) -> Self {
         Self {
@@ -54,6 +65,8 @@ impl NetworkApi {
         self.connectivity.clone()
     }
 
+    /// Spawns a new task that pulls particles from `particle_stream`,
+    /// then executes them on `stepper_pool`, and sends to other peers through `execute_effects`
     pub fn start(self, stepper_pool: StepperPoolApi, parallelism: usize) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let NetworkApi {
@@ -85,40 +98,58 @@ impl NetworkApi {
 }
 
 #[derive(Clone)]
+/// This structure is just a composition of Kademlia and ConnectionPool.
+/// It exists only for code conciseness (i.e. avoid tuples);
+/// there's no architectural motivation behind
 pub struct Connectivity {
-    pub(self) kademlia: KademliaApiOutlet,
+    pub(self) kademlia: KademliaApi,
     pub(self) connection_pool: ConnectionPoolApi,
 }
 
 impl Connectivity {
+    /// Perform effects that Aquamarine (through [[StepperPoolApi]]) instructed us to
     pub async fn execute_effects(&self, effects: StepperEffects) {
+        // take every particle, and try to send it
         for SendParticle { target, particle } in effects.particles {
+            // resolve contact
             let contact = self.connection_pool.get_contact(target).await;
             let contact = match contact {
+                // contact is connected directly to current node
                 Some(contact) => contact,
+                // contact isn't connected, have to discover it
                 None => {
-                    let (peer_id, addresses) = {
-                        let r = self.kademlia.discover_peer(target).await;
-                        // TODO: handle error
-                        r.expect("failed to discover peer")
-                    };
-                    let contact = Contact {
-                        peer_id,
-                        // TODO: take all addresses
-                        addr: addresses.into_iter().next(),
-                    };
+                    let contact = self.discover_peer(target).await;
+                    // connect to the discovered contact
                     self.connection_pool.connect(contact.clone()).await;
                     contact
                 }
             };
 
+            // forward particle
             self.connection_pool.send(contact, particle).await;
         }
     }
+
+    /// Discover a peer via Kademlia
+    pub async fn discover_peer(&self, target: PeerId) -> Contact {
+        let (peer_id, addresses) = {
+            // discover contact addresses through Kademlia
+            let r = self.kademlia.discover_peer(target).await;
+            // TODO: handle error
+            r.expect("failed to discover peer")
+        };
+        let contact = Contact {
+            peer_id,
+            // TODO: take all addresses
+            addr: addresses.into_iter().next(),
+        };
+
+        contact
+    }
 }
 
-impl AsRef<KademliaApiOutlet> for Connectivity {
-    fn as_ref(&self) -> &KademliaApiOutlet {
+impl AsRef<KademliaApi> for Connectivity {
+    fn as_ref(&self) -> &KademliaApi {
         &self.kademlia
     }
 }

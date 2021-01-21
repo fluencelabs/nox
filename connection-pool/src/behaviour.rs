@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connection_pool::{ConnectionPool, Contact};
+use crate::connection_pool::{ConnectionPoolT, Contact};
 
 use fluence_libp2p::types::{
     BackPressuredInlet, BackPressuredOutlet, OneshotInlet, OneshotOutlet, Outlet,

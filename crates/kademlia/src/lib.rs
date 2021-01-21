@@ -18,7 +18,7 @@ mod api;
 mod behaviour;
 mod error;
 
-pub use api::KademliaApi;
-pub use api::{KademliaApiInlet, KademliaApiOutlet};
+pub use api::KademliaApiT;
+pub use api::{KademliaApi, KademliaApiInlet};
 pub use behaviour::Kademlia;
 pub use behaviour::KademliaConfig;

@@ -30,7 +30,7 @@ pub struct Contact {
     pub addr: Option<Multiaddr>,
 }
 
-pub trait ConnectionPool {
+pub trait ConnectionPoolT {
     fn connect(&self, contact: Contact) -> BoxFuture<'static, bool>;
     fn disconnect(&self, contact: Contact) -> BoxFuture<'static, bool>;
     fn is_connected(&self, peer_id: PeerId) -> BoxFuture<'static, bool>;

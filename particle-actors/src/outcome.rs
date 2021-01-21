@@ -24,6 +24,8 @@ pub struct SendParticle {
 }
 
 #[derive(Clone, Debug)]
+/// Effects produced by particle execution. Currently the only effect is that of sending particles.
 pub struct StepperEffects {
+    /// Particles that either correspond to `next_peer_pks` or represent an error being sent back to `init_peer_id`
     pub particles: Vec<SendParticle>,
 }

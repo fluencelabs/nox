@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{ConnectionPool, ConnectionPoolBehaviour, Contact};
+use crate::{ConnectionPoolBehaviour, ConnectionPoolT, Contact};
 
 use fluence_libp2p::generate_swarm_event_type;
 use fluence_libp2p::types::{Inlet, OneshotInlet, OneshotOutlet, Outlet};
@@ -124,7 +124,7 @@ impl ConnectionPoolApi {
     }
 }
 
-impl ConnectionPool for ConnectionPoolApi {
+impl ConnectionPoolT for ConnectionPoolApi {
     fn connect(&self, contact: Contact) -> BoxFuture<'static, bool> {
         self.execute(|out| Command::Connect { contact, out })
     }

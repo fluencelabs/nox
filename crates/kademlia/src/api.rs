@@ -32,7 +32,7 @@ use std::convert::identity;
 
 type Future<T> = BoxFuture<'static, T>;
 
-pub trait KademliaApi {
+pub trait KademliaApiT {
     fn bootstrap(&self) -> Future<Result<()>>;
     fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>>;
     fn discover_peer(&self, peer: PeerId) -> Future<Result<(PeerId, Vec<Multiaddr>)>>;
@@ -70,9 +70,9 @@ pub struct KademliaApiInlet {
 }
 
 impl KademliaApiInlet {
-    pub fn new(kademlia: Kademlia) -> (KademliaApiOutlet, Self) {
+    pub fn new(kademlia: Kademlia) -> (KademliaApi, Self) {
         let (outlet, inlet) = unbounded();
-        let outlet = KademliaApiOutlet { outlet };
+        let outlet = KademliaApi { outlet };
         (outlet, Self { inlet, kademlia })
     }
 
@@ -104,18 +104,18 @@ impl NetworkBehaviourEventProcess<()> for KademliaApiInlet {
     fn inject_event(&mut self, _: ()) {}
 }
 
-impl From<Kademlia> for (KademliaApiOutlet, KademliaApiInlet) {
+impl From<Kademlia> for (KademliaApi, KademliaApiInlet) {
     fn from(kademlia: Kademlia) -> Self {
         KademliaApiInlet::new(kademlia)
     }
 }
 
 #[derive(Clone)]
-pub struct KademliaApiOutlet {
+pub struct KademliaApi {
     outlet: Outlet<Command>,
 }
 
-impl KademliaApiOutlet {
+impl KademliaApi {
     fn execute<R, F>(&self, cmd: F) -> Future<Result<R>>
     where
         R: Send + Sync + 'static,
@@ -131,7 +131,11 @@ impl KademliaApiOutlet {
     }
 }
 
-impl KademliaApi for KademliaApiOutlet {
+impl KademliaApiT for KademliaApi {
+    fn bootstrap(&self) -> Future<Result<()>> {
+        self.execute(|out| Command::Bootstrap { out })
+    }
+
     fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {
         let (out, inlet) = oneshot::channel();
         self.outlet
@@ -139,10 +143,6 @@ impl KademliaApi for KademliaApiOutlet {
             .expect("kademlia api died");
 
         inlet.map_err(|_| KademliaError::Cancelled).boxed()
-    }
-
-    fn bootstrap(&self) -> Future<Result<()>> {
-        self.execute(|out| Command::Bootstrap { out })
     }
 
     fn discover_peer(&self, peer: PeerId) -> Future<Result<(PeerId, Vec<Multiaddr>)>> {
