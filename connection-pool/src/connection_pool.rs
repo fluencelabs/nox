@@ -37,23 +37,3 @@ pub trait ConnectionPool {
     fn get_contact(&self, peer_id: PeerId) -> BoxFuture<'static, Option<Contact>>;
     fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, bool>;
 }
-
-/*
-// aqua-accessible (for `is_connected` builtin + xor)
-is_connected: PubKey -> Bool
-
-// Contact algebra
-get_contact: PubKey -> Contact?
-is_connected: Contact -> Bool
-connect: Contact -> async Bool // Bool or Either
-disconnect: Contact -> async Bool // Bool or Either
-
-// number of active (existing) connections
-count_connections: {clients: Int, peers: Int}
-//conn lifecycle
-lifecycle_events: (  Connected(Contact) | Disconnected(Contact)  )*
-// receive msg (particle)
-source: (Contact, msg)*
-// send msg (particle)
-sink: (Contact, msg) -> async Bool // Bool or Either
-*/

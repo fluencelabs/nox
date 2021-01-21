@@ -21,30 +21,36 @@ use fluence_libp2p::types::{
 };
 use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
 use particle_protocol::{CompletionChannel, HandlerMessage, Particle, ProtocolConfig};
-
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::task::{Context, Poll, Waker};
-
-use futures::channel::mpsc::SendError;
-use futures::channel::{mpsc, oneshot};
-use futures::future::BoxFuture;
-use futures::ready;
-use futures::FutureExt;
-use futures::{future, SinkExt};
-use libp2p::core::connection::ConnectionId;
-use libp2p::core::either::EitherOutput::{First, Second};
-use libp2p::core::{ConnectedPoint, Multiaddr};
-use libp2p::identity::ed25519::Keypair;
-use libp2p::identity::PublicKey::Ed25519;
-use libp2p::kad::Kademlia;
-use libp2p::swarm::{
-    DialPeerCondition, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
-    NetworkBehaviourEventProcess, NotifyHandler, OneShotHandler, PollParameters, ProtocolsHandler,
-};
-use libp2p::PeerId;
-use std::collections::hash_map::Entry;
-use std::hint::unreachable_unchecked;
 use trust_graph::TrustGraph;
+
+use std::{
+    collections::hash_map::Entry,
+    collections::{HashMap, HashSet, VecDeque},
+    hint::unreachable_unchecked,
+    task::{Context, Poll, Waker},
+};
+
+use futures::{
+    channel::{mpsc, mpsc::SendError, oneshot},
+    future,
+    future::BoxFuture,
+    ready, FutureExt, SinkExt,
+};
+use libp2p::{
+    core::{
+        connection::ConnectionId,
+        either::EitherOutput::{First, Second},
+        ConnectedPoint, Multiaddr,
+    },
+    identity::{ed25519::Keypair, PublicKey::Ed25519},
+    kad::Kademlia,
+    swarm::{
+        DialPeerCondition, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
+        NetworkBehaviourEventProcess, NotifyHandler, OneShotHandler, PollParameters,
+        ProtocolsHandler,
+    },
+    PeerId,
+};
 
 type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
