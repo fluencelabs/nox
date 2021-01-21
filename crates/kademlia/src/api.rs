@@ -18,12 +18,12 @@ use crate::error::{KademliaError, Result};
 use crate::Kademlia;
 
 use fluence_libp2p::generate_swarm_event_type;
-use fluence_libp2p::types::{Inlet, OneshotInlet, OneshotOutlet, Outlet};
+use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
 
 use futures::channel::mpsc::unbounded;
 use futures::channel::oneshot;
 use futures::future::BoxFuture;
-use futures::{FutureExt, SinkExt, StreamExt, TryFutureExt};
+use futures::{FutureExt, StreamExt, TryFutureExt};
 use libp2p::core::Multiaddr;
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::PeerId;
@@ -138,7 +138,7 @@ impl KademliaApi for KademliaApiOutlet {
             .unbounded_send(Command::LocalLookup { peer, out })
             .expect("kademlia api died");
 
-        inlet.map_err(|err| KademliaError::Cancelled).boxed()
+        inlet.map_err(|_| KademliaError::Cancelled).boxed()
     }
 
     fn bootstrap(&self) -> Future<Result<()>> {

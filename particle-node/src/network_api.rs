@@ -50,6 +50,10 @@ impl NetworkApi {
         }
     }
 
+    pub fn connectivity(&self) -> Connectivity {
+        self.connectivity.clone()
+    }
+
     pub fn start(self, stepper_pool: StepperPoolApi, parallelism: usize) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let NetworkApi {
@@ -111,5 +115,17 @@ impl Connectivity {
 
             self.connection_pool.send(contact, particle).await;
         }
+    }
+}
+
+impl AsRef<KademliaApiOutlet> for Connectivity {
+    fn as_ref(&self) -> &KademliaApiOutlet {
+        &self.kademlia
+    }
+}
+
+impl AsRef<ConnectionPoolApi> for Connectivity {
+    fn as_ref(&self) -> &ConnectionPoolApi {
+        &self.connection_pool
     }
 }

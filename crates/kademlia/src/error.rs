@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+
 pub(crate) type Result<T> = std::result::Result<T, KademliaError>;
 
 #[derive(Debug)]
@@ -22,4 +25,16 @@ pub enum KademliaError {
     Timeout,
     Cancelled,
     NoKnownPeers,
+}
+
+impl Error for KademliaError {}
+
+impl Display for KademliaError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KademliaError::Timeout => write!(f, "KademliaError::Timeout"),
+            KademliaError::Cancelled => write!(f, "KademliaError::Cancelled"),
+            KademliaError::NoKnownPeers => write!(f, "KademliaError::NoKnownPeers"),
+        }
+    }
 }

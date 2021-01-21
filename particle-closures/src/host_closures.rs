@@ -16,12 +16,18 @@
 
 use crate::identify::{identify, NodeInfo};
 
-use host_closure::{Args, Closure, ClosureDescriptor, ParticleClosure, ParticleParameters};
-use ivalue_utils::{ok, IValue};
+use connection_pool::ConnectionPoolApi;
+use host_closure::{
+    from_base58, Args, Closure, ClosureDescriptor, JError, ParticleClosure, ParticleParameters,
+};
+use ivalue_utils::{into_record, ok, IValue};
+use kademlia::{KademliaApi, KademliaApiOutlet};
 use particle_providers::ProviderRepository;
 use particle_services::{ParticleAppServices, ServicesConfig};
 
 use libp2p::PeerId;
+use multihash::Code;
+use multihash::MultihashDigest;
 use serde_json::{json, Value as JValue};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -29,7 +35,7 @@ use std::sync::Arc;
 use JValue::Array;
 
 #[derive(Clone)]
-pub struct HostClosures {
+pub struct HostClosures<C> {
     pub create_service: ParticleClosure,
     pub call_service: ParticleClosure,
     pub add_module: Closure,
@@ -41,10 +47,14 @@ pub struct HostClosures {
     pub get_interface: Closure,
     pub get_active_interfaces: Closure,
     pub identify: Closure,
+    pub connectivity: C,
 }
 
-impl HostClosures {
+impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApiOutlet> + AsRef<ConnectionPoolApi>>
+    HostClosures<C>
+{
     pub fn new(
+        connectivity: C,
         node_info: NodeInfo,
         local_peer_id: PeerId,
         services_base_dir: PathBuf,
@@ -68,6 +78,7 @@ impl HostClosures {
             get_interface: services.get_interface(),
             get_active_interfaces: services.get_active_interfaces(),
             identify: identify(node_info),
+            connectivity,
         })
     }
 
@@ -112,7 +123,30 @@ impl HostClosures {
             ("op", "identify") => (self.identify)(args),
             ("op", "identity") => ok(Array(args.function_args)),
 
+            ("kad", "neighborhood") => into_record(self.neighborhood(args).map_err(Into::into)),
+
             _ => (self.call_service)(particle, args),
         }
+    }
+
+    fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
+        let key = from_base58("key", &mut args.function_args.into_iter())?;
+        let key = Code::Sha2_256.digest(&key);
+        let neighbors = async_std::task::block_on(self.kademlia().neighborhood(key));
+        let neighbors = neighbors
+            .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))?;
+
+        Ok(neighbors)
+    }
+
+    fn kademlia(&self) -> &KademliaApiOutlet {
+        // AsRef::<Kad>::as_ref(&self.connectivity)
+        self.connectivity.as_ref()
+    }
+
+    #[allow(dead_code)]
+    fn connection_pool(&self) -> &ConnectionPoolApi {
+        // AsRef::<ConnectionPoolApi>::as_ref(&self.connectivity)
+        self.connectivity.as_ref()
     }
 }

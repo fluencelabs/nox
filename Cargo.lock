@@ -2396,6 +2396,7 @@ name = "host-closure"
 version = "0.1.0"
 dependencies = [
  "aquamarine-vm",
+ "bs58 0.4.0",
  "control-macro",
  "fce",
  "fluence-app-service",
@@ -3083,14 +3084,17 @@ dependencies = [
 name = "particle-closures"
 version = "0.2.0"
 dependencies = [
+ "async-std",
  "bs58 0.3.1",
  "config-utils",
+ "connection-pool",
  "fluence-fork-libp2p",
  "fluence-libp2p",
  "futures",
  "host-closure",
  "ivalue-utils",
  "json-utils",
+ "kademlia",
  "log",
  "multihash",
  "parking_lot 0.11.1",

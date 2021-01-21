@@ -122,6 +122,7 @@ impl Node {
             external_addresses: config.external_addresses(),
         };
         let host_closures = HostClosures::new(
+            network_api.connectivity(),
             node_info,
             local_peer_id,
             config.services_base_dir.clone(),

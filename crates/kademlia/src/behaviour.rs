@@ -18,9 +18,6 @@ use crate::error::{KademliaError, Result};
 
 use control_macro::get_return;
 use fluence_libp2p::types::OneshotOutlet;
-use futures::channel::oneshot;
-use futures::future::BoxFuture;
-use futures::FutureExt;
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::kad;
@@ -34,9 +31,6 @@ use libp2p::{kad::KademliaEvent, swarm::NetworkBehaviourEventProcess, PeerId};
 use multihash::Multihash;
 use prometheus::Registry;
 use std::collections::HashMap;
-use std::convert::identity;
-use std::sync::Arc;
-use std::task::Waker;
 use trust_graph::TrustGraph;
 
 pub struct KademliaConfig {
