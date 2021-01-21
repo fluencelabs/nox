@@ -164,13 +164,10 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApiOutlet> + AsRef<Connect
     }
 
     fn kademlia(&self) -> &KademliaApiOutlet {
-        // AsRef::<Kad>::as_ref(&self.connectivity)
         self.connectivity.as_ref()
     }
 
-    #[allow(dead_code)]
     fn connection_pool(&self) -> &ConnectionPoolApi {
-        // AsRef::<ConnectionPoolApi>::as_ref(&self.connectivity)
         self.connectivity.as_ref()
     }
 }

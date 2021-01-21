@@ -2637,7 +2637,6 @@ dependencies = [
  "log",
  "multihash",
  "once_cell",
- "particle-dht",
  "particle-protocol",
  "prometheus",
  "prost",
@@ -3099,7 +3098,6 @@ dependencies = [
  "log",
  "multihash",
  "parking_lot 0.11.1",
- "particle-dht",
  "particle-modules",
  "particle-protocol",
  "particle-providers",
@@ -3107,28 +3105,6 @@ dependencies = [
  "ref-cast",
  "serde",
  "serde_json",
- "trust-graph",
- "waiting-queues",
-]
-
-[[package]]
-name = "particle-dht"
-version = "0.2.0"
-dependencies = [
- "bs58 0.3.1",
- "control-macro",
- "fluence-fork-libp2p",
- "fluence-libp2p",
- "futures",
- "log",
- "multihash",
- "once_cell",
- "particle-protocol",
- "prometheus",
- "prost",
- "serde_json",
- "server-config",
- "smallvec",
  "trust-graph",
  "waiting-queues",
 ]

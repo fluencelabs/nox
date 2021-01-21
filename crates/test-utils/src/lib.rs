@@ -15,14 +15,15 @@
  */
 
 #![warn(rust_2018_idioms)]
-#![deny(
+#![allow(
     dead_code,
     nonstandard_style,
-    // unused_imports,
+    unused_imports,
     unused_mut,
-    // unused_variables,
+    unused_variables,
     unused_unsafe,
-    unreachable_patterns
+    unreachable_patterns,
+    unreachable_code
 )]
 
 #[macro_use]

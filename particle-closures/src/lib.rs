@@ -27,12 +27,8 @@
     unreachable_patterns
 )]
 
-mod builtin_services_api;
 mod host_closures;
 mod identify;
-mod mailbox;
 
-pub use builtin_services_api::BehaviourMailboxApi;
 pub use host_closures::HostClosures;
 pub use identify::NodeInfo;
-pub use mailbox::{BuiltinCommand, Mailbox};

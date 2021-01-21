@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 particle-protocol = { path = "../../particle-protocol" }
-particle-dht = { path = "../../particle-dht" }
 
 trust-graph = { path = "../../trust-graph" }
 control-macro = { path = "../control-macro" }
