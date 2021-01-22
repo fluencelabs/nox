@@ -35,8 +35,8 @@ mod api;
 mod behaviour;
 mod connection_pool;
 
+pub use ::connection_pool::ConnectionPoolT;
+pub use ::connection_pool::Contact;
+pub use ::connection_pool::LifecycleEvent;
 pub use api::{ConnectionPoolApi, ConnectionPoolInlet};
 pub use behaviour::ConnectionPoolBehaviour;
-pub use connection_pool::ConnectionPoolT;
-pub use connection_pool::Contact;
-pub use connection_pool::LifecycleEvent;
