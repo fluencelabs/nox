@@ -220,7 +220,6 @@ mod tests {
     use libp2p::swarm::SwarmEvent;
     use libp2p::PeerId;
     use libp2p::Swarm;
-    use particle_dht::DHTConfig;
     use std::pin::Pin;
     use std::sync::mpsc;
     use std::task::Poll;
@@ -303,6 +302,6 @@ mod tests {
         });
 
         println!("maddr: {:?}", maddr);
-        assert_eq!(maddr.unwrap()[0], c_addr);
+        assert_eq!(maddr.unwrap().unwrap().1[0], c_addr);
     }
 }

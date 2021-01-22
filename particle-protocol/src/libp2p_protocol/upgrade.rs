@@ -189,49 +189,49 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::HandlerMessage;
-    use futures::prelude::*;
-    use libp2p::core::{
-        multiaddr::multiaddr,
-        transport::{memory::MemoryTransport, ListenerEvent, Transport},
-        upgrade,
-    };
-
-    use crate::ProtocolConfig;
-    use rand::{thread_rng, Rng};
-
-    #[test]
-    fn oneshot_channel_test() {
-        let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
-        let mut listener = MemoryTransport.listen_on(mem_addr).unwrap();
-        let listener_addr =
-            if let Some(Some(Ok(ListenerEvent::NewAddress(a)))) = listener.next().now_or_never() {
-                a
-            } else {
-                panic!("MemoryTransport not listening on an address!");
-            };
-
-        let inbound = async_std::task::spawn(async move {
-            let listener_event = listener.next().await.unwrap();
-            let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
-            let conn = listener_upgrade.await.unwrap();
-            let config = ProtocolConfig::default();
-            upgrade::apply_inbound(conn, config).await.unwrap()
-        });
-
-        let sent_call = async_std::task::block_on(async move {
-            let call = HandlerMessage::Particle(<_>::default());
-            let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
-            upgrade::apply_outbound(c, call.clone(), upgrade::Version::V1)
-                .await
-                .unwrap();
-            call
-        });
-
-        let received_call = futures::executor::block_on(inbound);
-
-        assert_eq!(sent_call, received_call);
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use super::HandlerMessage;
+//     use futures::prelude::*;
+//     use libp2p::core::{
+//         multiaddr::multiaddr,
+//         transport::{memory::MemoryTransport, ListenerEvent, Transport},
+//         upgrade,
+//     };
+//
+//     use crate::ProtocolConfig;
+//     use rand::{thread_rng, Rng};
+//
+//     #[test]
+//     fn oneshot_channel_test() {
+//         let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
+//         let mut listener = MemoryTransport.listen_on(mem_addr).unwrap();
+//         let listener_addr =
+//             if let Some(Some(Ok(ListenerEvent::NewAddress(a)))) = listener.next().now_or_never() {
+//                 a
+//             } else {
+//                 panic!("MemoryTransport not listening on an address!");
+//             };
+//
+//         let inbound = async_std::task::spawn(async move {
+//             let listener_event = listener.next().await.unwrap();
+//             let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
+//             let conn = listener_upgrade.await.unwrap();
+//             let config = ProtocolConfig::default();
+//             upgrade::apply_inbound(conn, config).await.unwrap()
+//         });
+//
+//         let sent_call = async_std::task::block_on(async move {
+//             let call = HandlerMessage::Particle(<_>::default());
+//             let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
+//             upgrade::apply_outbound(c, call.clone(), upgrade::Version::V1)
+//                 .await
+//                 .unwrap();
+//             call
+//         });
+//
+//         let received_call = futures::executor::block_on(inbound);
+//
+//         assert_eq!(sent_call, received_call);
+//     }
+// }
