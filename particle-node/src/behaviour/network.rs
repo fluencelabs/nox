@@ -28,6 +28,7 @@ use libp2p::{
 
 use crate::network_api::NetworkApi;
 use crate::node::unlocks::{unlock, unlock_f};
+use aquamarine::{SendParticle, StepperEffects};
 use async_std::sync::Mutex;
 use async_std::task::JoinHandle;
 use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet, ConnectionPoolT, Contact};
@@ -36,7 +37,6 @@ use futures::select;
 use futures::StreamExt;
 use kademlia::{Kademlia, KademliaApi, KademliaApiInlet, KademliaConfig};
 use libp2p::swarm::ExpandedSwarm;
-use particle_actors::{SendParticle, StepperEffects};
 use particle_protocol::Particle;
 use std::sync::Arc;
 use std::task::Poll;

@@ -188,6 +188,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afddf7f520a80dbf76e6f50a35bca42a2331ef227a28b3b6dc5c2e2338d114b1"
 
 [[package]]
+name = "aquamarine"
+version = "0.2.0"
+dependencies = [
+ "aquamarine-vm",
+ "async-std",
+ "base64 0.13.0",
+ "chrono",
+ "config-utils",
+ "fluence-fork-libp2p",
+ "fluence-libp2p",
+ "futures",
+ "host-closure",
+ "log",
+ "parking_lot 0.11.1",
+ "particle-protocol",
+ "serde_json",
+ "stepper-interface",
+]
+
+[[package]]
 name = "aquamarine-vm"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3061,26 +3081,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "particle-actors"
-version = "0.2.0"
-dependencies = [
- "aquamarine-vm",
- "async-std",
- "base64 0.13.0",
- "chrono",
- "config-utils",
- "fluence-fork-libp2p",
- "fluence-libp2p",
- "futures",
- "host-closure",
- "log",
- "parking_lot 0.11.1",
- "particle-protocol",
- "serde_json",
- "stepper-interface",
-]
-
-[[package]]
 name = "particle-closures"
 version = "0.2.0"
 dependencies = [
@@ -3133,6 +3133,7 @@ version = "0.4.0"
 dependencies = [
  "air-interpreter-wasm",
  "anyhow",
+ "aquamarine",
  "async-std",
  "base64 0.13.0",
  "bs58 0.3.1",
@@ -3156,7 +3157,6 @@ dependencies = [
  "maplit",
  "multihash",
  "num_cpus",
- "particle-actors",
  "particle-closures",
  "particle-protocol",
  "particle-providers",
@@ -4226,6 +4226,7 @@ version = "0.2.0"
 dependencies = [
  "air-interpreter-wasm",
  "anyhow",
+ "aquamarine",
  "aquamarine-vm",
  "async-std",
  "base64 0.13.0",
@@ -4244,7 +4245,6 @@ dependencies = [
  "log",
  "maplit",
  "parking_lot 0.11.1",
- "particle-actors",
  "particle-node",
  "particle-protocol",
  "prometheus",

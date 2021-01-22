@@ -23,8 +23,6 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 use log::LevelFilter;
 use particle_protocol::Particle;
-use serde_json::json;
-use std::fmt::Debug;
 use std::task::Waker;
 
 pub(super) type Fut = BoxFuture<'static, FutResult>;
@@ -93,33 +91,19 @@ impl ParticleExecutor for AquamarineVM {
                 }
                 Err(err @ ExecutionError::StepperOutcome { .. }) => {
                     log::warn!("Error executing script: {}", err);
-                    // Return error to the init peer id
-                    vec![protocol_error(p, err)]
+                    vec![]
                 },
                 Err(err @ ExecutionError::InvalidResultField { .. }) => {
                     log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
-                    // Return error to the init peer id
-                    vec![protocol_error(p, err)]
+                    vec![]
                 }
             };
 
             waker.wake();
 
-            let effects = StepperEffects { particles };
+            // TODO: maybe return ExecutionErrors here? Not sure why do that, though.
+            let effects = Ok(StepperEffects { particles });
             FutResult { vm: self, effects: AwaitedEffects { out, effects } }
         }).boxed()
-    }
-}
-
-fn protocol_error(mut particle: Particle, err: impl Debug) -> SendParticle {
-    let error = format!("{:?}", err);
-    // Convert error to JSON string so client can read it
-    particle.data = json!({"protocol!error": error, "data": base64::encode(particle.data)})
-        .to_string()
-        .into_bytes();
-    // Return error to the init peer id
-    SendParticle {
-        target: particle.init_peer_id.clone(),
-        particle,
     }
 }

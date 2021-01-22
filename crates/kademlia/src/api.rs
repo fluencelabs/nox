@@ -35,8 +35,10 @@ type Future<T> = BoxFuture<'static, T>;
 pub trait KademliaApiT {
     fn bootstrap(&self) -> Future<Result<()>>;
     fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>>;
+    // TODO: Why returning PeerId back?
     fn discover_peer(&self, peer: PeerId) -> Future<Result<(PeerId, Vec<Multiaddr>)>>;
     fn neighborhood(&self, key: Multihash) -> Future<Result<Vec<PeerId>>>;
+    // TODO: local_neighborhood
 }
 
 #[derive(Debug)]

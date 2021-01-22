@@ -14,7 +14,7 @@ members = [
     "crates/server-config",
     "crates/kademlia",
     "particle-node",
-    "particle-actors",
+    "aquamarine",
     "particle-protocol",
     "particle-services",
     "particle-closures",

@@ -13,29 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::awaited_particle::EffectsChannel;
+use crate::error::AquamarineApiError;
 use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
-use async_std::task;
-use async_std::task::JoinHandle;
-use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet};
-use futures::channel::oneshot::Canceled;
-use futures::channel::{mpsc, oneshot};
-use futures::future::BoxFuture;
-use futures::{FutureExt, SinkExt, StreamExt};
+
+use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
 use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
+
+use async_std::{task, task::JoinHandle};
+use futures::{
+    channel::{mpsc, oneshot},
+    future::BoxFuture,
+    FutureExt, SinkExt, StreamExt,
+};
+use std::convert::identity;
 use std::task::Poll;
 
-pub struct StepperPoolProcessor {
-    inlet: BackPressuredInlet<(Particle, OneshotOutlet<StepperEffects>)>,
+pub struct AquamarineBackend {
+    inlet: BackPressuredInlet<(Particle, EffectsChannel)>,
     plumber: Plumber,
 }
 
-impl StepperPoolProcessor {
-    pub fn new(config: VmPoolConfig, host_closures: ClosureDescriptor) -> (Self, StepperPoolApi) {
+impl AquamarineBackend {
+    pub fn new(config: VmPoolConfig, host_closures: ClosureDescriptor) -> (Self, AquamarineApi) {
         let (outlet, inlet) = mpsc::channel(100);
         let plumber = Plumber::new(config, host_closures);
         let this = Self { inlet, plumber };
-        let sender = StepperPoolApi::new(outlet);
+        let sender = AquamarineApi::new(outlet);
 
         (this, sender)
     }
@@ -63,28 +68,33 @@ impl StepperPoolProcessor {
 }
 
 #[derive(Clone)]
-pub struct StepperPoolApi {
+pub struct AquamarineApi {
     // send particle along with a "return address"; it's like the Ask pattern in Akka
-    outlet: BackPressuredOutlet<(Particle, OneshotOutlet<StepperEffects>)>,
+    outlet: BackPressuredOutlet<(Particle, EffectsChannel)>,
 }
-impl StepperPoolApi {
-    pub fn new(outlet: BackPressuredOutlet<(Particle, OneshotOutlet<StepperEffects>)>) -> Self {
+impl AquamarineApi {
+    pub fn new(outlet: BackPressuredOutlet<(Particle, EffectsChannel)>) -> Self {
         Self { outlet }
     }
 
     /// Send particle to interpreters pool and wait response back
-    pub fn ingest(
+    pub fn handle(
         self,
         particle: Particle,
-    ) -> BoxFuture<'static, Result<StepperEffects, Canceled>> {
+    ) -> BoxFuture<'static, Result<StepperEffects, AquamarineApiError>> {
+        use AquamarineApiError::*;
+
         let mut interpreters = self.outlet;
         async move {
+            let particle_id = particle.id.clone();
             let (outlet, inlet) = oneshot::channel();
-            interpreters
-                .send((particle, outlet))
-                .await
-                .expect("interpreter pool died?");
-            inlet.await
+            let send_ok = interpreters.send((particle, outlet)).await.is_ok();
+            if send_ok {
+                let effects = inlet.await.map_err(|_| OneshotCancelled { particle_id });
+                effects.and_then(identity)
+            } else {
+                Err(AquamarineDied { particle_id })
+            }
         }
         .boxed()
     }

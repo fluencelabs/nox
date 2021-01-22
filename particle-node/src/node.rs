@@ -61,12 +61,12 @@ pub mod unlocks {
 
 use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
+use aquamarine::{AquamarineApi, AquamarineBackend, StepperEffects, VmPoolConfig};
 use async_std::task::JoinHandle;
 use futures::channel::mpsc;
 use futures::channel::oneshot::Canceled;
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::Boxed;
-use particle_actors::{StepperEffects, StepperPoolApi, StepperPoolProcessor, VmPoolConfig};
 use particle_closures::{HostClosures, NodeInfo};
 use std::time::Duration;
 
@@ -74,8 +74,8 @@ use std::time::Duration;
 pub struct Node {
     pub network_api: NetworkApi,
     swarm: Swarm<NetworkBehaviour>,
-    stepper_pool: StepperPoolProcessor,
-    stepper_pool_api: StepperPoolApi,
+    stepper_pool: AquamarineBackend,
+    stepper_pool_api: AquamarineApi,
     local_peer_id: PeerId,
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
@@ -152,7 +152,7 @@ impl Node {
             HostClosures::new(network_api.connectivity(), node_info, services_config);
 
         let (stepper_pool, stepper_pool_api) =
-            StepperPoolProcessor::new(pool_config, host_closures.descriptor());
+            AquamarineBackend::new(pool_config, host_closures.descriptor());
 
         let node_service = Self {
             network_api,

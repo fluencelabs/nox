@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
-particle-actors = { path = "../particle-actors"}
+aquamarine = { path = "../aquamarine" }
 particle-closures = { path = "../particle-closures"}
 connection-pool = { path = "../connection-pool"}
 

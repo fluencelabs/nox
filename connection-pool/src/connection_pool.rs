@@ -45,9 +45,4 @@ pub trait ConnectionPoolT {
     fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, bool>;
     fn count_connections(&self) -> BoxFuture<'static, usize>;
     fn lifecycle_events(&self) -> BoxStream<'static, LifecycleEvent>;
-
-    /* TODO:
-        count_connections: {clients: Int, peers: Int}
-        lifecycle_events: (  Connected(Contact) | Disconnected(Contact)  )*
-    */
 }

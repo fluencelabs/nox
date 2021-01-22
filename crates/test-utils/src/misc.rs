@@ -22,6 +22,7 @@ use fluence_libp2p::{build_memory_transport, build_transport};
 use server_config::{BootstrapConfig, NetworkConfig, NodeConfig, ServicesConfig};
 use trust_graph::{Certificate, TrustGraph};
 
+use aquamarine::VmPoolConfig;
 use async_std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use async_std::task;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
@@ -34,7 +35,6 @@ use libp2p::{
     },
     PeerId, Swarm,
 };
-use particle_actors::VmPoolConfig;
 use prometheus::Registry;
 use rand::Rng;
 use serde_json::{json, Value as JValue};
@@ -96,7 +96,7 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Debug)
-        .filter(Some("particle_actors::actor"), Info)
+        .filter(Some("aquamarine::actor"), Info)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)

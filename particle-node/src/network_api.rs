@@ -26,10 +26,10 @@
 
 use crate::node::unlocks::{unlock, unlock_f};
 
+use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
 use fluence_libp2p::types::BackPressuredInlet;
 use kademlia::{KademliaApi, KademliaApiT};
-use particle_actors::{SendParticle, StepperEffects, StepperPoolApi};
 use particle_protocol::Particle;
 use server_config::NodeConfig;
 
@@ -73,7 +73,7 @@ impl NetworkApi {
     /// then executes them on `stepper_pool`, and sends to other peers through `execute_effects`
     ///
     /// `parallelism` sets the number of simultaneously processed particles
-    pub fn start(self, stepper_pool: StepperPoolApi) -> JoinHandle<()> {
+    pub fn start(self, aquamarine: AquamarineApi) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let NetworkApi {
                 particle_stream,
@@ -83,11 +83,11 @@ impl NetworkApi {
 
             particle_stream
                 .for_each_concurrent(particle_parallelism, move |particle| {
-                    let stepper_pool = stepper_pool.clone();
+                    let aquamarine = aquamarine.clone();
                     let connectivity = connectivity.clone();
                     async move {
                         // execute particle on Aquamarine
-                        let stepper_effects = stepper_pool.ingest(particle).await;
+                        let stepper_effects = aquamarine.handle(particle).await;
 
                         match stepper_effects {
                             Ok(stepper_effects) => {
@@ -95,8 +95,7 @@ impl NetworkApi {
                                 connectivity.execute_effects(stepper_effects).await
                             }
                             Err(err) => {
-                                // maybe particle was expired
-                                log::warn!("Error executing particle, aquamarine refused")
+                                log::warn!("Error executing particle: {}", err)
                             }
                         };
                     }

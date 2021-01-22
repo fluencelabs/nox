@@ -55,6 +55,7 @@ impl Plumber {
         let deadline = Deadline::from(&particle);
         if deadline.is_expired(now()) {
             log::info!("Particle {} is expired, ignoring", particle.id);
+            self.events.push_back(AwaitedEffects::expired(particle));
             return;
         }
 

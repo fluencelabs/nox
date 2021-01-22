@@ -14,21 +14,26 @@
  * limitations under the License.
  */
 
+use crate::error::AquamarineApiError;
 use crate::StepperEffects;
+
 use fluence_libp2p::types::OneshotOutlet;
 use particle_protocol::Particle;
+
 use std::ops::Deref;
+
+pub type EffectsChannel = OneshotOutlet<Result<StepperEffects, AquamarineApiError>>;
 
 #[derive(Debug)]
 /// A particle scheduled for execution.
 /// Execution will produce StepperEffects, which are to be sent to `out`
 pub struct AwaitedParticle {
     pub particle: Particle,
-    pub out: OneshotOutlet<StepperEffects>,
+    pub out: EffectsChannel,
 }
 
-impl Into<(Particle, OneshotOutlet<StepperEffects>)> for AwaitedParticle {
-    fn into(self) -> (Particle, OneshotOutlet<StepperEffects>) {
+impl Into<(Particle, EffectsChannel)> for AwaitedParticle {
+    fn into(self) -> (Particle, EffectsChannel) {
         (self.particle, self.out)
     }
 }
@@ -53,7 +58,33 @@ impl Deref for AwaitedParticle {
 /// Kind of like a completed promise
 pub struct AwaitedEffects {
     /// Description of effects (e.g next_peer_pks of StepperOutcome) produced by particle execution
-    pub effects: StepperEffects,
+    /// or an error
+    pub effects: Result<StepperEffects, AquamarineApiError>,
     /// Destination that waits to receive StepperEffects produced by particle execution
-    pub out: OneshotOutlet<StepperEffects>,
+    pub out: EffectsChannel,
+}
+
+impl AwaitedEffects {
+    pub fn ok(effects: StepperEffects, out: EffectsChannel) -> Self {
+        Self {
+            effects: Ok(effects),
+            out,
+        }
+    }
+
+    pub fn expired(particle: AwaitedParticle) -> Self {
+        Self {
+            effects: Err(AquamarineApiError::ParticleExpired {
+                particle_id: particle.particle.id,
+            }),
+            out: particle.out,
+        }
+    }
+
+    pub fn err(err: AquamarineApiError, out: EffectsChannel) -> Self {
+        Self {
+            effects: Err(err),
+            out,
+        }
+    }
 }

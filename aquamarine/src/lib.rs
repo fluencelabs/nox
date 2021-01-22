@@ -27,17 +27,18 @@
 )]
 
 mod actor;
+mod aquamarine;
 mod awaited_particle;
 mod config;
+mod error;
 mod invoke;
 mod outcome;
 mod particle_executor;
 mod plumber;
-mod stepper_pool;
 mod vm_pool;
 
+pub use aquamarine::{AquamarineApi, AquamarineBackend};
 pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
 pub use config::VmPoolConfig;
 pub use outcome::{SendParticle, StepperEffects};
 pub use plumber::Plumber;
-pub use stepper_pool::{StepperPoolApi, StepperPoolProcessor};
