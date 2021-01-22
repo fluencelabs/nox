@@ -102,8 +102,14 @@ impl KademliaApiInlet {
     ) -> std::task::Poll<SwarmEventType> {
         use std::task::Poll;
 
+        let mut wake = false;
         while let Poll::Ready(Some(cmd)) = self.inlet.poll_next_unpin(cx) {
+            wake = true;
             self.execute(cmd)
+        }
+
+        if wake {
+            cx.waker().wake_by_ref();
         }
 
         Poll::Pending

@@ -98,6 +98,7 @@ pub fn enable_logs() {
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Debug)
         .filter(Some("aquamarine::actor"), Debug)
+        .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)
@@ -106,6 +107,7 @@ pub fn enable_logs() {
         .filter(Some("soketto"), Info)
         .filter(Some("yamux"), Info)
         .filter(Some("multistream_select"), Info)
+        .filter(Some("libp2p_swarm"), Info)
         .filter(Some("libp2p_secio"), Info)
         .filter(Some("libp2p_websocket::framed"), Info)
         .filter(Some("libp2p_ping"), Info)
@@ -137,8 +139,6 @@ pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
         n,
         |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
         create_memory_maddr,
-        // TODO: set to true to wait until nodes connect to each other
-        //       currently it doesn't work – maybe Lifecycle events aren't working
         true,
     )
 }
@@ -185,8 +185,6 @@ where
 
     let (infos, nodes): (Vec<CreatedSwarm>, Vec<_>) = nodes.into_iter().unzip();
 
-    let connected = Arc::new(AtomicUsize::new(0));
-
     let start = Instant::now();
     let mut local_start = Instant::now();
 
@@ -197,31 +195,29 @@ where
         })
         .collect();
 
-    let shared_connected = connected.clone();
     let connected = task::spawn(async move {
-        let connected = shared_connected;
+        let mut connected = 0;
         loop {
+            if connected >= (n * (n - 1)) {
+                log::info!("Connection took {}s", start.elapsed().as_secs_f32());
+                break;
+            }
             if lifecycle_streams.is_terminated() {
                 log::error!("lifecycle stream ended too soon! THIS SHOULDN'T HAPPEN.");
                 break;
             }
+
             let event = lifecycle_streams.select_next_some().await;
             if let LifecycleEvent::Connected(_) = event {
-                connected.fetch_add(1, Ordering::SeqCst);
-                let total = connected.load(Ordering::Relaxed);
-                if total % 10 == 0 {
+                connected += 1;
+                if connected % 10 == 0 {
                     log::info!(
                         "established {: <10} +{: <10} (= {:<5})",
-                        total,
+                        connected,
                         format_args!("{:.3}s", start.elapsed().as_secs_f32()),
                         format_args!("{}ms", local_start.elapsed().as_millis())
                     );
                     local_start = Instant::now();
-                }
-
-                if total >= (n * (n - 1)) {
-                    log::info!("Connection took {}s", start.elapsed().as_secs_f32());
-                    break;
                 }
             }
         }

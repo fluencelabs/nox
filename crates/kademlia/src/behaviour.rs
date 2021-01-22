@@ -49,6 +49,7 @@ pub enum PendingQuery {
 }
 
 #[derive(::libp2p::NetworkBehaviour)]
+
 pub struct Kademlia {
     pub(super) kademlia: kad::Kademlia<MemoryStore>,
 
@@ -145,6 +146,7 @@ impl Kademlia {
     }
 
     fn closest_finished(&mut self, id: QueryId, result: GetClosestPeersResult) {
+        log::debug!(target: "debug_kademlia", "closest finished");
         use GetClosestPeersError::Timeout;
 
         match get_return!(self.queries.remove(&id)) {
@@ -159,8 +161,8 @@ impl Kademlia {
             PendingQuery::Neighborhood(outlet) => {
                 let result = match result {
                     Ok(GetClosestPeersOk { peers, .. }) if !peers.is_empty() => Ok(peers),
-                    Err(Timeout { peers, .. }) if !peers.is_empty() => Ok(peers),
                     Ok(GetClosestPeersOk { .. }) => Err(KademliaError::NoPeersFound),
+                    Err(Timeout { peers, .. }) if !peers.is_empty() => Ok(peers),
                     Err(Timeout { .. }) => Err(KademliaError::Timeout),
                 };
                 outlet.send(result).ok();
@@ -191,7 +193,6 @@ impl Kademlia {
 
 impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
     fn inject_event(&mut self, event: KademliaEvent) {
-        println!("kad event: {:?}", event);
         match event {
             KademliaEvent::QueryResult { id, result, .. } => match result {
                 QueryResult::GetClosestPeers(result) => self.closest_finished(id, result),

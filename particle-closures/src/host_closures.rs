@@ -96,7 +96,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             args.service_id,
             args.function_name
         );
-        log::debug!("Host function call, args: {:#?}", args);
+        log::trace!("Host function call, args: {:#?}", args);
 
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
@@ -128,7 +128,9 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
         let key = from_base58("key", &mut args.function_args.into_iter())?;
         let key = Code::Sha2_256.digest(&key);
+        log::debug!(target: "debug_kademlia", "ask for neighboirhood");
         let neighbors = task::block_on(self.kademlia().neighborhood(key));
+        log::debug!(target: "debug_kademlia", "got neighborhood");
         let neighbors = neighbors
             .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))?;
 

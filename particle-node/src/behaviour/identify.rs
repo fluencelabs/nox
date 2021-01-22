@@ -30,7 +30,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
     fn inject_event(&mut self, event: IdentifyEvent) {
         match event {
             IdentifyEvent::Received { peer_id, info, .. } => {
-                log::debug!(
+                log::trace!(
                     "Identify received from {}: protocols: {:?} version: {} listen addrs {:?}",
                     peer_id,
                     info.protocols,
@@ -75,7 +75,6 @@ fn filter_addresses(addresses: Vec<Multiaddr>) -> Vec<Multiaddr> {
     let exists_global = addresses.iter().any(is_global_maddr);
 
     if !exists_global {
-        log::debug!("No globally-reachable IP addresses found. Are we running on localhost?");
         // If there are no global addresses, we are most likely running locally
         // So take loopback address, and go with it.
         addresses.into_iter().filter(is_local_maddr).collect()
