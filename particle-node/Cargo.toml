@@ -11,7 +11,7 @@ particle-closures = { path = "../particle-closures"}
 connection-pool = { path = "../connection-pool"}
 
 config-utils = { path = "../crates/config-utils" }
-trust-graph = { path = "../trust-graph" }
+trust-graph = "0.2.0"
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
 server-config = { path = "../crates/server-config" }

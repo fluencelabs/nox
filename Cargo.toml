@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "client/rust-libp2p",
-    "trust-graph",
     "crates/libp2p",
     "crates/ctrlc-adapter",
     "crates/control-macro",
@@ -25,7 +24,3 @@ members = [
 exclude = [
     "client/js-websocket/utils-wasm",
 ]
-
-[patch.crates-io]
-trust-graph = { path = "trust-graph" }
-
