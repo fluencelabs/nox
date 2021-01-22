@@ -20,7 +20,7 @@ use libp2p::swarm::NetworkBehaviourEventProcess;
 
 impl NetworkBehaviourEventProcess<BootstrapperEvent> for NetworkBehaviour {
     fn inject_event(&mut self, event: BootstrapperEvent) {
-        log::debug!(target: "fix_bootstrapper", "got bootstrapper event: {:?}", event);
+        // log::debug!(target: "fix_bootstrapper", "got bootstrapper event: {:?}", event);
         // todo!("implement bootstrapper as a part of kademlia?")
         // TODO: do not reconnect to boostraps all the time, make it stop after a few minutes after node was started
         //       In other words, reconnect first 5 minutes or so, then stop. No reason to treat bootstrap nodes in a special way anymore.

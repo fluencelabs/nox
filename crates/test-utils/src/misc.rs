@@ -26,6 +26,7 @@ use aquamarine::VmPoolConfig;
 use async_std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use async_std::task;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
+use futures::stream::FusedStream;
 use futures::{stream::SelectAll, StreamExt};
 use libp2p::{
     core::Multiaddr,
@@ -138,7 +139,7 @@ pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
         create_memory_maddr,
         // TODO: set to true to wait until nodes connect to each other
         //       currently it doesn't work – maybe Lifecycle events aren't working
-        false,
+        true,
     )
 }
 
@@ -156,7 +157,7 @@ where
 
 pub fn make_swarms_with<F, M>(
     n: usize,
-    mut create_swarm: F,
+    mut create_node: F,
     mut create_maddr: M,
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
@@ -172,17 +173,17 @@ where
 
     let addrs = (0..n).map(|_| create_maddr()).collect::<Vec<_>>();
 
-    let mut swarms = addrs
+    let mut nodes = addrs
         .iter()
         .map(|addr| {
             #[rustfmt::skip]
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
-            let (id, swarm, tmp) = create_swarm(addrs, addr.clone());
-            (CreatedSwarm(id, addr.clone(), tmp), swarm)
+            let (id, mut node, tmp) = create_node(addrs.clone(), addr.clone());
+            (CreatedSwarm(id, addr.clone(), tmp), node)
         })
         .collect::<Vec<_>>();
 
-    let (infos, nodes): (Vec<CreatedSwarm>, Vec<_>) = swarms.into_iter().unzip();
+    let (infos, nodes): (Vec<CreatedSwarm>, Vec<_>) = nodes.into_iter().unzip();
 
     let connected = Arc::new(AtomicUsize::new(0));
 
@@ -200,7 +201,12 @@ where
     let connected = task::spawn(async move {
         let connected = shared_connected;
         loop {
-            if let Some(LifecycleEvent::Connected(_)) = lifecycle_streams.next().await {
+            if lifecycle_streams.is_terminated() {
+                log::error!("lifecycle stream ended too soon! THIS SHOULDN'T HAPPEN.");
+                break;
+            }
+            let event = lifecycle_streams.select_next_some().await;
+            if let LifecycleEvent::Connected(_) = event {
                 connected.fetch_add(1, Ordering::SeqCst);
                 let total = connected.load(Ordering::Relaxed);
                 if total % 10 == 0 {
@@ -214,6 +220,7 @@ where
                 }
 
                 if total >= (n * (n - 1)) {
+                    log::info!("Connection took {}s", start.elapsed().as_secs_f32());
                     break;
                 }
             }
@@ -226,9 +233,7 @@ where
     });
 
     if wait_connected {
-        let now = Instant::now();
         task::block_on(connected);
-        log::info!("Connection took {}s", now.elapsed().as_secs_f32());
     }
 
     infos

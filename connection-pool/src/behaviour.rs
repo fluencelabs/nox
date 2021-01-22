@@ -207,8 +207,10 @@ impl ConnectionPoolBehaviour {
     }
 
     fn lifecycle_event(&mut self, event: LifecycleEvent) {
-        self.subscribers
-            .retain(|out| out.unbounded_send(event.clone()).is_ok())
+        self.subscribers.retain(|out| {
+            let ok = out.unbounded_send(event.clone());
+            ok.is_ok()
+        })
     }
 
     fn push_event(&mut self, event: SwarmEventType) {

@@ -15,8 +15,11 @@
  */
 
 use crate::ClientEvent;
-use failure::_core::task::{Context, Poll};
+use failure::_core::task::{Context, Poll, Waker};
+use failure::_core::time::Duration;
 use fluence_libp2p::generate_swarm_event_type;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use libp2p::core::connection::{ConnectedPoint, ConnectionId};
 use libp2p::core::either::EitherOutput;
 use libp2p::core::Multiaddr;
@@ -35,6 +38,8 @@ pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
 pub struct ClientBehaviour {
     events: VecDeque<SwarmEventType>,
     ping: Ping,
+    reconnect: Option<BoxFuture<'static, Multiaddr>>,
+    waker: Option<Waker>,
 }
 
 impl ClientBehaviour {
@@ -43,6 +48,8 @@ impl ClientBehaviour {
         Self {
             events: VecDeque::default(),
             ping,
+            reconnect: None,
+            waker: None,
         }
     }
 
@@ -52,7 +59,15 @@ impl ClientBehaviour {
                 event: EitherOutput::First(HandlerMessage::OutParticle(call, <_>::default())),
                 handler: NotifyHandler::Any,
                 peer_id,
-            })
+            });
+
+        self.wake();
+    }
+
+    fn wake(&self) {
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref()
+        }
     }
 }
 
@@ -168,9 +183,14 @@ impl NetworkBehaviour for ClientBehaviour {
         error: &dyn Error,
     ) {
         log::warn!("Failed to connect to {:?}: {:?}, reconnecting", addr, error);
-        self.events.push_back(NetworkBehaviourAction::DialAddress {
-            address: addr.clone(),
-        });
+        let address = addr.clone();
+        self.reconnect = async move {
+            // TODO: move timeout to config
+            async_std::task::sleep(Duration::from_secs(1)).await;
+            address
+        }
+        .boxed()
+        .into();
     }
 
     fn poll(
@@ -178,8 +198,16 @@ impl NetworkBehaviour for ClientBehaviour {
         cx: &mut Context<'_>,
         params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
+        self.waker = Some(cx.waker().clone());
+
         // just polling it to the end
         while let Poll::Ready(_) = self.ping.poll(cx, params) {}
+
+        if let Some(Poll::Ready(address)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
+            self.reconnect = None;
+            self.events
+                .push_back(NetworkBehaviourAction::DialAddress { address });
+        }
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);

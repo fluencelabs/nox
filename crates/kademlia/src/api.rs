@@ -25,6 +25,7 @@ use futures::channel::oneshot;
 use futures::future::BoxFuture;
 use futures::{FutureExt, StreamExt, TryFutureExt};
 use libp2p::core::Multiaddr;
+use libp2p::identity::ed25519;
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::PeerId;
 use multihash::Multihash;
@@ -74,6 +75,15 @@ impl KademliaApiInlet {
         let (outlet, inlet) = unbounded();
         let outlet = KademliaApi { outlet };
         (outlet, Self { inlet, kademlia })
+    }
+
+    pub fn add_addresses(
+        &mut self,
+        peer: PeerId,
+        addresses: Vec<Multiaddr>,
+        public_key: ed25519::PublicKey,
+    ) {
+        self.kademlia.add_kad_node(peer, addresses, public_key)
     }
 
     fn execute(&mut self, cmd: Command) {

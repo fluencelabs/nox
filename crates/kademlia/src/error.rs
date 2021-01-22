@@ -22,6 +22,7 @@ pub(crate) type Result<T> = std::result::Result<T, KademliaError>;
 #[derive(Debug)]
 // TODO: implement Error trait
 pub enum KademliaError {
+    NoPeersFound,
     Timeout,
     Cancelled,
     NoKnownPeers,
@@ -35,6 +36,7 @@ impl Display for KademliaError {
             KademliaError::Timeout => write!(f, "KademliaError::Timeout"),
             KademliaError::Cancelled => write!(f, "KademliaError::Cancelled"),
             KademliaError::NoKnownPeers => write!(f, "KademliaError::NoKnownPeers"),
+            KademliaError::NoPeersFound => write!(f, "KademliaError::NoPeersFound"),
         }
     }
 }

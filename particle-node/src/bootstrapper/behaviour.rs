@@ -145,7 +145,7 @@ impl Bootstrapper {
             .partition(|(deadline, _)| deadline.map(|d| deadline_reached(d, now)).unwrap_or(true));
 
         self.delayed_events = not_ready;
-        self.events = ready.into_iter().map(|(_, e)| e).collect();
+        self.events.extend(ready.into_iter().map(|(_, e)| e));
     }
 
     /// Called on each poll

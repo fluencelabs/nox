@@ -73,7 +73,7 @@ use std::time::Duration;
 // TODO: documentation
 pub struct Node {
     pub network_api: NetworkApi,
-    swarm: Swarm<NetworkBehaviour>,
+    pub swarm: Swarm<NetworkBehaviour>,
     stepper_pool: AquamarineBackend,
     stepper_pool_api: AquamarineApi,
     local_peer_id: PeerId,

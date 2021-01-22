@@ -42,13 +42,12 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
                 match info.public_key {
                     PublicKey::Ed25519(public_key) if supports_kademlia => {
                         let addresses = filter_addresses(info.listen_addrs);
-                        todo!("add addresses {:?} and pk {:?}", addresses, public_key);
-                        // self.kademlia.add_kad_node(peer_id, addresses, public_key);
+                        self.kademlia.add_addresses(peer_id, addresses, public_key);
                     }
                     _ if supports_kademlia => {
                         log::error!(
                             "Unable to add node {} to kademlia, public key {:?} is not supported. \
-                            Only ed25519 is supported. Will fallback to Direct routing.",
+                            Only ed25519 is supported",
                             peer_id,
                             info.public_key
                         );

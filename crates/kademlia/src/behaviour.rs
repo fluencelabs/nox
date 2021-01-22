@@ -19,6 +19,7 @@ use crate::error::{KademliaError, Result};
 use control_macro::get_return;
 use fluence_libp2p::types::OneshotOutlet;
 use libp2p::core::Multiaddr;
+use libp2p::identity::ed25519;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::kad;
 use libp2p::kad::store::MemoryStore;
@@ -83,6 +84,23 @@ impl Kademlia {
             pending_peers: <_>::default(),
         }
     }
+
+    pub fn add_kad_node(
+        &mut self,
+        peer: PeerId,
+        addresses: Vec<Multiaddr>,
+        public_key: ed25519::PublicKey,
+    ) {
+        log::trace!(
+            "adding new node {} with {:?} addresses to kademlia",
+            peer,
+            addresses,
+        );
+        for addr in addresses {
+            self.kademlia
+                .add_address(&peer, addr.clone(), public_key.clone());
+        }
+    }
 }
 
 impl Kademlia {
@@ -127,6 +145,8 @@ impl Kademlia {
     }
 
     fn closest_finished(&mut self, id: QueryId, result: GetClosestPeersResult) {
+        use GetClosestPeersError::Timeout;
+
         match get_return!(self.queries.remove(&id)) {
             PendingQuery::Peer(peer_id) => {
                 let addresses = self.kademlia.addresses_of_peer(&peer_id);
@@ -137,14 +157,11 @@ impl Kademlia {
                 }
             }
             PendingQuery::Neighborhood(outlet) => {
-                let neighbors = match result {
-                    Ok(GetClosestPeersOk { peers, .. }) => peers,
-                    Err(GetClosestPeersError::Timeout { peers, .. }) => peers,
-                };
-                let result = if neighbors.is_empty() {
-                    Err(KademliaError::Timeout)
-                } else {
-                    Ok(neighbors)
+                let result = match result {
+                    Ok(GetClosestPeersOk { peers, .. }) if !peers.is_empty() => Ok(peers),
+                    Err(Timeout { peers, .. }) if !peers.is_empty() => Ok(peers),
+                    Ok(GetClosestPeersOk { .. }) => Err(KademliaError::NoPeersFound),
+                    Err(Timeout { .. }) => Err(KademliaError::Timeout),
                 };
                 outlet.send(result).ok();
             }
@@ -190,7 +207,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
             KademliaEvent::RoutingUpdated {
                 peer, addresses, ..
             } => {
-                log::info!(target: "debug_kademlia", "routing updated {} {:#?}", peer, addresses);
+                log::trace!(target: "debug_kademlia", "routing updated {} {:#?}", peer, addresses);
                 self.peer_discovered(peer, addresses.into_vec())
             }
             KademliaEvent::RoutablePeer { peer, address }
