@@ -54,7 +54,7 @@ pub struct Kademlia {
     #[behaviour(ignore)]
     pub(super) queries: HashMap<QueryId, PendingQuery>,
     #[behaviour(ignore)]
-    pub(super) pending_peers: HashMap<PeerId, Vec<OneshotOutlet<Result<(PeerId, Vec<Multiaddr>)>>>>,
+    pub(super) pending_peers: HashMap<PeerId, Vec<OneshotOutlet<Result<Vec<Multiaddr>>>>>,
 }
 
 impl Kademlia {
@@ -98,11 +98,12 @@ impl Kademlia {
         outlet.send(self.kademlia.addresses_of_peer(peer)).ok();
     }
 
-    pub fn discover_peer(
-        &mut self,
-        peer: PeerId,
-        outlet: OneshotOutlet<Result<(PeerId, Vec<Multiaddr>)>>,
-    ) {
+    pub fn discover_peer(&mut self, peer: PeerId, outlet: OneshotOutlet<Result<Vec<Multiaddr>>>) {
+        let local = self.kademlia.addresses_of_peer(&peer);
+        if !local.is_empty() {
+            outlet.send(Ok(local)).ok();
+            return;
+        }
         let query_id = self.kademlia.get_closest_peers(peer);
         self.queries.insert(query_id, PendingQuery::Peer(peer));
         self.pending_peers.entry(peer).or_default().push(outlet);
@@ -120,7 +121,7 @@ impl Kademlia {
     fn peer_discovered(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
         if let Some(outlets) = self.pending_peers.remove(&peer) {
             for outlet in outlets {
-                outlet.send(Ok((peer.clone(), addresses.clone()))).ok();
+                outlet.send(Ok(addresses.clone())).ok();
             }
         }
     }

@@ -84,7 +84,7 @@ pub struct ConnectionPoolBehaviour {
 
 impl ConnectionPoolBehaviour {
     pub fn connect(&mut self, contact: Contact, outlet: OneshotOutlet<bool>) {
-        self.events.push_back(NetworkBehaviourAction::DialPeer {
+        self.push_event(NetworkBehaviourAction::DialPeer {
             peer_id: contact.peer_id.clone(),
             condition: DialPeerCondition::Always,
         });
@@ -141,6 +141,7 @@ impl ConnectionPoolBehaviour {
                 handler: NotifyHandler::Any,
                 event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),
             });
+        self.wake();
     }
 
     pub fn count_connections(&mut self, outlet: OneshotOutlet<usize>) {
@@ -208,6 +209,11 @@ impl ConnectionPoolBehaviour {
     fn lifecycle_event(&mut self, event: LifecycleEvent) {
         self.subscribers
             .retain(|out| out.unbounded_send(event.clone()).is_ok())
+    }
+
+    fn push_event(&mut self, event: SwarmEventType) {
+        self.events.push_back(event);
+        self.wake();
     }
 }
 

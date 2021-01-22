@@ -20,11 +20,10 @@ use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError};
 use host_closure::ClosureDescriptor;
 
 use async_std::task;
-use futures::{future::BoxFuture, Future, FutureExt};
+use futures::{future::BoxFuture, FutureExt};
 use parking_lot::RwLock;
 use std::{
     collections::VecDeque,
-    pin::Pin,
     sync::Arc,
     task::{Context, Poll, Waker},
 };
@@ -84,7 +83,7 @@ impl VmPool {
         while i < self.creating_vms.len() {
             let vms = &mut self.vms;
             let fut = &mut self.creating_vms[i];
-            if let Poll::Ready(vm) = Pin::new(fut).poll(cx) {
+            if let Poll::Ready(vm) = fut.poll_unpin(cx) {
                 // Remove completed future
                 self.creating_vms.remove(i);
                 if self.creating_vms.is_empty() {

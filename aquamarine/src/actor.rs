@@ -20,8 +20,7 @@ use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
 use aquamarine_vm::AquamarineVM;
 use particle_protocol::Particle;
 
-use async_std::pin::Pin;
-use futures::Future;
+use futures::FutureExt;
 use std::{
     collections::VecDeque,
     fmt::Debug,
@@ -88,10 +87,7 @@ impl Actor {
         self.waker = Some(cx.waker().clone());
 
         // Poll self.future
-        let future = self
-            .future
-            .take()
-            .map(|mut fut| (Pin::new(&mut fut).poll(cx), fut));
+        let future = self.future.take().map(|mut fut| (fut.poll_unpin(cx), fut));
 
         match future {
             // If future is ready, return effects and vm

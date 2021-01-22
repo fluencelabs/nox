@@ -22,3 +22,4 @@ pub use api::KademliaApiT;
 pub use api::{KademliaApi, KademliaApiInlet};
 pub use behaviour::Kademlia;
 pub use behaviour::KademliaConfig;
+pub use error::KademliaError;

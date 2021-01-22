@@ -96,7 +96,7 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Debug)
-        .filter(Some("aquamarine::actor"), Info)
+        .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("yamux::connection::stream"), Info)
         .filter(Some("tokio_threadpool"), Info)
         .filter(Some("tokio_reactor"), Info)

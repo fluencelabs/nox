@@ -29,7 +29,7 @@ use crate::node::unlocks::{unlock, unlock_f};
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
 use fluence_libp2p::types::BackPressuredInlet;
-use kademlia::{KademliaApi, KademliaApiT};
+use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::Particle;
 use server_config::NodeConfig;
 
@@ -121,15 +121,27 @@ impl Connectivity {
         for SendParticle { target, particle } in effects.particles {
             // resolve contact
             let contact = self.connection_pool.get_contact(target).await;
-            let contact = match contact {
+            let contact = if let Some(contact) = contact {
                 // contact is connected directly to current node
-                Some(contact) => contact,
+                contact
+            } else {
                 // contact isn't connected, have to discover it
-                None => {
-                    let contact = self.discover_peer(target).await;
-                    // connect to the discovered contact
-                    self.connection_pool.connect(contact.clone()).await;
-                    contact
+                let contact = self.discover_peer(target).await;
+                match contact {
+                    Ok(Some(contact)) => {
+                        // connect to the discovered contact
+                        self.connection_pool.connect(contact.clone()).await;
+                        contact
+                    }
+                    Ok(None) => {
+                        log::warn!("Couldn't discover {} for particle {}", target, particle.id);
+                        continue;
+                    }
+                    Err(err) => {
+                        let id = particle.id;
+                        log::warn!("Failed to discover {} for particle {}: {}", target, id, err);
+                        continue;
+                    }
                 }
             };
 
@@ -139,20 +151,14 @@ impl Connectivity {
     }
 
     /// Discover a peer via Kademlia
-    pub async fn discover_peer(&self, target: PeerId) -> Contact {
-        let (peer_id, addresses) = {
-            // discover contact addresses through Kademlia
-            let r = self.kademlia.discover_peer(target).await;
-            // TODO: handle error
-            r.expect("failed to discover peer")
-        };
-        let contact = Contact {
-            peer_id,
-            // TODO: take all addresses
-            addr: addresses.into_iter().next(),
-        };
-
-        contact
+    pub async fn discover_peer(&self, target: PeerId) -> Result<Option<Contact>, KademliaError> {
+        // discover contact addresses through Kademlia
+        let addresses = self.kademlia.discover_peer(target).await?;
+        if !addresses.is_empty() {
+            Ok(Some(Contact::new(target, addresses)))
+        } else {
+            Ok(None)
+        }
     }
 }
 

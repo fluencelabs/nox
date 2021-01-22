@@ -35,8 +35,7 @@ type Future<T> = BoxFuture<'static, T>;
 pub trait KademliaApiT {
     fn bootstrap(&self) -> Future<Result<()>>;
     fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>>;
-    // TODO: Why returning PeerId back?
-    fn discover_peer(&self, peer: PeerId) -> Future<Result<(PeerId, Vec<Multiaddr>)>>;
+    fn discover_peer(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>>;
     fn neighborhood(&self, key: Multihash) -> Future<Result<Vec<PeerId>>>;
     // TODO: local_neighborhood
 }
@@ -52,8 +51,7 @@ enum Command {
     },
     DiscoverPeer {
         peer: PeerId,
-        // TODO: Why returning PeerId back?
-        out: OneshotOutlet<Result<(PeerId, Vec<Multiaddr>)>>,
+        out: OneshotOutlet<Result<Vec<Multiaddr>>>,
     },
     Neighborhood {
         key: Multihash,
@@ -147,7 +145,7 @@ impl KademliaApiT for KademliaApi {
         inlet.map_err(|_| KademliaError::Cancelled).boxed()
     }
 
-    fn discover_peer(&self, peer: PeerId) -> Future<Result<(PeerId, Vec<Multiaddr>)>> {
+    fn discover_peer(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {
         self.execute(|out| Command::DiscoverPeer { peer, out })
     }
 

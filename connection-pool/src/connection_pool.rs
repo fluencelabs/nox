@@ -31,6 +31,16 @@ pub struct Contact {
     pub addr: Option<Multiaddr>,
 }
 
+impl Contact {
+    pub fn new(peer_id: PeerId, addresses: Vec<Multiaddr>) -> Self {
+        Self {
+            peer_id,
+            // TODO: take all addresses
+            addr: addresses.into_iter().next(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum LifecycleEvent {
     Connected(Contact),

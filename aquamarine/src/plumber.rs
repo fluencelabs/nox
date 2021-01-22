@@ -30,6 +30,7 @@ use std::{
 use real_time::now;
 
 use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
+use futures::task::Waker;
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now;
@@ -38,6 +39,7 @@ pub struct Plumber {
     events: VecDeque<AwaitedEffects>,
     actors: HashMap<String, Actor>,
     vm_pool: VmPool,
+    waker: Option<Waker>,
 }
 
 impl Plumber {
@@ -47,11 +49,14 @@ impl Plumber {
             vm_pool,
             events: <_>::default(),
             actors: <_>::default(),
+            waker: <_>::default(),
         }
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
     pub fn ingest(&mut self, particle: AwaitedParticle) {
+        self.wake();
+
         let deadline = Deadline::from(&particle);
         if deadline.is_expired(now()) {
             log::info!("Particle {} is expired, ignoring", particle.id);
@@ -66,6 +71,8 @@ impl Plumber {
     }
 
     pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<AwaitedEffects> {
+        self.waker = cx.waker().clone().into();
+
         self.vm_pool.poll(cx);
 
         if let Some(event) = self.events.pop_front() {
@@ -96,15 +103,21 @@ impl Plumber {
 
         // Turn effects into events, and buffer them
         for effect in effects {
-            self.events.push_back(effect.into());
+            self.events.push_back(effect);
         }
 
-        // Return new event if there is some
+        // Return a new event if there is some
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);
         }
 
         Poll::Pending
+    }
+
+    fn wake(&self) {
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref();
+        }
     }
 }
 

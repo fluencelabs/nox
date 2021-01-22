@@ -46,12 +46,20 @@ impl AquamarineBackend {
     }
 
     pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> Poll<()> {
-        if let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
+        let mut wake = false;
+
+        while let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
+            wake = true;
             self.plumber.ingest(AwaitedParticle { particle, out });
         }
 
-        if let Poll::Ready(AwaitedEffects { effects, out }) = self.plumber.poll(cx) {
+        while let Poll::Ready(AwaitedEffects { effects, out }) = self.plumber.poll(cx) {
+            wake = true;
             out.send(effects).ok();
+        }
+
+        if wake {
+            cx.waker().wake_by_ref()
         }
 
         Poll::Pending
