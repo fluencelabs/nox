@@ -37,7 +37,7 @@ mod particle_executor;
 mod plumber;
 mod vm_pool;
 
-pub use ::aquamarine::{AquamarineApi, AquamarineBackend};
+pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
 pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
 pub use config::VmPoolConfig;
 pub use outcome::{SendParticle, StepperEffects};
