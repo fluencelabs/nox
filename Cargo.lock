@@ -3177,6 +3177,8 @@ name = "particle-protocol"
 version = "0.3.0"
 dependencies = [
  "async-std",
+ "bs58 0.4.0",
+ "derivative",
  "failure",
  "fluence-fork-libp2p",
  "fluence-libp2p",
@@ -4393,6 +4395,8 @@ dependencies = [
 [[package]]
 name = "trust-graph"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f765aa81585a5d07c1b9106c41213c6431a51235a3df1be52fdc2fc4b7e8e887"
 dependencies = [
  "bs58 0.3.1",
  "derivative",
@@ -4400,7 +4404,6 @@ dependencies = [
  "failure",
  "fluence-fork-libp2p-core",
  "log",
- "rand 0.7.3",
  "ref-cast",
  "serde",
 ]

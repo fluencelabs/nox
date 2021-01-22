@@ -28,7 +28,7 @@
 
 use particle_node::{
     config::{certificates, create_args},
-    Node,
+    write_default_air_interpreter, Node,
 };
 use server_config::{default_air_interpreter_path, load_config, FluenceConfig};
 
@@ -76,17 +76,6 @@ fn main() -> anyhow::Result<()> {
     fluence.stop();
 
     Ok(())
-}
-
-fn write_default_air_interpreter() -> anyhow::Result<()> {
-    use air_interpreter_wasm::INTERPRETER_WASM;
-    use std::fs::write;
-
-    let destination = default_air_interpreter_path();
-    write(&destination, INTERPRETER_WASM).context(format!(
-        "writing default INTERPRETER_WASM to {:?}",
-        destination
-    ))
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()

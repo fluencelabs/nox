@@ -18,7 +18,9 @@ use super::behaviour::NetworkBehaviour;
 
 use config_utils::to_peer_id;
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
-use server_config::{ListenConfig, NetworkConfig, NodeConfig, ServicesConfig};
+use server_config::{
+    default_air_interpreter_path, ListenConfig, NetworkConfig, NodeConfig, ServicesConfig,
+};
 use trust_graph::TrustGraph;
 
 use anyhow::Context;
@@ -219,8 +221,20 @@ impl Node {
     }
 }
 
+pub fn write_default_air_interpreter() -> anyhow::Result<()> {
+    use air_interpreter_wasm::INTERPRETER_WASM;
+    use std::fs::write;
+
+    let destination = default_air_interpreter_path();
+    write(&destination, INTERPRETER_WASM).context(format!(
+        "writing default INTERPRETER_WASM to {:?}",
+        destination
+    ))
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::node::write_default_air_interpreter;
     use crate::Node;
     use ctrlc_adapter::block_until_ctrlc;
     use fluence_libp2p::RandomPeerId;
@@ -239,14 +253,13 @@ mod tests {
 
     #[test]
     fn run_node() {
-        enable_logs();
+        write_default_air_interpreter().unwrap();
 
         let keypair = Keypair::generate();
 
         let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
         let mut config = deserialize_config(<_>::default(), config).expect("deserialize config");
         config.server.stepper_pool_size = 1;
-        config.server.air_interpreter_path = PathBuf::from("../aquamarine_0.0.30.wasm");
         let mut node = Node::new(keypair, config.server).unwrap();
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();

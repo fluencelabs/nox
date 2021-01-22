@@ -55,4 +55,5 @@ mod bootstrapper {
 }
 
 pub use behaviour::NetworkBehaviour;
+pub use node::write_default_air_interpreter;
 pub use node::Node;
