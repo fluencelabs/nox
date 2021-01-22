@@ -302,6 +302,7 @@ mod tests {
                 }
                 other => unreachable!("{:?}", other),
             },
+            NetworkBehaviourAction::DialAddress { .. } => {}
             other => unreachable!("{:?}", other),
         };
     }
