@@ -30,7 +30,7 @@ use particle_node::{
     config::{certificates, create_args},
     write_default_air_interpreter, Node,
 };
-use server_config::{default_air_interpreter_path, load_config, FluenceConfig};
+use server_config::{load_config, FluenceConfig};
 
 use anyhow::Context;
 use clap::App;

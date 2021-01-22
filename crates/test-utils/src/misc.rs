@@ -14,29 +14,24 @@
  * limitations under the License.
  */
 
-use particle_node::{NetworkBehaviour, Node};
+use particle_node::Node;
 
 use config_utils::{modules_dir, to_abs_path};
 use fluence_client::Transport;
 use fluence_libp2p::{build_memory_transport, build_transport};
-use server_config::{BootstrapConfig, NetworkConfig, NodeConfig, ServicesConfig};
+use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
 use trust_graph::{Certificate, TrustGraph};
 
 use aquamarine::VmPoolConfig;
-use async_std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use async_std::task;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
 use futures::stream::FusedStream;
 use futures::{stream::SelectAll, StreamExt};
 use libp2p::{
     core::Multiaddr,
-    identity::{
-        ed25519::{Keypair, PublicKey},
-        PublicKey::Ed25519,
-    },
-    PeerId, Swarm,
+    identity::ed25519::{Keypair, PublicKey},
+    PeerId,
 };
-use prometheus::Registry;
 use rand::Rng;
 use serde_json::{json, Value as JValue};
 use std::{
@@ -165,20 +160,13 @@ where
     F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node>, PathBuf),
     M: FnMut() -> Multiaddr,
 {
-    use futures::stream::FuturesUnordered;
-    use libp2p::core::ConnectedPoint::Dialer;
-    use libp2p::swarm::SwarmEvent::ConnectionEstablished;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Arc;
-
     let addrs = (0..n).map(|_| create_maddr()).collect::<Vec<_>>();
-
-    let mut nodes = addrs
+    let nodes = addrs
         .iter()
         .map(|addr| {
             #[rustfmt::skip]
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
-            let (id, mut node, tmp) = create_node(addrs.clone(), addr.clone());
+            let (id, node, tmp) = create_node(addrs.clone(), addr.clone());
             (CreatedSwarm(id, addr.clone(), tmp), node)
         })
         .collect::<Vec<_>>();
