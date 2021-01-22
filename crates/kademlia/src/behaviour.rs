@@ -222,25 +222,16 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
 #[cfg(test)]
 mod tests {
     use super::Kademlia;
-    use crate::behaviour::KademliaError;
     use crate::KademliaConfig;
-    use async_std::stream::IntoStream;
     use async_std::task;
     use fluence_libp2p::build_memory_transport;
     use futures::channel::oneshot;
-    use futures::future::Fuse;
-    use futures::ready;
-    use futures::select;
-    use futures::FutureExt;
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
     use libp2p::identity::ed25519::{Keypair, PublicKey};
     use libp2p::identity::PublicKey::Ed25519;
-    use libp2p::swarm::SwarmEvent;
     use libp2p::PeerId;
     use libp2p::Swarm;
-    use std::pin::Pin;
-    use std::sync::mpsc;
     use std::task::Poll;
     use test_utils::{create_memory_maddr, enable_logs};
     use trust_graph::TrustGraph;
@@ -308,9 +299,8 @@ mod tests {
         let maddr = async_std::task::block_on(async move {
             let mut swarms = vec![a, b, c, d, e];
             task::spawn(futures::future::poll_fn(move |ctx| {
-                for (i, swarm) in swarms.iter_mut().enumerate() {
-                    if let Poll::Ready(Some(e)) = swarm.poll_next_unpin(ctx) {
-                        println!("event: {:#?}", e);
+                for (_, swarm) in swarms.iter_mut().enumerate() {
+                    if let Poll::Ready(Some(_)) = swarm.poll_next_unpin(ctx) {
                         return Poll::Ready(());
                     }
                 }
@@ -320,7 +310,6 @@ mod tests {
             discover_fut.await
         });
 
-        println!("maddr: {:?}", maddr);
-        assert_eq!(maddr.unwrap().unwrap().1[0], c_addr);
+        assert_eq!(maddr.unwrap().unwrap()[0], c_addr);
     }
 }
