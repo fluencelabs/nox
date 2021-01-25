@@ -1,3 +1,4 @@
+#![feature(drain_filter)]
 /*
  * Copyright 2020 Fluence Labs Limited
  *

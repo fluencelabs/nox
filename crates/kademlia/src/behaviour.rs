@@ -17,22 +17,27 @@
 use crate::error::{KademliaError, Result};
 
 use control_macro::get_return;
+use fluence_libp2p::generate_swarm_event_type;
 use fluence_libp2p::types::OneshotOutlet;
-use libp2p::core::Multiaddr;
-use libp2p::identity::ed25519;
-use libp2p::identity::ed25519::Keypair;
-use libp2p::kad;
-use libp2p::kad::store::MemoryStore;
-use libp2p::kad::{
-    BootstrapError, BootstrapOk, BootstrapResult, GetClosestPeersError, GetClosestPeersOk,
-    GetClosestPeersResult, QueryId, QueryResult,
+use trust_graph::TrustGraph;
+
+use libp2p::{
+    core::Multiaddr,
+    identity::{ed25519, ed25519::Keypair},
+    kad::{
+        self, store::MemoryStore, BootstrapError, BootstrapOk, BootstrapResult,
+        GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult, KademliaEvent, QueryId,
+        QueryResult,
+    },
+    swarm::{NetworkBehaviour, NetworkBehaviourEventProcess},
+    PeerId,
 };
-use libp2p::swarm::NetworkBehaviour;
-use libp2p::{kad::KademliaEvent, swarm::NetworkBehaviourEventProcess, PeerId};
 use multihash::Multihash;
 use prometheus::Registry;
-use std::collections::HashMap;
-use trust_graph::TrustGraph;
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 pub struct KademliaConfig {
     pub peer_id: PeerId,
@@ -48,15 +53,33 @@ pub enum PendingQuery {
     Unit(OneshotOutlet<Result<()>>),
 }
 
+struct PendingPeer {
+    out: OneshotOutlet<Result<Vec<Multiaddr>>>,
+    deadline: Instant,
+}
+
+impl PendingPeer {
+    pub fn new(out: OneshotOutlet<Result<Vec<Multiaddr>>>, timeout: Duration) -> Self {
+        Self {
+            out,
+            deadline: Instant::now() + timeout,
+        }
+    }
+}
+
+type SwarmEventType = generate_swarm_event_type!(Kademlia);
+
 #[derive(::libp2p::NetworkBehaviour)]
-
+#[behaviour(poll_method = "custom_poll")]
 pub struct Kademlia {
-    pub(super) kademlia: kad::Kademlia<MemoryStore>,
+    kademlia: kad::Kademlia<MemoryStore>,
 
     #[behaviour(ignore)]
-    pub(super) queries: HashMap<QueryId, PendingQuery>,
+    queries: HashMap<QueryId, PendingQuery>,
     #[behaviour(ignore)]
-    pub(super) pending_peers: HashMap<PeerId, Vec<OneshotOutlet<Result<Vec<Multiaddr>>>>>,
+    pending_peers: HashMap<PeerId, Vec<PendingPeer>>,
+    #[behaviour(ignore)]
+    query_timeout: Duration,
 }
 
 impl Kademlia {
@@ -67,8 +90,9 @@ impl Kademlia {
     ) -> Self {
         let store = MemoryStore::new(config.peer_id);
 
+        let query_timeout = config.kad_config.query_timeout;
         let mut kademlia = kad::Kademlia::with_config(
-            config.keypair.clone(),
+            config.keypair,
             config.peer_id,
             store,
             config.kad_config.into(),
@@ -83,6 +107,7 @@ impl Kademlia {
             kademlia,
             queries: <_>::default(),
             pending_peers: <_>::default(),
+            query_timeout,
         }
     }
 
@@ -125,7 +150,9 @@ impl Kademlia {
         }
         let query_id = self.kademlia.get_closest_peers(peer);
         self.queries.insert(query_id, PendingQuery::Peer(peer));
-        self.pending_peers.entry(peer).or_default().push(outlet);
+
+        let pending = PendingPeer::new(outlet, self.query_timeout);
+        self.pending_peers.entry(peer).or_default().push(pending);
     }
 
     pub fn neighborhood(&mut self, key: Multihash, outlet: OneshotOutlet<Result<Vec<PeerId>>>) {
@@ -136,23 +163,21 @@ impl Kademlia {
 }
 
 impl Kademlia {
-    // TODO: timeout & non-discovered errors
     fn peer_discovered(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
-        if let Some(outlets) = self.pending_peers.remove(&peer) {
-            for outlet in outlets {
-                outlet.send(Ok(addresses.clone())).ok();
+        if let Some(pendings) = self.pending_peers.remove(&peer) {
+            for pending in pendings {
+                pending.out.send(Ok(addresses.clone())).ok();
             }
         }
     }
 
     fn closest_finished(&mut self, id: QueryId, result: GetClosestPeersResult) {
-        log::debug!(target: "debug_kademlia", "closest finished");
         use GetClosestPeersError::Timeout;
 
         match get_return!(self.queries.remove(&id)) {
             PendingQuery::Peer(peer_id) => {
                 let addresses = self.kademlia.addresses_of_peer(&peer_id);
-                // if addresses are empty - do nothing, let it be finished by timeout
+                // if addresses are empty - do nothing, let it be finished by timeout;
                 // motivation: more addresses might appear later through other events
                 if !addresses.is_empty() {
                     self.peer_discovered(peer_id, addresses)
@@ -189,6 +214,37 @@ impl Kademlia {
             }
         }
     }
+
+    fn custom_poll(
+        &mut self,
+        _: &mut std::task::Context,
+        _: &mut impl libp2p::swarm::PollParameters,
+    ) -> std::task::Poll<SwarmEventType> {
+        use std::task::Poll;
+
+        // Exit early to avoid Instant::now calculation
+        if self.pending_peers.is_empty() {
+            return Poll::Pending;
+        };
+
+        let now = Instant::now();
+        // Remove empty keys
+        self.pending_peers.retain(|_, peers| {
+            // remove expired
+            let expired = peers.drain_filter(|p| p.deadline >= now);
+            for p in expired {
+                // notify expired
+                p.out.send(Err(KademliaError::Timeout)).ok();
+            }
+
+            // empty entries will be removed
+            !peers.is_empty()
+        });
+
+        // NOTE: task will not be awaken until something happens
+        //       that implies that timeouts are of low resolution
+        Poll::Pending
+    }
 }
 
 impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
@@ -197,20 +253,12 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
             KademliaEvent::QueryResult { id, result, .. } => match result {
                 QueryResult::GetClosestPeers(result) => self.closest_finished(id, result),
                 QueryResult::Bootstrap(result) => self.bootstrap_finished(id, result),
-                QueryResult::GetProviders(_) => {}
-                QueryResult::StartProviding(_) => {}
-                QueryResult::RepublishProvider(_) => {}
-                QueryResult::GetRecord(_) => {}
-                QueryResult::PutRecord(_) => {}
-                QueryResult::RepublishRecord(_) => {}
+                _ => {}
             },
             KademliaEvent::UnroutablePeer { .. } => {}
             KademliaEvent::RoutingUpdated {
                 peer, addresses, ..
-            } => {
-                log::trace!(target: "debug_kademlia", "routing updated {} {:#?}", peer, addresses);
-                self.peer_discovered(peer, addresses.into_vec())
-            }
+            } => self.peer_discovered(peer, addresses.into_vec()),
             KademliaEvent::RoutablePeer { peer, address }
             | KademliaEvent::PendingRoutablePeer { peer, address } => {
                 self.peer_discovered(peer, vec![address])
