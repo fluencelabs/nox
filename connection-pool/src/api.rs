@@ -32,6 +32,7 @@ use futures::{
 use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::PeerId;
 use std::convert::identity;
+use std::time::Duration;
 
 enum Command {
     Connect {
@@ -76,7 +77,10 @@ pub struct ConnectionPoolInlet {
 impl ConnectionPoolInlet {
     pub fn new(connection_pool: ConnectionPoolBehaviour) -> (ConnectionPoolApi, Self) {
         let (outlet, inlet) = unbounded();
-        let api = ConnectionPoolApi { outlet };
+        let api = ConnectionPoolApi {
+            outlet,
+            send_timeout: connection_pool.protocol_config.upgrade_timeout,
+        };
         let inlet = Self {
             inlet,
             connection_pool,
@@ -120,6 +124,7 @@ impl NetworkBehaviourEventProcess<()> for ConnectionPoolInlet {
 #[derive(Clone)]
 pub struct ConnectionPoolApi {
     outlet: Outlet<Command>,
+    send_timeout: Duration,
 }
 
 impl ConnectionPoolApi {
@@ -138,26 +143,36 @@ impl ConnectionPoolApi {
 
 impl ConnectionPoolT for ConnectionPoolApi {
     fn connect(&self, contact: Contact) -> BoxFuture<'static, bool> {
+        // timeout isn't needed because libp2p handles it through inject_dial_failure, etc
         self.execute(|out| Command::Connect { contact, out })
     }
 
     fn disconnect(&self, contact: Contact) -> BoxFuture<'static, bool> {
+        // TODO: timeout needed? will be clearer when disconnect is implemented
         self.execute(|out| Command::Disconnect { contact, out })
     }
 
     fn is_connected(&self, peer_id: PeerId) -> BoxFuture<'static, bool> {
+        // timeout isn't needed because result is returned immediately
         self.execute(|out| Command::IsConnected { peer_id, out })
     }
 
     fn get_contact(&self, peer_id: PeerId) -> BoxFuture<'static, Option<Contact>> {
+        // timeout isn't needed because result is returned immediately
         self.execute(|out| Command::GetContact { peer_id, out })
     }
 
     fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, bool> {
-        self.execute(|out| Command::Send { to, particle, out })
+        let fut = self.execute(|out| Command::Send { to, particle, out });
+        // timeout on send is required because libp2p can silently drop outbound events
+        async_std::io::timeout(self.send_timeout, fut.map(Ok))
+            // convert timeout to false
+            .map(|r| r.unwrap_or(false))
+            .boxed()
     }
 
     fn count_connections(&self) -> BoxFuture<'static, usize> {
+        // timeout isn't needed because result is returned immediately
         self.execute(|out| Command::CountConnections { out })
     }
 

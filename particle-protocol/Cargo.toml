@@ -21,4 +21,4 @@ bs58 = "0.4.0"
 
 [dev-dependencies]
 rand = "0.7.3"
-async-std = "1.6.5"
+async-std = "1.9.0"

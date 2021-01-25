@@ -162,7 +162,7 @@ where
 
             if log::max_level() >= LevelFilter::Debug {
                 match serde_json::to_string(&msg) {
-                    Ok(str) => log::debug!("Sending outbound ProtocolMessage: {}", str),
+                    Ok(str) => log::debug!("Sending ProtocolMessage: {}", str),
                     Err(err) => log::warn!("Can't serialize {:?} to string {}", &msg, err),
                 }
             }
@@ -174,7 +174,7 @@ where
             };
 
             let result = write().await.map_err(|err| {
-                log::warn!("Error sending outbound ProtocolMessage: {:?}", err);
+                log::warn!("Error sending ProtocolMessage: {:?}", err);
                 err
             });
 

@@ -20,9 +20,12 @@ use particle_protocol::Particle;
 
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
+use itertools::Itertools;
 use libp2p::core::Multiaddr;
 use libp2p::PeerId;
+use serde::export::Formatter;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Contact {
@@ -37,6 +40,16 @@ impl Contact {
             peer_id,
             // TODO: take all addresses
             addr: addresses.into_iter().next(),
+        }
+    }
+}
+
+impl Display for Contact {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.addr.is_none() {
+            write!(f, "{} @ {}", self.peer_id, "[no addr]")
+        } else {
+            write!(f, "{} @ [{}]", self.peer_id, self.addr.iter().join(" "))
         }
     }
 }
