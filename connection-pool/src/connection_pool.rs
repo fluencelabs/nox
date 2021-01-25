@@ -31,25 +31,22 @@ use std::fmt::Display;
 pub struct Contact {
     #[serde(with = "peerid_serializer")]
     pub peer_id: PeerId,
-    pub addr: Option<Multiaddr>,
+    pub addresses: Vec<Multiaddr>,
 }
 
 impl Contact {
     pub fn new(peer_id: PeerId, addresses: Vec<Multiaddr>) -> Self {
-        Self {
-            peer_id,
-            // TODO: take all addresses
-            addr: addresses.into_iter().next(),
-        }
+        Self { peer_id, addresses }
     }
 }
 
 impl Display for Contact {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.addr.is_none() {
+        if self.addresses.is_empty() {
             write!(f, "{} @ {}", self.peer_id, "[no addr]")
         } else {
-            write!(f, "{} @ [{}]", self.peer_id, self.addr.iter().join(" "))
+            let addrs = self.addresses.iter().join(" ");
+            write!(f, "{} @ [{}]", self.peer_id, addrs)
         }
     }
 }

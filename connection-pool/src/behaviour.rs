@@ -106,15 +106,13 @@ impl ConnectionPoolBehaviour {
                     outlet.send(true).ok();
                 }
                 Peer::Dialing(addrs, outlets) => {
-                    if let Some(maddr) = contact.addr {
-                        addrs.insert(maddr);
-                    }
+                    addrs.extend(contact.addresses);
                     outlets.push(outlet)
                 }
             },
             Entry::Vacant(slot) => {
                 slot.insert(Peer::Dialing(
-                    contact.addr.into_iter().collect(),
+                    contact.addresses.into_iter().collect(),
                     vec![outlet],
                 ));
             }
@@ -134,11 +132,9 @@ impl ConnectionPoolBehaviour {
 
     pub fn get_contact(&self, peer_id: PeerId, outlet: OneshotOutlet<Option<Contact>>) {
         let contact = match self.contacts.get(&peer_id) {
-            Some(Peer::Connected(addrs)) => Some(Contact {
-                peer_id,
-                // TODO: take all addresses
-                addr: addrs.iter().next().cloned(),
-            }),
+            Some(Peer::Connected(addrs)) => {
+                Some(Contact::new(peer_id, addrs.into_iter().cloned().collect()))
+            }
             _ => None,
         };
         outlet.send(contact).ok();
@@ -265,7 +261,14 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             .collect()
     }
 
-    fn inject_connected(&mut self, _: &PeerId) {}
+    fn inject_connected(&mut self, peer_id: &PeerId) {
+        // NOTE: `addresses_of_peer` at this point must be filled
+        // with addresses through inject_connection_established
+        let contact = Contact::new(peer_id.clone(), self.addresses_of_peer(peer_id));
+        debug_assert!(!contact.addresses.is_empty());
+        // Signal a new peer connected
+        self.lifecycle_event(LifecycleEvent::Connected(contact));
+    }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
         self.remove_contact(peer_id, "disconnected");
@@ -297,6 +300,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             .map(|id| format!(" peer id {}", id))
             .unwrap_or_default();
         log::warn!("failed to connect to {}{}: {}", addr, peer, error);
+
         if let Some(peer_id) = peer_id {
             let empty = self.contacts.get_mut(peer_id).map_or(false, |contact| {
                 // remove failed address
