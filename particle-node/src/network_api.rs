@@ -74,25 +74,13 @@ impl NetworkApi {
     /// then executes them on `stepper_pool`, and sends to other peers through `execute_effects`
     ///
     /// `parallelism` sets the number of simultaneously processed particles
-    pub fn start(
-        self,
-        aquamarine: AquamarineApi,
-        bootstrap_nodes: HashSet<Multiaddr>,
-    ) -> JoinHandle<()> {
+    pub fn start(self, aquamarine: AquamarineApi) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let NetworkApi {
                 particle_stream,
                 particle_parallelism,
                 connectivity,
             } = self;
-
-            let cp = connectivity.connection_pool.clone();
-            stream::iter(bootstrap_nodes.clone()).for_each_concurrent(None, |node| {
-                let cp = cp;
-                async {
-                    cp.connect()
-                }
-            })
 
             particle_stream
                 .for_each_concurrent(particle_parallelism, move |particle| {
