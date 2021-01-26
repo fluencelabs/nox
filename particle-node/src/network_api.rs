@@ -112,12 +112,12 @@ impl NetworkApi {
                 .flatten()
         };
 
-        async fn loop_connect(pool: ConnectionPoolApi, addr: Multiaddr) {
-            // TODO: take from config
-            let max = Duration::from_secs(60);
-            // TODO: exponential backoff + random?
-            let delta = Duration::from_secs(5);
+        // TODO: take from config
+        let max = Duration::from_secs(60);
+        // TODO: exponential backoff + random?
+        let delta = Duration::from_secs(5);
 
+        let reconnect = move |pool: ConnectionPoolApi, addr: Multiaddr| async move {
             let mut delay = Duration::from_secs(0);
             loop {
                 if pool.dial(addr.clone()).await.is_some() {
@@ -129,10 +129,10 @@ impl NetworkApi {
                 log::info!("can't connect to bootstrap (pause for {})", pretty(delay));
                 sleep(delay).await;
             }
-        }
+        };
 
         disconnections
-            .for_each_concurrent(None, |addr| loop_connect(pool.clone(), addr))
+            .for_each_concurrent(None, |addr| reconnect(pool.clone(), addr))
             .await;
     }
 
