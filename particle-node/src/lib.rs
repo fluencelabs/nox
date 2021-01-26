@@ -51,7 +51,7 @@ mod bootstrapper {
     mod event;
 
     pub(crate) use behaviour::Bootstrapper;
-    pub(crate) use event::BootstrapperEvent;
+    pub(crate) use event::RunBootstrap;
 }
 
 pub use behaviour::NetworkBehaviour;

@@ -17,12 +17,4 @@
 use libp2p::core::Multiaddr;
 
 #[derive(Debug, Clone)]
-pub enum BootstrapperEvent {
-    RunBootstrap,
-
-    // Command to reconnect to specified bootstrap
-    ReconnectToBootstrap {
-        multiaddr: Multiaddr,
-        error: Option<String>,
-    },
-}
+pub struct RunBootstrap;

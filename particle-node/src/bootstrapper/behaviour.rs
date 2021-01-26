@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use crate::bootstrapper::event::BootstrapperEvent;
+use crate::bootstrapper::event::RunBootstrap;
 
 use fluence_libp2p::{event_polling, generate_swarm_event_type, remote_multiaddr};
 use server_config::BootstrapConfig;
 
+use kademlia::KademliaApi;
 use libp2p::{
     core::{
         connection::{ConnectedPoint, ConnectionId},
@@ -27,6 +28,7 @@ use libp2p::{
     swarm::{protocols_handler::DummyProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction},
     PeerId,
 };
+use std::task::Waker;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     error::Error,
@@ -57,6 +59,7 @@ pub struct Bootstrapper {
     events: VecDeque<SwarmEventType>,
     bootstrap_scheduled: Option<(Instant, Duration)>,
     bootstrap_backoff: HashMap<Multiaddr, Backoff>,
+    waker: Option<Waker>,
 }
 
 impl Bootstrapper {
@@ -69,6 +72,7 @@ impl Bootstrapper {
             events: <_>::default(),
             bootstrap_scheduled: None,
             bootstrap_backoff: <_>::default(),
+            waker: None,
         };
 
         this.dial_bootstrap_nodes();
@@ -76,18 +80,26 @@ impl Bootstrapper {
         this
     }
 
-    fn dial_bootstrap_nodes(&mut self) {
-        for addr in self.bootstrap_nodes.iter() {
-            self.events.push_back(NetworkBehaviourAction::DialAddress {
-                address: addr.clone(),
-            })
+    fn wake(&self) {
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref()
         }
     }
 
-    fn push_event(&mut self, event: BootstrapperEvent, delay: Option<Duration>) {
-        let event = NetworkBehaviourAction::GenerateEvent(event);
+    fn dial_bootstrap_nodes(&mut self) {
+        for addr in self.bootstrap_nodes.iter() {
+            let address = addr.clone();
+            let event = NetworkBehaviourAction::DialAddress { address };
+            self.events.push_back(event);
+        }
+
+        self.wake();
+    }
+
+    fn push_event(&mut self, event: SwarmEventType, delay: Option<Duration>) {
         let deadline = delay.map(|d| Instant::now() + d);
         self.delayed_events.push((deadline, event));
+        self.wake();
     }
 
     fn reconnect_bootstrap<E, S>(&mut self, multiaddr: Multiaddr, error: E)
@@ -102,13 +114,8 @@ impl Bootstrapper {
             .or_insert_with(|| Backoff::new(delay))
             .next_delay();
 
-        self.push_event(
-            BootstrapperEvent::ReconnectToBootstrap {
-                multiaddr,
-                error: error.into().map(|e| e.into()),
-            },
-            Some(delay),
-        );
+        log::debug!("reconnecting bootstrap {}: {}", multiaddr, error.into());
+        self.push_event(NetworkBehaviourAction::DialAddress { address }, Some(delay));
     }
 
     /// Schedule sending of `RunBootstrap` event after a `bootstrap_delay`
@@ -130,7 +137,7 @@ impl Bootstrapper {
     fn trigger_bootstrap(&mut self, now: Instant) {
         if let Some(&(scheduled, delay)) = self.bootstrap_scheduled.as_ref() {
             if now >= scheduled + delay {
-                self.push_event(BootstrapperEvent::RunBootstrap, None);
+                self.push_event(RunBootstrap::RunBootstrap, None);
                 self.bootstrap_scheduled = None;
             }
         }
@@ -145,6 +152,9 @@ impl Bootstrapper {
             .partition(|(deadline, _)| deadline.map(|d| deadline_reached(d, now)).unwrap_or(true));
 
         self.delayed_events = not_ready;
+        if !ready.is_empty() {
+            self.wake();
+        }
         self.events.extend(ready.into_iter().map(|(_, e)| e));
     }
 
@@ -163,7 +173,7 @@ fn deadline_reached(deadline: Instant, now: Instant) -> bool {
 
 impl NetworkBehaviour for Bootstrapper {
     type ProtocolsHandler = DummyProtocolsHandler;
-    type OutEvent = BootstrapperEvent;
+    type OutEvent = RunBootstrap;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         <_>::default()
@@ -214,7 +224,7 @@ impl NetworkBehaviour for Bootstrapper {
         error: &dyn Error,
     ) {
         if self.bootstrap_nodes.contains(maddr) {
-            self.reconnect_bootstrap(maddr.clone(), format!("{:?}", error));
+            self.reconnect_bootstrap(maddr.clone(), format!("{}", error));
         }
     }
 
@@ -224,7 +234,7 @@ impl NetworkBehaviour for Bootstrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bootstrapper::event::BootstrapperEvent::RunBootstrap;
+    use crate::bootstrapper::event::RunBootstrap::RunBootstrap;
     use fluence_libp2p::RandomPeerId;
     use libp2p::swarm::{AddressRecord, PollParameters};
     use std::net::IpAddr;

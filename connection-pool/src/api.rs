@@ -29,12 +29,14 @@ use futures::{
     stream::BoxStream,
     FutureExt, StreamExt,
 };
-use libp2p::swarm::NetworkBehaviourEventProcess;
-use libp2p::PeerId;
-use std::convert::identity;
-use std::time::Duration;
+use libp2p::{core::Multiaddr, swarm::NetworkBehaviourEventProcess, PeerId};
+use std::{convert::identity, time::Duration};
 
 enum Command {
+    Dial {
+        addr: Multiaddr,
+        out: OneshotOutlet<bool>,
+    },
     Connect {
         contact: Contact,
         out: OneshotOutlet<bool>,
