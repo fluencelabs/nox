@@ -166,7 +166,7 @@ where
         .map(|addr| {
             #[rustfmt::skip]
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
-            let (id, node, tmp) = create_node(addrs.clone(), addr.clone());
+            let (id, node, tmp) = create_node(addrs, addr.clone());
             (CreatedSwarm(id, addr.clone(), tmp), node)
         })
         .collect::<Vec<_>>();

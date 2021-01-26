@@ -30,7 +30,7 @@ pub(super) type Fut = BoxFuture<'static, FutResult>;
 pub trait ParticleExecutor {
     type Future;
     type Particle;
-    fn execute(self: Self, p: Self::Particle, waker: Waker) -> Self::Future;
+    fn execute(self, p: Self::Particle, waker: Waker) -> Self::Future;
 }
 
 /// Result of a particle execution along a VM that has just executed the particle

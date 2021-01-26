@@ -117,7 +117,7 @@ impl NetworkBehaviour for ClientBehaviour {
 
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
             ClientEvent::NewConnection {
-                peer_id: peer_id.clone(),
+                peer_id: *peer_id,
                 multiaddr: multiaddr.clone(),
             },
         ))
@@ -201,7 +201,7 @@ impl NetworkBehaviour for ClientBehaviour {
         self.waker = Some(cx.waker().clone());
 
         // just polling it to the end
-        while let Poll::Ready(_) = self.ping.poll(cx, params) {}
+        while self.ping.poll(cx, params).is_ready() {}
 
         if let Some(Poll::Ready(address)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
             self.reconnect = None;

@@ -134,7 +134,7 @@ impl ConnectedClient {
     }
 
     pub fn send(&self, particle: Particle) {
-        self.client.send(particle, self.node.clone())
+        self.client.send(particle, self.node)
     }
 
     pub fn send_particle(
@@ -142,7 +142,7 @@ impl ConnectedClient {
         script: impl Into<String>,
         data: HashMap<&'static str, JValue>,
     ) {
-        let particle = make_particle(self.peer_id.clone(), data, script.into());
+        let particle = make_particle(self.peer_id, data, script.into());
         self.send(particle);
     }
 

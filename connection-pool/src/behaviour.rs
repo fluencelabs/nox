@@ -85,11 +85,11 @@ pub struct ConnectionPoolBehaviour {
 impl ConnectionPoolBehaviour {
     pub fn connect(&mut self, contact: Contact, outlet: OneshotOutlet<bool>) {
         self.push_event(NetworkBehaviourAction::DialPeer {
-            peer_id: contact.peer_id.clone(),
+            peer_id: contact.peer_id,
             condition: DialPeerCondition::Always,
         });
 
-        match self.contacts.entry(contact.peer_id.clone()) {
+        match self.contacts.entry(contact.peer_id) {
             Entry::Occupied(mut entry) => match entry.get_mut() {
                 // TODO: add/replace multiaddr? if yes, do not forget to check connectivity
                 Peer::Connected(_) => {
@@ -246,7 +246,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             .and_then(|p| p.addresses().next().cloned());
 
         self.lifecycle_event(LifecycleEvent::Connected(Contact {
-            peer_id: peer_id.clone(),
+            peer_id: *peer_id,
             addr,
         }))
     }
@@ -259,10 +259,10 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     ) {
         let multiaddr = remote_multiaddr(cp).clone();
 
-        self.add_address(peer_id.clone(), multiaddr.clone());
+        self.add_address(*peer_id, multiaddr.clone());
 
         self.lifecycle_event(LifecycleEvent::Connected(Contact {
-            peer_id: peer_id.clone(),
+            peer_id: *peer_id,
             addr: multiaddr.into(),
         }))
     }

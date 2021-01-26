@@ -65,13 +65,13 @@ impl Kademlia {
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
     ) -> Self {
-        let store = MemoryStore::new(config.peer_id.clone());
+        let store = MemoryStore::new(config.peer_id);
 
         let mut kademlia = kad::Kademlia::with_config(
             config.keypair.clone(),
-            config.peer_id.clone(),
+            config.peer_id,
             store,
-            config.kad_config.clone().into(),
+            config.kad_config.into(),
             trust_graph,
         );
 

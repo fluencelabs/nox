@@ -67,7 +67,7 @@ impl NetworkBehaviour {
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
 
         let kad_config = KademliaConfig {
-            peer_id: cfg.local_peer_id.clone(),
+            peer_id: cfg.local_peer_id,
             keypair: cfg.key_pair,
             kad_config: cfg.kademlia_config,
         };

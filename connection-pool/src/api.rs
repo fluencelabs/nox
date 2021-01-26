@@ -129,7 +129,7 @@ impl ConnectionPoolApi {
         F: FnOnce(OneshotOutlet<R>) -> Command,
     {
         let (out, inlet) = oneshot::channel();
-        if let Err(_) = self.outlet.unbounded_send(cmd(out)) {
+        if self.outlet.unbounded_send(cmd(out)).is_err() {
             return futures::future::ready(R::default()).boxed();
         }
         inlet.map(|r| r.unwrap_or_default()).boxed()
@@ -164,7 +164,7 @@ impl ConnectionPoolT for ConnectionPoolApi {
     fn lifecycle_events(&self) -> BoxStream<'static, LifecycleEvent> {
         let (out, inlet) = unbounded();
         let cmd = Command::LifecycleEvents { out };
-        if let Err(_) = self.outlet.unbounded_send(cmd) {
+        if self.outlet.unbounded_send(cmd).is_err() {
             return futures::stream::empty().boxed();
         };
 

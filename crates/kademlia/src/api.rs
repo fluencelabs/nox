@@ -138,7 +138,7 @@ impl KademliaApi {
         F: FnOnce(OneshotOutlet<Result<R>>) -> Command,
     {
         let (out, inlet) = oneshot::channel();
-        if let Err(_) = self.outlet.unbounded_send(cmd(out)) {
+        if self.outlet.unbounded_send(cmd(out)).is_err() {
             return futures::future::err(KademliaError::Cancelled).boxed();
         }
         inlet

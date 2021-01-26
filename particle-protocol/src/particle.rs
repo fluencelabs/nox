@@ -52,6 +52,7 @@ impl Default for Particle {
     }
 }
 
+#[allow(clippy::ptr_arg)]
 fn fmt_data(data: &Vec<u8>, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
     write!(f, "{}", bs58::encode(data).into_string())
 }

@@ -42,7 +42,7 @@ use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 use std::error::Error;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     env_logger::builder().format_timestamp_micros().init();
 
     let args = &[Arg::from_usage("<multiaddr> 'Multiaddr of the Fluence node'").required(true)];
@@ -70,8 +70,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .send(())
         .expect("send exit signal to client task");
     task::block_on(client_task);
-
-    Ok(())
 }
 
 async fn run_client(
@@ -94,7 +92,7 @@ async fn run_client(
                 match cmd {
                     Ok(cmd) => {
                         if let Some(node) = &node {
-                            client.send(cmd.into(), node.clone());
+                            client.send(cmd.into(), *node);
                             print!("\n");
                         } else {
                             print!("Not connected yet!");
@@ -108,7 +106,7 @@ async fn run_client(
                     Some(ClientEvent::NewConnection{ peer_id, ..}) => {
                         log::info!("Connected to {}", peer_id);
                         #[allow(unused_assignments)] // This seems like a linting bug, node is used a few lines above
-                        node = Some(peer_id.clone());
+                        node = Some(peer_id);
                         unimplemented!("print example");
                         /*print_example(Protocol::Peer(peer_id.clone()).into(), client.relay_address(peer_id.clone()));*/
                     }
