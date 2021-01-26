@@ -21,7 +21,7 @@
 //!
 //! The most fundamental effect here is that of
 //! - receiving a particle
-//! - executing it through Aquamarine (via [[StepperPoolApi]])
+//! - executing it through Aquamarine
 //! - forwarding the particle to the next peers
 
 use crate::node::unlocks::{unlock, unlock_f};
@@ -65,6 +65,7 @@ impl NetworkApi {
         }
     }
 
+    /// Return connectivity API to access Connection Pool or Kademlia
     pub fn connectivity(&self) -> Connectivity {
         self.connectivity.clone()
     }
@@ -95,6 +96,8 @@ impl NetworkApi {
                                 connectivity.execute_effects(stepper_effects).await
                             }
                             Err(err) => {
+                                // particles are sent in fire and forget fashion, so
+                                // there's nothing to do here but log
                                 log::warn!("Error executing particle: {}", err)
                             }
                         };
@@ -115,7 +118,7 @@ pub struct Connectivity {
 }
 
 impl Connectivity {
-    /// Perform effects that Aquamarine (through [[StepperPoolApi]]) instructed us to
+    /// Perform effects that Aquamarine instructed us to
     pub async fn execute_effects(&self, effects: StepperEffects) {
         // take every particle, and try to send it
         for SendParticle { target, particle } in effects.particles {
@@ -154,11 +157,11 @@ impl Connectivity {
     pub async fn discover_peer(&self, target: PeerId) -> Result<Option<Contact>, KademliaError> {
         // discover contact addresses through Kademlia
         let addresses = self.kademlia.discover_peer(target).await?;
-        if !addresses.is_empty() {
-            Ok(Some(Contact::new(target, addresses)))
-        } else {
-            Ok(None)
+        if addresses.is_empty() {
+            return Ok(None);
         }
+
+        Ok(Some(Contact::new(target, addresses)))
     }
 }
 
