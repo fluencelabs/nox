@@ -39,6 +39,7 @@ use async_std::{sync::Mutex, task::JoinHandle};
 use futures::future;
 use futures::stream::{self, iter};
 use futures::{sink, task, FutureExt, StreamExt};
+use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::core::Multiaddr;
 use libp2p::{swarm::NetworkBehaviour, PeerId, Swarm};
 use std::cmp::min;
@@ -111,33 +112,27 @@ impl NetworkApi {
                 .flatten()
         };
 
-        let zero = Duration::default();
-        let delays: HashMap<_, _> = bootstrap_nodes
-            .into_iter()
-            .map(|addr| (addr, zero))
-            .collect();
+        async fn loop_connect(pool: ConnectionPoolApi, addr: Multiaddr) {
+            // TODO: take from config
+            let max = Duration::from_secs(60);
+            // TODO: exponential backoff + random?
+            let delta = Duration::from_secs(5);
+
+            let mut delay = Duration::from_secs(0);
+            loop {
+                if pool.dial(addr.clone()).await.is_some() {
+                    log::info!("bootstrap reconnected");
+                    break;
+                }
+
+                delay = min(delay + delta, max);
+                log::info!("can't connect to bootstrap (pause for {})", pretty(delay));
+                sleep(delay).await;
+            }
+        }
 
         disconnections
-            .fold(delays, |mut map, addr| {
-                let delay = unwrap_return!(map.get_mut(&addr), future::ready(map));
-                let seconds = delay.as_secs();
-                let pool = pool.clone();
-                spawn(async move {
-                    log::info!("bootstrap reconnecting, delay {}", seconds);
-                    if seconds > 0 {
-                        sleep(Duration::from_secs(seconds)).await;
-                    }
-                    if pool.dial(addr).await.is_none() {
-                        log::info!("can't connect to bootstrap");
-                    } else {
-                        log::info!("bootstrap reconnected");
-                    }
-                });
-                // TODO: config max delay
-                // TODO: exponential?
-                *delay = Duration::from_secs(min(seconds + 5, 60));
-                future::ready(map)
-            })
+            .for_each_concurrent(None, |addr| loop_connect(pool.clone(), addr))
             .await;
     }
 
