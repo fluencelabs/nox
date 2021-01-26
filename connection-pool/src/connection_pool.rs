@@ -58,6 +58,7 @@ pub enum LifecycleEvent {
 }
 
 pub trait ConnectionPoolT {
+    fn dial(&self, addr: Multiaddr) -> BoxFuture<'static, Option<Contact>>;
     fn connect(&self, contact: Contact) -> BoxFuture<'static, bool>;
     fn disconnect(&self, contact: Contact) -> BoxFuture<'static, bool>;
     fn is_connected(&self, peer_id: PeerId) -> BoxFuture<'static, bool>;

@@ -118,12 +118,14 @@ pub fn enable_logs() {
         .ok();
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CreatedSwarm(
     pub PeerId,
     pub Multiaddr,
     // tmp dir, must be cleaned
     pub PathBuf,
+    // stop signal
+    pub OneshotOutlet<()>,
 );
 pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
     make_swarms_with(
@@ -162,17 +164,15 @@ where
         .map(|addr| {
             #[rustfmt::skip]
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
-            let (id, node, tmp) = create_node(addrs, addr.clone());
-            (CreatedSwarm(id, addr.clone(), tmp), node)
+            let (id, node, tmp) = create_node(addrs.clone(), addr.clone());
+            ((id, addr.clone(), tmp), node)
         })
         .collect::<Vec<_>>();
-
-    let (infos, nodes): (Vec<CreatedSwarm>, Vec<_>) = nodes.into_iter().unzip();
 
     let pools = iter(
         nodes
             .iter()
-            .map(|n| n.network_api.connectivity())
+            .map(|(_, n)| n.network_api.connectivity())
             .collect::<Vec<_>>(),
     );
     let connected = pools.for_each_concurrent(None, |pool| async move {
@@ -189,9 +189,13 @@ where
     });
 
     // start all nodes
-    nodes.into_iter().for_each(|node| {
-        node.start();
-    });
+    let infos = nodes
+        .into_iter()
+        .map(|((id, addr, tmp), node)| {
+            let stop = node.start();
+            CreatedSwarm(id, addr, tmp, stop)
+        })
+        .collect();
 
     if wait_connected {
         task::block_on(connected);
@@ -278,7 +282,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         key_pair: kp.clone(),
         local_peer_id: peer_id,
         trust_graph,
-        bootstrap_nodes: bootstraps,
+        bootstrap_nodes: bootstraps.clone(),
         bootstrap: BootstrapConfig::zero(),
         registry: None,
         protocol_config: Default::default(),
@@ -302,6 +306,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         vec![listen_on.clone()],
         None,
         "0.0.0.0:0".parse().unwrap(),
+        bootstraps,
     )
     .expect("create node");
 

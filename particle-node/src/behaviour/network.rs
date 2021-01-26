@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use crate::bootstrapper::Bootstrapper;
-
 use fluence_libp2p::generate_swarm_event_type;
 use server_config::NetworkConfig;
 
@@ -46,8 +44,6 @@ pub type SwarmEventType = generate_swarm_event_type!(NetworkBehaviour);
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
 pub struct NetworkBehaviour {
-    // TODO: move bootstrapper inside kademlia?
-    bootstrapper: Bootstrapper,
     // TODO: move identify inside ConnectionPoolBehaviour?
     identity: Identify,
     // TODO: move ping inside ConnectionPoolBehaviour?
@@ -82,15 +78,12 @@ impl NetworkBehaviour {
         );
         let (connection_pool_api, connection_pool) = connection_pool.into();
 
-        let bootstrapper = Bootstrapper::new(cfg.bootstrap, cfg.local_peer_id, cfg.bootstrap_nodes);
-
         Ok((
             Self {
                 kademlia,
                 connection_pool,
                 identity,
                 ping,
-                bootstrapper,
             },
             NetworkApi::new(
                 particle_stream,
