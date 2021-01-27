@@ -53,6 +53,7 @@ pub enum PendingQuery {
     Unit(OneshotOutlet<Result<()>>),
 }
 
+#[derive(Debug)]
 struct PendingPeer {
     out: OneshotOutlet<Result<Vec<Multiaddr>>>,
     deadline: Instant,
@@ -231,7 +232,7 @@ impl Kademlia {
         // Remove empty keys
         self.pending_peers.retain(|_, peers| {
             // remove expired
-            let expired = peers.drain_filter(|p| p.deadline >= now);
+            let expired = peers.drain_filter(|p| p.deadline <= now);
             for p in expired {
                 // notify expired
                 p.out.send(Err(KademliaError::Timeout)).ok();
