@@ -81,6 +81,8 @@ impl Peer {
 }
 
 pub struct ConnectionPoolBehaviour {
+    peer_id: PeerId,
+
     outlet: BackPressuredOutlet<Particle>,
     subscribers: Vec<Outlet<LifecycleEvent>>,
 
@@ -161,10 +163,12 @@ impl ConnectionPoolBehaviour {
     pub fn new(
         buffer: usize,
         protocol_config: ProtocolConfig,
+        peer_id: PeerId,
     ) -> (Self, BackPressuredInlet<Particle>) {
         let (outlet, inlet) = mpsc::channel(buffer);
 
         let this = Self {
+            peer_id,
             outlet,
             subscribers: <_>::default(),
             queue: <_>::default(),
