@@ -67,7 +67,6 @@ impl VmPool {
     pub fn poll(&mut self, cx: &mut Context<'_>) {
         let creating_vms = match &mut self.creating_vms {
             None => {
-                log::info!(target: "debug_vms", "Started creating VMs");
                 self.creating_vms = Some(
                     (0..self.config.pool_size)
                         .map(|_| {

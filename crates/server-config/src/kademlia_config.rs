@@ -23,7 +23,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 pub struct KademliaConfig {
     pub max_packet_size: Option<usize>,
-    pub query_timeout: Option<Duration>,
+    pub query_timeout: Duration,
     pub replication_factor: Option<usize>,
     pub connection_idle_timeout: Option<Duration>,
 }
@@ -32,7 +32,7 @@ impl Default for KademliaConfig {
     fn default() -> Self {
         Self {
             max_packet_size: Some(100 * 4096 * 4096), // 100Mb
-            query_timeout: None,
+            query_timeout: Duration::from_secs(60),
             replication_factor: None,
             connection_idle_timeout: Some(Duration::from_secs(2_628_000_000)), // ~month
         }
@@ -43,12 +43,10 @@ impl Into<LibP2PKadConfig> for KademliaConfig {
     fn into(self) -> LibP2PKadConfig {
         let mut cfg = LibP2PKadConfig::default();
 
+        cfg.set_query_timeout(self.query_timeout);
+
         if let Some(max_packet_size) = self.max_packet_size {
             cfg.set_max_packet_size(max_packet_size);
-        }
-
-        if let Some(query_timeout) = self.query_timeout {
-            cfg.set_query_timeout(query_timeout);
         }
 
         if let Some(replication_factor) = self.replication_factor {

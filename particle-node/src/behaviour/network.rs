@@ -75,8 +75,11 @@ impl NetworkBehaviour {
         // TODO: this is hazy; names are bad, conversion is far from transparent. Hide behaviours?
         let kademlia = Kademlia::new(kad_config, cfg.trust_graph, cfg.registry.as_ref());
         let (kademlia_api, kademlia) = kademlia.into();
-        let (connection_pool, particle_stream) =
-            ConnectionPoolBehaviour::new(cfg.particle_queue_buffer, cfg.protocol_config);
+        let (connection_pool, particle_stream) = ConnectionPoolBehaviour::new(
+            cfg.particle_queue_buffer,
+            cfg.protocol_config,
+            cfg.local_peer_id,
+        );
         let (connection_pool_api, connection_pool) = connection_pool.into();
 
         let bootstrapper = Bootstrapper::new(cfg.bootstrap, cfg.local_peer_id, cfg.bootstrap_nodes);

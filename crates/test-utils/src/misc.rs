@@ -24,9 +24,8 @@ use trust_graph::{Certificate, TrustGraph};
 
 use aquamarine::VmPoolConfig;
 use async_std::task;
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
-use futures::stream::FusedStream;
-use futures::{stream::SelectAll, StreamExt};
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use futures::{stream::iter, StreamExt};
 use libp2p::{
     core::Multiaddr,
     identity::ed25519::{Keypair, PublicKey},
@@ -34,10 +33,7 @@ use libp2p::{
 };
 use rand::Rng;
 use serde_json::{json, Value as JValue};
-use std::{
-    path::PathBuf,
-    time::{Duration, Instant},
-};
+use std::{path::PathBuf, time::Duration};
 use uuid::Uuid;
 
 /// Utility functions for tests.
@@ -173,41 +169,22 @@ where
 
     let (infos, nodes): (Vec<CreatedSwarm>, Vec<_>) = nodes.into_iter().unzip();
 
-    let start = Instant::now();
-    let mut local_start = Instant::now();
-
-    let mut lifecycle_streams: SelectAll<_> = nodes
-        .iter()
-        .map(|node| {
-            AsRef::<ConnectionPoolApi>::as_ref(&node.network_api.connectivity()).lifecycle_events()
-        })
-        .collect();
-
-    let connected = task::spawn(async move {
-        let mut connected = 0;
+    let pools = iter(
+        nodes
+            .iter()
+            .map(|n| n.network_api.connectivity())
+            .collect::<Vec<_>>(),
+    );
+    let connected = pools.for_each_concurrent(None, |pool| async move {
+        let pool = AsRef::<ConnectionPoolApi>::as_ref(&pool);
+        let mut events = pool.lifecycle_events();
         loop {
-            if connected >= (n * (n - 1)) {
-                log::info!("Connection took {}s", start.elapsed().as_secs_f32());
+            let num = pool.count_connections().await;
+            if dbg!(num) >= n - 1 {
                 break;
             }
-            if lifecycle_streams.is_terminated() {
-                log::error!("lifecycle stream ended too soon! THIS SHOULDN'T HAPPEN.");
-                break;
-            }
-
-            let event = lifecycle_streams.select_next_some().await;
-            if let LifecycleEvent::Connected(_) = event {
-                connected += 1;
-                if connected % 10 == 0 {
-                    log::info!(
-                        "established {: <10} +{: <10} (= {:<5})",
-                        connected,
-                        format_args!("{:.3}s", start.elapsed().as_secs_f32()),
-                        format_args!("{}ms", local_start.elapsed().as_millis())
-                    );
-                    local_start = Instant::now();
-                }
-            }
+            // wait until something changes
+            events.next().await;
         }
     });
 
