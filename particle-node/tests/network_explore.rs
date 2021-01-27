@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_greeting_service, enable_logs, make_swarms, read_args, test_module, test_module_cfg,
-    timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
+    create_greeting_service, make_swarms, read_args, test_module, test_module_cfg, timeout,
+    ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
 use futures::executor::block_on;
@@ -48,8 +48,6 @@ pub struct ModuleDescriptor {
 
 #[test]
 fn get_interfaces() {
-    enable_logs();
-
     let swarms = make_swarms(10);
     sleep(KAD_TIMEOUT);
 
@@ -147,8 +145,6 @@ fn get_blueprints() {
 
 #[test]
 fn explore_services() {
-    enable_logs();
-
     let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
 

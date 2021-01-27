@@ -88,6 +88,7 @@ pub struct ConnectionPoolBehaviour {
 
     queue: VecDeque<Particle>,
     contacts: HashMap<PeerId, Peer>,
+    dialing: HashMap<Multiaddr, Vec<OneshotOutlet<Option<Contact>>>>,
 
     events: VecDeque<SwarmEventType>,
     waker: Option<Waker>,
@@ -95,6 +96,16 @@ pub struct ConnectionPoolBehaviour {
 }
 
 impl ConnectionPoolBehaviour {
+    /// Dial `address`, and send contact back on success
+    /// `None` means something prevented us from connecting - dial reach failure or something else
+    pub fn dial(&mut self, address: Multiaddr, out: OneshotOutlet<Option<Contact>>) {
+        // TODO: return Contact immediately if that address is already connected
+        self.dialing.entry(address.clone()).or_default().push(out);
+        self.push_event(NetworkBehaviourAction::DialAddress { address });
+    }
+
+    /// Connect to the contact by all of its known addresses and return whether connection succeeded
+    /// If contact is already connected, return `true` immediately
     pub fn connect(&mut self, contact: Contact, outlet: OneshotOutlet<bool>) {
         self.push_event(NetworkBehaviourAction::DialPeer {
             peer_id: contact.peer_id,
@@ -121,6 +132,7 @@ impl ConnectionPoolBehaviour {
         };
     }
 
+    // TODO: implement
     pub fn disconnect(&mut self, contact: Contact, _outlet: OneshotOutlet<bool>) {
         todo!(
             "this doesn't make sense with OneShotHandler since connections are short-lived {:?}",
@@ -128,20 +140,19 @@ impl ConnectionPoolBehaviour {
         )
     }
 
+    /// Returns whether given peer is connected or not
     pub fn is_connected(&self, peer_id: PeerId, outlet: OneshotOutlet<bool>) {
         outlet.send(self.contacts.contains_key(&peer_id)).ok();
     }
 
+    /// Returns contact for a given peer if it is known
     pub fn get_contact(&self, peer_id: PeerId, outlet: OneshotOutlet<Option<Contact>>) {
-        let contact = match self.contacts.get(&peer_id) {
-            Some(Peer::Connected(addrs)) => {
-                Some(Contact::new(peer_id, addrs.into_iter().cloned().collect()))
-            }
-            _ => None,
-        };
+        let contact = self.get_contact_impl(peer_id);
         outlet.send(contact).ok();
     }
 
+    /// Sends a particle to a connected contact. Returns whether sending succeeded or not
+    /// Result is sent to channel inside `upgrade_outbound` in ProtocolHandler
     pub fn send(&mut self, to: Contact, particle: Particle, outlet: OneshotOutlet<bool>) {
         self.push_event(NetworkBehaviourAction::NotifyHandler {
             peer_id: to.peer_id,
@@ -150,10 +161,12 @@ impl ConnectionPoolBehaviour {
         });
     }
 
+    /// Returns number of connected contacts
     pub fn count_connections(&mut self, outlet: OneshotOutlet<usize>) {
         outlet.send(self.contacts.len()).ok();
     }
 
+    /// Subscribes given channel for all `LifecycleEvent`s
     pub fn add_subscriber(&mut self, outlet: Outlet<LifecycleEvent>) {
         self.subscribers.push(outlet);
     }
@@ -173,6 +186,7 @@ impl ConnectionPoolBehaviour {
             subscribers: <_>::default(),
             queue: <_>::default(),
             contacts: <_>::default(),
+            dialing: <_>::default(),
             events: <_>::default(),
             waker: None,
             protocol_config,
@@ -188,15 +202,16 @@ impl ConnectionPoolBehaviour {
     }
 
     fn add_address(&mut self, peer_id: PeerId, addr: Multiaddr) {
+        // notify these waiting for a peer to be connected
         match self.contacts.entry(peer_id) {
             Entry::Occupied(mut entry) => {
                 match entry.get_mut() {
                     Peer::Connected(addrs) => {
-                        addrs.insert(addr);
+                        addrs.insert(addr.clone());
                     }
                     Peer::Dialing(..) => {
                         let mut set = HashSet::new();
-                        set.insert(addr);
+                        set.insert(addr.clone());
                         let value = entry.insert(Peer::Connected(set));
                         if let Peer::Dialing(_, outlets) = value {
                             for outlet in outlets {
@@ -208,8 +223,17 @@ impl ConnectionPoolBehaviour {
             }
             Entry::Vacant(e) => {
                 let mut set = HashSet::new();
-                set.insert(addr);
+                set.insert(addr.clone());
                 e.insert(Peer::Connected(set));
+            }
+        }
+
+        // notify these waiting for an address to be dialed
+        if let Some(outs) = self.dialing.remove(&addr) {
+            let contact = self.get_contact_impl(peer_id);
+            debug_assert!(contact.is_some());
+            for out in outs {
+                out.send(contact.clone()).ok();
             }
         }
     }
@@ -245,6 +269,15 @@ impl ConnectionPoolBehaviour {
                 peer_id.clone(),
                 addresses.into_iter().collect(),
             )))
+        }
+    }
+
+    fn get_contact_impl(&self, peer_id: PeerId) -> Option<Contact> {
+        match self.contacts.get(&peer_id) {
+            Some(Peer::Connected(addrs)) => {
+                Some(Contact::new(peer_id, addrs.into_iter().cloned().collect()))
+            }
+            _ => None,
         }
     }
 }
@@ -321,6 +354,13 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     peer_id,
                     format!("address {} reach failure {}", addr, error).as_str(),
                 );
+            }
+        }
+
+        // Notify those who waits for address dial
+        if let Some(outs) = self.dialing.remove(addr) {
+            for out in outs {
+                out.send(None).ok();
             }
         }
     }

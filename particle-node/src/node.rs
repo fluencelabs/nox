@@ -81,6 +81,7 @@ pub struct Node {
     local_peer_id: PeerId,
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
+    bootstrap_nodes: Vec<Multiaddr>,
 }
 
 impl Node {
@@ -121,6 +122,7 @@ impl Node {
             config.external_addresses(),
             registry.into(),
             config.metrics_listen_addr(),
+            config.bootstrap_nodes,
         )
     }
 
@@ -133,6 +135,7 @@ impl Node {
         external_addresses: Vec<Multiaddr>,
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
+        bootstrap_nodes: Vec<Multiaddr>,
     ) -> anyhow::Result<Box<Self>> {
         log::info!("server peer id = {}", local_peer_id);
 
@@ -164,6 +167,7 @@ impl Node {
             local_peer_id,
             registry,
             metrics_listen_addr,
+            bootstrap_nodes,
         };
 
         Ok(Box::new(node_service))
@@ -183,7 +187,11 @@ impl Node {
             .fuse();
 
             let pool = self.stepper_pool.start();
-            let network = self.network_api.start(self.stepper_pool_api);
+            let network = {
+                let pool_api = self.stepper_pool_api;
+                let bootstrap_nodes = self.bootstrap_nodes.into_iter().collect();
+                self.network_api.start(pool_api, bootstrap_nodes)
+            };
             loop {
                 select!(
                     _ = self.swarm.select_next_some() => {},
@@ -248,7 +256,6 @@ mod tests {
     use serde_json::json;
     use server_config::{deserialize_config, NodeConfig};
     use std::path::PathBuf;
-    use test_utils::enable_logs;
     use test_utils::ConnectedClient;
 
     #[test]

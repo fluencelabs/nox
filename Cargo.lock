@@ -3150,6 +3150,7 @@ dependencies = [
  "clap",
  "config-utils",
  "connection-pool",
+ "control-macro",
  "ctrlc-adapter",
  "env_logger",
  "failure",

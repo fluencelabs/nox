@@ -29,12 +29,14 @@ use futures::{
     stream::BoxStream,
     FutureExt, StreamExt,
 };
-use libp2p::swarm::NetworkBehaviourEventProcess;
-use libp2p::PeerId;
-use std::convert::identity;
-use std::time::Duration;
+use libp2p::{core::Multiaddr, swarm::NetworkBehaviourEventProcess, PeerId};
+use std::{convert::identity, time::Duration};
 
 enum Command {
+    Dial {
+        addr: Multiaddr,
+        out: OneshotOutlet<Option<Contact>>,
+    },
     Connect {
         contact: Contact,
         out: OneshotOutlet<bool>,
@@ -90,6 +92,7 @@ impl ConnectionPoolInlet {
 
     fn execute(&mut self, cmd: Command) {
         match cmd {
+            Command::Dial { addr, out } => self.connection_pool.dial(addr, out),
             Command::Connect { contact, out } => self.connection_pool.connect(contact, out),
             Command::Disconnect { contact, out } => self.connection_pool.disconnect(contact, out),
             Command::IsConnected { peer_id, out } => {
@@ -142,6 +145,11 @@ impl ConnectionPoolApi {
 }
 
 impl ConnectionPoolT for ConnectionPoolApi {
+    fn dial(&self, addr: Multiaddr) -> BoxFuture<'static, Option<Contact>> {
+        // timeout isn't needed because libp2p handles it through inject_dial_failure, etc
+        self.execute(|out| Command::Dial { addr, out })
+    }
+
     fn connect(&self, contact: Contact) -> BoxFuture<'static, bool> {
         // timeout isn't needed because libp2p handles it through inject_dial_failure, etc
         self.execute(|out| Command::Connect { contact, out })

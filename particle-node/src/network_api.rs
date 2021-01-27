@@ -27,15 +27,24 @@
 use crate::node::unlocks::{unlock, unlock_f};
 
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact, LifecycleEvent};
+use control_macro::unwrap_return;
 use fluence_libp2p::types::BackPressuredInlet;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::Particle;
 use server_config::NodeConfig;
 
+use async_std::task::{sleep, spawn};
 use async_std::{sync::Mutex, task::JoinHandle};
-use futures::{task, StreamExt};
+use futures::future;
+use futures::stream::{self, iter};
+use futures::{sink, task, FutureExt, StreamExt};
+use humantime_serde::re::humantime::format_duration as pretty;
+use libp2p::core::Multiaddr;
 use libp2p::{swarm::NetworkBehaviour, PeerId, Swarm};
+use std::cmp::min;
+use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 use std::{sync::Arc, task::Poll};
 
 /// API provided by the network
@@ -70,17 +79,84 @@ impl NetworkApi {
         self.connectivity.clone()
     }
 
+    pub async fn connect_bootstraps(pool: ConnectionPoolApi, bootstrap_nodes: HashSet<Multiaddr>) {
+        stream::iter(bootstrap_nodes.clone())
+            .for_each_concurrent(None, |addr| {
+                let cp = pool.clone();
+                async move {
+                    log::info!("boostrap connecting");
+                    cp.dial(addr).await;
+                    log::info!("boostrap connected");
+                }
+            })
+            .await;
+    }
+
+    pub async fn reconnect_bootstraps(
+        pool: ConnectionPoolApi,
+        bootstrap_nodes: HashSet<Multiaddr>,
+    ) {
+        let events = pool.lifecycle_events();
+        let disconnections = {
+            events
+                .filter_map(move |e| {
+                    if let LifecycleEvent::Disconnected(Contact { addresses, .. }) = e {
+                        let addresses = addresses.into_iter();
+                        let addresses = addresses.filter(|addr| bootstrap_nodes.contains(addr));
+                        let addresses = iter(addresses.collect::<Vec<_>>());
+                        return future::ready(Some(addresses));
+                    }
+                    future::ready(None)
+                })
+                .flatten()
+        };
+
+        // TODO: take from config
+        let max = Duration::from_secs(60);
+        // TODO: exponential backoff + random?
+        let delta = Duration::from_secs(5);
+
+        let reconnect = move |pool: ConnectionPoolApi, addr: Multiaddr| async move {
+            let mut delay = Duration::from_secs(0);
+            loop {
+                if pool.dial(addr.clone()).await.is_some() {
+                    log::info!("bootstrap reconnected");
+                    break;
+                }
+
+                delay = min(delay + delta, max);
+                log::info!("can't connect to bootstrap (pause for {})", pretty(delay));
+                sleep(delay).await;
+            }
+        };
+
+        disconnections
+            .for_each_concurrent(None, |addr| reconnect(pool.clone(), addr))
+            .await;
+    }
+
     /// Spawns a new task that pulls particles from `particle_stream`,
     /// then executes them on `stepper_pool`, and sends to other peers through `execute_effects`
     ///
     /// `parallelism` sets the number of simultaneously processed particles
-    pub fn start(self, aquamarine: AquamarineApi) -> JoinHandle<()> {
-        async_std::task::spawn(async move {
+    pub fn start(
+        self,
+        aquamarine: AquamarineApi,
+        bootstrap_nodes: HashSet<Multiaddr>,
+    ) -> JoinHandle<()> {
+        spawn(async move {
             let NetworkApi {
                 particle_stream,
                 particle_parallelism,
                 connectivity,
             } = self;
+
+            let pool = connectivity.connection_pool.clone();
+            spawn(Self::connect_bootstraps(
+                pool.clone(),
+                bootstrap_nodes.clone(),
+            ));
+            spawn(Self::reconnect_bootstraps(pool, bootstrap_nodes));
 
             particle_stream
                 .for_each_concurrent(particle_parallelism, move |particle| {

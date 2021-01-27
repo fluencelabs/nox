@@ -31,7 +31,6 @@ mod network_api;
 mod node;
 
 mod behaviour {
-    mod bootstrapper;
     mod identify;
     mod network;
 
@@ -44,14 +43,6 @@ pub mod config {
     pub mod certificates;
 
     pub use args::create_args;
-}
-
-mod bootstrapper {
-    mod behaviour;
-    mod event;
-
-    pub(crate) use behaviour::Bootstrapper;
-    pub(crate) use event::BootstrapperEvent;
 }
 
 pub use behaviour::NetworkBehaviour;

@@ -33,3 +33,18 @@ macro_rules! get_return {
         }
     }};
 }
+
+/// Retrieves value from `Some`, returns on `None`
+#[macro_export]
+macro_rules! unwrap_return {
+    ($opt:expr, $alternative:expr) => {{
+        let r = { $opt };
+        match r {
+            Some(r) => r,
+            None => {
+                let alt = { $alternative };
+                return alt;
+            }
+        }
+    }};
+}
