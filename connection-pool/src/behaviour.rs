@@ -96,12 +96,16 @@ pub struct ConnectionPoolBehaviour {
 }
 
 impl ConnectionPoolBehaviour {
+    /// Dial `address`, and send contact back on success
+    /// `None` means something prevented us from connecting - dial reach failure or something else
     pub fn dial(&mut self, address: Multiaddr, out: OneshotOutlet<Option<Contact>>) {
-        log::debug!(target: "debug_cp", "dialing {}", address);
+        // TODO: return Contact immediately if that address is already connected
         self.dialing.entry(address.clone()).or_default().push(out);
         self.push_event(NetworkBehaviourAction::DialAddress { address });
     }
 
+    /// Connect to the contact by all of its known addresses and return whether connection succeeded
+    /// If contact is already connected, return `true` immediately
     pub fn connect(&mut self, contact: Contact, outlet: OneshotOutlet<bool>) {
         self.push_event(NetworkBehaviourAction::DialPeer {
             peer_id: contact.peer_id,
@@ -128,6 +132,7 @@ impl ConnectionPoolBehaviour {
         };
     }
 
+    // TODO: implement
     pub fn disconnect(&mut self, contact: Contact, _outlet: OneshotOutlet<bool>) {
         todo!(
             "this doesn't make sense with OneShotHandler since connections are short-lived {:?}",
@@ -135,15 +140,19 @@ impl ConnectionPoolBehaviour {
         )
     }
 
+    /// Returns whether given peer is connected or not
     pub fn is_connected(&self, peer_id: PeerId, outlet: OneshotOutlet<bool>) {
         outlet.send(self.contacts.contains_key(&peer_id)).ok();
     }
 
+    /// Returns contact for a given peer if it is known
     pub fn get_contact(&self, peer_id: PeerId, outlet: OneshotOutlet<Option<Contact>>) {
         let contact = self.get_contact_impl(peer_id);
         outlet.send(contact).ok();
     }
 
+    /// Sends a particle to a connected contact. Returns whether sending succeeded or not
+    /// Result is sent to channel inside `upgrade_outbound` in ProtocolHandler
     pub fn send(&mut self, to: Contact, particle: Particle, outlet: OneshotOutlet<bool>) {
         self.push_event(NetworkBehaviourAction::NotifyHandler {
             peer_id: to.peer_id,
@@ -152,10 +161,12 @@ impl ConnectionPoolBehaviour {
         });
     }
 
+    /// Returns number of connected contacts
     pub fn count_connections(&mut self, outlet: OneshotOutlet<usize>) {
         outlet.send(self.contacts.len()).ok();
     }
 
+    /// Subscribes given channel for all `LifecycleEvent`s
     pub fn add_subscriber(&mut self, outlet: Outlet<LifecycleEvent>) {
         self.subscribers.push(outlet);
     }
