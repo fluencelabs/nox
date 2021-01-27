@@ -18,6 +18,7 @@ use particle_node::Node;
 
 use config_utils::{modules_dir, to_abs_path};
 use fluence_client::Transport;
+use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::{build_memory_transport, build_transport};
 use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
 use trust_graph::{Certificate, TrustGraph};

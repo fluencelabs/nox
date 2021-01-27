@@ -256,7 +256,6 @@ mod tests {
     use serde_json::json;
     use server_config::{deserialize_config, NodeConfig};
     use std::path::PathBuf;
-    use test_utils::enable_logs;
     use test_utils::ConnectedClient;
 
     #[test]

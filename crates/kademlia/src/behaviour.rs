@@ -282,7 +282,7 @@ mod tests {
     use libp2p::PeerId;
     use libp2p::Swarm;
     use std::task::Poll;
-    use test_utils::{create_memory_maddr, enable_logs};
+    use test_utils::create_memory_maddr;
     use trust_graph::TrustGraph;
 
     fn kad_config() -> KademliaConfig {
@@ -314,8 +314,6 @@ mod tests {
 
     #[test]
     fn discovery() {
-        enable_logs();
-
         let (mut a, a_addr, a_pk) = make_node();
         let (mut b, b_addr, b_pk) = make_node();
         let (c, c_addr, c_pk) = make_node();
