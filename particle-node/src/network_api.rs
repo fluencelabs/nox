@@ -98,7 +98,6 @@ impl NetworkApi {
     ) {
         let events = pool.lifecycle_events();
         let disconnections = {
-            let bootstrap_nodes = bootstrap_nodes.clone();
             events
                 .filter_map(move |e| {
                     if let LifecycleEvent::Disconnected(Contact { addresses, .. }) = e {

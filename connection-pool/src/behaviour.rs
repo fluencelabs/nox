@@ -140,7 +140,7 @@ impl ConnectionPoolBehaviour {
     }
 
     pub fn get_contact(&self, peer_id: PeerId, outlet: OneshotOutlet<Option<Contact>>) {
-        let contact = self.get_contact0(peer_id);
+        let contact = self.get_contact_impl(peer_id);
         outlet.send(contact).ok();
     }
 
@@ -219,7 +219,7 @@ impl ConnectionPoolBehaviour {
 
         // notify these waiting for an address to be dialed
         if let Some(outs) = self.dialing.remove(&addr) {
-            let contact = self.get_contact0(peer_id);
+            let contact = self.get_contact_impl(peer_id);
             debug_assert!(contact.is_some());
             for out in outs {
                 out.send(contact.clone()).ok();
@@ -261,7 +261,7 @@ impl ConnectionPoolBehaviour {
         }
     }
 
-    fn get_contact0(&self, peer_id: PeerId) -> Option<Contact> {
+    fn get_contact_impl(&self, peer_id: PeerId) -> Option<Contact> {
         match self.contacts.get(&peer_id) {
             Some(Peer::Connected(addrs)) => {
                 Some(Contact::new(peer_id, addrs.into_iter().cloned().collect()))
