@@ -84,9 +84,9 @@ impl NetworkApi {
             .for_each_concurrent(None, |addr| {
                 let cp = pool.clone();
                 async move {
-                    log::info!("boostrap connecting");
-                    cp.dial(addr).await;
-                    log::info!("boostrap connected");
+                    if let Some(contact) = cp.dial(addr).await {
+                        log::info!("Connected to bootstrap {}", contact)
+                    }
                 }
             })
             .await;

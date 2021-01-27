@@ -1,16 +1,16 @@
 ## ed25519 private key for this node. Can be either a path to base58 bytes, or base58 bytes directly
 ## if root_key_pair is not defined, or path does not exist, new key pair will be generated
-root_key_pair = "./.fluence/secret_key"
+root_key_pair = "./secret_key"
 
 ## example of root_key_pair specified as base58 directly:
 # root_key_pair = "5jvxDNS6ChWV5cyXQxs8pUBzVo2NkGc7pVbx2RS1LB94yJciY9n4SzCS7ECDQxSZ3Zb4hGidbuQeHznYgQSFRkjU"
 
 ## Services will store their data here
-services_base_dir = "./.fluence/services"
+services_base_dir = "./services"
 ## AIR Interpreter (stepper) will store its data here
-stepper_base_dir = "./.fluence/stepper"
+stepper_base_dir = "./stepper"
 ## directory for TrustGraph certificates
-certificate_dir = "./.fluence/certificates"
+certificate_dir = "./certificates"
 
 ## Path to AIR interpreter .wasm is set to specific version by default
 ## air_interpreter_path = "./aquamarine_${air_interpreter_wasm::VERSION}.wasm"
@@ -19,9 +19,17 @@ tcp_port = 7777
 listen_ip = "0.0.0.0"
 socket_timeout = "20s"
 bootstrap_nodes = [
-    "/dns4/net01.fluence.dev/tcp/7001",
-    "/dns4/net01.fluence.dev/tcp/7990",
-    "/dns4/net02.fluence.dev/tcp/7002",
+    "/dns4/net01.fluence.dev/tcp/7001/wss/p2p/12D3KooWEXNUbCXooUwHrHBbrmjsrpHXoEphPwbjQXEGyzbqKnE9",
+    "/dns4/net01.fluence.dev/tcp/7770/wss/p2p/12D3KooWMhVpgfQxBLkQkJed8VFNvgN4iE6MD7xCybb1ZYWW2Gtz",
+    "/dns4/net02.fluence.dev/tcp/7001/wss/p2p/12D3KooWHk9BjDQBUqnavciRPhAYFvqKBe4ZiPPvde7vDaqgn5er",
+    "/dns4/net03.fluence.dev/tcp/7001/wss/p2p/12D3KooWBUJifCTgaxAUrcM9JysqCcS4CS8tiYH5hExbdWCAoNwb",
+    "/dns4/net04.fluence.dev/tcp/7001/wss/p2p/12D3KooWJbJFaZ3k5sNd8DjQgg3aERoKtBAnirEvPV8yp76kEXHB",
+    "/dns4/net05.fluence.dev/tcp/7001/wss/p2p/12D3KooWCKCeqLPSgMnDjyFsJuWqREDtKNHx1JEBiwaMXhCLNTRb",
+    "/dns4/net06.fluence.dev/tcp/7001/wss/p2p/12D3KooWKnRcsTpYx9axkJ6d69LPfpPXrkVLe96skuPTAo76LLVH",
+    "/dns4/net07.fluence.dev/tcp/7001/wss/p2p/12D3KooWBSdm6TkqnEFrgBuSkpVE3dR1kr6952DsWQRNwJZjFZBv",
+    "/dns4/net08.fluence.dev/tcp/7001/wss/p2p/12D3KooWGzNvhSDsgFoHwpWHAyPf1kcTYCGeRBPfznL8J6qdyu2H",
+    "/dns4/net09.fluence.dev/tcp/7001/wss/p2p/12D3KooWF7gjXhQ4LaKj6j7ntxsPpGk34psdQicN2KNfBi9bFKXg",
+    "/dns4/net10.fluence.dev/tcp/7001/wss/p2p/12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy"
 ]
 
 websocket_port = 9999
