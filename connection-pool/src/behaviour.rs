@@ -288,10 +288,10 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
 
         self.add_address(*peer_id, multiaddr.clone());
 
-        self.lifecycle_event(LifecycleEvent::Connected(Contact {
-            peer_id: *peer_id,
-            addr: multiaddr.into(),
-        }))
+        self.lifecycle_event(LifecycleEvent::Connected(Contact::new(
+            *peer_id,
+            vec![multiaddr],
+        )))
     }
 
     fn inject_addr_reach_failure(
