@@ -14,17 +14,29 @@
  * limitations under the License.
  */
 
-use host_closure::{Args, Closure, ClosureDescriptor, ParticleClosure, ParticleParameters};
-use ivalue_utils::{ok, IValue};
+use crate::identify::{identify, NodeInfo};
 
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
+use host_closure::{
+    from_base58, Args, Closure, ClosureDescriptor, JError, ParticleClosure, ParticleParameters,
+};
+use ivalue_utils::{into_record, into_record_opt, ok, IValue};
+use kademlia::{KademliaApi, KademliaApiT};
+use particle_providers::ProviderRepository;
+use particle_services::ParticleAppServices;
+use server_config::ServicesConfig;
+
+use async_std::task;
+use libp2p::PeerId;
+use multihash::Code;
+use multihash::MultihashDigest;
 use serde_json::{json, Value as JValue};
+use std::str::FromStr;
 use std::sync::Arc;
 use JValue::Array;
 
 #[derive(Clone)]
-pub struct HostClosures {
-    pub resolve: Closure,
-    pub neighborhood: Closure,
+pub struct HostClosures<C> {
     pub create_service: ParticleClosure,
     pub call_service: ParticleClosure,
     pub add_module: Closure,
@@ -36,9 +48,34 @@ pub struct HostClosures {
     pub get_interface: Closure,
     pub get_active_interfaces: Closure,
     pub identify: Closure,
+    pub connectivity: C,
 }
 
-impl HostClosures {
+impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
+    HostClosures<C>
+{
+    pub fn new(connectivity: C, node_info: NodeInfo, config: ServicesConfig) -> Self {
+        let modules_dir = config.modules_dir.clone();
+        let blueprint_dir = config.blueprint_dir.clone();
+        let providers = ProviderRepository::new(config.local_peer_id);
+        let services = ParticleAppServices::new(config);
+
+        Self {
+            add_provider: providers.add_provider(),
+            get_providers: providers.get_providers(),
+            get_modules: particle_modules::get_modules(modules_dir.clone()),
+            get_blueprints: particle_modules::get_blueprints(blueprint_dir.clone()),
+            add_module: particle_modules::add_module(modules_dir),
+            add_blueprint: particle_modules::add_blueprint(blueprint_dir),
+            create_service: services.create_service(),
+            call_service: services.call_service(),
+            get_interface: services.get_interface(),
+            get_active_interfaces: services.get_active_interfaces(),
+            identify: identify(node_info),
+            connectivity,
+        }
+    }
+
     pub fn descriptor(self) -> ClosureDescriptor {
         Arc::new(move || {
             let this = self.clone();
@@ -59,13 +96,16 @@ impl HostClosures {
             args.service_id,
             args.function_name
         );
-        log::debug!("Host function call, args: {:#?}", args);
+        log::trace!("Host function call, args: {:#?}", args);
 
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("dht", "resolve")         => (self.resolve)(args),
-            ("dht", "neighborhood")    => (self.neighborhood)(args),
+            ("peer", "is_connected")   => wrap(self.is_connected(args)),
+            ("peer", "connect")        => wrap(self.connect(args)),
+            ("peer", "get_contact")    => wrap_opt(self.get_contact(args)),
+
+            ("dht", "neighborhood")    => wrap(self.neighborhood(args)),
             ("dht", "add_provider")    => (self.add_provider)(args),
             ("dht", "get_providers")   => (self.get_providers)(args),
 
@@ -84,4 +124,52 @@ impl HostClosures {
             _ => (self.call_service)(particle, args),
         }
     }
+
+    fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
+        let key = from_base58("key", &mut args.function_args.into_iter())?;
+        let key = Code::Sha2_256.digest(&key);
+        log::debug!(target: "debug_kademlia", "ask for neighboirhood");
+        let neighbors = task::block_on(self.kademlia().neighborhood(key));
+        log::debug!(target: "debug_kademlia", "got neighborhood");
+        let neighbors = neighbors
+            .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))?;
+
+        Ok(neighbors)
+    }
+
+    fn is_connected(&self, args: Args) -> Result<JValue, JError> {
+        let peer: String = Args::next("peer_id", &mut args.function_args.into_iter())?;
+        let peer = PeerId::from_str(peer.as_str())?;
+        let ok = task::block_on(self.connection_pool().is_connected(peer));
+        Ok(json!(ok))
+    }
+
+    fn connect(&self, args: Args) -> Result<JValue, JError> {
+        let contact: Contact = Args::next("peer_id", &mut args.function_args.into_iter())?;
+        let ok = task::block_on(self.connection_pool().connect(contact));
+        Ok(json!(ok))
+    }
+
+    fn get_contact(&self, args: Args) -> Result<Option<JValue>, JError> {
+        let peer: String = Args::next("peer_id", &mut args.function_args.into_iter())?;
+        let peer = PeerId::from_str(peer.as_str())?;
+        let contact = task::block_on(self.connection_pool().get_contact(peer));
+        Ok(contact.map(|c| json!(c)))
+    }
+
+    fn kademlia(&self) -> &KademliaApi {
+        self.connectivity.as_ref()
+    }
+
+    fn connection_pool(&self) -> &ConnectionPoolApi {
+        self.connectivity.as_ref()
+    }
+}
+
+fn wrap(r: Result<JValue, JError>) -> Option<IValue> {
+    into_record(r.map_err(Into::into))
+}
+
+fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {
+    into_record_opt(r.map_err(Into::into))
 }

@@ -9,7 +9,7 @@ test:
 
 server:
 	RUST_LOG="info,tide=off" \
-	cargo +nightly run --release -p particle-server -- -c ./deploy/Config.default.toml
+	cargo +nightly run --release -p particle-node -- -c ./deploy/Config.default.toml
 
 server-debug:
 	RUST_LOG="debug,\
@@ -34,7 +34,7 @@ server-debug:
     async_std=info,\
     async_io=info,\
     polling=info" \
-	cargo +nightly run --release -p particle-server -- -c ./deploy/Config.default.toml
+	cargo +nightly run --release -p particle-node -- -c ./deploy/Config.default.toml
 
 # deploy existing containers (configure tag in deployment_config.json)
 deploy:

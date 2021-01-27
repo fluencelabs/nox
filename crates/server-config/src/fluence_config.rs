@@ -16,7 +16,7 @@
 
 use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
-use crate::{BootstrapConfig, KademliaConfig};
+use crate::{BootstrapConfig, KademliaConfig, ListenConfig};
 
 use trust_graph::{KeyPair, PublicKeyHashable};
 
@@ -26,6 +26,7 @@ use config_utils::to_abs_path;
 use libp2p::core::{identity::ed25519::PublicKey, multiaddr::Protocol, Multiaddr};
 use particle_protocol::ProtocolConfig;
 use serde::Deserialize;
+use std::net::SocketAddr;
 use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
@@ -53,7 +54,7 @@ const ARGS: &[&str] = &[
 #[derive(Deserialize, Debug)]
 pub struct FluenceConfig {
     #[serde(flatten)]
-    pub server: ServerConfig,
+    pub server: NodeConfig,
     /// Directory, where all certificates are stored.
     #[serde(default = "default_cert_dir")]
     pub certificate_dir: String,
@@ -66,7 +67,7 @@ pub struct FluenceConfig {
 }
 
 #[derive(Clone, Deserialize, Debug)]
-pub struct ServerConfig {
+pub struct NodeConfig {
     /// For TCP connections
     #[serde(default = "default_tcp_port")]
     pub tcp_port: u16,
@@ -90,6 +91,10 @@ pub struct ServerConfig {
 
     /// External address to advertise via identify protocol
     pub external_address: Option<IpAddr>,
+
+    /// External multiaddresses to advertise; more flexible that IpAddr
+    #[serde(default)]
+    pub external_multiaddresses: Vec<Multiaddr>,
 
     /// Prometheus port
     #[serde(default = "default_prometheus_port")]
@@ -125,11 +130,16 @@ pub struct ServerConfig {
 
     #[serde(default)]
     pub kademlia: KademliaConfig,
+
+    #[serde(default = "default_particle_queue_buffer_size")]
+    pub particle_queue_buffer: usize,
+    #[serde(default = "default_particle_processor_parallelism")]
+    pub particle_processor_parallelism: usize,
 }
 
-impl ServerConfig {
+impl NodeConfig {
     pub fn external_addresses(&self) -> Vec<Multiaddr> {
-        if let Some(external_address) = self.external_address {
+        let mut addrs = if let Some(external_address) = self.external_address {
             let external_tcp = {
                 let mut maddr = Multiaddr::from(external_address);
                 maddr.push(Protocol::Tcp(self.tcp_port));
@@ -146,7 +156,11 @@ impl ServerConfig {
             vec![external_tcp, external_ws]
         } else {
             vec![]
-        }
+        };
+
+        addrs.extend(self.external_multiaddresses.iter().cloned());
+
+        addrs
     }
 
     pub fn root_weights(&self) -> Vec<(PublicKey, u32)> {
@@ -155,6 +169,18 @@ impl ServerConfig {
             .into_iter()
             .map(|(k, v)| (k.into(), v))
             .collect()
+    }
+
+    pub fn metrics_listen_addr(&self) -> SocketAddr {
+        SocketAddr::new(self.listen_ip, self.prometheus_port)
+    }
+
+    pub fn listen_config(&self) -> ListenConfig {
+        ListenConfig {
+            listen_ip: self.listen_ip,
+            tcp_port: self.tcp_port,
+            websocket_port: self.websocket_port,
+        }
     }
 }
 
@@ -272,7 +298,7 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
     validate_config(config)
 }
 
-pub(super) fn deserialize_config(
+pub fn deserialize_config(
     arguments: ArgMatches<'_>,
     content: Vec<u8>,
 ) -> anyhow::Result<FluenceConfig> {

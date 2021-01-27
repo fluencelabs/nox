@@ -57,3 +57,23 @@ impl Display for ArgsError {
         }
     }
 }
+
+#[derive(Debug)]
+/// An error that can be created from any other error
+/// Simplifies life by converting errors to be returnable from host closures
+pub struct JError(JValue);
+
+impl From<JError> for JValue {
+    fn from(err: JError) -> Self {
+        err.0
+    }
+}
+
+impl<E: std::error::Error> From<E> for JError {
+    fn from(err: E) -> Self {
+        JError(err_as_value(err))
+    }
+}
+
+// It's not possible to implement Error for JError in Rust
+// impl Error for JError {}

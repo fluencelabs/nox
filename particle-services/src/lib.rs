@@ -28,7 +28,6 @@
 use crate::error::ServiceError;
 
 mod app_services;
-mod config;
 mod error;
 mod persistence;
 mod vm;
@@ -36,6 +35,5 @@ mod vm;
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
 
 pub use app_services::ParticleAppServices;
-pub use config::ServicesConfig;
 
 pub use fluence_app_service::{IType, IValue};

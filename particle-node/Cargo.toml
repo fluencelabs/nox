@@ -1,0 +1,57 @@
+[package]
+name = "particle-node"
+version = "0.4.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+particle-protocol = { path = "../particle-protocol"}
+aquamarine = { path = "../aquamarine" }
+particle-closures = { path = "../particle-closures"}
+connection-pool = { path = "../connection-pool"}
+
+config-utils = { path = "../crates/config-utils" }
+trust-graph = "0.2.0"
+fluence-libp2p = { path = "../crates/libp2p" }
+ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
+server-config = { path = "../crates/server-config" }
+kademlia = { path = "../crates/kademlia" }
+
+air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.0.30" }
+
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
+multihash ="0.13"
+futures = "0.3.5"
+futures-util = "0.3.5"
+async-std = { version = "1.6.5", features = ["unstable"] }
+
+serde = { version = "1.0.116", features = ["derive"] }
+serde_json = "1.0.57"
+humantime-serde = "1.0.1"
+
+failure = "0.1.6"
+base64 = "0.13.0"
+log = "0.4.11"
+env_logger = "0.7.1"
+clap = "2.33.0"
+void = "1.0.2"
+prometheus = "0.9.0"
+toml = "0.5.6"
+anyhow = "1.0.34"
+rand = "0.7.3"
+tide = "0.13.0"
+bs58 = "0.3.1"
+itertools = "0.9.0"
+num_cpus = "1.13.0"
+fstrings = "0.2.3"
+
+
+[dev-dependencies]
+particle-providers = { path = "../particle-providers"}
+test-utils = { path = "../crates/test-utils" }
+json-utils = { path = "../crates/json-utils" }
+fluence-app-service = "0.1.19"
+fluence-libp2p = { path = "../crates/libp2p" }
+base64 = "0.13.0"
+maplit = "1.0.2"
+serde_json = "1.0.61"

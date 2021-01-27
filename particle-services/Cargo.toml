@@ -11,6 +11,7 @@ config-utils = { path = "../crates/config-utils" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
 host-closure = { path = "../crates/host-closure" }
+server-config = { path = "../crates/server-config" }
 
 fluence-app-service = "0.1.19"
 

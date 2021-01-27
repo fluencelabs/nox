@@ -169,12 +169,9 @@ impl Client {
                 select!(
                     // Messages that were scheduled via client.send() method
                     to_relay = relay_inlet.next() => {
-                        match to_relay {
-                            Some(cmd) => {
-                                // Send to node
-                                Self::send_to_node(&mut swarm, cmd)
-                            }
-                            None => {}
+                        if let Some(cmd) = to_relay {
+                            // Send to node
+                            Self::send_to_node(&mut swarm, cmd)
                         }
                     }
 

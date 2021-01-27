@@ -22,7 +22,8 @@
     unused_mut,
     unused_variables,
     unused_unsafe,
-    unreachable_patterns
+    unreachable_patterns,
+    unreachable_code
 )]
 
 #[macro_use]

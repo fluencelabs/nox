@@ -15,8 +15,11 @@
  */
 
 use crate::ClientEvent;
-use failure::_core::task::{Context, Poll};
+use failure::_core::task::{Context, Poll, Waker};
+use failure::_core::time::Duration;
 use fluence_libp2p::generate_swarm_event_type;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use libp2p::core::connection::{ConnectedPoint, ConnectionId};
 use libp2p::core::either::EitherOutput;
 use libp2p::core::Multiaddr;
@@ -26,7 +29,7 @@ use libp2p::swarm::{
     NotifyHandler, OneShotHandler, PollParameters,
 };
 use libp2p::PeerId;
-use particle_protocol::{Particle, ProtocolConfig, ProtocolMessage};
+use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 use std::collections::VecDeque;
 use std::error::Error;
 
@@ -35,6 +38,8 @@ pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
 pub struct ClientBehaviour {
     events: VecDeque<SwarmEventType>,
     ping: Ping,
+    reconnect: Option<BoxFuture<'static, Multiaddr>>,
+    waker: Option<Waker>,
 }
 
 impl ClientBehaviour {
@@ -43,22 +48,32 @@ impl ClientBehaviour {
         Self {
             events: VecDeque::default(),
             ping,
+            reconnect: None,
+            waker: None,
         }
     }
 
     pub fn call(&mut self, peer_id: PeerId, call: Particle) {
         self.events
             .push_back(NetworkBehaviourAction::NotifyHandler {
-                event: EitherOutput::First(ProtocolMessage::Particle(call)),
+                event: EitherOutput::First(HandlerMessage::OutParticle(call, <_>::default())),
                 handler: NotifyHandler::Any,
                 peer_id,
-            })
+            });
+
+        self.wake();
+    }
+
+    fn wake(&self) {
+        if let Some(waker) = &self.waker {
+            waker.wake_by_ref()
+        }
     }
 }
 
 impl NetworkBehaviour for ClientBehaviour {
     type ProtocolsHandler = IntoProtocolsHandlerSelect<
-        <OneShotHandler<ProtocolConfig, ProtocolMessage, ProtocolMessage> as IntoProtocolsHandler>::Handler,
+        <OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> as IntoProtocolsHandler>::Handler,
         <Ping as NetworkBehaviour>::ProtocolsHandler,
     >;
 
@@ -102,7 +117,7 @@ impl NetworkBehaviour for ClientBehaviour {
 
         self.events.push_back(NetworkBehaviourAction::GenerateEvent(
             ClientEvent::NewConnection {
-                peer_id: peer_id.clone(),
+                peer_id: *peer_id,
                 multiaddr: multiaddr.clone(),
             },
         ))
@@ -143,14 +158,14 @@ impl NetworkBehaviour for ClientBehaviour {
         &mut self,
         peer_id: PeerId,
         cid: ConnectionId,
-        event: EitherOutput<ProtocolMessage, PingResult>,
+        event: EitherOutput<HandlerMessage, PingResult>,
     ) {
         use ClientEvent::Particle;
         use EitherOutput::*;
         use NetworkBehaviourAction::GenerateEvent;
 
         match event {
-            First(ProtocolMessage::Particle(particle)) => {
+            First(HandlerMessage::InParticle(particle)) => {
                 self.events.push_back(GenerateEvent(Particle {
                     particle,
                     sender: peer_id,
@@ -168,9 +183,14 @@ impl NetworkBehaviour for ClientBehaviour {
         error: &dyn Error,
     ) {
         log::warn!("Failed to connect to {:?}: {:?}, reconnecting", addr, error);
-        self.events.push_back(NetworkBehaviourAction::DialAddress {
-            address: addr.clone(),
-        });
+        let address = addr.clone();
+        self.reconnect = async move {
+            // TODO: move timeout to config
+            async_std::task::sleep(Duration::from_secs(1)).await;
+            address
+        }
+        .boxed()
+        .into();
     }
 
     fn poll(
@@ -178,8 +198,16 @@ impl NetworkBehaviour for ClientBehaviour {
         cx: &mut Context<'_>,
         params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
+        self.waker = Some(cx.waker().clone());
+
         // just polling it to the end
-        while let Poll::Ready(_) = self.ping.poll(cx, params) {}
+        while self.ping.poll(cx, params).is_ready() {}
+
+        if let Some(Poll::Ready(address)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
+            self.reconnect = None;
+            self.events
+                .push_back(NetworkBehaviourAction::DialAddress { address });
+        }
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);

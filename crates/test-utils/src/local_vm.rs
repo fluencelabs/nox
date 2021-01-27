@@ -73,9 +73,11 @@ fn route(args: Vec<IValue>, data: HashMap<&'static str, JValue>) -> Option<IValu
         "load" => data
             .get(args.function_name.as_str())
             .map(|v| ivalue_utils::ok(v.clone()))
-            .unwrap_or(ivalue_utils::error(JValue::String(f!(
-                "variable not found: {args.function_name}"
-            )))),
+            .unwrap_or_else(|| {
+                ivalue_utils::error(JValue::String(f!(
+                    "variable not found: {args.function_name}"
+                )))
+            }),
         "identity" => ivalue_utils::ok(JValue::Array(args.function_args)),
         service => ivalue_utils::error(JValue::String(f!("service not found: {service}"))),
     }
@@ -117,7 +119,7 @@ fn make_vm(
     };
     log::info!("particle_data_store: {:?}", config.particle_data_store);
 
-    let vm = AquamarineVM::new(config)
+    AquamarineVM::new(config)
         .map_err(|err| {
             log::error!(
                 "\n\n\nFailed to create local AquamarineVM: {:#?}\n\n\n",
@@ -129,9 +131,7 @@ fn make_vm(
                 err
             );
         })
-        .expect("vm should be created");
-
-    vm
+        .expect("vm should be created")
 }
 
 pub fn make_particle(
@@ -139,10 +139,9 @@ pub fn make_particle(
     data: HashMap<&'static str, JValue>,
     script: String,
 ) -> Particle {
-    let variable_names = data.keys().cloned().collect::<Vec<_>>();
+    let variable_names = data.keys().cloned();
 
     let load_variables = variable_names
-        .into_iter()
         .map(|name| f!(r#"(call "{peer_id}" ("load" "{name}") [] {name})"#))
         .fold(Instruction::Null, |acc, call| acc.add(call))
         .into_air();
