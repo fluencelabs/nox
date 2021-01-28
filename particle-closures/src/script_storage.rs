@@ -14,22 +14,4 @@
  * limitations under the License.
  */
 
-#![feature(stmt_expr_attributes)]
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
-
-mod host_closures;
-mod identify;
-mod script_storage;
-
-pub use host_closures::HostClosures;
-pub use identify::NodeInfo;
+pub struct ScriptStorage {}
