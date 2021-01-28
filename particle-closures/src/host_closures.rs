@@ -28,6 +28,7 @@ use server_config::ServicesConfig;
 
 use crate::script_storage::{ScriptStorage, ScriptStorageApi};
 use async_std::task;
+use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 use multihash::Code;
 use multihash::MultihashDigest;
@@ -162,7 +163,14 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     fn connect(&self, args: Args) -> Result<JValue, JError> {
-        let contact: Contact = Args::next("peer_id", &mut args.function_args.into_iter())?;
+        let mut args = args.function_args.into_iter();
+
+        let peer_id: String = Args::next("peer_id", &mut args)?;
+        let peer_id = PeerId::from_str(peer_id.as_str())?;
+        let addrs: Vec<Multiaddr> = Args::maybe_next("addresses", &mut args)?.unwrap_or_default();
+
+        let contact = Contact::new(peer_id, addrs);
+
         let ok = task::block_on(self.connection_pool().connect(contact));
         Ok(json!(ok))
     }
