@@ -23,7 +23,7 @@ waiting-queues = { path = "../crates/waiting-queues" }
 
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
 
-async-std = "1.9.0"
+async-std = { version = "1.9.0", features = ["unstable"] }
 multihash = "0.13.2"
 futures = "0.3.5"
 serde_json = "1.0.61"
@@ -32,3 +32,6 @@ log = "0.4.11"
 bs58 = "0.3.1"
 ref-cast = "1.0.2"
 parking_lot = "0.11.1"
+uuid = "0.8.2"
+chrono = "0.4.19"
+thiserror = "1.0.23"

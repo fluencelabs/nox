@@ -154,11 +154,18 @@ impl ConnectionPoolBehaviour {
     /// Sends a particle to a connected contact. Returns whether sending succeeded or not
     /// Result is sent to channel inside `upgrade_outbound` in ProtocolHandler
     pub fn send(&mut self, to: Contact, particle: Particle, outlet: OneshotOutlet<bool>) {
-        self.push_event(NetworkBehaviourAction::NotifyHandler {
-            peer_id: to.peer_id,
-            handler: NotifyHandler::Any,
-            event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),
-        });
+        if to.peer_id == self.peer_id {
+            // If particle is sent to the current node, process it locally
+            self.queue.push_back(particle);
+            outlet.send(true).ok();
+        } else {
+            // Send particle to remote peer
+            self.push_event(NetworkBehaviourAction::NotifyHandler {
+                peer_id: to.peer_id,
+                handler: NotifyHandler::Any,
+                event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),
+            });
+        }
     }
 
     /// Returns number of connected contacts

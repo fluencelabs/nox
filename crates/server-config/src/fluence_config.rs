@@ -135,6 +135,10 @@ pub struct NodeConfig {
     pub particle_queue_buffer: usize,
     #[serde(default = "default_particle_processor_parallelism")]
     pub particle_processor_parallelism: usize,
+
+    #[serde(default = "default_script_storage_interval")]
+    #[serde(with = "humantime_serde")]
+    pub script_storage_interval: Duration,
 }
 
 impl NodeConfig {

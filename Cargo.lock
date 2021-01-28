@@ -3096,6 +3096,7 @@ version = "0.2.0"
 dependencies = [
  "async-std",
  "bs58 0.3.1",
+ "chrono",
  "config-utils",
  "connection-pool",
  "fluence-fork-libp2p",
@@ -3116,7 +3117,9 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
+ "thiserror",
  "trust-graph",
+ "uuid",
  "waiting-queues",
 ]
 

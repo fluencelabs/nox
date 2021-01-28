@@ -136,6 +136,7 @@ impl Node {
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
         bootstrap_nodes: Vec<Multiaddr>,
+        script_storage_interval: Duration,
     ) -> anyhow::Result<Box<Self>> {
         log::info!("server peer id = {}", local_peer_id);
 
@@ -153,8 +154,12 @@ impl Node {
         });
 
         let node_info = NodeInfo { external_addresses };
-        let host_closures =
-            HostClosures::new(network_api.connectivity(), node_info, services_config);
+        let host_closures = HostClosures::new(
+            network_api.connectivity(),
+            node_info,
+            services_config,
+            script_storage_interval,
+        );
 
         let (stepper_pool, stepper_pool_api) =
             AquamarineBackend::new(pool_config, host_closures.descriptor());
