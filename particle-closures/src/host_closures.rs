@@ -133,7 +133,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("dist", "add_blueprint")  => (self.add_blueprint)(args),
             ("dist", "get_modules")    => (self.get_modules)(args),
             ("dist", "get_blueprints") => (self.get_blueprints)(args),
-            ("dist", "add_script")     => wrap_opt(self.add_script(args)),
+            ("dist", "add_script")     => wrap(self.add_script(args)),
 
             ("op", "identify")         => (self.identify)(args),
             ("op", "identity")         => ok(Array(args.function_args)),
@@ -172,11 +172,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(contact.map(|c| json!(c)))
     }
 
-    fn add_script(&self, args: Args) -> Result<Option<JValue>, JError> {
+    fn add_script(&self, args: Args) -> Result<JValue, JError> {
         let script: String = Args::next("script", &mut args.function_args.into_iter())?;
-        self.script_storage.add_script(script)?;
+        let id = self.script_storage.add_script(script)?;
 
-        Ok(None)
+        Ok(json!(id))
     }
 
     fn kademlia(&self) -> &KademliaApi {

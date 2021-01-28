@@ -298,6 +298,8 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         Transport::Network => build_transport(Ed25519(kp), Duration::from_secs(10)),
     };
 
+    let script_storage_interval = Duration::from_millis(50);
+
     let mut node = Node::with(
         peer_id,
         transport,
@@ -308,6 +310,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         None,
         "0.0.0.0:0".parse().unwrap(),
         bootstraps,
+        script_storage_interval,
     )
     .expect("create node");
 
