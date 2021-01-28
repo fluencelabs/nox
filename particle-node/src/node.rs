@@ -113,6 +113,8 @@ impl Node {
         let network_config =
             NetworkConfig::new(trust_graph, Some(registry.clone()), key_pair, &config);
 
+        let script_storage_interval = Duration::from_millis(50);
+
         Self::with(
             local_peer_id,
             transport,
@@ -123,6 +125,7 @@ impl Node {
             registry.into(),
             config.metrics_listen_addr(),
             config.bootstrap_nodes,
+            script_storage_interval,
         )
     }
 
