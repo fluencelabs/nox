@@ -133,7 +133,9 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("dist", "add_blueprint")  => (self.add_blueprint)(args),
             ("dist", "get_modules")    => (self.get_modules)(args),
             ("dist", "get_blueprints") => (self.get_blueprints)(args),
-            ("dist", "add_script")     => wrap(self.add_script(args)),
+
+            ("script", "add")          => wrap(self.add_script(args)),
+            ("script", "remove")       => wrap(self.remove_script(args)),
 
             ("op", "identify")         => (self.identify)(args),
             ("op", "identity")         => ok(Array(args.function_args)),
@@ -175,6 +177,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn add_script(&self, args: Args) -> Result<JValue, JError> {
         let script: String = Args::next("script", &mut args.function_args.into_iter())?;
         let id = self.script_storage.add_script(script)?;
+
+        Ok(json!(id))
+    }
+
+    fn remove_script(&self, args: Args) -> Result<JValue, JError> {
+        let script: String = Args::next("uuid", &mut args.function_args.into_iter())?;
+        let id = self.script_storage.remove_script(script)?;
 
         Ok(json!(id))
     }

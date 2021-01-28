@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms, ConnectedClient};
+use test_utils::{enable_logs, make_swarms, timeout, ConnectedClient};
 
 use fstrings::f;
 use libp2p::core::Multiaddr;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
+use std::time::Duration;
 
 #[macro_use]
 extern crate fstrings;
@@ -37,7 +38,35 @@ fn stream_hello() {
 
     client.send_particle(
         r#"
-        (call relay ("dist" "add_script") [script])
+        (call relay ("script" "add") [script])
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "script" => json!(script),
+        },
+    );
+
+    for _ in 1..10 {
+        let res = client.receive_args();
+    }
+}
+
+#[test]
+fn remove_script() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let script = f!(r#"
+        (call "{client.peer_id}" ("op" "return") ["hello"])
+    "#);
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "add") [script] id)
+            (call client ("op" "return") [id])
+        )
         "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
@@ -46,7 +75,26 @@ fn stream_hello() {
         },
     );
 
-    for _ in 1..10 {
-        let res = client.receive_args();
-    }
+    let script_id = client.receive_args().into_iter().next().unwrap();
+    client.send_particle(
+        r#"
+        (call relay ("script" "remove") [id])
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "id" => json!(script_id),
+        },
+    );
+
+    async_std::task::block_on(timeout(
+        Duration::from_secs(1),
+        async_std::task::spawn(async move {
+            loop {
+                if client.maybe_receive().is_none() {
+                    break;
+                }
+            }
+        }),
+    ))
+    .expect("script wasn't deleted");
 }

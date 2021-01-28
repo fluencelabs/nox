@@ -14,27 +14,25 @@
  * limitations under the License.
  */
 
-use async_std::sync::{Arc, Mutex};
-use async_std::task;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
 use fluence_libp2p::types::{Inlet, Outlet};
-use futures::channel::mpsc::unbounded;
-use futures::StreamExt;
-use libp2p::PeerId;
+use futures::{channel::mpsc::unbounded, StreamExt};
 use particle_protocol::Particle;
-use std::collections::HashMap;
-use std::ops::Deref;
-use std::time::Duration;
+
+use async_std::{sync::Mutex, task};
+use libp2p::PeerId;
+use std::{collections::HashMap, ops::Deref, time::Duration};
 use thiserror::Error;
 
-struct Script {
-    uuid: String,
-    script: String,
+#[derive(Debug)]
+enum Command {
+    AddScript { uuid: String, script: String },
+    RemoveScript { uuid: String },
 }
 
 pub struct ScriptStorage {
-    inlet: Inlet<Script>,
-    scripts: Arc<Mutex<HashMap<String, String>>>,
+    inlet: Inlet<Command>,
+    scripts: Mutex<HashMap<String, String>>,
     connection_pool: ConnectionPoolApi,
     peer_id: PeerId,
     interval: Duration,
@@ -81,6 +79,17 @@ impl ScriptStorage {
             }
         }
 
+        async fn execute_command(command: Command, scripts: &Mutex<HashMap<String, String>>) {
+            match command {
+                Command::AddScript { uuid, script } => {
+                    scripts.lock().await.insert(uuid, script);
+                }
+                Command::RemoveScript { uuid } => {
+                    scripts.lock().await.remove(&uuid);
+                }
+            }
+        }
+
         task::spawn(async move {
             let scripts = self.scripts;
             let pool = self.connection_pool;
@@ -91,8 +100,8 @@ impl ScriptStorage {
 
             loop {
                 select! {
-                    script = inlet.select_next_some() => {
-                        scripts.lock().await.insert(script.uuid, script.script);
+                    command = inlet.select_next_some() => {
+                        execute_command(command, &scripts).await
                     },
                     _ = timer.select_next_some() => {
                         let scripts = {
@@ -110,7 +119,7 @@ impl ScriptStorage {
 
 #[derive(Clone)]
 pub struct ScriptStorageApi {
-    outlet: Outlet<Script>,
+    outlet: Outlet<Command>,
 }
 
 #[derive(Error, Debug)]
@@ -120,16 +129,24 @@ pub enum ScriptStorageError {
 }
 
 impl ScriptStorageApi {
+    fn send(&self, command: Command) -> Result<(), ScriptStorageError> {
+        self.outlet
+            .unbounded_send(command)
+            .map_err(|_| ScriptStorageError::OutletError)
+    }
+
     pub fn add_script(&self, script: String) -> Result<String, ScriptStorageError> {
         let uuid = uuid::Uuid::new_v4().to_string();
-        let script = Script {
+
+        self.send(Command::AddScript {
             uuid: uuid.clone(),
             script,
-        };
-        self.outlet
-            .unbounded_send(script)
-            .map_err(|_| ScriptStorageError::OutletError)?;
+        })?;
 
         Ok(uuid)
+    }
+
+    pub fn remove_script(&self, uuid: String) -> Result<(), ScriptStorageError> {
+        self.send(Command::RemoveScript { uuid })
     }
 }
