@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use test_utils::{enable_logs, make_swarms, timeout, ConnectedClient};
+use test_utils::{make_swarms, timeout, ConnectedClient};
 
 use fstrings::f;
-use libp2p::core::Multiaddr;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
@@ -47,7 +46,8 @@ fn stream_hello() {
     );
 
     for _ in 1..10 {
-        let res = client.receive_args();
+        let res = client.receive_args().into_iter().next().unwrap();
+        assert_eq!(res, "hello");
     }
 }
 
@@ -97,4 +97,40 @@ fn remove_script() {
         }),
     ))
     .expect("script wasn't deleted");
+}
+
+#[test]
+/// Check that auto-particle can be delivered through network hops
+fn script_routing() {
+    let swarms = make_swarms(3);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let script = f!(r#"
+        (seq
+            (call "{client.node}" ("op" "identity") [])
+            (call "{client.peer_id}" ("op" "return") ["hello"])
+        )
+    "#);
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("op" "identity") [])
+            (call second ("script" "add") [script] id)
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "second" => json!(swarms[1].0.to_string()),
+            "script" => json!(script),
+        },
+    );
+
+    for _ in 1..10 {
+        log::info!("waiting for hello");
+        let res = client.receive_args().into_iter().next().unwrap();
+        assert_eq!(res, "hello");
+        log::info!("got hello");
+    }
 }

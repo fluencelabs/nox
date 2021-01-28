@@ -88,7 +88,7 @@ pub fn enable_logs() {
 
     env_logger::builder()
         .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(log::LevelFilter::Info)
         .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)
@@ -298,7 +298,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         Transport::Network => build_transport(Ed25519(kp), Duration::from_secs(10)),
     };
 
-    let script_storage_interval = Duration::from_millis(100);
+    let script_storage_interval = Duration::from_millis(500);
 
     let mut node = Node::with(
         peer_id,

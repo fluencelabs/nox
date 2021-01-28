@@ -225,6 +225,7 @@ impl Connectivity {
             };
 
             // forward particle
+            log::info!("Sending particle {} to {}", particle.id, contact);
             self.connection_pool.send(contact, particle).await;
         }
     }

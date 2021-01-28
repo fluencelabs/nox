@@ -182,8 +182,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     fn remove_script(&self, args: Args) -> Result<JValue, JError> {
-        let script: String = Args::next("uuid", &mut args.function_args.into_iter())?;
-        let id = self.script_storage.remove_script(script)?;
+        let uuid: String = Args::next("uuid", &mut args.function_args.into_iter())?;
+        let id = self.script_storage.remove_script(uuid)?;
 
         Ok(json!(id))
     }
