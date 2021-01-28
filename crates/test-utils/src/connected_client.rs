@@ -141,9 +141,11 @@ impl ConnectedClient {
         &mut self,
         script: impl Into<String>,
         data: HashMap<&'static str, JValue>,
-    ) {
+    ) -> String {
         let particle = make_particle(self.peer_id, data, script.into());
+        let id = particle.id.clone();
         self.send(particle);
+        id
     }
 
     pub fn maybe_receive(&mut self) -> Option<Particle> {

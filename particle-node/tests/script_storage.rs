@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms, timeout, ConnectedClient};
+use test_utils::{make_swarms, read_args, timeout, ConnectedClient};
 
 use fstrings::f;
 use maplit::hashmap;
-use serde::Deserialize;
 use serde_json::json;
 use std::time::Duration;
 
@@ -76,21 +75,28 @@ fn remove_script() {
     );
 
     let script_id = client.receive_args().into_iter().next().unwrap();
-    client.send_particle(
+    let remove_id = client.send_particle(
         r#"
-        (call relay ("script" "remove") [id])
+        (seq
+            (call relay ("script" "remove") [id] removed)
+            (call client ("op" "return") [removed])
+        )
         "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
             "id" => json!(script_id),
         },
     );
 
     async_std::task::block_on(timeout(
-        Duration::from_secs(1),
+        Duration::from_secs(5),
         async_std::task::spawn(async move {
             loop {
-                if client.maybe_receive().is_none() {
+                let particle = client.receive();
+                if particle.id == remove_id {
+                    let removed = read_args(particle, &client.peer_id);
+                    assert_eq!(removed, vec![serde_json::Value::Bool(true)]);
                     break;
                 }
             }

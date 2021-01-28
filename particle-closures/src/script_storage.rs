@@ -15,19 +15,29 @@
  */
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
-use fluence_libp2p::types::{Inlet, Outlet};
-use futures::{channel::mpsc::unbounded, StreamExt};
+use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
 use particle_protocol::Particle;
 
 use async_std::{sync::Mutex, task};
+use futures::{
+    channel::{mpsc::unbounded, oneshot},
+    future::BoxFuture,
+    FutureExt, StreamExt, TryFutureExt,
+};
 use libp2p::PeerId;
 use std::{collections::HashMap, ops::Deref, time::Duration};
 use thiserror::Error;
 
 #[derive(Debug)]
 enum Command {
-    AddScript { uuid: String, script: String },
-    RemoveScript { uuid: String },
+    AddScript {
+        uuid: String,
+        script: String,
+    },
+    RemoveScript {
+        uuid: String,
+        outlet: OneshotOutlet<bool>,
+    },
 }
 
 pub struct ScriptStorage {
@@ -84,8 +94,9 @@ impl ScriptStorage {
                 Command::AddScript { uuid, script } => {
                     scripts.lock().await.insert(uuid, script);
                 }
-                Command::RemoveScript { uuid } => {
-                    scripts.lock().await.remove(&uuid);
+                Command::RemoveScript { uuid, outlet } => {
+                    let removed = scripts.lock().await.remove(&uuid);
+                    outlet.send(removed.is_some()).ok();
                 }
             }
         }
@@ -126,6 +137,8 @@ pub struct ScriptStorageApi {
 pub enum ScriptStorageError {
     #[error("can't send message to script storage")]
     OutletError,
+    #[error("can't receive response from script storage")]
+    InletError,
 }
 
 impl ScriptStorageApi {
@@ -146,7 +159,14 @@ impl ScriptStorageApi {
         Ok(uuid)
     }
 
-    pub fn remove_script(&self, uuid: String) -> Result<(), ScriptStorageError> {
-        self.send(Command::RemoveScript { uuid })
+    pub fn remove_script(
+        &self,
+        uuid: String,
+    ) -> BoxFuture<'static, Result<bool, ScriptStorageError>> {
+        let (outlet, inlet) = oneshot::channel();
+        if let Err(err) = self.send(Command::RemoveScript { uuid, outlet }) {
+            return futures::future::err(err).boxed();
+        }
+        inlet.map_err(|_| ScriptStorageError::InletError).boxed()
     }
 }

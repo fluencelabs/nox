@@ -191,9 +191,9 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
     fn remove_script(&self, args: Args) -> Result<JValue, JError> {
         let uuid: String = Args::next("uuid", &mut args.function_args.into_iter())?;
-        let id = self.script_storage.remove_script(uuid)?;
+        let ok = task::block_on(self.script_storage.remove_script(uuid))?;
 
-        Ok(json!(id))
+        Ok(json!(ok))
     }
 
     fn kademlia(&self) -> &KademliaApi {
