@@ -164,7 +164,7 @@ fn explore_services() {
                     (fold neighs_inner ns
                         (seq
                             ; HACK: convert ns from iterable to a value
-                            (call %current_peer_id% ("op" "identity") [ns] ns_wrapped)
+                            (call relay ("op" "identity") [ns] ns_wrapped)
                             (seq
                                 (fold ns_wrapped.$[0]! n
                                     (seq

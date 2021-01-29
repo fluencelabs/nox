@@ -17,10 +17,10 @@ config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
-trust-graph = "0.2.0"
 fluence-libp2p = { path = "../crates/libp2p" }
 waiting-queues = { path = "../crates/waiting-queues" }
 
+trust-graph = "0.2.0"
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
 
 async-std = "1.9.0"

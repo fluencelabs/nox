@@ -10,7 +10,7 @@ services:
     volumes:
       - fluence-1:/.fluence
     environment:
-      RUST_BACKTRACE: "1"
+      RUST_BACKTRACE: "full"
       RUST_LOG: "info,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
 ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,particle_server::behaviour::identify=info,particle_protocol::libp2p_protocol::upgrade=info"
       WASM_LOG: "info"
@@ -25,7 +25,7 @@ services:
     volumes:
       - fluence-2:/.fluence
     environment:
-      RUST_BACKTRACE: "1"
+      RUST_BACKTRACE: "full"
       RUST_LOG: "info,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
 ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info"
       WASM_LOG: "info"
@@ -40,7 +40,7 @@ services:
     volumes:
       - fluence-3:/.fluence
     environment:
-      RUST_BACKTRACE: "1"
+      RUST_BACKTRACE: "full"
       RUST_LOG: "info,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
 ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info"
       WASM_LOG: "info"
@@ -55,7 +55,7 @@ services:
     volumes:
       - fluence-4:/.fluence
     environment:
-      RUST_BACKTRACE: "1"
+      RUST_BACKTRACE: "full"
       RUST_LOG: "info,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
 ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info"
       WASM_LOG: "info"
@@ -70,7 +70,7 @@ services:
     volumes:
       - fluence-5:/.fluence
     environment:
-      RUST_BACKTRACE: "1"
+      RUST_BACKTRACE: "full"
       RUST_LOG: "info,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
 ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info"
       WASM_LOG: "info"
@@ -83,9 +83,9 @@ services:
       - "9006:9006" # Peer service
     command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7006 -w 9006"
     volumes:
-      - fluence-5:/.fluence
+      - fluence-6:/.fluence
     environment:
-      RUST_BACKTRACE: "1"
+      RUST_BACKTRACE: "full"
       RUST_LOG: "info,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
   ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info"
       WASM_LOG: "info"

@@ -302,7 +302,8 @@ pub fn deserialize_config(
     arguments: ArgMatches<'_>,
     content: Vec<u8>,
 ) -> anyhow::Result<FluenceConfig> {
-    let mut config: toml::value::Table = toml::from_slice(&content)?;
+    let mut config: toml::value::Table =
+        toml::from_slice(&content).context("deserializing config")?;
 
     insert_args_to_config(arguments, &mut config)?;
 

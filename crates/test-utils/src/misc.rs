@@ -181,7 +181,7 @@ where
         let mut events = pool.lifecycle_events();
         loop {
             let num = pool.count_connections().await;
-            if dbg!(num) >= n - 1 {
+            if num >= n - 1 {
                 break;
             }
             // wait until something changes
