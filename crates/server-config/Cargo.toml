@@ -9,7 +9,7 @@ config-utils = { path = "../config-utils" }
 trust-graph = "0.2.0"
 particle-protocol = { path = "../../particle-protocol"}
 
-air-interpreter-wasm = { package = "air-interpreter-wasm", version = "0.3.4" }
+air-interpreter-wasm = "0.3.4"
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
 
 serde = { version = "1.0.118", features = ["derive"] }
