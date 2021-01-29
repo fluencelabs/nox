@@ -165,9 +165,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.0.30"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dfd52d153d3f04380e6466fb2cb69e1a3893f39b58d2dc5ac8839249ee113d5"
+checksum = "4478347ba3a101409fd67ea271cb6fc8e64013049089c148fba25bdf36fc4b70"
 dependencies = [
  "built",
 ]
@@ -1348,12 +1348,13 @@ dependencies = [
 
 [[package]]
 name = "fce"
-version = "0.1.29"
+version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "024ac74e329d2446f8a6cde60ca26f6a159cf0d660568a156e3de499bf3011e8"
+checksum = "9deb5e4f0e1533694ffbfd3644b8047ae41e8098165cdf5934a60b71f82e30c9"
 dependencies = [
  "boolinator",
  "fce-utils",
+ "fce-wit-generator",
  "fce-wit-interfaces",
  "fce-wit-parser",
  "log",
@@ -1374,6 +1375,21 @@ name = "fce-utils"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7a516882dccba04f0034e288c1aa5f06ce9da2711a7ce984ceebac8117e185e"
+
+[[package]]
+name = "fce-wit-generator"
+version = "0.1.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e19c183d232092a59aeaa4f22212699b3da2acf0bcc5329a9de2a7bb7aa9f87"
+dependencies = [
+ "fce-wit-parser",
+ "fluence-sdk-wit",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "walrus",
+ "wasmer-interface-types-fl",
+]
 
 [[package]]
 name = "fce-wit-interfaces"
@@ -1446,9 +1462,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.1.29"
+version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7efb3d5f011df7b7f84fd80ef116885392ad27f32f934829389bd94945a42085"
+checksum = "2fb49d32cad551606cc6ef324b93b0079e7f7f8a54be15176a314098028195cb"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1486,9 +1502,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-faas"
-version = "0.1.29"
+version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f0ec0c180f1c40573283320e422790e62120873c22d8b7b3aa50ea95f011bb8"
+checksum = "a74511b8a8fc16e3cb3749631824b90f89cecb742cbbaf4e467a0873e34a5a53"
 dependencies = [
  "cmd_lib",
  "fce",
