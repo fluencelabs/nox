@@ -18,7 +18,7 @@ aquamarine = { path = "../../aquamarine" }
 connection-pool = { path = "../../connection-pool" }
 
 stepper-interface = "0.1.1"
-air-interpreter-wasm = "0.0.30"
+air-interpreter-wasm = "0.3.4"
 aquamarine-vm = "0.1.7"
 
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
