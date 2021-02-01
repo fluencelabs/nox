@@ -55,3 +55,6 @@ upgrade_timeout = "10s"
 keep_alive_timeout = "10s"
 outbound_substream_timeout = "10s"
 
+[kademlia]
+query_timeout = "3s"
+

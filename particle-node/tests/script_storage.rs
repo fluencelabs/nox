@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms, read_args, timeout, ConnectedClient};
+use test_utils::{enable_logs, make_swarms, read_args, timeout, ConnectedClient};
 
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
+use std::thread::sleep;
 use std::time::Duration;
 
 #[macro_use]
@@ -139,4 +140,36 @@ fn script_routing() {
         assert_eq!(res, "hello");
         log::info!("got hello");
     }
+}
+
+#[ignore]
+#[test]
+fn dont_stall() {
+    enable_logs();
+
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let script = f!(r#"
+        (seq
+            (call "{client.node}" ("op" "identity") [])
+            (call "12D3KooWAiwZrT8F9CBh496ubSKiAP4w9B3Eb8NoJA2W4mQq5Mgf" ("op" "return") ["hello"])
+        )
+    "#);
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("op" "identity") [])
+            (call relay ("script" "add") [script] id)
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "script" => json!(script),
+        },
+    );
+
+    sleep(Duration::from_secs(1000000));
 }

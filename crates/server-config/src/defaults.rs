@@ -70,7 +70,7 @@ pub fn default_particle_queue_buffer_size() -> usize {
 }
 
 pub fn default_particle_processor_parallelism() -> usize {
-    num_cpus::get()
+    num_cpus::get() * 4
 }
 
 pub fn default_script_storage_interval() -> Duration {
