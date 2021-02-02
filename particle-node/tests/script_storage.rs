@@ -64,7 +64,7 @@ fn remove_script() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("script" "add") [script] id)
+            (call relay ("script" "add") [script "0"] id)
             (call client ("op" "return") [id])
         )
         "#,
@@ -124,7 +124,7 @@ fn script_routing() {
         r#"
         (seq
             (call relay ("op" "identity") [])
-            (call second ("script" "add") [script] id)
+            (call second ("script" "add") [script "0"] id)
         )
         "#,
         hashmap! {
@@ -162,7 +162,7 @@ fn dont_stall() {
         r#"
         (seq
             (call relay ("op" "identity") [])
-            (call relay ("script" "add") [script] id)
+            (call relay ("script" "add") [script "0"] id)
         )
         "#,
         hashmap! {
