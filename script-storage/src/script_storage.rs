@@ -22,11 +22,13 @@ use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
 use particle_protocol::Particle;
 
 use async_std::{sync::Mutex, task, task::JoinHandle};
+use fluence_libp2p::PeerId;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     future::BoxFuture,
     FutureExt, StreamExt, TryFutureExt,
 };
+use std::convert::identity;
 use std::time::{Duration, Instant};
 use std::{
     borrow::Borrow,
@@ -36,7 +38,7 @@ use std::{
 use thiserror::Error;
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
-struct ScriptId(Arc<String>);
+pub struct ScriptId(Arc<String>);
 impl Borrow<String> for ScriptId {
     fn borrow(&self) -> &String {
         self.0.borrow()
@@ -44,22 +46,24 @@ impl Borrow<String> for ScriptId {
 }
 
 #[derive(Clone, Debug)]
-struct Script {
-    src: String,
-    failures: u8,
+pub struct Script {
+    pub src: String,
+    pub failures: u8,
     /// Interval at which to execute this script.
     /// If None, that means the script will be executed only once
-    interval: Option<Duration>,
+    pub interval: Option<Duration>,
     pub executed_at: Option<Instant>,
+    pub owner: PeerId,
 }
 
 impl Script {
-    pub fn new(src: String, interval: Option<Duration>) -> Self {
+    pub fn new(src: String, interval: Option<Duration>, owner: PeerId) -> Self {
         Self {
             src,
             interval,
             failures: 0,
             executed_at: None,
+            owner,
         }
     }
 
@@ -83,10 +87,15 @@ enum Command {
         uuid: String,
         script: String,
         interval: Option<Duration>,
+        owner: PeerId,
     },
     RemoveScript {
         uuid: String,
-        outlet: OneshotOutlet<bool>,
+        outlet: OneshotOutlet<Result<bool, ScriptStorageError>>,
+        actor: PeerId,
+    },
+    ListScripts {
+        outlet: OneshotOutlet<HashMap<ScriptId, Script>>,
     },
 }
 
@@ -166,7 +175,7 @@ async fn execute_scripts(
     .await;
 
     // Take and clone all scripts that are ready to be executed
-    let scripts: Vec<(ScriptId, Script)> = unlock(scripts, |scripts| {
+    let scripts: HashMap<ScriptId, Script> = unlock(scripts, |scripts| {
         scripts
             .iter_mut()
             .filter(|(_, script)| script.deadline().map_or(true, |deadline| deadline <= now))
@@ -215,14 +224,29 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             uuid,
             script,
             interval,
+            owner,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
-            let script = Script::new(script, interval);
+            let script = Script::new(script, interval, owner);
             unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
         }
-        Command::RemoveScript { uuid, outlet } => {
-            let removed = unlock(scripts, |scripts| scripts.remove(&uuid)).await;
-            outlet.send(removed.is_some()).ok();
+        Command::RemoveScript {
+            uuid,
+            outlet,
+            actor,
+        } => {
+            let uuid = ScriptId(Arc::new(uuid));
+            let removed = unlock(scripts, |scripts| match scripts.entry(uuid) {
+                Entry::Vacant(_) => Ok(false),
+                Entry::Occupied(e) if e.get().owner == actor => Ok(true),
+                Entry::Occupied(_) => Err(ScriptStorageError::PermissionDenied),
+            })
+            .await;
+            outlet.send(removed).ok();
+        }
+        Command::ListScripts { outlet } => {
+            let scripts = unlock(scripts, |scripts| scripts.clone()).await;
+            outlet.send(scripts).ok();
         }
     }
 }
@@ -264,10 +288,14 @@ pub struct ScriptStorageApi {
 
 #[derive(Error, Debug)]
 pub enum ScriptStorageError {
-    #[error("can't send message to script storage")]
+    #[error("ScriptStorageError::OutletError: can't send message to script storage")]
     OutletError,
-    #[error("can't receive response from script storage")]
+    #[error("ScriptStorageError::InletError: can't receive response from script storage")]
     InletError,
+    #[error(
+        "ScriptStorageError::PermissionDenied: only the owner (creator) of a script can remove it"
+    )]
+    PermissionDenied,
 }
 
 impl ScriptStorageApi {
@@ -281,6 +309,7 @@ impl ScriptStorageApi {
         &self,
         script: String,
         interval: Option<Duration>,
+        owner: PeerId,
     ) -> Result<String, ScriptStorageError> {
         let uuid = uuid::Uuid::new_v4().to_string();
 
@@ -288,6 +317,7 @@ impl ScriptStorageApi {
             uuid: uuid.clone(),
             script,
             interval,
+            owner,
         })?;
 
         Ok(uuid)
@@ -296,9 +326,29 @@ impl ScriptStorageApi {
     pub fn remove_script(
         &self,
         uuid: String,
+        actor: PeerId,
     ) -> BoxFuture<'static, Result<bool, ScriptStorageError>> {
+        use ScriptStorageError::InletError;
+
         let (outlet, inlet) = oneshot::channel();
-        if let Err(err) = self.send(Command::RemoveScript { uuid, outlet }) {
+        let command = Command::RemoveScript {
+            uuid,
+            outlet,
+            actor,
+        };
+        if let Err(err) = self.send(command) {
+            return futures::future::err(err).boxed();
+        }
+        inlet
+            .map(|r| r.map_err(|_| InletError).and_then(identity))
+            .boxed()
+    }
+
+    pub fn list_scripts(
+        &self,
+    ) -> BoxFuture<'static, Result<HashMap<ScriptId, Script>, ScriptStorageError>> {
+        let (outlet, inlet) = oneshot::channel();
+        if let Err(err) = self.send(Command::ListScripts { outlet }) {
             return futures::future::err(err).boxed();
         }
         inlet.map_err(|_| ScriptStorageError::InletError).boxed()

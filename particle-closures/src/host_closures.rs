@@ -28,9 +28,11 @@ use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
 use async_std::task;
+use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::{Code, MultihashDigest};
 use serde_json::{json, Value as JValue};
+use std::borrow::Borrow;
 use std::num::ParseIntError;
 use std::time::Duration;
 use std::{str::FromStr, sync::Arc};
@@ -92,7 +94,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         })
     }
 
-    fn route(&self, particle: ParticleParameters, args: Vec<IValue>) -> Option<IValue> {
+    fn route(&self, params: ParticleParameters, args: Vec<IValue>) -> Option<IValue> {
         let args = match Args::parse(args) {
             Ok(args) => args,
             Err(err) => {
@@ -118,7 +120,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("dht", "add_provider")    => (self.add_provider)(args),
             ("dht", "get_providers")   => (self.get_providers)(args),
 
-            ("srv", "create")          => (self.create_service)(particle, args),
+            ("srv", "create")          => (self.create_service)(params, args),
             ("srv", "get_interface")   => (self.get_interface)(args),
             ("srv", "get_interfaces")  => (self.get_active_interfaces)(args),
 
@@ -127,13 +129,14 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("dist", "get_modules")    => (self.get_modules)(args),
             ("dist", "get_blueprints") => (self.get_blueprints)(args),
 
-            ("script", "add")          => wrap(self.add_script(args)),
-            ("script", "remove")       => wrap(self.remove_script(args)),
+            ("script", "add")          => wrap(self.add_script(args, params)),
+            ("script", "remove")       => wrap(self.remove_script(args, params)),
+            ("script", "list")         => wrap(self.list_scripts()),
 
             ("op", "identify")         => (self.identify)(args),
             ("op", "identity")         => ok(Array(args.function_args)),
 
-            _ => (self.call_service)(particle, args),
+            _ => (self.call_service)(params, args),
         }
     }
 
@@ -174,11 +177,10 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(contact.map(|c| json!(c)))
     }
 
-    fn add_script(&self, args: Args) -> Result<JValue, JError> {
+    fn add_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
         #[derive(thiserror::Error, Debug)]
         #[error("Error while deserializing field interval_sec: not a valid u64")]
         struct Error(#[source] ParseIntError);
-
         let mut args = args.function_args.into_iter();
 
         let script: String = Args::next("script", &mut args)?;
@@ -188,16 +190,38 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             .transpose()
             .map_err(Error)?;
         let interval = interval.map(Duration::from_secs);
-        let id = self.script_storage.add_script(script, interval)?;
+        let creator = PeerId::from_str(&params.init_user_id)?;
+        let id = self.script_storage.add_script(script, interval, creator)?;
 
         Ok(json!(id))
     }
 
-    fn remove_script(&self, args: Args) -> Result<JValue, JError> {
+    fn remove_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
         let uuid: String = Args::next("uuid", &mut args.function_args.into_iter())?;
-        let ok = task::block_on(self.script_storage.remove_script(uuid))?;
+        let actor = PeerId::from_str(&params.init_user_id)?;
+        let ok = task::block_on(self.script_storage.remove_script(uuid, actor))?;
 
         Ok(json!(ok))
+    }
+
+    fn list_scripts(&self) -> Result<JValue, JError> {
+        let scripts = task::block_on(self.script_storage.list_scripts())?;
+
+        Ok(JValue::Array(
+            scripts
+                .into_iter()
+                .map(|(id, script)| {
+                    let id: &String = id.borrow();
+                    json!({
+                        "id": id,
+                        "src": script.src,
+                        "failures": script.failures,
+                        "interval": script.interval.map(|i| pretty(i).to_string()),
+                        "owner": script.owner.to_string(),
+                    })
+                })
+                .collect(),
+        ))
     }
 
     fn kademlia(&self) -> &KademliaApi {
