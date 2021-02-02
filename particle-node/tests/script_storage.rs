@@ -37,7 +37,7 @@ fn stream_hello() {
 
     client.send_particle(
         r#"
-        (call relay ("script" "add") [script])
+        (call relay ("script" "add") [script "0"])
         "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
