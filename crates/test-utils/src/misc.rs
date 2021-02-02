@@ -33,6 +33,7 @@ use libp2p::{
     PeerId,
 };
 use rand::Rng;
+use script_storage::ScriptStorageConfig;
 use serde_json::{json, Value as JValue};
 use std::{path::PathBuf, time::Duration};
 use uuid::Uuid;
@@ -298,7 +299,12 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         Transport::Network => build_transport(Ed25519(kp), Duration::from_secs(10)),
     };
 
-    let script_storage_interval = Duration::from_millis(500);
+    let script_storage_config = ScriptStorageConfig {
+        interval: Duration::from_millis(500),
+        max_failures: 1,
+        particle_ttl: Duration::from_secs(5),
+        peer_id,
+    };
 
     let mut node = Node::with(
         peer_id,
@@ -310,7 +316,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         None,
         "0.0.0.0:0".parse().unwrap(),
         bootstraps,
-        script_storage_interval,
+        script_storage_config,
     )
     .expect("create node");
 

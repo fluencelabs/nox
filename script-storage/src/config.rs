@@ -14,21 +14,16 @@
  * limitations under the License.
  */
 
-#![feature(stmt_expr_attributes)]
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![deny(
-    // dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use fluence_libp2p::PeerId;
+use std::time::Duration;
 
-mod host_closures;
-mod identify;
-
-pub use host_closures::HostClosures;
-pub use identify::NodeInfo;
+#[derive(Clone, Debug)]
+pub struct ScriptStorageConfig {
+    /// Minimal interval of script execution
+    pub interval: Duration,
+    /// Script is deleted after this number of failures
+    pub max_failures: u8,
+    /// ttl to set in generated particles
+    pub particle_ttl: Duration,
+    pub peer_id: PeerId,
+}

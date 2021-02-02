@@ -15,62 +15,43 @@
  */
 
 use super::behaviour::NetworkBehaviour;
+use crate::metrics::start_metrics_endpoint;
+use crate::network_api::NetworkApi;
 
+use aquamarine::{AquamarineApi, AquamarineBackend, StepperEffects, VmPoolConfig};
 use config_utils::to_peer_id;
-use fluence_libp2p::{build_transport, types::OneshotOutlet};
+use connection_pool::ConnectionPoolApi;
+use fluence_libp2p::{
+    build_transport,
+    types::OneshotOutlet,
+    types::{BackPressuredInlet, BackPressuredOutlet, Outlet},
+};
+use particle_closures::{HostClosures, NodeInfo};
+use particle_protocol::Particle;
+use script_storage::{ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{
     default_air_interpreter_path, ListenConfig, NetworkConfig, NodeConfig, ServicesConfig,
 };
 use trust_graph::TrustGraph;
 
 use anyhow::Context;
-use async_std::sync::Mutex;
-use async_std::task;
-use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
-use futures::{channel::oneshot, future::BoxFuture, select, stream::StreamExt, FutureExt, SinkExt};
-use libp2p::swarm::{AddressScore, ExpandedSwarm};
+use async_std::{sync::Mutex, task, task::JoinHandle};
+use futures::channel::mpsc::unbounded;
+use futures::{
+    channel::{mpsc, oneshot, oneshot::Canceled},
+    future::BoxFuture,
+    select,
+    stream::StreamExt,
+    FutureExt, SinkExt,
+};
 use libp2p::{
-    core::{multiaddr::Protocol, Multiaddr},
+    core::{multiaddr::Protocol, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::ed25519::Keypair,
+    swarm::{AddressScore, ExpandedSwarm},
     PeerId, Swarm, TransportError,
 };
-use particle_protocol::Particle;
 use prometheus::Registry;
-use std::io;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use std::task::Poll;
-
-pub mod unlocks {
-    use async_std::sync::Mutex;
-    use futures::Future;
-    use std::ops::DerefMut;
-
-    pub async fn unlock_f<T, R, F: Future<Output = R>>(
-        m: &Mutex<T>,
-        f: impl FnOnce(&mut T) -> F,
-    ) -> R {
-        unlock(m, f).await.await
-    }
-
-    pub async fn unlock<T, R>(m: &Mutex<T>, f: impl FnOnce(&mut T) -> R) -> R {
-        let mut guard = m.lock().await;
-        let result = f(guard.deref_mut());
-        drop(guard);
-        result
-    }
-}
-
-use crate::metrics::start_metrics_endpoint;
-use crate::network_api::NetworkApi;
-use aquamarine::{AquamarineApi, AquamarineBackend, StepperEffects, VmPoolConfig};
-use async_std::task::JoinHandle;
-use futures::channel::mpsc;
-use futures::channel::oneshot::Canceled;
-use libp2p::core::muxing::StreamMuxerBox;
-use libp2p::core::transport::Boxed;
-use particle_closures::{HostClosures, NodeInfo};
-use std::time::Duration;
+use std::{io, net::SocketAddr, sync::Arc, task::Poll, time::Duration};
 
 // TODO: documentation
 pub struct Node {
@@ -82,6 +63,8 @@ pub struct Node {
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
     bootstrap_nodes: Vec<Multiaddr>,
+    particle_failures: Outlet<String>,
+    script_storage_backend: ScriptStorageBackend,
 }
 
 impl Node {
@@ -113,6 +96,13 @@ impl Node {
         let network_config =
             NetworkConfig::new(trust_graph, Some(registry.clone()), key_pair, &config);
 
+        let script_storage_config = ScriptStorageConfig {
+            interval: config.script_storage_interval,
+            max_failures: config.script_storage_max_failures,
+            particle_ttl: config.script_storage_particle_ttl,
+            peer_id: local_peer_id,
+        };
+
         Self::with(
             local_peer_id,
             transport,
@@ -123,7 +113,7 @@ impl Node {
             registry.into(),
             config.metrics_listen_addr(),
             config.bootstrap_nodes,
-            config.script_storage_interval,
+            script_storage_config,
         )
     }
 
@@ -137,30 +127,34 @@ impl Node {
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
         bootstrap_nodes: Vec<Multiaddr>,
-        script_storage_interval: Duration,
+        script_storage_cfg: ScriptStorageConfig,
     ) -> anyhow::Result<Box<Self>> {
         log::info!("server peer id = {}", local_peer_id);
 
-        let (mut swarm, network_api) = {
+        let (swarm, network_api) = {
             let (behaviour, network_api) = NetworkBehaviour::new(network_config)
                 .context("failed to crate NetworkBehaviour")?;
-            let swarm = Swarm::new(transport, behaviour, local_peer_id);
+            let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
+
+            // Add external addresses to Swarm
+            external_addresses.iter().cloned().for_each(|addr| {
+                Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
+            });
 
             (swarm, network_api)
         };
 
-        // Add external addresses to Swarm
-        external_addresses.iter().cloned().for_each(|addr| {
-            Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
-        });
-
+        let (particle_failures_out, particle_failures_in) = unbounded();
+        let connectivity = network_api.connectivity();
+        let (script_storage_api, script_storage_backend) = {
+            let pool: &ConnectionPoolApi = connectivity.as_ref();
+            let failures = particle_failures_in;
+            let cfg = script_storage_cfg;
+            ScriptStorageBackend::new(pool.clone(), failures, cfg)
+        };
         let node_info = NodeInfo { external_addresses };
-        let host_closures = HostClosures::new(
-            network_api.connectivity(),
-            node_info,
-            services_config,
-            script_storage_interval,
-        );
+        let host_closures =
+            HostClosures::new(connectivity, script_storage_api, node_info, services_config);
 
         let (stepper_pool, stepper_pool_api) =
             AquamarineBackend::new(pool_config, host_closures.descriptor());
@@ -174,6 +168,8 @@ impl Node {
             registry,
             metrics_listen_addr,
             bootstrap_nodes,
+            particle_failures: particle_failures_out,
+            script_storage_backend,
         };
 
         Ok(Box::new(node_service))
@@ -192,11 +188,13 @@ impl Node {
             }
             .fuse();
 
+            let script_storage = self.script_storage_backend.start();
             let pool = self.stepper_pool.start();
             let network = {
                 let pool_api = self.stepper_pool_api;
+                let failures = self.particle_failures;
                 let bootstrap_nodes = self.bootstrap_nodes.into_iter().collect();
-                self.network_api.start(pool_api, bootstrap_nodes)
+                self.network_api.start(pool_api, bootstrap_nodes, failures)
             };
             loop {
                 select!(
@@ -212,6 +210,7 @@ impl Node {
             }
 
             log::info!("Stopping node");
+            script_storage.cancel().await;
             network.cancel().await;
             pool.cancel().await;
         });

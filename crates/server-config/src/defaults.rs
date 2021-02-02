@@ -76,3 +76,11 @@ pub fn default_particle_processor_parallelism() -> usize {
 pub fn default_script_storage_interval() -> Duration {
     Duration::from_secs(3)
 }
+
+pub fn default_script_storage_max_failures() -> u8 {
+    3
+}
+
+pub fn default_script_storage_particle_ttl() -> Duration {
+    Duration::from_secs(120)
+}

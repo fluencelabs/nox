@@ -16,6 +16,7 @@ particle-node = { path = "../../particle-node" }
 particle-protocol = { path = "../../particle-protocol" }
 aquamarine = { path = "../../aquamarine" }
 connection-pool = { path = "../../connection-pool" }
+script-storage = { path = "../../script-storage" }
 
 stepper-interface = "0.1.2"
 air-interpreter-wasm = "0.3.4"

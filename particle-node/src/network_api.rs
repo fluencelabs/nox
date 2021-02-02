@@ -24,8 +24,6 @@
 //! - executing it through Aquamarine
 //! - forwarding the particle to the next peers
 
-use crate::node::unlocks::{unlock, unlock_f};
-
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact, LifecycleEvent};
 use control_macro::unwrap_return;
@@ -36,8 +34,8 @@ use server_config::NodeConfig;
 
 use async_std::task::{sleep, spawn};
 use async_std::{sync::Mutex, task::JoinHandle};
-use futures::future;
 use futures::stream::{self, iter};
+use futures::{future, Sink, SinkExt};
 use futures::{sink, task, FutureExt, StreamExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::core::Multiaddr;
@@ -143,6 +141,7 @@ impl NetworkApi {
         self,
         aquamarine: AquamarineApi,
         bootstrap_nodes: HashSet<Multiaddr>,
+        particle_failures_sink: impl Sink<String> + Clone + Unpin + Send + Sync + 'static,
     ) -> JoinHandle<()> {
         spawn(async move {
             let NetworkApi {
@@ -162,6 +161,7 @@ impl NetworkApi {
                 .for_each_concurrent(particle_parallelism, move |particle| {
                     let aquamarine = aquamarine.clone();
                     let connectivity = connectivity.clone();
+                    let mut particle_failures_sink = particle_failures_sink.clone();
                     async move {
                         // execute particle on Aquamarine
                         let stepper_effects = aquamarine.handle(particle).await;
@@ -169,12 +169,15 @@ impl NetworkApi {
                         match stepper_effects {
                             Ok(stepper_effects) => {
                                 // perform effects as instructed by aquamarine
-                                connectivity.execute_effects(stepper_effects).await
+                                connectivity.execute_effects(stepper_effects).await;
                             }
                             Err(err) => {
                                 // particles are sent in fire and forget fashion, so
                                 // there's nothing to do here but log
-                                log::warn!("Error executing particle: {}", err)
+                                log::warn!("Error executing particle: {}", err);
+                                // sent info that particle has failed to the outer world
+                                let particle_id = err.into_particle_id();
+                                particle_failures_sink.feed(particle_id).await.ok();
                             }
                         };
                     }

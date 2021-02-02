@@ -137,8 +137,14 @@ pub struct NodeConfig {
     pub particle_processor_parallelism: usize,
 
     #[serde(default = "default_script_storage_interval")]
-    #[serde(with = "humantime_serde")]
     pub script_storage_interval: Duration,
+
+    #[serde(default = "default_script_storage_max_failures")]
+    pub script_storage_max_failures: u8,
+
+    #[serde(default = "default_script_storage_particle_ttl")]
+    #[serde(with = "humantime_serde")]
+    pub script_storage_particle_ttl: Duration,
 }
 
 impl NodeConfig {

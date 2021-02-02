@@ -10,6 +10,7 @@ particle-providers = { path = "../particle-providers"}
 particle-services = { path = "../particle-services"}
 particle-modules = { path = "../particle-modules"}
 connection-pool = { path = "../connection-pool"}
+script-storage = { path = "../script-storage"}
 
 server-config = { path = "../crates/server-config"}
 kademlia = { path = "../crates/kademlia"}
@@ -19,6 +20,7 @@ ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
 fluence-libp2p = { path = "../crates/libp2p" }
 waiting-queues = { path = "../crates/waiting-queues" }
+async-unlock = { path = "../crates/async-unlock" }
 
 trust-graph = "0.2.0"
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }
