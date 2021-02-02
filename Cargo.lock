@@ -3829,6 +3829,7 @@ dependencies = [
  "connection-pool",
  "fluence-libp2p",
  "futures",
+ "log",
  "particle-protocol",
  "thiserror",
  "uuid",

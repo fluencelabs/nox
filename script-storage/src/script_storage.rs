@@ -62,6 +62,12 @@ impl Script {
             executed_at: None,
         }
     }
+
+    pub fn deadline(&self) -> Option<Instant> {
+        let interval = self.interval?;
+        let executed_at = self.executed_at?;
+        Some(executed_at + interval)
+    }
 }
 
 type ParticleId = String;
@@ -115,118 +121,6 @@ impl ScriptStorageBackend {
     pub fn start(self) -> JoinHandle<()> {
         use futures::select;
 
-        async fn execute_scripts(
-            pool: &ConnectionPoolApi,
-            scripts: &Mutex<HashMap<ScriptId, Script>>,
-            sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>,
-            config: ScriptStorageConfig,
-        ) {
-            let now = Instant::now();
-            let now_u64 = chrono::Utc::now().timestamp() as u64;
-
-            // Remove all scripts without interval, they will be executing only once
-            let single_shots: Vec<_> = unlock(scripts, |scripts| {
-                scripts.drain_filter(|_, s| s.interval.is_none()).collect()
-            })
-            .await;
-
-            // Take and clone all scripts that are ready to be executed
-            let scripts: Vec<(ScriptId, Script)> = unlock(scripts, |scripts| {
-                scripts
-                    .iter_mut()
-                    .filter(|(_, script)| {
-                        let interval = script
-                            .interval
-                            .expect("single shots must be removed at this point");
-                        script.executed_at.map_or(true, |at| at + interval >= now)
-                    })
-                    .map(|(id, s)| {
-                        // mark script as executed at the current timestamp
-                        s.executed_at = Some(now);
-                        (id.clone(), s.clone())
-                    })
-                    .collect()
-            })
-            .await;
-            // concatenate single shots with other scripts
-            let scripts = single_shots.into_iter().chain(scripts);
-
-            for (script_id, script) in scripts {
-                let particle_id = format!("auto_{}", uuid::Uuid::new_v4());
-
-                // Save info about sent particle to account for failures
-                let info = SentParticle {
-                    script_id,
-                    deadline: now + config.particle_ttl,
-                };
-                unlock(sent_particles, |sent| {
-                    sent.insert(particle_id.clone(), info)
-                })
-                .await;
-
-                // Send particle to the current node
-                let particle = Particle {
-                    id: particle_id,
-                    init_peer_id: config.peer_id,
-                    timestamp: now_u64,
-                    ttl: config.particle_ttl.as_secs() as u32,
-                    script: script.src,
-                    signature: vec![],
-                    data: vec![],
-                };
-                let contact = Contact::new(config.peer_id, vec![]);
-                pool.send(contact, particle).await;
-            }
-        }
-
-        async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Script>>) {
-            match command {
-                Command::AddScript {
-                    uuid,
-                    script,
-                    interval,
-                } => {
-                    let uuid = ScriptId(Arc::new(uuid));
-                    let script = Script::new(script, interval);
-                    unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
-                }
-                Command::RemoveScript { uuid, outlet } => {
-                    let removed = unlock(scripts, |scripts| scripts.remove(&uuid)).await;
-                    outlet.send(removed.is_some()).ok();
-                }
-            }
-        }
-
-        async fn remove_failed_scripts(
-            particle_id: String,
-            sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>,
-            scripts: &Mutex<HashMap<ScriptId, Script>>,
-            max_failures: u8,
-        ) {
-            let sent = unlock(sent_particles, |sent| sent.remove(&particle_id)).await;
-            if let Some(SentParticle { script_id, .. }) = sent {
-                unlock(scripts, |scripts| {
-                    if let Entry::Occupied(entry) = scripts.entry(script_id) {
-                        let failures = entry.get().failures;
-                        if failures + 1 < max_failures {
-                            entry.into_mut().failures += 1;
-                        } else {
-                            entry.remove();
-                        }
-                    }
-                })
-                .await;
-            }
-        }
-
-        async fn cleanup(sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>) {
-            let now = Instant::now();
-            unlock(sent_particles, |sent| {
-                sent.retain(|_, SentParticle { deadline, .. }| *deadline < now)
-            })
-            .await
-        }
-
         task::spawn(async move {
             let scripts = self.scripts;
             let sent_particles = self.sent_particles;
@@ -254,6 +148,113 @@ impl ScriptStorageBackend {
             }
         })
     }
+}
+
+async fn execute_scripts(
+    pool: &ConnectionPoolApi,
+    scripts: &Mutex<HashMap<ScriptId, Script>>,
+    sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>,
+    config: ScriptStorageConfig,
+) {
+    let now = Instant::now();
+    let now_u64 = chrono::Utc::now().timestamp() as u64;
+
+    // Remove all scripts without interval, they will be executing only once
+    let single_shots: Vec<_> = unlock(scripts, |scripts| {
+        scripts.drain_filter(|_, s| s.interval.is_none()).collect()
+    })
+    .await;
+
+    // Take and clone all scripts that are ready to be executed
+    let scripts: Vec<(ScriptId, Script)> = unlock(scripts, |scripts| {
+        scripts
+            .iter_mut()
+            .filter(|(_, script)| script.deadline().map_or(true, |deadline| deadline <= now))
+            .map(|(id, s)| {
+                // mark script as executed at the current timestamp
+                s.executed_at = Some(now);
+                (id.clone(), s.clone())
+            })
+            .collect()
+    })
+    .await;
+    // concatenate single shots with other scripts
+    let scripts = single_shots.into_iter().chain(scripts);
+
+    for (script_id, script) in scripts {
+        let particle_id = format!("auto_{}", uuid::Uuid::new_v4());
+
+        // Save info about sent particle to account for failures
+        let info = SentParticle {
+            script_id,
+            deadline: now + config.particle_ttl,
+        };
+        unlock(sent_particles, |sent| {
+            sent.insert(particle_id.clone(), info)
+        })
+        .await;
+
+        // Send particle to the current node
+        let particle = Particle {
+            id: particle_id,
+            init_peer_id: config.peer_id,
+            timestamp: now_u64,
+            ttl: config.particle_ttl.as_secs() as u32,
+            script: script.src,
+            signature: vec![],
+            data: vec![],
+        };
+        let contact = Contact::new(config.peer_id, vec![]);
+        pool.send(contact, particle).await;
+    }
+}
+
+async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Script>>) {
+    match command {
+        Command::AddScript {
+            uuid,
+            script,
+            interval,
+        } => {
+            let uuid = ScriptId(Arc::new(uuid));
+            let script = Script::new(script, interval);
+            unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
+        }
+        Command::RemoveScript { uuid, outlet } => {
+            let removed = unlock(scripts, |scripts| scripts.remove(&uuid)).await;
+            outlet.send(removed.is_some()).ok();
+        }
+    }
+}
+
+async fn remove_failed_scripts(
+    particle_id: String,
+    sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>,
+    scripts: &Mutex<HashMap<ScriptId, Script>>,
+    max_failures: u8,
+) {
+    let sent = unlock(sent_particles, |sent| sent.remove(&particle_id)).await;
+    if let Some(SentParticle { script_id, .. }) = sent {
+        unlock(scripts, |scripts| {
+            if let Entry::Occupied(entry) = scripts.entry(script_id) {
+                let failures = entry.get().failures;
+                if failures + 1 < max_failures {
+                    entry.into_mut().failures += 1;
+                } else {
+                    entry.remove();
+                }
+            }
+        })
+        .await;
+    }
+}
+
+async fn cleanup(sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>) {
+    let now = Instant::now();
+    unlock(sent_particles, |sent| {
+        sent.retain(|_, SentParticle { deadline, .. }| *deadline < now)
+    })
+    .await
 }
 
 #[derive(Clone)]
