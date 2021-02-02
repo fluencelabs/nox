@@ -300,7 +300,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
     };
 
     let script_storage_config = ScriptStorageConfig {
-        interval: Duration::from_millis(500),
+        timer_resolution: Duration::from_millis(500),
         max_failures: 1,
         particle_ttl: Duration::from_secs(5),
         peer_id,

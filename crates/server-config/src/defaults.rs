@@ -73,7 +73,7 @@ pub fn default_particle_processor_parallelism() -> usize {
     num_cpus::get() * 4
 }
 
-pub fn default_script_storage_interval() -> Duration {
+pub fn default_script_storage_timer_resolution() -> Duration {
     Duration::from_secs(3)
 }
 

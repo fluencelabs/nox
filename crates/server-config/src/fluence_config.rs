@@ -136,8 +136,8 @@ pub struct NodeConfig {
     #[serde(default = "default_particle_processor_parallelism")]
     pub particle_processor_parallelism: usize,
 
-    #[serde(default = "default_script_storage_interval")]
-    pub script_storage_interval: Duration,
+    #[serde(default = "default_script_storage_timer_resolution")]
+    pub script_storage_timer_resolution: Duration,
 
     #[serde(default = "default_script_storage_max_failures")]
     pub script_storage_max_failures: u8,

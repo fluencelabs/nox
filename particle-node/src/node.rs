@@ -97,7 +97,7 @@ impl Node {
             NetworkConfig::new(trust_graph, Some(registry.clone()), key_pair, &config);
 
         let script_storage_config = ScriptStorageConfig {
-            interval: config.script_storage_interval,
+            timer_resolution: config.script_storage_timer_resolution,
             max_failures: config.script_storage_max_failures,
             particle_ttl: config.script_storage_particle_ttl,
             peer_id: local_peer_id,
