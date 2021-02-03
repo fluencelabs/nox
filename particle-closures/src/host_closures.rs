@@ -197,9 +197,15 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     fn remove_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
-        let uuid: String = Args::next("uuid", &mut args.function_args.into_iter())?;
+        let mut args = args.function_args.into_iter();
+
+        let uuid: String = Args::next("uuid", &mut args)?;
+        let force: Option<String> = Args::maybe_next("force", &mut args)?;
+        // TODO HACK: this is a hack to allow anyone to delete any script if they know this secret
+        let force = force.map_or(false, |s| s == "--force");
         let actor = PeerId::from_str(&params.init_user_id)?;
-        let ok = task::block_on(self.script_storage.remove_script(uuid, actor))?;
+
+        let ok = task::block_on(self.script_storage.remove_script(uuid, actor, force))?;
 
         Ok(json!(ok))
     }

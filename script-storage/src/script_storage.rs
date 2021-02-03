@@ -93,6 +93,8 @@ enum Command {
         uuid: String,
         outlet: OneshotOutlet<Result<bool, ScriptStorageError>>,
         actor: PeerId,
+        // TODO HACK: this is a hack. anyone can delete any script using this flag. for better or worse.
+        force: bool,
     },
     ListScripts {
         outlet: OneshotOutlet<HashMap<ScriptId, Script>>,
@@ -208,7 +210,7 @@ async fn execute_scripts(
             id: particle_id,
             init_peer_id: config.peer_id,
             timestamp: now_u64,
-            ttl: config.particle_ttl.as_secs() as u32,
+            ttl: config.particle_ttl.as_millis() as u32,
             script: script.src,
             signature: vec![],
             data: vec![],
@@ -234,11 +236,15 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             uuid,
             outlet,
             actor,
+            force,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
             let removed = unlock(scripts, |scripts| match scripts.entry(uuid) {
                 Entry::Vacant(_) => Ok(false),
-                Entry::Occupied(e) if e.get().owner == actor => Ok(true),
+                Entry::Occupied(e) if force || e.get().owner == actor => {
+                    e.remove();
+                    Ok(true)
+                }
                 Entry::Occupied(_) => Err(ScriptStorageError::PermissionDenied),
             })
             .await;
@@ -327,6 +333,7 @@ impl ScriptStorageApi {
         &self,
         uuid: String,
         actor: PeerId,
+        force: bool,
     ) -> BoxFuture<'static, Result<bool, ScriptStorageError>> {
         use ScriptStorageError::InletError;
 
@@ -335,6 +342,7 @@ impl ScriptStorageApi {
             uuid,
             outlet,
             actor,
+            force,
         };
         if let Err(err) = self.send(command) {
             return futures::future::err(err).boxed();

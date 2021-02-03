@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-use test_utils::{enable_logs, make_swarms, read_args, timeout, ConnectedClient};
+use test_utils::{enable_logs, make_swarms, ConnectedClient};
 
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
-use std::thread::sleep;
-use std::time::Duration;
 
 #[macro_use]
 extern crate fstrings;
@@ -90,20 +88,23 @@ fn remove_script() {
         },
     );
 
-    async_std::task::block_on(timeout(
-        Duration::from_secs(5),
-        async_std::task::spawn(async move {
-            loop {
-                let particle = client.receive();
-                if particle.id == remove_id {
-                    let removed = read_args(particle, &client.peer_id);
-                    assert_eq!(removed, vec![serde_json::Value::Bool(true)]);
-                    break;
-                }
-            }
-        }),
-    ))
-    .expect("script wasn't deleted");
+    let removed = client.wait_particle_args(remove_id).unwrap();
+    assert_eq!(removed, vec![serde_json::Value::Bool(true)]);
+
+    let list_id = client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "list") [] list)
+            (call client ("op" "return") [list])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+    let list = client.wait_particle_args(list_id).unwrap();
+    assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
 }
 
 #[test]
@@ -138,4 +139,197 @@ fn script_routing() {
         let res = client.receive_args().into_iter().next().unwrap();
         assert_eq!(res, "hello");
     }
+}
+
+#[test]
+fn autoremove_singleshot() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let script = f!(r#"
+        (call "{client.peer_id}" ("op" "return") ["hello"])
+    "#);
+
+    client.send_particle(
+        r#"
+        (call relay ("script" "add") [script])
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+            "script" => json!(script),
+        },
+    );
+
+    let res = client.receive_args().into_iter().next().unwrap();
+    assert_eq!(res, "hello");
+
+    let list_id = client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "list") [] list)
+            (call client ("op" "return") [list])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+    let list = client.wait_particle_args(list_id).unwrap();
+    assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
+}
+
+#[test]
+fn autoremove_failed() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let script = f!(r#"
+        INVALID SCRIPT
+    "#);
+
+    client.send_particle(
+        r#"
+        (call relay ("script" "add") [script])
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+            "script" => json!(script),
+        },
+    );
+
+    for _ in 0..5 {
+        let list_id = client.send_particle(
+            r#"
+            (seq
+                (call relay ("script" "list") [] list)
+                (call client ("op" "return") [list])
+            )
+            "#,
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        );
+        let list = client.wait_particle_args(list_id).unwrap();
+        if list == vec![serde_json::Value::Array(vec![])] {
+            return;
+        }
+    }
+
+    panic!("failed script wasn't deleted in time or at all");
+}
+
+#[test]
+fn remove_script_unauth() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+
+    let script = f!(r#"
+        (call "{client.peer_id}" ("op" "return") ["hello"])
+    "#);
+
+    // add script
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "add") [script "0"] id)
+            (call client ("op" "return") [id])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+            "script" => json!(script),
+        },
+    );
+
+    let script_id = client.receive_args().into_iter().next().unwrap();
+
+    // try to remove from another client, should fail
+    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let remove_id = client2.send_particle(
+        r#"
+        (xor
+            (call relay ("script" "remove") [id] removed)
+            (call client ("op" "return") ["failed"])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client2.node.to_string()),
+            "client" => json!(client2.peer_id.to_string()),
+            "id" => json!(script_id),
+        },
+    );
+
+    let removed = client2.wait_particle_args(remove_id).unwrap();
+    assert_eq!(
+        removed,
+        vec![serde_json::Value::String("failed".to_string())]
+    );
+
+    // check script is still in the list
+    let list_id = client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "list") [] list)
+            (call client ("op" "return") [list])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+    let list = client
+        .wait_particle_args(list_id)
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
+    if let serde_json::Value::Array(list) = list {
+        assert_eq!(list.len(), 1);
+    } else {
+        panic!("expected array");
+    }
+
+    // remove with --force
+    let remove_id = client2.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "remove") [id "--force"] removed)
+            (call client ("op" "return") [removed])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client2.node.to_string()),
+            "client" => json!(client2.peer_id.to_string()),
+            "id" => json!(script_id),
+        },
+    );
+
+    // check removal succeeded
+    let removed = client2.wait_particle_args(remove_id).unwrap();
+    assert_eq!(removed, vec![serde_json::Value::Bool(true)]);
+
+    // check script is not in the list anymore
+    let list_id = client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "list") [] list)
+            (call client ("op" "return") [list])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+    let list = client.wait_particle_args(list_id).unwrap();
+    assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
 }

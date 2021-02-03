@@ -21,6 +21,7 @@ use aquamarine_vm::AquamarineVM;
 use particle_protocol::Particle;
 
 use futures::FutureExt;
+use std::ops::Mul;
 use std::{
     collections::VecDeque,
     fmt::Debug,
@@ -42,11 +43,12 @@ impl Deadline {
         }
     }
 
-    pub fn is_expired(&self, now: u64) -> bool {
+    pub fn is_expired(&self, now_ms: u64) -> bool {
         self.timestamp
+            .mul(1000)
             .checked_add(self.ttl as u64)
             // Whether ts is in the past
-            .map(|ts| ts < now)
+            .map(|ts| ts < now_ms)
             // If timestamp + ttl gives overflow, consider particle expired
             .unwrap_or_else(|| {
                 log::warn!("timestamp {} + ttl {} overflowed", self.timestamp, self.ttl);
@@ -73,8 +75,8 @@ impl Actor {
         }
     }
 
-    pub fn is_expired(&self, now: u64) -> bool {
-        self.deadline.is_expired(now)
+    pub fn is_expired(&self, now_ms: u64) -> bool {
+        self.deadline.is_expired(now_ms)
     }
 
     pub fn ingest(&mut self, particle: AwaitedParticle) {
