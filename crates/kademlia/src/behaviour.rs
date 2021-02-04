@@ -359,9 +359,9 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
 #[cfg(test)]
 mod tests {
     use super::Kademlia;
-    use crate::KademliaConfig;
+    use crate::{KademliaConfig, KademliaError};
     use async_std::task;
-    use fluence_libp2p::build_memory_transport;
+    use fluence_libp2p::{build_memory_transport, RandomPeerId};
     use futures::channel::oneshot;
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
@@ -370,6 +370,7 @@ mod tests {
     use libp2p::PeerId;
     use libp2p::Swarm;
     use std::task::Poll;
+    use std::time::Duration;
     use test_utils::create_memory_maddr;
     use trust_graph::TrustGraph;
 
@@ -381,7 +382,12 @@ mod tests {
         KademliaConfig {
             peer_id,
             keypair,
-            kad_config: Default::default(),
+            kad_config: server_config::KademliaConfig {
+                query_timeout: Duration::from_millis(100),
+                peer_fail_threshold: 1,
+                ban_cooldown: Duration::from_secs(1),
+                ..Default::default()
+            },
         }
     }
 
@@ -446,5 +452,39 @@ mod tests {
         });
 
         assert_eq!(maddr.unwrap().unwrap()[0], c_addr);
+    }
+
+    #[test]
+    fn dont_repeat_discovery() {
+        let (mut node, _, _) = make_node();
+        let peer = RandomPeerId::random();
+
+        node.discover_peer(peer, oneshot::channel().0);
+        assert_eq!(node.queries.len(), 1);
+        node.discover_peer(peer, oneshot::channel().0);
+        assert_eq!(node.queries.len(), 1);
+    }
+
+    #[test]
+    fn ban() {
+        use async_std::future::timeout;
+
+        let (mut node, _, _) = make_node();
+        let peer = RandomPeerId::random();
+
+        node.discover_peer(peer, oneshot::channel().0);
+        assert_eq!(node.queries.len(), 1);
+
+        task::block_on(timeout(Duration::from_millis(200), node.select_next_some())).ok();
+        assert_eq!(node.failed_peers.len(), 1);
+        assert!(node.failed_peers.get(&peer).unwrap().ban.is_some());
+
+        let (out, inlet) = oneshot::channel();
+        node.discover_peer(peer, out);
+
+        let banned = task::block_on(timeout(Duration::from_millis(200), inlet))
+            .unwrap()
+            .unwrap();
+        assert!(matches!(banned, Err(KademliaError::PeerBanned)));
     }
 }
