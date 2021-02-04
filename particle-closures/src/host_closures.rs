@@ -211,9 +211,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     fn list_scripts(&self) -> Result<JValue, JError> {
-        log::debug!(target: "debug_tests", "ListScripts, will execute");
         let scripts = task::block_on(self.script_storage.list_scripts())?;
-        log::debug!(target: "debug_tests", "ListScripts, got result");
 
         Ok(JValue::Array(
             scripts

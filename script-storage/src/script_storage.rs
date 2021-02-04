@@ -251,11 +251,8 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             outlet.send(removed).ok();
         }
         Command::ListScripts { outlet } => {
-            log::debug!(target: "debug_tests", "Got ListScripts");
             let scripts = unlock(scripts, |scripts| scripts.clone()).await;
-            log::debug!(target: "debug_tests", "ListScripts, unlocked");
             outlet.send(scripts).ok();
-            log::debug!(target: "debug_tests", "ListScripts, sent");
         }
     }
 }
