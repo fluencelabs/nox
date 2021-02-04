@@ -57,6 +57,15 @@ pub enum LifecycleEvent {
     Disconnected(Contact),
 }
 
+impl Display for LifecycleEvent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LifecycleEvent::Connected(c) => write!(f, "Connected {}", c),
+            LifecycleEvent::Disconnected(c) => write!(f, "Disconnected {}", c),
+        }
+    }
+}
+
 pub trait ConnectionPoolT {
     fn dial(&self, addr: Multiaddr) -> BoxFuture<'static, Option<Contact>>;
     fn connect(&self, contact: Contact) -> BoxFuture<'static, bool>;

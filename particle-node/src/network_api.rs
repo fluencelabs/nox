@@ -185,37 +185,47 @@ pub struct Connectivity {
 impl Connectivity {
     /// Perform effects that Aquamarine instructed us to
     pub async fn execute_effects(&self, effects: StepperEffects) {
-        // take every particle, and try to send it
-        for SendParticle { target, particle } in effects.particles {
-            // resolve contact
-            let contact = self.connection_pool.get_contact(target).await;
-            let contact = if let Some(contact) = contact {
-                // contact is connected directly to current node
-                contact
-            } else {
-                // contact isn't connected, have to discover it
-                let contact = self.discover_peer(target).await;
-                match contact {
-                    Ok(Some(contact)) => {
-                        // connect to the discovered contact
-                        self.connection_pool.connect(contact.clone()).await;
-                        contact
-                    }
-                    Ok(None) => {
-                        log::warn!("Couldn't discover {} for particle {}", target, particle.id);
-                        continue;
-                    }
-                    Err(err) => {
-                        let id = particle.id;
-                        log::warn!("Failed to discover {} for particle {}: {}", target, id, err);
-                        continue;
-                    }
+        let ps = iter(effects.particles);
+        // take every particle, and try to send it concurrently
+        ps.for_each_concurrent(None, move |p| {
+            let SendParticle { target, particle } = p;
+            let this = self.clone();
+            async move {
+                // resolve contact
+                if let Some(contact) = this.resolve_contact(target, &particle.id).await {
+                    // forward particle
+                    this.send(contact, particle).await;
                 }
-            };
+            }
+        })
+        .await;
+    }
 
-            // forward particle
-            self.send(contact, particle).await;
-        }
+    async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
+        let contact = self.connection_pool.get_contact(target).await;
+        let contact = if let Some(contact) = contact {
+            // contact is connected directly to current node
+            return Some(contact);
+        } else {
+            // contact isn't connected, have to discover it
+            let contact = self.discover_peer(target).await;
+            match contact {
+                Ok(Some(contact)) => {
+                    // connect to the discovered contact
+                    self.connection_pool.connect(contact.clone()).await;
+                    return Some(contact);
+                }
+                Ok(None) => {
+                    log::warn!("Couldn't discover {} for particle {}", target, particle_id);
+                }
+                Err(err) => {
+                    let id = particle_id;
+                    log::warn!("Failed to discover {} for particle {}: {}", target, id, err);
+                }
+            }
+        };
+
+        None
     }
 
     async fn send(&self, contact: Contact, particle: Particle) {
