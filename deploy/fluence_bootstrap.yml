@@ -12,7 +12,7 @@ services:
       - fluence_bootstrap:/.fluence
     environment:
       RUST_BACKTRACE: "full"
-      RUST_LOG: "info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info"
+      RUST_LOG: "debug,aquamarine::actor=debug,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
       WASM_LOG: "info"
 
 volumes:

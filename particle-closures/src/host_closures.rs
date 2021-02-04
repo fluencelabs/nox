@@ -26,13 +26,16 @@ use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
 use server_config::ServicesConfig;
 
+use crate::script_storage::{ScriptStorage, ScriptStorageApi};
 use async_std::task;
+use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 use multihash::Code;
 use multihash::MultihashDigest;
 use serde_json::{json, Value as JValue};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 use JValue::Array;
 
 #[derive(Clone)]
@@ -49,15 +52,28 @@ pub struct HostClosures<C> {
     pub get_active_interfaces: Closure,
     pub identify: Closure,
     pub connectivity: C,
+    pub script_storage: ScriptStorageApi,
 }
 
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
     HostClosures<C>
 {
-    pub fn new(connectivity: C, node_info: NodeInfo, config: ServicesConfig) -> Self {
+    pub fn new(
+        connectivity: C,
+        node_info: NodeInfo,
+        config: ServicesConfig,
+        script_storage_interval: Duration,
+    ) -> Self {
         let modules_dir = config.modules_dir.clone();
         let blueprint_dir = config.blueprint_dir.clone();
         let providers = ProviderRepository::new(config.local_peer_id);
+
+        let (script_storage, storage_backend) = {
+            let pool: &ConnectionPoolApi = connectivity.as_ref();
+            ScriptStorage::new(pool.clone(), config.local_peer_id, script_storage_interval)
+        };
+        storage_backend.start();
+
         let services = ParticleAppServices::new(config);
 
         Self {
@@ -73,6 +89,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             get_active_interfaces: services.get_active_interfaces(),
             identify: identify(node_info),
             connectivity,
+            script_storage,
         }
     }
 
@@ -118,8 +135,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("dist", "get_modules")    => (self.get_modules)(args),
             ("dist", "get_blueprints") => (self.get_blueprints)(args),
 
-            ("op", "identify") => (self.identify)(args),
-            ("op", "identity") => ok(Array(args.function_args)),
+            ("script", "add")          => wrap(self.add_script(args)),
+            ("script", "remove")       => wrap(self.remove_script(args)),
+
+            ("op", "identify")         => (self.identify)(args),
+            ("op", "identity")         => ok(Array(args.function_args)),
 
             _ => (self.call_service)(particle, args),
         }
@@ -143,7 +163,14 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     fn connect(&self, args: Args) -> Result<JValue, JError> {
-        let contact: Contact = Args::next("peer_id", &mut args.function_args.into_iter())?;
+        let mut args = args.function_args.into_iter();
+
+        let peer_id: String = Args::next("peer_id", &mut args)?;
+        let peer_id = PeerId::from_str(peer_id.as_str())?;
+        let addrs: Vec<Multiaddr> = Args::maybe_next("addresses", &mut args)?.unwrap_or_default();
+
+        let contact = Contact::new(peer_id, addrs);
+
         let ok = task::block_on(self.connection_pool().connect(contact));
         Ok(json!(ok))
     }
@@ -153,6 +180,20 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let peer = PeerId::from_str(peer.as_str())?;
         let contact = task::block_on(self.connection_pool().get_contact(peer));
         Ok(contact.map(|c| json!(c)))
+    }
+
+    fn add_script(&self, args: Args) -> Result<JValue, JError> {
+        let script: String = Args::next("script", &mut args.function_args.into_iter())?;
+        let id = self.script_storage.add_script(script)?;
+
+        Ok(json!(id))
+    }
+
+    fn remove_script(&self, args: Args) -> Result<JValue, JError> {
+        let uuid: String = Args::next("uuid", &mut args.function_args.into_iter())?;
+        let ok = task::block_on(self.script_storage.remove_script(uuid))?;
+
+        Ok(json!(ok))
     }
 
     fn kademlia(&self) -> &KademliaApi {

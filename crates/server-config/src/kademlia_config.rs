@@ -23,8 +23,10 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 pub struct KademliaConfig {
     pub max_packet_size: Option<usize>,
+    #[serde(with = "humantime_serde")]
     pub query_timeout: Duration,
     pub replication_factor: Option<usize>,
+    #[serde(with = "humantime_serde")]
     pub connection_idle_timeout: Option<Duration>,
 }
 
@@ -32,7 +34,7 @@ impl Default for KademliaConfig {
     fn default() -> Self {
         Self {
             max_packet_size: Some(100 * 4096 * 4096), // 100Mb
-            query_timeout: Duration::from_secs(60),
+            query_timeout: Duration::from_secs(3),
             replication_factor: None,
             connection_idle_timeout: Some(Duration::from_secs(2_628_000_000)), // ~month
         }

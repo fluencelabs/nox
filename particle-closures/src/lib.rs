@@ -18,7 +18,7 @@
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
-    dead_code,
+    // dead_code,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -29,6 +29,7 @@
 
 mod host_closures;
 mod identify;
+mod script_storage;
 
 pub use host_closures::HostClosures;
 pub use identify::NodeInfo;

@@ -47,7 +47,7 @@ pub static TIMEOUT: Duration = Duration::from_secs(150);
 #[cfg(not(debug_assertions))]
 pub static TIMEOUT: Duration = Duration::from_secs(15);
 
-pub static SHORT_TIMEOUT: Duration = Duration::from_millis(100);
+pub static SHORT_TIMEOUT: Duration = Duration::from_millis(300);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
 const TEST_MODULE: &str = "greeting.wasm";
@@ -88,7 +88,7 @@ pub fn enable_logs() {
 
     env_logger::builder()
         .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(log::LevelFilter::Info)
         .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)
@@ -298,6 +298,8 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         Transport::Network => build_transport(Ed25519(kp), Duration::from_secs(10)),
     };
 
+    let script_storage_interval = Duration::from_millis(500);
+
     let mut node = Node::with(
         peer_id,
         transport,
@@ -308,6 +310,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         None,
         "0.0.0.0:0".parse().unwrap(),
         bootstraps,
+        script_storage_interval,
     )
     .expect("create node");
 
