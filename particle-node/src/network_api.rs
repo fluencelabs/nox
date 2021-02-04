@@ -82,7 +82,7 @@ impl NetworkApi {
         pool: ConnectionPoolApi,
         bootstrap_nodes: HashSet<Multiaddr>,
     ) {
-        let bootstraps = iter(bootstrap_nodes.into_iter().collect::<Vec<_>>());
+        let bootstraps = iter(bootstrap_nodes.clone().into_iter().collect::<Vec<_>>());
         let events = pool.lifecycle_events();
         let disconnections = {
             events
@@ -106,7 +106,7 @@ impl NetworkApi {
         let reconnect = move |pool: ConnectionPoolApi, addr: Multiaddr| async move {
             let mut delay = Duration::from_secs(0);
             loop {
-                if let Some(contact) = cp.dial(addr.clone()).await {
+                if let Some(contact) = pool.dial(addr.clone()).await {
                     log::info!("Connected bootstrap {}", contact);
                     break;
                 }
