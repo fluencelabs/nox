@@ -26,16 +26,16 @@
     unreachable_patterns
 )]
 
+use anyhow::Context;
+use clap::App;
+use futures::channel::oneshot;
+
+use ctrlc_adapter::block_until_ctrlc;
 use particle_node::{
     config::{certificates, create_args},
     write_default_air_interpreter, Node,
 };
 use server_config::{load_config, FluenceConfig};
-
-use anyhow::Context;
-use clap::App;
-use ctrlc_adapter::block_until_ctrlc;
-use futures::channel::oneshot;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -52,16 +52,15 @@ fn main() -> anyhow::Result<()> {
 
     log::info!(
         r#"
-+--------------------------------------------+
-| Hello from Fluence Team.                   |
-| If you encounter any troubles with         |
-| node operation, please update the node     |
-| via                                        |
-|     docker pull fluencelabs/fluence:latest |
-|                                            |
-| or contact us at                           |
-| github.com/fluencelabs/fluence/discussions |
-+--------------------------------------------+
++-------------------------------------------------+
+| Hello from the Fluence Team. If you encounter   |
+| any troubles with node operation, please update |
+| the node via                                    |
+|     docker pull fluencelabs/fluence:latest      |
+|                                                 |
+| or contact us at                                |
+| github.com/fluencelabs/fluence/discussions      |
++-------------------------------------------------+
     "#
     );
 

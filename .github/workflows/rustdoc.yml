@@ -28,7 +28,7 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Build Documentation
-        run: RUSTDOCFLAGS="--enable-index-page -Zunstable-options" cargo +nightly doc --all --no-deps
+        run: RUSTDOCFLAGS="--enable-index-page -Zunstable-options" cargo +nightly-2021-01-28 doc --all --no-deps
 
       - name: Deploy Docs
         uses: peaceiris/actions-gh-pages@v3.7.3
