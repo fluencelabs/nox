@@ -61,6 +61,7 @@ impl Particle {
                 .expect("system time before Unix epoch")
                 .as_millis();
 
+            log::info!(target: "debug_network", "now {} deadline {} timestamp {} ttl {}", now, deadline, self.timestamp, self.ttl);
             return deadline as u128 > now;
         }
 
