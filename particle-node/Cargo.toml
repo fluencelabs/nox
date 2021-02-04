@@ -6,18 +6,20 @@ edition = "2018"
 
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
-aquamarine = { path = "../aquamarine" }
 particle-closures = { path = "../particle-closures"}
 connection-pool = { path = "../connection-pool"}
+script-storage = { path = "../script-storage"}
+aquamarine = { path = "../aquamarine" }
 
-config-utils = { path = "../crates/config-utils" }
-trust-graph = "0.2.0"
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
-server-config = { path = "../crates/server-config" }
-kademlia = { path = "../crates/kademlia" }
 control-macro = { path = "../crates/control-macro" }
+server-config = { path = "../crates/server-config" }
+async-unlock = { path = "../crates/async-unlock" }
+config-utils = { path = "../crates/config-utils" }
+kademlia = { path = "../crates/kademlia" }
 
+trust-graph = "0.2.0"
 air-interpreter-wasm = "0.3.4"
 
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.0" }

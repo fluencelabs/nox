@@ -12,6 +12,7 @@ members = [
     "crates/json-utils",
     "crates/server-config",
     "crates/kademlia",
+    "crates/async-unlock",
     "particle-node",
     "aquamarine",
     "particle-protocol",
@@ -19,7 +20,8 @@ members = [
     "particle-closures",
     "particle-modules",
     "particle-providers",
-    "connection-pool"
+    "connection-pool",
+    "script-storage",
 ]
 exclude = [
     "client/js-websocket/utils-wasm",

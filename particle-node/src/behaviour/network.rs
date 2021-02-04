@@ -25,7 +25,6 @@ use libp2p::{
 };
 
 use crate::network_api::NetworkApi;
-use crate::node::unlocks::{unlock, unlock_f};
 use aquamarine::{SendParticle, StepperEffects};
 use async_std::sync::Mutex;
 use async_std::task::JoinHandle;

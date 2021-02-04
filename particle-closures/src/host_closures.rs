@@ -24,18 +24,14 @@ use ivalue_utils::{into_record, into_record_opt, ok, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
+use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
-use crate::script_storage::{ScriptStorage, ScriptStorageApi};
 use async_std::task;
-use libp2p::core::Multiaddr;
-use libp2p::PeerId;
-use multihash::Code;
-use multihash::MultihashDigest;
+use libp2p::{core::Multiaddr, PeerId};
+use multihash::{Code, MultihashDigest};
 use serde_json::{json, Value as JValue};
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{str::FromStr, sync::Arc};
 use JValue::Array;
 
 #[derive(Clone)]
@@ -60,19 +56,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 {
     pub fn new(
         connectivity: C,
+        script_storage: ScriptStorageApi,
         node_info: NodeInfo,
         config: ServicesConfig,
-        script_storage_interval: Duration,
     ) -> Self {
         let modules_dir = config.modules_dir.clone();
         let blueprint_dir = config.blueprint_dir.clone();
         let providers = ProviderRepository::new(config.local_peer_id);
-
-        let (script_storage, storage_backend) = {
-            let pool: &ConnectionPoolApi = connectivity.as_ref();
-            ScriptStorage::new(pool.clone(), config.local_peer_id, script_storage_interval)
-        };
-        storage_backend.start();
 
         let services = ParticleAppServices::new(config);
 

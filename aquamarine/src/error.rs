@@ -24,6 +24,16 @@ pub enum AquamarineApiError {
     AquamarineDied { particle_id: String },
 }
 
+impl AquamarineApiError {
+    pub fn into_particle_id(self) -> String {
+        match self {
+            AquamarineApiError::ParticleExpired { particle_id } => particle_id,
+            AquamarineApiError::OneshotCancelled { particle_id } => particle_id,
+            AquamarineApiError::AquamarineDied { particle_id } => particle_id,
+        }
+    }
+}
+
 impl Error for AquamarineApiError {}
 
 impl Display for AquamarineApiError {
