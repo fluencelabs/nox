@@ -2697,6 +2697,7 @@ dependencies = [
  "server-config",
  "smallvec",
  "test-utils",
+ "thiserror",
  "trust-graph",
  "waiting-queues",
 ]

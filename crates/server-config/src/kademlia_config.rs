@@ -28,6 +28,11 @@ pub struct KademliaConfig {
     pub replication_factor: Option<usize>,
     #[serde(with = "humantime_serde")]
     pub connection_idle_timeout: Option<Duration>,
+    /// Number of times peer is failed to be discovered before it is banned
+    pub peer_fail_threshold: usize,
+    /// Period after which peer ban is lifted
+    #[serde(with = "humantime_serde")]
+    pub ban_cooldown: Duration,
 }
 
 impl Default for KademliaConfig {
@@ -37,12 +42,14 @@ impl Default for KademliaConfig {
             query_timeout: Duration::from_secs(3),
             replication_factor: None,
             connection_idle_timeout: Some(Duration::from_secs(2_628_000_000)), // ~month
+            peer_fail_threshold: 3,
+            ban_cooldown: Duration::from_secs(60),
         }
     }
 }
 
-impl Into<LibP2PKadConfig> for KademliaConfig {
-    fn into(self) -> LibP2PKadConfig {
+impl KademliaConfig {
+    pub fn as_libp2p(&self) -> LibP2PKadConfig {
         let mut cfg = LibP2PKadConfig::default();
 
         cfg.set_query_timeout(self.query_timeout);
