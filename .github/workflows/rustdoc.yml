@@ -22,7 +22,7 @@ jobs:
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: nightly-2021-01-28
           profile: minimal
           override: true
           components: rustfmt, rust-src
