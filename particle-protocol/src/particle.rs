@@ -61,8 +61,7 @@ impl Particle {
                 .expect("system time before Unix epoch")
                 .as_millis();
 
-            log::info!(target: "debug_network", "now {} deadline {} timestamp {} ttl {}", now, deadline, self.timestamp, self.ttl);
-            return deadline as u128 > now;
+            return now > deadline as u128;
         }
 
         // If timestamp + ttl overflows u64, consider particle expired
