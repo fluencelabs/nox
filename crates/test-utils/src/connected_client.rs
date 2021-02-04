@@ -177,6 +177,7 @@ impl ConnectedClient {
         read_args(particle, &self.peer_id)
     }
 
+    /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
     pub fn wait_particle_args(&mut self, particle_id: String) -> anyhow::Result<Vec<JValue>> {
         let mut max = 10;
         loop {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use test_utils::{enable_logs, make_swarms, ConnectedClient};
+use test_utils::{make_swarms, ConnectedClient};
 
 use fstrings::f;
 use maplit::hashmap;
