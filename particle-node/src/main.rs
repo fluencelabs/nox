@@ -50,6 +50,21 @@ fn main() -> anyhow::Result<()> {
     // TODO: maybe set log level via flag?
     env_logger::builder().format_timestamp_micros().init();
 
+    log::info!(
+        r#"
++--------------------------------------------+
+| Hello from Fluence Team.                   |
+| If you encounter any troubles with         |
+| node operation, please update the node     |
+| via                                        |
+|     docker pull fluencelabs/fluence:latest |
+|                                            |
+| or contact us at                           |
+| github.com/fluencelabs/fluence/discussions |
++--------------------------------------------+
+    "#
+    );
+
     let arg_matches = App::new("Fluence protocol server")
         .version(VERSION)
         .author(AUTHORS)
