@@ -1,5 +1,8 @@
 from bitnami/minideb:latest
 
+run apt-get update
+run apt-get install curl --yes
+
 ARG exe=
 ARG config=
 

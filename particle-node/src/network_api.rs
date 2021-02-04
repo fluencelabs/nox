@@ -77,23 +77,12 @@ impl NetworkApi {
         self.connectivity.clone()
     }
 
-    pub async fn connect_bootstraps(pool: ConnectionPoolApi, bootstrap_nodes: HashSet<Multiaddr>) {
-        stream::iter(bootstrap_nodes.clone())
-            .for_each_concurrent(None, |addr| {
-                let cp = pool.clone();
-                async move {
-                    if let Some(contact) = cp.dial(addr).await {
-                        log::info!("Connected to bootstrap {}", contact)
-                    }
-                }
-            })
-            .await;
-    }
-
+    /// Dial bootstraps, and then re-dial on each disconnection
     pub async fn reconnect_bootstraps(
         pool: ConnectionPoolApi,
         bootstrap_nodes: HashSet<Multiaddr>,
     ) {
+        let bootstraps = iter(bootstrap_nodes.clone().into_iter().collect::<Vec<_>>());
         let events = pool.lifecycle_events();
         let disconnections = {
             events
@@ -117,18 +106,19 @@ impl NetworkApi {
         let reconnect = move |pool: ConnectionPoolApi, addr: Multiaddr| async move {
             let mut delay = Duration::from_secs(0);
             loop {
-                if pool.dial(addr.clone()).await.is_some() {
-                    log::info!("bootstrap reconnected");
+                if let Some(contact) = pool.dial(addr.clone()).await {
+                    log::info!("Connected bootstrap {}", contact);
                     break;
                 }
 
                 delay = min(delay + delta, max);
-                log::info!("can't connect to bootstrap (pause for {})", pretty(delay));
+                log::info!("can't connect bootstrap {} (pause {})", addr, pretty(delay));
                 sleep(delay).await;
             }
         };
 
-        disconnections
+        bootstraps
+            .chain(disconnections)
             .for_each_concurrent(None, |addr| reconnect(pool.clone(), addr))
             .await;
     }
@@ -151,10 +141,6 @@ impl NetworkApi {
             } = self;
 
             let pool = connectivity.connection_pool.clone();
-            spawn(Self::connect_bootstraps(
-                pool.clone(),
-                bootstrap_nodes.clone(),
-            ));
             spawn(Self::reconnect_bootstraps(pool, bootstrap_nodes));
 
             particle_stream

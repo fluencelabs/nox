@@ -179,7 +179,7 @@ impl ConnectedClient {
 
     /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
     pub fn wait_particle_args(&mut self, particle_id: String) -> anyhow::Result<Vec<JValue>> {
-        let mut max = 10;
+        let mut max = 100;
         loop {
             max -= 1;
             if max <= 0 {
