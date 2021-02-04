@@ -143,6 +143,10 @@ impl NetworkApi {
             let pool = connectivity.connection_pool.clone();
             spawn(Self::reconnect_bootstraps(pool, bootstrap_nodes));
 
+            // filter expired particles
+            use async_std::stream::StreamExt as ext;
+            let particle_stream = ext::filter(particle_stream, |p| !p.is_expired());
+
             particle_stream
                 .for_each_concurrent(particle_parallelism, move |particle| {
                     let aquamarine = aquamarine.clone();

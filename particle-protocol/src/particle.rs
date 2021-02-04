@@ -20,6 +20,7 @@ use json_utils::base64_serde;
 use derivative::Derivative;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
 #[derivative(Debug)]
@@ -49,6 +50,22 @@ impl Default for Particle {
             signature: vec![],
             data: vec![],
         }
+    }
+}
+
+impl Particle {
+    pub fn is_expired(&self) -> bool {
+        if let Some(deadline) = self.timestamp.checked_add(self.ttl as u64) {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time before Unix epoch")
+                .as_millis();
+
+            return deadline as u128 > now;
+        }
+
+        // If timestamp + ttl overflows u64, consider particle expired
+        true
     }
 }
 
