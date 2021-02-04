@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms, ConnectedClient};
+use test_utils::{enable_logs, make_swarms, ConnectedClient};
 
 use fstrings::f;
 use maplit::hashmap;
@@ -51,6 +51,8 @@ fn stream_hello() {
 
 #[test]
 fn remove_script() {
+    enable_logs();
+
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -226,6 +228,8 @@ fn autoremove_failed() {
 
 #[test]
 fn remove_script_unauth() {
+    enable_logs();
+
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
