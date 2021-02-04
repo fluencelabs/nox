@@ -145,7 +145,13 @@ impl NetworkApi {
 
             // filter expired particles
             use async_std::stream::StreamExt as ext;
-            let particle_stream = ext::filter(particle_stream, |p| !p.is_expired());
+            let particle_stream = ext::filter(particle_stream, |p| {
+                if p.is_expired() {
+                    log::info!("Particle {} expired", p.id);
+                    return false;
+                }
+                true
+            });
 
             particle_stream
                 .for_each_concurrent(particle_parallelism, move |particle| {
