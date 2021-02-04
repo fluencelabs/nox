@@ -158,6 +158,7 @@ impl ConnectionPoolBehaviour {
             // If particle is sent to the current node, process it locally
             self.queue.push_back(particle);
             outlet.send(true).ok();
+            self.wake();
         } else {
             // Send particle to remote peer
             self.push_event(NetworkBehaviourAction::NotifyHandler {

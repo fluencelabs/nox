@@ -25,6 +25,7 @@ use crate::{
 use fluence_client::{Client, Transport};
 use particle_protocol::Particle;
 
+use anyhow::bail;
 use async_std::task;
 use core::ops::Deref;
 use libp2p::{core::Multiaddr, PeerId};
@@ -174,5 +175,20 @@ impl ConnectedClient {
     pub fn receive_args(&mut self) -> Vec<JValue> {
         let particle = self.receive();
         read_args(particle, &self.peer_id)
+    }
+
+    /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
+    pub fn wait_particle_args(&mut self, particle_id: String) -> anyhow::Result<Vec<JValue>> {
+        let mut max = 10;
+        loop {
+            max -= 1;
+            if max <= 0 {
+                bail!("timed out waiting for particle {}", particle_id);
+            }
+            let particle = self.receive();
+            if particle.id == particle_id {
+                break Ok(read_args(particle, &self.peer_id));
+            }
+        }
     }
 }

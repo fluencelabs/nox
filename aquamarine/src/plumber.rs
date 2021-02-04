@@ -27,13 +27,13 @@ use std::{
 
 /// Get current time from OS
 #[cfg(not(test))]
-use real_time::now;
+use real_time::now_ms;
 
 use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
 use futures::task::Waker;
 /// For tests, mocked time is used
 #[cfg(test)]
-use mock_time::now;
+use mock_time::now_ms;
 
 pub struct Plumber {
     events: VecDeque<AwaitedEffects>,
@@ -58,7 +58,7 @@ impl Plumber {
         self.wake();
 
         let deadline = Deadline::from(&particle);
-        if deadline.is_expired(now()) {
+        if deadline.is_expired(now_ms()) {
             log::info!("Particle {} is expired, ignoring", particle.id);
             self.events.push_back(AwaitedEffects::expired(particle));
             return;
@@ -80,7 +80,7 @@ impl Plumber {
         }
 
         // Remove expired actors
-        let now = now();
+        let now = now_ms();
         self.actors.retain(|_, actor| !actor.is_expired(now));
 
         // Gather effects and put VMs back
@@ -124,8 +124,8 @@ impl Plumber {
 /// Implements `now` by taking number of non-leap seconds from `Utc::now()`
 mod real_time {
     #[allow(dead_code)]
-    pub fn now() -> u64 {
-        chrono::Utc::now().timestamp() as u64
+    pub fn now_ms() -> u64 {
+        (chrono::Utc::now().timestamp() * 1000) as u64
     }
 }
 
@@ -214,7 +214,7 @@ pub mod mock_time {
         static MOCK_TIME: RefCell<u64> = RefCell::new(0);
     }
 
-    pub fn now() -> u64 {
+    pub fn now_ms() -> u64 {
         MOCK_TIME.with(|cell| cell.borrow().clone())
     }
 
