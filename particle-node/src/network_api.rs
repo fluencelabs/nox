@@ -214,8 +214,19 @@ impl Connectivity {
             };
 
             // forward particle
-            log::info!("Sending particle {} to {}", particle.id, contact);
-            self.connection_pool.send(contact, particle).await;
+            self.send(contact, particle).await;
+        }
+    }
+
+    async fn send(&self, contact: Contact, particle: Particle) {
+        log::debug!("Sending particle {} to {}", particle.id, contact);
+        let id = particle.id.clone();
+        let contact = contact.clone();
+        let sent = self.connection_pool.send(contact, particle).await;
+        if sent {
+            log::info!("Sent particle {} to {}", particle.id, contact);
+        } else {
+            log::info!("Failed to send particle {} to {}", particle.id, contact);
         }
     }
 
