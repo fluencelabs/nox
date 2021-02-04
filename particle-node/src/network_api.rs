@@ -195,7 +195,14 @@ pub struct Connectivity {
 impl Connectivity {
     /// Perform effects that Aquamarine instructed us to
     pub async fn execute_effects(&self, effects: StepperEffects) {
-        let ps = iter(effects.particles);
+        let ps = iter(effects.particles.into_iter().filter(|p| {
+            if p.particle.is_expired() {
+                log::info!("Particle {} is expired", p.particle.id);
+                false
+            } else {
+                true
+            }
+        }));
         // take every particle, and try to send it concurrently
         ps.for_each_concurrent(None, move |p| {
             let SendParticle { target, particle } = p;
