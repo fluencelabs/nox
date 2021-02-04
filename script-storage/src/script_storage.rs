@@ -19,7 +19,6 @@ use crate::ScriptStorageConfig;
 use async_unlock::unlock;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
 use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
-use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
 use async_std::{sync::Mutex, task, task::JoinHandle};
@@ -32,7 +31,6 @@ use std::time::{Duration, Instant};
 use std::{
     borrow::Borrow,
     collections::{hash_map::Entry, HashMap},
-    ops::Deref,
     sync::Arc,
 };
 use thiserror::Error;
@@ -49,11 +47,26 @@ impl Borrow<String> for ScriptId {
 struct Script {
     src: String,
     failures: u8,
+    /// Interval at which to execute this script.
+    /// If None, that means the script will be executed only once
+    interval: Option<Duration>,
+    pub executed_at: Option<Instant>,
 }
 
-impl From<String> for Script {
-    fn from(src: String) -> Self {
-        Self { src, failures: 0 }
+impl Script {
+    pub fn new(src: String, interval: Option<Duration>) -> Self {
+        Self {
+            src,
+            interval,
+            failures: 0,
+            executed_at: None,
+        }
+    }
+
+    pub fn deadline(&self) -> Option<Instant> {
+        let interval = self.interval?;
+        let executed_at = self.executed_at?;
+        Some(executed_at + interval)
     }
 }
 
@@ -69,6 +82,7 @@ enum Command {
     AddScript {
         uuid: String,
         script: String,
+        interval: Option<Duration>,
     },
     RemoveScript {
         uuid: String,
@@ -107,91 +121,16 @@ impl ScriptStorageBackend {
     pub fn start(self) -> JoinHandle<()> {
         use futures::select;
 
-        async fn execute_scripts(
-            pool: &ConnectionPoolApi,
-            scripts: HashMap<ScriptId, Script>,
-            sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>,
-            peer_id: PeerId,
-            ttl: Duration,
-        ) {
-            for (script_id, script) in scripts.into_iter() {
-                let particle_id = format!("auto_{}", uuid::Uuid::new_v4());
-                let particle = Particle {
-                    id: particle_id.clone(),
-                    init_peer_id: peer_id.clone(),
-                    timestamp: chrono::Utc::now().timestamp() as u64,
-                    ttl: ttl.as_secs() as u32,
-                    script: script.src,
-                    signature: vec![],
-                    data: vec![],
-                };
-
-                let sent_particle = SentParticle {
-                    script_id,
-                    deadline: Instant::now() + ttl,
-                };
-                unlock(sent_particles, |sent| {
-                    sent.insert(particle_id, sent_particle)
-                })
-                .await;
-                pool.send(Contact::new(peer_id, vec![]), particle).await;
-            }
-        }
-
-        async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Script>>) {
-            match command {
-                Command::AddScript { uuid, script } => {
-                    let uuid = ScriptId(Arc::new(uuid));
-                    unlock(scripts, |scripts| scripts.insert(uuid, script.into())).await;
-                }
-                Command::RemoveScript { uuid, outlet } => {
-                    let removed = unlock(scripts, |scripts| scripts.remove(&uuid)).await;
-                    outlet.send(removed.is_some()).ok();
-                }
-            }
-        }
-
-        async fn remove_failed_scripts(
-            particle_id: String,
-            sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>,
-            scripts: &Mutex<HashMap<ScriptId, Script>>,
-            max_failures: u8,
-        ) {
-            let sent = unlock(sent_particles, |sent| sent.remove(&particle_id)).await;
-            if let Some(SentParticle { script_id, .. }) = sent {
-                unlock(scripts, |scripts| {
-                    if let Entry::Occupied(entry) = scripts.entry(script_id) {
-                        let failures = entry.get().failures;
-                        if failures + 1 < max_failures {
-                            entry.into_mut().failures += 1;
-                        } else {
-                            entry.remove();
-                        }
-                    }
-                })
-                .await;
-            }
-        }
-
-        async fn cleanup(sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>) {
-            let now = Instant::now();
-            unlock(sent_particles, |sent| {
-                sent.retain(|_, SentParticle { deadline, .. }| *deadline < now)
-            })
-            .await
-        }
-
         task::spawn(async move {
             let scripts = self.scripts;
             let sent_particles = self.sent_particles;
             let pool = self.connection_pool;
-            let peer_id = self.config.peer_id;
-            let ttl = self.config.particle_ttl;
+            let config = self.config;
             let max_failures = self.config.max_failures;
 
             let mut failed_particles = self.failed_particles.fuse();
             let mut inlet = self.inlet.fuse();
-            let mut timer = async_std::stream::interval(self.config.interval).fuse();
+            let mut timer = async_std::stream::interval(self.config.timer_resolution).fuse();
 
             loop {
                 select! {
@@ -202,18 +141,120 @@ impl ScriptStorageBackend {
                         remove_failed_scripts(failed, &sent_particles, &scripts, max_failures).await;
                     },
                     _ = timer.select_next_some() => {
-                        let scripts = {
-                            let lock = scripts.lock().await;
-                            lock.deref().clone()
-                        };
-
-                        execute_scripts(&pool, scripts, &sent_particles, peer_id.clone(), ttl).await;
+                        execute_scripts(&pool, &scripts, &sent_particles, config).await;
                         cleanup(&sent_particles).await;
                     }
                 }
             }
         })
     }
+}
+
+async fn execute_scripts(
+    pool: &ConnectionPoolApi,
+    scripts: &Mutex<HashMap<ScriptId, Script>>,
+    sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>,
+    config: ScriptStorageConfig,
+) {
+    let now = Instant::now();
+    let now_u64 = chrono::Utc::now().timestamp() as u64;
+
+    // Remove all scripts without interval, they will be executing only once
+    let single_shots: Vec<_> = unlock(scripts, |scripts| {
+        scripts.drain_filter(|_, s| s.interval.is_none()).collect()
+    })
+    .await;
+
+    // Take and clone all scripts that are ready to be executed
+    let scripts: Vec<(ScriptId, Script)> = unlock(scripts, |scripts| {
+        scripts
+            .iter_mut()
+            .filter(|(_, script)| script.deadline().map_or(true, |deadline| deadline <= now))
+            .map(|(id, s)| {
+                // mark script as executed at the current timestamp
+                s.executed_at = Some(now);
+                (id.clone(), s.clone())
+            })
+            .collect()
+    })
+    .await;
+    // concatenate single shots with other scripts
+    let scripts = single_shots.into_iter().chain(scripts);
+
+    for (script_id, script) in scripts {
+        let particle_id = format!("auto_{}", uuid::Uuid::new_v4());
+
+        // Save info about sent particle to account for failures
+        let info = SentParticle {
+            script_id,
+            deadline: now + config.particle_ttl,
+        };
+        unlock(sent_particles, |sent| {
+            sent.insert(particle_id.clone(), info)
+        })
+        .await;
+
+        // Send particle to the current node
+        let particle = Particle {
+            id: particle_id,
+            init_peer_id: config.peer_id,
+            timestamp: now_u64,
+            ttl: config.particle_ttl.as_secs() as u32,
+            script: script.src,
+            signature: vec![],
+            data: vec![],
+        };
+        let contact = Contact::new(config.peer_id, vec![]);
+        pool.send(contact, particle).await;
+    }
+}
+
+async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Script>>) {
+    match command {
+        Command::AddScript {
+            uuid,
+            script,
+            interval,
+        } => {
+            let uuid = ScriptId(Arc::new(uuid));
+            let script = Script::new(script, interval);
+            unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
+        }
+        Command::RemoveScript { uuid, outlet } => {
+            let removed = unlock(scripts, |scripts| scripts.remove(&uuid)).await;
+            outlet.send(removed.is_some()).ok();
+        }
+    }
+}
+
+async fn remove_failed_scripts(
+    particle_id: String,
+    sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>,
+    scripts: &Mutex<HashMap<ScriptId, Script>>,
+    max_failures: u8,
+) {
+    let sent = unlock(sent_particles, |sent| sent.remove(&particle_id)).await;
+    if let Some(SentParticle { script_id, .. }) = sent {
+        unlock(scripts, |scripts| {
+            if let Entry::Occupied(entry) = scripts.entry(script_id) {
+                let failures = entry.get().failures;
+                if failures + 1 < max_failures {
+                    entry.into_mut().failures += 1;
+                } else {
+                    entry.remove();
+                }
+            }
+        })
+        .await;
+    }
+}
+
+async fn cleanup(sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>) {
+    let now = Instant::now();
+    unlock(sent_particles, |sent| {
+        sent.retain(|_, SentParticle { deadline, .. }| *deadline < now)
+    })
+    .await
 }
 
 #[derive(Clone)]
@@ -236,12 +277,17 @@ impl ScriptStorageApi {
             .map_err(|_| ScriptStorageError::OutletError)
     }
 
-    pub fn add_script(&self, script: String) -> Result<String, ScriptStorageError> {
+    pub fn add_script(
+        &self,
+        script: String,
+        interval: Option<Duration>,
+    ) -> Result<String, ScriptStorageError> {
         let uuid = uuid::Uuid::new_v4().to_string();
 
         self.send(Command::AddScript {
             uuid: uuid.clone(),
             script,
+            interval,
         })?;
 
         Ok(uuid)

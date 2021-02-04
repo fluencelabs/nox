@@ -89,7 +89,7 @@ pub fn enable_logs() {
 
     env_logger::builder()
         .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Info)
+        .filter_level(log::LevelFilter::Debug)
         .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)
@@ -300,7 +300,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
     };
 
     let script_storage_config = ScriptStorageConfig {
-        interval: Duration::from_millis(500),
+        timer_resolution: Duration::from_millis(500),
         max_failures: 1,
         particle_ttl: Duration::from_secs(5),
         peer_id,

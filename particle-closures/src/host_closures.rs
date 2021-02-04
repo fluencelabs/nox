@@ -31,6 +31,8 @@ use async_std::task;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::{Code, MultihashDigest};
 use serde_json::{json, Value as JValue};
+use std::num::ParseIntError;
+use std::time::Duration;
 use std::{str::FromStr, sync::Arc};
 use JValue::Array;
 
@@ -173,8 +175,20 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     fn add_script(&self, args: Args) -> Result<JValue, JError> {
-        let script: String = Args::next("script", &mut args.function_args.into_iter())?;
-        let id = self.script_storage.add_script(script)?;
+        #[derive(thiserror::Error, Debug)]
+        #[error("Error while deserializing field interval_sec: not a valid u64")]
+        struct Error(#[source] ParseIntError);
+
+        let mut args = args.function_args.into_iter();
+
+        let script: String = Args::next("script", &mut args)?;
+        let interval = Args::maybe_next("interval_sec", &mut args)?;
+        let interval = interval
+            .map(|s: String| s.parse::<u64>())
+            .transpose()
+            .map_err(Error)?;
+        let interval = interval.map(Duration::from_secs);
+        let id = self.script_storage.add_script(script, interval)?;
 
         Ok(json!(id))
     }

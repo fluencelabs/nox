@@ -37,7 +37,7 @@ fn stream_hello() {
 
     client.send_particle(
         r#"
-        (call relay ("script" "add") [script])
+        (call relay ("script" "add") [script "0"])
         "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
@@ -64,7 +64,7 @@ fn remove_script() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("script" "add") [script] id)
+            (call relay ("script" "add") [script "0"] id)
             (call client ("op" "return") [id])
         )
         "#,
@@ -124,7 +124,7 @@ fn script_routing() {
         r#"
         (seq
             (call relay ("op" "identity") [])
-            (call second ("script" "add") [script] id)
+            (call second ("script" "add") [script "0"] id)
         )
         "#,
         hashmap! {
@@ -135,41 +135,7 @@ fn script_routing() {
     );
 
     for _ in 1..10 {
-        log::info!("waiting for hello");
         let res = client.receive_args().into_iter().next().unwrap();
         assert_eq!(res, "hello");
-        log::info!("got hello");
     }
-}
-
-#[ignore]
-#[test]
-fn dont_stall() {
-    enable_logs();
-
-    let swarms = make_swarms(1);
-
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
-
-    let script = f!(r#"
-        (seq
-            (call "{client.node}" ("op" "identity") [])
-            (call "12D3KooWAiwZrT8F9CBh496ubSKiAP4w9B3Eb8NoJA2W4mQq5Mgf" ("op" "return") ["hello"])
-        )
-    "#);
-
-    client.send_particle(
-        r#"
-        (seq
-            (call relay ("op" "identity") [])
-            (call relay ("script" "add") [script] id)
-        )
-        "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "script" => json!(script),
-        },
-    );
-
-    sleep(Duration::from_secs(1000000));
 }

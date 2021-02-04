@@ -17,10 +17,10 @@
 use fluence_libp2p::PeerId;
 use std::time::Duration;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub struct ScriptStorageConfig {
     /// Minimal interval of script execution
-    pub interval: Duration,
+    pub timer_resolution: Duration,
     /// Script is deleted after this number of failures
     pub max_failures: u8,
     /// ttl to set in generated particles
