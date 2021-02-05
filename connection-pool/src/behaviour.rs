@@ -380,12 +380,13 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
 
     fn inject_event(
         &mut self,
-        _: PeerId,
+        from: PeerId,
         _: ConnectionId,
         event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent,
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {
+                log::trace!(target: "network", "received particle {} from {}", particle.id, from);
                 self.queue.push_back(particle);
                 self.wake();
             }

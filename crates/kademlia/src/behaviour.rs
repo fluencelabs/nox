@@ -202,9 +202,8 @@ impl Kademlia {
     }
 
     pub fn neighborhood(&mut self, key: Multihash, outlet: OneshotOutlet<Result<Vec<PeerId>>>) {
-        let query_id = self.kademlia.get_closest_peers(key);
-        self.queries
-            .insert(query_id, PendingQuery::Neighborhood(outlet));
+        let peers = self.kademlia.local_closest_peers(key);
+        outlet.send(Ok(peers)).ok();
         self.wake();
     }
 }

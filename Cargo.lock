@@ -1523,9 +1523,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p"
-version = "0.34.0"
+version = "0.34.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c66d0867e006bce3022870c43705103b2f9b0ab189fcc03e8ef5f724acca0b84"
+checksum = "71e3fff663cf397c94bd535024aa7a2679457f35b4b65c6f1ed2f238d0804f40"
 dependencies = [
  "atomic",
  "bytes",
@@ -1561,9 +1561,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-core"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52e144c2f2e2d915fcdf1d4a413093e793950da7479603297f97450ac1aedadf"
+checksum = "44841231bdecbeb4f52baa21d41c33f9a5e8f052b428c32aa66c4f37fe720f74"
 dependencies = [
  "asn1_der",
  "bs58 0.4.0",
@@ -1596,9 +1596,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-core-derive"
-version = "0.21.0"
+version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d5397e85550c3c793a7b15ed2e8920b389d960edb9899ab50e212557fa74ac0"
+checksum = "eb54df2f9f85f71f1286cb95cc6b8c41040f49270eb92dcea00b1688a331862d"
 dependencies = [
  "quote",
  "syn",
@@ -1606,9 +1606,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-deflate"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "938fd7e1c5de83f4017eb6a98903931071752d7def3b21ba865a5cc64c1abde8"
+checksum = "397f789b96ff6948e839366fba593e525d4a0d01fb77641708ce21bcdae4c3ec"
 dependencies = [
  "flate2",
  "fluence-fork-libp2p-core",
@@ -1617,9 +1617,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-dns"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b300d8098a0ccaa1d67845e8ea1b99038707731b748c8c2308efbb0476107254"
+checksum = "f42740580d55c7b538b88c37deffb34bb14a2cf2d6d35e6926cc60c05f23cacc"
 dependencies = [
  "fluence-fork-libp2p-core",
  "futures",
@@ -1628,9 +1628,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-floodsub"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4697aec63de237766899b92b9489f44aad18295bbda209805f2bbae90188c454"
+checksum = "6ad6c93976ccc75b95daec8c63f3ce50e91e77f6df0b451c24fb5e9d8fafee28"
 dependencies = [
  "cuckoofilter",
  "fluence-fork-libp2p-core",
@@ -1646,9 +1646,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-gossipsub"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f37aa35dada3758edd25ab1473904384396282c16bb7a66ad2da0aa89c14258e"
+checksum = "a7761e26c505aeaa099439dc50896d44405b8d188e79bd827ec980379f79a3bb"
 dependencies = [
  "base64 0.13.0",
  "byteorder",
@@ -1672,9 +1672,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-identify"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1ef6bacc08b2199c221eb14b7245e961dd993713499eefd0152afb8ff43c5d7"
+checksum = "6dc8f269ad0addff1d3944b4726d3557f89cb982db2e8f8ca4a2374dbc6bfc8c"
 dependencies = [
  "fluence-fork-libp2p-core",
  "fluence-fork-libp2p-swarm",
@@ -1739,9 +1739,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-mplex"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03c3fe8b1ee986ae54d101294a8602e0ada2da4ad4bf6ade7a6515f5cef822cd"
+checksum = "ecdaa3017c6a279c0f9f8ac472c4bb94c62c6e9b15f62c12b28b428748208467"
 dependencies = [
  "bytes",
  "fluence-fork-libp2p-core",
@@ -1757,9 +1757,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-noise"
-version = "0.28.0"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2ec9aa426fd57ee6506f07d8d540bfcc662571655965e9252f43eeedf625c76"
+checksum = "17705ae3f1b0dbda2aa916f802365836840dfc16337fbc9d3aa24bf8dc4c4b9a"
 dependencies = [
  "bytes",
  "curve25519-dalek",
@@ -1779,9 +1779,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-ping"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a336fb5b61b51751eead4a7b0753734b338509d26d65ad0d64a2800f314d9c8d"
+checksum = "f1709e551218ec8088f9ed279dfd6a85cbc067edd25f869d23b8e25dfdf1ecf1"
 dependencies = [
  "fluence-fork-libp2p-core",
  "fluence-fork-libp2p-swarm",
@@ -1794,9 +1794,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-plaintext"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3611fc88a98b5ea06724529cc6fd39bddefa93e307b885001b3def8f81ed170"
+checksum = "a952d47f48c898ded620f6e01ec6705070b55d82159d5be5b29e4ae4ccfc3ce5"
 dependencies = [
  "bytes",
  "fluence-fork-libp2p-core",
@@ -1811,9 +1811,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-pnet"
-version = "0.20.0"
+version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91cdd7b0f347a6bd1e02e0e6c537ceedad4f75c1c0a1e4fdbc4cba1bef7ec244"
+checksum = "a543a7162723520b253be30b6febdd0cc8ddb49a6e06d8161ad682dcc54e067c"
 dependencies = [
  "futures",
  "log",
@@ -1825,9 +1825,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-request-response"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c00d2b95631c372b61013f4c499d5f17cbb7c5d190c8e78b02afb92b57cebc4"
+checksum = "994586bf810cc271342f275517fbfaf312e9208a092cc7a82df8ff78d38c0128"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1845,9 +1845,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-secio"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dd22147e34896e4735c02c6459a35cfb8df2ededef7aab363308eafa09ef29d"
+checksum = "c7aa981f4795af5d6be61030699a18d246ef00a59ea3db7d614862eeb6449f28"
 dependencies = [
  "aes-ctr",
  "ctr 0.3.2",
@@ -1875,9 +1875,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-swarm"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39987303419e340aa8bff449681382418e4e77e97e417849861d2c490d5ad582"
+checksum = "1f9a4ceb3d7015890c32f8eca8abbabc164d6c561be9d7d423afc2d66f9b9951"
 dependencies = [
  "either",
  "fluence-fork-libp2p-core",
@@ -1891,9 +1891,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-tcp"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bd6fdb15b6a24e26172b53a7c464f7a2d09018eba99c8b7c0a774a8cec0c254"
+checksum = "add924925b38defc8d207c3c39994f00d5f0d209b8cc1ee22955cc1c57a8757f"
 dependencies = [
  "async-std",
  "fluence-fork-libp2p-core",
@@ -1907,9 +1907,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-uds"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ac10f8009916dcbbd3a98450e741acdf48c809282143c2eabd56f81dd4945c"
+checksum = "8cca6ee63040b338e350a533436dfb8e59f0363654f1075e60b7f881ffa8c6e5"
 dependencies = [
  "async-std",
  "fluence-fork-libp2p-core",
@@ -1919,9 +1919,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-wasm-ext"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3732bd220f0766f2d4f8ce164b71b521c955b9d86af3da4770ae7a9ed54aac41"
+checksum = "792da2e75eeb58302bfcdc77cd9a352d85071f648af058b6927e6b707b2d05a5"
 dependencies = [
  "fluence-fork-libp2p-core",
  "futures",
@@ -1953,9 +1953,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-yamux"
-version = "0.29.0"
+version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afd930e477fdf6af701aed46782d61b40c949cb2a191379ba3a17cb462a105cf"
+checksum = "049d22c9f0e778d40acf841112098aff871e0fcd6ad2cbd5d404b84e73b3576a"
 dependencies = [
  "fluence-fork-libp2p-core",
  "futures",
@@ -1966,9 +1966,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-multistream-select"
-version = "0.9.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fe6c01231db8700221a08cdd429575099d8727c2ca0500427b57b1aa9e03bbb"
+checksum = "c49903d72a94d34a5906634884114226c559ef9283bfb82118c909bccd689eb6"
 dependencies = [
  "bytes",
  "futures",
@@ -1980,9 +1980,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-parity-multiaddr"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee001eadfcb415fbc4a39b73c999d5c39afcf040100807653ea420ca13fbc23a"
+checksum = "34e83056a96cf8d665e9e238575733c5b73ebbaef0a8c3d85d1cba717af04417"
 dependencies = [
  "arrayref",
  "bs58 0.4.0",
