@@ -203,7 +203,19 @@ impl Kademlia {
 
     pub fn neighborhood(&mut self, key: Multihash, outlet: OneshotOutlet<Result<Vec<PeerId>>>) {
         let peers = self.kademlia.local_closest_peers(key);
-        outlet.send(Ok(peers)).ok();
+        let peers = peers.into_iter().map(|p| p.peer_id.into_preimage());
+        outlet.send(Ok(peers.collect())).ok();
+        self.wake();
+    }
+
+    pub fn remote_neighborhood(
+        &mut self,
+        key: Multihash,
+        outlet: OneshotOutlet<Result<Vec<PeerId>>>,
+    ) {
+        let query_id = self.kademlia.get_closest_peers(key);
+        self.queries
+            .insert(query_id, PendingQuery::Neighborhood(outlet));
         self.wake();
     }
 }
