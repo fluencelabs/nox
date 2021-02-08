@@ -9,6 +9,7 @@ connection-pool = { path = "../connection-pool"}
 particle-protocol = { path = "../particle-protocol"}
 fluence-libp2p = { path = "../crates/libp2p" }
 async-unlock = { path = "../crates/async-unlock" }
+now-millis = { path = "../crates/now-millis" }
 
 async-std = "1.9.0"
 futures = "0.3.12"

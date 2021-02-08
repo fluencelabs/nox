@@ -24,7 +24,7 @@ use particle_protocol::Contact;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     future::BoxFuture,
-    FutureExt, StreamExt, TryFutureExt,
+    FutureExt, StreamExt,
 };
 use libp2p::{core::Multiaddr, identity::ed25519, swarm::NetworkBehaviourEventProcess, PeerId};
 use multihash::Multihash;
@@ -163,11 +163,14 @@ impl KademliaApiT for KademliaApi {
 
     fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {
         let (out, inlet) = oneshot::channel();
-        self.outlet
-            .unbounded_send(Command::LocalLookup { peer, out })
-            .expect("kademlia api died");
-
-        inlet.map_err(|_| KademliaError::Cancelled).boxed()
+        let cmd = Command::LocalLookup { peer, out };
+        let send = self.outlet.unbounded_send(cmd);
+        if send.is_err() {
+            return futures::future::err(KademliaError::Cancelled).boxed();
+        }
+        inlet
+            .map(|r| r.map_err(|_| KademliaError::Cancelled))
+            .boxed()
     }
 
     fn discover_peer(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {

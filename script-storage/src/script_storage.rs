@@ -28,6 +28,7 @@ use futures::{
     future::BoxFuture,
     FutureExt, StreamExt, TryFutureExt,
 };
+use now_millis::now_ms;
 use std::{
     borrow::Borrow,
     collections::{hash_map::Entry, HashMap},
@@ -168,7 +169,7 @@ async fn execute_scripts(
     config: ScriptStorageConfig,
 ) {
     let now = Instant::now();
-    let now_u64 = chrono::Utc::now().timestamp() as u64;
+    let now_u64 = now_ms() as u64;
 
     // Remove all scripts without interval, they will be executing only once
     let single_shots: Vec<_> = unlock(scripts, |scripts| {

@@ -2997,6 +2997,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "now-millis"
+version = "0.1.0"
+
+[[package]]
 name = "num-integer"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3242,6 +3246,7 @@ dependencies = [
  "itertools 0.10.0",
  "json-utils",
  "log",
+ "now-millis",
  "rand 0.7.3",
  "serde",
  "serde_derive",
@@ -3845,6 +3850,7 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "log",
+ "now-millis",
  "particle-protocol",
  "thiserror",
  "uuid",
