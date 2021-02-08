@@ -14,14 +14,68 @@
  * limitations under the License.
  */
 
-use serde::{Deserialize, Serialize};
+use blake3::Hash;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Blueprint {
     pub name: String,
     #[serde(default = "uuid")]
     pub id: String,
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<Dependency>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Dependency {
+    Hash(Hash),
+    Name(String),
+}
+
+impl<'de> Deserialize<'de> for Dependency {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = <&str>::deserialize(deserializer)?;
+        let mut s = s.split(":");
+        let id_val: Option<(_, _)> = try {
+            let id = s.next()?;
+            let value = s.next();
+            (id, value)
+        };
+        let id_val = id_val.ok_or(de::Error::missing_field("dependency"))?;
+
+        let value = match id_val {
+            ("hash", Some(hash)) => Dependency::Hash(Hash::from(from_hex(hash))),
+            ("name", Some(name)) | (name, _) => Dependency::Name(name.to_string()),
+        };
+
+        Ok(value)
+    }
+}
+
+impl Serialize for Dependency {
+    fn serialize<S>(&self, s: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Dependency::Hash(h) => h.to_hex().as_str().serialize(s),
+            Dependency::Name(n) => n.serialize(s),
+        }
+    }
+}
+
+fn from_hex(s: &str) -> [u8; 32] {
+    let mut out: [u8; 32] = [0; 32];
+    let bs = s.as_bytes();
+    for i in 0..32usize {
+        let c = bs[i];
+        let value = (c & 0x0f) + 9 * (c >> 6);
+        out[i] = value;
+    }
+
+    out
 }
 
 fn uuid() -> String {

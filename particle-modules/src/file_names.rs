@@ -18,15 +18,13 @@ use crate::blueprint::Blueprint;
 use std::path::{Path, PathBuf};
 
 /// Calculates filename of the config for a wasm module
-pub(super) fn module_config_name<S: AsRef<str>>(module: S) -> String {
-    format!("{}_config.toml", module.as_ref())
+pub(super) fn module_config_name(module_hash: &blake3::Hash) -> String {
+    format!("{}_config.toml", module_hash.to_hex())
 }
 
-/// Calculates the name of a wasm module file, given a name of the module.
-/// For example, it's ipfs in config, and ipfs.wasm on filesystem.
-/// That function then encapsulates the knowledge about that transformation.
-pub(super) fn module_file_name(module: &str) -> String {
-    format!("{}.wasm", module)
+/// Calculates the name of a wasm module file, given a hash of the module.
+pub(super) fn module_file_name(module_hash: &blake3::Hash) -> String {
+    format!("{}.wasm", module_hash.to_hex())
 }
 
 /// Calculates filename of the blueprint

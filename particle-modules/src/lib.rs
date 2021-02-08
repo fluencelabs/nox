@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#![feature(try_blocks)]
 #![warn(rust_2018_idioms)]
 #![deny(
-    dead_code,
+    // dead_code,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -35,4 +36,4 @@ pub use blueprint::Blueprint;
 pub use error::ModuleError;
 pub use file_names::{is_service, service_file_name};
 pub use files::{list_files, load_blueprint, load_module_config};
-pub use modules::{add_blueprint, add_module, get_blueprints, get_modules};
+pub use modules::ModuleRepository;

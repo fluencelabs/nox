@@ -38,7 +38,9 @@ pub fn create_vm(
         let modules_config: Vec<_> = blueprint
             .dependencies
             .iter()
-            .map(|module| load_module_config(&config.modules_dir, module).map_err(Into::into))
+            .map(|module_hash| {
+                load_module_config(&config.modules_dir, module_hash).map_err(Into::into)
+            })
             .collect::<Result<_>>()?;
 
         let modules = AppServiceConfig {

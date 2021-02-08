@@ -3171,6 +3171,7 @@ name = "particle-modules"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
+ "blake3",
  "fce-wit-parser",
  "fluence-app-service",
  "host-closure",
