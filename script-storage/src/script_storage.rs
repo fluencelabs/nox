@@ -17,23 +17,23 @@
 use crate::ScriptStorageConfig;
 
 use async_unlock::unlock;
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
-use particle_protocol::Particle;
+use fluence_libp2p::PeerId;
+use particle_protocol::{Contact, Particle};
 
 use async_std::{sync::Mutex, task, task::JoinHandle};
-use fluence_libp2p::PeerId;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     future::BoxFuture,
     FutureExt, StreamExt, TryFutureExt,
 };
-use std::convert::identity;
-use std::time::{Duration, Instant};
 use std::{
     borrow::Borrow,
     collections::{hash_map::Entry, HashMap},
+    convert::identity,
     sync::Arc,
+    time::{Duration, Instant},
 };
 use thiserror::Error;
 

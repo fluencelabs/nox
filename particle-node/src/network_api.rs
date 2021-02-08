@@ -24,26 +24,28 @@
 //! - executing it through Aquamarine
 //! - forwarding the particle to the next peers
 
-use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact, LifecycleEvent};
-use control_macro::unwrap_return;
-use fluence_libp2p::types::BackPressuredInlet;
-use kademlia::{KademliaApi, KademliaApiT, KademliaError};
-use particle_protocol::Particle;
-use server_config::NodeConfig;
+use std::cmp::min;
+use std::collections::{HashMap, HashSet};
+use std::time::Duration;
+use std::{sync::Arc, task::Poll};
 
 use async_std::task::{sleep, spawn};
 use async_std::{sync::Mutex, task::JoinHandle};
-use futures::stream::{self, iter};
+use futures::stream::iter;
 use futures::{future, Sink, SinkExt};
 use futures::{sink, task, FutureExt, StreamExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::core::Multiaddr;
 use libp2p::{swarm::NetworkBehaviour, PeerId, Swarm};
-use std::cmp::min;
-use std::collections::{HashMap, HashSet};
-use std::time::Duration;
-use std::{sync::Arc, task::Poll};
+
+use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
+use control_macro::unwrap_return;
+use fluence_libp2p::types::BackPressuredInlet;
+use kademlia::{KademliaApi, KademliaApiT, KademliaError};
+use particle_protocol::Contact;
+use particle_protocol::Particle;
+use server_config::NodeConfig;
 
 /// API provided by the network
 pub struct NetworkApi {
@@ -53,6 +55,9 @@ pub struct NetworkApi {
     particle_parallelism: usize,
     /// Kademlia and ConnectionPool in a single Clone-able structure
     connectivity: Connectivity,
+    /// Bootstrap will be executed after [1, N, 2*N, 3*N, ...] bootstrap nodes connected
+    /// This setting specify that N.
+    bootstrap_frequency: usize,
 }
 
 impl NetworkApi {
@@ -61,6 +66,7 @@ impl NetworkApi {
         particle_parallelism: usize,
         kademlia: KademliaApi,
         connection_pool: ConnectionPoolApi,
+        bootstrap_frequency: usize,
     ) -> Self {
         Self {
             particle_stream,
@@ -69,58 +75,13 @@ impl NetworkApi {
                 kademlia,
                 connection_pool,
             },
+            bootstrap_frequency,
         }
     }
 
     /// Return connectivity API to access Connection Pool or Kademlia
     pub fn connectivity(&self) -> Connectivity {
         self.connectivity.clone()
-    }
-
-    /// Dial bootstraps, and then re-dial on each disconnection
-    pub async fn reconnect_bootstraps(
-        pool: ConnectionPoolApi,
-        bootstrap_nodes: HashSet<Multiaddr>,
-    ) {
-        let bootstraps = iter(bootstrap_nodes.clone().into_iter().collect::<Vec<_>>());
-        let events = pool.lifecycle_events();
-        let disconnections = {
-            events
-                .filter_map(move |e| {
-                    if let LifecycleEvent::Disconnected(Contact { addresses, .. }) = e {
-                        let addresses = addresses.into_iter();
-                        let addresses = addresses.filter(|addr| bootstrap_nodes.contains(addr));
-                        let addresses = iter(addresses.collect::<Vec<_>>());
-                        return future::ready(Some(addresses));
-                    }
-                    future::ready(None)
-                })
-                .flatten()
-        };
-
-        // TODO: take from config
-        let max = Duration::from_secs(60);
-        // TODO: exponential backoff + random?
-        let delta = Duration::from_secs(5);
-
-        let reconnect = move |pool: ConnectionPoolApi, addr: Multiaddr| async move {
-            let mut delay = Duration::from_secs(0);
-            loop {
-                if let Some(contact) = pool.dial(addr.clone()).await {
-                    log::info!("Connected bootstrap {}", contact);
-                    break;
-                }
-
-                delay = min(delay + delta, max);
-                log::info!("can't connect bootstrap {} (pause {})", addr, pretty(delay));
-                sleep(delay).await;
-            }
-        };
-
-        bootstraps
-            .chain(disconnections)
-            .for_each_concurrent(None, |addr| reconnect(pool.clone(), addr))
-            .await;
     }
 
     /// Spawns a new task that pulls particles from `particle_stream`,
@@ -138,20 +99,24 @@ impl NetworkApi {
                 particle_stream,
                 particle_parallelism,
                 connectivity,
+                bootstrap_frequency: freq,
             } = self;
 
-            let pool = connectivity.connection_pool.clone();
-            spawn(Self::reconnect_bootstraps(pool, bootstrap_nodes));
+            let bs = bootstrap_nodes.clone();
+            spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
+            spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
 
             // filter expired particles
-            use async_std::stream::StreamExt as ext;
-            let particle_stream = ext::filter(particle_stream, |p| {
-                if p.is_expired() {
-                    log::info!("Particle {} expired", p.id);
-                    return false;
-                }
-                true
-            });
+            let particle_stream = {
+                use async_std::stream::StreamExt as stream;
+                stream::filter(particle_stream, |p| {
+                    if p.is_expired() {
+                        log::info!("Particle {} expired", p.id);
+                        return false;
+                    }
+                    true
+                })
+            };
 
             particle_stream
                 .for_each_concurrent(particle_parallelism, move |particle| {
@@ -265,6 +230,95 @@ impl Connectivity {
         }
 
         Ok(Some(Contact::new(target, addresses)))
+    }
+
+    /// Run kademlia bootstrap after first bootstrap is connected, and then every `frequency`
+    pub async fn kademlia_bootstrap(self, bootstrap_nodes: HashSet<Multiaddr>, frequency: usize) {
+        let kademlia = self.kademlia;
+        let pool = self.connection_pool;
+
+        // Count connected (and reconnected) bootstrap nodes
+        let connections = {
+            use async_std::stream::StreamExt as stream;
+
+            let bootstrap_nodes = bootstrap_nodes.clone();
+            let events = pool.lifecycle_events();
+            stream::filter_map(events, move |e| {
+                if let LifecycleEvent::Connected(Contact { addresses, .. }) = e {
+                    let mut addresses = addresses.into_iter();
+                    addresses.find(|addr| bootstrap_nodes.contains(addr))?;
+                    return Some(());
+                }
+                None
+            })
+        }
+        .enumerate()
+        .map(|(n, _)| n);
+
+        connections
+            .for_each(move |n| {
+                let kademlia = kademlia.clone();
+                async move {
+                    if n % frequency == 0 {
+                        if let Err(err) = kademlia.bootstrap().await {
+                            log::warn!("Kademlia bootstrap failed: {}", err)
+                        } else {
+                            log::info!("Kademlia bootstrap finished");
+                        }
+                    }
+                }
+            })
+            .await;
+    }
+
+    /// Dial bootstraps, and then re-dial on each disconnection
+    pub async fn reconnect_bootstraps(self, bootstrap_nodes: HashSet<Multiaddr>) {
+        let pool = self.connection_pool;
+        let kademlia = self.kademlia;
+
+        let disconnections = {
+            use async_std::stream::StreamExt as stream;
+
+            let bootstrap_nodes = bootstrap_nodes.clone();
+            let events = pool.lifecycle_events();
+            stream::filter_map(events, move |e| {
+                if let LifecycleEvent::Disconnected(Contact { addresses, .. }) = e {
+                    let addresses = addresses.into_iter();
+                    let addresses = addresses.filter(|addr| bootstrap_nodes.contains(addr));
+                    let addresses = iter(addresses.collect::<Vec<_>>());
+                    return Some(addresses);
+                }
+                None
+            })
+        }
+        .flatten();
+
+        // TODO: take from config
+        let max = Duration::from_secs(60);
+        // TODO: exponential backoff + random?
+        let delta = Duration::from_secs(5);
+
+        let reconnect = move |kademlia: KademliaApi, pool: ConnectionPoolApi, addr: Multiaddr| async move {
+            let mut delay = Duration::from_secs(0);
+            loop {
+                if let Some(contact) = pool.dial(addr.clone()).await {
+                    log::info!("Connected bootstrap {}", contact);
+                    let ok = kademlia.add_contact(contact);
+                    debug_assert!(ok, "kademlia.add_contact");
+                    break;
+                }
+
+                delay = min(delay + delta, max);
+                log::warn!("can't connect bootstrap {} (pause {})", addr, pretty(delay));
+                sleep(delay).await;
+            }
+        };
+
+        let bootstraps = iter(bootstrap_nodes.clone().into_iter().collect::<Vec<_>>());
+        bootstraps
+            .chain(disconnections)
+            .for_each_concurrent(None, |addr| reconnect(kademlia.clone(), pool.clone(), addr))
+            .await;
     }
 }
 

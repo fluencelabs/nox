@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{make_tmp_dir, now, put_aquamarine, uuid};
+use crate::{make_tmp_dir, now_ms, put_aquamarine, uuid};
 
 use host_closure::Args;
 use ivalue_utils::IValue;
@@ -152,8 +152,6 @@ pub fn make_particle(
 )
     "#);
 
-    // log::info!("script\n{}", script);
-
     let id = uuid();
     let mut vm = make_vm(id.clone(), &peer_id, pass_data_func(data));
 
@@ -166,7 +164,7 @@ pub fn make_particle(
     Particle {
         id,
         init_peer_id: peer_id,
-        timestamp: now(),
+        timestamp: now_ms() as u64,
         ttl: 10000,
         script,
         signature: vec![],

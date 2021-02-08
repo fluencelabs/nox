@@ -19,8 +19,10 @@ use crate::error::{KademliaError, Result};
 use control_macro::get_return;
 use fluence_libp2p::generate_swarm_event_type;
 use fluence_libp2p::types::OneshotOutlet;
+use particle_protocol::Contact;
 use trust_graph::TrustGraph;
 
+use libp2p::identity::PublicKey;
 use libp2p::{
     core::Multiaddr,
     identity::{ed25519, ed25519::Keypair},
@@ -162,6 +164,29 @@ impl Kademlia {
 }
 
 impl Kademlia {
+    pub fn add_contact(&mut self, contact: Contact) {
+        debug_assert!(!contact.addresses.is_empty(), "no addresses in contact");
+
+        let pk = contact.peer_id.as_public_key();
+        debug_assert!(pk.is_some(), "peer id must contain public key");
+
+        let pk = match pk {
+            Some(PublicKey::Ed25519(pk)) => pk,
+            Some(pk) => {
+                log::error!("Unsupported key type {:?} on {}", pk, contact);
+                return;
+            }
+            None => {
+                log::error!("No public key in the peer id of contact {}", contact);
+                return;
+            }
+        };
+        for addr in contact.addresses {
+            self.kademlia
+                .add_address(&contact.peer_id, addr, pk.clone());
+        }
+    }
+
     pub fn bootstrap(&mut self, outlet: OneshotOutlet<Result<()>>) {
         if let Ok(query_id) = self.kademlia.bootstrap() {
             self.queries.insert(query_id, PendingQuery::Unit(outlet));

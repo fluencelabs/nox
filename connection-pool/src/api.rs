@@ -15,7 +15,8 @@
  */
 
 use crate::connection_pool::LifecycleEvent;
-use crate::{ConnectionPoolBehaviour, ConnectionPoolT, Contact};
+use crate::{ConnectionPoolBehaviour, ConnectionPoolT};
+use particle_protocol::Contact;
 
 use fluence_libp2p::{
     generate_swarm_event_type,

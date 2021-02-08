@@ -16,40 +16,13 @@
 
 use fluence_libp2p::peerid_serializer;
 use fluence_libp2p::types::{OneshotInlet, OneshotOutlet, Outlet};
-use particle_protocol::Particle;
+use particle_protocol::{Contact, Particle};
 
-use futures::future::BoxFuture;
-use futures::stream::BoxStream;
+use futures::{future::BoxFuture, stream::BoxStream};
 use itertools::Itertools;
-use libp2p::core::Multiaddr;
-use libp2p::PeerId;
-use serde::export::Formatter;
-use serde::{Deserialize, Serialize};
+use libp2p::{core::Multiaddr, PeerId};
+use serde::{export::Formatter, Deserialize, Serialize};
 use std::fmt::Display;
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Contact {
-    #[serde(with = "peerid_serializer")]
-    pub peer_id: PeerId,
-    pub addresses: Vec<Multiaddr>,
-}
-
-impl Contact {
-    pub fn new(peer_id: PeerId, addresses: Vec<Multiaddr>) -> Self {
-        Self { peer_id, addresses }
-    }
-}
-
-impl Display for Contact {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.addresses.is_empty() {
-            write!(f, "{} @ {}", self.peer_id, "[no addr]")
-        } else {
-            let addrs = self.addresses.iter().join(" ");
-            write!(f, "{} @ [{}]", self.peer_id, addrs)
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum LifecycleEvent {
