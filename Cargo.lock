@@ -3178,8 +3178,10 @@ dependencies = [
  "ivalue-utils",
  "json-utils",
  "log",
+ "parking_lot 0.11.1",
  "serde",
  "serde_json",
+ "thiserror",
  "toml",
  "uuid",
 ]

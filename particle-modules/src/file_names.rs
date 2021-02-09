@@ -15,16 +15,18 @@
  */
 
 use crate::blueprint::Blueprint;
+use crate::dependency::Dependency;
+
 use std::path::{Path, PathBuf};
 
 /// Calculates filename of the config for a wasm module
-pub(super) fn module_config_name(module_hash: &blake3::Hash) -> String {
-    format!("{}_config.toml", module_hash.to_hex())
+pub(super) fn module_config_name(module: &Dependency) -> String {
+    format!("{}_config.toml", module)
 }
 
 /// Calculates the name of a wasm module file, given a hash of the module.
-pub(super) fn module_file_name(module_hash: &blake3::Hash) -> String {
-    format!("{}.wasm", module_hash.to_hex())
+pub(super) fn module_file_name(module: &Dependency) -> String {
+    format!("{}.wasm", module)
 }
 
 /// Calculates filename of the blueprint
@@ -42,12 +44,19 @@ pub(super) fn is_blueprint(name: &str) -> bool {
 }
 
 /// Return file name with .wasm extension stripped. None if extension wasn't .wasm
-pub(super) fn extract_module_name(name: &str) -> Option<String> {
-    let path: &Path = name.as_ref();
+pub(super) fn extract_module_name(path: &Path) -> Option<&str> {
     // return None if extension isn't "wasm"
     path.extension().filter(|ext| ext == &"wasm")?;
     // strip extension
-    path.file_stem()?.to_string_lossy().to_string().into()
+    path.file_stem()?.to_str()
+}
+
+pub(super) fn is_module_config(path: &Path) -> bool {
+    path.ends_with("_config.toml")
+}
+
+pub(super) fn is_module_wasm(path: &Path) -> bool {
+    path.ends_with(".wasm")
 }
 
 pub fn service_file_name(service_id: &str) -> String {

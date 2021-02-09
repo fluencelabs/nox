@@ -14,35 +14,76 @@
  * limitations under the License.
  */
 
-use crate::file_names::extract_module_name;
-use crate::{file_names, files, Blueprint};
+use crate::dependency::Dependency;
+use crate::file_names::{extract_module_name, is_module_config, is_module_wasm};
+use crate::{file_names, files, load_module_config, Blueprint};
 
 use fce_wit_parser::module_interface;
 use host_closure::{closure, closure_opt, Args, Closure};
 
-use blake3::hash;
+use crate::files::{load_config_by_path, load_module_by_path};
+use blake3::Hash;
+use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
-use std::sync::{Arc, Mutex};
+use std::path::Path;
+use std::sync::Arc;
 use std::{collections::HashMap, path::PathBuf};
 
 type ModuleName = String;
-type ModuleHash = String;
 #[allow(dead_code)]
 pub struct ModuleRepository {
-    modules: Arc<Mutex<HashMap<ModuleName, ModuleHash>>>,
+    modules_dir: Path,
+    blueprints_dir: Path,
+    /// Map of module_config.name to Dependency::Hash
+    modules_by_name: Arc<Mutex<HashMap<ModuleName, Dependency>>>,
 }
 
 impl ModuleRepository {
+    pub fn new(modules_dir: Path, blueprints_dir: Path) -> Self {
+        let modules_by_name: HashMap<_, _> = files::list_files(&modules_dir)
+            .into_iter()
+            .flatten()
+            .filter(|path| is_module_wasm(&path))
+            .filter_map(|path| {
+                let name_hash = try {
+                    let module = load_module_by_path(&path)?;
+                    let hash = Dependency::hash(&module);
+                    let (name, _) = load_module_config(&modules_dir, &hash)?;
+                    (name, hash)
+                };
+
+                match name_hash {
+                    Ok(name_hash) => Some(name_hash),
+                    Err(err) => {
+                        log::warn!("Error loading module list: {}", err);
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        let modules_by_name = Arc::new(Mutex::new(modules_by_name));
+
+        Self {
+            modules_by_name,
+            modules_dir,
+            blueprints_dir,
+        }
+    }
+
     /// Adds a module to the filesystem, overwriting existing module.
     pub fn add_module(&self, modules_dir: PathBuf) -> Closure {
+        let modules = self.modules_by_name.clone();
         closure_opt(move |mut args| {
             let module: String = Args::next("module", &mut args)?;
             let module = base64::decode(&module).map_err(|err| {
                 JValue::String(format!("error decoding module from base64: {:?}", err))
             })?;
-            let hash = hash(&module);
+            let hash = Dependency::hash(&module);
             let config = Args::next("config", &mut args)?;
-            files::add_module(&modules_dir, &hash, module, config)?;
+            files::add_module(&modules_dir, &hash, &module, &config)?;
+
+            modules.lock().insert(config.name, hash);
 
             Ok(None)
         })
@@ -59,14 +100,13 @@ impl ModuleRepository {
     }
 
     /// Get available modules (intersection of modules from config + modules on filesystem)
-    // TODO: load interfaces of these modules
     pub fn get_modules(modules_dir: PathBuf) -> Closure {
         closure(move |_| {
             let modules = files::list_files(&modules_dir)
                 .into_iter()
                 .flatten()
                 .filter_map(|path| {
-                    let fname = extract_module_name(path.file_name()?.to_str()?)?;
+                    let fname = extract_module_name(&path)?;
                     let interface = module_interface(path)
                         .map_err(|err| {
                             log::warn!(

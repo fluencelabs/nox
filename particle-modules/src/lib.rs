@@ -27,6 +27,7 @@
 )]
 
 mod blueprint;
+mod dependency;
 mod error;
 mod file_names;
 mod files;

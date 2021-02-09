@@ -32,6 +32,7 @@ use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::{Code, MultihashDigest};
+use particle_modules::ModuleRepository;
 use serde_json::{json, Value as JValue};
 use std::borrow::Borrow;
 use std::num::ParseIntError;
@@ -68,6 +69,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let modules_dir = config.modules_dir.clone();
         let blueprint_dir = config.blueprint_dir.clone();
         let providers = ProviderRepository::new(config.local_peer_id);
+        let modules = ModuleRepository::new(&modules_dir);
 
         let services = ParticleAppServices::new(config);
 
