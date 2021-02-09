@@ -19,15 +19,14 @@ use crate::Kademlia;
 
 use fluence_libp2p::generate_swarm_event_type;
 use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
+use particle_protocol::Contact;
 
-use futures::channel::mpsc::unbounded;
-use futures::channel::oneshot;
-use futures::future::BoxFuture;
-use futures::{FutureExt, StreamExt, TryFutureExt};
-use libp2p::core::Multiaddr;
-use libp2p::identity::ed25519;
-use libp2p::swarm::NetworkBehaviourEventProcess;
-use libp2p::PeerId;
+use futures::{
+    channel::{mpsc::unbounded, oneshot},
+    future::BoxFuture,
+    FutureExt, StreamExt,
+};
+use libp2p::{core::Multiaddr, identity::ed25519, swarm::NetworkBehaviourEventProcess, PeerId};
 use multihash::Multihash;
 use std::convert::identity;
 
@@ -35,14 +34,17 @@ type Future<T> = BoxFuture<'static, T>;
 
 pub trait KademliaApiT {
     fn bootstrap(&self) -> Future<Result<()>>;
+    fn add_contact(&self, contact: Contact) -> bool;
     fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>>;
     fn discover_peer(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>>;
     fn neighborhood(&self, key: Multihash) -> Future<Result<Vec<PeerId>>>;
-    // TODO: local_neighborhood
 }
 
 #[derive(Debug)]
 enum Command {
+    AddContact {
+        contact: Contact,
+    },
     LocalLookup {
         peer: PeerId,
         out: OneshotOutlet<Vec<Multiaddr>>,
@@ -88,6 +90,7 @@ impl KademliaApiInlet {
 
     fn execute(&mut self, cmd: Command) {
         match cmd {
+            Command::AddContact { contact } => self.kademlia.add_contact(contact),
             Command::Bootstrap { out } => self.kademlia.bootstrap(out),
             Command::LocalLookup { peer, out } => self.kademlia.local_lookup(&peer, out),
             Command::DiscoverPeer { peer, out } => self.kademlia.discover_peer(peer, out),
@@ -152,13 +155,22 @@ impl KademliaApiT for KademliaApi {
         self.execute(|out| Command::Bootstrap { out })
     }
 
+    fn add_contact(&self, contact: Contact) -> bool {
+        let cmd = Command::AddContact { contact };
+        let send = self.outlet.unbounded_send(cmd);
+        send.is_ok()
+    }
+
     fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {
         let (out, inlet) = oneshot::channel();
-        self.outlet
-            .unbounded_send(Command::LocalLookup { peer, out })
-            .expect("kademlia api died");
-
-        inlet.map_err(|_| KademliaError::Cancelled).boxed()
+        let cmd = Command::LocalLookup { peer, out };
+        let send = self.outlet.unbounded_send(cmd);
+        if send.is_err() {
+            return futures::future::err(KademliaError::Cancelled).boxed();
+        }
+        inlet
+            .map(|r| r.map_err(|_| KademliaError::Cancelled))
+            .boxed()
     }
 
     fn discover_peer(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {

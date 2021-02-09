@@ -13,6 +13,7 @@ members = [
     "crates/server-config",
     "crates/kademlia",
     "crates/async-unlock",
+    "crates/now-millis",
     "particle-node",
     "aquamarine",
     "particle-protocol",

@@ -19,6 +19,7 @@ use json_utils::base64_serde;
 
 use derivative::Derivative;
 use libp2p::PeerId;
+use now_millis::now_ms;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
@@ -49,6 +50,17 @@ impl Default for Particle {
             signature: vec![],
             data: vec![],
         }
+    }
+}
+
+impl Particle {
+    pub fn is_expired(&self) -> bool {
+        if let Some(deadline) = self.timestamp.checked_add(self.ttl as u64) {
+            return now_ms() > deadline as u128;
+        }
+
+        // If timestamp + ttl overflows u64, consider particle expired
+        true
     }
 }
 

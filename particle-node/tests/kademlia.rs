@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{enable_logs, make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
 use libp2p::PeerId;
 use maplit::hashmap;
@@ -23,6 +23,8 @@ use std::thread::sleep;
 
 #[test]
 fn neighborhood() {
+    enable_logs();
+
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");

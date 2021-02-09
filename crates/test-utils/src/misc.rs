@@ -35,6 +35,7 @@ use libp2p::{
 use rand::Rng;
 use script_storage::ScriptStorageConfig;
 use serde_json::{json, Value as JValue};
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{path::PathBuf, time::Duration};
 use uuid::Uuid;
 
@@ -291,6 +292,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         kademlia_config: Default::default(),
         particle_queue_buffer: 100,
         particle_parallelism: 16,
+        bootstrap_frequency: 1,
     };
 
     use identity::Keypair::Ed25519;
@@ -388,8 +390,11 @@ pub fn test_module_cfg(name: &str) -> JValue {
     )
 }
 
-pub fn now() -> u64 {
-    chrono::Utc::now().timestamp() as u64
+pub fn now_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time before Unix epoch")
+        .as_millis()
 }
 
 pub async fn timeout<F, T>(dur: Duration, f: F) -> std::result::Result<T, anyhow::Error>

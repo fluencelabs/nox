@@ -14,29 +14,20 @@
  * limitations under the License.
  */
 
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+use thiserror::Error;
 
 pub(crate) type Result<T> = std::result::Result<T, KademliaError>;
 
-#[derive(Debug)]
-// TODO: implement Error trait
+#[derive(Debug, Error)]
 pub enum KademliaError {
+    #[error("KademliaError::NoPeersFound")]
     NoPeersFound,
+    #[error("KademliaError::Timeout")]
     Timeout,
+    #[error("KademliaError::Cancelled")]
     Cancelled,
+    #[error("KademliaError::NoKnownPeers")]
     NoKnownPeers,
-}
-
-impl Error for KademliaError {}
-
-impl Display for KademliaError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            KademliaError::Timeout => write!(f, "KademliaError::Timeout"),
-            KademliaError::Cancelled => write!(f, "KademliaError::Cancelled"),
-            KademliaError::NoKnownPeers => write!(f, "KademliaError::NoKnownPeers"),
-            KademliaError::NoPeersFound => write!(f, "KademliaError::NoPeersFound"),
-        }
-    }
+    #[error("KademliaError::PeerBanned")]
+    PeerBanned,
 }

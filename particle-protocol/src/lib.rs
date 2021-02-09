@@ -32,8 +32,10 @@ mod libp2p_protocol {
     pub(super) mod upgrade;
 }
 
+mod contact;
 mod particle;
 
+pub use contact::Contact;
 pub use libp2p_protocol::message::CompletionChannel;
 pub use libp2p_protocol::message::HandlerMessage;
 pub use libp2p_protocol::upgrade::ProtocolConfig;

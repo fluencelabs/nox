@@ -16,12 +16,13 @@
 
 use crate::identify::{identify, NodeInfo};
 
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use host_closure::{
     from_base58, Args, Closure, ClosureDescriptor, JError, ParticleClosure, ParticleParameters,
 };
 use ivalue_utils::{into_record, into_record_opt, ok, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
+use particle_protocol::Contact;
 use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;

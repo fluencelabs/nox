@@ -19,8 +19,10 @@ use crate::error::{KademliaError, Result};
 use control_macro::get_return;
 use fluence_libp2p::generate_swarm_event_type;
 use fluence_libp2p::types::OneshotOutlet;
+use particle_protocol::Contact;
 use trust_graph::TrustGraph;
 
+use libp2p::identity::PublicKey;
 use libp2p::{
     core::Multiaddr,
     identity::{ed25519, ed25519::Keypair},
@@ -34,6 +36,8 @@ use libp2p::{
 };
 use multihash::Multihash;
 use prometheus::Registry;
+use std::ops::Deref;
+use std::task::Waker;
 use std::{
     collections::HashMap,
     time::{Duration, Instant},
@@ -44,6 +48,14 @@ pub struct KademliaConfig {
     pub keypair: Keypair,
     // TODO: wonderful name clashing. I guess it is better to rename one of the KademliaConfig's to something else. You'll figure it out.
     pub kad_config: server_config::KademliaConfig,
+}
+
+impl Deref for KademliaConfig {
+    type Target = server_config::KademliaConfig;
+
+    fn deref(&self) -> &Self::Target {
+        &self.kad_config
+    }
 }
 
 #[derive(Debug)]
@@ -68,6 +80,20 @@ impl PendingPeer {
     }
 }
 
+#[derive(Default, Debug)]
+struct FailedPeer {
+    /// When the peer was banned
+    pub ban: Option<Instant>,
+    /// How many times we failed to discover the peer
+    pub count: usize,
+}
+
+impl FailedPeer {
+    pub fn increment(&mut self) {
+        self.count += 1;
+    }
+}
+
 type SwarmEventType = generate_swarm_event_type!(Kademlia);
 
 #[derive(::libp2p::NetworkBehaviour)]
@@ -80,7 +106,11 @@ pub struct Kademlia {
     #[behaviour(ignore)]
     pending_peers: HashMap<PeerId, Vec<PendingPeer>>,
     #[behaviour(ignore)]
-    query_timeout: Duration,
+    failed_peers: HashMap<PeerId, FailedPeer>,
+    #[behaviour(ignore)]
+    config: KademliaConfig,
+    #[behaviour(ignore)]
+    waker: Option<Waker>,
 }
 
 impl Kademlia {
@@ -91,12 +121,11 @@ impl Kademlia {
     ) -> Self {
         let store = MemoryStore::new(config.peer_id);
 
-        let query_timeout = config.kad_config.query_timeout;
         let mut kademlia = kad::Kademlia::with_config(
-            config.keypair,
+            config.keypair.clone(),
             config.peer_id,
             store,
-            config.kad_config.into(),
+            config.as_libp2p(),
             trust_graph,
         );
 
@@ -108,7 +137,9 @@ impl Kademlia {
             kademlia,
             queries: <_>::default(),
             pending_peers: <_>::default(),
-            query_timeout,
+            failed_peers: <_>::default(),
+            config,
+            waker: None,
         }
     }
 
@@ -119,6 +150,7 @@ impl Kademlia {
         public_key: ed25519::PublicKey,
     ) {
         log::trace!(
+            target: "network",
             "adding new node {} with {:?} addresses to kademlia",
             peer,
             addresses,
@@ -127,13 +159,38 @@ impl Kademlia {
             self.kademlia
                 .add_address(&peer, addr.clone(), public_key.clone());
         }
+        self.wake();
     }
 }
 
 impl Kademlia {
+    pub fn add_contact(&mut self, contact: Contact) {
+        debug_assert!(!contact.addresses.is_empty(), "no addresses in contact");
+
+        let pk = contact.peer_id.as_public_key();
+        debug_assert!(pk.is_some(), "peer id must contain public key");
+
+        let pk = match pk {
+            Some(PublicKey::Ed25519(pk)) => pk,
+            Some(pk) => {
+                log::error!("Unsupported key type {:?} on {}", pk, contact);
+                return;
+            }
+            None => {
+                log::error!("No public key in the peer id of contact {}", contact);
+                return;
+            }
+        };
+        for addr in contact.addresses {
+            self.kademlia
+                .add_address(&contact.peer_id, addr, pk.clone());
+        }
+    }
+
     pub fn bootstrap(&mut self, outlet: OneshotOutlet<Result<()>>) {
         if let Ok(query_id) = self.kademlia.bootstrap() {
             self.queries.insert(query_id, PendingQuery::Unit(outlet));
+            self.wake();
         } else {
             outlet.send(Err(KademliaError::NoKnownPeers)).ok();
         }
@@ -149,17 +206,42 @@ impl Kademlia {
             outlet.send(Ok(local)).ok();
             return;
         }
-        let query_id = self.kademlia.get_closest_peers(peer);
-        self.queries.insert(query_id, PendingQuery::Peer(peer));
+        if self.is_banned(&peer) {
+            outlet.send(Err(KademliaError::PeerBanned)).ok();
+            return;
+        }
 
-        let pending = PendingPeer::new(outlet, self.query_timeout);
-        self.pending_peers.entry(peer).or_default().push(pending);
+        let pending = PendingPeer::new(outlet, self.config.query_timeout);
+        let outlets = self.pending_peers.entry(peer).or_default();
+        // If there are existing outlets, then discovery process is already running
+        let discovering = !outlets.is_empty();
+        // Subscribe on discovery result
+        outlets.push(pending);
+
+        // Run discovery only if there's no discovery already running
+        if !discovering {
+            let query_id = self.kademlia.get_closest_peers(peer);
+            self.queries.insert(query_id, PendingQuery::Peer(peer));
+            self.wake();
+        }
     }
 
     pub fn neighborhood(&mut self, key: Multihash, outlet: OneshotOutlet<Result<Vec<PeerId>>>) {
+        let peers = self.kademlia.local_closest_peers(key);
+        let peers = peers.into_iter().map(|p| p.peer_id.into_preimage());
+        outlet.send(Ok(peers.collect())).ok();
+        self.wake();
+    }
+
+    pub fn remote_neighborhood(
+        &mut self,
+        key: Multihash,
+        outlet: OneshotOutlet<Result<Vec<PeerId>>>,
+    ) {
         let query_id = self.kademlia.get_closest_peers(key);
         self.queries
             .insert(query_id, PendingQuery::Neighborhood(outlet));
+        self.wake();
     }
 }
 
@@ -170,6 +252,9 @@ impl Kademlia {
                 pending.out.send(Ok(addresses.clone())).ok();
             }
         }
+
+        // unban peer
+        self.failed_peers.remove(&peer);
     }
 
     fn closest_finished(&mut self, id: QueryId, result: GetClosestPeersResult) {
@@ -218,10 +303,12 @@ impl Kademlia {
 
     fn custom_poll(
         &mut self,
-        _: &mut std::task::Context,
+        cx: &mut std::task::Context,
         _: &mut impl libp2p::swarm::PollParameters,
     ) -> std::task::Poll<SwarmEventType> {
         use std::task::Poll;
+
+        self.waker = Some(cx.waker().clone());
 
         // Exit early to avoid Instant::now calculation
         if self.pending_peers.is_empty() {
@@ -229,22 +316,59 @@ impl Kademlia {
         };
 
         let now = Instant::now();
+        let failed_peers = &mut self.failed_peers;
         // Remove empty keys
-        self.pending_peers.retain(|_, peers| {
+        self.pending_peers.retain(|id, peers| {
             // remove expired
             let expired = peers.drain_filter(|p| p.deadline <= now);
+
+            let mut timed_out = false;
             for p in expired {
+                timed_out = true;
                 // notify expired
                 p.out.send(Err(KademliaError::Timeout)).ok();
+            }
+            // count failure if there was at least 1 timeout
+            if timed_out {
+                failed_peers.entry(*id).or_default().increment();
             }
 
             // empty entries will be removed
             !peers.is_empty()
         });
 
-        // NOTE: task will not be awaken until something happens
+        let config = self.config.deref();
+        self.failed_peers.retain(|_, failed| {
+            if let Some(ban) = failed.ban {
+                if now.duration_since(ban) >= config.ban_cooldown {
+                    // unban (remove) a peer if cooldown has passed
+                    return false;
+                }
+            }
+
+            // ban peers with too many failures
+            if failed.count >= config.peer_fail_threshold {
+                failed.ban = Some(now);
+            }
+
+            true
+        });
+
+        // NOTE: task will not be awaken until something happens;
         //       that implies that timeouts are of low resolution
         Poll::Pending
+    }
+
+    fn wake(&self) {
+        if let Some(waker) = self.waker.as_ref() {
+            waker.wake_by_ref()
+        }
+    }
+
+    fn is_banned(&self, peer: &PeerId) -> bool {
+        self.failed_peers
+            .get(peer)
+            .map_or(false, |f| f.ban.is_some())
     }
 }
 
@@ -271,9 +395,9 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
 #[cfg(test)]
 mod tests {
     use super::Kademlia;
-    use crate::KademliaConfig;
+    use crate::{KademliaConfig, KademliaError};
     use async_std::task;
-    use fluence_libp2p::build_memory_transport;
+    use fluence_libp2p::{build_memory_transport, RandomPeerId};
     use futures::channel::oneshot;
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
@@ -282,6 +406,7 @@ mod tests {
     use libp2p::PeerId;
     use libp2p::Swarm;
     use std::task::Poll;
+    use std::time::Duration;
     use test_utils::create_memory_maddr;
     use trust_graph::TrustGraph;
 
@@ -293,7 +418,12 @@ mod tests {
         KademliaConfig {
             peer_id,
             keypair,
-            kad_config: Default::default(),
+            kad_config: server_config::KademliaConfig {
+                query_timeout: Duration::from_millis(100),
+                peer_fail_threshold: 1,
+                ban_cooldown: Duration::from_secs(1),
+                ..Default::default()
+            },
         }
     }
 
@@ -358,5 +488,39 @@ mod tests {
         });
 
         assert_eq!(maddr.unwrap().unwrap()[0], c_addr);
+    }
+
+    #[test]
+    fn dont_repeat_discovery() {
+        let (mut node, _, _) = make_node();
+        let peer = RandomPeerId::random();
+
+        node.discover_peer(peer, oneshot::channel().0);
+        assert_eq!(node.queries.len(), 1);
+        node.discover_peer(peer, oneshot::channel().0);
+        assert_eq!(node.queries.len(), 1);
+    }
+
+    #[test]
+    fn ban() {
+        use async_std::future::timeout;
+
+        let (mut node, _, _) = make_node();
+        let peer = RandomPeerId::random();
+
+        node.discover_peer(peer, oneshot::channel().0);
+        assert_eq!(node.queries.len(), 1);
+
+        task::block_on(timeout(Duration::from_millis(200), node.select_next_some())).ok();
+        assert_eq!(node.failed_peers.len(), 1);
+        assert!(node.failed_peers.get(&peer).unwrap().ban.is_some());
+
+        let (out, inlet) = oneshot::channel();
+        node.discover_peer(peer, out);
+
+        let banned = task::block_on(timeout(Duration::from_millis(200), inlet))
+            .unwrap()
+            .unwrap();
+        assert!(matches!(banned, Err(KademliaError::PeerBanned)));
     }
 }

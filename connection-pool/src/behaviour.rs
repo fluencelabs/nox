@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use crate::connection_pool::{ConnectionPoolT, Contact, LifecycleEvent};
+use crate::connection_pool::{ConnectionPoolT, LifecycleEvent};
 
 use fluence_libp2p::types::{
     BackPressuredInlet, BackPressuredOutlet, OneshotInlet, OneshotOutlet, Outlet,
 };
 use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
-use particle_protocol::{CompletionChannel, HandlerMessage, Particle, ProtocolConfig};
+use particle_protocol::{CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig};
 use trust_graph::TrustGraph;
 
 use std::{
@@ -380,12 +380,13 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
 
     fn inject_event(
         &mut self,
-        _: PeerId,
+        from: PeerId,
         _: ConnectionId,
         event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent,
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {
+                log::trace!(target: "network", "received particle {} from {}", particle.id, from);
                 self.queue.push_back(particle);
                 self.wake();
             }

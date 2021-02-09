@@ -17,23 +17,24 @@
 use crate::ScriptStorageConfig;
 
 use async_unlock::unlock;
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT, Contact};
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
-use particle_protocol::Particle;
+use fluence_libp2p::PeerId;
+use particle_protocol::{Contact, Particle};
 
 use async_std::{sync::Mutex, task, task::JoinHandle};
-use fluence_libp2p::PeerId;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     future::BoxFuture,
     FutureExt, StreamExt, TryFutureExt,
 };
-use std::convert::identity;
-use std::time::{Duration, Instant};
+use now_millis::now_ms;
 use std::{
     borrow::Borrow,
     collections::{hash_map::Entry, HashMap},
+    convert::identity,
     sync::Arc,
+    time::{Duration, Instant},
 };
 use thiserror::Error;
 
@@ -168,7 +169,7 @@ async fn execute_scripts(
     config: ScriptStorageConfig,
 ) {
     let now = Instant::now();
-    let now_u64 = chrono::Utc::now().timestamp() as u64;
+    let now_u64 = now_ms() as u64;
 
     // Remove all scripts without interval, they will be executing only once
     let single_shots: Vec<_> = unlock(scripts, |scripts| {

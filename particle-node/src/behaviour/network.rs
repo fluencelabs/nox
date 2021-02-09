@@ -13,30 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::network_api::NetworkApi;
 
+use aquamarine::{SendParticle, StepperEffects};
+use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet, ConnectionPoolT};
 use fluence_libp2p::generate_swarm_event_type;
+use fluence_libp2p::types::BackPressuredInlet;
+use kademlia::{Kademlia, KademliaApi, KademliaApiInlet, KademliaConfig};
+use particle_protocol::{Contact, Particle};
 use server_config::NetworkConfig;
 
+use async_std::{sync::Mutex, task::JoinHandle};
+use futures::{select, StreamExt};
 use libp2p::{
     identify::Identify,
     identity::PublicKey,
     ping::{Ping, PingConfig, PingEvent},
+    swarm::ExpandedSwarm,
     PeerId, Swarm,
 };
-
-use crate::network_api::NetworkApi;
-use aquamarine::{SendParticle, StepperEffects};
-use async_std::sync::Mutex;
-use async_std::task::JoinHandle;
-use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet, ConnectionPoolT, Contact};
-use fluence_libp2p::types::BackPressuredInlet;
-use futures::select;
-use futures::StreamExt;
-use kademlia::{Kademlia, KademliaApi, KademliaApiInlet, KademliaConfig};
-use libp2p::swarm::ExpandedSwarm;
-use particle_protocol::Particle;
-use std::sync::Arc;
-use std::task::Poll;
+use std::{sync::Arc, task::Poll};
 
 pub type SwarmEventType = generate_swarm_event_type!(NetworkBehaviour);
 
@@ -89,6 +85,7 @@ impl NetworkBehaviour {
                 cfg.particle_parallelism,
                 kademlia_api,
                 connection_pool_api,
+                cfg.bootstrap_frequency,
             ),
         ))
     }
