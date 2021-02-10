@@ -15,13 +15,15 @@
  */
 
 use crate::dependency::Dependency;
+use crate::error::Result;
 use crate::file_names::{extract_module_name, is_module_wasm};
 use crate::files::load_module_by_path;
-use crate::{file_names, files, load_module_config, Blueprint, ModuleError};
+use crate::{file_names, files, load_blueprint, load_module_config, Blueprint, ModuleError};
 
 use fce_wit_parser::module_interface;
 use host_closure::{closure, closure_opt, Args, Closure};
 
+use fluence_app_service::ModuleDescriptor;
 use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
 use std::path::Path;
@@ -29,7 +31,7 @@ use std::sync::Arc;
 use std::{collections::HashMap, path::PathBuf};
 
 type ModuleName = String;
-#[allow(dead_code)]
+#[derive(Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
     blueprints_dir: PathBuf,
@@ -176,5 +178,10 @@ impl ModuleRepository {
                     .collect(),
             ))
         })
+    }
+
+    pub fn resolve_blueprint(&self, blueprint_id: &str) -> Result<Vec<ModuleDescriptor>> {
+        let blueprint = load_blueprint(&self.blueprint_dir, blueprint_id)?;
+        todo!()
     }
 }

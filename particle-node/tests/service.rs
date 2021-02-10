@@ -23,10 +23,12 @@ use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 
-use test_utils::{create_greeting_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{create_greeting_service, enable_logs, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
 fn create_service() {
+    enable_logs();
+
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
@@ -36,6 +38,7 @@ fn create_service() {
     let mut client2 = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
 
     let script = f!(r#"
+    (xor
         (seq
             (seq
                 (call "{client2.node}" ("op" "identity") [])
@@ -45,7 +48,12 @@ fn create_service() {
                 (call "{client2.node}" ("op" "identity") [])
                 (call "{client2.peer_id}" ("return" "") [greeting])
             )
-        )"#);
+        )
+        (seq
+            (call "{client2.node}" ("op" "identity") [])
+            (call "{client2.peer_id}" ("return" "") ["XOR: greeting() failed"])
+        )
+    )"#);
     client2.send_particle(
         script,
         hashmap! {

@@ -23,6 +23,7 @@ use host_closure::{closure, closure_args, closure_params, Args, Closure, Particl
 use server_config::ServicesConfig;
 
 use parking_lot::{Mutex, RwLock};
+use particle_modules::ModuleRepository;
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 use std::ops::Deref;
@@ -56,13 +57,15 @@ pub struct VmDescriptor<'a> {
 pub struct ParticleAppServices {
     config: ServicesConfig,
     services: Services,
+    modules: ModuleRepository,
 }
 
 impl ParticleAppServices {
-    pub fn new(config: ServicesConfig) -> Self {
+    pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
         let this = Self {
             config,
             services: <_>::default(),
+            modules,
         };
 
         this.create_persisted_services();

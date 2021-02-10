@@ -18,6 +18,7 @@ use crate::file_names::{module_config_name, module_file_name};
 use blake3::{hash, Hash};
 use serde::export::Formatter;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Cow;
 use std::fmt::Display;
 
 #[derive(Debug, Clone)]
@@ -56,7 +57,7 @@ impl<'de> Deserialize<'de> for Dependency {
     where
         D: Deserializer<'de>,
     {
-        let s = <&str>::deserialize(deserializer)?;
+        let s = <Cow<'de, str>>::deserialize(deserializer)?;
         let mut s = s.split(":");
         let id_val: Option<(_, _)> = try {
             let id = s.next()?;
