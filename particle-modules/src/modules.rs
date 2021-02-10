@@ -16,12 +16,12 @@
 
 use crate::dependency::Dependency;
 use crate::file_names::{extract_module_name, is_module_wasm};
+use crate::files::load_module_by_path;
 use crate::{file_names, files, load_module_config, Blueprint, ModuleError};
 
 use fce_wit_parser::module_interface;
 use host_closure::{closure, closure_opt, Args, Closure};
 
-use crate::files::load_module_by_path;
 use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
 use std::path::Path;
@@ -81,7 +81,7 @@ impl ModuleRepository {
             })?;
             let hash = Dependency::hash(&module);
             let config = Args::next("config", &mut args)?;
-            files::add_module(&modules_dir, &hash, &module, &config)?;
+            let config = files::add_module(&modules_dir, &hash, &module, config)?;
 
             modules.lock().insert(config.name, hash);
 

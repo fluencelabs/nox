@@ -70,17 +70,20 @@ pub fn add_module(
     modules_dir: &Path,
     module: &Dependency,
     bytes: &[u8],
-    config: &TomlFaaSNamedModuleConfig,
-) -> Result<()> {
+    mut config: TomlFaaSNamedModuleConfig,
+) -> Result<TomlFaaSNamedModuleConfig> {
     let wasm = modules_dir.join(module.wasm_file_name());
     std::fs::write(&wasm, bytes).map_err(|err| AddModule { path: wasm, err })?;
 
     // replace existing configuration with a new one
-    let toml = toml::to_string_pretty(config).map_err(|err| SerializeConfig { err })?;
-    let config = modules_dir.join(module.config_file_name());
-    std::fs::write(&config, toml).map_err(|err| WriteConfig { path: config, err })?;
+    // TODO HACK: use custom structure for API; TomlFaaSNamedModuleConfig is too powerful and clumsy.
+    // Set file_name = ${hash}.wasm
+    config.file_name = Some(module.wasm_file_name());
+    let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
+    let path = modules_dir.join(module.config_file_name());
+    std::fs::write(&path, toml).map_err(|err| WriteConfig { path, err })?;
 
-    Ok(())
+    Ok(config)
 }
 
 pub fn load_module_by_path(path: &Path) -> Result<Vec<u8>> {
