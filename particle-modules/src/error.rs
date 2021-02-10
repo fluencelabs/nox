@@ -18,7 +18,7 @@ use fluence_app_service::FaaSError;
 use json_utils::err_as_value;
 
 use serde_json::Value as JValue;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use thiserror::Error;
 
 pub(super) type Result<T> = std::result::Result<T, ModuleError>;

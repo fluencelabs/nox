@@ -19,7 +19,7 @@ use crate::dependency::Dependency;
 use crate::error::{ModuleError::*, Result};
 use crate::file_names;
 
-use fluence_app_service::{FaaSModuleConfig, TomlFaaSNamedModuleConfig};
+use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
 
 use std::path::Path;
 use std::{convert::TryInto, path::PathBuf};
@@ -36,12 +36,9 @@ pub fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint>
 }
 
 /// Load FaaSModuleConfig from disk, for a given module name
-pub fn load_module_config(
-    modules_dir: &Path,
-    module: &Dependency,
-) -> Result<(String, FaaSModuleConfig)> {
-    let config = modules_dir.join(module.config_name());
-    let config = load_config_by_path(&config);
+pub fn load_module_config(modules_dir: &Path, module: &Dependency) -> Result<ModuleDescriptor> {
+    let config = modules_dir.join(module.config_file_name());
+    let config = load_config_by_path(&config)?;
     let config = config
         .try_into()
         .map_err(|err| ModuleConvertError { err })?;
@@ -51,7 +48,10 @@ pub fn load_module_config(
 
 /// Load TomlFaaSNamedModuleConfig from disk from a given path
 pub fn load_config_by_path(path: &Path) -> Result<TomlFaaSNamedModuleConfig> {
-    let config = std::fs::read(&path).map_err(|err| NoModuleConfig { path: config, err })?;
+    let config = std::fs::read(&path).map_err(|err| NoModuleConfig {
+        path: path.to_path_buf(),
+        err,
+    })?;
     let config: TomlFaaSNamedModuleConfig =
         toml::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
 
@@ -77,7 +77,7 @@ pub fn add_module(
 
     // replace existing configuration with a new one
     let toml = toml::to_string_pretty(config).map_err(|err| SerializeConfig { err })?;
-    let config = modules_dir.join(module.config_name());
+    let config = modules_dir.join(module.config_file_name());
     std::fs::write(&config, toml).map_err(|err| WriteConfig { path: config, err })?;
 
     Ok(())

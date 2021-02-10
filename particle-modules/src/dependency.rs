@@ -41,7 +41,7 @@ impl Dependency {
     }
 
     /// Returns file name for configuration file of the module
-    pub fn config_name(&self) -> String {
+    pub fn config_file_name(&self) -> String {
         module_config_name(&self)
     }
 

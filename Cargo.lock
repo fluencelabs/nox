@@ -209,9 +209,8 @@ dependencies = [
 
 [[package]]
 name = "aquamarine-vm"
-version = "0.1.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef719bebed9bf1a31ea528f677d891e914437924e7fc4f9fb3139b0e8cbadba3"
+version = "0.1.30"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#6868059f6d20dfcba969c73b68ae8c61b565076b"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1347,8 +1346,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9deb5e4f0e1533694ffbfd3644b8047ae41e8098165cdf5934a60b71f82e30c9"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#6868059f6d20dfcba969c73b68ae8c61b565076b"
 dependencies = [
  "boolinator",
  "fce-utils",
@@ -1371,14 +1369,12 @@ dependencies = [
 [[package]]
 name = "fce-utils"
 version = "0.1.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7a516882dccba04f0034e288c1aa5f06ce9da2711a7ce984ceebac8117e185e"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#6868059f6d20dfcba969c73b68ae8c61b565076b"
 
 [[package]]
 name = "fce-wit-generator"
 version = "0.1.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e19c183d232092a59aeaa4f22212699b3da2acf0bcc5329a9de2a7bb7aa9f87"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#6868059f6d20dfcba969c73b68ae8c61b565076b"
 dependencies = [
  "fce-wit-parser",
  "fluence-sdk-wit",
@@ -1392,8 +1388,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0c6afb4d6525ec972f27f6d65324efcb8b2aee4e11fdf6afc4c047e91efcb58"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#6868059f6d20dfcba969c73b68ae8c61b565076b"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1402,8 +1397,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3c96db901280554168870de60ca609dea7bc7bdce9aae58d6c294faf812d43c"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#6868059f6d20dfcba969c73b68ae8c61b565076b"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1461,8 +1455,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fb49d32cad551606cc6ef324b93b0079e7f7f8a54be15176a314098028195cb"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#6868059f6d20dfcba969c73b68ae8c61b565076b"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1501,8 +1494,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a74511b8a8fc16e3cb3749631824b90f89cecb742cbbaf4e467a0873e34a5a53"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#6868059f6d20dfcba969c73b68ae8c61b565076b"
 dependencies = [
  "cmd_lib",
  "fce",

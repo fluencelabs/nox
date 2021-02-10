@@ -9,9 +9,9 @@ ivalue-utils = { path = "../ivalue-utils" }
 json-utils = { path = "../json-utils" }
 control-macro = { path = "../control-macro" }
 
-fce = "0.1.15"
-aquamarine-vm = "0.1.29"
-fluence-app-service = "0.1.30"
+fce = { git = "https://github.com/fluencelabs/fce", branch = "file_name" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "file_name" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "file_name" }
 
 serde_json = "1.0.58"
 serde = "1.0.116"
