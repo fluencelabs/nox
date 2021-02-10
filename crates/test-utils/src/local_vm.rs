@@ -130,6 +130,8 @@ fn make_vm(
                 "\n\n\nFailed to create local AquamarineVM: {:#?}\n\n\n",
                 err
             );
+
+            err
         })
         .expect("vm should be created")
 }

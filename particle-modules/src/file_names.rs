@@ -51,10 +51,6 @@ pub(super) fn extract_module_name(path: &Path) -> Option<&str> {
     path.file_stem()?.to_str()
 }
 
-pub(super) fn is_module_config(path: &Path) -> bool {
-    path.ends_with("_config.toml")
-}
-
 pub(super) fn is_module_wasm(path: &Path) -> bool {
     path.ends_with(".wasm")
 }
