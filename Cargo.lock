@@ -210,7 +210,7 @@ dependencies = [
 [[package]]
 name = "aquamarine-vm"
 version = "0.1.30"
-source = "git+https://github.com/fluencelabs/fce?branch=file_name#53b89f0d02a2d106331e16801ee6afecb8d056df"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#f38241b06eda3edbac70f665eb14bf842bc94859"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1346,7 +1346,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.1.30"
-source = "git+https://github.com/fluencelabs/fce?branch=file_name#53b89f0d02a2d106331e16801ee6afecb8d056df"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#f38241b06eda3edbac70f665eb14bf842bc94859"
 dependencies = [
  "boolinator",
  "fce-utils",
@@ -1369,12 +1369,12 @@ dependencies = [
 [[package]]
 name = "fce-utils"
 version = "0.1.29"
-source = "git+https://github.com/fluencelabs/fce?branch=file_name#53b89f0d02a2d106331e16801ee6afecb8d056df"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#f38241b06eda3edbac70f665eb14bf842bc94859"
 
 [[package]]
 name = "fce-wit-generator"
 version = "0.1.30"
-source = "git+https://github.com/fluencelabs/fce?branch=file_name#53b89f0d02a2d106331e16801ee6afecb8d056df"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#f38241b06eda3edbac70f665eb14bf842bc94859"
 dependencies = [
  "fce-wit-parser",
  "fluence-sdk-wit",
@@ -1388,7 +1388,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.1.29"
-source = "git+https://github.com/fluencelabs/fce?branch=file_name#53b89f0d02a2d106331e16801ee6afecb8d056df"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#f38241b06eda3edbac70f665eb14bf842bc94859"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1397,7 +1397,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.1.29"
-source = "git+https://github.com/fluencelabs/fce?branch=file_name#53b89f0d02a2d106331e16801ee6afecb8d056df"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#f38241b06eda3edbac70f665eb14bf842bc94859"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1455,7 +1455,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.1.30"
-source = "git+https://github.com/fluencelabs/fce?branch=file_name#53b89f0d02a2d106331e16801ee6afecb8d056df"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#f38241b06eda3edbac70f665eb14bf842bc94859"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1494,7 +1494,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.1.30"
-source = "git+https://github.com/fluencelabs/fce?branch=file_name#53b89f0d02a2d106331e16801ee6afecb8d056df"
+source = "git+https://github.com/fluencelabs/fce?branch=file_name#f38241b06eda3edbac70f665eb14bf842bc94859"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -1506,6 +1506,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "thiserror",
  "toml",
  "wasmer-interface-types-fl",
  "wasmer-runtime-core-fl",
