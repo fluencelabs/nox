@@ -23,7 +23,7 @@ use crate::{file_names, files, load_blueprint, load_module_descriptor, Blueprint
 
 use fce_wit_parser::module_interface;
 use fluence_app_service::ModuleDescriptor;
-use host_closure::{closure, closure_opt, Args, Closure};
+use host_closure::{closure, Args, Closure};
 
 use eyre::WrapErr;
 use parking_lot::Mutex;
@@ -76,7 +76,7 @@ impl ModuleRepository {
     pub fn add_module(&self) -> Closure {
         let modules = self.modules_by_name.clone();
         let modules_dir = self.modules_dir.clone();
-        closure_opt(move |mut args| {
+        closure(move |mut args| {
             let module: String = Args::next("module", &mut args)?;
             let module = base64::decode(&module).map_err(|err| {
                 JValue::String(format!("error decoding module from base64: {:?}", err))
@@ -85,9 +85,10 @@ impl ModuleRepository {
             let config = Args::next("config", &mut args)?;
             let config = files::add_module(&modules_dir, &hash, &module, config)?;
 
+            let hash_str = hash.to_hex().as_ref().to_owned();
             modules.lock().insert(config.name, hash);
 
-            Ok(None)
+            Ok(JValue::String(hash_str))
         })
     }
 
@@ -152,15 +153,15 @@ impl ModuleRepository {
                 files::list_files(&blueprints_dir)
                     .into_iter()
                     .flatten()
-                    .filter_map(|pb| {
+                    .filter_map(|path| {
                         // Check if file name matches blueprint schema
-                        let fname = pb
+                        let fname = path
                             .file_name()?
                             .to_str()
                             .filter(|s| file_names::is_blueprint(s))?;
 
                         // Read & deserialize TOML
-                        let bytes = std::fs::read(&pb)
+                        let bytes = std::fs::read(&path)
                             .map_err(|err| {
                                 log::warn!("failed to read blueprint {}: {:#?}", fname, err)
                             })

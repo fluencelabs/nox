@@ -42,8 +42,13 @@ pub struct Blueprint {
 
 #[derive(Debug, Deserialize)]
 pub struct ModuleDescriptor {
-    pub name: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    pub hash: String,
+    #[serde(default)]
     pub interface: JValue,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 #[test]
@@ -108,7 +113,7 @@ fn get_modules() {
 
     let value = client.receive_args().into_iter().next().unwrap();
     let modules: Vec<ModuleDescriptor> = serde_json::from_value(value).unwrap();
-    assert_eq!(modules[0].name.as_str(), "greeting");
+    assert_eq!(modules[0].name.as_deref(), Some("greeting"));
     assert!(matches!(modules[0].interface, JValue::Object(_)));
 }
 

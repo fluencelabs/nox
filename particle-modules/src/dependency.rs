@@ -16,6 +16,7 @@
 
 use crate::file_names::{module_config_name, module_file_name};
 use blake3::hash;
+use faster_hex::hex_decode_unchecked;
 use serde::export::Formatter;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
@@ -29,7 +30,9 @@ pub struct ModuleHash(blake3::Hash);
 impl ModuleHash {
     /// Construct ModuleHash from raw hash value in hex; doesn't hash anything
     pub fn from_hex(hash: &str) -> Self {
-        Self::from(from_hex(hash))
+        let mut buf: [u8; blake3::OUT_LEN] = [0; blake3::OUT_LEN];
+        hex_decode_unchecked(hash.as_bytes(), &mut buf);
+        Self::from(buf)
     }
 
     /// Hash arbitrary bytes
@@ -119,19 +122,16 @@ impl Serialize for Dependency {
     }
 }
 
-fn from_hex(s: &str) -> [u8; 32] {
-    let mut out: [u8; 32] = [0; 32];
-    let bs = s.as_bytes();
-    for i in 0..32usize {
-        let c = bs[i];
-        let value = (c & 0x0f) + 9 * (c >> 6);
-        out[i] = value;
-    }
-
-    out
-}
-
+#[cfg(test)]
 mod tests {
+    use crate::dependency::ModuleHash;
+
     #[test]
-    fn test() {}
+    fn from_hex() {
+        let hash = blake3::hash(&[1, 2, 3]);
+        let hex = hash.to_hex();
+        let mhash = ModuleHash::from_hex(&hex);
+
+        assert_eq!(mhash.to_hex().as_ref(), hash.to_hex().as_str());
+    }
 }
