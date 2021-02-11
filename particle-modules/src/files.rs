@@ -15,7 +15,7 @@
  */
 
 use crate::blueprint::Blueprint;
-use crate::dependency::Dependency;
+use crate::dependency::ModuleHash;
 use crate::error::{ModuleError::*, Result};
 use crate::file_names;
 
@@ -25,7 +25,7 @@ use std::path::Path;
 use std::{convert::TryInto, path::PathBuf};
 
 /// Load blueprint from disk
-pub fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint> {
+pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
     let bp_path = bp_dir.join(file_names::blueprint_fname(blueprint_id));
     let blueprint =
         std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
@@ -36,8 +36,11 @@ pub fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint>
 }
 
 /// Load FaaSModuleConfig from disk, for a given module name
-pub fn load_module_config(modules_dir: &Path, module: &Dependency) -> Result<ModuleDescriptor> {
-    let config = modules_dir.join(module.config_file_name());
+pub fn load_module_config(
+    modules_dir: &Path,
+    module_hash: &ModuleHash,
+) -> Result<ModuleDescriptor> {
+    let config = modules_dir.join(module_hash.config_file_name());
     let config = load_config_by_path(&config)?;
     let config = config
         .try_into()
@@ -68,7 +71,7 @@ pub fn list_files(dir: &Path) -> Option<impl Iterator<Item = PathBuf>> {
 /// Also adds module config to the TomlFaaSNamedModuleConfig
 pub fn add_module(
     modules_dir: &Path,
-    module: &Dependency,
+    module: &ModuleHash,
     bytes: &[u8],
     mut config: TomlFaaSNamedModuleConfig,
 ) -> Result<TomlFaaSNamedModuleConfig> {

@@ -415,6 +415,9 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     }
                 }
                 Poll::Pending => {
+                    if self.outlet.is_closed() {
+                        log::error!("Particle outlet closed");
+                    }
                     // if channel is full, then keep particles in the queue
                     if self.queue.len() > 100 {
                         log::warn!("Particle queue seems to have stalled");

@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-use crate::dependency::Dependency;
+use crate::dependency::{Dependency, ModuleHash};
 use crate::error::Result;
 use crate::file_names::{extract_module_name, is_module_wasm};
 use crate::files::load_module_by_path;
-use crate::{file_names, files, load_blueprint, load_module_config, Blueprint, ModuleError};
+use crate::{file_names, files, load_blueprint, load_module_config, Blueprint};
 
 use fce_wit_parser::module_interface;
 use host_closure::{closure, closure_opt, Args, Closure};
 
+use crate::error::ModuleError::InvalidModuleName;
 use fluence_app_service::ModuleDescriptor;
 use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
@@ -35,8 +36,8 @@ type ModuleName = String;
 pub struct ModuleRepository {
     modules_dir: PathBuf,
     blueprints_dir: PathBuf,
-    /// Map of module_config.name to Dependency::Hash
-    modules_by_name: Arc<Mutex<HashMap<ModuleName, Dependency>>>,
+    /// Map of module_config.name to blake3::hash(module bytes)
+    modules_by_name: Arc<Mutex<HashMap<ModuleName, ModuleHash>>>,
 }
 
 impl ModuleRepository {
@@ -46,9 +47,9 @@ impl ModuleRepository {
             .flatten()
             .filter(|path| is_module_wasm(&path))
             .filter_map(|path| {
-                let name_hash: Result<_, ModuleError> = try {
+                let name_hash: Result<_> = try {
                     let module = load_module_by_path(&path)?;
-                    let hash = Dependency::hash(&module);
+                    let hash = ModuleHash::hash(&module);
                     let module = load_module_config(&modules_dir, &hash)?;
                     (module.import_name, hash)
                 };
@@ -81,7 +82,7 @@ impl ModuleRepository {
             let module = base64::decode(&module).map_err(|err| {
                 JValue::String(format!("error decoding module from base64: {:?}", err))
             })?;
-            let hash = Dependency::hash(&module);
+            let hash = ModuleHash::hash(&module);
             let config = Args::next("config", &mut args)?;
             let config = files::add_module(&modules_dir, &hash, &module, config)?;
 
@@ -181,7 +182,29 @@ impl ModuleRepository {
     }
 
     pub fn resolve_blueprint(&self, blueprint_id: &str) -> Result<Vec<ModuleDescriptor>> {
-        let blueprint = load_blueprint(&self.blueprint_dir, blueprint_id)?;
-        todo!()
+        let blueprint = load_blueprint(&self.blueprints_dir, blueprint_id)?;
+
+        // Load all module descriptors
+        let module_descriptors: Vec<_> = blueprint
+            .dependencies
+            .iter()
+            .map(|module| {
+                let hash = match module {
+                    Dependency::Hash(hash) => hash.clone(),
+                    Dependency::Name(name) => {
+                        // resolve module hash by name
+                        let map = self.modules_by_name.lock();
+                        let hash = map.get(name).cloned();
+                        // unlock mutex
+                        drop(map);
+                        hash.ok_or_else(|| InvalidModuleName(name.clone()))?
+                    }
+                };
+                let config = load_module_config(&self.modules_dir, &hash)?;
+                Ok(config)
+            })
+            .collect::<Result<_>>()?;
+
+        Ok(module_descriptors)
     }
 }

@@ -76,6 +76,7 @@ impl ParticleAppServices {
     pub fn create_service(&self) -> ParticleClosure {
         let services = self.services.clone();
         let config = self.config.clone();
+        let modules = self.modules.clone();
 
         closure_params(move |particle, args| {
             let service_id = uuid::Uuid::new_v4().to_string();
@@ -84,6 +85,7 @@ impl ParticleAppServices {
 
             let vm = create_vm(
                 config.clone(),
+                &modules,
                 blueprint_id.clone(),
                 service_id.clone(),
                 particle.init_user_id.clone(),
@@ -184,11 +186,14 @@ impl ParticleAppServices {
         });
 
         for s in services {
-            let owner_id = s.owner_id;
-            let service_id = s.service_id.clone();
-            let blueprint_id = s.blueprint_id.clone();
-            let config = self.config.clone();
-            let vm = match create_vm(config, blueprint_id, service_id, owner_id.clone()) {
+            let vm = create_vm(
+                self.config.clone(),
+                &self.modules,
+                s.blueprint_id.clone(),
+                s.service_id.clone(),
+                s.owner_id.clone(),
+            );
+            let vm = match vm {
                 Ok(vm) => vm,
                 Err(err) => {
                     #[rustfmt::skip]
@@ -200,7 +205,7 @@ impl ParticleAppServices {
             let vm = Service {
                 vm: Arc::new(Mutex::new(vm)),
                 blueprint_id: s.blueprint_id,
-                owner_id,
+                owner_id: s.owner_id,
             };
             let replaced = self.services.write().insert(s.service_id.clone(), vm);
 

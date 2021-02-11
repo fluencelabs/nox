@@ -15,30 +15,28 @@
  */
 
 use crate::file_names::{module_config_name, module_file_name};
-use blake3::{hash, Hash};
+use blake3::hash;
 use serde::export::Formatter;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::fmt::Display;
 
+/// Hash of the .wasm module contents
+///
+/// Used to load & store modules and configs on filesystem
 #[derive(Debug, Clone)]
-pub enum Dependency {
-    Hash(Hash),
-    Name(String),
-}
-
-impl Display for Dependency {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Dependency::Hash(hash) => write!(f, "{}", hash.to_hex().as_str()),
-            Dependency::Name(name) => write!(f, "{}", name.as_str()),
-        }
+pub struct ModuleHash(blake3::Hash);
+impl ModuleHash {
+    /// Hash arbitrary bytes
+    ///
+    /// see `From<[u8; blake3::OUT_LEN]>` to create from raw bytes without hashing them
+    pub fn hash(bytes: &[u8]) -> Self {
+        Self(hash(bytes))
     }
-}
 
-impl Dependency {
-    pub fn hash(module_bytes: &[u8]) -> Self {
-        Self::Hash(hash(module_bytes))
+    /// Converts module hash to hex str
+    pub fn to_hex(&self) -> impl AsRef<str> {
+        self.0.to_hex()
     }
 
     /// Returns file name for configuration file of the module
@@ -49,6 +47,35 @@ impl Dependency {
     /// Returns file name of the wasm module
     pub fn wasm_file_name(&self) -> String {
         module_file_name(&self)
+    }
+}
+
+/// Creates ModuleHash from raw bytes without hashing them
+impl From<[u8; blake3::OUT_LEN]> for ModuleHash {
+    #[inline]
+    fn from(bytes: [u8; blake3::OUT_LEN]) -> Self {
+        Self(blake3::Hash::from(bytes))
+    }
+}
+
+impl Display for ModuleHash {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.to_hex().as_ref().fmt(f)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Dependency {
+    Hash(ModuleHash),
+    Name(String),
+}
+
+impl Display for Dependency {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Dependency::Hash(hash) => hash.fmt(f),
+            Dependency::Name(name) => name.fmt(f),
+        }
     }
 }
 
@@ -67,7 +94,7 @@ impl<'de> Deserialize<'de> for Dependency {
         let id_val = id_val.ok_or(de::Error::missing_field("dependency"))?;
 
         let value = match id_val {
-            ("hash", Some(hash)) => Dependency::Hash(Hash::from(from_hex(hash))),
+            ("hash", Some(hash)) => Dependency::Hash(ModuleHash::from(from_hex(hash))),
             ("name", Some(name)) | (name, _) => Dependency::Name(name.to_string()),
         };
 
@@ -81,7 +108,7 @@ impl Serialize for Dependency {
         S: Serializer,
     {
         match self {
-            Dependency::Hash(h) => h.to_hex().as_str().serialize(s),
+            Dependency::Hash(h) => h.to_hex().as_ref().serialize(s),
             Dependency::Name(n) => n.serialize(s),
         }
     }

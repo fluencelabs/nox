@@ -36,12 +36,11 @@ use trust_graph::TrustGraph;
 
 use anyhow::Context;
 use async_std::{sync::Mutex, task, task::JoinHandle};
-use futures::channel::mpsc::unbounded;
 use futures::{
-    channel::{mpsc, oneshot, oneshot::Canceled},
+    channel::{mpsc, mpsc::unbounded, oneshot, oneshot::Canceled},
     future::BoxFuture,
     select,
-    stream::StreamExt,
+    stream::{self, FusedStream, StreamExt},
     FutureExt, SinkExt,
 };
 use libp2p::{
@@ -51,7 +50,7 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use prometheus::Registry;
-use std::{io, net::SocketAddr, sync::Arc, task::Poll, time::Duration};
+use std::{io, iter::once, net::SocketAddr, sync::Arc, task::Poll, time::Duration};
 
 // TODO: documentation
 pub struct Node {
@@ -196,10 +195,21 @@ impl Node {
                 let bootstrap_nodes = self.bootstrap_nodes.into_iter().collect();
                 self.network_api.start(pool_api, bootstrap_nodes, failures)
             };
+            let stopped = stream::iter(once(Err(())));
+            let mut swarm = self.swarm.map(|e| Ok(e)).chain(stopped).fuse();
             loop {
                 select!(
-                    _ = self.swarm.select_next_some() => {},
-                    _ = metrics => {},
+                    e = swarm.select_next_some() => {
+                        if e.is_err() {
+                            log::error!("Swarm has terminated");
+                            break;
+                        }
+                    },
+                    e = metrics => {
+                        if let Err(err) = e {
+                            log::warn!("Metrics returned error: {}", err)
+                        }
+                    },
                     event = exit_inlet.next() => {
                         // Ignore Err and None – if exit_outlet is dropped, we'll run forever!
                         if let Some(Ok(_)) = event {

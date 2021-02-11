@@ -71,7 +71,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let providers = ProviderRepository::new(config.local_peer_id);
         let modules = ModuleRepository::new(&modules_dir, &blueprint_dir);
 
-        let services = ParticleAppServices::new(config);
+        let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
             add_provider: providers.add_provider(),

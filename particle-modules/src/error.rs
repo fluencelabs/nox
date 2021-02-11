@@ -81,6 +81,8 @@ pub enum ModuleError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Module with name {0} wasn't found, consider using module hash instead of a name")]
+    InvalidModuleName(String),
 }
 
 impl From<ModuleError> for JValue {

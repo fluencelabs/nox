@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#![feature(try_blocks)]
 #![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
