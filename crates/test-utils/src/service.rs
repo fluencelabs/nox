@@ -40,7 +40,7 @@ pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
         )
         (seq
             (call relay ("op" "identity") ["XOR: create_greeting_service failed"] fail[])
-            (call client ("return" "") [fail])
+            (call client ("return" "") [fail %last_error%])
         )
     )
     "#);

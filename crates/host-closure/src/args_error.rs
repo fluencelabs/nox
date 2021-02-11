@@ -18,16 +18,18 @@ use json_utils::err_as_value;
 
 use serde_json::Value as JValue;
 use std::borrow::Cow;
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ArgsError {
+    #[error("Field {0} is missing from args to call_service")]
     MissingField(&'static str),
+    #[error("Error while deserializing field {field}: {err}")]
     SerdeJson {
         field: &'static str,
         err: serde_json::Error,
     },
+    #[error("Error while deserializing field {field}: {err}")]
     InvalidFormat {
         field: &'static str,
         err: Cow<'static, str>,
@@ -37,24 +39,6 @@ pub enum ArgsError {
 impl From<ArgsError> for JValue {
     fn from(err: ArgsError) -> Self {
         err_as_value(err)
-    }
-}
-
-impl Error for ArgsError {}
-
-impl Display for ArgsError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ArgsError::MissingField(field) => {
-                write!(f, "Field {} is missing from args to call_service", field)
-            }
-            ArgsError::SerdeJson { err, field } => {
-                write!(f, "Error while deserializing field {}: {:?}", field, err)
-            }
-            ArgsError::InvalidFormat { field, err } => {
-                write!(f, "Error while deserializing field {}: {:?}", field, err)
-            }
-        }
     }
 }
 

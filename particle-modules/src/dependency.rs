@@ -116,9 +116,10 @@ impl Serialize for Dependency {
         S: Serializer,
     {
         match self {
-            Dependency::Hash(h) => h.to_hex().as_ref().serialize(s),
-            Dependency::Name(n) => n.serialize(s),
+            Dependency::Hash(h) => format!("hash:{}", h.to_hex().as_ref()),
+            Dependency::Name(n) => format!("name:{}", n),
         }
+        .serialize(s)
     }
 }
 

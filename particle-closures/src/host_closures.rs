@@ -249,3 +249,24 @@ fn wrap(r: Result<JValue, JError>) -> Option<IValue> {
 fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {
     into_record_opt(r.map_err(Into::into))
 }
+
+#[cfg(test)]
+mod tests {
+    use thiserror::Error;
+
+    #[derive(Error, Debug)]
+    enum MyError {
+        #[error("Varararararar! {foo} xoxo {bar}")]
+        Variant { foo: String, bar: usize },
+    }
+
+    #[test]
+    fn test() {
+        let err = MyError::Variant {
+            foo: "hey".to_string(),
+            bar: 123,
+        };
+        println!("err: {}", err);
+        println!("err: {:?}", err);
+    }
+}

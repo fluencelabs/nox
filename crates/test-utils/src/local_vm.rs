@@ -93,6 +93,7 @@ pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> CallServiceClosure {
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("return", _) | ("op", "return") => {
                 log::warn!("return args {:?}", args.function_args);
+                log::warn!("tetraplets: {:?}", args.tetraplets);
                 out.lock().extend(args.function_args);
                 ivalue_utils::unit()
             }

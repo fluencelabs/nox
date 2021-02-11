@@ -165,9 +165,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "232ca86c4afb7dcc3499b7ce7157d8c4c98f1a4ebcc0448afbef3f22bdcd9bda"
+checksum = "87faf24e3d00731adb8bfbe76742e9ab0eb67441abf067853fb34352ca25f425"
 dependencies = [
  "built",
 ]
@@ -2458,6 +2458,7 @@ dependencies = [
  "json-utils",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -3302,6 +3303,7 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
+ "thiserror",
  "toml",
  "uuid",
 ]
