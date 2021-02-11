@@ -406,3 +406,18 @@ where
         .await
         .context(format!("timed out after {:?}", dur))?)
 }
+
+pub fn module_config(import_name: &str) -> JValue {
+    json!(
+        {
+            "name": import_name,
+            "mem_pages_count": 100,
+            "logger_enabled": true,
+            "wasi": {
+                "envs": json!({}),
+                "preopened_files": vec!["/tmp"],
+                "mapped_dirs": json!({}),
+            }
+        }
+    )
+}

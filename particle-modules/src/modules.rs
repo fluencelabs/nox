@@ -124,16 +124,16 @@ impl ModuleRepository {
                 .flatten()
                 .filter_map(|path| {
                     let hash = extract_module_name(&path)?;
-                    let hash = ModuleHash::from_hex(hash);
-                    let config = modules_dir.join(hash.config_file_name());
                     let result: eyre::Result<_> = try {
+                        let hash = ModuleHash::from_hex(hash)?;
+                        let config = modules_dir.join(hash.config_file_name());
                         let config = load_config_by_path(&config).wrap_err("load config")?;
                         let interface = module_interface(&path).wrap_err("parse interface")?;
                         let interface = serde_json::to_value(interface).wrap_err("serialize")?;
-                        (config, interface)
+                        (hash, config, interface)
                     };
                     let result = match result {
-                        Ok((config, interface)) => json!({
+                        Ok((hash, config, interface)) => json!({
                             "name": config.name,
                             "hash": hash.to_hex().as_ref(),
                             "interface": interface,
@@ -142,7 +142,7 @@ impl ModuleRepository {
                         Err(err) => {
                             log::warn!("get_modules error: {:?}", err);
                             json!({
-                                "hash": hash.to_hex().as_ref(),
+                                "invalid_file_name": hash,
                                 "error": format!("{:?}", err).split("Stack backtrace:").next().unwrap_or_default(),
                             })
                         }

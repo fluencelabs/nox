@@ -16,7 +16,7 @@
 
 use crate::file_names::{module_config_name, module_file_name};
 use blake3::hash;
-use faster_hex::hex_decode_unchecked;
+use faster_hex::hex_decode;
 use serde::export::Formatter;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
@@ -29,10 +29,10 @@ use std::fmt::Display;
 pub struct ModuleHash(blake3::Hash);
 impl ModuleHash {
     /// Construct ModuleHash from raw hash value in hex; doesn't hash anything
-    pub fn from_hex(hash: &str) -> Self {
+    pub fn from_hex(hash: &str) -> Result<Self, faster_hex::Error> {
         let mut buf: [u8; blake3::OUT_LEN] = [0; blake3::OUT_LEN];
-        hex_decode_unchecked(hash.as_bytes(), &mut buf);
-        Self::from(buf)
+        hex_decode(hash.as_bytes(), &mut buf)?;
+        Ok(Self::from(buf))
     }
 
     /// Hash arbitrary bytes
@@ -102,7 +102,14 @@ impl<'de> Deserialize<'de> for Dependency {
         let id_val = id_val.ok_or(de::Error::missing_field("dependency"))?;
 
         let value = match id_val {
-            ("hash", Some(hash)) => Dependency::Hash(ModuleHash::from_hex(hash)),
+            ("hash", Some(hash)) => {
+                let hash = ModuleHash::from_hex(hash).map_err(|err| {
+                    let len = blake3::OUT_LEN;
+                    let msg = format!("'{}' isn't a valid {}-byte hex: {}", hash, len, err);
+                    de::Error::custom(msg)
+                })?;
+                Dependency::Hash(hash)
+            }
             ("name", Some(name)) | (name, _) => Dependency::Name(name.to_string()),
         };
 

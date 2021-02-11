@@ -141,17 +141,33 @@ pub fn make_particle(
     peer_id: PeerId,
     data: HashMap<&'static str, JValue>,
     script: String,
+    relay: impl Into<Option<PeerId>>,
 ) -> Particle {
     let variable_names = data.keys().cloned();
-
     let load_variables = variable_names
-        .map(|name| f!(r#"(call "{peer_id}" ("load" "{name}") [] {name})"#))
+        .map(|name| f!(r#"  (call %init_peer_id% ("load" "{name}") [] {name})"#))
         .fold(Instruction::Null, |acc, call| acc.add(call))
         .into_air();
+
+    let catch = f!(r#"(call %init_peer_id% ("return" "") [%last_error%])"#);
+    let catch = if let Some(relay) = relay.into() {
+        f!(r#"
+        (seq
+            (call "{relay}" ("op" "identity") [])
+            {catch}
+        )
+        "#)
+    } else {
+        catch
+    };
+
     let script = f!(r#"
 (seq
-    {load_variables}
-    {script}
+{load_variables}
+    (xor
+        {script}
+        {catch}
+    )
 )
     "#);
 

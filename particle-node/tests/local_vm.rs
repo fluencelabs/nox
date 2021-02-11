@@ -37,7 +37,7 @@ fn make() {
         "c" => json!({"c1": "c1_value", "c2": "c2_value"})
     };
 
-    let particle = make_particle(client_a.clone(), data.clone(), script.clone());
+    let particle = make_particle(client_a, data.clone(), script, None);
 
     let args = read_args(particle, &client_b);
     assert_eq!(data["a"], args[0]);

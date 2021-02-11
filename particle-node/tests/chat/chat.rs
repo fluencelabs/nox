@@ -36,7 +36,7 @@
 use config_utils::to_abs_path;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{connect_swarms, ConnectedClient};
+use test_utils::{connect_swarms, module_config, ConnectedClient};
 
 use fstrings::f;
 use itertools::Itertools;
@@ -52,27 +52,12 @@ fn load_module(name: &str) -> Vec<u8> {
     module
 }
 
-fn module_config(module: &str) -> JValue {
-    json!(
-        {
-            "name": module,
-            "mem_pages_count": 100,
-            "logger_enabled": true,
-            "wasi": {
-                "envs": json!({}),
-                "preopened_files": vec!["/tmp"],
-                "mapped_dirs": json!({}),
-            }
-        }
-    )
-}
-
 fn create_service(client: &mut ConnectedClient, module: &str) -> String {
     let script = r#"
         (seq
             (seq
-                (call node ("dist" "add_module") [module_bytes module_config] void[])
-                (call node ("dist" "add_module") [sqlite_bytes sqlite_config] void[])
+                (call node ("dist" "add_module") [module_bytes module_config])
+                (call node ("dist" "add_module") [sqlite_bytes sqlite_config])
             )
             (seq
                 (call node ("dist" "add_blueprint") [blueprint] blueprint_id)
@@ -112,7 +97,7 @@ fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut Conn
             (call node ("dht" "neighborhood") ["{name}"] neighbors)
             (fold neighbors n
                 (seq
-                    (call n ("dht" "add_provider") ["{name}" provider] void[])
+                    (call n ("dht" "add_provider") ["{name}" provider])
                     (next n)
                 )
             )
@@ -145,8 +130,8 @@ fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Pro
                 )
             )
             (seq
-                (call node ("op" "identity") [] void[])
-                (call client ("return" "") [providers_{orig_name}] void[])
+                (call node ("op" "identity") [])
+                (call client ("return" "") [providers_{orig_name}])
             )
         )
     "#);
@@ -185,12 +170,12 @@ fn call_service(alias: &str, fname: &str, args: &[(&'static str, JValue)], clien
     let script = f!(r#"
         (seq
             (seq
-                (call node ("op" "identity") [] void[])
+                (call node ("op" "identity") [])
                 (call provider (service_id "{fname}") [{arg_names}] result)
             )
             (seq
-                (call node ("op" "identity") [] void[])
-                (call client ("return" "") [result] void[])
+                (call node ("op" "identity") [])
+                (call client ("return" "") [result])
             )
         )
     "#);
@@ -264,17 +249,17 @@ fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
     let script = f!(r#"
         (seq
             (seq
-                (call node ("op" "identity") [] void[])
+                (call node ("op" "identity") [])
                 (seq
-                    (call history (history_id "add") [author msg zero] void[])
+                    (call history (history_id "add") [author msg zero])
                     (call userlist (userlist_id "get_users") [] users)
                 )
             )
             (fold users.$.users! u
                 (par 
                     (seq
-                        (call u.$["relay_id"] ("op" "identity") [] void[])
-                        (call u.$["peer_id"] ("receive" "") [msg] void[])
+                        (call u.$["relay_id"] ("op" "identity") [])
+                        (call u.$["peer_id"] ("receive" "") [msg])
                     ) 
                     (next u)
                 )
