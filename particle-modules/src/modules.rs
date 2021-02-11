@@ -26,7 +26,6 @@ use fluence_app_service::ModuleDescriptor;
 use host_closure::{closure, closure_opt, Args, Closure};
 
 use eyre::WrapErr;
-use itertools::Itertools;
 use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
 use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
@@ -131,7 +130,7 @@ impl ModuleRepository {
                             log::warn!("get_modules error: {:?}", err);
                             json!({
                                 "hash": hash.to_hex().as_ref(),
-                                "error": err.chain().join(" caused by ").split("Stack backtrace:").next().unwrap_or_default(),
+                                "error": format!("{:?}", err).split("Stack backtrace:").next().unwrap_or_default(),
                             })
                         }
                     };
