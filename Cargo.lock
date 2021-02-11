@@ -3215,6 +3215,7 @@ dependencies = [
  "async-std",
  "async-unlock",
  "base64 0.13.0",
+ "blake3",
  "bs58 0.3.1",
  "clap",
  "config-utils",

@@ -58,3 +58,4 @@ fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"
 maplit = "1.0.2"
 serde_json = "1.0.61"
+blake3 = "0.3.7"

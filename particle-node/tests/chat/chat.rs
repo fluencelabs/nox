@@ -83,14 +83,17 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
             )
         )
         "#;
+
+    let module_bytes = load_module(format!("{}.wasm", module).as_str());
+    let module_hash = format!("hash:{}", blake3::hash(&module_bytes).to_hex().as_str());
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "node" => json!(client.node.to_string()),
-        "module_bytes" => json!(base64::encode(load_module(format!("{}.wasm", module).as_str()))),
+        "module_bytes" => json!(base64::encode(module_bytes)),
         "module_config" => json!(module_config(module)),
         "sqlite_bytes" => json!(base64::encode(load_module("sqlite3.wasm"))),
         "sqlite_config" => json!(module_config("sqlite3")),
-        "blueprint" => json!({ "name": module, "dependencies": ["sqlite3", module] }),
+        "blueprint" => json!({ "name": module, "dependencies": ["name:sqlite3", module_hash] }),
     };
 
     client.send_particle(script, data);
