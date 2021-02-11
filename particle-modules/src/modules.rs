@@ -94,9 +94,21 @@ impl ModuleRepository {
 
     /// Saves new blueprint to disk
     pub fn add_blueprint(&self) -> Closure {
+        use Dependency::Hash;
+
         let blueprints_dir = self.blueprints_dir.clone();
+        let modules = self.modules_by_name.clone();
         closure(move |mut args| {
-            let blueprint = Args::next("blueprint", &mut args)?;
+            let blueprint: Blueprint = Args::next("blueprint", &mut args)?;
+            // resolve dependencies by name to hashes, if any
+            let dependencies = blueprint.dependencies.into_iter();
+            let dependencies = dependencies
+                .map(|module| Ok(Hash(resolve_hash(&modules, module)?)))
+                .collect::<Result<_>>()?;
+            let blueprint = Blueprint {
+                dependencies,
+                ..blueprint
+            };
             files::add_blueprint(&blueprints_dir, &blueprint)?;
 
             Ok(JValue::String(blueprint.id))
@@ -186,24 +198,29 @@ impl ModuleRepository {
         // Load all module descriptors
         let module_descriptors: Vec<_> = blueprint
             .dependencies
-            .iter()
+            .into_iter()
             .map(|module| {
-                let hash = match module {
-                    Dependency::Hash(hash) => hash.clone(),
-                    Dependency::Name(name) => {
-                        // resolve module hash by name
-                        let map = self.modules_by_name.lock();
-                        let hash = map.get(name).cloned();
-                        // unlock mutex
-                        drop(map);
-                        hash.ok_or_else(|| InvalidModuleName(name.clone()))?
-                    }
-                };
+                let hash = resolve_hash(&self.modules_by_name, module)?;
                 let config = load_module_descriptor(&self.modules_dir, &hash)?;
                 Ok(config)
             })
             .collect::<Result<_>>()?;
 
         Ok(module_descriptors)
+    }
+}
+
+fn resolve_hash(
+    modules: &Arc<Mutex<HashMap<ModuleName, ModuleHash>>>,
+    module: Dependency,
+) -> Result<ModuleHash> {
+    match module {
+        Dependency::Hash(hash) => Ok(hash),
+        Dependency::Name(name) => {
+            // resolve module hash by name
+            let map = modules.lock();
+            let hash = map.get(&name).cloned();
+            hash.ok_or_else(|| InvalidModuleName(name.clone()))
+        }
     }
 }
