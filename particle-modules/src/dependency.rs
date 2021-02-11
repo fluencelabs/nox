@@ -27,6 +27,11 @@ use std::fmt::Display;
 #[derive(Debug, Clone)]
 pub struct ModuleHash(blake3::Hash);
 impl ModuleHash {
+    /// Construct ModuleHash from raw hash value in hex; doesn't hash anything
+    pub fn from_hex(hash: &str) -> Self {
+        Self::from(from_hex(hash))
+    }
+
     /// Hash arbitrary bytes
     ///
     /// see `From<[u8; blake3::OUT_LEN]>` to create from raw bytes without hashing them
@@ -94,7 +99,7 @@ impl<'de> Deserialize<'de> for Dependency {
         let id_val = id_val.ok_or(de::Error::missing_field("dependency"))?;
 
         let value = match id_val {
-            ("hash", Some(hash)) => Dependency::Hash(ModuleHash::from(from_hex(hash))),
+            ("hash", Some(hash)) => Dependency::Hash(ModuleHash::from_hex(hash)),
             ("name", Some(name)) | (name, _) => Dependency::Name(name.to_string()),
         };
 

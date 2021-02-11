@@ -15,21 +15,21 @@
  */
 
 use crate::dependency::{Dependency, ModuleHash};
+use crate::error::ModuleError::InvalidModuleName;
 use crate::error::Result;
 use crate::file_names::{extract_module_name, is_module_wasm};
-use crate::files::load_module_by_path;
-use crate::{file_names, files, load_blueprint, load_module_config, Blueprint};
+use crate::files::{load_config_by_path, load_module_by_path};
+use crate::{file_names, files, load_blueprint, load_module_descriptor, Blueprint};
 
 use fce_wit_parser::module_interface;
+use fluence_app_service::ModuleDescriptor;
 use host_closure::{closure, closure_opt, Args, Closure};
 
-use crate::error::ModuleError::InvalidModuleName;
-use fluence_app_service::ModuleDescriptor;
+use eyre::WrapErr;
+use itertools::Itertools;
 use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
-use std::path::Path;
-use std::sync::Arc;
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 
 type ModuleName = String;
 #[derive(Clone)]
@@ -50,7 +50,7 @@ impl ModuleRepository {
                 let name_hash: Result<_> = try {
                     let module = load_module_by_path(&path)?;
                     let hash = ModuleHash::hash(&module);
-                    let module = load_module_config(&modules_dir, &hash)?;
+                    let module = load_module_descriptor(&modules_dir, &hash)?;
                     (module.import_name, hash)
                 };
 
@@ -111,33 +111,32 @@ impl ModuleRepository {
                 .into_iter()
                 .flatten()
                 .filter_map(|path| {
-                    let fname = extract_module_name(&path)?;
-                    let interface = module_interface(&path)
-                        .map_err(|err| {
-                            log::warn!(
-                                "Failed to retrieve interface for module {}: {:#?}",
-                                fname,
-                                err
-                            )
-                        })
-                        .ok()?;
-                    let interface = serde_json::to_value(interface).map_err(|err| {
-                        log::warn!(
-                            "Failed to serialize interface for module {}: {:#?}",
-                            fname,
-                            err
-                        );
-                        JValue::String(format!("Corrupted interface: {:?}", err))
-                    });
-                    let interface = match interface {
-                        Ok(value) => value,
-                        Err(value) => value,
+                    let hash = extract_module_name(&path)?;
+                    let hash = ModuleHash::from_hex(hash);
+                    let config = modules_dir.join(hash.config_file_name());
+                    let result: eyre::Result<_> = try {
+                        let config = load_config_by_path(&config).wrap_err("load config")?;
+                        let interface = module_interface(&path).wrap_err("parse interface")?;
+                        let interface = serde_json::to_value(interface).wrap_err("serialize")?;
+                        (config, interface)
+                    };
+                    let result = match result {
+                        Ok((config, interface)) => json!({
+                            "name": config.name,
+                            "hash": hash.to_hex().as_ref(),
+                            "interface": interface,
+                            "config": config.config,
+                        }),
+                        Err(err) => {
+                            log::warn!("get_modules error: {:?}", err);
+                            json!({
+                                "hash": hash.to_hex().as_ref(),
+                                "error": err.chain().join(" caused by ").split("Stack backtrace:").next().unwrap_or_default(),
+                            })
+                        }
                     };
 
-                    Some(json!({
-                        "name": fname,
-                        "interface": interface
-                    }))
+                    Some(result)
                 })
                 .collect();
 
@@ -200,7 +199,7 @@ impl ModuleRepository {
                         hash.ok_or_else(|| InvalidModuleName(name.clone()))?
                     }
                 };
-                let config = load_module_config(&self.modules_dir, &hash)?;
+                let config = load_module_descriptor(&self.modules_dir, &hash)?;
                 Ok(config)
             })
             .collect::<Result<_>>()?;

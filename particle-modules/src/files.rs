@@ -35,8 +35,8 @@ pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
     Ok(blueprint)
 }
 
-/// Load FaaSModuleConfig from disk, for a given module name
-pub fn load_module_config(
+/// Load ModuleDescriptor from disk for a given module name
+pub fn load_module_descriptor(
     modules_dir: &Path,
     module_hash: &ModuleHash,
 ) -> Result<ModuleDescriptor> {
