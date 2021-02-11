@@ -138,7 +138,7 @@ mod tests {
     fn from_hex() {
         let hash = blake3::hash(&[1, 2, 3]);
         let hex = hash.to_hex();
-        let mhash = ModuleHash::from_hex(&hex);
+        let mhash = ModuleHash::from_hex(&hex).unwrap();
 
         assert_eq!(mhash.to_hex().as_ref(), hash.to_hex().as_str());
     }
