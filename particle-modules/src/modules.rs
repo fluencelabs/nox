@@ -17,7 +17,7 @@
 use crate::dependency::{Dependency, ModuleHash};
 use crate::error::ModuleError::InvalidModuleName;
 use crate::error::Result;
-use crate::file_names::{extract_module_name, is_module_wasm};
+use crate::file_names::{extract_module_file_name, is_module_wasm};
 use crate::files::{load_config_by_path, load_module_by_path};
 use crate::{file_names, files, load_blueprint, load_module_descriptor, Blueprint};
 
@@ -26,11 +26,13 @@ use fluence_app_service::ModuleDescriptor;
 use host_closure::{closure, Args, Closure};
 
 use eyre::WrapErr;
+use fstrings::f;
 use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
 use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 
 type ModuleName = String;
+
 #[derive(Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
@@ -49,6 +51,9 @@ impl ModuleRepository {
                 let name_hash: Result<_> = try {
                     let module = load_module_by_path(&path)?;
                     let hash = ModuleHash::hash(&module);
+
+                    Self::maybe_migrate_module(&path, &hash);
+
                     let module = load_module_descriptor(&modules_dir, &hash)?;
                     (module.import_name, hash)
                 };
@@ -69,6 +74,23 @@ impl ModuleRepository {
             modules_by_name,
             modules_dir: modules_dir.to_path_buf(),
             blueprints_dir: blueprints_dir.to_path_buf(),
+        }
+    }
+
+    /// check that module file name is equal to module hash
+    /// if not, rename module and config files
+    fn maybe_migrate_module(path: &Path, hash: &ModuleHash) {
+        try {
+            let file_name = extract_module_file_name(&path)?;
+            if file_name != hash.to_hex().as_ref() {
+                let new_name = hash.wasm_file_name();
+                log::info!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
+                std::fs::rename(&path, modules_dir.join(hash.wasm_file_name())).ok()?;
+                let new_name = hash.config_file_name();
+                log::info!(target: "migration", "renaming config {}_config.toml to {}", file_name, new_name);
+                let config = path.with_extension("_config.toml");
+                std::fs::rename(&config, modules_dir.join(new_name)).ok()?;
+            }
         }
     }
 
@@ -123,9 +145,9 @@ impl ModuleRepository {
                 .into_iter()
                 .flatten()
                 .filter_map(|path| {
-                    let hash = extract_module_name(&path)?;
+                    let hash = extract_module_file_name(&path)?;
                     let result: eyre::Result<_> = try {
-                        let hash = ModuleHash::from_hex(hash)?;
+                        let hash = ModuleHash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
                         let config = modules_dir.join(hash.config_file_name());
                         let config = load_config_by_path(&config).wrap_err("load config")?;
                         let interface = module_interface(&path).wrap_err("parse interface")?;

@@ -15,85 +15,85 @@ services:
 ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,particle_server::behaviour::identify=info,libp2p_mplex=info,libp2p_identify=info,walrus=info,particle_protocol::libp2p_protocol::upgrade=info"
       WASM_LOG: "info"
 
-#  fluence-2:
-#    image: fluencelabs/fluence:$BRANCH
-#    restart: always
-#    ports:
-#      - "7002:7002" # Node service
-#      - "9002:9002" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7002 -w 9002"
-#    volumes:
-#      - fluence-2:/.fluence
-#    environment:
-#      RUST_BACKTRACE: "full"
-#      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
-#,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
-#      WASM_LOG: "info"
-#
-#  fluence-3:
-#    image: fluencelabs/fluence:$BRANCH
-#    restart: always
-#    ports:
-#      - "7003:7003" # Node service
-#      - "9003:9003" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7003 -w 9003"
-#    volumes:
-#      - fluence-3:/.fluence
-#    environment:
-#      RUST_BACKTRACE: "full"
-#      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
-#,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
-#      WASM_LOG: "info"
-#
-#  fluence-4:
-#    image: fluencelabs/fluence:$BRANCH
-#    restart: always
-#    ports:
-#      - "7004:7004" # Node service
-#      - "9004:9004" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7004 -w 9004"
-#    volumes:
-#      - fluence-4:/.fluence
-#    environment:
-#      RUST_BACKTRACE: "full"
-#      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
-#,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
-#      WASM_LOG: "info"
-#
-#  fluence-5:
-#    image: fluencelabs/fluence:$BRANCH
-#    restart: always
-#    ports:
-#      - "7005:7005" # Node service
-#      - "9005:9005" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7005 -w 9005"
-#    volumes:
-#      - fluence-5:/.fluence
-#    environment:
-#      RUST_BACKTRACE: "full"
-#      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
-#,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
-#      WASM_LOG: "info"
-#
-#  fluence-6:
-#    image: fluencelabs/fluence:$BRANCH
-#    restart: always
-#    ports:
-#      - "7006:7006" # Node service
-#      - "9006:9006" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7006 -w 9006"
-#    volumes:
-#      - fluence-6:/.fluence
-#    environment:
-#      RUST_BACKTRACE: "full"
-#      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
-#  ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
-#      WASM_LOG: "info"
+  fluence-2:
+    image: fluencelabs/fluence:$BRANCH
+    restart: always
+    ports:
+      - "7002:7002" # Node service
+      - "9002:9002" # Peer service
+    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7002 -w 9002"
+    volumes:
+      - fluence-2:/.fluence
+    environment:
+      RUST_BACKTRACE: "full"
+      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
+,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
+      WASM_LOG: "info"
+
+  fluence-3:
+    image: fluencelabs/fluence:$BRANCH
+    restart: always
+    ports:
+      - "7003:7003" # Node service
+      - "9003:9003" # Peer service
+    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7003 -w 9003"
+    volumes:
+      - fluence-3:/.fluence
+    environment:
+      RUST_BACKTRACE: "full"
+      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
+,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
+      WASM_LOG: "info"
+
+  fluence-4:
+    image: fluencelabs/fluence:$BRANCH
+    restart: always
+    ports:
+      - "7004:7004" # Node service
+      - "9004:9004" # Peer service
+    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7004 -w 9004"
+    volumes:
+      - fluence-4:/.fluence
+    environment:
+      RUST_BACKTRACE: "full"
+      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
+,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
+      WASM_LOG: "info"
+
+  fluence-5:
+    image: fluencelabs/fluence:$BRANCH
+    restart: always
+    ports:
+      - "7005:7005" # Node service
+      - "9005:9005" # Peer service
+    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7005 -w 9005"
+    volumes:
+      - fluence-5:/.fluence
+    environment:
+      RUST_BACKTRACE: "full"
+      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
+,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
+      WASM_LOG: "info"
+
+  fluence-6:
+    image: fluencelabs/fluence:$BRANCH
+    restart: always
+    ports:
+      - "7006:7006" # Node service
+      - "9006:9006" # Peer service
+    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7006 -w 9006"
+    volumes:
+      - fluence-6:/.fluence
+    environment:
+      RUST_BACKTRACE: "full"
+      RUST_LOG: "info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info
+  ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,libp2p_mplex=info,libp2p_identify=info,walrus=info"
+      WASM_LOG: "info"
 
 volumes:
   fluence-1:
-#  fluence-2:
-#  fluence-3:
-#  fluence-4:
-#  fluence-5:
-#  fluence-6:
+  fluence-2:
+  fluence-3:
+  fluence-4:
+  fluence-5:
+  fluence-6:

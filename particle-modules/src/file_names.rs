@@ -44,7 +44,7 @@ pub(super) fn is_blueprint(name: &str) -> bool {
 }
 
 /// Return file name with .wasm extension stripped. None if extension wasn't .wasm
-pub(super) fn extract_module_name(path: &Path) -> Option<&str> {
+pub(super) fn extract_module_file_name(path: &Path) -> Option<&str> {
     // return None if extension isn't "wasm"
     path.extension().filter(|ext| ext == &"wasm")?;
     // strip extension
