@@ -18,23 +18,44 @@ use particle_modules::ModuleError;
 
 use fluence_app_service::AppServiceError;
 use host_closure::ArgsError;
+use json_utils::err_as_value;
 
 use serde_json::Value as JValue;
-use std::{error::Error, path::PathBuf};
+use std::path::PathBuf;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ServiceError {
+    #[error("App service {0} not found")]
     NoSuchInstance(String),
+    #[error(transparent)]
     Engine(AppServiceError),
+    #[error(transparent)]
     ModuleError(ModuleError),
-    ReadPersistedService { path: PathBuf, err: std::io::Error },
-    DeserializePersistedService { err: toml::de::Error, path: PathBuf },
-    CreateServicesDir { path: PathBuf, err: std::io::Error },
-    CorruptedFaaSInterface(serde_json::Error),
-    ArgParseError(ArgsError),
+    #[error("Error reading persisted service from {path:?}: {err}")]
+    ReadPersistedService {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error deserializing persisted service from {path:?}: {err}")]
+    DeserializePersistedService {
+        path: PathBuf,
+        #[source]
+        err: toml::de::Error,
+    },
+    #[error("Error creating directory for persisted services {path:?}: {err}")]
+    CreateServicesDir {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("CorruptedFaaSInterface: can't serialize interface to JSON: {0}")]
+    CorruptedFaaSInterface(#[source] serde_json::Error),
+    #[error("Error parsing arguments on call_service: {0}")]
+    ArgParseError(#[source] ArgsError),
 }
 
-impl Error for ServiceError {}
 impl From<AppServiceError> for ServiceError {
     fn from(err: AppServiceError) -> Self {
         ServiceError::Engine(err)
@@ -55,41 +76,6 @@ impl From<ModuleError> for ServiceError {
 
 impl From<ServiceError> for JValue {
     fn from(err: ServiceError) -> Self {
-        JValue::String(format!("{:?}", err))
-    }
-}
-
-impl std::fmt::Display for ServiceError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ServiceError::NoSuchInstance(service_id) => {
-                write!(f, "App service {} not found", service_id)
-            }
-            ServiceError::Engine(err) => err.fmt(f),
-            ServiceError::ReadPersistedService { path, err } => write!(
-                f,
-                "Error reading persisted service from {:?}: {:?}",
-                path, err
-            ),
-            ServiceError::CreateServicesDir { path, err } => write!(
-                f,
-                "Error creating directory for persisted services {:?}: {:?}",
-                path, err
-            ),
-            ServiceError::ModuleError(err) => write!(f, "ModuleError: {:?}", err),
-            ServiceError::ArgParseError(error) => {
-                write!(f, "Error parsing arguments on call_service: {:?}", error)
-            }
-            ServiceError::DeserializePersistedService { err, path } => write!(
-                f,
-                "Error deserializing persisted service from {:?}: {:#?}",
-                path, err
-            ),
-            ServiceError::CorruptedFaaSInterface(err) => write!(
-                f,
-                "CorruptedFaaSInterface: can't serialize interface to JSON: {:#?}",
-                err
-            ),
-        }
+        err_as_value(err)
     }
 }

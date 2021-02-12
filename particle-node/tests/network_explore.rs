@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_greeting_service, make_swarms, read_args, test_module, test_module_cfg, timeout,
-    ClientEvent, ConnectedClient, KAD_TIMEOUT,
+    create_greeting_service, enable_logs, make_swarms, module_config, read_args, test_module,
+    test_module_cfg, timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
 use futures::executor::block_on;
@@ -42,8 +42,16 @@ pub struct Blueprint {
 
 #[derive(Debug, Deserialize)]
 pub struct ModuleDescriptor {
-    pub name: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub hash: Option<String>,
+    #[serde(default)]
+    pub invalid_file_name: Option<String>,
+    #[serde(default)]
     pub interface: JValue,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 #[test]
@@ -108,39 +116,58 @@ fn get_modules() {
 
     let value = client.receive_args().into_iter().next().unwrap();
     let modules: Vec<ModuleDescriptor> = serde_json::from_value(value).unwrap();
-    assert_eq!(modules[0].name.as_str(), "greeting");
+    assert_eq!(modules[0].name.as_deref(), Some("greeting"));
     assert!(matches!(modules[0].interface, JValue::Object(_)));
 }
 
 #[test]
 fn get_blueprints() {
+    enable_logs();
+
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
 
+    let bytes = b"module";
+    let raw_hash = blake3::hash(bytes).to_hex();
+    let hash = format!("hash:{}", raw_hash);
+    let name = format!("name:module");
     client.send_particle(
         r#"
         (seq
+            (call relay ("dist" "add_module") [module_bytes module_config] module_hash)
             (seq
-                (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
-                (call relay ("dist" "get_blueprints") [] blueprints)
+                (seq
+                    (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                    (call relay ("dist" "get_blueprints") [] blueprints)
+                )
+                (call client ("return" "") [blueprints module_hash])
             )
-            (call client ("return" "") [blueprints blueprint_id])
         )
         "#,
         hashmap! {
+            "module_bytes" => json!(base64::encode(bytes)),
+            "module_config" => json!(module_config("module")),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
-            "blueprint" => json!({ "name": "blueprint", "dependencies": ["module_name"] }),
+            "blueprint" => json!({ "name": "blueprint", "dependencies": [ hash, name ] }),
         },
     );
 
-    let value = client.receive_args().into_iter().next().unwrap();
+    let mut args = client.receive_args().into_iter();
+    let value = args.next().unwrap();
     let bp: Vec<Blueprint> = serde_json::from_value(value).expect("deserialize blueprint");
     assert_eq!(bp.len(), 1);
     assert_eq!(bp[0].name, "blueprint");
-    assert_eq!(bp[0].dependencies[0], "module_name");
+    assert_eq!(bp[0].dependencies.len(), 2);
+    assert_eq!(bp[0].dependencies[0], hash);
+    // name:$name should've been converted to hash:$hash
+    assert_eq!(bp[0].dependencies[1], hash);
+
+    let hash = args.next().unwrap();
+    let hash: String = serde_json::from_value(hash).unwrap();
+    assert_eq!(hash.as_str(), raw_hash.as_str());
 }
 
 #[test]

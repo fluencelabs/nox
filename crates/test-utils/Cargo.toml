@@ -19,8 +19,8 @@ connection-pool = { path = "../../connection-pool" }
 script-storage = { path = "../../script-storage" }
 
 stepper-interface = "0.1.2"
-air-interpreter-wasm = "0.4.2"
-aquamarine-vm = "0.1.29"
+air-interpreter-wasm = "0.4.3"
+aquamarine-vm = "0.2.0"
 
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.1" }
 

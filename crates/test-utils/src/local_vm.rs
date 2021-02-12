@@ -93,6 +93,7 @@ pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> CallServiceClosure {
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("return", _) | ("op", "return") => {
                 log::warn!("return args {:?}", args.function_args);
+                log::warn!("tetraplets: {:?}", args.tetraplets);
                 out.lock().extend(args.function_args);
                 ivalue_utils::unit()
             }
@@ -130,6 +131,8 @@ fn make_vm(
                 "\n\n\nFailed to create local AquamarineVM: {:#?}\n\n\n",
                 err
             );
+
+            err
         })
         .expect("vm should be created")
 }
@@ -138,17 +141,33 @@ pub fn make_particle(
     peer_id: PeerId,
     data: HashMap<&'static str, JValue>,
     script: String,
+    relay: impl Into<Option<PeerId>>,
 ) -> Particle {
     let variable_names = data.keys().cloned();
-
     let load_variables = variable_names
-        .map(|name| f!(r#"(call "{peer_id}" ("load" "{name}") [] {name})"#))
+        .map(|name| f!(r#"  (call %init_peer_id% ("load" "{name}") [] {name})"#))
         .fold(Instruction::Null, |acc, call| acc.add(call))
         .into_air();
+
+    let catch = f!(r#"(call %init_peer_id% ("return" "") [%last_error%])"#);
+    let catch = if let Some(relay) = relay.into() {
+        f!(r#"
+        (seq
+            (call "{relay}" ("op" "identity") [])
+            {catch}
+        )
+        "#)
+    } else {
+        catch
+    };
+
     let script = f!(r#"
 (seq
-    {load_variables}
-    {script}
+{load_variables}
+    (xor
+        {script}
+        {catch}
+    )
 )
     "#);
 

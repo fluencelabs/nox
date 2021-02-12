@@ -32,6 +32,7 @@ use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::{Code, MultihashDigest};
+use particle_modules::ModuleRepository;
 use serde_json::{json, Value as JValue};
 use std::borrow::Borrow;
 use std::num::ParseIntError;
@@ -68,16 +69,17 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let modules_dir = config.modules_dir.clone();
         let blueprint_dir = config.blueprint_dir.clone();
         let providers = ProviderRepository::new(config.local_peer_id);
+        let modules = ModuleRepository::new(&modules_dir, &blueprint_dir);
 
-        let services = ParticleAppServices::new(config);
+        let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
             add_provider: providers.add_provider(),
             get_providers: providers.get_providers(),
-            get_modules: particle_modules::get_modules(modules_dir.clone()),
-            get_blueprints: particle_modules::get_blueprints(blueprint_dir.clone()),
-            add_module: particle_modules::add_module(modules_dir),
-            add_blueprint: particle_modules::add_blueprint(blueprint_dir),
+            get_modules: modules.get_modules(),
+            get_blueprints: modules.get_blueprints(),
+            add_module: modules.add_module(),
+            add_blueprint: modules.add_blueprint(),
             create_service: services.create_service(),
             call_service: services.call_service(),
             get_interface: services.get_interface(),
@@ -246,4 +248,25 @@ fn wrap(r: Result<JValue, JError>) -> Option<IValue> {
 
 fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {
     into_record_opt(r.map_err(Into::into))
+}
+
+#[cfg(test)]
+mod tests {
+    use thiserror::Error;
+
+    #[derive(Error, Debug)]
+    enum MyError {
+        #[error("Varararararar! {foo} xoxo {bar}")]
+        Variant { foo: String, bar: usize },
+    }
+
+    #[test]
+    fn test() {
+        let err = MyError::Variant {
+            foo: "hey".to_string(),
+            bar: 123,
+        };
+        println!("err: {}", err);
+        println!("err: {:?}", err);
+    }
 }

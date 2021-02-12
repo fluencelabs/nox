@@ -9,10 +9,11 @@ ivalue-utils = { path = "../ivalue-utils" }
 json-utils = { path = "../json-utils" }
 control-macro = { path = "../control-macro" }
 
-fce = "0.1.15"
-aquamarine-vm = "0.1.29"
-fluence-app-service = "0.1.30"
+fce = "0.2.0"
+aquamarine-vm = "0.2.0"
+fluence-app-service = "0.2.0"
 
 serde_json = "1.0.58"
 serde = "1.0.116"
 bs58 = "0.4.0"
+thiserror = "1.0.23"

@@ -15,16 +15,17 @@
  */
 
 use crate::blueprint::Blueprint;
+use crate::dependency::ModuleHash;
 use crate::error::{ModuleError::*, Result};
 use crate::file_names;
 
-use fluence_app_service::{FaaSModuleConfig, TomlFaaSNamedModuleConfig};
+use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
 
-use std::convert::TryInto;
-use std::path::PathBuf;
+use std::path::Path;
+use std::{convert::TryInto, path::PathBuf};
 
 /// Load blueprint from disk
-pub fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint> {
+pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
     let bp_path = bp_dir.join(file_names::blueprint_fname(blueprint_id));
     let blueprint =
         std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
@@ -34,15 +35,13 @@ pub fn load_blueprint(bp_dir: &PathBuf, blueprint_id: &str) -> Result<Blueprint>
     Ok(blueprint)
 }
 
-/// Load FaaSModuleConfig from disk, for a given module name
-pub fn load_module_config(
-    modules_dir: &PathBuf,
-    module: &str,
-) -> Result<(String, FaaSModuleConfig)> {
-    let config = modules_dir.join(file_names::module_config_name(module));
-    let config = std::fs::read(&config).map_err(|err| NoModuleConfig { path: config, err })?;
-    let config: TomlFaaSNamedModuleConfig =
-        toml::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
+/// Load ModuleDescriptor from disk for a given module name
+pub fn load_module_descriptor(
+    modules_dir: &Path,
+    module_hash: &ModuleHash,
+) -> Result<ModuleDescriptor> {
+    let config = modules_dir.join(module_hash.config_file_name());
+    let config = load_config_by_path(&config)?;
     let config = config
         .try_into()
         .map_err(|err| ModuleConvertError { err })?;
@@ -50,8 +49,20 @@ pub fn load_module_config(
     Ok(config)
 }
 
+/// Load TomlFaaSNamedModuleConfig from disk from a given path
+pub fn load_config_by_path(path: &Path) -> Result<TomlFaaSNamedModuleConfig> {
+    let config = std::fs::read(&path).map_err(|err| NoModuleConfig {
+        path: path.to_path_buf(),
+        err,
+    })?;
+    let config: TomlFaaSNamedModuleConfig =
+        toml::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
+
+    Ok(config)
+}
+
 /// List files in directory
-pub fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {
+pub fn list_files(dir: &Path) -> Option<impl Iterator<Item = PathBuf>> {
     let dir = std::fs::read_dir(dir).ok()?;
     Some(dir.filter_map(|p| p.ok()?.path().into()))
 }
@@ -59,19 +70,30 @@ pub fn list_files(dir: &PathBuf) -> Option<impl Iterator<Item = PathBuf>> {
 /// Adds a module to the filesystem, overwriting existing module.
 /// Also adds module config to the TomlFaaSNamedModuleConfig
 pub fn add_module(
-    modules_dir: &PathBuf,
-    bytes: Vec<u8>,
-    config: TomlFaaSNamedModuleConfig,
-) -> Result<()> {
-    let module = modules_dir.join(file_names::module_file_name(&config.name));
-    std::fs::write(&module, bytes).map_err(|err| AddModule { path: module, err })?;
+    modules_dir: &Path,
+    module: &ModuleHash,
+    bytes: &[u8],
+    mut config: TomlFaaSNamedModuleConfig,
+) -> Result<TomlFaaSNamedModuleConfig> {
+    let wasm = modules_dir.join(module.wasm_file_name());
+    std::fs::write(&wasm, bytes).map_err(|err| AddModule { path: wasm, err })?;
 
     // replace existing configuration with a new one
+    // TODO HACK: use custom structure for API; TomlFaaSNamedModuleConfig is too powerful and clumsy.
+    // Set file_name = ${hash}.wasm
+    config.file_name = Some(module.wasm_file_name());
     let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
-    let config = modules_dir.join(file_names::module_config_name(config.name));
-    std::fs::write(&config, toml).map_err(|err| WriteConfig { path: config, err })?;
+    let path = modules_dir.join(module.config_file_name());
+    std::fs::write(&path, toml).map_err(|err| WriteConfig { path, err })?;
 
-    Ok(())
+    Ok(config)
+}
+
+pub fn load_module_by_path(path: &Path) -> Result<Vec<u8>> {
+    std::fs::read(path).map_err(|err| ModuleNotFound {
+        path: path.to_path_buf(),
+        err,
+    })
 }
 
 /// Saves new blueprint to disk

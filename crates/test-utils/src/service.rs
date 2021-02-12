@@ -26,7 +26,9 @@ pub struct CreatedService {
 pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
     let module = "greeting";
 
-    let script = f!(r#"(seq
+    let script = f!(r#"
+    (xor
+        (seq
             (call relay ("dist" "add_module") [module_bytes module_config] module)
             (seq
                 (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
@@ -35,7 +37,14 @@ pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
                     (call client ("return" "") [service_id] client_result)
                 )
             )
-        )"#);
+        )
+        (seq
+            (call relay ("op" "identity") ["XOR: create_greeting_service failed"] fail[])
+            (call client ("return" "") [fail %last_error%])
+        )
+    )
+    "#);
+
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),

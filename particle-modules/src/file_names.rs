@@ -15,18 +15,18 @@
  */
 
 use crate::blueprint::Blueprint;
+use crate::dependency::ModuleHash;
+
 use std::path::{Path, PathBuf};
 
 /// Calculates filename of the config for a wasm module
-pub(super) fn module_config_name<S: AsRef<str>>(module: S) -> String {
-    format!("{}_config.toml", module.as_ref())
+pub(super) fn module_config_name(module_hash: &ModuleHash) -> String {
+    format!("{}_config.toml", module_hash.to_hex().as_ref())
 }
 
-/// Calculates the name of a wasm module file, given a name of the module.
-/// For example, it's ipfs in config, and ipfs.wasm on filesystem.
-/// That function then encapsulates the knowledge about that transformation.
-pub(super) fn module_file_name(module: &str) -> String {
-    format!("{}.wasm", module)
+/// Calculates the name of a wasm module file, given a hash of the module.
+pub(super) fn module_file_name(module_hash: &ModuleHash) -> String {
+    format!("{}.wasm", module_hash.to_hex().as_ref())
 }
 
 /// Calculates filename of the blueprint
@@ -44,12 +44,15 @@ pub(super) fn is_blueprint(name: &str) -> bool {
 }
 
 /// Return file name with .wasm extension stripped. None if extension wasn't .wasm
-pub(super) fn extract_module_name(name: &str) -> Option<String> {
-    let path: &Path = name.as_ref();
+pub(super) fn extract_module_name(path: &Path) -> Option<&str> {
     // return None if extension isn't "wasm"
     path.extension().filter(|ext| ext == &"wasm")?;
     // strip extension
-    path.file_stem()?.to_string_lossy().to_string().into()
+    path.file_stem()?.to_str()
+}
+
+pub(super) fn is_module_wasm(path: &Path) -> bool {
+    path.ends_with(".wasm")
 }
 
 pub fn service_file_name(service_id: &str) -> String {

@@ -18,64 +18,75 @@ use fluence_app_service::FaaSError;
 use json_utils::err_as_value;
 
 use serde_json::Value as JValue;
-use std::error::Error;
 use std::path::PathBuf;
+use thiserror::Error;
 
 pub(super) type Result<T> = std::result::Result<T, ModuleError>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ModuleError {
-    AddModule { path: PathBuf, err: std::io::Error },
-    SerializeConfig { err: toml::ser::Error },
-    WriteConfig { path: PathBuf, err: std::io::Error },
-    NoSuchBlueprint { path: PathBuf, err: std::io::Error },
-    IncorrectBlueprint { err: toml::de::Error },
-    NoModuleConfig { path: PathBuf, err: std::io::Error },
-    IncorrectModuleConfig { err: toml::de::Error },
-    ModuleConvertError { err: FaaSError },
-    WriteBlueprint { path: PathBuf, err: std::io::Error },
+    #[error("Error saving module {path:?}: {err}")]
+    AddModule {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error serializing config to toml: {err}")]
+    SerializeConfig {
+        #[source]
+        err: toml::ser::Error,
+    },
+    #[error("Error saving config to {path:?}: {err}")]
+    WriteConfig {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Blueprint wasn't found at {path:?}: {err}")]
+    NoSuchBlueprint {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error parsing blueprint: {err}")]
+    IncorrectBlueprint {
+        #[source]
+        err: toml::de::Error,
+    },
+    #[error("Module config wasn't found at {path:?}: {err}")]
+    NoModuleConfig {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error parsing module config: {err}")]
+    IncorrectModuleConfig {
+        #[source]
+        err: toml::de::Error,
+    },
+    #[error("Error writing blueprint to {path:?}: {err}")]
+    WriteBlueprint {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error converting TomlFaaSNamedModuleConfig to FaaSModuleConfig: {err}")]
+    ModuleConvertError {
+        #[source]
+        err: FaaSError,
+    },
+    #[error("Module wasn't found on path {path:?}: {err}")]
+    ModuleNotFound {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Module with name {0} wasn't found, consider using module hash instead of a name")]
+    InvalidModuleName(String),
 }
-
-impl Error for ModuleError {}
 
 impl From<ModuleError> for JValue {
     fn from(err: ModuleError) -> Self {
         err_as_value(err)
-    }
-}
-
-impl std::fmt::Display for ModuleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ModuleError::AddModule { path, err } => {
-                write!(f, "Error saving module {:?}: {:?}", path, err)
-            }
-            ModuleError::SerializeConfig { err } => {
-                write!(f, "Error serializing config to toml: {:?}", err)
-            }
-            ModuleError::WriteConfig { path, err } => {
-                write!(f, "Error saving config to {:?}: {:?}", path, err)
-            }
-            ModuleError::NoSuchBlueprint { path, err } => {
-                write!(f, "Blueprint wasn't found at {:?}: {:?}", path, err)
-            }
-            ModuleError::IncorrectBlueprint { err } => {
-                write!(f, "Error parsing blueprint: {:?}", err)
-            }
-            ModuleError::NoModuleConfig { path, err } => {
-                write!(f, "Module config wasn't found at {:?}: {:?}", path, err)
-            }
-            ModuleError::IncorrectModuleConfig { err } => {
-                write!(f, "Error parsing module config: {:?}", err)
-            }
-            ModuleError::WriteBlueprint { path, err } => {
-                write!(f, "Error writing blueprint to {:?}: {:?}", path, err)
-            }
-            ModuleError::ModuleConvertError { err } => write!(
-                f,
-                "Error converting TomlFaaSNamedModuleConfig to FaaSModuleConfig: {:?}",
-                err
-            ),
-        }
     }
 }

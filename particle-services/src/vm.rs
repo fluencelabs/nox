@@ -18,28 +18,20 @@ use crate::error::ServiceError;
 use crate::persistence::persist_service;
 use crate::Result;
 
-use particle_modules::{load_blueprint, load_module_config};
+use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
 
 use fluence_app_service::{AppService, AppServiceConfig, FaaSConfig};
 
 pub fn create_vm(
     config: ServicesConfig,
+    modules: &ModuleRepository,
     blueprint_id: String,
     service_id: String,
     owner_id: String,
 ) -> Result<AppService> {
-    // Load configs for all modules in blueprint
-    let make_service = move |service_id: String| -> Result<_> {
-        // Load blueprint from disk
-        let blueprint = load_blueprint(&config.blueprint_dir, &blueprint_id)?;
-
-        // Load all module configs
-        let modules_config: Vec<_> = blueprint
-            .dependencies
-            .iter()
-            .map(|module| load_module_config(&config.modules_dir, module).map_err(Into::into))
-            .collect::<Result<_>>()?;
+    try {
+        let modules_config = modules.resolve_blueprint(&blueprint_id)?;
 
         let modules = AppServiceConfig {
             service_base_dir: config.workdir,
@@ -58,8 +50,6 @@ pub fn create_vm(
         // Save created service to disk, so it is recreated on restart
         persist_service(&config.services_dir, service_id, blueprint_id, owner_id)?;
 
-        Ok(service)
-    };
-
-    make_service(service_id)
+        service
+    }
 }

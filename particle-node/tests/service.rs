@@ -36,6 +36,7 @@ fn create_service() {
     let mut client2 = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
 
     let script = f!(r#"
+    (xor
         (seq
             (seq
                 (call "{client2.node}" ("op" "identity") [])
@@ -45,7 +46,12 @@ fn create_service() {
                 (call "{client2.node}" ("op" "identity") [])
                 (call "{client2.peer_id}" ("return" "") [greeting])
             )
-        )"#);
+        )
+        (seq
+            (call "{client2.node}" ("op" "identity") [])
+            (call "{client2.peer_id}" ("return" "") ["XOR: greeting() failed"])
+        )
+    )"#);
     client2.send_particle(
         script,
         hashmap! {

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use crate::dependency::Dependency;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -21,7 +23,8 @@ pub struct Blueprint {
     pub name: String,
     #[serde(default = "uuid")]
     pub id: String,
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<Dependency>,
+    pub facade: Option<Dependency>,
 }
 
 fn uuid() -> String {

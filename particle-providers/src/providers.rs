@@ -21,14 +21,12 @@ use fluence_libp2p::{peerid_serializer, PeerId};
 use host_closure::{closure_opt, Args, Closure};
 use json_utils::err_as_value;
 
-use serde::{Deserialize, Serialize};
+use serde::{export::Formatter, Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
-use std::ops::Deref;
-// TODO: use parking_lot
-use serde::export::Formatter;
 use std::error::Error;
 use std::fmt::Display;
+use std::ops::Deref;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 type ProviderMap = Arc<RwLock<ProviderMapInner>>;

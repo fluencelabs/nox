@@ -143,7 +143,7 @@ impl ConnectedClient {
         script: impl Into<String>,
         data: HashMap<&'static str, JValue>,
     ) -> String {
-        let particle = make_particle(self.peer_id, data, script.into());
+        let particle = make_particle(self.peer_id, data, script.into(), self.node);
         let id = particle.id.clone();
         self.send(particle);
         id

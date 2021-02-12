@@ -165,9 +165,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "232ca86c4afb7dcc3499b7ce7157d8c4c98f1a4ebcc0448afbef3f22bdcd9bda"
+checksum = "87faf24e3d00731adb8bfbe76742e9ab0eb67441abf067853fb34352ca25f425"
 dependencies = [
  "built",
 ]
@@ -209,9 +209,9 @@ dependencies = [
 
 [[package]]
 name = "aquamarine-vm"
-version = "0.1.29"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef719bebed9bf1a31ea528f677d891e914437924e7fc4f9fb3139b0e8cbadba3"
+checksum = "be35d39c0bcccee8ab0b0605fba937e2f94dac996f38938cc133790f07d3b41e"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1308,6 +1308,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
+name = "eyre"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "221239d1d5ea86bf5d6f91c9d6bc3646ffe471b08ff9b0f91c44f115ac969d2b"
+dependencies = [
+ "indenter",
+ "once_cell",
+]
+
+[[package]]
 name = "failure"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1336,6 +1346,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
+name = "faster-hex"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d68bae82fd85645631575599a2ebab9807b6d42000083417ac5dc3d2da2ba023"
+
+[[package]]
 name = "fastrand"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1346,9 +1362,9 @@ dependencies = [
 
 [[package]]
 name = "fce"
-version = "0.1.30"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9deb5e4f0e1533694ffbfd3644b8047ae41e8098165cdf5934a60b71f82e30c9"
+checksum = "54e680149a26e9b74a140a143d624c1fe83f6a9d28daf8a12b2bdba261343a71"
 dependencies = [
  "boolinator",
  "fce-utils",
@@ -1376,9 +1392,9 @@ checksum = "b7a516882dccba04f0034e288c1aa5f06ce9da2711a7ce984ceebac8117e185e"
 
 [[package]]
 name = "fce-wit-generator"
-version = "0.1.30"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e19c183d232092a59aeaa4f22212699b3da2acf0bcc5329a9de2a7bb7aa9f87"
+checksum = "1eca715cf832f99fd59dae4f639e4437e5ac92a4470e0879624049f6cb1a3910"
 dependencies = [
  "fce-wit-parser",
  "fluence-sdk-wit",
@@ -1401,9 +1417,9 @@ dependencies = [
 
 [[package]]
 name = "fce-wit-parser"
-version = "0.1.29"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3c96db901280554168870de60ca609dea7bc7bdce9aae58d6c294faf812d43c"
+checksum = "1f59267a5533d352406b7203eee4b9fe918f4671f2f66a990cab9632f528c952"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1460,9 +1476,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.1.30"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fb49d32cad551606cc6ef324b93b0079e7f7f8a54be15176a314098028195cb"
+checksum = "91e6e9afaa4b046d41b62ddce469c300f607d1bb1eb447a7ec2f308cecf4d367"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1500,9 +1516,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-faas"
-version = "0.1.30"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a74511b8a8fc16e3cb3749631824b90f89cecb742cbbaf4e467a0873e34a5a53"
+checksum = "f0696945762ee0d5ed97537bdd0fa1c71957fc23794074ae035d428e90bedae5"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -1514,6 +1530,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "thiserror",
  "toml",
  "wasmer-interface-types-fl",
  "wasmer-runtime-core-fl",
@@ -2449,6 +2466,7 @@ dependencies = [
  "json-utils",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -2568,6 +2586,12 @@ dependencies = [
  "log",
  "winapi",
 ]
+
+[[package]]
+name = "indenter"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4d5eb2e114fec2b7fe0fadc22888ad2658789bb7acac4dbee9cf8389f971ec8"
 
 [[package]]
 name = "indexmap"
@@ -3171,14 +3195,20 @@ name = "particle-modules"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
+ "blake3",
+ "eyre",
+ "faster-hex",
  "fce-wit-parser",
  "fluence-app-service",
  "host-closure",
+ "itertools 0.10.0",
  "ivalue-utils",
  "json-utils",
  "log",
+ "parking_lot 0.11.1",
  "serde",
  "serde_json",
+ "thiserror",
  "toml",
  "uuid",
 ]
@@ -3193,6 +3223,7 @@ dependencies = [
  "async-std",
  "async-unlock",
  "base64 0.13.0",
+ "blake3",
  "bs58 0.3.1",
  "clap",
  "config-utils",
@@ -3281,6 +3312,7 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
+ "thiserror",
  "toml",
  "uuid",
 ]
