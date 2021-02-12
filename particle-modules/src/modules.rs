@@ -52,7 +52,7 @@ impl ModuleRepository {
                     let module = load_module_by_path(&path)?;
                     let hash = ModuleHash::hash(&module);
 
-                    Self::maybe_migrate_module(&path, &hash);
+                    Self::maybe_migrate_module(&path, &hash, &modules_dir);
 
                     let module = load_module_descriptor(&modules_dir, &hash)?;
                     (module.import_name, hash)
@@ -79,8 +79,8 @@ impl ModuleRepository {
 
     /// check that module file name is equal to module hash
     /// if not, rename module and config files
-    fn maybe_migrate_module(path: &Path, hash: &ModuleHash) {
-        try {
+    fn maybe_migrate_module(path: &Path, hash: &ModuleHash, modules_dir: &Path) {
+        let _: Option<_> = try {
             let file_name = extract_module_file_name(&path)?;
             if file_name != hash.to_hex().as_ref() {
                 let new_name = hash.wasm_file_name();
@@ -91,7 +91,7 @@ impl ModuleRepository {
                 let config = path.with_extension("_config.toml");
                 std::fs::rename(&config, modules_dir.join(new_name)).ok()?;
             }
-        }
+        };
     }
 
     /// Adds a module to the filesystem, overwriting existing module.
