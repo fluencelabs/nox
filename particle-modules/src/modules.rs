@@ -80,18 +80,24 @@ impl ModuleRepository {
     /// check that module file name is equal to module hash
     /// if not, rename module and config files
     fn maybe_migrate_module(path: &Path, hash: &ModuleHash, modules_dir: &Path) {
-        let _: Option<_> = try {
-            let file_name = extract_module_file_name(&path)?;
+        use eyre::eyre;
+
+        let migrated: eyre::Result<_> = try {
+            let file_name = extract_module_file_name(&path).ok_or(eyre!("none"))?;
             if file_name != hash.to_hex().as_ref() {
                 let new_name = hash.wasm_file_name();
                 log::info!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
-                std::fs::rename(&path, modules_dir.join(hash.wasm_file_name())).ok()?;
+                std::fs::rename(&path, modules_dir.join(hash.wasm_file_name()))?;
                 let new_name = hash.config_file_name();
                 log::info!(target: "migration", "renaming config {}_config.toml to {}", file_name, new_name);
                 let config = path.with_extension("_config.toml");
-                std::fs::rename(&config, modules_dir.join(new_name)).ok()?;
+                std::fs::rename(&config, modules_dir.join(new_name))?;
             }
         };
+
+        if let Err(e) = migrated {
+            log::warn!("Module {:?} migration failed: {:?}", path, e);
+        }
     }
 
     /// Adds a module to the filesystem, overwriting existing module.
