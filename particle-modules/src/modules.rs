@@ -43,11 +43,10 @@ pub struct ModuleRepository {
 
 impl ModuleRepository {
     pub fn new(modules_dir: &Path, blueprints_dir: &Path) -> Self {
-        log::info!(target: "debug_migration", "creating ModuleRepository from dir {:?}", modules_dir);
         let modules_by_name: HashMap<_, _> = files::list_files(&modules_dir)
             .into_iter()
             .flatten()
-            .filter(|path| dbg!(is_module_wasm(dbg!(&path))))
+            .filter(|path| is_module_wasm(&path))
             .filter_map(|path| {
                 let name_hash: Result<_> = try {
                     let module = load_module_by_path(&path)?;
@@ -58,8 +57,6 @@ impl ModuleRepository {
                     let module = load_module_descriptor(&modules_dir, &hash)?;
                     (module.import_name, hash)
                 };
-
-                dbg!(&name_hash);
 
                 match name_hash {
                     Ok(name_hash) => Some(name_hash),
@@ -233,8 +230,9 @@ impl ModuleRepository {
             .dependencies
             .into_iter()
             .map(|module| {
-                let hash = resolve_hash(&self.modules_by_name, module)?;
-                let config = load_module_descriptor(&self.modules_dir, &hash)?;
+                log::info!(target: "debug", "resolving module {}", module);
+                let hash = dbg!(resolve_hash(&self.modules_by_name, module))?;
+                let config = dbg!(load_module_descriptor(&self.modules_dir, &hash))?;
                 Ok(config)
             })
             .collect::<Result<_>>()?;

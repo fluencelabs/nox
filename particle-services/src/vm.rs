@@ -33,6 +33,8 @@ pub fn create_vm(
     try {
         let modules_config = modules.resolve_blueprint(&blueprint_id)?;
 
+        log::info!(target: "debug", "modules config for blueprint {}: {:#?}", blueprint_id, modules_config);
+
         let modules = AppServiceConfig {
             service_base_dir: config.workdir,
             faas_config: FaaSConfig {
