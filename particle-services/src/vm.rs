@@ -35,7 +35,7 @@ pub fn create_vm(
 
         log::info!(target: "debug", "modules config for blueprint {}", blueprint_id);
         for d in modules_config.iter() {
-            log::info!(target: "debug", "import_name: {}\nfile_name: {}\nconfig: {:#?}", d.import_name, d.file_name);
+            log::info!(target: "debug", "import_name: {}\nfile_name: {}\nconfig", d.import_name, d.file_name);
         }
 
         let modules = AppServiceConfig {
