@@ -232,7 +232,7 @@ impl ModuleRepository {
             .map(|module| {
                 log::info!(target: "debug", "resolving module {}", module);
                 let hash = dbg!(resolve_hash(&self.modules_by_name, module))?;
-                let config = dbg!(load_module_descriptor(&self.modules_dir, &hash))?;
+                let config = load_module_descriptor(&self.modules_dir, &hash)?;
                 Ok(config)
             })
             .collect::<Result<_>>()?;
