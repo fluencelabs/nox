@@ -64,7 +64,7 @@ impl ModuleRepository {
                 match name_hash {
                     Ok(name_hash) => Some(name_hash),
                     Err(err) => {
-                        log::warn!("Error loading module list: {}", err);
+                        log::warn!("Error loading module list: {:?}", err);
                         None
                     }
                 }
@@ -94,8 +94,8 @@ impl ModuleRepository {
                 log::info!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
                 std::fs::rename(&path, modules_dir.join(hash.wasm_file_name()))?;
                 let new_name = hash.config_file_name();
-                log::info!(target: "migration", "renaming config {}_config.toml to {}", file_name, new_name);
-                let config = path.with_extension("_config.toml");
+                let config = path.with_file_name(format!("{}_config.toml", file_name));
+                log::info!(target: "migration", "renaming config {:?} to {}", config.file_name().unwrap(), new_name);
                 std::fs::rename(&config, modules_dir.join(new_name))?;
             }
         };
