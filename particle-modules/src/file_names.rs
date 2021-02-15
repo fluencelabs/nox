@@ -17,7 +17,7 @@
 use crate::blueprint::Blueprint;
 use crate::dependency::ModuleHash;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Calculates filename of the config for a wasm module
 pub(super) fn module_config_name(module_hash: &ModuleHash) -> String {
@@ -52,15 +52,61 @@ pub(super) fn extract_module_file_name(path: &Path) -> Option<&str> {
 }
 
 pub(super) fn is_module_wasm(path: &Path) -> bool {
-    path.ends_with(".wasm")
+    path.extension().map_or(false, |ext| ext == "wasm")
 }
 
 pub fn service_file_name(service_id: &str) -> String {
     format!("{}_service.toml", service_id)
 }
 
-pub fn is_service(path: &PathBuf) -> bool {
+pub fn is_service(path: &Path) -> bool {
     path.file_name()
         .and_then(|n| n.to_str())
         .map_or(false, |n| n.ends_with("_service.toml"))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::file_names::{extract_module_file_name, is_blueprint, is_module_wasm};
+    use crate::is_service;
+    use std::path::Path;
+
+    #[test]
+    fn is_wasm() {
+        let path = Path::new("/.fluence/services/modules/facade_url_downloader.wasm");
+        assert!(is_module_wasm(&path));
+
+        let path = Path::new("/.fluence/services/modules/facade_url_downloader_config.toml");
+        assert!(!is_module_wasm(&path));
+    }
+
+    #[test]
+    fn is_bp() {
+        let path = "/.fluence/services/modules/facade_url_downloader_blueprint.toml";
+        assert!(is_blueprint(&path));
+
+        let path = "/.fluence/services/modules/facade_url_downloader.wasm";
+        assert!(!is_blueprint(&path));
+    }
+
+    #[test]
+    fn is_srvc() {
+        let path = Path::new("/.fluence/services/modules/facade_url_downloader_service.toml");
+        assert!(is_service(&path));
+
+        let path = Path::new("/.fluence/services/modules/facade_url_downloader.wasm");
+        assert!(!is_service(&path));
+    }
+
+    #[test]
+    fn module_fname() {
+        let path = Path::new("/.fluence/services/modules/facade_url_downloader.wasm");
+        assert_eq!(
+            extract_module_file_name(&path),
+            Some("facade_url_downloader")
+        );
+
+        let path = Path::new("/.fluence/services/modules/facade_url_downloader_config.toml");
+        assert_eq!(extract_module_file_name(&path), None);
+    }
 }
