@@ -47,7 +47,7 @@ impl ModuleRepository {
         let modules_by_name: HashMap<_, _> = files::list_files(&modules_dir)
             .into_iter()
             .flatten()
-            .filter(|path| is_module_wasm(&path))
+            .filter(|path| dbg!(is_module_wasm(dbg!(&path))))
             .filter_map(|path| {
                 let name_hash: Result<_> = try {
                     let module = load_module_by_path(&path)?;
@@ -58,6 +58,8 @@ impl ModuleRepository {
                     let module = load_module_descriptor(&modules_dir, &hash)?;
                     (module.import_name, hash)
                 };
+
+                dbg!(name_hash);
 
                 match name_hash {
                     Ok(name_hash) => Some(name_hash),
