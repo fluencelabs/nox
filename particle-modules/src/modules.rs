@@ -59,7 +59,7 @@ impl ModuleRepository {
                     (module.import_name, hash)
                 };
 
-                dbg!(name_hash);
+                dbg!(&name_hash);
 
                 match name_hash {
                     Ok(name_hash) => Some(name_hash),
