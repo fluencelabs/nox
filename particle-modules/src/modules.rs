@@ -68,8 +68,6 @@ impl ModuleRepository {
             })
             .collect();
 
-        log::info!(target: "debug_migration", "modules_by_name: {:#?}", modules_by_name);
-
         let modules_by_name = Arc::new(Mutex::new(modules_by_name));
 
         Self {
@@ -230,8 +228,7 @@ impl ModuleRepository {
             .dependencies
             .into_iter()
             .map(|module| {
-                log::info!(target: "debug", "resolving module {}", module);
-                let hash = dbg!(resolve_hash(&self.modules_by_name, module))?;
+                let hash = resolve_hash(&self.modules_by_name, module)?;
                 let config = load_module_descriptor(&self.modules_dir, &hash)?;
                 Ok(config)
             })
