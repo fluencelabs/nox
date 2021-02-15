@@ -43,6 +43,7 @@ pub struct ModuleRepository {
 
 impl ModuleRepository {
     pub fn new(modules_dir: &Path, blueprints_dir: &Path) -> Self {
+        log::info!(target: "debug_migration", "creating ModuleRepository from dir {:?}", modules_dir);
         let modules_by_name: HashMap<_, _> = files::list_files(&modules_dir)
             .into_iter()
             .flatten()
@@ -67,6 +68,8 @@ impl ModuleRepository {
                 }
             })
             .collect();
+
+        log::info!(target: "debug_migration", "modules_by_name: {:#?}", modules_by_name);
 
         let modules_by_name = Arc::new(Mutex::new(modules_by_name));
 
