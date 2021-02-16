@@ -97,7 +97,7 @@ fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut Conn
             (call node ("dht" "neighborhood") ["{name}"] neighbors)
             (fold neighbors n
                 (seq
-                    (call n ("dht" "add_provider") ["{name}" provider])
+                    (call n ("deprecated" "add_provider") ["{name}" provider])
                     (next n)
                 )
             )
@@ -124,7 +124,7 @@ fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Pro
                 (call node ("dht" "neighborhood") ["{name}"] neighbors)
                 (fold neighbors n
                     (seq
-                        (call n ("dht" "get_providers") ["{name}"] providers_{orig_name}[])
+                        (call n ("deprecated" "get_providers") ["{name}"] providers_{orig_name}[])
                         (next n)
                     )
                 )

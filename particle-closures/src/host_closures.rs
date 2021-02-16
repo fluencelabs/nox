@@ -118,10 +118,10 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("peer", "is_connected")   => wrap(self.is_connected(args)),
             ("peer", "connect")        => wrap(self.connect(args)),
             ("peer", "get_contact")    => wrap_opt(self.get_contact(args)),
+            ("peer", "identify")       => (self.identify)(args),
+            ("peer", "timestamp")      => todo!(),
 
-            ("dht", "neighborhood")    => wrap(self.neighborhood(args)),
-            ("dht", "add_provider")    => (self.add_provider)(args),
-            ("dht", "get_providers")   => (self.get_providers)(args),
+            ("kad", "neighborhood")    => wrap(self.neighborhood(args)),
 
             ("srv", "create")          => (self.create_service)(params, args),
             ("srv", "get_interface")   => (self.get_interface)(args),
@@ -136,8 +136,10 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("script", "remove")       => wrap(self.remove_script(args, params)),
             ("script", "list")         => wrap(self.list_scripts()),
 
-            ("op", "identify")         => (self.identify)(args),
             ("op", "identity")         => ok(Array(args.function_args)),
+
+            ("deprecated", "add_provider")    => (self.add_provider)(args),
+            ("deprecated", "get_providers")   => (self.get_providers)(args),
 
             _ => (self.call_service)(params, args),
         }
