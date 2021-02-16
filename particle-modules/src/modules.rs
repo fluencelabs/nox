@@ -143,8 +143,7 @@ impl ModuleRepository {
         })
     }
 
-    /// Get available modules (intersection of modules from config + modules on filesystem)
-    pub fn get_modules(&self) -> Closure {
+    pub fn list_modules(&self) -> Closure {
         let modules_dir = self.modules_dir.clone();
         closure(move |_| {
             let modules = files::list_files(&modules_dir)
@@ -156,19 +155,18 @@ impl ModuleRepository {
                         let hash = ModuleHash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
                         let config = modules_dir.join(hash.config_file_name());
                         let config = load_config_by_path(&config).wrap_err(f!("load config ${config:?}"))?;
-                        let interface = module_interface(&path).wrap_err(f!("parse interface ${path:?}"))?;
-                        let interface = serde_json::to_value(interface).wrap_err(f!("serialize interface ${path:?}"))?;
-                        (hash, config, interface)
+
+                        (hash, config)
                     };
+
                     let result = match result {
-                        Ok((hash, config, interface)) => json!({
+                        Ok((hash, config)) => json!({
                             "name": config.name,
                             "hash": hash.to_hex().as_ref(),
-                            "interface": interface,
                             "config": config.config,
                         }),
                         Err(err) => {
-                            log::warn!("get_modules error: {:?}", err);
+                            log::warn!("list_modules error: {:?}", err);
                             json!({
                                 "invalid_file_name": hash,
                                 "error": format!("{:?}", err).split("Stack backtrace:").next().unwrap_or_default(),
@@ -180,7 +178,28 @@ impl ModuleRepository {
                 })
                 .collect();
 
-            Ok(JValue::Array(modules))
+            Ok(modules)
+        })
+    }
+
+    pub fn get_interface(&self) -> Closure {
+        let modules_dir = self.modules_dir.clone();
+        closure(move |mut args| {
+            let interface: eyre::Result<_> = try {
+                let hash: String = Args::next("hash", &mut args)?;
+                let hash = ModuleHash::from_hex(&hash)?;
+                let path = modules_dir.join(hash.config_file_name());
+                let interface =
+                    module_interface(&path).wrap_err(f!("parse interface ${path:?}"))?;
+
+                json!(interface)
+            };
+            interface.map_err(|err| {
+                json!(format!("{:?}", err)
+                    .split("Stack backtrace:")
+                    .next()
+                    .unwrap_or_default())
+            })
         })
     }
 
@@ -195,25 +214,27 @@ impl ModuleRepository {
                     .flatten()
                     .filter_map(|path| {
                         // Check if file name matches blueprint schema
-                        let fname = path
-                            .file_name()?
-                            .to_str()
-                            .filter(|s| file_names::is_blueprint(s))?;
+                        let fname = path.file_name()?.to_str()?;
+                        if !file_names::is_blueprint(fname) {
+                            return None;
+                        }
 
-                        // Read & deserialize TOML
-                        let bytes = std::fs::read(&path)
-                            .map_err(|err| {
-                                log::warn!("failed to read blueprint {}: {:#?}", fname, err)
-                            })
-                            .ok()?;
-                        let blueprint: Blueprint = toml::from_slice(bytes.as_slice())
-                            .map_err(|err| {
-                                log::warn!("failed to deserialize blueprint {}: {:#?}", fname, err)
-                            })
-                            .ok()?;
+                        let blueprint: eyre::Result<_> = try {
+                            // Read & deserialize TOML
+                            let bytes = std::fs::read(&path)?;
+                            let blueprint: Blueprint = toml::from_slice(&bytes)?;
 
-                        // Convert to json
-                        serde_json::to_value(blueprint).ok()
+                            // Convert to json
+                            serde_json::to_value(blueprint)?
+                        };
+
+                        match blueprint {
+                            Ok(blueprint) => Some(blueprint),
+                            Err(err) => {
+                                log::warn!("get_blueprints error on file {}: {:?}", fname, err);
+                                None
+                            }
+                        }
                     })
                     .collect(),
             ))

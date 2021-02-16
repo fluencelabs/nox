@@ -3186,6 +3186,7 @@ dependencies = [
  "kademlia",
  "log",
  "multihash",
+ "now-millis",
  "parking_lot 0.11.1",
  "particle-modules",
  "particle-protocol",

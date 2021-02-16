@@ -21,6 +21,7 @@ json-utils = { path = "../crates/json-utils" }
 fluence-libp2p = { path = "../crates/libp2p" }
 waiting-queues = { path = "../crates/waiting-queues" }
 async-unlock = { path = "../crates/async-unlock" }
+now-millis = { path = "../crates/now-millis" }
 
 trust-graph = "0.2.0"
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.2" }

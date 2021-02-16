@@ -22,6 +22,7 @@ use host_closure::{
 };
 use ivalue_utils::{into_record, into_record_opt, ok, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
+use now_millis::now_ms;
 use particle_protocol::Contact;
 use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
@@ -44,17 +45,23 @@ use JValue::Array;
 pub struct HostClosures<C> {
     pub create_service: ParticleClosure,
     pub call_service: ParticleClosure,
+
     pub add_module: Closure,
     pub add_blueprint: Closure,
-    pub get_modules: Closure,
+    pub list_modules: Closure,
+    pub get_module_interface: Closure,
     pub get_blueprints: Closure,
-    pub add_provider: Closure,
-    pub get_providers: Closure,
+
     pub get_interface: Closure,
     pub list_services: Closure,
+
     pub identify: Closure,
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
+
+    // deprecated
+    pub add_provider: Closure,
+    pub get_providers: Closure,
 }
 
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
@@ -76,7 +83,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Self {
             add_provider: providers.add_provider(),
             get_providers: providers.get_providers(),
-            get_modules: modules.get_modules(),
+            list_modules: modules.list_modules(),
+            get_module_interface: modules.get_interface(),
             get_blueprints: modules.get_blueprints(),
             add_module: modules.add_module(),
             add_blueprint: modules.add_blueprint(),
@@ -115,28 +123,29 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("peer", "is_connected")   => wrap(self.is_connected(args)),
-            ("peer", "connect")        => wrap(self.connect(args)),
-            ("peer", "get_contact")    => wrap_opt(self.get_contact(args)),
-            ("peer", "identify")       => (self.identify)(args),
-            ("peer", "timestamp")      => todo!(),
+            ("peer", "is_connected")          => wrap(self.is_connected(args)),
+            ("peer", "connect")               => wrap(self.connect(args)),
+            ("peer", "get_contact")           => wrap_opt(self.get_contact(args)),
+            ("peer", "identify")              => (self.identify)(args),
+            ("peer", "timestamp")             => ok(json!(now_ms())),
 
-            ("kad", "neighborhood")    => wrap(self.neighborhood(args)),
+            ("kad", "neighborhood")           => wrap(self.neighborhood(args)),
 
-            ("srv", "create")          => (self.create_service)(params, args),
-            ("srv", "list")            => (self.list_services)(args),
-            ("srv", "get_interface")   => (self.get_interface)(args),
+            ("srv", "create")                 => (self.create_service)(params, args),
+            ("srv", "list")                   => (self.list_services)(args),
+            ("srv", "get_interface")          => (self.get_interface)(args),
 
-            ("dist", "add_module")     => (self.add_module)(args),
-            ("dist", "add_blueprint")  => (self.add_blueprint)(args),
-            ("dist", "get_modules")    => (self.get_modules)(args),
-            ("dist", "get_blueprints") => (self.get_blueprints)(args),
+            ("dist", "add_module")            => (self.add_module)(args),
+            ("dist", "list_modules")          => (self.list_modules)(args),
+            ("dist", "get_module_interface")  => (self.get_interface)(args),
+            ("dist", "add_blueprint")         => (self.add_blueprint)(args),
+            ("dist", "list_blueprints")       => (self.get_blueprints)(args),
 
-            ("script", "add")          => wrap(self.add_script(args, params)),
-            ("script", "remove")       => wrap(self.remove_script(args, params)),
-            ("script", "list")         => wrap(self.list_scripts()),
+            ("script", "add")                 => wrap(self.add_script(args, params)),
+            ("script", "remove")              => wrap(self.remove_script(args, params)),
+            ("script", "list")                => wrap(self.list_scripts()),
 
-            ("op", "identity")         => ok(Array(args.function_args)),
+            ("op", "identity")                => ok(Array(args.function_args)),
 
             ("deprecated", "add_provider")    => (self.add_provider)(args),
             ("deprecated", "get_providers")   => (self.get_providers)(args),
