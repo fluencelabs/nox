@@ -13,7 +13,7 @@ waiting-queues = { path = "../waiting-queues" }
 fluence-libp2p = { path = "../libp2p" }
 server-config = { path = "../server-config" }
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.34.1" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.2" }
 
 multihash = "0.13.2"
 once_cell = "1.4.1"

@@ -165,9 +165,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.4.3"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87faf24e3d00731adb8bfbe76742e9ab0eb67441abf067853fb34352ca25f425"
+checksum = "8921cf62954f2be6c82406978dbfde44235e6e6de11c5bffc80e12af718a5661"
 dependencies = [
  "built",
 ]
@@ -1540,9 +1540,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71e3fff663cf397c94bd535024aa7a2679457f35b4b65c6f1ed2f238d0804f40"
+checksum = "f17fbef2694f9b4a7a0716089a538ac302800e1e47ed24b72c70a298e578d5cc"
 dependencies = [
  "atomic",
  "bytes",
@@ -1578,9 +1578,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-core"
-version = "0.26.1"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44841231bdecbeb4f52baa21d41c33f9a5e8f052b428c32aa66c4f37fe720f74"
+checksum = "d7a0ff16ca65d06d75b5f36a80f1b1ac908237cf5d7ffee1c6cfa762d905129d"
 dependencies = [
  "asn1_der",
  "bs58 0.4.0",
