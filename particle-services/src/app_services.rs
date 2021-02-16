@@ -108,7 +108,7 @@ impl ParticleAppServices {
         let host_id = self.config.local_peer_id.to_string();
 
         Arc::new(move |particle_params, args| {
-            let call = || -> Result<JValue, ServiceError> {
+            let call: eyre::Result<_> = try {
                 let services = services.read();
                 let vm = services
                     .get(&args.service_id)
@@ -123,22 +123,19 @@ impl ParticleAppServices {
                     service_creator_peer_id: vm.owner_id.clone(),
                 };
 
-                let result = vm
-                    .lock()
-                    .call(
-                        args.function_name,
-                        JValue::Array(args.function_args),
-                        params,
-                    )
-                    .map_err(ServiceError::Engine)?;
-
-                Ok(result)
+                let mut vm = vm.lock();
+                vm.call(
+                    args.function_name,
+                    JValue::Array(args.function_args),
+                    params,
+                )
+                .map_err(ServiceError::Engine)?
             };
 
-            match call() {
+            match call {
                 Ok(result) => ivalue_utils::ok(result),
                 Err(err) => {
-                    log::warn!("call_service error: {}", err);
+                    log::warn!("call_service error: {:?}", err);
                     ivalue_utils::error(json!(err.to_string()))
                 }
             }
@@ -158,20 +155,23 @@ impl ParticleAppServices {
         })
     }
 
-    pub fn get_active_interfaces(&self) -> Closure {
+    pub fn list_services(&self) -> Closure {
         let services = self.services.clone();
 
         closure(move |_| {
             let services = services.read();
-            let interfaces = services
+            let services = services
                 .iter()
-                .map(|(id, vm)| match get_vm_interface(vm, id.as_str().into()) {
-                    Ok(iface) => iface,
-                    Err(err) => json!({ "service_id": id, "error": JValue::from(err)}),
+                .map(|(id, srv)| {
+                    json!({
+                        "id": id,
+                        "blueprint_id": srv.blueprint_id,
+                        "owner_id": srv.owner_id,
+                    })
                 })
                 .collect();
 
-            Ok(interfaces)
+            Ok(services)
         })
     }
 

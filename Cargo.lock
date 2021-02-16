@@ -3314,6 +3314,7 @@ name = "particle-services"
 version = "0.1.0"
 dependencies = [
  "config-utils",
+ "eyre",
  "fluence-app-service",
  "futures",
  "host-closure",
