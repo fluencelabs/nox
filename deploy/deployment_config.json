@@ -13,7 +13,7 @@
       "159.89.2.70",
       "157.230.98.75"
     ],
-    "branch": "migrate_modules",
+    "branch": "latest",
     "bootstrap": "138.197.177.2",
     "nodes": [
       "138.197.177.2"

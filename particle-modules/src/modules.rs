@@ -155,9 +155,9 @@ impl ModuleRepository {
                     let result: eyre::Result<_> = try {
                         let hash = ModuleHash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
                         let config = modules_dir.join(hash.config_file_name());
-                        let config = load_config_by_path(&config).wrap_err("load config")?;
-                        let interface = module_interface(&path).wrap_err("parse interface")?;
-                        let interface = serde_json::to_value(interface).wrap_err("serialize")?;
+                        let config = load_config_by_path(&config).wrap_err(f!("load config ${config:?}"))?;
+                        let interface = module_interface(&path).wrap_err(f!("parse interface ${path:?}"))?;
+                        let interface = serde_json::to_value(interface).wrap_err(f!("serialize interface ${path:?}"))?;
                         (hash, config, interface)
                     };
                     let result = match result {
