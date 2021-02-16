@@ -26,6 +26,9 @@
     unreachable_patterns
 )]
 
+#[macro_use]
+extern crate fstrings;
+
 mod blueprint;
 mod dependency;
 mod error;

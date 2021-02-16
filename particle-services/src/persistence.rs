@@ -82,17 +82,17 @@ pub fn load_persisted_services(
     };
 
     files
-        .filter(is_service)
+        .filter(|p| is_service(&p))
         .map(|file| {
             // Load service's persisted info
             let bytes = std::fs::read(&file).map_err(|err| ReadPersistedService {
                 err,
-                path: file.clone(),
+                path: file.to_path_buf(),
             })?;
             let service =
                 toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedService {
                     err,
-                    path: file.clone(),
+                    path: file.to_path_buf(),
                 })?;
 
             Ok(service)

@@ -3200,6 +3200,7 @@ dependencies = [
  "faster-hex",
  "fce-wit-parser",
  "fluence-app-service",
+ "fstrings",
  "host-closure",
  "itertools 0.10.0",
  "ivalue-utils",

@@ -42,9 +42,13 @@ pub fn load_module_descriptor(
 ) -> Result<ModuleDescriptor> {
     let config = modules_dir.join(module_hash.config_file_name());
     let config = load_config_by_path(&config)?;
-    let config = config
+    let mut config: ModuleDescriptor = config
         .try_into()
         .map_err(|err| ModuleConvertError { err })?;
+
+    // TODO HACK: This is required because by default file_name is set to be same as import_name
+    //            That behavior is defined in TomlFaaSNamedModuleConfig. Would be nice to refactor that behavior.
+    config.file_name = module_hash.wasm_file_name();
 
     Ok(config)
 }
