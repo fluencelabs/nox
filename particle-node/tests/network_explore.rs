@@ -88,7 +88,8 @@ fn get_interfaces() {
         },
     );
 
-    let value = client.receive_args().into_iter().next().unwrap();
+    let value = client.receive_args().wrap_err("receive args").unwrap();
+    let value = value.into_iter().next().unwrap();
     let vm_descriptors: Vec<VmDescriptor> = serde_json::from_value(value)
         .wrap_err("deserialize vm descriptors")
         .unwrap();
@@ -129,7 +130,8 @@ fn get_modules() {
         },
     );
 
-    let value = client.receive_args().into_iter().next().unwrap();
+    let value = client.receive_args().wrap_err("receive args").unwrap();
+    let value = value.into_iter().next().unwrap();
     let modules: Vec<ModuleDescriptor> = serde_json::from_value(value).unwrap();
     assert_eq!(modules[0].name.as_deref(), Some("greeting"));
 }
@@ -171,7 +173,8 @@ fn list_blueprints() {
         },
     );
 
-    let mut args = client.receive_args().into_iter();
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let mut args = args.into_iter();
     let value = args.next().unwrap();
     let bp: Vec<Blueprint> = serde_json::from_value(value)
         .wrap_err("deserialize blueprint")
@@ -238,7 +241,8 @@ fn explore_services() {
     );
 
     client.timeout = Duration::from_secs(120);
-    let mut args = client.receive_args().into_iter();
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let mut args = args.into_iter();
     let services = args.next().unwrap();
     println!("{}", services);
 

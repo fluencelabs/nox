@@ -42,7 +42,7 @@ fn neighborhood() {
             "client" => json!(client.peer_id.to_string())
         },
     );
-    let response = client.receive_args();
+    let response = client.receive_args().wrap_err("receive").unwrap();
     if let JValue::Array(neighborhood) = response[0].clone() {
         assert_eq!(neighborhood.len(), 2);
 

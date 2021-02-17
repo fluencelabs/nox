@@ -47,7 +47,8 @@ fn stream_hello() {
     );
 
     for _ in 1..10 {
-        let res = client.receive_args().into_iter().next().unwrap();
+        let res = client.receive_args().wrap_err("receive").unwrap();
+        let res = res.into_iter().next().unwrap();
         assert_eq!(res, "hello");
     }
 }
@@ -145,7 +146,8 @@ fn script_routing() {
     );
 
     for _ in 1..10 {
-        let res = client.receive_args().into_iter().next().unwrap();
+        let res = client.receive_args().wrap_err("receive args").unwrap();
+        let res = res.into_iter().next().unwrap();
         assert_eq!(res, "hello");
     }
 }
@@ -173,7 +175,8 @@ fn autoremove_singleshot() {
         },
     );
 
-    let res = client.receive_args().into_iter().next().unwrap();
+    let res = client.receive_args().wrap_err("receive args").unwrap();
+    let res = res.into_iter().next().unwrap();
     assert_eq!(res, "hello");
 
     let list_id = client.send_particle(

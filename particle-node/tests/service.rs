@@ -68,6 +68,6 @@ fn create_service() {
         },
     );
 
-    let response = client2.receive_args();
+    let response = client2.receive_args().wrap_err("receive").unwrap();
     assert_eq!(response[0].as_str().unwrap(), "Hi, folex")
 }

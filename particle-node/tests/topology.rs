@@ -56,7 +56,7 @@ fn identity() {
         },
     );
 
-    b.receive();
+    b.receive().wrap_err("receive").unwrap();
 }
 
 #[test]
@@ -83,5 +83,5 @@ fn init_peer_id() {
         },
     );
 
-    client.receive();
+    client.receive().wrap_err("receive").unwrap();
 }

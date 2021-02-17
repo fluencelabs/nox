@@ -15,6 +15,7 @@
  */
 
 use crate::{test_module, test_module_cfg, ConnectedClient};
+use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
 
@@ -54,7 +55,7 @@ pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
     };
 
     client.send_particle(script, data);
-    let response = client.receive_args();
+    let response = client.receive_args().wrap_err("receive args").unwrap();
 
     let service_id = response[0].as_str().expect("service_id").to_string();
 

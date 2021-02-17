@@ -4359,7 +4359,6 @@ name = "test-utils"
 version = "0.2.0"
 dependencies = [
  "air-interpreter-wasm",
- "anyhow",
  "aquamarine",
  "aquamarine-vm",
  "async-std",

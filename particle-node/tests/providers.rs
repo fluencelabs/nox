@@ -68,7 +68,7 @@ fn add_providers() {
         },
     );
 
-    let particle = client2.receive_args();
+    let particle = client2.receive_args().wrap_err("receive").unwrap();
     let providers = particle[0]
         .as_array()
         .ok_or(eyre!("empty providers"))
@@ -162,7 +162,7 @@ fn add_providers_to_neighborhood() {
         },
     );
 
-    let response = client2.receive_args();
+    let response = client2.receive_args().wrap_err("receive").unwrap();
     let providers = into_array(response[0].clone())
         .wrap_err(format!(
             "providers must be array, response was {:#?}",

@@ -48,6 +48,7 @@ fn identify() {
         },
     );
 
-    let info = client.receive_args().into_iter().next().unwrap();
+    let info = client.receive_args().wrap_err("receive args").unwrap();
+    let info = info.into_iter().next().unwrap();
     let _: NodeInfo = serde_json::from_value(info).unwrap();
 }

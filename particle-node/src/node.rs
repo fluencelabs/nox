@@ -260,6 +260,7 @@ mod tests {
     use crate::node::write_default_air_interpreter;
     use crate::Node;
     use ctrlc_adapter::block_until_ctrlc;
+    use eyre::WrapErr;
     use fluence_libp2p::RandomPeerId;
     use libp2p::core::connection::ConnectionId;
     use libp2p::core::Multiaddr;
@@ -304,9 +305,7 @@ mod tests {
             "#,
             data.clone(),
         );
-        let response = client.receive_args();
+        let response = client.receive_args().wrap_err("receive args").unwrap();
         println!("got response!: {:#?}", response);
-
-        // block_until_ctrlc();
     }
 }

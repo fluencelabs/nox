@@ -83,7 +83,7 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
     };
 
     client.send_particle(script, data);
-    let response = client.receive_args();
+    let response = client.receive_args().wrap_err("receive").unwrap();
 
     response[0]
         .as_str()
@@ -145,7 +145,7 @@ fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Pro
             "node" => json!(client.node.to_string()),
         },
     );
-    let response = client.receive_args();
+    let response = client.receive_args().wrap_err("receive").unwrap();
     println!("resolve_service {} respoonse: {:#?}", orig_name, response);
     let providers = into_array(response[0].clone())
         .wrap_err(format!("missing providers: {:#?}", response))
@@ -193,7 +193,7 @@ fn call_service(alias: &str, fname: &str, args: &[(&'static str, JValue)], clien
     
     client.send_particle(script, data);
 
-    client.receive_args()[0].take()
+    client.receive_args().wrap_err("receive args").unwrap()[0].take()
 }
 
 fn create_history(client: &mut ConnectedClient) -> String {
@@ -336,9 +336,9 @@ fn test_chat() {
     assert_eq!(1 + node_count, get_users(&mut client).len());
 
     send_message(r#"привет\ вованы"#, r#"главный\ Вован🤡"#, &mut client);
-    client.receive();
+    client.receive().wrap_err("receive").unwrap();
     for c in clients.iter_mut() {
-        c.receive();
+        c.receive().wrap_err("receive").unwrap();
     }
     let history = get_history(&mut client);
     assert_eq!(3, history.len());

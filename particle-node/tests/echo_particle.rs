@@ -42,6 +42,6 @@ fn echo_particle() {
         )"#,
         data.clone(),
     );
-    let response = client.receive_args();
+    let response = client.receive_args().wrap_err("receive").unwrap();
     assert_eq!(data["name"], response[0]);
 }
