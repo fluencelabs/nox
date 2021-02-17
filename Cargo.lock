@@ -4368,6 +4368,7 @@ dependencies = [
  "config-utils",
  "connection-pool",
  "env_logger",
+ "eyre",
  "fluence-client",
  "fluence-fork-libp2p",
  "fluence-libp2p",

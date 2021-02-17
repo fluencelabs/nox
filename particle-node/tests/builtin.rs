@@ -16,6 +16,7 @@
 
 use test_utils::{make_swarms, ConnectedClient};
 
+use eyre::WrapErr;
 use libp2p::core::Multiaddr;
 use maplit::hashmap;
 use serde::Deserialize;
@@ -30,7 +31,9 @@ struct NodeInfo {
 fn identify() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     client.send_particle(
         r#"

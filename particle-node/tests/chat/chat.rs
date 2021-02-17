@@ -38,6 +38,7 @@ use json_utils::into_array;
 use particle_providers::Provider;
 use test_utils::{connect_swarms, module_config, ConnectedClient};
 
+use eyre::{ContextCompat, WrapErr};
 use fstrings::f;
 use itertools::Itertools;
 use libp2p::PeerId;
@@ -47,9 +48,9 @@ use std::{collections::HashSet, path::PathBuf};
 
 fn load_module(name: &str) -> Vec<u8> {
     let module = to_abs_path(PathBuf::from("tests/chat/").join(name));
-    let module = std::fs::read(&module).expect(format!("fs::read from {:?}", module).as_str());
+    let module = std::fs::read(&module).wrap_err(format!("fs::read from {:?}", module));
 
-    module
+    module.unwrap()
 }
 
 fn create_service(client: &mut ConnectedClient, module: &str) -> String {
@@ -86,7 +87,8 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
 
     response[0]
         .as_str()
-        .expect("missing service_id")
+        .wrap_err("missing service_id")
+        .unwrap()
         .to_string()
 }
 
@@ -146,14 +148,14 @@ fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Pro
     let response = client.receive_args();
     println!("resolve_service {} respoonse: {:#?}", orig_name, response);
     let providers = into_array(response[0].clone())
-        .expect(format!("missing providers: {:#?}", response).as_str())
-        .into_iter()
-        // .expect(format!("missing providers: {:#?}", response).as_str())
+        .wrap_err(format!("missing providers: {:#?}", response))
+        .unwrap()
         .into_iter()
         .filter_map(|p| {
             let p = into_array(p)?[0].clone();
             serde_json::from_value::<Provider>(p.clone())
-                .expect(format!("deserialize provider: {:#?}", p).as_str())
+                .wrap_err(format!("deserialize provider: {:#?}", p))
+                .unwrap()
                 .into()
         })
         .collect();
@@ -163,8 +165,8 @@ fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Pro
 
 #[rustfmt::skip]
 fn call_service(alias: &str, fname: &str, args: &[(&'static str, JValue)], client: &mut ConnectedClient) -> JValue {
-    let provider = resolve_service(alias, client).into_iter().next().expect(f!("no providers found for {alias}").as_str());
-    let service_id = provider.service_id.expect("get service id");
+    let provider = resolve_service(alias, client).into_iter().next().wrap_err(f!("no providers found for {alias}")).unwrap();
+    let service_id = provider.service_id.wrap_err("get service id").unwrap();
 
     let arg_names = args.iter().map(|(name, _)| *name).join(" ");
     let script = f!(r#"
@@ -225,24 +227,27 @@ fn get_users(client: &mut ConnectedClient) -> Vec<JValue> {
             .remove("users")
             .unwrap(),
     )
-    .expect("user list must be an array")
+    .wrap_err("user list must be an array")
+    .unwrap()
 }
 
 fn get_history(client: &mut ConnectedClient) -> Vec<JValue> {
     let mut response = call_service("history", "get_all", &[], client);
     #[rustfmt::skip]
     let history = response.as_object_mut().unwrap().remove("messages").unwrap();
-    let history = into_array(history).expect("history must be an array");
+    let history = into_array(history)
+        .wrap_err("history must be an array")
+        .unwrap();
 
     history
 }
 
 #[rustfmt::skip]
 fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
-    let history = resolve_service("history", client).into_iter().next().expect("no providers found");
-    let history_id = history.service_id.expect("get service id");
-    let userlist = resolve_service("user-list", client).into_iter().next().expect("no providers found");
-    let userlist_id = userlist.service_id.expect("get service id");
+    let history = resolve_service("history", client).into_iter().next().wrap_err("no providers found").unwrap();
+    let history_id = history.service_id.wrap_err("get service id").unwrap();
+    let userlist = resolve_service("user-list", client).into_iter().next().wrap_err("no providers found").unwrap();
+    let userlist_id = userlist.service_id.wrap_err("get service id").unwrap();
     
     // user = [0]
     // relay = [1]

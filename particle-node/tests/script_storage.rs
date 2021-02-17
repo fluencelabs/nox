@@ -16,6 +16,7 @@
 
 use test_utils::{enable_logs, make_swarms, ConnectedClient};
 
+use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
@@ -27,7 +28,9 @@ extern crate fstrings;
 fn stream_hello() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])
@@ -55,7 +58,9 @@ fn remove_script() {
 
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])
@@ -114,7 +119,9 @@ fn remove_script() {
 fn script_routing() {
     let swarms = make_swarms(3);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = f!(r#"
         (seq
@@ -147,7 +154,9 @@ fn script_routing() {
 fn autoremove_singleshot() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])
@@ -187,7 +196,9 @@ fn autoremove_singleshot() {
 fn autoremove_failed() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = f!(r#"
         INVALID SCRIPT
@@ -232,7 +243,9 @@ fn remove_script_unauth() {
 
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])
@@ -256,7 +269,9 @@ fn remove_script_unauth() {
     let script_id = client.receive_args().into_iter().next().unwrap();
 
     // try to remove from another client, should fail
-    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
     let remove_id = client2.send_particle(
         r#"
         (xor

@@ -19,6 +19,7 @@ use json_utils::into_array;
 use particle_providers::Provider;
 use test_utils::{make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
 
+use eyre::{eyre, ContextCompat, WrapErr};
 use maplit::hashmap;
 use serde_json::json;
 use std::{collections::HashSet, thread::sleep};
@@ -27,8 +28,12 @@ use std::{collections::HashSet, thread::sleep};
 fn add_providers() {
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
-    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
+    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let provider1 = "provider1";
     let provider2 = "provider2";
@@ -64,7 +69,10 @@ fn add_providers() {
     );
 
     let particle = client2.receive_args();
-    let providers = particle[0].as_array().expect("non empty providers");
+    let providers = particle[0]
+        .as_array()
+        .ok_or(eyre!("empty providers"))
+        .unwrap();
     assert_eq!(providers.len(), 2);
     #[rustfmt::skip]
     let find_provider = |service_id: &'static str| {
@@ -80,8 +88,12 @@ fn add_providers_to_neighborhood() {
     let swarms = make_swarms_with_cfg(10, |cfg| cfg);
 
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
-    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
+    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = r#"
     (seq
@@ -152,11 +164,19 @@ fn add_providers_to_neighborhood() {
 
     let response = client2.receive_args();
     let providers = into_array(response[0].clone())
-        .expect(format!("providers must be array, response was {:#?}", response).as_str());
+        .wrap_err(format!(
+            "providers must be array, response was {:#?}",
+            response
+        ))
+        .unwrap();
     let providers: Vec<_> = providers
         .into_iter()
-        .flat_map(|v| into_array(v).expect("must be array"))
-        .map(|v| serde_json::from_value::<Provider>(v).expect("be provider"))
+        .flat_map(|v| into_array(v).wrap_err("must be array").unwrap())
+        .map(|v| {
+            serde_json::from_value::<Provider>(v)
+                .wrap_err("be provider")
+                .unwrap()
+        })
         .collect();
     let providers: HashSet<_> = providers.into_iter().collect();
     assert_eq!(providers.len(), 2);
