@@ -63,7 +63,7 @@ fn init_peer_id() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("dht" "neighborhood") [client] peers)
+            (call relay ("kad" "neighborhood") [client] peers)
             (seq
                 (call relay ("op" "identity") [])
                 (call %init_peer_id% ("event" "peers_discovered") [relay peers])

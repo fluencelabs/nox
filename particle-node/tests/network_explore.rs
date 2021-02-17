@@ -66,7 +66,16 @@ fn get_interfaces() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("srv" "get_interfaces") [] interfaces)
+            (seq
+                (call relay ("srv" "list") [] services)
+                (fold services s
+                    (seq
+                        (call relay ("srv" "get_interface") [s.$.id] interfaces[])
+                        (next s)
+                    )
+                )
+            )
+            
             (call client ("return" "") [interfaces])
         )
         "#,
@@ -180,11 +189,11 @@ fn explore_services() {
         r#"
         (seq
             (seq
-                (call relay ("dht" "neighborhood") [relay] neighs_top)
+                (call relay ("kad" "neighborhood") [relay] neighs_top)
                 (seq
                     (fold neighs_top n
                         (seq
-                            (call n ("dht" "neighborhood") [n] neighs_inner[])
+                            (call n ("kad" "neighborhood") [n] neighs_inner[])
                             (next n)
                         )
                     )
@@ -195,7 +204,7 @@ fn explore_services() {
                             (seq
                                 (fold ns_wrapped.$[0]! n
                                     (seq
-                                        (call n ("op" "identify") [] services[])
+                                        (call n ("peer" "identify") [] services[])
                                         (next n)
                                     )
                                 )
@@ -237,10 +246,10 @@ fn explore_services_fixed() {
             (fold peers p
                 (par
                     (seq
-                        (call p ("srv" "get_interfaces") [] interfaces[])
+                        (call p ("srv" "list_services") [] services[])
                         (seq
                             (call relayId ("op" "identity") [])
-                            (call %init_peer_id% ("return" "") [p interfaces])
+                            (call %init_peer_id% ("return" "") [p services])
                         )
                     )
                     (next p)

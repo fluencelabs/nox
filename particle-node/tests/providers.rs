@@ -85,7 +85,7 @@ fn add_providers_to_neighborhood() {
 
     let script = r#"
     (seq
-        (call node ("dht" "neighborhood") [first_node] neighborhood)
+        (call node ("kad" "neighborhood") [first_node] neighborhood)
         (seq
             (seq
                 (seq

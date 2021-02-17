@@ -35,7 +35,7 @@ fn identify() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("op" "identify") [] info)
+            (call relay ("peer" "identify") [] info)
             (call client ("op" "return") [info])
         ) 
         "#,

@@ -94,7 +94,7 @@ fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut Conn
     let name = bs58::encode(name).into_string();
     let script = f!(r#"
         (seq
-            (call node ("dht" "neighborhood") ["{name}"] neighbors)
+            (call node ("kad" "neighborhood") ["{name}"] neighbors)
             (fold neighbors n
                 (seq
                     (call n ("deprecated" "add_provider") ["{name}" provider])
@@ -121,7 +121,7 @@ fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Pro
     let script = f!(r#"
         (seq
             (seq
-                (call node ("dht" "neighborhood") ["{name}"] neighbors)
+                (call node ("kad" "neighborhood") ["{name}"] neighbors)
                 (fold neighbors n
                     (seq
                         (call n ("deprecated" "get_providers") ["{name}"] providers_{orig_name}[])
