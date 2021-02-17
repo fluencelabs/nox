@@ -110,7 +110,7 @@ fn get_modules() {
         (seq
             (seq
                 (call relay ("dist" "add_module") [module_bytes module_config])
-                (call relay ("dist" "get_modules") [] modules)
+                (call relay ("dist" "list_modules") [] modules)
             )
             (call client ("return" "") [modules])
         )
@@ -126,11 +126,10 @@ fn get_modules() {
     let value = client.receive_args().into_iter().next().unwrap();
     let modules: Vec<ModuleDescriptor> = serde_json::from_value(value).unwrap();
     assert_eq!(modules[0].name.as_deref(), Some("greeting"));
-    assert!(matches!(modules[0].interface, JValue::Object(_)));
 }
 
 #[test]
-fn get_blueprints() {
+fn list_blueprints() {
     enable_logs();
 
     let swarms = make_swarms(3);
@@ -149,7 +148,7 @@ fn get_blueprints() {
             (seq
                 (seq
                     (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
-                    (call relay ("dist" "get_blueprints") [] blueprints)
+                    (call relay ("dist" "list_blueprints") [] blueprints)
                 )
                 (call client ("return" "") [blueprints module_hash])
             )
