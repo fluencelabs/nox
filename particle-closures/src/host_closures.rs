@@ -118,7 +118,6 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             args.service_id,
             args.function_name
         );
-        log::info!(target: "debug", "Host function call, args: {:#?}", args);
         log::trace!("Host function call, args: {:#?}", args);
 
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors

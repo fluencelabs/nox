@@ -80,10 +80,19 @@ impl Args {
         field: &'static str,
         args: &mut impl Iterator<Item = JValue>,
     ) -> Result<T, ArgsError> {
-        let value = args.next().ok_or(MissingField(field))?;
-        let value: T = Self::deserialize(field, value)?;
-
-        Ok(value)
+        let arg = args.next().ok_or(MissingField(field))?;
+        let value: Result<T, _> = Self::deserialize(field, arg.clone());
+        match value {
+            Ok(value) => Ok(value),
+            Err(err) => {
+                let array = Self::deserialize::<Vec<T>>(field, arg);
+                if let Ok(Some(value)) = array.map(|v| v.into_iter().next()) {
+                    Ok(value)
+                } else {
+                    Err(err)
+                }
+            }
+        }
     }
 
     /// Retrieves a json value from iterator if it's not empty, and parses it to T

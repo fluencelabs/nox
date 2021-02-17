@@ -86,11 +86,11 @@ impl ModuleRepository {
             let file_name = extract_module_file_name(&path).ok_or(eyre!("no file name"))?;
             if file_name != hash.to_hex().as_ref() {
                 let new_name = hash.wasm_file_name();
-                log::info!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
+                log::debug!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
                 std::fs::rename(&path, modules_dir.join(hash.wasm_file_name()))?;
                 let new_name = hash.config_file_name();
                 let config = path.with_file_name(format!("{}_config.toml", file_name));
-                log::info!(target: "migration", "renaming config {:?} to {}", config.file_name().unwrap(), new_name);
+                log::debug!(target: "migration", "renaming config {:?} to {}", config.file_name().unwrap(), new_name);
                 std::fs::rename(&config, modules_dir.join(new_name))?;
             }
         };

@@ -28,10 +28,10 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Deserialize)]
-pub struct VmDescriptor {
-    interface: JValue,
+pub struct Service {
     blueprint_id: String,
-    service_id: Option<String>,
+    id: String,
+    owner_id: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -57,6 +57,8 @@ pub struct ModuleDescriptor {
 
 #[test]
 fn get_interfaces() {
+    enable_logs();
+
     let swarms = make_swarms(1);
     sleep(KAD_TIMEOUT);
 
@@ -73,13 +75,13 @@ fn get_interfaces() {
                 (call relay ("srv" "list") [] services)
                 (fold services s
                     (seq
-                        (call relay ("srv" "get_interface") [s.$.id!] interfaces[])
+                        (call relay ("srv" "get_interface") [s.$.id] interfaces[])
                         (next s)
                     )
                 )
             )
             
-            (call client ("return" "") [interfaces])
+            (call client ("return" "") [services interfaces])
         )
         "#,
         hashmap! {
@@ -88,19 +90,17 @@ fn get_interfaces() {
         },
     );
 
-    let value = client.receive_args().wrap_err("receive args").unwrap();
-    let value = value.into_iter().next().unwrap();
-    let vm_descriptors: Vec<VmDescriptor> = serde_json::from_value(value)
-        .wrap_err("deserialize vm descriptors")
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let mut args = args.into_iter();
+    let services = args.next().unwrap();
+    let services: Vec<Service> = serde_json::from_value(services)
+        .wrap_err("deserialize services")
         .unwrap();
-    assert!(vm_descriptors
-        .iter()
-        .find(|d| d.service_id.as_ref().unwrap() == service1.id.as_str())
-        .is_some());
-    assert!(vm_descriptors
-        .iter()
-        .find(|d| d.service_id.as_ref().unwrap() == service2.id.as_str())
-        .is_some());
+    assert!(services.iter().find(|d| d.id == service1.id).is_some());
+    assert!(services.iter().find(|d| d.id == service2.id).is_some());
+
+    let interfaces_count = args.next().unwrap().as_array().unwrap().len();
+    assert_eq!(interfaces_count, 2);
 }
 
 #[test]
@@ -339,6 +339,6 @@ fn explore_services_fixed() {
             .wrap_err("find node with that peer id")
             .unwrap();
 
-        let _: Vec<Vec<VmDescriptor>> = serde_json::from_value(interface).unwrap();
+        let _: Vec<Vec<Service>> = serde_json::from_value(interface).unwrap();
     }
 }
