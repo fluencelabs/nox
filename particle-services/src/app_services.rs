@@ -19,7 +19,7 @@ use crate::persistence::load_persisted_services;
 use crate::vm::create_vm;
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use host_closure::{closure, closure_args, closure_params, Args, Closure, ParticleClosure};
+use host_closure::{closure, closure_params, Args, Closure, ParticleClosure};
 use server_config::ServicesConfig;
 
 use parking_lot::{Mutex, RwLock};
@@ -112,7 +112,7 @@ impl ParticleAppServices {
                 let services = services.read();
                 let vm = services
                     .get(&args.service_id)
-                    .ok_or_else(|| ServiceError::NoSuchInstance(args.service_id.clone()))?;
+                    .ok_or_else(|| ServiceError::NoSuchService(args.service_id.clone()))?;
 
                 let params = CallParameters {
                     host_id: host_id.clone(),
@@ -145,11 +145,12 @@ impl ParticleAppServices {
     pub fn get_interface(&self) -> Closure {
         let services = self.services.clone();
 
-        closure_args(move |args| {
+        closure(move |mut args| {
             let services = services.read();
+            let service_id: String = Args::next("service_id", &mut args)?;
             let vm = services
-                .get(&args.service_id)
-                .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
+                .get(&service_id)
+                .ok_or(ServiceError::NoSuchService(service_id))?;
 
             Ok(get_vm_interface(vm, None)?)
         })

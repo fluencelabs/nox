@@ -165,9 +165,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8921cf62954f2be6c82406978dbfde44235e6e6de11c5bffc80e12af718a5661"
+checksum = "1aeb7253e7297db60bceead24d027cd5e337bac80b77c601f13d723b5add29c2"
 dependencies = [
  "built",
 ]
@@ -3245,6 +3245,7 @@ dependencies = [
  "control-macro",
  "ctrlc-adapter",
  "env_logger",
+ "eyre",
  "failure",
  "fluence-app-service",
  "fluence-fork-libp2p",

@@ -18,6 +18,7 @@ use test_utils::{
     test_module_cfg, timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
+use eyre::WrapErr;
 use futures::executor::block_on;
 use maplit::hashmap;
 use serde::Deserialize;
@@ -56,7 +57,7 @@ pub struct ModuleDescriptor {
 
 #[test]
 fn get_interfaces() {
-    let swarms = make_swarms(10);
+    let swarms = make_swarms(1);
     sleep(KAD_TIMEOUT);
 
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
@@ -70,7 +71,7 @@ fn get_interfaces() {
                 (call relay ("srv" "list") [] services)
                 (fold services s
                     (seq
-                        (call relay ("srv" "get_interface") [s.$.id] interfaces[])
+                        (call relay ("srv" "get_interface") [s.$.id!] interfaces[])
                         (next s)
                     )
                 )
@@ -86,8 +87,9 @@ fn get_interfaces() {
     );
 
     let value = client.receive_args().into_iter().next().unwrap();
-    let vm_descriptors: Vec<VmDescriptor> =
-        serde_json::from_value(value).expect("deserialize vm descriptors");
+    let vm_descriptors: Vec<VmDescriptor> = serde_json::from_value(value)
+        .wrap_err("deserialize vm descriptors")
+        .unwrap();
     assert!(vm_descriptors
         .iter()
         .find(|d| d.service_id.as_ref().unwrap() == service1.id.as_str())

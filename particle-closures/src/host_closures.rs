@@ -22,7 +22,7 @@ use host_closure::{
 };
 use ivalue_utils::{into_record, into_record_opt, ok, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
-use now_millis::now_ms;
+use now_millis::{now_ms, now_sec};
 use particle_protocol::Contact;
 use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
@@ -114,10 +114,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             }
         };
         log::info!(
-            "Host function call {:?} {}",
+            "Host function call {:?} {:?}",
             args.service_id,
             args.function_name
         );
+        log::info!(target: "debug", "Host function call, args: {:#?}", args);
         log::trace!("Host function call, args: {:#?}", args);
 
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
@@ -127,7 +128,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("peer", "connect")               => wrap(self.connect(args)),
             ("peer", "get_contact")           => wrap_opt(self.get_contact(args)),
             ("peer", "identify")              => (self.identify)(args),
-            ("peer", "timestamp")             => ok(json!(now_ms())),
+            ("peer", "timestamp_ms")          => ok(json!(now_ms())),
+            ("peer", "timestamp_sec")         => ok(json!(now_sec())),
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args)),
 
@@ -137,7 +139,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
             ("dist", "add_module")            => (self.add_module)(args),
             ("dist", "list_modules")          => (self.list_modules)(args),
-            ("dist", "get_module_interface")  => (self.get_interface)(args),
+            ("dist", "get_module_interface")  => (self.get_module_interface)(args),
             ("dist", "add_blueprint")         => (self.add_blueprint)(args),
             ("dist", "list_blueprints")       => (self.get_blueprints)(args),
 
@@ -259,25 +261,4 @@ fn wrap(r: Result<JValue, JError>) -> Option<IValue> {
 
 fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {
     into_record_opt(r.map_err(Into::into))
-}
-
-#[cfg(test)]
-mod tests {
-    use thiserror::Error;
-
-    #[derive(Error, Debug)]
-    enum MyError {
-        #[error("Varararararar! {foo} xoxo {bar}")]
-        Variant { foo: String, bar: usize },
-    }
-
-    #[test]
-    fn test() {
-        let err = MyError::Variant {
-            foo: "hey".to_string(),
-            bar: 123,
-        };
-        println!("err: {}", err);
-        println!("err: {:?}", err);
-    }
 }
