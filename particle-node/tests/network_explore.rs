@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_greeting_service, enable_logs, make_swarms, module_config, read_args, test_module,
-    test_module_cfg, timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
+    create_greeting_service, make_swarms, module_config, read_args, test_module, test_module_cfg,
+    timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
 use eyre::{ContextCompat, WrapErr};
@@ -57,8 +57,6 @@ pub struct ModuleDescriptor {
 
 #[test]
 fn get_interfaces() {
-    enable_logs();
-
     let swarms = make_swarms(1);
     sleep(KAD_TIMEOUT);
 
