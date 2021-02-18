@@ -20,7 +20,7 @@ config-utils = { path = "../crates/config-utils" }
 kademlia = { path = "../crates/kademlia" }
 
 trust-graph = "0.2.0"
-air-interpreter-wasm = "0.5.1"
+air-interpreter-wasm = "0.7.0"
 
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.2" }
 multihash ="0.13"

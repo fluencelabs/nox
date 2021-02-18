@@ -75,7 +75,7 @@ fn get_interfaces() {
                 (call relay ("srv" "list") [] services)
                 (fold services s
                     (seq
-                        (call relay ("srv" "get_interface") [s.$.id] interfaces[])
+                        (call relay ("srv" "get_interface") [s.$.id!] interfaces[])
                         (next s)
                     )
                 )
