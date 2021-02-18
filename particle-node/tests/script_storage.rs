@@ -81,7 +81,8 @@ fn remove_script() {
         },
     );
 
-    let script_id = client.receive_args().into_iter().next().unwrap();
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let script_id = args.into_iter().next().unwrap();
     let remove_id = client.send_particle(
         r#"
         (seq
@@ -242,8 +243,6 @@ fn autoremove_failed() {
 
 #[test]
 fn remove_script_unauth() {
-    enable_logs();
-
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
@@ -269,7 +268,8 @@ fn remove_script_unauth() {
         },
     );
 
-    let script_id = client.receive_args().into_iter().next().unwrap();
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let script_id = args.into_iter().next().unwrap();
 
     // try to remove from another client, should fail
     let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone())

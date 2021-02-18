@@ -212,6 +212,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     fn remove_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+        println!("remove_script args: {:#?}", args);
         let mut args = args.function_args.into_iter();
 
         let uuid: String = Args::next("uuid", &mut args)?;
