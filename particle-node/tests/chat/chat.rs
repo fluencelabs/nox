@@ -36,7 +36,7 @@
 use config_utils::to_abs_path;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{connect_swarms, module_config, ConnectedClient};
+use test_utils::{connect_swarms, enable_logs, module_config, ConnectedClient};
 
 use eyre::{ContextCompat, WrapErr};
 use fstrings::f;
@@ -263,8 +263,8 @@ fn send_message(msg: &str, author: &str, client: &mut ConnectedClient) {
             (fold users.$.users! u
                 (par 
                     (seq
-                        (call u.$["relay_id"] ("op" "identity") [])
-                        (call u.$["peer_id"] ("receive" "") [msg])
+                        (call u.$["relay_id"]! ("op" "identity") [])
+                        (call u.$["peer_id"]! ("receive" "") [msg])
                     ) 
                     (next u)
                 )
