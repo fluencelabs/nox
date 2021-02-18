@@ -37,6 +37,7 @@ pub struct NetworkConfig {
     pub particle_queue_buffer: usize,
     pub particle_parallelism: usize,
     pub bootstrap_frequency: usize,
+    pub allow_local_addresses: bool,
 }
 
 impl NetworkConfig {
@@ -58,6 +59,7 @@ impl NetworkConfig {
             particle_queue_buffer: config.particle_queue_buffer,
             particle_parallelism: config.particle_processor_parallelism,
             bootstrap_frequency: config.bootstrap_frequency,
+            allow_local_addresses: config.allow_local_addresses,
         }
     }
 }

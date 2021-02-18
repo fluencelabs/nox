@@ -41,7 +41,8 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
                     info.protocols.iter().any(|p| p.contains("/ipfs/kad/1.0.0"));
                 match info.public_key {
                     PublicKey::Ed25519(public_key) if supports_kademlia => {
-                        let addresses = filter_addresses(info.listen_addrs);
+                        let addresses =
+                            filter_addresses(info.listen_addrs, self.allow_local_addresses);
                         self.kademlia.add_addresses(peer_id, addresses, public_key);
                     }
                     _ if supports_kademlia => {
@@ -67,14 +68,14 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
     }
 }
 
-fn filter_addresses(addresses: Vec<Multiaddr>) -> Vec<Multiaddr> {
+fn filter_addresses(addresses: Vec<Multiaddr>, allow_local: bool) -> Vec<Multiaddr> {
     // Deduplicate addresses
     let addresses: Vec<_> = addresses.into_iter().unique().collect();
 
     // Check if there's at least single global IP address
     let exists_global = addresses.iter().any(is_global_maddr);
 
-    if !exists_global {
+    if !exists_global && allow_local {
         // If there are no global addresses, we are most likely running locally
         // So take loopback address, and go with it.
         addresses.into_iter().filter(is_local_maddr).collect()

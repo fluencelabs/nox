@@ -148,6 +148,9 @@ pub struct NodeConfig {
 
     #[serde(default = "default_bootstrap_frequency")]
     pub bootstrap_frequency: usize,
+
+    #[serde(default)]
+    pub allow_local_addresses: bool,
 }
 
 impl NodeConfig {

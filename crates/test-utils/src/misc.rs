@@ -294,6 +294,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         particle_queue_buffer: 100,
         particle_parallelism: 16,
         bootstrap_frequency: 1,
+        allow_local_addresses: true,
     };
 
     use identity::Keypair::Ed25519;
