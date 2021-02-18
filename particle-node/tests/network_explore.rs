@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_greeting_service, enable_logs, make_swarms, module_config, read_args, test_module,
-    test_module_cfg, timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
+    create_greeting_service, make_swarms, module_config, read_args, test_module, test_module_cfg,
+    timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
 use eyre::{ContextCompat, WrapErr};
@@ -247,8 +247,6 @@ fn explore_services() {
 
 #[test]
 fn explore_services_fixed() {
-    enable_logs();
-
     let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
 
