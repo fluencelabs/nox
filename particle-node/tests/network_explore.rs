@@ -136,8 +136,6 @@ fn get_modules() {
 
 #[test]
 fn list_blueprints() {
-    enable_logs();
-
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
