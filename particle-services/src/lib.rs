@@ -31,7 +31,7 @@ use crate::error::ServiceError;
 mod app_services;
 mod error;
 mod persistence;
-mod vm;
+mod app_service;
 
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
 

@@ -32,6 +32,8 @@ pub struct AppServicesConfig {
     pub modules_dir: PathBuf,
     /// Dir to persist info about running services
     pub services_dir: PathBuf,
+    /// Path to file to store aliases
+    pub aliases_path: PathBuf,
 }
 
 impl AppServicesConfig {
@@ -50,6 +52,7 @@ impl AppServicesConfig {
         let workdir = base_dir.join("workdir");
         let modules_dir = base_dir.join("modules");
         let services_dir = base_dir.join("services");
+        let aliases_path = base_dir.join("aliases.list");
 
         let this = Self {
             blueprint_dir,
@@ -57,6 +60,7 @@ impl AppServicesConfig {
             modules_dir,
             services_dir,
             service_envs,
+            aliases_path,
         };
 
         this.create_dirs()?;

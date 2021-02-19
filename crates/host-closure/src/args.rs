@@ -76,6 +76,7 @@ impl Args {
     }
 
     /// Retrieves next json value from iterator, parse it to T
+    /// `field` is to generate a more accurate error message
     pub fn next<T: for<'de> Deserialize<'de>>(
         field: &'static str,
         args: &mut impl Iterator<Item = JValue>,
@@ -87,6 +88,7 @@ impl Args {
     }
 
     /// Retrieves a json value from iterator if it's not empty, and parses it to T
+    /// `field` is to generate a more accurate error message
     pub fn maybe_next<T: for<'de> Deserialize<'de>>(
         field: &'static str,
         args: &mut impl Iterator<Item = JValue>,
@@ -97,6 +99,7 @@ impl Args {
         Ok(Some(value))
     }
 
+    /// `field` is to generate a more accurate error message
     fn deserialize<T: for<'de> Deserialize<'de>>(
         field: &'static str,
         v: JValue,

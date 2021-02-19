@@ -24,22 +24,25 @@ use particle_modules::{is_service, list_files, service_file_name, ModuleError};
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 // TODO: all fields could be references, but I don't know how to achieve that
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PersistedService {
     pub service_id: String,
     pub blueprint_id: String,
+    pub aliases: Vec<String>,
     // Old versions of PersistedService may omit `owner` field, tolerate that
     #[serde(default)]
     pub owner_id: String,
 }
 
 impl PersistedService {
-    pub fn new(service_id: String, blueprint_id: String, owner_id: String) -> Self {
+    pub fn new(service_id: String, blueprint_id: String, aliases: Vec<String>, owner_id: String) -> Self {
         Self {
             service_id,
             blueprint_id,
+            aliases,
             owner_id,
         }
     }
@@ -50,12 +53,13 @@ pub fn persist_service(
     services_dir: &PathBuf,
     service_id: String,
     blueprint_id: String,
+    aliases: Vec<String>,
     owner_id: String,
 ) -> Result<(), ModuleError> {
     use ModuleError::*;
 
     let path = services_dir.join(service_file_name(&service_id));
-    let config = PersistedService::new(service_id, blueprint_id, owner_id);
+    let config = PersistedService::new(service_id, blueprint_id, aliases, owner_id);
     let bytes = toml::to_vec(&config).map_err(|err| SerializeConfig { err })?;
     std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
 }

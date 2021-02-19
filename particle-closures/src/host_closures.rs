@@ -53,6 +53,8 @@ pub struct HostClosures<C> {
     pub get_interface: Closure,
     pub get_active_interfaces: Closure,
     pub identify: Closure,
+    pub add_alias: Closure,
+    pub get_by_alias: Closure,
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 }
