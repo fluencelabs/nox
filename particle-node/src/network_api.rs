@@ -126,6 +126,7 @@ impl NetworkApi {
                     let aquamarine = aquamarine.clone();
                     let connectivity = connectivity.clone();
                     let mut particle_failures_sink = particle_failures_sink.clone();
+                    log::trace!(target: "network", "Will execute particle {}", particle.id);
                     async move {
                         // execute particle on Aquamarine
                         let stepper_effects = aquamarine.handle(particle).await;
