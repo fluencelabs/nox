@@ -197,6 +197,7 @@ impl Node {
             };
             let stopped = stream::iter(once(Err(())));
             let mut swarm = self.swarm.map(|e| Ok(e)).chain(stopped).fuse();
+            let mut network = network.fuse();
             loop {
                 select!(
                     e = swarm.select_next_some() => {
@@ -210,6 +211,7 @@ impl Node {
                             log::warn!("Metrics returned error: {}", err)
                         }
                     },
+                    _ = network => {},
                     event = exit_inlet.next() => {
                         // Ignore Err and None – if exit_outlet is dropped, we'll run forever!
                         if let Some(Ok(_)) = event {
@@ -221,7 +223,7 @@ impl Node {
 
             log::info!("Stopping node");
             script_storage.cancel().await;
-            network.cancel().await;
+            // network.cancel().await;
             pool.cancel().await;
         });
 

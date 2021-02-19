@@ -24,19 +24,7 @@
 //! - executing it through Aquamarine
 //! - forwarding the particle to the next peers
 
-use std::cmp::min;
-use std::collections::{HashMap, HashSet};
-use std::time::Duration;
-use std::{sync::Arc, task::Poll};
-
-use async_std::task::{sleep, spawn};
-use async_std::{sync::Mutex, task::JoinHandle};
-use futures::stream::iter;
-use futures::{future, Sink, SinkExt};
-use futures::{sink, task, FutureExt, StreamExt};
-use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::core::Multiaddr;
-use libp2p::{swarm::NetworkBehaviour, PeerId, Swarm};
+use crate::futures_handle::FuturesHandle;
 
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
@@ -46,6 +34,23 @@ use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::Contact;
 use particle_protocol::Particle;
 use server_config::NodeConfig;
+
+use async_std::{
+    sync::Mutex,
+    task::JoinHandle,
+    task::{sleep, spawn},
+};
+use futures::{future, sink, stream::iter, task, Future, FutureExt, Sink, SinkExt, StreamExt};
+use humantime_serde::re::humantime::format_duration as pretty;
+use libp2p::{core::Multiaddr, swarm::NetworkBehaviour, PeerId, Swarm};
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 /// API provided by the network
 pub struct NetworkApi {
@@ -93,19 +98,17 @@ impl NetworkApi {
         aquamarine: AquamarineApi,
         bootstrap_nodes: HashSet<Multiaddr>,
         particle_failures_sink: impl Sink<String> + Clone + Unpin + Send + Sync + 'static,
-    ) -> JoinHandle<()> {
-        spawn(async move {
-            let NetworkApi {
-                particle_stream,
-                particle_parallelism,
-                connectivity,
-                bootstrap_frequency: freq,
-            } = self;
-
-            let bs = bootstrap_nodes.clone();
-            spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
-            spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
-
+    ) -> FuturesHandle {
+        let NetworkApi {
+            particle_stream,
+            particle_parallelism,
+            connectivity,
+            bootstrap_frequency: freq,
+        } = self;
+        let bs = bootstrap_nodes.clone();
+        let reconnect_bootstraps = spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
+        let run_bootstrap = spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
+        let particles = spawn(async move {
             // filter expired particles
             let particle_stream = {
                 use async_std::stream::StreamExt as stream;
@@ -144,7 +147,13 @@ impl NetworkApi {
                     }
                 })
                 .await;
-        })
+        });
+
+        FuturesHandle {
+            particles,
+            reconnect_bootstraps,
+            run_bootstrap,
+        }
     }
 }
 

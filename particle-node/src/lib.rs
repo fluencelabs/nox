@@ -26,6 +26,7 @@
     unreachable_patterns
 )]
 
+mod futures_handle;
 mod metrics;
 mod network_api;
 mod node;
