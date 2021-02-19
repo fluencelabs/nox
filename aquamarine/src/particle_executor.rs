@@ -17,7 +17,7 @@
 use crate::awaited_particle::AwaitedParticle;
 use crate::invoke::{parse_outcome, ExecutionError};
 use crate::{AwaitedEffects, SendParticle, StepperEffects};
-use aquamarine_vm::AquamarineVM;
+use aquamarine_vm::{AquamarineVM, AquamarineVMError, StepperOutcome};
 use async_std::task;
 use futures::future::BoxFuture;
 use futures::FutureExt;
@@ -51,59 +51,62 @@ impl ParticleExecutor for AquamarineVM {
 
             let (p, out) = p.into();
 
-            let result = self.call(
-                p.init_peer_id.to_string(),
-                &p.script,
-                p.data.clone(),
-                &p.id,
-            );
+            let init_peer_id = p.init_peer_id.to_string();
+            let result = self.call(init_peer_id, &p.script, p.data.clone(), &p.id);
             if let Err(err) = &result {
                 log::warn!("Error executing particle {:#?}: {}", p, err)
             }
-
-            let particles = match parse_outcome(result) {
-                Ok((data, targets)) if !targets.is_empty() => {
-                    #[rustfmt::skip]
-                    log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
-                    let particle = Particle {
-                        data,
-                        ..p
-                    };
-                    targets
-                        .into_iter()
-                        .map(|target| SendParticle {
-                            particle: particle.clone(),
-                            target,
-                        })
-                        .collect::<Vec<_>>()
-                }
-                Ok((data, _)) => {
-                    log::warn!("Executed particle {}, next_peer_pks is empty. Won't send anywhere", p.id);
-                    if log::max_level() >= LevelFilter::Debug {
-                        let data = String::from_utf8_lossy(data.as_slice());
-                        log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
-                    }
-                    vec![]
-                }
-                Err(ExecutionError::AquamarineError(err)) => {
-                    log::warn!("Error executing particle {:#?}: {}", p, err);
-                    vec![]
-                }
-                Err(err @ ExecutionError::StepperOutcome { .. }) => {
-                    log::warn!("Error executing script: {}", err);
-                    vec![]
-                },
-                Err(err @ ExecutionError::InvalidResultField { .. }) => {
-                    log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
-                    vec![]
-                }
-            };
+            let effects = Ok(into_effects(result, p));
 
             waker.wake();
 
-            // TODO: maybe return ExecutionErrors here? Not sure why do that, though.
-            let effects = Ok(StepperEffects { particles });
-            FutResult { vm: self, effects: AwaitedEffects { out, effects } }
-        }).boxed()
+            FutResult {
+                vm: self,
+                effects: AwaitedEffects { out, effects },
+            }
+        })
+        .boxed()
     }
+}
+
+fn into_effects(outcome: Result<StepperOutcome, AquamarineVMError>, p: Particle) -> StepperEffects {
+    let particles = match parse_outcome(outcome) {
+        Ok((data, targets)) if !targets.is_empty() => {
+            #[rustfmt::skip]
+            log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
+            let particle = Particle { data, ..p };
+            targets
+                .into_iter()
+                .map(|target| SendParticle {
+                    particle: particle.clone(),
+                    target,
+                })
+                .collect::<Vec<_>>()
+        }
+        Ok((data, _)) => {
+            log::warn!(
+                "Executed particle {}, next_peer_pks is empty. Won't send anywhere",
+                p.id
+            );
+            if log::max_level() >= LevelFilter::Debug {
+                let data = String::from_utf8_lossy(data.as_slice());
+                log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
+            }
+            vec![]
+        }
+        Err(ExecutionError::AquamarineError(err)) => {
+            log::warn!("Error executing particle {:#?}: {}", p, err);
+            vec![]
+        }
+        Err(err @ ExecutionError::StepperOutcome { .. }) => {
+            log::warn!("Error executing script: {}", err);
+            vec![]
+        }
+        Err(err @ ExecutionError::InvalidResultField { .. }) => {
+            log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
+            vec![]
+        }
+    };
+
+    StepperEffects { particles }
 }
