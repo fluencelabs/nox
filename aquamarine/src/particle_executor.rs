@@ -55,6 +55,8 @@ impl ParticleExecutor for AquamarineVM {
             let result = self.call(init_peer_id, &p.script, p.data.clone(), &p.id);
             if let Err(err) = &result {
                 log::warn!("Error executing particle {:#?}: {}", p, err)
+            } else {
+                log::trace!(target: "network", "Particle {} executed", p.id);
             }
             let effects = Ok(into_effects(result, p));
 
