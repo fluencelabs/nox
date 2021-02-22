@@ -51,7 +51,6 @@ impl AquamarineBackend {
 
         // check if there are new particles
         while let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
-            log::info!(target: "debug", "particle {} is_cancelled {}", particle.id, out.is_canceled());
             wake = true;
             // set new particles to be executed
             self.plumber.ingest(AwaitedParticle { particle, out });

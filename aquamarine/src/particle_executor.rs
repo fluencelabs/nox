@@ -18,12 +18,13 @@ use crate::awaited_particle::AwaitedParticle;
 use crate::invoke::{parse_outcome, ExecutionError};
 use crate::{AwaitedEffects, SendParticle, StepperEffects};
 use aquamarine_vm::{AquamarineVM, AquamarineVMError, StepperOutcome};
-use async_std::task;
-use futures::future::BoxFuture;
-use futures::FutureExt;
-use log::LevelFilter;
 use particle_protocol::Particle;
-use std::task::Waker;
+
+use async_std::task;
+use futures::{future::BoxFuture, FutureExt};
+use humantime::format_duration as pretty;
+use log::LevelFilter;
+use std::{task::Waker, time::Instant};
 
 pub(super) type Fut = BoxFuture<'static, FutResult>;
 
@@ -47,6 +48,7 @@ impl ParticleExecutor for AquamarineVM {
 
     fn execute(mut self, p: AwaitedParticle, waker: Waker) -> Fut {
         task::spawn_blocking(move || {
+            let now = Instant::now();
             log::info!("Executing particle {}", p.id);
 
             let (p, out) = p.into();
@@ -56,7 +58,7 @@ impl ParticleExecutor for AquamarineVM {
             if let Err(err) = &result {
                 log::warn!("Error executing particle {:#?}: {}", p, err)
             } else {
-                log::trace!(target: "network", "Particle {} executed", p.id);
+                log::trace!(target: "network", "Particle {} executed in {}", p.id, pretty(now.elapsed()));
             }
             let effects = Ok(into_effects(result, p));
 

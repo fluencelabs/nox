@@ -200,6 +200,7 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "host-closure",
+ "humantime 2.1.0",
  "log",
  "parking_lot 0.11.1",
  "particle-protocol",

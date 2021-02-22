@@ -126,7 +126,6 @@ impl Actor {
             Some(p) => {
                 // Particle is expired, return vm and error
                 let (p, out) = p.into();
-                log::warn!("Particle {} is expired", p.id);
                 let effects = Err(AquamarineApiError::ParticleExpired { particle_id: p.id });
                 let effects = AwaitedEffects { effects, out };
                 PollNext::Expired(effects, vm)
