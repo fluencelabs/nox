@@ -254,22 +254,22 @@ impl Connectivity {
             let bootstrap_nodes = bootstrap_nodes.clone();
             let events = pool.lifecycle_events();
             stream::filter_map(events, move |e| {
-                if let LifecycleEvent::Connected(Contact { addresses, .. }) = e {
-                    let mut addresses = addresses.into_iter();
+                if let LifecycleEvent::Connected(c) = e {
+                    let mut addresses = c.addresses.iter();
                     addresses.find(|addr| bootstrap_nodes.contains(addr))?;
-                    return Some(());
+                    return Some(c);
                 }
                 None
             })
         }
-        .enumerate()
-        .map(|(n, _)| n);
+        .enumerate();
 
         connections
-            .for_each(move |n| {
+            .for_each(move |(n, contact)| {
                 let kademlia = kademlia.clone();
                 async move {
                     if n % frequency == 0 {
+                        kademlia.add_contact(contact);
                         if let Err(err) = kademlia.bootstrap().await {
                             log::warn!("Kademlia bootstrap failed: {}", err)
                         } else {

@@ -29,6 +29,7 @@ use futures::{
 };
 use std::convert::identity;
 use std::task::Poll;
+use std::time::Duration;
 
 pub struct AquamarineBackend {
     inlet: BackPressuredInlet<(Particle, EffectsChannel)>,
@@ -38,9 +39,9 @@ pub struct AquamarineBackend {
 impl AquamarineBackend {
     pub fn new(config: VmPoolConfig, host_closures: ClosureDescriptor) -> (Self, AquamarineApi) {
         let (outlet, inlet) = mpsc::channel(100);
+        let sender = AquamarineApi::new(outlet, config.execution_timeout);
         let plumber = Plumber::new(config, host_closures);
         let this = Self { inlet, plumber };
-        let sender = AquamarineApi::new(outlet);
 
         (this, sender)
     }
@@ -48,21 +49,26 @@ impl AquamarineBackend {
     pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> Poll<()> {
         let mut wake = false;
 
+        // check if there are new particles
         while let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
             wake = true;
+            // set new particles to be executed
             self.plumber.ingest(AwaitedParticle { particle, out });
         }
 
+        // check if there are executed particles
         while let Poll::Ready(AwaitedEffects { effects, out }) = self.plumber.poll(cx) {
             wake = true;
+            // send results back
             out.send(effects).ok();
         }
 
         if wake {
-            cx.waker().wake_by_ref()
+            cx.waker().wake_by_ref();
+            Poll::Ready(())
+        } else {
+            Poll::Pending
         }
-
-        Poll::Pending
     }
 
     pub fn start(mut self) -> JoinHandle<()> {
@@ -79,10 +85,17 @@ impl AquamarineBackend {
 pub struct AquamarineApi {
     // send particle along with a "return address"; it's like the Ask pattern in Akka
     outlet: BackPressuredOutlet<(Particle, EffectsChannel)>,
+    execution_timeout: Duration,
 }
 impl AquamarineApi {
-    pub fn new(outlet: BackPressuredOutlet<(Particle, EffectsChannel)>) -> Self {
-        Self { outlet }
+    pub fn new(
+        outlet: BackPressuredOutlet<(Particle, EffectsChannel)>,
+        execution_timeout: Duration,
+    ) -> Self {
+        Self {
+            outlet,
+            execution_timeout,
+        }
     }
 
     /// Send particle to interpreters pool and wait response back
@@ -93,7 +106,8 @@ impl AquamarineApi {
         use AquamarineApiError::*;
 
         let mut interpreters = self.outlet;
-        async move {
+        let particle_id = particle.id.clone();
+        let fut = async move {
             let particle_id = particle.id.clone();
             let (outlet, inlet) = oneshot::channel();
             let send_ok = interpreters.send((particle, outlet)).await.is_ok();
@@ -103,7 +117,13 @@ impl AquamarineApi {
             } else {
                 Err(AquamarineDied { particle_id })
             }
-        }
-        .boxed()
+        };
+
+        async_std::io::timeout(self.execution_timeout, fut.map(Ok))
+            .map(|r| {
+                let result = r.map_err(|_| ExecutionTimedOut { particle_id });
+                result.and_then(identity)
+            })
+            .boxed()
     }
 }

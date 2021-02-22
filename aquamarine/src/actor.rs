@@ -119,6 +119,7 @@ impl Actor {
         match self.mailbox.pop_front() {
             Some(p) if !p.is_expired() => {
                 // Take ownership of vm to process particle
+                // TODO: add timeout for execution
                 self.future = vm.execute(p, cx.waker().clone()).into();
                 PollNext::Executing
             }

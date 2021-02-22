@@ -81,6 +81,7 @@ impl Node {
             config.stepper_base_dir.clone(),
             config.air_interpreter_path.clone(),
             config.stepper_pool_size,
+            config.particle_execution_timeout,
         )
         .expect("create vm pool config");
 

@@ -88,3 +88,7 @@ pub fn default_script_storage_particle_ttl() -> Duration {
 pub fn default_bootstrap_frequency() -> usize {
     3
 }
+
+pub fn default_execution_timeout() -> Duration {
+    Duration::from_secs(5)
+}
