@@ -117,6 +117,7 @@ pub fn enable_logs() {
         .filter(Some("async_io"), Info)
         .filter(Some("polling"), Info)
         .filter(Some("cranelift_codegen"), Info)
+        .filter(Some("walrus"), Info)
         .try_init()
         .ok();
 }

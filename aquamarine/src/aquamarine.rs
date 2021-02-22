@@ -51,6 +51,7 @@ impl AquamarineBackend {
 
         // check if there are new particles
         while let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
+            log::info!(target: "debug", "particle {} is_cancelled {}", particle.id, out.is_canceled());
             wake = true;
             // set new particles to be executed
             self.plumber.ingest(AwaitedParticle { particle, out });
@@ -60,11 +61,12 @@ impl AquamarineBackend {
         while let Poll::Ready(AwaitedEffects { effects, out }) = self.plumber.poll(cx) {
             wake = true;
             // send results back
-            out.send(effects).ok();
+            if let Err(_) = out.send(effects) {
+                log::warn!("Failed to send effects back");
+            }
         }
 
         if wake {
-            cx.waker().wake_by_ref();
             Poll::Ready(())
         } else {
             Poll::Pending
@@ -72,10 +74,10 @@ impl AquamarineBackend {
     }
 
     pub fn start(mut self) -> JoinHandle<()> {
-        let mut future = futures::future::poll_fn(move |cx| self.poll(cx)).into_stream();
+        let mut stream = futures::stream::poll_fn(move |cx| self.poll(cx).map(|_| Some(()))).fuse();
         task::spawn(async move {
             loop {
-                future.next().await;
+                stream.next().await;
             }
         })
     }
@@ -106,24 +108,28 @@ impl AquamarineApi {
         use AquamarineApiError::*;
 
         let mut interpreters = self.outlet;
-        let particle_id = particle.id.clone();
-        let fut = async move {
+        let _particle_id = particle.id.clone();
+        async move {
             let particle_id = particle.id.clone();
             let (outlet, inlet) = oneshot::channel();
             let send_ok = interpreters.send((particle, outlet)).await.is_ok();
             if send_ok {
-                let effects = inlet.await.map_err(|_| OneshotCancelled { particle_id });
+                let effects = inlet.await.map_err(|err| {
+                    log::info!(target: "debug", "oneshot cancelled: {:?}", err);
+                    OneshotCancelled { particle_id }
+                });
                 effects.and_then(identity)
             } else {
                 Err(AquamarineDied { particle_id })
             }
-        };
+        }
+        .boxed()
 
-        async_std::io::timeout(self.execution_timeout, fut.map(Ok))
-            .map(|r| {
-                let result = r.map_err(|_| ExecutionTimedOut { particle_id });
-                result.and_then(identity)
-            })
-            .boxed()
+        // async_std::io::timeout(self.execution_timeout, fut.map(Ok))
+        //     .map(|r| {
+        //         let result = r.map_err(|_| ExecutionTimedOut { particle_id });
+        //         result.and_then(identity)
+        //     })
+        //     .boxed()
     }
 }

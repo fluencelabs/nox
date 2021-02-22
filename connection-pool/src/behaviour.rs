@@ -386,7 +386,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {
-                log::trace!(target: "network", "received particle {} from {}", particle.id, from);
+                log::trace!(target: "network", "received particle {} from {}; queue {}", particle.id, from, self.queue.len());
                 self.queue.push_back(particle);
                 self.wake();
             }
@@ -407,6 +407,8 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     if let Some(particle) = self.queue.pop_front() {
                         if let Err(err) = self.outlet.start_send(particle) {
                             log::error!("Failed to send particle to outlet: {}", err)
+                        } else {
+                            log::trace!(target: "network", "Sent particle to execution");
                         }
                     } else {
                         break;
