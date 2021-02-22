@@ -15,11 +15,11 @@
  */
 
 use crate::error::ServiceError;
-use crate::persistence::load_persisted_services;
+use crate::persistence::{load_persisted_services, persist_service, PersistedService};
 use crate::app_service::create_app_service;
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use host_closure::{closure, closure_args, closure_params, Args, Closure, ParticleClosure};
+use host_closure::{closure, closure_args, closure_params, closure_params_opt, Args, Closure, ParticleClosure};
 use server_config::ServicesConfig;
 
 use parking_lot::{Mutex, RwLock};
@@ -28,15 +28,26 @@ use serde::Serialize;
 use serde_json::{json, Value as JValue};
 use std::ops::Deref;
 use std::{collections::HashMap, sync::Arc};
+use crate::error::ServiceError::Forbidden;
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
 
 pub struct Service {
-    service: Mutex<AppService>,
-    blueprint_id: String,
-    owner_id: String,
-    aliases: Vec<String>
+    pub service: Mutex<AppService>,
+    pub blueprint_id: String,
+    pub owner_id: String,
+    pub aliases: Vec<String>
+}
+
+impl Service {
+    pub fn remove_alias(&mut self, alias: &str) {
+        self.aliases.retain(|a| a.ne(alias));
+    }
+
+    pub fn add_alias(&mut self, alias: String) {
+        self.aliases.push(alias);
+    }
 }
 
 impl Deref for Service {
@@ -140,40 +151,49 @@ impl ParticleAppServices {
         })
     }
 
-    // add_alias(alias, service_id):
-    //   let mut current_alias = self.aliases.remove(alias);
-    //   current_alias.remove_alias(alias); // self.aliases.retain(|a| a != alias)
-    //   let service = self.services.read().get(&service_id)...
-    //   let mut service = service.clone();
-    //   persist_service(dir, current_alias.id, current_alias.blueprint_id, current_alias.owner_id, current_alias.aliases)
-    //   persist_service(dir, service_id, service.blueprint_id, service.owner_id, service.aliases +: alias)
-    //   service.add_alias(alias)
-    //   self.aliases.insert(alias, service)
-
     pub fn add_alias(&self) -> ParticleClosure {
         let services = self.services.clone();
         let aliases = self.aliases.clone();
+        let config = self.config.clone();
         let host_id = self.config.local_peer_id.to_string();
-        println!("{:?}", host_id);
 
-        closure_params(move |particle, args| {
+        closure_params_opt(move |particle, args| {
+            if particle.init_user_id != host_id {
+                Err(Forbidden(particle.init_user_id, "add_alias".to_string()))?
+            }
+
             let mut args = args.function_args.into_iter();
-            let aliases = aliases.read();
-
             let alias: String =
                 Args::next("alias", &mut args)?;
-
             let service_id: String =
                 Args::next("service_id", &mut args)?;
 
-            let old_service_id = aliases.get(&alias);
+            let mut services = services.write();
 
-            println!("{:?}", old_service_id);
+            let s = services.get_mut(&service_id)
+                .ok_or(ServiceError::NoSuchInstance(service_id.clone()))?;
+            s.add_alias(alias.clone());
+            let persisted_new = PersistedService::from_service(service_id.clone(), s);
 
+            let old_id = {
+                let lock = aliases.read();
+                lock.get(&alias).cloned()
+            };
 
-            // services.write().insert(service_id.clone(), service);
+            let old = old_id.and_then(|s_id| services.get_mut(&s_id));
+            let old = old.map(|old| {
+                old.remove_alias(&alias);
+                PersistedService::from_service(service_id.clone(), old)
+            });
 
-            Ok(json!(service_id))
+            drop(services);
+            if let Some(old) = old {
+                persist_service(&config.services_dir, old)?;
+            }
+            persist_service(&config.services_dir, persisted_new)?;
+
+            aliases.write().insert(alias, service_id.clone());
+            Ok(None)
         })
     }
 

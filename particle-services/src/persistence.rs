@@ -24,7 +24,7 @@ use particle_modules::{is_service, list_files, service_file_name, ModuleError};
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::collections::HashMap;
+use crate::app_services::Service;
 
 // TODO: all fields could be references, but I don't know how to achieve that
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -46,21 +46,21 @@ impl PersistedService {
             owner_id,
         }
     }
+
+    pub fn from_service(service_id: String, service: &Service) -> Self {
+        PersistedService::new(service_id, service.blueprint_id.clone(), service.aliases.clone(), service.owner_id.clone())
+    }
 }
 
 /// Persist service info to disk, so it is recreated after restart
 pub fn persist_service(
     services_dir: &PathBuf,
-    service_id: String,
-    blueprint_id: String,
-    aliases: Vec<String>,
-    owner_id: String,
+    persisted_service: PersistedService
 ) -> Result<(), ModuleError> {
     use ModuleError::*;
 
-    let path = services_dir.join(service_file_name(&service_id));
-    let config = PersistedService::new(service_id, blueprint_id, aliases, owner_id);
-    let bytes = toml::to_vec(&config).map_err(|err| SerializeConfig { err })?;
+    let path = services_dir.join(service_file_name(&persisted_service.service_id));
+    let bytes = toml::to_vec(&persisted_service).map_err(|err| SerializeConfig { err })?;
     std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
 }
 
