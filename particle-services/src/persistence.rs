@@ -22,9 +22,9 @@ use crate::error::ServiceError::{
 use config_utils::create_dirs;
 use particle_modules::{is_service, list_files, service_file_name, ModuleError};
 
+use crate::app_services::Service;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use crate::app_services::Service;
 
 // TODO: all fields could be references, but I don't know how to achieve that
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,7 +38,12 @@ pub struct PersistedService {
 }
 
 impl PersistedService {
-    pub fn new(service_id: String, blueprint_id: String, aliases: Vec<String>, owner_id: String) -> Self {
+    pub fn new(
+        service_id: String,
+        blueprint_id: String,
+        aliases: Vec<String>,
+        owner_id: String,
+    ) -> Self {
         Self {
             service_id,
             blueprint_id,
@@ -48,14 +53,19 @@ impl PersistedService {
     }
 
     pub fn from_service(service_id: String, service: &Service) -> Self {
-        PersistedService::new(service_id, service.blueprint_id.clone(), service.aliases.clone(), service.owner_id.clone())
+        PersistedService::new(
+            service_id,
+            service.blueprint_id.clone(),
+            service.aliases.clone(),
+            service.owner_id.clone(),
+        )
     }
 }
 
 /// Persist service info to disk, so it is recreated after restart
 pub fn persist_service(
     services_dir: &PathBuf,
-    persisted_service: PersistedService
+    persisted_service: PersistedService,
 ) -> Result<(), ModuleError> {
     use ModuleError::*;
 

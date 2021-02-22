@@ -63,8 +63,8 @@ where
 
 /// Converts Fn into Closure, converting error into Option<IValue>
 pub fn closure_params_opt<F>(f: F) -> ParticleClosure
-    where
-        F: Fn(ParticleParameters, Args) -> Result<Option<JValue>, JValue> + Send + Sync + 'static,
+where
+    F: Fn(ParticleParameters, Args) -> Result<Option<JValue>, JValue> + Send + Sync + 'static,
 {
     Arc::new(move |particle, args| into_record_opt(f(particle, args)))
 }

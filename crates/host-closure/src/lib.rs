@@ -6,7 +6,8 @@ mod closure;
 pub use args::Args;
 pub use args_error::{ArgsError, JError};
 pub use closure::{
-    closure, closure_args, closure_opt, closure_params, closure_params_opt, Closure, ClosureDescriptor, ParticleClosure,
+    closure, closure_args, closure_opt, closure_params, closure_params_opt, Closure,
+    ClosureDescriptor, ParticleClosure,
 };
 
 pub use aquamarine_vm::ParticleParameters;

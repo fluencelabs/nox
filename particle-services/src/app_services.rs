@@ -14,21 +14,23 @@
  * limitations under the License.
  */
 
+use crate::app_service::create_app_service;
 use crate::error::ServiceError;
 use crate::persistence::{load_persisted_services, persist_service, PersistedService};
-use crate::app_service::create_app_service;
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use host_closure::{closure, closure_args, closure_params, closure_params_opt, Args, Closure, ParticleClosure};
+use host_closure::{
+    closure, closure_args, closure_params, closure_params_opt, Args, Closure, ParticleClosure,
+};
 use server_config::ServicesConfig;
 
+use crate::error::ServiceError::{AliasAsServiceId, Forbidden};
 use parking_lot::{Mutex, RwLock};
 use particle_modules::ModuleRepository;
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 use std::ops::Deref;
 use std::{collections::HashMap, sync::Arc};
-use crate::error::ServiceError::{Forbidden, AliasAsServiceId};
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
@@ -37,7 +39,7 @@ pub struct Service {
     pub service: Mutex<AppService>,
     pub blueprint_id: String,
     pub owner_id: String,
-    pub aliases: Vec<String>
+    pub aliases: Vec<String>,
 }
 
 impl Service {
@@ -71,7 +73,7 @@ pub struct ParticleAppServices {
     config: ServicesConfig,
     services: Services,
     modules: ModuleRepository,
-    aliases: Aliases
+    aliases: Aliases,
 }
 
 impl ParticleAppServices {
@@ -110,7 +112,7 @@ impl ParticleAppServices {
                 service: Mutex::new(service),
                 blueprint_id,
                 owner_id: particle.init_user_id,
-                aliases: vec![]
+                aliases: vec![],
             };
 
             services.write().insert(service_id.clone(), service);
@@ -125,15 +127,15 @@ impl ParticleAppServices {
         let host_id = self.config.local_peer_id.to_string();
 
         closure_params(move |particle_params, args| {
-
             let services = services.read();
             let aliases = aliases.read();
             let service = services
                 .get(&args.service_id)
-                .or_else(||
-                    aliases.get(&args.service_id)
-                    .and_then(|id| services.get(id))
-                )
+                .or_else(|| {
+                    aliases
+                        .get(&args.service_id)
+                        .and_then(|id| services.get(id))
+                })
                 .ok_or_else(|| ServiceError::NoSuchInstance(args.service_id.clone()))?;
 
             let params = CallParameters {
@@ -170,10 +172,8 @@ impl ParticleAppServices {
             }
 
             let mut args = args.function_args.into_iter();
-            let alias: String =
-                Args::next("alias", &mut args)?;
-            let service_id: String =
-                Args::next("service_id", &mut args)?;
+            let alias: String = Args::next("alias", &mut args)?;
+            let service_id: String = Args::next("service_id", &mut args)?;
 
             if services.read().get(&alias).is_some() {
                 Err(AliasAsServiceId(alias.clone()))?
@@ -181,7 +181,8 @@ impl ParticleAppServices {
 
             let mut services = services.write();
 
-            let s = services.get_mut(&service_id)
+            let s = services
+                .get_mut(&service_id)
                 .ok_or(ServiceError::NoSuchInstance(service_id.clone()))?;
             s.add_alias(alias.clone());
             let persisted_new = PersistedService::from_service(service_id.clone(), s);
@@ -228,10 +229,12 @@ impl ParticleAppServices {
             let services = services.read();
             let interfaces = services
                 .iter()
-                .map(|(id, service)| match get_service_interface(service, id.as_str().into()) {
-                    Ok(iface) => iface,
-                    Err(err) => json!({ "service_id": id, "error": JValue::from(err)}),
-                })
+                .map(
+                    |(id, service)| match get_service_interface(service, id.as_str().into()) {
+                        Ok(iface) => iface,
+                        Err(err) => json!({ "service_id": id, "error": JValue::from(err)}),
+                    },
+                )
                 .collect();
 
             Ok(interfaces)
@@ -270,7 +273,7 @@ impl ParticleAppServices {
                 service: Mutex::new(service),
                 blueprint_id: s.blueprint_id,
                 owner_id: s.owner_id,
-                aliases: s.aliases
+                aliases: s.aliases,
             };
             let replaced = self.services.write().insert(s.service_id.clone(), service);
 
@@ -284,7 +287,10 @@ impl ParticleAppServices {
     }
 }
 
-fn get_service_interface(service: &Service, service_id: Option<&str>) -> Result<JValue, ServiceError> {
+fn get_service_interface(
+    service: &Service,
+    service_id: Option<&str>,
+) -> Result<JValue, ServiceError> {
     let lock = service.lock();
     let interface = lock.get_interface();
 

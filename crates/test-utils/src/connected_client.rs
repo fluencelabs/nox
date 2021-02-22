@@ -74,12 +74,19 @@ impl DerefMut for ConnectedClient {
 
 impl ConnectedClient {
     pub fn connect_to(node_address: Multiaddr) -> Result<Self> {
+        Self::connect_to_with_peer_id(node_address, None)
+    }
+
+    pub fn connect_to_with_peer_id(
+        node_address: Multiaddr,
+        peer_id: Option<PeerId>,
+    ) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
 
         let transport = Transport::from_maddr(&node_address);
         let connect = async move {
-            let (mut client, _) = Client::connect_with(node_address.clone(), transport)
+            let (mut client, _) = Client::connect_with(node_address.clone(), transport, peer_id)
                 .await
                 .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {
@@ -114,14 +121,14 @@ impl ConnectedClient {
         let CreatedSwarm(peer_id2, addr2, ..) = swarms.next().expect("get swarm");
 
         let connect = async move {
-            let (mut first, _) = Client::connect_with(addr1.clone(), Transport::Memory)
+            let (mut first, _) = Client::connect_with(addr1.clone(), Transport::Memory, None)
                 .await
                 .expect("first connected");
             first.receive_one().await;
 
             let first = ConnectedClient::new(first, peer_id1, addr1);
 
-            let (mut second, _) = Client::connect_with(addr2.clone(), Transport::Memory)
+            let (mut second, _) = Client::connect_with(addr2.clone(), Transport::Memory, None)
                 .await
                 .expect("second connected");
             second.receive_one().await;

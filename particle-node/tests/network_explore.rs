@@ -25,7 +25,6 @@ use serde_json::json;
 use serde_json::Value as JValue;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
-use libp2p::core::Multiaddr;
 
 #[derive(Debug, Deserialize)]
 pub struct VmDescriptor {
