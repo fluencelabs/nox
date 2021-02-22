@@ -103,6 +103,8 @@ impl Plumber {
                     }
                     PollNext::Executing => {}
                 }
+            } else {
+                log::warn!(target: "network", "No more free Aquamarine interpreters");
             }
         }
 
