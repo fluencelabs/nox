@@ -53,8 +53,7 @@ pub struct HostClosures<C> {
     pub get_interface: Closure,
     pub get_active_interfaces: Closure,
     pub identify: Closure,
-    pub add_alias: Closure,
-    pub get_by_alias: Closure,
+    pub add_alias: ParticleClosure,
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 }
@@ -87,6 +86,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             get_interface: services.get_interface(),
             get_active_interfaces: services.get_active_interfaces(),
             identify: identify(node_info),
+            add_alias: services.add_alias(),
             connectivity,
             script_storage,
         }
@@ -128,6 +128,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("srv", "create")          => (self.create_service)(params, args),
             ("srv", "get_interface")   => (self.get_interface)(args),
             ("srv", "get_interfaces")  => (self.get_active_interfaces)(args),
+            ("srv", "add_alias")       => (self.add_alias)(params, args),
 
             ("dist", "add_module")     => (self.add_module)(args),
             ("dist", "add_blueprint")  => (self.add_blueprint)(args),

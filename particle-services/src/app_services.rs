@@ -28,7 +28,7 @@ use serde::Serialize;
 use serde_json::{json, Value as JValue};
 use std::ops::Deref;
 use std::{collections::HashMap, sync::Arc};
-use crate::error::ServiceError::Forbidden;
+use crate::error::ServiceError::{Forbidden, AliasAsServiceId};
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
@@ -121,12 +121,19 @@ impl ParticleAppServices {
 
     pub fn call_service(&self) -> ParticleClosure {
         let services = self.services.clone();
+        let aliases = self.aliases.clone();
         let host_id = self.config.local_peer_id.to_string();
 
         closure_params(move |particle_params, args| {
+
             let services = services.read();
+            let aliases = aliases.read();
             let service = services
                 .get(&args.service_id)
+                .or_else(||
+                    aliases.get(&args.service_id)
+                    .and_then(|id| services.get(id))
+                )
                 .ok_or_else(|| ServiceError::NoSuchInstance(args.service_id.clone()))?;
 
             let params = CallParameters {
@@ -167,6 +174,10 @@ impl ParticleAppServices {
                 Args::next("alias", &mut args)?;
             let service_id: String =
                 Args::next("service_id", &mut args)?;
+
+            if services.read().get(&alias).is_some() {
+                Err(AliasAsServiceId(alias.clone()))?
+            }
 
             let mut services = services.write();
 
