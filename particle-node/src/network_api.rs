@@ -43,6 +43,7 @@ use async_std::{
 use futures::{future, sink, stream::iter, task, Future, FutureExt, Sink, SinkExt, StreamExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, swarm::NetworkBehaviour, PeerId, Swarm};
+use std::time::Instant;
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},
@@ -132,8 +133,13 @@ impl NetworkApi {
                     let connectivity = connectivity.clone();
                     let mut particle_failures_sink = particle_failures_sink.clone();
                     log::trace!(target: "network", "Will execute particle {}", particle.id);
+
+                    let particle_id = particle.id.clone();
+                    let p_id = particle_id.clone();
                     let timeout = min(particle.time_to_live(), particle_timeout);
+
                     let fut = async move {
+                        let start = Instant::now();
                         // execute particle on Aquamarine
                         let stepper_effects = aquamarine.handle(particle).await;
 
@@ -151,11 +157,12 @@ impl NetworkApi {
                                 particle_failures_sink.feed(particle_id).await.ok();
                             }
                         };
+                        log::trace!(target: "network", "Particle {} processing took {}", p_id, pretty(start.elapsed()));
                     };
 
                     async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
                         if let Err(err) = r {
-                            log::warn!("Particle timed out after {}", pretty(timeout))
+                            log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout))
                         }
                     })
                 })
