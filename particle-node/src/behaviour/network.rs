@@ -86,6 +86,7 @@ impl NetworkBehaviour {
                 kademlia_api,
                 connection_pool_api,
                 cfg.bootstrap_frequency,
+                cfg.particle_timeout,
             ),
         ))
     }

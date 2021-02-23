@@ -63,6 +63,8 @@ pub struct NetworkApi {
     /// Bootstrap will be executed after [1, N, 2*N, 3*N, ...] bootstrap nodes connected
     /// This setting specify that N.
     bootstrap_frequency: usize,
+    /// Timeout for all particle execution
+    particle_timeout: Duration,
 }
 
 impl NetworkApi {
@@ -72,6 +74,7 @@ impl NetworkApi {
         kademlia: KademliaApi,
         connection_pool: ConnectionPoolApi,
         bootstrap_frequency: usize,
+        particle_timeout: Duration,
     ) -> Self {
         Self {
             particle_stream,
@@ -81,6 +84,7 @@ impl NetworkApi {
                 connection_pool,
             },
             bootstrap_frequency,
+            particle_timeout,
         }
     }
 
@@ -104,6 +108,7 @@ impl NetworkApi {
             particle_parallelism,
             connectivity,
             bootstrap_frequency: freq,
+            particle_timeout,
         } = self;
         let bs = bootstrap_nodes.clone();
         let reconnect_bootstraps = spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
@@ -127,7 +132,8 @@ impl NetworkApi {
                     let connectivity = connectivity.clone();
                     let mut particle_failures_sink = particle_failures_sink.clone();
                     log::trace!(target: "network", "Will execute particle {}", particle.id);
-                    async move {
+                    let timeout = min(particle.time_to_live(), particle_timeout);
+                    let fut = async move {
                         // execute particle on Aquamarine
                         let stepper_effects = aquamarine.handle(particle).await;
 
@@ -145,7 +151,13 @@ impl NetworkApi {
                                 particle_failures_sink.feed(particle_id).await.ok();
                             }
                         };
-                    }
+                    };
+
+                    async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
+                        if let Err(err) = r {
+                            log::warn!("Particle timed out after {}", pretty(timeout))
+                        }
+                    })
                 })
                 .await;
 

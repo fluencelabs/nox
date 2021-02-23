@@ -92,3 +92,7 @@ pub fn default_bootstrap_frequency() -> usize {
 pub fn default_execution_timeout() -> Duration {
     Duration::from_secs(5)
 }
+
+pub fn default_processing_timeout() -> Duration {
+    Duration::from_secs(10)
+}

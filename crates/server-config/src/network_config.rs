@@ -24,6 +24,7 @@ use trust_graph::TrustGraph;
 
 use libp2p::{core::Multiaddr, identity::ed25519, PeerId};
 use prometheus::Registry;
+use std::time::Duration;
 
 pub struct NetworkConfig {
     pub key_pair: ed25519::Keypair,
@@ -37,6 +38,7 @@ pub struct NetworkConfig {
     pub particle_queue_buffer: usize,
     pub particle_parallelism: usize,
     pub bootstrap_frequency: usize,
+    pub particle_timeout: Duration,
 }
 
 impl NetworkConfig {
@@ -58,6 +60,7 @@ impl NetworkConfig {
             particle_queue_buffer: config.particle_queue_buffer,
             particle_parallelism: config.particle_processor_parallelism,
             bootstrap_frequency: config.bootstrap_frequency,
+            particle_timeout: config.particle_execution_timeout,
         }
     }
 }
