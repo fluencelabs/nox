@@ -24,12 +24,12 @@ use anyhow::{anyhow, Context};
 use clap::{ArgMatches, Values};
 use config_utils::to_abs_path;
 use libp2p::core::{identity::ed25519::PublicKey, multiaddr::Protocol, Multiaddr};
+use libp2p::PeerId;
 use particle_protocol::ProtocolConfig;
 use serde::Deserialize;
 use std::net::SocketAddr;
-use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
-use libp2p::PeerId;
 use std::str::FromStr;
+use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
@@ -235,14 +235,16 @@ where
 }
 
 fn parse_management_key<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
-    where
-        D: serde::Deserializer<'de>,
+where
+    D: serde::Deserializer<'de>,
 {
     let multihash = String::deserialize(deserializer)?;
-    Ok(PeerId::from_str(&multihash).map_err(|err| serde::de::Error::custom(format!(
-        "Failed to deserialize management_key {}: {}",
-        multihash, err
-    )))?)
+    Ok(PeerId::from_str(&multihash).map_err(|err| {
+        serde::de::Error::custom(format!(
+            "Failed to deserialize management_key {}: {}",
+            multihash, err
+        ))
+    })?)
 }
 
 fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>

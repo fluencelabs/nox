@@ -28,7 +28,7 @@ use particle_protocol::Particle;
 use anyhow::bail;
 use async_std::task;
 use core::ops::Deref;
-use libp2p::{core::Multiaddr, PeerId, identity::ed25519};
+use libp2p::{core::Multiaddr, identity::ed25519, PeerId};
 use serde_json::Value as JValue;
 use std::collections::HashMap;
 use std::ops::DerefMut;
