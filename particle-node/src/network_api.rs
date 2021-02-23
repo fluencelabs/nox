@@ -115,18 +115,6 @@ impl NetworkApi {
         let reconnect_bootstraps = spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
         let run_bootstrap = spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
         let particles = spawn(async move {
-            // filter expired particles
-            let particle_stream = {
-                use async_std::stream::StreamExt as stream;
-                stream::filter(particle_stream, |p| {
-                    if p.is_expired() {
-                        log::info!("Particle {} expired", p.id);
-                        return false;
-                    }
-                    true
-                })
-            };
-
             particle_stream
                 .for_each_concurrent(particle_parallelism, move |particle| {
                     let aquamarine = aquamarine.clone();
@@ -134,10 +122,14 @@ impl NetworkApi {
                     let mut particle_failures_sink = particle_failures_sink.clone();
                     log::trace!(target: "network", "Will execute particle {}", particle.id);
 
+                    let timeout = min(particle.time_to_live(), particle_timeout);
+                    if timeout.is_zero() {
+                        log::info!("Particle {} expired", particle.id);
+                        return async {}.boxed();
+                    }
+
                     let particle_id = particle.id.clone();
                     let p_id = particle_id.clone();
-                    let timeout = min(particle.time_to_live(), particle_timeout);
-
                     let fut = async move {
                         let start = Instant::now();
                         // execute particle on Aquamarine
@@ -162,9 +154,13 @@ impl NetworkApi {
 
                     async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
                         if let Err(err) = r {
-                            log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout))
+                            if timeout != particle_timeout {
+                                log::info!("Particle {} expired", particle_id);
+                            } else {
+                                log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout))
+                            }
                         }
-                    })
+                    }).boxed()
                 })
                 .await;
 
