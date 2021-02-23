@@ -355,6 +355,7 @@ mod tests {
         let config = r#"
             stepper_base_dir = "/stepper"
             stepper_module_name = "aquamarine"
+            management_key = "12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
 
             [root_weights]
             Ct8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4 = 1
