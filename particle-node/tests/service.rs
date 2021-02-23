@@ -54,8 +54,6 @@ fn create_service() {
         )
     )"#);
 
-    println!("33333333333");
-
     let mut data = hashmap! {
         "host" => json!(client1.node.to_string()),
         "relay" => json!(client2.node.to_string()),
@@ -70,35 +68,36 @@ fn create_service() {
     let response = client2.receive_args();
     assert_eq!(response[0].as_str().unwrap(), "Hi, folex");
 
-    let script_add_alias = f!(r#"
-    (xor
-        (seq
-            (seq
-                (call "{client2.node}" ("op" "identity") [])
-                (call "{client1.node}" ("srv" "add_alias") [service_alias service_id])
-            )
-            (seq
-                (seq
-                    (call "{client2.node}" ("op" "identity") [])
-                    (call "{client1.node}" (service_alias "greeting") [my_name] greeting)
-                )
-                (seq
-                    (call "{client2.node}" ("op" "identity") [])
-                    (call "{client2.peer_id}" ("return" "") [greeting])
-                )
-            )
-
-        )
-        (seq
-            (call "{client2.node}" ("op" "identity") [])
-            (call "{client2.peer_id}" ("return" "") ["XOR: greeting() failed"])
-        )
-    )"#);
-
-    data.insert("my_name", json!("shmolex"));
-
-    client2.send_particle(script_add_alias, data.clone());
-
-    let response = client2.receive_args();
-    assert_eq!(response[0].as_str().unwrap(), "Hi, shmolex")
+    // TODO: ADD TEST AFTER KEY MANAGEMENT IMPLEMENTATION
+    // let script_add_alias = f!(r#"
+    // (xor
+    //     (seq
+    //         (seq
+    //             (call "{client1.node}" ("op" "identity") [])
+    //             (call "{client1.node}" ("srv" "add_alias") [service_alias service_id])
+    //         )
+    //         (seq
+    //             (seq
+    //                 (call "{client1.node}" ("op" "identity") [])
+    //                 (call "{client1.node}" (service_alias "greeting") [my_name] greeting)
+    //             )
+    //             (seq
+    //                 (call "{client1.node}" ("op" "identity") [])
+    //                 (call "{client1.peer_id}" ("return" "") [greeting])
+    //             )
+    //         )
+    //
+    //     )
+    //     (seq
+    //         (call "{client1.node}" ("op" "identity") [])
+    //         (call "{client1.peer_id}" ("return" "") [%last_error%])
+    //     )
+    // )"#);
+    //
+    // data.insert("my_name", json!("shmolex"));
+    //
+    // client1.send_particle(script_add_alias, data.clone());
+    //
+    // let response = client1.receive_args();
+    // assert_eq!(response[0].as_str().unwrap(), "Hi, shmolex")
 }
