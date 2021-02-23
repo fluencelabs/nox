@@ -415,13 +415,15 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     }
                 }
                 Poll::Pending => {
-                    log::trace!(target: "network", "Connection pool outlet is pending");
+                    // if channel is full, then keep particles in the queue
+                    let len = self.queue.len();
+                    if len > 30 {
+                        log::warn!("Particle queue seems to have stalled; queue {}", len);
+                    } else {
+                        log::trace!(target: "network", "Connection pool outlet is pending; queue {}", len);
+                    }
                     if self.outlet.is_closed() {
                         log::error!("Particle outlet closed");
-                    }
-                    // if channel is full, then keep particles in the queue
-                    if self.queue.len() > 10 {
-                        log::warn!("Particle queue seems to have stalled");
                     }
                     break;
                 }
