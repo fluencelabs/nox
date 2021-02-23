@@ -5,6 +5,10 @@ root_key_pair = "./secret_key"
 ## example of root_key_pair specified as base58 directly:
 # root_key_pair = "5jvxDNS6ChWV5cyXQxs8pUBzVo2NkGc7pVbx2RS1LB94yJciY9n4SzCS7ECDQxSZ3Zb4hGidbuQeHznYgQSFRkjU"
 
+# peerId of ed25519 public key. This key could be used by a client to manage a node
+# for example add aliases to services
+management_key = "12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
+
 ## Services will store their data here
 services_base_dir = "./services"
 ## AIR Interpreter (stepper) will store its data here

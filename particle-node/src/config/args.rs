@@ -66,5 +66,10 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .long("services-workdir")
             .multiple(true)
             .help("path to a directory where all services will store their data"),
+        Arg::with_name(MANAGEMENT_KEY)
+            .takes_value(true)
+            .long("management-key")
+            .multiple(false)
+            .help("a key (PeerId) that will be used to manage a node like adding aliases to services"),
     ]
 }

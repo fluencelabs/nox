@@ -74,15 +74,18 @@ pub struct ParticleAppServices {
     services: Services,
     modules: ModuleRepository,
     aliases: Aliases,
+    management_key: String,
 }
 
 impl ParticleAppServices {
     pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
+        let management_key = config.management_key.to_base58();
         let this = Self {
             config,
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
+            management_key,
         };
 
         this.create_persisted_services();
@@ -164,13 +167,11 @@ impl ParticleAppServices {
         let services = self.services.clone();
         let aliases = self.aliases.clone();
         let config = self.config.clone();
-        let host_id = self.config.local_peer_id.to_string();
+        let management_key = self.management_key.clone();
 
         closure_params_opt(move |particle, args| {
-            if particle.init_user_id != host_id {
-                // TODO: throw after key management implementation
-                let err = Forbidden(particle.init_user_id, "add_alias".to_string());
-                log::info!("Error should be thrown: {}", err);
+            if particle.init_user_id != management_key {
+                Err(Forbidden(particle.init_user_id, "add_alias".to_string()))?;
             };
 
             let mut args = args.function_args.into_iter();

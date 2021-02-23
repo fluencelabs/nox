@@ -51,6 +51,6 @@ pub use services_config::ServicesConfig;
 pub mod config_keys {
     pub use crate::fluence_config::{
         BLUEPRINT_DIR, BOOTSTRAP_NODE, CERTIFICATE_DIR, CONFIG_FILE, EXTERNAL_ADDR, ROOT_KEY_PAIR,
-        SERVICES_WORKDIR, SERVICE_ENVS, TCP_PORT, WEBSOCKET_PORT,
+        SERVICES_WORKDIR, SERVICE_ENVS, TCP_PORT, WEBSOCKET_PORT, MANAGEMENT_KEY,
     };
 }

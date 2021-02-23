@@ -29,11 +29,9 @@ use test_utils::{create_greeting_service, make_swarms, ConnectedClient, KAD_TIME
 fn create_service() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
-
-    let mut client1 = ConnectedClient::connect_to_with_peer_id(swarms[0].1.clone(), None)
+    let mut client1 = ConnectedClient::connect_to_with_peer_id(swarms[0].1.clone(), Some(swarms[0].3.clone()))
         .expect("connect client");
     let service = create_greeting_service(&mut client1);
-
     let mut client2 = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
 
     let script = f!(r#"

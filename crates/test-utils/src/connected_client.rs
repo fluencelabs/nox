@@ -28,7 +28,7 @@ use particle_protocol::Particle;
 use anyhow::bail;
 use async_std::task;
 use core::ops::Deref;
-use libp2p::{core::Multiaddr, PeerId};
+use libp2p::{core::Multiaddr, PeerId, identity::ed25519};
 use serde_json::Value as JValue;
 use std::collections::HashMap;
 use std::ops::DerefMut;
@@ -79,14 +79,14 @@ impl ConnectedClient {
 
     pub fn connect_to_with_peer_id(
         node_address: Multiaddr,
-        peer_id: Option<PeerId>,
+        key_pair: Option<ed25519::Keypair>,
     ) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
 
         let transport = Transport::from_maddr(&node_address);
         let connect = async move {
-            let (mut client, _) = Client::connect_with(node_address.clone(), transport, peer_id)
+            let (mut client, _) = Client::connect_with(node_address.clone(), transport, key_pair)
                 .await
                 .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {

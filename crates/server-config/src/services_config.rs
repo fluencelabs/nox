@@ -34,6 +34,8 @@ pub struct ServicesConfig {
     pub modules_dir: PathBuf,
     /// Dir to persist info about running services
     pub services_dir: PathBuf,
+    /// key that could manage services
+    pub management_key: PeerId,
 }
 
 impl ServicesConfig {
@@ -41,6 +43,7 @@ impl ServicesConfig {
         local_peer_id: PeerId,
         base_dir: PathBuf,
         envs: HashMap<Vec<u8>, Vec<u8>>,
+        management_key: PeerId,
     ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
 
@@ -51,6 +54,7 @@ impl ServicesConfig {
             modules_dir: config_utils::modules_dir(&base_dir),
             services_dir: config_utils::services_dir(&base_dir),
             envs,
+            management_key,
         };
 
         create_dirs(&[

@@ -28,6 +28,8 @@ use particle_protocol::ProtocolConfig;
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
+use libp2p::PeerId;
+use std::str::FromStr;
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
@@ -38,6 +40,7 @@ pub const CERTIFICATE_DIR: &str = "certificate_dir";
 pub const CONFIG_FILE: &str = "config_file";
 pub const SERVICE_ENVS: &str = "service_envs";
 pub const BLUEPRINT_DIR: &str = "blueprint_dir";
+pub const MANAGEMENT_KEY: &str = "management_key";
 pub const SERVICES_WORKDIR: &str = "services_workdir";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
@@ -49,6 +52,7 @@ const ARGS: &[&str] = &[
     CONFIG_FILE,
     SERVICE_ENVS,
     BLUEPRINT_DIR,
+    MANAGEMENT_KEY,
 ];
 
 #[derive(Deserialize, Debug)]
@@ -148,6 +152,9 @@ pub struct NodeConfig {
 
     #[serde(default = "default_bootstrap_frequency")]
     pub bootstrap_frequency: usize,
+
+    #[serde(deserialize_with = "parse_management_key")]
+    pub management_key: PeerId,
 }
 
 impl NodeConfig {
@@ -225,6 +232,17 @@ where
             ))
         })
     }
+}
+
+fn parse_management_key<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+{
+    let multihash = String::deserialize(deserializer)?;
+    Ok(PeerId::from_str(&multihash).map_err(|err| serde::de::Error::custom(format!(
+        "Failed to deserialize management_key {}: {}",
+        multihash, err
+    )))?)
 }
 
 fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>
