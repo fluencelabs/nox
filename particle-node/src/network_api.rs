@@ -148,6 +148,8 @@ impl NetworkApi {
                     }
                 })
                 .await;
+
+            log::error!("Particle stream has ended");
         });
 
         FuturesHandle {
