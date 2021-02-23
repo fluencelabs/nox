@@ -94,5 +94,5 @@ pub fn default_execution_timeout() -> Duration {
 }
 
 pub fn default_processing_timeout() -> Duration {
-    Duration::from_secs(10)
+    Duration::from_secs(120)
 }
