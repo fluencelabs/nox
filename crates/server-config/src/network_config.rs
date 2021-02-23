@@ -60,7 +60,7 @@ impl NetworkConfig {
             particle_queue_buffer: config.particle_queue_buffer,
             particle_parallelism: config.particle_processor_parallelism,
             bootstrap_frequency: config.bootstrap_frequency,
-            particle_timeout: config.particle_execution_timeout,
+            particle_timeout: config.particle_processing_timeout,
         }
     }
 }
