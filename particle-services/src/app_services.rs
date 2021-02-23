@@ -168,8 +168,10 @@ impl ParticleAppServices {
 
         closure_params_opt(move |particle, args| {
             if particle.init_user_id != host_id {
-                Err(Forbidden(particle.init_user_id, "add_alias".to_string()))?
-            }
+                // TODO: throw after key management implementation
+                let err = Forbidden(particle.init_user_id, "add_alias".to_string());
+                log::info!("Error should be thrown: {}", err);
+            };
 
             let mut args = args.function_args.into_iter();
             let alias: String = Args::next("alias", &mut args)?;
