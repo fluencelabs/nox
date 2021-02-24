@@ -127,7 +127,7 @@ pub struct CreatedSwarm(
     pub Multiaddr,
     // tmp dir, must be cleaned
     pub PathBuf,
-    // management_key
+    // management_peer_id
     pub Keypair,
     // stop signal
     pub OneshotOutlet<()>,

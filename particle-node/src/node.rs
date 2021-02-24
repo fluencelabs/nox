@@ -88,7 +88,7 @@ impl Node {
             local_peer_id,
             config.services_base_dir.clone(),
             config.services_envs.clone(),
-            config.management_key,
+            config.management_peer_id,
         )
         .expect("create services config");
 

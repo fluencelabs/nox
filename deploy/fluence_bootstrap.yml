@@ -4,7 +4,7 @@ services:
     image: fluencelabs/fluence:$BRANCH
     container_name: bootstrap
     restart: always
-    command: "-c /Config.toml -k /node.key -x $HOST -t 7770 -w 9990"
+    command: "-c /Config.toml -k /node.key -x $HOST -t 7770 -w 9990 -m 12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
     ports:
       - "7770:7770" # Node service
       - "9990:9990" # Peer service

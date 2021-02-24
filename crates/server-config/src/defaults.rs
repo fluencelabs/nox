@@ -15,6 +15,8 @@
  */
 
 use libp2p::core::Multiaddr;
+use libp2p::identity::ed25519::Keypair;
+use libp2p::PeerId;
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -87,4 +89,19 @@ pub fn default_script_storage_particle_ttl() -> Duration {
 
 pub fn default_bootstrap_frequency() -> usize {
     3
+}
+
+pub fn default_management_peer_id() -> PeerId {
+    let kp = Keypair::generate();
+    let secret = kp.secret();
+    let secret = base64::encode(secret);
+    let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());
+
+    let peer_id = PeerId::from(public_key);
+    log::warn!(
+        "New management key generated. private in base64 = {}; peer_id = {}",
+        secret,
+        peer_id.to_base58()
+    );
+    peer_id
 }

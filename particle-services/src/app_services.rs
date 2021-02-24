@@ -74,18 +74,18 @@ pub struct ParticleAppServices {
     services: Services,
     modules: ModuleRepository,
     aliases: Aliases,
-    management_key: String,
+    management_peer_id: String,
 }
 
 impl ParticleAppServices {
     pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
-        let management_key = config.management_key.to_base58();
+        let management_peer_id = config.management_peer_id.to_base58();
         let this = Self {
             config,
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
-            management_key,
+            management_peer_id,
         };
 
         this.create_persisted_services();
@@ -132,12 +132,13 @@ impl ParticleAppServices {
         closure_params(move |particle_params, args| {
             let services = services.read();
             let aliases = aliases.read();
-            let service = services
+            let (service, id) = services
                 .get(&args.service_id)
+                .map(|s| (s, args.service_id.clone()))
                 .or_else(|| {
                     aliases
                         .get(&args.service_id)
-                        .and_then(|id| services.get(id))
+                        .and_then(|id| (services.get(id)).map(|s| (s, id.clone())))
                 })
                 .ok_or_else(|| ServiceError::NoSuchInstance(args.service_id.clone()))?;
 
@@ -146,7 +147,7 @@ impl ParticleAppServices {
                 init_peer_id: particle_params.init_user_id,
                 particle_id: particle_params.particle_id,
                 tetraplets: args.tetraplets,
-                service_id: args.service_id,
+                service_id: id,
                 service_creator_peer_id: service.owner_id.clone(),
             };
 
@@ -167,10 +168,10 @@ impl ParticleAppServices {
         let services = self.services.clone();
         let aliases = self.aliases.clone();
         let config = self.config.clone();
-        let management_key = self.management_key.clone();
+        let management_peer_id = self.management_peer_id.clone();
 
         closure_params_opt(move |particle, args| {
-            if particle.init_user_id != management_key {
+            if particle.init_user_id != management_peer_id {
                 Err(Forbidden(particle.init_user_id, "add_alias".to_string()))?;
             };
 
@@ -178,17 +179,19 @@ impl ParticleAppServices {
             let alias: String = Args::next("alias", &mut args)?;
             let service_id: String = Args::next("service_id", &mut args)?;
 
+            // if a client trying to add an alias that equals some created service id
+            // return an error
             if services.read().get(&alias).is_some() {
                 Err(AliasAsServiceId(alias.clone()))?
             }
 
             let mut services = services.write();
 
-            let s = services
+            let service = services
                 .get_mut(&service_id)
                 .ok_or(ServiceError::NoSuchInstance(service_id.clone()))?;
-            s.add_alias(alias.clone());
-            let persisted_new = PersistedService::from_service(service_id.clone(), s);
+            service.add_alias(alias.clone());
+            let persisted_new = PersistedService::from_service(service_id.clone(), service);
 
             let old_id = {
                 let lock = aliases.read();

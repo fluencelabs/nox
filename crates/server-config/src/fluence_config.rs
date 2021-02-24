@@ -40,7 +40,7 @@ pub const CERTIFICATE_DIR: &str = "certificate_dir";
 pub const CONFIG_FILE: &str = "config_file";
 pub const SERVICE_ENVS: &str = "service_envs";
 pub const BLUEPRINT_DIR: &str = "blueprint_dir";
-pub const MANAGEMENT_KEY: &str = "management_key";
+pub const MANAGEMENT_PEER_ID: &str = "management_peer_id";
 pub const SERVICES_WORKDIR: &str = "services_workdir";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
@@ -52,7 +52,7 @@ const ARGS: &[&str] = &[
     CONFIG_FILE,
     SERVICE_ENVS,
     BLUEPRINT_DIR,
-    MANAGEMENT_KEY,
+    MANAGEMENT_PEER_ID,
 ];
 
 #[derive(Deserialize, Debug)]
@@ -153,8 +153,9 @@ pub struct NodeConfig {
     #[serde(default = "default_bootstrap_frequency")]
     pub bootstrap_frequency: usize,
 
-    #[serde(deserialize_with = "parse_management_key")]
-    pub management_key: PeerId,
+    #[serde(deserialize_with = "parse_management_peer_id")]
+    #[serde(default = "default_management_peer_id")]
+    pub management_peer_id: PeerId,
 }
 
 impl NodeConfig {
@@ -234,14 +235,14 @@ where
     }
 }
 
-fn parse_management_key<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
+fn parse_management_peer_id<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let multihash = String::deserialize(deserializer)?;
     Ok(PeerId::from_str(&multihash).map_err(|err| {
         serde::de::Error::custom(format!(
-            "Failed to deserialize management_key {}: {}",
+            "Failed to deserialize management_peer_id {}: {}",
             multihash, err
         ))
     })?)
@@ -355,7 +356,6 @@ mod tests {
         let config = r#"
             stepper_base_dir = "/stepper"
             stepper_module_name = "aquamarine"
-            management_key = "12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
 
             [root_weights]
             Ct8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4 = 1
