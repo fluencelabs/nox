@@ -21,6 +21,7 @@ use derivative::Derivative;
 use libp2p::PeerId;
 use now_millis::now_ms;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
 #[derivative(Debug)]
@@ -55,12 +56,25 @@ impl Default for Particle {
 
 impl Particle {
     pub fn is_expired(&self) -> bool {
-        if let Some(deadline) = self.timestamp.checked_add(self.ttl as u64) {
+        if let Some(deadline) = self.deadline() {
             return now_ms() > deadline as u128;
         }
 
         // If timestamp + ttl overflows u64, consider particle expired
         true
+    }
+
+    #[inline]
+    pub fn deadline(&self) -> Option<u64> {
+        self.timestamp.checked_add(self.ttl as u64)
+    }
+
+    pub fn time_to_live(&self) -> Duration {
+        if let Some(ttl) = self.deadline().and_then(|d| d.checked_sub(now_ms() as u64)) {
+            Duration::from_millis(ttl)
+        } else {
+            Duration::default()
+        }
     }
 }
 

@@ -149,12 +149,6 @@ impl Kademlia {
         addresses: Vec<Multiaddr>,
         public_key: ed25519::PublicKey,
     ) {
-        log::trace!(
-            target: "network",
-            "adding new node {} with {:?} addresses to kademlia",
-            peer,
-            addresses,
-        );
         for addr in addresses {
             self.kademlia
                 .add_address(&peer, addr.clone(), public_key.clone());
@@ -247,6 +241,13 @@ impl Kademlia {
 
 impl Kademlia {
     fn peer_discovered(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
+        log::trace!(
+            target: "network",
+            "discovered peer {} with {:?} addresses",
+            peer,
+            addresses,
+        );
+
         if let Some(pendings) = self.pending_peers.remove(&peer) {
             for pending in pendings {
                 pending.out.send(Ok(addresses.clone())).ok();

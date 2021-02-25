@@ -14,14 +14,26 @@
  * limitations under the License.
  */
 
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AquamarineApiError {
+    #[error("AquamarineApiError::ParticleExpired: particle_id = {particle_id}")]
     ParticleExpired { particle_id: String },
+    #[error(
+        r#"AquamarineApiError::OneshotCancelled: particle_id = {}.
+        Aquamarine dropped particle processing before sending effects back.
+        This is unexpected and shouldn't happen {particle_id}"#
+    )]
     OneshotCancelled { particle_id: String },
+    #[error(
+        r#"AquamarineApiError::AquamarineDied: particle_id = {particle_id}.
+        Aquamarine couldn't be reached from the NetworkApi.
+        This is unexpected and shouldn't happen."#
+    )]
     AquamarineDied { particle_id: String },
+    #[error("AquamarineApiError::ExecutionTimedOut: particle_id = {particle_id}")]
+    ExecutionTimedOut { particle_id: String },
 }
 
 impl AquamarineApiError {
@@ -30,40 +42,7 @@ impl AquamarineApiError {
             AquamarineApiError::ParticleExpired { particle_id } => particle_id,
             AquamarineApiError::OneshotCancelled { particle_id } => particle_id,
             AquamarineApiError::AquamarineDied { particle_id } => particle_id,
-        }
-    }
-}
-
-impl Error for AquamarineApiError {}
-
-impl Display for AquamarineApiError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AquamarineApiError::ParticleExpired { particle_id } => {
-                write!(
-                    f,
-                    "AquamarineApiError::ParticleExpired: particle_id = {}",
-                    particle_id
-                )
-            }
-            AquamarineApiError::OneshotCancelled { particle_id } => {
-                write!(
-                    f,
-                    "AquamarineApiError::OneshotCancelled: particle_id = {}. \
-                     Aquamarine dropped particle processing before sending effects back. \
-                     This is unexpected and shouldn't happen.",
-                    particle_id
-                )
-            }
-            AquamarineApiError::AquamarineDied { particle_id } => {
-                write!(
-                    f,
-                    "AquamarineApiError::AquamarineDied: particle_id = {}. \
-                     Aquamarine couldn't be reached from the NetworkApi. \
-                     This is unexpected and shouldn't happen.",
-                    particle_id
-                )
-            }
+            AquamarineApiError::ExecutionTimedOut { particle_id } => particle_id,
         }
     }
 }

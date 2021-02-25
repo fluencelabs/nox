@@ -386,7 +386,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {
-                log::trace!(target: "network", "received particle {} from {}", particle.id, from);
+                log::trace!(target: "network", "received particle {} from {}; queue {}", particle.id, from, self.queue.len());
                 self.queue.push_back(particle);
                 self.wake();
             }
@@ -399,28 +399,32 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     fn poll(&mut self, cx: &mut Context<'_>, _: &mut impl PollParameters) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
-        if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(event);
-        }
-
         loop {
             // Check backpressure on the outlet
             match self.outlet.poll_ready(cx) {
                 Poll::Ready(Ok(_)) => {
                     // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
-                        self.outlet.start_send(particle).ok();
+                        let particle_id = particle.id.clone();
+                        if let Err(err) = self.outlet.start_send(particle) {
+                            log::error!("Failed to send particle to outlet: {}", err)
+                        } else {
+                            log::trace!(target: "network", "Sent particle {} to execution", particle_id);
+                        }
                     } else {
                         break;
                     }
                 }
                 Poll::Pending => {
+                    // if channel is full, then keep particles in the queue
+                    let len = self.queue.len();
+                    if len > 30 {
+                        log::warn!("Particle queue seems to have stalled; queue {}", len);
+                    } else {
+                        log::trace!(target: "network", "Connection pool outlet is pending; queue {}", len);
+                    }
                     if self.outlet.is_closed() {
                         log::error!("Particle outlet closed");
-                    }
-                    // if channel is full, then keep particles in the queue
-                    if self.queue.len() > 100 {
-                        log::warn!("Particle queue seems to have stalled");
                     }
                     break;
                 }
@@ -429,6 +433,10 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     break;
                 }
             }
+        }
+
+        if let Some(event) = self.events.pop_front() {
+            return Poll::Ready(event);
         }
 
         Poll::Pending
