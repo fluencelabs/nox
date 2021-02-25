@@ -16,6 +16,7 @@
 
 use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
+use eyre::WrapErr;
 use libp2p::PeerId;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
@@ -25,12 +26,14 @@ use std::thread::sleep;
 fn neighborhood() {
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     client.send_particle(
         r#"
             (seq
-                (call node ("dht" "neighborhood") [node] peers)
+                (call node ("kad" "neighborhood") [node] peers)
                 (call client ("return" "") [peers] void)
             )
         "#,
@@ -39,7 +42,7 @@ fn neighborhood() {
             "client" => json!(client.peer_id.to_string())
         },
     );
-    let response = client.receive_args();
+    let response = client.receive_args().wrap_err("receive").unwrap();
     if let JValue::Array(neighborhood) = response[0].clone() {
         assert_eq!(neighborhood.len(), 2);
 

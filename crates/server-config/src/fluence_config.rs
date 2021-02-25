@@ -149,6 +149,9 @@ pub struct NodeConfig {
     #[serde(default = "default_bootstrap_frequency")]
     pub bootstrap_frequency: usize,
 
+    #[serde(default)]
+    pub allow_local_addresses: bool,
+
     #[serde(default = "default_execution_timeout")]
     #[serde(with = "humantime_serde")]
     pub particle_execution_timeout: Duration,

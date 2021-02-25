@@ -25,9 +25,9 @@ use crate::{
 use fluence_client::{Client, Transport};
 use particle_protocol::Particle;
 
-use anyhow::bail;
 use async_std::task;
 use core::ops::Deref;
+use eyre::{bail, WrapErr};
 use libp2p::{core::Multiaddr, PeerId};
 use serde_json::Value as JValue;
 use std::collections::HashMap;
@@ -152,42 +152,44 @@ impl ConnectedClient {
     pub fn maybe_receive(&mut self) -> Option<Particle> {
         let short_timeout = self.short_timeout();
         let receive = self.client.receive_one();
-        let particle = task::block_on(timeout(short_timeout, receive)).ok();
+        let particle = task::block_on(timeout(short_timeout, receive)).ok()??;
 
-        Option::flatten(particle).and_then(|particle| match particle {
+        match particle {
             ClientEvent::Particle { particle, .. } => Some(particle),
             _ => None,
-        })
-    }
-
-    pub fn receive(&mut self) -> Particle {
-        let tout = self.timeout();
-        let receive = self.client.receive_one();
-        let result = task::block_on(timeout(tout, receive)).expect("get particle");
-
-        if let Some(ClientEvent::Particle { particle, .. }) = result {
-            particle
-        } else {
-            panic!("Expected Some(Particle), got {:?}", result)
         }
     }
 
-    pub fn receive_args(&mut self) -> Vec<JValue> {
-        let particle = self.receive();
-        read_args(particle, &self.peer_id)
+    pub fn receive(&mut self) -> Result<Particle> {
+        let tout = self.timeout();
+        let receive = self.client.receive_one();
+        let result = task::block_on(timeout(tout, receive)).wrap_err("receive particle")?;
+
+        if let Some(ClientEvent::Particle { particle, .. }) = result {
+            Ok(particle)
+        } else {
+            bail!("Expected Some(Particle), got {:?}", result)
+        }
+    }
+
+    pub fn receive_args(&mut self) -> Result<Vec<JValue>> {
+        let particle = self.receive().wrap_err("receive_args")?;
+        Ok(read_args(particle, &self.peer_id))
     }
 
     /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
-    pub fn wait_particle_args(&mut self, particle_id: String) -> anyhow::Result<Vec<JValue>> {
+    pub fn wait_particle_args(&mut self, particle_id: String) -> Result<Vec<JValue>> {
         let mut max = 100;
         loop {
             max -= 1;
             if max <= 0 {
                 bail!("timed out waiting for particle {}", particle_id);
             }
-            let particle = self.receive();
-            if particle.id == particle_id {
-                break Ok(read_args(particle, &self.peer_id));
+            let particle = self.receive().ok();
+            if let Some(particle) = particle {
+                if particle.id == particle_id {
+                    break Ok(read_args(particle, &self.peer_id));
+                }
             }
         }
     }

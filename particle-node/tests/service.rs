@@ -23,6 +23,7 @@ use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 
+use eyre::WrapErr;
 use test_utils::{create_greeting_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
@@ -30,10 +31,14 @@ fn create_service() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
-    let mut client1 = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client1 = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
     let service = create_greeting_service(&mut client1);
 
-    let mut client2 = ConnectedClient::connect_to(swarms[1].1.clone()).expect("connect client");
+    let mut client2 = ConnectedClient::connect_to(swarms[1].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = f!(r#"
     (xor
@@ -63,6 +68,6 @@ fn create_service() {
         },
     );
 
-    let response = client2.receive_args();
+    let response = client2.receive_args().wrap_err("receive").unwrap();
     assert_eq!(response[0].as_str().unwrap(), "Hi, folex")
 }

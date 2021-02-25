@@ -15,6 +15,7 @@
  */
 
 use crate::{test_module, test_module_cfg, ConnectedClient};
+use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
 
@@ -27,20 +28,14 @@ pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
     let module = "greeting";
 
     let script = f!(r#"
-    (xor
+    (seq
+        (call relay ("dist" "add_module") [module_bytes module_config] module)
         (seq
-            (call relay ("dist" "add_module") [module_bytes module_config] module)
+            (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
             (seq
-                (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
-                (seq
-                    (call relay ("srv" "create") [blueprint_id] service_id)
-                    (call client ("return" "") [service_id] client_result)
-                )
+                (call relay ("srv" "create") [blueprint_id] service_id)
+                (call client ("return" "") [service_id] client_result)
             )
-        )
-        (seq
-            (call relay ("op" "identity") ["XOR: create_greeting_service failed"] fail[])
-            (call client ("return" "") [fail %last_error%])
         )
     )
     "#);
@@ -54,7 +49,7 @@ pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
     };
 
     client.send_particle(script, data);
-    let response = client.receive_args();
+    let response = client.receive_args().wrap_err("receive args").unwrap();
 
     let service_id = response[0].as_str().expect("service_id").to_string();
 

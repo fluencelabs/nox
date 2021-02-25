@@ -34,13 +34,18 @@ use libp2p::{core::Multiaddr, swarm::NetworkBehaviourEventProcess, PeerId};
 use std::{convert::identity, time::Duration};
 
 enum Command {
-    Dial {
-        addr: Multiaddr,
-        out: OneshotOutlet<Option<Contact>>,
-    },
     Connect {
         contact: Contact,
         out: OneshotOutlet<bool>,
+    },
+    Send {
+        to: Contact,
+        particle: Particle,
+        out: OneshotOutlet<bool>,
+    },
+    Dial {
+        addr: Multiaddr,
+        out: OneshotOutlet<Option<Contact>>,
     },
     Disconnect {
         contact: Contact,
@@ -54,11 +59,7 @@ enum Command {
         peer_id: PeerId,
         out: OneshotOutlet<Option<Contact>>,
     },
-    Send {
-        to: Contact,
-        particle: Particle,
-        out: OneshotOutlet<bool>,
-    },
+
     CountConnections {
         out: OneshotOutlet<usize>,
     },
