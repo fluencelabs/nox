@@ -22,13 +22,17 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-pub struct FuturesHandle {
+/// Holds handles to spawned tasks
+pub struct NetworkTasks {
+    /// Task that processes particles from particle stream
     pub particles: Option<JoinHandle<()>>,
+    /// Task that reconnects to disconnected bootstraps
     pub reconnect_bootstraps: Option<JoinHandle<()>>,
+    /// Task that runs Kademlia::bootstrap when enough bootstrap nodes have changed
     pub run_bootstrap: Option<JoinHandle<()>>,
 }
 
-impl FuturesHandle {
+impl NetworkTasks {
     pub fn new(
         particles: JoinHandle<()>,
         reconnect_bootstraps: JoinHandle<()>,
@@ -54,39 +58,13 @@ impl FuturesHandle {
     }
 }
 
-impl Future for FuturesHandle {
+impl Future for NetworkTasks {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut p_ready = false;
-        if let Some(particles) = self.particles.as_mut() {
-            if particles.poll_unpin(cx).is_ready() {
-                p_ready = true;
-            }
-        }
-        if p_ready {
-            self.particles.take();
-        }
-
-        let mut r_ready = false;
-        if let Some(reconnect_bootstraps) = self.reconnect_bootstraps.as_mut() {
-            if reconnect_bootstraps.poll_unpin(cx).is_ready() {
-                r_ready = true;
-            }
-        }
-        if r_ready {
-            self.reconnect_bootstraps.take();
-        }
-
-        let mut b_ready = false;
-        if let Some(run_bootstrap) = self.run_bootstrap.as_mut() {
-            if run_bootstrap.poll_unpin(cx).is_ready() {
-                b_ready = true;
-            }
-        }
-        if b_ready {
-            self.run_bootstrap.take();
-        }
+        poll_opt(&mut self.particles, cx);
+        poll_opt(&mut self.reconnect_bootstraps, cx);
+        poll_opt(&mut self.run_bootstrap, cx);
 
         if self.is_terminated() {
             log::warn!("FuturesHandle terminated");
@@ -97,10 +75,23 @@ impl Future for FuturesHandle {
     }
 }
 
-impl FusedFuture for FuturesHandle {
+impl FusedFuture for NetworkTasks {
     fn is_terminated(&self) -> bool {
         self.particles.is_none()
             && self.reconnect_bootstraps.is_none()
             && self.run_bootstrap.is_none()
+    }
+}
+
+/// Poll the future inside Option. If future is completed, set Option to None.
+fn poll_opt(future: &mut Option<JoinHandle<()>>, cx: &mut Context<'_>) {
+    let mut ready = false;
+    if let Some(future) = future.as_mut() {
+        if future.poll_unpin(cx).is_ready() {
+            ready = true;
+        }
+    }
+    if ready {
+        future.take();
     }
 }

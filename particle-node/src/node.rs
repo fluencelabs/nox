@@ -15,9 +15,9 @@
  */
 
 use super::behaviour::NetworkBehaviour;
-use crate::futures_handle::FuturesHandle;
 use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
+use crate::network_tasks::NetworkTasks;
 
 use aquamarine::{AquamarineApi, AquamarineBackend, StepperEffects, VmPoolConfig};
 use config_utils::to_peer_id;

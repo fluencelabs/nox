@@ -24,7 +24,7 @@
 //! - executing it through Aquamarine
 //! - forwarding the particle to the next peers
 
-use crate::futures_handle::FuturesHandle;
+use crate::network_tasks::NetworkTasks;
 
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
@@ -103,7 +103,7 @@ impl NetworkApi {
         aquamarine: AquamarineApi,
         bootstrap_nodes: HashSet<Multiaddr>,
         particle_failures_sink: impl Sink<String> + Clone + Unpin + Send + Sync + 'static,
-    ) -> FuturesHandle {
+    ) -> NetworkTasks {
         let NetworkApi {
             particle_stream,
             particle_parallelism,
@@ -167,7 +167,7 @@ impl NetworkApi {
             log::error!("Particle stream has ended");
         });
 
-        FuturesHandle::new(particles, reconnect_bootstraps, run_bootstrap)
+        NetworkTasks::new(particles, reconnect_bootstraps, run_bootstrap)
     }
 }
 
