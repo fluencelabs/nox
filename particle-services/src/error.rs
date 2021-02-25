@@ -28,6 +28,10 @@ use thiserror::Error;
 pub enum ServiceError {
     #[error("Service with id '{0}' not found")]
     NoSuchService(String),
+    #[error("Forbidden. User id '{0}' cannot call function '{1}'")]
+    Forbidden(String, String),
+    #[error("Cannot add alias '{0}' because there is a service with that id")]
+    AliasAsServiceId(String),
     #[error(transparent)]
     Engine(AppServiceError),
     #[error(transparent)]

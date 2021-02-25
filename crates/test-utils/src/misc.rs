@@ -129,6 +129,8 @@ pub struct CreatedSwarm(
     pub Multiaddr,
     // tmp dir, must be cleaned
     pub PathBuf,
+    // management_peer_id
+    pub Keypair,
     // stop signal
     pub OneshotOutlet<()>,
 );
@@ -160,7 +162,7 @@ pub fn make_swarms_with<F, M>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node>, PathBuf),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node>, PathBuf, Keypair),
     M: FnMut() -> Multiaddr,
 {
     let addrs = (0..n).map(|_| create_maddr()).collect::<Vec<_>>();
@@ -169,8 +171,8 @@ where
         .map(|addr| {
             #[rustfmt::skip]
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
-            let (id, node, tmp) = create_node(addrs.clone(), addr.clone());
-            ((id, addr.clone(), tmp), node)
+            let (id, node, tmp, m_kp) = create_node(addrs.clone(), addr.clone());
+            ((id, addr.clone(), tmp, m_kp), node)
         })
         .collect::<Vec<_>>();
 
@@ -196,9 +198,9 @@ where
     // start all nodes
     let infos = nodes
         .into_iter()
-        .map(|((id, addr, tmp), node)| {
+        .map(|((id, addr, tmp, m_kp), node)| {
             let stop = node.start();
-            CreatedSwarm(id, addr, tmp, stop)
+            CreatedSwarm(id, addr, tmp, m_kp, stop)
         })
         .collect();
 
@@ -254,7 +256,7 @@ impl SwarmConfig {
     }
 }
 
-pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
+pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair) {
     use libp2p::identity;
 
     #[rustfmt::skip]
@@ -263,6 +265,10 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
     let kp = Keypair::generate();
     let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());
     let peer_id = PeerId::from(public_key);
+
+    let management_kp = Keypair::generate();
+    let m_public_key = libp2p::identity::PublicKey::Ed25519(management_kp.public());
+    let m_id = PeerId::from(m_public_key);
 
     let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
     std::fs::create_dir_all(&tmp).expect("create tmp dir");
@@ -282,7 +288,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
     let pool_config = VmPoolConfig::new(peer_id, stepper_base_dir, air_interpreter, 1, exe_tout)
         .expect("create vm pool config");
 
-    let services_config = ServicesConfig::new(peer_id, tmp.join("services"), <_>::default())
+    let services_config = ServicesConfig::new(peer_id, tmp.join("services"), <_>::default(), m_id)
         .expect("create services config");
 
     let network_config = NetworkConfig {
@@ -330,7 +336,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
 
     node.listen(vec![listen_on]).expect("listen");
 
-    (peer_id, node, tmp)
+    (peer_id, node, tmp, management_kp)
 }
 
 pub fn create_memory_maddr() -> Multiaddr {

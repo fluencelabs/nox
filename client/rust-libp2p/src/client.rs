@@ -76,8 +76,9 @@ impl Client {
         relay_outlet: Outlet<Command>,
         client_inlet: Inlet<ClientEvent>,
         stop_outlet: OneshotOutlet<()>,
+        key_pair: Option<ed25519::Keypair>,
     ) -> Self {
-        let key = ed25519::Keypair::generate();
+        let key = key_pair.unwrap_or(ed25519::Keypair::generate());
         let peer_id = identity::PublicKey::Ed25519(key.public()).into_peer_id();
 
         Client {
@@ -146,19 +147,20 @@ impl Client {
     }
 
     pub async fn connect(relay: Multiaddr) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        Self::connect_with(relay, Transport::Network).await
+        Self::connect_with(relay, Transport::Network, None).await
     }
 
     pub async fn connect_with(
         relay: Multiaddr,
         transport: Transport,
+        key_pair: Option<ed25519::Keypair>,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::unbounded();
         let (relay_outlet, relay_inlet) = mpsc::unbounded();
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
-        let client = Client::new(relay_outlet, client_inlet, stop_outlet);
+        let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
         let mut swarm = client.dial(relay, transport)?;
 
         let mut relay_inlet = relay_inlet.fuse();

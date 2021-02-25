@@ -15,7 +15,7 @@
  */
 
 use crate::error::ServiceError;
-use crate::persistence::persist_service;
+use crate::persistence::{persist_service, PersistedService};
 use crate::Result;
 
 use particle_modules::ModuleRepository;
@@ -23,11 +23,12 @@ use server_config::ServicesConfig;
 
 use fluence_app_service::{AppService, AppServiceConfig, FaaSConfig};
 
-pub fn create_vm(
+pub fn create_app_service(
     config: ServicesConfig,
     modules: &ModuleRepository,
     blueprint_id: String,
     service_id: String,
+    aliases: Vec<String>,
     owner_id: String,
 ) -> Result<AppService> {
     try {
@@ -48,7 +49,8 @@ pub fn create_vm(
             .map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
-        persist_service(&config.services_dir, service_id, blueprint_id, owner_id)?;
+        let persisted = PersistedService::new(service_id, blueprint_id, aliases, owner_id);
+        persist_service(&config.services_dir, persisted)?;
 
         service
     }

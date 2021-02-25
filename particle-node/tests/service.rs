@@ -31,11 +31,11 @@ fn create_service() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
-    let mut client1 = ConnectedClient::connect_to(swarms[0].1.clone())
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client1 =
+        ConnectedClient::connect_to_with_peer_id(swarms[0].1.clone(), Some(swarms[0].3.clone()))
+            .wrap_err("connect client")
+            .unwrap();
     let service = create_greeting_service(&mut client1);
-
     let mut client2 = ConnectedClient::connect_to(swarms[1].1.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -57,17 +57,50 @@ fn create_service() {
             (call "{client2.peer_id}" ("return" "") ["XOR: greeting() failed"])
         )
     )"#);
-    client2.send_particle(
-        script,
-        hashmap! {
-            "host" => json!(client1.node.to_string()),
-            "relay" => json!(client2.node.to_string()),
-            "client" => json!(client2.peer_id.to_string()),
-            "service_id" => json!(service.id),
-            "my_name" => json!("folex"),
-        },
-    );
+
+    let mut data = hashmap! {
+        "host" => json!(client1.node.to_string()),
+        "relay" => json!(client2.node.to_string()),
+        "client" => json!(client2.peer_id.to_string()),
+        "service_id" => json!(service.id),
+        "my_name" => json!("folex"),
+        "service_alias" => json!("random_alias"),
+    };
+
+    client2.send_particle(script, data.clone());
 
     let response = client2.receive_args().wrap_err("receive").unwrap();
-    assert_eq!(response[0].as_str().unwrap(), "Hi, folex")
+    assert_eq!(response[0].as_str().unwrap(), "Hi, folex");
+
+    let script_add_alias = f!(r#"
+    (xor
+        (seq
+            (seq
+                (call "{client1.node}" ("op" "identity") [])
+                (call "{client1.node}" ("srv" "add_alias") [service_alias service_id])
+            )
+            (seq
+                (seq
+                    (call "{client1.node}" ("op" "identity") [])
+                    (call "{client1.node}" (service_alias "greeting") [my_name] greeting)
+                )
+                (seq
+                    (call "{client1.node}" ("op" "identity") [])
+                    (call "{client1.peer_id}" ("return" "") [greeting])
+                )
+            )
+
+        )
+        (seq
+            (call "{client1.node}" ("op" "identity") [])
+            (call "{client1.peer_id}" ("return" "") [%last_error%])
+        )
+    )"#);
+
+    data.insert("my_name", json!("shmolex"));
+
+    client1.send_particle(script_add_alias, data.clone());
+
+    let response = client1.receive_args().wrap_err("receive args").unwrap();
+    assert_eq!(response[0].as_str().unwrap(), "Hi, shmolex")
 }

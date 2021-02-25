@@ -28,10 +28,10 @@
 
 use crate::error::ServiceError;
 
+mod app_service;
 mod app_services;
 mod error;
 mod persistence;
-mod vm;
 
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
 
