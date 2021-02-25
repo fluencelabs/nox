@@ -128,7 +128,7 @@ impl ParticleAppServices {
         let host_id = self.config.local_peer_id.to_string();
 
         closure_params(move |particle_params, args| {
-            let call: eyre::Result<_> = try {
+            let result: eyre::Result<_> = try {
                 let services = services.read();
                 let aliases = aliases.read();
 
@@ -140,7 +140,7 @@ impl ParticleAppServices {
                             .get(&args.service_id)
                             .and_then(|id| (services.get(id)).map(|s| (s, id.clone())))
                     })
-                    .ok_or_else(|| ServiceError::NoSuchInstance(args.service_id.clone()))?;
+                    .ok_or_else(|| ServiceError::NoSuchService(args.service_id.clone()))?;
 
                 let params = CallParameters {
                     host_id: host_id.clone(),
@@ -161,13 +161,15 @@ impl ParticleAppServices {
                     .map_err(ServiceError::Engine)?
             };
 
-            match call {
-                Ok(result) => ivalue_utils::ok(result),
-                Err(err) => {
-                    log::warn!("call_service error: {:?}", err);
-                    ivalue_utils::error(json!(err.to_string()))
-                }
-            }
+            result.map_err(|err| {
+                log::warn!("call_service error: {:?}", err);
+                json!(format!("{:?}", err)
+                    // TODO: send patch to eyre so it can be done through their API
+                    // Remove backtrace from the response
+                    .split("Stack backtrace:")
+                    .next()
+                    .unwrap_or_default())
+            })
         })
     }
 
@@ -196,7 +198,7 @@ impl ParticleAppServices {
 
             let service = services
                 .get_mut(&service_id)
-                .ok_or_else(|| ServiceError::NoSuchInstance(service_id.clone()))?;
+                .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
             service.add_alias(alias.clone());
             let persisted_new = PersistedService::from_service(service_id.clone(), service);
 

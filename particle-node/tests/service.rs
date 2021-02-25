@@ -101,6 +101,6 @@ fn create_service() {
 
     client1.send_particle(script_add_alias, data.clone());
 
-    let response = client1.receive_args();
+    let response = client1.receive_args().wrap_err("receive args").unwrap();
     assert_eq!(response[0].as_str().unwrap(), "Hi, shmolex")
 }
