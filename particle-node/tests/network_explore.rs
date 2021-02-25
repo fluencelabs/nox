@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_greeting_service, enable_logs, make_swarms, module_config, read_args, test_module,
-    test_module_cfg, timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
+    create_greeting_service, make_swarms, module_config, read_args, test_module, test_module_cfg,
+    timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
+use eyre::{ContextCompat, WrapErr};
 use futures::executor::block_on;
 use maplit::hashmap;
 use serde::Deserialize;
@@ -27,10 +28,10 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Deserialize)]
-pub struct VmDescriptor {
-    interface: JValue,
+pub struct Service {
     blueprint_id: String,
-    service_id: Option<String>,
+    id: String,
+    owner_id: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -56,18 +57,29 @@ pub struct ModuleDescriptor {
 
 #[test]
 fn get_interfaces() {
-    let swarms = make_swarms(10);
+    let swarms = make_swarms(1);
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
     let service1 = create_greeting_service(&mut client);
     let service2 = create_greeting_service(&mut client);
 
     client.send_particle(
         r#"
         (seq
-            (call relay ("srv" "get_interfaces") [] interfaces)
-            (call client ("return" "") [interfaces])
+            (seq
+                (call relay ("srv" "list") [] services)
+                (fold services s
+                    (seq
+                        (call relay ("srv" "get_interface") [s.$.id!] interfaces[])
+                        (next s)
+                    )
+                )
+            )
+            
+            (call client ("return" "") [services interfaces])
         )
         "#,
         hashmap! {
@@ -76,17 +88,17 @@ fn get_interfaces() {
         },
     );
 
-    let value = client.receive_args().into_iter().next().unwrap();
-    let vm_descriptors: Vec<VmDescriptor> =
-        serde_json::from_value(value).expect("deserialize vm descriptors");
-    assert!(vm_descriptors
-        .iter()
-        .find(|d| d.service_id.as_ref().unwrap() == service1.id.as_str())
-        .is_some());
-    assert!(vm_descriptors
-        .iter()
-        .find(|d| d.service_id.as_ref().unwrap() == service2.id.as_str())
-        .is_some());
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let mut args = args.into_iter();
+    let services = args.next().unwrap();
+    let services: Vec<Service> = serde_json::from_value(services)
+        .wrap_err("deserialize services")
+        .unwrap();
+    assert!(services.iter().find(|d| d.id == service1.id).is_some());
+    assert!(services.iter().find(|d| d.id == service2.id).is_some());
+
+    let interfaces_count = args.next().unwrap().as_array().unwrap().len();
+    assert_eq!(interfaces_count, 2);
 }
 
 #[test]
@@ -94,14 +106,16 @@ fn get_modules() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     client.send_particle(
         r#"
         (seq
             (seq
                 (call relay ("dist" "add_module") [module_bytes module_config])
-                (call relay ("dist" "get_modules") [] modules)
+                (call relay ("dist" "list_modules") [] modules)
             )
             (call client ("return" "") [modules])
         )
@@ -114,20 +128,20 @@ fn get_modules() {
         },
     );
 
-    let value = client.receive_args().into_iter().next().unwrap();
+    let value = client.receive_args().wrap_err("receive args").unwrap();
+    let value = value.into_iter().next().unwrap();
     let modules: Vec<ModuleDescriptor> = serde_json::from_value(value).unwrap();
     assert_eq!(modules[0].name.as_deref(), Some("greeting"));
-    assert!(matches!(modules[0].interface, JValue::Object(_)));
 }
 
 #[test]
-fn get_blueprints() {
-    enable_logs();
-
+fn list_blueprints() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let bytes = b"module";
     let raw_hash = blake3::hash(bytes).to_hex();
@@ -140,7 +154,7 @@ fn get_blueprints() {
             (seq
                 (seq
                     (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
-                    (call relay ("dist" "get_blueprints") [] blueprints)
+                    (call relay ("dist" "list_blueprints") [] blueprints)
                 )
                 (call client ("return" "") [blueprints module_hash])
             )
@@ -155,9 +169,12 @@ fn get_blueprints() {
         },
     );
 
-    let mut args = client.receive_args().into_iter();
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let mut args = args.into_iter();
     let value = args.next().unwrap();
-    let bp: Vec<Blueprint> = serde_json::from_value(value).expect("deserialize blueprint");
+    let bp: Vec<Blueprint> = serde_json::from_value(value)
+        .wrap_err("deserialize blueprint")
+        .unwrap();
     assert_eq!(bp.len(), 1);
     assert_eq!(bp[0].name, "blueprint");
     assert_eq!(bp[0].dependencies.len(), 2);
@@ -175,16 +192,18 @@ fn explore_services() {
     let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
     client.send_particle(
         r#"
         (seq
             (seq
-                (call relay ("dht" "neighborhood") [relay] neighs_top)
+                (call relay ("kad" "neighborhood") [relay] neighs_top)
                 (seq
                     (fold neighs_top n
                         (seq
-                            (call n ("dht" "neighborhood") [n] neighs_inner[])
+                            (call n ("kad" "neighborhood") [n] neighs_inner[])
                             (next n)
                         )
                     )
@@ -195,7 +214,7 @@ fn explore_services() {
                             (seq
                                 (fold ns_wrapped.$[0]! n
                                     (seq
-                                        (call n ("op" "identify") [] services[])
+                                        (call n ("peer" "identify") [] services[])
                                         (next n)
                                     )
                                 )
@@ -218,7 +237,8 @@ fn explore_services() {
     );
 
     client.timeout = Duration::from_secs(120);
-    let mut args = client.receive_args().into_iter();
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let mut args = args.into_iter();
     let services = args.next().unwrap();
     println!("{}", services);
 
@@ -237,10 +257,10 @@ fn explore_services_fixed() {
             (fold peers p
                 (par
                     (seq
-                        (call p ("srv" "get_interfaces") [] interfaces[])
+                        (call p ("srv" "list") [] services[])
                         (seq
                             (call relayId ("op" "identity") [])
-                            (call %init_peer_id% ("return" "") [p interfaces])
+                            (call %init_peer_id% ("return" "") [p services])
                         )
                     )
                     (next p)
@@ -251,11 +271,15 @@ fn explore_services_fixed() {
 
     let peers = swarms.iter().skip(1);
     for peer in peers {
-        let mut client = ConnectedClient::connect_to(peer.1.clone()).expect("connect client");
+        let mut client = ConnectedClient::connect_to(peer.1.clone())
+            .wrap_err("connect client")
+            .unwrap();
         create_greeting_service(&mut client);
     }
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let peers: Vec<_> = swarms.iter().skip(1).map(|s| s.0.to_string()).collect();
     let data = hashmap! {
@@ -308,8 +332,9 @@ fn explore_services_fixed() {
         peers
             .iter()
             .find(|node| peer_id == node.as_str())
-            .expect("find node with that peer id");
+            .wrap_err("find node with that peer id")
+            .unwrap();
 
-        let _: Vec<Vec<VmDescriptor>> = serde_json::from_value(interface).unwrap();
+        let _: Vec<Vec<Service>> = serde_json::from_value(interface).unwrap();
     }
 }

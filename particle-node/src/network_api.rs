@@ -24,19 +24,7 @@
 //! - executing it through Aquamarine
 //! - forwarding the particle to the next peers
 
-use std::cmp::min;
-use std::collections::{HashMap, HashSet};
-use std::time::Duration;
-use std::{sync::Arc, task::Poll};
-
-use async_std::task::{sleep, spawn};
-use async_std::{sync::Mutex, task::JoinHandle};
-use futures::stream::iter;
-use futures::{future, Sink, SinkExt};
-use futures::{sink, task, FutureExt, StreamExt};
-use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::core::Multiaddr;
-use libp2p::{swarm::NetworkBehaviour, PeerId, Swarm};
+use crate::network_tasks::NetworkTasks;
 
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
@@ -46,6 +34,24 @@ use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::Contact;
 use particle_protocol::Particle;
 use server_config::NodeConfig;
+
+use async_std::{
+    sync::Mutex,
+    task::JoinHandle,
+    task::{sleep, spawn},
+};
+use futures::{future, sink, stream::iter, task, Future, FutureExt, Sink, SinkExt, StreamExt};
+use humantime_serde::re::humantime::format_duration as pretty;
+use libp2p::{core::Multiaddr, swarm::NetworkBehaviour, PeerId, Swarm};
+use std::time::Instant;
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 /// API provided by the network
 pub struct NetworkApi {
@@ -58,6 +64,8 @@ pub struct NetworkApi {
     /// Bootstrap will be executed after [1, N, 2*N, 3*N, ...] bootstrap nodes connected
     /// This setting specify that N.
     bootstrap_frequency: usize,
+    /// Timeout for all particle execution
+    particle_timeout: Duration,
 }
 
 impl NetworkApi {
@@ -67,6 +75,7 @@ impl NetworkApi {
         kademlia: KademliaApi,
         connection_pool: ConnectionPoolApi,
         bootstrap_frequency: usize,
+        particle_timeout: Duration,
     ) -> Self {
         Self {
             particle_stream,
@@ -76,6 +85,7 @@ impl NetworkApi {
                 connection_pool,
             },
             bootstrap_frequency,
+            particle_timeout,
         }
     }
 
@@ -93,37 +103,35 @@ impl NetworkApi {
         aquamarine: AquamarineApi,
         bootstrap_nodes: HashSet<Multiaddr>,
         particle_failures_sink: impl Sink<String> + Clone + Unpin + Send + Sync + 'static,
-    ) -> JoinHandle<()> {
-        spawn(async move {
-            let NetworkApi {
-                particle_stream,
-                particle_parallelism,
-                connectivity,
-                bootstrap_frequency: freq,
-            } = self;
-
-            let bs = bootstrap_nodes.clone();
-            spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
-            spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
-
-            // filter expired particles
-            let particle_stream = {
-                use async_std::stream::StreamExt as stream;
-                stream::filter(particle_stream, |p| {
-                    if p.is_expired() {
-                        log::info!("Particle {} expired", p.id);
-                        return false;
-                    }
-                    true
-                })
-            };
-
+    ) -> NetworkTasks {
+        let NetworkApi {
+            particle_stream,
+            particle_parallelism,
+            connectivity,
+            bootstrap_frequency: freq,
+            particle_timeout,
+        } = self;
+        let bs = bootstrap_nodes.clone();
+        let reconnect_bootstraps = spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
+        let run_bootstrap = spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
+        let particles = spawn(async move {
             particle_stream
                 .for_each_concurrent(particle_parallelism, move |particle| {
                     let aquamarine = aquamarine.clone();
                     let connectivity = connectivity.clone();
                     let mut particle_failures_sink = particle_failures_sink.clone();
-                    async move {
+                    log::trace!(target: "network", "Will execute particle {}", particle.id);
+
+                    let timeout = min(particle.time_to_live(), particle_timeout);
+                    if timeout.is_zero() {
+                        log::info!("Particle {} expired", particle.id);
+                        return async {}.boxed();
+                    }
+
+                    let particle_id = particle.id.clone();
+                    let p_id = particle_id.clone();
+                    let fut = async move {
+                        let start = Instant::now();
                         // execute particle on Aquamarine
                         let stepper_effects = aquamarine.handle(particle).await;
 
@@ -141,10 +149,25 @@ impl NetworkApi {
                                 particle_failures_sink.feed(particle_id).await.ok();
                             }
                         };
-                    }
+                        log::trace!(target: "network", "Particle {} processing took {}", p_id, pretty(start.elapsed()));
+                    };
+
+                    async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
+                        if let Err(err) = r {
+                            if timeout != particle_timeout {
+                                log::info!("Particle {} expired", particle_id);
+                            } else {
+                                log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout))
+                            }
+                        }
+                    }).boxed()
                 })
                 .await;
-        })
+
+            log::error!("Particle stream has ended");
+        });
+
+        NetworkTasks::new(particles, reconnect_bootstraps, run_bootstrap)
     }
 }
 
@@ -244,22 +267,22 @@ impl Connectivity {
             let bootstrap_nodes = bootstrap_nodes.clone();
             let events = pool.lifecycle_events();
             stream::filter_map(events, move |e| {
-                if let LifecycleEvent::Connected(Contact { addresses, .. }) = e {
-                    let mut addresses = addresses.into_iter();
+                if let LifecycleEvent::Connected(c) = e {
+                    let mut addresses = c.addresses.iter();
                     addresses.find(|addr| bootstrap_nodes.contains(addr))?;
-                    return Some(());
+                    return Some(c);
                 }
                 None
             })
         }
-        .enumerate()
-        .map(|(n, _)| n);
+        .enumerate();
 
         connections
-            .for_each(move |n| {
+            .for_each(move |(n, contact)| {
                 let kademlia = kademlia.clone();
                 async move {
                     if n % frequency == 0 {
+                        kademlia.add_contact(contact);
                         if let Err(err) = kademlia.bootstrap().await {
                             log::warn!("Kademlia bootstrap failed: {}", err)
                         } else {

@@ -39,12 +39,13 @@ pub type SwarmEventType = generate_swarm_event_type!(NetworkBehaviour);
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
 pub struct NetworkBehaviour {
-    // TODO: move identify inside ConnectionPoolBehaviour?
     identity: Identify,
-    // TODO: move ping inside ConnectionPoolBehaviour?
     ping: Ping,
     pub(crate) connection_pool: ConnectionPoolInlet,
     pub(crate) kademlia: KademliaApiInlet,
+    #[behaviour(ignore)]
+    /// Whether to allow local (127.0.0.1) addresses in identify
+    pub(super) allow_local_addresses: bool,
 }
 
 impl NetworkBehaviour {
@@ -79,6 +80,7 @@ impl NetworkBehaviour {
                 connection_pool,
                 identity,
                 ping,
+                allow_local_addresses: cfg.allow_local_addresses,
             },
             NetworkApi::new(
                 particle_stream,
@@ -86,6 +88,7 @@ impl NetworkBehaviour {
                 kademlia_api,
                 connection_pool_api,
                 cfg.bootstrap_frequency,
+                cfg.particle_timeout,
             ),
         ))
     }

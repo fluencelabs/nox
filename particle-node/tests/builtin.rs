@@ -16,6 +16,7 @@
 
 use test_utils::{make_swarms, ConnectedClient};
 
+use eyre::WrapErr;
 use libp2p::core::Multiaddr;
 use maplit::hashmap;
 use serde::Deserialize;
@@ -30,12 +31,14 @@ struct NodeInfo {
 fn identify() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     client.send_particle(
         r#"
         (seq
-            (call relay ("op" "identify") [] info)
+            (call relay ("peer" "identify") [] info)
             (call client ("op" "return") [info])
         ) 
         "#,
@@ -45,6 +48,7 @@ fn identify() {
         },
     );
 
-    let info = client.receive_args().into_iter().next().unwrap();
+    let info = client.receive_args().wrap_err("receive args").unwrap();
+    let info = info.into_iter().next().unwrap();
     let _: NodeInfo = serde_json::from_value(info).unwrap();
 }

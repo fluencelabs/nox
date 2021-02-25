@@ -17,6 +17,7 @@
 use super::behaviour::NetworkBehaviour;
 use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
+use crate::network_tasks::NetworkTasks;
 
 use aquamarine::{AquamarineApi, AquamarineBackend, StepperEffects, VmPoolConfig};
 use config_utils::to_peer_id;
@@ -81,6 +82,7 @@ impl Node {
             config.stepper_base_dir.clone(),
             config.air_interpreter_path.clone(),
             config.stepper_pool_size,
+            config.particle_execution_timeout,
         )
         .expect("create vm pool config");
 
@@ -190,7 +192,7 @@ impl Node {
 
             let script_storage = self.script_storage_backend.start();
             let pool = self.stepper_pool.start();
-            let network = {
+            let mut network = {
                 let pool_api = self.stepper_pool_api;
                 let failures = self.particle_failures;
                 let bootstrap_nodes = self.bootstrap_nodes.into_iter().collect();
@@ -211,6 +213,7 @@ impl Node {
                             log::warn!("Metrics returned error: {}", err)
                         }
                     },
+                    _ = network => {},
                     event = exit_inlet.next() => {
                         // Ignore Err and None – if exit_outlet is dropped, we'll run forever!
                         if let Some(Ok(_)) = event {
@@ -261,6 +264,7 @@ mod tests {
     use crate::node::write_default_air_interpreter;
     use crate::Node;
     use ctrlc_adapter::block_until_ctrlc;
+    use eyre::WrapErr;
     use fluence_libp2p::RandomPeerId;
     use libp2p::core::connection::ConnectionId;
     use libp2p::core::Multiaddr;
@@ -305,9 +309,7 @@ mod tests {
             "#,
             data.clone(),
         );
-        let response = client.receive_args();
+        let response = client.receive_args().wrap_err("receive args").unwrap();
         println!("got response!: {:#?}", response);
-
-        // block_until_ctrlc();
     }
 }

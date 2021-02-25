@@ -174,9 +174,19 @@ pub fn make_particle(
     let id = uuid();
     let mut vm = make_vm(id.clone(), &peer_id, pass_data_func(data));
 
-    let StepperOutcome { data, .. } = vm
+    let StepperOutcome {
+        data,
+        ret_code,
+        error_message,
+        ..
+    } = vm
         .call(peer_id.to_string(), script.clone(), "[]", id.clone())
         .expect("execute & make particle");
+
+    if ret_code != 0 {
+        log::error!("failed to make a particle {}: {}", ret_code, error_message);
+        panic!("failed to make a particle {}: {}", ret_code, error_message);
+    }
 
     log::info!("Made a particle {}", id);
 

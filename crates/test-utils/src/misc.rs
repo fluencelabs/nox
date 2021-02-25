@@ -26,6 +26,7 @@ use trust_graph::{Certificate, TrustGraph};
 use aquamarine::VmPoolConfig;
 use async_std::task;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use eyre::WrapErr;
 use futures::{stream::iter, StreamExt};
 use libp2p::{
     core::Multiaddr,
@@ -41,7 +42,7 @@ use uuid::Uuid;
 
 /// Utility functions for tests.
 
-pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+pub type Result<T> = eyre::Result<T>;
 
 /// In debug, VM startup time is big, account for that
 #[cfg(debug_assertions)]
@@ -117,6 +118,7 @@ pub fn enable_logs() {
         .filter(Some("async_io"), Info)
         .filter(Some("polling"), Info)
         .filter(Some("cranelift_codegen"), Info)
+        .filter(Some("walrus"), Info)
         .try_init()
         .ok();
 }
@@ -281,7 +283,9 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
         }
     }
 
-    let pool_config = VmPoolConfig::new(peer_id, stepper_base_dir, air_interpreter, 1)
+    // execution timeout
+    let exe_tout = Duration::from_secs(3);
+    let pool_config = VmPoolConfig::new(peer_id, stepper_base_dir, air_interpreter, 1, exe_tout)
         .expect("create vm pool config");
 
     let services_config = ServicesConfig::new(peer_id, tmp.join("services"), <_>::default(), m_id)
@@ -299,6 +303,8 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
         particle_queue_buffer: 100,
         particle_parallelism: 16,
         bootstrap_frequency: 1,
+        allow_local_addresses: true,
+        particle_timeout: Duration::from_secs(5),
     };
 
     use identity::Keypair::Ed25519;
@@ -403,14 +409,13 @@ pub fn now_ms() -> u128 {
         .as_millis()
 }
 
-pub async fn timeout<F, T>(dur: Duration, f: F) -> std::result::Result<T, anyhow::Error>
+pub async fn timeout<F, T>(dur: Duration, f: F) -> eyre::Result<T>
 where
     F: std::future::Future<Output = T>,
 {
-    use anyhow::Context;
     Ok(async_std::future::timeout(dur, f)
         .await
-        .context(format!("timed out after {:?}", dur))?)
+        .wrap_err(format!("timed out after {:?}", dur))?)
 }
 
 pub fn module_config(import_name: &str) -> JValue {

@@ -19,9 +19,7 @@ use crate::error::ServiceError;
 use crate::persistence::{load_persisted_services, persist_service, PersistedService};
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use host_closure::{
-    closure, closure_args, closure_params, closure_params_opt, Args, Closure, ParticleClosure,
-};
+use host_closure::{closure, closure_params, closure_params_opt, Args, Closure, ParticleClosure};
 use server_config::ServicesConfig;
 
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden};
@@ -130,37 +128,46 @@ impl ParticleAppServices {
         let host_id = self.config.local_peer_id.to_string();
 
         closure_params(move |particle_params, args| {
-            let services = services.read();
-            let aliases = aliases.read();
-            let (service, id) = services
-                .get(&args.service_id)
-                .map(|s| (s, args.service_id.clone()))
-                .or_else(|| {
-                    aliases
-                        .get(&args.service_id)
-                        .and_then(|id| (services.get(id)).map(|s| (s, id.clone())))
-                })
-                .ok_or_else(|| ServiceError::NoSuchInstance(args.service_id.clone()))?;
+            let call: eyre::Result<_> = try {
+                let services = services.read();
+                let aliases = aliases.read();
 
-            let params = CallParameters {
-                host_id: host_id.clone(),
-                init_peer_id: particle_params.init_user_id,
-                particle_id: particle_params.particle_id,
-                tetraplets: args.tetraplets,
-                service_id: id,
-                service_creator_peer_id: service.owner_id.clone(),
+                let (service, id) = services
+                    .get(&args.service_id)
+                    .map(|s| (s, args.service_id.clone()))
+                    .or_else(|| {
+                        aliases
+                            .get(&args.service_id)
+                            .and_then(|id| (services.get(id)).map(|s| (s, id.clone())))
+                    })
+                    .ok_or_else(|| ServiceError::NoSuchInstance(args.service_id.clone()))?;
+
+                let params = CallParameters {
+                    host_id: host_id.clone(),
+                    init_peer_id: particle_params.init_user_id,
+                    particle_id: particle_params.particle_id,
+                    tetraplets: args.tetraplets,
+                    service_id: id,
+                    service_creator_peer_id: service.owner_id.clone(),
+                };
+
+                let mut service = service.lock();
+                service
+                    .call(
+                        args.function_name,
+                        JValue::Array(args.function_args),
+                        params,
+                    )
+                    .map_err(ServiceError::Engine)?
             };
 
-            let result = service
-                .lock()
-                .call(
-                    args.function_name,
-                    JValue::Array(args.function_args),
-                    params,
-                )
-                .map_err(ServiceError::Engine)?;
-
-            Ok(result)
+            match call {
+                Ok(result) => ivalue_utils::ok(result),
+                Err(err) => {
+                    log::warn!("call_service error: {:?}", err);
+                    ivalue_utils::error(json!(err.to_string()))
+                }
+            }
         })
     }
 
@@ -218,32 +225,34 @@ impl ParticleAppServices {
     pub fn get_interface(&self) -> Closure {
         let services = self.services.clone();
 
-        closure_args(move |args| {
+        closure(move |mut args| {
             let services = services.read();
+            let service_id: String = Args::next("service_id", &mut args)?;
             let service = services
-                .get(&args.service_id)
-                .ok_or(ServiceError::NoSuchInstance(args.service_id))?;
+                .get(&service_id)
+                .ok_or(ServiceError::NoSuchService(service_id))?;
 
             Ok(get_service_interface(service, None)?)
         })
     }
 
-    pub fn get_active_interfaces(&self) -> Closure {
+    pub fn list_services(&self) -> Closure {
         let services = self.services.clone();
 
         closure(move |_| {
             let services = services.read();
-            let interfaces = services
+            let services = services
                 .iter()
-                .map(
-                    |(id, service)| match get_service_interface(service, id.as_str().into()) {
-                        Ok(iface) => iface,
-                        Err(err) => json!({ "service_id": id, "error": JValue::from(err)}),
-                    },
-                )
+                .map(|(id, srv)| {
+                    json!({
+                        "id": id,
+                        "blueprint_id": srv.blueprint_id,
+                        "owner_id": srv.owner_id,
+                    })
+                })
                 .collect();
 
-            Ok(interfaces)
+            Ok(services)
         })
     }
 

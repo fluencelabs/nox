@@ -26,8 +26,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ServiceError {
-    #[error("App service {0} not found")]
-    NoSuchInstance(String),
+    #[error("Service with id '{0}' not found")]
+    NoSuchService(String),
     #[error("Forbidden. User id '{0}' cannot call function '{1}'")]
     Forbidden(String, String),
     #[error("Cannot add alias '{0}' because there is a service with that id")]

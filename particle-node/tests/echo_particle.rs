@@ -16,6 +16,7 @@
 
 use test_utils::{make_swarms, ConnectedClient, KAD_TIMEOUT};
 
+use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
 use std::thread::sleep;
@@ -24,7 +25,9 @@ use std::thread::sleep;
 fn echo_particle() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone()).expect("connect client");
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let data = hashmap! {
         "name" => json!("folex"),
@@ -39,6 +42,6 @@ fn echo_particle() {
         )"#,
         data.clone(),
     );
-    let response = client.receive_args();
+    let response = client.receive_args().wrap_err("receive").unwrap();
     assert_eq!(data["name"], response[0]);
 }

@@ -17,6 +17,7 @@
 use config_utils::{create_dirs, to_abs_path};
 use libp2p::PeerId;
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct VmPoolConfig {
@@ -31,6 +32,8 @@ pub struct VmPoolConfig {
     pub particles_dir: PathBuf,
     /// Number of VMs to create
     pub pool_size: usize,
+    /// Timeout of a particle execution
+    pub execution_timeout: Duration,
 }
 
 impl VmPoolConfig {
@@ -39,6 +42,7 @@ impl VmPoolConfig {
         base_dir: PathBuf,
         air_interpreter: PathBuf,
         pool_size: usize,
+        execution_timeout: Duration,
     ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
 
@@ -49,6 +53,7 @@ impl VmPoolConfig {
             particles_dir: config_utils::particles_dir(&base_dir),
             air_interpreter,
             pool_size,
+            execution_timeout,
         };
 
         this.create_dirs()?;
@@ -58,19 +63,5 @@ impl VmPoolConfig {
 
     pub fn create_dirs(&self) -> Result<(), std::io::Error> {
         create_dirs(&[&self.workdir, &self.services_dir])
-    }
-}
-
-#[cfg(test)]
-impl Default for VmPoolConfig {
-    fn default() -> Self {
-        Self {
-            current_peer_id: fluence_libp2p::RandomPeerId::random(),
-            workdir: <_>::default(),
-            air_interpreter: <_>::default(),
-            services_dir: <_>::default(),
-            particles_dir: <_>::default(),
-            pool_size: 0,
-        }
     }
 }
