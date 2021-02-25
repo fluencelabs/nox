@@ -172,7 +172,7 @@ impl ParticleAppServices {
 
         closure_params_opt(move |particle, args| {
             if particle.init_user_id != management_peer_id {
-                Err(Forbidden(particle.init_user_id, "add_alias".to_string()))?;
+                return Err(Forbidden(particle.init_user_id, "add_alias".to_string()).into());
             };
 
             let mut args = args.function_args.into_iter();
@@ -182,14 +182,14 @@ impl ParticleAppServices {
             // if a client trying to add an alias that equals some created service id
             // return an error
             if services.read().get(&alias).is_some() {
-                Err(AliasAsServiceId(alias.clone()))?
+                return Err(AliasAsServiceId(alias.clone()).into());
             }
 
             let mut services = services.write();
 
             let service = services
                 .get_mut(&service_id)
-                .ok_or(ServiceError::NoSuchInstance(service_id.clone()))?;
+                .ok_or_else(|| ServiceError::NoSuchInstance(service_id.clone()))?;
             service.add_alias(alias.clone());
             let persisted_new = PersistedService::from_service(service_id.clone(), service);
 

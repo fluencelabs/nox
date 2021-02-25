@@ -49,7 +49,7 @@ pub fn create_app_service(
             .map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
-        let persisted = PersistedService::new(service_id.clone(), blueprint_id, aliases, owner_id);
+        let persisted = PersistedService::new(service_id, blueprint_id, aliases, owner_id);
         persist_service(&config.services_dir, persisted)?;
 
         service
