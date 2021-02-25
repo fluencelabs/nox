@@ -196,6 +196,8 @@ impl ModuleRepository {
             };
             interface.map_err(|err| {
                 json!(format!("{:?}", err)
+                    // TODO: send patch to eyre so it can be done through their API
+                    // Remove backtrace from the response
                     .split("Stack backtrace:")
                     .next()
                     .unwrap_or_default())
