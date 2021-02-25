@@ -24,7 +24,6 @@ pub struct Blueprint {
     #[serde(default = "uuid")]
     pub id: String,
     pub dependencies: Vec<Dependency>,
-    pub facade: Option<Dependency>,
 }
 
 fn uuid() -> String {
