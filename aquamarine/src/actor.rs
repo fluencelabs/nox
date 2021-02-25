@@ -108,12 +108,12 @@ impl Actor {
     ///
     /// If actor is in the middle of executing previous particle, vm is returned
     /// If actor's mailbox is empty, vm is returned
-    pub fn poll_next(&mut self, vm: AquamarineVM, cx: &mut Context<'_>) -> PollNext {
+    pub fn poll_next(&mut self, vm: AquamarineVM, cx: &mut Context<'_>) -> ActorPoll {
         self.waker = Some(cx.waker().clone());
 
         // Return vm if previous particle is still executing
         if self.future.is_some() {
-            return PollNext::Vm(vm);
+            return ActorPoll::Vm(vm);
         }
 
         match self.mailbox.pop_front() {
@@ -121,17 +121,17 @@ impl Actor {
                 // Take ownership of vm to process particle
                 // TODO: add timeout for execution
                 self.future = vm.execute(p, cx.waker().clone()).into();
-                PollNext::Executing
+                ActorPoll::Executing
             }
             Some(p) => {
                 // Particle is expired, return vm and error
                 let (p, out) = p.into();
                 let effects = Err(AquamarineApiError::ParticleExpired { particle_id: p.id });
                 let effects = AwaitedEffects { effects, out };
-                PollNext::Expired(effects, vm)
+                ActorPoll::Expired(effects, vm)
             }
             // Mailbox is empty, return vm
-            None => PollNext::Vm(vm),
+            None => ActorPoll::Vm(vm),
         }
     }
 
@@ -142,7 +142,7 @@ impl Actor {
     }
 }
 
-pub enum PollNext {
+pub enum ActorPoll {
     Executing,
     Vm(AquamarineVM),
     Expired(AwaitedEffects, AquamarineVM),
