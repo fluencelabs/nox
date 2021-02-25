@@ -148,6 +148,14 @@ pub struct NodeConfig {
 
     #[serde(default = "default_bootstrap_frequency")]
     pub bootstrap_frequency: usize,
+
+    #[serde(default = "default_execution_timeout")]
+    #[serde(with = "humantime_serde")]
+    pub particle_execution_timeout: Duration,
+
+    #[serde(default = "default_processing_timeout")]
+    #[serde(with = "humantime_serde")]
+    pub particle_processing_timeout: Duration,
 }
 
 impl NodeConfig {

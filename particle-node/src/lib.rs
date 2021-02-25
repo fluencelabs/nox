@@ -1,3 +1,4 @@
+#![feature(duration_zero)]
 /*
  * Copyright 2020 Fluence Labs Limited
  *
@@ -13,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![allow(
@@ -28,6 +28,7 @@
 
 mod metrics;
 mod network_api;
+mod network_tasks;
 mod node;
 
 mod behaviour {

@@ -117,6 +117,7 @@ pub fn enable_logs() {
         .filter(Some("async_io"), Info)
         .filter(Some("polling"), Info)
         .filter(Some("cranelift_codegen"), Info)
+        .filter(Some("walrus"), Info)
         .try_init()
         .ok();
 }
@@ -275,7 +276,9 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         }
     }
 
-    let pool_config = VmPoolConfig::new(peer_id, stepper_base_dir, air_interpreter, 1)
+    // execution timeout
+    let exe_tout = Duration::from_secs(3);
+    let pool_config = VmPoolConfig::new(peer_id, stepper_base_dir, air_interpreter, 1, exe_tout)
         .expect("create vm pool config");
 
     let services_config = ServicesConfig::new(peer_id, tmp.join("services"), <_>::default())
@@ -293,6 +296,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf) {
         particle_queue_buffer: 100,
         particle_parallelism: 16,
         bootstrap_frequency: 1,
+        particle_timeout: Duration::from_secs(5),
     };
 
     use identity::Keypair::Ed25519;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::actor::{Actor, Deadline};
+use crate::actor::{Actor, ActorPoll, Deadline};
 use crate::config::VmPoolConfig;
 
 use host_closure::ClosureDescriptor;
@@ -95,9 +95,16 @@ impl Plumber {
         // Execute next messages
         for actor in self.actors.values_mut() {
             if let Some(vm) = self.vm_pool.get_vm() {
-                if let Poll::Ready(vm) = actor.poll_next(vm, cx) {
-                    self.vm_pool.put_vm(vm)
+                match actor.poll_next(vm, cx) {
+                    ActorPoll::Vm(vm) => self.vm_pool.put_vm(vm),
+                    ActorPoll::Expired(es, vm) => {
+                        effects.push(es);
+                        self.vm_pool.put_vm(vm);
+                    }
+                    ActorPoll::Executing => {}
                 }
+            } else {
+                log::warn!(target: "network", "No more free Aquamarine interpreters");
             }
         }
 
