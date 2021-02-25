@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-use aquamarine_vm::AquamarineVMError;
-use stepper_interface::StepperOutcome;
+use aquamarine_vm::{AquamarineVMError, InterpreterOutcome};
 
 use libp2p::PeerId;
 use log::LevelFilter;
@@ -43,7 +42,7 @@ pub enum ExecutionError {
         field: &'static str,
         error: FieldError,
     },
-    StepperOutcome {
+    InterpreterOutcome {
         error_message: String,
         ret_code: i32,
         readable_data: String,
@@ -56,7 +55,7 @@ impl Error for ExecutionError {
         match &self {
             ExecutionError::InvalidResultField { error, .. } => Some(error),
             ExecutionError::AquamarineError(err) => Some(err),
-            ExecutionError::StepperOutcome { .. } => None,
+            ExecutionError::InterpreterOutcome { .. } => None,
         }
     }
 }
@@ -72,14 +71,14 @@ impl Display for ExecutionError {
             ExecutionError::AquamarineError(err) => {
                 write!(f, "Execution error: aquamarine error: {}", err)
             }
-            ExecutionError::StepperOutcome {
+            ExecutionError::InterpreterOutcome {
                 error_message,
                 ret_code,
                 readable_data,
             } => {
                 write!(
                     f,
-                    "Execution error: StepperOutcome (ret_code = {}): {} {}",
+                    "Execution error: InterpreterOutcome (ret_code = {}): {} {}",
                     ret_code, error_message, readable_data
                 )
             }
@@ -92,12 +91,12 @@ fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
 }
 
 pub fn parse_outcome(
-    outcome: Result<StepperOutcome, AquamarineVMError>,
+    outcome: Result<InterpreterOutcome, AquamarineVMError>,
 ) -> Result<(Vec<u8>, Vec<PeerId>), ExecutionError> {
     let outcome = outcome.map_err(ExecutionError::AquamarineError)?;
 
     if outcome.ret_code != 0 {
-        return Err(ExecutionError::StepperOutcome {
+        return Err(ExecutionError::InterpreterOutcome {
             error_message: outcome.error_message,
             ret_code: outcome.ret_code,
             readable_data: if log::max_level() > LevelFilter::Debug {

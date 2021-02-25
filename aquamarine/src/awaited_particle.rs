@@ -57,7 +57,7 @@ impl Deref for AwaitedParticle {
 ///
 /// Kind of like a completed promise
 pub struct AwaitedEffects {
-    /// Description of effects (e.g next_peer_pks of StepperOutcome) produced by particle execution
+    /// Description of effects (e.g next_peer_pks of InterpreterOutcome) produced by particle execution
     /// or an error
     pub effects: Result<StepperEffects, AquamarineApiError>,
     /// Destination that waits to receive StepperEffects produced by particle execution

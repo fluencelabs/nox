@@ -17,7 +17,7 @@
 use crate::awaited_particle::AwaitedParticle;
 use crate::invoke::{parse_outcome, ExecutionError};
 use crate::{AwaitedEffects, SendParticle, StepperEffects};
-use aquamarine_vm::{AquamarineVM, AquamarineVMError, StepperOutcome};
+use aquamarine_vm::{AquamarineVM, AquamarineVMError, InterpreterOutcome};
 use particle_protocol::Particle;
 
 use async_std::task;
@@ -73,7 +73,10 @@ impl ParticleExecutor for AquamarineVM {
     }
 }
 
-fn into_effects(outcome: Result<StepperOutcome, AquamarineVMError>, p: Particle) -> StepperEffects {
+fn into_effects(
+    outcome: Result<InterpreterOutcome, AquamarineVMError>,
+    p: Particle,
+) -> StepperEffects {
     let particles = match parse_outcome(outcome) {
         Ok((data, targets)) if !targets.is_empty() => {
             #[rustfmt::skip]
@@ -102,7 +105,7 @@ fn into_effects(outcome: Result<StepperOutcome, AquamarineVMError>, p: Particle)
             log::warn!("Error executing particle {:#?}: {}", p, err);
             vec![]
         }
-        Err(err @ ExecutionError::StepperOutcome { .. }) => {
+        Err(err @ ExecutionError::InterpreterOutcome { .. }) => {
             log::warn!("Error executing script: {}", err);
             vec![]
         }
