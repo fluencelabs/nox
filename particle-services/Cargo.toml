@@ -13,7 +13,7 @@ json-utils = { path = "../crates/json-utils" }
 host-closure = { path = "../crates/host-closure" }
 server-config = { path = "../crates/server-config" }
 
-fluence-app-service = "0.2.0"
+fluence-app-service = "0.3.2"
 
 futures = "0.3.5"
 parking_lot = "0.11.0"

@@ -20,14 +20,13 @@ use host_closure::Args;
 use ivalue_utils::IValue;
 use particle_protocol::Particle;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, CallServiceClosure};
+use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, CallServiceClosure, InterpreterOutcome};
 
 use fstrings::f;
 use libp2p::PeerId;
 use parking_lot::Mutex;
 use serde_json::Value as JValue;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
-use stepper_interface::StepperOutcome;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
@@ -174,7 +173,7 @@ pub fn make_particle(
     let id = uuid();
     let mut vm = make_vm(id.clone(), &peer_id, pass_data_func(data));
 
-    let StepperOutcome {
+    let InterpreterOutcome {
         data,
         ret_code,
         error_message,

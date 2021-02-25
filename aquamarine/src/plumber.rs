@@ -104,7 +104,7 @@ impl Plumber {
                     ActorPoll::Executing => {}
                 }
             } else {
-                log::warn!(target: "network", "No more free Aquamarine interpreters");
+                log::debug!("No more free Aquamarine interpreters");
             }
         }
 
