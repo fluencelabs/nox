@@ -60,9 +60,7 @@ impl AquamarineBackend {
         while let Poll::Ready(AwaitedEffects { effects, out }) = self.plumber.poll(cx) {
             wake = true;
             // send results back
-            if let Err(_) = out.send(effects) {
-                log::warn!("Failed to send effects back");
-            }
+            out.send(effects).ok();
         }
 
         if wake {
@@ -107,8 +105,8 @@ impl AquamarineApi {
         use AquamarineApiError::*;
 
         let mut interpreters = self.outlet;
-        let _particle_id = particle.id.clone();
-        async move {
+        let particle_id = particle.id.clone();
+        let fut = async move {
             let particle_id = particle.id.clone();
             let (outlet, inlet) = oneshot::channel();
             let send_ok = interpreters.send((particle, outlet)).await.is_ok();
@@ -121,14 +119,13 @@ impl AquamarineApi {
             } else {
                 Err(AquamarineDied { particle_id })
             }
-        }
-        .boxed()
+        };
 
-        // async_std::io::timeout(self.execution_timeout, fut.map(Ok))
-        //     .map(|r| {
-        //         let result = r.map_err(|_| ExecutionTimedOut { particle_id });
-        //         result.and_then(identity)
-        //     })
-        //     .boxed()
+        async_std::io::timeout(self.execution_timeout, fut.map(Ok))
+            .map(|r| {
+                let result = r.map_err(|_| ExecutionTimedOut { particle_id });
+                result.and_then(identity)
+            })
+            .boxed()
     }
 }

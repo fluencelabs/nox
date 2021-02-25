@@ -405,10 +405,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 Poll::Ready(Ok(_)) => {
                     // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
+                        let particle_id = particle.id.clone();
                         if let Err(err) = self.outlet.start_send(particle) {
                             log::error!("Failed to send particle to outlet: {}", err)
                         } else {
-                            log::trace!(target: "network", "Sent particle to execution");
+                            log::trace!(target: "network", "Sent particle {} to execution", particle_id);
                         }
                     } else {
                         break;

@@ -15,6 +15,7 @@
  */
 
 use super::behaviour::NetworkBehaviour;
+use crate::futures_handle::FuturesHandle;
 use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
 
@@ -190,7 +191,7 @@ impl Node {
 
             let script_storage = self.script_storage_backend.start();
             let pool = self.stepper_pool.start();
-            let network = {
+            let mut network = {
                 let pool_api = self.stepper_pool_api;
                 let failures = self.particle_failures;
                 let bootstrap_nodes = self.bootstrap_nodes.into_iter().collect();
@@ -198,7 +199,6 @@ impl Node {
             };
             let stopped = stream::iter(once(Err(())));
             let mut swarm = self.swarm.map(|e| Ok(e)).chain(stopped).fuse();
-            let mut network = network.fuse();
             loop {
                 select!(
                     e = swarm.select_next_some() => {
@@ -224,7 +224,7 @@ impl Node {
 
             log::info!("Stopping node");
             script_storage.cancel().await;
-            // network.cancel().await;
+            network.cancel().await;
             pool.cancel().await;
         });
 

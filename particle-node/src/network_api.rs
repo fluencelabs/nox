@@ -167,11 +167,7 @@ impl NetworkApi {
             log::error!("Particle stream has ended");
         });
 
-        FuturesHandle {
-            particles,
-            reconnect_bootstraps,
-            run_bootstrap,
-        }
+        FuturesHandle::new(particles, reconnect_bootstraps, run_bootstrap)
     }
 }
 
