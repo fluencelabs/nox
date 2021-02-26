@@ -31,6 +31,8 @@ use std::path::PathBuf;
 pub struct PersistedService {
     pub service_id: String,
     pub blueprint_id: String,
+    #[serde(default)]
+    // Old versions of PersistedService may omit `aliases` field, tolerate that
     pub aliases: Vec<String>,
     // Old versions of PersistedService may omit `owner` field, tolerate that
     #[serde(default)]

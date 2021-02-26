@@ -112,3 +112,45 @@ pub fn add_blueprint(blueprint_dir: &PathBuf, blueprint: &Blueprint) -> Result<(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig, TomlWASIConfig};
+    use toml::Value::String;
+
+    #[test]
+    fn test() {
+        let config = TomlFaaSNamedModuleConfig {
+            name: "local_storage".to_string(),
+            file_name: None,
+            config: TomlFaaSModuleConfig {
+                mem_pages_count: Some(100),
+                logger_enabled: Some(true),
+                wasi: Some(TomlWASIConfig {
+                    preopened_files: Some(vec!["/sites".to_string()]),
+                    envs: None,
+                    mapped_dirs: Some(
+                        vec![("sites".to_string(), String("/tmp".into()))]
+                            .into_iter()
+                            .collect(),
+                    ),
+                }),
+                mounted_binaries: Some(
+                    vec![("curl".to_string(), String("/usr/bin/curl".into()))]
+                        .into_iter()
+                        .collect(),
+                ),
+                logging_mask: None,
+            },
+        };
+
+        let str = serde_json::to_string_pretty(&config).unwrap();
+        println!("str = {}", str);
+
+        let config2: TomlFaaSNamedModuleConfig = serde_json::from_str(&str).unwrap();
+        let str2 = serde_json::to_string_pretty(&config2).unwrap();
+        println!("str2 = {}", str2);
+
+        assert_eq!(str, str2);
+    }
+}

@@ -6,7 +6,7 @@ services:
     ports:
       - "7001:7001" # Node service
       - "9001:9001" # Peer service
-    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7001 -w 9001"
+    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7001 -w 9001 -m 12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
     volumes:
       - fluence-1:/.fluence
     environment:
@@ -21,7 +21,7 @@ services:
 #    ports:
 #      - "7002:7002" # Node service
 #      - "9002:9002" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7002 -w 9002"
+#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7002 -w 9002 -m 12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
 #    volumes:
 #      - fluence-2:/.fluence
 #    environment:
@@ -36,7 +36,7 @@ services:
 #    ports:
 #      - "7003:7003" # Node service
 #      - "9003:9003" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7003 -w 9003"
+#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7003 -w 9003 -m 12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
 #    volumes:
 #      - fluence-3:/.fluence
 #    environment:
@@ -51,7 +51,7 @@ services:
 #    ports:
 #      - "7004:7004" # Node service
 #      - "9004:9004" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7004 -w 9004"
+#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7004 -w 9004 -m 12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
 #    volumes:
 #      - fluence-4:/.fluence
 #    environment:
@@ -66,7 +66,7 @@ services:
 #    ports:
 #      - "7005:7005" # Node service
 #      - "9005:9005" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7005 -w 9005"
+#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7005 -w 9005 -m 12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
 #    volumes:
 #      - fluence-5:/.fluence
 #    environment:
@@ -81,7 +81,7 @@ services:
 #    ports:
 #      - "7006:7006" # Node service
 #      - "9006:9006" # Peer service
-#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7006 -w 9006"
+#    command: "-c /Config.toml -k /node.key -b $BOOTSTRAP -x $HOST -t 7006 -w 9006 -m 12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
 #    volumes:
 #      - fluence-6:/.fluence
 #    environment:
