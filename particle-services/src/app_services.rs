@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-use crate::app_service::create_app_service;
-use crate::error::ServiceError;
-use crate::persistence::{load_persisted_services, persist_service, PersistedService};
-
-use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use host_closure::{closure, closure_params, closure_params_opt, Args, Closure, ParticleClosure};
-use server_config::ServicesConfig;
-
-use crate::error::ServiceError::{AliasAsServiceId, Forbidden};
-use parking_lot::{Mutex, RwLock};
-use particle_modules::ModuleRepository;
-use serde::Serialize;
-use serde_json::{json, Value as JValue};
 use std::ops::Deref;
 use std::{collections::HashMap, sync::Arc};
+
+use fluence_app_service::{AppService, CallParameters, ServiceInterface};
+use parking_lot::{Mutex, RwLock};
+use serde::Serialize;
+use serde_json::{json, Value as JValue};
+
+use host_closure::{closure, closure_params, closure_params_opt, Args, Closure, ParticleClosure};
+use particle_modules::ModuleRepository;
+use server_config::ServicesConfig;
+
+use crate::app_service::create_app_service;
+use crate::error::ServiceError;
+use crate::error::ServiceError::{AliasAsServiceId, Forbidden};
+use crate::persistence::{load_persisted_services, persist_service, PersistedService};
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
@@ -321,4 +322,128 @@ fn get_service_interface(
         serde_json::to_value(descriptor).map_err(ServiceError::CorruptedFaaSInterface)?;
 
     Ok(descriptor)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use libp2p_core::identity::Keypair;
+    use libp2p_core::PeerId;
+    use serde_json::Value as JValue;
+    use tempdir::TempDir;
+
+    use host_closure::{Args, ParticleParameters};
+    use particle_modules::ModuleRepository;
+    use server_config::ServicesConfig;
+
+    use crate::{IValue, ParticleAppServices};
+
+    fn create_pid() -> PeerId {
+        let keypair = Keypair::generate_ed25519();
+        let peer_id = PeerId::from(keypair.public());
+        peer_id
+    }
+
+    fn create_pas(local_pid: PeerId, management_pid: PeerId) -> ParticleAppServices {
+        let dir = TempDir::new("test").unwrap();
+        let dir2 = TempDir::new("test").unwrap();
+
+        let config =
+            ServicesConfig::new(local_pid, dir.into_path(), HashMap::new(), management_pid)
+                .unwrap();
+        let repo = ModuleRepository::new(dir2.path(), dir2.path());
+
+        ParticleAppServices::new(config, repo)
+    }
+
+    fn params(pid: PeerId) -> ParticleParameters {
+        ParticleParameters {
+            init_user_id: pid.to_base58(),
+            particle_id: "".to_string(),
+        }
+    }
+
+    fn create_args(args: Vec<JValue>) -> Args {
+        Args {
+            service_id: "".to_string(),
+            function_name: "".to_string(),
+            function_args: args,
+            tetraplets: vec![],
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct RetStruct {
+        ret_code: u32,
+        error: String,
+    }
+
+    fn response_to_return(resp: IValue) -> RetStruct {
+        match resp {
+            IValue::Record(r) => {
+                let ret_code = match r.get(0).unwrap() {
+                    IValue::U32(u) => u.clone(),
+                    _ => panic!(""),
+                };
+                let error = match r.get(1).unwrap() {
+                    IValue::String(u) => u.to_string(),
+                    _ => panic!(""),
+                };
+                RetStruct { ret_code, error }
+            }
+            _ => panic!(""),
+        }
+    }
+
+    fn call_add_alias_raw(is_client_manager: bool, args: Vec<JValue>) -> RetStruct {
+        let local_pid = create_pid();
+        let management_pid = create_pid();
+        let pas = create_pas(local_pid, management_pid);
+
+        let client_pid;
+        if is_client_manager {
+            client_pid = management_pid.clone();
+        } else {
+            client_pid = create_pid();
+        }
+
+        let params = params(client_pid);
+        let args = create_args(args);
+
+        let resp = pas.add_alias()(params, args);
+        response_to_return(resp.unwrap())
+    }
+
+    fn call_add_alias(args: Vec<JValue>) -> RetStruct {
+        call_add_alias_raw(true, args)
+    }
+
+    #[test]
+    fn test_add_alias_forbidden() {
+        let resp = call_add_alias_raw(
+            false,
+            vec![
+                JValue::String("1".to_string()),
+                JValue::String("2".to_string()),
+            ],
+        );
+        assert_eq!(resp.ret_code, 1);
+        assert_eq!(true, resp.error.contains("Forbidden"))
+    }
+
+    #[test]
+    fn test_add_alias_no_service() {
+        let resp = call_add_alias(vec![
+            JValue::String("1".to_string()),
+            JValue::String("2".to_string()),
+        ]);
+        println!("{:?}", resp);
+        assert_eq!(resp.ret_code, 1);
+        assert!(
+            resp.error.contains("Service with id") && resp.error.contains("not found"),
+            "Closure should not found a service to add alias `{}`",
+            resp.error
+        );
+    }
 }
