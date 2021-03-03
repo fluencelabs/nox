@@ -10,8 +10,8 @@ json-utils = { path = "../json-utils" }
 control-macro = { path = "../control-macro" }
 
 fce = "0.3.0"
-aquamarine-vm = "0.5.2"
-fluence-app-service = "0.5.2"
+aquamarine-vm = "0.4.1"
+fluence-app-service = "0.3.2"
 
 serde_json = "1.0.58"
 serde = "1.0.116"

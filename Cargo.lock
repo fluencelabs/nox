@@ -167,9 +167,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.7.3"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7b02f4fe1bb038cce193742c1ae9392eb6f0c006baf8aed98e1daf3347344bd"
+checksum = "873a6e563b31726980809c0e9e016e829287239b52171f4a3701c29082327eed"
 dependencies = [
  "built",
 ]
@@ -223,9 +223,9 @@ dependencies = [
 
 [[package]]
 name = "aquamarine-vm"
-version = "0.5.2"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ba3f6550b35f2b8aca0abb9de64744c0d50a8bc58ed14509e8456a74a2efa8"
+checksum = "6fb5c44e603d10768b661b5059fc4ac81dcfe7055c3a25959544ff611715bcc4"
 dependencies = [
  "aqua-interpreter-interface",
  "fluence-faas",
@@ -1502,9 +1502,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.5.2"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64788737ce00700efe6a1e45f7462d3bdba6765891d76b81c806f250f8062f0"
+checksum = "afb724e091bb10a84c9560e71fef97fb78575365a57888c9ae79888b8d9f6cc7"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1542,14 +1542,14 @@ dependencies = [
 
 [[package]]
 name = "fluence-faas"
-version = "0.5.2"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00434a1581cfdb781b889f1c11e2b8b6ad160a717021e62054be2e9796c1d13d"
+checksum = "83a916e599ca0ab10d9418ba451e177233122a75c9e7f16240b7dd5bf1c7f329"
 dependencies = [
  "cmd_lib",
  "fce",
  "fce-utils",
- "fluence-sdk-main 0.4.2",
+ "fluence-sdk-main 0.3.2",
  "itertools 0.9.0",
  "log",
  "safe-transmute",
@@ -2081,11 +2081,11 @@ dependencies = [
 
 [[package]]
 name = "fluence-sdk-macro"
-version = "0.4.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76ce80dc2d7c3db828fb31b95e75c372fde7a9a25dfa2b0d9beac07379b890a6"
+checksum = "d3ed152de2a9f59c5494a5ead9d85b40cc1588696d10bb69129addebf0239efb"
 dependencies = [
- "fluence-sdk-wit 0.4.2",
+ "fluence-sdk-wit 0.3.3",
 ]
 
 [[package]]
@@ -2101,11 +2101,11 @@ dependencies = [
 
 [[package]]
 name = "fluence-sdk-main"
-version = "0.4.2"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29cce53288e08ed86ebe36c64d8eb641a95e1d0f7f75da969b29e16ab0d7d406"
+checksum = "e9cf213e3a5bda967d39c05ba295fd20e00c0a9909951cf524f5a5063afc33b3"
 dependencies = [
- "fluence-sdk-macro 0.4.2",
+ "fluence-sdk-macro 0.3.3",
  "log",
  "serde",
 ]
@@ -2126,9 +2126,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-sdk-wit"
-version = "0.4.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56d835812bab8fb6f261b9e37355b9bf0a28a16123580145ce0fe44ef4363144"
+checksum = "a65bb11a2ebb063b8809e43c1837d32e44c12ba3c281e55f2fcf5c5819a6a9ad"
 dependencies = [
  "proc-macro2",
  "quote",
