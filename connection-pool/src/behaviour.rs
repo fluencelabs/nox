@@ -274,7 +274,7 @@ impl ConnectionPoolBehaviour {
             };
 
             self.lifecycle_event(LifecycleEvent::Disconnected(Contact::new(
-                peer_id.clone(),
+                *peer_id,
                 addresses.into_iter().collect(),
             )))
         }
@@ -283,7 +283,7 @@ impl ConnectionPoolBehaviour {
     fn get_contact_impl(&self, peer_id: PeerId) -> Option<Contact> {
         match self.contacts.get(&peer_id) {
             Some(Peer::Connected(addrs)) => {
-                Some(Contact::new(peer_id, addrs.into_iter().cloned().collect()))
+                Some(Contact::new(peer_id, addrs.iter().cloned().collect()))
             }
             _ => None,
         }
@@ -309,7 +309,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     fn inject_connected(&mut self, peer_id: &PeerId) {
         // NOTE: `addresses_of_peer` at this point must be filled
         // with addresses through inject_connection_established
-        let contact = Contact::new(peer_id.clone(), self.addresses_of_peer(peer_id));
+        let contact = Contact::new(*peer_id, self.addresses_of_peer(peer_id));
         debug_assert!(!contact.addresses.is_empty());
         // Signal a new peer connected
         self.lifecycle_event(LifecycleEvent::Connected(contact));

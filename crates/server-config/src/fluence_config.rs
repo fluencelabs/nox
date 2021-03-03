@@ -247,12 +247,12 @@ where
     D: serde::Deserializer<'de>,
 {
     let multihash = String::deserialize(deserializer)?;
-    Ok(PeerId::from_str(&multihash).map_err(|err| {
+    PeerId::from_str(&multihash).map_err(|err| {
         serde::de::Error::custom(format!(
             "Failed to deserialize management_peer_id {}: {}",
             multihash, err
         ))
-    })?)
+    })
 }
 
 fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>

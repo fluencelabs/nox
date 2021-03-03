@@ -93,7 +93,7 @@ impl<'de> Deserialize<'de> for Dependency {
         D: Deserializer<'de>,
     {
         let s = <Cow<'de, str>>::deserialize(deserializer)?;
-        let mut s = s.split(":");
+        let mut s = s.split(':');
         let id_val: Option<(_, _)> = try {
             let id = s.next()?;
             let value = s.next();
