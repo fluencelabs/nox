@@ -66,7 +66,6 @@ pub struct VmDescriptor<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     service_id: Option<&'a str>,
     owner_id: &'a str,
-    aliases: &'a Vec<String>,
 }
 
 pub struct ParticleAppServices {
@@ -319,7 +318,6 @@ fn get_service_interface(
         blueprint_id: &service.blueprint_id,
         service_id,
         owner_id: &service.owner_id,
-        aliases: &service.aliases,
     };
     let descriptor =
         serde_json::to_value(descriptor).map_err(ServiceError::CorruptedFaaSInterface)?;
@@ -349,13 +347,17 @@ mod tests {
     }
 
     fn create_pas(local_pid: PeerId, management_pid: PeerId) -> ParticleAppServices {
-        let dir = TempDir::new("test").unwrap();
-        let dir2 = TempDir::new("test").unwrap();
+        let base_dir = TempDir::new("test").unwrap();
+        let module_dir = TempDir::new("test").unwrap();
 
-        let config =
-            ServicesConfig::new(local_pid, dir.into_path(), HashMap::new(), management_pid)
-                .unwrap();
-        let repo = ModuleRepository::new(dir2.path(), dir2.path());
+        let config = ServicesConfig::new(
+            local_pid,
+            base_dir.into_path(),
+            HashMap::new(),
+            management_pid,
+        )
+        .unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), module_dir.path());
 
         ParticleAppServices::new(config, repo)
     }
@@ -399,13 +401,13 @@ mod tests {
         }
     }
 
-    fn call_add_alias_raw(is_client_manager: bool, args: Vec<JValue>) -> RetStruct {
+    fn call_add_alias_raw(as_manager: bool, args: Vec<JValue>) -> RetStruct {
         let local_pid = create_pid();
         let management_pid = create_pid();
         let pas = create_pas(local_pid, management_pid);
 
         let client_pid;
-        if is_client_manager {
+        if as_manager {
             client_pid = management_pid.clone();
         } else {
             client_pid = create_pid();
@@ -449,5 +451,11 @@ mod tests {
         );
     }
 
-    // TODO add more tests
+    // TODO: add more tests
+    //       - add alias success & fail with service collision & test on rewriting alias
+    //       - create_service success & fail
+    //       - get_modules success & fail
+    //       - get_interface
+    //       - list_services
+    //       - test on service persisting
 }
