@@ -66,6 +66,7 @@ pub struct VmDescriptor<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     service_id: Option<&'a str>,
     owner_id: &'a str,
+    aliases: &'a Vec<String>,
 }
 
 pub struct ParticleAppServices {
@@ -251,6 +252,7 @@ impl ParticleAppServices {
                         "id": id,
                         "blueprint_id": srv.blueprint_id,
                         "owner_id": srv.owner_id,
+                        "aliases": srv.aliases
                     })
                 })
                 .collect();
@@ -313,10 +315,11 @@ fn get_service_interface(
     let interface = lock.get_interface();
 
     let descriptor = VmDescriptor {
-        interface,
+        interface: interface,
         blueprint_id: &service.blueprint_id,
         service_id,
         owner_id: &service.owner_id,
+        aliases: &service.aliases,
     };
     let descriptor =
         serde_json::to_value(descriptor).map_err(ServiceError::CorruptedFaaSInterface)?;
@@ -384,15 +387,15 @@ mod tests {
             IValue::Record(r) => {
                 let ret_code = match r.get(0).unwrap() {
                     IValue::U32(u) => u.clone(),
-                    _ => panic!(""),
+                    _ => panic!("unexpected, should be u32 ret_code"),
                 };
                 let error = match r.get(1).unwrap() {
                     IValue::String(u) => u.to_string(),
-                    _ => panic!(""),
+                    _ => panic!("unexpected, should be string error message"),
                 };
                 RetStruct { ret_code, error }
             }
-            _ => panic!(""),
+            _ => panic!("unexpected, should be a record"),
         }
     }
 
@@ -438,7 +441,6 @@ mod tests {
             JValue::String("1".to_string()),
             JValue::String("2".to_string()),
         ]);
-        println!("{:?}", resp);
         assert_eq!(resp.ret_code, 1);
         assert!(
             resp.error.contains("Service with id") && resp.error.contains("not found"),
@@ -446,4 +448,6 @@ mod tests {
             resp.error
         );
     }
+
+    // TODO add more tests
 }
