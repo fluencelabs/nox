@@ -315,7 +315,7 @@ fn get_service_interface(
     let interface = lock.get_interface();
 
     let descriptor = VmDescriptor {
-        interface: interface,
+        interface,
         blueprint_id: &service.blueprint_id,
         service_id,
         owner_id: &service.owner_id,
