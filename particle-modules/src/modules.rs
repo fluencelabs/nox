@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use crate::dependency::{Dependency, ModuleHash};
-use crate::error::ModuleError::InvalidModuleName;
+use crate::dependency::{Dependency, Hash};
+use crate::error::ModuleError::{InvalidModuleName, TryToHashName};
 use crate::error::Result;
 use crate::file_names::{extract_module_file_name, is_module_wasm};
+use crate::file_names::{module_config_name, module_file_name};
 use crate::files::{load_config_by_path, load_module_by_path};
 use crate::{file_names, files, load_blueprint, load_module_descriptor, Blueprint};
 
@@ -28,17 +29,24 @@ use host_closure::{closure, Args, Closure};
 use eyre::WrapErr;
 use fstrings::f;
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 
 type ModuleName = String;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlueprintRequest {
+    pub name: String,
+    pub dependencies: Vec<Dependency>,
+}
 
 #[derive(Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
     blueprints_dir: PathBuf,
     /// Map of module_config.name to blake3::hash(module bytes)
-    modules_by_name: Arc<Mutex<HashMap<ModuleName, ModuleHash>>>,
+    modules_by_name: Arc<Mutex<HashMap<ModuleName, Hash>>>,
 }
 
 impl ModuleRepository {
@@ -50,7 +58,7 @@ impl ModuleRepository {
             .filter_map(|path| {
                 let name_hash: Result<_> = try {
                     let module = load_module_by_path(&path)?;
-                    let hash = ModuleHash::hash(&module);
+                    let hash = Hash::hash(&module);
 
                     Self::maybe_migrate_module(&path, &hash, &modules_dir);
 
@@ -79,16 +87,16 @@ impl ModuleRepository {
 
     /// check that module file name is equal to module hash
     /// if not, rename module and config files
-    fn maybe_migrate_module(path: &Path, hash: &ModuleHash, modules_dir: &Path) {
+    fn maybe_migrate_module(path: &Path, hash: &Hash, modules_dir: &Path) {
         use eyre::eyre;
 
         let migrated: eyre::Result<_> = try {
             let file_name = extract_module_file_name(&path).ok_or(eyre!("no file name"))?;
             if file_name != hash.to_hex().as_ref() {
-                let new_name = hash.wasm_file_name();
+                let new_name = module_file_name(hash);
                 log::debug!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
-                std::fs::rename(&path, modules_dir.join(hash.wasm_file_name()))?;
-                let new_name = hash.config_file_name();
+                std::fs::rename(&path, modules_dir.join(module_file_name(hash)))?;
+                let new_name = module_config_name(hash);
                 let config = path.with_file_name(format!("{}_config.toml", file_name));
                 log::debug!(target: "migration", "renaming config {:?} to {}", config.file_name().unwrap(), new_name);
                 std::fs::rename(&config, modules_dir.join(new_name))?;
@@ -109,7 +117,7 @@ impl ModuleRepository {
             let module = base64::decode(&module).map_err(|err| {
                 JValue::String(format!("error decoding module from base64: {:?}", err))
             })?;
-            let hash = ModuleHash::hash(&module);
+            let hash = Hash::hash(&module);
             let config = Args::next("config", &mut args)?;
             let config = files::add_module(&modules_dir, &hash, &module, config)?;
 
@@ -127,15 +135,19 @@ impl ModuleRepository {
         let blueprints_dir = self.blueprints_dir.clone();
         let modules = self.modules_by_name.clone();
         closure(move |mut args| {
-            let blueprint: Blueprint = Args::next("blueprint", &mut args)?;
+            let blueprint: BlueprintRequest = Args::next("blueprint_request", &mut args)?;
             // resolve dependencies by name to hashes, if any
             let dependencies = blueprint.dependencies.into_iter();
-            let dependencies = dependencies
+            let dependencies: Vec<Dependency> = dependencies
                 .map(|module| Ok(Hash(resolve_hash(&modules, module)?)))
                 .collect::<Result<_>>()?;
+
+            let id = hash_dependencies(dependencies.clone())?.to_hex();
+
             let blueprint = Blueprint {
+                id: id.as_ref().to_string(),
                 dependencies,
-                ..blueprint
+                name: blueprint.name,
             };
             files::add_blueprint(&blueprints_dir, &blueprint)?;
 
@@ -152,8 +164,8 @@ impl ModuleRepository {
                 .filter_map(|path| {
                     let hash = extract_module_file_name(&path)?;
                     let result: eyre::Result<_> = try {
-                        let hash = ModuleHash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
-                        let config = modules_dir.join(hash.config_file_name());
+                        let hash = Hash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
+                        let config = modules_dir.join(module_config_name(&hash));
                         let config = load_config_by_path(&config).wrap_err(f!("load config ${config:?}"))?;
 
                         (hash, config)
@@ -187,8 +199,8 @@ impl ModuleRepository {
         closure(move |mut args| {
             let interface: eyre::Result<_> = try {
                 let hash: String = Args::next("hash", &mut args)?;
-                let hash = ModuleHash::from_hex(&hash)?;
-                let path = modules_dir.join(hash.config_file_name());
+                let hash = Hash::from_hex(&hash)?;
+                let path = modules_dir.join(module_config_name(&hash));
                 let interface =
                     module_interface(&path).wrap_err(f!("parse interface ${path:?}"))?;
 
@@ -262,9 +274,9 @@ impl ModuleRepository {
 }
 
 fn resolve_hash(
-    modules: &Arc<Mutex<HashMap<ModuleName, ModuleHash>>>,
+    modules: &Arc<Mutex<HashMap<ModuleName, Hash>>>,
     module: Dependency,
-) -> Result<ModuleHash> {
+) -> Result<Hash> {
     match module {
         Dependency::Hash(hash) => Ok(hash),
         Dependency::Name(name) => {
@@ -274,4 +286,22 @@ fn resolve_hash(
             hash.ok_or_else(|| InvalidModuleName(name.clone()))
         }
     }
+}
+
+fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
+    let mut hasher = blake3::Hasher::new();
+    for d in deps.iter() {
+        match d {
+            Dependency::Hash(h) => {
+                hasher.update(h.as_bytes());
+            }
+            Dependency::Name(n) => {
+                Err(TryToHashName(n.to_string()))?;
+            }
+        }
+    }
+
+    let hash = hasher.finalize();
+    let bytes = hash.as_bytes();
+    Ok(Hash::from(*bytes))
 }
