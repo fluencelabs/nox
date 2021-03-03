@@ -99,7 +99,7 @@ impl<'de> Deserialize<'de> for Dependency {
             let value = s.next();
             (id, value)
         };
-        let id_val = id_val.ok_or(de::Error::missing_field("dependency"))?;
+        let id_val = id_val.ok_or_else(|| de::Error::missing_field("dependency"))?;
 
         let value = match id_val {
             ("hash", Some(hash)) => {

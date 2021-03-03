@@ -37,7 +37,7 @@ impl Contact {
 impl Display for Contact {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if self.addresses.is_empty() {
-            write!(f, "{} @ {}", self.peer_id, "[no addr]")
+            write!(f, "{} @ [no addr]", self.peer_id)
         } else {
             let addrs = self.addresses.iter().join(" ");
             write!(f, "{} @ [{}]", self.peer_id, addrs)
