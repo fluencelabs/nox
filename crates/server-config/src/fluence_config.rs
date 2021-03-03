@@ -218,12 +218,8 @@ impl NodeConfig {
 
 /// Load keypair from default location
 fn load_key_pair() -> KeyPair {
-    load_or_create_key_pair(DEFAULT_KEY_DIR).unwrap_or_else(|e| {
-        panic!(format!(
-            "Failed to load keypair from {}: {:?}",
-            DEFAULT_KEY_DIR, e
-        ))
-    })
+    load_or_create_key_pair(DEFAULT_KEY_DIR)
+        .unwrap_or_else(|e| panic!("Failed to load keypair from {}: {:?}", DEFAULT_KEY_DIR, e))
 }
 
 /// Try to decode keypair from string as base58,
