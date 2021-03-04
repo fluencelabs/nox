@@ -20,7 +20,7 @@ config-utils = { path = "../crates/config-utils" }
 kademlia = { path = "../crates/kademlia" }
 
 trust-graph = "0.2.0"
-air-interpreter-wasm = "0.7.0"
+air-interpreter-wasm = "0.7.3"
 
 libp2p = { package = "fluence-fork-libp2p", version = "0.34.2" }
 multihash ="0.13"
@@ -54,7 +54,7 @@ eyre = "0.6.5"
 particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }
 json-utils = { path = "../crates/json-utils" }
-fluence-app-service = "0.3.2"
+fluence-app-service = "0.5.2"
 fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"
 maplit = "1.0.2"
