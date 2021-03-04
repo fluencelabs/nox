@@ -297,7 +297,9 @@ fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
                 hasher.update(h.as_bytes());
             }
             Dependency::Name(n) => {
-                Err(InvalidModuleReference(n.to_string()))?;
+                Err(InvalidModuleReference {
+                    reference: n.to_string(),
+                })?;
             }
         }
     }
