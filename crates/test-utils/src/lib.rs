@@ -35,9 +35,11 @@ mod local_vm;
 mod misc;
 mod service;
 mod singleton_vm;
+mod utils;
 
 pub use connected_client::*;
 pub use connection::*;
 pub use local_vm::*;
 pub use misc::*;
 pub use service::*;
+pub use utils::*;

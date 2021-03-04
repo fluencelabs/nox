@@ -306,3 +306,83 @@ fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
     let bytes = hash.as_bytes();
     Ok(Hash::from(*bytes))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::dependency::Dependency;
+    use crate::hash::Hash;
+    use crate::modules::BlueprintRequest;
+    use crate::ModuleRepository;
+    use host_closure::Args;
+    use serde::{Deserialize, Serialize};
+    use serde_json::Value as JValue;
+    use tempdir::TempDir;
+    use test_utils::{response_to_return, RetStruct};
+
+    fn add_bp(repo: &ModuleRepository, name: String, deps: Vec<Dependency>) -> RetStruct {
+        let req1 = BlueprintRequest {
+            name,
+            dependencies: deps,
+        };
+
+        let v: JValue = serde_json::to_value(req1).unwrap();
+
+        let args = Args {
+            service_id: "".to_string(),
+            function_name: "".to_string(),
+            function_args: vec![v],
+            tetraplets: vec![],
+        };
+
+        let resp = repo.add_blueprint()(args);
+        response_to_return(resp.unwrap())
+    }
+
+    fn get_bps(repo: &ModuleRepository) -> RetStruct {
+        let args = Args {
+            service_id: "".to_string(),
+            function_name: "".to_string(),
+            function_args: vec![],
+            tetraplets: vec![],
+        };
+
+        let resp = repo.get_blueprints()(args);
+        response_to_return(resp.unwrap())
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    struct BpsResult {
+        dependencies: Vec<String>,
+        id: String,
+        name: String,
+    }
+
+    #[test]
+    fn test_add_blueprint() {
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path());
+
+        let dep1 = Dependency::Hash(Hash::hash(&[1, 2, 3]));
+        let dep2 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
+
+        let name1 = "bp1".to_string();
+        let resp1 = add_bp(&repo, name1.clone(), vec![dep1.clone(), dep2.clone()]);
+        let bps1 = get_bps(&repo);
+        let bps1: Vec<BpsResult> = serde_json::from_str(&bps1.result).unwrap();
+        assert_eq!(bps1.len(), 1);
+        let bp1 = bps1.get(0).unwrap();
+        assert_eq!(bp1.name, name1);
+
+        let name2 = "bp2".to_string();
+        let resp2 = add_bp(&repo, "bp2".to_string(), vec![dep1, dep2]);
+        let bps2 = get_bps(&repo);
+        let bps2: Vec<BpsResult> = serde_json::from_str(&bps2.result).unwrap();
+        assert_eq!(bps2.len(), 1);
+        let bp2 = bps2.get(0).unwrap();
+        assert_eq!(bp2.name, name2);
+
+        assert_eq!(resp1.result, resp2.result);
+        assert_eq!(bp1.id, bp2.id);
+    }
+}

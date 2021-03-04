@@ -25,3 +25,8 @@ eyre = "0.6.5"
 itertools = "0.10.0"
 faster-hex = "0.5.0"
 fstrings = "0.2.3"
+
+[dev-dependencies]
+tempdir = "0.3.7"
+libp2p-core = { package = "fluence-fork-libp2p-core", version = "0.26.2" }
+test-utils = { path = "../crates/test-utils" }
