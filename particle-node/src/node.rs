@@ -118,7 +118,7 @@ impl Node {
             script_storage_config,
         )
     }
-
+    #[allow(clippy::too_many_arguments)]
     pub fn with(
         local_peer_id: PeerId,
         transport: Boxed<(PeerId, StreamMuxerBox)>,
@@ -199,7 +199,8 @@ impl Node {
                 self.network_api.start(pool_api, bootstrap_nodes, failures)
             };
             let stopped = stream::iter(once(Err(())));
-            let mut swarm = self.swarm.map(|e| Ok(e)).chain(stopped).fuse();
+            let mut swarm = self.swarm.map(|e| Ok(())).chain(stopped).fuse();
+
             loop {
                 select!(
                     e = swarm.select_next_some() => {

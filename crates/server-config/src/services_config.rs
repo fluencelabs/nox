@@ -54,7 +54,7 @@ impl ServicesConfig {
             modules_dir: config_utils::modules_dir(&base_dir),
             services_dir: config_utils::services_dir(&base_dir),
             envs,
-            management_peer_id: management_peer_id,
+            management_peer_id,
         };
 
         create_dirs(&[
