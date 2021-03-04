@@ -24,9 +24,9 @@ pub enum ClientCommand {
     Particle { particle: Particle },
 }
 
-impl Into<Particle> for ClientCommand {
-    fn into(self) -> Particle {
-        match self {
+impl From<ClientCommand> for Particle {
+    fn from(command: ClientCommand) -> Particle {
+        match command {
             ClientCommand::Particle { particle } => particle,
         }
     }

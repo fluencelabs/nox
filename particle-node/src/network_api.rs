@@ -111,7 +111,7 @@ impl NetworkApi {
             bootstrap_frequency: freq,
             particle_timeout,
         } = self;
-        let bs = bootstrap_nodes.clone();
+        let bs = bootstrap_nodes;
         let reconnect_bootstraps = spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
         let run_bootstrap = spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
         let particles = spawn(async move {

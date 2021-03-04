@@ -74,16 +74,16 @@ impl ProtocolConfig {
     }
 }
 
-impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent>
-    Into<OneShotHandler<ProtocolConfig, OutProto, OutEvent>> for ProtocolConfig
+impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent> From<ProtocolConfig>
+    for OneShotHandler<ProtocolConfig, OutProto, OutEvent>
 {
-    fn into(self) -> OneShotHandler<ProtocolConfig, OutProto, OutEvent> {
+    fn from(item: ProtocolConfig) -> OneShotHandler<ProtocolConfig, OutProto, OutEvent> {
         OneShotHandler::new(
-            protocols_handler::SubstreamProtocol::new(self.clone(), ())
-                .with_timeout(self.upgrade_timeout),
+            protocols_handler::SubstreamProtocol::new(item.clone(), ())
+                .with_timeout(item.upgrade_timeout),
             OneShotHandlerConfig {
-                keep_alive_timeout: self.keep_alive_timeout,
-                outbound_substream_timeout: self.outbound_substream_timeout,
+                keep_alive_timeout: item.keep_alive_timeout,
+                outbound_substream_timeout: item.outbound_substream_timeout,
             },
         )
     }

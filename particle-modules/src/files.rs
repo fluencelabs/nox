@@ -101,7 +101,7 @@ pub fn load_module_by_path(path: &Path) -> Result<Vec<u8>> {
 }
 
 /// Saves new blueprint to disk
-pub fn add_blueprint(blueprint_dir: &PathBuf, blueprint: &Blueprint) -> Result<()> {
+pub fn add_blueprint(blueprint_dir: &Path, blueprint: &Blueprint) -> Result<()> {
     let path = blueprint_dir.join(file_names::blueprint_file_name(&blueprint));
 
     // Save blueprint to disk

@@ -36,6 +36,7 @@ pub enum Instruction {
 }
 
 impl Instruction {
+    #[allow(clippy::should_implement_trait)]
     pub fn add(self, call: String) -> Self {
         use Instruction::*;
 

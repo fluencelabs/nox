@@ -62,12 +62,11 @@ pub enum HandlerMessage {
 // Required by OneShotHandler in inject_fully_negotiated_outbound. And that's because
 // <ProtocolMessage as UpgradeOutbound>::Output is (), and OneshotHandler requires it to be
 // convertible to OneshotHandler::TEvent which is a ProtocolMessage
-impl Into<HandlerMessage> for () {
-    fn into(self) -> HandlerMessage {
+impl From<()> for HandlerMessage {
+    fn from(_: ()) -> HandlerMessage {
         HandlerMessage::Upgrade
     }
 }
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "action")]
 pub enum ProtocolMessage {
@@ -78,9 +77,9 @@ pub enum ProtocolMessage {
     Upgrade,
 }
 
-impl Into<(ProtocolMessage, Option<OneshotOutlet<bool>>)> for HandlerMessage {
-    fn into(self) -> (ProtocolMessage, Option<OneshotOutlet<bool>>) {
-        match self {
+impl From<HandlerMessage> for (ProtocolMessage, Option<OneshotOutlet<bool>>) {
+    fn from(msg: HandlerMessage) -> (ProtocolMessage, Option<OneshotOutlet<bool>>) {
+        match msg {
             HandlerMessage::OutParticle(particle, channel) => {
                 (ProtocolMessage::Particle(particle), channel.outlet())
             }
@@ -95,9 +94,9 @@ impl Into<(ProtocolMessage, Option<OneshotOutlet<bool>>)> for HandlerMessage {
     }
 }
 
-impl Into<HandlerMessage> for ProtocolMessage {
-    fn into(self) -> HandlerMessage {
-        match self {
+impl From<ProtocolMessage> for HandlerMessage {
+    fn from(msg: ProtocolMessage) -> HandlerMessage {
+        match msg {
             ProtocolMessage::Particle(p) => HandlerMessage::InParticle(p),
             ProtocolMessage::InboundUpgradeError(err) => HandlerMessage::InboundUpgradeError(err),
             ProtocolMessage::Upgrade => HandlerMessage::Upgrade,

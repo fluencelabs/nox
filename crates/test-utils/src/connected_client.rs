@@ -138,7 +138,7 @@ impl ConnectedClient {
             (first, second)
         };
 
-        Ok(task::block_on(timeout(TIMEOUT, connect))?)
+        task::block_on(timeout(TIMEOUT, connect))
     }
 
     pub fn send(&self, particle: Particle) {

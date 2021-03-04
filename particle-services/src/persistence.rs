@@ -24,7 +24,7 @@ use particle_modules::{is_service, list_files, service_file_name, ModuleError};
 
 use crate::app_services::Service;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::Path;
 
 // TODO: all fields could be references, but I don't know how to achieve that
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -66,7 +66,7 @@ impl PersistedService {
 
 /// Persist service info to disk, so it is recreated after restart
 pub fn persist_service(
-    services_dir: &PathBuf,
+    services_dir: &Path,
     persisted_service: PersistedService,
 ) -> Result<(), ModuleError> {
     use ModuleError::*;
@@ -77,9 +77,7 @@ pub fn persist_service(
 }
 
 /// Load info about persisted services from disk, and create `AppService` for each of them
-pub fn load_persisted_services(
-    services_dir: &PathBuf,
-) -> Vec<Result<PersistedService, ServiceError>> {
+pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedService, ServiceError>> {
     // Load all persisted service file names
     let files = match list_files(services_dir) {
         Some(files) => files,
@@ -87,7 +85,7 @@ pub fn load_persisted_services(
             // Attempt to create directory and exit
             return create_dirs(&[&services_dir])
                 .map_err(|err| CreateServicesDir {
-                    path: services_dir.clone(),
+                    path: services_dir.to_path_buf(),
                     err,
                 })
                 .err()

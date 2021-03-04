@@ -83,7 +83,7 @@ impl ModuleRepository {
         use eyre::eyre;
 
         let migrated: eyre::Result<_> = try {
-            let file_name = extract_module_file_name(&path).ok_or(eyre!("no file name"))?;
+            let file_name = extract_module_file_name(&path).ok_or_else(|| eyre!("no file name"))?;
             if file_name != hash.to_hex().as_ref() {
                 let new_name = hash.wasm_file_name();
                 log::debug!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
