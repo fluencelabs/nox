@@ -83,8 +83,8 @@ pub enum ModuleError {
     },
     #[error("Module with name {0} wasn't found, consider using module hash instead of a name")]
     InvalidModuleName(String),
-    #[error("Trying to hash a module name '{0}'. Hash of dependencies must be calculated only with hash of a module.")]
-    TryToHashName(String),
+    #[error("Expected module reference of format hash:xx got {reference}. Context: calculating blueprint hash")]
+    InvalidModuleReference(String),
 }
 
 impl From<ModuleError> for JValue {

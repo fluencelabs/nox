@@ -15,18 +15,18 @@
  */
 
 use crate::dependency::Dependency;
-use crate::error::ModuleError::{InvalidModuleName, TryToHashName};
+use crate::error::ModuleError::{InvalidModuleName, InvalidModuleReference};
 use crate::error::Result;
 use crate::file_names::{extract_module_file_name, is_module_wasm};
 use crate::file_names::{module_config_name, module_file_name};
 use crate::files::{load_config_by_path, load_module_by_path};
+use crate::hash::Hash;
 use crate::{file_names, files, load_blueprint, load_module_descriptor, Blueprint};
 
 use fce_wit_parser::module_interface;
 use fluence_app_service::ModuleDescriptor;
 use host_closure::{closure, Args, Closure};
 
-use crate::hash::Hash;
 use eyre::WrapErr;
 use fstrings::f;
 use parking_lot::Mutex;
@@ -37,7 +37,7 @@ use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 type ModuleName = String;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BlueprintRequest {
+pub struct AddBlueprint {
     pub name: String,
     pub dependencies: Vec<Dependency>,
 }
@@ -136,17 +136,17 @@ impl ModuleRepository {
         let blueprints_dir = self.blueprints_dir.clone();
         let modules = self.modules_by_name.clone();
         closure(move |mut args| {
-            let blueprint: BlueprintRequest = Args::next("blueprint_request", &mut args)?;
+            let blueprint: AddBlueprint = Args::next("blueprint_request", &mut args)?;
             // resolve dependencies by name to hashes, if any
             let dependencies = blueprint.dependencies.into_iter();
             let dependencies: Vec<Dependency> = dependencies
                 .map(|module| Ok(Hash(resolve_hash(&modules, module)?)))
                 .collect::<Result<_>>()?;
 
-            let id = hash_dependencies(dependencies.clone())?.to_hex();
+            let hash = hash_dependencies(dependencies.clone())?.to_hex();
 
             let blueprint = Blueprint {
-                id: id.as_ref().to_string(),
+                id: hash.as_ref().to_string(),
                 dependencies,
                 name: blueprint.name,
             };
@@ -297,7 +297,7 @@ fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
                 hasher.update(h.as_bytes());
             }
             Dependency::Name(n) => {
-                Err(TryToHashName(n.to_string()))?;
+                Err(InvalidModuleReference(n.to_string()))?;
             }
         }
     }
@@ -311,7 +311,7 @@ fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
 mod tests {
     use crate::dependency::Dependency;
     use crate::hash::Hash;
-    use crate::modules::BlueprintRequest;
+    use crate::modules::AddBlueprint;
     use crate::ModuleRepository;
     use host_closure::Args;
     use serde::{Deserialize, Serialize};
@@ -320,7 +320,7 @@ mod tests {
     use test_utils::{response_to_return, RetStruct};
 
     fn add_bp(repo: &ModuleRepository, name: String, deps: Vec<Dependency>) -> RetStruct {
-        let req1 = BlueprintRequest {
+        let req1 = AddBlueprint {
             name,
             dependencies: deps,
         };

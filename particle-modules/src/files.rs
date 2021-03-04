@@ -18,10 +18,10 @@ use crate::blueprint::Blueprint;
 use crate::error::{ModuleError::*, Result};
 use crate::file_names;
 use crate::file_names::{module_config_name, module_file_name};
+use crate::hash::Hash;
 
 use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
 
-use crate::hash::Hash;
 use std::path::Path;
 use std::{convert::TryInto, path::PathBuf};
 
