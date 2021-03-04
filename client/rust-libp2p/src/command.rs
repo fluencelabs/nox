@@ -25,8 +25,8 @@ pub enum ClientCommand {
 }
 
 impl From<ClientCommand> for Particle {
-    fn from(item: ClientCommand) -> Particle {
-        match item {
+    fn from(command: ClientCommand) -> Particle {
+        match command {
             ClientCommand::Particle { particle } => particle,
         }
     }
