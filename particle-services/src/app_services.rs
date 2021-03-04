@@ -334,11 +334,11 @@ mod tests {
     use serde_json::Value as JValue;
     use tempdir::TempDir;
 
+    use crate::ParticleAppServices;
     use host_closure::{Args, ParticleParameters};
     use particle_modules::ModuleRepository;
     use server_config::ServicesConfig;
-
-    use crate::{IValue, ParticleAppServices};
+    use test_utils::{response_to_return, RetStruct};
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
@@ -375,29 +375,6 @@ mod tests {
             function_name: "".to_string(),
             function_args: args,
             tetraplets: vec![],
-        }
-    }
-
-    #[derive(Debug, Clone)]
-    struct RetStruct {
-        ret_code: u32,
-        error: String,
-    }
-
-    fn response_to_return(resp: IValue) -> RetStruct {
-        match resp {
-            IValue::Record(r) => {
-                let ret_code = match r.get(0).unwrap() {
-                    IValue::U32(u) => u.clone(),
-                    _ => panic!("unexpected, should be u32 ret_code"),
-                };
-                let error = match r.get(1).unwrap() {
-                    IValue::String(u) => u.to_string(),
-                    _ => panic!("unexpected, should be string error message"),
-                };
-                RetStruct { ret_code, error }
-            }
-            _ => panic!("unexpected, should be a record"),
         }
     }
 

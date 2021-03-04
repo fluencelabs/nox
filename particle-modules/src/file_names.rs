@@ -15,17 +15,17 @@
  */
 
 use crate::blueprint::Blueprint;
-use crate::dependency::ModuleHash;
+use crate::hash::Hash;
 
 use std::path::Path;
 
 /// Calculates filename of the config for a wasm module
-pub(super) fn module_config_name(module_hash: &ModuleHash) -> String {
+pub(super) fn module_config_name(module_hash: &Hash) -> String {
     format!("{}_config.toml", module_hash.to_hex().as_ref())
 }
 
 /// Calculates the name of a wasm module file, given a hash of the module.
-pub(super) fn module_file_name(module_hash: &ModuleHash) -> String {
+pub(super) fn module_file_name(module_hash: &Hash) -> String {
     format!("{}.wasm", module_hash.to_hex().as_ref())
 }
 
