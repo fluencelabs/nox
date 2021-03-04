@@ -72,7 +72,7 @@ pub fn load_or_create_key_pair(path: &str) -> Result<KeyPair, Box<dyn std::error
     }
 
     if !key_path.is_dir() {
-        return Ok(read_key_pair_from_file(key_path)?);
+        return read_key_pair_from_file(key_path);
     }
 
     Err(Error::new(

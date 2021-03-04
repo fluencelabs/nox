@@ -25,19 +25,19 @@ pub fn to_abs_path(path: PathBuf) -> PathBuf {
     }
 }
 
-pub fn workdir(path: &PathBuf) -> PathBuf {
+pub fn workdir(path: &Path) -> PathBuf {
     path.join("workdir")
 }
-pub fn modules_dir(path: &PathBuf) -> PathBuf {
+pub fn modules_dir(path: &Path) -> PathBuf {
     path.join("modules")
 }
-pub fn services_dir(path: &PathBuf) -> PathBuf {
+pub fn services_dir(path: &Path) -> PathBuf {
     path.join("services")
 }
-pub fn particles_dir(path: &PathBuf) -> PathBuf {
+pub fn particles_dir(path: &Path) -> PathBuf {
     path.join("particles")
 }
-pub fn blueprint_dir(path: &PathBuf) -> PathBuf {
+pub fn blueprint_dir(path: &Path) -> PathBuf {
     path.join("blueprint")
 }
 

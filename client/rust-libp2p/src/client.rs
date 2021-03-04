@@ -78,7 +78,7 @@ impl Client {
         stop_outlet: OneshotOutlet<()>,
         key_pair: Option<ed25519::Keypair>,
     ) -> Self {
-        let key = key_pair.unwrap_or(ed25519::Keypair::generate());
+        let key = key_pair.unwrap_or_else(ed25519::Keypair::generate);
         let peer_id = identity::PublicKey::Ed25519(key.public()).into_peer_id();
 
         Client {

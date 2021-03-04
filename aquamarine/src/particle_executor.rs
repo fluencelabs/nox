@@ -66,7 +66,7 @@ impl ParticleExecutor for AquamarineVM {
 
             FutResult {
                 vm: self,
-                effects: AwaitedEffects { out, effects },
+                effects: AwaitedEffects { effects, out },
             }
         })
         .boxed()

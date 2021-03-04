@@ -32,9 +32,9 @@ pub struct AwaitedParticle {
     pub out: EffectsChannel,
 }
 
-impl Into<(Particle, EffectsChannel)> for AwaitedParticle {
-    fn into(self) -> (Particle, EffectsChannel) {
-        (self.particle, self.out)
+impl From<AwaitedParticle> for (Particle, EffectsChannel) {
+    fn from(item: AwaitedParticle) -> (Particle, EffectsChannel) {
+        (item.particle, item.out)
     }
 }
 

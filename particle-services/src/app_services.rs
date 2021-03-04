@@ -192,7 +192,7 @@ impl ParticleAppServices {
             // if a client trying to add an alias that equals some created service id
             // return an error
             if services.read().get(&alias).is_some() {
-                return Err(AliasAsServiceId(alias.clone()).into());
+                return Err(AliasAsServiceId(alias).into());
             }
 
             let mut services = services.write();

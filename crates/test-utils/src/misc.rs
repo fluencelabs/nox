@@ -36,6 +36,7 @@ use libp2p::{
 use rand::Rng;
 use script_storage::ScriptStorageConfig;
 use serde_json::{json, Value as JValue};
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{path::PathBuf, time::Duration};
 use uuid::Uuid;
@@ -171,7 +172,7 @@ where
         .map(|addr| {
             #[rustfmt::skip]
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
-            let (id, node, tmp, m_kp) = create_node(addrs.clone(), addr.clone());
+            let (id, node, tmp, m_kp) = create_node(addrs, addr.clone());
             ((id, addr.clone(), tmp, m_kp), node)
         })
         .collect::<Vec<_>>();
@@ -363,7 +364,7 @@ pub fn make_tmp_dir() -> PathBuf {
     tmp
 }
 
-pub fn remove_dir(dir: &PathBuf) {
+pub fn remove_dir(dir: &Path) {
     std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
 }
 
@@ -374,7 +375,7 @@ pub fn put_aquamarine(tmp: PathBuf) -> PathBuf {
 
     let file = to_abs_path(tmp.join(format!("aquamarine_{}.wasm", VERSION)));
     std::fs::write(&file, INTERPRETER_WASM)
-        .expect(format!("fs::write aquamarine.wasm to {:?}", file).as_str());
+        .unwrap_or_else(|_| panic!("fs::write aquamarine.wasm to {:?}", file));
 
     file
 }
@@ -382,9 +383,8 @@ pub fn put_aquamarine(tmp: PathBuf) -> PathBuf {
 pub fn test_module() -> Vec<u8> {
     let file_name = TEST_MODULE.to_string();
     let module = to_abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
-    let module = std::fs::read(&module).expect(format!("fs::read from {:?}", module).as_str());
 
-    module
+    std::fs::read(&module).unwrap_or_else(|_| panic!("fs::read from {:?}", module))
 }
 
 pub fn test_module_cfg(name: &str) -> JValue {
