@@ -34,6 +34,7 @@ mod dependency;
 mod error;
 mod file_names;
 mod files;
+mod hash;
 mod modules;
 
 pub use blueprint::Blueprint;

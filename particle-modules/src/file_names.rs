@@ -15,8 +15,8 @@
  */
 
 use crate::blueprint::Blueprint;
-use crate::dependency::Hash;
 
+use crate::hash::Hash;
 use std::path::Path;
 
 /// Calculates filename of the config for a wasm module

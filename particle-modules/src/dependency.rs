@@ -14,56 +14,11 @@
  * limitations under the License.
  */
 
-use blake3::hash;
-use faster_hex::hex_decode;
+use crate::hash::Hash;
 use serde::export::Formatter;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::fmt::Display;
-
-/// Hash of the .wasm module contents
-///
-/// Used to load & store modules and configs on filesystem
-#[derive(Debug, Clone)]
-pub struct Hash(blake3::Hash);
-impl Hash {
-    /// Construct ModuleHash from raw hash value in hex; doesn't hash anything
-    pub fn from_hex(hash: &str) -> Result<Self, faster_hex::Error> {
-        let mut buf: [u8; blake3::OUT_LEN] = [0; blake3::OUT_LEN];
-        hex_decode(hash.as_bytes(), &mut buf)?;
-        Ok(Self::from(buf))
-    }
-
-    /// Hash arbitrary bytes
-    ///
-    /// see `From<[u8; blake3::OUT_LEN]>` to create from raw bytes without hashing them
-    pub fn hash(bytes: &[u8]) -> Self {
-        Self(hash(bytes))
-    }
-
-    /// Converts module hash to hex str
-    pub fn to_hex(&self) -> impl AsRef<str> {
-        self.0.to_hex()
-    }
-
-    pub fn as_bytes(&self) -> &[u8; blake3::OUT_LEN] {
-        self.0.as_bytes()
-    }
-}
-
-/// Creates ModuleHash from raw bytes without hashing them
-impl From<[u8; blake3::OUT_LEN]> for Hash {
-    #[inline]
-    fn from(bytes: [u8; blake3::OUT_LEN]) -> Self {
-        Self(blake3::Hash::from(bytes))
-    }
-}
-
-impl Display for Hash {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.to_hex().as_ref().fmt(f)
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum Dependency {

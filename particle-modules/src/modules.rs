@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::dependency::{Dependency, Hash};
+use crate::dependency::Dependency;
 use crate::error::ModuleError::{InvalidModuleName, TryToHashName};
 use crate::error::Result;
 use crate::file_names::{extract_module_file_name, is_module_wasm};
@@ -26,6 +26,7 @@ use fce_wit_parser::module_interface;
 use fluence_app_service::ModuleDescriptor;
 use host_closure::{closure, Args, Closure};
 
+use crate::hash::Hash;
 use eyre::WrapErr;
 use fstrings::f;
 use parking_lot::Mutex;
