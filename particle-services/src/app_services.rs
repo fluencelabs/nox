@@ -63,8 +63,7 @@ impl Deref for Service {
 pub struct VmDescriptor<'a> {
     interface: ServiceInterface,
     blueprint_id: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    service_id: Option<&'a str>,
+    service_id: &'a str,
     owner_id: &'a str,
 }
 
@@ -233,9 +232,9 @@ impl ParticleAppServices {
             let service_id: String = Args::next("service_id", &mut args)?;
             let service = services
                 .get(&service_id)
-                .ok_or(ServiceError::NoSuchService(service_id))?;
+                .ok_or(ServiceError::NoSuchService(service_id.clone()))?;
 
-            Ok(get_service_interface(service, None)?)
+            Ok(get_service_interface(service, &service_id)?)
         })
     }
 
@@ -306,10 +305,7 @@ impl ParticleAppServices {
     }
 }
 
-fn get_service_interface(
-    service: &Service,
-    service_id: Option<&str>,
-) -> Result<JValue, ServiceError> {
+fn get_service_interface(service: &Service, service_id: &str) -> Result<JValue, ServiceError> {
     let lock = service.lock();
     let interface = lock.get_interface();
 
