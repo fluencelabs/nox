@@ -1,0 +1,11 @@
+[package]
+name = "tetraplets"
+version = "0.1.0"
+authors = ["Alexey Proshutinskiy <alexey.prosh@fluence.one>"]
+edition = "2018"
+
+[dependencies]
+fluence = {version = "0.2.9"}
+serde_json = "1.0.61"
+
+[workspace]

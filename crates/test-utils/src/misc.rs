@@ -54,7 +54,7 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(300);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-const TEST_MODULE: &str = "greeting.wasm";
+const GREETING_MODULE: &str = "greeting.wasm";
 
 pub fn uuid() -> String {
     Uuid::new_v4().to_string()
@@ -380,10 +380,12 @@ pub fn put_aquamarine(tmp: PathBuf) -> PathBuf {
     file
 }
 
-pub fn test_module() -> Vec<u8> {
-    let file_name = TEST_MODULE.to_string();
-    let module = to_abs_path(PathBuf::from("../crates/test-utils/artifacts").join(file_name));
+pub fn greeting_module() -> Vec<u8> {
+    load_module("../crates/test-utils/artifacts", GREETING_MODULE)
+}
 
+pub fn load_module(path: &str, file_name: &str) -> Vec<u8> {
+    let module = to_abs_path(PathBuf::from(path).join(file_name));
     std::fs::read(&module).unwrap_or_else(|_| panic!("fs::read from {:?}", module))
 }
 

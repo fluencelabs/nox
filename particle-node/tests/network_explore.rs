@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_greeting_service, make_swarms, module_config, read_args, test_module, test_module_cfg,
-    timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
+    create_greeting_service, greeting_module, make_swarms, module_config, read_args,
+    test_module_cfg, timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
 use eyre::{ContextCompat, WrapErr};
@@ -121,7 +121,7 @@ fn get_modules() {
         )
         "#,
         hashmap! {
-            "module_bytes" => json!(base64::encode(test_module())),
+            "module_bytes" => json!(base64::encode(greeting_module())),
             "module_config" => test_module_cfg("greeting"),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),

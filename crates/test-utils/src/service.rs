@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{test_module, test_module_cfg, ConnectedClient};
+use crate::{greeting_module, test_module_cfg, ConnectedClient};
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
@@ -25,8 +25,15 @@ pub struct CreatedService {
 }
 
 pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
-    let module = "greeting";
+    let module = "greeting"; // https://github.com/fluencelabs/fce/tree/master/examples/greeting
+    create_service(client, module, greeting_module())
+}
 
+pub fn create_service(
+    client: &mut ConnectedClient,
+    module_name: &str,
+    module_bytes: Vec<u8>,
+) -> CreatedService {
     let script = f!(r#"
     (seq
         (call relay ("dist" "add_module") [module_bytes module_config] module)
@@ -43,9 +50,9 @@ pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
-        "module_bytes" => json!(base64::encode(test_module())),
-        "module_config" => test_module_cfg(module),
-        "blueprint" => json!({ "name": "blueprint", "dependencies": [module] }),
+        "module_bytes" => json!(base64::encode(module_bytes)),
+        "module_config" => test_module_cfg(module_name),
+        "blueprint" => json!({ "name": "blueprint", "dependencies": [module_name] }),
     };
 
     client.send_particle(script, data);
