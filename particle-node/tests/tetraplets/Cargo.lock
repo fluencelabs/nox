@@ -155,7 +155,6 @@ name = "tetraplets"
 version = "0.1.0"
 dependencies = [
  "fluence",
- "serde_json",
 ]
 
 [[package]]

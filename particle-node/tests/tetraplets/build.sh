@@ -4,5 +4,5 @@
 cargo update
 fce build --release
 
-rm artifacts/*
-cp ../../target/wasm32-wasi/release/tetraplets.wasm artifacts/
+rm -f artifacts/*
+cp target/wasm32-wasi/release/tetraplets.wasm artifacts/
