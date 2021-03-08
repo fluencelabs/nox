@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{greeting_module, test_module_cfg, ConnectedClient};
+use crate::{test_module_cfg, ConnectedClient};
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
@@ -22,11 +22,6 @@ use serde_json::json;
 #[derive(Debug, Clone)]
 pub struct CreatedService {
     pub id: String,
-}
-
-pub fn create_greeting_service(client: &mut ConnectedClient) -> CreatedService {
-    let module = "greeting"; // https://github.com/fluencelabs/fce/tree/master/examples/greeting
-    create_service(client, module, greeting_module())
 }
 
 pub fn create_service(

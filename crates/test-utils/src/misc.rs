@@ -54,8 +54,6 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(300);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 
-const GREETING_MODULE: &str = "greeting.wasm";
-
 pub fn uuid() -> String {
     Uuid::new_v4().to_string()
 }
@@ -378,10 +376,6 @@ pub fn put_aquamarine(tmp: PathBuf) -> PathBuf {
         .unwrap_or_else(|_| panic!("fs::write aquamarine.wasm to {:?}", file));
 
     file
-}
-
-pub fn greeting_module() -> Vec<u8> {
-    load_module("../crates/test-utils/artifacts", GREETING_MODULE)
 }
 
 pub fn load_module(path: &str, file_name: &str) -> Vec<u8> {

@@ -25,77 +25,71 @@ use serde_json::json;
 
 use eyre::WrapErr;
 use fluence_app_service::SecurityTetraplet;
-use test_utils::{
-    create_greeting_service, create_service, load_module, make_swarms, ConnectedClient, KAD_TIMEOUT,
-};
+use test_utils::{create_service, load_module, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
 fn test_tetraplets() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
-    let mut client1 =
-        ConnectedClient::connect_to_with_peer_id(swarms[0].1.clone(), Some(swarms[0].3.clone()))
-            .wrap_err("connect client")
-            .unwrap();
-    let tetraplets_service = create_service(
-        &mut client1,
-        "tetraplets",
-        load_module(
-            "tests/tetraplets/target/wasm32-wasi/release",
-            "tetraplets.wasm",
-        ),
-    );
-
-    let mut client2 = ConnectedClient::connect_to(swarms[1].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
         .wrap_err("connect client")
         .unwrap();
-    let greeting_service = create_greeting_service(&mut client2);
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets.wasm"),
+    );
 
     let script = f!(r#"
-    (xor
+    (seq
         (seq
             (seq
-                (call "{client2.node}" ("op" "identity") [])
-                (seq
-                    (call "{client2.node}" (greeting_service_id "greeting") [my_name] result)
-                    (call "{client1.node}" (tetraplets_service_id "get_tetraplets") [result] tetraplets)
-                )
+                (call host ("op" "identity") ["test"] result)
+                (call host (service_id "get_tetraplets") [result] first_tetraplets)
             )
             (seq
-                (call "{client2.node}" ("op" "identity") [])
-                (call "{client2.peer_id}" ("return" "") [tetraplets])
+                (call host ("op" "identity") [])
+                (call host (service_id "get_tetraplets") [first_tetraplets.$.[0][0].peer_pk] second_tetraplets)
             )
         )
         (seq
-            (call "{client2.node}" ("op" "identity") [])
-            (call "{client2.peer_id}" ("return" "") ["XOR: get_tetraplets() failed"])
+            (call host ("op" "identity") [])
+            (call client ("return" "") [first_tetraplets second_tetraplets])
         )
     )"#);
 
     let data = hashmap! {
-        "host" => json!(client1.node.to_string()),
-        "relay" => json!(client2.node.to_string()),
-        "client" => json!(client2.peer_id.to_string()),
-        "tetraplets_service_id" => json!(tetraplets_service.id),
-        "greeting_service_id" => json!(greeting_service.id),
-        "my_name" => json!("justprosh"),
+        "host" => json!(client.node.to_string()),
+        "client" => json!(client.peer_id.to_string()),
+        "service_id" => json!(tetraplets_service.id),
     };
 
-    client2.send_particle(script, data.clone());
+    client.send_particle(script, data.clone());
 
-    let args = client2.receive_args().wrap_err("receive").unwrap();
+    let args = client.receive_args().wrap_err("receive").unwrap();
     let mut args = args.into_iter();
-    let tetraplets = args.next().unwrap();
-    let tetraplets: Vec<Vec<SecurityTetraplet>> = serde_json::from_value(tetraplets)
+    let first_tetraplets = args.next().unwrap();
+    let first_tetraplets: Vec<Vec<SecurityTetraplet>> = serde_json::from_value(first_tetraplets)
         .wrap_err("deserialize tetraplets")
         .unwrap();
-    assert_eq!(tetraplets.len(), 1);
-    assert_eq!(tetraplets[0].len(), 1);
+    assert_eq!(first_tetraplets.len(), 1);
+    assert_eq!(first_tetraplets[0].len(), 1);
 
-    let tetraplet = &tetraplets[0][0];
-    assert_eq!(tetraplet.function_name, "greeting");
-    assert_eq!(tetraplet.peer_pk, client2.peer_id.to_base58());
+    let tetraplet = &first_tetraplets[0][0];
+    assert_eq!(tetraplet.function_name, "identity");
+    assert_eq!(tetraplet.peer_pk, client.node.to_base58());
+    assert_eq!(tetraplet.json_path, "");
+    assert_eq!(tetraplet.service_id, "op");
 
-    assert_eq!(tetraplet.service_id, greeting_service.id.as_str());
+    let second_tetraplets = args.next().unwrap();
+    let second_tetraplets: Vec<Vec<SecurityTetraplet>> = serde_json::from_value(second_tetraplets)
+        .wrap_err("deserialize tetraplets")
+        .unwrap();
+
+    let tetraplet = &second_tetraplets[0][0];
+    assert_eq!(tetraplet.function_name, "get_tetraplets");
+    assert_eq!(tetraplet.peer_pk, client.node.to_base58());
+    assert_eq!(tetraplet.json_path, "$.[0][0].peer_pk");
+    assert_eq!(tetraplet.service_id, tetraplets_service.id.as_str());
 }
