@@ -137,7 +137,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("srv", "create")                 => (self.create_service)(params, args),
             ("srv", "list")                   => (self.list_services)(args),
             ("srv", "get_interface")          => (self.get_interface)(args),
-            ("srv", "add_alias")       => (self.add_alias)(params, args),
+            ("srv", "add_alias")              => (self.add_alias)(params, args),
 
             ("dist", "add_module")            => (self.add_module)(args),
             ("dist", "list_modules")          => (self.list_modules)(args),

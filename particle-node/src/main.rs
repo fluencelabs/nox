@@ -50,6 +50,13 @@ fn main() -> anyhow::Result<()> {
     // TODO: maybe set log level via flag?
     env_logger::builder().format_timestamp_micros().init();
 
+    let arg_matches = App::new("Fluence protocol server")
+        .version(VERSION)
+        .author(AUTHORS)
+        .about(DESCRIPTION)
+        .args(create_args().as_slice())
+        .get_matches();
+
     log::info!(
         r#"
 +-------------------------------------------------+
@@ -63,13 +70,6 @@ fn main() -> anyhow::Result<()> {
 +-------------------------------------------------+
     "#
     );
-
-    let arg_matches = App::new("Fluence protocol server")
-        .version(VERSION)
-        .author(AUTHORS)
-        .about(DESCRIPTION)
-        .args(create_args().as_slice())
-        .get_matches();
 
     write_default_air_interpreter()?;
 

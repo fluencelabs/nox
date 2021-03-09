@@ -10,7 +10,7 @@ trust-graph = "0.2.0"
 particle-protocol = { path = "../../particle-protocol"}
 
 air-interpreter-wasm = "0.7.3"
-libp2p = { package = "fluence-fork-libp2p", version = "0.34.2" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.34.2", features = ["tcp-tokio"] }
 
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"
