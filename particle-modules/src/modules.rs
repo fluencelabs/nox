@@ -15,7 +15,10 @@
  */
 
 use crate::dependency::Dependency;
-use crate::error::ModuleError::{BlueprintNotFound, InvalidModuleName, InvalidModuleReference};
+use crate::error::ModuleError::{
+    BlueprintNotFound, EmptyDependenciesList, FacadeShouldBeHash, InvalidModuleName,
+    InvalidModuleReference, ReadModuleInterfaceError,
+};
 use crate::error::Result;
 use crate::file_names::{extract_module_file_name, is_module_wasm};
 use crate::file_names::{module_config_name, module_file_name};
@@ -226,22 +229,67 @@ impl ModuleRepository {
         result.cloned()
     }
 
+    pub fn get_interface_by_blueprint_id(&self, id: &str) -> Result<Value> {
+        let blueprints = self.blueprints.clone();
+        let blueprints = blueprints.read();
+        let bp = blueprints.get(id);
+
+        match bp {
+            None => Err(BlueprintNotFound { id: id.to_string() })?,
+            Some(bp) => {
+                let dep = bp
+                    .get_facade_module()
+                    .ok_or(EmptyDependenciesList { id: id.to_string() })?;
+
+                let hash = match dep {
+                    Dependency::Hash(hash) => hash,
+                    Dependency::Name(_) => Err(FacadeShouldBeHash { id: id.to_string() })?,
+                };
+
+                self.get_interface_by_hash(&hash)
+            }
+        }
+    }
+
+    pub fn get_interface_by_hash(&self, hash: &Hash) -> Result<Value> {
+        let modules_dir: PathBuf = self.modules_dir.clone();
+        let cache: Arc<RwLock<HashMap<Hash, Value>>> = self.module_interface_cache.clone();
+
+        Self::get_interface_by_hash_internal(modules_dir, cache, hash)
+    }
+
+    fn get_interface_by_hash_internal(
+        modules_dir: PathBuf,
+        cache: Arc<RwLock<HashMap<Hash, Value>>>,
+        hash: &Hash,
+    ) -> Result<Value> {
+        let cache_read = cache.read();
+
+        match cache_read.get(hash) {
+            Some(interface) => Ok(interface.clone()),
+            None => {
+                let path = modules_dir.join(module_config_name(hash));
+                let interface = module_interface(&path)
+                    .map_err(|err| ReadModuleInterfaceError { path, err })?;
+
+                let json = json!(interface);
+
+                cache.write().insert(hash.clone(), json.clone());
+
+                Ok(json)
+            }
+        }
+    }
+
     pub fn get_interface(&self) -> Closure {
-        let modules_dir = self.modules_dir.clone();
-        let cache = self.module_interface_cache.clone();
+        let modules_dir: PathBuf = self.modules_dir.clone();
+        let cache: Arc<RwLock<HashMap<Hash, Value>>> = self.module_interface_cache.clone();
         closure(move |mut args| {
             let interface: eyre::Result<_> = try {
                 let hash: String = Args::next("hash", &mut args)?;
                 let hash = Hash::from_hex(&hash)?;
-                let path = modules_dir.join(module_config_name(&hash));
-                let interface =
-                    module_interface(&path).wrap_err(f!("parse interface ${path:?}"))?;
 
-                let json = json!(interface);
-
-                cache.write().insert(hash, json.clone());
-
-                json
+                Self::get_interface_by_hash_internal(modules_dir.clone(), cache.clone(), &hash)?
             };
 
             interface.map_err(|err| {

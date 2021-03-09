@@ -226,6 +226,7 @@ impl ParticleAppServices {
 
     pub fn get_interface(&self) -> Closure {
         let services = self.services.clone();
+        let modules = self.modules.clone();
 
         closure(move |mut args| {
             let services = services.read();
@@ -234,7 +235,7 @@ impl ParticleAppServices {
                 .get(&service_id)
                 .ok_or(ServiceError::NoSuchService(service_id.clone()))?;
 
-            Ok(get_service_interface(service, &service_id)?)
+            Ok(modules.get_interface_by_blueprint_id(&service.blueprint_id)?)
         })
     }
 
@@ -305,21 +306,21 @@ impl ParticleAppServices {
     }
 }
 
-fn get_service_interface(service: &Service, service_id: &str) -> Result<JValue, ServiceError> {
-    let lock = service.lock();
-    let interface = lock.get_interface();
-
-    let descriptor = VmDescriptor {
-        interface,
-        blueprint_id: &service.blueprint_id,
-        service_id,
-        owner_id: &service.owner_id,
-    };
-    let descriptor =
-        serde_json::to_value(descriptor).map_err(ServiceError::CorruptedFaaSInterface)?;
-
-    Ok(descriptor)
-}
+// fn get_service_interface(service: &Service, service_id: &str) -> Result<JValue, ServiceError> {
+//     let lock = service.lock();
+//     let interface = lock.get_interface();
+//
+//     let descriptor = VmDescriptor {
+//         interface,
+//         blueprint_id: &service.blueprint_id,
+//         service_id,
+//         owner_id: &service.owner_id,
+//     };
+//     let descriptor =
+//         serde_json::to_value(descriptor).map_err(ServiceError::CorruptedFaaSInterface)?;
+//
+//     Ok(descriptor)
+// }
 
 #[cfg(test)]
 mod tests {

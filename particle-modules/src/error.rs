@@ -17,6 +17,7 @@
 use fluence_app_service::FaaSError;
 use json_utils::err_as_value;
 
+use fce_wit_parser::WITParserError;
 use serde_json::Value as JValue;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -50,6 +51,10 @@ pub enum ModuleError {
     },
     #[error("Blueprint '{id}' wasn't found")]
     BlueprintNotFound { id: String },
+    #[error("Blueprint '{id}' hash empty list of dependencies somehow")]
+    EmptyDependenciesList { id: String },
+    #[error("Blueprint '{id}' facade dependency is not a hash of a module")]
+    FacadeShouldBeHash { id: String },
     #[error("Error parsing blueprint: {err}")]
     IncorrectBlueprint {
         #[source]
@@ -82,6 +87,12 @@ pub enum ModuleError {
         path: PathBuf,
         #[source]
         err: std::io::Error,
+    },
+    #[error("Cannot read modules interface {path:?}: {err}")]
+    ReadModuleInterfaceError {
+        path: PathBuf,
+        #[source]
+        err: WITParserError,
     },
     #[error("Module with name {0} wasn't found, consider using module hash instead of a name")]
     InvalidModuleName(String),
