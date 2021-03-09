@@ -15,23 +15,23 @@
  */
 
 use crate::dependency::Dependency;
-use crate::error::ModuleError::{InvalidModuleName, InvalidModuleReference};
+use crate::error::ModuleError::{BlueprintNotFound, InvalidModuleName, InvalidModuleReference};
 use crate::error::Result;
 use crate::file_names::{extract_module_file_name, is_module_wasm};
 use crate::file_names::{module_config_name, module_file_name};
 use crate::files::{load_config_by_path, load_module_by_path};
 use crate::hash::Hash;
-use crate::{file_names, files, load_blueprint, load_module_descriptor, Blueprint};
+use crate::{file_names, files, load_module_descriptor, Blueprint};
 
 use fce_wit_parser::module_interface;
-use fluence_app_service::ModuleDescriptor;
+use fluence_app_service::{ModuleDescriptor, ServiceInterface};
 use host_closure::{closure, Args, Closure};
 
 use eyre::WrapErr;
 use fstrings::f;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value as JValue};
+use serde_json::{json, Value as JValue, Value};
 use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 
 type ModuleName = String;
@@ -42,12 +42,16 @@ pub struct AddBlueprint {
     pub dependencies: Vec<Dependency>,
 }
 
+type Blueprints = Arc<RwLock<HashMap<String, Blueprint>>>;
+
 #[derive(Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
     blueprints_dir: PathBuf,
     /// Map of module_config.name to blake3::hash(module bytes)
     modules_by_name: Arc<Mutex<HashMap<ModuleName, Hash>>>,
+    module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
+    blueprints: Blueprints,
 }
 
 impl ModuleRepository {
@@ -79,10 +83,20 @@ impl ModuleRepository {
 
         let modules_by_name = Arc::new(Mutex::new(modules_by_name));
 
+        let blueprints = Self::load_blueprints(blueprints_dir);
+        let mut bp_map = HashMap::new();
+        for bp in blueprints.iter() {
+            bp_map.insert(bp.id.clone(), bp.clone());
+        }
+
+        let blueprints_cache: Blueprints = Arc::new(RwLock::new(bp_map));
+
         Self {
             modules_by_name,
             modules_dir: modules_dir.to_path_buf(),
             blueprints_dir: blueprints_dir.to_path_buf(),
+            module_interface_cache: <_>::default(),
+            blueprints: blueprints_cache,
         }
     }
 
@@ -135,6 +149,7 @@ impl ModuleRepository {
 
         let blueprints_dir = self.blueprints_dir.clone();
         let modules = self.modules_by_name.clone();
+        let blueprints = self.blueprints.clone();
         closure(move |mut args| {
             let blueprint: AddBlueprint = Args::next("blueprint_request", &mut args)?;
             // resolve dependencies by name to hashes, if any
@@ -151,6 +166,10 @@ impl ModuleRepository {
                 name: blueprint.name,
             };
             files::add_blueprint(&blueprints_dir, &blueprint)?;
+
+            blueprints
+                .write()
+                .insert(blueprint.id.clone(), blueprint.clone());
 
             Ok(JValue::String(blueprint.id))
         })
@@ -195,8 +214,21 @@ impl ModuleRepository {
         })
     }
 
+    pub fn add_interface_cache(&self, hash: Hash, interface: ServiceInterface) {
+        let cache = self.module_interface_cache.clone();
+        cache.write().insert(hash, json!(interface));
+    }
+
+    pub fn get_interface_cache(&self, hash: &Hash) -> Option<Value> {
+        let cache = self.module_interface_cache.clone();
+        let cache = cache.read();
+        let result = cache.get(hash);
+        result.cloned()
+    }
+
     pub fn get_interface(&self) -> Closure {
         let modules_dir = self.modules_dir.clone();
+        let cache = self.module_interface_cache.clone();
         closure(move |mut args| {
             let interface: eyre::Result<_> = try {
                 let hash: String = Args::next("hash", &mut args)?;
@@ -205,8 +237,13 @@ impl ModuleRepository {
                 let interface =
                     module_interface(&path).wrap_err(f!("parse interface ${path:?}"))?;
 
-                json!(interface)
+                let json = json!(interface);
+
+                cache.write().insert(hash, json.clone());
+
+                json
             };
+
             interface.map_err(|err| {
                 json!(format!("{:?}", err)
                     // TODO: send patch to eyre so it can be done through their API
@@ -218,46 +255,70 @@ impl ModuleRepository {
         })
     }
 
+    fn load_blueprints(blueprints_dir: &Path) -> Vec<Blueprint> {
+        files::list_files(blueprints_dir)
+            .into_iter()
+            .flatten()
+            .filter_map(|path| {
+                // Check if file name matches blueprint schema
+                let fname = path.file_name()?.to_str()?;
+                if !file_names::is_blueprint(fname) {
+                    return None;
+                }
+
+                let blueprint: eyre::Result<_> = try {
+                    // Read & deserialize TOML
+                    let bytes = std::fs::read(&path)?;
+                    let blueprint: Blueprint = toml::from_slice(&bytes)?;
+                    blueprint
+                };
+
+                match blueprint {
+                    Ok(blueprint) => Some(blueprint),
+                    Err(err) => {
+                        log::warn!("load_blueprints error on file {}: {:?}", fname, err);
+                        None
+                    }
+                }
+            })
+            .collect()
+    }
+
+    fn get_blueprint_from_cache(&self, id: &str) -> Result<Blueprint> {
+        let blueprints = self.blueprints.clone();
+        let blueprints = blueprints.read();
+        blueprints
+            .get(id)
+            .cloned()
+            .ok_or(BlueprintNotFound { id: id.to_string() })
+    }
+
     /// Get available blueprints
     pub fn get_blueprints(&self) -> Closure {
-        let blueprints_dir = self.blueprints_dir.clone();
+        let blueprints = self.blueprints.clone();
 
         closure(move |_| {
-            Ok(JValue::Array(
-                files::list_files(&blueprints_dir)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|path| {
-                        // Check if file name matches blueprint schema
-                        let fname = path.file_name()?.to_str()?;
-                        if !file_names::is_blueprint(fname) {
-                            return None;
+            let blueprints: Vec<JValue> = blueprints
+                .read()
+                .values()
+                .cloned()
+                .filter_map(|b| {
+                    let blueprint: eyre::Result<_> = try { serde_json::to_value(b)? };
+                    match blueprint {
+                        Ok(blueprint) => Some(blueprint),
+                        Err(err) => {
+                            log::warn!("get_blueprints error on serialization: {:?}", err);
+                            None
                         }
-
-                        let blueprint: eyre::Result<_> = try {
-                            // Read & deserialize TOML
-                            let bytes = std::fs::read(&path)?;
-                            let blueprint: Blueprint = toml::from_slice(&bytes)?;
-
-                            // Convert to json
-                            serde_json::to_value(blueprint)?
-                        };
-
-                        match blueprint {
-                            Ok(blueprint) => Some(blueprint),
-                            Err(err) => {
-                                log::warn!("get_blueprints error on file {}: {:?}", fname, err);
-                                None
-                            }
-                        }
-                    })
-                    .collect(),
-            ))
+                    }
+                })
+                .collect();
+            Ok(JValue::Array(blueprints))
         })
     }
 
     pub fn resolve_blueprint(&self, blueprint_id: &str) -> Result<Vec<ModuleDescriptor>> {
-        let blueprint = load_blueprint(&self.blueprints_dir, blueprint_id)?;
+        let blueprint = self.get_blueprint_from_cache(blueprint_id)?;
 
         // Load all module descriptors
         let module_descriptors: Vec<_> = blueprint

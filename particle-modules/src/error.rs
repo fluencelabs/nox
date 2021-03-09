@@ -48,6 +48,8 @@ pub enum ModuleError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Blueprint '{id}' wasn't found")]
+    BlueprintNotFound { id: String },
     #[error("Error parsing blueprint: {err}")]
     IncorrectBlueprint {
         #[source]

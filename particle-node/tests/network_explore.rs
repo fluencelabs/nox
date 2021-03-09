@@ -41,6 +41,12 @@ pub struct Blueprint {
     pub dependencies: Vec<String>,
 }
 
+impl Blueprint {
+    fn get_facade_module(&self) -> Option<String> {
+        self.dependencies.last().cloned()
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ModuleDescriptor {
     #[serde(default)]
