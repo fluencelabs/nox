@@ -9,7 +9,7 @@ particle-protocol = { path = "../particle-protocol"}
 trust-graph = "0.2.0"
 fluence-libp2p = { path = "../crates/libp2p" }
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.34.2", features = ["tcp-tokio"] }
+libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
 
 futures = "0.3.8"
 log = "0.4.13"

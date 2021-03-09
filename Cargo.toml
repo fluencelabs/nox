@@ -28,6 +28,10 @@ exclude = [
     "client/js-websocket/utils-wasm",
 ]
 
+[patch.crates-io]
+libp2p = { package = "fluence-fork-libp2p", version = "0.36.0" }
+libp2p-secio = { package = "fluence-fork-libp2p-secio", version = "0.26.1" }
+
 #[profile.dev]
 #opt-level = 2
 #debug = false

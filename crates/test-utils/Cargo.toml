@@ -21,7 +21,7 @@ script-storage = { path = "../../script-storage" }
 air-interpreter-wasm = "0.7.3"
 aquamarine-vm = "0.5.2"
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.34.2", features = ["tcp-tokio"] }
+libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
 
 rand = "0.7.3"
 async-std = "1.9.0"
