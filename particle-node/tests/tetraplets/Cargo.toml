@@ -1,0 +1,10 @@
+[package]
+name = "tetraplets"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+fluence = {version = "0.2.9"}
+
+[workspace]
