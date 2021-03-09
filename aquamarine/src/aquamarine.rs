@@ -27,6 +27,7 @@ use futures::{
     future::BoxFuture,
     FutureExt, SinkExt, StreamExt,
 };
+use humantime::format_duration as pretty;
 use std::convert::identity;
 use std::task::Poll;
 use std::time::Duration;
@@ -121,9 +122,13 @@ impl AquamarineApi {
             }
         };
 
-        async_std::io::timeout(self.execution_timeout, fut.map(Ok))
-            .map(|r| {
-                let result = r.map_err(|_| ExecutionTimedOut { particle_id });
+        let timeout = self.execution_timeout;
+        async_std::io::timeout(timeout, fut.map(Ok))
+            .map(move |r| {
+                let result = r.map_err(|_| ExecutionTimedOut {
+                    particle_id,
+                    timeout: pretty(timeout),
+                });
                 result.and_then(identity)
             })
             .boxed()

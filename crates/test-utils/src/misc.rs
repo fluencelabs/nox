@@ -224,6 +224,7 @@ pub struct SwarmConfig {
     pub trust: Option<Trust>,
     pub transport: Transport,
     pub tmp_dir: Option<PathBuf>,
+    pub pool_size: Option<usize>,
 }
 
 impl Default for SwarmConfig {
@@ -234,6 +235,7 @@ impl Default for SwarmConfig {
             trust: <_>::default(),
             transport: Transport::Memory,
             tmp_dir: <_>::default(),
+            pool_size: <_>::default(),
         }
     }
 }
@@ -259,7 +261,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
     use libp2p::identity;
 
     #[rustfmt::skip]
-    let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config;
+    let SwarmConfig { bootstraps, listen_on, trust, transport, pool_size, .. } = config;
 
     let kp = Keypair::generate();
     let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());
@@ -283,9 +285,16 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
     }
 
     // execution timeout
-    let exe_tout = Duration::from_secs(3);
-    let pool_config = VmPoolConfig::new(peer_id, stepper_base_dir, air_interpreter, 1, exe_tout)
-        .expect("create vm pool config");
+    let execution_timeout = Duration::from_secs(5);
+    let pool_size = pool_size.unwrap_or(1);
+    let pool_config = VmPoolConfig::new(
+        peer_id,
+        stepper_base_dir,
+        air_interpreter,
+        pool_size,
+        execution_timeout,
+    )
+    .expect("create vm pool config");
 
     let services_config = ServicesConfig::new(peer_id, tmp.join("services"), <_>::default(), m_id)
         .expect("create services config");
