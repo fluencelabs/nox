@@ -21,18 +21,14 @@ use fluence_client::Transport;
 use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::{build_memory_transport, build_transport};
 use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
-use trust_graph::{Certificate, TrustGraph};
+use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
 use aquamarine::VmPoolConfig;
 use async_std::task;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use eyre::WrapErr;
 use futures::{stream::iter, StreamExt};
-use libp2p::{
-    core::Multiaddr,
-    identity::ed25519::{Keypair, PublicKey},
-    PeerId,
-};
+use libp2p::{core::Multiaddr, identity::ed25519::Keypair, PeerId};
 use rand::Rng;
 use script_storage::ScriptStorageConfig;
 use serde_json::{json, Value as JValue};
@@ -214,7 +210,7 @@ where
 
 #[derive(Default, Clone, Debug)]
 pub struct Trust {
-    pub root_weights: Vec<(PublicKey, u32)>,
+    pub root_weights: Vec<(fluence_identity::PublicKey, u32)>,
     pub certificates: Vec<Certificate>,
     pub cur_time: Duration,
 }
@@ -277,7 +273,10 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
     let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir));
 
     let root_weights: &[_] = trust.as_ref().map_or(&[], |t| &t.root_weights);
-    let mut trust_graph = TrustGraph::new(root_weights.to_vec());
+    let mut trust_graph = {
+        let storage = InMemoryStorage::new_in_memory(root_weights.to_vec());
+        TrustGraph::new(storage)
+    };
     if let Some(trust) = trust {
         for cert in trust.certificates.into_iter() {
             trust_graph.add(cert, trust.cur_time).expect("add cert");

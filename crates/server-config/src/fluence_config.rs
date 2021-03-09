@@ -18,14 +18,15 @@ use super::defaults::*;
 use super::keys::{decode_key_pair, load_or_create_key_pair};
 use crate::{BootstrapConfig, KademliaConfig, ListenConfig};
 
-use trust_graph::{KeyPair, PublicKeyHashable};
+use config_utils::to_abs_path;
+use fluence_identity::KeyPair;
+use particle_protocol::ProtocolConfig;
+use trust_graph::PublicKeyHashable;
 
 use anyhow::{anyhow, Context};
 use clap::{ArgMatches, Values};
-use config_utils::to_abs_path;
-use libp2p::core::{identity::ed25519::PublicKey, multiaddr::Protocol, Multiaddr};
+use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use libp2p::PeerId;
-use particle_protocol::ProtocolConfig;
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -195,7 +196,7 @@ impl NodeConfig {
         addrs
     }
 
-    pub fn root_weights(&self) -> Vec<(PublicKey, u32)> {
+    pub fn root_weights(&self) -> Vec<(fluence_identity::PublicKey, u32)> {
         self.root_weights
             .clone()
             .into_iter()

@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
-trust-graph = "0.2.0"
+trust-graph = "0.2.6"
 fluence-libp2p = { path = "../crates/libp2p" }
 
 libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }

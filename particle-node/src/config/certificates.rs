@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
+use fluence_identity::KeyPair;
 use trust_graph::Certificate;
-use trust_graph::KeyPair;
 
 use anyhow::{anyhow, Context};
 use log::info;
-use std::fs;
-use std::fs::{create_dir, File};
-use std::io::Error;
-use std::io::Write;
-use std::path::Path;
-use std::str::FromStr;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    fs::{self, create_dir, File},
+    io::{Error, Write},
+    path::Path,
+    str::FromStr,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 /// Loads all certificates from a disk. Creates a root certificate for key pair if there is no one.
 pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> anyhow::Result<Vec<Certificate>> {

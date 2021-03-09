@@ -20,11 +20,13 @@ use crate::{BootstrapConfig, KademliaConfig};
 use particle_protocol::ProtocolConfig;
 
 use config_utils::to_peer_id;
-use trust_graph::TrustGraph;
+use trust_graph::InMemoryStorage;
 
 use libp2p::{core::Multiaddr, identity::ed25519, PeerId};
 use prometheus::Registry;
 use std::time::Duration;
+
+type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 pub struct NetworkConfig {
     pub key_pair: ed25519::Keypair,
