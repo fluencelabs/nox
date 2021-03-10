@@ -33,8 +33,8 @@
 //      fn delete(user: String, signature: String) -> String
 //      fn is_exists(user: String) -> bool
 
+use json_utils::into_array;
 use particle_providers::Provider;
-use qпjson_utils::into_array;
 use test_utils::{connect_swarms, load_module, module_config, ConnectedClient};
 
 use eyre::{ContextCompat, WrapErr};
@@ -44,8 +44,6 @@ use libp2p::PeerId;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 use std::collections::HashSet;
-use std::thread::sleep;
-use std::time::Duration;
 
 fn create_service(client: &mut ConnectedClient, module: &str) -> String {
     let script = r#"
@@ -90,14 +88,20 @@ fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut Conn
     let name = bs58::encode(name).into_string();
     let script = f!(r#"
         (seq
-            (call node ("kad" "neighborhood") ["{name}"] neighbors)
-            (fold neighbors n
-                (seq
-                    (call n ("deprecated" "add_provider") ["{name}" provider])
-                    (next n)
+            (seq
+                (call node ("kad" "neighborhood") ["{name}"] neighbors)
+                (fold neighbors n
+                    (seq
+                        (call n ("deprecated" "add_provider") ["{name}" provider])
+                        (next n)
+                    )
                 )
             )
-        )
+            (seq
+                (call node ("op" "identity") [])
+                (call client ("return" "") [provider] client_result)
+            )
+         )
         "#);
     let provider = Provider {
         peer: node,
@@ -108,8 +112,11 @@ fn alias_service(name: &str, node: PeerId, service_id: String, client: &mut Conn
         hashmap! {
             "provider" => json!(provider),
             "node" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
         },
     );
+
+    client.receive_args().wrap_err("receive").unwrap();
 }
 
 fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Provider> {
@@ -314,7 +321,6 @@ fn test_chat() {
     assert_eq!(2, history.len());
 
     alias_service("user-list", client.node.clone(), userlist, &mut client);
-    sleep(Duration::from_millis(300));
     assert!(!resolve_service("user-list", &mut client).is_empty());
 
     join_chat("кекекс".to_string(), &mut client);
