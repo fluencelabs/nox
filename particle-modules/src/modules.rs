@@ -217,22 +217,13 @@ impl ModuleRepository {
         })
     }
 
-    pub fn add_interface_cache(&self, hash: Hash, interface: ServiceInterface) {
-        let cache = self.module_interface_cache.clone();
-        cache.write().insert(hash, json!(interface));
-    }
-
-    pub fn get_interface_cache(&self, hash: &Hash) -> Option<Value> {
-        let cache = self.module_interface_cache.clone();
-        let cache = cache.read();
-        let result = cache.get(hash);
-        result.cloned()
-    }
-
     pub fn get_interface_by_blueprint_id(&self, id: &str) -> Result<Value> {
         let blueprints = self.blueprints.clone();
-        let blueprints = blueprints.read();
-        let bp = blueprints.get(id);
+
+        let bp = {
+            let lock = blueprints.read();
+            lock.get(id)
+        };
 
         match bp {
             None => return Err(BlueprintNotFound { id: id.to_string() }),

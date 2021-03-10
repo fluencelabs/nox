@@ -51,7 +51,7 @@ pub enum ModuleError {
     },
     #[error("Blueprint '{id}' wasn't found")]
     BlueprintNotFound { id: String },
-    #[error("Blueprint '{id}' hash empty list of dependencies somehow")]
+    #[error("Blueprint '{id}' has empty list of dependencies somehow")]
     EmptyDependenciesList { id: String },
     #[error("Blueprint '{id}' facade dependency is not a hash of a module")]
     FacadeShouldBeHash { id: String },
