@@ -120,13 +120,22 @@ fn get_modules() {
 
     client.send_particle(
         r#"
-        (seq
             (seq
-                (call relay ("dist" "add_module") [module_bytes module_config])
-                (call relay ("dist" "list_modules") [] modules)
+                (seq
+                    (call relay ("dist" "add_module") [module_bytes module_config])
+                    (seq
+                        (call relay ("dist" "list_modules") [] modules)
+                        (fold modules m
+                            (seq
+                                (call relay ("dist" "get_module_interface") [m.$.hash!] interfaces[])
+                                (next m)
+                            )
+                        )               
+                    )
+                    
+                )
+                (call client ("return" "") [modules interfaces])
             )
-            (call client ("return" "") [modules])
-        )
         "#,
         hashmap! {
             "module_bytes" => json!(base64::encode(load_module("tests/tetraplets/artifacts", "tetraplets.wasm"))),
@@ -137,9 +146,14 @@ fn get_modules() {
     );
 
     let value = client.receive_args().wrap_err("receive args").unwrap();
-    let value = value.into_iter().next().unwrap();
-    let modules: Vec<ModuleDescriptor> = serde_json::from_value(value).unwrap();
+    println!("{:?}", value);
+    let mut iter = value.into_iter();
+    let modules = iter.next().unwrap();
+    let modules: Vec<ModuleDescriptor> = serde_json::from_value(modules).unwrap();
     assert_eq!(modules[0].name.as_deref(), Some("greeting"));
+
+    let interfaces = iter.next();
+    assert_eq!(interfaces.is_some(), true);
 }
 
 #[test]

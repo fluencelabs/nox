@@ -233,7 +233,7 @@ impl ParticleAppServices {
             let service_id: String = Args::next("service_id", &mut args)?;
             let service = services
                 .get(&service_id)
-                .ok_or(ServiceError::NoSuchService(service_id.clone()))?;
+                .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
 
             Ok(modules.get_interface_by_blueprint_id(&service.blueprint_id)?)
         })

@@ -235,7 +235,7 @@ impl ModuleRepository {
         let bp = blueprints.get(id);
 
         match bp {
-            None => Err(BlueprintNotFound { id: id.to_string() })?,
+            None => return Err(BlueprintNotFound { id: id.to_string() }),
             Some(bp) => {
                 let dep = bp
                     .get_facade_module()
@@ -243,7 +243,7 @@ impl ModuleRepository {
 
                 let hash = match dep {
                     Dependency::Hash(hash) => hash,
-                    Dependency::Name(_) => Err(FacadeShouldBeHash { id: id.to_string() })?,
+                    Dependency::Name(_) => return Err(FacadeShouldBeHash { id: id.to_string() }),
                 };
 
                 self.get_interface_by_hash(&hash)
@@ -263,27 +263,34 @@ impl ModuleRepository {
         cache: Arc<RwLock<HashMap<Hash, Value>>>,
         hash: &Hash,
     ) -> Result<Value> {
-        let cache_read = cache.read();
+        let interface_cache_opt = {
+            let lock = cache.read();
+            lock.get(hash).cloned()
+        };
 
-        match cache_read.get(hash) {
-            Some(interface) => Ok(interface.clone()),
+        let interface = match interface_cache_opt {
+            Some(interface) => interface,
             None => {
-                let path = modules_dir.join(module_config_name(hash));
+                let path = modules_dir.join(module_file_name(hash));
+
                 let interface = module_interface(&path)
                     .map_err(|err| ReadModuleInterfaceError { path, err })?;
 
                 let json = json!(interface);
 
-                cache.write().insert(hash.clone(), json.clone());
-
-                Ok(json)
+                json
             }
-        }
+        };
+
+        cache.write().insert(hash.clone(), interface.clone());
+
+        Ok(interface)
     }
 
     pub fn get_interface(&self) -> Closure {
         let modules_dir: PathBuf = self.modules_dir.clone();
         let cache: Arc<RwLock<HashMap<Hash, Value>>> = self.module_interface_cache.clone();
+
         closure(move |mut args| {
             let interface: eyre::Result<_> = try {
                 let hash: String = Args::next("hash", &mut args)?;
@@ -406,9 +413,9 @@ fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
                 hasher.update(h.as_bytes());
             }
             Dependency::Name(n) => {
-                Err(InvalidModuleReference {
+                return Err(InvalidModuleReference {
                     reference: n.to_string(),
-                })?;
+                });
             }
         }
     }
@@ -424,11 +431,46 @@ mod tests {
     use crate::hash::Hash;
     use crate::modules::AddBlueprint;
     use crate::ModuleRepository;
+    use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
     use host_closure::Args;
     use serde::{Deserialize, Serialize};
     use serde_json::Value as JValue;
     use tempdir::TempDir;
-    use test_utils::{response_to_return, RetStruct};
+    use test_utils::{load_module, response_to_return, RetStruct};
+
+    fn get_interface(repo: &ModuleRepository, hash: String) -> RetStruct {
+        let hash_v: JValue = serde_json::to_value(hash).unwrap();
+
+        let args = Args {
+            service_id: "".to_string(),
+            function_name: "".to_string(),
+            function_args: vec![hash_v],
+            tetraplets: vec![],
+        };
+
+        let resp = repo.get_interface()(args);
+
+        response_to_return(resp.unwrap())
+    }
+
+    fn add_module(
+        repo: &ModuleRepository,
+        bytes: String,
+        config: TomlFaaSNamedModuleConfig,
+    ) -> RetStruct {
+        let bytes_v: JValue = serde_json::to_value(bytes).unwrap();
+        let config_v: JValue = serde_json::to_value(config).unwrap();
+
+        let args = Args {
+            service_id: "".to_string(),
+            function_name: "".to_string(),
+            function_args: vec![bytes_v, config_v],
+            tetraplets: vec![],
+        };
+
+        let resp = repo.add_module()(args);
+        response_to_return(resp.unwrap())
+    }
 
     fn add_bp(repo: &ModuleRepository, name: String, deps: Vec<Dependency>) -> RetStruct {
         let req1 = AddBlueprint {
@@ -495,5 +537,37 @@ mod tests {
 
         assert_eq!(resp1.result, resp2.result);
         assert_eq!(bp1.id, bp2.id);
+    }
+
+    #[test]
+    fn test_add_module_get_interface() {
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path());
+
+        let module = load_module(
+            "../particle-node/tests/tetraplets/artifacts",
+            "tetraplets.wasm",
+        );
+
+        let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
+            name: "tetra".to_string(),
+            file_name: None,
+            config: TomlFaaSModuleConfig {
+                mem_pages_count: None,
+                logger_enabled: None,
+                wasi: None,
+                mounted_binaries: None,
+                logging_mask: None,
+            },
+        };
+
+        let resp = add_module(&repo, base64::encode(module), config);
+        assert_eq!(0, resp.ret_code);
+
+        let hash: String = serde_json::from_str(&resp.result).unwrap();
+
+        let result = get_interface(&repo, hash);
+        assert_eq!(0, result.ret_code);
     }
 }
