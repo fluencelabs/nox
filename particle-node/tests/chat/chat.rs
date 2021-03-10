@@ -33,10 +33,9 @@
 //      fn delete(user: String, signature: String) -> String
 //      fn is_exists(user: String) -> bool
 
-use config_utils::to_abs_path;
-use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{connect_swarms, module_config, ConnectedClient};
+use qпjson_utils::into_array;
+use test_utils::{connect_swarms, load_module, module_config, ConnectedClient};
 
 use eyre::{ContextCompat, WrapErr};
 use fstrings::f;
@@ -44,14 +43,9 @@ use itertools::Itertools;
 use libp2p::PeerId;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
-use std::{collections::HashSet, path::PathBuf};
-
-fn load_module(name: &str) -> Vec<u8> {
-    let module = to_abs_path(PathBuf::from("tests/chat/").join(name));
-    let module = std::fs::read(&module).wrap_err(format!("fs::read from {:?}", module));
-
-    module.unwrap()
-}
+use std::collections::HashSet;
+use std::thread::sleep;
+use std::time::Duration;
 
 fn create_service(client: &mut ConnectedClient, module: &str) -> String {
     let script = r#"
@@ -70,14 +64,14 @@ fn create_service(client: &mut ConnectedClient, module: &str) -> String {
         )
         "#;
 
-    let module_bytes = load_module(format!("{}.wasm", module).as_str());
+    let module_bytes = load_module("tests/chat/", module);
     let module_hash = format!("hash:{}", blake3::hash(&module_bytes).to_hex().as_str());
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "node" => json!(client.node.to_string()),
         "module_bytes" => json!(base64::encode(module_bytes)),
         "module_config" => json!(module_config(module)),
-        "sqlite_bytes" => json!(base64::encode(load_module("sqlite3.wasm"))),
+        "sqlite_bytes" => json!(base64::encode(load_module("tests/chat/", "sqlite3"))),
         "sqlite_config" => json!(module_config("sqlite3")),
         "blueprint" => json!({ "name": module, "dependencies": ["name:sqlite3", module_hash] }),
     };
@@ -320,6 +314,7 @@ fn test_chat() {
     assert_eq!(2, history.len());
 
     alias_service("user-list", client.node.clone(), userlist, &mut client);
+    sleep(Duration::from_millis(300));
     assert!(!resolve_service("user-list", &mut client).is_empty());
 
     join_chat("кекекс".to_string(), &mut client);

@@ -217,7 +217,7 @@ fn autoremove_failed() {
         },
     );
 
-    for _ in 0..5 {
+    for _ in 0..500 {
         let list_id = client.send_particle(
             r#"
             (seq

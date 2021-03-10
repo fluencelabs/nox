@@ -38,7 +38,7 @@ fn test_tetraplets() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets.wasm"),
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
     );
 
     let script = f!(r#"
