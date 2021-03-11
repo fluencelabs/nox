@@ -42,5 +42,4 @@ pub use connection::*;
 pub use local_vm::*;
 pub use misc::*;
 pub use service::*;
-pub use service::*;
 pub use utils::*;

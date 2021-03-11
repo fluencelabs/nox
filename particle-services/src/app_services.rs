@@ -317,12 +317,12 @@ mod tests {
 
     use crate::ParticleAppServices;
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
-    use host_closure::{Args, ParticleParameters};
+    use host_closure::ParticleParameters;
     use particle_modules::{Dependency, Hash, ModuleRepository};
     use server_config::ServicesConfig;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use test_utils::{
-        add_bp, add_module, load_module, response_to_return, string_result, RetStruct,
+        add_bp, add_module, create_args, load_module, response_to_return, string_result, RetStruct,
     };
 
     fn create_pid() -> PeerId {
@@ -348,15 +348,6 @@ mod tests {
         ParticleParameters {
             init_user_id: pid.to_base58(),
             particle_id: "".to_string(),
-        }
-    }
-
-    fn create_args(args: Vec<JValue>) -> Args {
-        Args {
-            service_id: "".to_string(),
-            function_name: "".to_string(),
-            function_args: args,
-            tetraplets: vec![],
         }
     }
 

@@ -50,6 +50,15 @@ pub fn string_result(ret: RetStruct) -> Result<String, String> {
     }
 }
 
+pub fn create_args(args: Vec<JValue>) -> Args {
+    Args {
+        service_id: "".to_string(),
+        function_name: "".to_string(),
+        function_args: args,
+        tetraplets: vec![],
+    }
+}
+
 pub fn add_module(
     repo: &ModuleRepository,
     bytes: String,
@@ -58,13 +67,7 @@ pub fn add_module(
     let bytes_v: JValue = serde_json::to_value(bytes).unwrap();
     let config_v: JValue = serde_json::to_value(config).unwrap();
 
-    let args = Args {
-        service_id: "".to_string(),
-        function_name: "".to_string(),
-        function_args: vec![bytes_v, config_v],
-        tetraplets: vec![],
-    };
-
+    let args = create_args(vec![bytes_v, config_v]);
     let resp = repo.add_module()(args);
     let resp = response_to_return(resp.unwrap());
     string_result(resp)
@@ -75,19 +78,14 @@ pub fn add_bp(
     name: String,
     deps: Vec<Dependency>,
 ) -> Result<String, String> {
-    let req1 = AddBlueprint {
+    let req = AddBlueprint {
         name,
         dependencies: deps,
     };
 
-    let v: JValue = serde_json::to_value(req1).unwrap();
+    let v: JValue = serde_json::to_value(req).unwrap();
 
-    let args = Args {
-        service_id: "".to_string(),
-        function_name: "".to_string(),
-        function_args: vec![v],
-        tetraplets: vec![],
-    };
+    let args = create_args(vec![v]);
 
     let resp = repo.add_blueprint()(args);
     let resp = response_to_return(resp.unwrap());
