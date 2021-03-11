@@ -449,7 +449,7 @@ mod tests {
 
         let module = load_module(
             "../particle-node/tests/tetraplets/artifacts",
-            "tetraplets.wasm",
+            "tetraplets",
         );
 
         let service_id1 = create_service(&pas, "tetra".to_string(), module.clone()).unwrap();
