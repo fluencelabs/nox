@@ -131,8 +131,7 @@ fn get_modules() {
                                 (next m)
                             )
                         )               
-                    )
-                    
+                    )                    
                 )
                 (call client ("return" "") [modules interfaces])
             )
