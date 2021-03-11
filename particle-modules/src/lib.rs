@@ -38,7 +38,9 @@ mod hash;
 mod modules;
 
 pub use blueprint::Blueprint;
+pub use dependency::Dependency;
 pub use error::ModuleError;
 pub use file_names::{is_service, service_file_name};
 pub use files::{list_files, load_blueprint, load_module_descriptor};
-pub use modules::ModuleRepository;
+pub use hash::Hash;
+pub use modules::{AddBlueprint, ModuleRepository};

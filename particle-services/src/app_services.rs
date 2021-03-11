@@ -306,22 +306,6 @@ impl ParticleAppServices {
     }
 }
 
-// fn get_service_interface(service: &Service, service_id: &str) -> Result<JValue, ServiceError> {
-//     let lock = service.lock();
-//     let interface = lock.get_interface();
-//
-//     let descriptor = VmDescriptor {
-//         interface,
-//         blueprint_id: &service.blueprint_id,
-//         service_id,
-//         owner_id: &service.owner_id,
-//     };
-//     let descriptor =
-//         serde_json::to_value(descriptor).map_err(ServiceError::CorruptedFaaSInterface)?;
-//
-//     Ok(descriptor)
-// }
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -332,10 +316,14 @@ mod tests {
     use tempdir::TempDir;
 
     use crate::ParticleAppServices;
+    use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
     use host_closure::{Args, ParticleParameters};
-    use particle_modules::ModuleRepository;
+    use particle_modules::{Dependency, Hash, ModuleRepository};
     use server_config::ServicesConfig;
-    use test_utils::{response_to_return, RetStruct};
+    use std::path::{Path, PathBuf};
+    use test_utils::{
+        add_bp, add_module, load_module, response_to_return, string_result, RetStruct,
+    };
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
@@ -343,18 +331,15 @@ mod tests {
         peer_id
     }
 
-    fn create_pas(local_pid: PeerId, management_pid: PeerId) -> ParticleAppServices {
-        let base_dir = TempDir::new("test").unwrap();
-        let module_dir = TempDir::new("test").unwrap();
+    fn create_pas(
+        local_pid: PeerId,
+        management_pid: PeerId,
+        base_dir: PathBuf,
+    ) -> ParticleAppServices {
+        let config =
+            ServicesConfig::new(local_pid, base_dir, HashMap::new(), management_pid).unwrap();
 
-        let config = ServicesConfig::new(
-            local_pid,
-            base_dir.into_path(),
-            HashMap::new(),
-            management_pid,
-        )
-        .unwrap();
-        let repo = ModuleRepository::new(module_dir.path(), module_dir.path());
+        let repo = ModuleRepository::new(&config.modules_dir, &config.blueprint_dir);
 
         ParticleAppServices::new(config, repo)
     }
@@ -376,9 +361,10 @@ mod tests {
     }
 
     fn call_add_alias_raw(as_manager: bool, args: Vec<JValue>) -> RetStruct {
+        let base_dir = TempDir::new("test3").unwrap();
         let local_pid = create_pid();
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid);
+        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
 
         let client_pid;
         if as_manager {
@@ -396,6 +382,44 @@ mod tests {
 
     fn call_add_alias(args: Vec<JValue>) -> RetStruct {
         call_add_alias_raw(true, args)
+    }
+
+    fn create_service(
+        pas: &ParticleAppServices,
+        module_name: String,
+        module: Vec<u8>,
+    ) -> Result<String, String> {
+        let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
+            name: module_name.clone(),
+            file_name: None,
+            config: TomlFaaSModuleConfig {
+                mem_pages_count: None,
+                logger_enabled: None,
+                wasi: None,
+                mounted_binaries: None,
+                logging_mask: None,
+            },
+        };
+
+        let hash = add_module(&pas.modules, base64::encode(module), config).unwrap();
+        let dep = Dependency::Hash(Hash::from_hex(&hash).unwrap());
+        let bp = add_bp(&pas.modules, module_name, vec![dep]).unwrap();
+
+        let args = create_args(vec![JValue::String(bp)]);
+
+        let particle: ParticleParameters = ParticleParameters {
+            init_user_id: "".to_string(),
+            particle_id: "".to_string(),
+        };
+
+        let resp = pas.create_service()(particle, args).unwrap();
+        string_result(response_to_return(resp))
+    }
+
+    fn get_interface(pas: &ParticleAppServices, id: String) -> RetStruct {
+        let args = create_args(vec![JValue::String(id)]);
+        let ret = pas.get_interface()(args).unwrap();
+        response_to_return(ret)
     }
 
     #[test]
@@ -423,6 +447,30 @@ mod tests {
             "Closure should not found a service to add alias `{}`",
             resp.error
         );
+    }
+
+    #[test]
+    fn test_get_interface_cache() {
+        let local_pid = create_pid();
+        let management_pid = create_pid();
+        let base_dir = TempDir::new("test").unwrap();
+        let pas = create_pas(local_pid, management_pid, base_dir.path().into());
+
+        let module = load_module(
+            "../particle-node/tests/tetraplets/artifacts",
+            "tetraplets.wasm",
+        );
+
+        let service_id1 = create_service(&pas, "tetra".to_string(), module.clone()).unwrap();
+        let service_id2 = create_service(&pas, "tetra".to_string(), module.clone()).unwrap();
+        let service_id3 = create_service(&pas, "tetra".to_string(), module).unwrap();
+
+        let inter1 = get_interface(&pas, service_id1);
+        let inter2 = get_interface(&pas, service_id2);
+        let inter3 = get_interface(&pas, service_id3);
+
+        assert_eq!(inter1.result, inter2.result);
+        assert_eq!(inter3.result, inter2.result);
     }
 
     // TODO: add more tests

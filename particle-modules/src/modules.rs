@@ -418,16 +418,15 @@ fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
 
 #[cfg(test)]
 mod tests {
-    use crate::dependency::Dependency;
-    use crate::hash::Hash;
-    use crate::modules::AddBlueprint;
-    use crate::ModuleRepository;
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
     use host_closure::Args;
     use serde::{Deserialize, Serialize};
     use serde_json::Value as JValue;
     use tempdir::TempDir;
-    use test_utils::{load_module, response_to_return, RetStruct};
+    use test_utils::{
+        add_bp, add_module, load_module, response_to_return, Dependency, Hash, ModuleRepository,
+        RetStruct,
+    };
 
     fn get_interface(repo: &ModuleRepository, hash: String) -> RetStruct {
         let hash_v: JValue = serde_json::to_value(hash).unwrap();
@@ -441,44 +440,6 @@ mod tests {
 
         let resp = repo.get_interface()(args);
 
-        response_to_return(resp.unwrap())
-    }
-
-    fn add_module(
-        repo: &ModuleRepository,
-        bytes: String,
-        config: TomlFaaSNamedModuleConfig,
-    ) -> RetStruct {
-        let bytes_v: JValue = serde_json::to_value(bytes).unwrap();
-        let config_v: JValue = serde_json::to_value(config).unwrap();
-
-        let args = Args {
-            service_id: "".to_string(),
-            function_name: "".to_string(),
-            function_args: vec![bytes_v, config_v],
-            tetraplets: vec![],
-        };
-
-        let resp = repo.add_module()(args);
-        response_to_return(resp.unwrap())
-    }
-
-    fn add_bp(repo: &ModuleRepository, name: String, deps: Vec<Dependency>) -> RetStruct {
-        let req1 = AddBlueprint {
-            name,
-            dependencies: deps,
-        };
-
-        let v: JValue = serde_json::to_value(req1).unwrap();
-
-        let args = Args {
-            service_id: "".to_string(),
-            function_name: "".to_string(),
-            function_args: vec![v],
-            tetraplets: vec![],
-        };
-
-        let resp = repo.add_blueprint()(args);
         response_to_return(resp.unwrap())
     }
 
@@ -511,7 +472,7 @@ mod tests {
         let dep2 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
 
         let name1 = "bp1".to_string();
-        let resp1 = add_bp(&repo, name1.clone(), vec![dep1.clone(), dep2.clone()]);
+        let resp1 = add_bp(&repo, name1.clone(), vec![dep1.clone(), dep2.clone()]).unwrap();
         let bps1 = get_bps(&repo);
         let bps1: Vec<BpsResult> = serde_json::from_str(&bps1.result).unwrap();
         assert_eq!(bps1.len(), 1);
@@ -519,14 +480,14 @@ mod tests {
         assert_eq!(bp1.name, name1);
 
         let name2 = "bp2".to_string();
-        let resp2 = add_bp(&repo, "bp2".to_string(), vec![dep1, dep2]);
+        let resp2 = add_bp(&repo, "bp2".to_string(), vec![dep1, dep2]).unwrap();
         let bps2 = get_bps(&repo);
         let bps2: Vec<BpsResult> = serde_json::from_str(&bps2.result).unwrap();
         assert_eq!(bps2.len(), 1);
         let bp2 = bps2.get(0).unwrap();
         assert_eq!(bp2.name, name2);
 
-        assert_eq!(resp1.result, resp2.result);
+        assert_eq!(resp1, resp2);
         assert_eq!(bp1.id, bp2.id);
     }
 
@@ -553,10 +514,7 @@ mod tests {
             },
         };
 
-        let resp = add_module(&repo, base64::encode(module), config);
-        assert_eq!(0, resp.ret_code);
-
-        let hash: String = serde_json::from_str(&resp.result).unwrap();
+        let hash = add_module(&repo, base64::encode(module), config).unwrap();
 
         let result = get_interface(&repo, hash);
         assert_eq!(0, result.ret_code);

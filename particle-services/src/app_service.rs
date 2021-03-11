@@ -22,6 +22,7 @@ use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
 
 use fluence_app_service::{AppService, AppServiceConfig, FaaSConfig};
+use std::fs;
 
 pub fn create_app_service(
     config: ServicesConfig,
