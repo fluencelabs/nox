@@ -34,7 +34,7 @@ use eyre::WrapErr;
 use fstrings::f;
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value as JValue, Value};
+use serde_json::{json, Value as JValue};
 use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 
 type ModuleName = String;
@@ -217,7 +217,7 @@ impl ModuleRepository {
         })
     }
 
-    pub fn get_interface_by_blueprint_id(&self, id: &str) -> Result<Value> {
+    pub fn get_interface_by_blueprint_id(&self, id: &str) -> Result<JValue> {
         let blueprints = self.blueprints.clone();
 
         let bp = {
@@ -242,18 +242,18 @@ impl ModuleRepository {
         }
     }
 
-    pub fn get_interface_by_hash(&self, hash: &Hash) -> Result<Value> {
+    pub fn get_interface_by_hash(&self, hash: &Hash) -> Result<JValue> {
         let modules_dir: PathBuf = self.modules_dir.clone();
-        let cache: Arc<RwLock<HashMap<Hash, Value>>> = self.module_interface_cache.clone();
+        let cache: Arc<RwLock<HashMap<Hash, JValue>>> = self.module_interface_cache.clone();
 
         Self::get_interface_by_hash_internal(modules_dir, cache, hash)
     }
 
     fn get_interface_by_hash_internal(
         modules_dir: PathBuf,
-        cache: Arc<RwLock<HashMap<Hash, Value>>>,
+        cache: Arc<RwLock<HashMap<Hash, JValue>>>,
         hash: &Hash,
-    ) -> Result<Value> {
+    ) -> Result<JValue> {
         let interface_cache_opt = {
             let lock = cache.read();
             lock.get(hash).cloned()
@@ -280,7 +280,7 @@ impl ModuleRepository {
 
     pub fn get_interface(&self) -> Closure {
         let modules_dir: PathBuf = self.modules_dir.clone();
-        let cache: Arc<RwLock<HashMap<Hash, Value>>> = self.module_interface_cache.clone();
+        let cache: Arc<RwLock<HashMap<Hash, JValue>>> = self.module_interface_cache.clone();
 
         closure(move |mut args| {
             let interface: eyre::Result<_> = try {
