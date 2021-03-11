@@ -1,8 +1,9 @@
+pub use particle_modules::Hash;
+pub use particle_modules::{AddBlueprint, Dependency, ModuleRepository};
+
 use fluence_faas::TomlFaaSNamedModuleConfig;
 use host_closure::Args;
 use ivalue_utils::IValue;
-pub use particle_modules::Hash;
-pub use particle_modules::{AddBlueprint, Dependency, ModuleRepository};
 use serde_json::Value as JValue;
 
 #[derive(Debug, Clone)]
