@@ -387,8 +387,8 @@ pub fn put_aquamarine(tmp: PathBuf) -> PathBuf {
     file
 }
 
-pub fn load_module(path: &str, file_name: &str) -> Vec<u8> {
-    let module = to_abs_path(PathBuf::from(path).join(file_name));
+pub fn load_module(path: &str, module_name: &str) -> Vec<u8> {
+    let module = to_abs_path(PathBuf::from(path).join(format!("{}.wasm", module_name)));
     std::fs::read(&module).unwrap_or_else(|_| panic!("fs::read from {:?}", module))
 }
 

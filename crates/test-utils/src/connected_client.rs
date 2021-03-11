@@ -18,10 +18,11 @@ pub use fluence_client::ClientEvent;
 
 use super::misc::Result;
 use crate::{
-    make_particle, make_swarms, read_args, timeout, CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT,
-    TIMEOUT,
+    make_call_service_closure, make_particle, make_swarms, make_vm, read_args, timeout,
+    CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT,
 };
 
+use aquamarine_vm::AquamarineVM;
 use fluence_client::{Client, Transport};
 use particle_protocol::Particle;
 
@@ -32,9 +33,11 @@ use libp2p::{core::Multiaddr, identity::ed25519, PeerId};
 use serde_json::Value as JValue;
 use std::collections::HashMap;
 use std::ops::DerefMut;
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 use std::time::Duration;
 
-#[derive(Debug)]
 pub struct ConnectedClient {
     pub client: Client,
     pub node: PeerId,
@@ -42,6 +45,9 @@ pub struct ConnectedClient {
     pub timeout: Duration,
     pub short_timeout: Duration,
     pub kad_timeout: Duration,
+    pub call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
+    pub call_service_out: Arc<Mutex<Vec<JValue>>>,
+    pub local_vm: AquamarineVM,
 }
 
 impl ConnectedClient {
@@ -104,6 +110,13 @@ impl ConnectedClient {
     }
 
     pub fn new(client: Client, node: PeerId, node_address: Multiaddr) -> Self {
+        let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
+        let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
+        let local_vm = make_vm(
+            &client.peer_id,
+            make_call_service_closure(call_service_in.clone(), call_service_out.clone()),
+        );
+
         Self {
             client,
             node,
@@ -111,6 +124,9 @@ impl ConnectedClient {
             timeout: TIMEOUT,
             short_timeout: SHORT_TIMEOUT,
             kad_timeout: KAD_TIMEOUT,
+            call_service_in,
+            call_service_out,
+            local_vm,
         }
     }
 
@@ -150,7 +166,17 @@ impl ConnectedClient {
         script: impl Into<String>,
         data: HashMap<&'static str, JValue>,
     ) -> String {
-        let particle = make_particle(self.peer_id, data, script.into(), self.node);
+        *self.call_service_in.lock() = data
+            .into_iter()
+            .map(|(key, value)| (key.to_string(), value))
+            .collect();
+        let particle = make_particle(
+            self.peer_id,
+            self.call_service_in.clone(),
+            script.into(),
+            self.node,
+            &mut self.local_vm,
+        );
         let id = particle.id.clone();
         self.send(particle);
         id
@@ -181,7 +207,12 @@ impl ConnectedClient {
 
     pub fn receive_args(&mut self) -> Result<Vec<JValue>> {
         let particle = self.receive().wrap_err("receive_args")?;
-        Ok(read_args(particle, &self.peer_id))
+        Ok(read_args(
+            particle,
+            self.peer_id.clone(),
+            &mut self.local_vm,
+            self.call_service_out.clone(),
+        ))
     }
 
     /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
@@ -195,7 +226,12 @@ impl ConnectedClient {
             let particle = self.receive().ok();
             if let Some(particle) = particle {
                 if particle.id == particle_id {
-                    break Ok(read_args(particle, &self.peer_id));
+                    break Ok(read_args(
+                        particle,
+                        self.peer_id.clone(),
+                        &mut self.local_vm,
+                        self.call_service_out.clone(),
+                    ));
                 }
             }
         }

@@ -3320,6 +3320,7 @@ dependencies = [
  "maplit",
  "multihash",
  "num_cpus",
+ "parking_lot 0.11.1",
  "particle-closures",
  "particle-protocol",
  "particle-providers",
