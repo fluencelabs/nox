@@ -19,15 +19,32 @@
 extern crate fstrings;
 
 use fluence_libp2p::RandomPeerId;
-use test_utils::{make_particle, read_args};
+use test_utils::{make_call_service_closure, make_particle, make_vm, read_args};
 
 use maplit::hashmap;
+use parking_lot::Mutex;
 use serde_json::json;
+use serde_json::Value as JValue;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[test]
 fn make() {
     let client_a = RandomPeerId::random();
     let client_b = RandomPeerId::random();
+
+    let call_service_in_a: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
+    let call_service_out_a: Arc<Mutex<Vec<JValue>>> = <_>::default();
+    let mut local_vm_a = make_vm(
+        &client_a,
+        make_call_service_closure(call_service_in_a.clone(), call_service_out_a.clone()),
+    );
+    let call_service_in_b: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
+    let call_service_out_b: Arc<Mutex<Vec<JValue>>> = <_>::default();
+    let mut local_vm_b = make_vm(
+        &client_b,
+        make_call_service_closure(call_service_in_b.clone(), call_service_out_b.clone()),
+    );
 
     let script = r#"(call client_b ("return" "") [a b c] void[])"#.to_string();
     let data = hashmap! {
@@ -37,9 +54,25 @@ fn make() {
         "c" => json!({"c1": "c1_value", "c2": "c2_value"})
     };
 
-    let particle = make_particle(client_a, data.clone(), script, None);
+    *call_service_in_a.lock() = data
+        .iter()
+        .map(|(key, value)| (key.to_string(), value.clone()))
+        .collect();
 
-    let args = read_args(particle, &client_b);
+    let particle = make_particle(
+        client_a,
+        call_service_in_a.clone(),
+        script,
+        None,
+        &mut local_vm_a,
+    );
+
+    let args = read_args(
+        particle,
+        client_b,
+        &mut local_vm_b,
+        call_service_out_b.clone(),
+    );
     assert_eq!(data["a"], args[0]);
     assert_eq!(data["b"], args[1]);
     assert_eq!(data["c"], args[2]);

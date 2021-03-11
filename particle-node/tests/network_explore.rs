@@ -66,12 +66,12 @@ fn get_interfaces() {
     let service1 = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets.wasm"),
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
     );
     let service2 = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets.wasm"),
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
     );
 
     client.send_particle(
@@ -129,7 +129,7 @@ fn get_modules() {
         )
         "#,
         hashmap! {
-            "module_bytes" => json!(base64::encode(load_module("tests/tetraplets/artifacts", "tetraplets.wasm"))),
+            "module_bytes" => json!(base64::encode(load_module("tests/tetraplets/artifacts", "tetraplets"))),
             "module_config" => test_module_cfg("greeting"),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
@@ -285,7 +285,7 @@ fn explore_services_fixed() {
         create_service(
             &mut client,
             "tetraplets",
-            load_module("tests/tetraplets/artifacts", "tetraplets.wasm"),
+            load_module("tests/tetraplets/artifacts", "tetraplets"),
         );
     }
 
@@ -311,7 +311,12 @@ fn explore_services_fixed() {
         if let Some(Some(event)) = block_on(timeout(Duration::from_secs(1), receive)).ok() {
             match event {
                 ClientEvent::Particle { particle, .. } => {
-                    let args = read_args(particle, &client.peer_id);
+                    let args = read_args(
+                        particle,
+                        client.peer_id.clone(),
+                        &mut client.local_vm,
+                        client.call_service_out.clone(),
+                    );
                     received.push(args);
                 }
                 ClientEvent::NewConnection { .. } => {}
