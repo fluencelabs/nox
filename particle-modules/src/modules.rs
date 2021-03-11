@@ -27,7 +27,7 @@ use crate::hash::Hash;
 use crate::{file_names, files, load_module_descriptor, Blueprint};
 
 use fce_wit_parser::module_interface;
-use fluence_app_service::{ModuleDescriptor, ServiceInterface};
+use fluence_app_service::ModuleDescriptor;
 use host_closure::{closure, Args, Closure};
 
 use eyre::WrapErr;
@@ -222,7 +222,7 @@ impl ModuleRepository {
 
         let bp = {
             let lock = blueprints.read();
-            lock.get(id)
+            lock.get(id).cloned()
         };
 
         match bp {
