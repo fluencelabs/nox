@@ -226,7 +226,7 @@ impl ModuleRepository {
         };
 
         match bp {
-            None => return Err(BlueprintNotFound { id: id.to_string() }),
+            None => Err(BlueprintNotFound { id: id.to_string() }),
             Some(bp) => {
                 let dep = bp
                     .get_facade_module()
