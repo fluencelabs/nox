@@ -33,13 +33,13 @@ fn make() {
     let client_a = RandomPeerId::random();
     let client_b = RandomPeerId::random();
 
-    let call_service_in_a: Arc<Mutex<HashMap<&'static str, JValue>>> = <_>::default();
+    let call_service_in_a: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
     let call_service_out_a: Arc<Mutex<Vec<JValue>>> = <_>::default();
     let mut local_vm_a = make_vm(
         &client_a,
         make_call_service_closure(call_service_in_a.clone(), call_service_out_a.clone()),
     );
-    let call_service_in_b: Arc<Mutex<HashMap<&'static str, JValue>>> = <_>::default();
+    let call_service_in_b: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
     let call_service_out_b: Arc<Mutex<Vec<JValue>>> = <_>::default();
     let mut local_vm_b = make_vm(
         &client_b,
@@ -54,7 +54,11 @@ fn make() {
         "c" => json!({"c1": "c1_value", "c2": "c2_value"})
     };
 
-    call_service_in_a.lock().clone_from(&data);
+    *call_service_in_a.lock() = data
+        .iter()
+        .map(|(key, value)| (key.to_string(), value.clone()))
+        .collect();
+
     let particle = make_particle(
         client_a,
         call_service_in_a.clone(),

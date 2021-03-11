@@ -45,7 +45,7 @@ pub struct ConnectedClient {
     pub timeout: Duration,
     pub short_timeout: Duration,
     pub kad_timeout: Duration,
-    pub call_service_in: Arc<Mutex<HashMap<&'static str, JValue>>>,
+    pub call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     pub call_service_out: Arc<Mutex<Vec<JValue>>>,
     pub local_vm: AquamarineVM,
 }
@@ -110,7 +110,7 @@ impl ConnectedClient {
     }
 
     pub fn new(client: Client, node: PeerId, node_address: Multiaddr) -> Self {
-        let call_service_in: Arc<Mutex<HashMap<&'static str, JValue>>> = <_>::default();
+        let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
         let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
         let local_vm = make_vm(
             &client.peer_id,
@@ -166,7 +166,10 @@ impl ConnectedClient {
         script: impl Into<String>,
         data: HashMap<&'static str, JValue>,
     ) -> String {
-        self.call_service_in.lock().clone_from(&data);
+        *self.call_service_in.lock() = data
+            .into_iter()
+            .map(|(key, value)| (key.to_string(), value))
+            .collect();
         let particle = make_particle(
             self.peer_id,
             self.call_service_in.clone(),

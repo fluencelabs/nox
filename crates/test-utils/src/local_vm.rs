@@ -67,7 +67,7 @@ impl Instruction {
 }
 
 pub fn make_call_service_closure(
-    service_in: Arc<Mutex<HashMap<&'static str, JValue>>>,
+    service_in: Arc<Mutex<HashMap<String, JValue>>>,
     service_out: Arc<Mutex<Vec<JValue>>>,
 ) -> CallServiceClosure {
     Box::new(move |_, args| {
@@ -126,7 +126,7 @@ pub fn make_vm(peer_id: &PeerId, call_service: CallServiceClosure) -> Aquamarine
 
 pub fn make_particle(
     peer_id: PeerId,
-    service_in: Arc<Mutex<HashMap<&'static str, JValue>>>,
+    service_in: Arc<Mutex<HashMap<String, JValue>>>,
     script: String,
     relay: impl Into<Option<PeerId>>,
     local_vm: &mut AquamarineVM,
