@@ -497,10 +497,7 @@ mod tests {
         let bp_dir = TempDir::new("test2").unwrap();
         let repo = ModuleRepository::new(module_dir.path(), bp_dir.path());
 
-        let module = load_module(
-            "../particle-node/tests/tetraplets/artifacts",
-            "tetraplets",
-        );
+        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets");
 
         let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
             name: "tetra".to_string(),

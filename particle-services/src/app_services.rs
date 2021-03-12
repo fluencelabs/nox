@@ -447,10 +447,7 @@ mod tests {
         let base_dir = TempDir::new("test").unwrap();
         let pas = create_pas(local_pid, management_pid, base_dir.path().into());
 
-        let module = load_module(
-            "../particle-node/tests/tetraplets/artifacts",
-            "tetraplets",
-        );
+        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets");
 
         let service_id1 = create_service(&pas, "tetra".to_string(), module.clone()).unwrap();
         let service_id2 = create_service(&pas, "tetra".to_string(), module.clone()).unwrap();
