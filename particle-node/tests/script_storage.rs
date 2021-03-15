@@ -57,9 +57,10 @@ fn stream_hello() {
 fn remove_script() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client =
+        ConnectedClient::connect_to_with_peer_id(swarms[0].1.clone(), Some(swarms[0].3.clone()))
+            .wrap_err("connect client")
+            .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])
@@ -243,9 +244,10 @@ fn autoremove_failed() {
 fn remove_script_unauth() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client =
+        ConnectedClient::connect_to_with_peer_id(swarms[0].1.clone(), Some(swarms[0].3.clone()))
+            .wrap_err("connect client")
+            .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])
@@ -318,23 +320,23 @@ fn remove_script_unauth() {
         panic!("expected array");
     }
 
-    // remove with --force
-    let remove_id = client2.send_particle(
+    // remove with owner
+    let remove_id = client.send_particle(
         r#"
         (seq
-            (call relay ("script" "remove") [id "--force"] removed)
+            (call relay ("script" "remove") [id] removed)
             (call client ("op" "return") [removed])
         )
         "#,
         hashmap! {
-            "relay" => json!(client2.node.to_string()),
-            "client" => json!(client2.peer_id.to_string()),
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
             "id" => json!(script_id),
         },
     );
 
     // check removal succeeded
-    let removed = client2.wait_particle_args(remove_id).unwrap();
+    let removed = client.wait_particle_args(remove_id).unwrap();
     assert_eq!(removed, vec![serde_json::Value::Bool(true)]);
 
     // check script is not in the list anymore
