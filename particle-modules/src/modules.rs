@@ -45,8 +45,6 @@ pub struct AddBlueprint {
     pub dependencies: Vec<Dependency>,
 }
 
-type Blueprints = Arc<RwLock<HashMap<String, Blueprint>>>;
-
 #[derive(Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
@@ -54,7 +52,7 @@ pub struct ModuleRepository {
     /// Map of module_config.name to blake3::hash(module bytes)
     modules_by_name: Arc<Mutex<HashMap<ModuleName, Hash>>>,
     module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
-    blueprints: Blueprints,
+    blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
 }
 
 impl ModuleRepository {
@@ -87,12 +85,7 @@ impl ModuleRepository {
         let modules_by_name = Arc::new(Mutex::new(modules_by_name));
 
         let blueprints = Self::load_blueprints(blueprints_dir);
-        let mut bp_map = HashMap::new();
-        for bp in blueprints.iter() {
-            bp_map.insert(bp.id.clone(), bp.clone());
-        }
-
-        let blueprints_cache: Blueprints = Arc::new(RwLock::new(bp_map));
+        let blueprints_cache = Arc::new(RwLock::new(blueprints));
 
         Self {
             modules_by_name,
@@ -161,6 +154,12 @@ impl ModuleRepository {
                 .map(|module| Ok(Hash(resolve_hash(&modules, module)?)))
                 .collect::<Result<_>>()?;
 
+            if dependencies.is_empty() {
+                Err(EmptyDependenciesList {
+                    id: blueprint.name.clone(),
+                })?;
+            }
+
             let hash = hash_dependencies(dependencies.clone())?.to_hex();
 
             let blueprint = Blueprint {
@@ -217,7 +216,7 @@ impl ModuleRepository {
         })
     }
 
-    pub fn get_interface_by_blueprint_id(&self, id: &str) -> Result<JValue> {
+    pub fn get_facade_interface(&self, id: &str) -> Result<JValue> {
         let blueprints = self.blueprints.clone();
 
         let bp = {
@@ -246,36 +245,7 @@ impl ModuleRepository {
         let modules_dir: PathBuf = self.modules_dir.clone();
         let cache: Arc<RwLock<HashMap<Hash, JValue>>> = self.module_interface_cache.clone();
 
-        Self::get_interface_by_hash_internal(modules_dir, cache, hash)
-    }
-
-    fn get_interface_by_hash_internal(
-        modules_dir: PathBuf,
-        cache: Arc<RwLock<HashMap<Hash, JValue>>>,
-        hash: &Hash,
-    ) -> Result<JValue> {
-        let interface_cache_opt = {
-            let lock = cache.read();
-            lock.get(hash).cloned()
-        };
-
-        let interface = match interface_cache_opt {
-            Some(interface) => interface,
-            None => {
-                let path = modules_dir.join(module_file_name(hash));
-
-                let interface = module_interface(&path)
-                    .map_err(|err| ReadModuleInterfaceError { path, err })?;
-
-                let json = json!(interface);
-
-                json
-            }
-        };
-
-        cache.write().insert(hash.clone(), interface.clone());
-
-        Ok(interface)
+        get_interface_by_hash_internal(modules_dir, cache, hash)
     }
 
     pub fn get_interface(&self) -> Closure {
@@ -287,7 +257,7 @@ impl ModuleRepository {
                 let hash: String = Args::next("hash", &mut args)?;
                 let hash = Hash::from_hex(&hash)?;
 
-                Self::get_interface_by_hash_internal(modules_dir.clone(), cache.clone(), &hash)?
+                get_interface_by_hash_internal(modules_dir.clone(), cache.clone(), &hash)?
             };
 
             interface.map_err(|err| {
@@ -301,8 +271,8 @@ impl ModuleRepository {
         })
     }
 
-    fn load_blueprints(blueprints_dir: &Path) -> Vec<Blueprint> {
-        files::list_files(blueprints_dir)
+    fn load_blueprints(blueprints_dir: &Path) -> HashMap<String, Blueprint> {
+        let blueprints: Vec<Blueprint> = files::list_files(blueprints_dir)
             .into_iter()
             .flatten()
             .filter_map(|path| {
@@ -327,7 +297,14 @@ impl ModuleRepository {
                     }
                 }
             })
-            .collect()
+            .collect();
+
+        let mut bp_map = HashMap::new();
+        for bp in blueprints.iter() {
+            bp_map.insert(bp.id.clone(), bp.clone());
+        }
+
+        bp_map
     }
 
     fn get_blueprint_from_cache(&self, id: &str) -> Result<Blueprint> {
@@ -348,16 +325,7 @@ impl ModuleRepository {
                 .read()
                 .values()
                 .cloned()
-                .filter_map(|b| {
-                    let blueprint: eyre::Result<_> = try { serde_json::to_value(b)? };
-                    match blueprint {
-                        Ok(blueprint) => Some(blueprint),
-                        Err(err) => {
-                            log::warn!("get_blueprints error on serialization: {:?}", err);
-                            None
-                        }
-                    }
-                })
+                .map(|b| json!(b))
                 .collect();
             Ok(JValue::Array(blueprints))
         })
@@ -379,6 +347,32 @@ impl ModuleRepository {
 
         Ok(module_descriptors)
     }
+}
+
+fn get_interface_by_hash_internal(
+    modules_dir: PathBuf,
+    cache: Arc<RwLock<HashMap<Hash, JValue>>>,
+    hash: &Hash,
+) -> Result<JValue> {
+    let interface_cache_opt = {
+        let lock = cache.read();
+        lock.get(hash).cloned()
+    };
+
+    let interface = match interface_cache_opt {
+        Some(interface) => interface,
+        None => {
+            let path = modules_dir.join(module_file_name(hash));
+            let interface =
+                module_interface(&path).map_err(|err| ReadModuleInterfaceError { path, err })?;
+            let json = json!(interface);
+            json
+        }
+    };
+
+    cache.write().insert(hash.clone(), interface.clone());
+
+    Ok(interface)
 }
 
 fn resolve_hash(

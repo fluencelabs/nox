@@ -235,7 +235,7 @@ impl ParticleAppServices {
                 .get(&service_id)
                 .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
 
-            Ok(modules.get_interface_by_blueprint_id(&service.blueprint_id)?)
+            Ok(modules.get_facade_interface(&service.blueprint_id)?)
         })
     }
 
@@ -316,10 +316,13 @@ mod tests {
     use tempdir::TempDir;
 
     use crate::ParticleAppServices;
+    use config_utils::modules_dir;
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
     use host_closure::ParticleParameters;
     use particle_modules::{Dependency, Hash, ModuleRepository};
     use server_config::ServicesConfig;
+    use std::fs;
+    use std::fs::remove_file;
     use std::path::PathBuf;
     use test_utils::{
         add_bp, add_module, create_args, load_module, response_to_return, string_result, RetStruct,
@@ -454,6 +457,13 @@ mod tests {
         let service_id3 = create_service(&pas, "tetra".to_string(), module).unwrap();
 
         let inter1 = get_interface(&pas, service_id1);
+
+        // delete module and check that interfaces will be returned anyway
+        let dir = modules_dir(base_dir.path().into());
+        for entry in fs::read_dir(dir).unwrap() {
+            remove_file(entry.unwrap().path()).unwrap();
+        }
+
         let inter2 = get_interface(&pas, service_id2);
         let inter3 = get_interface(&pas, service_id3);
 
