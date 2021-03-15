@@ -226,11 +226,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let mut args = args.function_args.into_iter();
 
         if params.init_user_id != self.management_peer_id {
-            return Err(Forbidden(
-                params.init_user_id + " " + self.management_peer_id.as_str(),
-                "remove_script".to_string(),
-            )
-            .into());
+            return Err(Forbidden(params.init_user_id, "remove_script".to_string()).into());
         };
 
         let uuid: String = Args::next("uuid", &mut args)?;
