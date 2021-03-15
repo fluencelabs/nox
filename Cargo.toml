@@ -26,6 +26,7 @@ members = [
 ]
 exclude = [
     "client/js-websocket/utils-wasm",
+    "particle-node/tests/tetraplets",
 ]
 
 

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_greeting_service, make_swarms, module_config, read_args, test_module, test_module_cfg,
-    timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
+    create_service, load_module, make_swarms, module_config, read_args, test_module_cfg, timeout,
+    ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
 use eyre::{ContextCompat, WrapErr};
@@ -63,8 +63,16 @@ fn get_interfaces() {
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
         .wrap_err("connect client")
         .unwrap();
-    let service1 = create_greeting_service(&mut client);
-    let service2 = create_greeting_service(&mut client);
+    let service1 = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
+    );
+    let service2 = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
+    );
 
     client.send_particle(
         r#"
@@ -121,7 +129,7 @@ fn get_modules() {
         )
         "#,
         hashmap! {
-            "module_bytes" => json!(base64::encode(test_module())),
+            "module_bytes" => json!(base64::encode(load_module("tests/tetraplets/artifacts", "tetraplets"))),
             "module_config" => test_module_cfg("greeting"),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
@@ -274,7 +282,11 @@ fn explore_services_fixed() {
         let mut client = ConnectedClient::connect_to(peer.1.clone())
             .wrap_err("connect client")
             .unwrap();
-        create_greeting_service(&mut client);
+        create_service(
+            &mut client,
+            "tetraplets",
+            load_module("tests/tetraplets/artifacts", "tetraplets"),
+        );
     }
 
     let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
@@ -299,7 +311,12 @@ fn explore_services_fixed() {
         if let Some(Some(event)) = block_on(timeout(Duration::from_secs(1), receive)).ok() {
             match event {
                 ClientEvent::Particle { particle, .. } => {
-                    let args = read_args(particle, &client.peer_id);
+                    let args = read_args(
+                        particle,
+                        client.peer_id.clone(),
+                        &mut client.local_vm,
+                        client.call_service_out.clone(),
+                    );
                     received.push(args);
                 }
                 ClientEvent::NewConnection { .. } => {}

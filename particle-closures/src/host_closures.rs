@@ -37,7 +37,7 @@ use particle_modules::ModuleRepository;
 use serde_json::{json, Value as JValue};
 use std::borrow::Borrow;
 use std::num::ParseIntError;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{str::FromStr, sync::Arc};
 use JValue::Array;
 
@@ -115,16 +115,17 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
                 return ivalue_utils::error(json!(err.to_string()));
             }
         };
-        log::info!(
-            "Host function call {:?} {:?}",
-            args.service_id,
-            args.function_name
-        );
-        log::trace!("Host function call, args: {:#?}", args);
 
+        log::trace!("Host function call, args: {:#?}", args);
+        let log_args = format!(
+            "Executed host call {:?} {:?}",
+            args.service_id, args.function_name
+        );
+
+        let start = Instant::now();
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
-        match (args.service_id.as_str(), args.function_name.as_str()) {
+        let result = match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "is_connected")          => wrap(self.is_connected(args)),
             ("peer", "connect")               => wrap(self.connect(args)),
             ("peer", "get_contact")           => wrap_opt(self.get_contact(args)),
@@ -155,7 +156,9 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("deprecated", "get_providers")   => (self.get_providers)(args),
 
             _ => (self.call_service)(params, args),
-        }
+        };
+        log::info!("{} ({})", log_args, pretty(start.elapsed()));
+        result
     }
 
     fn neighborhood(&self, args: Args) -> Result<JValue, JError> {

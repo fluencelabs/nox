@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use humantime::FormattedDuration;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -32,8 +33,13 @@ pub enum AquamarineApiError {
         This is unexpected and shouldn't happen."#
     )]
     AquamarineDied { particle_id: String },
-    #[error("AquamarineApiError::ExecutionTimedOut: particle_id = {particle_id}")]
-    ExecutionTimedOut { particle_id: String },
+    #[error(
+        "AquamarineApiError::ExecutionTimedOut: particle_id = {particle_id}, timeout = {timeout}"
+    )]
+    ExecutionTimedOut {
+        particle_id: String,
+        timeout: FormattedDuration,
+    },
 }
 
 impl AquamarineApiError {
@@ -42,7 +48,7 @@ impl AquamarineApiError {
             AquamarineApiError::ParticleExpired { particle_id } => particle_id,
             AquamarineApiError::OneshotCancelled { particle_id } => particle_id,
             AquamarineApiError::AquamarineDied { particle_id } => particle_id,
-            AquamarineApiError::ExecutionTimedOut { particle_id } => particle_id,
+            AquamarineApiError::ExecutionTimedOut { particle_id, .. } => particle_id,
         }
     }
 }

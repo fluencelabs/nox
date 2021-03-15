@@ -17,7 +17,6 @@
 use crate::{make_tmp_dir, now_ms, put_aquamarine, uuid};
 
 use host_closure::Args;
-use ivalue_utils::IValue;
 use particle_protocol::Particle;
 
 use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, CallServiceClosure, InterpreterOutcome};
@@ -67,47 +66,35 @@ impl Instruction {
     }
 }
 
-fn route(args: Vec<IValue>, data: HashMap<&'static str, JValue>) -> Option<IValue> {
-    let args = Args::parse(args).expect("valid args");
-    match args.service_id.as_str() {
-        "load" => data
-            .get(args.function_name.as_str())
-            .map(|v| ivalue_utils::ok(v.clone()))
-            .unwrap_or_else(|| {
-                ivalue_utils::error(JValue::String(f!(
-                    "variable not found: {args.function_name}"
-                )))
-            }),
-        "identity" => ivalue_utils::ok(JValue::Array(args.function_args)),
-        service => ivalue_utils::error(JValue::String(f!("service not found: {service}"))),
-    }
-}
-
-pub fn pass_data_func(data: HashMap<&'static str, JValue>) -> CallServiceClosure {
-    Box::new(move |_, args| route(args, data.clone()))
-}
-
-pub fn return_data_func(out: Arc<Mutex<Vec<JValue>>>) -> CallServiceClosure {
+pub fn make_call_service_closure(
+    service_in: Arc<Mutex<HashMap<String, JValue>>>,
+    service_out: Arc<Mutex<Vec<JValue>>>,
+) -> CallServiceClosure {
     Box::new(move |_, args| {
         let args = Args::parse(args).expect("valid args");
         match (args.service_id.as_str(), args.function_name.as_str()) {
+            ("load", _) => service_in
+                .lock()
+                .get(args.function_name.as_str())
+                .map(|v| ivalue_utils::ok(v.clone()))
+                .unwrap_or_else(|| {
+                    ivalue_utils::error(JValue::String(f!(
+                        "variable not found: {args.function_name}"
+                    )))
+                }),
             ("return", _) | ("op", "return") => {
                 log::warn!("return args {:?}", args.function_args);
                 log::warn!("tetraplets: {:?}", args.tetraplets);
-                out.lock().extend(args.function_args);
+                service_out.lock().extend(args.function_args);
                 ivalue_utils::unit()
             }
-            ("op", "identity") => ivalue_utils::ok(JValue::Array(args.function_args)),
-            service => ivalue_utils::error(JValue::String(f!("service not found: {:?}", service))),
+            (_, "identity") => ivalue_utils::ok(JValue::Array(args.function_args)),
+            (service, _) => ivalue_utils::error(JValue::String(f!("service not found: {service}"))),
         }
     })
 }
 
-fn make_vm(
-    particle_id: String,
-    peer_id: &PeerId,
-    call_service: CallServiceClosure,
-) -> AquamarineVM {
+pub fn make_vm(peer_id: &PeerId, call_service: CallServiceClosure) -> AquamarineVM {
     let tmp = make_tmp_dir();
     let interpreter = put_aquamarine(tmp.join("modules"));
 
@@ -115,8 +102,8 @@ fn make_vm(
         call_service,
         aquamarine_wasm_path: interpreter,
         current_peer_id: peer_id.to_string(),
-        particle_data_store: format!("/tmp/{}", particle_id).into(),
-        logging_mask: i32::max_value(),
+        particle_data_store: format!("/tmp/{}", peer_id.to_string()).into(),
+        logging_mask: i32::MAX,
     };
     log::info!("particle_data_store: {:?}", config.particle_data_store);
 
@@ -139,12 +126,14 @@ fn make_vm(
 
 pub fn make_particle(
     peer_id: PeerId,
-    data: HashMap<&'static str, JValue>,
+    service_in: Arc<Mutex<HashMap<String, JValue>>>,
     script: String,
     relay: impl Into<Option<PeerId>>,
+    local_vm: &mut AquamarineVM,
 ) -> Particle {
-    let variable_names = data.keys().cloned();
-    let load_variables = variable_names
+    let load_variables = service_in
+        .lock()
+        .keys()
         .map(|name| f!(r#"  (call %init_peer_id% ("load" "{name}") [] {name})"#))
         .fold(Instruction::Null, |acc, call| acc.add(call))
         .into_air();
@@ -172,16 +161,17 @@ pub fn make_particle(
     "#);
 
     let id = uuid();
-    let mut vm = make_vm(id.clone(), &peer_id, pass_data_func(data));
 
     let InterpreterOutcome {
         data,
         ret_code,
         error_message,
         ..
-    } = vm
+    } = local_vm
         .call(peer_id.to_string(), script.clone(), "[]", id.clone())
         .expect("execute & make particle");
+
+    service_in.lock().clear();
 
     if ret_code != 0 {
         log::error!("failed to make a particle {}: {}", ret_code, error_message);
@@ -201,21 +191,23 @@ pub fn make_particle(
     }
 }
 
-pub fn read_args(particle: Particle, peer_id: &PeerId) -> Vec<JValue> {
-    let data: Arc<Mutex<Vec<JValue>>> = <_>::default();
-    let mut vm = make_vm(
-        particle.id.clone(),
-        &peer_id,
-        return_data_func(data.clone()),
-    );
-    vm.call(
-        peer_id.to_string(),
-        particle.script,
-        particle.data,
-        particle.id,
-    )
-    .expect("execute read_args vm");
+pub fn read_args(
+    particle: Particle,
+    peer_id: PeerId,
+    local_vm: &mut AquamarineVM,
+    out: Arc<Mutex<Vec<JValue>>>,
+) -> Vec<JValue> {
+    local_vm
+        .call(
+            peer_id.to_string(),
+            particle.script,
+            particle.data,
+            particle.id,
+        )
+        .expect("execute read_args vm");
 
-    let data = data.lock();
-    data.deref().clone()
+    let result = out.lock().deref().clone();
+    out.lock().clear();
+
+    result
 }
