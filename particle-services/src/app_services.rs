@@ -321,7 +321,6 @@ mod tests {
     use host_closure::ParticleParameters;
     use particle_modules::{Dependency, Hash, ModuleRepository};
     use server_config::ServicesConfig;
-    use std::fs;
     use std::fs::remove_file;
     use std::path::PathBuf;
     use test_utils::{
@@ -381,22 +380,9 @@ mod tests {
     fn create_service(
         pas: &ParticleAppServices,
         module_name: String,
-        module: Vec<u8>,
+        module: &str,
     ) -> Result<String, String> {
-        let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
-            name: module_name.clone(),
-            file_name: None,
-            config: TomlFaaSModuleConfig {
-                mem_pages_count: None,
-                logger_enabled: None,
-                wasi: None,
-                mounted_binaries: None,
-                logging_mask: None,
-            },
-        };
-
-        let hash = add_module(&pas.modules, base64::encode(module), config).unwrap();
-        let dep = Dependency::Hash(Hash::from_hex(&hash).unwrap());
+        let dep = Dependency::Hash(Hash::from_hex(module).unwrap());
         let bp = add_bp(&pas.modules, module_name, vec![dep]).unwrap();
 
         let args = create_args(vec![JValue::String(bp)]);
@@ -452,21 +438,34 @@ mod tests {
 
         let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets");
 
-        let service_id1 = create_service(&pas, "tetra".to_string(), module.clone()).unwrap();
-        let service_id2 = create_service(&pas, "tetra".to_string(), module.clone()).unwrap();
-        let service_id3 = create_service(&pas, "tetra".to_string(), module).unwrap();
+        let module_name = "tetra".to_string();
+        let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
+            name: module_name.clone(),
+            file_name: None,
+            config: TomlFaaSModuleConfig {
+                mem_pages_count: None,
+                logger_enabled: None,
+                wasi: None,
+                mounted_binaries: None,
+                logging_mask: None,
+            },
+        };
+        let hash = add_module(&pas.modules, base64::encode(module), config).unwrap();
+        let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
+        let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
+        let service_id3 = create_service(&pas, module_name.clone(), &hash).unwrap();
 
         let inter1 = get_interface(&pas, service_id1);
 
         // delete module and check that interfaces will be returned anyway
         let dir = modules_dir(base_dir.path().into());
-        for entry in fs::read_dir(dir).unwrap() {
-            remove_file(entry.unwrap().path()).unwrap();
-        }
+        let module_file = dir.join(format!("{}.wasm", hash));
+        remove_file(module_file.clone()).unwrap();
 
         let inter2 = get_interface(&pas, service_id2);
         let inter3 = get_interface(&pas, service_id3);
 
+        assert_eq!(module_file.exists(), false);
         assert_eq!(inter1.result, inter2.result);
         assert_eq!(inter3.result, inter2.result);
     }

@@ -148,17 +148,18 @@ impl ModuleRepository {
         let blueprints = self.blueprints.clone();
         closure(move |mut args| {
             let blueprint: AddBlueprint = Args::next("blueprint_request", &mut args)?;
+
+            if blueprint.dependencies.is_empty() {
+                return Err(EmptyDependenciesList {
+                    id: blueprint.name.clone(),
+                }
+                .into());
+            }
             // resolve dependencies by name to hashes, if any
             let dependencies = blueprint.dependencies.into_iter();
             let dependencies: Vec<Dependency> = dependencies
                 .map(|module| Ok(Hash(resolve_hash(&modules, module)?)))
                 .collect::<Result<_>>()?;
-
-            if dependencies.is_empty() {
-                Err(EmptyDependenciesList {
-                    id: blueprint.name.clone(),
-                })?;
-            }
 
             let hash = hash_dependencies(dependencies.clone())?.to_hex();
 
@@ -245,7 +246,7 @@ impl ModuleRepository {
         let modules_dir: PathBuf = self.modules_dir.clone();
         let cache: Arc<RwLock<HashMap<Hash, JValue>>> = self.module_interface_cache.clone();
 
-        get_interface_by_hash_internal(modules_dir, cache, hash)
+        get_interface_by_hash(modules_dir, cache, hash)
     }
 
     pub fn get_interface(&self) -> Closure {
@@ -257,7 +258,7 @@ impl ModuleRepository {
                 let hash: String = Args::next("hash", &mut args)?;
                 let hash = Hash::from_hex(&hash)?;
 
-                get_interface_by_hash_internal(modules_dir.clone(), cache.clone(), &hash)?
+                get_interface_by_hash(modules_dir.clone(), cache.clone(), &hash)?
             };
 
             interface.map_err(|err| {
@@ -349,7 +350,7 @@ impl ModuleRepository {
     }
 }
 
-fn get_interface_by_hash_internal(
+fn get_interface_by_hash(
     modules_dir: PathBuf,
     cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     hash: &Hash,
