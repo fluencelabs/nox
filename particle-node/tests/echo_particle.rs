@@ -25,7 +25,7 @@ use std::thread::sleep;
 fn echo_particle() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 

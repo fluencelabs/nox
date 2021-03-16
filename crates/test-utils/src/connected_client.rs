@@ -19,7 +19,7 @@ pub use fluence_client::ClientEvent;
 use super::misc::Result;
 use crate::{
     make_call_service_closure, make_particle, make_swarms, make_vm, read_args, timeout,
-    CreatedSwarm, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT,
+    KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT,
 };
 
 use aquamarine_vm::AquamarineVM;
@@ -133,23 +133,25 @@ impl ConnectedClient {
     pub fn make_clients() -> Result<(Self, Self)> {
         let swarms = make_swarms(3);
         let mut swarms = swarms.into_iter();
-        let CreatedSwarm(peer_id1, addr1, ..) = swarms.next().expect("get swarm");
-        let CreatedSwarm(peer_id2, addr2, ..) = swarms.next().expect("get swarm");
+        let swarm1 = swarms.next().expect("get swarm");
+        let swarm2 = swarms.next().expect("get swarm");
 
         let connect = async move {
-            let (mut first, _) = Client::connect_with(addr1.clone(), Transport::Memory, None)
-                .await
-                .expect("first connected");
+            let (mut first, _) =
+                Client::connect_with(swarm1.multiaddr.clone(), Transport::Memory, None)
+                    .await
+                    .expect("first connected");
             first.receive_one().await;
 
-            let first = ConnectedClient::new(first, peer_id1, addr1);
+            let first = ConnectedClient::new(first, swarm1.peer_id, swarm1.multiaddr);
 
-            let (mut second, _) = Client::connect_with(addr2.clone(), Transport::Memory, None)
-                .await
-                .expect("second connected");
+            let (mut second, _) =
+                Client::connect_with(swarm2.multiaddr.clone(), Transport::Memory, None)
+                    .await
+                    .expect("second connected");
             second.receive_one().await;
 
-            let second = ConnectedClient::new(second, peer_id2, addr2);
+            let second = ConnectedClient::new(second, swarm2.peer_id, swarm2.multiaddr);
 
             (first, second)
         };
