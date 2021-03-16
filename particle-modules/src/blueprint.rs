@@ -24,3 +24,9 @@ pub struct Blueprint {
     pub id: String,
     pub dependencies: Vec<Dependency>,
 }
+
+impl Blueprint {
+    pub fn get_facade_module(&self) -> Option<Dependency> {
+        self.dependencies.last().cloned()
+    }
+}

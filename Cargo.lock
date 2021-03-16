@@ -3375,6 +3375,7 @@ dependencies = [
 name = "particle-services"
 version = "0.1.0"
 dependencies = [
+ "base64 0.13.0",
  "config-utils",
  "eyre",
  "fluence-app-service",
@@ -4469,6 +4470,7 @@ dependencies = [
  "env_logger",
  "eyre",
  "fluence-client",
+ "fluence-faas",
  "fluence-fork-libp2p",
  "fluence-libp2p",
  "fstrings",
@@ -4479,6 +4481,7 @@ dependencies = [
  "log",
  "maplit",
  "parking_lot 0.11.1",
+ "particle-modules",
  "particle-node",
  "particle-protocol",
  "prometheus",
