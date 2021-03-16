@@ -80,10 +80,10 @@ impl DerefMut for ConnectedClient {
 
 impl ConnectedClient {
     pub fn connect_to(node_address: Multiaddr) -> Result<Self> {
-        Self::connect_to_with_peer_id(node_address, None)
+        Self::connect_as_owner(node_address, None)
     }
 
-    pub fn connect_to_with_peer_id(
+    pub fn connect_as_owner(
         node_address: Multiaddr,
         key_pair: Option<ed25519::Keypair>,
     ) -> Result<Self> {

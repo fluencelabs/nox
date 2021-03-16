@@ -57,12 +57,9 @@ fn stream_hello() {
 fn remove_script() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to_with_peer_id(
-        swarms[0].multiaddr.clone(),
-        Some(swarms[0].keypair.clone()),
-    )
-    .wrap_err("connect client")
-    .unwrap();
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])
@@ -246,12 +243,9 @@ fn autoremove_failed() {
 fn remove_script_unauth() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to_with_peer_id(
-        swarms[0].multiaddr.clone(),
-        Some(swarms[0].keypair.clone()),
-    )
-    .wrap_err("connect client")
-    .unwrap();
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])

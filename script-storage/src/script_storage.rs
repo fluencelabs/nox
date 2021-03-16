@@ -94,6 +94,7 @@ enum Command {
         uuid: String,
         outlet: OneshotOutlet<Result<bool, ScriptStorageError>>,
         actor: PeerId,
+        force: bool,
     },
     ListScripts {
         outlet: OneshotOutlet<HashMap<ScriptId, Script>>,
@@ -235,11 +236,12 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             uuid,
             outlet,
             actor,
+            force,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
             let removed = unlock(scripts, |scripts| match scripts.entry(uuid) {
                 Entry::Vacant(_) => Ok(false),
-                Entry::Occupied(e) if e.get().owner == actor => {
+                Entry::Occupied(e) if force || e.get().owner == actor => {
                     e.remove();
                     Ok(true)
                 }
@@ -331,6 +333,7 @@ impl ScriptStorageApi {
         &self,
         uuid: String,
         actor: PeerId,
+        force: bool,
     ) -> BoxFuture<'static, Result<bool, ScriptStorageError>> {
         use ScriptStorageError::InletError;
 
@@ -339,6 +342,7 @@ impl ScriptStorageApi {
             uuid,
             outlet,
             actor,
+            force,
         };
         if let Err(err) = self.send(command) {
             return futures::future::err(err).boxed();

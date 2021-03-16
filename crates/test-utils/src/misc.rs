@@ -129,7 +129,7 @@ pub struct CreatedSwarm {
     // tmp dir, must be cleaned
     pub tmp_dir: PathBuf,
     // management_peer_id
-    pub keypair: Keypair,
+    pub management_keypair: Keypair,
     // stop signal
     pub outlet: OneshotOutlet<()>,
 }
@@ -204,7 +204,7 @@ where
                 peer_id,
                 multiaddr,
                 tmp_dir,
-                keypair,
+                management_keypair: keypair,
                 outlet,
             }
         })

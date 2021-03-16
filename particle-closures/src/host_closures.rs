@@ -26,7 +26,6 @@ use now_millis::{now_ms, now_sec};
 use particle_protocol::Contact;
 use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
-use particle_services::ServiceError::Forbidden;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
@@ -225,14 +224,12 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn remove_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
-        if params.init_user_id != self.management_peer_id {
-            return Err(Forbidden(params.init_user_id, "remove_script".to_string()).into());
-        };
+        let force = params.init_user_id == self.management_peer_id;
 
         let uuid: String = Args::next("uuid", &mut args)?;
         let actor = PeerId::from_str(&params.init_user_id)?;
 
-        let ok = task::block_on(self.script_storage.remove_script(uuid, actor))?;
+        let ok = task::block_on(self.script_storage.remove_script(uuid, actor, force))?;
 
         Ok(json!(ok))
     }
