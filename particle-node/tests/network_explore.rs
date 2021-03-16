@@ -60,7 +60,7 @@ fn get_interfaces() {
     let swarms = make_swarms(1);
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
     let service1 = create_service(
@@ -114,7 +114,7 @@ fn get_modules() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -147,7 +147,7 @@ fn list_blueprints() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -200,7 +200,7 @@ fn explore_services() {
     let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
     client.send_particle(
@@ -279,7 +279,7 @@ fn explore_services_fixed() {
 
     let peers = swarms.iter().skip(1);
     for peer in peers {
-        let mut client = ConnectedClient::connect_to(peer.1.clone())
+        let mut client = ConnectedClient::connect_to(peer.multiaddr.clone())
             .wrap_err("connect client")
             .unwrap();
         create_service(
@@ -289,11 +289,15 @@ fn explore_services_fixed() {
         );
     }
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
-    let peers: Vec<_> = swarms.iter().skip(1).map(|s| s.0.to_string()).collect();
+    let peers: Vec<_> = swarms
+        .iter()
+        .skip(1)
+        .map(|s| s.peer_id.to_string())
+        .collect();
     let data = hashmap! {
         "peers" => json!(peers),
         "clientId" => json!(client.peer_id.to_string()),

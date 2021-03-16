@@ -26,7 +26,7 @@ use std::thread::sleep;
 fn neighborhood() {
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -53,8 +53,8 @@ fn neighborhood() {
                 .is_some())
         };
 
-        assert_contains(&swarms[1].0);
-        assert_contains(&swarms[2].0);
+        assert_contains(&swarms[1].peer_id);
+        assert_contains(&swarms[2].peer_id);
     } else {
         panic!("response[0] must be an array, response was {:#?}", response);
     }

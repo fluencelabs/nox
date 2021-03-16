@@ -28,10 +28,10 @@ use std::{collections::HashSet, thread::sleep};
 fn add_providers() {
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
-    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -88,10 +88,10 @@ fn add_providers_to_neighborhood() {
     let swarms = make_swarms_with_cfg(10, |cfg| cfg);
 
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
-    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -158,7 +158,7 @@ fn add_providers_to_neighborhood() {
             "key" => json!(uuid()),
             "provider2" => json!(provider2),
             "key2" => json!(uuid()),
-            "first_node" => json!(swarms[0].0.to_string()),
+            "first_node" => json!(swarms[0].peer_id.to_string()),
         },
     );
 
