@@ -27,7 +27,7 @@ pub fn connect_swarms(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
     });
     sleep(KAD_TIMEOUT);
 
-    move |i| ConnectedClient::connect_to(swarms[i].1.clone()).expect("connect client")
+    move |i| ConnectedClient::connect_to(swarms[i].multiaddr.clone()).expect("connect client")
 }
 
 pub fn connect_real(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
