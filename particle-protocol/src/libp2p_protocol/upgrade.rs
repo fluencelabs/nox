@@ -84,6 +84,7 @@ impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent> From<ProtocolCo
             OneShotHandlerConfig {
                 keep_alive_timeout: item.keep_alive_timeout,
                 outbound_substream_timeout: item.outbound_substream_timeout,
+                ..<_>::default()
             },
         )
     }

@@ -23,8 +23,8 @@ waiting-queues = { path = "../crates/waiting-queues" }
 async-unlock = { path = "../crates/async-unlock" }
 now-millis = { path = "../crates/now-millis" }
 
-trust-graph = "0.2.0"
-libp2p = { package = "fluence-fork-libp2p", version = "0.34.2" }
+trust-graph = "0.2.6"
+libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
 
 async-std = { version = "1.9.0", features = ["unstable"] }
 multihash = "0.13.2"

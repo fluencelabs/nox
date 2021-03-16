@@ -16,8 +16,8 @@
 
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::Boxed;
+use libp2p::noise;
 use libp2p::{core, dns, identity::Keypair, PeerId, Transport};
-use libp2p_secio::SecioConfig;
 use std::time::Duration;
 
 /// Creates transport that is common for all connections.
@@ -35,7 +35,6 @@ pub fn build_transport(
         yamux.set_max_num_streams(1024 * 1024);
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
-    let secio = SecioConfig::new(key_pair);
 
     let transport = {
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
@@ -44,9 +43,14 @@ pub fn build_transport(
         tcp.or_transport(websocket)
     };
 
+    let keys = noise::Keypair::<noise::X25519Spec>::new()
+        .into_authentic(&key_pair)
+        .expect("create noise keypair");
+    let auth = libp2p::noise::NoiseConfig::xx(keys);
+
     transport
         .upgrade(core::upgrade::Version::V1)
-        .authenticate(secio)
+        .authenticate(auth.into_authenticated())
         .multiplex(multiplex)
         .timeout(socket_timeout)
         .boxed()

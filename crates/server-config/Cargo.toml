@@ -6,11 +6,13 @@ edition = "2018"
 
 [dependencies]
 config-utils = { path = "../config-utils" }
-trust-graph = "0.2.0"
 particle-protocol = { path = "../../particle-protocol"}
 
+trust-graph = "0.2.6"
+fluence-identity = "0.2.7"
 air-interpreter-wasm = "0.7.3"
-libp2p = { package = "fluence-fork-libp2p", version = "0.34.2" }
+
+libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
 
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"
