@@ -20,7 +20,7 @@ use control_macro::get_return;
 use fluence_libp2p::generate_swarm_event_type;
 use fluence_libp2p::types::OneshotOutlet;
 use particle_protocol::Contact;
-use trust_graph::TrustGraph;
+use trust_graph::InMemoryStorage;
 
 use libp2p::identity::PublicKey;
 use libp2p::{
@@ -95,6 +95,7 @@ impl FailedPeer {
 }
 
 type SwarmEventType = generate_swarm_event_type!(Kademlia);
+type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll")]
@@ -409,7 +410,7 @@ mod tests {
     use std::task::Poll;
     use std::time::Duration;
     use test_utils::create_memory_maddr;
-    use trust_graph::TrustGraph;
+    use trust_graph::{InMemoryStorage, TrustGraph};
 
     fn kad_config() -> KademliaConfig {
         let keypair = Keypair::generate();
@@ -429,7 +430,7 @@ mod tests {
     }
 
     fn make_node() -> (Swarm<Kademlia>, Multiaddr, PublicKey) {
-        let trust_graph = TrustGraph::new(vec![]);
+        let trust_graph = TrustGraph::new(InMemoryStorage::new());
         let config = kad_config();
         let kp = libp2p::identity::Keypair::Ed25519(config.keypair.clone());
         let peer_id = config.peer_id.clone();

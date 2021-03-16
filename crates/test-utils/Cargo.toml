@@ -6,13 +6,14 @@ edition = "2018"
 
 [dependencies]
 fluence-client = { path = "../../client/rust-libp2p" }
-trust-graph = "0.2.0"
+trust-graph = "0.2.6"
 config-utils = { path = "../config-utils" }
 server-config = { path = "../server-config" }
 ivalue-utils = { path = "../ivalue-utils" }
 host-closure = { path = "../host-closure" }
 fluence-libp2p = { path = "../libp2p" }
 particle-node = { path = "../../particle-node" }
+particle-modules = { path = "../../particle-modules" }
 particle-protocol = { path = "../../particle-protocol" }
 aquamarine = { path = "../../aquamarine" }
 connection-pool = { path = "../../connection-pool" }
@@ -20,8 +21,9 @@ script-storage = { path = "../../script-storage" }
 
 air-interpreter-wasm = "0.7.3"
 aquamarine-vm = "0.5.2"
+fluence-identity = "0.2.7"
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.34.2" }
+libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
 
 rand = "0.7.3"
 async-std = "1.9.0"
@@ -40,3 +42,4 @@ maplit = "1.0.2"
 parking_lot = "0.11.0"
 base64 = "0.13.0"
 eyre = "0.6.5"
+fluence-faas = "0.5.2"

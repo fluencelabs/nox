@@ -19,7 +19,7 @@ use faster_hex::hex_decode;
 use serde::export::Formatter;
 use std::fmt::Display;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Hash(blake3::Hash);
 impl Hash {
     /// Construct Hash from raw hash value in hex; doesn't hash anything

@@ -28,5 +28,5 @@ fstrings = "0.2.3"
 
 [dev-dependencies]
 tempdir = "0.3.7"
-libp2p-core = { package = "fluence-fork-libp2p-core", version = "0.26.2" }
+libp2p-core = { package = "fluence-fork-libp2p-core", version = "0.27.1" }
 test-utils = { path = "../crates/test-utils" }

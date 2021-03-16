@@ -33,7 +33,7 @@ use script_storage::{ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{
     default_air_interpreter_path, ListenConfig, NetworkConfig, NodeConfig, ServicesConfig,
 };
-use trust_graph::TrustGraph;
+use trust_graph::{InMemoryStorage, TrustGraph};
 
 use anyhow::Context;
 use async_std::{sync::Mutex, task, task::JoinHandle};
@@ -73,7 +73,11 @@ impl Node {
             let key_pair = libp2p::identity::Keypair::Ed25519(key_pair.clone());
             build_transport(key_pair, config.socket_timeout)
         };
-        let trust_graph = TrustGraph::new(config.root_weights());
+
+        let trust_graph = {
+            let storage = InMemoryStorage::new_in_memory(config.root_weights());
+            TrustGraph::new(storage)
+        };
 
         let local_peer_id = to_peer_id(&key_pair);
 

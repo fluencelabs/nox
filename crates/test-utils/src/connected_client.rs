@@ -211,7 +211,7 @@ impl ConnectedClient {
         let particle = self.receive().wrap_err("receive_args")?;
         Ok(read_args(
             particle,
-            self.peer_id.clone(),
+            self.peer_id,
             &mut self.local_vm,
             self.call_service_out.clone(),
         ))
@@ -230,7 +230,7 @@ impl ConnectedClient {
                 if particle.id == particle_id {
                     break Ok(read_args(
                         particle,
-                        self.peer_id.clone(),
+                        self.peer_id,
                         &mut self.local_vm,
                         self.call_service_out.clone(),
                     ));

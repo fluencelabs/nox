@@ -15,14 +15,14 @@
  */
 
 use config_utils::create_dirs;
-use trust_graph::KeyPair;
+use fluence_identity::KeyPair;
 
 use log::info;
-use std::fs;
-use std::fs::File;
-use std::io::Write;
-use std::io::{Error, ErrorKind};
-use std::path::Path;
+use std::{
+    fs::{self, File},
+    io::{Error, ErrorKind, Write},
+    path::Path,
+};
 
 /// Creates new key pair and store it in a `key_path` file.
 fn create_new_key_pair(key_path: &Path) -> Result<KeyPair, Error> {
