@@ -26,7 +26,7 @@
     unreachable_patterns
 )]
 
-use crate::error::ServiceError;
+pub use crate::error::ServiceError;
 
 mod app_service;
 mod app_services;

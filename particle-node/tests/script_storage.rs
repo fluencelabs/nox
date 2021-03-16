@@ -318,11 +318,84 @@ fn remove_script_unauth() {
         panic!("expected array");
     }
 
-    // remove with --force
+    // remove with owner
+    let remove_id = client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "remove") [id] removed)
+            (call client ("op" "return") [removed])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+            "id" => json!(script_id),
+        },
+    );
+
+    // check removal succeeded
+    let removed = client.wait_particle_args(remove_id).unwrap();
+    assert_eq!(removed, vec![serde_json::Value::Bool(true)]);
+
+    // check script is not in the list anymore
+    let list_id = client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "list") [] list)
+            (call client ("op" "return") [list])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+    let list = client.wait_particle_args(list_id).unwrap();
+    assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
+}
+
+#[test]
+fn remove_script_management_key() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = f!(r#"
+        (call "{client.peer_id}" ("op" "return") ["hello"])
+    "#);
+
+    // add script
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "add") [script "0"] id)
+            (call client ("op" "return") [id])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+            "script" => json!(script),
+        },
+    );
+
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let script_id = args.into_iter().next().unwrap();
+
+    // try to remove with management key
+    let mut client2 = ConnectedClient::connect_as_owner(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
+
     let remove_id = client2.send_particle(
         r#"
         (seq
-            (call relay ("script" "remove") [id "--force"] removed)
+            (call relay ("script" "remove") [id] removed)
             (call client ("op" "return") [removed])
         )
         "#,

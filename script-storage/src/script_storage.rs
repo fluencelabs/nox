@@ -94,7 +94,6 @@ enum Command {
         uuid: String,
         outlet: OneshotOutlet<Result<bool, ScriptStorageError>>,
         actor: PeerId,
-        // TODO HACK: this is a hack. anyone can delete any script using this flag. for better or worse.
         force: bool,
     },
     ListScripts {

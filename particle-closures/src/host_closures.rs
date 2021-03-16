@@ -63,6 +63,8 @@ pub struct HostClosures<C> {
     // deprecated
     pub add_provider: Closure,
     pub get_providers: Closure,
+
+    pub management_peer_id: String,
 }
 
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
@@ -79,6 +81,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let providers = ProviderRepository::new(config.local_peer_id);
         let modules = ModuleRepository::new(&modules_dir, &blueprint_dir);
 
+        let management_peer_id = config.management_peer_id.to_base58();
         let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
@@ -97,6 +100,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             add_alias: services.add_alias(),
             connectivity,
             script_storage,
+            management_peer_id,
         }
     }
 
@@ -220,10 +224,9 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn remove_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
+        let force = params.init_user_id == self.management_peer_id;
+
         let uuid: String = Args::next("uuid", &mut args)?;
-        let force: Option<String> = Args::maybe_next("force", &mut args)?;
-        // TODO HACK: this is a hack to allow anyone to delete any script if they know this secret
-        let force = force.map_or(false, |s| s == "--force");
         let actor = PeerId::from_str(&params.init_user_id)?;
 
         let ok = task::block_on(self.script_storage.remove_script(uuid, actor, force))?;
