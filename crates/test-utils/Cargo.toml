@@ -13,6 +13,7 @@ ivalue-utils = { path = "../ivalue-utils" }
 host-closure = { path = "../host-closure" }
 fluence-libp2p = { path = "../libp2p" }
 particle-node = { path = "../../particle-node" }
+particle-modules = { path = "../../particle-modules" }
 particle-protocol = { path = "../../particle-protocol" }
 aquamarine = { path = "../../aquamarine" }
 connection-pool = { path = "../../connection-pool" }
@@ -41,3 +42,4 @@ maplit = "1.0.2"
 parking_lot = "0.11.0"
 base64 = "0.13.0"
 eyre = "0.6.5"
+fluence-faas = "0.5.2"
