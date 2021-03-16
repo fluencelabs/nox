@@ -125,7 +125,7 @@ pub struct CreatedSwarm {
     // tmp dir, must be cleaned
     pub tmp_dir: PathBuf,
     // management_peer_id
-    pub keypair: Keypair,
+    pub management_keypair: Keypair,
     // stop signal
     pub outlet: OneshotOutlet<()>,
 }
@@ -194,16 +194,18 @@ where
     // start all nodes
     let infos = nodes
         .into_iter()
-        .map(|((peer_id, multiaddr, tmp_dir, keypair), node)| {
-            let outlet = node.start();
-            CreatedSwarm {
-                peer_id,
-                multiaddr,
-                tmp_dir,
-                keypair,
-                outlet,
-            }
-        })
+        .map(
+            |((peer_id, multiaddr, tmp_dir, management_keypair), node)| {
+                let outlet = node.start();
+                CreatedSwarm {
+                    peer_id,
+                    multiaddr,
+                    tmp_dir,
+                    management_keypair,
+                    outlet,
+                }
+            },
+        )
         .collect();
 
     if wait_connected {
