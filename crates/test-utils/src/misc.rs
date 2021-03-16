@@ -194,16 +194,18 @@ where
     // start all nodes
     let infos = nodes
         .into_iter()
-        .map(|((peer_id, multiaddr, tmp_dir, keypair), node)| {
-            let outlet = node.start();
-            CreatedSwarm {
-                peer_id,
-                multiaddr,
-                tmp_dir,
-                management_keypair: keypair,
-                outlet,
-            }
-        })
+        .map(
+            |((peer_id, multiaddr, tmp_dir, management_keypair), node)| {
+                let outlet = node.start();
+                CreatedSwarm {
+                    peer_id,
+                    multiaddr,
+                    tmp_dir,
+                    management_keypair,
+                    outlet,
+                }
+            },
+        )
         .collect();
 
     if wait_connected {
