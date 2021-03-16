@@ -106,7 +106,7 @@ impl NetworkApi {
     ) -> NetworkTasks {
         let NetworkApi {
             particle_stream,
-            particle_parallelism,
+            particle_parallelism: _,
             connectivity,
             bootstrap_frequency: freq,
             particle_timeout,
@@ -116,7 +116,7 @@ impl NetworkApi {
         let run_bootstrap = spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
         let particles = spawn(async move {
             particle_stream
-                .for_each_concurrent(particle_parallelism, move |particle| {
+                .for_each_concurrent(None, move |particle| {
                     let aquamarine = aquamarine.clone();
                     let connectivity = connectivity.clone();
                     let mut particle_failures_sink = particle_failures_sink.clone();
