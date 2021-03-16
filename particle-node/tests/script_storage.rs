@@ -28,7 +28,7 @@ extern crate fstrings;
 fn stream_hello() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -57,7 +57,7 @@ fn stream_hello() {
 fn remove_script() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -119,7 +119,7 @@ fn remove_script() {
 fn script_routing() {
     let swarms = make_swarms(3);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -139,7 +139,7 @@ fn script_routing() {
         "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
-            "second" => json!(swarms[1].0.to_string()),
+            "second" => json!(swarms[1].peer_id.to_string()),
             "script" => json!(script),
         },
     );
@@ -155,7 +155,7 @@ fn script_routing() {
 fn autoremove_singleshot() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -198,7 +198,7 @@ fn autoremove_singleshot() {
 fn autoremove_failed() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -243,7 +243,7 @@ fn autoremove_failed() {
 fn remove_script_unauth() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -270,7 +270,7 @@ fn remove_script_unauth() {
     let script_id = args.into_iter().next().unwrap();
 
     // try to remove from another client, should fail
-    let mut client2 = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
     let remove_id = client2.send_particle(

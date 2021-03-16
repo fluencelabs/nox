@@ -119,16 +119,17 @@ pub fn enable_logs() {
 }
 
 #[derive(Debug)]
-pub struct CreatedSwarm(
-    pub PeerId,
-    pub Multiaddr,
+pub struct CreatedSwarm {
+    pub peer_id: PeerId,
+    pub multiaddr: Multiaddr,
     // tmp dir, must be cleaned
-    pub PathBuf,
+    pub tmp_dir: PathBuf,
     // management_peer_id
-    pub Keypair,
+    pub keypair: Keypair,
     // stop signal
-    pub OneshotOutlet<()>,
-);
+    pub outlet: OneshotOutlet<()>,
+}
+
 pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
     make_swarms_with(
         n,
@@ -193,9 +194,15 @@ where
     // start all nodes
     let infos = nodes
         .into_iter()
-        .map(|((id, addr, tmp, m_kp), node)| {
-            let stop = node.start();
-            CreatedSwarm(id, addr, tmp, m_kp, stop)
+        .map(|((peer_id, multiaddr, tmp_dir, keypair), node)| {
+            let outlet = node.start();
+            CreatedSwarm {
+                peer_id,
+                multiaddr,
+                tmp_dir,
+                keypair,
+                outlet,
+            }
         })
         .collect();
 

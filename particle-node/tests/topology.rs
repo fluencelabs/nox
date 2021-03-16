@@ -25,10 +25,10 @@ use std::thread::sleep;
 fn identity() {
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
-    let mut a = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut a = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
-    let mut b = ConnectedClient::connect_to(swarms[1].1.clone())
+    let mut b = ConnectedClient::connect_to(swarms[1].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -49,9 +49,9 @@ fn identity() {
         )
         "#,
         hashmap! {
-            "node_a" => json!(swarms[0].0.to_string()),
-            "node_b" => json!(swarms[1].0.to_string()),
-            "node_c" => json!(swarms[2].0.to_string()),
+            "node_a" => json!(swarms[0].peer_id.to_string()),
+            "node_b" => json!(swarms[1].peer_id.to_string()),
+            "node_c" => json!(swarms[2].peer_id.to_string()),
             "client_b" => json!(b.peer_id.to_string()),
         },
     );
@@ -63,7 +63,7 @@ fn identity() {
 fn init_peer_id() {
     let swarms = make_swarms_with_cfg(3, |cfg| cfg);
     sleep(KAD_TIMEOUT);
-    let mut client = ConnectedClient::connect_to(swarms[0].1.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
