@@ -15,14 +15,14 @@
  */
 
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
-use async_std::task::{self, spawn, JoinHandle};
+use async_std::task::{spawn, JoinHandle};
 use connection_pool::ConnectionPoolApi;
+use criterion::Criterion;
 use criterion::{criterion_group, criterion_main};
-use criterion::{BenchmarkId, Criterion};
 use fluence_libp2p::types::BackPressuredInlet;
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
-use kademlia::{Command, KademliaApi};
+use kademlia::KademliaApi;
 use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
 use particle_protocol::Particle;
 use std::mem;
@@ -145,6 +145,7 @@ fn aquamarine_api() -> AquamarineApi {
     api
 }
 
+#[allow(dead_code)]
 async fn network_api(particles_num: usize) -> (NetworkApi, JoinHandle<()>) {
     let particle_stream: BackPressuredInlet<Particle> = particles(particles_num).await;
     let particle_parallelism: usize = 1;
