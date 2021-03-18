@@ -43,6 +43,7 @@ pub const SERVICE_ENVS: &str = "service_envs";
 pub const BLUEPRINT_DIR: &str = "blueprint_dir";
 pub const MANAGEMENT_PEER_ID: &str = "management_peer_id";
 pub const SERVICES_WORKDIR: &str = "services_workdir";
+pub const LOCAL: &str = "local";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
@@ -271,7 +272,7 @@ where
 
 /// Take all command line arguments, and insert them into config appropriately
 fn insert_args_to_config(
-    arguments: ArgMatches<'_>,
+    arguments: &ArgMatches<'_>,
     config: &mut toml::value::Table,
 ) -> anyhow::Result<()> {
     use toml::Value::*;
@@ -347,10 +348,15 @@ pub fn deserialize_config(
     let mut config: toml::value::Table =
         toml::from_slice(&content).context("deserializing config")?;
 
-    insert_args_to_config(arguments, &mut config)?;
+    insert_args_to_config(&arguments, &mut config)?;
 
     let config = toml::value::Value::Table(config);
-    let config = FluenceConfig::deserialize(config)?;
+    let mut config = FluenceConfig::deserialize(config)?;
+
+    if arguments.is_present(LOCAL) {
+        // if --local is passed, clear bootstrap nodes
+        config.server.bootstrap_nodes = vec![];
+    }
 
     Ok(config)
 }

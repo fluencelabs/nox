@@ -41,7 +41,7 @@ impl Default for KademliaConfig {
             max_packet_size: Some(100 * 4096 * 4096), // 100Mb
             query_timeout: Duration::from_secs(3),
             replication_factor: None,
-            connection_idle_timeout: Some(Duration::from_secs(2_628_000_000)), // ~month
+            connection_idle_timeout: Some(Duration::from_secs(60 * 60)), // 1 hour
             peer_fail_threshold: 3,
             ban_cooldown: Duration::from_secs(60),
         }

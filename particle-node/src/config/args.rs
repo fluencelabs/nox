@@ -44,7 +44,9 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .value_name("MULTIADDR")
             .takes_value(true)
             .short("b")
+            .long("bootstraps")
             .multiple(true)
+            .empty_values(false)
             .help("bootstrap nodes of the Fluence network"),
         Arg::with_name(EXTERNAL_ADDR)
             .takes_value(true)
@@ -55,16 +57,15 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .takes_value(true)
             .short("e")
             .multiple(true)
+            .empty_values(false)
             .help("envs to pass to core modules"),
         Arg::with_name(BLUEPRINT_DIR)
             .takes_value(true)
             .long("blueprint-dir")
-            .multiple(true)
             .help("path to directory containing blueprints and wasm modules"),
         Arg::with_name(SERVICES_WORKDIR)
             .takes_value(true)
             .long("services-workdir")
-            .multiple(true)
             .help("path to a directory where all services will store their data"),
         Arg::with_name(MANAGEMENT_PEER_ID)
             .takes_value(true)
@@ -74,5 +75,10 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .help(
                 "a key (PeerId) that will be used to manage a node like adding aliases to services",
             ),
+        Arg::with_name(LOCAL)
+            .long("local")
+            .takes_value(false)
+            .conflicts_with(BOOTSTRAP_NODE)
+            .help("if passed, bootstrap nodes aren't used"),
     ]
 }
