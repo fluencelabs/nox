@@ -31,7 +31,9 @@ use clap::App;
 use futures::channel::oneshot;
 
 use ctrlc_adapter::block_until_ctrlc;
+use env_logger::Env;
 use libp2p::identity::ed25519::Keypair;
+use log::LevelFilter;
 use particle_node::{
     config::{certificates, create_args},
     write_default_air_interpreter, Node,
@@ -47,9 +49,12 @@ trait Stoppable {
 }
 
 fn main() -> anyhow::Result<()> {
-    // TODO: set level to info by default (todo: check that RUST_LOG will still work)
     // TODO: maybe set log level via flag?
-    env_logger::builder().format_timestamp_micros().init();
+    env_logger::from_env(Env::default().default_filter_or("INFO"))
+        .filter_module("cranelift_codegen", LevelFilter::Off)
+        .filter_module("wasmer_wasi_fl", LevelFilter::Off)
+        .format_timestamp_micros()
+        .init();
 
     let arg_matches = App::new("Fluence protocol server")
         .version(VERSION)
