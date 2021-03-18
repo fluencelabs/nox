@@ -49,3 +49,8 @@ pub mod config {
 pub use behaviour::NetworkBehaviour;
 pub use node::write_default_air_interpreter;
 pub use node::Node;
+
+// to be available in benchmarks
+pub use connection_pool::Command as ConnectionPoolCommand;
+pub use kademlia::Command as KademliaCommand;
+pub use network_api::{Connectivity, NetworkApi};

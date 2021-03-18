@@ -40,8 +40,9 @@ pub trait KademliaApiT {
     fn neighborhood(&self, key: Multihash) -> Future<Result<Vec<PeerId>>>;
 }
 
+// marked `pub` to be available in benchmarks
 #[derive(Debug)]
-enum Command {
+pub enum Command {
     AddContact {
         contact: Contact,
     },
@@ -131,7 +132,8 @@ impl From<Kademlia> for (KademliaApi, KademliaApiInlet) {
 
 #[derive(Clone)]
 pub struct KademliaApi {
-    outlet: Outlet<Command>,
+    // NOTE: marked `pub` to be available in benchmarks
+    pub outlet: Outlet<Command>,
 }
 
 impl KademliaApi {

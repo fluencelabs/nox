@@ -24,3 +24,6 @@ pub use api::{KademliaApi, KademliaApiInlet};
 pub use behaviour::Kademlia;
 pub use behaviour::KademliaConfig;
 pub use error::KademliaError;
+
+// to be available in benchmarks
+pub use api::Command;

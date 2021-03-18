@@ -33,7 +33,8 @@ use futures::{
 use libp2p::{core::Multiaddr, swarm::NetworkBehaviourEventProcess, PeerId};
 use std::{convert::identity, time::Duration};
 
-enum Command {
+// marked `pub` to be available in benchmarks
+pub enum Command {
     Connect {
         contact: Contact,
         out: OneshotOutlet<bool>,
@@ -128,8 +129,9 @@ impl NetworkBehaviourEventProcess<()> for ConnectionPoolInlet {
 
 #[derive(Clone)]
 pub struct ConnectionPoolApi {
-    outlet: Outlet<Command>,
-    send_timeout: Duration,
+    // TODO: marked as `pub` to be available in benchmarks
+    pub outlet: Outlet<Command>,
+    pub send_timeout: Duration,
 }
 
 impl ConnectionPoolApi {

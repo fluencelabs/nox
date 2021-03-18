@@ -39,3 +39,6 @@ pub use crate::connection_pool::ConnectionPoolT;
 pub use crate::connection_pool::LifecycleEvent;
 pub use api::{ConnectionPoolApi, ConnectionPoolInlet};
 pub use behaviour::ConnectionPoolBehaviour;
+
+// to be available in benchmarks
+pub use api::Command;
