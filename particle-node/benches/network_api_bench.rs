@@ -177,7 +177,7 @@ fn connectivity() -> (Connectivity, JoinHandle<()>) {
 }
 
 fn thousand_particles(c: &mut Criterion) {
-    c.bench_function("thousand", move |b| {
+    c.bench_function("thousand_particles", move |b| {
         use criterion::async_executor::AsyncStdExecutor;
 
         let aquamarine = aquamarine_api();
