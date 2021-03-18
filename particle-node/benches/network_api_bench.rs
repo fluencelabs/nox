@@ -239,7 +239,7 @@ fn thousand_particles(c: &mut Criterion) {
     });
 }
 
-fn range_particles(c: &mut Criterion) {
+fn particle_throughput(c: &mut Criterion) {
     let mut group = c.benchmark_group("particle_throughput");
     for size in [1000, 2 * 1000, 4 * 1000, 8 * 1000, 16 * 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
