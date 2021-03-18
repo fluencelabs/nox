@@ -17,8 +17,9 @@
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use async_std::task::{spawn, JoinHandle};
 use connection_pool::ConnectionPoolApi;
-use criterion::Criterion;
+use criterion::async_executor::AsyncStdExecutor;
 use criterion::{criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput};
 use fluence_libp2p::types::BackPressuredInlet;
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
@@ -189,8 +190,6 @@ fn connectivity(num_particles: usize) -> (Connectivity, JoinHandle<()>) {
 
 fn setup(c: &mut Criterion) {
     c.bench_function("setup", move |b| {
-        use criterion::async_executor::AsyncStdExecutor;
-
         let n = 1000;
 
         let aquamarine = aquamarine_api();
@@ -216,8 +215,6 @@ fn setup(c: &mut Criterion) {
 
 fn thousand_particles(c: &mut Criterion) {
     c.bench_function("thousand_particles", move |b| {
-        use criterion::async_executor::AsyncStdExecutor;
-
         let n = 1000;
 
         let aquamarine = aquamarine_api();
@@ -242,5 +239,28 @@ fn thousand_particles(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, setup, thousand_particles);
+fn range_particles(c: &mut Criterion) {
+    let mut group = c.benchmark_group("particle_throughput");
+    for size in [1000, 2 * 1000, 4 * 1000, 8 * 1000, 16 * 1000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &n| {
+            let aquamarine = aquamarine_api();
+            let (sink, _) = mpsc::unbounded();
+            let particle_timeout = Duration::from_secs(1);
+            b.to_async(AsyncStdExecutor).iter(|| async {
+                let (con, future) = connectivity(n);
+                let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
+                spawn(con.clone().process_particles(
+                    particle_stream,
+                    aquamarine.clone(),
+                    sink.clone(),
+                    particle_timeout,
+                ));
+                future.await;
+            })
+        });
+    }
+}
+
+criterion_group!(benches, setup, thousand_particles, range_particles);
 criterion_main!(benches);
