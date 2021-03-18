@@ -24,20 +24,28 @@ use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use kademlia::KademliaApi;
 use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
-use particle_protocol::Particle;
+use particle_protocol::{Contact, Particle};
 use std::mem;
 use std::time::Duration;
+use test_utils::now_ms;
 
 async fn particles(n: usize) -> BackPressuredInlet<Particle> {
-    let (mut outlet, inlet) = mpsc::channel(n);
+    let (mut outlet, inlet) = mpsc::channel(n * 2);
 
     let last_particle = std::iter::once({
         let mut p = Particle::default();
         p.id = String::from("last");
         Ok(p)
     });
-    let mut particles =
-        futures::stream::iter((0..n).map(|_| Ok(Particle::default())).chain(last_particle));
+    fn particle(n: usize) -> Particle {
+        Particle {
+            timestamp: now_ms() as u64,
+            ttl: 10000,
+            id: n.to_string(),
+            ..<_>::default()
+        }
+    }
+    let mut particles = futures::stream::iter((0..n).map(|i| Ok(particle(i))).chain(last_particle));
     outlet.send_all(&mut particles).await.unwrap();
     mem::forget(outlet);
 
@@ -73,7 +81,8 @@ fn kademlia_api() -> KademliaApi {
     api
 }
 
-fn connection_pool_api() -> (ConnectionPoolApi, JoinHandle<()>) {
+fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<()>) {
+    let num_particles = (num_particles - 1).to_string();
     let (outlet, mut inlet) = mpsc::unbounded();
     let api = ConnectionPoolApi {
         outlet,
@@ -91,14 +100,16 @@ fn connection_pool_api() -> (ConnectionPoolApi, JoinHandle<()>) {
                 ConnectionPoolCommand::Connect { out, .. } => out.send(true).unwrap(),
                 ConnectionPoolCommand::Send { out, particle, .. } => {
                     out.send(true).unwrap();
-                    if particle.id.as_str() == "last" {
+                    if particle.id == num_particles {
                         return Poll::Ready(());
                     }
                 } // TODO: mark success
                 ConnectionPoolCommand::Dial { out, .. } => out.send(None).unwrap(),
                 ConnectionPoolCommand::Disconnect { out, .. } => out.send(true).unwrap(),
                 ConnectionPoolCommand::IsConnected { out, .. } => out.send(true).unwrap(),
-                ConnectionPoolCommand::GetContact { out, .. } => out.send(None).unwrap(), // TODO: return contact
+                ConnectionPoolCommand::GetContact { peer_id, out } => {
+                    out.send(Some(Contact::new(peer_id, vec![]))).unwrap()
+                } // TODO: return contact
                 ConnectionPoolCommand::CountConnections { out, .. } => out.send(0).unwrap(),
                 ConnectionPoolCommand::LifecycleEvents { .. } => {}
             }
@@ -150,7 +161,7 @@ async fn network_api(particles_num: usize) -> (NetworkApi, JoinHandle<()>) {
     let particle_stream: BackPressuredInlet<Particle> = particles(particles_num).await;
     let particle_parallelism: usize = 1;
     let kademlia: KademliaApi = kademlia_api();
-    let (connection_pool, future) = connection_pool_api();
+    let (connection_pool, future) = connection_pool_api(1000);
     let bootstrap_frequency: usize = 1000;
     let particle_timeout: Duration = Duration::from_secs(5);
 
@@ -165,9 +176,9 @@ async fn network_api(particles_num: usize) -> (NetworkApi, JoinHandle<()>) {
     (api, future)
 }
 
-fn connectivity() -> (Connectivity, JoinHandle<()>) {
+fn connectivity(num_particles: usize) -> (Connectivity, JoinHandle<()>) {
     let kademlia: KademliaApi = kademlia_api();
-    let (connection_pool, future) = connection_pool_api();
+    let (connection_pool, future) = connection_pool_api(num_particles);
     let connectivity = Connectivity {
         kademlia,
         connection_pool,
@@ -176,20 +187,49 @@ fn connectivity() -> (Connectivity, JoinHandle<()>) {
     (connectivity, future)
 }
 
-fn thousand_particles(c: &mut Criterion) {
-    c.bench_function("thousand_particles", move |b| {
+fn setup(c: &mut Criterion) {
+    c.bench_function("setup", move |b| {
         use criterion::async_executor::AsyncStdExecutor;
+
+        let n = 1000;
 
         let aquamarine = aquamarine_api();
         let (sink, _) = mpsc::unbounded();
         let particle_timeout = Duration::from_secs(1);
 
         b.to_async(AsyncStdExecutor).iter(move || {
-            let (con, future) = connectivity();
+            let (con, _) = connectivity(n);
             let aquamarine = aquamarine.clone();
             let sink = sink.clone();
             async move {
-                let particle_stream: BackPressuredInlet<Particle> = particles(1000).await;
+                let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
+                spawn(con.clone().process_particles(
+                    particle_stream,
+                    aquamarine.clone(),
+                    sink.clone(),
+                    particle_timeout,
+                ));
+            }
+        })
+    });
+}
+
+fn thousand_particles(c: &mut Criterion) {
+    c.bench_function("thousand_particles", move |b| {
+        use criterion::async_executor::AsyncStdExecutor;
+
+        let n = 1000;
+
+        let aquamarine = aquamarine_api();
+        let (sink, _) = mpsc::unbounded();
+        let particle_timeout = Duration::from_secs(1);
+
+        b.to_async(AsyncStdExecutor).iter(move || {
+            let (con, future) = connectivity(n);
+            let aquamarine = aquamarine.clone();
+            let sink = sink.clone();
+            async move {
+                let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
                 spawn(con.clone().process_particles(
                     particle_stream,
                     aquamarine.clone(),
@@ -202,5 +242,5 @@ fn thousand_particles(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, thousand_particles);
+criterion_group!(benches, setup, thousand_particles);
 criterion_main!(benches);

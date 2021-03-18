@@ -34,6 +34,7 @@ use libp2p::{core::Multiaddr, swarm::NetworkBehaviourEventProcess, PeerId};
 use std::{convert::identity, time::Duration};
 
 // marked `pub` to be available in benchmarks
+#[derive(Debug)]
 pub enum Command {
     Connect {
         contact: Contact,
