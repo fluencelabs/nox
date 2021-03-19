@@ -22,6 +22,7 @@ use crate::invoke::{parse_outcome, ExecutionError};
 use crate::{SendParticle, StepperEffects};
 use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
+use libp2p::PeerId;
 use log::LevelFilter;
 use particle_protocol::Particle;
 use std::{error::Error, task::Waker};
@@ -35,6 +36,7 @@ pub trait AquaRuntime: Sized + Send + 'static {
         waker: Waker,
     ) -> BoxFuture<'static, Result<Self, Self::Error>>;
 
+    // TODO: move into_effects inside call
     fn into_effects(
         outcome: Result<InterpreterOutcome, Self::Error>,
         p: Particle,
@@ -42,10 +44,11 @@ pub trait AquaRuntime: Sized + Send + 'static {
 
     fn call(
         &mut self,
-        init_user_id: impl Into<String>,
-        aqua: impl Into<String>,
-        data: impl Into<Vec<u8>>,
-        particle_id: impl Into<String>,
+        init_user_id: PeerId,
+        aqua: String,
+        data: Vec<u8>,
+        particle_id: String,
+        // TODO: return StepperEffects
     ) -> Result<InterpreterOutcome, Self::Error>;
 }
 
@@ -121,11 +124,11 @@ impl AquaRuntime for AquamarineVM {
     #[inline]
     fn call(
         &mut self,
-        init_user_id: impl Into<String>,
-        aqua: impl Into<String>,
-        data: impl Into<Vec<u8>>,
-        particle_id: impl Into<String>,
+        init_user_id: PeerId,
+        aqua: String,
+        data: Vec<u8>,
+        particle_id: String,
     ) -> Result<InterpreterOutcome, Self::Error> {
-        AquamarineVM::call(self, init_user_id, aqua, data, particle_id)
+        AquamarineVM::call(self, init_user_id.to_string(), aqua, data, particle_id)
     }
 }

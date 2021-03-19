@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
+use aquamarine::{
+    AquaRuntime, AquamarineApi, AquamarineBackend, InterpreterOutcome, SendParticle,
+    StepperEffects, VmPoolConfig,
+};
 use async_std::task::{spawn, JoinHandle};
 use connection_pool::ConnectionPoolApi;
 use criterion::async_executor::AsyncStdExecutor;
@@ -22,11 +25,15 @@ use criterion::{criterion_group, criterion_main};
 use criterion::{BenchmarkId, Criterion, Throughput};
 use fluence_libp2p::types::BackPressuredInlet;
 use futures::channel::mpsc;
-use futures::{SinkExt, StreamExt};
+use futures::future::BoxFuture;
+use futures::SinkExt;
 use kademlia::KademliaApi;
+use libp2p::PeerId;
 use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
 use particle_protocol::{Contact, Particle};
+use std::convert::Infallible;
 use std::mem;
+use std::task::Waker;
 use std::time::Duration;
 use test_utils::now_ms;
 
@@ -54,6 +61,8 @@ async fn particles(n: usize) -> BackPressuredInlet<Particle> {
 }
 
 fn kademlia_api() -> KademliaApi {
+    use futures::StreamExt;
+
     let (outlet, mut inlet) = mpsc::unbounded();
     let api = KademliaApi { outlet };
 
@@ -83,6 +92,8 @@ fn kademlia_api() -> KademliaApi {
 }
 
 fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<()>) {
+    use futures::StreamExt;
+
     let num_particles = (num_particles - 1).to_string();
     let (outlet, mut inlet) = mpsc::unbounded();
     let api = ConnectionPoolApi {
@@ -127,6 +138,8 @@ fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<(
 }
 
 fn aquamarine_api() -> AquamarineApi {
+    use futures::StreamExt;
+
     let (outlet, mut inlet) = mpsc::channel(100);
 
     let api = AquamarineApi::new(outlet, Duration::from_secs(1));
@@ -153,6 +166,54 @@ fn aquamarine_api() -> AquamarineApi {
 
         Poll::Pending
     }));
+
+    api
+}
+
+fn aquamarine_with_backend(pool_size: usize) -> AquamarineApi {
+    use futures::FutureExt;
+
+    struct EasyVM;
+
+    impl AquaRuntime for EasyVM {
+        type Config = ();
+        type Error = Infallible;
+
+        fn create_runtime(_: (), _: Waker) -> BoxFuture<'static, Result<Self, Self::Error>> {
+            futures::future::ok(EasyVM).boxed()
+        }
+
+        fn into_effects(_: Result<InterpreterOutcome, Self::Error>, p: Particle) -> StepperEffects {
+            StepperEffects {
+                particles: vec![SendParticle {
+                    target: p.init_peer_id,
+                    particle: p,
+                }],
+            }
+        }
+
+        fn call(
+            &mut self,
+            init_user_id: PeerId,
+            _: String,
+            data: Vec<u8>,
+            _: String,
+        ) -> Result<InterpreterOutcome, Self::Error> {
+            Ok(InterpreterOutcome {
+                ret_code: 0,
+                error_message: "".to_string(),
+                data: data.into(),
+                next_peer_pks: vec![init_user_id.to_string()],
+            })
+        }
+    }
+
+    let config = VmPoolConfig {
+        pool_size,
+        execution_timeout: Duration::from_secs(1),
+    };
+    let (backend, api): (AquamarineBackend<EasyVM>, _) = AquamarineBackend::new(config, ());
+    backend.start();
 
     api
 }
@@ -239,6 +300,33 @@ fn thousand_particles(c: &mut Criterion) {
     });
 }
 
+fn thousand_particles_with_aquamarine(c: &mut Criterion) {
+    c.bench_function("thousand_particles_with_aquamarine", move |b| {
+        let n = 1000;
+        let pool_size = 1;
+
+        let aquamarine = aquamarine_with_backend(pool_size);
+        let (sink, _) = mpsc::unbounded();
+        let particle_timeout = Duration::from_secs(1);
+
+        b.to_async(AsyncStdExecutor).iter(move || {
+            let (con, future) = connectivity(n);
+            let aquamarine = aquamarine.clone();
+            let sink = sink.clone();
+            async move {
+                let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
+                spawn(con.clone().process_particles(
+                    particle_stream,
+                    aquamarine.clone(),
+                    sink.clone(),
+                    particle_timeout,
+                ));
+                future.await
+            }
+        })
+    });
+}
+
 fn particle_throughput(c: &mut Criterion) {
     let mut group = c.benchmark_group("particle_throughput");
     for size in [1000, 2 * 1000, 4 * 1000, 8 * 1000, 16 * 1000].iter() {
@@ -262,5 +350,11 @@ fn particle_throughput(c: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, setup, thousand_particles, particle_throughput);
+criterion_group!(
+    benches,
+    setup,
+    thousand_particles,
+    particle_throughput,
+    thousand_particles_with_aquamarine
+);
 criterion_main!(benches);

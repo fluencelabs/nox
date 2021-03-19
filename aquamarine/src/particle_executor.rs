@@ -50,8 +50,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
 
             let (p, out) = p.into();
 
-            let init_peer_id = p.init_peer_id.to_string();
-            let result = self.call(init_peer_id, &p.script, p.data.clone(), &p.id);
+            let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), p.id.clone());
             if let Err(err) = &result {
                 log::warn!("Error executing particle {:#?}: {}", p, err)
             } else {
