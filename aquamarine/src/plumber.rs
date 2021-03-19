@@ -30,6 +30,7 @@ use std::{
 use real_time::now_ms;
 
 use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
+use aquamarine_vm::AquamarineVM;
 use futures::task::Waker;
 /// For tests, mocked time is used
 #[cfg(test)]
@@ -38,13 +39,13 @@ use mock_time::now_ms;
 pub struct Plumber {
     events: VecDeque<AwaitedEffects>,
     actors: HashMap<String, Actor>,
-    vm_pool: VmPool,
+    vm_pool: VmPool<AquamarineVM>,
     waker: Option<Waker>,
 }
 
 impl Plumber {
     pub fn new(config: VmPoolConfig, host_closure: ClosureDescriptor) -> Self {
-        let vm_pool = VmPool::new(config, host_closure);
+        let vm_pool = VmPool::new(config.pool_size, (config.vm_config, host_closure));
         Self {
             vm_pool,
             events: <_>::default(),

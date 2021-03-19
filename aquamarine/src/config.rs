@@ -21,6 +21,15 @@ use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct VmPoolConfig {
+    /// Number of VMs to create
+    pub pool_size: usize,
+    /// Timeout of a particle execution
+    pub execution_timeout: Duration,
+    pub vm_config: VmConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct VmConfig {
     pub current_peer_id: PeerId,
     /// Working dir for steppers
     pub workdir: PathBuf,
@@ -30,10 +39,6 @@ pub struct VmPoolConfig {
     pub services_dir: PathBuf,
     /// Dir for stepper to persist particle data to merge it
     pub particles_dir: PathBuf,
-    /// Number of VMs to create
-    pub pool_size: usize,
-    /// Timeout of a particle execution
-    pub execution_timeout: Duration,
 }
 
 impl VmPoolConfig {
@@ -47,13 +52,15 @@ impl VmPoolConfig {
         let base_dir = to_abs_path(base_dir);
 
         let this = Self {
-            current_peer_id,
-            workdir: config_utils::workdir(&base_dir),
-            services_dir: config_utils::services_dir(&base_dir),
-            particles_dir: config_utils::particles_dir(&base_dir),
-            air_interpreter,
             pool_size,
             execution_timeout,
+            vm_config: VmConfig {
+                current_peer_id,
+                workdir: config_utils::workdir(&base_dir),
+                services_dir: config_utils::services_dir(&base_dir),
+                particles_dir: config_utils::particles_dir(&base_dir),
+                air_interpreter,
+            },
         };
 
         this.create_dirs()?;
@@ -62,6 +69,6 @@ impl VmPoolConfig {
     }
 
     pub fn create_dirs(&self) -> Result<(), std::io::Error> {
-        create_dirs(&[&self.workdir, &self.services_dir])
+        create_dirs(&[&self.vm_config.workdir, &self.vm_config.services_dir])
     }
 }

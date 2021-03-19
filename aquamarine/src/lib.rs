@@ -27,6 +27,7 @@
 )]
 
 mod actor;
+mod aqua_runtime;
 mod aquamarine;
 mod awaited_particle;
 mod config;

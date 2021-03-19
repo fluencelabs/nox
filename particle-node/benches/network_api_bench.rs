@@ -262,5 +262,5 @@ fn particle_throughput(c: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, setup, thousand_particles, range_particles);
+criterion_group!(benches, setup, thousand_particles, particle_throughput);
 criterion_main!(benches);
