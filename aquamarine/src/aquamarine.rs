@@ -15,12 +15,13 @@
  */
 use crate::awaited_particle::EffectsChannel;
 use crate::error::AquamarineApiError;
-use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
+use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmConfig, VmPoolConfig};
 
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
 use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
+use aquamarine_vm::AquamarineVM;
 use async_std::{task, task::JoinHandle};
 use futures::{
     channel::{mpsc, oneshot},
@@ -34,14 +35,18 @@ use std::time::Duration;
 
 pub struct AquamarineBackend {
     inlet: BackPressuredInlet<(Particle, EffectsChannel)>,
-    plumber: Plumber,
+    plumber: Plumber<AquamarineVM>,
 }
 
 impl AquamarineBackend {
-    pub fn new(config: VmPoolConfig, host_closures: ClosureDescriptor) -> (Self, AquamarineApi) {
+    pub fn new(
+        config: VmPoolConfig,
+        vm_config: VmConfig,
+        host_closures: ClosureDescriptor,
+    ) -> (Self, AquamarineApi) {
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
-        let plumber = Plumber::new(config, host_closures);
+        let plumber = Plumber::new(config, (vm_config, host_closures));
         let this = Self { inlet, plumber };
 
         (this, sender)

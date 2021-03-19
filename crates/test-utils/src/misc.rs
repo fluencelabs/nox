@@ -23,7 +23,7 @@ use fluence_libp2p::{build_memory_transport, build_transport};
 use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
 use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
-use aquamarine::VmPoolConfig;
+use aquamarine::{VmConfig, VmPoolConfig};
 use async_std::task;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use eyre::WrapErr;
@@ -295,14 +295,9 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
     // execution timeout
     let execution_timeout = Duration::from_secs(5);
     let pool_size = pool_size.unwrap_or(1);
-    let pool_config = VmPoolConfig::new(
-        peer_id,
-        stepper_base_dir,
-        air_interpreter,
-        pool_size,
-        execution_timeout,
-    )
-    .expect("create vm pool config");
+    let vm_config =
+        VmConfig::new(peer_id, stepper_base_dir, air_interpreter).expect("create vm config");
+    let pool_config = VmPoolConfig::new(pool_size, execution_timeout);
 
     let services_config = ServicesConfig::new(peer_id, tmp.join("services"), <_>::default(), m_id)
         .expect("create services config");
@@ -341,6 +336,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
         transport,
         services_config,
         pool_config,
+        vm_config,
         network_config,
         vec![listen_on.clone()],
         None,

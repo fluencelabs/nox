@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
+use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::AwaitedParticle;
-use crate::invoke::{parse_outcome, ExecutionError};
-use crate::{AwaitedEffects, SendParticle, StepperEffects};
-use aquamarine_vm::{AquamarineVM, AquamarineVMError, InterpreterOutcome};
-use particle_protocol::Particle;
+use crate::AwaitedEffects;
 
 use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
-use log::LevelFilter;
 use std::{task::Waker, time::Instant};
 
-pub(super) type Fut = BoxFuture<'static, FutResult>;
+pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT>>;
 
 pub trait ParticleExecutor {
     type Future;
@@ -35,18 +32,18 @@ pub trait ParticleExecutor {
 }
 
 /// Result of a particle execution along a VM that has just executed the particle
-pub struct FutResult {
+pub struct FutResult<RT> {
     /// AquamarineVM that just executed a particle
-    pub vm: AquamarineVM,
+    pub vm: RT,
     /// Effects produced by particle execution
     pub effects: AwaitedEffects,
 }
 
-impl ParticleExecutor for AquamarineVM {
-    type Future = Fut;
+impl<RT: AquaRuntime> ParticleExecutor for RT {
+    type Future = Fut<Self>;
     type Particle = AwaitedParticle;
 
-    fn execute(mut self, p: AwaitedParticle, waker: Waker) -> Fut {
+    fn execute(mut self, p: AwaitedParticle, waker: Waker) -> Self::Future {
         task::spawn_blocking(move || {
             let now = Instant::now();
             log::info!("Executing particle {}", p.id);
@@ -60,7 +57,7 @@ impl ParticleExecutor for AquamarineVM {
             } else {
                 log::trace!(target: "network", "Particle {} executed in {}", p.id, pretty(now.elapsed()));
             }
-            let effects = Ok(into_effects(result, p));
+            let effects = Ok(Self::into_effects(result, p));
 
             waker.wake();
 
@@ -71,49 +68,4 @@ impl ParticleExecutor for AquamarineVM {
         })
         .boxed()
     }
-}
-
-fn into_effects(
-    outcome: Result<InterpreterOutcome, AquamarineVMError>,
-    p: Particle,
-) -> StepperEffects {
-    let particles = match parse_outcome(outcome) {
-        Ok((data, targets)) if !targets.is_empty() => {
-            #[rustfmt::skip]
-            log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
-            let particle = Particle { data, ..p };
-            targets
-                .into_iter()
-                .map(|target| SendParticle {
-                    particle: particle.clone(),
-                    target,
-                })
-                .collect::<Vec<_>>()
-        }
-        Ok((data, _)) => {
-            log::warn!(
-                "Executed particle {}, next_peer_pks is empty. Won't send anywhere",
-                p.id
-            );
-            if log::max_level() >= LevelFilter::Debug {
-                let data = String::from_utf8_lossy(data.as_slice());
-                log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
-            }
-            vec![]
-        }
-        Err(ExecutionError::AquamarineError(err)) => {
-            log::warn!("Error executing particle {:#?}: {}", p, err);
-            vec![]
-        }
-        Err(err @ ExecutionError::InterpreterOutcome { .. }) => {
-            log::warn!("Error executing script: {}", err);
-            vec![]
-        }
-        Err(err @ ExecutionError::InvalidResultField { .. }) => {
-            log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
-            vec![]
-        }
-    };
-
-    StepperEffects { particles }
 }

@@ -17,7 +17,6 @@
 use crate::awaited_particle::AwaitedParticle;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
 
-use aquamarine_vm::AquamarineVM;
 use particle_protocol::Particle;
 
 use crate::error::AquamarineApiError;
@@ -59,15 +58,18 @@ impl Deadline {
     }
 }
 
-pub struct Actor {
+pub struct Actor<RT> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
-    future: Option<Fut>,
+    future: Option<Fut<RT>>,
     mailbox: VecDeque<AwaitedParticle>,
     waker: Option<Waker>,
 }
 
-impl Actor {
+impl<RT> Actor<RT>
+where
+    RT: ParticleExecutor<Particle = AwaitedParticle, Future = Fut<RT>>,
+{
     pub fn new(deadline: Deadline) -> Self {
         Self {
             deadline,
@@ -87,7 +89,7 @@ impl Actor {
     }
 
     /// Polls actor for result on previously ingested particle
-    pub fn poll_completed(&mut self, cx: &mut Context<'_>) -> Poll<FutResult> {
+    pub fn poll_completed(&mut self, cx: &mut Context<'_>) -> Poll<FutResult<RT>> {
         self.waker = Some(cx.waker().clone());
 
         // Poll self.future
@@ -108,7 +110,7 @@ impl Actor {
     ///
     /// If actor is in the middle of executing previous particle, vm is returned
     /// If actor's mailbox is empty, vm is returned
-    pub fn poll_next(&mut self, vm: AquamarineVM, cx: &mut Context<'_>) -> ActorPoll {
+    pub fn poll_next(&mut self, vm: RT, cx: &mut Context<'_>) -> ActorPoll<RT> {
         self.waker = Some(cx.waker().clone());
 
         // Return vm if previous particle is still executing
@@ -142,8 +144,8 @@ impl Actor {
     }
 }
 
-pub enum ActorPoll {
+pub enum ActorPoll<RT> {
     Executing,
-    Vm(AquamarineVM),
-    Expired(AwaitedEffects, AquamarineVM),
+    Vm(RT),
+    Expired(AwaitedEffects, RT),
 }

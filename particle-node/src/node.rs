@@ -19,7 +19,7 @@ use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
 use crate::network_tasks::NetworkTasks;
 
-use aquamarine::{AquamarineApi, AquamarineBackend, StepperEffects, VmPoolConfig};
+use aquamarine::{AquamarineApi, AquamarineBackend, StepperEffects, VmConfig, VmPoolConfig};
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::{
@@ -81,14 +81,15 @@ impl Node {
 
         let local_peer_id = to_peer_id(&key_pair);
 
-        let pool_config = VmPoolConfig::new(
+        let vm_config = VmConfig::new(
             local_peer_id,
             config.stepper_base_dir.clone(),
             config.air_interpreter_path.clone(),
-            config.stepper_pool_size,
-            config.particle_execution_timeout,
         )
-        .expect("create vm pool config");
+        .expect("create vm config");
+
+        let pool_config =
+            VmPoolConfig::new(config.stepper_pool_size, config.particle_execution_timeout);
 
         let services_config = ServicesConfig::new(
             local_peer_id,
@@ -114,6 +115,7 @@ impl Node {
             transport,
             services_config,
             pool_config,
+            vm_config,
             network_config,
             config.external_addresses(),
             registry.into(),
@@ -128,6 +130,7 @@ impl Node {
         transport: Boxed<(PeerId, StreamMuxerBox)>,
         services_config: ServicesConfig,
         pool_config: VmPoolConfig,
+        vm_config: VmConfig,
         network_config: NetworkConfig,
         external_addresses: Vec<Multiaddr>,
         registry: Option<Registry>,
@@ -163,7 +166,7 @@ impl Node {
             HostClosures::new(connectivity, script_storage_api, node_info, services_config);
 
         let (stepper_pool, stepper_pool_api) =
-            AquamarineBackend::new(pool_config, host_closures.descriptor());
+            AquamarineBackend::new(pool_config, vm_config, host_closures.descriptor());
 
         let node_service = Self {
             network_api,

@@ -40,6 +40,6 @@ mod vm_pool;
 
 pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
 pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
-pub use config::VmPoolConfig;
+pub use config::{VmConfig, VmPoolConfig};
 pub use outcome::{SendParticle, StepperEffects};
 pub use plumber::Plumber;
