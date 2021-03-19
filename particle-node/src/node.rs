@@ -19,13 +19,14 @@ use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
 use crate::network_tasks::NetworkTasks;
 
-use aquamarine::{AquamarineApi, AquamarineBackend, StepperEffects, VmConfig, VmPoolConfig};
+use aquamarine::{
+    AquamarineApi, AquamarineBackend, AquamarineVM, StepperEffects, VmConfig, VmPoolConfig,
+};
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::{
     build_transport,
-    types::OneshotOutlet,
-    types::{BackPressuredInlet, BackPressuredOutlet, Outlet},
+    types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet},
 };
 use particle_closures::{HostClosures, NodeInfo};
 use particle_protocol::Particle;
@@ -57,7 +58,7 @@ use std::{io, iter::once, net::SocketAddr, sync::Arc, task::Poll, time::Duration
 pub struct Node {
     pub network_api: NetworkApi,
     pub swarm: Swarm<NetworkBehaviour>,
-    stepper_pool: AquamarineBackend,
+    stepper_pool: AquamarineBackend<AquamarineVM>,
     stepper_pool_api: AquamarineApi,
     local_peer_id: PeerId,
     registry: Option<Registry>,
@@ -166,7 +167,7 @@ impl Node {
             HostClosures::new(connectivity, script_storage_api, node_info, services_config);
 
         let (stepper_pool, stepper_pool_api) =
-            AquamarineBackend::new(pool_config, vm_config, host_closures.descriptor());
+            AquamarineBackend::new(pool_config, (vm_config, host_closures.descriptor()));
 
         let node_service = Self {
             network_api,

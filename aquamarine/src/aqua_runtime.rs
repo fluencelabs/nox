@@ -27,7 +27,7 @@ use particle_protocol::Particle;
 use std::{error::Error, task::Waker};
 
 pub trait AquaRuntime: Sized + Send + 'static {
-    type Config: Clone;
+    type Config: Clone + Send + 'static;
     type Error: Error;
 
     fn create_runtime(

@@ -43,3 +43,6 @@ pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
 pub use config::{VmConfig, VmPoolConfig};
 pub use outcome::{SendParticle, StepperEffects};
 pub use plumber::Plumber;
+
+// reexport
+pub use aquamarine_vm::AquamarineVM;
