@@ -27,6 +27,7 @@ use fluence_libp2p::types::BackPressuredInlet;
 use futures::channel::mpsc;
 use futures::future::BoxFuture;
 use futures::SinkExt;
+use humantime_serde::re::humantime::format_duration as pretty;
 use kademlia::KademliaApi;
 use libp2p::PeerId;
 use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
@@ -299,7 +300,7 @@ fn thousand_particles_bench(c: &mut Criterion) {
 fn particle_throughput_bench(c: &mut Criterion) {
     let parallelism = PARALLELISM;
     let mut group = c.benchmark_group("particle_throughput");
-    for size in [0, 1000, 2 * 1000, 4 * 1000, 8 * 1000, 16 * 1000].iter() {
+    for size in [1, 1000, 2 * 1000, 4 * 1000, 8 * 1000, 16 * 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &n| {
             b.to_async(AsyncStdExecutor)
@@ -333,7 +334,7 @@ fn thousand_particles_with_aquamarine_bench(c: &mut Criterion) {
     c.bench_function("thousand_particles_with_aquamarine", move |b| {
         let n = 1000;
         let pool_size = 1;
-        let call_time = Some(Duration::from_millis(1));
+        let call_time = Some(Duration::from_nanos(1));
         let particle_parallelism = PARALLELISM;
         let particle_timeout = TIMEOUT;
 
@@ -350,25 +351,31 @@ fn thousand_particles_with_aquamarine_bench(c: &mut Criterion) {
 }
 
 fn particle_throughput_with_delay_bench(c: &mut Criterion) {
-    let pool_size = 1;
-    let call_time = Some(Duration::from_millis(1));
     let particle_parallelism = PARALLELISM;
     let particle_timeout = TIMEOUT;
 
     let mut group = c.benchmark_group("particle_throughput_with_delay");
-    for size in [0usize, 1000, 2 * 1000, 4 * 1000, 8 * 1000, 16 * 1000].iter() {
-        group.throughput(Throughput::Elements(*size as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &n| {
-            b.to_async(AsyncStdExecutor).iter(move || {
-                process_particles_with_delay(
-                    n,
-                    pool_size,
-                    call_time,
-                    particle_parallelism,
-                    particle_timeout,
-                )
-            })
-        });
+    for &num in [1, 1000, 2 * 1000, 4 * 1000].iter() {
+        for &pool_size in [1, 2, 4, 8, 16].iter() {
+            for delay in [None, Some(Duration::from_nanos(1))].iter() {
+                group.throughput(Throughput::Elements(num as u64));
+                let bid = {
+                    let delay = delay.unwrap_or(Duration::from_nanos(0));
+                    BenchmarkId::from_parameter(format!("{}:{}@{}", num, pretty(delay), pool_size))
+                };
+                group.bench_with_input(bid, &(delay, num), |b, (&delay, n)| {
+                    b.to_async(AsyncStdExecutor).iter(move || {
+                        process_particles_with_delay(
+                            *n,
+                            pool_size,
+                            delay,
+                            particle_parallelism,
+                            particle_timeout,
+                        )
+                    })
+                });
+            }
+        }
     }
 }
 
