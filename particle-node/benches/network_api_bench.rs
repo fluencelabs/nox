@@ -38,6 +38,8 @@ use std::task::Waker;
 use std::time::{Duration, Instant};
 use test_utils::now_ms;
 
+const TIMEOUT: Duration = Duration::from_secs(10);
+
 async fn particles(n: usize) -> BackPressuredInlet<Particle> {
     let (mut outlet, inlet) = mpsc::channel(n * 2);
 
@@ -99,7 +101,7 @@ fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<(
     let (outlet, mut inlet) = mpsc::unbounded();
     let api = ConnectionPoolApi {
         outlet,
-        send_timeout: Duration::from_secs(1),
+        send_timeout: TIMEOUT,
     };
 
     let counter = AtomicUsize::new(0);
@@ -116,6 +118,7 @@ fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<(
                 ConnectionPoolCommand::Send { out, particle, .. } => {
                     let num = counter.fetch_add(1, Ordering::Relaxed);
                     out.send(true).unwrap();
+                    // println!("particle {} num {}", particle.id, num);
                     if num == num_particles - 1 {
                         return Poll::Ready(());
                     }
@@ -146,7 +149,7 @@ fn aquamarine_api() -> AquamarineApi {
 
     let (outlet, mut inlet) = mpsc::channel(100);
 
-    let api = AquamarineApi::new(outlet, Duration::from_secs(1));
+    let api = AquamarineApi::new(outlet, TIMEOUT);
 
     spawn(futures::future::poll_fn::<(), _>(move |cx| {
         use std::task::Poll;
@@ -209,10 +212,10 @@ fn aquamarine_with_backend(pool_size: usize, delay: Option<Duration>) -> Aquamar
             _particle_id: String,
         ) -> Result<InterpreterOutcome, Self::Error> {
             if _particle_id.ends_with("99") {
-                println!("particle_id: {}", _particle_id);
+                // println!("particle_id: {}", _particle_id);
             }
             // if _particle_id.chars().rev().next().unwrap() == '0' {
-            //     println!("particle_id: {}", _particle_id);
+            // //     println!("particle_id: {}", _particle_id);
             // }
             if let Some(delay) = self.delay {
                 std::thread::sleep(delay);
@@ -229,7 +232,7 @@ fn aquamarine_with_backend(pool_size: usize, delay: Option<Duration>) -> Aquamar
 
     let config = VmPoolConfig {
         pool_size,
-        execution_timeout: Duration::from_secs(1),
+        execution_timeout: TIMEOUT,
     };
     let (backend, api): (AquamarineBackend<EasyVM>, _) = AquamarineBackend::new(config, delay);
     backend.start();
@@ -272,23 +275,22 @@ fn thousand_particles(c: &mut Criterion) {
     c.bench_function("thousand_particles", move |b| {
         let n = 1000;
 
-        let particle_timeout = Duration::from_secs(1);
+        let particle_timeout = TIMEOUT;
 
-        b.to_async(AsyncStdExecutor).iter(move || {
+        b.to_async(AsyncStdExecutor).iter(move || async move {
             let (con, future) = connectivity(n);
             let aquamarine = aquamarine_api();
             let (sink, _) = mpsc::unbounded();
-            async move {
-                let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
-                spawn(con.clone().process_particles(
-                    None,
-                    particle_stream,
-                    aquamarine.clone(),
-                    sink.clone(),
-                    particle_timeout,
-                ));
-                future.await
-            }
+
+            let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
+            spawn(con.clone().process_particles(
+                None,
+                particle_stream,
+                aquamarine,
+                sink,
+                particle_timeout,
+            ));
+            future.await
         })
     });
 }
@@ -297,32 +299,33 @@ fn thousand_particles_with_aquamarine(c: &mut Criterion) {
     let start = Instant::now();
 
     c.bench_function("thousand_particles_with_aquamarine", move |b| {
-        let n = 10;
+        let n = 1000;
         let pool_size = 1;
         let call_time = Some(Duration::from_millis(1));
         let particle_parallelism = None;
-        let particle_timeout = Duration::from_secs(1);
+        let particle_timeout = TIMEOUT;
 
-        println!("\n");
+        // println!("\n");
 
-        b.to_async(AsyncStdExecutor).iter(move || {
+        b.to_async(AsyncStdExecutor).iter(move || async move {
             let (con, future) = connectivity(n);
             let aquamarine = aquamarine_with_backend(pool_size, call_time);
             let (sink, _) = mpsc::unbounded();
-            async move {
-                let id = start.elapsed().as_millis();
-                println!("====> START bench ========{}", id);
-                let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
-                spawn(con.clone().process_particles(
-                    particle_parallelism,
-                    particle_stream,
-                    aquamarine.clone(),
-                    sink.clone(),
-                    particle_timeout,
-                ));
-                future.await;
-                println!("====< END bench   ========{}", id)
-            }
+
+            let id = start.elapsed().as_millis();
+            // println!("====> START bench ========{}", id);
+
+            let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
+            spawn(con.clone().process_particles(
+                particle_parallelism,
+                particle_stream,
+                aquamarine.clone(),
+                sink.clone(),
+                particle_timeout,
+            ));
+            future.await;
+
+            // println!("====< END bench   ========{}", id)
         })
     });
 }
@@ -334,7 +337,7 @@ fn particle_throughput(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &n| {
             let aquamarine = aquamarine_api();
             let (sink, _) = mpsc::unbounded();
-            let particle_timeout = Duration::from_secs(1);
+            let particle_timeout = TIMEOUT;
             b.to_async(AsyncStdExecutor).iter(|| async {
                 let (con, future) = connectivity(n);
                 let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
