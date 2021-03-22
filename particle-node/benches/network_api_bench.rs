@@ -35,10 +35,11 @@ use std::convert::Infallible;
 use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::Waker;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use test_utils::now_ms;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
+const PARALLELISM: Option<usize> = Some(16);
 
 async fn particles(n: usize) -> BackPressuredInlet<Particle> {
     let (mut outlet, inlet) = mpsc::channel(n * 2);
@@ -115,10 +116,9 @@ fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<(
 
             match cmd {
                 ConnectionPoolCommand::Connect { out, .. } => out.send(true).unwrap(),
-                ConnectionPoolCommand::Send { out, particle, .. } => {
+                ConnectionPoolCommand::Send { out, .. } => {
                     let num = counter.fetch_add(1, Ordering::Relaxed);
                     out.send(true).unwrap();
-                    // println!("particle {} num {}", particle.id, num);
                     if num == num_particles - 1 {
                         return Poll::Ready(());
                     }
@@ -128,7 +128,7 @@ fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<(
                 ConnectionPoolCommand::IsConnected { out, .. } => out.send(true).unwrap(),
                 ConnectionPoolCommand::GetContact { peer_id, out } => {
                     out.send(Some(Contact::new(peer_id, vec![]))).unwrap()
-                } // TODO: return contact
+                }
                 ConnectionPoolCommand::CountConnections { out, .. } => out.send(0).unwrap(),
                 ConnectionPoolCommand::LifecycleEvents { .. } => {}
             }
@@ -211,12 +211,6 @@ fn aquamarine_with_backend(pool_size: usize, delay: Option<Duration>) -> Aquamar
             data: Vec<u8>,
             _particle_id: String,
         ) -> Result<InterpreterOutcome, Self::Error> {
-            if _particle_id.ends_with("99") {
-                // println!("particle_id: {}", _particle_id);
-            }
-            // if _particle_id.chars().rev().next().unwrap() == '0' {
-            // //     println!("particle_id: {}", _particle_id);
-            // }
             if let Some(delay) = self.delay {
                 std::thread::sleep(delay);
             }
@@ -271,84 +265,108 @@ fn connectivity(num_particles: usize) -> (Connectivity, JoinHandle<()>) {
     (connectivity, future)
 }
 
-fn thousand_particles(c: &mut Criterion) {
+async fn process_particles(
+    num_particles: usize,
+    parallelism: Option<usize>,
+    particle_timeout: Duration,
+) {
+    let (con, future) = connectivity(num_particles);
+    let aquamarine = aquamarine_api();
+    let (sink, _) = mpsc::unbounded();
+
+    let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
+    spawn(con.clone().process_particles(
+        parallelism,
+        particle_stream,
+        aquamarine,
+        sink,
+        particle_timeout,
+    ));
+    future.await
+}
+
+fn thousand_particles_bench(c: &mut Criterion) {
     c.bench_function("thousand_particles", move |b| {
         let n = 1000;
-
         let particle_timeout = TIMEOUT;
+        let parallelism = PARALLELISM;
 
-        b.to_async(AsyncStdExecutor).iter(move || async move {
-            let (con, future) = connectivity(n);
-            let aquamarine = aquamarine_api();
-            let (sink, _) = mpsc::unbounded();
-
-            let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
-            spawn(con.clone().process_particles(
-                None,
-                particle_stream,
-                aquamarine,
-                sink,
-                particle_timeout,
-            ));
-            future.await
-        })
+        b.to_async(AsyncStdExecutor)
+            .iter(move || process_particles(n, parallelism, particle_timeout))
     });
 }
 
-fn thousand_particles_with_aquamarine(c: &mut Criterion) {
-    let start = Instant::now();
-
-    c.bench_function("thousand_particles_with_aquamarine", move |b| {
-        let n = 1000;
-        let pool_size = 1;
-        let call_time = Some(Duration::from_millis(1));
-        let particle_parallelism = None;
-        let particle_timeout = TIMEOUT;
-
-        // println!("\n");
-
-        b.to_async(AsyncStdExecutor).iter(move || async move {
-            let (con, future) = connectivity(n);
-            let aquamarine = aquamarine_with_backend(pool_size, call_time);
-            let (sink, _) = mpsc::unbounded();
-
-            let id = start.elapsed().as_millis();
-            // println!("====> START bench ========{}", id);
-
-            let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
-            spawn(con.clone().process_particles(
-                particle_parallelism,
-                particle_stream,
-                aquamarine.clone(),
-                sink.clone(),
-                particle_timeout,
-            ));
-            future.await;
-
-            // println!("====< END bench   ========{}", id)
-        })
-    });
-}
-
-fn particle_throughput(c: &mut Criterion) {
+fn particle_throughput_bench(c: &mut Criterion) {
+    let parallelism = PARALLELISM;
     let mut group = c.benchmark_group("particle_throughput");
     for size in [0, 1000, 2 * 1000, 4 * 1000, 8 * 1000, 16 * 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &n| {
-            let aquamarine = aquamarine_api();
-            let (sink, _) = mpsc::unbounded();
-            let particle_timeout = TIMEOUT;
-            b.to_async(AsyncStdExecutor).iter(|| async {
-                let (con, future) = connectivity(n);
-                let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
-                spawn(con.clone().process_particles(
-                    None,
-                    particle_stream,
-                    aquamarine.clone(),
-                    sink.clone(),
+            b.to_async(AsyncStdExecutor)
+                .iter(move || process_particles(n, parallelism, TIMEOUT))
+        });
+    }
+}
+
+async fn process_particles_with_delay(
+    num_particles: usize,
+    pool_size: usize,
+    call_delay: Option<Duration>,
+    particle_parallelism: Option<usize>,
+    particle_timeout: Duration,
+) {
+    let (con, future) = connectivity(num_particles);
+    let aquamarine = aquamarine_with_backend(pool_size, call_delay);
+    let (sink, _) = mpsc::unbounded();
+    let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
+    spawn(con.clone().process_particles(
+        particle_parallelism,
+        particle_stream,
+        aquamarine,
+        sink,
+        particle_timeout,
+    ));
+    future.await;
+}
+
+fn thousand_particles_with_aquamarine_bench(c: &mut Criterion) {
+    c.bench_function("thousand_particles_with_aquamarine", move |b| {
+        let n = 1000;
+        let pool_size = 1;
+        let call_time = Some(Duration::from_millis(1));
+        let particle_parallelism = PARALLELISM;
+        let particle_timeout = TIMEOUT;
+
+        b.to_async(AsyncStdExecutor).iter(move || {
+            process_particles_with_delay(
+                n,
+                pool_size,
+                call_time,
+                particle_parallelism,
+                particle_timeout,
+            )
+        })
+    });
+}
+
+fn particle_throughput_with_delay_bench(c: &mut Criterion) {
+    let pool_size = 1;
+    let call_time = Some(Duration::from_millis(1));
+    let particle_parallelism = PARALLELISM;
+    let particle_timeout = TIMEOUT;
+
+    let mut group = c.benchmark_group("particle_throughput_with_delay");
+    for size in [0usize, 1000, 2 * 1000, 4 * 1000, 8 * 1000, 16 * 1000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &n| {
+            b.to_async(AsyncStdExecutor).iter(move || {
+                process_particles_with_delay(
+                    n,
+                    pool_size,
+                    call_time,
+                    particle_parallelism,
                     particle_timeout,
-                ));
-                future.await;
+                )
             })
         });
     }
@@ -356,8 +374,9 @@ fn particle_throughput(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    thousand_particles,
-    particle_throughput,
-    thousand_particles_with_aquamarine
+    thousand_particles_bench,
+    particle_throughput_bench,
+    thousand_particles_with_aquamarine_bench,
+    particle_throughput_with_delay_bench
 );
 criterion_main!(benches);
