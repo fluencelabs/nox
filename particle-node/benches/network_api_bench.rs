@@ -33,6 +33,7 @@ use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, Networ
 use particle_protocol::{Contact, Particle};
 use std::convert::Infallible;
 use std::mem;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::Waker;
 use std::time::{Duration, Instant};
 use test_utils::now_ms;
@@ -95,12 +96,13 @@ fn kademlia_api() -> KademliaApi {
 fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<()>) {
     use futures::StreamExt;
 
-    let num_particles = (num_particles - 1).to_string();
     let (outlet, mut inlet) = mpsc::unbounded();
     let api = ConnectionPoolApi {
         outlet,
         send_timeout: Duration::from_secs(1),
     };
+
+    let counter = AtomicUsize::new(0);
 
     let future = spawn(futures::future::poll_fn(move |cx| {
         use std::task::Poll;
@@ -112,11 +114,12 @@ fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<(
             match cmd {
                 ConnectionPoolCommand::Connect { out, .. } => out.send(true).unwrap(),
                 ConnectionPoolCommand::Send { out, particle, .. } => {
+                    let num = counter.fetch_add(1, Ordering::Relaxed);
                     out.send(true).unwrap();
-                    if particle.id == num_particles {
+                    if num == num_particles - 1 {
                         return Poll::Ready(());
                     }
-                } // TODO: mark success
+                }
                 ConnectionPoolCommand::Dial { out, .. } => out.send(None).unwrap(),
                 ConnectionPoolCommand::Disconnect { out, .. } => out.send(true).unwrap(),
                 ConnectionPoolCommand::IsConnected { out, .. } => out.send(true).unwrap(),
@@ -294,7 +297,7 @@ fn thousand_particles_with_aquamarine(c: &mut Criterion) {
     let start = Instant::now();
 
     c.bench_function("thousand_particles_with_aquamarine", move |b| {
-        let n = 1000;
+        let n = 10;
         let pool_size = 1;
         let call_time = Some(Duration::from_millis(1));
         let particle_parallelism = None;
