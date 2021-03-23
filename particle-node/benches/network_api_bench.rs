@@ -15,29 +15,35 @@
  */
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineBackend, InterpreterOutcome, SendParticle,
-    StepperEffects, VmPoolConfig,
+    AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, InterpreterOutcome, SendParticle,
+    StepperEffects, VmConfig, VmPoolConfig,
 };
 use async_std::task::{spawn, JoinHandle};
 use connection_pool::ConnectionPoolApi;
 use criterion::async_executor::AsyncStdExecutor;
-use criterion::{criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BatchSize};
 use criterion::{BenchmarkId, Criterion, Throughput};
+use eyre::WrapErr;
 use fluence_libp2p::types::BackPressuredInlet;
+use fluence_libp2p::RandomPeerId;
 use futures::channel::mpsc;
 use futures::future::BoxFuture;
-use futures::SinkExt;
+use futures::{FutureExt, SinkExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use kademlia::KademliaApi;
 use libp2p::PeerId;
+use particle_closures::{HostClosures, NodeInfo};
 use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
 use particle_protocol::{Contact, Particle};
+use script_storage::ScriptStorageApi;
+use server_config::ServicesConfig;
 use std::convert::Infallible;
 use std::mem;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::Waker;
 use std::time::Duration;
-use test_utils::now_ms;
+use test_utils::{make_tmp_dir, now_ms, put_aquamarine};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 const PARALLELISM: Option<usize> = Some(16);
@@ -55,6 +61,7 @@ async fn particles(n: usize) -> BackPressuredInlet<Particle> {
             timestamp: now_ms() as u64,
             ttl: 10000,
             id: n.to_string(),
+            script: String::from(r#"(call %init_peer_id% ("op" "identity") ["hello"] result)"#),
             ..<_>::default()
         }
     }
@@ -235,6 +242,53 @@ fn aquamarine_with_backend(pool_size: usize, delay: Option<Duration>) -> Aquamar
     api
 }
 
+fn aquamarine_with_vm<C>(
+    pool_size: usize,
+    connectivity: C,
+    local_peer_id: PeerId,
+    interpreter: PathBuf,
+) -> AquamarineApi
+where
+    C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
+{
+    let tmp_dir = make_tmp_dir();
+
+    let node_info = NodeInfo {
+        external_addresses: vec![],
+    };
+    let script_storage_api = ScriptStorageApi {
+        outlet: mpsc::unbounded().0,
+    };
+    let services_config = ServicesConfig::new(
+        local_peer_id,
+        tmp_dir.join("services"),
+        <_>::default(),
+        RandomPeerId::random(),
+    )
+    .wrap_err("create service config")
+    .unwrap();
+    let host_closures =
+        HostClosures::new(connectivity, script_storage_api, node_info, services_config);
+
+    let pool_config = VmPoolConfig {
+        pool_size,
+        execution_timeout: TIMEOUT,
+    };
+    let vm_config = VmConfig {
+        current_peer_id: local_peer_id,
+        workdir: tmp_dir.join("workdir"),
+        air_interpreter: interpreter,
+        services_dir: tmp_dir.join("services_dir"),
+        particles_dir: tmp_dir.join("particles_dir"),
+    };
+    let (stepper_pool, stepper_pool_api): (AquamarineBackend<AquamarineVM>, _) =
+        AquamarineBackend::new(pool_config, (vm_config, host_closures.descriptor()));
+
+    stepper_pool.start();
+
+    stepper_pool_api
+}
+
 #[allow(dead_code)]
 async fn network_api(particles_num: usize) -> (NetworkApi, JoinHandle<()>) {
     let particle_stream: BackPressuredInlet<Particle> = particles(particles_num).await;
@@ -330,6 +384,29 @@ async fn process_particles_with_delay(
     future.await;
 }
 
+async fn process_particles_with_vm(
+    num_particles: usize,
+    pool_size: usize,
+    particle_parallelism: Option<usize>,
+    particle_timeout: Duration,
+    interpreter: PathBuf,
+) {
+    let peer_id = RandomPeerId::random();
+
+    let (con, future) = connectivity(num_particles);
+    let aquamarine = aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter);
+    let (sink, _) = mpsc::unbounded();
+    let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
+    spawn(con.clone().process_particles(
+        particle_parallelism,
+        particle_stream,
+        aquamarine,
+        sink,
+        particle_timeout,
+    ));
+    future.await;
+}
+
 fn thousand_particles_with_aquamarine_bench(c: &mut Criterion) {
     c.bench_function("thousand_particles_with_aquamarine", move |b| {
         let n = 1000;
@@ -355,7 +432,7 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
     let particle_timeout = TIMEOUT;
 
     let mut group = c.benchmark_group("particle_throughput_with_delay");
-    for &num in [1, 1000, 4 * 1000, 4 * 1000].iter() {
+    for &num in [1, 1000, 4 * 1000, 8 * 1000].iter() {
         for delay in [None, Some(Duration::from_millis(1))].iter() {
             for &pool_size in [1, 2, 4, 16].iter() {
                 group.throughput(Throughput::Elements(num as u64));
@@ -379,11 +456,63 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
     }
 }
 
+fn particle_throughput_with_vm_bench(c: &mut Criterion) {
+    let particle_parallelism = PARALLELISM;
+    let particle_timeout = TIMEOUT;
+
+    let tmp_dir = make_tmp_dir();
+    let interpreter = put_aquamarine(tmp_dir.join("modules"));
+
+    let mut group = c.benchmark_group("particle_throughput_with_vm");
+    for &num in [1, 1000, 4 * 1000, 8 * 1000].iter() {
+        for &pool_size in [1, 2, 4, 16].iter() {
+            group.throughput(Throughput::Elements(num as u64));
+            let bid = { BenchmarkId::from_parameter(format!("{}@{}", num, pool_size)) };
+            group.bench_with_input(bid, &num, |b, &n| {
+                let interpreter = interpreter.clone();
+                b.to_async(AsyncStdExecutor).iter_batched(
+                    || {
+                        let interpreter = interpreter.clone();
+                        async move {
+                            let peer_id = RandomPeerId::random();
+
+                            let (con, finish_fut) = connectivity(n);
+                            let aquamarine = aquamarine_with_vm(
+                                pool_size,
+                                con.clone(),
+                                peer_id,
+                                interpreter.clone(),
+                            );
+                            let (sink, _) = mpsc::unbounded();
+                            let particle_stream: BackPressuredInlet<Particle> = particles(n).await;
+                            let process_fut = con.clone().process_particles(
+                                particle_parallelism,
+                                particle_stream,
+                                aquamarine,
+                                sink,
+                                particle_timeout,
+                            );
+                            (process_fut.boxed(), finish_fut)
+                        }
+                    },
+                    move |init_fut| async move {
+                        let (process, finish) = init_fut.await;
+                        async_std::task::spawn(process);
+                        finish.await
+                    },
+                    BatchSize::SmallInput,
+                )
+            });
+        }
+    }
+}
+
 criterion_group!(
     benches,
     thousand_particles_bench,
     particle_throughput_bench,
     thousand_particles_with_aquamarine_bench,
-    particle_throughput_with_delay_bench
+    particle_throughput_with_delay_bench,
+    particle_throughput_with_vm_bench
 );
 criterion_main!(benches);
