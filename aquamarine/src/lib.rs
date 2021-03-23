@@ -47,4 +47,5 @@ pub use plumber::Plumber;
 
 // reexport
 pub use aquamarine_vm::AquamarineVM;
+pub use aquamarine_vm::AquamarineVMConfig;
 pub use aquamarine_vm::InterpreterOutcome;

@@ -357,7 +357,7 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("particle_throughput_with_delay");
     for &num in [1, 1000, 4 * 1000, 4 * 1000].iter() {
         for delay in [None, Some(Duration::from_millis(1))].iter() {
-            for &pool_size in [1, 2, 4, 16, 256].iter() {
+            for &pool_size in [1, 2, 4, 16].iter() {
                 group.throughput(Throughput::Elements(num as u64));
                 let bid = {
                     let delay = delay.unwrap_or(Duration::from_nanos(0));

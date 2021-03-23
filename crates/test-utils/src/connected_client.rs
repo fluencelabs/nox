@@ -113,7 +113,7 @@ impl ConnectedClient {
         let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
         let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
         let local_vm = make_vm(
-            &client.peer_id,
+            client.peer_id,
             make_call_service_closure(call_service_in.clone(), call_service_out.clone()),
         );
 

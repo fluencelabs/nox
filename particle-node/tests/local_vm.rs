@@ -36,13 +36,13 @@ fn make() {
     let call_service_in_a: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
     let call_service_out_a: Arc<Mutex<Vec<JValue>>> = <_>::default();
     let mut local_vm_a = make_vm(
-        &client_a,
+        client_a,
         make_call_service_closure(call_service_in_a.clone(), call_service_out_a.clone()),
     );
     let call_service_in_b: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
     let call_service_out_b: Arc<Mutex<Vec<JValue>>> = <_>::default();
     let mut local_vm_b = make_vm(
-        &client_b,
+        client_b,
         make_call_service_closure(call_service_in_b.clone(), call_service_out_b.clone()),
     );
 

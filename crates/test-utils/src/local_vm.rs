@@ -94,7 +94,7 @@ pub fn make_call_service_closure(
     })
 }
 
-pub fn make_vm(peer_id: &PeerId, call_service: CallServiceClosure) -> AquamarineVM {
+pub fn make_vm(peer_id: PeerId, call_service: CallServiceClosure) -> AquamarineVM {
     let tmp = make_tmp_dir();
     let interpreter = put_aquamarine(tmp.join("modules"));
 
