@@ -73,13 +73,13 @@ async fn particles(n: usize) -> BackPressuredInlet<Particle> {
     inlet
 }
 
-fn kademlia_api() -> KademliaApi {
+fn kademlia_api() -> (KademliaApi, JoinHandle<()>) {
     use futures::StreamExt;
 
     let (outlet, mut inlet) = mpsc::unbounded();
     let api = KademliaApi { outlet };
 
-    spawn(futures::future::poll_fn::<(), _>(move |cx| {
+    let handle = spawn(futures::future::poll_fn::<(), _>(move |cx| {
         use std::task::Poll;
 
         let mut wake = false;
@@ -102,7 +102,7 @@ fn kademlia_api() -> KademliaApi {
         Poll::Pending
     }));
 
-    api
+    (api, handle)
 }
 
 fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<()>) {
@@ -153,14 +153,14 @@ fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<(
     (api, future)
 }
 
-fn aquamarine_api() -> AquamarineApi {
+fn aquamarine_api() -> (AquamarineApi, JoinHandle<()>) {
     use futures::StreamExt;
 
     let (outlet, mut inlet) = mpsc::channel(100);
 
     let api = AquamarineApi::new(outlet, TIMEOUT);
 
-    spawn(futures::future::poll_fn::<(), _>(move |cx| {
+    let handle = spawn(futures::future::poll_fn::<(), _>(move |cx| {
         use std::task::Poll;
 
         let mut wake = false;
@@ -183,10 +183,13 @@ fn aquamarine_api() -> AquamarineApi {
         Poll::Pending
     }));
 
-    api
+    (api, handle)
 }
 
-fn aquamarine_with_backend(pool_size: usize, delay: Option<Duration>) -> AquamarineApi {
+fn aquamarine_with_backend(
+    pool_size: usize,
+    delay: Option<Duration>,
+) -> (AquamarineApi, JoinHandle<()>) {
     use futures::FutureExt;
 
     struct EasyVM {
@@ -238,9 +241,9 @@ fn aquamarine_with_backend(pool_size: usize, delay: Option<Duration>) -> Aquamar
         execution_timeout: TIMEOUT,
     };
     let (backend, api): (AquamarineBackend<EasyVM>, _) = AquamarineBackend::new(config, delay);
-    backend.start();
+    let handle = backend.start();
 
-    api
+    (api, handle)
 }
 
 fn aquamarine_with_vm<C>(
@@ -248,7 +251,7 @@ fn aquamarine_with_vm<C>(
     connectivity: C,
     local_peer_id: PeerId,
     interpreter: PathBuf,
-) -> AquamarineApi
+) -> (AquamarineApi, JoinHandle<()>)
 where
     C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
@@ -285,17 +288,17 @@ where
     let (stepper_pool, stepper_pool_api): (AquamarineBackend<AquamarineVM>, _) =
         AquamarineBackend::new(pool_config, (vm_config, host_closures.descriptor()));
 
-    stepper_pool.start();
+    let handle = stepper_pool.start();
 
-    stepper_pool_api
+    (stepper_pool_api, handle)
 }
 
 #[allow(dead_code)]
-async fn network_api(particles_num: usize) -> (NetworkApi, JoinHandle<()>) {
+async fn network_api(particles_num: usize) -> (NetworkApi, Vec<JoinHandle<()>>) {
     let particle_stream: BackPressuredInlet<Particle> = particles(particles_num).await;
     let particle_parallelism: usize = 1;
-    let kademlia: KademliaApi = kademlia_api();
-    let (connection_pool, future) = connection_pool_api(1000);
+    let (kademlia, kad_handle) = kademlia_api();
+    let (connection_pool, cp_handle) = connection_pool_api(1000);
     let bootstrap_frequency: usize = 1000;
     let particle_timeout: Duration = Duration::from_secs(5);
 
@@ -307,18 +310,18 @@ async fn network_api(particles_num: usize) -> (NetworkApi, JoinHandle<()>) {
         bootstrap_frequency,
         particle_timeout,
     );
-    (api, future)
+    (api, vec![cp_handle, kad_handle])
 }
 
-fn connectivity(num_particles: usize) -> (Connectivity, JoinHandle<()>) {
-    let kademlia: KademliaApi = kademlia_api();
-    let (connection_pool, future) = connection_pool_api(num_particles);
+fn connectivity(num_particles: usize) -> (Connectivity, BoxFuture<'static, ()>, JoinHandle<()>) {
+    let (kademlia, kad_handle) = kademlia_api();
+    let (connection_pool, cp_handle) = connection_pool_api(num_particles);
     let connectivity = Connectivity {
         kademlia,
         connection_pool,
     };
 
-    (connectivity, future)
+    (connectivity, cp_handle.boxed(), kad_handle)
 }
 
 async fn process_particles(
@@ -326,19 +329,23 @@ async fn process_particles(
     parallelism: Option<usize>,
     particle_timeout: Duration,
 ) {
-    let (con, future) = connectivity(num_particles);
-    let aquamarine = aquamarine_api();
+    let (con, finish, kademlia) = connectivity(num_particles);
+    let (aquamarine, aqua_handle) = aquamarine_api();
     let (sink, _) = mpsc::unbounded();
 
     let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
-    spawn(con.clone().process_particles(
+    let process = spawn(con.clone().process_particles(
         parallelism,
         particle_stream,
         aquamarine,
         sink,
         particle_timeout,
     ));
-    future.await
+    cp_handle.await;
+
+    process.cancel();
+    kademlia.cancel();
+    aqua_handle.cancel();
 }
 
 fn thousand_particles_bench(c: &mut Criterion) {
@@ -371,11 +378,11 @@ async fn process_particles_with_delay(
     particle_parallelism: Option<usize>,
     particle_timeout: Duration,
 ) {
-    let (con, future) = connectivity(num_particles);
-    let aquamarine = aquamarine_with_backend(pool_size, call_delay);
+    let (con, future, kademlia) = connectivity(num_particles);
+    let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, call_delay);
     let (sink, _) = mpsc::unbounded();
     let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
-    spawn(con.clone().process_particles(
+    let process = spawn(con.clone().process_particles(
         particle_parallelism,
         particle_stream,
         aquamarine,
@@ -383,6 +390,10 @@ async fn process_particles_with_delay(
         particle_timeout,
     ));
     future.await;
+
+    process.cancel();
+    kademlia.cancel();
+    aqua_handle.cancel();
 }
 
 async fn process_particles_with_vm(
@@ -394,11 +405,12 @@ async fn process_particles_with_vm(
 ) {
     let peer_id = RandomPeerId::random();
 
-    let (con, future) = connectivity(num_particles);
-    let aquamarine = aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter);
+    let (con, future, kademlia) = connectivity(num_particles);
+    let (aquamarine, aqua_handle) =
+        aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter);
     let (sink, _) = mpsc::unbounded();
     let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
-    spawn(con.clone().process_particles(
+    let process = spawn(con.clone().process_particles(
         particle_parallelism,
         particle_stream,
         aquamarine,
@@ -406,6 +418,10 @@ async fn process_particles_with_vm(
         particle_timeout,
     ));
     future.await;
+
+    process.cancel();
+    kademlia.cancel();
+    aqua_handle.cancel();
 }
 
 fn thousand_particles_with_aquamarine_bench(c: &mut Criterion) {
@@ -480,8 +496,8 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                 let interpreter = interpreter.clone();
                 let peer_id = RandomPeerId::random();
 
-                let (con, finish_fut) = connectivity(n);
-                let aquamarine =
+                let (con, finish_fut, kademlia) = connectivity(n);
+                let (aquamarine, aqua_handle) =
                     aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
                 let (sink, _) = mpsc::unbounded();
                 let particle_stream: BackPressuredInlet<Particle> = task::block_on(particles(n));
@@ -492,11 +508,15 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                     sink,
                     particle_timeout,
                 );
-                (process_fut.boxed(), finish_fut)
+                (process_fut.boxed(), finish_fut, vec![kademlia, aqua_handle])
             },
-            move |(process, finish)| async move {
-                async_std::task::spawn(process);
+            move |(process, finish, mut handles)| async move {
+                let process = async_std::task::spawn(process);
                 // finish.await
+                handles.push(process);
+                for handle in handles {
+                    handle.cancel()
+                }
             },
             BatchSize::LargeInput,
         )
