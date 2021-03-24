@@ -190,8 +190,6 @@ fn aquamarine_with_backend(
     pool_size: usize,
     delay: Option<Duration>,
 ) -> (AquamarineApi, JoinHandle<()>) {
-    use futures::FutureExt;
-
     struct EasyVM {
         delay: Option<Duration>,
     }
@@ -341,11 +339,11 @@ async fn process_particles(
         sink,
         particle_timeout,
     ));
-    cp_handle.await;
+    finish.await;
 
-    process.cancel();
-    kademlia.cancel();
-    aqua_handle.cancel();
+    process.cancel().await;
+    kademlia.cancel().await;
+    aqua_handle.cancel().await;
 }
 
 fn thousand_particles_bench(c: &mut Criterion) {
@@ -391,9 +389,9 @@ async fn process_particles_with_delay(
     ));
     future.await;
 
-    process.cancel();
-    kademlia.cancel();
-    aqua_handle.cancel();
+    process.cancel().await;
+    kademlia.cancel().await;
+    aqua_handle.cancel().await;
 }
 
 async fn process_particles_with_vm(
@@ -419,9 +417,9 @@ async fn process_particles_with_vm(
     ));
     future.await;
 
-    process.cancel();
-    kademlia.cancel();
-    aqua_handle.cancel();
+    process.cancel().await;
+    kademlia.cancel().await;
+    aqua_handle.cancel().await;
 }
 
 fn thousand_particles_with_aquamarine_bench(c: &mut Criterion) {
@@ -501,21 +499,34 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                     aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
                 let (sink, _) = mpsc::unbounded();
                 let particle_stream: BackPressuredInlet<Particle> = task::block_on(particles(n));
-                let process_fut = con.clone().process_particles(
+                let process_fut = Box::new(con.clone().process_particles(
                     particle_parallelism,
                     particle_stream,
                     aquamarine,
                     sink,
                     particle_timeout,
-                );
-                (process_fut.boxed(), finish_fut, vec![kademlia, aqua_handle])
+                ));
+
+                dbg!(std::mem::size_of_val(&finish_fut));
+                dbg!(std::mem::size_of_val(&process_fut));
+                dbg!(std::mem::size_of_val(&kademlia));
+                dbg!(std::mem::size_of_val(&aqua_handle));
+
+                let res = (process_fut.boxed(), finish_fut, vec![kademlia, aqua_handle]);
+
+                dbg!(std::mem::size_of_val(&con));
+                dbg!(std::mem::size_of_val(&aquamarine));
+                dbg!(std::mem::size_of_val(&sink));
+                dbg!(std::mem::size_of_val(&particle_stream));
+
+                res
             },
-            move |(process, finish, mut handles)| async move {
+            move |(process, _finish, mut handles)| async move {
                 let process = async_std::task::spawn(process);
                 // finish.await
                 handles.push(process);
                 for handle in handles {
-                    handle.cancel()
+                    handle.cancel().await;
                 }
             },
             BatchSize::LargeInput,
