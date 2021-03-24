@@ -72,3 +72,10 @@ opt-level = 2
 #opt-level = 2
 #[profile.dev.package."wasmer-win-exception-handler"]
 #opt-level = 2
+
+[profile.bench]
+opt-level = 3
+panic = 'unwind'
+
+[build]
+rustflags = ["-C", "link-args=-Wl,-stack_size,0x100000000"]
