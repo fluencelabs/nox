@@ -130,12 +130,10 @@ impl Client {
                 }};
             }
 
+            let timeout = Duration::from_secs(20);
             match transport {
-                Transport::Memory => swarm!(build_memory_transport(self.key_pair.clone())),
-                Transport::Network => swarm!(build_transport(
-                    self.key_pair.clone(),
-                    Duration::from_secs(20)
-                )),
+                Transport::Memory => swarm!(build_memory_transport(self.key_pair.clone(), timeout)),
+                Transport::Network => swarm!(build_transport(self.key_pair.clone(), timeout)),
             }
         };
 

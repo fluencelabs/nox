@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 
+// reexport
+pub use fluence_client::Transport;
+
 use particle_node::{Connectivity, Node};
 
+use aquamarine::VmPoolConfig;
 use config_utils::{modules_dir, to_abs_path};
-use fluence_client::Transport;
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::{build_memory_transport, build_transport};
+use script_storage::ScriptStorageConfig;
 use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
 use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
@@ -31,6 +36,7 @@ use derivative::Derivative;
 use eyre::WrapErr;
 use futures::channel::mpsc::unbounded;
 use futures::{stream::iter, StreamExt};
+use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use rand::Rng;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
@@ -157,6 +163,18 @@ where
     )
 }
 
+pub fn make_swarms_with_transport(n: usize, transport: Transport) -> Vec<CreatedSwarm> {
+    make_swarms_with(
+        n,
+        |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
+        || match transport {
+            Transport::Memory => create_memory_maddr(),
+            Transport::Network => create_tcp_maddr(),
+        },
+        true,
+    )
+}
+
 pub fn make_swarms_with_mocked_vm<F, B>(
     n: usize,
     mut update_cfg: F,
@@ -267,10 +285,14 @@ pub struct SwarmConfig {
 
 impl SwarmConfig {
     pub fn new(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr) -> Self {
+        let transport = match listen_on.iter().next() {
+            Some(Protocol::Memory(_)) => Transport::Memory,
+            _ => Transport::Network,
+        };
         Self {
             bootstraps,
             listen_on,
-            transport: Transport::Memory,
+            transport,
             trust: <_>::default(),
             tmp_dir: <_>::default(),
             pool_size: <_>::default(),
@@ -365,9 +387,10 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         particle_timeout: Duration::from_secs(5),
     };
 
+    let timeout = Duration::from_secs(10);
     let transport = match transport {
-        Transport::Memory => build_memory_transport(kp),
-        Transport::Network => build_transport(kp, Duration::from_secs(10)),
+        Transport::Memory => build_memory_transport(kp, timeout),
+        Transport::Network => build_transport(kp, timeout),
     };
 
     let (swarm, network_api) =
@@ -429,11 +452,16 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AquamarineVM>>, Pa
 }
 
 pub fn create_memory_maddr() -> Multiaddr {
-    use libp2p::core::multiaddr::Protocol;
-
     let port = 1 + rand::random::<u64>();
     let addr: Multiaddr = Protocol::Memory(port).into();
     addr
+}
+
+pub fn create_tcp_maddr() -> Multiaddr {
+    let port: u16 = 1000 + rand::thread_rng().gen_range(1, 3000);
+    let mut maddr: Multiaddr = Protocol::Ip4("127.0.0.1".parse().unwrap()).into();
+    maddr.push(Protocol::Tcp(port));
+    maddr
 }
 
 pub fn make_tmp_dir() -> PathBuf {
