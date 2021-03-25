@@ -14,23 +14,26 @@
  * limitations under the License.
  */
 
+// reexport
+pub use fluence_client::Transport;
+
 use particle_node::Node;
 
+use aquamarine::VmPoolConfig;
 use config_utils::{modules_dir, to_abs_path};
-use fluence_client::Transport;
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::{build_memory_transport, build_transport};
+use script_storage::ScriptStorageConfig;
 use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
 use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
-use aquamarine::VmPoolConfig;
 use async_std::task;
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use eyre::WrapErr;
 use futures::{stream::iter, StreamExt};
+use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, identity::ed25519::Keypair, PeerId};
 use rand::Rng;
-use script_storage::ScriptStorageConfig;
 use serde_json::{json, Value as JValue};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -135,6 +138,18 @@ pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
         n,
         |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
         create_memory_maddr,
+        true,
+    )
+}
+
+pub fn make_swarms_with_transport(n: usize, transport: Transport) -> Vec<CreatedSwarm> {
+    make_swarms_with(
+        n,
+        |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
+        || match transport {
+            Transport::Memory => create_memory_maddr(),
+            Transport::Network => create_tcp_maddr(),
+        },
         true,
     )
 }
@@ -247,10 +262,14 @@ impl Default for SwarmConfig {
 
 impl SwarmConfig {
     pub fn new(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr) -> Self {
+        let transport = match listen_on.iter().next() {
+            Some(Protocol::Memory(_)) => Transport::Memory,
+            _ => Transport::Network,
+        };
         Self {
             bootstraps,
             listen_on,
-            transport: Transport::Memory,
+            transport,
             ..<_>::default()
         }
     }
@@ -324,9 +343,10 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
     };
 
     use identity::Keypair::Ed25519;
+    let timeout = Duration::from_secs(10);
     let transport = match transport {
-        Transport::Memory => build_memory_transport(Ed25519(kp)),
-        Transport::Network => build_transport(Ed25519(kp), Duration::from_secs(10)),
+        Transport::Memory => build_memory_transport(Ed25519(kp), timeout),
+        Transport::Network => build_transport(Ed25519(kp), timeout),
     };
 
     let script_storage_config = ScriptStorageConfig {
@@ -356,11 +376,16 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
 }
 
 pub fn create_memory_maddr() -> Multiaddr {
-    use libp2p::core::multiaddr::Protocol;
-
     let port = 1 + rand::random::<u64>();
     let addr: Multiaddr = Protocol::Memory(port).into();
     addr
+}
+
+pub fn create_tcp_maddr() -> Multiaddr {
+    let port: u16 = 1000 + rand::thread_rng().gen_range(1, 3000);
+    let mut maddr: Multiaddr = Protocol::Ip4("127.0.0.1".parse().unwrap()).into();
+    maddr.push(Protocol::Tcp(port));
+    maddr
 }
 
 pub fn make_tmp_dir() -> PathBuf {

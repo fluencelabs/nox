@@ -129,9 +129,10 @@ impl Client {
                 }};
             }
 
+            let timeout = Duration::from_secs(20);
             match transport {
-                Transport::Memory => swarm!(build_memory_transport(key_pair)),
-                Transport::Network => swarm!(build_transport(key_pair, Duration::from_secs(20))),
+                Transport::Memory => swarm!(build_memory_transport(key_pair, timeout)),
+                Transport::Network => swarm!(build_transport(key_pair, timeout)),
             }
         };
 
