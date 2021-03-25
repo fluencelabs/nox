@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{make_tmp_dir, now_ms, put_aquamarine, uuid};
+use crate::{make_tmp_dir, now_ms, put_aquamarine, uuid, PARTICLE_TTL};
 
 use host_closure::Args;
 use particle_protocol::Particle;
@@ -83,7 +83,7 @@ pub fn make_call_service_closure(
                     )))
                 }),
             ("return", _) | ("op", "return") => {
-                log::warn!("return args {:?}", args.function_args);
+                log::warn!("return args {:.100}", format!("{:?}", args.function_args));
                 log::warn!("tetraplets: {:?}", args.tetraplets);
                 service_out.lock().extend(args.function_args);
                 ivalue_utils::unit()
@@ -184,7 +184,7 @@ pub fn make_particle(
         id,
         init_peer_id: peer_id,
         timestamp: now_ms() as u64,
-        ttl: 10000,
+        ttl: PARTICLE_TTL,
         script,
         signature: vec![],
         data,

@@ -38,6 +38,7 @@ use futures::channel::mpsc::unbounded;
 use futures::{stream::iter, StreamExt};
 use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
+use particle_protocol::ProtocolConfig;
 use rand::Rng;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use serde_json::{json, Value as JValue};
@@ -59,6 +60,8 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(300);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
+pub static TRANSPORT_TIMEOUT: Duration = Duration::from_millis(500);
+pub static PARTICLE_TTL: u32 = 20000;
 
 pub fn uuid() -> String {
     Uuid::new_v4().to_string()
@@ -371,6 +374,12 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         }
     }
 
+    let protocol_config = ProtocolConfig::new(
+        Duration::from_secs(10),
+        Duration::from_secs(10),
+        TRANSPORT_TIMEOUT,
+    );
+
     let network_config = NetworkConfig {
         key_pair: kp.clone(),
         local_peer_id: peer_id,
@@ -378,19 +387,18 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         bootstrap_nodes: bootstraps.clone(),
         bootstrap: BootstrapConfig::zero(),
         registry: None,
-        protocol_config: Default::default(),
+        protocol_config,
         kademlia_config: Default::default(),
         particle_queue_buffer: 100,
         particle_parallelism: 16,
         bootstrap_frequency: 1,
         allow_local_addresses: true,
-        particle_timeout: Duration::from_secs(5),
+        particle_timeout: Duration::from_secs(45),
     };
 
-    let timeout = Duration::from_secs(10);
     let transport = match transport {
-        Transport::Memory => build_memory_transport(kp, timeout),
-        Transport::Network => build_transport(kp, timeout),
+        Transport::Memory => build_memory_transport(kp, TRANSPORT_TIMEOUT),
+        Transport::Network => build_transport(kp, TRANSPORT_TIMEOUT),
     };
 
     let (swarm, network_api) =
