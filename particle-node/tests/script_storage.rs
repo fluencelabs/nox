@@ -385,7 +385,7 @@ fn remove_script_management_key() {
     let script_id = args.into_iter().next().unwrap();
 
     // try to remove with management key
-    let mut client2 = ConnectedClient::connect_as_owner(
+    let mut client2 = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )

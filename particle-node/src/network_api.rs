@@ -240,6 +240,7 @@ impl Connectivity {
         if sent {
             log::info!("Sent particle {} to {}", id, contact);
         } else {
+            // TODO: return & log error
             log::info!("Failed to send particle {} to {}", id, contact);
         }
     }

@@ -33,6 +33,7 @@ use eyre::WrapErr;
 use futures::{stream::iter, StreamExt};
 use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, identity::ed25519::Keypair, PeerId};
+use particle_protocol::ProtocolConfig;
 use rand::Rng;
 use serde_json::{json, Value as JValue};
 use std::path::Path;
@@ -52,6 +53,8 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(300);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
+pub static TRANSPORT_TIMEOUT: Duration = Duration::from_millis(500);
+pub static PARTICLE_TTL: u32 = 20000;
 
 pub fn uuid() -> String {
     Uuid::new_v4().to_string()
@@ -89,7 +92,7 @@ pub fn enable_logs() {
 
     env_logger::builder()
         .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(log::LevelFilter::Info)
         .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)
@@ -312,7 +315,7 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
     }
 
     // execution timeout
-    let execution_timeout = Duration::from_secs(5);
+    let execution_timeout = Duration::from_secs(45);
     let pool_size = pool_size.unwrap_or(1);
     let pool_config = VmPoolConfig::new(
         peer_id,
@@ -326,6 +329,12 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
     let services_config = ServicesConfig::new(peer_id, tmp.join("services"), <_>::default(), m_id)
         .expect("create services config");
 
+    let protocol_config = ProtocolConfig::new(
+        Duration::from_secs(10),
+        Duration::from_secs(10),
+        TRANSPORT_TIMEOUT,
+    );
+
     let network_config = NetworkConfig {
         key_pair: kp.clone(),
         local_peer_id: peer_id,
@@ -333,20 +342,19 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
         bootstrap_nodes: bootstraps.clone(),
         bootstrap: BootstrapConfig::zero(),
         registry: None,
-        protocol_config: Default::default(),
+        protocol_config,
         kademlia_config: Default::default(),
         particle_queue_buffer: 100,
         particle_parallelism: 16,
         bootstrap_frequency: 1,
         allow_local_addresses: true,
-        particle_timeout: Duration::from_secs(5),
+        particle_timeout: Duration::from_secs(45),
     };
 
     use identity::Keypair::Ed25519;
-    let timeout = Duration::from_secs(10);
     let transport = match transport {
-        Transport::Memory => build_memory_transport(Ed25519(kp), timeout),
-        Transport::Network => build_transport(Ed25519(kp), timeout),
+        Transport::Memory => build_memory_transport(Ed25519(kp), TRANSPORT_TIMEOUT),
+        Transport::Network => build_transport(Ed25519(kp), TRANSPORT_TIMEOUT),
     };
 
     let script_storage_config = ScriptStorageConfig {
