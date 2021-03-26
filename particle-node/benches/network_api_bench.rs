@@ -497,8 +497,14 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                 let (con, finish_fut, kademlia) = connectivity(n);
                 let (aquamarine, aqua_handle) =
                     aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
+                dbg!(std::mem::size_of_val(&aquamarine));
+                dbg!(std::mem::size_of_val(&aqua_handle));
+
                 let (sink, _) = mpsc::unbounded();
                 let particle_stream: BackPressuredInlet<Particle> = task::block_on(particles(n));
+                dbg!(std::mem::size_of_val(&con));
+                dbg!(std::mem::size_of_val(&sink));
+                dbg!(std::mem::size_of_val(&particle_stream));
                 let process_fut = Box::new(con.clone().process_particles(
                     particle_parallelism,
                     particle_stream,
@@ -510,14 +516,8 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                 dbg!(std::mem::size_of_val(&finish_fut));
                 dbg!(std::mem::size_of_val(&process_fut));
                 dbg!(std::mem::size_of_val(&kademlia));
-                dbg!(std::mem::size_of_val(&aqua_handle));
 
                 let res = (process_fut.boxed(), finish_fut, vec![kademlia, aqua_handle]);
-
-                dbg!(std::mem::size_of_val(&con));
-                dbg!(std::mem::size_of_val(&aquamarine));
-                dbg!(std::mem::size_of_val(&sink));
-                dbg!(std::mem::size_of_val(&particle_stream));
 
                 res
             },
