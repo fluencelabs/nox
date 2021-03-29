@@ -61,7 +61,8 @@ impl AquaRuntime for AquamarineVM {
         (config, host_closure): Self::Config,
         waker: Waker,
     ) -> BoxFuture<'static, Result<Self, Self::Error>> {
-        task::spawn_blocking(move || {
+        // TODO: revert to: task::spawn_blocking(move || {
+        task::spawn_local(async move {
             let config = AquamarineVMConfig {
                 current_peer_id: config.current_peer_id.to_string(),
                 aquamarine_wasm_path: config.air_interpreter,

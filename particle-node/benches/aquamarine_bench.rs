@@ -85,6 +85,10 @@ fn host_load_return(c: &mut Criterion) {
     )
 }
 
+fn create_batch(c: &mut Criterion) {
+    //
+}
+
 criterion_group!(
     benches,
     next_node_bench,

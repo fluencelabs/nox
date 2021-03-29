@@ -76,3 +76,4 @@ opt-level = 2
 [profile.bench]
 opt-level = 3
 panic = 'unwind'
+debug = true
