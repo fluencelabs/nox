@@ -51,6 +51,12 @@ fstrings = "0.2.3"
 eyre = "0.6.5"
 parking_lot = "0.11.0"
 
+# profiling, tracing
+tracing-timing = "0.4.3"
+tracing-futures = "0.2.5"
+tracing-subscriber = { version = "0.2.17", features = ["parking_lot"] }
+tracing = "0.1.25"
+
 [dev-dependencies]
 particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }

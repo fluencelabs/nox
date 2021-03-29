@@ -53,6 +53,9 @@ use std::{
     time::Duration,
 };
 
+use tracing_futures::Instrument;
+use tracing_subscriber::FmtSubscriber;
+
 /// API provided by the network
 pub struct NetworkApi {
     /// Stream of particles coming from other peers, lifted here from [[ConnectionPoolBehaviour]]
@@ -325,7 +328,7 @@ impl Connectivity {
                 let fut = async move {
                     let start = Instant::now();
                     // execute particle on Aquamarine
-                    let stepper_effects = aquamarine.handle(particle).await;
+                    let stepper_effects = aquamarine.handle(particle).instrument(tracing::info_span!("aquamarine.handle")).await;
 
                     match stepper_effects {
                         Ok(stepper_effects) => {
@@ -342,7 +345,7 @@ impl Connectivity {
                         }
                     };
                     log::trace!(target: "network", "Particle {} processing took {}", p_id, pretty(start.elapsed()));
-                };
+                }.instrument(tracing::info_span!("particle"));
 
                 async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
                     if let Err(err) = r {

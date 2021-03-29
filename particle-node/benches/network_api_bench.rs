@@ -47,6 +47,7 @@ use particle_protocol::{Contact, Particle};
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 use test_utils::{make_tmp_dir, now_ms, put_aquamarine};
+use tracing_futures::Instrument;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 const PARALLELISM: Option<usize> = Some(16);
@@ -474,6 +475,23 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
 }
 
 fn particle_throughput_with_vm_bench(c: &mut Criterion) {
+    use tracing::Dispatch;
+    use tracing_timing::{Builder, Histogram};
+
+    // let subscriber = FmtSubscriber::builder()
+    //     // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
+    //     // will be written to stdout.
+    //     .with_max_level(Level::TRACE)
+    //     // completes the builder.
+    //     .finish();
+
+    let subscriber = Builder::default().build(|| Histogram::new_with_max(1_000_000, 2).unwrap());
+    let downcaster = subscriber.downcaster();
+    let dispatcher = Dispatch::new(subscriber);
+    tracing::dispatcher::set_global_default(dispatcher.clone())
+        .expect("setting default dispatch failed");
+    // tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     let particle_parallelism = PARALLELISM;
     let particle_timeout = TIMEOUT;
 
@@ -516,34 +534,81 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                 res
             },
             move |(process, finish, mut handles)| {
-                task::block_on(async move {
-                    let start = Instant::now();
-                    let process = async_std::task::spawn(process);
-                    handles.push(process);
-                    let spawn_took = start.elapsed().as_millis();
+                task::block_on(
+                    async move {
+                        let start = Instant::now();
+                        let process = async_std::task::spawn(
+                            process.instrument(tracing::info_span!("process")),
+                        );
+                        handles.push(process);
+                        let spawn_took = start.elapsed().as_millis();
 
-                    let start = Instant::now();
-                    finish.await;
-                    let finish_took = start.elapsed().as_millis();
+                        let start = Instant::now();
+                        finish.instrument(tracing::info_span!("finish")).await;
+                        let finish_took = start.elapsed().as_millis();
 
-                    let start = Instant::now();
-                    for handle in handles {
-                        handle.cancel().await;
+                        let start = Instant::now();
+                        for handle in handles {
+                            handle
+                                .cancel()
+                                .instrument(tracing::info_span!("cancel"))
+                                .await;
+                        }
+                        let cancel_took = start.elapsed().as_millis();
+
+                        println!(
+                            "spawn {} ms; finish {} ms; cancel {} ms;",
+                            spawn_took, finish_took, cancel_took
+                        )
                     }
-                    let cancel_took = start.elapsed().as_millis();
-
-                    println!(
-                        "spawn {} ms; finish {} ms; cancel {} ms;",
-                        spawn_took, finish_took, cancel_took
-                    )
-                })
+                    .instrument(tracing::info_span!("particle_bench")),
+                )
             },
             BatchSize::LargeInput,
         )
     });
-    //     }
-    // }
+
+    let subscriber = downcaster.downcast(&dispatcher).expect("downcast failed");
+    subscriber.force_synchronize();
+
+    subscriber.with_histograms(|hs| {
+        println!("histogram: {}", hs.len());
+
+        for (span, events) in hs.iter_mut() {
+            for (event, histogram) in events.iter_mut() {
+                //
+
+                println!("span {} event {}:", span, event);
+                println!(
+                    "mean: {:.1}µs, p50: {}µs, p90: {}µs, p99: {}µs, p999: {}µs, max: {}µs",
+                    histogram.mean() / 1000.0,
+                    histogram.value_at_quantile(0.5) / 1_000,
+                    histogram.value_at_quantile(0.9) / 1_000,
+                    histogram.value_at_quantile(0.99) / 1_000,
+                    histogram.value_at_quantile(0.999) / 1_000,
+                    histogram.max() / 1_000,
+                );
+            }
+        }
+
+        // for v in break_once(
+        //     h.iter_linear(25_000).skip_while(|v| v.quantile() < 0.01),
+        //     |v| v.quantile() > 0.95,
+        // ) {
+        //     println!(
+        //         "{:4}µs | {:40} | {:4.1}th %-ile",
+        //         (v.value_iterated_to() + 1) / 1_000,
+        //         "*".repeat(
+        //             (v.count_since_last_iteration() as f64 * 40.0 / h.len() as f64).ceil() as usize
+        //         ),
+        //         v.percentile(),
+        //     );
+        // }
+    });
 }
+
+//     }
+// }
 
 criterion_group!(
     benches,
