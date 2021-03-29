@@ -43,7 +43,7 @@ use std::mem;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::Waker;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use test_utils::{make_tmp_dir, now_ms, put_aquamarine};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -524,12 +524,25 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
             },
             move |(process, finish, mut handles)| {
                 task::block_on(async move {
+                    let start = Instant::now();
                     let process = async_std::task::spawn(process);
-                    finish.await;
                     handles.push(process);
+                    let spawn_took = start.elapsed().as_millis();
+
+                    let start = Instant::now();
+                    finish.await;
+                    let finish_took = start.elapsed().as_millis();
+
+                    let start = Instant::now();
                     for handle in handles {
                         handle.cancel().await;
                     }
+                    let cancel_took = start.elapsed().as_millis();
+
+                    println!(
+                        "spawn {} ms; finish {} ms; cancel {} ms;",
+                        spawn_took, finish_took, cancel_took
+                    )
                 })
             },
             BatchSize::LargeInput,
