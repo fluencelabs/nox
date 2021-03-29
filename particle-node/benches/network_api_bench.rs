@@ -14,36 +14,38 @@
  * limitations under the License.
  */
 
-use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, InterpreterOutcome, SendParticle,
-    StepperEffects, VmConfig, VmPoolConfig,
-};
-use async_std::task;
-use async_std::task::{spawn, JoinHandle};
-use connection_pool::ConnectionPoolApi;
-use criterion::async_executor::AsyncStdExecutor;
-use criterion::{criterion_group, criterion_main, BatchSize};
-use criterion::{BenchmarkId, Criterion, Throughput};
-use eyre::WrapErr;
-use fluence_libp2p::types::BackPressuredInlet;
-use fluence_libp2p::RandomPeerId;
-use futures::channel::mpsc;
-use futures::future::BoxFuture;
-use futures::{FutureExt, SinkExt};
-use humantime_serde::re::humantime::format_duration as pretty;
-use kademlia::KademliaApi;
-use libp2p::PeerId;
-use particle_closures::{HostClosures, NodeInfo};
-use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
-use particle_protocol::{Contact, Particle};
-use script_storage::ScriptStorageApi;
-use server_config::ServicesConfig;
 use std::convert::Infallible;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::Waker;
 use std::time::{Duration, Instant};
+
+use async_std::task;
+use async_std::task::{spawn, JoinHandle};
+use criterion::async_executor::AsyncStdExecutor;
+use criterion::{criterion_group, criterion_main, BatchSize};
+use criterion::{BenchmarkId, Criterion, Throughput};
+use eyre::WrapErr;
+use futures::channel::mpsc;
+use futures::future::BoxFuture;
+use futures::{FutureExt, SinkExt};
+use humantime_serde::re::humantime::format_duration as pretty;
+use libp2p::PeerId;
+
+use aquamarine::{
+    AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, InterpreterOutcome, SendParticle,
+    StepperEffects, VmConfig, VmPoolConfig,
+};
+use connection_pool::ConnectionPoolApi;
+use fluence_libp2p::types::BackPressuredInlet;
+use fluence_libp2p::RandomPeerId;
+use kademlia::KademliaApi;
+use particle_closures::{HostClosures, NodeInfo};
+use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
+use particle_protocol::{Contact, Particle};
+use script_storage::ScriptStorageApi;
+use server_config::ServicesConfig;
 use test_utils::{make_tmp_dir, now_ms, put_aquamarine};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -498,14 +500,9 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                 let (aquamarine, aqua_handle) =
                     aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
                 // let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, None);
-                // dbg!(std::mem::size_of_val(&aquamarine));
-                // dbg!(std::mem::size_of_val(&aqua_handle));
 
                 let (sink, _) = mpsc::unbounded();
                 let particle_stream: BackPressuredInlet<Particle> = task::block_on(particles(n));
-                // dbg!(std::mem::size_of_val(&con));
-                // dbg!(std::mem::size_of_val(&sink));
-                // dbg!(std::mem::size_of_val(&particle_stream));
                 let process_fut = Box::new(con.clone().process_particles(
                     particle_parallelism,
                     particle_stream,
@@ -513,10 +510,6 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                     sink,
                     particle_timeout,
                 ));
-
-                // dbg!(std::mem::size_of_val(&finish_fut));
-                // dbg!(std::mem::size_of_val(&process_fut));
-                // dbg!(std::mem::size_of_val(&kademlia));
 
                 let res = (process_fut.boxed(), finish_fut, vec![kademlia, aqua_handle]);
 
