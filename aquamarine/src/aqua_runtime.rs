@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError, InterpreterOutcome};
-use host_closure::ClosureDescriptor;
-
 use crate::config::VmConfig;
 use crate::invoke::{parse_outcome, ExecutionError};
 use crate::{SendParticle, StepperEffects};
+
+use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError, InterpreterOutcome};
+use control_macro::measure;
+use host_closure::ClosureDescriptor;
+use particle_protocol::Particle;
+
 use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
 use libp2p::PeerId;
 use log::LevelFilter;
-use particle_protocol::Particle;
 use std::time::Instant;
 use std::{error::Error, task::Waker};
 
@@ -63,19 +65,17 @@ impl AquaRuntime for AquamarineVM {
         waker: Waker,
     ) -> BoxFuture<'static, Result<Self, Self::Error>> {
         // TODO: revert to: task::spawn_blocking(move || {
-        task::spawn_local(async move {
-            let config = AquamarineVMConfig {
-                current_peer_id: config.current_peer_id.to_string(),
-                aquamarine_wasm_path: config.air_interpreter,
-                particle_data_store: config.particles_dir,
-                call_service: host_closure(),
-                logging_mask: i32::MAX,
-            };
-            let vm = AquamarineVM::new(config);
-            waker.wake();
-            vm
-        })
-        .boxed()
+
+        let config = AquamarineVMConfig {
+            current_peer_id: config.current_peer_id.to_string(),
+            aquamarine_wasm_path: config.air_interpreter,
+            particle_data_store: config.particles_dir,
+            call_service: host_closure(),
+            logging_mask: i32::MAX,
+        };
+        let vm = measure!(AquamarineVM::new(config));
+        waker.wake();
+        futures::future::ready(vm).boxed()
     }
 
     fn into_effects(

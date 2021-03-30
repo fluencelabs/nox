@@ -28,6 +28,7 @@ use crate::network_tasks::NetworkTasks;
 
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
+use control_macro::measure;
 use control_macro::unwrap_return;
 use fluence_libp2p::types::BackPressuredInlet;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
@@ -158,6 +159,7 @@ impl Connectivity {
                 if let Some(contact) = this.resolve_contact(target, &particle.id).await {
                     // forward particle
                     this.send(contact, particle).await;
+                    tracing::info!("particle.sent");
                 }
             }
         })
@@ -166,16 +168,19 @@ impl Connectivity {
 
     async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
         let contact = self.connection_pool.get_contact(target).await;
+        tracing::info!("contact.got");
         let contact = if let Some(contact) = contact {
             // contact is connected directly to current node
             return Some(contact);
         } else {
             // contact isn't connected, have to discover it
             let contact = self.discover_peer(target).await;
+            tracing::info!("peer.discovered");
             match contact {
                 Ok(Some(contact)) => {
                     // connect to the discovered contact
                     self.connection_pool.connect(contact.clone()).await;
+                    tracing::info!("contact.connected");
                     return Some(contact);
                 }
                 Ok(None) => {
@@ -323,17 +328,21 @@ impl Connectivity {
                     return async {}.boxed();
                 }
 
+
                 let particle_id = particle.id.clone();
                 let p_id = particle_id.clone();
                 let fut = async move {
+                    particle.report_age("particle.start");
+
                     let start = Instant::now();
                     // execute particle on Aquamarine
-                    let stepper_effects = aquamarine.handle(particle).instrument(tracing::info_span!("aquamarine.handle")).await;
+                    let stepper_effects = measure!(aquamarine.handle(particle).await);
 
                     match stepper_effects {
                         Ok(stepper_effects) => {
                             // perform effects as instructed by aquamarine
-                            connectivity.execute_effects(stepper_effects).await;
+                            measure!(connectivity.execute_effects(stepper_effects).await);
+                            tracing::info!("effects.executed");
                         }
                         Err(err) => {
                             // particles are sent in fire and forget fashion, so
@@ -345,14 +354,20 @@ impl Connectivity {
                         }
                     };
                     log::trace!(target: "network", "Particle {} processing took {}", p_id, pretty(start.elapsed()));
+                    if start.elapsed().as_millis() > 100 {
+                        println!("Particle processing took {} ms", start.elapsed().as_millis());
+                    }
+                    tracing::info!("finished");
                 }.instrument(tracing::info_span!("particle"));
 
                 async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
                     if let Err(err) = r {
                         if timeout != particle_timeout {
                             log::info!("Particle {} expired", particle_id);
+                            println!("Particle {} expired", particle_id);
                         } else {
-                            log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout))
+                            log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout));
+                            println!("Particle {} timed out after {}", particle_id, pretty(timeout))
                         }
                     }
                 }).boxed()

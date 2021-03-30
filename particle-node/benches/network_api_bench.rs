@@ -48,6 +48,7 @@ use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 use test_utils::{make_tmp_dir, now_ms, put_aquamarine};
 use tracing_futures::Instrument;
+use tracing_log::LogTracer;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 const PARALLELISM: Option<usize> = Some(16);
@@ -485,9 +486,14 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
     //     // completes the builder.
     //     .finish();
 
-    let subscriber = Builder::default().build(|| Histogram::new_with_max(1_000_000, 2).unwrap());
+    // LogTracer::init_with_filter(log::LevelFilter::Error).expect("Failed to set logger");
+
+    let subscriber = Builder::default()
+        .no_span_recursion()
+        .build(|| Histogram::new_with_max(1_000_000, 2).unwrap());
     let downcaster = subscriber.downcaster();
     let dispatcher = Dispatch::new(subscriber);
+    let d2 = dispatcher.clone();
     tracing::dispatcher::set_global_default(dispatcher.clone())
         .expect("setting default dispatch failed");
     // tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
@@ -502,57 +508,58 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
     let num = 100;
     let pool_size = 4;
 
-    // for &num in [1, 1000, 4 * 1000, 8 * 1000].iter() {
-    //     for &pool_size in [1, 2, 4, 16].iter() {
-    group.throughput(Throughput::Elements(num as u64));
-    group.sample_size(10);
-    let bid = { BenchmarkId::from_parameter(format!("{}@{}", num, pool_size)) };
-    group.bench_with_input(bid, &num, |b, &n| {
-        let interpreter = interpreter.clone();
-        b.iter_batched(
-            || {
-                let interpreter = interpreter.clone();
-                let peer_id = RandomPeerId::random();
+    tracing::info_span!("whole_bench").in_scope(|| {
+        // for &num in [1, 1000, 4 * 1000, 8 * 1000].iter() {
+        //     for &pool_size in [1, 2, 4, 16].iter() {
+        group.throughput(Throughput::Elements(num as u64));
+        group.sample_size(10);
+        let bid = { BenchmarkId::from_parameter(format!("{}@{}", num, pool_size)) };
+        group.bench_with_input(bid, &num, |b, &n| {
+            let interpreter = interpreter.clone();
+            b.iter_batched(
+                || {
+                    let interpreter = interpreter.clone();
+                    let peer_id = RandomPeerId::random();
 
-                let (con, finish_fut, kademlia) = connectivity(n);
-                let (aquamarine, aqua_handle) =
-                    aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
-                // let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, None);
+                    let (con, finish_fut, kademlia) = connectivity(n);
+                    let (aquamarine, aqua_handle) =
+                        aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
+                    // let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, None);
 
-                let (sink, _) = mpsc::unbounded();
-                let particle_stream: BackPressuredInlet<Particle> = task::block_on(particles(n));
-                let process_fut = Box::new(con.clone().process_particles(
-                    particle_parallelism,
-                    particle_stream,
-                    aquamarine,
-                    sink,
-                    particle_timeout,
-                ));
+                    let (sink, _) = mpsc::unbounded();
+                    let particle_stream: BackPressuredInlet<Particle> =
+                        task::block_on(particles(n));
+                    let process_fut = Box::new(con.clone().process_particles(
+                        particle_parallelism,
+                        particle_stream,
+                        aquamarine,
+                        sink,
+                        particle_timeout,
+                    ));
 
-                let res = (process_fut.boxed(), finish_fut, vec![kademlia, aqua_handle]);
+                    let res = (process_fut.boxed(), finish_fut, vec![kademlia, aqua_handle]);
 
-                res
-            },
-            move |(process, finish, mut handles)| {
-                task::block_on(
-                    async move {
+                    std::thread::sleep(Duration::from_secs(5));
+
+                    println!("finished batch setup");
+
+                    res
+                },
+                move |(process, finish, mut handles)| {
+                    task::block_on(async move {
+                        println!("start iteration");
                         let start = Instant::now();
-                        let process = async_std::task::spawn(
-                            process.instrument(tracing::info_span!("process")),
-                        );
+                        let process = async_std::task::spawn(process);
                         handles.push(process);
                         let spawn_took = start.elapsed().as_millis();
 
                         let start = Instant::now();
-                        finish.instrument(tracing::info_span!("finish")).await;
+                        finish.await;
                         let finish_took = start.elapsed().as_millis();
 
                         let start = Instant::now();
                         for handle in handles {
-                            handle
-                                .cancel()
-                                .instrument(tracing::info_span!("cancel"))
-                                .await;
+                            handle.cancel().await;
                         }
                         let cancel_took = start.elapsed().as_millis();
 
@@ -560,13 +567,14 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                             "spawn {} ms; finish {} ms; cancel {} ms;",
                             spawn_took, finish_took, cancel_took
                         )
-                    }
-                    .instrument(tracing::info_span!("particle_bench")),
-                )
-            },
-            BatchSize::LargeInput,
-        )
+                    })
+                },
+                BatchSize::LargeInput,
+            )
+        });
     });
+
+    std::thread::sleep(std::time::Duration::from_secs(15));
 
     let subscriber = downcaster.downcast(&dispatcher).expect("downcast failed");
     subscriber.force_synchronize();

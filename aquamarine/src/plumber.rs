@@ -16,8 +16,10 @@
 
 use crate::actor::{Actor, ActorPoll, Deadline};
 use crate::config::VmPoolConfig;
-
 use crate::vm_pool::VmPool;
+
+use control_macro::measure;
+
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
     task::{Context, Poll},
@@ -54,6 +56,8 @@ impl<RT: AquaRuntime> Plumber<RT> {
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
     pub fn ingest(&mut self, particle: AwaitedParticle) {
+        particle.report_age("plumber.ingest");
+
         self.wake();
 
         let deadline = Deadline::from(&particle);
@@ -85,16 +89,16 @@ impl<RT: AquaRuntime> Plumber<RT> {
         // Gather effects and put VMs back
         let mut effects = vec![];
         for actor in self.actors.values_mut() {
-            if let Poll::Ready(result) = actor.poll_completed(cx) {
+            if let Poll::Ready(result) = measure!(actor.poll_completed(cx)) {
                 effects.push(result.effects);
-                self.vm_pool.put_vm(result.vm);
+                measure!(self.vm_pool.put_vm(result.vm));
             }
         }
 
         // Execute next messages
         for actor in self.actors.values_mut() {
-            if let Some(vm) = self.vm_pool.get_vm() {
-                match actor.poll_next(vm, cx) {
+            if let Some(vm) = measure!(self.vm_pool.get_vm()) {
+                match measure!(actor.poll_next(vm, cx)) {
                     ActorPoll::Vm(vm) => self.vm_pool.put_vm(vm),
                     ActorPoll::Expired(es, vm) => {
                         effects.push(es);

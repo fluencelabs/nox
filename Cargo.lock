@@ -184,6 +184,7 @@ dependencies = [
  "base64 0.13.0",
  "chrono",
  "config-utils",
+ "control-macro",
  "fluence-fork-libp2p",
  "fluence-libp2p",
  "futures",
@@ -194,6 +195,7 @@ dependencies = [
  "particle-protocol",
  "serde_json",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -2495,6 +2497,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gethostname"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e692e296bfac1d2533ef168d0b60ff5897b8b70a4009276834014dd8924cc028"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3568,7 +3580,9 @@ dependencies = [
  "tide",
  "toml",
  "tracing",
+ "tracing-bunyan-formatter",
  "tracing-futures",
+ "tracing-log",
  "tracing-subscriber",
  "tracing-timing",
  "trust-graph",
@@ -5023,6 +5037,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01ebdc2bb4498ab1ab5f5b73c5803825e60199229ccba0698170e3be0e7f959f"
 dependencies = [
  "cfg-if 1.0.0",
+ "log",
  "pin-project-lite 0.2.6",
  "tracing-attributes",
  "tracing-core",
@@ -5037,6 +5052,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tracing-bunyan-formatter"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05e6b1b6c038da11d8d704f93b3974b0394824cdcc8c818c48255183cf315fd5"
+dependencies = [
+ "chrono",
+ "gethostname",
+ "log",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-core",
+ "tracing-log",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -5089,7 +5121,7 @@ dependencies = [
  "chrono",
  "lazy_static",
  "matchers",
- "parking_lot 0.10.2",
+ "parking_lot 0.11.1",
  "regex",
  "serde",
  "serde_json",

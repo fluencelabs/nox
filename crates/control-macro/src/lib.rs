@@ -48,3 +48,19 @@ macro_rules! unwrap_return {
         }
     }};
 }
+
+#[macro_export]
+macro_rules! measure {
+    ($val:expr) => {{
+        let start = ::std::time::Instant::now();
+        match $val {
+            tmp => {
+                let elapsed_ms = start.elapsed().as_millis();
+                if elapsed_ms > 100 {
+                    println!("{} took {} ms", stringify!($val), elapsed_ms);
+                }
+                tmp
+            }
+        }
+    }};
+}

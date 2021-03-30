@@ -15,12 +15,13 @@
  */
 
 use crate::awaited_particle::AwaitedParticle;
+use crate::error::AquamarineApiError;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
+use crate::AwaitedEffects;
 
+use control_macro::measure;
 use particle_protocol::Particle;
 
-use crate::error::AquamarineApiError;
-use crate::AwaitedEffects;
 use futures::FutureExt;
 use std::ops::Mul;
 use std::{
@@ -122,7 +123,7 @@ where
             Some(p) if !p.is_expired() => {
                 // Take ownership of vm to process particle
                 // TODO: add timeout for execution
-                self.future = vm.execute(p, cx.waker().clone()).into();
+                self.future = measure!(vm.execute(p, cx.waker().clone()).into());
                 ActorPoll::Executing
             }
             Some(p) => {

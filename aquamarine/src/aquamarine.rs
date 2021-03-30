@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::EffectsChannel;
 use crate::error::AquamarineApiError;
 use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
 
+use control_macro::measure;
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
 use particle_protocol::Particle;
 
-use crate::aqua_runtime::AquaRuntime;
 use async_std::{task, task::JoinHandle};
 use futures::{
     channel::{mpsc, oneshot},
@@ -52,6 +53,7 @@ impl<RT: AquaRuntime> AquamarineBackend<RT> {
 
         // check if there are new particles
         while let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
+            tracing::info!("aquamarine.backend.particle.got");
             wake = true;
             // set new particles to be executed
             self.plumber.ingest(AwaitedParticle { particle, out });
@@ -105,17 +107,20 @@ impl AquamarineApi {
     ) -> BoxFuture<'static, Result<StepperEffects, AquamarineApiError>> {
         use AquamarineApiError::*;
 
+        tracing::info!("handle.start");
+
         let mut interpreters = self.outlet;
         let particle_id = particle.id.clone();
         let fut = async move {
             let particle_id = particle.id.clone();
             let (outlet, inlet) = oneshot::channel();
-            let send_ok = interpreters.send((particle, outlet)).await.is_ok();
+            let send_ok = measure!(interpreters.send((particle, outlet)).await.is_ok());
             if send_ok {
-                let effects = inlet.await.map_err(|err| {
+                let effects = measure!(inlet.await).map_err(|err| {
                     log::info!(target: "debug", "oneshot cancelled: {:?}", err);
                     OneshotCancelled { particle_id }
                 });
+                tracing::info!("effects.returned");
                 effects.and_then(identity)
             } else {
                 Err(AquamarineDied { particle_id })
