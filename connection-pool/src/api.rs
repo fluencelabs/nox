@@ -128,7 +128,7 @@ impl NetworkBehaviourEventProcess<()> for ConnectionPoolInlet {
     fn inject_event(&mut self, _: ()) {}
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConnectionPoolApi {
     // TODO: marked as `pub` to be available in benchmarks
     pub outlet: Outlet<Command>,

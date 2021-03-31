@@ -130,7 +130,7 @@ impl From<Kademlia> for (KademliaApi, KademliaApiInlet) {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct KademliaApi {
     // NOTE: marked `pub` to be available in benchmarks
     pub outlet: Outlet<Command>,

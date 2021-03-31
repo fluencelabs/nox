@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use particle_node::Node;
+use particle_node::{Connectivity, Node};
 
 use config_utils::{modules_dir, to_abs_path};
 use fluence_client::Transport;
@@ -128,6 +128,8 @@ pub struct CreatedSwarm {
     pub management_keypair: Keypair,
     // stop signal
     pub outlet: OneshotOutlet<()>,
+    // node connectivity
+    pub connectivity: Connectivity,
 }
 
 pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
@@ -196,6 +198,7 @@ where
         .into_iter()
         .map(
             |((peer_id, multiaddr, tmp_dir, management_keypair), node)| {
+                let connectivity = node.network_api.connectivity();
                 let outlet = node.start();
                 CreatedSwarm {
                     peer_id,
@@ -203,6 +206,7 @@ where
                     tmp_dir,
                     management_keypair,
                     outlet,
+                    connectivity,
                 }
             },
         )

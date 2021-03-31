@@ -56,8 +56,6 @@ impl<RT: AquaRuntime> Plumber<RT> {
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
     pub fn ingest(&mut self, particle: AwaitedParticle) {
-        particle.report_age("plumber.ingest");
-
         self.wake();
 
         let deadline = Deadline::from(&particle);

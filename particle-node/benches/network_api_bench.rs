@@ -38,7 +38,7 @@ use aquamarine::{
     StepperEffects, VmConfig, VmPoolConfig,
 };
 use connection_pool::ConnectionPoolApi;
-use fluence_libp2p::types::BackPressuredInlet;
+use fluence_libp2p::types::{BackPressuredInlet, OneshotOutlet};
 use fluence_libp2p::{build_memory_transport, RandomPeerId};
 use kademlia::{Kademlia, KademliaApi, KademliaApiInlet, KademliaConfig};
 use libp2p::core::identity::ed25519::Keypair;
@@ -48,7 +48,10 @@ use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, Networ
 use particle_protocol::{Contact, Particle};
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
-use test_utils::{create_memory_maddr, make_tmp_dir, now_ms, put_aquamarine};
+use test_utils::{
+    create_memory_maddr, create_swarm, make_swarms, make_tmp_dir, now_ms, put_aquamarine,
+    SwarmConfig,
+};
 use tracing_futures::Instrument;
 use tracing_log::LogTracer;
 use trust_graph::{InMemoryStorage, TrustGraph};
@@ -112,38 +115,61 @@ fn kademlia_api() -> (KademliaApi, JoinHandle<()>) {
     (api, handle)
 }
 
-fn real_kademlia_api(keypair: Keypair, peer_id: PeerId) -> (KademliaApi, KademliaApiInlet) {
-    let kad_config = KademliaConfig {
-        peer_id,
-        keypair: keypair.clone(),
-        kad_config: server_config::KademliaConfig {
-            max_packet_size: Some(100 * 4096 * 4096), // 100Mb
-            query_timeout: Duration::from_secs(3),
-            replication_factor: None,
-            connection_idle_timeout: Some(Duration::from_secs(2_628_000_000)), // ~month
-            peer_fail_threshold: 3,
-            ban_cooldown: Duration::from_secs(60),
-        },
-    };
+// fn real_kademlia_api(keypair: Keypair, peer_id: PeerId) -> (KademliaApi, KademliaApiInlet) {
+//     let kad_config = KademliaConfig {
+//         peer_id,
+//         keypair: keypair.clone(),
+//         kad_config: server_config::KademliaConfig {
+//             max_packet_size: Some(100 * 4096 * 4096), // 100Mb
+//             query_timeout: Duration::from_secs(3),
+//             replication_factor: None,
+//             connection_idle_timeout: Some(Duration::from_secs(2_628_000_000)), // ~month
+//             peer_fail_threshold: 3,
+//             ban_cooldown: Duration::from_secs(60),
+//         },
+//     };
+//
+//     let trust_graph = {
+//         let storage = InMemoryStorage::new_in_memory(vec![]);
+//         TrustGraph::new(storage)
+//     };
+//     let kademlia = Kademlia::new(kad_config, trust_graph, None);
+//     let (kademlia_api, kademlia): (KademliaApi, KademliaApiInlet) = kademlia.into();
+//
+//     let transport = build_memory_transport(Ed25519(keypair));
+//
+//     let mut swarm: Swarm<KademliaApiInlet> = Swarm::new(transport, behaviour, local_peer_id);
+//     let addr = create_memory_maddr();
+//     Swarm::listen_on(&mut swarm, addr).expect("listen_on");
+//
+//     swarm.add_addresses()
+//
+//     // task::spawn()
+//
+//     (kademlia_api, kademlia)
+// }
 
-    let trust_graph = {
-        let storage = InMemoryStorage::new_in_memory(vec![]);
-        TrustGraph::new(storage)
-    };
-    let kademlia = Kademlia::new(kad_config, trust_graph, None);
-    let (kademlia_api, kademlia): (KademliaApi, KademliaApiInlet) = kademlia.into();
+struct Stops(Vec<OneshotOutlet<()>>);
+impl Stops {
+    pub async fn cancel(self) {
+        for stop in self.0 {
+            stop.send(()).expect("send stop")
+        }
+    }
+}
 
-    let transport = build_memory_transport(Ed25519(keypair));
+fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops) {
+    let mut swarms = make_swarms(network_size).into_iter();
 
-    let mut swarm: Swarm<KademliaApiInlet> = Swarm::new(transport, behaviour, local_peer_id);
-    let addr = create_memory_maddr();
-    Swarm::listen_on(&mut swarm, addr).expect("listen_on");
+    let swarm = swarms.next().unwrap();
+    let kad_api = swarm.connectivity.kademlia;
+    let stop = swarm.outlet;
 
-    swarm.add_addresses()
+    let stops = std::iter::once(stop)
+        .chain(swarms.map(|s| s.outlet))
+        .collect::<Vec<_>>();
 
-    // task::spawn()
-
-    (kademlia_api, kademlia)
+    (kad_api, Stops(stops))
 }
 
 fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<()>) {
@@ -363,6 +389,20 @@ fn connectivity(num_particles: usize) -> (Connectivity, BoxFuture<'static, ()>, 
     (connectivity, cp_handle.boxed(), kad_handle)
 }
 
+fn connectivity_with_real_kad(
+    num_particles: usize,
+    network_size: usize,
+) -> (Connectivity, BoxFuture<'static, ()>, Stops) {
+    let (kademlia, stops) = real_kademlia_api(network_size);
+    let (connection_pool, cp_handle) = connection_pool_api(num_particles);
+    let connectivity = Connectivity {
+        kademlia,
+        connection_pool,
+    };
+
+    (connectivity, cp_handle.boxed(), stops)
+}
+
 async fn process_particles(
     num_particles: usize,
     parallelism: Option<usize>,
@@ -512,7 +552,7 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
     }
 }
 
-fn particle_throughput_with_vm_bench(c: &mut Criterion) {
+fn particle_throughput_with_kad_bench(c: &mut Criterion) {
     use tracing::Dispatch;
     use tracing_timing::{Builder, Histogram};
 
@@ -541,9 +581,10 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
     let tmp_dir = make_tmp_dir();
     let interpreter = put_aquamarine(tmp_dir.join("modules"));
 
-    let mut group = c.benchmark_group("particle_throughput_with_vm");
+    let mut group = c.benchmark_group("particle_throughput_with_kad");
     let num = 100;
     let pool_size = 4;
+    let network_size = 10;
 
     tracing::info_span!("whole_bench").in_scope(|| {
         // for &num in [1, 1000, 4 * 1000, 8 * 1000].iter() {
@@ -558,10 +599,11 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                     let interpreter = interpreter.clone();
                     let peer_id = RandomPeerId::random();
 
-                    let (con, finish_fut, kademlia) = connectivity(n);
-                    let (aquamarine, aqua_handle) =
-                        aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
+                    let (con, finish_fut, kademlia) = connectivity_with_real_kad(n, network_size);
+                    // let (aquamarine, aqua_handle) =
+                    //     aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
                     // let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, None);
+                    let (aquamarine, aqua_handle) = aquamarine_api();
 
                     let (sink, _) = mpsc::unbounded();
                     let particle_stream: BackPressuredInlet<Particle> =
@@ -574,7 +616,7 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                         particle_timeout,
                     ));
 
-                    let res = (process_fut.boxed(), finish_fut, vec![kademlia, aqua_handle]);
+                    let res = (process_fut.boxed(), finish_fut, kademlia, aqua_handle);
 
                     std::thread::sleep(Duration::from_secs(5));
 
@@ -582,12 +624,11 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
 
                     res
                 },
-                move |(process, finish, mut handles)| {
+                move |(process, finish, kad_handle, aqua_handle)| {
                     task::block_on(async move {
                         println!("start iteration");
                         let start = Instant::now();
                         let process = async_std::task::spawn(process);
-                        handles.push(process);
                         let spawn_took = start.elapsed().as_millis();
 
                         let start = Instant::now();
@@ -595,9 +636,9 @@ fn particle_throughput_with_vm_bench(c: &mut Criterion) {
                         let finish_took = start.elapsed().as_millis();
 
                         let start = Instant::now();
-                        for handle in handles {
-                            handle.cancel().await;
-                        }
+                        kad_handle.cancel().await;
+                        aqua_handle.cancel().await;
+                        process.cancel().await;
                         let cancel_took = start.elapsed().as_millis();
 
                         println!(
@@ -661,6 +702,6 @@ criterion_group!(
     particle_throughput_bench,
     thousand_particles_with_aquamarine_bench,
     particle_throughput_with_delay_bench,
-    particle_throughput_with_vm_bench
+    particle_throughput_with_kad_bench
 );
 criterion_main!(benches);

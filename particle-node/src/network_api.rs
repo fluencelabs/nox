@@ -130,7 +130,7 @@ impl NetworkApi {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// This structure is just a composition of Kademlia and ConnectionPool.
 /// It exists solely for code conciseness (i.e. avoid tuples);
 /// there's no architectural motivation behind
@@ -332,8 +332,6 @@ impl Connectivity {
                 let particle_id = particle.id.clone();
                 let p_id = particle_id.clone();
                 let fut = async move {
-                    particle.report_age("particle.start");
-
                     let start = Instant::now();
                     // execute particle on Aquamarine
                     let stepper_effects = measure!(aquamarine.handle(particle).await);

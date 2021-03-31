@@ -64,18 +64,19 @@ impl AquaRuntime for AquamarineVM {
         (config, host_closure): Self::Config,
         waker: Waker,
     ) -> BoxFuture<'static, Result<Self, Self::Error>> {
-        // TODO: revert to: task::spawn_blocking(move || {
-
-        let config = AquamarineVMConfig {
-            current_peer_id: config.current_peer_id.to_string(),
-            aquamarine_wasm_path: config.air_interpreter,
-            particle_data_store: config.particles_dir,
-            call_service: host_closure(),
-            logging_mask: i32::MAX,
-        };
-        let vm = measure!(AquamarineVM::new(config));
-        waker.wake();
-        futures::future::ready(vm).boxed()
+        task::spawn_blocking(move || {
+            let config = AquamarineVMConfig {
+                current_peer_id: config.current_peer_id.to_string(),
+                aquamarine_wasm_path: config.air_interpreter,
+                particle_data_store: config.particles_dir,
+                call_service: host_closure(),
+                logging_mask: i32::MAX,
+            };
+            let vm = AquamarineVM::new(config);
+            waker.wake();
+            vm
+        })
+        .boxed()
     }
 
     fn into_effects(
