@@ -43,6 +43,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
                     PublicKey::Ed25519(public_key) if supports_kademlia => {
                         let addresses =
                             filter_addresses(info.listen_addrs, self.allow_local_addresses);
+                        // TODO: check that address is available before adding it? Or will kademlia check it?
                         self.kademlia.add_addresses(peer_id, addresses, public_key);
                     }
                     _ if supports_kademlia => {

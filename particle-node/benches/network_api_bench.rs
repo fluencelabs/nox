@@ -31,7 +31,7 @@ use futures::channel::mpsc;
 use futures::future::BoxFuture;
 use futures::{FutureExt, SinkExt};
 use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::PeerId;
+use libp2p::{PeerId, Swarm};
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, InterpreterOutcome, SendParticle,
@@ -39,16 +39,19 @@ use aquamarine::{
 };
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::types::BackPressuredInlet;
-use fluence_libp2p::RandomPeerId;
-use kademlia::KademliaApi;
+use fluence_libp2p::{build_memory_transport, RandomPeerId};
+use kademlia::{Kademlia, KademliaApi, KademliaApiInlet, KademliaConfig};
+use libp2p::core::identity::ed25519::Keypair;
+use libp2p::core::identity::Keypair::Ed25519;
 use particle_closures::{HostClosures, NodeInfo};
 use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
 use particle_protocol::{Contact, Particle};
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
-use test_utils::{make_tmp_dir, now_ms, put_aquamarine};
+use test_utils::{create_memory_maddr, make_tmp_dir, now_ms, put_aquamarine};
 use tracing_futures::Instrument;
 use tracing_log::LogTracer;
+use trust_graph::{InMemoryStorage, TrustGraph};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 const PARALLELISM: Option<usize> = Some(16);
@@ -107,6 +110,40 @@ fn kademlia_api() -> (KademliaApi, JoinHandle<()>) {
     }));
 
     (api, handle)
+}
+
+fn real_kademlia_api(keypair: Keypair, peer_id: PeerId) -> (KademliaApi, KademliaApiInlet) {
+    let kad_config = KademliaConfig {
+        peer_id,
+        keypair: keypair.clone(),
+        kad_config: server_config::KademliaConfig {
+            max_packet_size: Some(100 * 4096 * 4096), // 100Mb
+            query_timeout: Duration::from_secs(3),
+            replication_factor: None,
+            connection_idle_timeout: Some(Duration::from_secs(2_628_000_000)), // ~month
+            peer_fail_threshold: 3,
+            ban_cooldown: Duration::from_secs(60),
+        },
+    };
+
+    let trust_graph = {
+        let storage = InMemoryStorage::new_in_memory(vec![]);
+        TrustGraph::new(storage)
+    };
+    let kademlia = Kademlia::new(kad_config, trust_graph, None);
+    let (kademlia_api, kademlia): (KademliaApi, KademliaApiInlet) = kademlia.into();
+
+    let transport = build_memory_transport(Ed25519(keypair));
+
+    let mut swarm: Swarm<KademliaApiInlet> = Swarm::new(transport, behaviour, local_peer_id);
+    let addr = create_memory_maddr();
+    Swarm::listen_on(&mut swarm, addr).expect("listen_on");
+
+    swarm.add_addresses()
+
+    // task::spawn()
+
+    (kademlia_api, kademlia)
 }
 
 fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<()>) {
