@@ -61,15 +61,15 @@ pub const PARALLELISM: Option<usize> = Some(16);
 
 pub async fn particles(n: usize) -> BackPressuredInlet<Particle> {
     let script = |_| String::from(r#"(call %init_peer_id% ("op" "identity") ["hello"] result)"#);
-    particles_with_script(n, script)
+    particles_with_script(n, script).await
 }
 
 pub async fn particles_to_network(n: usize, peer_ids: Vec<PeerId>) -> BackPressuredInlet<Particle> {
-    let script = move |n| {
+    let script = move |n: usize| {
         let peer_id = peer_ids[n % peer_ids.len()].clone();
         format!(r#"(call {} ("op" "identity") ["hello"] result)"#, peer_id)
     };
-    particles_with_script(n, script)
+    particles_with_script(n, script).await
 }
 
 pub async fn particles_with_script(
@@ -183,11 +183,9 @@ pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId
 
     let swarm = swarms.next().unwrap();
     let kad_api = swarm.connectivity.kademlia;
-    let stop = swarm.outlet;
 
-    let (stops, peer_ids) = std::iter::once(stop)
-        .chain(swarms.map(|s| (s.outlet, s.peer_id)))
-        .unzip();
+    let (mut stops, peer_ids): (Vec<_>, _) = swarms.map(|s| (s.outlet, s.peer_id)).unzip();
+    stops.push(swarm.outlet);
 
     (kad_api, Stops(stops), peer_ids)
 }
@@ -414,7 +412,7 @@ pub fn connectivity(
 pub fn connectivity_with_real_kad(
     num_particles: usize,
     network_size: usize,
-) -> (Connectivity, BoxFuture<'static, ()>, Stops, Vec<PeerIds>) {
+) -> (Connectivity, BoxFuture<'static, ()>, Stops, Vec<PeerId>) {
     let (kademlia, stops, peer_ids) = real_kademlia_api(network_size);
     let (connection_pool, cp_handle) = connection_pool_api(num_particles);
     let connectivity = Connectivity {

@@ -27,6 +27,7 @@ use fluence_libp2p::types::BackPressuredInlet;
 use fluence_libp2p::RandomPeerId;
 use futures::channel::mpsc;
 use futures::FutureExt;
+use humantime_serde::re::humantime::format_duration as pretty;
 use particle_protocol::Particle;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
