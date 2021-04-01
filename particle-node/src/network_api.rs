@@ -210,7 +210,8 @@ impl Connectivity {
     /// Discover a peer via Kademlia
     pub async fn discover_peer(&self, target: PeerId) -> Result<Option<Contact>, KademliaError> {
         // discover contact addresses through Kademlia
-        let addresses = self.kademlia.discover_peer(target).await?;
+        let addresses = measure!(self.kademlia.discover_peer(target).await?);
+        tracing::info!("discovered_peer");
         if addresses.is_empty() {
             return Ok(None);
         }

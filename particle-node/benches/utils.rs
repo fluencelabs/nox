@@ -51,16 +51,28 @@ pub async fn particles(n: usize) -> BackPressuredInlet<Particle> {
 }
 
 pub async fn particles_to_network(n: usize, peer_ids: Vec<PeerId>) -> BackPressuredInlet<Particle> {
-    let script = move |n: usize| {
-        let peer_id = peer_ids[n % peer_ids.len()].clone();
-        format!(r#"(call {} ("op" "identity") ["hello"] result)"#, peer_id)
-    };
-    particles_with_script(n, script).await
+    particles_with(n, |i, mut p| {
+        // assuming that the particle will be always sent back to init_peer_id by mocked vm (EasyVM)
+        p.init_peer_id = peer_ids[i % peer_ids.len()].clone();
+        p
+    })
+    .await
 }
 
 pub async fn particles_with_script(
     n: usize,
     script: impl Fn(usize) -> String,
+) -> BackPressuredInlet<Particle> {
+    particles_with(n, |i, mut p| {
+        p.script = script(i);
+        p
+    })
+    .await
+}
+
+pub async fn particles_with(
+    n: usize,
+    modify: impl Fn(usize, Particle) -> Particle,
 ) -> BackPressuredInlet<Particle> {
     let (mut outlet, inlet) = mpsc::channel(n * 2);
 
@@ -69,18 +81,17 @@ pub async fn particles_with_script(
         p.id = String::from("last");
         Ok(p)
     });
-    fn particle(n: usize, script: String) -> Particle {
+    fn particle(n: usize) -> Particle {
         Particle {
             timestamp: now_ms() as u64,
             ttl: 10000,
             id: n.to_string(),
-            script,
             ..<_>::default()
         }
     }
     let mut particles = futures::stream::iter(
         (0..n)
-            .map(|i| Ok(particle(i, script(i))))
+            .map(|i| Ok(modify(i, particle(i))))
             .chain(last_particle),
     );
     outlet.send_all(&mut particles).await.unwrap();
@@ -176,7 +187,10 @@ pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId
     (kad_api, Stops(stops), peer_ids)
 }
 
-pub fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHandle<()>) {
+pub fn connection_pool_api(
+    num_particles: usize,
+    return_contact: bool,
+) -> (ConnectionPoolApi, JoinHandle<()>) {
     use futures::StreamExt;
 
     let (outlet, mut inlet) = mpsc::unbounded();
@@ -207,7 +221,13 @@ pub fn connection_pool_api(num_particles: usize) -> (ConnectionPoolApi, JoinHand
                 ConnectionPoolCommand::Disconnect { out, .. } => out.send(true).unwrap(),
                 ConnectionPoolCommand::IsConnected { out, .. } => out.send(true).unwrap(),
                 ConnectionPoolCommand::GetContact { peer_id, out } => {
-                    out.send(Some(Contact::new(peer_id, vec![]))).unwrap()
+                    let contact = if return_contact {
+                        Some(Contact::new(peer_id, vec![]))
+                    } else {
+                        None
+                    };
+
+                    out.send(contact).unwrap()
                 }
                 ConnectionPoolCommand::CountConnections { out, .. } => out.send(0).unwrap(),
                 ConnectionPoolCommand::LifecycleEvents { .. } => {}
@@ -323,7 +343,7 @@ pub async fn network_api(particles_num: usize) -> (NetworkApi, Vec<JoinHandle<()
     let particle_stream: BackPressuredInlet<Particle> = particles(particles_num).await;
     let particle_parallelism: usize = 1;
     let (kademlia, kad_handle) = kademlia_api();
-    let (connection_pool, cp_handle) = connection_pool_api(1000);
+    let (connection_pool, cp_handle) = connection_pool_api(1000, true);
     let bootstrap_frequency: usize = 1000;
     let particle_timeout: Duration = Duration::from_secs(5);
 
@@ -342,7 +362,7 @@ pub fn connectivity(
     num_particles: usize,
 ) -> (Connectivity, BoxFuture<'static, ()>, JoinHandle<()>) {
     let (kademlia, kad_handle) = kademlia_api();
-    let (connection_pool, cp_handle) = connection_pool_api(num_particles);
+    let (connection_pool, cp_handle) = connection_pool_api(num_particles, true);
     let connectivity = Connectivity {
         kademlia,
         connection_pool,
@@ -356,7 +376,7 @@ pub fn connectivity_with_real_kad(
     network_size: usize,
 ) -> (Connectivity, BoxFuture<'static, ()>, Stops, Vec<PeerId>) {
     let (kademlia, stops, peer_ids) = real_kademlia_api(network_size);
-    let (connection_pool, cp_handle) = connection_pool_api(num_particles);
+    let (connection_pool, cp_handle) = connection_pool_api(num_particles, false);
     let connectivity = Connectivity {
         kademlia,
         connection_pool,

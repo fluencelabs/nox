@@ -198,10 +198,12 @@ impl Kademlia {
     pub fn discover_peer(&mut self, peer: PeerId, outlet: OneshotOutlet<Result<Vec<Multiaddr>>>) {
         let local = self.kademlia.addresses_of_peer(&peer);
         if !local.is_empty() {
+            tracing::info!("peer.discovered.local");
             outlet.send(Ok(local)).ok();
             return;
         }
         if self.is_banned(&peer) {
+            tracing::info!("peer.discovered.ban");
             outlet.send(Err(KademliaError::PeerBanned)).ok();
             return;
         }
@@ -215,6 +217,7 @@ impl Kademlia {
 
         // Run discovery only if there's no discovery already running
         if !discovering {
+            tracing::info!("peer.discover.remote.will");
             let query_id = self.kademlia.get_closest_peers(peer);
             self.queries.insert(query_id, PendingQuery::Peer(peer));
             self.wake();
