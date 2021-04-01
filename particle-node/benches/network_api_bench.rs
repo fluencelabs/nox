@@ -31,7 +31,7 @@ use humantime_serde::re::humantime::format_duration as pretty;
 use particle_protocol::Particle;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use test_utils::{make_tmp_dir, put_aquamarine};
+use test_utils::{enable_logs, make_tmp_dir, put_aquamarine};
 
 fn thousand_particles_bench(c: &mut Criterion) {
     c.bench_function("thousand_particles", move |b| {
@@ -159,6 +159,8 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
 }
 
 fn particle_throughput_with_kad_bench(c: &mut Criterion) {
+    // enable_logs();
+
     use tracing::Dispatch;
     use tracing_timing::{Builder, Histogram};
 

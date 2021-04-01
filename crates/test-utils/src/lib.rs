@@ -31,6 +31,7 @@ extern crate fstrings;
 
 mod connected_client;
 mod connection;
+mod easy_vm;
 mod local_vm;
 mod misc;
 mod service;
@@ -39,6 +40,7 @@ mod utils;
 
 pub use connected_client::*;
 pub use connection::*;
+pub use easy_vm::*;
 pub use local_vm::*;
 pub use misc::*;
 pub use service::*;

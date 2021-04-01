@@ -49,7 +49,7 @@ pub struct NetworkBehaviour {
 }
 
 impl NetworkBehaviour {
-    pub fn new(cfg: NetworkConfig) -> anyhow::Result<(Self, NetworkApi)> {
+    pub fn new(cfg: NetworkConfig) -> (Self, NetworkApi) {
         let local_public_key = PublicKey::Ed25519(cfg.key_pair.public());
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),
@@ -74,7 +74,7 @@ impl NetworkBehaviour {
         );
         let (connection_pool_api, connection_pool) = connection_pool.into();
 
-        Ok((
+        (
             Self {
                 kademlia,
                 connection_pool,
@@ -90,7 +90,7 @@ impl NetworkBehaviour {
                 cfg.bootstrap_frequency,
                 cfg.particle_timeout,
             ),
-        ))
+        )
     }
 }
 

@@ -23,14 +23,16 @@ use fluence_libp2p::{build_memory_transport, build_transport};
 use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
 use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
-use aquamarine::{VmConfig, VmPoolConfig};
+use crate::EasyVM;
+use aquamarine::{AquaRuntime, AquamarineVM, VmConfig, VmPoolConfig};
 use async_std::task;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use eyre::WrapErr;
+use futures::channel::mpsc::unbounded;
 use futures::{stream::iter, StreamExt};
 use libp2p::{core::Multiaddr, identity::ed25519::Keypair, PeerId};
 use rand::Rng;
-use script_storage::ScriptStorageConfig;
+use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use serde_json::{json, Value as JValue};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -153,14 +155,32 @@ where
     )
 }
 
-pub fn make_swarms_with<F, M>(
+pub fn make_swarms_with_mocked_vm<F>(
+    n: usize,
+    update_cfg: F,
+    delay: Option<Duration>,
+) -> Vec<CreatedSwarm>
+where
+    F: Fn(SwarmConfig) -> SwarmConfig,
+{
+    make_swarms_with::<_, _, EasyVM>(
+        n,
+        |bs, maddr| {
+            create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), |_, _, _| delay)
+        },
+        create_memory_maddr,
+        true,
+    )
+}
+
+pub fn make_swarms_with<F, M, RT: AquaRuntime>(
     n: usize,
     mut create_node: F,
     mut create_maddr: M,
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node>, PathBuf, Keypair),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, PathBuf, Keypair),
     M: FnMut() -> Multiaddr,
 {
     let addrs = (0..n).map(|_| create_maddr()).collect::<Vec<_>>();
@@ -236,26 +256,15 @@ pub struct SwarmConfig {
     pub pool_size: Option<usize>,
 }
 
-impl Default for SwarmConfig {
-    fn default() -> Self {
-        Self {
-            bootstraps: <_>::default(),
-            listen_on: Multiaddr::empty(),
-            trust: <_>::default(),
-            transport: Transport::Memory,
-            tmp_dir: <_>::default(),
-            pool_size: <_>::default(),
-        }
-    }
-}
-
 impl SwarmConfig {
     pub fn new(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr) -> Self {
         Self {
             bootstraps,
             listen_on,
             transport: Transport::Memory,
-            ..<_>::default()
+            trust: <_>::default(),
+            tmp_dir: <_>::default(),
+            pool_size: <_>::default(),
         }
     }
 
@@ -266,11 +275,53 @@ impl SwarmConfig {
     }
 }
 
-pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair) {
+pub struct BaseVmConfig {
+    pub peer_id: PeerId,
+    pub tmp_dir: PathBuf,
+    pub listen_on: Multiaddr,
+    pub manager: PeerId,
+}
+
+pub fn aqua_vm_config(
+    connectivity: Connectivity,
+    script_storage_api: ScriptStorageApi,
+    vm_config: BaseVmConfig,
+) -> <AquamarineVM as AquaRuntime>::Config {
+    let BaseVmConfig {
+        peer_id,
+        tmp_dir,
+        listen_on,
+        manager,
+    } = vm_config;
+
+    let stepper_base_dir = tmp_dir.join("stepper");
+    let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir));
+
+    let vm_config =
+        VmConfig::new(peer_id, stepper_base_dir, air_interpreter).expect("create vm config");
+
+    let services_config =
+        ServicesConfig::new(peer_id, tmp_dir.join("services"), <_>::default(), manager)
+            .expect("create services config");
+
+    let host_closures = Node::host_closures(
+        connectivity,
+        vec![listen_on],
+        services_config,
+        script_storage_api,
+    );
+
+    (vm_config, host_closures.descriptor())
+}
+
+pub fn create_swarm_with_runtime<RT: AquaRuntime>(
+    config: SwarmConfig,
+    vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig) -> RT::Config,
+) -> (PeerId, Box<Node<RT>>, PathBuf, Keypair) {
     use libp2p::identity;
 
     #[rustfmt::skip]
-    let SwarmConfig { bootstraps, listen_on, trust, transport, pool_size, .. } = config;
+    let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config;
 
     let kp = Keypair::generate();
     let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());
@@ -279,11 +330,6 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
     let management_kp = Keypair::generate();
     let m_public_key = libp2p::identity::PublicKey::Ed25519(management_kp.public());
     let m_id = PeerId::from(m_public_key);
-
-    let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
-    std::fs::create_dir_all(&tmp).expect("create tmp dir");
-    let stepper_base_dir = tmp.join("stepper");
-    let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir));
 
     let root_weights: &[_] = trust.as_ref().map_or(&[], |t| &t.root_weights);
     let mut trust_graph = {
@@ -295,16 +341,6 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
             trust_graph.add(cert, trust.cur_time).expect("add cert");
         }
     }
-
-    // execution timeout
-    let execution_timeout = Duration::from_secs(5);
-    let pool_size = pool_size.unwrap_or(1);
-    let vm_config =
-        VmConfig::new(peer_id, stepper_base_dir, air_interpreter).expect("create vm config");
-    let pool_config = VmPoolConfig::new(pool_size, execution_timeout);
-
-    let services_config = ServicesConfig::new(peer_id, tmp.join("services"), <_>::default(), m_id)
-        .expect("create services config");
 
     let network_config = NetworkConfig {
         key_pair: kp.clone(),
@@ -328,31 +364,62 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
         Transport::Network => build_transport(Ed25519(kp), Duration::from_secs(10)),
     };
 
-    let script_storage_config = ScriptStorageConfig {
-        timer_resolution: Duration::from_millis(500),
-        max_failures: 1,
-        particle_ttl: Duration::from_secs(5),
-        peer_id,
+    let (swarm, network_api) =
+        Node::swarm(peer_id, network_config, transport, vec![listen_on.clone()]);
+
+    let connectivity = network_api.connectivity();
+    let (particle_failures_out, particle_failures_in) = unbounded();
+    let (script_storage_api, script_storage_backend) = {
+        let script_storage_config = ScriptStorageConfig {
+            timer_resolution: Duration::from_millis(500),
+            max_failures: 1,
+            particle_ttl: Duration::from_secs(5),
+            peer_id,
+        };
+
+        let pool: &ConnectionPoolApi = connectivity.as_ref();
+        ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
     };
+
+    // execution timeout
+    let execution_timeout = Duration::from_secs(5);
+    let pool_size = config.pool_size.unwrap_or(1);
+    let pool_config = VmPoolConfig::new(pool_size, execution_timeout);
+
+    let tmp_dir = config.tmp_dir.unwrap_or_else(make_tmp_dir);
+    std::fs::create_dir_all(&tmp_dir).expect("create tmp dir");
+
+    let vm_config = vm_config(
+        connectivity,
+        script_storage_api,
+        BaseVmConfig {
+            peer_id,
+            tmp_dir: tmp_dir.clone(),
+            listen_on: listen_on.clone(),
+            manager: m_id,
+        },
+    );
 
     let mut node = Node::with(
         peer_id,
-        transport,
-        services_config,
-        pool_config,
+        swarm,
+        network_api,
+        script_storage_backend,
         vm_config,
-        network_config,
-        vec![listen_on.clone()],
+        pool_config,
+        particle_failures_out,
         None,
         "0.0.0.0:0".parse().unwrap(),
         bootstraps,
-        script_storage_config,
-    )
-    .expect("create node");
+    );
 
     node.listen(vec![listen_on]).expect("listen");
 
-    (peer_id, node, tmp, management_kp)
+    (peer_id, node, tmp_dir, management_kp)
+}
+
+pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AquamarineVM>>, PathBuf, Keypair) {
+    create_swarm_with_runtime(config, aqua_vm_config)
 }
 
 pub fn create_memory_maddr() -> Multiaddr {

@@ -26,11 +26,11 @@
     unreachable_patterns
 )]
 
-use anyhow::Context;
 use clap::App;
 use futures::channel::oneshot;
 
 use ctrlc_adapter::block_until_ctrlc;
+use eyre::WrapErr;
 use libp2p::identity::ed25519::Keypair;
 use particle_node::{
     config::{certificates, create_args},
@@ -46,7 +46,7 @@ trait Stoppable {
     fn stop(self);
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eyre::Result<()> {
     // TODO: set level to info by default (todo: check that RUST_LOG will still work)
     // TODO: maybe set log level via flag?
     env_logger::builder().format_timestamp_micros().init();
@@ -94,11 +94,11 @@ fn main() -> anyhow::Result<()> {
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()
-fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
+fn start_fluence(config: FluenceConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     certificates::init(config.certificate_dir.as_str(), &config.root_key_pair)
-        .context("failed to init certificates")?;
+        .wrap_err("failed to init certificates")?;
 
     let key_pair = config.root_key_pair;
     log::info!(
@@ -108,7 +108,7 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
 
     let listen_config = config.server.listen_config();
     let key_pair: Keypair = key_pair.into();
-    let mut node = Node::new(key_pair, config.server).context("failed to create server")?;
+    let mut node = Node::new(key_pair, config.server);
     node.listen(&listen_config)
         .expect("Error starting node listener");
 

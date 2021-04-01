@@ -23,8 +23,8 @@ use fluence_identity::KeyPair;
 use particle_protocol::ProtocolConfig;
 use trust_graph::PublicKeyHashable;
 
-use anyhow::{anyhow, Context};
 use clap::{ArgMatches, Values};
+use eyre::{eyre, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use libp2p::PeerId;
 use serde::Deserialize;
@@ -273,7 +273,7 @@ where
 fn insert_args_to_config(
     arguments: ArgMatches<'_>,
     config: &mut toml::value::Table,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     use toml::Value::*;
 
     fn single(mut value: Values<'_>) -> &str {
@@ -303,17 +303,17 @@ fn insert_args_to_config(
     Ok(())
 }
 
-fn validate_config(config: FluenceConfig) -> anyhow::Result<FluenceConfig> {
+fn validate_config(config: FluenceConfig) -> eyre::Result<FluenceConfig> {
     let exists = config.server.air_interpreter_path.as_path().exists();
     let is_file = config.server.air_interpreter_path.is_file();
     if exists && !is_file {
-        return Err(anyhow!(
+        return Err(eyre!(
             "Invalid path to air interpreter: {:?} is a directory, expected .wasm file",
             config.server.air_interpreter_path
         ));
     }
     if !exists {
-        return Err(anyhow!(
+        return Err(eyre!(
             "Invalid path to air interpreter: path {:?} does not exists",
             config.server.air_interpreter_path
         ));
@@ -324,7 +324,7 @@ fn validate_config(config: FluenceConfig) -> anyhow::Result<FluenceConfig> {
 
 // loads config from arguments and a config file
 // TODO: avoid depending on ArgMatches
-pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
+pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<FluenceConfig> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
         .unwrap_or(DEFAULT_CONFIG_FILE);
@@ -333,8 +333,8 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
 
     log::info!("Loading config from {:?}", config_file);
 
-    let file_content =
-        std::fs::read(&config_file).context(format!("Config wasn't found at {:?}", config_file))?;
+    let file_content = std::fs::read(&config_file)
+        .wrap_err_with(|| format!("Config wasn't found at {:?}", config_file))?;
     let config = deserialize_config(arguments, file_content)?;
 
     validate_config(config)
@@ -343,9 +343,9 @@ pub fn load_config(arguments: ArgMatches<'_>) -> anyhow::Result<FluenceConfig> {
 pub fn deserialize_config(
     arguments: ArgMatches<'_>,
     content: Vec<u8>,
-) -> anyhow::Result<FluenceConfig> {
+) -> eyre::Result<FluenceConfig> {
     let mut config: toml::value::Table =
-        toml::from_slice(&content).context("deserializing config")?;
+        toml::from_slice(&content).wrap_err("deserializing config")?;
 
     insert_args_to_config(arguments, &mut config)?;
 

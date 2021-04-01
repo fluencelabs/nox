@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-use std::convert::Infallible;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::task::Waker;
 use std::time::Duration;
 
 use async_std::task::{spawn, JoinHandle};
@@ -29,22 +27,20 @@ use futures::{FutureExt, SinkExt};
 use libp2p::PeerId;
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, InterpreterOutcome, SendParticle,
-    StepperEffects, VmConfig, VmPoolConfig,
+    AquamarineApi, AquamarineBackend, AquamarineVM, SendParticle, StepperEffects, VmConfig,
+    VmPoolConfig,
 };
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::types::{BackPressuredInlet, OneshotOutlet};
 use fluence_libp2p::RandomPeerId;
-use kademlia::{Kademlia, KademliaApi, KademliaApiInlet, KademliaConfig};
+use kademlia::KademliaApi;
 use particle_closures::{HostClosures, NodeInfo};
 use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
 use particle_protocol::{Contact, Particle};
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
-use test_utils::{
-    create_memory_maddr, create_swarm, make_swarms, make_tmp_dir, now_ms, put_aquamarine,
-    SwarmConfig,
-};
+use std::convert::identity;
+use test_utils::{make_swarms, make_swarms_with_mocked_vm, make_tmp_dir, now_ms, EasyVM};
 
 pub const TIMEOUT: Duration = Duration::from_secs(10);
 pub const PARALLELISM: Option<usize> = Some(16);
@@ -169,7 +165,7 @@ impl Stops {
 }
 
 pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId>) {
-    let mut swarms = make_swarms(network_size).into_iter();
+    let mut swarms = make_swarms_with_mocked_vm(network_size, identity, None).into_iter();
 
     let swarm = swarms.next().unwrap();
     let kad_api = swarm.connectivity.kademlia;
@@ -265,50 +261,6 @@ pub fn aquamarine_with_backend(
     pool_size: usize,
     delay: Option<Duration>,
 ) -> (AquamarineApi, JoinHandle<()>) {
-    struct EasyVM {
-        delay: Option<Duration>,
-    }
-
-    impl AquaRuntime for EasyVM {
-        type Config = Option<Duration>;
-        type Error = Infallible;
-
-        fn create_runtime(
-            delay: Option<Duration>,
-            _: Waker,
-        ) -> BoxFuture<'static, Result<Self, Self::Error>> {
-            futures::future::ok(EasyVM { delay }).boxed()
-        }
-
-        fn into_effects(_: Result<InterpreterOutcome, Self::Error>, p: Particle) -> StepperEffects {
-            StepperEffects {
-                particles: vec![SendParticle {
-                    target: p.init_peer_id,
-                    particle: p,
-                }],
-            }
-        }
-
-        fn call(
-            &mut self,
-            init_user_id: PeerId,
-            _aqua: String,
-            data: Vec<u8>,
-            _particle_id: String,
-        ) -> Result<InterpreterOutcome, Self::Error> {
-            if let Some(delay) = self.delay {
-                std::thread::sleep(delay);
-            }
-
-            Ok(InterpreterOutcome {
-                ret_code: 0,
-                error_message: "".to_string(),
-                data: data.into(),
-                next_peer_pks: vec![init_user_id.to_string()],
-            })
-        }
-    }
-
     let config = VmPoolConfig {
         pool_size,
         execution_timeout: TIMEOUT,
