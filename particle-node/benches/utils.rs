@@ -19,19 +19,14 @@ use std::mem;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::Waker;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use async_std::task;
 use async_std::task::{spawn, JoinHandle};
-use criterion::async_executor::AsyncStdExecutor;
-use criterion::{criterion_group, criterion_main, BatchSize};
-use criterion::{BenchmarkId, Criterion, Throughput};
 use eyre::WrapErr;
 use futures::channel::mpsc;
 use futures::future::BoxFuture;
 use futures::{FutureExt, SinkExt};
-use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::{PeerId, Swarm};
+use libp2p::PeerId;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, InterpreterOutcome, SendParticle,
@@ -39,10 +34,8 @@ use aquamarine::{
 };
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::types::{BackPressuredInlet, OneshotOutlet};
-use fluence_libp2p::{build_memory_transport, RandomPeerId};
+use fluence_libp2p::RandomPeerId;
 use kademlia::{Kademlia, KademliaApi, KademliaApiInlet, KademliaConfig};
-use libp2p::core::identity::ed25519::Keypair;
-use libp2p::core::identity::Keypair::Ed25519;
 use particle_closures::{HostClosures, NodeInfo};
 use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
 use particle_protocol::{Contact, Particle};
@@ -52,9 +45,6 @@ use test_utils::{
     create_memory_maddr, create_swarm, make_swarms, make_tmp_dir, now_ms, put_aquamarine,
     SwarmConfig,
 };
-use tracing_futures::Instrument;
-use tracing_log::LogTracer;
-use trust_graph::{InMemoryStorage, TrustGraph};
 
 pub const TIMEOUT: Duration = Duration::from_secs(10);
 pub const PARALLELISM: Option<usize> = Some(16);

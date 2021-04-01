@@ -19,7 +19,7 @@ mod utils;
 use utils::*;
 
 use async_std::task;
-use async_std::task::{spawn, JoinHandle};
+use async_std::task::spawn;
 use criterion::async_executor::AsyncStdExecutor;
 use criterion::{criterion_group, criterion_main, BatchSize};
 use criterion::{BenchmarkId, Criterion, Throughput};
