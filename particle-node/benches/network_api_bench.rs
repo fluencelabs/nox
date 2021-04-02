@@ -200,12 +200,13 @@ fn kademlia_resolve_bench(c: &mut Criterion) {
         let mut group = c.benchmark_group("kademlia_resolve");
         println!();
 
-        let network_size = 5;
+        let network_size = 10;
         // group.throughput(Throughput::Elements(num as u64));
         group.sample_size(10);
         let bid = { BenchmarkId::from_parameter(format!("{} nodes", network_size)) };
         group.bench_function(bid, |b| {
             b.iter_batched(
+                // TODO: control topology better. currently it is more or less random.
                 || connectivity_with_real_kad(1, network_size),
                 move |(connectivity, _finish_fut, kademlia, peer_ids)| {
                     task::block_on(async move {
@@ -219,7 +220,7 @@ fn kademlia_resolve_bench(c: &mut Criterion) {
                             _ => {}
                         }
 
-                        measure!(kademlia.cancel().await);
+                        kademlia.cancel().await;
                         println!("finished. elapsed {} ms", start.elapsed().as_millis())
                     })
                 },

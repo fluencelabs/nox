@@ -200,11 +200,13 @@ impl Kademlia {
 
         let local = self.kademlia.addresses_of_peer(&peer);
         if !local.is_empty() {
+            println!("local");
             tracing::info!("peer.discovered.local");
             outlet.send(Ok(local)).ok();
             return;
         }
         if self.is_banned(&peer) {
+            println!("banned");
             tracing::info!("peer.discovered.ban");
             outlet.send(Err(KademliaError::PeerBanned)).ok();
             return;

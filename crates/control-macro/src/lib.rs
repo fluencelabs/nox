@@ -56,9 +56,9 @@ macro_rules! measure {
         match $val {
             tmp => {
                 let elapsed_ms = start.elapsed().as_millis();
-                // if elapsed_ms > 0 {
-                println!("{} took {} ms", stringify!($val), elapsed_ms);
-                // }
+                if elapsed_ms > 100 {
+                    println!("{} took {} ms", stringify!($val), elapsed_ms);
+                }
                 tmp
             }
         }
