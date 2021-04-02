@@ -34,6 +34,7 @@ use libp2p::{core::Multiaddr, identity::ed25519::Keypair, PeerId};
 use rand::Rng;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use serde_json::{json, Value as JValue};
+use std::convert::identity;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{path::PathBuf, time::Duration};
@@ -135,12 +136,7 @@ pub struct CreatedSwarm {
 }
 
 pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
-    make_swarms_with(
-        n,
-        |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
-        create_memory_maddr,
-        true,
-    )
+    make_swarms_with_cfg(n, identity)
 }
 
 pub fn make_swarms_with_cfg<F>(n: usize, update_cfg: F) -> Vec<CreatedSwarm>
@@ -151,37 +147,43 @@ where
         n,
         |bs, maddr| create_swarm(update_cfg(SwarmConfig::new(bs, maddr))),
         create_memory_maddr,
+        identity,
         true,
     )
 }
 
-pub fn make_swarms_with_mocked_vm<F>(
+pub fn make_swarms_with_mocked_vm<F, B>(
     n: usize,
     update_cfg: F,
     delay: Option<Duration>,
+    bootstraps: B,
 ) -> Vec<CreatedSwarm>
 where
     F: Fn(SwarmConfig) -> SwarmConfig,
+    B: Fn(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
-    make_swarms_with::<_, _, EasyVM>(
+    make_swarms_with::<EasyVM, _, _, _>(
         n,
         |bs, maddr| {
             create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), |_, _, _| delay)
         },
         create_memory_maddr,
+        bootstraps,
         true,
     )
 }
 
-pub fn make_swarms_with<F, M, RT: AquaRuntime>(
+pub fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     n: usize,
     mut create_node: F,
     mut create_maddr: M,
+    bootstraps: B,
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
     F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, PathBuf, Keypair),
     M: FnMut() -> Multiaddr,
+    B: Fn(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
     let addrs = (0..n).map(|_| create_maddr()).collect::<Vec<_>>();
     let nodes = addrs
@@ -189,23 +191,25 @@ where
         .map(|addr| {
             #[rustfmt::skip]
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
-            let (id, node, tmp, m_kp) = create_node(addrs, addr.clone());
-            ((id, addr.clone(), tmp, m_kp), node)
+            let bootstraps = bootstraps(addrs);
+            let bootstraps_num = bootstraps.len();
+            let (id, node, tmp, m_kp) = create_node(bootstraps, addr.clone());
+            ((id, addr.clone(), tmp, m_kp), node, bootstraps_num)
         })
         .collect::<Vec<_>>();
 
     let pools = iter(
         nodes
             .iter()
-            .map(|(_, n)| n.network_api.connectivity())
+            .map(|(_, n, bootstraps_num)| (n.network_api.connectivity(), *bootstraps_num))
             .collect::<Vec<_>>(),
     );
-    let connected = pools.for_each_concurrent(None, |pool| async move {
+    let connected = pools.for_each_concurrent(None, |(pool, bootstraps_num)| async move {
         let pool = AsRef::<ConnectionPoolApi>::as_ref(&pool);
         let mut events = pool.lifecycle_events();
         loop {
             let num = pool.count_connections().await;
-            if num >= n - 1 {
+            if num >= bootstraps_num {
                 break;
             }
             // wait until something changes
@@ -217,7 +221,7 @@ where
     let infos = nodes
         .into_iter()
         .map(
-            |((peer_id, multiaddr, tmp_dir, management_keypair), node)| {
+            |((peer_id, multiaddr, tmp_dir, management_keypair), node, _)| {
                 let connectivity = node.network_api.connectivity();
                 let outlet = node.start();
                 CreatedSwarm {

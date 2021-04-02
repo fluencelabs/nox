@@ -28,6 +28,7 @@ use fluence_libp2p::RandomPeerId;
 use futures::channel::mpsc;
 use futures::FutureExt;
 use humantime_serde::re::humantime::format_duration as pretty;
+use kademlia::KademliaApiT;
 use particle_protocol::Particle;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -54,59 +55,6 @@ fn particle_throughput_bench(c: &mut Criterion) {
                 .iter(move || process_particles(n, parallelism, TIMEOUT))
         });
     }
-}
-
-async fn process_particles_with_delay(
-    num_particles: usize,
-    pool_size: usize,
-    call_delay: Option<Duration>,
-    particle_parallelism: Option<usize>,
-    particle_timeout: Duration,
-) {
-    let (con, future, kademlia) = connectivity(num_particles);
-    let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, call_delay);
-    let (sink, _) = mpsc::unbounded();
-    let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
-    let process = spawn(con.clone().process_particles(
-        particle_parallelism,
-        particle_stream,
-        aquamarine,
-        sink,
-        particle_timeout,
-    ));
-    future.await;
-
-    process.cancel().await;
-    kademlia.cancel().await;
-    aqua_handle.cancel().await;
-}
-
-async fn process_particles_with_vm(
-    num_particles: usize,
-    pool_size: usize,
-    particle_parallelism: Option<usize>,
-    particle_timeout: Duration,
-    interpreter: PathBuf,
-) {
-    let peer_id = RandomPeerId::random();
-
-    let (con, future, kademlia) = connectivity(num_particles);
-    let (aquamarine, aqua_handle) =
-        aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter);
-    let (sink, _) = mpsc::unbounded();
-    let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
-    let process = spawn(con.clone().process_particles(
-        particle_parallelism,
-        particle_stream,
-        aquamarine,
-        sink,
-        particle_timeout,
-    ));
-    future.await;
-
-    process.cancel().await;
-    kademlia.cancel().await;
-    aqua_handle.cancel().await;
 }
 
 fn thousand_particles_with_aquamarine_bench(c: &mut Criterion) {
@@ -305,12 +253,36 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
 //     }
 // }
 
+fn kademlia_resolve_bench(c: &mut Criterion) {
+    let mut group = c.benchmark_group("kademlia_resolve");
+
+    let network_size = 10;
+    // group.throughput(Throughput::Elements(num as u64));
+    // group.sample_size(10);
+    let bid = { BenchmarkId::from_parameter(format!("{} nodes", network_size)) };
+    group.bench_function(bid, |b| {
+        b.iter_batched(
+            || connectivity_with_real_kad(1, network_size),
+            move |(connectivity, _finish_fut, kademlia, peer_ids)| {
+                task::block_on(async move {
+                    for peer_id in peer_ids {
+                        measure!(connectivity.kademlia.discover_peer(peer_id).await);
+                    }
+                    measure!(kademlia.cancel().await);
+                })
+            },
+            BatchSize::LargeInput,
+        )
+    });
+}
+
 criterion_group!(
     benches,
     thousand_particles_bench,
     particle_throughput_bench,
     thousand_particles_with_aquamarine_bench,
     particle_throughput_with_delay_bench,
-    particle_throughput_with_kad_bench
+    particle_throughput_with_kad_bench,
+    kademlia_resolve_bench
 );
 criterion_main!(benches);

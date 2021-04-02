@@ -176,7 +176,10 @@ impl Stops {
 }
 
 pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId>) {
-    let mut swarms = make_swarms_with_mocked_vm(network_size, identity, None).into_iter();
+    let mut swarms = make_swarms_with_mocked_vm(network_size, identity, None, |bootstraps| {
+        bootstraps.into_iter().last().into_iter().collect()
+    })
+    .into_iter();
 
     let swarm = swarms.next().unwrap();
     let kad_api = swarm.connectivity.kademlia;
@@ -403,6 +406,59 @@ pub async fn process_particles(
         particle_timeout,
     ));
     finish.await;
+
+    process.cancel().await;
+    kademlia.cancel().await;
+    aqua_handle.cancel().await;
+}
+
+pub async fn process_particles_with_vm(
+    num_particles: usize,
+    pool_size: usize,
+    particle_parallelism: Option<usize>,
+    particle_timeout: Duration,
+    interpreter: PathBuf,
+) {
+    let peer_id = RandomPeerId::random();
+
+    let (con, future, kademlia) = connectivity(num_particles);
+    let (aquamarine, aqua_handle) =
+        aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter);
+    let (sink, _) = mpsc::unbounded();
+    let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
+    let process = spawn(con.clone().process_particles(
+        particle_parallelism,
+        particle_stream,
+        aquamarine,
+        sink,
+        particle_timeout,
+    ));
+    future.await;
+
+    process.cancel().await;
+    kademlia.cancel().await;
+    aqua_handle.cancel().await;
+}
+
+pub async fn process_particles_with_delay(
+    num_particles: usize,
+    pool_size: usize,
+    call_delay: Option<Duration>,
+    particle_parallelism: Option<usize>,
+    particle_timeout: Duration,
+) {
+    let (con, future, kademlia) = connectivity(num_particles);
+    let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, call_delay);
+    let (sink, _) = mpsc::unbounded();
+    let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
+    let process = spawn(con.clone().process_particles(
+        particle_parallelism,
+        particle_stream,
+        aquamarine,
+        sink,
+        particle_timeout,
+    ));
+    future.await;
 
     process.cancel().await;
     kademlia.cancel().await;
