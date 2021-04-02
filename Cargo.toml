@@ -30,6 +30,11 @@ exclude = [
 ]
 
 
+[patch.crates-io]
+libp2p = { package = "fluence-fork-libp2p", path = "../rust-libp2p" }
+libp2p-noise = { package = "fluence-fork-libp2p-noise", path = "../rust-libp2p/transports/noise" }
+libp2p-core = { package = "fluence-fork-libp2p-core", path = "../rust-libp2p/core" }
+
 #[profile.dev]
 #opt-level = 2
 #debug = false

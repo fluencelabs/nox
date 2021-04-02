@@ -177,7 +177,8 @@ impl Stops {
 
 pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId>) {
     let mut swarms = make_swarms_with_mocked_vm(network_size, identity, None, |bootstraps| {
-        bootstraps.into_iter().last().into_iter().collect()
+        let len = bootstraps.len();
+        bootstraps.into_iter().skip(len - 2).collect()
     })
     .into_iter();
 
@@ -463,4 +464,17 @@ pub async fn process_particles_with_delay(
     process.cancel().await;
     kademlia.cancel().await;
     aqua_handle.cancel().await;
+}
+
+#[cfg(test)]
+mod tests {
+    use control_macro::measure;
+    use std::time::Duration;
+
+    #[test]
+    fn test() {
+        async_std::task::block_on(async move {
+            measure!(async_std::task::sleep(Duration::from_secs(1)).await)
+        })
+    }
 }

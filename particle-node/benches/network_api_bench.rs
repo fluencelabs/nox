@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+mod tracing_utils;
 mod utils;
 
+use tracing_utils::*;
 use utils::*;
 
 use async_std::task;
@@ -109,28 +111,7 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
 fn particle_throughput_with_kad_bench(c: &mut Criterion) {
     // enable_logs();
 
-    use tracing::Dispatch;
-    use tracing_timing::{Builder, Histogram};
-
-    // let subscriber = FmtSubscriber::builder()
-    //     // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
-    //     // will be written to stdout.
-    //     .with_max_level(Level::TRACE)
-    //     // completes the builder.
-    //     .finish();
-
-    // LogTracer::init_with_filter(log::LevelFilter::Error).expect("Failed to set logger");
-
-    let subscriber = Builder::default()
-        .no_span_recursion()
-        .build(|| Histogram::new_with_max(1_000_000, 2).unwrap());
-    let downcaster = subscriber.downcaster();
-    let dispatcher = Dispatch::new(subscriber);
-    let d2 = dispatcher.clone();
-    tracing::dispatcher::set_global_default(dispatcher.clone())
-        .expect("setting default dispatch failed");
-    // tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-
+    // trace(|| {
     let particle_parallelism = PARALLELISM;
     let particle_timeout = TIMEOUT;
 
@@ -142,138 +123,110 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
     let pool_size = 4;
     let network_size = 10;
 
-    tracing::info_span!("whole_bench").in_scope(|| {
-        // for &num in [1, 1000, 4 * 1000, 8 * 1000].iter() {
-        //     for &pool_size in [1, 2, 4, 16].iter() {
-        group.throughput(Throughput::Elements(num as u64));
-        group.sample_size(10);
-        let bid = { BenchmarkId::from_parameter(format!("{}@{}", num, pool_size)) };
-        group.bench_with_input(bid, &num, |b, &n| {
-            let interpreter = interpreter.clone();
-            b.iter_batched(
-                || {
-                    let interpreter = interpreter.clone();
-                    let peer_id = RandomPeerId::random();
+    // for &num in [1, 1000, 4 * 1000, 8 * 1000].iter() {
+    //     for &pool_size in [1, 2, 4, 16].iter() {
+    group.throughput(Throughput::Elements(num as u64));
+    group.sample_size(10);
+    let bid = { BenchmarkId::from_parameter(format!("{}@{}", num, pool_size)) };
+    group.bench_with_input(bid, &num, |b, &n| {
+        let interpreter = interpreter.clone();
+        b.iter_batched(
+            || {
+                let interpreter = interpreter.clone();
+                let peer_id = RandomPeerId::random();
 
-                    let (con, finish_fut, kademlia, peer_ids) =
-                        connectivity_with_real_kad(n, network_size);
-                    // let (aquamarine, aqua_handle) =
-                    //     aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
-                    // let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, None);
-                    let (aquamarine, aqua_handle) = aquamarine_api();
+                let (con, finish_fut, kademlia, peer_ids) =
+                    connectivity_with_real_kad(n, network_size);
+                // let (aquamarine, aqua_handle) =
+                //     aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
+                // let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, None);
+                let (aquamarine, aqua_handle) = aquamarine_api();
 
-                    let (sink, _) = mpsc::unbounded();
-                    let particle_stream: BackPressuredInlet<Particle> =
-                        task::block_on(particles_to_network(n, peer_ids));
-                    let process_fut = Box::new(con.clone().process_particles(
-                        particle_parallelism,
-                        particle_stream,
-                        aquamarine,
-                        sink,
-                        particle_timeout,
-                    ));
+                let (sink, _) = mpsc::unbounded();
+                let particle_stream: BackPressuredInlet<Particle> =
+                    task::block_on(particles_to_network(n, peer_ids));
+                let process_fut = Box::new(con.clone().process_particles(
+                    particle_parallelism,
+                    particle_stream,
+                    aquamarine,
+                    sink,
+                    particle_timeout,
+                ));
 
-                    let res = (process_fut.boxed(), finish_fut, kademlia, aqua_handle);
+                let res = (process_fut.boxed(), finish_fut, kademlia, aqua_handle);
 
-                    std::thread::sleep(Duration::from_secs(5));
+                std::thread::sleep(Duration::from_secs(5));
 
-                    println!("finished batch setup");
+                println!("finished batch setup");
 
-                    res
-                },
-                move |(process, finish, kad_handle, aqua_handle)| {
-                    task::block_on(async move {
-                        println!("start iteration");
-                        let start = Instant::now();
-                        let process = async_std::task::spawn(process);
-                        let spawn_took = start.elapsed().as_millis();
+                res
+            },
+            move |(process, finish, kad_handle, aqua_handle)| {
+                task::block_on(async move {
+                    println!("start iteration");
+                    let start = Instant::now();
+                    let process = async_std::task::spawn(process);
+                    let spawn_took = start.elapsed().as_millis();
 
-                        let start = Instant::now();
-                        finish.await;
-                        let finish_took = start.elapsed().as_millis();
+                    let start = Instant::now();
+                    finish.await;
+                    let finish_took = start.elapsed().as_millis();
 
-                        let start = Instant::now();
-                        kad_handle.cancel().await;
-                        aqua_handle.cancel().await;
-                        process.cancel().await;
-                        let cancel_took = start.elapsed().as_millis();
+                    let start = Instant::now();
+                    kad_handle.cancel().await;
+                    aqua_handle.cancel().await;
+                    process.cancel().await;
+                    let cancel_took = start.elapsed().as_millis();
 
-                        println!(
-                            "spawn {} ms; finish {} ms; cancel {} ms;",
-                            spawn_took, finish_took, cancel_took
-                        )
-                    })
-                },
-                BatchSize::LargeInput,
-            )
-        });
+                    println!(
+                        "spawn {} ms; finish {} ms; cancel {} ms;",
+                        spawn_took, finish_took, cancel_took
+                    )
+                })
+            },
+            BatchSize::LargeInput,
+        )
     });
-
-    std::thread::sleep(std::time::Duration::from_secs(15));
-
-    let subscriber = downcaster.downcast(&dispatcher).expect("downcast failed");
-    subscriber.force_synchronize();
-
-    subscriber.with_histograms(|hs| {
-        println!("histogram: {}", hs.len());
-
-        for (span, events) in hs.iter_mut() {
-            for (event, histogram) in events.iter_mut() {
-                //
-
-                println!("span {} event {}:", span, event);
-                println!(
-                    "mean: {:.1}µs, p50: {}µs, p90: {}µs, p99: {}µs, p999: {}µs, max: {}µs",
-                    histogram.mean() / 1000.0,
-                    histogram.value_at_quantile(0.5) / 1_000,
-                    histogram.value_at_quantile(0.9) / 1_000,
-                    histogram.value_at_quantile(0.99) / 1_000,
-                    histogram.value_at_quantile(0.999) / 1_000,
-                    histogram.max() / 1_000,
-                );
-            }
-        }
-
-        // for v in break_once(
-        //     h.iter_linear(25_000).skip_while(|v| v.quantile() < 0.01),
-        //     |v| v.quantile() > 0.95,
-        // ) {
-        //     println!(
-        //         "{:4}µs | {:40} | {:4.1}th %-ile",
-        //         (v.value_iterated_to() + 1) / 1_000,
-        //         "*".repeat(
-        //             (v.count_since_last_iteration() as f64 * 40.0 / h.len() as f64).ceil() as usize
-        //         ),
-        //         v.percentile(),
-        //     );
-        // }
-    });
+    // });
 }
 
 //     }
 // }
 
 fn kademlia_resolve_bench(c: &mut Criterion) {
-    let mut group = c.benchmark_group("kademlia_resolve");
+    use control_macro::measure;
 
-    let network_size = 10;
-    // group.throughput(Throughput::Elements(num as u64));
-    // group.sample_size(10);
-    let bid = { BenchmarkId::from_parameter(format!("{} nodes", network_size)) };
-    group.bench_function(bid, |b| {
-        b.iter_batched(
-            || connectivity_with_real_kad(1, network_size),
-            move |(connectivity, _finish_fut, kademlia, peer_ids)| {
-                task::block_on(async move {
-                    for peer_id in peer_ids {
-                        measure!(connectivity.kademlia.discover_peer(peer_id).await);
-                    }
-                    measure!(kademlia.cancel().await);
-                })
-            },
-            BatchSize::LargeInput,
-        )
-    });
+    trace(move || {
+        let mut group = c.benchmark_group("kademlia_resolve");
+        println!();
+
+        let network_size = 5;
+        // group.throughput(Throughput::Elements(num as u64));
+        group.sample_size(10);
+        let bid = { BenchmarkId::from_parameter(format!("{} nodes", network_size)) };
+        group.bench_function(bid, |b| {
+            b.iter_batched(
+                || connectivity_with_real_kad(1, network_size),
+                move |(connectivity, _finish_fut, kademlia, peer_ids)| {
+                    task::block_on(async move {
+                        let start = Instant::now();
+                        let peer_id = peer_ids.into_iter().skip(1).next().unwrap();
+                        // enable_logs();
+                        let result = measure!(connectivity.kademlia.discover_peer(peer_id).await);
+                        match result {
+                            Ok(vec) if vec.is_empty() => println!("empty vec!"),
+                            Err(err) => println!("err! {}", err),
+                            _ => {}
+                        }
+
+                        measure!(kademlia.cancel().await);
+                        println!("finished. elapsed {} ms", start.elapsed().as_millis())
+                    })
+                },
+                BatchSize::SmallInput,
+            )
+        });
+    })
 }
 
 criterion_group!(

@@ -196,6 +196,8 @@ impl Kademlia {
     }
 
     pub fn discover_peer(&mut self, peer: PeerId, outlet: OneshotOutlet<Result<Vec<Multiaddr>>>) {
+        tracing::trace_span!("discover_peer");
+
         let local = self.kademlia.addresses_of_peer(&peer);
         if !local.is_empty() {
             tracing::info!("peer.discovered.local");
@@ -209,6 +211,7 @@ impl Kademlia {
         }
 
         let pending = PendingPeer::new(outlet, self.config.query_timeout);
+        println!("pending peer: {:?}", pending);
         let outlets = self.pending_peers.entry(peer).or_default();
         // If there are existing outlets, then discovery process is already running
         let discovering = !outlets.is_empty();
@@ -335,6 +338,7 @@ impl Kademlia {
             }
             // count failure if there was at least 1 timeout
             if timed_out {
+                println!("timed out!");
                 failed_peers.entry(*id).or_default().increment();
             }
 
