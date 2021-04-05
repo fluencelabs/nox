@@ -140,9 +140,9 @@ pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, identity)
 }
 
-pub fn make_swarms_with_cfg<F>(n: usize, update_cfg: F) -> Vec<CreatedSwarm>
+pub fn make_swarms_with_cfg<F>(n: usize, mut update_cfg: F) -> Vec<CreatedSwarm>
 where
-    F: Fn(SwarmConfig) -> SwarmConfig,
+    F: FnMut(SwarmConfig) -> SwarmConfig,
 {
     make_swarms_with(
         n,
@@ -155,13 +155,13 @@ where
 
 pub fn make_swarms_with_mocked_vm<F, B>(
     n: usize,
-    update_cfg: F,
+    mut update_cfg: F,
     delay: Option<Duration>,
     bootstraps: B,
 ) -> Vec<CreatedSwarm>
 where
-    F: Fn(SwarmConfig) -> SwarmConfig,
-    B: Fn(Vec<Multiaddr>) -> Vec<Multiaddr>,
+    F: FnMut(SwarmConfig) -> SwarmConfig,
+    B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
     make_swarms_with::<EasyVM, _, _, _>(
         n,
@@ -178,13 +178,13 @@ pub fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     n: usize,
     mut create_node: F,
     mut create_maddr: M,
-    bootstraps: B,
+    mut bootstraps: B,
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
     F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, PathBuf, Keypair),
     M: FnMut() -> Multiaddr,
-    B: Fn(Vec<Multiaddr>) -> Vec<Multiaddr>,
+    B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
     let addrs = (0..n).map(|_| create_maddr()).collect::<Vec<_>>();
     let nodes = addrs

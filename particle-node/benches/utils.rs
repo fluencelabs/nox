@@ -30,7 +30,7 @@ use aquamarine::{
     AquamarineApi, AquamarineBackend, AquamarineVM, SendParticle, StepperEffects, VmConfig,
     VmPoolConfig,
 };
-use connection_pool::ConnectionPoolApi;
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::{BackPressuredInlet, OneshotOutlet};
 use fluence_libp2p::RandomPeerId;
 use kademlia::KademliaApi;
@@ -176,19 +176,39 @@ impl Stops {
 }
 
 pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId>) {
+    let mut bootstrap_nodes = vec![];
+    // create interconnected network of nodes
     let mut swarms = make_swarms_with_mocked_vm(network_size, identity, None, |bootstraps| {
-        let len = bootstraps.len();
-        bootstraps.into_iter().skip(len - 2).collect()
-    })
-    .into_iter();
+        if bootstrap_nodes.is_empty() {
+            bootstrap_nodes = bootstraps.clone();
+        }
 
-    let swarm = swarms.next().unwrap();
-    let kad_api = swarm.connectivity.kademlia;
+        bootstraps
+    });
 
-    let (mut stops, peer_ids): (Vec<_>, _) = swarms.map(|s| (s.outlet, s.peer_id)).unzip();
-    stops.push(swarm.outlet);
+    let mut discoverer = make_swarms_with_mocked_vm(1, identity, None, identity)
+        .into_iter()
+        .next()
+        .unwrap();
 
-    (kad_api, Stops(stops), peer_ids)
+    // connect discoverer node to the first of the interconnected
+    // this way, discoverer will look up other nodes through that first node
+    async_std::task::block_on(
+        discoverer
+            .connectivity
+            .connection_pool
+            .connect(Contact::new(
+                swarms[0].peer_id,
+                vec![swarms[0].multiaddr.clone()],
+            )),
+    );
+
+    let (mut stops, peer_ids): (Vec<_>, _) =
+        swarms.into_iter().map(|s| (s.outlet, s.peer_id)).unzip();
+    stops.push(discoverer.outlet);
+
+    let discoverer = discoverer.connectivity.kademlia;
+    (discoverer, Stops(stops), peer_ids)
 }
 
 pub fn connection_pool_api(

@@ -34,12 +34,12 @@ fn kademlia_resolve() {
     async_std::task::block_on(async move {
         let start = Instant::now();
         let peer_id = peer_ids.into_iter().skip(1).next().unwrap();
-        enable_logs();
+        // enable_logs();
         let result = measure!(connectivity.kademlia.discover_peer(peer_id).await);
         match result {
             Ok(vec) if vec.is_empty() => println!("empty vec!"),
             Err(err) => println!("err! {}", err),
-            _ => {}
+            Ok(vec) => println!("peer discovered! {:?}", vec),
         }
 
         measure!(kademlia.cancel().await);
