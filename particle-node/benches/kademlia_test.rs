@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+mod bench_network_models;
 mod tracing_utils;
-mod utils;
 
+use bench_network_models::*;
 use control_macro::measure;
 use kademlia::KademliaApiT;
 use std::time::Instant;
 use test_utils::enable_logs;
 use tracing_utils::*;
-use utils::*;
 
 #[test]
 fn kademlia_resolve() {

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+mod bench_network_models;
 mod tracing_utils;
-mod utils;
 
+use bench_network_models::*;
 use tracing_utils::*;
-use utils::*;
 
 use async_std::task;
 use async_std::task::spawn;
