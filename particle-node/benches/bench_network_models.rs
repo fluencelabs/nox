@@ -193,15 +193,16 @@ pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId
 
     // connect discoverer node to the first of the interconnected
     // this way, discoverer will look up other nodes through that first node
-    async_std::task::block_on(
-        discoverer
-            .connectivity
-            .connection_pool
-            .connect(Contact::new(
-                swarms[0].peer_id,
-                vec![swarms[0].multiaddr.clone()],
-            )),
-    );
+
+    // async_std::task::block_on(
+    //     discoverer
+    //         .connectivity
+    //         .connection_pool
+    //         .connect(Contact::new(
+    //             swarms[0].peer_id,
+    //             vec![swarms[0].multiaddr.clone()],
+    //         )),
+    // );
 
     let (mut stops, peer_ids): (Vec<_>, _) =
         swarms.into_iter().map(|s| (s.outlet, s.peer_id)).unzip();

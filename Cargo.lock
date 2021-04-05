@@ -2917,6 +2917,7 @@ dependencies = [
  "fluence-fork-libp2p",
  "fluence-libp2p",
  "futures",
+ "futures-timer",
  "log",
  "multihash",
  "once_cell",
