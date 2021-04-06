@@ -163,6 +163,7 @@ impl Connectivity {
     }
 
     async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
+        println!("resolve_contact {} for particle {}", target, particle_id);
         let contact = self.connection_pool.get_contact(target).await;
         let contact = if let Some(contact) = contact {
             // contact is connected directly to current node

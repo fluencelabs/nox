@@ -281,7 +281,7 @@ fn connectivity_bench(c: &mut Criterion) {
                     first.peer_id, receiver_node.peer_id, receiver_client.peer_id
                 );
                 let particles = generate_particles(num_particles, |_, mut p| {
-                    p.ttl = u32::MAX;
+                    p.ttl = (u16::MAX - 10) as _;
                     p.script = String::from("!");
                     p.data = format!(
                         "{},{},{}",

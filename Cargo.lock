@@ -3549,7 +3549,7 @@ dependencies = [
  "async-std",
  "bs58 0.4.0",
  "derivative",
- "failure",
+ "eyre",
  "fluence-fork-libp2p",
  "fluence-libp2p",
  "futures",

@@ -26,7 +26,8 @@ use serde_json::json;
 use std::{io, iter, time::Duration};
 
 use crate::libp2p_protocol::message::ProtocolMessage;
-pub use failure::Error;
+pub use eyre::Error;
+use eyre::WrapErr;
 use libp2p::swarm::OneShotHandlerConfig;
 use log::LevelFilter;
 use std::fmt::Debug;
@@ -123,12 +124,24 @@ where
         async move {
             let process = async move |socket| -> Result<ProtocolMessage, Error> {
                 let packet = upgrade::read_one(socket, MAX_BUF_SIZE).await?;
-                match std::str::from_utf8(&packet) {
-                    Ok(str) => log::debug!("Got inbound ProtocolMessage: {}", str),
-                    Err(err) => log::warn!("Can't parse inbound ProtocolMessage to UTF8 {}", err),
-                }
+                let str = match std::str::from_utf8(&packet) {
+                    Ok(str) => {
+                        log::info!("Got inbound ProtocolMessage: {}", str);
+                        str
+                    }
+                    Err(err) => {
+                        log::warn!("Can't parse inbound ProtocolMessage to UTF8 {}", err);
+                        "unable to parse as UTF8"
+                    }
+                };
 
-                Ok(serde_json::from_slice(&packet)?)
+                serde_json::from_slice(&packet).wrap_err_with(|| {
+                    let msg: Result<ProtocolMessage, _> = serde_json::from_str(&str);
+                    format!(
+                        "unable to deserialize: '{}' ; packet: {:?}; msg: {:?}",
+                        str, packet, msg
+                    )
+                })
             };
 
             match process(&mut socket).await {
@@ -236,3 +249,37 @@ where
 //         assert_eq!(sent_call, received_call);
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use crate::libp2p_protocol::message::ProtocolMessage;
+
+    #[test]
+    fn deserialize() {
+        let str = r#"{"action":"Particle","id":"2","init_peer_id":"12D3KooWAcn1f5iZ7wbo9QrYPFgq6o7DGkh7VwC8Zucn6DgWZQDo","timestamp":1617733422130,"ttl":65525,"script":"!","signature":[],"data":"MTJEM0tvb1dDM3dhcjhqcTJzaGFVQ2hSZWttYjNNN0RGRGl4ZkdVTm5ydGY0VlRGQVlVdywxMkQzS29vV0o2bVZLYXpKQzdyd2dtd0JpZm5LZ0JoR2NSTWtaOXdRTjY4dmJ1UGdIUjlO"}"#;
+
+        let msg: ProtocolMessage = serde_json::from_str(str).unwrap();
+        println!("{:?}", msg);
+
+        let bytes: Vec<u8> = vec![
+            123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105, 99, 108, 101,
+            34, 44, 34, 105, 100, 34, 58, 34, 50, 34, 44, 34, 105, 110, 105, 116, 95, 112, 101,
+            101, 114, 95, 105, 100, 34, 58, 34, 49, 50, 68, 51, 75, 111, 111, 87, 65, 99, 110, 49,
+            102, 53, 105, 90, 55, 119, 98, 111, 57, 81, 114, 89, 80, 70, 103, 113, 54, 111, 55, 68,
+            71, 107, 104, 55, 86, 119, 67, 56, 90, 117, 99, 110, 54, 68, 103, 87, 90, 81, 68, 111,
+            34, 44, 34, 116, 105, 109, 101, 115, 116, 97, 109, 112, 34, 58, 49, 54, 49, 55, 55, 51,
+            51, 52, 50, 50, 49, 51, 48, 44, 34, 116, 116, 108, 34, 58, 54, 53, 53, 50, 53, 44, 34,
+            115, 99, 114, 105, 112, 116, 34, 58, 34, 33, 34, 44, 34, 115, 105, 103, 110, 97, 116,
+            117, 114, 101, 34, 58, 91, 93, 44, 34, 100, 97, 116, 97, 34, 58, 34, 77, 84, 74, 69,
+            77, 48, 116, 118, 98, 49, 100, 68, 77, 51, 100, 104, 99, 106, 104, 113, 99, 84, 74,
+            122, 97, 71, 70, 86, 81, 50, 104, 83, 90, 87, 116, 116, 89, 106, 78, 78, 78, 48, 82,
+            71, 82, 71, 108, 52, 90, 107, 100, 86, 84, 109, 53, 121, 100, 71, 89, 48, 86, 108, 82,
+            71, 81, 86, 108, 86, 100, 121, 119, 120, 77, 107, 81, 122, 83, 50, 57, 118, 86, 48,
+            111, 50, 98, 86, 90, 76, 89, 88, 112, 75, 81, 122, 100, 121, 100, 50, 100, 116, 100,
+            48, 74, 112, 90, 109, 53, 76, 90, 48, 74, 111, 82, 50, 78, 83, 84, 87, 116, 97, 79, 88,
+            100, 82, 84, 106, 89, 52, 100, 109, 74, 49, 85, 71, 100, 73, 85, 106, 108, 79, 34, 125,
+        ];
+        let msg: ProtocolMessage = serde_json::from_slice(&bytes).unwrap();
+        println!("{:?}", msg);
+    }
+}

@@ -20,6 +20,7 @@ use particle_protocol::Particle;
 use futures::{future::BoxFuture, FutureExt};
 use itertools::Itertools;
 use libp2p::PeerId;
+use std::str::FromStr;
 use std::{convert::Infallible, task::Waker, time::Duration};
 
 pub struct EasyVM {
@@ -37,12 +38,22 @@ impl AquaRuntime for EasyVM {
         futures::future::ok(EasyVM { delay }).boxed()
     }
 
-    fn into_effects(_: Result<InterpreterOutcome, Self::Error>, p: Particle) -> StepperEffects {
+    fn into_effects(
+        outcome: Result<InterpreterOutcome, Self::Error>,
+        mut p: Particle,
+    ) -> StepperEffects {
+        let outcome = outcome.unwrap();
+        p.data = outcome.data;
+
         StepperEffects {
-            particles: vec![SendParticle {
-                target: p.init_peer_id,
-                particle: p,
-            }],
+            particles: outcome
+                .next_peer_pks
+                .into_iter()
+                .map(|target| SendParticle {
+                    particle: p.clone(),
+                    target: PeerId::from_str(&target).unwrap(),
+                })
+                .collect(),
         }
     }
 
@@ -60,8 +71,10 @@ impl AquaRuntime for EasyVM {
         let next_peer = if script.starts_with('!') {
             let next_peers = String::from_utf8_lossy(&data);
             let mut next_peers = next_peers.split(",");
+            let next_peer = String::from(next_peers.next().unwrap());
+
             data = next_peers.join(",").into_bytes();
-            String::from(next_peers.next().unwrap())
+            next_peer
         } else {
             println!("no ! for today :(");
             init_user_id.to_string()

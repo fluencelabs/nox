@@ -12,7 +12,7 @@ now-millis = { path = "../crates/now-millis" }
 
 serde_json = "1.0.60"
 futures = "0.3.13"
-failure = "0.1.8"
+eyre = "0.6.5"
 serde = "1.0.118"
 serde_derive = "1.0.118"
 humantime-serde = "1.0.1"
