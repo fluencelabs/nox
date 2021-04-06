@@ -53,11 +53,22 @@ pub enum HandlerMessage {
     Upgrade,
 }
 
-// impl Default for ProtocolMessage {
-//     fn default() -> Self {
-//         ProtocolMessage::Upgrade
-//     }
-// }
+impl HandlerMessage {
+    pub fn into_protocol_message(self) -> (ProtocolMessage, Option<OneshotOutlet<bool>>) {
+        match self {
+            HandlerMessage::OutParticle(particle, channel) => {
+                (ProtocolMessage::Particle(particle), channel.outlet())
+            }
+            HandlerMessage::InboundUpgradeError(err) => {
+                (ProtocolMessage::InboundUpgradeError(err), None)
+            }
+            HandlerMessage::Upgrade => (ProtocolMessage::Upgrade, None),
+            HandlerMessage::InParticle(_) => {
+                unreachable!("InParticle is never sent, only received")
+            }
+        }
+    }
+}
 
 // Required by OneShotHandler in inject_fully_negotiated_outbound. And that's because
 // <ProtocolMessage as UpgradeOutbound>::Output is (), and OneshotHandler requires it to be
@@ -75,23 +86,6 @@ pub enum ProtocolMessage {
     InboundUpgradeError(serde_json::Value),
     // TODO: is it needed?
     Upgrade,
-}
-
-impl From<HandlerMessage> for (ProtocolMessage, Option<OneshotOutlet<bool>>) {
-    fn from(msg: HandlerMessage) -> (ProtocolMessage, Option<OneshotOutlet<bool>>) {
-        match msg {
-            HandlerMessage::OutParticle(particle, channel) => {
-                (ProtocolMessage::Particle(particle), channel.outlet())
-            }
-            HandlerMessage::InboundUpgradeError(err) => {
-                (ProtocolMessage::InboundUpgradeError(err), None)
-            }
-            HandlerMessage::Upgrade => (ProtocolMessage::Upgrade, None),
-            HandlerMessage::InParticle(_) => {
-                unreachable!("InParticle is never sent, only received")
-            }
-        }
-    }
 }
 
 impl From<ProtocolMessage> for HandlerMessage {
