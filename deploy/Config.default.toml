@@ -4,7 +4,7 @@
 format = "ed25519"
 #value = "..."
 path = "./secret_key"
-generate_on_absence = false
+generate_on_absence = true
 
 ## example of root_key_pair specified as base58 directly:
 # root_key_pair = "5jvxDNS6ChWV5cyXQxs8pUBzVo2NkGc7pVbx2RS1LB94yJciY9n4SzCS7ECDQxSZ3Zb4hGidbuQeHznYgQSFRkjU"
