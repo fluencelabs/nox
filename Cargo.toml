@@ -30,10 +30,10 @@ exclude = [
 ]
 
 
-[patch.crates-io]
-libp2p = { package = "fluence-fork-libp2p", path = "../rust-libp2p" }
-libp2p-noise = { package = "fluence-fork-libp2p-noise", path = "../rust-libp2p/transports/noise" }
-libp2p-core = { package = "fluence-fork-libp2p-core", path = "../rust-libp2p/core" }
+#[patch.crates-io]
+#libp2p = { package = "fluence-fork-libp2p", path = "../rust-libp2p" }
+#libp2p-noise = { package = "fluence-fork-libp2p-noise", path = "../rust-libp2p/transports/noise" }
+#libp2p-core = { package = "fluence-fork-libp2p-core", path = "../rust-libp2p/core" }
 
 #[profile.dev]
 #opt-level = 2
@@ -46,18 +46,18 @@ libp2p-core = { package = "fluence-fork-libp2p-core", path = "../rust-libp2p/cor
 #codegen-units = 16
 #rpath = false
 
-[profile.dev.package."cranelift-bforest"]
-opt-level = 2
-[profile.dev.package."cranelift-codegen"]
-opt-level = 2
-[profile.dev.package."cranelift-codegen-meta"]
-opt-level = 2
-[profile.dev.package."cranelift-codegen-shared"]
-opt-level = 2
-[profile.dev.package."cranelift-entity"]
-opt-level = 2
-[profile.dev.package."cranelift-native"]
-opt-level = 2
+#[profile.dev.package."cranelift-bforest"]
+#opt-level = 2
+#[profile.dev.package."cranelift-codegen"]
+#opt-level = 2
+#[profile.dev.package."cranelift-codegen-meta"]
+#opt-level = 2
+#[profile.dev.package."cranelift-codegen-shared"]
+#opt-level = 2
+#[profile.dev.package."cranelift-entity"]
+#opt-level = 2
+#[profile.dev.package."cranelift-native"]
+#opt-level = 2
 
 #[profile.dev.package."wasmer-clif-backend-fl"]
 #opt-level = 2
@@ -78,7 +78,7 @@ opt-level = 2
 #[profile.dev.package."wasmer-win-exception-handler"]
 #opt-level = 2
 
-[profile.bench]
-opt-level = 3
-panic = 'unwind'
-debug = true
+#[profile.bench]
+#opt-level = 3
+#panic = 'unwind'
+#debug = true
