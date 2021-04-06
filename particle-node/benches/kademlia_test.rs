@@ -14,27 +14,41 @@
  * limitations under the License.
  */
 
+#![allow(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
+
 mod bench_network_models;
 mod tracing_utils;
 
 use bench_network_models::*;
 use control_macro::measure;
 use kademlia::KademliaApiT;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use test_utils::enable_logs;
 use tracing_utils::*;
 
 #[test]
 fn kademlia_resolve() {
-    let network_size = 10;
+    let network_size = 100;
 
     let (connectivity, _finish_fut, kademlia, peer_ids) =
         connectivity_with_real_kad(1, network_size);
 
     async_std::task::block_on(async move {
-        let start = Instant::now();
-        let peer_id = peer_ids.into_iter().skip(1).next().unwrap();
         // enable_logs();
+        // log::error!("===== test before =====");
+        // async_std::task::sleep(Duration::from_secs(1)).await;
+        // log::error!("===== test after =====");
+
+        let start = Instant::now();
+        let peer_id = peer_ids.into_iter().skip(3).next().unwrap();
         let result = measure!(connectivity.kademlia.discover_peer(peer_id).await);
         match result {
             Ok(vec) if vec.is_empty() => println!("empty vec!"),

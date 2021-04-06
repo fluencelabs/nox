@@ -358,7 +358,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         kademlia_config: Default::default(),
         particle_queue_buffer: 100,
         particle_parallelism: 16,
-        bootstrap_frequency: 1,
+        // TODO: set to 1 after benchmarking debug is finished. or add to SwarmConfig
+        bootstrap_frequency: 10000,
         allow_local_addresses: true,
         particle_timeout: Duration::from_secs(5),
     };

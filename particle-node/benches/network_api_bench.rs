@@ -111,7 +111,6 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
 fn particle_throughput_with_kad_bench(c: &mut Criterion) {
     // enable_logs();
 
-    // trace(|| {
     let particle_parallelism = PARALLELISM;
     let particle_timeout = TIMEOUT;
 
@@ -187,47 +186,42 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
             BatchSize::LargeInput,
         )
     });
-    // });
 }
-
-//     }
-// }
 
 fn kademlia_resolve_bench(c: &mut Criterion) {
     use control_macro::measure;
 
-    trace(move || {
-        let mut group = c.benchmark_group("kademlia_resolve");
-        println!();
+    let mut group = c.benchmark_group("kademlia_resolve");
+    println!();
 
-        let network_size = 10;
-        // group.throughput(Throughput::Elements(num as u64));
-        group.sample_size(10);
-        let bid = { BenchmarkId::from_parameter(format!("{} nodes", network_size)) };
-        group.bench_function(bid, |b| {
-            b.iter_batched(
-                // TODO: control topology better. currently it is more or less random.
-                || connectivity_with_real_kad(1, network_size),
-                move |(connectivity, _finish_fut, kademlia, peer_ids)| {
-                    task::block_on(async move {
-                        let start = Instant::now();
-                        let peer_id = peer_ids.into_iter().skip(1).next().unwrap();
-                        // enable_logs();
+    let network_size = 100;
+    // group.throughput(Throughput::Elements(num as u64));
+    group.sample_size(10);
+    let bid = { BenchmarkId::from_parameter(format!("{} nodes", network_size)) };
+    group.bench_function(bid, |b| {
+        b.iter_batched(
+            || connectivity_with_real_kad(1, network_size),
+            move |(connectivity, _finish_fut, kademlia, peer_ids)| {
+                task::block_on(async move {
+                    let start = Instant::now();
+                    // let peer_id = peer_ids.into_iter().skip(1).next().unwrap();
+                    // enable_logs();
+                    for peer_id in peer_ids.into_iter().skip(1) {
                         let result = measure!(connectivity.kademlia.discover_peer(peer_id).await);
                         match result {
                             Ok(vec) if vec.is_empty() => println!("empty vec!"),
                             Err(err) => println!("err! {}", err),
                             _ => {}
                         }
+                    }
 
-                        kademlia.cancel().await;
-                        println!("finished. elapsed {} ms", start.elapsed().as_millis())
-                    })
-                },
-                BatchSize::SmallInput,
-            )
-        });
-    })
+                    kademlia.cancel().await;
+                    println!("finished. elapsed {} ms", start.elapsed().as_millis())
+                })
+            },
+            BatchSize::SmallInput,
+        )
+    });
 }
 
 criterion_group!(

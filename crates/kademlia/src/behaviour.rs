@@ -17,17 +17,15 @@
 use crate::error::{KademliaError, Result};
 
 use control_macro::get_return;
-use fluence_libp2p::generate_swarm_event_type;
-use fluence_libp2p::types::OneshotOutlet;
+use fluence_libp2p::{generate_swarm_event_type, types::OneshotOutlet};
 use particle_protocol::Contact;
 use trust_graph::InMemoryStorage;
 
 use futures::FutureExt;
 use futures_timer::Delay;
-use libp2p::identity::PublicKey;
 use libp2p::{
     core::Multiaddr,
-    identity::{ed25519, ed25519::Keypair},
+    identity::{ed25519, ed25519::Keypair, PublicKey},
     kad::{
         self, store::MemoryStore, BootstrapError, BootstrapOk, BootstrapResult,
         GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult, KademliaEvent, QueryId,
@@ -38,11 +36,11 @@ use libp2p::{
 };
 use multihash::Multihash;
 use prometheus::Registry;
-use std::cmp::min;
-use std::ops::Deref;
-use std::task::Waker;
 use std::{
+    cmp::min,
     collections::HashMap,
+    ops::Deref,
+    task::Waker,
     time::{Duration, Instant},
 };
 
@@ -206,8 +204,8 @@ impl Kademlia {
         tracing::trace_span!("discover_peer");
 
         let local = self.kademlia.addresses_of_peer(&peer);
+        println!("local {}: {}", peer, !local.is_empty());
         if !local.is_empty() {
-            println!("local");
             tracing::info!("peer.discovered.local");
             outlet.send(Ok(local)).ok();
             return;
@@ -225,12 +223,6 @@ impl Kademlia {
         let discovering = !outlets.is_empty();
         // Subscribe on discovery result
         outlets.push(pending);
-        println!(
-            "pending peer added, timeout {} ms. total: {}; outlets: {}",
-            self.config.query_timeout.as_millis(),
-            outlets.len(),
-            self.pending_peers.len(),
-        );
 
         // Run discovery only if there's no discovery already running
         if !discovering {
@@ -336,7 +328,6 @@ impl Kademlia {
         if self.pending_peers.is_empty() && self.failed_peers.is_empty() {
             return Poll::Pending;
         };
-        println!("pending peers: {}", self.pending_peers.len());
 
         let failed_peers = &mut self.failed_peers;
         let config = self.config.deref();
@@ -387,7 +378,7 @@ impl Kademlia {
         // task will be awaken after `next_wake`
         self.timer.reset(next_wake);
         // register current task within timer
-        self.timer.poll_unpin(cx);
+        self.timer.poll_unpin(cx).is_ready(); // `is_ready` here is to avoid "must use" warning
 
         Poll::Pending
     }

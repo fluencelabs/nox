@@ -132,40 +132,6 @@ pub fn kademlia_api() -> (KademliaApi, JoinHandle<()>) {
     (api, handle)
 }
 
-// fn real_kademlia_api(keypair: Keypair, peer_id: PeerId) -> (KademliaApi, KademliaApiInlet) {
-//     let kad_config = KademliaConfig {
-//         peer_id,
-//         keypair: keypair.clone(),
-//         kad_config: server_config::KademliaConfig {
-//             max_packet_size: Some(100 * 4096 * 4096), // 100Mb
-//             query_timeout: Duration::from_secs(3),
-//             replication_factor: None,
-//             connection_idle_timeout: Some(Duration::from_secs(2_628_000_000)), // ~month
-//             peer_fail_threshold: 3,
-//             ban_cooldown: Duration::from_secs(60),
-//         },
-//     };
-//
-//     let trust_graph = {
-//         let storage = InMemoryStorage::new_in_memory(vec![]);
-//         TrustGraph::new(storage)
-//     };
-//     let kademlia = Kademlia::new(kad_config, trust_graph, None);
-//     let (kademlia_api, kademlia): (KademliaApi, KademliaApiInlet) = kademlia.into();
-//
-//     let transport = build_memory_transport(Ed25519(keypair));
-//
-//     let mut swarm: Swarm<KademliaApiInlet> = Swarm::new(transport, behaviour, local_peer_id);
-//     let addr = create_memory_maddr();
-//     Swarm::listen_on(&mut swarm, addr).expect("listen_on");
-//
-//     swarm.add_addresses()
-//
-//     // task::spawn()
-//
-//     (kademlia_api, kademlia)
-// }
-
 pub struct Stops(Vec<OneshotOutlet<()>>);
 impl Stops {
     pub async fn cancel(self) {
@@ -191,18 +157,21 @@ pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId
         .next()
         .unwrap();
 
+    // TODO: how to wait for bootstraps to settle before
+    //       1) connecting `discoverer` to `swarms`
+    //       2) continuing with tests/benchmark
+
     // connect discoverer node to the first of the interconnected
     // this way, discoverer will look up other nodes through that first node
-
-    // async_std::task::block_on(
-    //     discoverer
-    //         .connectivity
-    //         .connection_pool
-    //         .connect(Contact::new(
-    //             swarms[0].peer_id,
-    //             vec![swarms[0].multiaddr.clone()],
-    //         )),
-    // );
+    async_std::task::block_on(
+        discoverer
+            .connectivity
+            .connection_pool
+            .connect(Contact::new(
+                swarms[0].peer_id,
+                vec![swarms[0].multiaddr.clone()],
+            )),
+    );
 
     let (mut stops, peer_ids): (Vec<_>, _) =
         swarms.into_iter().map(|s| (s.outlet, s.peer_id)).unzip();
