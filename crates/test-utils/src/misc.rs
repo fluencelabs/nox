@@ -89,7 +89,7 @@ pub fn enable_logs() {
 
     env_logger::builder()
         .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Error)
+        .filter_level(log::LevelFilter::Info)
         .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)
@@ -107,7 +107,7 @@ pub fn enable_logs() {
         .filter(Some("libp2p_core::upgrade::apply"), Info)
         // .filter(Some("libp2p_kad::kbucket"), Info)
         .filter(Some("libp2p_kad"), Info)
-        .filter(Some("libp2p_kad::query"), Trace)
+        .filter(Some("libp2p_kad::query"), Info)
         .filter(Some("libp2p_plaintext"), Info)
         .filter(Some("libp2p_identify::protocol"), Info)
         .filter(Some("cranelift_codegen"), Info)

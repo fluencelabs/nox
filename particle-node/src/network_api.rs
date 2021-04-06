@@ -321,7 +321,7 @@ impl Connectivity {
                 let aquamarine = aquamarine.clone();
                 let connectivity = self.clone();
                 let mut particle_failures_sink = particle_failures_sink.clone();
-                log::trace!(target: "network", "Will execute particle {}", particle.id);
+                log::info!(target: "network", "Will execute particle {}", particle.id);
 
                 let timeout = min(particle.time_to_live(), particle_timeout);
                 if timeout.is_zero() {

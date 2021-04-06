@@ -242,6 +242,8 @@ fn connectivity_bench(c: &mut Criterion) {
     let first = swarms.iter().next().unwrap();
     let last = swarms.iter().last().unwrap();
 
+    enable_logs();
+
     group.throughput(Throughput::Elements(num_particles as u64));
     group.sample_size(10);
     let bid = { BenchmarkId::from_parameter(format!("{}/{}", network_size, num_particles)) };

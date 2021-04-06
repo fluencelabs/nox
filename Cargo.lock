@@ -4809,6 +4809,7 @@ dependencies = [
  "futures",
  "futures-util",
  "host-closure",
+ "itertools 0.10.0",
  "ivalue-utils",
  "log",
  "maplit",

@@ -159,13 +159,20 @@ impl ConnectionPoolBehaviour {
             self.queue.push_back(particle);
             outlet.send(true).ok();
             self.wake();
-        } else {
+        } else if self.contacts.contains_key(&to.peer_id) {
             // Send particle to remote peer
             self.push_event(NetworkBehaviourAction::NotifyHandler {
                 peer_id: to.peer_id,
                 handler: NotifyHandler::Any,
                 event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),
             });
+        } else {
+            log::warn!(
+                "Won't send particle {} to contact {}: not connected",
+                particle.id,
+                to.peer_id
+            );
+            outlet.send(false).ok();
         }
     }
 

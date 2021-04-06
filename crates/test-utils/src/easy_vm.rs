@@ -18,6 +18,7 @@ use aquamarine::{AquaRuntime, InterpreterOutcome, SendParticle, StepperEffects};
 use particle_protocol::Particle;
 
 use futures::{future::BoxFuture, FutureExt};
+use itertools::Itertools;
 use libp2p::PeerId;
 use std::{convert::Infallible, task::Waker, time::Duration};
 
@@ -48,19 +49,28 @@ impl AquaRuntime for EasyVM {
     fn call(
         &mut self,
         init_user_id: PeerId,
-        _aqua: String,
-        data: Vec<u8>,
+        script: String,
+        mut data: Vec<u8>,
         _particle_id: String,
     ) -> Result<InterpreterOutcome, Self::Error> {
         if let Some(delay) = self.delay {
             std::thread::sleep(delay);
         }
 
+        let mut next_peer = init_user_id.to_string();
+        if script.starts_with('!') {
+            let next_peers = String::from_utf8_lossy(&data);
+            dbg!(&next_peers);
+            let mut next_peers = next_peers.split(",");
+            next_peer = String::from(next_peers.next().unwrap());
+            data = next_peers.join(",").into_bytes()
+        }
+
         Ok(InterpreterOutcome {
             ret_code: 0,
             error_message: "".to_string(),
             data: data.into(),
-            next_peer_pks: vec![init_user_id.to_string()],
+            next_peer_pks: vec![next_peer],
         })
     }
 }
