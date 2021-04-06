@@ -70,16 +70,11 @@ pub async fn particles_with_script(
     .await
 }
 
-pub async fn particles_with(
-    n: usize,
-    modify: impl Fn(usize, Particle) -> Particle,
-) -> BackPressuredInlet<Particle> {
-    let (mut outlet, inlet) = mpsc::channel(n * 2);
-
+pub fn generate_particles(n: usize, modify: impl Fn(usize, Particle) -> Particle) -> Vec<Particle> {
     let last_particle = std::iter::once({
         let mut p = Particle::default();
         p.id = String::from("last");
-        Ok(p)
+        p
     });
     fn particle(n: usize) -> Particle {
         Particle {
@@ -89,11 +84,21 @@ pub async fn particles_with(
             ..<_>::default()
         }
     }
-    let mut particles = futures::stream::iter(
-        (0..n)
-            .map(|i| Ok(modify(i, particle(i))))
-            .chain(last_particle),
-    );
+
+    (0..n)
+        .map(|i| modify(i, particle(i)))
+        .chain(last_particle)
+        .collect()
+}
+
+pub async fn particles_with(
+    n: usize,
+    modify: impl Fn(usize, Particle) -> Particle,
+) -> BackPressuredInlet<Particle> {
+    let (mut outlet, inlet) = mpsc::channel(n * 2);
+
+    let mut particles =
+        futures::stream::iter(generate_particles(n, modify).into_iter().map(|p| Ok(p)));
     outlet.send_all(&mut particles).await.unwrap();
     mem::forget(outlet);
 

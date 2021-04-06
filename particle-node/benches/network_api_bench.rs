@@ -22,6 +22,7 @@ use tracing_utils::*;
 
 use async_std::task;
 use async_std::task::spawn;
+use connection_pool::ConnectionPoolT;
 use criterion::async_executor::AsyncStdExecutor;
 use criterion::{criterion_group, criterion_main, BatchSize};
 use criterion::{BenchmarkId, Criterion, Throughput};
@@ -31,10 +32,15 @@ use futures::channel::mpsc;
 use futures::FutureExt;
 use humantime_serde::re::humantime::format_duration as pretty;
 use kademlia::KademliaApiT;
-use particle_protocol::Particle;
+use libp2p::PeerId;
+use particle_protocol::{Contact, Particle};
+use std::convert::identity;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::time::{Duration, Instant};
-use test_utils::{enable_logs, make_tmp_dir, put_aquamarine};
+use test_utils::{
+    enable_logs, make_swarms_with_mocked_vm, make_tmp_dir, put_aquamarine, ConnectedClient,
+};
 
 fn thousand_particles_bench(c: &mut Criterion) {
     c.bench_function("thousand_particles", move |b| {
@@ -224,6 +230,83 @@ fn kademlia_resolve_bench(c: &mut Criterion) {
     });
 }
 
+fn connectivity_bench(c: &mut Criterion) {
+    use control_macro::measure;
+
+    let mut group = c.benchmark_group("connectivity");
+    println!();
+
+    let num_particles = 100;
+    let network_size = 10;
+    let swarms = make_swarms_with_mocked_vm(network_size, identity, None, identity);
+    let first = swarms.iter().next().unwrap();
+    let last = swarms.iter().last().unwrap();
+
+    group.throughput(Throughput::Elements(num_particles as u64));
+    group.sample_size(10);
+    let bid = { BenchmarkId::from_parameter(format!("{}/{}", network_size, num_particles)) };
+    group.bench_function(bid, |b| {
+        b.iter_batched(
+            || {
+                let sender_node = make_swarms_with_mocked_vm(1, identity, None, identity)
+                    .into_iter()
+                    .next()
+                    .unwrap();
+                task::block_on(
+                    sender_node
+                        .connectivity
+                        .connection_pool
+                        .connect(Contact::new(first.peer_id, vec![first.multiaddr.clone()])),
+                );
+
+                let receiver_node = make_swarms_with_mocked_vm(1, identity, None, identity)
+                    .into_iter()
+                    .next()
+                    .unwrap();
+
+                task::block_on(
+                    receiver_node
+                        .connectivity
+                        .connection_pool
+                        .connect(Contact::new(last.peer_id, vec![last.multiaddr.clone()])),
+                );
+
+                let receiver_client = ConnectedClient::connect_to(receiver_node.multiaddr)
+                    .expect("connect receiver_client");
+
+                let particles = generate_particles(num_particles, |_, mut p| {
+                    p.init_peer_id = receiver_client.peer_id;
+                    p
+                });
+
+                (sender_node, receiver_client, particles)
+            },
+            move |(sender_node, mut receiver_client, particles)| {
+                task::block_on(async move {
+                    //
+                    let contact = Contact::new(
+                        receiver_client.node,
+                        vec![receiver_client.node_address.clone()],
+                    );
+                    let num_particles = particles.len();
+                    for particle in particles {
+                        sender_node
+                            .connectivity
+                            .connection_pool
+                            .send(contact.clone(), particle);
+                    }
+                    for _ in 0..num_particles {
+                        if let Err(err) = receiver_client.receive() {
+                            println!("error receiving: {:?}", err);
+                        }
+                    }
+                })
+            },
+            BatchSize::SmallInput,
+        )
+    });
+}
+
 criterion_group!(
     benches,
     thousand_particles_bench,
@@ -231,6 +314,7 @@ criterion_group!(
     thousand_particles_with_aquamarine_bench,
     particle_throughput_with_delay_bench,
     particle_throughput_with_kad_bench,
-    kademlia_resolve_bench
+    kademlia_resolve_bench,
+    connectivity_bench
 );
 criterion_main!(benches);
