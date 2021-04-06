@@ -30,7 +30,7 @@ futures-util = "0.3.5"
 async-std = { version = "1.6.5", features = ["unstable"] }
 
 serde = { version = "1.0.116", features = ["derive"] }
-serde_json = "1.0.57"
+serde_json = "1.0.64"
 humantime-serde = "1.0.1"
 
 failure = "0.1.6"
@@ -66,7 +66,7 @@ fluence-app-service = "0.5.2"
 fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"
 maplit = "1.0.2"
-serde_json = "1.0.61"
+serde_json = "1.0.64"
 blake3 = "0.3.7"
 criterion = { version = "0.3.4", features = ["async_std", "html_reports"] }
 
