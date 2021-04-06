@@ -17,7 +17,7 @@
 #![feature(async_closure)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
-#![deny(
+#![allow(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -37,6 +37,6 @@ mod particle;
 
 pub use contact::Contact;
 pub use libp2p_protocol::message::CompletionChannel;
-pub use libp2p_protocol::message::HandlerMessage;
+pub use libp2p_protocol::message::{HandlerMessage, ProtocolMessage};
 pub use libp2p_protocol::upgrade::ProtocolConfig;
 pub use particle::Particle;

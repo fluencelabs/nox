@@ -61,7 +61,7 @@ impl AquaRuntime for EasyVM {
         &mut self,
         init_user_id: PeerId,
         script: String,
-        mut data: Vec<u8>,
+        data: Vec<u8>,
         _particle_id: String,
     ) -> Result<InterpreterOutcome, Self::Error> {
         if let Some(delay) = self.delay {
@@ -73,7 +73,7 @@ impl AquaRuntime for EasyVM {
             let mut next_peers = next_peers.split(",");
             let next_peer = String::from(next_peers.next().unwrap());
 
-            (next_peer, next_peers.join(",").into_bytes())
+            (next_peer, data)
         } else {
             println!("no ! for today :(");
             (init_user_id.to_string(), data)
