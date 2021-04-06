@@ -236,7 +236,7 @@ fn connectivity_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("connectivity");
     println!();
 
-    let num_particles = 100;
+    let num_particles = 10;
     let network_size = 10;
     let swarms = make_swarms_with_mocked_vm(network_size, identity, None, identity);
     let first = swarms.iter().next().unwrap();
@@ -273,11 +273,21 @@ fn connectivity_bench(c: &mut Criterion) {
                         .connect(Contact::new(last.peer_id, vec![last.multiaddr.clone()])),
                 );
 
-                let receiver_client = ConnectedClient::connect_to(receiver_node.multiaddr)
+                let receiver_client = ConnectedClient::connect_to(receiver_node.multiaddr.clone())
                     .expect("connect receiver_client");
 
+                println!(
+                    "data = {},{},{}",
+                    first.peer_id, receiver_node.peer_id, receiver_client.peer_id
+                );
                 let particles = generate_particles(num_particles, |_, mut p| {
-                    p.init_peer_id = receiver_client.peer_id;
+                    p.ttl = u32::MAX;
+                    p.script = String::from("!");
+                    p.data = format!(
+                        "{},{},{}",
+                        first.peer_id, receiver_node.peer_id, receiver_client.peer_id
+                    )
+                    .into_bytes();
                     p
                 });
 
@@ -286,10 +296,7 @@ fn connectivity_bench(c: &mut Criterion) {
             move |(sender_node, mut receiver_client, particles)| {
                 task::block_on(async move {
                     //
-                    let contact = Contact::new(
-                        receiver_client.node,
-                        vec![receiver_client.node_address.clone()],
-                    );
+                    let contact = Contact::new(sender_node.peer_id, vec![]);
                     let num_particles = particles.len();
                     for particle in particles {
                         sender_node

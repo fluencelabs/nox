@@ -54,9 +54,6 @@ use std::{
     time::Duration,
 };
 
-use tracing_futures::Instrument;
-use tracing_subscriber::FmtSubscriber;
-
 /// API provided by the network
 pub struct NetworkApi {
     /// Stream of particles coming from other peers, lifted here from [[ConnectionPoolBehaviour]]
@@ -159,7 +156,6 @@ impl Connectivity {
                 if let Some(contact) = this.resolve_contact(target, &particle.id).await {
                     // forward particle
                     this.send(contact, particle).await;
-                    tracing::info!("particle.sent");
                 }
             }
         })
@@ -168,19 +164,16 @@ impl Connectivity {
 
     async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
         let contact = self.connection_pool.get_contact(target).await;
-        tracing::info!("contact.got");
         let contact = if let Some(contact) = contact {
             // contact is connected directly to current node
             return Some(contact);
         } else {
             // contact isn't connected, have to discover it
             let contact = self.discover_peer(target).await;
-            tracing::info!("peer.discovered");
             match contact {
                 Ok(Some(contact)) => {
                     // connect to the discovered contact
                     self.connection_pool.connect(contact.clone()).await;
-                    tracing::info!("contact.connected");
                     return Some(contact);
                 }
                 Ok(None) => {
@@ -211,7 +204,6 @@ impl Connectivity {
     pub async fn discover_peer(&self, target: PeerId) -> Result<Option<Contact>, KademliaError> {
         // discover contact addresses through Kademlia
         let addresses = measure!(self.kademlia.discover_peer(target).await?);
-        tracing::info!("discovered_peer");
         if addresses.is_empty() {
             return Ok(None);
         }
@@ -341,7 +333,6 @@ impl Connectivity {
                         Ok(stepper_effects) => {
                             // perform effects as instructed by aquamarine
                             measure!(connectivity.execute_effects(stepper_effects).await);
-                            tracing::info!("effects.executed");
                         }
                         Err(err) => {
                             // particles are sent in fire and forget fashion, so
@@ -356,8 +347,7 @@ impl Connectivity {
                     if start.elapsed().as_millis() > 100 {
                         println!("Particle processing took {} ms", start.elapsed().as_millis());
                     }
-                    tracing::info!("finished");
-                }.instrument(tracing::info_span!("particle"));
+                };
 
                 async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
                     if let Err(err) = r {

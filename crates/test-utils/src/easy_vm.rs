@@ -57,14 +57,17 @@ impl AquaRuntime for EasyVM {
             std::thread::sleep(delay);
         }
 
-        let mut next_peer = init_user_id.to_string();
-        if script.starts_with('!') {
+        let next_peer = if script.starts_with('!') {
             let next_peers = String::from_utf8_lossy(&data);
-            dbg!(&next_peers);
             let mut next_peers = next_peers.split(",");
-            next_peer = String::from(next_peers.next().unwrap());
-            data = next_peers.join(",").into_bytes()
-        }
+            data = next_peers.join(",").into_bytes();
+            String::from(next_peers.next().unwrap())
+        } else {
+            println!("no ! for today :(");
+            init_user_id.to_string()
+        };
+
+        println!("next peer = {}", next_peer);
 
         Ok(InterpreterOutcome {
             ret_code: 0,

@@ -28,10 +28,13 @@ mod bench_network_models;
 mod tracing_utils;
 
 use bench_network_models::*;
+use connection_pool::ConnectionPoolT;
 use control_macro::measure;
 use kademlia::KademliaApiT;
+use particle_protocol::Contact;
+use std::convert::identity;
 use std::time::{Duration, Instant};
-use test_utils::enable_logs;
+use test_utils::{enable_logs, make_swarms_with_mocked_vm, ConnectedClient};
 use tracing_utils::*;
 
 #[test]
@@ -58,5 +61,79 @@ fn kademlia_resolve() {
 
         measure!(kademlia.cancel().await);
         println!("finished. elapsed {} ms", start.elapsed().as_millis())
+    })
+}
+
+#[test]
+fn connectivity_bench() {
+    use control_macro::measure;
+
+    let num_particles = 10;
+    let network_size = 10;
+    let swarms = make_swarms_with_mocked_vm(network_size, identity, None, identity);
+    let first = swarms.iter().next().unwrap();
+    let last = swarms.iter().last().unwrap();
+
+    std::thread::sleep(Duration::from_secs(5));
+    enable_logs();
+    log::error!("===== test before =====");
+    std::thread::sleep(Duration::from_secs(1));
+    log::error!("===== test after =====");
+
+    let sender_node = make_swarms_with_mocked_vm(1, identity, None, identity)
+        .into_iter()
+        .next()
+        .unwrap();
+    async_std::task::block_on(
+        sender_node
+            .connectivity
+            .connection_pool
+            .connect(Contact::new(first.peer_id, vec![first.multiaddr.clone()])),
+    );
+
+    let receiver_node = make_swarms_with_mocked_vm(1, identity, None, identity)
+        .into_iter()
+        .next()
+        .unwrap();
+
+    async_std::task::block_on(
+        receiver_node
+            .connectivity
+            .connection_pool
+            .connect(Contact::new(last.peer_id, vec![last.multiaddr.clone()])),
+    );
+
+    let mut receiver_client = ConnectedClient::connect_to(receiver_node.multiaddr.clone())
+        .expect("connect receiver_client");
+
+    println!(
+        "data = {},{},{}",
+        first.peer_id, receiver_node.peer_id, receiver_client.peer_id
+    );
+    let particles = generate_particles(num_particles, |_, mut p| {
+        p.ttl = u32::MAX;
+        p.script = String::from("!");
+        p.data = format!(
+            "{},{},{}",
+            first.peer_id, receiver_node.peer_id, receiver_client.peer_id
+        )
+        .into_bytes();
+        p
+    });
+
+    async_std::task::block_on(async move {
+        let contact = Contact::new(sender_node.peer_id, vec![]);
+        let num_particles = particles.len();
+        for particle in particles {
+            sender_node
+                .connectivity
+                .connection_pool
+                .send(contact.clone(), particle);
+        }
+        for _ in 0..num_particles {
+            if let Err(err) = receiver_client.receive() {
+                println!("error receiving: {:?}", err);
+            }
+        }
     })
 }

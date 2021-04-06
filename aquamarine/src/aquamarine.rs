@@ -53,7 +53,6 @@ impl<RT: AquaRuntime> AquamarineBackend<RT> {
 
         // check if there are new particles
         while let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
-            tracing::info!("aquamarine.backend.particle.got");
             wake = true;
             // set new particles to be executed
             self.plumber.ingest(AwaitedParticle { particle, out });
@@ -107,8 +106,6 @@ impl AquamarineApi {
     ) -> BoxFuture<'static, Result<StepperEffects, AquamarineApiError>> {
         use AquamarineApiError::*;
 
-        tracing::info!("handle.start");
-
         let mut interpreters = self.outlet;
         let particle_id = particle.id.clone();
         let fut = async move {
@@ -120,7 +117,6 @@ impl AquamarineApi {
                     log::info!(target: "debug", "oneshot cancelled: {:?}", err);
                     OneshotCancelled { particle_id }
                 });
-                tracing::info!("effects.returned");
                 effects.and_then(identity)
             } else {
                 Err(AquamarineDied { particle_id })
