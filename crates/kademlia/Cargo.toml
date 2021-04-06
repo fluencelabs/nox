@@ -7,13 +7,13 @@ edition = "2018"
 [dependencies]
 particle-protocol = { path = "../../particle-protocol" }
 
-trust-graph = "0.2.6"
+trust-graph = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework"}
 control-macro = { path = "../control-macro" }
 waiting-queues = { path = "../waiting-queues" }
 fluence-libp2p = { path = "../libp2p" }
 server-config = { path = "../server-config" }
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "identity_rework", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 multihash = "0.13.2"
 once_cell = "1.4.1"

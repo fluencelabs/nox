@@ -12,7 +12,7 @@ config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
 aquamarine-vm = "0.5.2"
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "identity_rework", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 futures = "0.3.5"
 log = "0.4.11"

@@ -36,7 +36,7 @@ pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> anyhow::Result<Vec<Cer
         )
     })?;
 
-    let public_key = key_pair.public_key();
+    let public_key = key_pair.public();
 
     let root_cert = certs.iter().find(|c| c.chain[0].issued_for == public_key);
 
@@ -98,7 +98,7 @@ pub fn store_root_certificate(
 ) -> Result<Certificate, Error> {
     info!("storing new certificate for the key pair");
     let cert: Certificate =
-        Certificate::issue_root(key_pair, key_pair.public_key(), expires_at, issued_at);
+        Certificate::issue_root(key_pair, key_pair.public(), expires_at, issued_at);
 
     let root_cert_path = Path::new(cert_dir).join(Path::new("root.cert"));
 

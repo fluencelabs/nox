@@ -6,10 +6,10 @@ edition = "2018"
 
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
-trust-graph = "0.2.6"
+trust-graph = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework"}
 fluence-libp2p = { path = "../crates/libp2p" }
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "identity_rework", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 futures = "0.3.8"
 log = "0.4.13"

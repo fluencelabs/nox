@@ -5,4 +5,5 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p-core = { package = "fluence-fork-libp2p-core", version = "0.27.1" }
+libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "identity_rework", package = "fluence-fork-libp2p-core" }
+

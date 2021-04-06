@@ -31,7 +31,7 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
         Arg::with_name(ROOT_KEY_PAIR)
             .takes_value(true)
             .short("k")
-            .help("path to ed25519 keypair or keypair in base58"),
+            .help("keypair in base58"),
         Arg::with_name(CONFIG_FILE)
             .takes_value(true)
             .short("c")

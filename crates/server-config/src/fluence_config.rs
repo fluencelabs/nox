@@ -15,21 +15,22 @@
  */
 
 use super::defaults::*;
-use super::keys::{decode_key_pair, load_or_create_key_pair};
+use super::keys::{decode_key_pair, load_key_pair};
 use crate::{BootstrapConfig, KademliaConfig, ListenConfig};
 
 use config_utils::to_abs_path;
 use fluence_identity::KeyPair;
 use particle_protocol::ProtocolConfig;
-use trust_graph::PublicKeyHashable;
+// use trust_graph::PublicKeyHashable;
 
 use anyhow::{anyhow, Context};
 use clap::{ArgMatches, Values};
+use fluence_libp2p::peerid_serializer;
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
+// use libp2p::futures::stream::Peek;
 use libp2p::PeerId;
 use serde::Deserialize;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
@@ -57,7 +58,7 @@ const ARGS: &[&str] = &[
     MANAGEMENT_PEER_ID,
 ];
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 pub struct FluenceConfig {
     #[serde(flatten)]
     pub server: NodeConfig,
@@ -65,12 +66,14 @@ pub struct FluenceConfig {
     #[serde(default = "default_cert_dir")]
     pub certificate_dir: String,
 
-    // TODO: Need better UX for configuring root key pair.
-    //       Currently if incorrect path is specified for root key pair, we silently create new keypair
-    //       this may be undesired and unexpected for users.
-    #[serde(deserialize_with = "parse_or_load_keypair", default = "load_key_pair")]
+    // #[serde(flatten)]
+    #[serde(deserialize_with = "parse_or_load_keypair")]
     pub root_key_pair: KeyPair,
 }
+
+#[derive(Clone, Deserialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[repr(transparent)]
+pub struct PeerIdSerializable(#[serde(with = "peerid_serializer")] PeerId);
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct NodeConfig {
@@ -109,7 +112,7 @@ pub struct NodeConfig {
     #[serde(default)]
     pub bootstrap_config: BootstrapConfig,
 
-    pub root_weights: HashMap<PublicKeyHashable, u32>,
+    pub root_weights: HashMap<PeerIdSerializable, u32>,
 
     /// Base directory for resources needed by application services
     #[serde(default = "default_services_basedir")]
@@ -166,7 +169,7 @@ pub struct NodeConfig {
     #[serde(with = "humantime_serde")]
     pub particle_processing_timeout: Duration,
 
-    #[serde(deserialize_with = "parse_management_peer_id")]
+    #[serde(with = "peerid_serializer")]
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
 }
@@ -201,7 +204,7 @@ impl NodeConfig {
         self.root_weights
             .clone()
             .into_iter()
-            .map(|(k, v)| (k.into(), v))
+            .map(|(k, v)| (k.0.as_public_key().unwrap().into(), v))
             .collect()
     }
 
@@ -218,43 +221,46 @@ impl NodeConfig {
     }
 }
 
-/// Load keypair from default location
-fn load_key_pair() -> KeyPair {
-    load_or_create_key_pair(DEFAULT_KEY_DIR)
-        .unwrap_or_else(|e| panic!("Failed to load keypair from {}: {:?}", DEFAULT_KEY_DIR, e))
-}
-
 /// Try to decode keypair from string as base58,
 /// if failed – load keypair from file pointed at by same string
 fn parse_or_load_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    // Either keypair encoded as base58 or a path where keypair is stored
-    let bs58_or_path = String::deserialize(deserializer)?;
-    if let Ok(keypair) = decode_key_pair(bs58_or_path.clone()) {
-        Ok(keypair)
-    } else {
-        load_or_create_key_pair(&bs58_or_path).map_err(|e| {
+    #[derive(Deserialize)]
+    struct KeypairConfig {
+        format: String,
+        value: Option<String>,
+        path: Option<String>,
+        #[serde(default = "bool::default")]
+        generate_on_absence: bool,
+    }
+
+    let result = KeypairConfig::deserialize(deserializer)?;
+
+    if result.path.is_none() && result.value.is_none()
+        || result.path.is_some() && result.value.is_some()
+    {
+        panic!("Define either value or path")
+    }
+
+    if result.path.is_some() {
+        load_key_pair(
+            result.path.clone().unwrap(),
+            result.format.clone(),
+            result.generate_on_absence,
+        )
+        .map_err(|e| {
             serde::de::Error::custom(format!(
                 "Failed to load keypair from {}: {}",
-                bs58_or_path, e
+                result.path.unwrap(),
+                e
             ))
         })
+    } else {
+        decode_key_pair(result.value.unwrap(), result.format)
+            .map_err(|e| serde::de::Error::custom(format!("Failed to decode keypair: {}", e)))
     }
-}
-
-fn parse_management_peer_id<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let multihash = String::deserialize(deserializer)?;
-    PeerId::from_str(&multihash).map_err(|err| {
-        serde::de::Error::custom(format!(
-            "Failed to deserialize management_peer_id {}: {}",
-            multihash, err
-        ))
-    })
 }
 
 fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>
@@ -368,11 +374,14 @@ mod tests {
     #[test]
     fn parse_config() {
         let config = r#"
+            [root_key_pair]
+            format = "ed25519"
+            value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
             stepper_base_dir = "/stepper"
             stepper_module_name = "aquamarine"
 
             [root_weights]
-            Ct8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4 = 1
+            12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
         "#;
 
         deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
