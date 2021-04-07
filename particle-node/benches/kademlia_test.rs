@@ -25,7 +25,6 @@
 )]
 
 mod bench_network_models;
-mod tracing_utils;
 
 use bench_network_models::*;
 use connection_pool::ConnectionPoolT;
@@ -35,7 +34,6 @@ use particle_protocol::{Contact, ProtocolMessage};
 use std::convert::identity;
 use std::time::{Duration, Instant};
 use test_utils::{enable_logs, make_swarms_with_mocked_vm, ConnectedClient};
-use tracing_utils::*;
 
 #[test]
 fn kademlia_resolve() {

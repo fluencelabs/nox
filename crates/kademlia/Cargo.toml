@@ -27,8 +27,6 @@ futures = "0.3.13"
 futures-timer = "3.0.2"
 thiserror = "1.0.23"
 
-tracing = "0.1.25"
-
 [dev-dependencies]
 async-std = "1.9.0"
 test-utils = { path = "../test-utils" }

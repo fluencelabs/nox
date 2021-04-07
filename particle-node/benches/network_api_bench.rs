@@ -15,13 +15,10 @@
  */
 
 mod bench_network_models;
-mod tracing_utils;
 
 use bench_network_models::*;
-use tracing_utils::*;
 
 use async_std::task;
-use async_std::task::spawn;
 use connection_pool::ConnectionPoolT;
 use criterion::async_executor::AsyncStdExecutor;
 use criterion::{criterion_group, criterion_main, BatchSize};
@@ -32,11 +29,8 @@ use futures::channel::mpsc;
 use futures::FutureExt;
 use humantime_serde::re::humantime::format_duration as pretty;
 use kademlia::KademliaApiT;
-use libp2p::PeerId;
 use particle_protocol::{Contact, Particle};
 use std::convert::identity;
-use std::path::PathBuf;
-use std::str::FromStr;
 use std::time::{Duration, Instant};
 use test_utils::{
     enable_logs, make_swarms_with_mocked_vm, make_tmp_dir, put_aquamarine, ConnectedClient,
@@ -231,8 +225,6 @@ fn kademlia_resolve_bench(c: &mut Criterion) {
 }
 
 fn connectivity_bench(c: &mut Criterion) {
-    use control_macro::measure;
-
     let mut group = c.benchmark_group("connectivity");
     println!();
 
