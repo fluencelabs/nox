@@ -36,6 +36,8 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
+use std::cell::RefCell;
+use std::lazy::Lazy;
 use std::time::Duration;
 
 pub struct ConnectedClient {
@@ -47,7 +49,7 @@ pub struct ConnectedClient {
     pub kad_timeout: Duration,
     pub call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     pub call_service_out: Arc<Mutex<Vec<JValue>>>,
-    pub local_vm: AquamarineVM,
+    pub local_vm: Lazy<Mutex<AquamarineVM>, Box<dyn FnOnce() -> Mutex<AquamarineVM>>>,
 }
 
 impl ConnectedClient {
@@ -112,10 +114,17 @@ impl ConnectedClient {
     pub fn new(client: Client, node: PeerId, node_address: Multiaddr) -> Self {
         let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
         let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
-        let local_vm = make_vm(
-            client.peer_id,
-            make_call_service_closure(call_service_in.clone(), call_service_out.clone()),
-        );
+
+        let peer_id = client.peer_id;
+        let call_in = call_service_in.clone();
+        let call_out = call_service_out.clone();
+        let f: Box<dyn FnOnce() -> Mutex<AquamarineVM>> = Box::new(move || {
+            Mutex::new(make_vm(
+                peer_id,
+                make_call_service_closure(call_in, call_out),
+            ))
+        });
+        let local_vm = Lazy::new(f);
 
         Self {
             client,
@@ -177,7 +186,7 @@ impl ConnectedClient {
             self.call_service_in.clone(),
             script.into(),
             self.node,
-            &mut self.local_vm,
+            &mut self.local_vm.lock(),
         );
         let id = particle.id.clone();
         self.send(particle);
@@ -212,7 +221,7 @@ impl ConnectedClient {
         Ok(read_args(
             particle,
             self.peer_id,
-            &mut self.local_vm,
+            &mut self.local_vm.lock(),
             self.call_service_out.clone(),
         ))
     }
@@ -231,7 +240,7 @@ impl ConnectedClient {
                     break Ok(read_args(
                         particle,
                         self.peer_id,
-                        &mut self.local_vm,
+                        &mut self.local_vm.lock(),
                         self.call_service_out.clone(),
                     ));
                 }

@@ -73,7 +73,7 @@ impl AquaRuntime for EasyVM {
             let mut next_peers = next_peers.split(",");
             let next_peer = String::from(next_peers.next().unwrap());
 
-            (next_peer, data)
+            (next_peer, next_peers.join(",").into_bytes())
         } else {
             println!("no ! for today :(");
             (init_user_id.to_string(), data)
