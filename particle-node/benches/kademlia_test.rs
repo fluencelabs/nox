@@ -89,10 +89,12 @@ fn connectivity_test() {
             .connect(Contact::new(first.peer_id, vec![first.multiaddr.clone()])),
     );
 
-    let receiver_node = make_swarms_with_mocked_vm(1, identity, None, identity)
-        .into_iter()
-        .next()
-        .unwrap();
+    // TODO: it should work without bootstraps, shouldn't it?
+    let receiver_node =
+        make_swarms_with_mocked_vm(1, identity, None, |_| vec![swarms[0].multiaddr.clone()])
+            .into_iter()
+            .next()
+            .unwrap();
 
     async_std::task::block_on(
         receiver_node
@@ -128,9 +130,11 @@ fn connectivity_test() {
                 .connection_pool
                 .send(contact.clone(), particle);
         }
-        for _ in 0..num_particles {
+        for _ in 1..num_particles {
             if let Err(err) = receiver_client.receive() {
                 println!("error receiving: {:?}", err);
+            } else {
+                println!("received!=============!=============!=============!=============")
             }
         }
     })
