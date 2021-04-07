@@ -135,14 +135,8 @@ where
                     }
                 };
 
-                serde_json::from_slice(&packet).wrap_err_with(|| {
-                    let str = str.to_string();
-                    let msg: Result<ProtocolMessage, _> = serde_json::from_str(&str);
-                    format!(
-                        "unable to deserialize: '{}' ; packet: {:?}; msg: {:?}",
-                        str, packet, msg
-                    )
-                })
+                serde_json::from_slice(&packet)
+                    .wrap_err_with(|| format!("unable to deserialize: '{}'", str))
             };
 
             match process(&mut socket).await {
@@ -184,24 +178,6 @@ where
 
             let write = async move || -> Result<_, io::Error> {
                 let bytes = serde_json::to_vec(&msg)?;
-                {
-                    let bytes = vec![
-                        123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105, 99,
-                        108, 101, 34, 44, 34, 105, 100, 34, 58, 34, 49, 34, 44, 34, 105, 110, 105,
-                        116, 95, 112, 101, 101, 114, 95, 105, 100, 34, 58, 34, 49, 50, 68, 51, 75,
-                        111, 111, 87, 67, 74, 104, 76, 98, 78, 51, 118, 67, 101, 112, 109, 70, 106,
-                        114, 87, 70, 53, 90, 70, 68, 71, 65, 117, 65, 89, 86, 121, 78, 74, 51, 70,
-                        49, 49, 101, 80, 99, 119, 76, 76, 82, 120, 86, 76, 34, 44, 34, 116, 105,
-                        109, 101, 115, 116, 97, 109, 112, 34, 58, 49, 54, 49, 55, 55, 51, 55, 48,
-                        49, 54, 57, 51, 49, 44, 34, 116, 116, 108, 34, 58, 54, 53, 53, 50, 53, 44,
-                        34, 115, 99, 114, 105, 112, 116, 34, 58, 34, 34, 44, 34, 115, 105, 103,
-                        110, 97, 116, 117, 114, 101, 34, 58, 91, 93, 44, 34, 100, 97, 116, 97, 34,
-                        58, 34, 34, 125,
-                    ];
-                    let test_msg: Result<ProtocolMessage, _> = serde_json::from_slice(&bytes);
-                    println!("test_msg: {:?}", test_msg);
-                }
-                println!("sending bytes {:?} of msg {:?}", bytes, msg);
                 upgrade::write_one(&mut socket, bytes).await?;
                 Ok(())
             };
@@ -235,6 +211,18 @@ mod tests {
     use crate::{HandlerMessage, Particle, ProtocolConfig};
     use rand::{thread_rng, Rng};
 
+    const BYTES: [u8; 175] = [
+        123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105, 99, 108, 101, 34,
+        44, 34, 105, 100, 34, 58, 34, 49, 34, 44, 34, 105, 110, 105, 116, 95, 112, 101, 101, 114,
+        95, 105, 100, 34, 58, 34, 49, 50, 68, 51, 75, 111, 111, 87, 67, 74, 104, 76, 98, 78, 51,
+        118, 67, 101, 112, 109, 70, 106, 114, 87, 70, 53, 90, 70, 68, 71, 65, 117, 65, 89, 86, 121,
+        78, 74, 51, 70, 49, 49, 101, 80, 99, 119, 76, 76, 82, 120, 86, 76, 34, 44, 34, 116, 105,
+        109, 101, 115, 116, 97, 109, 112, 34, 58, 49, 54, 49, 55, 55, 51, 55, 48, 49, 54, 57, 51,
+        49, 44, 34, 116, 116, 108, 34, 58, 54, 53, 53, 50, 53, 44, 34, 115, 99, 114, 105, 112, 116,
+        34, 58, 34, 34, 44, 34, 115, 105, 103, 110, 97, 116, 117, 114, 101, 34, 58, 91, 93, 44, 34,
+        100, 97, 116, 97, 34, 58, 34, 34, 125,
+    ];
+
     #[test]
     fn oneshot_channel_test() {
         let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
@@ -255,19 +243,7 @@ mod tests {
         });
 
         let sent_particle = async_std::task::block_on(async move {
-            let bytes = vec![
-                123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105, 99, 108,
-                101, 34, 44, 34, 105, 100, 34, 58, 34, 49, 34, 44, 34, 105, 110, 105, 116, 95, 112,
-                101, 101, 114, 95, 105, 100, 34, 58, 34, 49, 50, 68, 51, 75, 111, 111, 87, 67, 74,
-                104, 76, 98, 78, 51, 118, 67, 101, 112, 109, 70, 106, 114, 87, 70, 53, 90, 70, 68,
-                71, 65, 117, 65, 89, 86, 121, 78, 74, 51, 70, 49, 49, 101, 80, 99, 119, 76, 76, 82,
-                120, 86, 76, 34, 44, 34, 116, 105, 109, 101, 115, 116, 97, 109, 112, 34, 58, 49,
-                54, 49, 55, 55, 51, 55, 48, 49, 54, 57, 51, 49, 44, 34, 116, 116, 108, 34, 58, 54,
-                53, 53, 50, 53, 44, 34, 115, 99, 114, 105, 112, 116, 34, 58, 34, 34, 44, 34, 115,
-                105, 103, 110, 97, 116, 117, 114, 101, 34, 58, 91, 93, 44, 34, 100, 97, 116, 97,
-                34, 58, 34, 34, 125,
-            ];
-            let msg: ProtocolMessage = serde_json::from_slice(&bytes).unwrap();
+            let msg: ProtocolMessage = serde_json::from_slice(&BYTES).unwrap();
             let particle = match msg {
                 ProtocolMessage::Particle(p) => p,
                 _ => unreachable!("must be particle"),
@@ -294,22 +270,9 @@ mod tests {
     fn deserialize() {
         let str = r#"{"action":"Particle","id":"2","init_peer_id":"12D3KooWAcn1f5iZ7wbo9QrYPFgq6o7DGkh7VwC8Zucn6DgWZQDo","timestamp":1617733422130,"ttl":65525,"script":"!","signature":[],"data":"MTJEM0tvb1dDM3dhcjhqcTJzaGFVQ2hSZWttYjNNN0RGRGl4ZkdVTm5ydGY0VlRGQVlVdywxMkQzS29vV0o2bVZLYXpKQzdyd2dtd0JpZm5LZ0JoR2NSTWtaOXdRTjY4dmJ1UGdIUjlO"}"#;
 
-        let msg: ProtocolMessage = serde_json::from_str(str).unwrap();
-        println!("{:?}", msg);
+        let _: ProtocolMessage = serde_json::from_str(str).unwrap();
 
-        let bytes = vec![
-            123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105, 99, 108, 101,
-            34, 44, 34, 105, 100, 34, 58, 34, 49, 34, 44, 34, 105, 110, 105, 116, 95, 112, 101,
-            101, 114, 95, 105, 100, 34, 58, 34, 49, 50, 68, 51, 75, 111, 111, 87, 67, 74, 104, 76,
-            98, 78, 51, 118, 67, 101, 112, 109, 70, 106, 114, 87, 70, 53, 90, 70, 68, 71, 65, 117,
-            65, 89, 86, 121, 78, 74, 51, 70, 49, 49, 101, 80, 99, 119, 76, 76, 82, 120, 86, 76, 34,
-            44, 34, 116, 105, 109, 101, 115, 116, 97, 109, 112, 34, 58, 49, 54, 49, 55, 55, 51, 55,
-            48, 49, 54, 57, 51, 49, 44, 34, 116, 116, 108, 34, 58, 54, 53, 53, 50, 53, 44, 34, 115,
-            99, 114, 105, 112, 116, 34, 58, 34, 34, 44, 34, 115, 105, 103, 110, 97, 116, 117, 114,
-            101, 34, 58, 91, 93, 44, 34, 100, 97, 116, 97, 34, 58, 34, 34, 125,
-        ];
-        let test_msg: Result<ProtocolMessage, _> = serde_json::from_slice(&bytes);
-        println!("{:?}", test_msg);
+        let test_msg: Result<ProtocolMessage, _> = serde_json::from_slice(&BYTES);
         test_msg.unwrap();
     }
 }
