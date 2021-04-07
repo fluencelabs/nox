@@ -21,13 +21,11 @@ use crate::{BootstrapConfig, KademliaConfig, ListenConfig};
 use config_utils::to_abs_path;
 use fluence_identity::KeyPair;
 use particle_protocol::ProtocolConfig;
-// use trust_graph::PublicKeyHashable;
 
 use anyhow::{anyhow, Context};
 use clap::{ArgMatches, Values};
 use fluence_libp2p::peerid_serializer;
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
-// use libp2p::futures::stream::Peek;
 use libp2p::PeerId;
 use serde::Deserialize;
 use std::net::SocketAddr;
@@ -35,7 +33,10 @@ use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
-pub const ROOT_KEY_PAIR: &str = "root_key_pair";
+pub const ROOT_KEY_PAIR: &str = "value";
+pub const ROOT_KEY_PAIR_FORMAT: &str = "format";
+pub const ROOT_KEY_PAIR_PATH: &str = "path";
+pub const ROOT_KEY_PAIR_GENERATE: &str = "generate_on_absence";
 pub const BOOTSTRAP_NODE: &str = "bootstrap_nodes";
 pub const EXTERNAL_ADDR: &str = "external_address";
 pub const CERTIFICATE_DIR: &str = "certificate_dir";
@@ -302,9 +303,36 @@ fn insert_args_to_config(
         let value = match k {
             WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
             BOOTSTRAP_NODE | SERVICE_ENVS => Array(multiple(arg).collect()),
+            ROOT_KEY_PAIR => toml::Value::Table(
+                std::iter::once((ROOT_KEY_PAIR.to_string(), String(single(arg).into()))).collect(),
+            ),
+            ROOT_KEY_PAIR_FORMAT => toml::Value::Table(
+                std::iter::once((ROOT_KEY_PAIR_FORMAT.to_string(), String(single(arg).into())))
+                    .collect(),
+            ),
+            ROOT_KEY_PAIR_PATH => toml::Value::Table(
+                std::iter::once((ROOT_KEY_PAIR_PATH.to_string(), String(single(arg).into())))
+                    .collect(),
+            ),
+            ROOT_KEY_PAIR_GENERATE => toml::Value::Table(
+                std::iter::once((
+                    ROOT_KEY_PAIR_GENERATE.to_string(),
+                    String(single(arg).into()),
+                ))
+                .collect(),
+            ),
             _ => String(single(arg).into()),
         };
-        config.insert(k.to_string(), value);
+
+        let key = match k {
+            ROOT_KEY_PAIR => "root_key_pair",
+            ROOT_KEY_PAIR_FORMAT => "root_key_pair",
+            ROOT_KEY_PAIR_PATH => "root_key_pair",
+            ROOT_KEY_PAIR_GENERATE => "root_key_pair",
+            k => k,
+        };
+
+        config.insert(key.to_string(), value);
     }
 
     Ok(())

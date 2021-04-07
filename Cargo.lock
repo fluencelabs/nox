@@ -4206,6 +4206,7 @@ dependencies = [
  "fluence-libp2p",
  "humantime-serde",
  "log",
+ "maplit",
  "num_cpus",
  "particle-protocol",
  "prometheus",
