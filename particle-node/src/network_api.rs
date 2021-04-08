@@ -163,9 +163,12 @@ impl Connectivity {
     }
 
     async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
-        println!("resolve_contact {} for particle {}", target, particle_id);
         let contact = self.connection_pool.get_contact(target).await;
         let contact = if let Some(contact) = contact {
+            println!(
+                "resolved contact {} via CONNECTION POOL for particle {}",
+                target, particle_id
+            );
             // contact is connected directly to current node
             return Some(contact);
         } else {
@@ -173,6 +176,10 @@ impl Connectivity {
             let contact = self.discover_peer(target).await;
             match contact {
                 Ok(Some(contact)) => {
+                    println!(
+                        "resolved contact {} via KADEMLIA for particle {}",
+                        target, particle_id
+                    );
                     // connect to the discovered contact
                     self.connection_pool.connect(contact.clone()).await;
                     return Some(contact);

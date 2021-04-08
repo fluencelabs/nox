@@ -194,7 +194,7 @@ fn kademlia_resolve_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("kademlia_resolve");
     println!();
 
-    let network_size = 100;
+    let network_size = 10;
     // group.throughput(Throughput::Elements(num as u64));
     group.sample_size(10);
     let bid = { BenchmarkId::from_parameter(format!("{} nodes", network_size)) };
@@ -234,14 +234,13 @@ fn connectivity_bench(c: &mut Criterion) {
     let first = swarms.iter().next().unwrap();
     let last = swarms.iter().last().unwrap();
 
-    enable_logs();
-
     group.throughput(Throughput::Elements(num_particles as u64));
     group.sample_size(10);
     let bid = { BenchmarkId::from_parameter(format!("{}/{}", network_size, num_particles)) };
     group.bench_function(bid, |b| {
         b.iter_batched(
             || {
+                enable_logs();
                 let sender_node = make_swarms_with_mocked_vm(1, identity, None, identity)
                     .into_iter()
                     .next()
