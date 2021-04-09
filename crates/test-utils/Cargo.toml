@@ -21,7 +21,7 @@ script-storage = { path = "../../script-storage" }
 
 air-interpreter-wasm = "0.7.5"
 aquamarine-vm = "0.5.2"
-fluence-identity = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework", path = "identity"}
+fluence-identity = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework", package = "fluence-identity"}
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "identity_rework", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 

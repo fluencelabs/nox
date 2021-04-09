@@ -25,7 +25,7 @@ now-millis = { path = "../crates/now-millis" }
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "identity_rework", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 trust-graph = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework"}
-fluence-identity = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework", path = "identity"}
+fluence-identity = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework", package = "fluence-identity"}
 
 async-std = { version = "1.9.0", features = ["unstable"] }
 multihash = "0.13.2"

@@ -15,9 +15,10 @@
  */
 
 use config_utils::create_dirs;
-use fluence_identity::KeyPair;
+use fluence_identity::{key_pair::KeyFormat, KeyPair};
 
 use log::info;
+use std::str::FromStr;
 use std::{
     fs::{self, File},
     io::{Error, ErrorKind, Write},
@@ -25,14 +26,14 @@ use std::{
 };
 
 /// Creates new key pair and store it in a `key_path` file.
-fn create_new_key_pair(key_path: &Path, _keypair_format: String) -> Result<KeyPair, Error> {
+fn create_new_key_pair(key_path: &Path, keypair_format: KeyFormat) -> Result<KeyPair, Error> {
     let parents = key_path.parent();
     if let Some(parent_path) = parents {
         create_dirs(&[&parent_path])?
     }
 
-    let key_pair = KeyPair::generate_ed25519();
-    let encoded = bs58::encode(key_pair.encode()).into_string();
+    let key_pair = KeyPair::generate(keypair_format);
+    let encoded = bs58::encode(key_pair.to_bytes()).into_string();
 
     let mut key_file = File::create(key_path)?;
     key_file.write_all(encoded.as_bytes())?;
@@ -64,8 +65,10 @@ pub fn decode_key_pair(
 ) -> Result<KeyPair, Box<dyn std::error::Error>> {
     let key_pair = bs58::decode(base58).into_vec()?;
 
-    Ok(KeyPair::decode(key_pair, key_pair_format)
-        .map_err(|e| Error::new(ErrorKind::InvalidInput, e.to_string()))?)
+    Ok(
+        KeyPair::from_bytes(key_pair, KeyFormat::from_str(&key_pair_format)?)
+            .map_err(|e| Error::new(ErrorKind::InvalidInput, e.to_string()))?,
+    )
 }
 
 /// Read the file with a secret key if it exists, generate a new key pair and write it to file if not.
@@ -79,7 +82,10 @@ pub fn load_key_pair(
     if !key_path.exists() {
         if generate_on_absence {
             info!("generating a new key pair");
-            return Ok(create_new_key_pair(key_path, keypair_format)?);
+            return Ok(create_new_key_pair(
+                key_path,
+                KeyFormat::from_str(&keypair_format)?,
+            )?);
         } else {
             return Err(Error::new(
                 ErrorKind::InvalidInput,

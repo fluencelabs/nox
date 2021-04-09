@@ -10,7 +10,7 @@ particle-protocol = { path = "../../particle-protocol"}
 fluence-libp2p = { path = "../libp2p" }
 
 trust-graph = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework"}
-fluence-identity = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework", path = "identity"}
+fluence-identity = {git = "https://github.com/fluencelabs/trust-graph.git", branch = "identity_rework", package = "fluence-identity"}
 air-interpreter-wasm = "0.7.5"
 
 libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "identity_rework", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
