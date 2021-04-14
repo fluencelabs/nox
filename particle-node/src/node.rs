@@ -72,7 +72,7 @@ impl Node {
         let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
 
         let trust_graph = {
-            let storage = InMemoryStorage::new_in_memory(config.root_weights());
+            let storage = InMemoryStorage::new_in_memory(config.root_weights()?);
             TrustGraph::new(storage)
         };
 

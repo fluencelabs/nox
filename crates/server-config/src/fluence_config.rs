@@ -201,11 +201,18 @@ impl NodeConfig {
         addrs
     }
 
-    pub fn root_weights(&self) -> Vec<(fluence_identity::PublicKey, u32)> {
+    pub fn root_weights(&self) -> anyhow::Result<Vec<(fluence_identity::PublicKey, u32)>> {
         self.root_weights
             .clone()
             .into_iter()
-            .map(|(k, v)| (k.0.as_public_key().unwrap().into(), v))
+            .map(|(k, v)| {
+                Ok((
+                    k.0.as_public_key()
+                        .ok_or(anyhow!("invalid root_weights key"))?
+                        .into(),
+                    v,
+                ))
+            })
             .collect()
     }
 
