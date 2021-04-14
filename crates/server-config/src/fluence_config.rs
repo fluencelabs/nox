@@ -245,18 +245,14 @@ where
         panic!("Define either value or path")
     }
 
-    if result.path.is_some() {
+    if let Some(path) = result.path {
         load_key_pair(
-            result.path.clone().unwrap(),
+            path.clone(),
             result.format.clone(),
             result.generate_on_absence,
         )
         .map_err(|e| {
-            serde::de::Error::custom(format!(
-                "Failed to load keypair from {}: {}",
-                result.path.unwrap(),
-                e
-            ))
+            serde::de::Error::custom(format!("Failed to load keypair from {}: {}", path, e))
         })
     } else {
         decode_key_pair(result.value.unwrap(), result.format)
@@ -325,10 +321,10 @@ fn insert_args_to_config(
         };
 
         let key = match k {
-            ROOT_KEY_PAIR => "root_key_pair",
-            ROOT_KEY_PAIR_FORMAT => "root_key_pair",
-            ROOT_KEY_PAIR_PATH => "root_key_pair",
-            ROOT_KEY_PAIR_GENERATE => "root_key_pair",
+            ROOT_KEY_PAIR | ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_PATH | ROOT_KEY_PAIR_GENERATE => {
+                "root_key_pair"
+            }
+
             k => k,
         };
 

@@ -108,7 +108,7 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
     let key_pair = config.root_key_pair;
     log::info!(
         "public key = {}",
-        bs58::encode(key_pair.public().to_bytes()).into_string()
+        bs58::encode(key_pair.public().to_vec()).into_string()
     );
 
     let listen_config = config.server.listen_config();

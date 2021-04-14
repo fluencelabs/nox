@@ -1,13 +1,10 @@
-## ed25519 private key for this node. Can be either a path to base58 bytes, or base58 bytes directly
-## if root_key_pair is not defined, or path does not exist, new key pair will be generated
+## ed25519, rsa, secp256k1 private keys available for this node. Generation is available only for ed25519 and secp256k1.
+## Either value or path should be defined. Value is base58 bytes
 [root_key_pair]
 format = "ed25519"
 #value = "..."
 path = "./secret_key"
 generate_on_absence = true
-
-## example of root_key_pair specified as base58 directly:
-# root_key_pair = "5jvxDNS6ChWV5cyXQxs8pUBzVo2NkGc7pVbx2RS1LB94yJciY9n4SzCS7ECDQxSZ3Zb4hGidbuQeHznYgQSFRkjU"
 
 ## Services will store their data here
 services_base_dir = "./services"

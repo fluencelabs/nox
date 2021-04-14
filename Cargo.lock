@@ -427,9 +427,9 @@ checksum = "e91831deabf0d6d7ec49552e489aed63b7456a7a3c46cff62adad428110b0af0"
 
 [[package]]
 name = "async-trait"
-version = "0.1.48"
+version = "0.1.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36ea56748e10732c49404c153638a15ec3d6211ec5ff35d9bb20e13b93576adf"
+checksum = "589652ce7ccb335d1e7ecb3be145425702b290dbcb7029bbeaae263fc1d87b48"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -522,11 +522,10 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
 name = "bincode"
-version = "1.3.2"
+version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d175dfa69e619905c4c3cdb7c3c203fa3bdd5d51184e3afdb2742c0280493772"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
 dependencies = [
- "byteorder",
  "serde",
 ]
 
@@ -695,9 +694,9 @@ checksum = "e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7"
 
 [[package]]
 name = "byteorder"
-version = "1.3.4"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
+checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "bytes"
@@ -971,9 +970,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dca26ee1f8d361640700bde38b2c37d8c22b3ce2d360e1fc1c74ea4b0aa7d775"
+checksum = "06ed27e177f16d65f0f0c22a213e17c696ace5dd64b14258b52f9417ccb52db4"
 dependencies = [
  "cfg-if 1.0.0",
  "crossbeam-utils",
@@ -1081,9 +1080,9 @@ dependencies = [
 
 [[package]]
 name = "ctrlc"
-version = "3.1.8"
+version = "3.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c15b8ec3b5755a188c141c1f6a98e76de31b936209bf066b647979e2a84764a9"
+checksum = "232295399409a8b7ae41276757b5a1cc21032848d42bff2352261f958b3ca29a"
 dependencies = [
  "nix 0.20.0",
  "winapi",
@@ -1111,9 +1110,9 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "3.0.2"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f627126b946c25a4638eec0ea634fc52506dea98db118aae985118ce7c3d723f"
+checksum = "639891fde0dbea823fc3d798a0fdf9d2f9440a42d64a78ab3488b0ca025117b3"
 dependencies = [
  "byteorder",
  "digest 0.9.0",
@@ -1535,7 +1534,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p"
 version = "0.36.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "atomic",
  "bytes 1.0.1",
@@ -1572,7 +1571,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-core"
 version = "0.27.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "asn1_der",
  "bs58 0.4.0",
@@ -1641,7 +1640,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-deflate"
 version = "0.27.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "flate2",
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
@@ -1651,7 +1650,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-dns"
 version = "0.27.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
  "futures",
@@ -1661,7 +1660,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-floodsub"
 version = "0.28.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "cuckoofilter",
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
@@ -1678,7 +1677,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-gossipsub"
 version = "0.29.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "asynchronous-codec",
  "base64 0.13.0",
@@ -1703,7 +1702,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-identify"
 version = "0.28.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
  "fluence-fork-libp2p-swarm",
@@ -1718,7 +1717,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-kad"
 version = "0.29.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -1748,7 +1747,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-mdns"
 version = "0.29.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "async-io",
  "data-encoding",
@@ -1768,7 +1767,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-mplex"
 version = "0.27.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.0.1",
@@ -1785,7 +1784,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-noise"
 version = "0.29.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "bytes 1.0.1",
  "curve25519-dalek",
@@ -1828,7 +1827,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-ping"
 version = "0.28.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
  "fluence-fork-libp2p-swarm",
@@ -1842,7 +1841,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-plaintext"
 version = "0.27.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.0.1",
@@ -1858,7 +1857,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-pnet"
 version = "0.20.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "futures",
  "log",
@@ -1871,7 +1870,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-request-response"
 version = "0.10.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "async-trait",
  "bytes 1.0.1",
@@ -1890,7 +1889,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-swarm"
 version = "0.28.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "either",
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
@@ -1905,7 +1904,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-swarm-derive"
 version = "0.22.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "quote",
  "syn",
@@ -1914,7 +1913,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-tcp"
 version = "0.27.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "async-io",
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
@@ -1932,7 +1931,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-uds"
 version = "0.27.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "async-std",
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
@@ -1943,7 +1942,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-wasm-ext"
 version = "0.27.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
  "futures",
@@ -1956,7 +1955,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-websocket"
 version = "0.28.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "either",
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
@@ -1973,7 +1972,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-libp2p-yamux"
 version = "0.30.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "fluence-fork-libp2p-core 0.27.1 (git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework)",
  "futures",
@@ -1985,7 +1984,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-multistream-select"
 version = "0.10.2"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "bytes 1.0.1",
  "futures",
@@ -2012,7 +2011,7 @@ dependencies = [
 [[package]]
 name = "fluence-fork-parity-multiaddr"
 version = "0.11.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#3336d65b9894586c74babe5ca3edc621596babc1"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=identity_rework#6fa5a6b235aa11944cc52e300ddae9bab4f84dfb"
 dependencies = [
  "arrayref",
  "bs58 0.4.0",
@@ -2047,7 +2046,7 @@ dependencies = [
 [[package]]
 name = "fluence-identity"
 version = "0.2.7"
-source = "git+https://github.com/fluencelabs/trust-graph.git?branch=identity_rework#f17b8a65760598bb8a2f5362acbe6f1d8fac3f40"
+source = "git+https://github.com/fluencelabs/trust-graph.git?branch=identity_rework#03aabd3f7e3a4d9d99e4ca0d22daef9e8ff9f4f9"
 dependencies = [
  "asn1_der",
  "bs58 0.3.1",
@@ -2213,9 +2212,9 @@ checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 
 [[package]]
 name = "futures"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f55667319111d593ba876406af7c409c0ebb44dc4be6132a783ccf163ea14c1"
+checksum = "a9d5813545e459ad3ca1bff9915e9ad7f1a47dc6a91b627ce321d5863b7dd253"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -2228,9 +2227,9 @@ dependencies = [
 
 [[package]]
 name = "futures-channel"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c2dd2df839b57db9ab69c2c9d8f3e8c81984781937fe2807dc6dcf3b2ad2939"
+checksum = "ce79c6a52a299137a6013061e0cf0e688fce5d7f1bc60125f520912fdb29ec25"
 dependencies = [
  "futures-core",
  "futures-sink",
@@ -2238,15 +2237,15 @@ dependencies = [
 
 [[package]]
 name = "futures-core"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15496a72fabf0e62bdc3df11a59a3787429221dd0710ba8ef163d6f7a9112c94"
+checksum = "098cd1c6dda6ca01650f1a37a794245eb73181d0d4d4e955e2f3c37db7af1815"
 
 [[package]]
 name = "futures-executor"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891a4b7b96d84d5940084b2a37632dd65deeae662c114ceaa2c879629c9c0ad1"
+checksum = "10f6cb7042eda00f0049b1d2080aa4b93442997ee507eb3828e8bd7577f94c9d"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -2256,9 +2255,9 @@ dependencies = [
 
 [[package]]
 name = "futures-io"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d71c2c65c57704c32f5241c1223167c2c3294fd34ac020c807ddbe6db287ba59"
+checksum = "365a1a1fb30ea1c03a830fdb2158f5236833ac81fa0ad12fe35b29cddc35cb04"
 
 [[package]]
 name = "futures-lite"
@@ -2277,9 +2276,9 @@ dependencies = [
 
 [[package]]
 name = "futures-macro"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea405816a5139fb39af82c2beb921d52143f556038378d6db21183a5c37fbfb7"
+checksum = "668c6733a182cd7deb4f1de7ba3bf2120823835b3bcfbeacf7d2c4a773c1bb8b"
 dependencies = [
  "proc-macro-hack",
  "proc-macro2",
@@ -2300,15 +2299,15 @@ dependencies = [
 
 [[package]]
 name = "futures-sink"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85754d98985841b7d4f5e8e6fbfa4a4ac847916893ec511a2917ccd8525b8bb3"
+checksum = "5c5629433c555de3d82861a7a4e3794a4c40040390907cfbfd7143a92a426c23"
 
 [[package]]
 name = "futures-task"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa189ef211c15ee602667a6fcfe1c1fd9e07d42250d2156382820fba33c9df80"
+checksum = "ba7aa51095076f3ba6d9a1f702f74bd05ec65f555d70d2033d55ba8d69f581bc"
 
 [[package]]
 name = "futures-timer"
@@ -2318,9 +2317,9 @@ checksum = "e64b03909df88034c26dc1547e8970b91f98bdb65165d6a4e9110d94263dbb2c"
 
 [[package]]
 name = "futures-util"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1812c7ab8aedf8d6f2701a43e1243acdbcc2b36ab26e2ad421eb99ac963d96d1"
+checksum = "3c144ad54d60f23927f0a6b6d816e4271278b64f005ad65e4e35291d2de9c025"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -2662,9 +2661,9 @@ dependencies = [
 
 [[package]]
 name = "if-watch"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a6d52908d4ea4ab2bc22474ba149bf1011c8e2c3ebc1ff593ae28ac44f494b6"
+checksum = "144c0ecbda48cc819482c37e460723b634dc060e23922f8ace87d94ff95ea4e5"
 dependencies = [
  "async-io",
  "futures",
@@ -2985,9 +2984,9 @@ dependencies = [
 
 [[package]]
 name = "minicbor-derive"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19ce18b5423c573a13e80cb3046ea0af6379ef725dc3af4886bdb8f4e5093068"
+checksum = "7f2b9e8883d58e34b18facd16c4564a77ea50fce028ad3d0ee6753440e37acc8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3263,7 +3262,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "instant",
  "libc",
- "redox_syscall 0.2.5",
+ "redox_syscall 0.2.6",
  "smallvec",
  "winapi",
 ]
@@ -3912,9 +3911,9 @@ checksum = "41cc0f7e4d5d4544e8861606a285bb08d3e70712ccc7d2b84d7c0ccfaf4b05ce"
 
 [[package]]
 name = "redox_syscall"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94341e4e44e24f6b591b59e47a8a027df12e008d73fd5672dbea9cc22f4507d9"
+checksum = "8270314b5ccceb518e7e578952f0b72b88222d02e8f77f5ecf7abbb673539041"
 dependencies = [
  "bitflags",
 ]
@@ -4071,9 +4070,9 @@ dependencies = [
 
 [[package]]
 name = "sct"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3042af939fca8c3453b7af0f1c66e533a15a86169e39de2657310ade8f98d3c"
+checksum = "b362b83898e0e69f38515b82ee15aa80636befe47c3b6d3d89a911e78fc228ce"
 dependencies = [
  "ring",
  "untrusted",
@@ -4537,7 +4536,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "rand 0.8.3",
- "redox_syscall 0.2.5",
+ "redox_syscall 0.2.6",
  "remove_dir_all",
  "winapi",
 ]
@@ -4711,9 +4710,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "134af885d758d645f0f0505c9a8b3f9bf8a348fd822e112ab5248138348f1722"
+checksum = "83f0c8e7c0addab50b663055baf787d0af7f413a46e6e7fb9559a4e4db7137a5"
 dependencies = [
  "autocfg",
  "libc",
@@ -4733,7 +4732,7 @@ dependencies = [
 [[package]]
 name = "trust-graph"
 version = "0.2.6"
-source = "git+https://github.com/fluencelabs/trust-graph.git?branch=identity_rework#f17b8a65760598bb8a2f5362acbe6f1d8fac3f40"
+source = "git+https://github.com/fluencelabs/trust-graph.git?branch=identity_rework#03aabd3f7e3a4d9d99e4ca0d22daef9e8ff9f4f9"
 dependencies = [
  "bs58 0.3.1",
  "derivative",
@@ -5332,9 +5331,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "x25519-dalek"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc614d95359fd7afc321b66d2107ede58b246b844cf5d8a0adcca413e439f088"
+checksum = "5a0c105152107e3b96f6a00a65e86ce82d9b125230e1c4302940eca58ff71f4f"
 dependencies = [
  "curve25519-dalek",
  "rand_core 0.5.1",

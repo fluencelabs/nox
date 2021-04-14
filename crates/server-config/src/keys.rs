@@ -33,7 +33,7 @@ fn create_new_key_pair(key_path: &Path, keypair_format: KeyFormat) -> Result<Key
     }
 
     let key_pair = KeyPair::generate(keypair_format);
-    let encoded = bs58::encode(key_pair.to_bytes()).into_string();
+    let encoded = bs58::encode(key_pair.to_vec()).into_string();
 
     let mut key_file = File::create(key_path)?;
     key_file.write_all(encoded.as_bytes())?;
@@ -66,7 +66,7 @@ pub fn decode_key_pair(
     let key_pair = bs58::decode(base58).into_vec()?;
 
     Ok(
-        KeyPair::from_bytes(key_pair, KeyFormat::from_str(&key_pair_format)?)
+        KeyPair::from_vec(key_pair, KeyFormat::from_str(&key_pair_format)?)
             .map_err(|e| Error::new(ErrorKind::InvalidInput, e.to_string()))?,
     )
 }
