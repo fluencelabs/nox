@@ -22,3 +22,8 @@ pub fn main() {}
 pub fn get_tetraplets(_: String) -> Vec<Vec<SecurityTetraplet>> {
     fluence::get_call_parameters().tetraplets
 }
+
+#[fce]
+pub fn not(b: bool) -> bool {
+    !b
+}
