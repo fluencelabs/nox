@@ -1948,9 +1948,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-multistream-select"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08cb5798accfd52dc9a104d7928f379e93d8432ac03201f5a16ed6dc2af1520d"
+checksum = "34dacd25fddb6fed5c3fa6109fb29e4eea49b731a2548e09f4e54620fa4d6310"
 dependencies = [
  "bytes 1.0.1",
  "futures",
