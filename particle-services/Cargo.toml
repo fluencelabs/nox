@@ -27,6 +27,6 @@ eyre = "0.6.5"
 
 [dev-dependencies]
 tempdir = "0.3.7"
-libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "identity_rework", package = "fluence-fork-libp2p-core" }
+libp2p-core = { package = "fluence-fork-libp2p-core", version = "0.27.2" }
 test-utils = { path = "../crates/test-utils" }
 base64 = "0.13.0"
