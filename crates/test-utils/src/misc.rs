@@ -26,9 +26,10 @@ use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 use aquamarine::VmPoolConfig;
 use async_std::task;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use derivative::Derivative;
 use eyre::WrapErr;
 use futures::{stream::iter, StreamExt};
-use libp2p::{core::Multiaddr, identity::ed25519::Keypair, PeerId};
+use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use rand::Rng;
 use script_storage::ScriptStorageConfig;
 use serde_json::{json, Value as JValue};
@@ -118,13 +119,15 @@ pub fn enable_logs() {
         .ok();
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct CreatedSwarm {
     pub peer_id: PeerId,
     pub multiaddr: Multiaddr,
     // tmp dir, must be cleaned
     pub tmp_dir: PathBuf,
     // management_peer_id
+    #[derivative(Debug = "ignore")]
     pub management_keypair: Keypair,
     // stop signal
     pub outlet: OneshotOutlet<()>,
@@ -263,17 +266,15 @@ impl SwarmConfig {
 }
 
 pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair) {
-    use libp2p::identity;
-
     #[rustfmt::skip]
     let SwarmConfig { bootstraps, listen_on, trust, transport, pool_size, .. } = config;
 
-    let kp = Keypair::generate();
-    let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());
+    let kp = Keypair::generate_ed25519();
+    let public_key = kp.public();
     let peer_id = PeerId::from(public_key);
 
-    let management_kp = Keypair::generate();
-    let m_public_key = libp2p::identity::PublicKey::Ed25519(management_kp.public());
+    let management_kp = Keypair::generate_ed25519();
+    let m_public_key = management_kp.public();
     let m_id = PeerId::from(m_public_key);
 
     let tmp = config.tmp_dir.unwrap_or_else(make_tmp_dir);
@@ -323,10 +324,9 @@ pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node>, PathBuf, Keypair
         particle_timeout: Duration::from_secs(5),
     };
 
-    use identity::Keypair::Ed25519;
     let transport = match transport {
-        Transport::Memory => build_memory_transport(Ed25519(kp)),
-        Transport::Network => build_transport(Ed25519(kp), Duration::from_secs(10)),
+        Transport::Memory => build_memory_transport(kp),
+        Transport::Network => build_transport(kp, Duration::from_secs(10)),
     };
 
     let script_storage_config = ScriptStorageConfig {

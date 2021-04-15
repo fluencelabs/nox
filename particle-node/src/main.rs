@@ -32,7 +32,6 @@ use futures::channel::oneshot;
 
 use ctrlc_adapter::block_until_ctrlc;
 use env_logger::Env;
-use libp2p::identity::ed25519::Keypair;
 use log::LevelFilter;
 use particle_node::{
     config::{certificates, create_args},
@@ -109,12 +108,11 @@ fn start_fluence(config: FluenceConfig) -> anyhow::Result<impl Stoppable> {
     let key_pair = config.root_key_pair;
     log::info!(
         "public key = {}",
-        bs58::encode(key_pair.public().to_bytes()).into_string()
+        bs58::encode(key_pair.public().to_vec()).into_string()
     );
 
     let listen_config = config.server.listen_config();
-    let key_pair: Keypair = key_pair.into();
-    let mut node = Node::new(key_pair, config.server).context("failed to create server")?;
+    let mut node = Node::new(key_pair.into(), config.server).context("failed to create server")?;
     node.listen(&listen_config)
         .expect("Error starting node listener");
 

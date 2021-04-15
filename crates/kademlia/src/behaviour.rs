@@ -25,7 +25,7 @@ use trust_graph::InMemoryStorage;
 use libp2p::identity::PublicKey;
 use libp2p::{
     core::Multiaddr,
-    identity::{ed25519, ed25519::Keypair},
+    identity,
     kad::{
         self, store::MemoryStore, BootstrapError, BootstrapOk, BootstrapResult,
         GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult, KademliaEvent, QueryId,
@@ -45,7 +45,7 @@ use std::{
 
 pub struct KademliaConfig {
     pub peer_id: PeerId,
-    pub keypair: Keypair,
+    pub keypair: identity::Keypair,
     // TODO: wonderful name clashing. I guess it is better to rename one of the KademliaConfig's to something else. You'll figure it out.
     pub kad_config: server_config::KademliaConfig,
 }
@@ -144,12 +144,7 @@ impl Kademlia {
         }
     }
 
-    pub fn add_kad_node(
-        &mut self,
-        peer: PeerId,
-        addresses: Vec<Multiaddr>,
-        public_key: ed25519::PublicKey,
-    ) {
+    pub fn add_kad_node(&mut self, peer: PeerId, addresses: Vec<Multiaddr>, public_key: PublicKey) {
         for addr in addresses {
             self.kademlia
                 .add_address(&peer, addr.clone(), public_key.clone());
@@ -166,11 +161,7 @@ impl Kademlia {
         debug_assert!(pk.is_some(), "peer id must contain public key");
 
         let pk = match pk {
-            Some(PublicKey::Ed25519(pk)) => pk,
-            Some(pk) => {
-                log::error!("Unsupported key type {:?} on {}", pk, contact);
-                return;
-            }
+            Some(pk) => pk,
             None => {
                 log::error!("No public key in the peer id of contact {}", contact);
                 return;
@@ -403,8 +394,7 @@ mod tests {
     use futures::channel::oneshot;
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
-    use libp2p::identity::ed25519::{Keypair, PublicKey};
-    use libp2p::identity::PublicKey::Ed25519;
+    use libp2p::identity::{Keypair, PublicKey};
     use libp2p::PeerId;
     use libp2p::Swarm;
     use std::task::Poll;
@@ -413,8 +403,8 @@ mod tests {
     use trust_graph::{InMemoryStorage, TrustGraph};
 
     fn kad_config() -> KademliaConfig {
-        let keypair = Keypair::generate();
-        let public_key = Ed25519(keypair.public());
+        let keypair = Keypair::generate_ed25519();
+        let public_key = keypair.public();
         let peer_id = PeerId::from(public_key);
 
         KademliaConfig {
@@ -432,7 +422,7 @@ mod tests {
     fn make_node() -> (Swarm<Kademlia>, Multiaddr, PublicKey) {
         let trust_graph = TrustGraph::new(InMemoryStorage::new());
         let config = kad_config();
-        let kp = libp2p::identity::Keypair::Ed25519(config.keypair.clone());
+        let kp = config.keypair.clone();
         let peer_id = config.peer_id.clone();
         let pk = config.keypair.public();
         let kad = Kademlia::new(config, trust_graph, None);

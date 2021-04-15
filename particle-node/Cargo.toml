@@ -19,11 +19,11 @@ async-unlock = { path = "../crates/async-unlock" }
 config-utils = { path = "../crates/config-utils" }
 kademlia = { path = "../crates/kademlia" }
 
-trust-graph = "0.2.6"
-fluence-identity = "0.2.7"
+trust-graph = "0.2.7"
+fluence-identity = "0.3.0"
 air-interpreter-wasm = "0.7.5"
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
+libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 multihash ="0.13"
 futures = "0.3.5"
 futures-util = "0.3.5"

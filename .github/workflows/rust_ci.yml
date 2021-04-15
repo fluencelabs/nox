@@ -22,7 +22,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-01-28
+          toolchain: nightly-2021-03-24
           override: true
 
       - name: Run cargo check
@@ -63,5 +63,5 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings -Z unstable-options --all
+          args: -D warnings -Z unstable-options --all
         continue-on-error: true # do not fail for now

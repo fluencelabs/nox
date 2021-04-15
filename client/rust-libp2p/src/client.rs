@@ -17,6 +17,7 @@
 use crate::api::ParticleApi;
 use crate::{behaviour::ClientBehaviour, ClientEvent};
 use async_std::{task, task::JoinHandle};
+use derivative::Derivative;
 use fluence_libp2p::{
     build_memory_transport, build_transport,
     types::{Inlet, OneshotOutlet, Outlet},
@@ -29,7 +30,7 @@ use futures::{
     FutureExt,
 };
 use libp2p::core::Multiaddr;
-use libp2p::{identity, identity::ed25519, PeerId, Swarm};
+use libp2p::{identity::Keypair, PeerId, Swarm};
 use particle_protocol::Particle;
 use std::{error::Error, ops::DerefMut, time::Duration};
 
@@ -60,9 +61,11 @@ struct Command {
     particle: Particle,
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Client {
-    pub key_pair: ed25519::Keypair,
+    #[derivative(Debug = "ignore")]
+    pub key_pair: Keypair,
     pub peer_id: PeerId,
     /// Channel to send commands to node
     relay_outlet: Outlet<Command>,
@@ -76,10 +79,10 @@ impl Client {
         relay_outlet: Outlet<Command>,
         client_inlet: Inlet<ClientEvent>,
         stop_outlet: OneshotOutlet<()>,
-        key_pair: Option<ed25519::Keypair>,
+        key_pair: Option<Keypair>,
     ) -> Self {
-        let key = key_pair.unwrap_or_else(ed25519::Keypair::generate);
-        let peer_id = identity::PublicKey::Ed25519(key.public()).into_peer_id();
+        let key = key_pair.unwrap_or_else(Keypair::generate_ed25519);
+        let peer_id = key.public().into_peer_id();
 
         Client {
             key_pair: key,
@@ -109,7 +112,7 @@ impl Client {
     }
 
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
-        self.key_pair.sign(bytes)
+        self.key_pair.sign(bytes).expect("signing error")
     }
 
     fn dial(
@@ -118,8 +121,6 @@ impl Client {
         transport: Transport,
     ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
-            let key_pair = libp2p::identity::Keypair::Ed25519(self.key_pair.clone());
-            // let local_address = Protocol::Client(key_pair.public().into_peer_id()).into();
             let behaviour = ClientBehaviour::new();
 
             macro_rules! swarm {
@@ -130,8 +131,11 @@ impl Client {
             }
 
             match transport {
-                Transport::Memory => swarm!(build_memory_transport(key_pair)),
-                Transport::Network => swarm!(build_transport(key_pair, Duration::from_secs(20))),
+                Transport::Memory => swarm!(build_memory_transport(self.key_pair.clone())),
+                Transport::Network => swarm!(build_transport(
+                    self.key_pair.clone(),
+                    Duration::from_secs(20)
+                )),
             }
         };
 
@@ -153,7 +157,7 @@ impl Client {
     pub async fn connect_with(
         relay: Multiaddr,
         transport: Transport,
-        key_pair: Option<ed25519::Keypair>,
+        key_pair: Option<Keypair>,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::unbounded();
         let (relay_outlet, relay_inlet) = mpsc::unbounded();

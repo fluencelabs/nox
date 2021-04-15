@@ -50,7 +50,7 @@ pub struct NetworkBehaviour {
 
 impl NetworkBehaviour {
     pub fn new(cfg: NetworkConfig) -> anyhow::Result<(Self, NetworkApi)> {
-        let local_public_key = PublicKey::Ed25519(cfg.key_pair.public());
+        let local_public_key = cfg.key_pair.public();
         let identity = Identify::new(
             "/fluence/faas/1.0.0".into(),
             "0.1.0".into(),

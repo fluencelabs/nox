@@ -29,7 +29,7 @@ use particle_protocol::Particle;
 use async_std::task;
 use core::ops::Deref;
 use eyre::{bail, WrapErr};
-use libp2p::{core::Multiaddr, identity::ed25519, PeerId};
+use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use serde_json::Value as JValue;
 use std::collections::HashMap;
 use std::ops::DerefMut;
@@ -83,10 +83,7 @@ impl ConnectedClient {
         Self::connect_as_owner(node_address, None)
     }
 
-    pub fn connect_as_owner(
-        node_address: Multiaddr,
-        key_pair: Option<ed25519::Keypair>,
-    ) -> Result<Self> {
+    pub fn connect_as_owner(node_address: Multiaddr, key_pair: Option<Keypair>) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
 
