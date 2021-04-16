@@ -15,26 +15,15 @@
  */
 use crate::network_api::NetworkApi;
 
-use aquamarine::{SendParticle, StepperEffects};
-use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet, ConnectionPoolT};
-use fluence_libp2p::generate_swarm_event_type;
-use fluence_libp2p::types::BackPressuredInlet;
-use kademlia::{Kademlia, KademliaApi, KademliaApiInlet, KademliaConfig};
-use particle_protocol::{Contact, Particle};
+use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet};
+use kademlia::{Kademlia, KademliaApiInlet, KademliaConfig};
 use server_config::NetworkConfig;
 
-use async_std::{sync::Mutex, task::JoinHandle};
-use futures::{select, StreamExt};
 use libp2p::{
     identify::Identify,
     identity::PublicKey,
     ping::{Ping, PingConfig, PingEvent},
-    swarm::ExpandedSwarm,
-    PeerId, Swarm,
 };
-use std::{sync::Arc, task::Poll};
-
-pub type SwarmEventType = generate_swarm_event_type!(NetworkBehaviour);
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]

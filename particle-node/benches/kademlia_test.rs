@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#![allow(
+#![deny(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -31,7 +31,7 @@ use connection_pool::ConnectionPoolT;
 use control_macro::measure;
 use itertools::Itertools;
 use kademlia::KademliaApiT;
-use particle_protocol::{Contact, ProtocolMessage};
+use particle_protocol::Contact;
 use std::convert::identity;
 use std::time::{Duration, Instant};
 use test_utils::{enable_logs, make_swarms_with_mocked_vm, ConnectedClient};
@@ -65,8 +65,6 @@ fn kademlia_resolve() {
 
 #[test]
 fn connectivity_test() {
-    use control_macro::measure;
-
     let num_particles = 10;
     let network_size = 5;
     let swarms = make_swarms_with_mocked_vm(network_size, identity, None, identity);

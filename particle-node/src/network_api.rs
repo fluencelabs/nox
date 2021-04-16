@@ -29,30 +29,16 @@ use crate::network_tasks::NetworkTasks;
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
 use control_macro::measure;
-use control_macro::unwrap_return;
 use fluence_libp2p::types::BackPressuredInlet;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::Contact;
 use particle_protocol::Particle;
-use server_config::NodeConfig;
 
-use async_std::{
-    sync::Mutex,
-    task::JoinHandle,
-    task::{sleep, spawn},
-};
-use futures::{future, sink, stream::iter, task, Future, FutureExt, Sink, SinkExt, StreamExt};
+use async_std::task::{sleep, spawn};
+use futures::{stream::iter, FutureExt, Sink, SinkExt, StreamExt};
 use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::{core::Multiaddr, swarm::NetworkBehaviour, PeerId, Swarm};
-use std::time::Instant;
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-    time::Duration,
-};
+use libp2p::{core::Multiaddr, PeerId};
+use std::{cmp::min, collections::HashSet, time::Duration, time::Instant};
 
 /// API provided by the network
 pub struct NetworkApi {
@@ -164,11 +150,7 @@ impl Connectivity {
 
     async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
         let contact = self.connection_pool.get_contact(target).await;
-        let contact = if let Some(contact) = contact {
-            println!(
-                "resolved contact {} via CONNECTION POOL for particle {}",
-                target, particle_id
-            );
+        if let Some(contact) = contact {
             // contact is connected directly to current node
             return Some(contact);
         } else {
@@ -358,10 +340,9 @@ impl Connectivity {
                 };
 
                 async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
-                    if let Err(err) = r {
+                    if let Err(_err) = r {
                         if timeout != particle_timeout {
                             log::info!("Particle {} expired", particle_id);
-                            println!("Particle {} expired", particle_id);
                         } else {
                             log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout));
                             println!("Particle {} timed out after {}", particle_id, pretty(timeout))

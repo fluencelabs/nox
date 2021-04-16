@@ -208,7 +208,7 @@ mod tests {
     };
 
     use crate::libp2p_protocol::message::ProtocolMessage;
-    use crate::{HandlerMessage, Particle, ProtocolConfig};
+    use crate::{HandlerMessage, ProtocolConfig};
     use rand::{thread_rng, Rng};
 
     const BYTES: [u8; 175] = [

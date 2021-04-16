@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#![allow(dead_code)]
+
 use std::mem;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -290,7 +292,6 @@ pub fn aquamarine_with_backend(
     (api, handle)
 }
 
-#[allow(dead_code)]
 pub fn aquamarine_with_vm<C>(
     pool_size: usize,
     connectivity: C,
@@ -338,7 +339,6 @@ where
     (stepper_pool_api, handle)
 }
 
-#[allow(dead_code)]
 pub async fn network_api(particles_num: usize) -> (NetworkApi, Vec<JoinHandle<()>>) {
     let particle_stream: BackPressuredInlet<Particle> = particles(particles_num).await;
     let particle_parallelism: usize = 1;
@@ -409,7 +409,6 @@ pub async fn process_particles(
     aqua_handle.cancel().await;
 }
 
-#[allow(dead_code)]
 pub async fn process_particles_with_vm(
     num_particles: usize,
     pool_size: usize,

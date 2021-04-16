@@ -17,45 +17,38 @@
 use super::behaviour::NetworkBehaviour;
 use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
-use crate::network_tasks::NetworkTasks;
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, StepperEffects, VmConfig,
-    VmPoolConfig,
+    AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, VmConfig, VmPoolConfig,
 };
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::{
     build_transport,
-    types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet},
+    types::{OneshotOutlet, Outlet},
 };
 use particle_closures::{HostClosures, NodeInfo};
-use particle_protocol::Particle;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
-use server_config::{
-    default_air_interpreter_path, ListenConfig, NetworkConfig, NodeConfig, ServicesConfig,
-};
+use server_config::{default_air_interpreter_path, NetworkConfig, NodeConfig, ServicesConfig};
 use trust_graph::{InMemoryStorage, TrustGraph};
 
 use crate::Connectivity;
-use async_std::{sync::Mutex, task, task::JoinHandle};
+use async_std::task;
 use eyre::WrapErr;
-use fluence_libp2p::types::Inlet;
 use futures::{
-    channel::{mpsc, mpsc::unbounded, oneshot, oneshot::Canceled},
-    future::BoxFuture,
+    channel::{mpsc::unbounded, oneshot},
     select,
-    stream::{self, FusedStream, StreamExt},
-    FutureExt, SinkExt,
+    stream::{self, StreamExt},
+    FutureExt,
 };
 use libp2p::{
-    core::{multiaddr::Protocol, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::ed25519::Keypair,
-    swarm::{AddressScore, ExpandedSwarm},
+    swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
 use prometheus::Registry;
-use std::{io, iter::once, net::SocketAddr, sync::Arc, task::Poll, time::Duration};
+use std::{io, iter::once, net::SocketAddr};
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -63,6 +56,7 @@ pub struct Node<RT: AquaRuntime> {
     pub swarm: Swarm<NetworkBehaviour>,
     stepper_pool: AquamarineBackend<RT>,
     stepper_pool_api: AquamarineApi,
+    #[allow(dead_code)] // useful for debugging
     local_peer_id: PeerId,
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
@@ -217,7 +211,7 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 
     /// Starts node service
-    pub fn start(mut self: Box<Self>) -> OneshotOutlet<()> {
+    pub fn start(self: Box<Self>) -> OneshotOutlet<()> {
         let (exit_outlet, exit_inlet) = oneshot::channel();
         let mut exit_inlet = exit_inlet.into_stream().fuse();
 
@@ -238,7 +232,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 self.network_api.start(pool_api, bootstrap_nodes, failures)
             };
             let stopped = stream::iter(once(Err(())));
-            let mut swarm = self.swarm.map(|e| Ok(())).chain(stopped).fuse();
+            let mut swarm = self.swarm.map(|_e| Ok(())).chain(stopped).fuse();
 
             loop {
                 select!(
@@ -303,19 +297,12 @@ pub fn write_default_air_interpreter() -> eyre::Result<()> {
 mod tests {
     use crate::node::write_default_air_interpreter;
     use crate::Node;
-    use ctrlc_adapter::block_until_ctrlc;
     use eyre::WrapErr;
-    use fluence_libp2p::RandomPeerId;
-    use libp2p::core::connection::ConnectionId;
     use libp2p::core::Multiaddr;
     use libp2p::identity::ed25519::Keypair;
-    use libp2p::swarm::NetworkBehaviour;
-    use libp2p::Swarm;
     use maplit::hashmap;
-    use particle_protocol::{HandlerMessage, Particle};
     use serde_json::json;
-    use server_config::{deserialize_config, NodeConfig};
-    use std::path::PathBuf;
+    use server_config::deserialize_config;
     use test_utils::ConnectedClient;
 
     #[test]

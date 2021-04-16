@@ -14,47 +14,28 @@
  * limitations under the License.
  */
 
-use crate::connection_pool::{ConnectionPoolT, LifecycleEvent};
+use crate::connection_pool::LifecycleEvent;
 
-use fluence_libp2p::types::{
-    BackPressuredInlet, BackPressuredOutlet, OneshotInlet, OneshotOutlet, Outlet,
-};
+use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
 use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
 use particle_protocol::{CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig};
-use trust_graph::TrustGraph;
 
-use std::{
-    collections::hash_map::Entry,
-    collections::{HashMap, HashSet, VecDeque},
-    hint::unreachable_unchecked,
-    task::{Context, Poll, Waker},
-};
-
-use futures::{
-    channel::{mpsc, mpsc::SendError, oneshot},
-    future,
-    future::BoxFuture,
-    ready, FutureExt, SinkExt,
-};
+use futures::channel::mpsc;
 use libp2p::{
-    core::{
-        connection::ConnectionId,
-        either::EitherOutput::{First, Second},
-        ConnectedPoint, Multiaddr,
-    },
-    identity::{ed25519::Keypair, PublicKey::Ed25519},
-    kad::Kademlia,
+    core::{connection::ConnectionId, ConnectedPoint, Multiaddr},
     swarm::{
-        DialPeerCondition, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
-        NetworkBehaviourEventProcess, NotifyHandler, OneShotHandler, PollParameters,
-        ProtocolsHandler,
+        DialPeerCondition, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler,
+        PollParameters, ProtocolsHandler,
     },
     PeerId,
 };
-use std::error::Error;
+use std::{
+    collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+    error::Error,
+    task::{Context, Poll, Waker},
+};
 
 type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
-type Timeout<T> = BoxFuture<'static, T>;
 
 #[derive(Debug)]
 enum Peer {

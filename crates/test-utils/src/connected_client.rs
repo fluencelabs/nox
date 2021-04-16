@@ -31,14 +31,9 @@ use core::ops::Deref;
 use eyre::{bail, WrapErr};
 use libp2p::{core::Multiaddr, identity::ed25519, PeerId};
 use serde_json::Value as JValue;
-use std::collections::HashMap;
-use std::ops::DerefMut;
-use std::sync::Arc;
+use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, sync::Arc, time::Duration};
 
 use parking_lot::Mutex;
-use std::cell::RefCell;
-use std::lazy::Lazy;
-use std::time::Duration;
 
 pub struct ConnectedClient {
     pub client: Client,

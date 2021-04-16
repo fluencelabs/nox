@@ -19,7 +19,6 @@ use crate::invoke::{parse_outcome, ExecutionError};
 use crate::{SendParticle, StepperEffects};
 
 use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError, InterpreterOutcome};
-use control_macro::measure;
 use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
@@ -27,7 +26,6 @@ use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
 use libp2p::PeerId;
 use log::LevelFilter;
-use std::time::Instant;
 use std::{error::Error, task::Waker};
 
 pub trait AquaRuntime: Sized + Send + 'static {
