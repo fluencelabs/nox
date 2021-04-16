@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use libp2p_core::{identity::ed25519::Keypair, PeerId, PublicKey};
+use libp2p_core::{identity::Keypair, PeerId};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
@@ -58,5 +58,5 @@ pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> 
 }
 
 pub fn to_peer_id(kp: &Keypair) -> PeerId {
-    PeerId::from(PublicKey::Ed25519(kp.public()))
+    PeerId::from(kp.public())
 }

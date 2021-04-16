@@ -26,7 +26,7 @@ use futures::{
     future::BoxFuture,
     FutureExt, StreamExt,
 };
-use libp2p::{core::Multiaddr, identity::ed25519, swarm::NetworkBehaviourEventProcess, PeerId};
+use libp2p::{core::Multiaddr, identity::PublicKey, swarm::NetworkBehaviourEventProcess, PeerId};
 use multihash::Multihash;
 use std::convert::identity;
 
@@ -84,7 +84,7 @@ impl KademliaApiInlet {
         &mut self,
         peer: PeerId,
         addresses: Vec<Multiaddr>,
-        public_key: ed25519::PublicKey,
+        public_key: PublicKey,
     ) {
         self.kademlia.add_kad_node(peer, addresses, public_key)
     }

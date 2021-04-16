@@ -22,14 +22,14 @@ use particle_protocol::ProtocolConfig;
 use config_utils::to_peer_id;
 use trust_graph::InMemoryStorage;
 
-use libp2p::{core::Multiaddr, identity::ed25519, PeerId};
+use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use prometheus::Registry;
 use std::time::Duration;
 
 type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 pub struct NetworkConfig {
-    pub key_pair: ed25519::Keypair,
+    pub key_pair: Keypair,
     pub local_peer_id: PeerId,
     pub trust_graph: TrustGraph,
     pub bootstrap_nodes: Vec<Multiaddr>,
@@ -48,7 +48,7 @@ impl NetworkConfig {
     pub fn new(
         trust_graph: TrustGraph,
         registry: Option<Registry>,
-        key_pair: ed25519::Keypair,
+        key_pair: Keypair,
         config: &NodeConfig,
     ) -> Self {
         Self {

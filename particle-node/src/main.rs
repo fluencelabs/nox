@@ -30,8 +30,9 @@ use clap::App;
 use futures::channel::oneshot;
 
 use ctrlc_adapter::block_until_ctrlc;
+use env_logger::Env;
 use eyre::WrapErr;
-use libp2p::identity::ed25519::Keypair;
+use log::LevelFilter;
 use particle_node::{
     config::{certificates, create_args},
     write_default_air_interpreter, Node,
@@ -47,9 +48,13 @@ trait Stoppable {
 }
 
 fn main() -> eyre::Result<()> {
-    // TODO: set level to info by default (todo: check that RUST_LOG will still work)
     // TODO: maybe set log level via flag?
-    env_logger::builder().format_timestamp_micros().init();
+    env_logger::from_env(Env::default().default_filter_or("INFO"))
+        .format_timestamp_micros()
+        // Disable most spamming modules
+        .filter_module("cranelift_codegen", LevelFilter::Off)
+        .filter_module("wasmer_wasi_fl", LevelFilter::Off)
+        .init();
 
     let arg_matches = App::new("Fluence protocol server")
         .version(VERSION)
@@ -103,12 +108,11 @@ fn start_fluence(config: FluenceConfig) -> eyre::Result<impl Stoppable> {
     let key_pair = config.root_key_pair;
     log::info!(
         "public key = {}",
-        bs58::encode(key_pair.public().to_bytes()).into_string()
+        bs58::encode(key_pair.public().to_vec()).into_string()
     );
 
     let listen_config = config.server.listen_config();
-    let key_pair: Keypair = key_pair.into();
-    let mut node = Node::new(key_pair, config.server);
+    let mut node = Node::new(key_pair.into(), config.server);
     node.listen(&listen_config)
         .expect("Error starting node listener");
 

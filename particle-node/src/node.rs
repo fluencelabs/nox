@@ -43,7 +43,7 @@ use futures::{
 };
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
-    identity::ed25519::Keypair,
+    identity::Keypair,
     swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
@@ -67,13 +67,10 @@ pub struct Node<RT: AquaRuntime> {
 
 impl Node<AquamarineVM> {
     pub fn new(key_pair: Keypair, config: NodeConfig) -> Box<Self> {
-        let transport = {
-            let key_pair = libp2p::identity::Keypair::Ed25519(key_pair.clone());
-            build_transport(key_pair, config.socket_timeout)
-        };
+        let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
 
         let trust_graph = {
-            let storage = InMemoryStorage::new_in_memory(config.root_weights());
+            let storage = InMemoryStorage::new_in_memory(config.root_weights()?);
             TrustGraph::new(storage)
         };
 
@@ -299,7 +296,7 @@ mod tests {
     use crate::Node;
     use eyre::WrapErr;
     use libp2p::core::Multiaddr;
-    use libp2p::identity::ed25519::Keypair;
+    use libp2p::identity::Keypair;
     use maplit::hashmap;
     use serde_json::json;
     use server_config::deserialize_config;
@@ -309,7 +306,7 @@ mod tests {
     fn run_node() {
         write_default_air_interpreter().unwrap();
 
-        let keypair = Keypair::generate();
+        let keypair = Keypair::generate_ed25519();
 
         let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
         let mut config = deserialize_config(<_>::default(), config).expect("deserialize config");

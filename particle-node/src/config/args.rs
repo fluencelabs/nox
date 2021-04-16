@@ -31,7 +31,19 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
         Arg::with_name(ROOT_KEY_PAIR)
             .takes_value(true)
             .short("k")
-            .help("path to ed25519 keypair or keypair in base58"),
+            .help("keypair in base58"),
+        Arg::with_name(ROOT_KEY_PAIR_PATH)
+            .takes_value(true)
+            .short("p")
+            .help("keypair path"),
+        Arg::with_name(ROOT_KEY_PAIR_FORMAT)
+            .takes_value(true)
+            .short("f")
+            .help("keypair format"),
+        Arg::with_name(ROOT_KEY_PAIR_GENERATE)
+            .takes_value(true)
+            .short("g")
+            .help("generate keypair on absence"),
         Arg::with_name(CONFIG_FILE)
             .takes_value(true)
             .short("c")
@@ -44,7 +56,9 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .value_name("MULTIADDR")
             .takes_value(true)
             .short("b")
+            .long("bootstraps")
             .multiple(true)
+            .empty_values(false)
             .help("bootstrap nodes of the Fluence network"),
         Arg::with_name(EXTERNAL_ADDR)
             .takes_value(true)
@@ -55,16 +69,15 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .takes_value(true)
             .short("e")
             .multiple(true)
+            .empty_values(false)
             .help("envs to pass to core modules"),
         Arg::with_name(BLUEPRINT_DIR)
             .takes_value(true)
             .long("blueprint-dir")
-            .multiple(true)
             .help("path to directory containing blueprints and wasm modules"),
         Arg::with_name(SERVICES_WORKDIR)
             .takes_value(true)
             .long("services-workdir")
-            .multiple(true)
             .help("path to a directory where all services will store their data"),
         Arg::with_name(MANAGEMENT_PEER_ID)
             .takes_value(true)
@@ -74,5 +87,10 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
             .help(
                 "a key (PeerId) that will be used to manage a node like adding aliases to services",
             ),
+        Arg::with_name(LOCAL)
+            .long("local")
+            .takes_value(false)
+            .conflicts_with(BOOTSTRAP_NODE)
+            .help("if passed, bootstrap nodes aren't used"),
     ]
 }

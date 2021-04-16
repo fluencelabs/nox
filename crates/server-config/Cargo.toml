@@ -7,12 +7,13 @@ edition = "2018"
 [dependencies]
 config-utils = { path = "../config-utils" }
 particle-protocol = { path = "../../particle-protocol"}
+fluence-libp2p = { path = "../libp2p" }
 
-trust-graph = "0.2.6"
-fluence-identity = "0.2.7"
+trust-graph = "0.2.7"
+fluence-identity = "0.3.0"
 air-interpreter-wasm = "0.7.5"
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
+libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"
@@ -26,3 +27,4 @@ bs58 = "0.3.1"
 base64 = "0.13.0"
 num_cpus = "1.13.0"
 eyre = "0.6.5"
+maplit = "1.0.2"

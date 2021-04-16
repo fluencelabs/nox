@@ -9,7 +9,7 @@ particle-protocol = { path = "../../particle-protocol" }
 fluence-libp2p = { path = "../../crates/libp2p" }
 ctrlc-adapter = { path = "../../crates/ctrlc-adapter"}
 
-libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
+libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 multihash ="0.13"
 async-std = "1.9.0"
@@ -25,6 +25,7 @@ env_logger = "0.7.1"
 void = "1.0.2"
 rand = "0.7.3"
 clap = "2.33.1"
+derivative = "2.1.1"
 
 [dev-dependencies]
 rand = "0.7.3"

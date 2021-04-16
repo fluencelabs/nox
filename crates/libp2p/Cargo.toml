@@ -5,7 +5,8 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p = { package = "fluence-fork-libp2p", version = "0.36.0", features = ["tcp-tokio"] }
+
+libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 libp2p-noise = { package = "fluence-fork-libp2p-noise", version = "0.29.0" }
 multihash = { version = "0.13", features = ["serde-codec"] }
 futures = "0.3.13"

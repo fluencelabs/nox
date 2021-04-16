@@ -15,13 +15,13 @@
  */
 
 use super::defaults::*;
-use super::keys::{decode_key_pair, load_or_create_key_pair};
+use super::keys::{decode_key_pair, load_key_pair};
 use crate::{BootstrapConfig, KademliaConfig, ListenConfig};
 
 use config_utils::to_abs_path;
 use fluence_identity::KeyPair;
+use fluence_libp2p::peerid_serializer;
 use particle_protocol::ProtocolConfig;
-use trust_graph::PublicKeyHashable;
 
 use clap::{ArgMatches, Values};
 use eyre::{eyre, WrapErr};
@@ -29,12 +29,14 @@ use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use libp2p::PeerId;
 use serde::Deserialize;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
-pub const ROOT_KEY_PAIR: &str = "root_key_pair";
+pub const ROOT_KEY_PAIR: &str = "value";
+pub const ROOT_KEY_PAIR_FORMAT: &str = "format";
+pub const ROOT_KEY_PAIR_PATH: &str = "path";
+pub const ROOT_KEY_PAIR_GENERATE: &str = "generate_on_absence";
 pub const BOOTSTRAP_NODE: &str = "bootstrap_nodes";
 pub const EXTERNAL_ADDR: &str = "external_address";
 pub const CERTIFICATE_DIR: &str = "certificate_dir";
@@ -43,6 +45,7 @@ pub const SERVICE_ENVS: &str = "service_envs";
 pub const BLUEPRINT_DIR: &str = "blueprint_dir";
 pub const MANAGEMENT_PEER_ID: &str = "management_peer_id";
 pub const SERVICES_WORKDIR: &str = "services_workdir";
+pub const LOCAL: &str = "local";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
@@ -56,7 +59,7 @@ const ARGS: &[&str] = &[
     MANAGEMENT_PEER_ID,
 ];
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 pub struct FluenceConfig {
     #[serde(flatten)]
     pub server: NodeConfig,
@@ -64,12 +67,14 @@ pub struct FluenceConfig {
     #[serde(default = "default_cert_dir")]
     pub certificate_dir: String,
 
-    // TODO: Need better UX for configuring root key pair.
-    //       Currently if incorrect path is specified for root key pair, we silently create new keypair
-    //       this may be undesired and unexpected for users.
-    #[serde(deserialize_with = "parse_or_load_keypair", default = "load_key_pair")]
+    // #[serde(flatten)]
+    #[serde(deserialize_with = "parse_or_load_keypair")]
     pub root_key_pair: KeyPair,
 }
+
+#[derive(Clone, Deserialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[repr(transparent)]
+pub struct PeerIdSerializable(#[serde(with = "peerid_serializer")] PeerId);
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct NodeConfig {
@@ -108,7 +113,7 @@ pub struct NodeConfig {
     #[serde(default)]
     pub bootstrap_config: BootstrapConfig,
 
-    pub root_weights: HashMap<PublicKeyHashable, u32>,
+    pub root_weights: HashMap<PeerIdSerializable, u32>,
 
     /// Base directory for resources needed by application services
     #[serde(default = "default_services_basedir")]
@@ -165,7 +170,7 @@ pub struct NodeConfig {
     #[serde(with = "humantime_serde")]
     pub particle_processing_timeout: Duration,
 
-    #[serde(deserialize_with = "parse_management_peer_id")]
+    #[serde(with = "peerid_serializer")]
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
 }
@@ -196,11 +201,18 @@ impl NodeConfig {
         addrs
     }
 
-    pub fn root_weights(&self) -> Vec<(fluence_identity::PublicKey, u32)> {
+    pub fn root_weights(&self) -> anyhow::Result<Vec<(fluence_identity::PublicKey, u32)>> {
         self.root_weights
             .clone()
             .into_iter()
-            .map(|(k, v)| (k.into(), v))
+            .map(|(k, v)| {
+                Ok((
+                    k.0.as_public_key()
+                        .ok_or(anyhow!("invalid root_weights key"))?
+                        .into(),
+                    v,
+                ))
+            })
             .collect()
     }
 
@@ -217,43 +229,42 @@ impl NodeConfig {
     }
 }
 
-/// Load keypair from default location
-fn load_key_pair() -> KeyPair {
-    load_or_create_key_pair(DEFAULT_KEY_DIR)
-        .unwrap_or_else(|e| panic!("Failed to load keypair from {}: {:?}", DEFAULT_KEY_DIR, e))
-}
-
 /// Try to decode keypair from string as base58,
 /// if failed – load keypair from file pointed at by same string
 fn parse_or_load_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    // Either keypair encoded as base58 or a path where keypair is stored
-    let bs58_or_path = String::deserialize(deserializer)?;
-    if let Ok(keypair) = decode_key_pair(bs58_or_path.clone()) {
-        Ok(keypair)
-    } else {
-        load_or_create_key_pair(&bs58_or_path).map_err(|e| {
-            serde::de::Error::custom(format!(
-                "Failed to load keypair from {}: {}",
-                bs58_or_path, e
-            ))
-        })
+    #[derive(Deserialize)]
+    struct KeypairConfig {
+        format: String,
+        value: Option<String>,
+        path: Option<String>,
+        #[serde(default = "bool::default")]
+        generate_on_absence: bool,
     }
-}
 
-fn parse_management_peer_id<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let multihash = String::deserialize(deserializer)?;
-    PeerId::from_str(&multihash).map_err(|err| {
-        serde::de::Error::custom(format!(
-            "Failed to deserialize management_peer_id {}: {}",
-            multihash, err
-        ))
-    })
+    let result = KeypairConfig::deserialize(deserializer)?;
+
+    if result.path.is_none() && result.value.is_none()
+        || result.path.is_some() && result.value.is_some()
+    {
+        panic!("Define either value or path")
+    }
+
+    if let Some(path) = result.path {
+        load_key_pair(
+            path.clone(),
+            result.format.clone(),
+            result.generate_on_absence,
+        )
+        .map_err(|e| {
+            serde::de::Error::custom(format!("Failed to load keypair from {}: {}", path, e))
+        })
+    } else {
+        decode_key_pair(result.value.unwrap(), result.format)
+            .map_err(|e| serde::de::Error::custom(format!("Failed to decode keypair: {}", e)))
+    }
 }
 
 fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>
@@ -271,7 +282,7 @@ where
 
 /// Take all command line arguments, and insert them into config appropriately
 fn insert_args_to_config(
-    arguments: ArgMatches<'_>,
+    arguments: &ArgMatches<'_>,
     config: &mut toml::value::Table,
 ) -> eyre::Result<()> {
     use toml::Value::*;
@@ -295,9 +306,36 @@ fn insert_args_to_config(
         let value = match k {
             WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
             BOOTSTRAP_NODE | SERVICE_ENVS => Array(multiple(arg).collect()),
+            ROOT_KEY_PAIR => toml::Value::Table(
+                std::iter::once((ROOT_KEY_PAIR.to_string(), String(single(arg).into()))).collect(),
+            ),
+            ROOT_KEY_PAIR_FORMAT => toml::Value::Table(
+                std::iter::once((ROOT_KEY_PAIR_FORMAT.to_string(), String(single(arg).into())))
+                    .collect(),
+            ),
+            ROOT_KEY_PAIR_PATH => toml::Value::Table(
+                std::iter::once((ROOT_KEY_PAIR_PATH.to_string(), String(single(arg).into())))
+                    .collect(),
+            ),
+            ROOT_KEY_PAIR_GENERATE => toml::Value::Table(
+                std::iter::once((
+                    ROOT_KEY_PAIR_GENERATE.to_string(),
+                    String(single(arg).into()),
+                ))
+                .collect(),
+            ),
             _ => String(single(arg).into()),
         };
-        config.insert(k.to_string(), value);
+
+        let key = match k {
+            ROOT_KEY_PAIR | ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_PATH | ROOT_KEY_PAIR_GENERATE => {
+                "root_key_pair"
+            }
+
+            k => k,
+        };
+
+        config.insert(key.to_string(), value);
     }
 
     Ok(())
@@ -347,10 +385,15 @@ pub fn deserialize_config(
     let mut config: toml::value::Table =
         toml::from_slice(&content).wrap_err("deserializing config")?;
 
-    insert_args_to_config(arguments, &mut config)?;
+    insert_args_to_config(&arguments, &mut config)?;
 
     let config = toml::value::Value::Table(config);
-    let config = FluenceConfig::deserialize(config)?;
+    let mut config = FluenceConfig::deserialize(config)?;
+
+    if arguments.is_present(LOCAL) {
+        // if --local is passed, clear bootstrap nodes
+        config.server.bootstrap_nodes = vec![];
+    }
 
     Ok(config)
 }
@@ -362,11 +405,14 @@ mod tests {
     #[test]
     fn parse_config() {
         let config = r#"
+            [root_key_pair]
+            format = "ed25519"
+            value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
             stepper_base_dir = "/stepper"
             stepper_module_name = "aquamarine"
 
             [root_weights]
-            Ct8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4 = 1
+            12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
         "#;
 
         deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
