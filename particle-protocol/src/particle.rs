@@ -76,20 +76,6 @@ impl Particle {
             Duration::default()
         }
     }
-
-    pub fn age(&self) -> u64 {
-        now_ms() as u64 - self.timestamp
-    }
-
-    pub fn report_age(&self, label: &str) {
-        if self.age() > 0 {
-            println!("{} particle age {} ms", label, self.age());
-        }
-    }
-
-    pub fn reset_age(&mut self) {
-        self.timestamp = now_ms() as u64;
-    }
 }
 
 #[allow(clippy::ptr_arg)]
