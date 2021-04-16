@@ -114,6 +114,7 @@ pub struct Kademlia {
     #[behaviour(ignore)]
     waker: Option<Waker>,
     #[behaviour(ignore)]
+    // Timer to track timed out requests, and return errors ASAP
     timer: Delay,
 }
 
