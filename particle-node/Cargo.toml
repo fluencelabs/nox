@@ -70,6 +70,3 @@ harness = false
 name = "aquamarine_bench"
 harness = false
 
-[[bench]]
-name = "network_protocol_bench"
-harness = false

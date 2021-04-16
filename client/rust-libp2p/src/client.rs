@@ -173,7 +173,8 @@ impl Client {
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
         let protocol_config = ProtocolConfig::new(
-            Duration::from_secs(10),
+            transport_timeout,
+            // keep alive timeout
             Duration::from_secs(10),
             transport_timeout,
         );

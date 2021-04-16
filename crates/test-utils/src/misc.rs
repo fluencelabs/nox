@@ -60,6 +60,7 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(300);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 pub static TRANSPORT_TIMEOUT: Duration = Duration::from_millis(500);
+pub static KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(10);
 pub static EXECUTION_TIMEOUT: Duration = Duration::from_millis(5000);
 pub static PARTICLE_TTL: u32 = 20000;
 
@@ -389,11 +390,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         }
     }
 
-    let protocol_config = ProtocolConfig::new(
-        Duration::from_secs(10),
-        Duration::from_secs(10),
-        TRANSPORT_TIMEOUT,
-    );
+    let protocol_config =
+        ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
 
     let network_config = NetworkConfig {
         key_pair: kp.clone(),
