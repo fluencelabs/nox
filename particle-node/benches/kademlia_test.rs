@@ -34,7 +34,7 @@ use kademlia::KademliaApiT;
 use particle_protocol::Contact;
 use std::convert::identity;
 use std::time::{Duration, Instant};
-use test_utils::{enable_logs, make_swarms_with_mocked_vm, ConnectedClient};
+use test_utils::{make_swarms_with_mocked_vm, ConnectedClient};
 
 #[test]
 fn kademlia_resolve() {
@@ -44,11 +44,6 @@ fn kademlia_resolve() {
         connectivity_with_real_kad(1, network_size);
 
     async_std::task::block_on(async move {
-        enable_logs();
-        // log::error!("===== test before =====");
-        // async_std::task::sleep(Duration::from_secs(1)).await;
-        // log::error!("===== test after =====");
-
         let start = Instant::now();
         let peer_id = peer_ids.into_iter().skip(3).next().unwrap();
         let result = measure!(connectivity.kademlia.discover_peer(peer_id).await);
@@ -72,10 +67,6 @@ fn connectivity_test() {
     let last = swarms.iter().last().unwrap();
 
     std::thread::sleep(Duration::from_secs(5));
-    enable_logs();
-    log::error!("===== test before =====");
-    std::thread::sleep(Duration::from_secs(1));
-    log::error!("===== test after =====");
 
     let sender_node = make_swarms_with_mocked_vm(1, identity, None, identity)
         .into_iter()

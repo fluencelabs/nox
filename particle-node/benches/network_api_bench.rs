@@ -109,8 +109,6 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
 }
 
 fn particle_throughput_with_kad_bench(c: &mut Criterion) {
-    // enable_logs();
-
     let particle_parallelism = PARALLELISM;
     let particle_timeout = TIMEOUT;
 
@@ -122,8 +120,6 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
     let pool_size = 4;
     let network_size = 10;
 
-    // for &num in [1, 1000, 4 * 1000, 8 * 1000].iter() {
-    //     for &pool_size in [1, 2, 4, 16].iter() {
     group.throughput(Throughput::Elements(num as u64));
     group.sample_size(10);
     let bid = { BenchmarkId::from_parameter(format!("{}@{}", num, pool_size)) };
@@ -193,7 +189,6 @@ fn kademlia_resolve_bench(c: &mut Criterion) {
     println!();
 
     let network_size = 10;
-    // group.throughput(Throughput::Elements(num as u64));
     group.sample_size(10);
     let bid = { BenchmarkId::from_parameter(format!("{} nodes", network_size)) };
     group.bench_function(bid, |b| {
@@ -202,8 +197,6 @@ fn kademlia_resolve_bench(c: &mut Criterion) {
             move |(connectivity, _finish_fut, kademlia, peer_ids)| {
                 task::block_on(async move {
                     let start = Instant::now();
-                    // let peer_id = peer_ids.into_iter().skip(1).next().unwrap();
-                    // enable_logs();
                     for peer_id in peer_ids.into_iter().skip(1) {
                         let result = connectivity.kademlia.discover_peer(peer_id).await;
                         match result {
