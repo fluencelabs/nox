@@ -112,7 +112,7 @@ fn start_fluence(config: FluenceConfig) -> eyre::Result<impl Stoppable> {
     );
 
     let listen_config = config.server.listen_config();
-    let mut node = Node::new(key_pair.into(), config.server);
+    let mut node = Node::new(key_pair.into(), config.server).wrap_err("create node instance")?;
     node.listen(&listen_config)
         .expect("Error starting node listener");
 

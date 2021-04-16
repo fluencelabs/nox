@@ -23,6 +23,7 @@ use trust_graph::InMemoryStorage;
 
 use futures::FutureExt;
 use futures_timer::Delay;
+use libp2p::identity::PublicKey;
 use libp2p::{
     core::Multiaddr,
     identity,

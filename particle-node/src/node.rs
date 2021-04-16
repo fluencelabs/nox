@@ -66,7 +66,7 @@ pub struct Node<RT: AquaRuntime> {
 }
 
 impl Node<AquamarineVM> {
-    pub fn new(key_pair: Keypair, config: NodeConfig) -> Box<Self> {
+    pub fn new(key_pair: Keypair, config: NodeConfig) -> eyre::Result<Box<Self>> {
         let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
 
         let trust_graph = {
@@ -128,7 +128,7 @@ impl Node<AquamarineVM> {
         );
         let vm_config = (vm_config, host_closures.descriptor());
 
-        Self::with(
+        Ok(Self::with(
             local_peer_id,
             swarm,
             network_api,
@@ -139,7 +139,7 @@ impl Node<AquamarineVM> {
             registry.into(),
             config.metrics_listen_addr(),
             config.bootstrap_nodes,
-        )
+        ))
     }
 
     pub fn swarm(
@@ -311,7 +311,7 @@ mod tests {
         let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
         let mut config = deserialize_config(<_>::default(), config).expect("deserialize config");
         config.server.stepper_pool_size = 1;
-        let mut node = Node::new(keypair, config.server);
+        let mut node = Node::new(keypair, config.server).expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();

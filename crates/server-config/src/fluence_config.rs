@@ -201,14 +201,16 @@ impl NodeConfig {
         addrs
     }
 
-    pub fn root_weights(&self) -> anyhow::Result<Vec<(fluence_identity::PublicKey, u32)>> {
+    pub fn root_weights(&self) -> eyre::Result<Vec<(fluence_identity::PublicKey, u32)>> {
         self.root_weights
             .clone()
             .into_iter()
             .map(|(k, v)| {
                 Ok((
                     k.0.as_public_key()
-                        .ok_or(anyhow!("invalid root_weights key"))?
+                        .ok_or(eyre!(
+                            "invalid root_weights key: PeerId doesn't contain PublicKey"
+                        ))?
                         .into(),
                     v,
                 ))
