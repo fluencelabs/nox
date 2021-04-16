@@ -331,7 +331,7 @@ fn explore_services_fixed() {
                     let args = read_args(
                         particle,
                         client.peer_id.clone(),
-                        &mut client.local_vm,
+                        &mut client.local_vm.lock(),
                         client.call_service_out.clone(),
                     );
                     received.push(args);

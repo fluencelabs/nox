@@ -40,7 +40,7 @@ use particle_protocol::{Contact, Particle};
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 use std::convert::identity;
-use test_utils::{make_swarms, make_swarms_with_mocked_vm, make_tmp_dir, now_ms, EasyVM};
+use test_utils::{make_swarms_with_mocked_vm, make_tmp_dir, now_ms, EasyVM};
 
 pub const TIMEOUT: Duration = Duration::from_secs(10);
 pub const PARALLELISM: Option<usize> = Some(16);
@@ -149,7 +149,7 @@ impl Stops {
 pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId>) {
     let mut bootstrap_nodes = vec![];
     // create interconnected network of nodes
-    let mut swarms = make_swarms_with_mocked_vm(network_size, identity, None, |bootstraps| {
+    let swarms = make_swarms_with_mocked_vm(network_size, identity, None, |bootstraps| {
         if bootstrap_nodes.is_empty() {
             bootstrap_nodes = bootstraps.clone();
         }
@@ -157,7 +157,7 @@ pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId
         bootstraps
     });
 
-    let mut discoverer = make_swarms_with_mocked_vm(1, identity, None, identity)
+    let discoverer = make_swarms_with_mocked_vm(1, identity, None, identity)
         .into_iter()
         .next()
         .unwrap();
@@ -290,6 +290,7 @@ pub fn aquamarine_with_backend(
     (api, handle)
 }
 
+#[allow(dead_code)]
 pub fn aquamarine_with_vm<C>(
     pool_size: usize,
     connectivity: C,
@@ -408,6 +409,7 @@ pub async fn process_particles(
     aqua_handle.cancel().await;
 }
 
+#[allow(dead_code)]
 pub async fn process_particles_with_vm(
     num_particles: usize,
     pool_size: usize,
@@ -459,17 +461,4 @@ pub async fn process_particles_with_delay(
     process.cancel().await;
     kademlia.cancel().await;
     aqua_handle.cancel().await;
-}
-
-#[cfg(test)]
-mod tests {
-    use control_macro::measure;
-    use std::time::Duration;
-
-    #[test]
-    fn test() {
-        async_std::task::block_on(async move {
-            measure!(async_std::task::sleep(Duration::from_secs(1)).await)
-        })
-    }
 }

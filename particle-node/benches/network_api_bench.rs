@@ -131,8 +131,8 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
         let interpreter = interpreter.clone();
         b.iter_batched(
             || {
-                let interpreter = interpreter.clone();
-                let peer_id = RandomPeerId::random();
+                let _interpreter = interpreter.clone();
+                let _peer_id = RandomPeerId::random();
 
                 let (con, finish_fut, kademlia, peer_ids) =
                     connectivity_with_real_kad(n, network_size);
