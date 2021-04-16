@@ -48,7 +48,7 @@ pub type Result<T> = eyre::Result<T>;
 #[cfg(debug_assertions)]
 pub static TIMEOUT: Duration = Duration::from_secs(150);
 #[cfg(not(debug_assertions))]
-pub static TIMEOUT: Duration = Duration::from_secs(7);
+pub static TIMEOUT: Duration = Duration::from_secs(15);
 
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(300);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
@@ -105,7 +105,7 @@ pub fn enable_logs() {
         .filter(Some("libp2p_websocket::framed"), Info)
         .filter(Some("libp2p_ping"), Info)
         .filter(Some("libp2p_core::upgrade::apply"), Info)
-        // .filter(Some("libp2p_kad::kbucket"), Info)
+        .filter(Some("libp2p_kad::kbucket"), Info)
         .filter(Some("libp2p_kad"), Info)
         .filter(Some("libp2p_kad::query"), Trace)
         .filter(Some("libp2p_kad::iterlog"), Trace)
@@ -359,8 +359,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         kademlia_config: Default::default(),
         particle_queue_buffer: 100,
         particle_parallelism: 16,
-        // TODO: set to 1 after benchmarking debug is finished. or add to SwarmConfig
-        bootstrap_frequency: 10000,
+        bootstrap_frequency: 1,
         allow_local_addresses: true,
         particle_timeout: Duration::from_secs(5),
     };

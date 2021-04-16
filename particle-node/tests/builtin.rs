@@ -19,7 +19,7 @@ use test_utils::{make_swarms, ConnectedClient};
 use eyre::WrapErr;
 use libp2p::core::Multiaddr;
 use maplit::hashmap;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 
 #[derive(Deserialize, Debug)]
@@ -51,36 +51,4 @@ fn identify() {
     let info = client.receive_args().wrap_err("receive args").unwrap();
     let info = info.into_iter().next().unwrap();
     let _: NodeInfo = serde_json::from_value(info).unwrap();
-}
-
-#[test]
-fn deserialize() {
-    let msg = FooMessage::Particle(<_>::default());
-    let bytes = serde_json::to_vec(&msg).unwrap();
-    let test_msg: Result<FooMessage, _> = serde_json::from_slice(&bytes);
-    println!("{:?}", test_msg);
-    test_msg.unwrap();
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
-pub struct FooParticle {
-    pub id: String,
-    // #[serde(with = "peerid_serializer")]
-    // pub init_peer_id: PeerId,
-    pub timestamp: u64,
-    pub ttl: u32,
-    pub script: String,
-    pub signature: Vec<u8>,
-    // base64-encoded
-    // #[serde(with = "base64_serde")]
-    // #[derivative(Debug(format_with = "fmt_data"))]
-    // pub data: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(tag = "action")]
-pub enum FooMessage {
-    Particle(FooParticle),
-    // InboundUpgradeError(serde_json::Value),
-    // Upgrade,
 }

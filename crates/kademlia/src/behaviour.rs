@@ -203,13 +203,11 @@ impl Kademlia {
 
     pub fn discover_peer(&mut self, peer: PeerId, outlet: OneshotOutlet<Result<Vec<Multiaddr>>>) {
         let local = self.kademlia.addresses_of_peer(&peer);
-        println!("local {}: {}", peer, !local.is_empty());
         if !local.is_empty() {
             outlet.send(Ok(local)).ok();
             return;
         }
         if self.is_banned(&peer) {
-            println!("banned");
             outlet.send(Err(KademliaError::PeerBanned)).ok();
             return;
         }
@@ -346,7 +344,6 @@ impl Kademlia {
             }
             // count failure if there was at least 1 timeout
             if timed_out {
-                println!("pending peer timed out!");
                 failed_peers.entry(*id).or_default().increment();
             }
 

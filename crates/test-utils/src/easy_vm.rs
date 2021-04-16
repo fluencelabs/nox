@@ -68,14 +68,18 @@ impl AquaRuntime for EasyVM {
             std::thread::sleep(delay);
         }
 
+        // if the script starts with '!', then emulate routing logic
+        // that allows to avoid using real AquamarineVM, but still
+        // describe complex topologies
         let (next_peer, data) = if script.starts_with('!') {
+            // data contains peer ids separated by comma
             let next_peers = String::from_utf8_lossy(&data);
             let mut next_peers = next_peers.split(",");
+            // we pop the first one, and keep others
             let next_peer = String::from(next_peers.next().unwrap());
 
             (next_peer, next_peers.join(",").into_bytes())
         } else {
-            println!("no ! for today :(");
             (init_user_id.to_string(), data)
         };
 
