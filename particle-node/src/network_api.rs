@@ -335,9 +335,6 @@ impl Connectivity {
                         }
                     };
                     log::trace!(target: "network", "Particle {} processing took {}", p_id, pretty(start.elapsed()));
-                    if start.elapsed().as_millis() > 100 {
-                        println!("Particle processing took {} ms", start.elapsed().as_millis());
-                    }
                 };
 
                 async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
@@ -346,7 +343,6 @@ impl Connectivity {
                             log::info!("Particle {} expired", particle_id);
                         } else {
                             log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout));
-                            println!("Particle {} timed out after {}", particle_id, pretty(timeout))
                         }
                     }
                 }).boxed()

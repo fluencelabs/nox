@@ -60,6 +60,7 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(300);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
 pub static TRANSPORT_TIMEOUT: Duration = Duration::from_millis(500);
+pub static EXECUTION_TIMEOUT: Duration = Duration::from_millis(5000);
 pub static PARTICLE_TTL: u32 = 20000;
 
 pub fn uuid() -> String {
@@ -165,10 +166,24 @@ where
     )
 }
 
-pub fn make_swarms_with_transport(n: usize, transport: Transport) -> Vec<CreatedSwarm> {
-    make_swarms_with(
+pub fn make_swarms_with_transport_and_mocked_vm(
+    n: usize,
+    transport: Transport,
+) -> Vec<CreatedSwarm> {
+    // make_swarms_with(
+    //     n,
+    //     |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
+    //     || match transport {
+    //         Transport::Memory => create_memory_maddr(),
+    //         Transport::Network => create_tcp_maddr(),
+    //     },
+    //     identity,
+    //     true,
+    // )
+
+    make_swarms_with::<EasyVM, _, _, _>(
         n,
-        |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
+        |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_, _, _| None),
         || match transport {
             Transport::Memory => create_memory_maddr(),
             Transport::Network => create_tcp_maddr(),
@@ -418,10 +433,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
     };
 
-    // execution timeout
-    let execution_timeout = Duration::from_secs(5);
     let pool_size = config.pool_size.unwrap_or(1);
-    let pool_config = VmPoolConfig::new(pool_size, execution_timeout);
+    let pool_config = VmPoolConfig::new(pool_size, EXECUTION_TIMEOUT);
 
     let tmp_dir = config.tmp_dir.unwrap_or_else(make_tmp_dir);
     std::fs::create_dir_all(&tmp_dir).expect("create tmp dir");

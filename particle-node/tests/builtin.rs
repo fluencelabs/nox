@@ -15,12 +15,14 @@
  */
 
 use test_utils::{
-    enable_logs, make_swarms, make_swarms_with_transport, ConnectedClient, Transport,
+    make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms, ConnectedClient, Transport,
+    PARTICLE_TTL,
 };
 
 use eyre::WrapErr;
 use libp2p::core::Multiaddr;
 use maplit::hashmap;
+use particle_protocol::Particle;
 use serde::Deserialize;
 use serde_json::json;
 use std::time::Duration;
@@ -58,31 +60,19 @@ fn identify() {
 
 #[test]
 fn big_identity() {
-    enable_logs();
-
-    let swarms = make_swarms_with_transport(1, Transport::Network);
+    let swarms = make_swarms_with_transport_and_mocked_vm(1, Transport::Network);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
-    // let mut client = ConnectedClient::connect_to("/ip4/157.230.98.75/tcp/7001".parse().unwrap())
-    //     .wrap_err("connect client")
-    //     .unwrap();
-
-    client.send_particle(
-        r#"
-        (seq
-            (call relay ("op" "identity") [data] result)
-            (call %init_peer_id% ("op" "return") [result])
-        ) 
-        "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "data" => json!(base64::encode((0..(1024*1024*20)).map(|_| u8::MAX).collect::<Vec<_>>())),
-        },
-    );
+    let mut particle = Particle::default();
+    particle.init_peer_id = client.peer_id;
+    particle.data = (0..(1024 * 1024 * 20)).map(|_| u8::MAX).collect();
+    particle.timestamp = now_ms() as u64;
+    particle.ttl = PARTICLE_TTL;
+    client.send(particle);
 
     client.timeout = Duration::from_secs(60);
-    client.receive_args().wrap_err("receive args").unwrap();
+    client.receive().wrap_err("receive").unwrap();
 }
