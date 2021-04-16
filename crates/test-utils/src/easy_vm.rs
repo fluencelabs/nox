@@ -75,7 +75,7 @@ impl AquaRuntime for EasyVM {
             // data contains peer ids separated by comma
             let next_peers = String::from_utf8_lossy(&data);
             let mut next_peers = next_peers.split(",");
-            // we pop the first one, and keep others
+            // we pop the first one and keep others
             let next_peer = String::from(next_peers.next().unwrap());
 
             (next_peer, next_peers.join(",").into_bytes())
