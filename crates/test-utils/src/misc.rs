@@ -17,30 +17,29 @@
 // reexport
 pub use fluence_client::Transport;
 
-use particle_node::{Connectivity, Node};
+use crate::EasyVM;
 
 use aquamarine::VmPoolConfig;
+use aquamarine::{AquaRuntime, AquamarineVM, VmConfig};
 use config_utils::{modules_dir, to_abs_path};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::{build_memory_transport, build_transport};
+use particle_node::{Connectivity, Node};
+use particle_protocol::ProtocolConfig;
 use script_storage::ScriptStorageConfig;
+use script_storage::{ScriptStorageApi, ScriptStorageBackend};
 use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
 use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
-use crate::EasyVM;
-use aquamarine::{AquaRuntime, AquamarineVM, VmConfig, VmPoolConfig};
 use async_std::task;
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use derivative::Derivative;
 use eyre::WrapErr;
 use futures::channel::mpsc::unbounded;
 use futures::{stream::iter, StreamExt};
 use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
-use particle_protocol::ProtocolConfig;
 use rand::Rng;
-use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use serde_json::{json, Value as JValue};
 use std::convert::identity;
 use std::path::Path;
@@ -174,6 +173,7 @@ pub fn make_swarms_with_transport(n: usize, transport: Transport) -> Vec<Created
             Transport::Memory => create_memory_maddr(),
             Transport::Network => create_tcp_maddr(),
         },
+        identity,
         true,
     )
 }

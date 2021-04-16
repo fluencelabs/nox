@@ -462,8 +462,9 @@ mod tests {
         let peer_id = config.peer_id.clone();
         let pk = config.keypair.public();
         let kad = Kademlia::new(config, trust_graph, None);
+        let timeout = Duration::from_secs(20);
 
-        let mut swarm = Swarm::new(build_memory_transport(kp), kad, peer_id);
+        let mut swarm = Swarm::new(build_memory_transport(kp, timeout), kad, peer_id);
         let maddr = create_memory_maddr();
         Swarm::listen_on(&mut swarm, maddr.clone()).ok();
 

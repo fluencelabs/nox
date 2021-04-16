@@ -41,6 +41,7 @@ use futures::{
 use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 use std::error::Error;
+use std::time::Duration;
 
 fn main() {
     env_logger::builder().format_timestamp_micros().init();
@@ -76,7 +77,7 @@ async fn run_client(
     exit_receiver: oneshot::Receiver<()>,
     relay: Multiaddr,
 ) -> Result<(), Box<dyn Error>> {
-    let client = Client::connect(relay);
+    let client = Client::connect(relay, Duration::from_secs(10));
     let (mut client, client_task) = client.await?;
 
     let stdin_cmds = read_cmds_from_stdin();
