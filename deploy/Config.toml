@@ -1,5 +1,6 @@
 [root_key_pair]
 format = "ed25519"
+path = "/node.key"
 
 [root_weights]
 Ct8ewXqEzSUvLR9CVtW39tHEDu3iBRsj21DzBZMc8LB4 = 1
