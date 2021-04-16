@@ -19,7 +19,6 @@ use crate::error::AquamarineApiError;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
 use crate::AwaitedEffects;
 
-use control_macro::measure;
 use particle_protocol::Particle;
 
 use futures::FutureExt;
@@ -123,7 +122,7 @@ where
             Some(p) if !p.is_expired() => {
                 // Take ownership of vm to process particle
                 // TODO: add timeout for execution
-                self.future = measure!(vm.execute(p, cx.waker().clone()).into());
+                self.future = vm.execute(p, cx.waker().clone()).into();
                 ActorPoll::Executing
             }
             Some(p) => {

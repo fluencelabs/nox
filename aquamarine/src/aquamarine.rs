@@ -18,7 +18,6 @@ use crate::awaited_particle::EffectsChannel;
 use crate::error::AquamarineApiError;
 use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
 
-use control_macro::measure;
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
 use particle_protocol::Particle;
 
@@ -111,9 +110,9 @@ impl AquamarineApi {
         let fut = async move {
             let particle_id = particle.id.clone();
             let (outlet, inlet) = oneshot::channel();
-            let send_ok = measure!(interpreters.send((particle, outlet)).await.is_ok());
+            let send_ok = interpreters.send((particle, outlet)).await.is_ok();
             if send_ok {
-                let effects = measure!(inlet.await).map_err(|err| {
+                let effects = inlet.await.map_err(|err| {
                     log::info!(target: "debug", "oneshot cancelled: {:?}", err);
                     OneshotCancelled { particle_id }
                 });

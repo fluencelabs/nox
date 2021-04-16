@@ -28,7 +28,7 @@ use crate::network_tasks::NetworkTasks;
 
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
-use control_macro::measure;
+
 use fluence_libp2p::types::BackPressuredInlet;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::Contact;
@@ -193,7 +193,7 @@ impl Connectivity {
     /// Discover a peer via Kademlia
     pub async fn discover_peer(&self, target: PeerId) -> Result<Option<Contact>, KademliaError> {
         // discover contact addresses through Kademlia
-        let addresses = measure!(self.kademlia.discover_peer(target).await?);
+        let addresses = self.kademlia.discover_peer(target).await?;
         if addresses.is_empty() {
             return Ok(None);
         }
@@ -317,12 +317,12 @@ impl Connectivity {
                 let fut = async move {
                     let start = Instant::now();
                     // execute particle on Aquamarine
-                    let stepper_effects = measure!(aquamarine.handle(particle).await);
+                    let stepper_effects = aquamarine.handle(particle).await;
 
                     match stepper_effects {
                         Ok(stepper_effects) => {
                             // perform effects as instructed by aquamarine
-                            measure!(connectivity.execute_effects(stepper_effects).await);
+                            connectivity.execute_effects(stepper_effects).await;
                         }
                         Err(err) => {
                             // particles are sent in fire and forget fashion, so

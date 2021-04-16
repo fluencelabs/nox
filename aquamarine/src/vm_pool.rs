@@ -15,7 +15,6 @@
  */
 
 use crate::aqua_runtime::AquaRuntime;
-use control_macro::measure;
 
 use futures::{future::BoxFuture, FutureExt};
 use std::{
@@ -57,7 +56,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
     /// Puts VM back to the pool
     pub fn put_vm(&mut self, vm: RT) {
-        measure!(self.runtimes.push_front(vm))
+        self.runtimes.push_front(vm)
     }
 
     /// Moves created VMs from `creating_vms` to `vms`

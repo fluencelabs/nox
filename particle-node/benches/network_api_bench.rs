@@ -189,8 +189,6 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
 }
 
 fn kademlia_resolve_bench(c: &mut Criterion) {
-    use control_macro::measure;
-
     let mut group = c.benchmark_group("kademlia_resolve");
     println!();
 
@@ -207,7 +205,7 @@ fn kademlia_resolve_bench(c: &mut Criterion) {
                     // let peer_id = peer_ids.into_iter().skip(1).next().unwrap();
                     // enable_logs();
                     for peer_id in peer_ids.into_iter().skip(1) {
-                        let result = measure!(connectivity.kademlia.discover_peer(peer_id).await);
+                        let result = connectivity.kademlia.discover_peer(peer_id).await;
                         match result {
                             Ok(vec) if vec.is_empty() => println!("empty vec!"),
                             Err(err) => println!("err! {}", err),

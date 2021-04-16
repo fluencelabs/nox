@@ -45,9 +45,9 @@ fn kademlia_resolve() {
 
     async_std::task::block_on(async move {
         enable_logs();
-        log::error!("===== test before =====");
-        async_std::task::sleep(Duration::from_secs(1)).await;
-        log::error!("===== test after =====");
+        // log::error!("===== test before =====");
+        // async_std::task::sleep(Duration::from_secs(1)).await;
+        // log::error!("===== test after =====");
 
         let start = Instant::now();
         let peer_id = peer_ids.into_iter().skip(3).next().unwrap();
