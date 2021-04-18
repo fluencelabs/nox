@@ -50,6 +50,9 @@ const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
     ROOT_KEY_PAIR,
+    ROOT_KEY_PAIR_GENERATE,
+    ROOT_KEY_PAIR_FORMAT,
+    ROOT_KEY_PAIR_PATH,
     BOOTSTRAP_NODE,
     EXTERNAL_ADDR,
     CERTIFICATE_DIR,
@@ -303,7 +306,7 @@ fn insert_args_to_config(
         };
 
         // Convert value to a type of the corresponding field in `FluenceConfig`
-        let value = match k {
+        let mut value = match k {
             WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
             BOOTSTRAP_NODE | SERVICE_ENVS => Array(multiple(arg).collect()),
             ROOT_KEY_PAIR => toml::Value::Table(
@@ -335,7 +338,13 @@ fn insert_args_to_config(
             k => k,
         };
 
-        config.insert(key.to_string(), value);
+        if value.is_table() && config.contains_key(key) {
+            let previous = config.get(key).unwrap().as_table().unwrap();
+            value.as_table_mut().unwrap().extend(previous.clone());
+            config.insert(key.to_string(), value);
+        } else {
+            config.insert(key.to_string(), value);
+        }
     }
 
     Ok(())
