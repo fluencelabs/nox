@@ -27,6 +27,7 @@
 )]
 
 mod actor;
+mod aqua_runtime;
 mod aquamarine;
 mod awaited_particle;
 mod config;
@@ -38,7 +39,13 @@ mod plumber;
 mod vm_pool;
 
 pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
+pub use aqua_runtime::AquaRuntime;
 pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
-pub use config::VmPoolConfig;
+pub use config::{VmConfig, VmPoolConfig};
 pub use outcome::{SendParticle, StepperEffects};
 pub use plumber::Plumber;
+
+// reexport
+pub use aquamarine_vm::AquamarineVM;
+pub use aquamarine_vm::AquamarineVMConfig;
+pub use aquamarine_vm::InterpreterOutcome;

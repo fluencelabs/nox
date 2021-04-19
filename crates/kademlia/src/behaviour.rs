@@ -17,11 +17,12 @@
 use crate::error::{KademliaError, Result};
 
 use control_macro::get_return;
-use fluence_libp2p::generate_swarm_event_type;
-use fluence_libp2p::types::OneshotOutlet;
+use fluence_libp2p::{generate_swarm_event_type, types::OneshotOutlet};
 use particle_protocol::Contact;
 use trust_graph::InMemoryStorage;
 
+use futures::FutureExt;
+use futures_timer::Delay;
 use libp2p::identity::PublicKey;
 use libp2p::{
     core::Multiaddr,
@@ -36,10 +37,11 @@ use libp2p::{
 };
 use multihash::Multihash;
 use prometheus::Registry;
-use std::ops::Deref;
-use std::task::Waker;
 use std::{
+    cmp::min,
     collections::HashMap,
+    ops::Deref,
+    task::Waker,
     time::{Duration, Instant},
 };
 
@@ -68,14 +70,14 @@ pub enum PendingQuery {
 #[derive(Debug)]
 struct PendingPeer {
     out: OneshotOutlet<Result<Vec<Multiaddr>>>,
-    deadline: Instant,
+    created: Instant,
 }
 
 impl PendingPeer {
-    pub fn new(out: OneshotOutlet<Result<Vec<Multiaddr>>>, timeout: Duration) -> Self {
+    pub fn new(out: OneshotOutlet<Result<Vec<Multiaddr>>>) -> Self {
         Self {
             out,
-            deadline: Instant::now() + timeout,
+            created: Instant::now(),
         }
     }
 }
@@ -112,6 +114,9 @@ pub struct Kademlia {
     config: KademliaConfig,
     #[behaviour(ignore)]
     waker: Option<Waker>,
+    #[behaviour(ignore)]
+    // Timer to track timed out requests, and return errors ASAP
+    timer: Delay,
 }
 
 impl Kademlia {
@@ -120,8 +125,9 @@ impl Kademlia {
         trust_graph: TrustGraph,
         registry: Option<&Registry>,
     ) -> Self {
-        let store = MemoryStore::new(config.peer_id);
+        let timer = Delay::new(config.query_timeout);
 
+        let store = MemoryStore::new(config.peer_id);
         let mut kademlia = kad::Kademlia::with_config(
             config.keypair.clone(),
             config.peer_id,
@@ -141,6 +147,7 @@ impl Kademlia {
             failed_peers: <_>::default(),
             config,
             waker: None,
+            timer,
         }
     }
 
@@ -197,7 +204,7 @@ impl Kademlia {
             return;
         }
 
-        let pending = PendingPeer::new(outlet, self.config.query_timeout);
+        let pending = PendingPeer::new(outlet);
         let outlets = self.pending_peers.entry(peer).or_default();
         // If there are existing outlets, then discovery process is already running
         let discovering = !outlets.is_empty();
@@ -304,16 +311,22 @@ impl Kademlia {
         self.waker = Some(cx.waker().clone());
 
         // Exit early to avoid Instant::now calculation
-        if self.pending_peers.is_empty() {
+        if self.pending_peers.is_empty() && self.failed_peers.is_empty() {
             return Poll::Pending;
         };
 
-        let now = Instant::now();
         let failed_peers = &mut self.failed_peers;
+        let config = self.config.deref();
+        // timer will wake up current task after `next_wake`
+        let mut next_wake = min(config.query_timeout, config.ban_cooldown);
+        let now = Instant::now();
+
         // Remove empty keys
         self.pending_peers.retain(|id, peers| {
             // remove expired
-            let expired = peers.drain_filter(|p| p.deadline <= now);
+            let expired = peers.drain_filter(|p| {
+                has_timed_out(now, p.created, config.query_timeout, &mut next_wake)
+            });
 
             let mut timed_out = false;
             for p in expired {
@@ -330,11 +343,11 @@ impl Kademlia {
             !peers.is_empty()
         });
 
-        let config = self.config.deref();
         self.failed_peers.retain(|_, failed| {
             if let Some(ban) = failed.ban {
-                if now.duration_since(ban) >= config.ban_cooldown {
-                    // unban (remove) a peer if cooldown has passed
+                // unban (remove) a peer if cooldown has passed
+                let unban = has_timed_out(now, ban, config.ban_cooldown, &mut next_wake);
+                if unban {
                     return false;
                 }
             }
@@ -347,8 +360,11 @@ impl Kademlia {
             true
         });
 
-        // NOTE: task will not be awaken until something happens;
-        //       that implies that timeouts are of low resolution
+        // task will be awaken after `next_wake`
+        self.timer.reset(next_wake);
+        // register current task within timer
+        self.timer.poll_unpin(cx).is_ready(); // `is_ready` here is to avoid "must use" warning
+
         Poll::Pending
     }
 
@@ -362,6 +378,26 @@ impl Kademlia {
         self.failed_peers
             .get(peer)
             .map_or(false, |f| f.ban.is_some())
+    }
+}
+
+/// Calculate whether some entity has reached its timeout.
+/// `now` - current time
+/// `timestamp` - starting point
+/// `timeout` - after what time it should be marked as timed out
+/// `wake` - if entity has not timed out, when to wake  
+fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut Duration) -> bool {
+    let elapsed = now.duration_since(timestamp);
+    // how much has passed of the designated timeout
+    match timeout.checked_sub(elapsed) {
+        // didn't reach timeout yet
+        Some(wake_after) if !wake_after.is_zero() => {
+            // wake up earlier, if needed
+            *wake = min(wake_after, *wake);
+            return false;
+        }
+        // timed out
+        _ => true,
     }
 }
 
@@ -426,8 +462,9 @@ mod tests {
         let peer_id = config.peer_id.clone();
         let pk = config.keypair.public();
         let kad = Kademlia::new(config, trust_graph, None);
+        let timeout = Duration::from_secs(20);
 
-        let mut swarm = Swarm::new(build_memory_transport(kp), kad, peer_id);
+        let mut swarm = Swarm::new(build_memory_transport(kp, timeout), kad, peer_id);
         let maddr = create_memory_maddr();
         Swarm::listen_on(&mut swarm, maddr.clone()).ok();
 

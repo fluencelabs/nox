@@ -18,14 +18,10 @@ use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::PeerId;
 use std::net::IpAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub const DEFAULT_CERT_DIR: &str = ".fluence/certificates";
-// pub const DEFAULT_KEY_DIR: &str = ".fluence/secret_key";
-pub const DEFAULT_CONFIG_FILE: &str = ".fluence/Config.toml";
-pub const DEFAULT_SERVICES_BASE_DIR: &str = ".fluence/services";
-pub const DEFAULT_STEPPER_BASE_DIR: &str = ".fluence/stepper";
+const CONFIG_VERSION: usize = 1;
 
 pub fn default_tcp_port() -> u16 {
     7777
@@ -45,22 +41,31 @@ pub fn default_websocket_port() -> u16 {
 pub fn default_prometheus_port() -> u16 {
     18080
 }
-pub fn default_cert_dir() -> String {
-    DEFAULT_CERT_DIR.into()
+
+pub fn default_base_dir() -> PathBuf {
+    format!(".fluence/v{}", CONFIG_VERSION).into()
 }
 
-pub fn default_services_basedir() -> PathBuf {
-    DEFAULT_SERVICES_BASE_DIR.into()
+pub fn cert_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("certificates")
 }
 
-pub fn default_stepper_basedir() -> PathBuf {
-    DEFAULT_STEPPER_BASE_DIR.into()
+pub fn services_basedir(base_dir: &Path) -> PathBuf {
+    base_dir.join("services")
 }
 
-pub fn default_air_interpreter_path() -> PathBuf {
+pub fn stepper_basedir(base_dir: &Path) -> PathBuf {
+    base_dir.join("stepper")
+}
+
+pub fn default_config_file() -> PathBuf {
+    default_base_dir().join("Config.toml")
+}
+
+pub fn air_interpreter_path(base_dir: &Path) -> PathBuf {
     use air_interpreter_wasm as interpreter;
 
-    PathBuf::from(format!("./aquamarine_{}.wasm", interpreter::VERSION))
+    base_dir.join(format!("aquamarine_{}.wasm", interpreter::VERSION))
 }
 
 pub fn default_stepper_pool_size() -> usize {
@@ -112,4 +117,8 @@ pub fn default_management_peer_id() -> PeerId {
         peer_id.to_base58()
     );
     peer_id
+}
+
+pub fn default_keypair_format() -> String {
+    "ed25519".to_string()
 }

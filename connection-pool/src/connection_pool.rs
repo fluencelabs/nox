@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::peerid_serializer;
-use fluence_libp2p::types::{OneshotInlet, OneshotOutlet, Outlet};
 use particle_protocol::{Contact, Particle};
 
 use futures::{future::BoxFuture, stream::BoxStream};
-use itertools::Itertools;
 use libp2p::{core::Multiaddr, PeerId};
-use serde::{export::Formatter, Deserialize, Serialize};
+use serde::export::Formatter;
 use std::fmt::Display;
 
 #[derive(Debug, Clone)]

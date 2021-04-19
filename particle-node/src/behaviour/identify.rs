@@ -19,7 +19,6 @@ use itertools::Itertools;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
     identify::IdentifyEvent,
-    identity::PublicKey,
     swarm::NetworkBehaviourEventProcess,
 };
 use std::net::IpAddr;
@@ -42,6 +41,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
 
                 if supports_kademlia {
                     let addresses = filter_addresses(info.listen_addrs, self.allow_local_addresses);
+                    // TODO: check that address is available before adding it? Or will kademlia check it?
                     self.kademlia
                         .add_addresses(peer_id, addresses, info.public_key);
                 }

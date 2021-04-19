@@ -17,7 +17,7 @@
 use fluence_identity::KeyPair;
 use trust_graph::Certificate;
 
-use anyhow::{anyhow, Context};
+use eyre::{eyre, WrapErr};
 use log::info;
 use std::{
     fs::{self, create_dir, File},
@@ -28,8 +28,8 @@ use std::{
 };
 
 /// Loads all certificates from a disk. Creates a root certificate for key pair if there is no one.
-pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> anyhow::Result<Vec<Certificate>> {
-    let mut certs = load_certificates(certificate_dir).with_context(|| {
+pub fn init(certificate_dir: &Path, key_pair: &KeyPair) -> eyre::Result<Vec<Certificate>> {
+    let mut certs = load_certificates(certificate_dir).wrap_err_with(|| {
         format!(
             "failed to load root certificates on init from {:?}",
             certificate_dir
@@ -56,33 +56,31 @@ pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> anyhow::Result<Vec<Cer
 
 /// Reads all files in `cert_dir` as certificates.
 /// Throw an error, if one of the files has an incorrect format.
-pub fn load_certificates(cert_dir: &str) -> anyhow::Result<Vec<Certificate>> {
-    let cert_dir = Path::new(cert_dir);
-
+pub fn load_certificates(cert_dir: &Path) -> eyre::Result<Vec<Certificate>> {
     // cold start, if there is no directory, create a new one
     if !cert_dir.exists() {
         create_dir(&cert_dir)
-            .with_context(|| format!("failed to create cert_dir {:?}", cert_dir))?;
+            .wrap_err_with(|| format!("failed to create cert_dir {:?}", cert_dir))?;
     }
 
     if cert_dir.is_file() {
-        return Err(anyhow!("Path to certificates is not a directory."));
+        return Err(eyre!("Path to certificates is not a directory."));
     }
 
     let mut certs = Vec::new();
 
     for entry in fs::read_dir(&cert_dir)
-        .with_context(|| format!("failed to read cert_dir {:?}", cert_dir))?
+        .wrap_err_with(|| format!("failed to read cert_dir {:?}", cert_dir))?
     {
-        let entry = entry.context("read_dir entry failed")?;
+        let entry = entry.wrap_err("read_dir entry failed")?;
         let path = entry.path();
 
         // ignore sub directories
         if !path.is_dir() {
             let str_cert =
-                fs::read_to_string(&path).with_context(|| format!("can't read {:?}", path))?;
+                fs::read_to_string(&path).wrap_err_with(|| format!("can't read {:?}", path))?;
             let cert = Certificate::from_str(str_cert.as_str())
-                .map_err(|e| anyhow!("error parsing certificate: {:#?}", e))?;
+                .map_err(|e| eyre!("error parsing certificate: {:#?}", e))?;
             certs.push(cert);
         }
     }
@@ -91,7 +89,7 @@ pub fn load_certificates(cert_dir: &str) -> anyhow::Result<Vec<Certificate>> {
 }
 
 pub fn store_root_certificate(
-    cert_dir: &str,
+    cert_dir: &Path,
     key_pair: &KeyPair,
     expires_at: Duration,
     issued_at: Duration,
@@ -100,7 +98,7 @@ pub fn store_root_certificate(
     let cert: Certificate =
         Certificate::issue_root(key_pair, key_pair.public(), expires_at, issued_at);
 
-    let root_cert_path = Path::new(cert_dir).join(Path::new("root.cert"));
+    let root_cert_path = cert_dir.join(Path::new("root.cert"));
 
     let mut file = File::create(root_cert_path)?;
 

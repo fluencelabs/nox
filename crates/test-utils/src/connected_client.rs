@@ -19,7 +19,7 @@ pub use fluence_client::ClientEvent;
 use super::misc::Result;
 use crate::{
     make_call_service_closure, make_particle, make_swarms, make_vm, read_args, timeout,
-    KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT,
+    KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT,
 };
 
 use aquamarine_vm::AquamarineVM;
@@ -31,12 +31,9 @@ use core::ops::Deref;
 use eyre::{bail, WrapErr};
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use serde_json::Value as JValue;
-use std::collections::HashMap;
-use std::ops::DerefMut;
-use std::sync::Arc;
+use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, sync::Arc, time::Duration};
 
 use parking_lot::Mutex;
-use std::time::Duration;
 
 pub struct ConnectedClient {
     pub client: Client,
@@ -47,7 +44,7 @@ pub struct ConnectedClient {
     pub kad_timeout: Duration,
     pub call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     pub call_service_out: Arc<Mutex<Vec<JValue>>>,
-    pub local_vm: AquamarineVM,
+    pub local_vm: Lazy<Mutex<AquamarineVM>, Box<dyn FnOnce() -> Mutex<AquamarineVM>>>,
 }
 
 impl ConnectedClient {
@@ -80,18 +77,22 @@ impl DerefMut for ConnectedClient {
 
 impl ConnectedClient {
     pub fn connect_to(node_address: Multiaddr) -> Result<Self> {
-        Self::connect_as_owner(node_address, None)
+        Self::connect_with_keypair(node_address, None)
     }
 
-    pub fn connect_as_owner(node_address: Multiaddr, key_pair: Option<Keypair>) -> Result<Self> {
+    pub fn connect_with_keypair(
+        node_address: Multiaddr,
+        key_pair: Option<Keypair>,
+    ) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
 
         let transport = Transport::from_maddr(&node_address);
         let connect = async move {
-            let (mut client, _) = Client::connect_with(node_address.clone(), transport, key_pair)
-                .await
-                .expect("sender connected");
+            let (mut client, _) =
+                Client::connect_with(node_address.clone(), transport, key_pair, TRANSPORT_TIMEOUT)
+                    .await
+                    .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {
                 peer_id, ..
             }) = client.receive_one().await
@@ -109,10 +110,17 @@ impl ConnectedClient {
     pub fn new(client: Client, node: PeerId, node_address: Multiaddr) -> Self {
         let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
         let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
-        let local_vm = make_vm(
-            &client.peer_id,
-            make_call_service_closure(call_service_in.clone(), call_service_out.clone()),
-        );
+
+        let peer_id = client.peer_id;
+        let call_in = call_service_in.clone();
+        let call_out = call_service_out.clone();
+        let f: Box<dyn FnOnce() -> Mutex<AquamarineVM>> = Box::new(move || {
+            Mutex::new(make_vm(
+                peer_id,
+                make_call_service_closure(call_in, call_out),
+            ))
+        });
+        let local_vm = Lazy::new(f);
 
         Self {
             client,
@@ -134,18 +142,26 @@ impl ConnectedClient {
         let swarm2 = swarms.next().expect("get swarm");
 
         let connect = async move {
-            let (mut first, _) =
-                Client::connect_with(swarm1.multiaddr.clone(), Transport::Memory, None)
-                    .await
-                    .expect("first connected");
+            let (mut first, _) = Client::connect_with(
+                swarm1.multiaddr.clone(),
+                Transport::Memory,
+                None,
+                TRANSPORT_TIMEOUT,
+            )
+            .await
+            .expect("first connected");
             first.receive_one().await;
 
             let first = ConnectedClient::new(first, swarm1.peer_id, swarm1.multiaddr);
 
-            let (mut second, _) =
-                Client::connect_with(swarm2.multiaddr.clone(), Transport::Memory, None)
-                    .await
-                    .expect("second connected");
+            let (mut second, _) = Client::connect_with(
+                swarm2.multiaddr.clone(),
+                Transport::Memory,
+                None,
+                TRANSPORT_TIMEOUT,
+            )
+            .await
+            .expect("second connected");
             second.receive_one().await;
 
             let second = ConnectedClient::new(second, swarm2.peer_id, swarm2.multiaddr);
@@ -174,7 +190,7 @@ impl ConnectedClient {
             self.call_service_in.clone(),
             script.into(),
             self.node,
-            &mut self.local_vm,
+            &mut self.local_vm.lock(),
         );
         let id = particle.id.clone();
         self.send(particle);
@@ -209,7 +225,7 @@ impl ConnectedClient {
         Ok(read_args(
             particle,
             self.peer_id,
-            &mut self.local_vm,
+            &mut self.local_vm.lock(),
             self.call_service_out.clone(),
         ))
     }
@@ -228,7 +244,7 @@ impl ConnectedClient {
                     break Ok(read_args(
                         particle,
                         self.peer_id,
-                        &mut self.local_vm,
+                        &mut self.local_vm.lock(),
                         self.call_service_out.clone(),
                     ));
                 }

@@ -83,7 +83,7 @@ struct SentParticle {
 }
 
 #[derive(Debug)]
-enum Command {
+pub enum Command {
     AddScript {
         uuid: String,
         script: String,
@@ -289,7 +289,7 @@ async fn cleanup(sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>) {
 
 #[derive(Clone)]
 pub struct ScriptStorageApi {
-    outlet: Outlet<Command>,
+    pub outlet: Outlet<Command>,
 }
 
 #[derive(Error, Debug)]

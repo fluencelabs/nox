@@ -17,58 +17,57 @@
 use super::behaviour::NetworkBehaviour;
 use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
-use crate::network_tasks::NetworkTasks;
 
-use aquamarine::{AquamarineApi, AquamarineBackend, StepperEffects, VmPoolConfig};
+use aquamarine::{
+    AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, VmConfig, VmPoolConfig,
+};
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::{
     build_transport,
-    types::OneshotOutlet,
-    types::{BackPressuredInlet, BackPressuredOutlet, Outlet},
+    types::{OneshotOutlet, Outlet},
 };
 use particle_closures::{HostClosures, NodeInfo};
-use particle_protocol::Particle;
-use script_storage::{ScriptStorageBackend, ScriptStorageConfig};
-use server_config::{
-    default_air_interpreter_path, ListenConfig, NetworkConfig, NodeConfig, ServicesConfig,
-};
+use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
+use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use trust_graph::{InMemoryStorage, TrustGraph};
 
-use anyhow::Context;
-use async_std::{sync::Mutex, task, task::JoinHandle};
+use crate::Connectivity;
+use async_std::task;
+use eyre::WrapErr;
 use futures::{
-    channel::{mpsc, mpsc::unbounded, oneshot, oneshot::Canceled},
-    future::BoxFuture,
+    channel::{mpsc::unbounded, oneshot},
     select,
-    stream::{self, FusedStream, StreamExt},
-    FutureExt, SinkExt,
+    stream::{self, StreamExt},
+    FutureExt,
 };
 use libp2p::{
-    core::{multiaddr::Protocol, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
-    swarm::{AddressScore, ExpandedSwarm},
+    swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
 use prometheus::Registry;
-use std::{io, iter::once, net::SocketAddr, sync::Arc, task::Poll, time::Duration};
+use std::path::Path;
+use std::{io, iter::once, net::SocketAddr};
 
 // TODO: documentation
-pub struct Node {
+pub struct Node<RT: AquaRuntime> {
     pub network_api: NetworkApi,
     pub swarm: Swarm<NetworkBehaviour>,
-    stepper_pool: AquamarineBackend,
+    stepper_pool: AquamarineBackend<RT>,
     stepper_pool_api: AquamarineApi,
+    #[allow(dead_code)] // useful for debugging
     local_peer_id: PeerId,
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
     bootstrap_nodes: Vec<Multiaddr>,
     particle_failures: Outlet<String>,
-    script_storage_backend: ScriptStorageBackend,
+    script_storage: ScriptStorageBackend,
 }
 
-impl Node {
-    pub fn new(key_pair: Keypair, config: NodeConfig) -> anyhow::Result<Box<Self>> {
+impl Node<AquamarineVM> {
+    pub fn new(key_pair: Keypair, config: ResolvedConfig) -> eyre::Result<Box<Self>> {
         let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
 
         let trust_graph = {
@@ -78,18 +77,19 @@ impl Node {
 
         let local_peer_id = to_peer_id(&key_pair);
 
-        let pool_config = VmPoolConfig::new(
+        let vm_config = VmConfig::new(
             local_peer_id,
-            config.stepper_base_dir.clone(),
-            config.air_interpreter_path.clone(),
-            config.stepper_pool_size,
-            config.particle_execution_timeout,
+            config.dir_config.stepper_base_dir.clone(),
+            config.dir_config.air_interpreter_path.clone(),
         )
-        .expect("create vm pool config");
+        .expect("create vm config");
+
+        let pool_config =
+            VmPoolConfig::new(config.stepper_pool_size, config.particle_execution_timeout);
 
         let services_config = ServicesConfig::new(
             local_peer_id,
-            config.services_base_dir.clone(),
+            config.dir_config.services_base_dir.clone(),
             config.services_envs.clone(),
             config.management_peer_id,
         )
@@ -99,68 +99,98 @@ impl Node {
         let network_config =
             NetworkConfig::new(trust_graph, Some(registry.clone()), key_pair, &config);
 
-        let script_storage_config = ScriptStorageConfig {
-            timer_resolution: config.script_storage_timer_resolution,
-            max_failures: config.script_storage_max_failures,
-            particle_ttl: config.script_storage_particle_ttl,
-            peer_id: local_peer_id,
+        let (swarm, network_api) = Self::swarm(
+            local_peer_id,
+            network_config,
+            transport,
+            config.external_addresses(),
+        );
+
+        let (particle_failures_out, particle_failures_in) = unbounded();
+
+        let connectivity = network_api.connectivity();
+        let (script_storage_api, script_storage_backend) = {
+            let script_storage_config = ScriptStorageConfig {
+                timer_resolution: config.script_storage_timer_resolution,
+                max_failures: config.script_storage_max_failures,
+                particle_ttl: config.script_storage_particle_ttl,
+                peer_id: local_peer_id,
+            };
+
+            let pool: &ConnectionPoolApi = connectivity.as_ref();
+            ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
         };
 
-        Self::with(
-            local_peer_id,
-            transport,
-            services_config,
-            pool_config,
-            network_config,
+        let host_closures = Self::host_closures(
+            connectivity,
             config.external_addresses(),
+            services_config,
+            script_storage_api,
+        );
+        let vm_config = (vm_config, host_closures.descriptor());
+
+        Ok(Self::with(
+            local_peer_id,
+            swarm,
+            network_api,
+            script_storage_backend,
+            vm_config,
+            pool_config,
+            particle_failures_out,
             registry.into(),
             config.metrics_listen_addr(),
-            config.bootstrap_nodes,
-            script_storage_config,
-        )
+            config.node_config.bootstrap_nodes,
+        ))
     }
+
+    pub fn swarm(
+        local_peer_id: PeerId,
+        network_config: NetworkConfig,
+        transport: Boxed<(PeerId, StreamMuxerBox)>,
+        external_addresses: Vec<Multiaddr>,
+    ) -> (Swarm<NetworkBehaviour>, NetworkApi) {
+        let (behaviour, network_api) = NetworkBehaviour::new(network_config);
+        let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
+
+        // Add external addresses to Swarm
+        external_addresses.iter().cloned().for_each(|addr| {
+            Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
+        });
+
+        (swarm, network_api)
+    }
+
+    pub fn host_closures(
+        connectivity: Connectivity,
+        external_addresses: Vec<Multiaddr>,
+        services_config: ServicesConfig,
+        script_storage_api: ScriptStorageApi,
+    ) -> HostClosures<Connectivity> {
+        let node_info = NodeInfo { external_addresses };
+
+        HostClosures::new(connectivity, script_storage_api, node_info, services_config)
+    }
+}
+
+impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
         local_peer_id: PeerId,
-        transport: Boxed<(PeerId, StreamMuxerBox)>,
-        services_config: ServicesConfig,
+        swarm: Swarm<NetworkBehaviour>,
+        network_api: NetworkApi,
+        script_storage: ScriptStorageBackend,
+
+        vm_config: RT::Config,
         pool_config: VmPoolConfig,
-        network_config: NetworkConfig,
-        external_addresses: Vec<Multiaddr>,
+
+        particle_failures: Outlet<String>,
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
         bootstrap_nodes: Vec<Multiaddr>,
-        script_storage_cfg: ScriptStorageConfig,
-    ) -> anyhow::Result<Box<Self>> {
+    ) -> Box<Self> {
         log::info!("server peer id = {}", local_peer_id);
 
-        let (swarm, network_api) = {
-            let (behaviour, network_api) = NetworkBehaviour::new(network_config)
-                .context("failed to crate NetworkBehaviour")?;
-            let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
-
-            // Add external addresses to Swarm
-            external_addresses.iter().cloned().for_each(|addr| {
-                Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
-            });
-
-            (swarm, network_api)
-        };
-
-        let (particle_failures_out, particle_failures_in) = unbounded();
-        let connectivity = network_api.connectivity();
-        let (script_storage_api, script_storage_backend) = {
-            let pool: &ConnectionPoolApi = connectivity.as_ref();
-            let failures = particle_failures_in;
-            let cfg = script_storage_cfg;
-            ScriptStorageBackend::new(pool.clone(), failures, cfg)
-        };
-        let node_info = NodeInfo { external_addresses };
-        let host_closures =
-            HostClosures::new(connectivity, script_storage_api, node_info, services_config);
-
-        let (stepper_pool, stepper_pool_api) =
-            AquamarineBackend::new(pool_config, host_closures.descriptor());
+        let (stepper_pool, stepper_pool_api) = AquamarineBackend::new(pool_config, vm_config);
 
         let node_service = Self {
             network_api,
@@ -171,15 +201,15 @@ impl Node {
             registry,
             metrics_listen_addr,
             bootstrap_nodes,
-            particle_failures: particle_failures_out,
-            script_storage_backend,
+            particle_failures,
+            script_storage,
         };
 
-        Ok(Box::new(node_service))
+        Box::new(node_service)
     }
 
     /// Starts node service
-    pub fn start(mut self: Box<Self>) -> OneshotOutlet<()> {
+    pub fn start(self: Box<Self>) -> OneshotOutlet<()> {
         let (exit_outlet, exit_inlet) = oneshot::channel();
         let mut exit_inlet = exit_inlet.into_stream().fuse();
 
@@ -191,7 +221,7 @@ impl Node {
             }
             .fuse();
 
-            let script_storage = self.script_storage_backend.start();
+            let script_storage = self.script_storage.start();
             let pool = self.stepper_pool.start();
             let mut network = {
                 let pool_api = self.stepper_pool_api;
@@ -200,7 +230,7 @@ impl Node {
                 self.network_api.start(pool_api, bootstrap_nodes, failures)
             };
             let stopped = stream::iter(once(Err(())));
-            let mut swarm = self.swarm.map(|e| Ok(())).chain(stopped).fuse();
+            let mut swarm = self.swarm.map(|_e| Ok(())).chain(stopped).fuse();
 
             loop {
                 select!(
@@ -250,13 +280,12 @@ impl Node {
     }
 }
 
-pub fn write_default_air_interpreter() -> anyhow::Result<()> {
+pub fn write_default_air_interpreter(destination: &Path) -> eyre::Result<()> {
     use air_interpreter_wasm::INTERPRETER_WASM;
     use std::fs::write;
 
-    let destination = default_air_interpreter_path();
-    write(&destination, INTERPRETER_WASM).context(format!(
-        "writing default INTERPRETER_WASM to {:?}",
+    write(destination, INTERPRETER_WASM).wrap_err(format!(
+        "failed writing default INTERPRETER_WASM to {:?}",
         destination
     ))
 }
@@ -265,31 +294,25 @@ pub fn write_default_air_interpreter() -> anyhow::Result<()> {
 mod tests {
     use crate::node::write_default_air_interpreter;
     use crate::Node;
-    use ctrlc_adapter::block_until_ctrlc;
     use eyre::WrapErr;
-    use fluence_libp2p::RandomPeerId;
-    use libp2p::core::connection::ConnectionId;
     use libp2p::core::Multiaddr;
     use libp2p::identity::Keypair;
-    use libp2p::swarm::NetworkBehaviour;
-    use libp2p::Swarm;
     use maplit::hashmap;
-    use particle_protocol::{HandlerMessage, Particle};
     use serde_json::json;
-    use server_config::{deserialize_config, NodeConfig};
-    use std::path::PathBuf;
+    use server_config::{air_interpreter_path, default_base_dir, deserialize_config};
     use test_utils::ConnectedClient;
 
     #[test]
     fn run_node() {
-        write_default_air_interpreter().unwrap();
+        config_utils::create_dir(default_base_dir()).unwrap();
+        write_default_air_interpreter(&air_interpreter_path(&default_base_dir())).unwrap();
 
         let keypair = Keypair::generate_ed25519();
 
         let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
         let mut config = deserialize_config(<_>::default(), config).expect("deserialize config");
-        config.server.stepper_pool_size = 1;
-        let mut node = Node::new(keypair, config.server).unwrap();
+        config.stepper_pool_size = 1;
+        let mut node = Node::new(keypair, config).expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();

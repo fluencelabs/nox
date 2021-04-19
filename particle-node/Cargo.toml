@@ -25,12 +25,12 @@ air-interpreter-wasm = "0.7.5"
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 multihash ="0.13"
-futures = "0.3.5"
+futures = "0.3.13"
 futures-util = "0.3.5"
 async-std = { version = "1.6.5", features = ["unstable"] }
 
-serde = { version = "1.0.116", features = ["derive"] }
-serde_json = "1.0.57"
+serde = { version = "1.0.118", features = ["derive"] }
+serde_json = "1.0.64"
 humantime-serde = "1.0.1"
 
 failure = "0.1.6"
@@ -41,7 +41,6 @@ clap = "2.33.0"
 void = "1.0.2"
 prometheus = "0.9.0"
 toml = "0.5.6"
-anyhow = "1.0.34"
 rand = "0.7.3"
 tide = "0.16.0"
 bs58 = "0.3.1"
@@ -59,5 +58,15 @@ fluence-app-service = "0.5.2"
 fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"
 maplit = "1.0.2"
-serde_json = "1.0.61"
+serde_json = "1.0.64"
 blake3 = "0.3.7"
+criterion = { version = "0.3.4", features = ["async_std", "html_reports"] }
+
+[[bench]]
+name = "network_api_bench"
+harness = false
+
+[[bench]]
+name = "aquamarine_bench"
+harness = false
+

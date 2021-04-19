@@ -16,10 +16,8 @@
 
 use crate::actor::{Actor, ActorPoll, Deadline};
 use crate::config::VmPoolConfig;
-
-use host_closure::ClosureDescriptor;
-
 use crate::vm_pool::VmPool;
+
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
     task::{Context, Poll},
@@ -29,22 +27,23 @@ use std::{
 #[cfg(not(test))]
 use real_time::now_ms;
 
+use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
 use futures::task::Waker;
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
 
-pub struct Plumber {
+pub struct Plumber<RT: AquaRuntime> {
     events: VecDeque<AwaitedEffects>,
-    actors: HashMap<String, Actor>,
-    vm_pool: VmPool,
+    actors: HashMap<String, Actor<RT>>,
+    vm_pool: VmPool<RT>,
     waker: Option<Waker>,
 }
 
-impl Plumber {
-    pub fn new(config: VmPoolConfig, host_closure: ClosureDescriptor) -> Self {
-        let vm_pool = VmPool::new(config, host_closure);
+impl<RT: AquaRuntime> Plumber<RT> {
+    pub fn new(config: VmPoolConfig, vm_config: RT::Config) -> Self {
+        let vm_pool = VmPool::new(config.pool_size, vm_config);
         Self {
             vm_pool,
             events: <_>::default(),

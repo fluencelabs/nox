@@ -20,7 +20,7 @@ use particle_protocol::Contact;
 
 use fluence_libp2p::{
     generate_swarm_event_type,
-    types::{Inlet, OneshotInlet, OneshotOutlet, Outlet},
+    types::{Inlet, OneshotOutlet, Outlet},
 };
 use particle_protocol::Particle;
 
@@ -31,9 +31,11 @@ use futures::{
     FutureExt, StreamExt,
 };
 use libp2p::{core::Multiaddr, swarm::NetworkBehaviourEventProcess, PeerId};
-use std::{convert::identity, time::Duration};
+use std::time::Duration;
 
-enum Command {
+// marked `pub` to be available in benchmarks
+#[derive(Debug)]
+pub enum Command {
     Connect {
         contact: Contact,
         out: OneshotOutlet<bool>,
@@ -109,7 +111,7 @@ impl ConnectionPoolInlet {
 
     fn custom_poll(
         &mut self,
-        cx: &mut std::task::Context,
+        cx: &mut std::task::Context<'_>,
         _: &mut impl libp2p::swarm::PollParameters,
     ) -> std::task::Poll<SwarmEventType> {
         use std::task::Poll;
@@ -126,10 +128,11 @@ impl NetworkBehaviourEventProcess<()> for ConnectionPoolInlet {
     fn inject_event(&mut self, _: ()) {}
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConnectionPoolApi {
-    outlet: Outlet<Command>,
-    send_timeout: Duration,
+    // TODO: marked as `pub` to be available in benchmarks
+    pub outlet: Outlet<Command>,
+    pub send_timeout: Duration,
 }
 
 impl ConnectionPoolApi {

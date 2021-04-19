@@ -31,27 +31,28 @@
 mod app_services;
 mod bootstrap_config;
 mod defaults;
-mod fluence_config;
+mod dir_config;
 mod kademlia_config;
 mod keys;
 mod listen_config;
 mod network_config;
+mod node_config;
+mod resolved_config;
 mod services_config;
 
-pub use defaults::default_air_interpreter_path;
-pub use fluence_config::{deserialize_config, load_config};
+pub use defaults::{air_interpreter_path, default_base_dir};
+pub use resolved_config::{deserialize_config, load_config};
 
 pub use app_services::AppServicesConfig;
 pub use bootstrap_config::BootstrapConfig;
-pub use fluence_config::FluenceConfig;
-pub use fluence_config::NodeConfig;
 pub use kademlia_config::KademliaConfig;
 pub use listen_config::ListenConfig;
 pub use network_config::NetworkConfig;
+pub use resolved_config::ResolvedConfig;
 pub use services_config::ServicesConfig;
 
 pub mod config_keys {
-    pub use crate::fluence_config::{
+    pub use crate::resolved_config::{
         BLUEPRINT_DIR, BOOTSTRAP_NODE, CERTIFICATE_DIR, CONFIG_FILE, EXTERNAL_ADDR, LOCAL,
         MANAGEMENT_PEER_ID, ROOT_KEY_PAIR_FORMAT, ROOT_KEY_PAIR_GENERATE, ROOT_KEY_PAIR_PATH,
         ROOT_KEY_PAIR_VALUE, SERVICES_WORKDIR, SERVICE_ENVS, TCP_PORT, WEBSOCKET_PORT,

@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::EffectsChannel;
 use crate::error::AquamarineApiError;
 use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
 
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
-use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
 use async_std::{task, task::JoinHandle};
@@ -32,16 +32,16 @@ use std::convert::identity;
 use std::task::Poll;
 use std::time::Duration;
 
-pub struct AquamarineBackend {
+pub struct AquamarineBackend<RT: AquaRuntime> {
     inlet: BackPressuredInlet<(Particle, EffectsChannel)>,
-    plumber: Plumber,
+    plumber: Plumber<RT>,
 }
 
-impl AquamarineBackend {
-    pub fn new(config: VmPoolConfig, host_closures: ClosureDescriptor) -> (Self, AquamarineApi) {
+impl<RT: AquaRuntime> AquamarineBackend<RT> {
+    pub fn new(config: VmPoolConfig, runtime_config: RT::Config) -> (Self, AquamarineApi) {
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
-        let plumber = Plumber::new(config, host_closures);
+        let plumber = Plumber::new(config, runtime_config);
         let this = Self { inlet, plumber };
 
         (this, sender)

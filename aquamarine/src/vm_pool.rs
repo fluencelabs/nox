@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-use crate::VmPoolConfig;
+use crate::aqua_runtime::AquaRuntime;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError};
-use host_closure::ClosureDescriptor;
-
-use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
 use std::{
     collections::VecDeque,
-    task::{Context, Poll, Waker},
+    task::{Context, Poll},
 };
 
 /// Pool that owns and manages aquamarine stepper VMs
@@ -35,50 +31,49 @@ use std::{
 /// API allows taking VM for execution (via `get_vm`), and then it is expected that VM is
 /// returned back via `put_vm`.
 /// It is also expected that `VmPool::poll` is called periodically.
-pub struct VmPool {
-    vms: VecDeque<AquamarineVM>,
-    creating_vms: Option<Vec<BoxFuture<'static, Result<AquamarineVM, AquamarineVMError>>>>,
-    host_closure: ClosureDescriptor,
-    config: VmPoolConfig,
+pub struct VmPool<RT: AquaRuntime> {
+    runtimes: VecDeque<RT>,
+    creating_runtimes: Option<Vec<BoxFuture<'static, Result<RT, RT::Error>>>>,
+    runtime_config: RT::Config,
+    pool_size: usize,
 }
 
-impl VmPool {
+impl<RT: AquaRuntime> VmPool<RT> {
     /// Creates `VmPool` and starts background tasks creating `config.pool_size` number of VMs
-    pub fn new(config: VmPoolConfig, host_closure: ClosureDescriptor) -> Self {
+    pub fn new(pool_size: usize, runtime_config: RT::Config) -> Self {
         Self {
-            vms: <_>::default(),
-            creating_vms: None,
-            host_closure,
-            config,
+            runtimes: <_>::default(),
+            creating_runtimes: None,
+            runtime_config,
+            pool_size,
         }
     }
 
     /// Takes VM from pool
-    pub fn get_vm(&mut self) -> Option<AquamarineVM> {
-        self.vms.pop_front()
+    pub fn get_vm(&mut self) -> Option<RT> {
+        self.runtimes.pop_front()
     }
 
     /// Puts VM back to the pool
-    pub fn put_vm(&mut self, vm: AquamarineVM) {
-        self.vms.push_front(vm)
+    pub fn put_vm(&mut self, vm: RT) {
+        self.runtimes.push_front(vm)
     }
 
     /// Moves created VMs from `creating_vms` to `vms`
     pub fn poll(&mut self, cx: &mut Context<'_>) {
-        let creating_vms = match &mut self.creating_vms {
+        let creating_vms = match &mut self.creating_runtimes {
             None => {
-                self.creating_vms = Some(
-                    (0..self.config.pool_size)
+                self.creating_runtimes = Some(
+                    (0..self.pool_size)
                         .map(|_| {
-                            let config = self.config.clone();
-                            let host_closure = self.host_closure.clone();
+                            let config = self.runtime_config.clone();
                             let waker = cx.waker().clone();
 
-                            create_vm(config, host_closure, waker)
+                            RT::create_runtime(config, waker)
                         })
                         .collect(),
                 );
-                self.creating_vms.as_mut().unwrap()
+                self.creating_runtimes.as_mut().unwrap()
             }
             Some(ref mut vms) => vms,
         };
@@ -87,7 +82,7 @@ impl VmPool {
 
         let mut i = 0;
         while i < creating_vms.len() {
-            let vms = &mut self.vms;
+            let vms = &mut self.runtimes;
             let fut = &mut creating_vms[i];
             if let Poll::Ready(vm) = fut.poll_unpin(cx) {
                 // Remove completed future
@@ -111,25 +106,4 @@ impl VmPool {
             cx.waker().wake_by_ref()
         }
     }
-}
-
-/// Creates `AquamarineVM` in background (on blocking threadpool)
-fn create_vm(
-    config: VmPoolConfig,
-    host_closure: ClosureDescriptor,
-    waker: Waker,
-) -> BoxFuture<'static, Result<AquamarineVM, AquamarineVMError>> {
-    task::spawn_blocking(move || {
-        let config = AquamarineVMConfig {
-            current_peer_id: config.current_peer_id.to_string(),
-            aquamarine_wasm_path: config.air_interpreter,
-            particle_data_store: config.particles_dir,
-            call_service: host_closure(),
-            logging_mask: i32::max_value(),
-        };
-        let vm = AquamarineVM::new(config);
-        waker.wake();
-        vm
-    })
-    .boxed()
 }

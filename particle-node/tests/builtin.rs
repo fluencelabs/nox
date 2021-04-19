@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms, ConnectedClient};
+use test_utils::{
+    make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms, ConnectedClient, Transport,
+    PARTICLE_TTL,
+};
 
 use eyre::WrapErr;
 use libp2p::core::Multiaddr;
 use maplit::hashmap;
+use particle_protocol::Particle;
 use serde::Deserialize;
 use serde_json::json;
+use std::time::Duration;
 
 #[derive(Deserialize, Debug)]
 struct NodeInfo {
@@ -51,4 +56,23 @@ fn identify() {
     let info = client.receive_args().wrap_err("receive args").unwrap();
     let info = info.into_iter().next().unwrap();
     let _: NodeInfo = serde_json::from_value(info).unwrap();
+}
+
+#[test]
+fn big_identity() {
+    let swarms = make_swarms_with_transport_and_mocked_vm(1, Transport::Network);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let mut particle = Particle::default();
+    particle.init_peer_id = client.peer_id;
+    particle.data = (0..(1024 * 1024 * 20)).map(|_| u8::MAX).collect();
+    particle.timestamp = now_ms() as u64;
+    particle.ttl = PARTICLE_TTL;
+    client.send(particle);
+
+    client.timeout = Duration::from_secs(60);
+    client.receive().wrap_err("receive").unwrap();
 }

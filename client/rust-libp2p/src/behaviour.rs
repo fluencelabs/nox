@@ -36,6 +36,7 @@ use std::error::Error;
 pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
 
 pub struct ClientBehaviour {
+    protocol_config: ProtocolConfig,
     events: VecDeque<SwarmEventType>,
     ping: Ping,
     reconnect: Option<BoxFuture<'static, Multiaddr>>,
@@ -43,9 +44,10 @@ pub struct ClientBehaviour {
 }
 
 impl ClientBehaviour {
-    pub fn new() -> Self {
+    pub fn new(protocol_config: ProtocolConfig) -> Self {
         let ping = Ping::new(PingConfig::new().with_keep_alive(true));
         Self {
+            protocol_config,
             events: VecDeque::default(),
             ping,
             reconnect: None,
@@ -80,9 +82,7 @@ impl NetworkBehaviour for ClientBehaviour {
     type OutEvent = ClientEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        let protocol_config = ProtocolConfig::default();
-
-        IntoProtocolsHandler::select(protocol_config.into(), self.ping.new_handler())
+        IntoProtocolsHandler::select(self.protocol_config.clone().into(), self.ping.new_handler())
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {

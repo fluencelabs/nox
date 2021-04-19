@@ -28,30 +28,17 @@ use crate::network_tasks::NetworkTasks;
 
 use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
-use control_macro::unwrap_return;
+
 use fluence_libp2p::types::BackPressuredInlet;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::Contact;
 use particle_protocol::Particle;
-use server_config::NodeConfig;
 
-use async_std::{
-    sync::Mutex,
-    task::JoinHandle,
-    task::{sleep, spawn},
-};
-use futures::{future, sink, stream::iter, task, Future, FutureExt, Sink, SinkExt, StreamExt};
+use async_std::task::{sleep, spawn};
+use futures::{stream::iter, FutureExt, Sink, SinkExt, StreamExt};
 use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::{core::Multiaddr, swarm::NetworkBehaviour, PeerId, Swarm};
-use std::time::Instant;
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-    time::Duration,
-};
+use libp2p::{core::Multiaddr, PeerId};
+use std::{cmp::min, collections::HashSet, time::Duration, time::Instant};
 
 /// API provided by the network
 pub struct NetworkApi {
@@ -106,7 +93,7 @@ impl NetworkApi {
     ) -> NetworkTasks {
         let NetworkApi {
             particle_stream,
-            particle_parallelism: _,
+            particle_parallelism,
             connectivity,
             bootstrap_frequency: freq,
             particle_timeout,
@@ -114,64 +101,19 @@ impl NetworkApi {
         let bs = bootstrap_nodes;
         let reconnect_bootstraps = spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
         let run_bootstrap = spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
-        let particles = spawn(async move {
-            particle_stream
-                .for_each_concurrent(None, move |particle| {
-                    let aquamarine = aquamarine.clone();
-                    let connectivity = connectivity.clone();
-                    let mut particle_failures_sink = particle_failures_sink.clone();
-                    log::trace!(target: "network", "Will execute particle {}", particle.id);
-
-                    let timeout = min(particle.time_to_live(), particle_timeout);
-                    if timeout.is_zero() {
-                        log::info!("Particle {} expired", particle.id);
-                        return async {}.boxed();
-                    }
-
-                    let particle_id = particle.id.clone();
-                    let p_id = particle_id.clone();
-                    let fut = async move {
-                        let start = Instant::now();
-                        // execute particle on Aquamarine
-                        let stepper_effects = aquamarine.handle(particle).await;
-
-                        match stepper_effects {
-                            Ok(stepper_effects) => {
-                                // perform effects as instructed by aquamarine
-                                connectivity.execute_effects(stepper_effects).await;
-                            }
-                            Err(err) => {
-                                // particles are sent in fire and forget fashion, so
-                                // there's nothing to do here but log
-                                log::warn!("Error executing particle: {}", err);
-                                // sent info that particle has failed to the outer world
-                                let particle_id = err.into_particle_id();
-                                particle_failures_sink.feed(particle_id).await.ok();
-                            }
-                        };
-                        log::trace!(target: "network", "Particle {} processing took {}", p_id, pretty(start.elapsed()));
-                    };
-
-                    async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
-                        if let Err(err) = r {
-                            if timeout != particle_timeout {
-                                log::info!("Particle {} expired", particle_id);
-                            } else {
-                                log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout))
-                            }
-                        }
-                    }).boxed()
-                })
-                .await;
-
-            log::error!("Particle stream has ended");
-        });
+        let particles = spawn(connectivity.process_particles(
+            Some(particle_parallelism),
+            particle_stream,
+            aquamarine,
+            particle_failures_sink,
+            particle_timeout,
+        ));
 
         NetworkTasks::new(particles, reconnect_bootstraps, run_bootstrap)
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// This structure is just a composition of Kademlia and ConnectionPool.
 /// It exists solely for code conciseness (i.e. avoid tuples);
 /// there's no architectural motivation behind
@@ -208,7 +150,7 @@ impl Connectivity {
 
     async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
         let contact = self.connection_pool.get_contact(target).await;
-        let contact = if let Some(contact) = contact {
+        if let Some(contact) = contact {
             // contact is connected directly to current node
             return Some(contact);
         } else {
@@ -216,6 +158,10 @@ impl Connectivity {
             let contact = self.discover_peer(target).await;
             match contact {
                 Ok(Some(contact)) => {
+                    println!(
+                        "resolved contact {} via KADEMLIA for particle {}",
+                        target, particle_id
+                    );
                     // connect to the discovered contact
                     self.connection_pool.connect(contact.clone()).await;
                     return Some(contact);
@@ -240,6 +186,7 @@ impl Connectivity {
         if sent {
             log::info!("Sent particle {} to {}", id, contact);
         } else {
+            // TODO: return & log error
             log::info!("Failed to send particle {} to {}", id, contact);
         }
     }
@@ -342,6 +289,67 @@ impl Connectivity {
             .chain(disconnections)
             .for_each_concurrent(None, |addr| reconnect(kademlia.clone(), pool.clone(), addr))
             .await;
+    }
+
+    pub async fn process_particles(
+        self,
+        particle_parallelism: Option<usize>,
+        particle_stream: BackPressuredInlet<Particle>,
+        aquamarine: AquamarineApi,
+        particle_failures_sink: impl Sink<String> + Clone + Unpin + Send + Sync + 'static,
+        particle_timeout: Duration,
+    ) {
+        particle_stream
+            .for_each_concurrent(particle_parallelism, move |particle| {
+                let aquamarine = aquamarine.clone();
+                let connectivity = self.clone();
+                let mut particle_failures_sink = particle_failures_sink.clone();
+                log::info!(target: "network", "Will execute particle {}", particle.id);
+
+                let timeout = min(particle.time_to_live(), particle_timeout);
+                if timeout.is_zero() {
+                    log::info!("Particle {} expired", particle.id);
+                    return async {}.boxed();
+                }
+
+
+                let particle_id = particle.id.clone();
+                let p_id = particle_id.clone();
+                let fut = async move {
+                    let start = Instant::now();
+                    // execute particle on Aquamarine
+                    let stepper_effects = aquamarine.handle(particle).await;
+
+                    match stepper_effects {
+                        Ok(stepper_effects) => {
+                            // perform effects as instructed by aquamarine
+                            connectivity.execute_effects(stepper_effects).await;
+                        }
+                        Err(err) => {
+                            // particles are sent in fire and forget fashion, so
+                            // there's nothing to do here but log
+                            log::warn!("Error executing particle: {}", err);
+                            // sent info that particle has failed to the outer world
+                            let particle_id = err.into_particle_id();
+                            particle_failures_sink.feed(particle_id).await.ok();
+                        }
+                    };
+                    log::trace!(target: "network", "Particle {} processing took {}", p_id, pretty(start.elapsed()));
+                };
+
+                async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
+                    if let Err(_err) = r {
+                        if timeout != particle_timeout {
+                            log::info!("Particle {} expired", particle_id);
+                        } else {
+                            log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout));
+                        }
+                    }
+                }).boxed()
+            })
+            .await;
+
+        log::error!("Particle stream has ended");
     }
 }
 

@@ -31,7 +31,7 @@ use futures::{
 };
 use libp2p::core::Multiaddr;
 use libp2p::{identity::Keypair, PeerId, Swarm};
-use particle_protocol::Particle;
+use particle_protocol::{Particle, ProtocolConfig};
 use std::{error::Error, ops::DerefMut, time::Duration};
 
 #[derive(Clone, Debug)]
@@ -119,9 +119,11 @@ impl Client {
         &self,
         node: Multiaddr,
         transport: Transport,
+        transport_timeout: Duration,
+        protocol_config: ProtocolConfig,
     ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
-            let behaviour = ClientBehaviour::new();
+            let behaviour = ClientBehaviour::new(protocol_config);
 
             macro_rules! swarm {
                 ($transport:expr) => {{
@@ -131,11 +133,13 @@ impl Client {
             }
 
             match transport {
-                Transport::Memory => swarm!(build_memory_transport(self.key_pair.clone())),
-                Transport::Network => swarm!(build_transport(
+                Transport::Memory => swarm!(build_memory_transport(
                     self.key_pair.clone(),
-                    Duration::from_secs(20)
+                    transport_timeout
                 )),
+                Transport::Network => {
+                    swarm!(build_transport(self.key_pair.clone(), transport_timeout))
+                }
             }
         };
 
@@ -150,22 +154,32 @@ impl Client {
         Ok(swarm)
     }
 
-    pub async fn connect(relay: Multiaddr) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        Self::connect_with(relay, Transport::Network, None).await
+    pub async fn connect(
+        relay: Multiaddr,
+        transport_timeout: Duration,
+    ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
+        Self::connect_with(relay, Transport::Network, None, transport_timeout).await
     }
 
     pub async fn connect_with(
         relay: Multiaddr,
         transport: Transport,
         key_pair: Option<Keypair>,
+        transport_timeout: Duration,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::unbounded();
         let (relay_outlet, relay_inlet) = mpsc::unbounded();
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
+        let protocol_config = ProtocolConfig::new(
+            transport_timeout,
+            // keep alive timeout
+            Duration::from_secs(10),
+            transport_timeout,
+        );
         let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
-        let mut swarm = client.dial(relay, transport)?;
+        let mut swarm = client.dial(relay, transport, transport_timeout, protocol_config)?;
 
         let mut relay_inlet = relay_inlet.fuse();
         let mut stop = stop_inlet.into_stream().fuse();

@@ -1,3 +1,4 @@
+#![feature(once_cell)]
 /*
  * Copyright 2020 Fluence Labs Limited
  *
@@ -13,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
@@ -31,6 +31,7 @@ extern crate fstrings;
 
 mod connected_client;
 mod connection;
+mod easy_vm;
 mod local_vm;
 mod misc;
 mod service;
@@ -39,6 +40,7 @@ mod utils;
 
 pub use connected_client::*;
 pub use connection::*;
+pub use easy_vm::*;
 pub use local_vm::*;
 pub use misc::*;
 pub use service::*;

@@ -1,4 +1,5 @@
 #![feature(drain_filter)]
+#![feature(duration_zero)]
 /*
  * Copyright 2020 Fluence Labs Limited
  *
@@ -24,3 +25,6 @@ pub use api::{KademliaApi, KademliaApiInlet};
 pub use behaviour::Kademlia;
 pub use behaviour::KademliaConfig;
 pub use error::KademliaError;
+
+// to be available in benchmarks
+pub use api::Command;

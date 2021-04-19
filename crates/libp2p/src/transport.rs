@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+use futures::{AsyncRead, AsyncWrite};
 use libp2p::core::muxing::StreamMuxerBox;
-use libp2p::core::transport::Boxed;
+use libp2p::core::transport::{Boxed, MemoryTransport};
 use libp2p::noise;
 use libp2p::{core, dns, identity::Keypair, PeerId, Transport};
 use std::time::Duration;
@@ -28,19 +29,35 @@ pub fn build_transport(
     key_pair: Keypair,
     socket_timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
+    let transport = {
+        let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
+        let tcp = dns::DnsConfig::new(tcp).expect("Can't build DNS");
+        let websocket = libp2p::websocket::WsConfig::new(tcp.clone());
+        tcp.or_transport(websocket)
+    };
+
+    configure_transport(transport, key_pair, socket_timeout)
+}
+
+pub fn configure_transport<T, C>(
+    transport: T,
+    key_pair: Keypair,
+    transport_timeout: Duration,
+) -> Boxed<(PeerId, StreamMuxerBox)>
+where
+    T: Transport<Output = C> + Clone + Send + Sync + 'static,
+    C: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    T::Dial: Send + 'static,
+    T::Listener: Send + 'static,
+    T::ListenerUpgrade: Send + 'static,
+    T::Error: Send + Sync + 'static,
+{
     let multiplex = {
         let mut mplex = libp2p::mplex::MplexConfig::default();
         mplex.set_max_num_streams(1024 * 1024);
         let mut yamux = libp2p::yamux::YamuxConfig::default();
         yamux.set_max_num_streams(1024 * 1024);
         core::upgrade::SelectUpgrade::new(yamux, mplex)
-    };
-
-    let transport = {
-        let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
-        let tcp = dns::DnsConfig::new(tcp).expect("Can't build DNS");
-        let websocket = libp2p::websocket::WsConfig::new(tcp.clone());
-        tcp.or_transport(websocket)
     };
 
     let keys = noise::Keypair::<noise::X25519Spec>::new()
@@ -52,22 +69,24 @@ pub fn build_transport(
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth.into_authenticated())
         .multiplex(multiplex)
-        .timeout(socket_timeout)
+        .timeout(transport_timeout)
         .boxed()
 }
 
-pub fn build_memory_transport(key_pair: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
-    use libp2p::{
-        core::{transport::MemoryTransport, upgrade},
-        plaintext::PlainText2Config,
-        yamux,
-    };
-    MemoryTransport::default()
-        .upgrade(upgrade::Version::V1)
-        .authenticate(PlainText2Config {
-            local_public_key: key_pair.public(),
-        })
-        .multiplex(yamux::YamuxConfig::default())
-        .map(|(p, m), _| (p, StreamMuxerBox::new(m)))
-        .boxed()
+pub fn build_memory_transport(
+    key_pair: Keypair,
+    transport_timeout: Duration,
+) -> Boxed<(PeerId, StreamMuxerBox)> {
+    let transport = MemoryTransport::default();
+
+    configure_transport(transport, key_pair, transport_timeout)
+
+    // MemoryTransport::default()
+    //     .upgrade(upgrade::Version::V1)
+    //     .authenticate(PlainText2Config {
+    //         local_public_key: key_pair.public(),
+    //     })
+    //     .multiplex(yamux::YamuxConfig::default())
+    //     .map(|(p, m), _| (p, StreamMuxerBox::new(m)))
+    //     .boxed()
 }

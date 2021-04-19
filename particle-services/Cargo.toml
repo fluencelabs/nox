@@ -15,10 +15,10 @@ server-config = { path = "../crates/server-config" }
 
 fluence-app-service = "0.5.2"
 
-futures = "0.3.5"
+futures = "0.3.13"
 parking_lot = "0.11.0"
-serde_json = "1.0.57"
-serde = "1.0.116"
+serde_json = "1.0.64"
+serde = "1.0.118"
 log = "0.4.11"
 uuid = "0.8.1"
 toml = "0.5.6"

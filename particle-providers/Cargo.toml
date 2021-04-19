@@ -10,5 +10,5 @@ control-macro = { path = "../crates/control-macro" }
 json-utils = { path = "../crates/json-utils" }
 fluence-libp2p = { path = "../crates/libp2p" }
 
-serde = { version = "1.0.116", features = ["derive"] }
-serde_json = "1.0.58"
+serde = { version = "1.0.118", features = ["derive"] }
+serde_json = "1.0.64"

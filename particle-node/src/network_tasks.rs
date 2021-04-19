@@ -15,9 +15,9 @@
  */
 
 use async_std::task::JoinHandle;
-use futures::future::{BoxFuture, FusedFuture};
-use futures::stream::Fuse;
-use futures::{FutureExt, Stream};
+use futures::future::FusedFuture;
+
+use futures::FutureExt;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -45,7 +45,7 @@ impl NetworkTasks {
         }
     }
 
-    pub async fn cancel(mut self) {
+    pub async fn cancel(self) {
         if let Some(run_bootstrap) = self.run_bootstrap {
             run_bootstrap.cancel().await;
         };
