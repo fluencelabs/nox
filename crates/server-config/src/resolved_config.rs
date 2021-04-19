@@ -26,9 +26,8 @@ use eyre::{eyre, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
 use std::net::SocketAddr;
-use std::ops::Try;
+use std::ops::{Deref, DerefMut, Try};
 use std::option::NoneError;
-use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";

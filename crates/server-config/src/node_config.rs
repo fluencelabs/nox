@@ -1,4 +1,5 @@
 use super::defaults::*;
+use crate::keys::{decode_key_pair, load_key_pair};
 use crate::{BootstrapConfig, KademliaConfig};
 
 use fluence_identity::KeyPair;
@@ -6,7 +7,6 @@ use fluence_libp2p::peerid_serializer;
 use fluence_libp2p::PeerId;
 use particle_protocol::ProtocolConfig;
 
-use crate::keys::{decode_key_pair, load_key_pair};
 use derivative::Derivative;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
@@ -119,21 +119,22 @@ impl Deref for PeerIdSerializable {
     }
 }
 
+#[derive(Deserialize)]
+struct KeypairConfig {
+    #[serde(default = "default_keypair_format")]
+    format: String,
+    value: Option<String>,
+    path: Option<String>,
+    #[serde(default = "bool::default")]
+    generate_on_absence: bool,
+}
+
 /// Try to decode keypair from string as base58,
 /// if failed – load keypair from file pointed at by same string
 fn parse_or_load_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    #[derive(Deserialize)]
-    struct KeypairConfig {
-        format: String,
-        value: Option<String>,
-        path: Option<String>,
-        #[serde(default = "bool::default")]
-        generate_on_absence: bool,
-    }
-
     let result = KeypairConfig::deserialize(deserializer)?;
 
     if result.path.is_none() && result.value.is_none()

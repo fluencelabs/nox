@@ -118,3 +118,7 @@ pub fn default_management_peer_id() -> PeerId {
     );
     peer_id
 }
+
+pub fn default_keypair_format() -> String {
+    "ed25519".to_string()
+}
