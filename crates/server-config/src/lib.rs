@@ -30,11 +30,11 @@ mod app_services;
 mod bootstrap_config;
 mod defaults;
 mod dir_config;
-mod fluence_config;
 mod kademlia_config;
 mod keys;
 mod listen_config;
 mod network_config;
+mod node_config;
 mod resolved_config;
 mod services_config;
 

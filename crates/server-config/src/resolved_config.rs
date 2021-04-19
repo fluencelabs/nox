@@ -32,7 +32,7 @@
 
 use super::defaults::*;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
-use crate::fluence_config::NodeConfig;
+use crate::node_config::NodeConfig;
 use crate::ListenConfig;
 
 use config_utils::to_abs_path;
