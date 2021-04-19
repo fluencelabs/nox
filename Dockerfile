@@ -9,7 +9,7 @@ ARG config=
 copy $exe /fluence
 run chmod +x /fluence
 
-copy $config /.fluence/Config.toml
+copy $config /.fluence/v1/Config.toml
 
 volume /.fluence
 
