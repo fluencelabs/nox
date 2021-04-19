@@ -300,10 +300,12 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use server_config::{default_base_dir, deserialize_config};
+    use std::fs::create_dir;
     use test_utils::ConnectedClient;
 
     #[test]
     fn run_node() {
+        create_dir(default_base_dir()).unwrap();
         write_default_air_interpreter(&default_base_dir()).unwrap();
 
         let keypair = Keypair::generate_ed25519();
