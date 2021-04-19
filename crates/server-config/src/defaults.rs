@@ -21,7 +21,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-const DEFAULT_BASE_DIR: &str = ".fluence";
+const CONFIG_VERSION: usize = 1;
 
 pub fn default_tcp_port() -> u16 {
     7777
@@ -43,7 +43,7 @@ pub fn default_prometheus_port() -> u16 {
 }
 
 pub fn default_base_dir() -> PathBuf {
-    DEFAULT_BASE_DIR.into()
+    format!(".fluence/VERSION_{}", CONFIG_VERSION).into()
 }
 
 pub fn cert_dir(base_dir: &Path) -> PathBuf {
