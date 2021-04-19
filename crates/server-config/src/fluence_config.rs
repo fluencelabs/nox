@@ -238,8 +238,13 @@ fn parse_or_load_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
+    fn default_keypair_format() -> String {
+        "ed25519".to_string()
+    }
+
     #[derive(Deserialize)]
     struct KeypairConfig {
+        #[serde(default = "default_keypair_format")]
         format: String,
         value: Option<String>,
         path: Option<String>,
