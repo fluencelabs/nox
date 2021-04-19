@@ -14,22 +14,37 @@
  * limitations under the License.
  */
 
+/*
+ * Copyright 2020 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 use super::defaults::*;
-use super::keys::{decode_key_pair, load_key_pair};
-use crate::{BootstrapConfig, KademliaConfig, ListenConfig};
+use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
+use crate::node_config::NodeConfig;
+use crate::ListenConfig;
 
 use config_utils::to_abs_path;
-use fluence_identity::KeyPair;
-use fluence_libp2p::peerid_serializer;
-use particle_protocol::ProtocolConfig;
 
 use clap::{ArgMatches, Values};
 use eyre::{eyre, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
-use libp2p::PeerId;
 use serde::Deserialize;
-use std::net::SocketAddr;
-use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
+use std::{
+    net::SocketAddr,
+    ops::{Deref, DerefMut},
+};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
@@ -62,123 +77,44 @@ const ARGS: &[&str] = &[
     MANAGEMENT_PEER_ID,
 ];
 
-#[derive(Deserialize)]
-pub struct FluenceConfig {
-    #[serde(flatten)]
-    pub server: NodeConfig,
-    /// Directory, where all certificates are stored.
-    #[serde(default = "default_cert_dir")]
-    pub certificate_dir: String,
-
-    // #[serde(flatten)]
-    #[serde(deserialize_with = "parse_or_load_keypair")]
-    pub root_key_pair: KeyPair,
-}
-
-#[derive(Clone, Deserialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[repr(transparent)]
-pub struct PeerIdSerializable(#[serde(with = "peerid_serializer")] PeerId);
-
 #[derive(Clone, Deserialize, Debug)]
-pub struct NodeConfig {
-    /// For TCP connections
-    #[serde(default = "default_tcp_port")]
-    pub tcp_port: u16,
-
-    /// Local ip address to listen on
-    #[serde(default = "default_listen_ip")]
-    pub listen_ip: IpAddr,
-
-    /// Socket timeout for main transport
-    #[serde(default = "default_socket_timeout")]
-    #[serde(with = "humantime_serde")]
-    pub socket_timeout: Duration,
-
-    /// Bootstrap nodes to join to the Fluence network
-    #[serde(default = "default_bootstrap_nodes")]
-    pub bootstrap_nodes: Vec<Multiaddr>,
-
-    /// For ws connections
-    #[serde(default = "default_websocket_port")]
-    pub websocket_port: u16,
-
-    /// External address to advertise via identify protocol
-    pub external_address: Option<IpAddr>,
-
-    /// External multiaddresses to advertise; more flexible that IpAddr
-    #[serde(default)]
-    pub external_multiaddresses: Vec<Multiaddr>,
-
-    /// Prometheus port
-    #[serde(default = "default_prometheus_port")]
-    pub prometheus_port: u16,
-
-    #[serde(default)]
-    pub bootstrap_config: BootstrapConfig,
-
-    pub root_weights: HashMap<PeerIdSerializable, u32>,
-
-    /// Base directory for resources needed by application services
-    #[serde(default = "default_services_basedir")]
-    pub services_base_dir: PathBuf,
-
-    #[serde(default)]
-    #[serde(deserialize_with = "parse_envs")]
-    pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
-
-    /// Base directory for resources needed by application services
-    #[serde(default = "default_stepper_basedir")]
-    pub stepper_base_dir: PathBuf,
-
-    #[serde(default)]
-    pub protocol_config: ProtocolConfig,
-
-    /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
-    #[serde(default = "default_stepper_pool_size")]
-    pub stepper_pool_size: usize,
-
-    /// Path to AIR interpreter .wasm file (aquamarine.wasm)
-    #[serde(default = "default_air_interpreter_path")]
-    pub air_interpreter_path: PathBuf,
-
-    #[serde(default)]
-    pub kademlia: KademliaConfig,
-
-    #[serde(default = "default_particle_queue_buffer_size")]
-    pub particle_queue_buffer: usize,
-    #[serde(default = "default_particle_processor_parallelism")]
-    pub particle_processor_parallelism: usize,
-
-    #[serde(default = "default_script_storage_timer_resolution")]
-    pub script_storage_timer_resolution: Duration,
-
-    #[serde(default = "default_script_storage_max_failures")]
-    pub script_storage_max_failures: u8,
-
-    #[serde(default = "default_script_storage_particle_ttl")]
-    #[serde(with = "humantime_serde")]
-    pub script_storage_particle_ttl: Duration,
-
-    #[serde(default = "default_bootstrap_frequency")]
-    pub bootstrap_frequency: usize,
-
-    #[serde(default)]
-    pub allow_local_addresses: bool,
-
-    #[serde(default = "default_execution_timeout")]
-    #[serde(with = "humantime_serde")]
-    pub particle_execution_timeout: Duration,
-
-    #[serde(default = "default_processing_timeout")]
-    #[serde(with = "humantime_serde")]
-    pub particle_processing_timeout: Duration,
-
-    #[serde(with = "peerid_serializer")]
-    #[serde(default = "default_management_peer_id")]
-    pub management_peer_id: PeerId,
+struct UnresolvedConfig {
+    #[serde(flatten)]
+    dir_config: UnresolvedDirConfig,
+    #[serde(flatten)]
+    node_config: NodeConfig,
 }
 
-impl NodeConfig {
+impl UnresolvedConfig {
+    pub fn resolve(self) -> ResolvedConfig {
+        ResolvedConfig {
+            dir_config: self.dir_config.resolve(),
+            node_config: self.node_config,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ResolvedConfig {
+    pub dir_config: ResolvedDirConfig,
+    pub node_config: NodeConfig,
+}
+
+impl Deref for ResolvedConfig {
+    type Target = NodeConfig;
+
+    fn deref(&self) -> &Self::Target {
+        &self.node_config
+    }
+}
+
+impl DerefMut for ResolvedConfig {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.node_config
+    }
+}
+
+impl ResolvedConfig {
     pub fn external_addresses(&self) -> Vec<Multiaddr> {
         let mut addrs = if let Some(external_address) = self.external_address {
             let external_tcp = {
@@ -210,7 +146,7 @@ impl NodeConfig {
             .into_iter()
             .map(|(k, v)| {
                 Ok((
-                    k.0.as_public_key()
+                    k.as_public_key()
                         .ok_or(eyre!(
                             "invalid root_weights key: PeerId doesn't contain PublicKey"
                         ))?
@@ -232,57 +168,6 @@ impl NodeConfig {
             websocket_port: self.websocket_port,
         }
     }
-}
-
-/// Try to decode keypair from string as base58,
-/// if failed – load keypair from file pointed at by same string
-fn parse_or_load_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    struct KeypairConfig {
-        format: String,
-        value: Option<String>,
-        path: Option<String>,
-        #[serde(default = "bool::default")]
-        generate_on_absence: bool,
-    }
-
-    let result = KeypairConfig::deserialize(deserializer)?;
-
-    if result.path.is_none() && result.value.is_none()
-        || result.path.is_some() && result.value.is_some()
-    {
-        panic!("Define either value or path")
-    }
-
-    if let Some(path) = result.path {
-        load_key_pair(
-            path.clone(),
-            result.format.clone(),
-            result.generate_on_absence,
-        )
-        .map_err(|e| {
-            serde::de::Error::custom(format!("Failed to load keypair from {}: {}", path, e))
-        })
-    } else {
-        decode_key_pair(result.value.unwrap(), result.format)
-            .map_err(|e| serde::de::Error::custom(format!("Failed to decode keypair: {}", e)))
-    }
-}
-
-fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let envs = HashMap::<String, String>::deserialize(deserializer)?;
-    let envs = envs
-        .into_iter()
-        .map(|(k, v)| (k.into_bytes(), v.into_bytes()))
-        .collect();
-
-    Ok(envs)
 }
 
 /// Take all command line arguments, and insert them into config appropriately
@@ -352,33 +237,15 @@ fn insert_args_to_config(
     Ok(())
 }
 
-fn validate_config(config: FluenceConfig) -> eyre::Result<FluenceConfig> {
-    let exists = config.server.air_interpreter_path.as_path().exists();
-    let is_file = config.server.air_interpreter_path.is_file();
-    if exists && !is_file {
-        return Err(eyre!(
-            "Invalid path to air interpreter: {:?} is a directory, expected .wasm file",
-            config.server.air_interpreter_path
-        ));
-    }
-    if !exists {
-        return Err(eyre!(
-            "Invalid path to air interpreter: path {:?} does not exists",
-            config.server.air_interpreter_path
-        ));
-    }
-
-    Ok(config)
-}
-
 // loads config from arguments and a config file
 // TODO: avoid depending on ArgMatches
-pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<FluenceConfig> {
+pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<ResolvedConfig> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
-        .unwrap_or(DEFAULT_CONFIG_FILE);
+        .map(Into::into)
+        .unwrap_or(default_config_file());
 
-    let config_file = to_abs_path(config_file.into());
+    let config_file = to_abs_path(config_file);
 
     log::info!("Loading config from {:?}", config_file);
 
@@ -386,24 +253,26 @@ pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<FluenceConfig> {
         .wrap_err_with(|| format!("Config wasn't found at {:?}", config_file))?;
     let config = deserialize_config(arguments, file_content)?;
 
-    validate_config(config)
+    config.dir_config.create_dirs()?;
+
+    Ok(config)
 }
 
 pub fn deserialize_config(
     arguments: ArgMatches<'_>,
     content: Vec<u8>,
-) -> eyre::Result<FluenceConfig> {
+) -> eyre::Result<ResolvedConfig> {
     let mut config: toml::value::Table =
         toml::from_slice(&content).wrap_err("deserializing config")?;
 
     insert_args_to_config(&arguments, &mut config)?;
 
     let config = toml::value::Value::Table(config);
-    let mut config = FluenceConfig::deserialize(config)?;
+    let mut config = UnresolvedConfig::deserialize(config)?.resolve();
 
     if arguments.is_present(LOCAL) {
         // if --local is passed, clear bootstrap nodes
-        config.server.bootstrap_nodes = vec![];
+        config.bootstrap_nodes = vec![];
     }
 
     Ok(config)
@@ -411,6 +280,8 @@ pub fn deserialize_config(
 
 #[cfg(test)]
 mod tests {
+    use crate::BootstrapConfig;
+
     use super::*;
 
     #[test]
