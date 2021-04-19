@@ -1,21 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2021 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,14 +25,15 @@ use clap::{ArgMatches, Values};
 use eyre::{eyre, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
-use std::{
-    net::SocketAddr,
-    ops::{Deref, DerefMut},
-};
+use std::net::SocketAddr;
+use std::ops::Try;
+use std::option::NoneError;
+use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
-pub const ROOT_KEY_PAIR: &str = "value";
+pub const ROOT_KEY_PAIR: &str = "root_key_pair";
+pub const ROOT_KEY_PAIR_VALUE: &str = "value";
 pub const ROOT_KEY_PAIR_FORMAT: &str = "format";
 pub const ROOT_KEY_PAIR_PATH: &str = "path";
 pub const ROOT_KEY_PAIR_GENERATE: &str = "generate_on_absence";
@@ -64,7 +49,7 @@ pub const LOCAL: &str = "local";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
-    ROOT_KEY_PAIR,
+    ROOT_KEY_PAIR_VALUE,
     ROOT_KEY_PAIR_GENERATE,
     ROOT_KEY_PAIR_FORMAT,
     ROOT_KEY_PAIR_PATH,
@@ -185,6 +170,21 @@ fn insert_args_to_config(
         value.map(|s| String(s.into()))
     }
 
+    fn make_table(key: &str, value: &str) -> toml::Value {
+        toml::Value::Table(std::iter::once((key.to_string(), String(value.into()))).collect())
+    }
+
+    fn check_and_delete(config: &mut toml::value::Table, key: &str, sub_key: &str) {
+        let _res: Result<std::option::Option<toml::Value>, NoneError> = try {
+            config
+                .get_mut(key)
+                .into_result()?
+                .as_table_mut()
+                .into_result()?
+                .remove(sub_key)
+        };
+    }
+
     // Check each possible command line argument
     for &k in ARGS {
         let arg = match arguments.values_of(k) {
@@ -196,39 +196,35 @@ fn insert_args_to_config(
         let mut value = match k {
             WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
             BOOTSTRAP_NODE | SERVICE_ENVS => Array(multiple(arg).collect()),
-            ROOT_KEY_PAIR => toml::Value::Table(
-                std::iter::once((ROOT_KEY_PAIR.to_string(), String(single(arg).into()))).collect(),
-            ),
-            ROOT_KEY_PAIR_FORMAT => toml::Value::Table(
-                std::iter::once((ROOT_KEY_PAIR_FORMAT.to_string(), String(single(arg).into())))
-                    .collect(),
-            ),
-            ROOT_KEY_PAIR_PATH => toml::Value::Table(
-                std::iter::once((ROOT_KEY_PAIR_PATH.to_string(), String(single(arg).into())))
-                    .collect(),
-            ),
-            ROOT_KEY_PAIR_GENERATE => toml::Value::Table(
-                std::iter::once((
-                    ROOT_KEY_PAIR_GENERATE.to_string(),
-                    String(single(arg).into()),
-                ))
-                .collect(),
-            ),
+            ROOT_KEY_PAIR_VALUE => {
+                check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
+                make_table(k, single(arg))
+            }
+            ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_GENERATE => make_table(k, single(arg)),
+            ROOT_KEY_PAIR_PATH => {
+                check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_VALUE);
+                make_table(k, single(arg))
+            }
             _ => String(single(arg).into()),
         };
 
         let key = match k {
-            ROOT_KEY_PAIR | ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_PATH | ROOT_KEY_PAIR_GENERATE => {
-                "root_key_pair"
-            }
+            ROOT_KEY_PAIR_VALUE
+            | ROOT_KEY_PAIR_FORMAT
+            | ROOT_KEY_PAIR_PATH
+            | ROOT_KEY_PAIR_GENERATE => ROOT_KEY_PAIR,
 
             k => k,
         };
 
         if value.is_table() && config.contains_key(key) {
-            let previous = config.get(key).unwrap().as_table().unwrap();
-            value.as_table_mut().unwrap().extend(previous.clone());
-            config.insert(key.to_string(), value);
+            let mut previous = config.remove(key).unwrap();
+
+            previous
+                .as_table_mut()
+                .unwrap()
+                .extend(value.as_table_mut().unwrap().clone());
+            config.insert(key.to_string(), previous);
         } else {
             config.insert(key.to_string(), value);
         }

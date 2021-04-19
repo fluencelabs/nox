@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#![feature(try_blocks)]
+#![feature(try_trait)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
@@ -52,7 +54,7 @@ pub use services_config::ServicesConfig;
 pub mod config_keys {
     pub use crate::resolved_config::{
         BLUEPRINT_DIR, BOOTSTRAP_NODE, CERTIFICATE_DIR, CONFIG_FILE, EXTERNAL_ADDR, LOCAL,
-        MANAGEMENT_PEER_ID, ROOT_KEY_PAIR, ROOT_KEY_PAIR_FORMAT, ROOT_KEY_PAIR_GENERATE,
-        ROOT_KEY_PAIR_PATH, SERVICES_WORKDIR, SERVICE_ENVS, TCP_PORT, WEBSOCKET_PORT,
+        MANAGEMENT_PEER_ID, ROOT_KEY_PAIR_FORMAT, ROOT_KEY_PAIR_GENERATE, ROOT_KEY_PAIR_PATH,
+        ROOT_KEY_PAIR_VALUE, SERVICES_WORKDIR, SERVICE_ENVS, TCP_PORT, WEBSOCKET_PORT,
     };
 }
