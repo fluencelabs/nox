@@ -29,6 +29,8 @@ use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use libp2p::PeerId;
 use serde::Deserialize;
 use std::net::SocketAddr;
+use std::ops::Try;
+use std::option::NoneError;
 use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
@@ -299,17 +301,19 @@ fn insert_args_to_config(
         value.map(|s| String(s.into()))
     }
 
-    fn check_and_delete(
-        config: &mut toml::value::Table,
-        key: &str,
-        sub_key: &str,
-    ) -> anyhow::Result<bool> {
-        let sub_table = config
-            .get_mut(key)
-            .ok_or(anyhow!("{} not found", key))?
-            .as_table_mut()
-            .ok_or(anyhow!("{} is not table", key))?;
-        Ok(sub_table.remove(sub_key).is_some())
+    fn make_table(key: &str, value: &str) -> toml::Value {
+        toml::Value::Table(std::iter::once((key.to_string(), String(value.into()))).collect())
+    }
+
+    fn check_and_delete(config: &mut toml::value::Table, key: &str, sub_key: &str) {
+        let _res: Result<std::option::Option<toml::Value>, NoneError> = try {
+            config
+                .get_mut(key)
+                .into_result()?
+                .as_table_mut()
+                .into_result()?
+                .remove(sub_key)
+        };
     }
 
     // Check each possible command line argument
@@ -324,30 +328,14 @@ fn insert_args_to_config(
             WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
             BOOTSTRAP_NODE | SERVICE_ENVS => Array(multiple(arg).collect()),
             ROOT_KEY_PAIR_VALUE => {
-                let _ = check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
-                toml::Value::Table(
-                    std::iter::once((ROOT_KEY_PAIR_VALUE.to_string(), String(single(arg).into())))
-                        .collect(),
-                )
+                check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
+                make_table(k, single(arg))
             }
-            ROOT_KEY_PAIR_FORMAT => toml::Value::Table(
-                std::iter::once((ROOT_KEY_PAIR_FORMAT.to_string(), String(single(arg).into())))
-                    .collect(),
-            ),
+            ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_GENERATE => make_table(k, single(arg)),
             ROOT_KEY_PAIR_PATH => {
-                let _ = check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_VALUE);
-                toml::Value::Table(
-                    std::iter::once((ROOT_KEY_PAIR_PATH.to_string(), String(single(arg).into())))
-                        .collect(),
-                )
+                check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_VALUE);
+                make_table(k, single(arg))
             }
-            ROOT_KEY_PAIR_GENERATE => toml::Value::Table(
-                std::iter::once((
-                    ROOT_KEY_PAIR_GENERATE.to_string(),
-                    String(single(arg).into()),
-                ))
-                .collect(),
-            ),
             _ => String(single(arg).into()),
         };
 
