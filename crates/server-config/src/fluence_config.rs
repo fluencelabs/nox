@@ -16,6 +16,7 @@
 
 use super::defaults::*;
 use super::keys::{decode_key_pair, load_key_pair};
+use crate::dir_config::DirConfig;
 use crate::{BootstrapConfig, KademliaConfig, ListenConfig};
 
 use config_utils::to_abs_path;
@@ -24,12 +25,14 @@ use fluence_libp2p::peerid_serializer;
 use particle_protocol::ProtocolConfig;
 
 use clap::{ArgMatches, Values};
+use derivative::Derivative;
 use eyre::{eyre, WrapErr};
-use libp2p::core::{multiaddr::Protocol, Multiaddr};
-use libp2p::PeerId;
+use libp2p::{
+    core::{multiaddr::Protocol, Multiaddr},
+    PeerId,
+};
 use serde::Deserialize;
-use std::net::SocketAddr;
-use std::{collections::HashMap, net::IpAddr, path::PathBuf, time::Duration};
+use std::{collections::HashMap, net::IpAddr, net::SocketAddr, time::Duration};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
@@ -62,25 +65,15 @@ const ARGS: &[&str] = &[
     MANAGEMENT_PEER_ID,
 ];
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Derivative)]
+#[derivative(Debug)]
 pub struct FluenceConfig {
-    #[serde(flatten)]
-    pub server: NodeConfig,
-    /// Directory, where all certificates are stored.
-    #[serde(default = "default_cert_dir")]
-    pub certificate_dir: String,
-
-    // #[serde(flatten)]
     #[serde(deserialize_with = "parse_or_load_keypair")]
+    #[derivative(Debug = "ignore")]
     pub root_key_pair: KeyPair,
-}
 
-#[derive(Clone, Deserialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[repr(transparent)]
-pub struct PeerIdSerializable(#[serde(with = "peerid_serializer")] PeerId);
+    pub dir_config: DirConfig,
 
-#[derive(Clone, Deserialize, Debug)]
-pub struct NodeConfig {
     /// For TCP connections
     #[serde(default = "default_tcp_port")]
     pub tcp_port: u16,
@@ -116,19 +109,12 @@ pub struct NodeConfig {
     #[serde(default)]
     pub bootstrap_config: BootstrapConfig,
 
+    #[serde(default)]
     pub root_weights: HashMap<PeerIdSerializable, u32>,
-
-    /// Base directory for resources needed by application services
-    #[serde(default = "default_services_basedir")]
-    pub services_base_dir: PathBuf,
 
     #[serde(default)]
     #[serde(deserialize_with = "parse_envs")]
     pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
-
-    /// Base directory for resources needed by application services
-    #[serde(default = "default_stepper_basedir")]
-    pub stepper_base_dir: PathBuf,
 
     #[serde(default)]
     pub protocol_config: ProtocolConfig,
@@ -136,10 +122,6 @@ pub struct NodeConfig {
     /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
     #[serde(default = "default_stepper_pool_size")]
     pub stepper_pool_size: usize,
-
-    /// Path to AIR interpreter .wasm file (aquamarine.wasm)
-    #[serde(default = "default_air_interpreter_path")]
-    pub air_interpreter_path: PathBuf,
 
     #[serde(default)]
     pub kademlia: KademliaConfig,
@@ -178,7 +160,11 @@ pub struct NodeConfig {
     pub management_peer_id: PeerId,
 }
 
-impl NodeConfig {
+#[derive(Clone, Deserialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[repr(transparent)]
+pub struct PeerIdSerializable(#[serde(with = "peerid_serializer")] PeerId);
+
+impl FluenceConfig {
     pub fn external_addresses(&self) -> Vec<Multiaddr> {
         let mut addrs = if let Some(external_address) = self.external_address {
             let external_tcp = {
@@ -353,18 +339,18 @@ fn insert_args_to_config(
 }
 
 fn validate_config(config: FluenceConfig) -> eyre::Result<FluenceConfig> {
-    let exists = config.server.air_interpreter_path.as_path().exists();
-    let is_file = config.server.air_interpreter_path.is_file();
+    let exists = config.dir_config.air_interpreter_path.as_path().exists();
+    let is_file = config.dir_config.air_interpreter_path.is_file();
     if exists && !is_file {
         return Err(eyre!(
             "Invalid path to air interpreter: {:?} is a directory, expected .wasm file",
-            config.server.air_interpreter_path
+            config.dir_config.air_interpreter_path
         ));
     }
     if !exists {
         return Err(eyre!(
             "Invalid path to air interpreter: path {:?} does not exists",
-            config.server.air_interpreter_path
+            config.dir_config.air_interpreter_path
         ));
     }
 
@@ -376,9 +362,10 @@ fn validate_config(config: FluenceConfig) -> eyre::Result<FluenceConfig> {
 pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<FluenceConfig> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
-        .unwrap_or(DEFAULT_CONFIG_FILE);
+        .map(Into::into)
+        .unwrap_or(default_config_file());
 
-    let config_file = to_abs_path(config_file.into());
+    let config_file = to_abs_path(config_file);
 
     log::info!("Loading config from {:?}", config_file);
 
@@ -403,7 +390,7 @@ pub fn deserialize_config(
 
     if arguments.is_present(LOCAL) {
         // if --local is passed, clear bootstrap nodes
-        config.server.bootstrap_nodes = vec![];
+        config.bootstrap_nodes = vec![];
     }
 
     Ok(config)

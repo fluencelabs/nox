@@ -29,7 +29,7 @@ use fluence_libp2p::{
 };
 use particle_closures::{HostClosures, NodeInfo};
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
-use server_config::{default_air_interpreter_path, NetworkConfig, NodeConfig, ServicesConfig};
+use server_config::{FluenceConfig, NetworkConfig, ServicesConfig};
 use trust_graph::{InMemoryStorage, TrustGraph};
 
 use crate::Connectivity;
@@ -48,6 +48,7 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use prometheus::Registry;
+use std::path::Path;
 use std::{io, iter::once, net::SocketAddr};
 
 // TODO: documentation
@@ -66,7 +67,7 @@ pub struct Node<RT: AquaRuntime> {
 }
 
 impl Node<AquamarineVM> {
-    pub fn new(key_pair: Keypair, config: NodeConfig) -> eyre::Result<Box<Self>> {
+    pub fn new(key_pair: Keypair, config: FluenceConfig) -> eyre::Result<Box<Self>> {
         let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
 
         let trust_graph = {
@@ -78,8 +79,8 @@ impl Node<AquamarineVM> {
 
         let vm_config = VmConfig::new(
             local_peer_id,
-            config.stepper_base_dir.clone(),
-            config.air_interpreter_path.clone(),
+            config.dir_config.stepper_base_dir.clone(),
+            config.dir_config.air_interpreter_path.clone(),
         )
         .expect("create vm config");
 
@@ -88,7 +89,7 @@ impl Node<AquamarineVM> {
 
         let services_config = ServicesConfig::new(
             local_peer_id,
-            config.services_base_dir.clone(),
+            config.dir_config.services_base_dir.clone(),
             config.services_envs.clone(),
             config.management_peer_id,
         )
@@ -279,13 +280,12 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 }
 
-pub fn write_default_air_interpreter() -> eyre::Result<()> {
+pub fn write_default_air_interpreter(destination: &Path) -> eyre::Result<()> {
     use air_interpreter_wasm::INTERPRETER_WASM;
     use std::fs::write;
 
-    let destination = default_air_interpreter_path();
-    write(&destination, INTERPRETER_WASM).wrap_err(format!(
-        "writing default INTERPRETER_WASM to {:?}",
+    write(destination, INTERPRETER_WASM).wrap_err(format!(
+        "failed writing default INTERPRETER_WASM to {:?}",
         destination
     ))
 }
@@ -299,19 +299,19 @@ mod tests {
     use libp2p::identity::Keypair;
     use maplit::hashmap;
     use serde_json::json;
-    use server_config::deserialize_config;
+    use server_config::{default_base_dir, deserialize_config};
     use test_utils::ConnectedClient;
 
     #[test]
     fn run_node() {
-        write_default_air_interpreter().unwrap();
+        write_default_air_interpreter(&default_base_dir()).unwrap();
 
         let keypair = Keypair::generate_ed25519();
 
         let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
         let mut config = deserialize_config(<_>::default(), config).expect("deserialize config");
-        config.server.stepper_pool_size = 1;
-        let mut node = Node::new(keypair, config.server).expect("create node");
+        config.stepper_pool_size = 1;
+        let mut node = Node::new(keypair, config).expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();

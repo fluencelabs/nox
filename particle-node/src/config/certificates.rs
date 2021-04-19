@@ -28,7 +28,7 @@ use std::{
 };
 
 /// Loads all certificates from a disk. Creates a root certificate for key pair if there is no one.
-pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> eyre::Result<Vec<Certificate>> {
+pub fn init(certificate_dir: &Path, key_pair: &KeyPair) -> eyre::Result<Vec<Certificate>> {
     let mut certs = load_certificates(certificate_dir).wrap_err_with(|| {
         format!(
             "failed to load root certificates on init from {:?}",
@@ -56,9 +56,7 @@ pub fn init(certificate_dir: &str, key_pair: &KeyPair) -> eyre::Result<Vec<Certi
 
 /// Reads all files in `cert_dir` as certificates.
 /// Throw an error, if one of the files has an incorrect format.
-pub fn load_certificates(cert_dir: &str) -> eyre::Result<Vec<Certificate>> {
-    let cert_dir = Path::new(cert_dir);
-
+pub fn load_certificates(cert_dir: &Path) -> eyre::Result<Vec<Certificate>> {
     // cold start, if there is no directory, create a new one
     if !cert_dir.exists() {
         create_dir(&cert_dir)
@@ -91,7 +89,7 @@ pub fn load_certificates(cert_dir: &str) -> eyre::Result<Vec<Certificate>> {
 }
 
 pub fn store_root_certificate(
-    cert_dir: &str,
+    cert_dir: &Path,
     key_pair: &KeyPair,
     expires_at: Duration,
     issued_at: Duration,
@@ -100,7 +98,7 @@ pub fn store_root_certificate(
     let cert: Certificate =
         Certificate::issue_root(key_pair, key_pair.public(), expires_at, issued_at);
 
-    let root_cert_path = Path::new(cert_dir).join(Path::new("root.cert"));
+    let root_cert_path = cert_dir.join(Path::new("root.cert"));
 
     let mut file = File::create(root_cert_path)?;
 

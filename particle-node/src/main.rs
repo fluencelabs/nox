@@ -77,13 +77,13 @@ fn main() -> eyre::Result<()> {
     "#
     );
 
-    write_default_air_interpreter()?;
-
     let fluence_config = load_config(arg_matches)?;
+
+    write_default_air_interpreter(&fluence_config.dir_config.air_interpreter_path)?;
 
     log::info!(
         "AIR interpreter: {:?}",
-        fluence_config.server.air_interpreter_path
+        fluence_config.dir_config.air_interpreter_path
     );
 
     let fluence = start_fluence(fluence_config)?;
@@ -102,17 +102,17 @@ fn main() -> eyre::Result<()> {
 fn start_fluence(config: FluenceConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
-    certificates::init(config.certificate_dir.as_str(), &config.root_key_pair)
+    certificates::init(&config.dir_config.certificate_dir, &config.root_key_pair)
         .wrap_err("failed to init certificates")?;
 
-    let key_pair = config.root_key_pair;
+    let key_pair = config.root_key_pair.clone();
     log::info!(
         "public key = {}",
         bs58::encode(key_pair.public().to_vec()).into_string()
     );
 
-    let listen_config = config.server.listen_config();
-    let mut node = Node::new(key_pair.into(), config.server).wrap_err("create node instance")?;
+    let listen_config = config.listen_config();
+    let mut node = Node::new(key_pair.into(), config).wrap_err("create node instance")?;
     node.listen(&listen_config)
         .expect("Error starting node listener");
 

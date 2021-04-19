@@ -29,6 +29,7 @@
 mod app_services;
 mod bootstrap_config;
 mod defaults;
+mod dir_config;
 mod fluence_config;
 mod kademlia_config;
 mod keys;
@@ -36,13 +37,12 @@ mod listen_config;
 mod network_config;
 mod services_config;
 
-pub use defaults::default_air_interpreter_path;
+pub use defaults::{air_interpreter_path, default_base_dir};
 pub use fluence_config::{deserialize_config, load_config};
 
 pub use app_services::AppServicesConfig;
 pub use bootstrap_config::BootstrapConfig;
 pub use fluence_config::FluenceConfig;
-pub use fluence_config::NodeConfig;
 pub use kademlia_config::KademliaConfig;
 pub use listen_config::ListenConfig;
 pub use network_config::NetworkConfig;

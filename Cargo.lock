@@ -4286,6 +4286,7 @@ dependencies = [
  "bs58 0.3.1",
  "clap",
  "config-utils",
+ "derivative",
  "eyre",
  "fluence-fork-libp2p",
  "fluence-identity",
