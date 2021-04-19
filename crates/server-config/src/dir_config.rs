@@ -16,6 +16,8 @@
 use crate::air_interpreter_path;
 use crate::defaults::{cert_dir, default_base_dir, services_basedir, stepper_basedir};
 
+use config_utils::create_dirs;
+use eyre::WrapErr;
 use serde::Deserialize;
 use std::{ops::Deref, path::PathBuf};
 
@@ -88,4 +90,16 @@ pub struct ResolvedDirConfig {
     pub services_base_dir: PathBuf,
     pub stepper_base_dir: PathBuf,
     pub air_interpreter_path: PathBuf,
+}
+
+impl ResolvedDirConfig {
+    pub fn create_dirs(&self) -> eyre::Result<()> {
+        create_dirs(&[
+            &self.base_dir,
+            &self.certificate_dir,
+            &self.stepper_base_dir,
+            &self.air_interpreter_path,
+        ])
+        .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
+    }
 }

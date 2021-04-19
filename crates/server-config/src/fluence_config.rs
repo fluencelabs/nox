@@ -338,7 +338,7 @@ fn insert_args_to_config(
     Ok(())
 }
 
-fn validate_config(config: FluenceConfig) -> eyre::Result<FluenceConfig> {
+fn validate_config(config: &FluenceConfig) -> eyre::Result<()> {
     let exists = config.dir_config.air_interpreter_path.as_path().exists();
     let is_file = config.dir_config.air_interpreter_path.is_file();
     if exists && !is_file {
@@ -354,7 +354,7 @@ fn validate_config(config: FluenceConfig) -> eyre::Result<FluenceConfig> {
         ));
     }
 
-    Ok(config)
+    Ok(())
 }
 
 // loads config from arguments and a config file
@@ -373,7 +373,11 @@ pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<FluenceConfig> {
         .wrap_err_with(|| format!("Config wasn't found at {:?}", config_file))?;
     let config = deserialize_config(arguments, file_content)?;
 
-    validate_config(config)
+    validate_config(&config)?;
+
+    config.dir_config.create_dirs()?;
+
+    Ok(config)
 }
 
 pub fn deserialize_config(
