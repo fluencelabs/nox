@@ -299,14 +299,13 @@ mod tests {
     use libp2p::identity::Keypair;
     use maplit::hashmap;
     use serde_json::json;
-    use server_config::{default_base_dir, deserialize_config};
-    use std::fs::create_dir;
+    use server_config::{air_interpreter_path, default_base_dir, deserialize_config};
     use test_utils::ConnectedClient;
 
     #[test]
     fn run_node() {
-        create_dir(default_base_dir()).unwrap();
-        write_default_air_interpreter(&default_base_dir()).unwrap();
+        config_utils::create_dir(default_base_dir()).unwrap();
+        write_default_air_interpreter(&air_interpreter_path(&default_base_dir())).unwrap();
 
         let keypair = Keypair::generate_ed25519();
 

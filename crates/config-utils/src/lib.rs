@@ -28,6 +28,7 @@
 mod config;
 
 pub use config::blueprint_dir;
+pub use config::create_dir;
 pub use config::create_dirs;
 pub use config::modules_dir;
 pub use config::particles_dir;
