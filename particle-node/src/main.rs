@@ -77,16 +77,15 @@ fn main() -> eyre::Result<()> {
     "#
     );
 
-    let fluence_config = load_config(arg_matches)?;
+    let config = load_config(arg_matches)?;
 
-    write_default_air_interpreter(&fluence_config.dir_config.air_interpreter_path)?;
-
+    write_default_air_interpreter(&config.dir_config.air_interpreter_path)?;
     log::info!(
         "AIR interpreter: {:?}",
-        fluence_config.dir_config.air_interpreter_path
+        config.dir_config.air_interpreter_path
     );
 
-    let fluence = start_fluence(fluence_config)?;
+    let fluence = start_fluence(config)?;
     log::info!("Fluence has been successfully started.");
 
     log::info!("Waiting for Ctrl-C to exit...");

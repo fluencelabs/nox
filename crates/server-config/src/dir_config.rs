@@ -79,7 +79,6 @@ impl ResolvedDirConfig {
             &self.base_dir,
             &self.certificate_dir,
             &self.stepper_base_dir,
-            &self.air_interpreter_path,
         ])
         .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
     }

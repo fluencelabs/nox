@@ -43,7 +43,7 @@ pub fn default_prometheus_port() -> u16 {
 }
 
 pub fn default_base_dir() -> PathBuf {
-    format!(".fluence/VERSION_{}", CONFIG_VERSION).into()
+    format!(".fluence/v{}", CONFIG_VERSION).into()
 }
 
 pub fn cert_dir(base_dir: &Path) -> PathBuf {

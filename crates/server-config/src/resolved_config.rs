@@ -237,25 +237,6 @@ fn insert_args_to_config(
     Ok(())
 }
 
-fn validate_config(config: &ResolvedConfig) -> eyre::Result<()> {
-    let exists = config.dir_config.air_interpreter_path.as_path().exists();
-    let is_file = config.dir_config.air_interpreter_path.is_file();
-    if exists && !is_file {
-        return Err(eyre!(
-            "Invalid path to air interpreter: {:?} is a directory, expected .wasm file",
-            config.dir_config.air_interpreter_path
-        ));
-    }
-    if !exists {
-        return Err(eyre!(
-            "Invalid path to air interpreter: path {:?} does not exists",
-            config.dir_config.air_interpreter_path
-        ));
-    }
-
-    Ok(())
-}
-
 // loads config from arguments and a config file
 // TODO: avoid depending on ArgMatches
 pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<ResolvedConfig> {
@@ -271,8 +252,6 @@ pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<ResolvedConfig> {
     let file_content = std::fs::read(&config_file)
         .wrap_err_with(|| format!("Config wasn't found at {:?}", config_file))?;
     let config = deserialize_config(arguments, file_content)?;
-
-    validate_config(&config)?;
 
     config.dir_config.create_dirs()?;
 
