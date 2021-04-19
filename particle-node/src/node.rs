@@ -29,7 +29,7 @@ use fluence_libp2p::{
 };
 use particle_closures::{HostClosures, NodeInfo};
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
-use server_config::{FluenceConfig, NetworkConfig, ServicesConfig};
+use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use trust_graph::{InMemoryStorage, TrustGraph};
 
 use crate::Connectivity;
@@ -67,7 +67,7 @@ pub struct Node<RT: AquaRuntime> {
 }
 
 impl Node<AquamarineVM> {
-    pub fn new(key_pair: Keypair, config: FluenceConfig) -> eyre::Result<Box<Self>> {
+    pub fn new(key_pair: Keypair, config: ResolvedConfig) -> eyre::Result<Box<Self>> {
         let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
 
         let trust_graph = {
@@ -139,7 +139,7 @@ impl Node<AquamarineVM> {
             particle_failures_out,
             registry.into(),
             config.metrics_listen_addr(),
-            config.bootstrap_nodes,
+            config.node_config.bootstrap_nodes,
         ))
     }
 

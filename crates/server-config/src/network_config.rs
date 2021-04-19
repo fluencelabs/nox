@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{BootstrapConfig, FluenceConfig, KademliaConfig};
+use crate::{BootstrapConfig, KademliaConfig, ResolvedConfig};
 
 use particle_protocol::ProtocolConfig;
 
@@ -48,7 +48,7 @@ impl NetworkConfig {
         trust_graph: TrustGraph,
         registry: Option<Registry>,
         key_pair: Keypair,
-        config: &FluenceConfig,
+        config: &ResolvedConfig,
     ) -> Self {
         Self {
             trust_graph,

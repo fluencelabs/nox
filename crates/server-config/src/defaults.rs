@@ -59,7 +59,7 @@ pub fn stepper_basedir(base_dir: &Path) -> PathBuf {
 }
 
 pub fn default_config_file() -> PathBuf {
-    Path::new(DEFAULT_BASE_DIR).join("Config.toml")
+    default_base_dir().join("Config.toml")
 }
 
 pub fn air_interpreter_path(base_dir: &Path) -> PathBuf {

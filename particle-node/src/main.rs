@@ -37,7 +37,7 @@ use particle_node::{
     config::{certificates, create_args},
     write_default_air_interpreter, Node,
 };
-use server_config::{load_config, FluenceConfig};
+use server_config::{load_config, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -99,7 +99,7 @@ fn main() -> eyre::Result<()> {
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()
-fn start_fluence(config: FluenceConfig) -> eyre::Result<impl Stoppable> {
+fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     certificates::init(&config.dir_config.certificate_dir, &config.root_key_pair)

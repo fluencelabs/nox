@@ -19,26 +19,7 @@ use crate::defaults::{cert_dir, default_base_dir, services_basedir, stepper_base
 use config_utils::create_dirs;
 use eyre::WrapErr;
 use serde::Deserialize;
-use std::{ops::Deref, path::PathBuf};
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(untagged)]
-pub enum DirConfig {
-    Unresolved(UnresolvedDirConfig),
-    #[serde(skip)]
-    Resolved(ResolvedDirConfig),
-}
-
-impl Deref for DirConfig {
-    type Target = ResolvedDirConfig;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            DirConfig::Resolved(c) => &c,
-            _ => unreachable!("Couldn't proceed with reading configuration: unexpected internal error. Unexpected call to UnresolvedDirConfig.")
-        }
-    }
-}
+use std::path::PathBuf;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct UnresolvedDirConfig {
