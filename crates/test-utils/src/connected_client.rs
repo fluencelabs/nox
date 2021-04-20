@@ -210,7 +210,6 @@ impl ConnectedClient {
 
     pub fn receive(&mut self) -> Result<Particle> {
         let tout = self.timeout();
-        // let receive = self.client.receive_one();
         let result = task::block_on(timeout(tout, async {
             loop {
                 let result = self.client.receive_one().await;
