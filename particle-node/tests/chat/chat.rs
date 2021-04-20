@@ -127,14 +127,14 @@ fn resolve_service(orig_name: &str, client: &mut ConnectedClient) -> HashSet<Pro
                 (call node ("kad" "neighborhood") ["{name}"] neighbors)
                 (fold neighbors n
                     (seq
-                        (call n ("deprecated" "get_providers") ["{name}"] providers_{orig_name}[])
+                        (call n ("deprecated" "get_providers") ["{name}"] $providers_{orig_name})
                         (next n)
                     )
                 )
             )
             (seq
                 (call node ("op" "identity") [])
-                (call client ("return" "") [providers_{orig_name}])
+                (call client ("return" "") [$providers_{orig_name}])
             )
         )
     "#);

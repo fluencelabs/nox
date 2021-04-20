@@ -210,14 +210,17 @@ impl ConnectedClient {
 
     pub fn receive(&mut self) -> Result<Particle> {
         let tout = self.timeout();
-        let receive = self.client.receive_one();
-        let result = task::block_on(timeout(tout, receive)).wrap_err("receive particle")?;
+        let result = task::block_on(timeout(tout, async {
+            loop {
+                let result = self.client.receive_one().await;
+                if let Some(ClientEvent::Particle { particle, .. }) = result {
+                    break particle;
+                }
+            }
+        }))
+        .wrap_err("receive particle")?;
 
-        if let Some(ClientEvent::Particle { particle, .. }) = result {
-            Ok(particle)
-        } else {
-            bail!("Expected Some(Particle), got {:?}", result)
-        }
+        Ok(result)
     }
 
     pub fn receive_args(&mut self) -> Result<Vec<JValue>> {

@@ -81,13 +81,13 @@ fn get_interfaces() {
                 (call relay ("srv" "list") [] services)
                 (fold services s
                     (seq
-                        (call relay ("srv" "get_interface") [s.$.id!] interfaces[])
+                        (call relay ("srv" "get_interface") [s.$.id!] $interfaces)
                         (next s)
                     )
                 )
             )
             
-            (call client ("return" "") [services interfaces])
+            (call client ("return" "") [services $interfaces])
         )
         "#,
         hashmap! {
@@ -127,13 +127,13 @@ fn get_modules() {
                         (call relay ("dist" "list_modules") [] modules)
                         (fold modules m
                             (seq
-                                (call relay ("dist" "get_module_interface") [m.$.hash!] interfaces[])
+                                (call relay ("dist" "get_module_interface") [m.$.hash!] $interfaces)
                                 (next m)
                             )
                         )               
                     )                    
                 )
-                (call client ("return" "") [modules interfaces])
+                (call client ("return" "") [modules $interfaces])
             )
         "#,
         hashmap! {
@@ -224,18 +224,18 @@ fn explore_services() {
                 (seq
                     (fold neighs_top n
                         (seq
-                            (call n ("kad" "neighborhood") [n] neighs_inner[])
+                            (call n ("kad" "neighborhood") [n] $neighs_inner)
                             (next n)
                         )
                     )
-                    (fold neighs_inner ns
+                    (fold $neighs_inner ns
                         (seq
                             ; HACK: convert ns from iterable to a value
                             (call relay ("op" "identity") [ns] ns_wrapped)
                             (seq
                                 (fold ns_wrapped.$[0]! n
                                     (seq
-                                        (call n ("peer" "identify") [] services[])
+                                        (call n ("peer" "identify") [] $services)
                                         (next n)
                                     )
                                 )
@@ -247,7 +247,7 @@ fn explore_services() {
             )
             (seq
                 (call relay ("op" "identity") [])
-                (call client ("return" "") [services neighs_inner neighs_top])
+                (call client ("return" "") [$services $neighs_inner neighs_top])
             )
         )
         "#,
@@ -278,10 +278,10 @@ fn explore_services_fixed() {
             (fold peers p
                 (par
                     (seq
-                        (call p ("srv" "list") [] services[])
+                        (call p ("srv" "list") [] $services)
                         (seq
                             (call relayId ("op" "identity") [])
-                            (call %init_peer_id% ("return" "") [p services])
+                            (call %init_peer_id% ("return" "") [p $services])
                         )
                     )
                     (next p)

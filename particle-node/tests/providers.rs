@@ -40,16 +40,16 @@ fn add_providers() {
     client.send_particle(
         r#"
         (seq
-            (call node ("deprecated" "add_provider") [key provider] void[])
+            (call node ("deprecated" "add_provider") [key provider])
             (seq
-                (call node ("deprecated" "add_provider") [key2 provider2] void[])
+                (call node ("deprecated" "add_provider") [key2 provider2])
                 (seq
-                    (call node ("deprecated" "get_providers") [key2] providers[])
+                    (call node ("deprecated" "get_providers") [key2] $providers)
                     (seq
-                        (call node ("deprecated" "get_providers") [key] providers[])
+                        (call node ("deprecated" "get_providers") [key] $providers)
                         (seq
-                            (call node2 ("op" "identity") [] void[])
-                            (call client2 ("return" "") [providers] void[])
+                            (call node2 ("op" "identity") [])
+                            (call client2 ("return" "") [$providers])
                         )
                     )
                 )
@@ -103,13 +103,13 @@ fn add_providers_to_neighborhood() {
                 (seq
                     (fold neighborhood i
                         (seq
-                            (call i ("deprecated" "add_provider") [key provider] void[])
+                            (call i ("deprecated" "add_provider") [key provider])
                             (next i)
                         )
                     )
                     (fold neighborhood i
                         (seq
-                            (call i ("deprecated" "get_providers") [key] providers[])
+                            (call i ("deprecated" "get_providers") [key] $providers)
                             (next i)
                         )
                     )
@@ -117,21 +117,21 @@ fn add_providers_to_neighborhood() {
                 (seq
                     (fold neighborhood i
                         (seq
-                            (call i ("deprecated" "add_provider") [key2 provider2] void[])
+                            (call i ("deprecated" "add_provider") [key2 provider2])
                             (next i)
                         )
                     )
                     (fold neighborhood i
                         (seq
-                            (call i ("deprecated" "get_providers") [key2] providers[])
+                            (call i ("deprecated" "get_providers") [key2] $providers)
                             (next i)
                         )
                     )
                 )
             )
             (seq
-                (call node ("op" "identity") [] void[])
-                (call client2 ("return" "") [providers] void[])
+                (call node ("op" "identity") [])
+                (call client2 ("return" "") [$providers])
             )
         )
     )

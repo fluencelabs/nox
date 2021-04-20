@@ -46,7 +46,7 @@ fn make() {
         make_call_service_closure(call_service_in_b.clone(), call_service_out_b.clone()),
     );
 
-    let script = r#"(call client_b ("return" "") [a b c] void[])"#.to_string();
+    let script = r#"(call client_b ("return" "") [a b c])"#.to_string();
     let data = hashmap! {
         "client_b" => json!(client_b.to_string()),
         "a" => json!("a_value"),
