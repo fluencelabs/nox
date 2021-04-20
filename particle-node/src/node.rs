@@ -328,8 +328,8 @@ mod tests {
         client.send_particle(
             r#"
                 (seq
-                    (call relay ("op" "identity") [] void[])
-                    (call client ("return" "") [name] void[])
+                    (call relay ("op" "identity") [])
+                    (call client ("return" "") [name])
                 )
             "#,
             data.clone(),
