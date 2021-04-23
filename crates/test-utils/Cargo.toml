@@ -19,7 +19,7 @@ aquamarine = { path = "../../aquamarine" }
 connection-pool = { path = "../../connection-pool" }
 script-storage = { path = "../../script-storage" }
 
-air-interpreter-wasm = "0.1.0-bwu.2"
+air-interpreter-wasm = "=0.1.0-bwu.2"
 aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
 fluence-identity = "0.3.0"
 fluence-faas = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }

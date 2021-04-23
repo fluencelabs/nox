@@ -11,7 +11,7 @@ fluence-libp2p = { path = "../libp2p" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
-air-interpreter-wasm = "0.1.0-bwu.2"
+air-interpreter-wasm = "=0.1.0-bwu.2"
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
