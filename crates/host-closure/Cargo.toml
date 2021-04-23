@@ -13,9 +13,9 @@ control-macro = { path = "../control-macro" }
 #aquamarine-vm = "0.5.2"
 #fluence-app-service = "0.5.2"
 
-fce = { git = "https://github.com/fluencelabs/fce", branch = "version_patch" }
-aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "version_patch" }
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "version_patch" }
+fce = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
 
 
 serde_json = "1.0.64"

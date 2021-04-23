@@ -158,10 +158,10 @@ checksum = "28b2cd92db5cbd74e8e5028f7e27dd7aa3090e89e4f2a197cc7c8dfb69c7063b"
 [[package]]
 name = "aqua-interpreter-interface"
 version = "0.4.0"
-source = "git+https://github.com/fluencelabs/air?branch=bwu#693ead1e677a65af1b50f32d8d78061e98e51492"
+source = "git+https://github.com/fluencelabs/air?branch=bwu#c11435f3bdc78083247111576182042a0af0fe42"
 dependencies = [
  "fluence 0.4.2",
- "fluence-it-types",
+ "fluence-it-types 0.2.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
  "serde",
 ]
 
@@ -190,7 +190,7 @@ dependencies = [
 [[package]]
 name = "aquamarine-vm"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+source = "git+https://github.com/fluencelabs/fce?branch=sdk_optimizations#a2710a0d086191cc2e4fdb836a9555aec216b5c6"
 dependencies = [
  "aqua-interpreter-interface",
  "fluence-faas",
@@ -1444,7 +1444,7 @@ dependencies = [
 [[package]]
 name = "fce"
 version = "0.4.0"
-source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+source = "git+https://github.com/fluencelabs/fce?branch=sdk_optimizations#a2710a0d086191cc2e4fdb836a9555aec216b5c6"
 dependencies = [
  "anyhow",
  "boolinator",
@@ -1472,7 +1472,7 @@ dependencies = [
 [[package]]
 name = "fce-module-info-parser"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+source = "git+https://github.com/fluencelabs/fce?branch=sdk_optimizations#a2710a0d086191cc2e4fdb836a9555aec216b5c6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1496,12 +1496,12 @@ dependencies = [
 [[package]]
 name = "fce-utils"
 version = "0.1.29"
-source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+source = "git+https://github.com/fluencelabs/fce?branch=sdk_optimizations#a2710a0d086191cc2e4fdb836a9555aec216b5c6"
 
 [[package]]
 name = "fce-wit-generator"
 version = "0.3.0"
-source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+source = "git+https://github.com/fluencelabs/fce?branch=sdk_optimizations#a2710a0d086191cc2e4fdb836a9555aec216b5c6"
 dependencies = [
  "cargo_toml",
  "fce-wit-parser",
@@ -1518,7 +1518,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-interfaces"
 version = "0.2.0"
-source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+source = "git+https://github.com/fluencelabs/fce?branch=sdk_optimizations#a2710a0d086191cc2e4fdb836a9555aec216b5c6"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -1527,7 +1527,7 @@ dependencies = [
 [[package]]
 name = "fce-wit-parser"
 version = "0.4.0"
-source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+source = "git+https://github.com/fluencelabs/fce?branch=sdk_optimizations#a2710a0d086191cc2e4fdb836a9555aec216b5c6"
 dependencies = [
  "anyhow",
  "fce-wit-interfaces",
@@ -1599,7 +1599,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+source = "git+https://github.com/fluencelabs/fce?branch=sdk_optimizations#a2710a0d086191cc2e4fdb836a9555aec216b5c6"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1639,7 +1639,7 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+source = "git+https://github.com/fluencelabs/fce?branch=sdk_optimizations#a2710a0d086191cc2e4fdb836a9555aec216b5c6"
 dependencies = [
  "cmd_lib",
  "fce",
@@ -2135,12 +2135,21 @@ dependencies = [
 [[package]]
 name = "fluence-it-types"
 version = "0.2.0"
-source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
+source = "git+https://github.com/fluencelabs/interface-types?branch=optimizations#5df263876fb5645674228cbbdd6288b33d361d8e"
 dependencies = [
- "it-to-bytes",
+ "it-to-bytes 0.1.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
  "nom",
  "serde",
  "wast",
+]
+
+[[package]]
+name = "fluence-it-types"
+version = "0.2.0"
+source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
+dependencies = [
+ "it-to-bytes 0.1.0 (git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909)",
+ "serde",
 ]
 
 [[package]]
@@ -2818,13 +2827,18 @@ checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 [[package]]
 name = "it-lilo-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
+source = "git+https://github.com/fluencelabs/interface-types?branch=optimizations#5df263876fb5645674228cbbdd6288b33d361d8e"
 dependencies = [
- "fluence-it-types",
+ "fluence-it-types 0.2.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
  "log",
  "paste",
  "thiserror",
 ]
+
+[[package]]
+name = "it-to-bytes"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/interface-types?branch=optimizations#5df263876fb5645674228cbbdd6288b33d361d8e"
 
 [[package]]
 name = "it-to-bytes"
@@ -2868,7 +2882,7 @@ checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 name = "ivalue-utils"
 version = "0.1.0"
 dependencies = [
- "fluence-it-types",
+ "fluence-it-types 0.2.0 (git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909)",
  "serde_json",
 ]
 
@@ -5312,11 +5326,11 @@ dependencies = [
 [[package]]
 name = "wasmer-interface-types-fl"
 version = "0.20.0"
-source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
+source = "git+https://github.com/fluencelabs/interface-types?branch=optimizations#5df263876fb5645674228cbbdd6288b33d361d8e"
 dependencies = [
- "fluence-it-types",
+ "fluence-it-types 0.2.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
  "it-lilo-utils",
- "it-to-bytes",
+ "it-to-bytes 0.1.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
  "itertools 0.10.0",
  "log",
  "nom",
