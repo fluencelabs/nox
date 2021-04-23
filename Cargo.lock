@@ -161,7 +161,7 @@ version = "0.4.0"
 source = "git+https://github.com/fluencelabs/air?branch=bwu#c11435f3bdc78083247111576182042a0af0fe42"
 dependencies = [
  "fluence 0.4.2",
- "fluence-it-types 0.2.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
+ "fluence-it-types",
  "serde",
 ]
 
@@ -2137,19 +2137,10 @@ name = "fluence-it-types"
 version = "0.2.0"
 source = "git+https://github.com/fluencelabs/interface-types?branch=optimizations#5df263876fb5645674228cbbdd6288b33d361d8e"
 dependencies = [
- "it-to-bytes 0.1.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
+ "it-to-bytes",
  "nom",
  "serde",
  "wast",
-]
-
-[[package]]
-name = "fluence-it-types"
-version = "0.2.0"
-source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
-dependencies = [
- "it-to-bytes 0.1.0 (git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909)",
- "serde",
 ]
 
 [[package]]
@@ -2829,7 +2820,7 @@ name = "it-lilo-utils"
 version = "0.1.0"
 source = "git+https://github.com/fluencelabs/interface-types?branch=optimizations#5df263876fb5645674228cbbdd6288b33d361d8e"
 dependencies = [
- "fluence-it-types 0.2.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
+ "fluence-it-types",
  "log",
  "paste",
  "thiserror",
@@ -2839,11 +2830,6 @@ dependencies = [
 name = "it-to-bytes"
 version = "0.1.0"
 source = "git+https://github.com/fluencelabs/interface-types?branch=optimizations#5df263876fb5645674228cbbdd6288b33d361d8e"
-
-[[package]]
-name = "it-to-bytes"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
 
 [[package]]
 name = "itertools"
@@ -2882,7 +2868,7 @@ checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 name = "ivalue-utils"
 version = "0.1.0"
 dependencies = [
- "fluence-it-types 0.2.0 (git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909)",
+ "fluence-it-types",
  "serde_json",
 ]
 
@@ -5328,9 +5314,9 @@ name = "wasmer-interface-types-fl"
 version = "0.20.0"
 source = "git+https://github.com/fluencelabs/interface-types?branch=optimizations#5df263876fb5645674228cbbdd6288b33d361d8e"
 dependencies = [
- "fluence-it-types 0.2.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
+ "fluence-it-types",
  "it-lilo-utils",
- "it-to-bytes 0.1.0 (git+https://github.com/fluencelabs/interface-types?branch=optimizations)",
+ "it-to-bytes",
  "itertools 0.10.0",
  "log",
  "nom",
