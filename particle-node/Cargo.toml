@@ -54,7 +54,7 @@ parking_lot = "0.11.0"
 particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }
 json-utils = { path = "../crates/json-utils" }
-fluence-app-service = "0.5.2"
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "version_patch" }
 fluence-libp2p = { path = "../crates/libp2p" }
 base64 = "0.13.0"
 maplit = "1.0.2"

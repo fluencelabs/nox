@@ -27,3 +27,12 @@ members = [
 exclude = [
     "particle-node/tests/tetraplets",
 ]
+
+[patch.crates-io]
+fluence-it-types = { git = "https://github.com/fluencelabs/interface-types", rev = "9095389a5af6e5e334be898437cee5b13f5b4909" }
+aqua-interpreter-interface = { git = "https://github.com/fluencelabs/air", branch = "bwu" }
+fce = { git = "https://github.com/fluencelabs/fce", branch = "version_patch" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "version_patch" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "version_patch" }
+wasmer-wit = { package = "wasmer-interface-types-fl", git = "https://github.com/fluencelabs/interface-types", rev = "9095389a5af6e5e334be898437cee5b13f5b4909" }
+it-lilo-utils = { git = "https://github.com/fluencelabs/interface-types", rev = "9095389a5af6e5e334be898437cee5b13f5b4909" }

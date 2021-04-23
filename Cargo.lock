@@ -157,12 +157,11 @@ checksum = "28b2cd92db5cbd74e8e5028f7e27dd7aa3090e89e4f2a197cc7c8dfb69c7063b"
 
 [[package]]
 name = "aqua-interpreter-interface"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4c49b8a5fe1336a9c6981be09cb13706c7d9083e48588d692120b5080a13278"
+version = "0.4.0"
+source = "git+https://github.com/fluencelabs/air?branch=bwu#693ead1e677a65af1b50f32d8d78061e98e51492"
 dependencies = [
- "fluence",
- "fluence-it-types",
+ "fluence 0.4.2",
+ "fluence-it-types 0.2.0",
  "serde",
 ]
 
@@ -190,12 +189,11 @@ dependencies = [
 
 [[package]]
 name = "aquamarine-vm"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ba3f6550b35f2b8aca0abb9de64744c0d50a8bc58ed14509e8456a74a2efa8"
+version = "0.6.0"
+source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
 dependencies = [
  "aqua-interpreter-interface",
- "fluence-faas",
+ "fluence-faas 0.6.0",
  "log",
  "maplit",
  "parking_lot 0.11.1",
@@ -300,24 +298,24 @@ dependencies = [
  "httparse",
  "lazy_static",
  "log",
- "pin-project 1.0.6",
+ "pin-project 1.0.7",
 ]
 
 [[package]]
 name = "async-io"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9315f8f07556761c3e48fec2e6b276004acf426e6dc068b2c2251854d65ee0fd"
+checksum = "fcb9af4888a70ad78ecb5efcb0ba95d66a3cf54a88b62ae81559954c7588c7a2"
 dependencies = [
  "concurrent-queue",
  "fastrand",
  "futures-lite",
  "libc",
  "log",
- "nb-connect",
  "once_cell",
  "parking",
  "polling",
+ "socket2 0.4.0",
  "vec-arena",
  "waker-fn",
  "winapi",
@@ -325,9 +323,9 @@ dependencies = [
 
 [[package]]
 name = "async-lock"
-version = "2.3.0"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1996609732bde4a9988bc42125f55f2af5f3c36370e27c778d5191a4a1b63bfb"
+checksum = "e6a8ea61bf9947a1007c5cada31e647dbc77b103c679858150003ba697ea798b"
 dependencies = [
  "event-listener",
 ]
@@ -428,9 +426,9 @@ checksum = "e91831deabf0d6d7ec49552e489aed63b7456a7a3c46cff62adad428110b0af0"
 
 [[package]]
 name = "async-trait"
-version = "0.1.49"
+version = "0.1.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "589652ce7ccb335d1e7ecb3be145425702b290dbcb7029bbeaae263fc1d87b48"
+checksum = "0b98e84bbb4cbcdd97da190ba0c58a1bb0de2c1fdf67d159e192ed766aeca722"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -491,9 +489,9 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "backtrace"
-version = "0.3.56"
+version = "0.3.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d117600f438b1707d4e4ae15d3595657288f8235a0eb593e80ecc98ab34e1bc"
+checksum = "78ed203b9ba68b242c62b3fb7480f589dd49829be1edb3fe8fc8b4ffda2dcb8d"
 dependencies = [
  "addr2line",
  "cfg-if 1.0.0",
@@ -735,10 +733,21 @@ version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8504b63dd1249fd1745b7b4ef9b6f7b107ddeb3c95370043c7dbcc38653a2679"
 dependencies = [
- "semver",
+ "semver 0.9.0",
  "serde",
  "toml",
  "url",
+]
+
+[[package]]
+name = "cargo_toml"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "513d17226888c7b8283ac02a1c1b0d8a9d4cbf6db65dfadb79f598f5d7966fe9"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "toml",
 ]
 
 [[package]]
@@ -878,9 +887,9 @@ dependencies = [
 
 [[package]]
 name = "const_fn"
-version = "0.4.6"
+version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "076a6803b0dacd6a88cfe64deba628b01533ff5ef265687e6938280c1afd0a28"
+checksum = "402da840495de3f976eaefc3485b7f5eb5b0bf9761f9a47be27fe975b3b8c2ec"
 
 [[package]]
 name = "constant_time_eq"
@@ -1205,9 +1214,9 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9d6ddad5866bb2170686ed03f6839d31a76e5407d80b1c334a2c24618543ffa"
+checksum = "5f2c43f534ea4b0b049015d00269734195e6d3f0f6635cb692251aca6f9f8b3c"
 dependencies = [
  "darling_core",
  "darling_macro",
@@ -1215,9 +1224,9 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9ced1fd13dc386d5a8315899de465708cf34ee2a6d9394654515214e67bb846"
+checksum = "8e91455b86830a1c21799d94524df0845183fa55bafd9aa137b01c7d1065fa36"
 dependencies = [
  "fnv",
  "ident_case",
@@ -1229,9 +1238,9 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a7a1445d54b2f9792e3b31a3e715feabbace393f38dc4ffd49d94ee9bc487d5"
+checksum = "29b5acf0dea37a7f66f7b25d2c5e93fd46f8f6968b1a5d7a3e02e97768afc95a"
 dependencies = [
  "darling_core",
  "quote",
@@ -1440,10 +1449,10 @@ checksum = "c75a27d84a4a5622cc3a30fcd02418cccce10e6964af80fe99564d3d8731ec19"
 dependencies = [
  "anyhow",
  "boolinator",
- "fce-utils",
- "fce-wit-generator",
- "fce-wit-interfaces",
- "fce-wit-parser",
+ "fce-utils 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fce-wit-generator 0.2.0",
+ "fce-wit-interfaces 0.1.29",
+ "fce-wit-parser 0.2.0",
  "log",
  "multi-map",
  "multimap",
@@ -1452,11 +1461,68 @@ dependencies = [
  "safe-transmute",
  "serde",
  "thiserror",
- "wasmer-interface-types-fl",
+ "wasmer-interface-types-fl 0.17.24",
  "wasmer-runtime-core-fl",
  "wasmer-runtime-fl",
  "wasmer-wasi-fl",
 ]
+
+[[package]]
+name = "fce"
+version = "0.4.0"
+source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+dependencies = [
+ "anyhow",
+ "boolinator",
+ "fce-module-info-parser",
+ "fce-utils 0.1.29 (git+https://github.com/fluencelabs/fce?branch=version_patch)",
+ "fce-wit-generator 0.3.0",
+ "fce-wit-interfaces 0.2.0",
+ "fce-wit-parser 0.4.0",
+ "it-lilo-utils",
+ "log",
+ "multimap",
+ "once_cell",
+ "parity-wasm",
+ "paste",
+ "pwasm-utils",
+ "semver 0.11.0",
+ "serde",
+ "thiserror",
+ "wasmer-interface-types-fl 0.20.0",
+ "wasmer-runtime-core-fl",
+ "wasmer-runtime-fl",
+ "wasmer-wasi-fl",
+]
+
+[[package]]
+name = "fce-module-info-parser"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "fluence-sdk-main 0.6.0",
+ "semver 0.11.0",
+ "serde",
+ "thiserror",
+ "walrus 0.18.0",
+ "wasmer-runtime-core-fl",
+]
+
+[[package]]
+name = "fce-timestamp-macro"
+version = "0.6.0"
+source = "git+https://github.com/fluencelabs/rust-sdk#1755202195c1e2a86c962219ac1420664afe3d49"
+dependencies = [
+ "chrono",
+ "quote",
+]
+
+[[package]]
+name = "fce-utils"
+version = "0.1.29"
+source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
 
 [[package]]
 name = "fce-utils"
@@ -1470,13 +1536,30 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1eca715cf832f99fd59dae4f639e4437e5ac92a4470e0879624049f6cb1a3910"
 dependencies = [
- "fce-wit-parser",
+ "fce-wit-parser 0.2.0",
  "fluence-sdk-wit 0.2.18",
  "once_cell",
  "serde",
  "serde_json",
- "walrus",
- "wasmer-interface-types-fl",
+ "walrus 0.17.0",
+ "wasmer-interface-types-fl 0.17.24",
+]
+
+[[package]]
+name = "fce-wit-generator"
+version = "0.3.0"
+source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+dependencies = [
+ "cargo_toml",
+ "fce-wit-parser 0.4.0",
+ "fluence-sdk-wit 0.6.0 (git+https://github.com/fluencelabs/rust-sdk?branch=optimizations)",
+ "it-lilo-utils",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "walrus 0.18.0",
+ "wasmer-interface-types-fl 0.20.0",
 ]
 
 [[package]]
@@ -1486,7 +1569,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c6afb4d6525ec972f27f6d65324efcb8b2aee4e11fdf6afc4c047e91efcb58"
 dependencies = [
  "multimap",
- "wasmer-interface-types-fl",
+ "wasmer-interface-types-fl 0.17.24",
+]
+
+[[package]]
+name = "fce-wit-interfaces"
+version = "0.2.0"
+source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+dependencies = [
+ "multimap",
+ "wasmer-interface-types-fl 0.20.0",
 ]
 
 [[package]]
@@ -1496,10 +1588,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f59267a5533d352406b7203eee4b9fe918f4671f2f66a990cab9632f528c952"
 dependencies = [
  "anyhow",
- "fce-wit-interfaces",
+ "fce-wit-interfaces 0.1.29",
  "serde",
- "walrus",
- "wasmer-interface-types-fl",
+ "walrus 0.17.0",
+ "wasmer-interface-types-fl 0.17.24",
+ "wasmer-runtime-core-fl",
+]
+
+[[package]]
+name = "fce-wit-parser"
+version = "0.4.0"
+source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+dependencies = [
+ "anyhow",
+ "fce-wit-interfaces 0.2.0",
+ "nom",
+ "semver 0.11.0",
+ "serde",
+ "thiserror",
+ "walrus 0.18.0",
+ "wasmer-interface-types-fl 0.20.0",
  "wasmer-runtime-core-fl",
 ]
 
@@ -1540,21 +1648,31 @@ dependencies = [
 
 [[package]]
 name = "fluence"
-version = "0.2.18"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27d9a5e4292d7bbd809a0e968e3c3aacac91cbc5acab3e26ee1e1d726f0aab24"
+checksum = "31068fe4873478f9c59f01230dc6f23d504d8c11a36d6b6c51693b20c6d2570e"
 dependencies = [
- "fluence-sdk-macro 0.2.18",
- "fluence-sdk-main 0.2.18",
+ "fluence-sdk-macro 0.4.2",
+ "fluence-sdk-main 0.4.2",
+]
+
+[[package]]
+name = "fluence"
+version = "0.6.0"
+source = "git+https://github.com/fluencelabs/rust-sdk#1755202195c1e2a86c962219ac1420664afe3d49"
+dependencies = [
+ "fce-timestamp-macro",
+ "fluence-sdk-macro 0.6.0",
+ "fluence-sdk-main 0.6.0",
+ "serde",
 ]
 
 [[package]]
 name = "fluence-app-service"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64788737ce00700efe6a1e45f7462d3bdba6765891d76b81c806f250f8062f0"
+version = "0.6.0"
+source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
 dependencies = [
- "fluence-faas",
+ "fluence-faas 0.6.0",
  "log",
  "maplit",
  "serde",
@@ -1596,8 +1714,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00434a1581cfdb781b889f1c11e2b8b6ad160a717021e62054be2e9796c1d13d"
 dependencies = [
  "cmd_lib",
- "fce",
- "fce-utils",
+ "fce 0.3.0",
+ "fce-utils 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
  "fluence-sdk-main 0.4.2",
  "itertools 0.9.0",
  "log",
@@ -1607,7 +1725,31 @@ dependencies = [
  "serde_json",
  "thiserror",
  "toml",
- "wasmer-interface-types-fl",
+ "wasmer-interface-types-fl 0.17.24",
+ "wasmer-runtime-core-fl",
+ "wasmer-runtime-fl",
+ "wasmer-wasi-fl",
+]
+
+[[package]]
+name = "fluence-faas"
+version = "0.6.0"
+source = "git+https://github.com/fluencelabs/fce?branch=version_patch#2a23e5c07ea6a9963a5a019fe0cad235b950aa87"
+dependencies = [
+ "cmd_lib",
+ "fce 0.4.0",
+ "fce-utils 0.1.29 (git+https://github.com/fluencelabs/fce?branch=version_patch)",
+ "fluence 0.6.0",
+ "fluence-sdk-main 0.6.0",
+ "itertools 0.9.0",
+ "log",
+ "safe-transmute",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thiserror",
+ "toml",
+ "wasmer-interface-types-fl 0.20.0",
  "wasmer-runtime-core-fl",
  "wasmer-runtime-fl",
  "wasmer-wasi-fl",
@@ -1646,7 +1788,7 @@ dependencies = [
  "futures",
  "lazy_static",
  "parking_lot 0.11.1",
- "pin-project 1.0.6",
+ "pin-project 1.0.7",
  "smallvec",
  "wasm-timer",
 ]
@@ -1671,7 +1813,7 @@ dependencies = [
  "log",
  "multihash",
  "parking_lot 0.11.1",
- "pin-project 1.0.6",
+ "pin-project 1.0.7",
  "prost 0.7.0",
  "prost-build",
  "rand 0.7.3",
@@ -1900,7 +2042,7 @@ checksum = "530f5bab1797304462d3a50a4099ba8cd455b52321518454b81e23c2dc2a406a"
 dependencies = [
  "futures",
  "log",
- "pin-project 1.0.6",
+ "pin-project 1.0.7",
  "rand 0.7.3",
  "salsa20",
  "sha3",
@@ -2037,7 +2179,7 @@ dependencies = [
  "bytes 1.0.1",
  "futures",
  "log",
- "pin-project 1.0.6",
+ "pin-project 1.0.7",
  "smallvec",
  "unsigned-varint 0.7.0",
 ]
@@ -2091,7 +2233,18 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b81c770e52b35e2406f8251f6c01b3b882c3eaed3029731d8c19c74dc1b423c"
 dependencies = [
- "it-to-bytes",
+ "it-to-bytes 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nom",
+ "serde",
+ "wast",
+]
+
+[[package]]
+name = "fluence-it-types"
+version = "0.2.0"
+source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
+dependencies = [
+ "it-to-bytes 0.1.0 (git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909)",
  "nom",
  "serde",
  "wast",
@@ -2118,15 +2271,6 @@ dependencies = [
 
 [[package]]
 name = "fluence-sdk-macro"
-version = "0.2.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea1a7c75a617f827d1ba9a17b4d84e1565ab239915c63f5a85c41f89a9f1d4ba"
-dependencies = [
- "fluence-sdk-wit 0.2.18",
-]
-
-[[package]]
-name = "fluence-sdk-macro"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76ce80dc2d7c3db828fb31b95e75c372fde7a9a25dfa2b0d9beac07379b890a6"
@@ -2135,14 +2279,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "fluence-sdk-main"
-version = "0.2.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6edcc983f9517c1b6bf9f851ef27f2894a3159aaa4a2fb6c9deb2ae8ecb603fa"
+name = "fluence-sdk-macro"
+version = "0.6.0"
+source = "git+https://github.com/fluencelabs/rust-sdk#1755202195c1e2a86c962219ac1420664afe3d49"
 dependencies = [
- "fluence-sdk-macro 0.2.18",
- "log",
- "serde",
+ "fluence-sdk-wit 0.6.0 (git+https://github.com/fluencelabs/rust-sdk)",
 ]
 
 [[package]]
@@ -2152,6 +2293,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29cce53288e08ed86ebe36c64d8eb641a95e1d0f7f75da969b29e16ab0d7d406"
 dependencies = [
  "fluence-sdk-macro 0.4.2",
+ "log",
+ "serde",
+]
+
+[[package]]
+name = "fluence-sdk-main"
+version = "0.6.0"
+source = "git+https://github.com/fluencelabs/rust-sdk#1755202195c1e2a86c962219ac1420664afe3d49"
+dependencies = [
+ "fluence-sdk-macro 0.6.0",
  "log",
  "serde",
 ]
@@ -2175,6 +2326,32 @@ name = "fluence-sdk-wit"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56d835812bab8fb6f261b9e37355b9bf0a28a16123580145ce0fe44ef4363144"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+ "uuid",
+]
+
+[[package]]
+name = "fluence-sdk-wit"
+version = "0.6.0"
+source = "git+https://github.com/fluencelabs/rust-sdk?branch=optimizations#ba7af66ca834fbaa9e708029d950caf4b0729ba8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+ "uuid",
+]
+
+[[package]]
+name = "fluence-sdk-wit"
+version = "0.6.0"
+source = "git+https://github.com/fluencelabs/rust-sdk#1755202195c1e2a86c962219ac1420664afe3d49"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2564,7 +2741,7 @@ dependencies = [
  "aquamarine-vm",
  "bs58 0.4.0",
  "control-macro",
- "fce",
+ "fce 0.4.0",
  "fluence-app-service",
  "ivalue-utils",
  "json-utils",
@@ -2588,9 +2765,9 @@ dependencies = [
 
 [[package]]
 name = "http-types"
-version = "2.10.0"
+version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32613ebb139d1d430ef5783676f84abfa06fc5f2b4b5a25220cdeeff7e16ef5c"
+checksum = "686f600cccfb9d96c45550bac47b592bc88191a0dd965e9d55848880c2c5a45f"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -2610,9 +2787,9 @@ dependencies = [
 
 [[package]]
 name = "httparse"
-version = "1.3.6"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc35c995b9d93ec174cf9a27d425c7892722101e14993cd227fdb51d70cf9589"
+checksum = "4a1ce40d6fc9764887c2fdc7305c3dcc429ba11ff981c1509416afd5697e4437"
 
 [[package]]
 name = "humantime"
@@ -2653,9 +2830,9 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "idna"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89829a5d69c23d348314a7ac337fe39173b61149a9864deabd260983aed48c21"
+checksum = "418a0a6fab821475f634efe3ccc45c013f742efe03d853e8d3355d5cb850ecf8"
 dependencies = [
  "matches",
  "unicode-bidi",
@@ -2685,9 +2862,9 @@ dependencies = [
 
 [[package]]
 name = "if-watch"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "144c0ecbda48cc819482c37e460723b634dc060e23922f8ace87d94ff95ea4e5"
+checksum = "ae8ab7f67bad3240049cb24fb9cb0b4c2c6af4c245840917fbbdededeee91179"
 dependencies = [
  "async-io",
  "futures",
@@ -2760,6 +2937,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 
 [[package]]
+name = "it-lilo-utils"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
+dependencies = [
+ "fluence-it-types 0.2.0",
+ "log",
+ "paste",
+ "thiserror",
+]
+
+[[package]]
+name = "it-to-bytes"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
+
+[[package]]
 name = "it-to-bytes"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2802,7 +2995,7 @@ checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 name = "ivalue-utils"
 version = "0.1.0"
 dependencies = [
- "fluence-it-types",
+ "fluence-it-types 0.2.0",
  "serde_json",
 ]
 
@@ -2879,9 +3072,9 @@ checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
 
 [[package]]
 name = "lexical-core"
-version = "0.7.5"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21f866863575d0e1d654fbeeabdc927292fdf862873dc3c96c6f753357e13374"
+checksum = "6607c62aa161d23d17a9072cc5da0be67cdfc89d3afb1e8d9c842bebc2525ffe"
 dependencies = [
  "arrayvec",
  "bitflags",
@@ -3095,16 +3288,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "nb-connect"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a19900e7eee95eb2b3c2e26d12a874cc80aaf750e31be6fcbe743ead369fa45d"
-dependencies = [
- "libc",
- "socket2 0.4.0",
 ]
 
 [[package]]
@@ -3344,7 +3527,7 @@ dependencies = [
  "blake3",
  "eyre",
  "faster-hex",
- "fce-wit-parser",
+ "fce-wit-parser 0.4.0",
  "fluence-app-service",
  "fluence-fork-libp2p-core",
  "fstrings",
@@ -3476,10 +3659,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
+
+[[package]]
 name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
+
+[[package]]
+name = "pest"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10f4872ae94d7b90ae48754df22fd42ad52ce740b8f370b03da4835417403e53"
+dependencies = [
+ "ucd-trie",
+]
 
 [[package]]
 name = "petgraph"
@@ -3502,11 +3700,11 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.0.6"
+version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc174859768806e91ae575187ada95c91a29e96a98dc5d2cd9a1fed039501ba6"
+checksum = "c7509cc106041c40a4518d2af7a61530e1eed0e6285296a3d8c5472806ccc4a4"
 dependencies = [
- "pin-project-internal 1.0.6",
+ "pin-project-internal 1.0.7",
 ]
 
 [[package]]
@@ -3522,9 +3720,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-internal"
-version = "1.0.6"
+version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a490329918e856ed1b083f244e3bfe2d8c4f336407e4ea9e1a9f479ff09049e5"
+checksum = "48c950132583b500556b1efd71d45b319029f2b71518d979fcc208e16b42426f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3999,9 +4197,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.4.5"
+version = "1.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "957056ecddbeba1b26965114e191d2e8589ce74db242b6ea25fc4062427a5c19"
+checksum = "2a26af418b574bd56588335b3a3659a65725d4e636eb1016c2f9e3b38c7cc759"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -4065,14 +4263,14 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
- "semver",
+ "semver 0.9.0",
 ]
 
 [[package]]
 name = "rustls"
-version = "0.19.0"
+version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "064fd21ff87c6e87ed4506e68beb42459caa4a0e2eb144932e6776768556980b"
+checksum = "35edb675feee39aec9c99fa5ff985081995a06d594114ae14cbe797ad7b7a6d7"
 dependencies = [
  "base64 0.13.0",
  "log",
@@ -4161,8 +4359,17 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
- "semver-parser",
+ "semver-parser 0.7.0",
  "serde",
+]
+
+[[package]]
+name = "semver"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
+dependencies = [
+ "semver-parser 0.10.2",
 ]
 
 [[package]]
@@ -4170,6 +4377,15 @@ name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
+
+[[package]]
+name = "semver-parser"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00b0bef5b7f9e0df16536d3961cfb6e84331c065b4066afb39768d0e319411f7"
+dependencies = [
+ "pest",
+]
 
 [[package]]
 name = "serde"
@@ -4395,9 +4611,9 @@ dependencies = [
 
 [[package]]
 name = "slab"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
+checksum = "f173ac3d1a7e3b28003f40de0b5ce7fe2710f9b9dc3fc38664cebee46b3b6527"
 
 [[package]]
 name = "smallvec"
@@ -4578,9 +4794,9 @@ checksum = "45f6ee7c7b87caf59549e9fe45d6a69c75c8019e79e212a835c5da0e92f0ba08"
 
 [[package]]
 name = "syn"
-version = "1.0.69"
+version = "1.0.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48fe99c6bd8b1cc636890bcc071842de909d902c81ac7dab53ba33c421ab8ffb"
+checksum = "b9505f307c872bab8eb46f77ae357c8eba1fdacead58ee5a850116b1d7f82883"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4654,7 +4870,7 @@ dependencies = [
  "env_logger",
  "eyre",
  "fluence-client",
- "fluence-faas",
+ "fluence-faas 0.5.2",
  "fluence-fork-libp2p",
  "fluence-identity",
  "fluence-libp2p",
@@ -4883,6 +5099,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ucd-trie"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56dee185309b50d1f11bfedef0fe6d036842e3fb77413abef29f8f8d1c5d4c1c"
+
+[[package]]
 name = "uint"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4998,9 +5220,9 @@ dependencies = [
 
 [[package]]
 name = "vcpkg"
-version = "0.2.11"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b00bca6106a5e23f3eee943593759b7fcddb00554332e856d990c893966879fb"
+checksum = "cbdbff6266a24120518560b5dc983096efb98462e51d0d68169895b237be3e5d"
 
 [[package]]
 name = "vec-arena"
@@ -5057,8 +5279,22 @@ dependencies = [
  "id-arena",
  "leb128",
  "log",
- "walrus-macro",
+ "walrus-macro 0.17.0",
  "wasmparser 0.55.0",
+]
+
+[[package]]
+name = "walrus"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d470d0583e65f4cab21a1ff3c1ba3dd23ae49e68f516f0afceaeb001b32af39"
+dependencies = [
+ "anyhow",
+ "id-arena",
+ "leb128",
+ "log",
+ "walrus-macro 0.18.0",
+ "wasmparser 0.59.0",
 ]
 
 [[package]]
@@ -5066,6 +5302,18 @@ name = "walrus-macro"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80927fca8665132b48c7714bcec983d6e761c60b3a9877c6cd7df86417b13573"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "walrus-macro"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c2bb690b44cb1b0fdcc54d4998d21f8bdaf706b93775425e440b174f39ad16"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -5226,13 +5474,32 @@ version = "0.17.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e29cd6c3670db55e8aa3dfe6fb02c8ec9e7a17789e0204cef0a7cb50e0b8c5cb"
 dependencies = [
- "fluence-it-types",
- "it-to-bytes",
+ "fluence-it-types 0.1.1",
+ "it-to-bytes 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
  "nom",
  "safe-transmute",
  "serde",
  "serde_json",
+ "wast",
+]
+
+[[package]]
+name = "wasmer-interface-types-fl"
+version = "0.20.0"
+source = "git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909#9095389a5af6e5e334be898437cee5b13f5b4909"
+dependencies = [
+ "fluence-it-types 0.2.0",
+ "it-lilo-utils",
+ "it-to-bytes 0.1.0 (git+https://github.com/fluencelabs/interface-types?rev=9095389a5af6e5e334be898437cee5b13f5b4909)",
+ "itertools 0.10.0",
+ "log",
+ "nom",
+ "safe-transmute",
+ "semver 0.11.0",
+ "serde",
+ "serde_json",
+ "thiserror",
  "wast",
 ]
 
@@ -5353,6 +5620,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af931e2e1960c53f4a28b063fec4cacd036f35acbec8ff3a4739125b17382a87"
 
 [[package]]
+name = "wasmparser"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a950e6a618f62147fd514ff445b2a0b53120d382751960797f85f058c7eda9b9"
+
+[[package]]
 name = "wast"
 version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5467,18 +5740,18 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.2.0"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81a974bcdd357f0dca4d41677db03436324d45a4c9ed2d0b873a5a360ce41c36"
+checksum = "4756f7db3f7b5574938c3eb1c117038b8e07f95ee6718c0efad4ac21508f1efd"
 dependencies = [
  "zeroize_derive",
 ]
 
 [[package]]
 name = "zeroize_derive"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3f369ddb18862aba61aa49bf31e74d29f0f162dec753063200e1dc084345d16"
+checksum = "a2c1e130bebaeab2f23886bf9acbaca14b092408c452543c857f66399cd6dab1"
 dependencies = [
  "proc-macro2",
  "quote",

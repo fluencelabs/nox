@@ -5,5 +5,5 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-fluence-it-types = "0.1.1"
+fluence-it-types = { git = "https://github.com/fluencelabs/interface-types", rev = "9095389a5af6e5e334be898437cee5b13f5b4909" }
 serde_json = "1.0.64"

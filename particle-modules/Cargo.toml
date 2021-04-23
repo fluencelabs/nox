@@ -9,8 +9,10 @@ host-closure = { path = "../crates/host-closure" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
 
-fluence-app-service = "0.5.2"
-fce-wit-parser = "0.2.0"
+
+fce-wit-parser = { git = "https://github.com/fluencelabs/fce", branch = "version_patch" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "version_patch" }
+
 
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = "1.0.64"
