@@ -5,6 +5,6 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-fluence = {version = "0.2.9"}
+fluence = { git = "https://github.com/fluencelabs/rust-sdk", branch = "optimizations" }
 
 [workspace]
