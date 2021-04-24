@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_service, load_module, make_swarms, module_config, read_args, test_module_cfg, timeout,
-    ClientEvent, ConnectedClient, KAD_TIMEOUT,
+    create_service, enable_logs, load_module, make_swarms, module_config, read_args,
+    test_module_cfg, timeout, ClientEvent, ConnectedClient, KAD_TIMEOUT,
 };
 
 use eyre::{ContextCompat, WrapErr};
@@ -111,6 +111,8 @@ fn get_interfaces() {
 
 #[test]
 fn get_modules() {
+    enable_logs();
+
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 

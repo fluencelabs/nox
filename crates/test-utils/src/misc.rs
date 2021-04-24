@@ -96,11 +96,12 @@ HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
 pub fn enable_logs() {
     use log::LevelFilter::*;
 
-    std::env::set_var("WASM_LOG", "info");
+    std::env::set_var("WASM_LOG", "trace");
 
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
+        .filter(Some("aquamarine"), Trace)
         .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)
