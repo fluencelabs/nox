@@ -47,7 +47,6 @@ jobs:
           at: .
       - run: |
           rustup default nightly-2021-03-24-x86_64-unknown-linux-gnu
-          ./particle-node/tests/tetraplets/build.sh
           cargo test --no-fail-fast --release --all-features
 
   Publish Docker Container:
