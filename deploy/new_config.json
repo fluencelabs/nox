@@ -1,0 +1,71 @@
+{
+  "target": "krasnodar",
+  "environments": [
+    {
+      "name": "krasnodar",
+      "docker_tag": "bwu",
+      "containers_per_host": 1,
+      "hosts": [
+        "127.0.0.1"
+      ],
+      "user": "root",
+      "bootstrap": "127.0.0.1",
+      "external_bootstraps": [
+        "127.0.0.1"
+      ],
+      "caddy": [
+        { "host": "kras-00.fluence.dev", "ports": [9001, 9990], "addr": "164.90.171.139" },
+        { "host": "kras-01.fluence.dev", "ports": [9001], "addr": "178.128.194.190" },
+        { "host": "kras-02.fluence.dev", "ports": [9001], "addr": "46.101.159.139" },
+        { "host": "kras-03.fluence.dev", "ports": [9001], "addr": "161.35.222.178" },
+        { "host": "kras-04.fluence.dev", "ports": [9001], "addr": "164.90.164.229" },
+        { "host": "kras-05.fluence.dev", "ports": [9001], "addr": "164.90.168.55" },
+        { "host": "kras-06.fluence.dev", "ports": [9001], "addr": "161.35.212.85" },
+        { "host": "kras-07.fluence.dev", "ports": [9001], "addr": "164.90.165.150" },
+        { "host": "kras-08.fluence.dev", "ports": [9001], "addr": "164.90.172.126" },
+        { "host": "kras-09.fluence.dev", "ports": [9001], "addr": "164.90.171.156" }
+      ],
+      "keypairs": {
+        "fluence.yml": [
+          "abc"
+        ],
+        "fluence_bootstrap.yml": [
+          "abc"
+        ]
+      }
+    },
+    {
+      "name": "stage",
+      "docker_tag": "bwu",
+      "containers_per_host": 5,
+      "hosts": [
+        "134.209.186.43"
+      ],
+      "user": "root",
+      "bootstrap": "134.209.186.43",
+      "external_bootstraps": [
+        "164.90.171.139"
+      ],
+      "caddy": [
+        { "host": "kras-00.fluence.dev", "ports": [9001, 9990], "addr": "164.90.171.139" },
+        { "host": "kras-01.fluence.dev", "ports": [9001], "addr": "178.128.194.190" },
+        { "host": "kras-02.fluence.dev", "ports": [9001], "addr": "46.101.159.139" },
+        { "host": "kras-03.fluence.dev", "ports": [9001], "addr": "161.35.222.178" },
+        { "host": "kras-04.fluence.dev", "ports": [9001], "addr": "164.90.164.229" },
+        { "host": "kras-05.fluence.dev", "ports": [9001], "addr": "164.90.168.55" },
+        { "host": "kras-06.fluence.dev", "ports": [9001], "addr": "161.35.212.85" },
+        { "host": "kras-07.fluence.dev", "ports": [9001], "addr": "164.90.165.150" },
+        { "host": "kras-08.fluence.dev", "ports": [9001], "addr": "164.90.172.126" },
+        { "host": "kras-09.fluence.dev", "ports": [9001], "addr": "164.90.171.156" }
+      ],
+      "keypairs": {
+        "fluence.yml": [
+          "abc"
+        ],
+        "fluence_bootstrap.yml": [
+          "abc"
+        ]
+      }
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 version: '3.5'
 services:
   fluence_bootstrap:
-    image: fluencelabs/fluence:$BRANCH
+    image: fluencelabs/fluence:$TAG
     container_name: bootstrap
     restart: always
     command: "-c /Config.toml -p /node.key -f ed25519 -x $HOST -t 7770 -w 9990 -m 12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy"
