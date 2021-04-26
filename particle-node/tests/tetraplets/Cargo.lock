@@ -30,7 +30,7 @@ dependencies = [
 [[package]]
 name = "fce-timestamp-macro"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/rust-sdk?branch=optimizations#43c3908409b20cd875f2a42ae5563672453129a0"
+source = "git+https://github.com/fluencelabs/rust-sdk#e8bc1db0dff8550b97675d4835cf17e0f27848ef"
 dependencies = [
  "chrono",
  "quote",
@@ -39,7 +39,7 @@ dependencies = [
 [[package]]
 name = "fluence"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/rust-sdk?branch=optimizations#43c3908409b20cd875f2a42ae5563672453129a0"
+source = "git+https://github.com/fluencelabs/rust-sdk#e8bc1db0dff8550b97675d4835cf17e0f27848ef"
 dependencies = [
  "fce-timestamp-macro",
  "fluence-sdk-macro",
@@ -50,7 +50,7 @@ dependencies = [
 [[package]]
 name = "fluence-sdk-macro"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/rust-sdk?branch=optimizations#43c3908409b20cd875f2a42ae5563672453129a0"
+source = "git+https://github.com/fluencelabs/rust-sdk#e8bc1db0dff8550b97675d4835cf17e0f27848ef"
 dependencies = [
  "fluence-sdk-wit",
 ]
@@ -58,7 +58,7 @@ dependencies = [
 [[package]]
 name = "fluence-sdk-main"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/rust-sdk?branch=optimizations#43c3908409b20cd875f2a42ae5563672453129a0"
+source = "git+https://github.com/fluencelabs/rust-sdk#e8bc1db0dff8550b97675d4835cf17e0f27848ef"
 dependencies = [
  "fluence-sdk-macro",
  "log",
@@ -68,7 +68,7 @@ dependencies = [
 [[package]]
 name = "fluence-sdk-wit"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/rust-sdk?branch=optimizations#43c3908409b20cd875f2a42ae5563672453129a0"
+source = "git+https://github.com/fluencelabs/rust-sdk#e8bc1db0dff8550b97675d4835cf17e0f27848ef"
 dependencies = [
  "proc-macro2",
  "quote",
