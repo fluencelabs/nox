@@ -22,7 +22,8 @@ def deploy_fluence():
     # 'running', 'output'
     with hide():
         load_config()
-        env.hosts = env.config["bootstrap"]
+        target = target_environment()
+        env.hosts = target["bootstrap"]
 
         puts("Fluence: deploying bootstrap")
         special_nodes = deploy_bootstrap()
@@ -47,8 +48,6 @@ def deploy_bootstrap():
     return nodes
 
 
-# fluence-faas-01  104.248.25.59
-# fluence-faas-02  134.209.186.43 
 @task
 def do_deploy_bootstrap():
     return do_deploy_fluence(yml="fluence_bootstrap.yml")
@@ -60,14 +59,14 @@ def do_deploy_bootstrap():
 def do_deploy_fluence(yml="fluence.yml"):
     with hide():
         put(yml, './')
-        kwargs = {'HOST': env.host_string, 'BRANCH': env.config['branch']}
+        kwargs = {'HOST': env.host_string, 'TAG': docker_tag()}
         if 'bootstrap' in env:
             kwargs['BOOTSTRAP'] = env.bootstrap
 
         with shell_env(**kwargs):
             # compose('config', yml)
-            compose('rm -fs', yml)
             compose("pull", yml)
+            compose('rm -fs', yml)
             compose('up --no-start', yml)  # was: 'create'
             copy_configs_and_keys(yml)
             compose("restart", yml)
@@ -80,7 +79,7 @@ def get_host_idx(containers):
     return env.hosts.index(env.host_string) * containers
 
 def copy_key(yml, container, idx):
-    keypair = env.config['fluence']['keypairs'][yml][idx]
+    keypair = get_keypair(yml, idx)
     fname = '{}_{}.key'.format(yml, idx)
     append(fname, keypair)
     run('docker cp %s %s:/node.key' % (fname, container))

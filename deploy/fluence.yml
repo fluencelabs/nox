@@ -1,7 +1,7 @@
 version: '3.5'
 services:
   fluence-1:
-    image: fluencelabs/fluence:$BRANCH
+    image: fluencelabs/fluence:$TAG
     restart: always
     ports:
       - "7001:7001" # Node service
@@ -16,7 +16,7 @@ services:
       WASM_LOG: "info"
 
 #  fluence-2:
-#    image: fluencelabs/fluence:$BRANCH
+#    image: fluencelabs/fluence:$TAG
 #    restart: always
 #    ports:
 #      - "7002:7002" # Node service
@@ -31,7 +31,7 @@ services:
 #      WASM_LOG: "info"
 #
 #  fluence-3:
-#    image: fluencelabs/fluence:$BRANCH
+#    image: fluencelabs/fluence:$TAG
 #    restart: always
 #    ports:
 #      - "7003:7003" # Node service
@@ -46,7 +46,7 @@ services:
 #      WASM_LOG: "info"
 #
 #  fluence-4:
-#    image: fluencelabs/fluence:$BRANCH
+#    image: fluencelabs/fluence:$TAG
 #    restart: always
 #    ports:
 #      - "7004:7004" # Node service
@@ -61,7 +61,7 @@ services:
 #      WASM_LOG: "info"
 #
 #  fluence-5:
-#    image: fluencelabs/fluence:$BRANCH
+#    image: fluencelabs/fluence:$TAG
 #    restart: always
 #    ports:
 #      - "7005:7005" # Node service
@@ -76,7 +76,7 @@ services:
 #      WASM_LOG: "info"
 #
 #  fluence-6:
-#    image: fluencelabs/fluence:$BRANCH
+#    image: fluencelabs/fluence:$TAG
 #    restart: always
 #    ports:
 #      - "7006:7006" # Node service
