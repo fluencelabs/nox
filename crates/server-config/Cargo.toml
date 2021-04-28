@@ -15,7 +15,7 @@ air-interpreter-wasm = "0.9.0"
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
-serde = { version = "1.0.118", features = ["derive"] }
+serde = { version = "1.0.125", features = ["derive"] }
 humantime-serde = "1.0.1"
 
 prometheus = "0.9.0"
