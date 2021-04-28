@@ -44,6 +44,7 @@ use JValue::Array;
 #[derive(Clone)]
 pub struct HostClosures<C> {
     pub create_service: ParticleClosure,
+    pub remove_service: ParticleClosure,
     pub call_service: ParticleClosure,
 
     pub add_module: Closure,
@@ -93,6 +94,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             add_module: modules.add_module(),
             add_blueprint: modules.add_blueprint(),
             create_service: services.create_service(),
+            remove_service: services.remove_service(),
             call_service: services.call_service(),
             get_interface: services.get_interface(),
             list_services: services.list_services(),
@@ -140,6 +142,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("kad", "neighborhood")           => wrap(self.neighborhood(args)),
 
             ("srv", "create")                 => (self.create_service)(params, args),
+            ("srv", "remove")                 => (self.remove_service)(params, args),
             ("srv", "list")                   => (self.list_services)(args),
             ("srv", "get_interface")          => (self.get_interface)(args),
             ("srv", "add_alias")              => (self.add_alias)(params, args),

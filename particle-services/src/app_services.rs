@@ -122,6 +122,31 @@ impl ParticleAppServices {
         })
     }
 
+    pub fn remove_service(&self) -> ParticleClosure {
+        let services = self.services.clone();
+
+        closure_params_opt(move |particle_params, args| {
+            let mut args = args.function_args.into_iter();
+            let service_id: String = Args::next("service_id", &mut args)?;
+
+            match services.read().get(&service_id) {
+                Some(service) if service.owner_id != particle_params.init_user_id => {
+                    Err(ServiceError::Forbidden {
+                        user: particle_params.init_user_id,
+                        function: "remove_service",
+                        reason: "only creator can remove service",
+                    })
+                }
+                None => Err(ServiceError::NoSuchService(service_id.clone())),
+                _ => Ok(()),
+            }?;
+
+            services.write().remove(&service_id);
+
+            Ok(None)
+        })
+    }
+
     pub fn call_service(&self) -> ParticleClosure {
         let services = self.services.clone();
         let aliases = self.aliases.clone();
@@ -181,7 +206,12 @@ impl ParticleAppServices {
 
         closure_params_opt(move |particle, args| {
             if particle.init_user_id != management_peer_id {
-                return Err(Forbidden(particle.init_user_id, "add_alias".to_string()).into());
+                return Err(Forbidden {
+                    user: particle.init_user_id,
+                    function: "add_alias",
+                    reason: "only management peer id can add aliases",
+                }
+                .into());
             };
 
             let mut args = args.function_args.into_iter();
