@@ -138,7 +138,7 @@ impl ParticleAppServices {
                     })
                 }
                 None => Err(ServiceError::NoSuchService(service_id.clone())),
-                _ => Ok(()),
+                Some(_service) => Ok(()),
             }?;
 
             services.write().remove(&service_id);
