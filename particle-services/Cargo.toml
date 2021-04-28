@@ -13,7 +13,7 @@ json-utils = { path = "../crates/json-utils" }
 host-closure = { path = "../crates/host-closure" }
 server-config = { path = "../crates/server-config" }
 
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
+fluence-app-service = "0.7.0"
 
 futures = "0.3.13"
 parking_lot = "0.11.0"

@@ -20,9 +20,9 @@ connection-pool = { path = "../../connection-pool" }
 script-storage = { path = "../../script-storage" }
 
 air-interpreter-wasm = "=0.1.0-bwu.5"
-aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
+aquamarine-vm = "0.7.0"
 fluence-identity = "0.3.0"
-fluence-faas = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
+fluence-faas = "0.7.0"
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
