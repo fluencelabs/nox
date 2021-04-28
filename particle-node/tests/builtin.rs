@@ -15,8 +15,8 @@
  */
 
 use test_utils::{
-    make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms, ConnectedClient, Transport,
-    PARTICLE_TTL,
+    create_service, load_module, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms,
+    ConnectedClient, Transport, PARTICLE_TTL,
 };
 
 use eyre::WrapErr;
@@ -75,4 +75,106 @@ fn big_identity() {
 
     client.timeout = Duration::from_secs(60);
     client.receive().wrap_err("receive").unwrap();
+}
+
+#[test]
+fn remove_service() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
+    );
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("srv" "list") [] list_before)
+                (call relay ("srv" "remove") [service])
+            )
+            (seq
+                (call relay ("srv" "list") [] list_after)
+                (call %init_peer_id% ("op" "return") [list_before list_after])
+            )
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+        },
+    );
+
+    use serde_json::Value::Array;
+
+    if let [Array(before), Array(after)] = client.receive_args().unwrap().as_slice() {
+        assert_eq!(before.len(), 1);
+        assert_eq!(after.len(), 0);
+    } else {
+        panic!("incorrect args: expected two arrays")
+    }
+}
+
+#[test]
+fn non_owner_remove_service() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
+    );
+
+    client2.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("srv" "list") [] list_before)
+                (xor
+                    (call relay ("srv" "remove") [service])
+                    (call relay ("op" "identity") [%last_error%] error)
+                )
+            )
+            (seq
+                (call relay ("srv" "list") [] list_after)
+                (call %init_peer_id% ("op" "return") [list_before list_after error.$[0]!])
+            )
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+        },
+    );
+
+    use serde_json::Value::{self as JValue, Array, String};
+
+    let args = client2.receive_args().unwrap();
+    if let [Array(before), Array(after), String(error)] = args.as_slice() {
+        assert_eq!(before.len(), 1);
+        assert_eq!(after.len(), 1);
+        assert!(error.len() > 0);
+
+        let error: JValue = serde_json::from_str(&error).unwrap();
+        let failed_instruction = error.get("instruction").unwrap().as_str().unwrap();
+        assert_eq!(
+            failed_instruction,
+            r#"call relay ("srv" "remove") [service] "#
+        );
+    } else {
+        panic!("incorrect args: expected two arrays, got: {:?}", args)
+    }
 }
