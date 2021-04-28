@@ -72,11 +72,6 @@ pub fn ok(value: JValue) -> Option<IValue> {
     ))
 }
 
-// /// Converts successful result of app service execution into `IValue::Record`
-// pub fn ivalue_ok(value: IValue) -> Option<IValue> {
-//     ok(ivalue_to_jvalue(value))
-// }
-
 /// Converts erroneous result of call_service into `IValue::Record`
 pub fn error(err: JValue) -> Option<IValue> {
     let err = IValue::String(err.to_string());
@@ -91,28 +86,3 @@ pub fn unit() -> Option<IValue> {
         NEVec::new(vec![IValue::S32(0), IValue::String("\"\"".to_string())]).unwrap(),
     ))
 }
-
-// /// Serializes IValue to json Value
-// fn ivalue_to_jvalue(v: IValue) -> JValue {
-//     match v {
-//         IValue::S8(v) => json!(v),
-//         IValue::S16(v) => json!(v),
-//         IValue::S32(v) => json!(v),
-//         IValue::S64(v) => json!(v),
-//         IValue::U8(v) => json!(v),
-//         IValue::U16(v) => json!(v),
-//         IValue::U32(v) => json!(v),
-//         IValue::U64(v) => json!(v),
-//         IValue::F32(v) => json!(v),
-//         IValue::F64(v) => json!(v),
-//         IValue::String(v) => json!(v),
-//         IValue::I32(v) => json!(v),
-//         IValue::I64(v) => json!(v),
-//         IValue::Array(v) => json!(v.into_iter().map(ivalue_to_jvalue).collect::<Vec<_>>()),
-//         IValue::Record(v) => json!(v
-//             .into_vec()
-//             .into_iter()
-//             .map(ivalue_to_jvalue)
-//             .collect::<Vec<_>>()),
-//     }
-// }
