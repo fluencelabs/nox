@@ -68,31 +68,9 @@
     "fluence": {
       "keypairs": {
         "fluence_bootstrap.yml": [
-          "4EMUFTvXM3D6M8NHwNCMwjkjdSUSHJrnzdHh7L3XcY9E3iUNncUohQ7EcjJaovVwzzqdTcbki5iAnUUHEb59j4pQ",
-          "2HmGmUpFTenvmRyK2XBNqiQbqtjcWbFd4YVjM8BzQFve2f7gzZLt6ys9yhGofeW7KqhDr8VjN5DbDWgJitXKMHgZ"
+
         ],
         "fluence.yml": [
-          "29JvD17kkvFXnTNDRhmVehLTinFzaq8trNNADzDEpFTm8cTVJuLVxzf4AysDg9daerBRa2xhgj9QYGCKXkbbUXbd",
-          "2zzZEHJFsxnKSihpC2GkcQtgaUYBwW742ne5ZB2bjRGwnbgMEmn1MqoHxm5MbnMwEB4DLP2cxKYN4Ag7MGWus8PQ",
-          "ir4of5Kcqu4Zjkg4GwWujTKUvggqHzHPKS9vpN9G96dMGi9pKqnDRrXpgjKTogzY7i1AnrTfoD464GgjFcK8QUf",
-          "58kzJ5Xxvj7Mmrq2NTVTa9JRdmnpWQAsnWEUauuqbgwbqqHKZoYC498Yfa6wLJiEBQiuLGCqrBTqmktngYN32Xnz",
-          "aD93EK3cEFCM4aHFqR3SNs8xUvoFTdhLcm1pn2wsJ8kwxVGC4mCgRC6znxBAfp9ja83wCBsDqrBW3NysqkbG5Gk",
-          "47L1SWMPu3VfMQRqE7a5bgE6H7K56v9wU5SoFUrJVdDs3obVCM4afMfajBApj1q8Q4itKoD5zb9ydVefZirHLBNa",
-          "3pSZ7S4zQGSYvt7GDqrxYVJitUCv1YC9oVcoeziDvfwrS5u3knKkFXEQ164ZBZCaTGaKZk9RR3awvhW34gtYDhMN",
-          "G1LbuJiYq3PHWPzfBkp8j22Wr6Lb8xvyW6vcuLBWLwupz2sy2Ku2SRTw5x28zk91uS8X3AaLEupuHC8Z31FC72W",
-          "2Y78rG3QrrGzzvVJhvbEdvnya11Z2a3qR3bjP5Yr5PF46BomTF4MXRJb4qiUQFBZfqUuzYBDs7SP1odfixAr3U7Y",
-          "2RLVwr5F2yxU6ZLEkdCA7GP2X3DTBCJsZ3PmNtjg8Bbbj9VPcfE928cEci1AoqbstNbT28cNm5ji8d6cLknRxJNb",
-          "2SBto5Nx8gY1TYJCmnhBQMDzkTghAFbQZFu1eLN9piWUz8vdySBQYeXQXrYXb2Yoh1wzQmST5uReRNYWVTHQEdzf",
-          "36mqbXaCw4p8cJJCNMUPF9Eoj5stbL5BL8digfkrtudR4AFcAS8p2Ja1FHGVVqtqaGWY9haQQwPmw8RT4Gkfdd5T",
-          "2JQXbwU8FHbTimtwz75SyYP25MZ8RmKKPYE3aXf2eCrpjUfkoZ85aXQkxJPjZiJe5JbES5N6LZLvevtAPZLznSTa",
-          "2tFtYR2S8kboncrv4xLkTxHuAVXN8KRxFwC2xPGYiHsXLLvYUHYsFQKHgMwn17tG4ZzMXTwYZcDC5BPTDRKiJP1f",
-          "3vXDEMu7ya5dRQRzpAvazvL5GbmXF6T8nXeESNUxUMax6qHgdfVDywA3zddrZmgAwfcHaxz7sPYtyjaPU9Z7jCj5",
-          "4ZUye9KKXhCSNs1Cdu2L2kioBUrhNKfYtFLUbujC7QbnweYS3VEWvNbi2Lq5VaEd6iHKMEfz8tzWPoaKut8JpmoS",
-          "5VxTSWtAwzfqv9cXMZJTFU7BqEv85d59KN1mkreJXeUAVFMnfmW8fwtDV8njnAJErSUokmYTgpYXEkbmcL3nm5WX",
-          "3Bvaa3HbwBazLxKsHUQkw6swqxV5msqcKBtANDLzqQysDn5XRkp1HBHViKiy7b71zD93oQKHgmQao4jzYBffrVMT",
-          "4UDVbiMtz6RjfBM1oM6kX781D8qRaZh6d8H51YdLWvQZVPjeMug6pqYooBMg4sjVXnoFkcZ2AHyTkQLn6ZVuWPGP",
-          "5Cnpvd3VH3SRk2qLjnL7CjD8hyMVNY9StnqebZ4sNndyxMfa5PKeFo34S1EVXwUdWdUeog9q59bTPaWyx51RweQf",
-          "2JxUxVCYVhFzw8J1jz83Sb73XpBiHoNXuxwR73JGnJa7xWxSKbkNmSKZXZ4r2whR8Qc44F8oq1F1SdnF75tZEepE",
           "4Bvgb97RAmcBfNeiHM4UkGf6S6vqs7QgE7r6wNMizGuj9osqCNpfWVzt7f87AzyaCrEGDQ9Gj4UqtTATrYdiDyt9",
           "3p984fu3ViDiE8vonw7EgRhhGp2dQ1eFUPdBEieUPSGvEn5YAiLK1u3mUcer5mbejcvLfsHHsDbfXZUDmS3im3vk",
           "DF6usaXipK3nzkxx3DJtFZ2gUU3kqregpf8cELEPj1DVeb8r2hS4KjMMhzcHY8gJYSaJpvYYykpFhmziFw3X7NH",
