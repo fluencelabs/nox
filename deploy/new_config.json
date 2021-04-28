@@ -1,9 +1,9 @@
 {
-  "target": "krasnodar",
+  "target": "stage",
   "environments": [
     {
       "name": "krasnodar",
-      "docker_tag": "bwu",
+      "container_tag": "bwu",
       "containers_per_host": 1,
       "hosts": [
         "127.0.0.1"
@@ -13,6 +13,7 @@
       "external_bootstraps": [
         "127.0.0.1"
       ],
+      "management_key": "12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy",
       "caddy": [
         { "host": "kras-00.fluence.dev", "ports": [9001, 9990], "addr": "164.90.171.139" },
         { "host": "kras-01.fluence.dev", "ports": [9001], "addr": "178.128.194.190" },
@@ -36,7 +37,7 @@
     },
     {
       "name": "stage",
-      "docker_tag": "bwu",
+      "container_tag": "bwu",
       "containers_per_host": 5,
       "hosts": [
         "134.209.186.43"
@@ -44,8 +45,9 @@
       "user": "root",
       "bootstrap": "134.209.186.43",
       "external_bootstraps": [
-        "164.90.171.139"
+        "/ip4/164.90.171.139/tcp/7770"
       ],
+      "management_key": "12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy",
       "caddy": [
         { "host": "kras-00.fluence.dev", "ports": [9001, 9990], "addr": "164.90.171.139" },
         { "host": "kras-01.fluence.dev", "ports": [9001], "addr": "178.128.194.190" },
@@ -60,10 +62,28 @@
       ],
       "keypairs": {
         "fluence.yml": [
-          "abc"
+          "3suwMJBLUSYb2LHdAdCzstEUbMzxmKj144GUJKMGp4syRF45pW249F1je2BBxwAF3pZyFSdzn88sfQNpWByHVKDC",
+          "e8AFF1TqoF9QTcMG12968KRn1MHemLgzTTW18ef9ji7cRYKc8GdkVcecCvDUj1GyMVvNQHU7dozE94tKz8aj6DS",
+          "4BMesaouUWJo6ps12sSntZMLJ2EpNivehx1o89NbnxyDbMD5JmUpeeiXSmW4ZL2cYjyJWxSKwwQGaKbHK3oqcuJo",
+          "4NsvdS4S3SHrh1FYNFc4881t2Pxf6WriREhbLp6vuVoXeXSi8AAHb81rPr9ju21ZYvJ8dyhYS9AHn41jgddCUiPG",
+          "3iX1GxpUHGJsX4srDAx4KrJSYmb3xgYqm4ZuYN6snuS9upYPF9sqEYAdPXd8cSPNTmN9QKmKnZGn7URzKUr9f9Q2",
+          "wBTuv6muKu1BrBrnAtwEGZykHJxnMcxYT8RxdcMwGnDNpPNktS4FoFG36tKoVfofMXHepXuW67PoB9A6T5p7tXu",
+          "5j7RxESUMQSGPFfegAH7MuWi1oddp7qMeA52iWMvrYdEmcoDYzKrU5vbj2vesu7AjqvsLoPhUdJssqAFs8uWAkEJ",
+          "4ttKiUoQ9XuSJPeRdtj6QuPBqRJZZD5XhcRM9XG8tLGRwESkPcWbjNArWnPW92kijcvYFQevhok8hrGx8DsaU7Jw",
+          "2kvaPrtJYHTvq52hCTNCqBo4GxbdBk62QpREQmK6QVZPUxJTo9jcJNDXDLERzgaFJV6izhTxB6ieczMpAg8uW1kb",
+          "3uAKK4VtrTRiEWZX6JRbGajtz59FcJpe4mMztFUYSkepegqeLKejBVgrsTPxsPpq1ueuEKsTy3jchyebzXqbPRJW",
+          "3FprLUcTG8HaYVqGgsoDj7GuxujJCHa3Ucu8WyqubmrspQ9ND327JT4phfmxy1nB1C93Qvw5U6qtWZ5PNxwGvZaj",
+          "4VeFHU452ba1cTh1WnThRQt19wHmCPnto4r3TufQWr2DJzxAbTnQJE3HpEbhc4LE4Yj7biFyuNahZznM4DnvVHQj",
+          "WgQqFRTGCgZS7YMhWrffdfa8sBSJbzp6gKXKPTPstUSxQGsSNJogwLGeBbk9wyRaqJMVGw3gd5MTELd5X7R96mZ",
+          "3fugBhX8C9LJzgRiKkSuy4vbhVjtoEQvJgjQZKFLGEAfwYo4cWGAnKwqN8QeSvLdqkPbJrbgjSAZ6pEVbEnEfuSq",
+          "4QSt7vayxy3ZFGkZaomvtBW7Q5zpyFXHGJk91rjvwQBH1Dj9wamvAkTSwh1V26uopGwwU7ZBY26GWvm2A3kMk3hy",
+          "49jZ96qanxWryTDvSXkKNzTcKW5yfKWzPnG2h4JrLzjBo5zKKL9dYUcJDyPE68kz8XjUnfPbq5CTX4uN8TDLWbac",
+          "2yKn9UpGS8cSWEqYKtrbCbA1Sy1fbcPwHaNsUtY6YKGZ6udDibQbbmgn2BkYXWro2D3TZs1rbuE6VzdW6msMQc7v",
+          "5ZHShramB9ST4M2u6rmEdoJcX6BQr9Y889sZZpjCWzBSyWaEqvxxr2uUdxNBWn7m7cHnH9rtuvvxaRJPLnB5RLX9",
+          "gKdiCSUr1TFGFEgu2t8Ch1XEUsrN5A2UfBLjSZvfci9SPR3NvZpACfcpPGC3eY4zma1pk7UvYv5zb1VjvPHwCjj"
         ],
         "fluence_bootstrap.yml": [
-          "abc"
+          "1eye6JeqbLhXM4gF6C1n9UKMvHdp8niwH9XXh2159eJcYG3Zk4nCNSrG5qfwvkrFka3L6xVssJ2fpHTvpPPhz5p"
         ]
       }
     }

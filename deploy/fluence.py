@@ -3,6 +3,7 @@ from collections            import namedtuple
 from fabric.api             import *
 from fabric.contrib.files   import append
 from utils                  import *
+from compose                import *
 from collections            import namedtuple
 from time                   import sleep
 
@@ -22,37 +23,66 @@ def deploy_fluence():
     # 'running', 'output'
     with hide():
         load_config()
-        target = target_environment()
-        env.hosts = target["bootstrap"]
-
-        # TODO: generate compose files
 
         puts("Fluence: deploying bootstrap")
-        special_nodes = deploy_bootstrap()
-        bootstrap = special_nodes[0]
-        puts("Fluence: bootstrap will be {}".format(bootstrap.tcp.multiaddr))
-        env.bootstrap = bootstrap.tcp.multiaddr
+        results = execute(deploy_bootstrap)
+        bootstraps = fill_addresses(results.items())
+        bootstrap = bootstraps[0]
+        env.bootstraps = map(lambda b: b.tcp.multiaddr, bootstraps)
 
-        env.hosts = env.config["nodes"]
-        puts("Fluence: deploying others")
-        result = execute(do_deploy_fluence)
-        nodes = fill_addresses(result.items())
+        puts("Fluence: deploying rest of the nodes")
+        results = execute(deploy_nodes)
+        nodes = fill_addresses(results.items())
+
         puts("Fluence: deployed.\nAddresses:\n%s" % "\n".join(
             "{} {} {}".format(n.tcp.multiaddr, n.ws.multiaddr, n.peer_id) for n in nodes))
-        puts("Bootstrap:\n{} {} {}".format(bootstrap.tcp.multiaddr, bootstrap.ws.multiaddr, bootstrap.peer_id))
-        puts("Special ones:\n%s" % "\n".join(
-            "{} {} {}".format(n.tcp.multiaddr, n.ws.multiaddr, n.peer_id) for n in special_nodes[1:]))
-
-
-def deploy_bootstrap():
-    results = execute(do_deploy_bootstrap)
-    nodes = fill_addresses(results.items())
-    return nodes
+        puts("Bootstrap:\n%s" % "\n".join(
+            "{} {} {}".format(n.tcp.multiaddr, n.ws.multiaddr, n.peer_id) for n in bootstraps))
 
 
 @task
-def do_deploy_bootstrap():
-    return do_deploy_fluence(yml="fluence_bootstrap.yml")
+@parallel
+def deploy_bootstrap():
+    target = target_environment()
+    env.hosts = target["bootstrap"]
+
+    yml = "fluence_bootstrap.yml"
+    keypair = get_keypairs(yml, get_host_idx(containers=1), count=1)
+    gen_compose_file(
+        out=yml,
+        container_tag=target['container_tag'],
+        scale=1,
+        is_bootstrap=True,
+        bootstraps=target['external_bootstraps'],
+        host=env.host_string,
+        management_key=target['management_key'],
+        keypairs=keypair,
+    )
+
+    return do_deploy_fluence(yml)
+
+
+@task
+@parallel
+def deploy_nodes():
+    target = target_environment()
+    env.hosts = target["hosts"]
+
+    yml = "fluence.yml"
+    scale = target["containers_per_host"]
+    keypairs = get_keypairs(yml, get_host_idx(scale), count=scale)
+    gen_compose_file(
+        out=yml,
+        container_tag=target['container_tag'],
+        scale=scale,
+        is_bootstrap=False,
+        bootstraps=env.bootstraps + target['external_bootstraps'],
+        host=env.host_string,
+        management_key=target['management_key'],
+        keypairs=keypairs,
+    )
+
+    return do_deploy_fluence(yml)
 
 
 @task
@@ -60,39 +90,27 @@ def do_deploy_bootstrap():
 # returns {ip: Node}
 def do_deploy_fluence(yml="fluence.yml"):
     with hide():
-        put(yml, './')
-        kwargs = {'HOST': env.host_string, 'TAG': docker_tag()}
-        if 'bootstrap' in env:
-            kwargs['BOOTSTRAP'] = env.bootstrap
-
-        with shell_env(**kwargs):
-            # compose('config', yml)
-            compose("pull", yml)
-            compose('rm -fs', yml)
-            compose('up --no-start', yml)  # was: 'create'
-            copy_configs_and_keys(yml)
-            compose("restart", yml)
-            sleep(1)
-            addrs = get_fluence_addresses(yml)
-            return addrs
+        compose("pull", yml)
+        compose('rm -fs', yml)
+        compose('up --no-start', yml)  # was: 'create'
+        copy_configs(yml)
+        compose("restart", yml)
+        sleep(1)
+        addrs = get_fluence_addresses(yml)
+        return addrs
 
 
 def get_host_idx(containers):
+    print("env.hosts: {}".format(env.hosts))
+    print("env.host_string: {}".format(env.host_string))
     return env.hosts.index(env.host_string) * containers
 
-def copy_key(yml, container, idx):
-    keypair = get_keypair(yml, idx)
-    fname = '{}_{}.key'.format(yml, idx)
-    append(fname, keypair)
-    run('docker cp %s %s:/node.key' % (fname, container))
-
-def copy_configs_and_keys(yml):
+def copy_configs(yml):
+    # there's no `cp` in `docker-compose`: https://github.com/docker/compose/issues/5523
     put("Config.toml", "./")
     containers = compose('ps -q', yml).splitlines()
-    host_idx = get_host_idx(len(containers))
-    for idx, id in enumerate(containers):
+    for id in containers:
         run('docker cp ./Config.toml %s:/Config.toml' % id)
-        copy_key(yml, id, host_idx + idx)
 
 # returns [Node]
 def get_fluence_addresses(yml="fluence.yml"):
