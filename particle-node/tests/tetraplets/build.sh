@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # This script builds all subprojects and puts all created Wasm modules in one dir
-cargo update
+cargo update --aggressive
 fce build --release
 
 mkdir -p artifacts

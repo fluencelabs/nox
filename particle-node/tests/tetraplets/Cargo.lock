@@ -3,35 +3,66 @@
 version = 3
 
 [[package]]
+name = "autocfg"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "fluence"
-version = "0.2.18"
+name = "chrono"
+version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27d9a5e4292d7bbd809a0e968e3c3aacac91cbc5acab3e26ee1e1d726f0aab24"
+checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
 dependencies = [
+ "libc",
+ "num-integer",
+ "num-traits",
+ "time",
+ "winapi",
+]
+
+[[package]]
+name = "fce-timestamp-macro"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c59a6302902583b2c84e87de9d72b949da4396a369baf0aaa49e97021600bb0"
+dependencies = [
+ "chrono",
+ "quote",
+]
+
+[[package]]
+name = "fluence"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54b2f78a2432dcd10e7113f9f08aac004373dee610a3b4ca692d5b12a3e7c867"
+dependencies = [
+ "fce-timestamp-macro",
  "fluence-sdk-macro",
  "fluence-sdk-main",
+ "serde",
 ]
 
 [[package]]
 name = "fluence-sdk-macro"
-version = "0.2.18"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea1a7c75a617f827d1ba9a17b4d84e1565ab239915c63f5a85c41f89a9f1d4ba"
+checksum = "cb43d2f51f1becb70e2125ef8ca9759597900f95cc22ce7dca981a7d6ccd7dde"
 dependencies = [
  "fluence-sdk-wit",
 ]
 
 [[package]]
 name = "fluence-sdk-main"
-version = "0.2.18"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6edcc983f9517c1b6bf9f851ef27f2894a3159aaa4a2fb6c9deb2ae8ecb603fa"
+checksum = "a78910d85e3cdcb9c2baf56144f20a99925c67ac445d4156220c005bfd2f9604"
 dependencies = [
  "fluence-sdk-macro",
  "log",
@@ -40,9 +71,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-sdk-wit"
-version = "0.2.18"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b75dbdd0275160f3818db3218563d791e6c612b616cd3c5d6e66283f207f648d"
+checksum = "eab3ed39703b72e0e52bce9e1760746c73f65a5694c8da4dec751d3bfdec15b8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -71,9 +102,9 @@ checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 
 [[package]]
 name = "libc"
-version = "0.2.93"
+version = "0.2.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9385f66bf6105b241aa65a61cb923ef20efc665cb9f9bb50ac2f0c4b7f378d41"
+checksum = "18794a8ad5b29321f790b55d93dfba91e125cb1a9edbd4f8e3150acc771c1a5e"
 
 [[package]]
 name = "log"
@@ -82,6 +113,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "num-integer"
+version = "0.1.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
+dependencies = [
+ "autocfg",
+ "num-traits",
+]
+
+[[package]]
+name = "num-traits"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
+dependencies = [
+ "autocfg",
 ]
 
 [[package]]
@@ -141,9 +191,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.69"
+version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48fe99c6bd8b1cc636890bcc071842de909d902c81ac7dab53ba33c421ab8ffb"
+checksum = "ad184cc9470f9117b2ac6817bfe297307418819ba40552f9b3846f05c33d5373"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -155,6 +205,17 @@ name = "tetraplets"
 version = "0.1.0"
 dependencies = [
  "fluence",
+]
+
+[[package]]
+name = "time"
+version = "0.1.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6db9e6914ab8b1ae1c260a4ae7a49b6c5611b40328a735b21862567685e73255"
+dependencies = [
+ "libc",
+ "wasi",
+ "winapi",
 ]
 
 [[package]]
@@ -174,6 +235,28 @@ dependencies = [
 
 [[package]]
 name = "wasi"
-version = "0.10.2+wasi-snapshot-preview1"
+version = "0.10.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
+checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
+
+[[package]]
+name = "winapi"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c839a674fcd7a98952e593242ea400abe93992746761e38641405d28b00f419"
+dependencies = [
+ "winapi-i686-pc-windows-gnu",
+ "winapi-x86_64-pc-windows-gnu",
+]
+
+[[package]]
+name = "winapi-i686-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
+
+[[package]]
+name = "winapi-x86_64-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"

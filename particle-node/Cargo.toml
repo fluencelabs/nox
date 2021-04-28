@@ -21,7 +21,7 @@ kademlia = { path = "../crates/kademlia" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
-air-interpreter-wasm = "0.8.2"
+air-interpreter-wasm = "0.9.0"
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 multihash ="0.13"
@@ -54,8 +54,10 @@ parking_lot = "0.11.0"
 particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }
 json-utils = { path = "../crates/json-utils" }
-fluence-app-service = "0.5.2"
 fluence-libp2p = { path = "../crates/libp2p" }
+
+fluence-app-service = "0.7.0"
+
 base64 = "0.13.0"
 maplit = "1.0.2"
 serde_json = "1.0.64"

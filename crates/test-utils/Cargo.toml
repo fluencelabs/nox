@@ -19,9 +19,10 @@ aquamarine = { path = "../../aquamarine" }
 connection-pool = { path = "../../connection-pool" }
 script-storage = { path = "../../script-storage" }
 
-air-interpreter-wasm = "0.8.2"
-aquamarine-vm = "0.5.2"
+air-interpreter-wasm = "0.9.0"
+aquamarine-vm = "0.7.0"
 fluence-identity = "0.3.0"
+fluence-faas = "0.7.0"
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
@@ -42,6 +43,5 @@ maplit = "1.0.2"
 parking_lot = "0.11.0"
 base64 = "0.13.0"
 eyre = "0.6.5"
-fluence-faas = "0.5.2"
 derivative = "2.1.1"
 itertools = "0.10.0"

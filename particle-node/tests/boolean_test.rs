@@ -43,22 +43,22 @@ fn pass_boolean() {
     let script = f!(r#"
     (seq
         (seq
-            (call host (service_id "not") [one] not_one)
-            (call host (service_id "not") [zero] not_zero)
+            (call host (service_id "not") [tru] not_true)
+            (call host (service_id "not") [fal] not_false)
         )
-        (call %init_peer_id% ("op" "return") [not_one not_zero])
+        (call %init_peer_id% ("op" "return") [not_true not_false])
     )"#);
 
     let data = hashmap! {
         "host" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
         "service_id" => json!(tetraplets_service.id),
-        "one" => json!(1),
-        "zero" => json!(0),
+        "tru" => json!(true),
+        "fal" => json!(false),
     };
 
     client.send_particle(script, data.clone());
 
     let args = client.receive_args().wrap_err("receive").unwrap();
-    assert_eq!(args, vec![json!(0), json!(1)]);
+    assert_eq!(args, vec![json!(false), json!(true)]);
 }

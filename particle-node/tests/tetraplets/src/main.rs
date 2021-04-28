@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-use fluence::{fce, SecurityTetraplet};
+use fluence::{fce, module_manifest, SecurityTetraplet};
+
+module_manifest!();
 
 pub fn main() {}
 
