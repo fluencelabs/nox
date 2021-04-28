@@ -25,6 +25,8 @@ def deploy_fluence():
         target = target_environment()
         env.hosts = target["bootstrap"]
 
+        # TODO: generate compose files
+
         puts("Fluence: deploying bootstrap")
         special_nodes = deploy_bootstrap()
         bootstrap = special_nodes[0]
