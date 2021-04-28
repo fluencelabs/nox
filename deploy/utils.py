@@ -81,7 +81,7 @@ def load_config():
     # Set to False to disable `[ip.ad.dre.ss] out:` prefix
     env.output_prefix = True
 
-    cfg_file = open("new_config.json", "r")
+    cfg_file = open("deployment_config.json", "r")
     env.config = json.loads(cfg_file.read().rstrip())
     cfg_file.close()
 
