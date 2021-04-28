@@ -87,7 +87,7 @@ def load_config():
 
     target = target_environment()
     # Set the username
-    env.user = target.user
+    env.user = target["user"]
 
     if not env.hosts:
         # use addresses from config as fabric hosts
@@ -96,10 +96,13 @@ def load_config():
         puts("will use hosts: %s" % env.hosts)
 
 def target_environment():
-    return env.config.environments[env.target]
+    target = env.config["target"]
+    environment = filter(lambda e: e["name"] == target, env.config["environments"])
+    return environment[0]
 
 def docker_tag():
     return target_environment['docker_tag']
 
-def get_keypair(yml, idx):
-    return target_environment['keypairs'][yml][idx]
+def get_keypairs(yml, idx, count):
+    keypairs = target_environment()['keypairs'][yml]
+    return keypairs[idx:idx+count]
