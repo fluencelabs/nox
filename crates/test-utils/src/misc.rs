@@ -96,7 +96,7 @@ HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
 pub fn enable_logs() {
     use log::LevelFilter::*;
 
-    std::env::set_var("WASM_LOG", "trace");
+    std::env::set_var("WASM_LOG", "info");
 
     env_logger::builder()
         .format_timestamp_millis()
@@ -119,8 +119,8 @@ pub fn enable_logs() {
         .filter(Some("libp2p_core::upgrade::apply"), Info)
         .filter(Some("libp2p_kad::kbucket"), Info)
         .filter(Some("libp2p_kad"), Info)
-        .filter(Some("libp2p_kad::query"), Trace)
-        .filter(Some("libp2p_kad::iterlog"), Trace)
+        .filter(Some("libp2p_kad::query"), Info)
+        .filter(Some("libp2p_kad::iterlog"), Info)
         .filter(Some("libp2p_plaintext"), Info)
         .filter(Some("libp2p_identify::protocol"), Info)
         .filter(Some("cranelift_codegen"), Info)
@@ -172,17 +172,6 @@ pub fn make_swarms_with_transport_and_mocked_vm(
     n: usize,
     transport: Transport,
 ) -> Vec<CreatedSwarm> {
-    // make_swarms_with(
-    //     n,
-    //     |bs, maddr| create_swarm(SwarmConfig::new(bs, maddr)),
-    //     || match transport {
-    //         Transport::Memory => create_memory_maddr(),
-    //         Transport::Network => create_tcp_maddr(),
-    //     },
-    //     identity,
-    //     true,
-    // )
-
     make_swarms_with::<EasyVM, _, _, _>(
         n,
         |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_, _, _| None),
