@@ -10,8 +10,8 @@ ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
 
 
-fce-wit-parser = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
-fluence-app-service = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
+fce-wit-parser = { git = "https://github.com/fluencelabs/fce" }
+fluence-app-service = { git = "https://github.com/fluencelabs/fce" }
 
 
 serde = { version = "1.0.118", features = ["derive"] }

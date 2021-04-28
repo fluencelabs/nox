@@ -11,7 +11,7 @@ fluence-libp2p = { path = "../crates/libp2p" }
 config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
 control-macro = { path = "../crates/control-macro" }
-aquamarine-vm = { git = "https://github.com/fluencelabs/fce", branch = "sdk_optimizations" }
+aquamarine-vm = { git = "https://github.com/fluencelabs/fce" }
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
