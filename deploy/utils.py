@@ -78,8 +78,6 @@ def home_dir():
         return run('echo $HOME').stdout
 
 def load_config():
-    # Set the username
-    env.user = "root"
     # Set to False to disable `[ip.ad.dre.ss] out:` prefix
     env.output_prefix = True
 
@@ -87,9 +85,24 @@ def load_config():
     env.config = json.loads(cfg_file.read().rstrip())
     cfg_file.close()
 
+    target = target_environment()
+    # Set the username
+    env.user = target["user"]
+
     if not env.hosts:
         # use addresses from config as fabric hosts
-        env.hosts = env.config['nodes']
+        env.hosts = target['hosts']
     else:
         puts("will use hosts: %s" % env.hosts)
 
+def target_environment():
+    target = env.config["target"]
+    environment = filter(lambda e: e["name"] == target, env.config["environments"])
+    return environment[0]
+
+def docker_tag():
+    return target_environment['docker_tag']
+
+def get_keypairs(yml, idx, count):
+    keypairs = target_environment()['keypairs'][yml]
+    return keypairs[idx:idx+count]
