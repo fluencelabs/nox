@@ -23,6 +23,8 @@ def deploy_fluence():
     # 'running', 'output'
     with hide():
         load_config()
+        target = target_environment()
+        env.hosts = target["bootstrap"]
 
         puts("Fluence: deploying bootstrap")
         results = execute(deploy_bootstrap)
@@ -30,6 +32,8 @@ def deploy_fluence():
         bootstrap = bootstraps[0]
         env.bootstraps = map(lambda b: b.tcp.multiaddr, bootstraps)
 
+
+        env.hosts = target["hosts"]
         puts("Fluence: deploying rest of the nodes")
         results = execute(deploy_nodes)
         nodes = fill_addresses(results.items())
@@ -44,8 +48,6 @@ def deploy_fluence():
 @parallel
 def deploy_bootstrap():
     target = target_environment()
-    env.hosts = target["bootstrap"]
-
     yml = "fluence_bootstrap.yml"
     keypair = get_keypairs(yml, get_host_idx(containers=1), count=1)
     gen_compose_file(
@@ -66,7 +68,6 @@ def deploy_bootstrap():
 @parallel
 def deploy_nodes():
     target = target_environment()
-    env.hosts = target["hosts"]
 
     yml = "fluence.yml"
     scale = target["containers_per_host"]

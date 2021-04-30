@@ -1,5 +1,5 @@
 {
-  "target": "stage",
+  "target": "stageg",
 
   "environments": [
     {
@@ -7,9 +7,9 @@
       "container_tag": "bwu",
       "containers_per_host": 1,
       "external_bootstraps": [
-        "165.227.164.206",
-        "139.59.148.53",
-        "157.230.98.75"
+        "/ip4/165.227.164.206/tcp/7001",
+        "/ip4/139.59.148.53/tcp/7001",
+        "/ip4/157.230.98.75/tcp/7001"
       ],
       "hosts": [
         "164.90.171.139",
