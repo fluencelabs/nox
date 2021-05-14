@@ -9,10 +9,9 @@ ivalue-utils = { path = "../ivalue-utils" }
 json-utils = { path = "../json-utils" }
 control-macro = { path = "../control-macro" }
 
-fce = "0.5.0"
-aquamarine-vm = "0.7.0"
-fluence-app-service = "0.7.0"
-
+marine-runtime = "0.5.0"
+avm-server = "0.7.0"
+fluence-app-service = "0.7.2"
 
 serde_json = "1.0.64"
 serde = "1.0.118"
