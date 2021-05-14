@@ -69,7 +69,7 @@ impl AquaRuntime for EasyVM {
         }
 
         // if the script starts with '!', then emulate routing logic
-        // that allows to avoid using real AquamarineVM, but still
+        // that allows to avoid using real AVM, but still
         // describe complex topologies
         let (next_peer, data) = if script.starts_with('!') {
             // data contains peer ids separated by comma

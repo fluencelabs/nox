@@ -10,5 +10,5 @@ pub use closure::{
     ClosureDescriptor, ParticleClosure,
 };
 
-pub use aquamarine_vm::ParticleParameters;
+pub use avm_server::ParticleParameters;
 pub use base58::from_base58;

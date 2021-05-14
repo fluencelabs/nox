@@ -29,8 +29,7 @@ use futures::{FutureExt, SinkExt};
 use libp2p::PeerId;
 
 use aquamarine::{
-    AquamarineApi, AquamarineBackend, AquamarineVM, SendParticle, StepperEffects, VmConfig,
-    VmPoolConfig,
+    AquamarineApi, AquamarineBackend, SendParticle, StepperEffects, VmConfig, VmPoolConfig, AVM,
 };
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::{BackPressuredInlet, OneshotOutlet};
@@ -331,7 +330,7 @@ where
         services_dir: tmp_dir.join("services_dir"),
         particles_dir: tmp_dir.join("particles_dir"),
     };
-    let (stepper_pool, stepper_pool_api): (AquamarineBackend<AquamarineVM>, _) =
+    let (stepper_pool, stepper_pool_api): (AquamarineBackend<AVM>, _) =
         AquamarineBackend::new(pool_config, (vm_config, host_closures.descriptor()));
 
     let handle = stepper_pool.start();

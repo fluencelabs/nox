@@ -16,14 +16,14 @@
 
 #![allow(dead_code)]
 
-use aquamarine_vm::AquamarineVM;
+use avm_server::AVM;
 use particle_protocol::Particle;
 use serde_json::Value as JValue;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 struct SingletonVM {
-    vm: AquamarineVM,
+    vm: AVM,
     load_map: HashMap<String, JValue>,
 }
 
