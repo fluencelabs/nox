@@ -18,9 +18,7 @@ use super::behaviour::NetworkBehaviour;
 use crate::metrics::start_metrics_endpoint;
 use crate::network_api::NetworkApi;
 
-use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineBackend, AquamarineVM, VmConfig, VmPoolConfig,
-};
+use aquamarine::{AquaRuntime, AquamarineApi, AquamarineBackend, VmConfig, VmPoolConfig, AVM};
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::{
@@ -66,7 +64,7 @@ pub struct Node<RT: AquaRuntime> {
     script_storage: ScriptStorageBackend,
 }
 
-impl Node<AquamarineVM> {
+impl Node<AVM> {
     pub fn new(key_pair: Keypair, config: ResolvedConfig) -> eyre::Result<Box<Self>> {
         let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
 

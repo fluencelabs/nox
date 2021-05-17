@@ -22,7 +22,7 @@ use crate::{
     KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT,
 };
 
-use aquamarine_vm::AquamarineVM;
+use avm_server::AVM;
 use fluence_client::{Client, Transport};
 use particle_protocol::Particle;
 
@@ -44,7 +44,7 @@ pub struct ConnectedClient {
     pub kad_timeout: Duration,
     pub call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     pub call_service_out: Arc<Mutex<Vec<JValue>>>,
-    pub local_vm: Lazy<Mutex<AquamarineVM>, Box<dyn FnOnce() -> Mutex<AquamarineVM>>>,
+    pub local_vm: Lazy<Mutex<AVM>, Box<dyn FnOnce() -> Mutex<AVM>>>,
 }
 
 impl ConnectedClient {
@@ -114,7 +114,7 @@ impl ConnectedClient {
         let peer_id = client.peer_id;
         let call_in = call_service_in.clone();
         let call_out = call_service_out.clone();
-        let f: Box<dyn FnOnce() -> Mutex<AquamarineVM>> = Box::new(move || {
+        let f: Box<dyn FnOnce() -> Mutex<AVM>> = Box::new(move || {
             Mutex::new(make_vm(
                 peer_id,
                 make_call_service_closure(call_in, call_out),

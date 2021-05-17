@@ -46,6 +46,6 @@ pub use outcome::{SendParticle, StepperEffects};
 pub use plumber::Plumber;
 
 // reexport
-pub use aquamarine_vm::AquamarineVM;
-pub use aquamarine_vm::AquamarineVMConfig;
-pub use aquamarine_vm::InterpreterOutcome;
+pub use avm_server::AVMConfig;
+pub use avm_server::InterpreterOutcome;
+pub use avm_server::AVM;

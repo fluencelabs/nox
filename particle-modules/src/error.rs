@@ -17,7 +17,7 @@
 use fluence_app_service::FaaSError;
 use json_utils::err_as_value;
 
-use fce_wit_parser::WITParserError;
+use marine_it_parser::ITParserError;
 use serde_json::Value as JValue;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -92,7 +92,7 @@ pub enum ModuleError {
     ReadModuleInterfaceError {
         path: PathBuf,
         #[source]
-        err: WITParserError,
+        err: ITParserError,
     },
     #[error("Module with name {0} wasn't found, consider using module hash instead of a name")]
     InvalidModuleName(String),

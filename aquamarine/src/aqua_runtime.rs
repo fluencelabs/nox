@@ -18,7 +18,7 @@ use crate::config::VmConfig;
 use crate::invoke::{parse_outcome, ExecutionError};
 use crate::{SendParticle, StepperEffects};
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, AquamarineVMError, InterpreterOutcome};
+use avm_server::{AVMConfig, AVMError, InterpreterOutcome, AVM};
 use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
@@ -53,34 +53,31 @@ pub trait AquaRuntime: Sized + Send + 'static {
     ) -> Result<InterpreterOutcome, Self::Error>;
 }
 
-impl AquaRuntime for AquamarineVM {
+impl AquaRuntime for AVM {
     type Config = (VmConfig, ClosureDescriptor);
-    type Error = AquamarineVMError;
+    type Error = AVMError;
 
-    /// Creates `AquamarineVM` in background (on blocking threadpool)
+    /// Creates `AVM` in background (on blocking threadpool)
     fn create_runtime(
         (config, host_closure): Self::Config,
         waker: Waker,
     ) -> BoxFuture<'static, Result<Self, Self::Error>> {
         task::spawn_blocking(move || {
-            let config = AquamarineVMConfig {
+            let config = AVMConfig {
                 current_peer_id: config.current_peer_id.to_string(),
-                aquamarine_wasm_path: config.air_interpreter,
+                air_wasm_path: config.air_interpreter,
                 particle_data_store: config.particles_dir,
                 call_service: host_closure(),
                 logging_mask: i32::MAX,
             };
-            let vm = AquamarineVM::new(config);
+            let vm = AVM::new(config);
             waker.wake();
             vm
         })
         .boxed()
     }
 
-    fn into_effects(
-        outcome: Result<InterpreterOutcome, AquamarineVMError>,
-        p: Particle,
-    ) -> StepperEffects {
+    fn into_effects(outcome: Result<InterpreterOutcome, AVMError>, p: Particle) -> StepperEffects {
         let particles = match parse_outcome(outcome) {
             Ok((data, targets)) if !targets.is_empty() => {
                 #[rustfmt::skip]
@@ -130,6 +127,6 @@ impl AquaRuntime for AquamarineVM {
         data: Vec<u8>,
         particle_id: String,
     ) -> Result<InterpreterOutcome, Self::Error> {
-        AquamarineVM::call(self, init_user_id.to_string(), aqua, data, particle_id)
+        AVM::call(self, init_user_id.to_string(), aqua, data, particle_id)
     }
 }

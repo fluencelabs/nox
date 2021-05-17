@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use aquamarine_vm::{AquamarineVMError, InterpreterOutcome};
+use avm_server::{AVMError, InterpreterOutcome};
 
 use libp2p::PeerId;
 use log::LevelFilter;
@@ -47,7 +47,7 @@ pub enum ExecutionError {
         ret_code: i32,
         readable_data: String,
     },
-    AquamarineError(AquamarineVMError),
+    AquamarineError(AVMError),
 }
 
 impl Error for ExecutionError {
@@ -91,7 +91,7 @@ fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
 }
 
 pub fn parse_outcome(
-    outcome: Result<InterpreterOutcome, AquamarineVMError>,
+    outcome: Result<InterpreterOutcome, AVMError>,
 ) -> Result<(Vec<u8>, Vec<PeerId>), ExecutionError> {
     let outcome = outcome.map_err(ExecutionError::AquamarineError)?;
 

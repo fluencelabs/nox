@@ -19,7 +19,7 @@ use crate::{make_tmp_dir, now_ms, put_aquamarine, uuid, PARTICLE_TTL};
 use host_closure::Args;
 use particle_protocol::Particle;
 
-use aquamarine_vm::{AquamarineVM, AquamarineVMConfig, CallServiceClosure, InterpreterOutcome};
+use avm_server::{AVMConfig, CallServiceClosure, InterpreterOutcome, AVM};
 
 use fstrings::f;
 use libp2p::PeerId;
@@ -94,30 +94,24 @@ pub fn make_call_service_closure(
     })
 }
 
-pub fn make_vm(peer_id: PeerId, call_service: CallServiceClosure) -> AquamarineVM {
+pub fn make_vm(peer_id: PeerId, call_service: CallServiceClosure) -> AVM {
     let tmp = make_tmp_dir();
     let interpreter = put_aquamarine(tmp.join("modules"));
 
-    let config = AquamarineVMConfig {
+    let config = AVMConfig {
         call_service,
-        aquamarine_wasm_path: interpreter,
+        air_wasm_path: interpreter,
         current_peer_id: peer_id.to_string(),
         particle_data_store: format!("/tmp/{}", peer_id.to_string()).into(),
         logging_mask: i32::MAX,
     };
     log::info!("particle_data_store: {:?}", config.particle_data_store);
 
-    AquamarineVM::new(config)
+    AVM::new(config)
         .map_err(|err| {
-            log::error!(
-                "\n\n\nFailed to create local AquamarineVM: {:#?}\n\n\n",
-                err
-            );
+            log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 
-            println!(
-                "\n\n\nFailed to create local AquamarineVM: {:#?}\n\n\n",
-                err
-            );
+            println!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 
             err
         })
@@ -129,7 +123,7 @@ pub fn make_particle(
     service_in: Arc<Mutex<HashMap<String, JValue>>>,
     script: String,
     relay: impl Into<Option<PeerId>>,
-    local_vm: &mut AquamarineVM,
+    local_vm: &mut AVM,
 ) -> Particle {
     let load_variables = service_in
         .lock()
@@ -194,7 +188,7 @@ pub fn make_particle(
 pub fn read_args(
     particle: Particle,
     peer_id: PeerId,
-    local_vm: &mut AquamarineVM,
+    local_vm: &mut AVM,
     out: Arc<Mutex<Vec<JValue>>>,
 ) -> Vec<JValue> {
     local_vm

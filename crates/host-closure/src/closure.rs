@@ -16,7 +16,7 @@
 
 use crate::args::Args;
 
-use aquamarine_vm::{CallServiceClosure, ParticleParameters};
+use avm_server::{CallServiceClosure, ParticleParameters};
 use ivalue_utils::{into_record, into_record_opt, IValue};
 
 use serde_json::Value as JValue;

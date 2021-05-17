@@ -33,7 +33,7 @@ pub trait ParticleExecutor {
 
 /// Result of a particle execution along a VM that has just executed the particle
 pub struct FutResult<RT> {
-    /// AquamarineVM that just executed a particle
+    /// AVM that just executed a particle
     pub vm: RT,
     /// Effects produced by particle execution
     pub effects: AwaitedEffects,

@@ -20,7 +20,7 @@ pub use fluence_client::Transport;
 use crate::EasyVM;
 
 use aquamarine::VmPoolConfig;
-use aquamarine::{AquaRuntime, AquamarineVM, VmConfig};
+use aquamarine::{AquaRuntime, VmConfig, AVM};
 use config_utils::{modules_dir, to_abs_path};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::OneshotOutlet;
@@ -326,7 +326,7 @@ pub fn aqua_vm_config(
     connectivity: Connectivity,
     script_storage_api: ScriptStorageApi,
     vm_config: BaseVmConfig,
-) -> <AquamarineVM as AquaRuntime>::Config {
+) -> <AVM as AquaRuntime>::Config {
     let BaseVmConfig {
         peer_id,
         tmp_dir,
@@ -456,7 +456,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     (peer_id, node, tmp_dir, management_kp)
 }
 
-pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AquamarineVM>>, PathBuf, Keypair) {
+pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, PathBuf, Keypair) {
     create_swarm_with_runtime(config, aqua_vm_config)
 }
 
