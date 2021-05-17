@@ -26,9 +26,9 @@ use crate::files::{load_config_by_path, load_module_by_path};
 use crate::hash::Hash;
 use crate::{file_names, files, load_module_descriptor, Blueprint};
 
-use fce_wit_parser::module_interface;
 use fluence_app_service::ModuleDescriptor;
 use host_closure::{closure, Args, Closure};
+use marine_it_parser::module_interface;
 
 use eyre::WrapErr;
 use fstrings::f;
