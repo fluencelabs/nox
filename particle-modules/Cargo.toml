@@ -9,7 +9,7 @@ host-closure = { path = "../crates/host-closure" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
 
-fce-wit-parser = "0.5.0"
+marine-it-parser = "0.6.0"
 fluence-app-service = "0.7.0"
 
 serde = { version = "1.0.118", features = ["derive"] }

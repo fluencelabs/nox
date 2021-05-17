@@ -1450,33 +1450,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fce-wit-interfaces"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc40ae6a1afddd132c7d31ad003b57457573c9a434e1c1163537b42cf7d879c1"
-dependencies = [
- "multimap",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "fce-wit-parser"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e487ac779cbb5f05c0e658dd0f3091d82cb03f25769ae63652e328bf2193072"
-dependencies = [
- "anyhow",
- "fce-wit-interfaces",
- "nom",
- "semver 0.11.0",
- "serde",
- "thiserror",
- "walrus",
- "wasmer-interface-types-fl",
- "wasmer-runtime-core-fl",
-]
-
-[[package]]
 name = "femme"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2923,7 +2896,7 @@ dependencies = [
  "cargo_toml",
  "fluence-sdk-wit",
  "it-lilo",
- "marine-it-parser",
+ "marine-it-parser 0.5.0",
  "once_cell",
  "serde",
  "serde_json",
@@ -2943,13 +2916,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-it-interfaces"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f18c137e51fd52ab7a3652233fc4eaa68e25a6a53d609bf9dd0f2e3bf67adee1"
+dependencies = [
+ "multimap",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
 name = "marine-it-parser"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e59c7067a18b9e4aebe67bee033638fae97d6fe4fb00f70f9a509eb5d03d1c5d"
 dependencies = [
  "anyhow",
- "marine-it-interfaces",
+ "marine-it-interfaces 0.3.0",
+ "nom",
+ "semver 0.11.0",
+ "serde",
+ "thiserror",
+ "walrus",
+ "wasmer-interface-types-fl",
+ "wasmer-runtime-core-fl",
+]
+
+[[package]]
+name = "marine-it-parser"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b117f93f867032d57751983ba89443ac8062bf51dd3093028d509830dd57901"
+dependencies = [
+ "anyhow",
+ "marine-it-interfaces 0.4.0",
  "nom",
  "semver 0.11.0",
  "serde",
@@ -3009,8 +3009,8 @@ dependencies = [
  "it-lilo",
  "log",
  "marine-it-generator",
- "marine-it-interfaces",
- "marine-it-parser",
+ "marine-it-interfaces 0.3.0",
+ "marine-it-parser 0.5.0",
  "marine-module-info-parser",
  "marine-utils",
  "multimap",
@@ -3404,7 +3404,6 @@ dependencies = [
  "blake3",
  "eyre",
  "faster-hex",
- "fce-wit-parser",
  "fluence-app-service",
  "fluence-fork-libp2p-core",
  "fstrings",
@@ -3413,6 +3412,7 @@ dependencies = [
  "ivalue-utils",
  "json-utils",
  "log",
+ "marine-it-parser 0.6.0",
  "parking_lot 0.11.1",
  "serde",
  "serde_json",
