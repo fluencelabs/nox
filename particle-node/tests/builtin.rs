@@ -200,7 +200,7 @@ fn timestamp_ms() {
         },
     );
 
-    let info = client.receive_args().wrap_err("receive args").unwrap();
-    let info = info.into_iter().next().unwrap();
-    let _: u64 = serde_json::from_value(info).unwrap();
+    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = result.into_iter().next().unwrap();
+    let _: u64 = serde_json::from_value(result).unwrap();
 }
