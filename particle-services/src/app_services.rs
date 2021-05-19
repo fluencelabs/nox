@@ -28,7 +28,7 @@ use server_config::ServicesConfig;
 
 use crate::app_service::create_app_service;
 use crate::error::ServiceError;
-use crate::error::ServiceError::{AliasAsServiceId, Forbidden};
+use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::persistence::{load_persisted_services, persist_service, PersistedService};
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
@@ -251,6 +251,29 @@ impl ParticleAppServices {
 
             aliases.write().insert(alias, service_id.clone());
             Ok(None)
+        })
+    }
+
+    pub fn resolve_alias(&self) -> Closure {
+        let aliases = self.aliases.clone();
+
+        closure(move |mut args| {
+            let alias: String = Args::next("alias", &mut args)?;
+            let aliases = aliases.read();
+            let service_id = aliases.get(&alias);
+
+            service_id
+                .ok_or(NoSuchAlias(alias))
+                .map(|value| json!(value))
+                .map_err(|err| {
+                    log::warn!("call_service error: {:?}", err);
+                    json!(format!("{:?}", err)
+                        // TODO: send patch to eyre so it can be done through their API
+                        // Remove backtrace from the response
+                        .split("Stack backtrace:")
+                        .next()
+                        .unwrap_or_default())
+                })
         })
     }
 

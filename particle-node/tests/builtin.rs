@@ -178,3 +178,44 @@ fn non_owner_remove_service() {
         panic!("incorrect args: expected two arrays, got: {:?}", args)
     }
 }
+
+#[test]
+fn resolve_alias() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
+    );
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("srv" "add_alias") [alias service])
+                (call relay ("srv" "resolve_alias") [alias] result)
+            )
+            (call %init_peer_id% ("op" "return") [result])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+            "alias" => json!("some_alias".to_string()),
+        },
+    );
+
+    let service_id = client.receive_args().wrap_err("receive args").unwrap();
+    let service_id = service_id.into_iter().next().unwrap();
+    let service_id: String = serde_json::from_value(service_id).unwrap();
+
+    assert_eq!(tetraplets_service.id, service_id);
+}
