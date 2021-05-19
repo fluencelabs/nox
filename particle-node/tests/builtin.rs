@@ -178,3 +178,55 @@ fn non_owner_remove_service() {
         panic!("incorrect args: expected two arrays, got: {:?}", args)
     }
 }
+
+#[test]
+fn timestamp_ms() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("peer" "timestamp_ms") [] result)
+            (call client ("op" "return") [result])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+
+    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = result.into_iter().next().unwrap();
+    let _: u64 = serde_json::from_value(result).unwrap();
+}
+
+#[test]
+fn timestamp_sec() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("peer" "timestamp_sec") [] result)
+            (call client ("op" "return") [result])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+
+    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = result.into_iter().next().unwrap();
+    let _: u64 = serde_json::from_value(result).unwrap();
+}
