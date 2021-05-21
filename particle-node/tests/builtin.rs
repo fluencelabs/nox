@@ -24,7 +24,7 @@ use libp2p::core::Multiaddr;
 use maplit::hashmap;
 use particle_protocol::Particle;
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value as JValue};
 use std::time::Duration;
 
 #[derive(Deserialize, Debug)]
@@ -160,7 +160,7 @@ fn non_owner_remove_service() {
         },
     );
 
-    use serde_json::Value::{self as JValue, Array, String};
+    use serde_json::Value::{Array, String};
 
     let args = client2.receive_args().unwrap();
     if let [Array(before), Array(after), String(error)] = args.as_slice() {
@@ -218,4 +218,38 @@ fn resolve_alias() {
     let service_id: String = serde_json::from_value(service_id).unwrap();
 
     assert_eq!(tetraplets_service.id, service_id);
+}
+
+#[test]
+fn resolve_alias_not_exists() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+        (xor
+            (seq
+                (call relay ("srv" "resolve_alias") [alias] result)
+                (call %init_peer_id% ("op" "return") [result])
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "alias" => json!("some_alias".to_string()),
+        },
+    );
+
+    let error = client.receive_args().wrap_err("receive args").unwrap();
+    let error = error.into_iter().next().unwrap();
+    let error: JValue = serde_json::from_str(error.as_str().unwrap()).unwrap();
+    let failed_instruction = error.get("instruction").unwrap().as_str().unwrap();
+    assert_eq!(
+        failed_instruction,
+        r#"call relay ("srv" "resolve_alias") [alias] result"#
+    );
 }
