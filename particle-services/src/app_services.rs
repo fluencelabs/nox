@@ -18,7 +18,7 @@ use std::ops::Deref;
 use std::{collections::HashMap, sync::Arc};
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use parking_lot::{Mutex, RwLock};
+use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
@@ -75,6 +75,23 @@ pub struct ParticleAppServices {
     management_peer_id: String,
 }
 
+pub fn get_service(
+    services: Services,
+    aliases: Aliases,
+    service_id_or_alias: String,
+) -> Option<(String, &Service)> {
+    match services.read().get(&service_id_or_alias) {
+        Some(service) => Some((service_id_or_alias.clone(), service)),
+        None => match aliases.read().get(&service_id_or_alias) {
+            Some(service_id) => services
+                .read()
+                .get(service_id)
+                .and_then(|srv| Some((service_id.clone(), srv))),
+            None => None,
+        },
+    }
+}
+
 impl ParticleAppServices {
     pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
         let management_peer_id = config.management_peer_id.to_base58();
@@ -124,21 +141,22 @@ impl ParticleAppServices {
 
     pub fn remove_service(&self) -> ParticleClosure {
         let services = self.services.clone();
+        let aliases = self.aliases.clone();
 
         closure_params_opt(move |particle_params, args| {
             let mut args = args.function_args.into_iter();
-            let service_id: String = Args::next("service_id", &mut args)?;
+            let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
 
-            match services.read().get(&service_id) {
-                Some(service) if service.owner_id != particle_params.init_user_id => {
+            let service_id = match get_service(services, aliases, service_id_or_alias.clone()) {
+                Some((_, service)) if service.owner_id != particle_params.init_user_id => {
                     Err(ServiceError::Forbidden {
                         user: particle_params.init_user_id,
                         function: "remove_service",
                         reason: "only creator can remove service",
                     })
                 }
-                None => Err(ServiceError::NoSuchService(service_id.clone())),
-                Some(_service) => Ok(()),
+                None => Err(ServiceError::NoSuchService(service_id_or_alias.clone())),
+                Some((service_id, _)) => Ok(service_id),
             }?;
 
             services.write().remove(&service_id);

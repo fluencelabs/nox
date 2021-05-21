@@ -121,6 +121,53 @@ fn remove_service() {
 }
 
 #[test]
+fn remove_service_alias() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
+    );
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("srv" "add_alias") [alias service])
+                (seq
+                    (call relay ("srv" "list") [] list_before)
+                    (call relay ("srv" "remove") [alias])
+                )
+            )
+            (seq
+                (call relay ("srv" "list") [] list_after)
+                (call %init_peer_id% ("op" "return") [list_before list_after])
+            )
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+            "alias" => json!("some_alias".to_string()),
+        },
+    );
+
+    use serde_json::Value::Array;
+
+    if let [Array(before), Array(after)] = client.receive_args().unwrap().as_slice() {
+        assert_eq!(before.len(), 1);
+        assert_eq!(after.len(), 0);
+    } else {
+        panic!("incorrect args: expected two arrays")
+    }
+}
+
+#[test]
 fn non_owner_remove_service() {
     let swarms = make_swarms(1);
 
