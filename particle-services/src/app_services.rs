@@ -18,7 +18,7 @@ use std::ops::Deref;
 use std::{collections::HashMap, sync::Arc};
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use parking_lot::{Mutex, RwLock, RwLockReadGuard};
+use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
@@ -75,21 +75,20 @@ pub struct ParticleAppServices {
     management_peer_id: String,
 }
 
-pub fn get_service(
-    services: Services,
-    aliases: Aliases,
-    service_id_or_alias: String,
-) -> Option<(String, &Service)> {
-    match services.read().get(&service_id_or_alias) {
-        Some(service) => Some((service_id_or_alias.clone(), service)),
-        None => match aliases.read().get(&service_id_or_alias) {
-            Some(service_id) => services
-                .read()
-                .get(service_id)
-                .and_then(|srv| Some((service_id.clone(), srv))),
-            None => None,
-        },
-    }
+pub fn get_service<'l>(
+    services: &'l HashMap<String, Service>,
+    aliases: &HashMap<String, String>,
+    id_or_alias: String,
+) -> Result<(&'l Service, String), ServiceError> {
+    services
+        .get(&id_or_alias)
+        .map(|s| (s, id_or_alias.clone()))
+        .or_else(|| {
+            aliases
+                .get(&id_or_alias)
+                .and_then(|id| (services.get(id)).map(|s| (s, id.clone())))
+        })
+        .ok_or_else(|| ServiceError::NoSuchService(id_or_alias.clone()))
 }
 
 impl ParticleAppServices {
@@ -146,18 +145,16 @@ impl ParticleAppServices {
         closure_params_opt(move |particle_params, args| {
             let mut args = args.function_args.into_iter();
             let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-
-            let service_id = match get_service(services, aliases, service_id_or_alias.clone()) {
-                Some((_, service)) if service.owner_id != particle_params.init_user_id => {
-                    Err(ServiceError::Forbidden {
-                        user: particle_params.init_user_id,
-                        function: "remove_service",
-                        reason: "only creator can remove service",
-                    })
-                }
-                None => Err(ServiceError::NoSuchService(service_id_or_alias.clone())),
-                Some((service_id, _)) => Ok(service_id),
-            }?;
+            let services_read = services.read();
+            let (service, service_id) =
+                get_service(&services_read, &aliases.read(), service_id_or_alias)?;
+            if service.owner_id != particle_params.init_user_id {
+                Err(ServiceError::Forbidden {
+                    user: particle_params.init_user_id,
+                    function: "remove_service",
+                    reason: "only creator can remove service",
+                })?;
+            }
 
             services.write().remove(&service_id);
 
@@ -175,15 +172,7 @@ impl ParticleAppServices {
                 let services = services.read();
                 let aliases = aliases.read();
 
-                let (service, id) = services
-                    .get(&args.service_id)
-                    .map(|s| (s, args.service_id.clone()))
-                    .or_else(|| {
-                        aliases
-                            .get(&args.service_id)
-                            .and_then(|id| (services.get(id)).map(|s| (s, id.clone())))
-                    })
-                    .ok_or_else(|| ServiceError::NoSuchService(args.service_id.clone()))?;
+                let (service, id) = get_service(&services, &aliases, args.service_id)?;
 
                 let params = CallParameters {
                     host_id: host_id.clone(),
@@ -297,14 +286,13 @@ impl ParticleAppServices {
 
     pub fn get_interface(&self) -> Closure {
         let services = self.services.clone();
+        let aliases = self.aliases.clone();
         let modules = self.modules.clone();
 
         closure(move |mut args| {
             let services = services.read();
             let service_id: String = Args::next("service_id", &mut args)?;
-            let service = services
-                .get(&service_id)
-                .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
+            let (service, _) = get_service(&services, &aliases.read(), service_id)?;
 
             Ok(modules.get_facade_interface(&service.blueprint_id)?)
         })
