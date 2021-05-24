@@ -273,6 +273,7 @@ fn resolve_alias() {
     assert_eq!(tetraplets_service.id, service_id);
 }
 
+#[test]
 fn timestamp_ms() {
     let swarms = make_swarms(1);
 
