@@ -145,16 +145,21 @@ impl ParticleAppServices {
         closure_params_opt(move |particle_params, args| {
             let mut args = args.function_args.into_iter();
             let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-            let services_read = services.read();
-            let (service, service_id) =
-                get_service(&services_read, &aliases.read(), service_id_or_alias)?;
-            if service.owner_id != particle_params.init_user_id {
-                Err(ServiceError::Forbidden {
-                    user: particle_params.init_user_id,
-                    function: "remove_service",
-                    reason: "only creator can remove service",
-                })?;
-            }
+            let service_id = {
+                let services_read = services.read();
+                let (service, service_id) =
+                    get_service(&services_read, &aliases.read(), service_id_or_alias)?;
+
+                if service.owner_id != particle_params.init_user_id {
+                    Err(ServiceError::Forbidden {
+                        user: particle_params.init_user_id,
+                        function: "remove_service",
+                        reason: "only creator can remove service",
+                    })?;
+                }
+
+                service_id
+            };
 
             services.write().remove(&service_id);
 
