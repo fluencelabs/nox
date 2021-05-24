@@ -138,7 +138,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("peer", "connect")               => wrap(self.connect(args)),
             ("peer", "get_contact")           => wrap_opt(self.get_contact(args)),
             ("peer", "identify")              => (self.identify)(args),
-            ("peer", "timestamp_ms")          => ok(json!(now_ms())),
+            ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args)),
