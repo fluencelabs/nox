@@ -1,4 +1,3 @@
-#![feature(duration_zero)]
 /*
  * Copyright 2020 Fluence Labs Limited
  *

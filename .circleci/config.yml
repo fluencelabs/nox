@@ -14,10 +14,10 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - fluence03-{{ checksum "Cargo.lock" }}
+            - fluence04-{{ checksum "Cargo.lock" }}
       - run: |
-          rustup toolchain install nightly-2021-03-24-x86_64-unknown-linux-gnu
-          rustup default nightly-2021-03-24-x86_64-unknown-linux-gnu
+          rustup toolchain install nightly-2021-05-24-x86_64-unknown-linux-gnu
+          rustup default nightly-2021-05-24-x86_64-unknown-linux-gnu
           cargo build --release --all-features
       - persist_to_workspace:
           # Must be an absolute path, or relative path from working_directory.
@@ -33,7 +33,7 @@ jobs:
           paths:
             - ~/.cargo
             - ~/.rustup
-          key: fluence03-{{ checksum "Cargo.lock" }}
+          key: fluence04-{{ checksum "Cargo.lock" }}
 
   Rust Tests:
     docker:
@@ -46,7 +46,7 @@ jobs:
       - attach_workspace:
           at: .
       - run: |
-          rustup default nightly-2021-03-24-x86_64-unknown-linux-gnu
+          rustup default nightly-2021-05-24-x86_64-unknown-linux-gnu
           cargo test --no-fail-fast --release --all-features
 
   Publish Docker Container:
