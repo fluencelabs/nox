@@ -15,8 +15,8 @@
  */
 
 use test_utils::{
-    create_service, load_module, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms,
-    ConnectedClient, Transport, PARTICLE_TTL,
+    create_service, enable_logs, load_module, make_swarms,
+    make_swarms_with_transport_and_mocked_vm, now_ms, ConnectedClient, Transport, PARTICLE_TTL,
 };
 
 use eyre::WrapErr;
@@ -60,6 +60,7 @@ fn identify() {
 
 #[test]
 fn big_identity() {
+    enable_logs();
     let swarms = make_swarms_with_transport_and_mocked_vm(1, Transport::Network);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -79,6 +80,7 @@ fn big_identity() {
 
 #[test]
 fn remove_service() {
+    enable_logs();
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -122,6 +124,7 @@ fn remove_service() {
 
 #[test]
 fn remove_service_alias() {
+    enable_logs();
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_with_keypair(
