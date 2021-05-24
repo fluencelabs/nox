@@ -70,7 +70,7 @@ fn big_identity() {
     particle.init_peer_id = client.peer_id;
     particle.data = (0..(1024 * 1024 * 20)).map(|_| u8::MAX).collect();
     particle.timestamp = now_ms() as u64;
-    particle.ttl = PARTICLE_TTL * 5;
+    particle.ttl = PARTICLE_TTL * 1000;
     client.send(particle);
 
     client.timeout = Duration::from_secs(60);
