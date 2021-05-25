@@ -158,6 +158,10 @@ impl ParticleAppServices {
                     })?;
                 }
 
+                for alias in service.aliases.iter() {
+                    aliases.write().remove(alias);
+                }
+
                 service_id
             };
 

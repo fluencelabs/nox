@@ -272,32 +272,6 @@ fn resolve_alias() {
 }
 
 #[test]
-fn timestamp_ms() {
-    let swarms = make_swarms(1);
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .wrap_err("connect client")
-        .unwrap();
-
-    client.send_particle(
-        r#"
-        (seq
-            (call relay ("peer" "timestamp_ms") [] result)
-            (call client ("op" "return") [result])
-        )
-        "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
-
-    let result = client.receive_args().wrap_err("receive args").unwrap();
-    let result = result.into_iter().next().unwrap();
-    let _: u64 = serde_json::from_value(result).unwrap();
-}
-
-#[test]
 fn resolve_alias_not_exists() {
     let swarms = make_swarms(1);
 
@@ -329,6 +303,79 @@ fn resolve_alias_not_exists() {
         failed_instruction,
         r#"call relay ("srv" "resolve_alias") [alias] result"#
     );
+}
+
+#[test]
+fn resolve_alias_removed() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
+    );
+
+    client.send_particle(
+        r#"
+        (xor
+            (seq
+                (seq
+                    (call relay ("srv" "add_alias") [alias service])
+                    (call relay ("srv" "remove") [alias])
+                )
+                (call relay ("srv" "resolve_alias") [alias] result)
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+            "alias" => json!("some_alias".to_string()),
+        },
+    );
+
+    let error = client.receive_args().wrap_err("receive args").unwrap();
+    let error = error.into_iter().next().unwrap();
+    let error: JValue = serde_json::from_str(error.as_str().unwrap()).unwrap();
+    let failed_instruction = error.get("instruction").unwrap().as_str().unwrap();
+    assert_eq!(
+        failed_instruction,
+        r#"call relay ("srv" "resolve_alias") [alias] result"#
+    );
+}
+
+#[test]
+fn timestamp_ms() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("peer" "timestamp_ms") [] result)
+            (call client ("op" "return") [result])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+
+    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = result.into_iter().next().unwrap();
+    let _: u64 = serde_json::from_value(result).unwrap();
 }
 
 #[test]
