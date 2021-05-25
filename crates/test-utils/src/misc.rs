@@ -59,7 +59,7 @@ pub static TIMEOUT: Duration = Duration::from_secs(15);
 
 pub static SHORT_TIMEOUT: Duration = Duration::from_millis(300);
 pub static KAD_TIMEOUT: Duration = Duration::from_millis(500);
-pub static TRANSPORT_TIMEOUT: Duration = Duration::from_millis(10000);
+pub static TRANSPORT_TIMEOUT: Duration = Duration::from_millis(500);
 pub static KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(10);
 pub static EXECUTION_TIMEOUT: Duration = Duration::from_millis(5000);
 pub static PARTICLE_TTL: u32 = 20000;

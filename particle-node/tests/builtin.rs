@@ -58,6 +58,7 @@ fn identify() {
     let _: NodeInfo = serde_json::from_value(info).unwrap();
 }
 
+#[ignore]
 #[test]
 fn big_identity() {
     enable_logs();
