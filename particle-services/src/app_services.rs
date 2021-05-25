@@ -158,14 +158,14 @@ impl ParticleAppServices {
                     })?;
                 }
 
-                for alias in service.aliases.iter() {
-                    aliases.write().remove(alias);
-                }
-
                 service_id
             };
 
-            services.write().remove(&service_id);
+            let service = services.write().remove(&service_id).unwrap();
+            let mut aliases = aliases.write();
+            for alias in service.aliases.iter() {
+                aliases.remove(alias);
+            }
 
             Ok(None)
         })
