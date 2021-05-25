@@ -122,7 +122,7 @@ fn remove_service() {
 }
 
 #[test]
-fn remove_service_alias() {
+fn remove_service_by_alias() {
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_with_keypair(
