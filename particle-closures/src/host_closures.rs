@@ -58,6 +58,7 @@ pub struct HostClosures<C> {
 
     pub identify: Closure,
     pub add_alias: ParticleClosure,
+    pub resolve_alias: Closure,
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
@@ -100,6 +101,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             list_services: services.list_services(),
             identify: identify(node_info),
             add_alias: services.add_alias(),
+            resolve_alias: services.resolve_alias(),
             connectivity,
             script_storage,
             management_peer_id,
@@ -146,6 +148,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("srv", "list")                   => (self.list_services)(args),
             ("srv", "get_interface")          => (self.get_interface)(args),
             ("srv", "add_alias")              => (self.add_alias)(params, args),
+            ("srv", "resolve_alias")          => (self.resolve_alias)(args),
 
             ("dist", "add_module")            => (self.add_module)(args),
             ("dist", "list_modules")          => (self.list_modules)(args),
