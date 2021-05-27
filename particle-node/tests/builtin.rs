@@ -411,20 +411,6 @@ fn timestamp_sec() {
 
 #[test]
 fn base58_string_builtins() {
-    /*
-        string_to_b58
-        string_from_b58
-        bytes_from_b58
-        bytes_to_b58
-    */
-
-    /* TODO
-       - string to b58 OK
-       - string from b58 OK
-       - to + from = identity
-       - same for bytes
-    */
-
     let script = r#"
     (seq
         (seq
@@ -439,11 +425,9 @@ fn base58_string_builtins() {
 
     let string = "hello, this is a string! ДОБРЫЙ ВЕЧЕР КАК СЛЫШНО";
     let b58_string = bs58::encode(string).into_string();
-    let bytes: Vec<_> = (1..32).map(|i| (200 + i) as u8).collect();
     let args = hashmap! {
         "string" => json!(string),
         "b58_string" => json!(b58_string),
-        "bytes" => json!(bytes),
     };
 
     let result = call_builtin(script, args, "b58_string_out string_out identity_string");
@@ -451,6 +435,34 @@ fn base58_string_builtins() {
     assert_eq!(array[0], JValue::String(b58_string));
     assert_eq!(array[1], JValue::String(string.into()));
     assert_eq!(array[2], JValue::String(string.into()));
+}
+
+#[test]
+fn base58_bytes_builtins() {
+    let script = r#"
+    (seq
+        (seq
+            (call relay ("op" "bytes_to_b58") [bytes] b58_bytes_out)
+            (seq
+                (call relay ("op" "bytes_from_b58") [b58_bytes] bytes_out)
+                (call relay ("op" "bytes_from_b58") [b58_bytes_out] identity_bytes)
+            )
+        )
+    )
+    "#;
+
+    let bytes: Vec<_> = (1..32).map(|i| (200 + i) as u8).collect();
+    let b58_bytes = bs58::encode(bytes).into_vec();
+    let args = hashmap! {
+        "b58_bytes" => json!(b58_bytes),
+        "bytes" => json!(bytes),
+    };
+
+    let result = call_builtin(script, args, "b58_bytes_out bytes_out identity_bytes");
+    let array = into_array(result).expect("must be an array");
+    assert_eq!(array[0], json!(b58_bytes));
+    assert_eq!(array[1], json!(bytes));
+    assert_eq!(array[2], json!(bytes));
 }
 
 fn call_builtin(script: &str, mut args: HashMap<&'static str, JValue>, result: &str) -> JValue {
