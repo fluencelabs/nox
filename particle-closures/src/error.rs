@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2021 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,12 @@
  * limitations under the License.
  */
 
-#![feature(stmt_expr_attributes)]
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use std::string::FromUtf8Error;
 
-mod error;
-mod host_closures;
-mod identify;
-
-pub use host_closures::HostClosures;
-pub use identify::NodeInfo;
+#[derive(thiserror::Error, Debug)]
+pub enum HostClosureCallError {
+    #[error("decode base58 failed: {0}")]
+    DecodeBase58(#[source] bs58::decode::Error),
+    #[error("decode from bytes to UTF8 failed: {0}")]
+    DecodeUTF8(#[source] FromUtf8Error),
+}

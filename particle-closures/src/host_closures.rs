@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::{identify, NodeInfo};
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
@@ -23,6 +24,7 @@ use host_closure::{
 use ivalue_utils::{into_record, into_record_opt, ok, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
+use particle_modules::ModuleRepository;
 use particle_protocol::Contact;
 use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
@@ -32,8 +34,7 @@ use server_config::ServicesConfig;
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, PeerId};
-use multihash::{Code, MultihashDigest};
-use particle_modules::ModuleRepository;
+use multihash::{Code, MultihashDigest, MultihashGeneric};
 use serde_json::{json, Value as JValue};
 use std::borrow::Borrow;
 use std::num::ParseIntError;
@@ -161,6 +162,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("script", "list")                => wrap(self.list_scripts()),
 
             ("op", "identity")                => ok(Array(args.function_args)),
+            ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
+            ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
+            ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
+            ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
+            ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
 
             ("deprecated", "add_provider")    => (self.add_provider)(args),
             ("deprecated", "get_providers")   => (self.get_providers)(args),
@@ -258,6 +264,63 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
                 })
                 .collect(),
         ))
+    }
+
+    fn string_to_b58(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let mut args = args.into_iter();
+        let string: String = Args::next("string", &mut args)?;
+        let b58 = bs58::encode(string).into_string();
+        Ok(JValue::String(b58))
+    }
+
+    /// Attempts to decode UTF8 string from a given base58 string
+    /// May fail at base58 decoding and on UTF8 decoding
+    fn string_from_b58(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let mut args = args.into_iter();
+        let string: String = Args::next("b58_string", &mut args)?;
+        let vec = bs58::decode(string).into_vec().map_err(DecodeBase58)?;
+        let string = String::from_utf8(vec).map_err(DecodeUTF8)?;
+        Ok(JValue::String(string))
+    }
+
+    fn bytes_from_b58(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let mut args = args.into_iter();
+        let string: String = Args::next("b58_string", &mut args)?;
+        let vec = bs58::decode(string).into_vec().map_err(DecodeBase58)?;
+        Ok(json!(vec))
+    }
+
+    fn bytes_to_b58(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let mut args = args.into_iter();
+        let bytes: Vec<u8> = Args::next("bytes", &mut args)?;
+        let string = bs58::encode(bytes).into_string();
+        Ok(JValue::String(string))
+    }
+
+    /// Returns SHA256 of the passed string
+    /// Accepts 3 arguments:
+    /// `string` – string to hash
+    /// `digest_only` boolean – if set to true, return only SHA256 digest, otherwise (by default) – full multihash
+    /// `as_bytes` boolean - if set to true, return result as array of bytes, otherwise (by default) – as base58 string
+    fn sha256_string(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let mut args = args.into_iter();
+        let string: String = Args::next("string", &mut args)?;
+        let digest_only: Option<bool> = Args::maybe_next("digest_only", &mut args)?;
+        let as_bytes: Option<bool> = Args::maybe_next("as_bytes", &mut args)?;
+        let multihash: MultihashGeneric<_> = Code::Sha2_256.digest(string.as_bytes());
+
+        let result = if digest_only == Some(true) {
+            multihash.digest().to_vec()
+        } else {
+            multihash.to_bytes()
+        };
+
+        if as_bytes == Some(true) {
+            Ok(json!(result))
+        } else {
+            let b58 = bs58::encode(result).into_string();
+            Ok(JValue::String(b58))
+        }
     }
 
     fn kademlia(&self) -> &KademliaApi {
