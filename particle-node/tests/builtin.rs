@@ -509,6 +509,24 @@ fn sha256() {
     assert_eq!(result[3], json!(sha_256.digest()));
 }
 
+#[test]
+fn neighborhood() {
+    let _script = r#"
+    (seq
+        (call relay ("kad" "neighborhood
+    )
+    "#;
+}
+
+#[test]
+fn merge() {
+    let _script = r#"
+    (seq
+        (call relay ("kad" "merge
+    )
+    "#;
+}
+
 fn call_builtin(
     script: &str,
     mut args: HashMap<&'static str, JValue>,
