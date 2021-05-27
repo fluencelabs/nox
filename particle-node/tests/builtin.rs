@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
+#[macro_use]
+extern crate fstrings;
+
 use test_utils::{
     create_service, load_module, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms,
     ConnectedClient, Transport, PARTICLE_TTL,
 };
 
 use eyre::WrapErr;
+use json_utils::into_array;
 use libp2p::core::Multiaddr;
 use maplit::hashmap;
 use particle_protocol::Particle;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
+use std::collections::HashMap;
 use std::time::Duration;
 
 #[derive(Deserialize, Debug)]
@@ -402,4 +407,73 @@ fn timestamp_sec() {
     let result = client.receive_args().wrap_err("receive args").unwrap();
     let result = result.into_iter().next().unwrap();
     let _: u64 = serde_json::from_value(result).unwrap();
+}
+
+#[test]
+fn base58_string_builtins() {
+    /*
+        string_to_b58
+        string_from_b58
+        bytes_from_b58
+        bytes_to_b58
+    */
+
+    /* TODO
+       - string to b58 OK
+       - string from b58 OK
+       - to + from = identity
+       - same for bytes
+    */
+
+    let script = r#"
+    (seq
+        (seq
+            (call relay ("op" "string_to_b58") [string] b58_string_out)
+            (seq
+                (call relay ("op" "string_from_b58") [b58_string] string_out)
+                (call relay ("op" "string_from_b58") [b58_string_out] identity_string)
+            )
+        )
+    )
+    "#;
+
+    let string = "hello, this is a string! ДОБРЫЙ ВЕЧЕР КАК СЛЫШНО";
+    let b58_string = bs58::encode(string).into_string();
+    let bytes: Vec<_> = (1..32).map(|i| (200 + i) as u8).collect();
+    let args = hashmap! {
+        "string" => json!(string),
+        "b58_string" => json!(b58_string),
+        "bytes" => json!(bytes),
+    };
+
+    let result = call_builtin(script, args, "b58_string_out string_out identity_string");
+    let array = into_array(result).expect("must be an array");
+    assert_eq!(array[0], JValue::String(b58_string));
+    assert_eq!(array[1], JValue::String(string.into()));
+    assert_eq!(array[2], JValue::String(string.into()));
+}
+
+fn call_builtin(script: &str, mut args: HashMap<&'static str, JValue>, result: &str) -> JValue {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    args.insert("relay", json!(client.node.to_string()));
+
+    client.send_particle(
+        f!(r#"
+        (seq
+            {script}
+            (call %init_peer_id% ("op" "return") [{result}])
+        )
+        "#),
+        args,
+    );
+
+    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = result.into_iter().next().unwrap();
+
+    result
 }
