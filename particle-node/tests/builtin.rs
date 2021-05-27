@@ -23,7 +23,6 @@ use test_utils::{
 };
 
 use eyre::WrapErr;
-use json_utils::into_array;
 use libp2p::core::Multiaddr;
 use maplit::hashmap;
 use particle_protocol::Particle;
@@ -413,12 +412,10 @@ fn timestamp_sec() {
 fn base58_string_builtins() {
     let script = r#"
     (seq
+        (call relay ("op" "string_to_b58") [string] b58_string_out)
         (seq
-            (call relay ("op" "string_to_b58") [string] b58_string_out)
-            (seq
-                (call relay ("op" "string_from_b58") [b58_string] string_out)
-                (call relay ("op" "string_from_b58") [b58_string_out] identity_string)
-            )
+            (call relay ("op" "string_from_b58") [b58_string] string_out)
+            (call relay ("op" "string_from_b58") [b58_string_out] identity_string)
         )
     )
     "#;
@@ -431,41 +428,92 @@ fn base58_string_builtins() {
     };
 
     let result = call_builtin(script, args, "b58_string_out string_out identity_string");
-    let array = into_array(result).expect("must be an array");
-    assert_eq!(array[0], JValue::String(b58_string));
-    assert_eq!(array[1], JValue::String(string.into()));
-    assert_eq!(array[2], JValue::String(string.into()));
+    // let array = into_array(dbg!(result)).expect("must be an array");
+    assert_eq!(result[0], JValue::String(b58_string));
+    assert_eq!(result[1], JValue::String(string.into()));
+    assert_eq!(result[2], JValue::String(string.into()));
 }
 
 #[test]
 fn base58_bytes_builtins() {
     let script = r#"
     (seq
+        (call relay ("op" "bytes_to_b58") [bytes] b58_string_out)
         (seq
-            (call relay ("op" "bytes_to_b58") [bytes] b58_bytes_out)
-            (seq
-                (call relay ("op" "bytes_from_b58") [b58_bytes] bytes_out)
-                (call relay ("op" "bytes_from_b58") [b58_bytes_out] identity_bytes)
-            )
+            (call relay ("op" "bytes_from_b58") [b58_string] bytes_out)
+            (call relay ("op" "bytes_from_b58") [b58_string_out] identity_bytes)
         )
     )
     "#;
 
     let bytes: Vec<_> = (1..32).map(|i| (200 + i) as u8).collect();
-    let b58_bytes = bs58::encode(bytes).into_vec();
+    let b58_string = bs58::encode(&bytes).into_string();
     let args = hashmap! {
-        "b58_bytes" => json!(b58_bytes),
+        "b58_string" => json!(b58_string),
         "bytes" => json!(bytes),
     };
 
-    let result = call_builtin(script, args, "b58_bytes_out bytes_out identity_bytes");
-    let array = into_array(result).expect("must be an array");
-    assert_eq!(array[0], json!(b58_bytes));
-    assert_eq!(array[1], json!(bytes));
-    assert_eq!(array[2], json!(bytes));
+    let result = call_builtin(script, args, "b58_string_out bytes_out identity_bytes");
+    // let array = into_array(result).expect("must be an array");
+    assert_eq!(result[0], json!(b58_string));
+    assert_eq!(result[1], json!(bytes));
+    assert_eq!(result[2], json!(bytes));
 }
 
-fn call_builtin(script: &str, mut args: HashMap<&'static str, JValue>, result: &str) -> JValue {
+#[test]
+fn sha256() {
+    use multihash::{Code, MultihashDigest, MultihashGeneric};
+
+    let script = r#"
+    (seq
+        (seq
+            ; hash string to multihash encoded as base58
+            (call relay ("op" "sha256_string") [string] string_mhash)
+            ; hash string to sha256 digest encoded as base58
+            (call relay ("op" "sha256_string") [string true] string_digest)
+        )
+        (seq
+            ; hash string to multihash encoded as byte array
+            (call relay ("op" "sha256_string") [string false true] bytes_mhash)
+            ; hash string to sha256 digest encoded as byte array
+            (call relay ("op" "sha256_string") [string true true] bytes_digest)
+        )
+    )
+    "#;
+
+    let string = "hello, как слышно? ХОРОШО!";
+    let sha_256: MultihashGeneric<_> = Code::Sha2_256.digest(string.as_bytes());
+    let args = hashmap! {
+        "string" => json!(string),
+    };
+
+    let result = call_builtin(
+        script,
+        args,
+        "string_mhash string_digest bytes_mhash bytes_digest",
+    );
+
+    // multihash as base58
+    assert_eq!(
+        result[0],
+        json!(bs58::encode(sha_256.to_bytes()).into_string())
+    );
+    // sha256 digest as base58
+    assert_eq!(
+        result[1],
+        json!(bs58::encode(sha_256.digest()).into_string())
+    );
+    // multihash as byte array
+    assert_eq!(result[2], json!(sha_256.to_bytes()));
+    // sha256 digest as byte array
+    assert_eq!(result[3], json!(sha_256.digest()));
+}
+
+fn call_builtin(
+    script: &str,
+    mut args: HashMap<&'static str, JValue>,
+    result: &str,
+) -> Vec<JValue> {
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -485,7 +533,6 @@ fn call_builtin(script: &str, mut args: HashMap<&'static str, JValue>, result: &
     );
 
     let result = client.receive_args().wrap_err("receive args").unwrap();
-    let result = result.into_iter().next().unwrap();
 
     result
 }
