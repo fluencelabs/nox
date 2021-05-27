@@ -31,8 +31,10 @@ use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
+use crate::error::HostClosureCallError;
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
+use libp2p::kad::kbucket::Key;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use serde_json::{json, Value as JValue};
@@ -143,6 +145,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args)),
+            ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
 
             ("srv", "create")                 => (self.create_service)(params, args),
             ("srv", "remove")                 => (self.remove_service)(params, args),
@@ -327,6 +330,36 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             let b58 = bs58::encode(result).into_string();
             Ok(JValue::String(b58))
         }
+    }
+
+    /// Merge, sort by distance to first key, return top K
+    fn kad_merge(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let mut args = args.into_iter();
+        let target: String = Args::next("target", &mut args)?;
+        let left: Vec<String> = Args::next("left", &mut args)?;
+        let right: Vec<String> = Args::next("right", &mut args)?;
+
+        let target = bs58::decode(target).into_vec().map_err(DecodeBase58)?;
+        let target = Key::from(target);
+        let left = left.into_iter();
+        let right = right.into_iter();
+
+        let mut keys: Vec<Key<_>> = left
+            .chain(right)
+            .map(|b58_str| {
+                Ok(Key::from(
+                    bs58::decode(b58_str).into_vec().map_err(DecodeBase58)?,
+                ))
+            })
+            .collect::<Result<Vec<_>, HostClosureCallError>>()?;
+        keys.sort_by_cached_key(|k| target.distance(k.as_ref()));
+
+        let keys = keys
+            .into_iter()
+            .map(|k| bs58::encode(k.into_preimage()).into_string())
+            .collect::<Vec<_>>();
+
+        Ok(json!(keys))
     }
 
     fn kademlia(&self) -> &KademliaApi {
