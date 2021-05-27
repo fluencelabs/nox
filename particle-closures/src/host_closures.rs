@@ -338,6 +338,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let target: String = Args::next("target", &mut args)?;
         let left: Vec<String> = Args::next("left", &mut args)?;
         let right: Vec<String> = Args::next("right", &mut args)?;
+        let count: usize = Args::maybe_next("count", &mut args)?.unwrap_or(20);
 
         let target = bs58::decode(target).into_vec().map_err(DecodeBase58)?;
         let target = Key::from(target);
@@ -357,6 +358,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let keys = keys
             .into_iter()
             .map(|k| bs58::encode(k.into_preimage()).into_string())
+            .take(count)
             .collect::<Vec<_>>();
 
         Ok(json!(keys))
