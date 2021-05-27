@@ -366,7 +366,7 @@ impl ParticleAppServices {
             let replaced = self.services.write().insert(s.service_id.clone(), service);
             let mut aliases = self.aliases.write();
             for alias in s.aliases.into_iter() {
-                aliases.insert(alias.clone(), s.service_id.clone());
+                aliases.insert(alias, s.service_id.clone());
             }
 
             debug_assert!(
