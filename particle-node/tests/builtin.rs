@@ -17,14 +17,16 @@
 #[macro_use]
 extern crate fstrings;
 
-use json_utils::{into_array, into_string};
+use json_utils::into_array;
 use test_utils::{
     create_service, load_module, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms,
     ConnectedClient, Transport, PARTICLE_TTL,
 };
 
 use eyre::WrapErr;
+use fluence_libp2p::RandomPeerId;
 use libp2p::core::Multiaddr;
+use libp2p::kad::kbucket::Key;
 use libp2p::PeerId;
 use maplit::hashmap;
 use particle_protocol::Particle;
@@ -515,7 +517,7 @@ fn sha256() {
 
 #[test]
 fn neighborhood() {
-    let _script = r#"
+    let script = r#"
     (seq
         (seq
             (seq
@@ -535,7 +537,7 @@ fn neighborhood() {
     "#;
 
     let mut result = call_builtin(
-        _script,
+        script,
         <_>::default(),
         "neighborhood_by_key neighborhood_by_mhash error",
         2,
@@ -560,12 +562,40 @@ fn neighborhood() {
 }
 
 #[test]
-fn merge() {
-    let _script = r#"
-    (seq
-        (call relay ("kad" "merge
-    )
+fn kad_merge() {
+    let target = RandomPeerId::random();
+    let left = (1..10).map(|_| RandomPeerId::random()).collect::<Vec<_>>();
+    let mut right = (1..10).map(|_| RandomPeerId::random()).collect::<Vec<_>>();
+    let count = 10;
+
+    let script = r#"
+    (call relay ("kad" "merge") [target left right count] merged)
     "#;
+
+    let args = hashmap! {
+        "target" => json!(target.to_base58()),
+        "left" => json!(left.iter().map(|id| id.to_base58()).collect::<Vec<_>>()),
+        "right" => json!(right.iter().map(|id| id.to_base58()).collect::<Vec<_>>()),
+        "count" => json!(count),
+    };
+
+    let result = call_builtin(script, args, "merged", 1);
+    let merged = result.into_iter().next().expect("merged is defined");
+    let merged = into_array(merged).expect("merged is an array");
+    let merged = merged
+        .into_iter()
+        .map(|id| {
+            PeerId::from_str(id.as_str().expect("peerid is a string")).expect("peerid is correct")
+        })
+        .collect::<Vec<_>>();
+
+    let target_key = Key::from(target);
+    let mut expected = left;
+    expected.append(&mut right);
+    expected.sort_by_cached_key(|id| target_key.distance(&Key::from(id.clone())));
+    expected.truncate(count);
+
+    assert_eq!(expected, merged);
 }
 
 fn call_builtin(
