@@ -432,8 +432,7 @@ fn base58_string_builtins() {
         "b58_string" => json!(b58_string),
     };
 
-    let result = call_builtin(script, args, "b58_string_out string_out identity_string", 1);
-    // let array = into_array(dbg!(result)).expect("must be an array");
+    let result = exec_script(script, args, "b58_string_out string_out identity_string", 1);
     assert_eq!(result[0], JValue::String(b58_string));
     assert_eq!(result[1], JValue::String(string.into()));
     assert_eq!(result[2], JValue::String(string.into()));
@@ -458,7 +457,7 @@ fn base58_bytes_builtins() {
         "bytes" => json!(bytes),
     };
 
-    let result = call_builtin(script, args, "b58_string_out bytes_out identity_bytes", 1);
+    let result = exec_script(script, args, "b58_string_out bytes_out identity_bytes", 1);
     // let array = into_array(result).expect("must be an array");
     assert_eq!(result[0], json!(b58_string));
     assert_eq!(result[1], json!(bytes));
@@ -492,7 +491,7 @@ fn sha256() {
         "string" => json!(string),
     };
 
-    let result = call_builtin(
+    let result = exec_script(
         script,
         args,
         "string_mhash string_digest bytes_mhash bytes_digest",
@@ -536,7 +535,7 @@ fn neighborhood() {
     )
     "#;
 
-    let mut result = call_builtin(
+    let mut result = exec_script(
         script,
         <_>::default(),
         "neighborhood_by_key neighborhood_by_mhash error",
@@ -579,7 +578,7 @@ fn kad_merge() {
         "count" => json!(count),
     };
 
-    let result = call_builtin(script, args, "merged", 1);
+    let result = exec_script(script, args, "merged", 1);
     let merged = result.into_iter().next().expect("merged is defined");
     let merged = into_array(merged).expect("merged is an array");
     let merged = merged
@@ -598,7 +597,7 @@ fn kad_merge() {
     assert_eq!(expected, merged);
 }
 
-fn call_builtin(
+fn exec_script(
     script: &str,
     mut args: HashMap<&'static str, JValue>,
     result: &str,
