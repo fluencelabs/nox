@@ -17,6 +17,7 @@
 #[macro_use]
 extern crate fstrings;
 
+use json_utils::{into_array, into_string};
 use test_utils::{
     create_service, load_module, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms,
     ConnectedClient, Transport, PARTICLE_TTL,
@@ -24,11 +25,13 @@ use test_utils::{
 
 use eyre::WrapErr;
 use libp2p::core::Multiaddr;
+use libp2p::PeerId;
 use maplit::hashmap;
 use particle_protocol::Particle;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Deserialize, Debug)]
@@ -427,7 +430,7 @@ fn base58_string_builtins() {
         "b58_string" => json!(b58_string),
     };
 
-    let result = call_builtin(script, args, "b58_string_out string_out identity_string");
+    let result = call_builtin(script, args, "b58_string_out string_out identity_string", 1);
     // let array = into_array(dbg!(result)).expect("must be an array");
     assert_eq!(result[0], JValue::String(b58_string));
     assert_eq!(result[1], JValue::String(string.into()));
@@ -453,7 +456,7 @@ fn base58_bytes_builtins() {
         "bytes" => json!(bytes),
     };
 
-    let result = call_builtin(script, args, "b58_string_out bytes_out identity_bytes");
+    let result = call_builtin(script, args, "b58_string_out bytes_out identity_bytes", 1);
     // let array = into_array(result).expect("must be an array");
     assert_eq!(result[0], json!(b58_string));
     assert_eq!(result[1], json!(bytes));
@@ -491,6 +494,7 @@ fn sha256() {
         script,
         args,
         "string_mhash string_digest bytes_mhash bytes_digest",
+        1,
     );
 
     // multihash as base58
@@ -513,9 +517,46 @@ fn sha256() {
 fn neighborhood() {
     let _script = r#"
     (seq
-        (call relay ("kad" "neighborhood
+        (seq
+            (seq
+                (call relay ("op" "string_to_b58") ["key"] key)
+                (call relay ("kad" "neighborhood") [key] neighborhood_by_key)
+            )
+            (seq
+                (call relay ("op" "sha256_string") ["key"] mhash)
+                (call relay ("kad" "neighborhood") [mhash true] neighborhood_by_mhash)
+            )
+        )
+        (xor
+            (call relay ("kad" "neighborhood") [key true])
+            (call relay ("op" "identity") [%last_error%] error)
+        )
     )
     "#;
+
+    let mut result = call_builtin(
+        _script,
+        <_>::default(),
+        "neighborhood_by_key neighborhood_by_mhash error",
+        2,
+    );
+    let neighborhood_by_key = into_array(result[0].take())
+        .expect("neighborhood is an array")
+        .into_iter()
+        .map(|v| PeerId::from_str(v.as_str().expect("peerid is string")).expect("peerid is valid"));
+    let neighborhood_by_mhash = into_array(result[1].take())
+        .expect("neighborhood is an array")
+        .into_iter()
+        .map(|v| PeerId::from_str(v.as_str().expect("peerid is string")).expect("peerid is valid"));
+    let error = into_array(result[2].take())
+        .expect("error is wrapped in array")
+        .into_iter()
+        .next()
+        .expect("error is defined");
+    let error = error.as_str().expect("error is string");
+    assert_eq!(neighborhood_by_key.len(), 1);
+    assert_eq!(neighborhood_by_mhash.len(), 1);
+    assert!(error.contains("Invalid multihash"));
 }
 
 #[test]
@@ -531,8 +572,9 @@ fn call_builtin(
     script: &str,
     mut args: HashMap<&'static str, JValue>,
     result: &str,
+    node_count: usize,
 ) -> Vec<JValue> {
-    let swarms = make_swarms(1);
+    let swarms = make_swarms(node_count);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
