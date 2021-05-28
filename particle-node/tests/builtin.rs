@@ -14,17 +14,26 @@
  * limitations under the License.
  */
 
+#[macro_use]
+extern crate fstrings;
+
+use json_utils::into_array;
 use test_utils::{
     create_service, load_module, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms,
     ConnectedClient, Transport, PARTICLE_TTL,
 };
 
 use eyre::WrapErr;
+use fluence_libp2p::RandomPeerId;
 use libp2p::core::Multiaddr;
+use libp2p::kad::kbucket::Key;
+use libp2p::PeerId;
 use maplit::hashmap;
 use particle_protocol::Particle;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
+use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Deserialize, Debug)]
@@ -402,4 +411,217 @@ fn timestamp_sec() {
     let result = client.receive_args().wrap_err("receive args").unwrap();
     let result = result.into_iter().next().unwrap();
     let _: u64 = serde_json::from_value(result).unwrap();
+}
+
+#[test]
+fn base58_string_builtins() {
+    let script = r#"
+    (seq
+        (call relay ("op" "string_to_b58") [string] b58_string_out)
+        (seq
+            (call relay ("op" "string_from_b58") [b58_string] string_out)
+            (call relay ("op" "string_from_b58") [b58_string_out] identity_string)
+        )
+    )
+    "#;
+
+    let string = "hello, this is a string! ДОБРЫЙ ВЕЧЕР КАК СЛЫШНО";
+    let b58_string = bs58::encode(string).into_string();
+    let args = hashmap! {
+        "string" => json!(string),
+        "b58_string" => json!(b58_string),
+    };
+
+    let result = exec_script(script, args, "b58_string_out string_out identity_string", 1);
+    assert_eq!(result[0], JValue::String(b58_string));
+    assert_eq!(result[1], JValue::String(string.into()));
+    assert_eq!(result[2], JValue::String(string.into()));
+}
+
+#[test]
+fn base58_bytes_builtins() {
+    let script = r#"
+    (seq
+        (call relay ("op" "bytes_to_b58") [bytes] b58_string_out)
+        (seq
+            (call relay ("op" "bytes_from_b58") [b58_string] bytes_out)
+            (call relay ("op" "bytes_from_b58") [b58_string_out] identity_bytes)
+        )
+    )
+    "#;
+
+    let bytes: Vec<_> = (1..32).map(|i| (200 + i) as u8).collect();
+    let b58_string = bs58::encode(&bytes).into_string();
+    let args = hashmap! {
+        "b58_string" => json!(b58_string),
+        "bytes" => json!(bytes),
+    };
+
+    let result = exec_script(script, args, "b58_string_out bytes_out identity_bytes", 1);
+    // let array = into_array(result).expect("must be an array");
+    assert_eq!(result[0], json!(b58_string));
+    assert_eq!(result[1], json!(bytes));
+    assert_eq!(result[2], json!(bytes));
+}
+
+#[test]
+fn sha256() {
+    use multihash::{Code, MultihashDigest, MultihashGeneric};
+
+    let script = r#"
+    (seq
+        (seq
+            ; hash string to multihash encoded as base58
+            (call relay ("op" "sha256_string") [string] string_mhash)
+            ; hash string to sha256 digest encoded as base58
+            (call relay ("op" "sha256_string") [string true] string_digest)
+        )
+        (seq
+            ; hash string to multihash encoded as byte array
+            (call relay ("op" "sha256_string") [string false true] bytes_mhash)
+            ; hash string to sha256 digest encoded as byte array
+            (call relay ("op" "sha256_string") [string true true] bytes_digest)
+        )
+    )
+    "#;
+
+    let string = "hello, как слышно? ХОРОШО!";
+    let sha_256: MultihashGeneric<_> = Code::Sha2_256.digest(string.as_bytes());
+    let args = hashmap! {
+        "string" => json!(string),
+    };
+
+    let result = exec_script(
+        script,
+        args,
+        "string_mhash string_digest bytes_mhash bytes_digest",
+        1,
+    );
+
+    // multihash as base58
+    assert_eq!(
+        result[0],
+        json!(bs58::encode(sha_256.to_bytes()).into_string())
+    );
+    // sha256 digest as base58
+    assert_eq!(
+        result[1],
+        json!(bs58::encode(sha_256.digest()).into_string())
+    );
+    // multihash as byte array
+    assert_eq!(result[2], json!(sha_256.to_bytes()));
+    // sha256 digest as byte array
+    assert_eq!(result[3], json!(sha_256.digest()));
+}
+
+#[test]
+fn neighborhood() {
+    let script = r#"
+    (seq
+        (seq
+            (seq
+                (call relay ("op" "string_to_b58") ["key"] key)
+                (call relay ("kad" "neighborhood") [key] neighborhood_by_key)
+            )
+            (seq
+                (call relay ("op" "sha256_string") ["key"] mhash)
+                (call relay ("kad" "neighborhood") [mhash true] neighborhood_by_mhash)
+            )
+        )
+        (xor
+            (call relay ("kad" "neighborhood") [key true])
+            (call relay ("op" "identity") [%last_error%] error)
+        )
+    )
+    "#;
+
+    let mut result = exec_script(
+        script,
+        <_>::default(),
+        "neighborhood_by_key neighborhood_by_mhash error",
+        2,
+    );
+    let neighborhood_by_key = into_array(result[0].take())
+        .expect("neighborhood is an array")
+        .into_iter()
+        .map(|v| PeerId::from_str(v.as_str().expect("peerid is string")).expect("peerid is valid"));
+    let neighborhood_by_mhash = into_array(result[1].take())
+        .expect("neighborhood is an array")
+        .into_iter()
+        .map(|v| PeerId::from_str(v.as_str().expect("peerid is string")).expect("peerid is valid"));
+    let error = into_array(result[2].take())
+        .expect("error is wrapped in array")
+        .into_iter()
+        .next()
+        .expect("error is defined");
+    let error = error.as_str().expect("error is string");
+    assert_eq!(neighborhood_by_key.len(), 1);
+    assert_eq!(neighborhood_by_mhash.len(), 1);
+    assert!(error.contains("Invalid multihash"));
+}
+
+#[test]
+fn kad_merge() {
+    let target = RandomPeerId::random();
+    let left = (1..10).map(|_| RandomPeerId::random()).collect::<Vec<_>>();
+    let mut right = (1..10).map(|_| RandomPeerId::random()).collect::<Vec<_>>();
+    let count = 10;
+
+    let script = r#"
+    (call relay ("kad" "merge") [target left right count] merged)
+    "#;
+
+    let args = hashmap! {
+        "target" => json!(target.to_base58()),
+        "left" => json!(left.iter().map(|id| id.to_base58()).collect::<Vec<_>>()),
+        "right" => json!(right.iter().map(|id| id.to_base58()).collect::<Vec<_>>()),
+        "count" => json!(count),
+    };
+
+    let result = exec_script(script, args, "merged", 1);
+    let merged = result.into_iter().next().expect("merged is defined");
+    let merged = into_array(merged).expect("merged is an array");
+    let merged = merged
+        .into_iter()
+        .map(|id| {
+            PeerId::from_str(id.as_str().expect("peerid is a string")).expect("peerid is correct")
+        })
+        .collect::<Vec<_>>();
+
+    let target_key = Key::from(target);
+    let mut expected = left;
+    expected.append(&mut right);
+    expected.sort_by_cached_key(|id| target_key.distance(&Key::from(id.clone())));
+    expected.truncate(count);
+
+    assert_eq!(expected, merged);
+}
+
+fn exec_script(
+    script: &str,
+    mut args: HashMap<&'static str, JValue>,
+    result: &str,
+    node_count: usize,
+) -> Vec<JValue> {
+    let swarms = make_swarms(node_count);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    args.insert("relay", json!(client.node.to_string()));
+
+    client.send_particle(
+        f!(r#"
+        (seq
+            {script}
+            (call %init_peer_id% ("op" "return") [{result}])
+        )
+        "#),
+        args,
+    );
+
+    let result = client.receive_args().wrap_err("receive args").unwrap();
+
+    result
 }

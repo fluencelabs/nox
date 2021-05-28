@@ -1,10 +1,10 @@
 {
-  "target": "stage",
+  "target": "krasnodar",
 
   "environments": [
     {
       "name": "krasnodar",
-      "container_tag": "bwu",
+      "container_tag": "kademlia_builtins",
       "containers_per_host": 1,
       "external_bootstraps": [
         "/ip4/165.227.164.206/tcp/7001",
@@ -130,7 +130,7 @@
     },
     {
       "name": "stage",
-      "container_tag": "bwu",
+      "container_tag": "kademlia_builtins",
       "containers_per_host": 5,
       "hosts": [
         "134.209.186.43"
