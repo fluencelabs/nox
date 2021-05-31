@@ -45,7 +45,7 @@ impl From<ArgsError> for JValue {
 #[derive(Debug)]
 /// An error that can be created from any other error
 /// Simplifies life by converting errors to be returnable from host closures
-pub struct JError(JValue);
+pub struct JError(pub JValue);
 
 impl From<JError> for JValue {
     fn from(err: JError) -> Self {

@@ -30,6 +30,7 @@
 mod error;
 mod host_closures;
 mod identify;
+mod ipfs;
 
 pub use host_closures::HostClosures;
 pub use identify::NodeInfo;
