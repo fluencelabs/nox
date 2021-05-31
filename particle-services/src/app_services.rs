@@ -282,7 +282,7 @@ impl ParticleAppServices {
                 .ok_or(NoSuchAlias(alias.clone()))
                 .map(|value| json!(value))
                 .map_err(|err| {
-                    log::warn!("Error resolve {} alias: {:#?}", alias, err);
+                    log::warn!("Error resolving alias {}: {:#?}", alias, err);
                     json!(format!("{:?}", err)
                         // TODO: send patch to eyre so it can be done through their API
                         // Remove backtrace from the response
