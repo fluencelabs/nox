@@ -175,7 +175,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
             ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
 
-            ("ipfs", "get_multiaddr")         => wrap_opt(Ok(self.ipfs().get_multiaddr())),
+            ("ipfs", "get_multiaddr")         => wrap(self.ipfs().get_multiaddr()),
             ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(args, params, &self.management_peer_id)),
             ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
 

@@ -55,8 +55,12 @@ impl IpfsState {
         Ok(old.map(|addr| json!(addr)))
     }
 
-    pub fn get_multiaddr(&mut self) -> Option<JValue> {
-        self.multiaddr.as_ref().map(|addr| json!(addr))
+    pub fn get_multiaddr(&mut self) -> Result<JValue, JError> {
+        if let Some(multiaddr) = self.multiaddr.as_ref() {
+            Ok(json!(multiaddr))
+        } else {
+            Err(JError(json!("ipfs multiaddr isn't set")))
+        }
     }
 
     pub fn clear_multiaddr(
