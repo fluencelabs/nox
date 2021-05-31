@@ -1,10 +1,10 @@
 {
-  "target": "krasnodar",
+  "target": "stage",
 
   "environments": [
     {
       "name": "krasnodar",
-      "container_tag": "kademlia_builtins",
+      "container_tag": "latest",
       "containers_per_host": 1,
       "external_bootstraps": [
         "/ip4/165.227.164.206/tcp/7001",
@@ -69,7 +69,7 @@
     },
     {
       "name": "testnet",
-      "container_tag": "testnet",
+      "container_tag": "latest",
       "containers_per_host": 1,
       "external_bootstraps": [],
       "hosts": [
@@ -130,7 +130,7 @@
     },
     {
       "name": "stage",
-      "container_tag": "kademlia_builtins",
+      "container_tag": "latest",
       "containers_per_host": 5,
       "hosts": [
         "134.209.186.43"
