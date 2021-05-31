@@ -38,6 +38,7 @@ use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::kad::kbucket::Key;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
+use parking_lot::{Mutex, MutexGuard};
 use serde_json::{json, Value as JValue};
 use std::borrow::Borrow;
 use std::num::ParseIntError;
@@ -71,7 +72,7 @@ pub struct HostClosures<C> {
     pub get_providers: Closure,
 
     pub management_peer_id: String,
-    pub ipfs_state: Arc<IpfsState>,
+    pub ipfs_state: Arc<Mutex<IpfsState>>,
 }
 
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
@@ -110,7 +111,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             connectivity,
             script_storage,
             management_peer_id,
-            ipfs_state: Arc::new(IpfsState::default()),
+            ipfs_state: Arc::new(Mutex::new(IpfsState::default())),
         }
     }
 
@@ -379,8 +380,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         self.connectivity.as_ref()
     }
 
-    fn ipfs(&self) -> Arc<IpfsState> {
-        self.ipfs_state.clone()
+    fn ipfs(&self) -> MutexGuard<'_, IpfsState> {
+        self.ipfs_state.lock()
     }
 }
 

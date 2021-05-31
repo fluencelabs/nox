@@ -597,15 +597,60 @@ fn kad_merge() {
     assert_eq!(expected, merged);
 }
 
+#[test]
+fn ipfs_multiaddr() {
+    let multiaddr = "/ip4/1.2.3.4/tcp/1234";
+
+    let result = exec_script_as_admin(
+        r#"
+        (seq
+            (seq
+                (call relay ("ipfs" "get_multiaddr") [] uninint_maddr)
+                (call relay ("ipfs" "set_multiaddr") [maddr] uninint_maddr)
+            )
+            (seq
+                (call relay ("ipfs" "get_multiaddr") [] set_maddr)
+                (seq
+                    (call relay ("ipfs" "clear_multiaddr") [])
+                    (call relay ("ipfs" "get_multiaddr") [] cleared_maddr)
+                )
+            )
+        )
+        "#,
+        hashmap! {
+            "maddr" => json!(multiaddr),
+        },
+        "uninit_maddr set_maddr cleared_maddr",
+        1,
+        true,
+    );
+    println!("result: {:#?}", result);
+}
+
 fn exec_script(
+    script: &str,
+    args: HashMap<&'static str, JValue>,
+    result: &str,
+    node_count: usize,
+) -> Vec<JValue> {
+    exec_script_as_admin(script, args, result, node_count, false)
+}
+
+fn exec_script_as_admin(
     script: &str,
     mut args: HashMap<&'static str, JValue>,
     result: &str,
     node_count: usize,
+    as_admin: bool,
 ) -> Vec<JValue> {
     let swarms = make_swarms(node_count);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let keypair = if as_admin {
+        Some(swarms[0].management_keypair.clone())
+    } else {
+        None
+    };
+    let mut client = ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), keypair)
         .wrap_err("connect client")
         .unwrap();
 

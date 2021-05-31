@@ -56,7 +56,7 @@ impl IpfsState {
     }
 
     pub fn get_multiaddr(&mut self) -> Option<JValue> {
-        self.multiaddr.map(|addr| json!(addr))
+        self.multiaddr.as_ref().map(|addr| json!(addr))
     }
 
     pub fn clear_multiaddr(
