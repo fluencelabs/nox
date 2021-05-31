@@ -279,10 +279,10 @@ impl ParticleAppServices {
             let service_id = aliases.get(&alias);
 
             service_id
-                .ok_or(NoSuchAlias(alias))
+                .ok_or(NoSuchAlias(alias.clone()))
                 .map(|value| json!(value))
                 .map_err(|err| {
-                    log::warn!("call_service error: {:?}", err);
+                    log::warn!("Error resolve {} alias: {:#?}", alias, err);
                     json!(format!("{:?}", err)
                         // TODO: send patch to eyre so it can be done through their API
                         // Remove backtrace from the response
