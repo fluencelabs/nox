@@ -605,8 +605,8 @@ fn ipfs_multiaddr() {
         r#"
         (seq
             (seq
-                (call relay ("ipfs" "get_multiaddr") [] uninint_maddr)
-                (call relay ("ipfs" "set_multiaddr") [maddr] uninint_maddr)
+                (call relay ("ipfs" "get_multiaddr") [] uninit_maddr)
+                (call relay ("ipfs" "set_multiaddr") [maddr])
             )
             (seq
                 (call relay ("ipfs" "get_multiaddr") [] set_maddr)
@@ -624,7 +624,10 @@ fn ipfs_multiaddr() {
         1,
         true,
     );
-    println!("result: {:#?}", result);
+
+    assert_eq!(result[0], json!(""));
+    assert_eq!(result[1], json!("/ip4/1.2.3.4/tcp/1234"));
+    assert_eq!(result[2], json!(""));
 }
 
 fn exec_script(
