@@ -106,15 +106,12 @@ pub fn default_processing_timeout() -> Duration {
 
 pub fn default_management_peer_id() -> PeerId {
     let kp = Keypair::generate();
-    let secret = kp.secret();
-    let secret = base64::encode(secret);
     let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());
-
     let peer_id = PeerId::from(public_key);
+
     log::warn!(
-        "New management key generated. private in base64 = {}; peer_id = {}",
-        secret,
-        peer_id.to_base58()
+        "New management key generated. ed25519 private key in base64 = {}",
+        base64::encode(kp.secret()),
     );
     peer_id
 }
