@@ -56,8 +56,9 @@ fn main() -> eyre::Result<()> {
         .filter_module("wasmer_wasi_fl", LevelFilter::Off)
         .init();
 
-    let arg_matches = App::new("Fluence protocol server")
-        .version(VERSION)
+    let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
+    let arg_matches = App::new("Fluence node")
+        .version(version.as_str())
         .author(AUTHORS)
         .about(DESCRIPTION)
         .args(create_args().as_slice())

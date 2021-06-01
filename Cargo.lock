@@ -144,9 +144,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.9.9"
+version = "0.9.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82780118e03dc79b6215c0c6b3781acf80f217c654a1864e53299bf221970b48"
+checksum = "f77d6cfba83a30ffb71b827f2527b47dc8758dbf279c2fa4102a3bc20cab3cb6"
 dependencies = [
  "built",
 ]
@@ -3427,7 +3427,7 @@ dependencies = [
 
 [[package]]
 name = "particle-node"
-version = "0.4.0"
+version = "0.5.1"
 dependencies = [
  "air-interpreter-wasm",
  "aquamarine",
