@@ -109,11 +109,9 @@ pub fn default_management_peer_id() -> PeerId {
     let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());
     let peer_id = PeerId::from(public_key);
 
-    // concatenate secret with public and encode in base64 so it is compatible with libp2p-js
-    let sk_pk = [kp.secret().as_ref(), &kp.public().encode()].concat();
     log::warn!(
-        "New management key generated. private+public in base64 = {}",
-        base64::encode(sk_pk),
+        "New management key generated. ed25519 private key in base64 = {}",
+        base64::encode(kp.secret()),
     );
     peer_id
 }
