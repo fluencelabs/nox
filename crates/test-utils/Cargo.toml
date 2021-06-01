@@ -19,7 +19,7 @@ aquamarine = { path = "../../aquamarine" }
 connection-pool = { path = "../../connection-pool" }
 script-storage = { path = "../../script-storage" }
 
-air-interpreter-wasm = "0.9.9"
+air-interpreter-wasm = "0.9.12"
 avm-server = "0.7.0"
 fluence-identity = "0.3.0"
 fluence-faas = "0.7.0"
