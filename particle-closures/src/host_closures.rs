@@ -32,11 +32,13 @@ use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
 use crate::error::HostClosureCallError;
+use crate::ipfs::IpfsState;
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::kad::kbucket::Key;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
+use parking_lot::{Mutex, MutexGuard};
 use serde_json::{json, Value as JValue};
 use std::borrow::Borrow;
 use std::num::ParseIntError;
@@ -70,6 +72,7 @@ pub struct HostClosures<C> {
     pub get_providers: Closure,
 
     pub management_peer_id: String,
+    pub ipfs_state: Arc<Mutex<IpfsState>>,
 }
 
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
@@ -108,6 +111,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             connectivity,
             script_storage,
             management_peer_id,
+            ipfs_state: Arc::new(Mutex::new(IpfsState::default())),
         }
     }
 
@@ -170,6 +174,10 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
             ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
             ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
+
+            ("ipfs", "get_multiaddr")         => wrap(self.ipfs().get_multiaddr()),
+            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(args, params, &self.management_peer_id)),
+            ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
 
             ("deprecated", "add_provider")    => (self.add_provider)(args),
             ("deprecated", "get_providers")   => (self.get_providers)(args),
@@ -375,6 +383,10 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
     fn connection_pool(&self) -> &ConnectionPoolApi {
         self.connectivity.as_ref()
+    }
+
+    fn ipfs(&self) -> MutexGuard<'_, IpfsState> {
+        self.ipfs_state.lock()
     }
 }
 

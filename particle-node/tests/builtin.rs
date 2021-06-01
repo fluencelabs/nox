@@ -17,24 +17,25 @@
 #[macro_use]
 extern crate fstrings;
 
-use json_utils::into_array;
-use test_utils::{
-    create_service, load_module, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms,
-    ConnectedClient, Transport, PARTICLE_TTL,
-};
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::time::Duration;
 
 use eyre::WrapErr;
-use fluence_libp2p::RandomPeerId;
 use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
 use libp2p::PeerId;
 use maplit::hashmap;
-use particle_protocol::Particle;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::time::Duration;
+
+use fluence_libp2p::RandomPeerId;
+use json_utils::into_array;
+use particle_protocol::Particle;
+use test_utils::{
+    create_service, load_module, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms,
+    ConnectedClient, Transport, PARTICLE_TTL,
+};
 
 #[derive(Deserialize, Debug)]
 struct NodeInfo {
@@ -597,15 +598,78 @@ fn kad_merge() {
     assert_eq!(expected, merged);
 }
 
+#[test]
+fn ipfs_multiaddr() {
+    let first_maddr = "/ip4/1.1.1.1/tcp/1111";
+    let second_maddr = "/ip4/2.2.2.2/tcp/2222";
+
+    let result = exec_script_as_admin(
+        r#"
+        (seq
+            (seq
+                (xor
+                    (call relay ("ipfs" "get_multiaddr") [])
+                    (call relay ("op" "identity") [%last_error%] uninit_error)
+                )
+                (seq
+                    (call relay ("ipfs" "set_multiaddr") [first_maddr])
+                    (call relay ("ipfs" "set_multiaddr") [second_maddr] replaced_maddr)
+                )
+            )
+            (seq
+                (call relay ("ipfs" "get_multiaddr") [] set_maddr)
+                (seq
+                    (call relay ("ipfs" "clear_multiaddr") [])
+                    (xor
+                        (call relay ("ipfs" "get_multiaddr") [])
+                        (call relay ("op" "identity") [%last_error%] cleared_error)
+                    )
+                )
+            )
+        )
+        "#,
+        hashmap! {
+            "first_maddr" => json!(first_maddr),
+            "second_maddr" => json!(second_maddr),
+        },
+        "uninit_error replaced_maddr set_maddr cleared_error",
+        1,
+        true,
+    );
+
+    let uninit_error = result[0].as_array().unwrap()[0].as_str().unwrap();
+    let cleared_error = result[3].as_array().unwrap()[0].as_str().unwrap();
+
+    assert!(uninit_error.contains("ipfs multiaddr isn't set"));
+    assert_eq!(result[1], json!(first_maddr));
+    assert_eq!(result[2], json!(second_maddr));
+    assert!(cleared_error.contains("ipfs multiaddr isn't set"));
+}
+
 fn exec_script(
+    script: &str,
+    args: HashMap<&'static str, JValue>,
+    result: &str,
+    node_count: usize,
+) -> Vec<JValue> {
+    exec_script_as_admin(script, args, result, node_count, false)
+}
+
+fn exec_script_as_admin(
     script: &str,
     mut args: HashMap<&'static str, JValue>,
     result: &str,
     node_count: usize,
+    as_admin: bool,
 ) -> Vec<JValue> {
     let swarms = make_swarms(node_count);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let keypair = if as_admin {
+        Some(swarms[0].management_keypair.clone())
+    } else {
+        None
+    };
+    let mut client = ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), keypair)
         .wrap_err("connect client")
         .unwrap();
 
