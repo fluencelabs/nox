@@ -65,7 +65,12 @@ pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
         Arg::with_name(EXTERNAL_ADDR)
             .takes_value(true)
             .short("x")
-            .help("external network address to publish as discoverable"),
+            .help("node external IP address to advertise to other peers"),
+        Arg::with_name(EXTERNAL_MULTIADDRS)
+            .takes_value(true)
+            .multiple(true)
+            .long("external-maddrs")
+            .help("node external multiaddresses to advertize to other peers"),
         Arg::with_name(SERVICE_ENVS)
             .value_name("NAME=VALUE")
             .takes_value(true)

@@ -38,6 +38,7 @@ pub const ROOT_KEY_PAIR_PATH: &str = "path";
 pub const ROOT_KEY_PAIR_GENERATE: &str = "generate_on_absence";
 pub const BOOTSTRAP_NODE: &str = "bootstrap_nodes";
 pub const EXTERNAL_ADDR: &str = "external_address";
+pub const EXTERNAL_MULTIADDRS: &str = "external_multiaddresses";
 pub const CERTIFICATE_DIR: &str = "certificate_dir";
 pub const CONFIG_FILE: &str = "config_file";
 pub const SERVICE_ENVS: &str = "service_envs";
@@ -54,6 +55,7 @@ const ARGS: &[&str] = &[
     ROOT_KEY_PAIR_PATH,
     BOOTSTRAP_NODE,
     EXTERNAL_ADDR,
+    EXTERNAL_MULTIADDRS,
     CERTIFICATE_DIR,
     CONFIG_FILE,
     SERVICE_ENVS,
@@ -194,7 +196,7 @@ fn insert_args_to_config(
         // Convert value to a type of the corresponding field in `FluenceConfig`
         let mut value = match k {
             WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
-            BOOTSTRAP_NODE | SERVICE_ENVS => Array(multiple(arg).collect()),
+            BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => Array(multiple(arg).collect()),
             ROOT_KEY_PAIR_VALUE => {
                 check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
                 make_table(k, single(arg))
