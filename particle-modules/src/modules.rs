@@ -393,17 +393,22 @@ fn resolve_hash(
 
 fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
     let mut hasher = blake3::Hasher::new();
-    for d in deps.iter() {
-        match d {
+    let mut deps: Vec<Hash> = deps
+        .into_iter()
+        .try_fold(vec![], |mut acc, dep| match dep {
             Dependency::Hash(h) => {
-                hasher.update(h.as_bytes());
+                acc.push(h);
+                Ok(acc)
             }
-            Dependency::Name(n) => {
-                return Err(InvalidModuleReference {
-                    reference: n.to_string(),
-                });
-            }
-        }
+            Dependency::Name(n) => Err(InvalidModuleReference {
+                reference: n.to_string(),
+            }),
+        })?;
+
+    deps.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+
+    for d in deps.iter() {
+        hasher.update(d.as_bytes());
     }
 
     let hash = hasher.finalize();
