@@ -516,4 +516,17 @@ mod tests {
         let result = get_interface(&repo, hash);
         assert_eq!(0, result.ret_code);
     }
+
+    #[test]
+    fn test_hash_dependency() {
+        use super::{hash_dependencies, Dependency};
+        use crate::modules::Hash;
+
+        let dep1 = Dependency::Hash(Hash::hash(&[1, 2, 3]));
+        let dep2 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
+
+        let hash1 = hash_dependencies(vec![dep1.clone(), dep2.clone()]).unwrap();
+        let hash2 = hash_dependencies(vec![dep2.clone(), dep1.clone()]).unwrap();
+        assert_eq!(hash1.to_string(), hash2.to_string());
+    }
 }
