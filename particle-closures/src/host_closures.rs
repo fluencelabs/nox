@@ -21,7 +21,7 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use host_closure::{
     from_base58, Args, Closure, ClosureDescriptor, JError, ParticleClosure, ParticleParameters,
 };
-use ivalue_utils::{into_record, into_record_opt, ok, IValue};
+use ivalue_utils::{into_record, into_record_opt, ok, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_modules::ModuleRepository;
@@ -168,7 +168,9 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("script", "remove")              => wrap(self.remove_script(args, params)),
             ("script", "list")                => wrap(self.list_scripts()),
 
-            ("op", "identity")                => ok(Array(args.function_args)),
+            ("op", "noop")                    => unit(),
+            ("op", "concat")                  => ok(Array(args.function_args)),
+            ("op", "identity")                => wrap_opt(Ok(args.function_args.into_iter().next())),
             ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
             ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
             ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
