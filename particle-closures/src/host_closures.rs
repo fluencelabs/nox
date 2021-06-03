@@ -382,20 +382,19 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
     /// Flattens an array of arrays
     fn concat(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
-        let flattened: Vec<JValue> = args
-            .into_iter()
-            .enumerate()
-            .map(|(i, mut v)| match v.take() {
-                JValue::Array(array) => Ok(array),
-                _ => Err(JError::new(format!(
-                    "all arguments of 'concat' must be arrays: argument #{} wasn't",
-                    i
-                ))),
-            })
-            .collect::<Result<Vec<_>, JError>>()?
-            .into_iter()
-            .flatten()
-            .collect();
+        let flattened: Vec<JValue> =
+            args.into_iter()
+                .enumerate()
+                .try_fold(vec![], |mut acc, (i, mut v)| match v.take() {
+                    JValue::Array(mut array) => {
+                        acc.append(&mut array);
+                        Ok(acc)
+                    }
+                    _ => Err(JError::new(format!(
+                        "all arguments of 'concat' must be arrays: argument #{} wasn't",
+                        i
+                    ))),
+                })?;
 
         Ok(JValue::Array(flattened))
     }
