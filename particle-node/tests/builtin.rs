@@ -206,7 +206,7 @@ fn non_owner_remove_service() {
                 (call relay ("srv" "list") [] list_before)
                 (xor
                     (call relay ("srv" "remove") [service])
-                    (call relay ("op" "identity") [%last_error%] error)
+                    (call relay ("op" "identity") [%last_error%.$.instruction] error)
                 )
             )
             (seq
@@ -229,12 +229,7 @@ fn non_owner_remove_service() {
         assert_eq!(after.len(), 1);
         assert!(error.len() > 0);
 
-        let error: JValue = serde_json::from_str(&error).unwrap();
-        let failed_instruction = error.get("instruction").unwrap().as_str().unwrap();
-        assert_eq!(
-            failed_instruction,
-            r#"call relay ("srv" "remove") [service] "#
-        );
+        assert_eq!(error, r#"call relay ("srv" "remove") [service] "#);
     } else {
         panic!("incorrect args: expected two arrays, got: {:?}", args)
     }
@@ -296,7 +291,7 @@ fn resolve_alias_not_exists() {
                 (call relay ("srv" "resolve_alias") [alias] result)
                 (call %init_peer_id% ("op" "return") [result])
             )
-            (call %init_peer_id% ("op" "return") [%last_error%])
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
     "#,
         hashmap! {
@@ -307,8 +302,7 @@ fn resolve_alias_not_exists() {
 
     let error = client.receive_args().wrap_err("receive args").unwrap();
     let error = error.into_iter().next().unwrap();
-    let error: JValue = serde_json::from_str(error.as_str().unwrap()).unwrap();
-    let failed_instruction = error.get("instruction").unwrap().as_str().unwrap();
+    let failed_instruction = error.as_str().unwrap();
     assert_eq!(
         failed_instruction,
         r#"call relay ("srv" "resolve_alias") [alias] result"#
@@ -342,7 +336,7 @@ fn resolve_alias_removed() {
                 )
                 (call relay ("srv" "resolve_alias") [alias] result)
             )
-            (call %init_peer_id% ("op" "return") [%last_error%])
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
     "#,
         hashmap! {
@@ -354,8 +348,7 @@ fn resolve_alias_removed() {
 
     let error = client.receive_args().wrap_err("receive args").unwrap();
     let error = error.into_iter().next().unwrap();
-    let error: JValue = serde_json::from_str(error.as_str().unwrap()).unwrap();
-    let failed_instruction = error.get("instruction").unwrap().as_str().unwrap();
+    let failed_instruction = error.as_str().unwrap();
     assert_eq!(
         failed_instruction,
         r#"call relay ("srv" "resolve_alias") [alias] result"#
@@ -531,7 +524,7 @@ fn neighborhood() {
         )
         (xor
             (call relay ("kad" "neighborhood") [key true])
-            (call relay ("op" "identity") [%last_error%] error)
+            (call relay ("op" "identity") [%last_error%.$.msg] error)
         )
     )
     "#;
@@ -609,7 +602,7 @@ fn ipfs_multiaddr() {
             (seq
                 (xor
                     (call relay ("ipfs" "get_multiaddr") [])
-                    (call relay ("op" "identity") [%last_error%] uninit_error)
+                    (call relay ("op" "identity") [%last_error%.$.msg] uninit_error)
                 )
                 (seq
                     (call relay ("ipfs" "set_multiaddr") [first_maddr])
@@ -622,7 +615,7 @@ fn ipfs_multiaddr() {
                     (call relay ("ipfs" "clear_multiaddr") [])
                     (xor
                         (call relay ("ipfs" "get_multiaddr") [])
-                        (call relay ("op" "identity") [%last_error%] cleared_error)
+                        (call relay ("op" "identity") [%last_error%.$.msg] cleared_error)
                     )
                 )
             )
