@@ -21,7 +21,7 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use host_closure::{
     from_base58, Args, Closure, ClosureDescriptor, JError, ParticleClosure, ParticleParameters,
 };
-use ivalue_utils::{into_record, into_record_opt, ok, IValue};
+use ivalue_utils::{into_record, into_record_opt, ok, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_modules::ModuleRepository;
@@ -168,7 +168,10 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("script", "remove")              => wrap(self.remove_script(args, params)),
             ("script", "list")                => wrap(self.list_scripts()),
 
-            ("op", "identity")                => ok(Array(args.function_args)),
+            ("op", "noop")                    => unit(),
+            ("op", "array")                   => ok(Array(args.function_args)),
+            ("op", "identity")                => wrap_opt(self.identity(args.function_args)),
+            ("op", "concat")                  => wrap(self.concat(args.function_args)),
             ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
             ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
             ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
@@ -375,6 +378,36 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         };
 
         Ok(json!(keys))
+    }
+
+    fn identity(&self, args: Vec<serde_json::Value>) -> Result<Option<JValue>, JError> {
+        if args.len() > 1 {
+            Err(JError::new(format!(
+                "identity accepts up to 1 arguments, received {} arguments",
+                args.len()
+            )))
+        } else {
+            Ok(args.into_iter().next())
+        }
+    }
+
+    /// Flattens an array of arrays
+    fn concat(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let flattened: Vec<JValue> =
+            args.into_iter()
+                .enumerate()
+                .try_fold(vec![], |mut acc, (i, mut v)| match v.take() {
+                    JValue::Array(mut array) => {
+                        acc.append(&mut array);
+                        Ok(acc)
+                    }
+                    _ => Err(JError::new(format!(
+                        "all arguments of 'concat' must be arrays: argument #{} is not",
+                        i
+                    ))),
+                })?;
+
+        Ok(JValue::Array(flattened))
     }
 
     fn kademlia(&self) -> &KademliaApi {

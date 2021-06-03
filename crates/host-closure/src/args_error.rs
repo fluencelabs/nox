@@ -16,7 +16,7 @@
 
 use json_utils::err_as_value;
 
-use serde_json::Value as JValue;
+use serde_json::{json, Value as JValue};
 use std::borrow::Cow;
 use thiserror::Error;
 
@@ -46,6 +46,12 @@ impl From<ArgsError> for JValue {
 /// An error that can be created from any other error
 /// Simplifies life by converting errors to be returnable from host closures
 pub struct JError(pub JValue);
+
+impl JError {
+    pub fn new(msg: impl AsRef<str>) -> Self {
+        Self(json!(msg.as_ref()))
+    }
+}
 
 impl From<JError> for JValue {
     fn from(err: JError) -> Self {

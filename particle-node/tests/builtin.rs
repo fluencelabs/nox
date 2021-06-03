@@ -211,7 +211,7 @@ fn non_owner_remove_service() {
             )
             (seq
                 (call relay ("srv" "list") [] list_after)
-                (call %init_peer_id% ("op" "return") [list_before list_after error.$[0]!])
+                (call %init_peer_id% ("op" "return") [list_before list_after error])
             )
         )
     "#,
@@ -543,11 +543,7 @@ fn neighborhood() {
         .expect("neighborhood is an array")
         .into_iter()
         .map(|v| PeerId::from_str(v.as_str().expect("peerid is string")).expect("peerid is valid"));
-    let error = into_array(result[2].take())
-        .expect("error is wrapped in array")
-        .into_iter()
-        .next()
-        .expect("error is defined");
+    let error = result[2].take();
     let error = error.as_str().expect("error is string");
     assert_eq!(neighborhood_by_key.len(), 1);
     assert_eq!(neighborhood_by_mhash.len(), 1);
@@ -630,13 +626,78 @@ fn ipfs_multiaddr() {
         true,
     );
 
-    let uninit_error = result[0].as_array().unwrap()[0].as_str().unwrap();
-    let cleared_error = result[3].as_array().unwrap()[0].as_str().unwrap();
+    let uninit_error = result[0].as_str().unwrap();
+    let cleared_error = result[3].as_str().unwrap();
 
     assert!(uninit_error.contains("ipfs multiaddr isn't set"));
     assert_eq!(result[1], json!(first_maddr));
     assert_eq!(result[2], json!(second_maddr));
     assert!(cleared_error.contains("ipfs multiaddr isn't set"));
+}
+
+#[test]
+fn noop() {
+    let result = exec_script(
+        r#"(call relay ("op" "noop") ["hi"] result)"#,
+        <_>::default(),
+        "result",
+        1,
+    );
+    assert_eq!(result, vec![json!("")])
+}
+
+#[test]
+fn identity() {
+    let result = exec_script(
+        r#"(call relay ("op" "identity") ["hi"] result)"#,
+        <_>::default(),
+        "result",
+        1,
+    );
+    assert_eq!(result, vec![json!("hi")]);
+
+    let error = exec_script(
+        r#"
+        (xor
+            (call relay ("op" "identity") ["hi" "there"] result)
+            (call relay ("op" "identity") [%last_error%.$.msg] error)
+        )
+        "#,
+        <_>::default(),
+        "error",
+        1,
+    );
+    let error = error[0].as_str().unwrap();
+    assert!(error.contains("identity accepts up to 1 arguments, received 2 arguments"));
+}
+
+#[test]
+fn array() {
+    let result = exec_script(
+        r#"(call relay ("op" "array") ["hi"] result)"#,
+        <_>::default(),
+        "result",
+        1,
+    );
+    assert_eq!(result, vec![json!(["hi"])])
+}
+
+#[test]
+fn concat() {
+    let result = exec_script(
+        r#"(call relay ("op" "concat") [zerozero one empty two three fourfive empty] result)"#,
+        hashmap! {
+            "zerozero" => json!([0, 0]),
+            "empty" => json!([]),
+            "one" => json!([1]),
+            "two" => json!([2]),
+            "three" => json!([3]),
+            "fourfive" => json!([4,5]),
+        },
+        "result",
+        1,
+    );
+    assert_eq!(result, vec![json!([0, 0, 1, 2, 3, 4, 5])])
 }
 
 fn exec_script(
