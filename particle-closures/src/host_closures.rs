@@ -169,8 +169,9 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("script", "list")                => wrap(self.list_scripts()),
 
             ("op", "noop")                    => unit(),
-            ("op", "concat")                  => ok(Array(args.function_args)),
+            ("op", "array")                   => ok(Array(args.function_args)),
             ("op", "identity")                => wrap_opt(Ok(args.function_args.into_iter().next())),
+            ("op", "concat")                  => wrap(self.concat(args.function_args)),
             ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
             ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
             ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
@@ -377,6 +378,26 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         };
 
         Ok(json!(keys))
+    }
+
+    /// Flattens an array of arrays
+    fn concat(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let flattened: Vec<JValue> = args
+            .into_iter()
+            .enumerate()
+            .map(|(i, mut v)| match v.take() {
+                JValue::Array(array) => Ok(array),
+                _ => Err(JError::new(format!(
+                    "all arguments of 'concat' must be arrays: argument #{} wasn't",
+                    i
+                ))),
+            })
+            .collect::<Result<Vec<_>, JError>>()?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        Ok(JValue::Array(flattened))
     }
 
     fn kademlia(&self) -> &KademliaApi {
