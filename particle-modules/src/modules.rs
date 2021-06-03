@@ -405,7 +405,7 @@ fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
             }),
         })?;
 
-    deps.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+    deps.sort_by(|a, b| a.as_bytes().cmp(&b.as_bytes()));
 
     for d in deps.iter() {
         hasher.update(d.as_bytes());
