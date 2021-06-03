@@ -689,3 +689,25 @@ fn exec_script_as_admin(
 
     result
 }
+
+#[test]
+fn trytest() {
+    exec_script(
+        r#"
+        (xor
+            (seq
+                (call relay (service  "greeting") [name] result)
+                (call %init_peer_id% (returnService "run") [result])
+            )
+            (call %init_peer_id% (returnService "run") [%last_error%])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!("12D3KooWRgcKuvgd1jsU8CczydSR9kVAP8CtzwAqtibmyhP7BR4e".to_owned()),
+            "service" => json!("22bbf26f-06c2-45a9-a1a6-e7b4a01fe52e".to_owned()),
+            "name" => json!("Hello World".to_owned()),
+        },
+        "",
+        1,
+    );
+}
