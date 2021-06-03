@@ -170,7 +170,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
             ("op", "noop")                    => unit(),
             ("op", "array")                   => ok(Array(args.function_args)),
-            ("op", "identity")                => wrap_opt(Ok(args.function_args.into_iter().next())),
+            ("op", "identity")                => wrap_opt(self.identity(args.function_args)),
             ("op", "concat")                  => wrap(self.concat(args.function_args)),
             ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
             ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
@@ -378,6 +378,17 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         };
 
         Ok(json!(keys))
+    }
+
+    fn identity(&self, args: Vec<serde_json::Value>) -> Result<Option<JValue>, JError> {
+        if args.len() > 1 {
+            Err(JError::new(format!(
+                "identity accepts up to 1 arguments, received {} arguments",
+                args.len()
+            )))
+        } else {
+            Ok(args.into_iter().next())
+        }
     }
 
     /// Flattens an array of arrays
