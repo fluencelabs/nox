@@ -223,7 +223,6 @@ fn non_owner_remove_service() {
 
     use serde_json::Value::{Array, String};
 
-    println!("will receive");
     let args = dbg!(client2.receive_args().unwrap());
     if let [Array(before), Array(after), String(error)] = args.as_slice() {
         assert_eq!(before.len(), 1);
