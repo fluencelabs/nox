@@ -206,7 +206,7 @@ fn non_owner_remove_service() {
                 (call relay ("srv" "list") [] list_before)
                 (xor
                     (call relay ("srv" "remove") [service])
-                    (call relay ("op" "identity") [%last_error%] error)
+                    (call relay ("op" "identity") [%last_error%.$.msg] error)
                 )
             )
             (seq
@@ -296,7 +296,7 @@ fn resolve_alias_not_exists() {
                 (call relay ("srv" "resolve_alias") [alias] result)
                 (call %init_peer_id% ("op" "return") [result])
             )
-            (call %init_peer_id% ("op" "return") [%last_error%])
+            (call %init_peer_id% ("op" "return") [%last_error%.$.msg])
         )
     "#,
         hashmap! {
@@ -342,7 +342,7 @@ fn resolve_alias_removed() {
                 )
                 (call relay ("srv" "resolve_alias") [alias] result)
             )
-            (call %init_peer_id% ("op" "return") [%last_error%])
+            (call %init_peer_id% ("op" "return") [%last_error%.$.msg])
         )
     "#,
         hashmap! {
@@ -531,7 +531,7 @@ fn neighborhood() {
         )
         (xor
             (call relay ("kad" "neighborhood") [key true])
-            (call relay ("op" "identity") [%last_error%] error)
+            (call relay ("op" "identity") [%last_error%.$.msg] error)
         )
     )
     "#;
@@ -609,7 +609,7 @@ fn ipfs_multiaddr() {
             (seq
                 (xor
                     (call relay ("ipfs" "get_multiaddr") [])
-                    (call relay ("op" "identity") [%last_error%] uninit_error)
+                    (call relay ("op" "identity") [%last_error%.$.msg] uninit_error)
                 )
                 (seq
                     (call relay ("ipfs" "set_multiaddr") [first_maddr])
@@ -622,7 +622,7 @@ fn ipfs_multiaddr() {
                     (call relay ("ipfs" "clear_multiaddr") [])
                     (xor
                         (call relay ("ipfs" "get_multiaddr") [])
-                        (call relay ("op" "identity") [%last_error%] cleared_error)
+                        (call relay ("op" "identity") [%last_error%.$.msg] cleared_error)
                     )
                 )
             )
