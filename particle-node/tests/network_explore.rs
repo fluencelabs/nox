@@ -20,10 +20,14 @@ use test_utils::{
 
 use eyre::{ContextCompat, WrapErr};
 use futures::executor::block_on;
+use itertools::Itertools;
+use json_utils::into_array;
+use libp2p::core::Multiaddr;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
+use std::str::FromStr;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -231,11 +235,11 @@ fn explore_services() {
                     (fold $neighs_inner ns
                         (seq
                             ; HACK: convert ns from iterable to a value
-                            (call relay ("op" "identity") [ns] ns_wrapped)
+                            (null) ;(call relay ("op" "identity") [ns] ns_wrapped)
                             (seq
-                                (fold ns_wrapped.$[0]! n
+                                (fold ns n
                                     (seq
-                                        (call n ("peer" "identify") [] $services)
+                                        (call n ("peer" "identify") [] $external_addresses)
                                         (next n)
                                     )
                                 )
@@ -247,7 +251,7 @@ fn explore_services() {
             )
             (seq
                 (call relay ("op" "identity") [])
-                (call client ("return" "") [$services $neighs_inner neighs_top])
+                (call client ("return" "") [$external_addresses $neighs_inner neighs_top])
             )
         )
         "#,
@@ -258,12 +262,26 @@ fn explore_services() {
     );
 
     client.timeout = Duration::from_secs(120);
-    let args = client.receive_args().wrap_err("receive args").unwrap();
-    let mut args = args.into_iter();
-    let services = args.next().unwrap();
-    println!("{}", services);
 
-    println!("neighborhood: {}", args.next().unwrap());
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let external_addrs = args.into_iter().next().unwrap();
+    let external_addrs = external_addrs.as_array().unwrap();
+    let mut external_addrs = external_addrs
+        .iter()
+        .map(|v| {
+            let external_addrs = v.get("external_addresses").unwrap().as_array().unwrap();
+            let maddr = external_addrs[0].as_str().unwrap();
+            Multiaddr::from_str(maddr).unwrap()
+        })
+        .collect::<Vec<_>>();
+    external_addrs.sort_unstable();
+    external_addrs.dedup();
+    let expected_addrs: Vec<_> = swarms
+        .iter()
+        .map(|s| s.multiaddr.clone())
+        .sorted_unstable()
+        .collect();
+    assert_eq!(external_addrs, expected_addrs);
 }
 
 #[test]
