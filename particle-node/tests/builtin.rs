@@ -211,7 +211,7 @@ fn non_owner_remove_service() {
             )
             (seq
                 (call relay ("srv" "list") [] list_after)
-                (call %init_peer_id% ("op" "return") [list_before list_after error.$[0]!])
+                (call %init_peer_id% ("op" "return") [list_before list_after error])
             )
         )
     "#,
@@ -223,7 +223,7 @@ fn non_owner_remove_service() {
 
     use serde_json::Value::{Array, String};
 
-    let args = client2.receive_args().unwrap();
+    let args = dbg!(client2.receive_args().unwrap());
     if let [Array(before), Array(after), String(error)] = args.as_slice() {
         assert_eq!(before.len(), 1);
         assert_eq!(after.len(), 1);
@@ -543,11 +543,7 @@ fn neighborhood() {
         .expect("neighborhood is an array")
         .into_iter()
         .map(|v| PeerId::from_str(v.as_str().expect("peerid is string")).expect("peerid is valid"));
-    let error = into_array(result[2].take())
-        .expect("error is wrapped in array")
-        .into_iter()
-        .next()
-        .expect("error is defined");
+    let error = result[2].take();
     let error = error.as_str().expect("error is string");
     assert_eq!(neighborhood_by_key.len(), 1);
     assert_eq!(neighborhood_by_mhash.len(), 1);
@@ -630,8 +626,8 @@ fn ipfs_multiaddr() {
         true,
     );
 
-    let uninit_error = result[0].as_array().unwrap()[0].as_str().unwrap();
-    let cleared_error = result[3].as_array().unwrap()[0].as_str().unwrap();
+    let uninit_error = result[0].as_str().unwrap();
+    let cleared_error = result[3].as_str().unwrap();
 
     assert!(uninit_error.contains("ipfs multiaddr isn't set"));
     assert_eq!(result[1], json!(first_maddr));
