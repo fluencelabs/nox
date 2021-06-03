@@ -635,6 +635,71 @@ fn ipfs_multiaddr() {
     assert!(cleared_error.contains("ipfs multiaddr isn't set"));
 }
 
+#[test]
+fn noop() {
+    let result = exec_script(
+        r#"(call relay ("op" "noop") ["hi"] result)"#,
+        <_>::default(),
+        "result",
+        1,
+    );
+    assert_eq!(result, vec![json!("")])
+}
+
+#[test]
+fn identity() {
+    let result = exec_script(
+        r#"(call relay ("op" "identity") ["hi"] result)"#,
+        <_>::default(),
+        "result",
+        1,
+    );
+    assert_eq!(result, vec![json!("hi")]);
+
+    let error = exec_script(
+        r#"
+        (xor
+            (call relay ("op" "identity") ["hi" "there"] result)
+            (call relay ("op" "identity") [%last_error%.$.msg] error)
+        )
+        "#,
+        <_>::default(),
+        "error",
+        1,
+    );
+    let error = error[0].as_str().unwrap();
+    assert!(error.contains("identity accepts up to 1 arguments, received 2 arguments"));
+}
+
+#[test]
+fn array() {
+    let result = exec_script(
+        r#"(call relay ("op" "array") ["hi"] result)"#,
+        <_>::default(),
+        "result",
+        1,
+    );
+    assert_eq!(result, vec![json!(["hi"])])
+}
+
+#[test]
+fn concat() {
+    let result = exec_script(
+        r#"(call relay ("op" "concat") [zerozero one empty two three fourfive empty] result)"#,
+        hashmap! {
+            "zerozero" => json!([0, 0]),
+            "empty" => json!([]),
+            "one" => json!([1]),
+            "two" => json!([2]),
+            "three" => json!([3]),
+            "fourfive" => json!([4,5]),
+        },
+        "result",
+        1,
+    );
+    assert_eq!(result, vec![json!([0, 0, 1, 2, 3, 4, 5])])
+}
+
 fn exec_script(
     script: &str,
     args: HashMap<&'static str, JValue>,
