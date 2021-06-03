@@ -234,17 +234,13 @@ fn explore_services() {
                     )
                     (fold $neighs_inner ns
                         (seq
-                            ; HACK: convert ns from iterable to a value
-                            (null) ;(call relay ("op" "identity") [ns] ns_wrapped)
-                            (seq
-                                (fold ns n
-                                    (seq
-                                        (call n ("peer" "identify") [] $external_addresses)
-                                        (next n)
-                                    )
+                            (fold ns n
+                                (seq
+                                    (call n ("peer" "identify") [] $external_addresses)
+                                    (next n)
                                 )
-                                (next ns)
                             )
+                            (next ns)
                         )
                     )
                 )
