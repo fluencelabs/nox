@@ -147,13 +147,6 @@ impl ModuleRepository {
         closure(move |mut args| {
             let blueprint: AddBlueprint = Args::next("blueprint_request", &mut args)?;
 
-            if blueprint.dependencies.is_empty() {
-                return Err(EmptyDependenciesList {
-                    id: blueprint.name.clone(),
-                }
-                .into());
-            }
-
             // resolve dependencies by name to hashes, if any
             let mut dependencies: Vec<Hash> = blueprint
                 .dependencies
@@ -161,7 +154,11 @@ impl ModuleRepository {
                 .map(|module| Ok(resolve_hash(&modules, module)?))
                 .collect::<Result<_>>()?;
 
-            let facade = dependencies.pop().unwrap(); // already checked for emptiness
+            let blueprint_name = blueprint.name.clone();
+            let facade = dependencies
+                .pop()
+                .ok_or_else(|| EmptyDependenciesList { id: blueprint_name })?;
+
             let hash = hash_dependencies(facade, dependencies.clone())?.to_hex();
 
             let blueprint = Blueprint {
