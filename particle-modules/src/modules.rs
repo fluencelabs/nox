@@ -159,13 +159,14 @@ impl ModuleRepository {
                 .pop()
                 .ok_or_else(|| EmptyDependenciesList { id: blueprint_name })?;
 
-            let hash = hash_dependencies(facade, dependencies.clone())?.to_hex();
+            let hash = hash_dependencies(facade.clone(), dependencies.clone())?.to_hex();
 
             let blueprint = Blueprint {
                 id: hash.as_ref().to_string(),
                 dependencies: dependencies
                     .into_iter()
                     .map(|h| Dependency::Hash(h))
+                    .chain(iter::once(Dependency::Hash(facade)))
                     .collect(),
                 name: blueprint.name,
             };
