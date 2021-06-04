@@ -405,12 +405,14 @@ fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
             }),
         })?;
 
+    let facade = deps.pop().expect("dependency list is empty!");
     deps.sort_by(|a, b| a.as_bytes().cmp(&b.as_bytes()));
 
     for d in deps.iter() {
         hasher.update(d.as_bytes());
     }
 
+    hasher.update(facade.as_bytes());
     let hash = hasher.finalize();
     let bytes = hash.as_bytes();
     Ok(Hash::from(*bytes))
@@ -523,10 +525,13 @@ mod tests {
         use crate::modules::Hash;
 
         let dep1 = Dependency::Hash(Hash::hash(&[1, 2, 3]));
-        let dep2 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
+        let dep2 = Dependency::Hash(Hash::hash(&[2, 1, 3]));
+        let dep3 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
 
-        let hash1 = hash_dependencies(vec![dep1.clone(), dep2.clone()]).unwrap();
-        let hash2 = hash_dependencies(vec![dep2.clone(), dep1.clone()]).unwrap();
+        let hash1 = hash_dependencies(vec![dep1.clone(), dep2.clone(), dep3.clone()]).unwrap();
+        let hash2 = hash_dependencies(vec![dep2.clone(), dep1.clone(), dep3.clone()]).unwrap();
+        let hash3 = hash_dependencies(vec![dep2.clone(), dep3.clone(), dep1.clone()]).unwrap();
         assert_eq!(hash1.to_string(), hash2.to_string());
+        assert_ne!(hash2.to_string(), hash3.to_string());
     }
 }
