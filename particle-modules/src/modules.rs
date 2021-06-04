@@ -35,7 +35,7 @@ use fstrings::f;
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
-use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, iter, path::Path, path::PathBuf, sync::Arc};
 
 type ModuleName = String;
 
@@ -161,7 +161,7 @@ impl ModuleRepository {
                 .map(|module| Ok(Hash(resolve_hash(&modules, module)?)))
                 .collect::<Result<_>>()?;
 
-            let hash = hash_dependencies(dependencies.clone())?.to_hex();
+            let hash = hash_dependencies(dependencies.clone(), blueprint.name.clone())?.to_hex();
 
             let blueprint = Blueprint {
                 id: hash.as_ref().to_string(),
@@ -391,7 +391,7 @@ fn resolve_hash(
     }
 }
 
-fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
+fn hash_dependencies(deps: Vec<Dependency>, blueprint_name: String) -> Result<Hash> {
     let mut hasher = blake3::Hasher::new();
     let mut deps: Vec<Hash> = deps
         .into_iter()
@@ -405,14 +405,17 @@ fn hash_dependencies(deps: Vec<Dependency>) -> Result<Hash> {
             }),
         })?;
 
-    let facade = deps.pop().expect("dependency list is empty!");
+    if deps.is_empty() {
+        return Err(EmptyDependenciesList { id: blueprint_name }.into());
+    }
+
+    let facade = deps.pop().unwrap();
     deps.sort_by(|a, b| a.as_bytes().cmp(&b.as_bytes()));
 
-    for d in deps.iter() {
+    for d in deps.iter().chain(iter::once(&facade)) {
         hasher.update(d.as_bytes());
     }
 
-    hasher.update(facade.as_bytes());
     let hash = hasher.finalize();
     let bytes = hash.as_bytes();
     Ok(Hash::from(*bytes))
@@ -524,13 +527,23 @@ mod tests {
         use super::{hash_dependencies, Dependency};
         use crate::modules::Hash;
 
+        let bp_name = "some_name".to_string();
         let dep1 = Dependency::Hash(Hash::hash(&[1, 2, 3]));
         let dep2 = Dependency::Hash(Hash::hash(&[2, 1, 3]));
         let dep3 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
 
-        let hash1 = hash_dependencies(vec![dep1.clone(), dep2.clone(), dep3.clone()]).unwrap();
-        let hash2 = hash_dependencies(vec![dep2.clone(), dep1.clone(), dep3.clone()]).unwrap();
-        let hash3 = hash_dependencies(vec![dep2.clone(), dep3.clone(), dep1.clone()]).unwrap();
+        let hash1 = hash_dependencies(
+            vec![dep1.clone(), dep2.clone(), dep3.clone()],
+            bp_name.clone(),
+        )
+        .unwrap();
+        let hash2 = hash_dependencies(
+            vec![dep2.clone(), dep1.clone(), dep3.clone()],
+            bp_name.clone(),
+        )
+        .unwrap();
+        let hash3 =
+            hash_dependencies(vec![dep2.clone(), dep3.clone(), dep1.clone()], bp_name).unwrap();
         assert_eq!(hash1.to_string(), hash2.to_string());
         assert_ne!(hash2.to_string(), hash3.to_string());
     }
