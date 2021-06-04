@@ -17,13 +17,13 @@
 use crate::dependency::Dependency;
 use crate::error::ModuleError::{
     BlueprintNotFound, EmptyDependenciesList, FacadeShouldBeHash, InvalidModuleName,
-    InvalidModuleReference, ReadModuleInterfaceError,
+    ReadModuleInterfaceError,
 };
 use crate::error::Result;
 use crate::file_names::{extract_module_file_name, is_module_wasm};
 use crate::file_names::{module_config_name, module_file_name};
 use crate::files::{load_config_by_path, load_module_by_path};
-use crate::hash::Hash;
+use crate::Hash;
 use crate::{file_names, files, load_module_descriptor, Blueprint};
 
 use fluence_app_service::ModuleDescriptor;
@@ -141,8 +141,6 @@ impl ModuleRepository {
 
     /// Saves new blueprint to disk
     pub fn add_blueprint(&self) -> Closure {
-        use Dependency::Hash;
-
         let blueprints_dir = self.blueprints_dir.clone();
         let modules = self.modules_by_name.clone();
         let blueprints = self.blueprints.clone();
@@ -155,17 +153,23 @@ impl ModuleRepository {
                 }
                 .into());
             }
+
             // resolve dependencies by name to hashes, if any
-            let dependencies = blueprint.dependencies.into_iter();
-            let dependencies: Vec<Dependency> = dependencies
-                .map(|module| Ok(Hash(resolve_hash(&modules, module)?)))
+            let mut dependencies: Vec<Hash> = blueprint
+                .dependencies
+                .into_iter()
+                .map(|module| Ok(resolve_hash(&modules, module)?))
                 .collect::<Result<_>>()?;
 
-            let hash = hash_dependencies(dependencies.clone(), blueprint.name.clone())?.to_hex();
+            let facade = dependencies.pop().unwrap(); // already checked for emptiness
+            let hash = hash_dependencies(facade, dependencies.clone())?.to_hex();
 
             let blueprint = Blueprint {
                 id: hash.as_ref().to_string(),
-                dependencies,
+                dependencies: dependencies
+                    .into_iter()
+                    .map(|h| Dependency::Hash(h))
+                    .collect(),
                 name: blueprint.name,
             };
             files::add_blueprint(&blueprints_dir, &blueprint)?;
@@ -391,25 +395,8 @@ fn resolve_hash(
     }
 }
 
-fn hash_dependencies(deps: Vec<Dependency>, blueprint_name: String) -> Result<Hash> {
+fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Result<Hash> {
     let mut hasher = blake3::Hasher::new();
-    let mut deps: Vec<Hash> = deps
-        .into_iter()
-        .try_fold(vec![], |mut acc, dep| match dep {
-            Dependency::Hash(h) => {
-                acc.push(h);
-                Ok(acc)
-            }
-            Dependency::Name(n) => Err(InvalidModuleReference {
-                reference: n.to_string(),
-            }),
-        })?;
-
-    if deps.is_empty() {
-        return Err(EmptyDependenciesList { id: blueprint_name }.into());
-    }
-
-    let facade = deps.pop().unwrap();
     deps.sort_by(|a, b| a.as_bytes().cmp(&b.as_bytes()));
 
     for d in deps.iter().chain(iter::once(&facade)) {
@@ -524,26 +511,16 @@ mod tests {
 
     #[test]
     fn test_hash_dependency() {
-        use super::{hash_dependencies, Dependency};
+        use super::hash_dependencies;
         use crate::modules::Hash;
 
-        let bp_name = "some_name".to_string();
-        let dep1 = Dependency::Hash(Hash::hash(&[1, 2, 3]));
-        let dep2 = Dependency::Hash(Hash::hash(&[2, 1, 3]));
-        let dep3 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
+        let dep1 = Hash::hash(&[1, 2, 3]);
+        let dep2 = Hash::hash(&[2, 1, 3]);
+        let dep3 = Hash::hash(&[3, 2, 1]);
 
-        let hash1 = hash_dependencies(
-            vec![dep1.clone(), dep2.clone(), dep3.clone()],
-            bp_name.clone(),
-        )
-        .unwrap();
-        let hash2 = hash_dependencies(
-            vec![dep2.clone(), dep1.clone(), dep3.clone()],
-            bp_name.clone(),
-        )
-        .unwrap();
-        let hash3 =
-            hash_dependencies(vec![dep2.clone(), dep3.clone(), dep1.clone()], bp_name).unwrap();
+        let hash1 = hash_dependencies(dep3.clone(), vec![dep1.clone(), dep2.clone()]).unwrap();
+        let hash2 = hash_dependencies(dep3.clone(), vec![dep2.clone(), dep1.clone()]).unwrap();
+        let hash3 = hash_dependencies(dep1.clone(), vec![dep2.clone(), dep3.clone()]).unwrap();
         assert_eq!(hash1.to_string(), hash2.to_string());
         assert_ne!(hash2.to_string(), hash3.to_string());
     }
