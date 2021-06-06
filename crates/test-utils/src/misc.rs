@@ -102,6 +102,7 @@ pub fn enable_logs() {
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
         .filter(Some("aquamarine"), Trace)
+        .filter(Some("particle_protocol::libp2p_protocol::upgrade"), Warn)
         .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)

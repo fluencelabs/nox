@@ -1,0 +1,69 @@
+(xor
+ (seq
+  (seq
+   (seq
+    (seq
+     (seq
+      (seq
+       (seq
+        (seq
+         (seq
+          (seq
+           (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
+           (call %init_peer_id% ("getDataSrv" "node_id") [] node_id)
+          )
+          (call %init_peer_id% ("getDataSrv" "key") [] key)
+         )
+         (call %init_peer_id% ("getDataSrv" "value") [] value)
+        )
+        (call %init_peer_id% ("getDataSrv" "relay_id") [] relay_id)
+       )
+       (call %init_peer_id% ("getDataSrv" "service_id") [] service_id)
+      )
+      (call -relay- ("op" "identity") [])
+     )
+     (xor
+      (seq
+       (call node_id ("op" "string_to_b58") [key] k)
+       (call node_id ("kad" "neighborhood") [k false] nodes)
+      )
+      (seq
+       (call -relay- ("op" "identity") [])
+       (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+      )
+     )
+    )
+    (call -relay- ("op" "identity") [])
+   )
+   (fold nodes n
+    (par
+     (seq
+      (seq
+       (seq
+        (call -relay- ("op" "identity") [])
+        (xor
+         (seq
+          (call n ("peer" "timestamp_sec") [] t)
+          (call n ("aqua-dht" "put_value") [key value t relay_id service_id 0])
+         )
+         (null)
+        )
+       )
+       (call -relay- ("op" "identity") [])
+      )
+      (call %init_peer_id% ("op" "identity") [])
+     )
+     (next n)
+    )
+   )
+  )
+  (xor
+   (call %init_peer_id% ("callbackSrv" "response") [nodes])
+   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
+  )
+ )
+ (seq
+  (call -relay- ("op" "identity") [])
+  (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
+ )
+)

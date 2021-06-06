@@ -73,7 +73,7 @@ pub fn make_call_service_closure(
     Box::new(move |_, args| {
         let args = Args::parse(args).expect("valid args");
         match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("load", _) => service_in
+            ("load", _) | ("getDataSrv", _) => service_in
                 .lock()
                 .get(args.function_name.as_str())
                 .map(|v| ivalue_utils::ok(v.clone()))
@@ -82,14 +82,22 @@ pub fn make_call_service_closure(
                         "variable not found: {args.function_name}"
                     )))
                 }),
-            ("return", _) | ("op", "return") => {
+            ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
                 log::warn!("return args {:.100}", format!("{:?}", args.function_args));
                 log::warn!("tetraplets: {:?}", args.tetraplets);
                 service_out.lock().extend(args.function_args);
                 ivalue_utils::unit()
             }
+            ("errorHandlingSrv", "error") => {
+                println!("caught error: {:?}", args.function_args);
+                ivalue_utils::unit()
+            }
             (_, "identity") => ivalue_utils::ok(JValue::Array(args.function_args)),
-            (service, _) => ivalue_utils::error(JValue::String(f!("service not found: {service}"))),
+            (service, _) => {
+                let error = f!("service not found: {service}");
+                println!("{}", error);
+                ivalue_utils::error(JValue::String(error))
+            }
         }
     })
 }
@@ -124,13 +132,18 @@ pub fn make_particle(
     script: String,
     relay: impl Into<Option<PeerId>>,
     local_vm: &mut AVM,
+    generated: bool,
 ) -> Particle {
-    let load_variables = service_in
-        .lock()
-        .keys()
-        .map(|name| f!(r#"  (call %init_peer_id% ("load" "{name}") [] {name})"#))
-        .fold(Instruction::Null, |acc, call| acc.add(call))
-        .into_air();
+    let load_variables = if generated {
+        "   (null)".to_string()
+    } else {
+        service_in
+            .lock()
+            .keys()
+            .map(|name| f!(r#"  (call %init_peer_id% ("load" "{name}") [] {name})"#))
+            .fold(Instruction::Null, |acc, call| acc.add(call))
+            .into_air()
+    };
 
     let catch = f!(r#"(call %init_peer_id% ("return" "") [%last_error%])"#);
     let catch = if let Some(relay) = relay.into() {
@@ -191,7 +204,7 @@ pub fn read_args(
     local_vm: &mut AVM,
     out: Arc<Mutex<Vec<JValue>>>,
 ) -> Vec<JValue> {
-    local_vm
+    let result = local_vm
         .call(
             peer_id.to_string(),
             particle.script,
@@ -199,6 +212,12 @@ pub fn read_args(
             particle.id,
         )
         .expect("execute read_args vm");
+
+    assert_eq!(
+        result.ret_code, 0,
+        "read_args failed: {}",
+        result.error_message
+    );
 
     let result = out.lock().deref().clone();
     out.lock().clear();

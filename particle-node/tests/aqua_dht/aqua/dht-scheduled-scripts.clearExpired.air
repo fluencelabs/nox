@@ -1,0 +1,10 @@
+(xor
+ (seq
+  (seq
+   (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
+   (call %init_peer_id% ("peer" "timestamp_sec") [] t)
+  )
+  (call %init_peer_id% ("aqua-dht" "clear_expired") [t])
+ )
+ (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+)

@@ -103,7 +103,7 @@ impl<RT: AquaRuntime> Plumber<RT> {
                     ActorPoll::Executing => {}
                 }
             } else {
-                log::debug!("No more free Aquamarine interpreters");
+                // log::debug!("No more free Aquamarine interpreters");
             }
         }
 

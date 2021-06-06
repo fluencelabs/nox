@@ -181,6 +181,15 @@ impl ConnectedClient {
         script: impl Into<String>,
         data: HashMap<&'static str, JValue>,
     ) -> String {
+        self.send_particle_ext(script, data, false)
+    }
+
+    pub fn send_particle_ext(
+        &mut self,
+        script: impl Into<String>,
+        data: HashMap<&'static str, JValue>,
+        generated: bool,
+    ) -> String {
         *self.call_service_in.lock() = data
             .into_iter()
             .map(|(key, value)| (key.to_string(), value))
@@ -191,6 +200,7 @@ impl ConnectedClient {
             script.into(),
             self.node,
             &mut self.local_vm.lock(),
+            generated,
         );
         let id = particle.id.clone();
         self.send(particle);
@@ -225,6 +235,21 @@ impl ConnectedClient {
 
     pub fn receive_args(&mut self) -> Result<Vec<JValue>> {
         let particle = self.receive().wrap_err("receive_args")?;
+        Ok(read_args(
+            particle,
+            self.peer_id,
+            &mut self.local_vm.lock(),
+            self.call_service_out.clone(),
+        ))
+    }
+
+    pub fn receive_args_from(&mut self, particle_id: &str) -> Result<Vec<JValue>> {
+        let particle = loop {
+            let particle = dbg!(self.receive().wrap_err("receive_args")?);
+            if particle.id == particle_id {
+                break particle;
+            }
+        };
         Ok(read_args(
             particle,
             self.peer_id,
