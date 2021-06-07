@@ -45,16 +45,10 @@
        (xor
         (seq
          (seq
-          (seq
-           (seq
-            (call n ("peer" "timestamp_sec") [] t)
-            (call n ("aqua-dht" "register_key") [key t false 0])
-           )
-           (call n ("op" "array") [relay_id] rid)
-          )
-          (call n ("op" "array") [service_id] sid)
+          (call n ("peer" "timestamp_sec") [] t)
+          (call n ("aqua-dht" "register_key") [key t false 0])
          )
-         (call n ("aqua-dht" "put_value") [key value t rid sid 0])
+         (call n ("aqua-dht" "put_value") [key value t relay_id service_id 0])
         )
         (null)
        )

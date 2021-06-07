@@ -213,6 +213,11 @@ pub fn read_args(
         )
         .expect("execute read_args vm");
 
+    println!(
+        "read_args interpreter outcome:\ncode {}\nerror message {}\nnext peer pks: {:?}",
+        result.ret_code, result.error_message, result.next_peer_pks
+    );
+
     assert_eq!(
         result.ret_code, 0,
         "read_args failed: {}",

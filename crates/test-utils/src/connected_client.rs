@@ -243,32 +243,18 @@ impl ConnectedClient {
         ))
     }
 
-    pub fn receive_args_from(&mut self, particle_id: &str) -> Result<Vec<JValue>> {
-        let particle = loop {
-            let particle = dbg!(self.receive().wrap_err("receive_args")?);
-            if particle.id == particle_id {
-                break particle;
-            }
-        };
-        Ok(read_args(
-            particle,
-            self.peer_id,
-            &mut self.local_vm.lock(),
-            self.call_service_out.clone(),
-        ))
-    }
-
     /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
-    pub fn wait_particle_args(&mut self, particle_id: String) -> Result<Vec<JValue>> {
+    pub fn wait_particle_args(&mut self, particle_id: impl AsRef<str>) -> Result<Vec<JValue>> {
         let mut max = 100;
         loop {
             max -= 1;
             if max <= 0 {
-                bail!("timed out waiting for particle {}", particle_id);
+                bail!("timed out waiting for particle {}", particle_id.as_ref());
             }
             let particle = self.receive().ok();
             if let Some(particle) = particle {
-                if particle.id == particle_id {
+                if particle.id.as_str() == particle_id.as_ref() {
+                    println!("received particle {}", particle.id);
                     break Ok(read_args(
                         particle,
                         self.peer_id,
@@ -276,6 +262,27 @@ impl ConnectedClient {
                         self.call_service_out.clone(),
                     ));
                 }
+            }
+        }
+    }
+
+    pub fn listen_for_n<F: Fn(Vec<JValue>)>(&mut self, mut n: usize, f: F) {
+        loop {
+            n -= 1;
+            if n <= 0 {
+                break;
+            }
+
+            let particle = self.receive().ok();
+            if let Some(particle) = particle {
+                println!("received particle {}", particle.id);
+                let args = read_args(
+                    particle,
+                    self.peer_id,
+                    &mut self.local_vm.lock(),
+                    self.call_service_out.clone(),
+                );
+                f(args);
             }
         }
     }

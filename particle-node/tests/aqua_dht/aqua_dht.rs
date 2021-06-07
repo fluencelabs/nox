@@ -70,8 +70,6 @@ fn put_get() {
 
     let swarms = make_swarms(3);
 
-    enable_logs();
-
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -99,24 +97,38 @@ fn put_get() {
         client.receive_args();
     }
 
+    std::thread::sleep(Duration::from_secs(1));
+
+    println!("ENABLING LOGS");
+    enable_logs();
+
     let key = "key";
-    let id = dbg!(client.send_particle_ext(
+    let id = client.send_particle_ext(
         put_script,
         hashmap! {
             "-relay-" => json!(client.node.to_string()),
             "node_id" => json!(client.node.to_string()),
-            "relay_id" => json!(client.node.to_string()),
+            "relay_id" => json!([client.node.to_string()]),
             "key" => json!(key),
             "value" => json!("value"),
-            "service_id" => json!("service_id"),
+            "service_id" => json!(["service_id"]),
         },
-        true
-    ));
-    let result = client.receive_args_from(&id);
+        true,
+    );
+    println!("put particle id: {}", id);
+    println!("client id: {}", client.peer_id);
+    println!("client node id: {}", client.node);
+    let result = client.wait_particle_args(&id);
     println!("result: {:?}", result);
-    std::thread::sleep(Duration::from_secs(1));
+    let result = client.wait_particle_args(&id);
+    println!("result: {:?}", result);
+    // std::thread::sleep(Duration::from_secs(100000));
 
-    let id = dbg!(client.send_particle_ext(
+    // client.listen_for_n(100, |args| {
+    //     println!("received args: {:?}", args);
+    // });
+
+    let id = client.send_particle_ext(
         get_values,
         hashmap! {
             "-relay-" => json!(client.node.to_string()),
@@ -124,8 +136,8 @@ fn put_get() {
             "relay_id" => json!(client.node.to_string()),
             "key" => json!(key),
         },
-        true
-    ));
-    let result = client.receive_args_from(&id);
+        true,
+    );
+    let result = client.wait_particle_args(&id);
     println!("result: {:?}", result);
 }
