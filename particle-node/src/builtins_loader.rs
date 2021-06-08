@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquamarineApi, SendParticle, AVM};
+use aquamarine::{AquamarineApi, AVM};
 use eyre::Result;
 use futures::executor::block_on;
 use libp2p::PeerId;
@@ -25,9 +25,9 @@ use particle_modules::{hash_dependencies, list_files, AddBlueprint, Dependency, 
 use serde_json::json;
 use serde_json::Value as JValue;
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::{fs, iter};
 
 struct Module {
     pub data: Vec<u8>,
@@ -78,10 +78,14 @@ impl BuiltinsLoader {
         &mut self,
         script: String,
         data: HashMap<&str, JValue>,
-    ) -> eyre::Result<Vec<SendParticle>> {
+    ) -> eyre::Result<Vec<JValue>> {
         *self.call_service_in.lock() = data
             .into_iter()
             .map(|(key, value)| (key.to_string(), value))
+            .chain(iter::once((
+                "relay".to_string(),
+                json!(self.node_peer_id.to_string()),
+            )))
             .collect();
 
         let particle = make_particle(
@@ -93,8 +97,17 @@ impl BuiltinsLoader {
         );
 
         let result = block_on(self.node_api.clone().handle(particle))?;
+        let particle = result
+            .particles
+            .get(0)
+            .ok_or(eyre::eyre!("response doesn't contain particles".to_string()))?;
 
-        Ok(result.particles)
+        Ok(read_args(
+            particle.particle.clone(),
+            self.startup_peer_id.clone(),
+            &mut self.local_vm,
+            self.call_service_out.clone(),
+        ))
     }
 
     fn add_module(&mut self, module: &Module) -> eyre::Result<()> {
@@ -110,24 +123,14 @@ impl BuiltinsLoader {
         .to_string();
 
         let data = hashmap! {
-            "relay" => json!(self.node_peer_id.to_string()),
             "module_bytes" => json!(base64::encode(&module.data)),
             "module_config" => serde_json::from_str(&module.config)?,
         };
 
         let result = self.send_particle(script, data)?;
 
-        for pt in result {
-            let res = read_args(
-                pt.particle,
-                self.startup_peer_id.clone(),
-                &mut self.local_vm,
-                self.call_service_out.clone(),
-            );
-
-            for v in res.into_iter() {
-                log::info!("{}", v.to_string());
-            }
+        for v in result.into_iter() {
+            log::info!("{}", v.to_string());
         }
 
         Ok(())
@@ -145,24 +148,10 @@ impl BuiltinsLoader {
         "#
         .to_string();
 
-        let data = hashmap! {
-            "relay" => json!(self.node_peer_id.to_string()),
-            "name" => json!(name),
-        };
+        let result = self.send_particle(script, hashmap! {"name" => json!(name)})?;
 
-        let result = self.send_particle(script, data)?;
-
-        for pt in result {
-            let res = read_args(
-                pt.particle,
-                self.startup_peer_id.clone(),
-                &mut self.local_vm,
-                self.call_service_out.clone(),
-            );
-
-            for v in res.into_iter() {
-                log::info!("{}", v.to_string());
-            }
+        for v in result.into_iter() {
+            log::info!("{}", v.to_string());
         }
 
         Ok(())
@@ -187,24 +176,14 @@ impl BuiltinsLoader {
         .to_string();
 
         let data = hashmap! {
-            "relay" => json!(self.node_peer_id.to_string()),
             "blueprint" => json!(builtin.blueprint),
             "alias" => json!(builtin.name),
         };
 
         let result = self.send_particle(script, data)?;
 
-        for pt in result {
-            let res = read_args(
-                pt.particle,
-                self.startup_peer_id.clone(),
-                &mut self.local_vm,
-                self.call_service_out.clone(),
-            );
-
-            for v in res.into_iter() {
-                log::info!("{}", v.to_string());
-            }
+        for v in result.into_iter() {
+            log::info!("{}", v.to_string());
         }
 
         Ok(())
@@ -213,15 +192,6 @@ impl BuiltinsLoader {
     pub fn load(&mut self) -> Result<()> {
         let available_builtins = self.list_builtins()?;
         let local_services = self.list_services()?;
-        // for _builtin in available_builtins.into_iter() {}
-        println!("{:?}", local_services);
-        println!(
-            "{:?}",
-            available_builtins
-                .iter()
-                .map(|e| e.blueprint.clone())
-                .collect::<Vec<AddBlueprint>>()
-        );
 
         for builtin in available_builtins.iter() {
             let old_blueprint = local_services.get(&builtin.name);
@@ -312,29 +282,33 @@ impl BuiltinsLoader {
         "#
         .to_string();
 
-        let data = hashmap! {
-            "relay" => json!(self.node_peer_id.to_string()),
-        };
-
-        let result = self.send_particle(script, data)?;
-
+        let result = self.send_particle(script, hashmap! {})?;
+        let result = result
+            .get(0)
+            .ok_or(eyre::eyre!("list_services call failed"))?
+            .as_array()
+            .ok_or(eyre::eyre!("list_services call failed"))?;
         let mut blueprint_ids = hashmap! {};
-        for pt in result {
-            let res = read_args(
-                pt.particle,
-                self.startup_peer_id.clone(),
-                &mut self.local_vm,
-                self.call_service_out.clone(),
-            );
 
-            for v in res.into_iter() {
-                for p in v.as_array().unwrap().iter() {
-                    let blueprint_id = p.get("blueprint_id").unwrap().as_str().unwrap().to_string();
-                    for alias in p.get("aliases").unwrap().as_array().unwrap().iter() {
-                        blueprint_ids
-                            .insert(alias.as_str().unwrap().to_string(), blueprint_id.clone());
-                    }
-                }
+        for p in result.into_iter() {
+            let blueprint_id = p
+                .get("blueprint_id")
+                .ok_or(eyre::eyre!("list_services call failed"))?
+                .as_str()
+                .ok_or(eyre::eyre!("list_services call failed"))?
+                .to_string();
+            let aliases = p
+                .get("aliases")
+                .ok_or(eyre::eyre!("list_services call failed"))?
+                .as_array()
+                .ok_or(eyre::eyre!("list_services call failed"))?;
+
+            for alias in aliases.into_iter() {
+                let alias = alias
+                    .as_str()
+                    .ok_or(eyre::eyre!("list_services call failed"))?
+                    .to_string();
+                blueprint_ids.insert(alias, blueprint_id.clone());
             }
         }
 
