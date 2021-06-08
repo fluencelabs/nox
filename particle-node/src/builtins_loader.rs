@@ -27,6 +27,7 @@ use serde_json::Value as JValue;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 use std::{fs, iter};
 
 struct Module {
@@ -96,7 +97,13 @@ impl BuiltinsLoader {
             &mut self.local_vm,
         );
 
-        let result = block_on(self.node_api.clone().handle(particle))?;
+        let result = block_on(
+            self.node_api
+                .clone()
+                .handle(particle)
+                .timeout(Duration::from_secs(1)),
+        )?;
+
         let particle = result
             .particles
             .get(0)
