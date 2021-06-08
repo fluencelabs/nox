@@ -5,6 +5,8 @@ members = [
     "crates/ctrlc-adapter",
     "crates/control-macro",
     "crates/waiting-queues",
+    "crates/local-vm",
+    "crates/misc",
     "crates/test-utils",
     "crates/config-utils",
     "crates/ivalue-utils",

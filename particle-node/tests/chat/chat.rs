@@ -35,13 +35,14 @@
 
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{connect_swarms, load_module, module_config, ConnectedClient};
+use test_utils::{connect_swarms, module_config, ConnectedClient};
 
 use eyre::{ContextCompat, WrapErr};
 use fstrings::f;
 use itertools::Itertools;
 use libp2p::PeerId;
 use maplit::hashmap;
+use misc::load_module;
 use serde_json::{json, Value as JValue};
 use std::collections::HashSet;
 

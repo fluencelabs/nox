@@ -21,7 +21,7 @@ use crate::EasyVM;
 
 use aquamarine::VmPoolConfig;
 use aquamarine::{AquaRuntime, VmConfig, AVM};
-use config_utils::{modules_dir, to_abs_path};
+use config_utils::{modules_dir, to_peer_id};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::{build_memory_transport, build_transport};
@@ -39,13 +39,12 @@ use futures::channel::mpsc::unbounded;
 use futures::{stream::iter, StreamExt};
 use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
+use misc::{make_tmp_dir, put_aquamarine};
 use rand::Rng;
 use serde_json::{json, Value as JValue};
 use std::convert::identity;
-use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{path::PathBuf, time::Duration};
-use uuid::Uuid;
 
 /// Utility functions for tests.
 
@@ -63,10 +62,6 @@ pub static TRANSPORT_TIMEOUT: Duration = Duration::from_millis(500);
 pub static KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(10);
 pub static EXECUTION_TIMEOUT: Duration = Duration::from_millis(5000);
 pub static PARTICLE_TTL: u32 = 20000;
-
-pub fn uuid() -> String {
-    Uuid::new_v4().to_string()
-}
 
 pub fn get_cert() -> Certificate {
     use std::str::FromStr;
@@ -89,50 +84,6 @@ HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
 "#,
     )
     .expect("deserialize cert")
-}
-
-#[allow(dead_code)]
-// Enables logging, filtering out unnecessary details
-pub fn enable_logs() {
-    use log::LevelFilter::*;
-
-    std::env::set_var("WASM_LOG", "info");
-
-    env_logger::builder()
-        .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Info)
-        .filter(Some("aquamarine"), Trace)
-        .filter(Some("aquamarine::actor"), Debug)
-        .filter(Some("particle_node::bootstrapper"), Info)
-        .filter(Some("yamux::connection::stream"), Info)
-        .filter(Some("tokio_threadpool"), Info)
-        .filter(Some("tokio_reactor"), Info)
-        .filter(Some("mio"), Info)
-        .filter(Some("tokio_io"), Info)
-        .filter(Some("soketto"), Info)
-        .filter(Some("yamux"), Info)
-        .filter(Some("multistream_select"), Info)
-        .filter(Some("libp2p_swarm"), Info)
-        .filter(Some("libp2p_secio"), Info)
-        .filter(Some("libp2p_websocket::framed"), Info)
-        .filter(Some("libp2p_ping"), Info)
-        .filter(Some("libp2p_core::upgrade::apply"), Info)
-        .filter(Some("libp2p_kad::kbucket"), Info)
-        .filter(Some("libp2p_kad"), Info)
-        .filter(Some("libp2p_kad::query"), Info)
-        .filter(Some("libp2p_kad::iterlog"), Info)
-        .filter(Some("libp2p_plaintext"), Info)
-        .filter(Some("libp2p_identify::protocol"), Info)
-        .filter(Some("cranelift_codegen"), Info)
-        .filter(Some("wasmer_wasi"), Info)
-        .filter(Some("wasmer_interface_types_fl"), Info)
-        .filter(Some("async_std"), Info)
-        .filter(Some("async_io"), Info)
-        .filter(Some("polling"), Info)
-        .filter(Some("cranelift_codegen"), Info)
-        .filter(Some("walrus"), Info)
-        .try_init()
-        .ok();
 }
 
 #[derive(Derivative)]
@@ -340,9 +291,15 @@ pub fn aqua_vm_config(
     let vm_config =
         VmConfig::new(peer_id, stepper_base_dir, air_interpreter).expect("create vm config");
 
-    let services_config =
-        ServicesConfig::new(peer_id, tmp_dir.join("services"), <_>::default(), manager)
-            .expect("create services config");
+    let startup_kp = Keypair::generate_ed25519();
+    let services_config = ServicesConfig::new(
+        peer_id,
+        tmp_dir.join("services"),
+        <_>::default(),
+        manager,
+        to_peer_id(&startup_kp),
+    )
+    .expect("create services config");
 
     let host_closures = Node::host_closures(
         connectivity,
@@ -449,6 +406,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         None,
         "0.0.0.0:0".parse().unwrap(),
         bootstraps,
+        Keypair::generate_ed25519(),
     );
 
     node.listen(vec![listen_on]).expect("listen");
@@ -471,43 +429,6 @@ pub fn create_tcp_maddr() -> Multiaddr {
     let mut maddr: Multiaddr = Protocol::Ip4("127.0.0.1".parse().unwrap()).into();
     maddr.push(Protocol::Tcp(port));
     maddr
-}
-
-pub fn make_tmp_dir() -> PathBuf {
-    use rand::distributions::Alphanumeric;
-
-    let mut tmp = std::env::temp_dir();
-    tmp.push("fluence_test/");
-    let dir: String = rand::thread_rng()
-        .sample_iter(Alphanumeric)
-        .take(16)
-        .collect();
-    tmp.push(dir);
-
-    std::fs::create_dir_all(&tmp).expect("create tmp dir");
-
-    tmp
-}
-
-pub fn remove_dir(dir: &Path) {
-    std::fs::remove_dir_all(&dir).unwrap_or_else(|_| panic!("remove dir {:?}", dir))
-}
-
-pub fn put_aquamarine(tmp: PathBuf) -> PathBuf {
-    use air_interpreter_wasm::{INTERPRETER_WASM, VERSION};
-
-    std::fs::create_dir_all(&tmp).expect("create tmp dir");
-
-    let file = to_abs_path(tmp.join(format!("aquamarine_{}.wasm", VERSION)));
-    std::fs::write(&file, INTERPRETER_WASM)
-        .unwrap_or_else(|_| panic!("fs::write aquamarine.wasm to {:?}", file));
-
-    file
-}
-
-pub fn load_module(path: &str, module_name: &str) -> Vec<u8> {
-    let module = to_abs_path(PathBuf::from(path).join(format!("{}.wasm", module_name)));
-    std::fs::read(&module).unwrap_or_else(|_| panic!("fs::read from {:?}", module))
 }
 
 pub fn test_module_cfg(name: &str) -> JValue {

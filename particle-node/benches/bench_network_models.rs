@@ -313,6 +313,7 @@ where
         tmp_dir.join("services"),
         <_>::default(),
         RandomPeerId::random(),
+        RandomPeerId::random(),
     )
     .wrap_err("create service config")
     .unwrap();

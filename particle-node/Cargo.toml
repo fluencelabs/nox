@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
 particle-closures = { path = "../particle-closures"}
+particle-modules = { path = "../particle-modules"}
 connection-pool = { path = "../connection-pool"}
 script-storage = { path = "../script-storage"}
 aquamarine = { path = "../aquamarine" }
@@ -49,18 +50,19 @@ num_cpus = "1.13.0"
 fstrings = "0.2.3"
 eyre = "0.6.5"
 parking_lot = "0.11.0"
+local-vm = { path = "../crates/local-vm" }
+maplit = "1.0.2"
+json-utils = { path = "../crates/json-utils" }
 
 [dev-dependencies]
 particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }
-json-utils = { path = "../crates/json-utils" }
 fluence-libp2p = { path = "../crates/libp2p" }
+misc = { path = "../crates/misc"}
 
 fluence-app-service = "0.7.2"
 
 base64 = "0.13.0"
-maplit = "1.0.2"
-serde_json = "1.0.64"
 blake3 = "0.3.7"
 criterion = { version = "0.3.4", features = ["async_std", "html_reports"] }
 

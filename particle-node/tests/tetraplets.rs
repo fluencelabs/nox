@@ -25,7 +25,8 @@ use serde_json::json;
 
 use eyre::WrapErr;
 use fluence_app_service::SecurityTetraplet;
-use test_utils::{create_service, load_module, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use misc::load_module;
+use test_utils::{create_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
 fn test_tetraplets() {

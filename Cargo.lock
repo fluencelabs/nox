@@ -2844,6 +2844,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "local-vm"
+version = "0.1.0"
+dependencies = [
+ "air-interpreter-wasm",
+ "aquamarine",
+ "async-std",
+ "avm-server",
+ "base64 0.13.0",
+ "chrono",
+ "config-utils",
+ "connection-pool",
+ "derivative",
+ "env_logger",
+ "eyre",
+ "fluence-client",
+ "fluence-faas",
+ "fluence-fork-libp2p",
+ "fluence-identity",
+ "fluence-libp2p",
+ "fstrings",
+ "futures",
+ "futures-util",
+ "host-closure",
+ "itertools 0.10.0",
+ "ivalue-utils",
+ "log",
+ "maplit",
+ "misc",
+ "parking_lot 0.11.1",
+ "particle-modules",
+ "particle-protocol",
+ "prometheus",
+ "rand 0.7.3",
+ "script-storage",
+ "serde",
+ "serde_json",
+ "server-config",
+ "toml",
+ "trust-graph",
+ "uuid",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3144,6 +3187,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9f1c5b025cda876f66ef43a113f91ebc9f4ccef34843000e0adf6ebbab84e21"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "misc"
+version = "0.1.0"
+dependencies = [
+ "air-interpreter-wasm",
+ "aquamarine",
+ "async-std",
+ "avm-server",
+ "base64 0.13.0",
+ "chrono",
+ "config-utils",
+ "connection-pool",
+ "derivative",
+ "env_logger",
+ "eyre",
+ "fluence-client",
+ "fluence-faas",
+ "fluence-fork-libp2p",
+ "fluence-identity",
+ "fluence-libp2p",
+ "fstrings",
+ "futures",
+ "futures-util",
+ "host-closure",
+ "itertools 0.10.0",
+ "ivalue-utils",
+ "log",
+ "maplit",
+ "parking_lot 0.11.1",
+ "particle-modules",
+ "particle-protocol",
+ "prometheus",
+ "rand 0.7.3",
+ "script-storage",
+ "serde",
+ "serde_json",
+ "server-config",
+ "toml",
+ "trust-graph",
+ "uuid",
 ]
 
 [[package]]
@@ -3475,12 +3560,15 @@ dependencies = [
  "itertools 0.10.0",
  "json-utils",
  "kademlia",
+ "local-vm",
  "log",
  "maplit",
+ "misc",
  "multihash",
  "num_cpus",
  "parking_lot 0.11.1",
  "particle-closures",
+ "particle-modules",
  "particle-protocol",
  "particle-providers",
  "prometheus",
@@ -4785,8 +4873,10 @@ dependencies = [
  "host-closure",
  "itertools 0.10.0",
  "ivalue-utils",
+ "local-vm",
  "log",
  "maplit",
+ "misc",
  "parking_lot 0.11.1",
  "particle-modules",
  "particle-node",

@@ -393,7 +393,7 @@ fn resolve_hash(
     }
 }
 
-fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Result<Hash> {
+pub fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Result<Hash> {
     let mut hasher = blake3::Hasher::new();
     deps.sort_by(|a, b| a.as_bytes().cmp(&b.as_bytes()));
 

@@ -24,7 +24,8 @@ use maplit::hashmap;
 use serde_json::json;
 
 use eyre::WrapErr;
-use test_utils::{create_service, load_module, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use misc::load_module;
+use test_utils::{create_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 #[test]
 fn pass_boolean() {

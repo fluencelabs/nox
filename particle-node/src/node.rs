@@ -33,6 +33,7 @@ use trust_graph::{InMemoryStorage, TrustGraph};
 use crate::Connectivity;
 use async_std::task;
 use eyre::WrapErr;
+use futures::executor::block_on;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     select,
@@ -45,8 +46,15 @@ use libp2p::{
     swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
+use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
+use maplit::hashmap;
+use parking_lot::Mutex;
+use particle_modules::list_files;
 use prometheus::Registry;
-use std::path::Path;
+use serde_json::{json, Value as JValue};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::{io, iter::once, net::SocketAddr};
 
 // TODO: documentation
@@ -54,14 +62,16 @@ pub struct Node<RT: AquaRuntime> {
     pub network_api: NetworkApi,
     pub swarm: Swarm<NetworkBehaviour>,
     stepper_pool: AquamarineBackend<RT>,
-    stepper_pool_api: AquamarineApi,
+    pub stepper_pool_api: AquamarineApi,
     #[allow(dead_code)] // useful for debugging
-    local_peer_id: PeerId,
+    pub local_peer_id: PeerId,
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
     bootstrap_nodes: Vec<Multiaddr>,
     particle_failures: Outlet<String>,
     script_storage: ScriptStorageBackend,
+    #[allow(dead_code)] // useful for debugging
+    pub startup_keypair: Keypair,
 }
 
 impl Node<AVM> {
@@ -85,11 +95,13 @@ impl Node<AVM> {
         let pool_config =
             VmPoolConfig::new(config.stepper_pool_size, config.particle_execution_timeout);
 
+        let startup_kp = Keypair::generate_ed25519();
         let services_config = ServicesConfig::new(
             local_peer_id,
             config.dir_config.services_base_dir.clone(),
             config.services_envs.clone(),
             config.management_peer_id,
+            to_peer_id(&startup_kp),
         )
         .expect("create services config");
 
@@ -138,6 +150,7 @@ impl Node<AVM> {
             registry.into(),
             config.metrics_listen_addr(),
             config.node_config.bootstrap_nodes,
+            startup_kp,
         ))
     }
 
@@ -185,6 +198,7 @@ impl<RT: AquaRuntime> Node<RT> {
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
         bootstrap_nodes: Vec<Multiaddr>,
+        startup_keypair: Keypair,
     ) -> Box<Self> {
         log::info!("server peer id = {}", local_peer_id);
 
@@ -201,6 +215,7 @@ impl<RT: AquaRuntime> Node<RT> {
             bootstrap_nodes,
             particle_failures,
             script_storage,
+            startup_keypair,
         };
 
         Box::new(node_service)
@@ -222,7 +237,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let script_storage = self.script_storage.start();
             let pool = self.stepper_pool.start();
             let mut network = {
-                let pool_api = self.stepper_pool_api;
+                let pool_api = self.stepper_pool_api.clone();
                 let failures = self.particle_failures;
                 let bootstrap_nodes = self.bootstrap_nodes.into_iter().collect();
                 self.network_api.start(pool_api, bootstrap_nodes, failures)
@@ -286,6 +301,69 @@ pub fn write_default_air_interpreter(destination: &Path) -> eyre::Result<()> {
         "failed writing default INTERPRETER_WASM to {:?}",
         destination
     ))
+}
+
+pub fn load_builtin_services(
+    startup_keypair: Keypair,
+    builtins_base_dir: PathBuf,
+    stepper_pool_api: AquamarineApi,
+    local_peer_id: PeerId,
+) -> eyre::Result<()> {
+    let builtin_services: Vec<String> = list_files(builtins_base_dir.as_path())
+        .into_iter()
+        .flatten()
+        .map(|path| {
+            path.as_path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect();
+
+    let peer_id = to_peer_id(&startup_keypair);
+    let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
+    let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
+
+    let call_in = call_service_in.clone();
+    let call_out = call_service_out.clone();
+
+    let mut vm = make_vm(
+        peer_id.clone(),
+        make_call_service_closure(call_in.clone(), call_out.clone()),
+    );
+
+    let script = r#"
+        (xor
+            (seq
+                (call relay ("srv" "list") [] list)
+                (call %init_peer_id% ("op" "return") [list])
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        )
+    "#
+    .to_string();
+
+    let data = hashmap! {
+        "relay" => json!(local_peer_id.to_string()),
+    };
+
+    *call_in.lock() = data
+        .into_iter()
+        .map(|(key, value)| (key.to_string(), value))
+        .collect();
+
+    let particle = make_particle(peer_id.clone(), call_in.clone(), script, None, &mut vm);
+
+    let result = block_on(stepper_pool_api.clone().handle(particle))?;
+    for pt in result.particles {
+        let res = read_args(pt.particle, peer_id.clone(), &mut vm, call_out.clone());
+        log::info!("result: {:?}", res);
+    }
+
+    log::info!("available builtin services: {:?}", builtin_services);
+    Ok(())
 }
 
 #[cfg(test)]

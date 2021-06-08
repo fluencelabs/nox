@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 use test_utils::{
-    create_service, load_module, make_swarms, module_config, read_args, test_module_cfg, timeout,
-    ClientEvent, ConnectedClient, KAD_TIMEOUT,
+    create_service, make_swarms, module_config, test_module_cfg, timeout, ClientEvent,
+    ConnectedClient, KAD_TIMEOUT,
 };
 
 use eyre::{ContextCompat, WrapErr};
 use futures::executor::block_on;
 use itertools::Itertools;
-use json_utils::into_array;
 use libp2p::core::Multiaddr;
+use local_vm::read_args;
 use maplit::hashmap;
+use misc::load_module;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;

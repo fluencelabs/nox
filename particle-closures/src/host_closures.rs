@@ -72,6 +72,7 @@ pub struct HostClosures<C> {
     pub get_providers: Closure,
 
     pub management_peer_id: String,
+    pub startup_management_peer_id: String,
     pub ipfs_state: Arc<Mutex<IpfsState>>,
 }
 
@@ -90,6 +91,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let modules = ModuleRepository::new(&modules_dir, &blueprint_dir);
 
         let management_peer_id = config.management_peer_id.to_base58();
+        let startup_management_peer_id = config.startup_management_peer_id.to_base58();
         let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
@@ -111,6 +113,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             connectivity,
             script_storage,
             management_peer_id,
+            startup_management_peer_id,
             ipfs_state: Arc::new(Mutex::new(IpfsState::default())),
         }
     }

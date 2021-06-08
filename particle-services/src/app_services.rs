@@ -73,6 +73,7 @@ pub struct ParticleAppServices {
     modules: ModuleRepository,
     aliases: Aliases,
     management_peer_id: String,
+    startup_management_peer_id: String,
 }
 
 pub fn get_service<'l>(
@@ -94,12 +95,14 @@ pub fn get_service<'l>(
 impl ParticleAppServices {
     pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
         let management_peer_id = config.management_peer_id.to_base58();
+        let startup_management_peer_id = config.startup_management_peer_id.to_base58();
         let this = Self {
             config,
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
             management_peer_id,
+            startup_management_peer_id,
         };
 
         this.create_persisted_services();
@@ -219,9 +222,12 @@ impl ParticleAppServices {
         let aliases = self.aliases.clone();
         let config = self.config.clone();
         let management_peer_id = self.management_peer_id.clone();
+        let startup_peer_id = self.startup_management_peer_id.clone();
 
         closure_params_opt(move |particle, args| {
-            if particle.init_user_id != management_peer_id {
+            if particle.init_user_id != management_peer_id
+                && particle.init_user_id != startup_peer_id
+            {
                 return Err(Forbidden {
                     user: particle.init_user_id,
                     function: "add_alias",
@@ -389,7 +395,7 @@ mod tests {
     use tempdir::TempDir;
 
     use crate::ParticleAppServices;
-    use config_utils::modules_dir;
+    use config_utils::{modules_dir, to_peer_id};
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
     use host_closure::ParticleParameters;
     use particle_modules::{Dependency, Hash, ModuleRepository};
@@ -411,8 +417,15 @@ mod tests {
         management_pid: PeerId,
         base_dir: PathBuf,
     ) -> ParticleAppServices {
-        let config =
-            ServicesConfig::new(local_pid, base_dir, HashMap::new(), management_pid).unwrap();
+        let startup_kp = Keypair::generate_ed25519();
+        let config = ServicesConfig::new(
+            local_pid,
+            base_dir,
+            HashMap::new(),
+            management_pid,
+            to_peer_id(&startup_kp),
+        )
+        .unwrap();
 
         let repo = ModuleRepository::new(&config.modules_dir, &config.blueprint_dir);
 

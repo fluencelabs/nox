@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 use crate::air_interpreter_path;
-use crate::defaults::{cert_dir, default_base_dir, services_basedir, stepper_basedir};
+use crate::defaults::{
+    builtins_basedir, cert_dir, default_base_dir, services_basedir, stepper_basedir,
+};
 
 use config_utils::create_dirs;
 use eyre::WrapErr;
@@ -35,6 +37,10 @@ pub struct UnresolvedDirConfig {
     #[serde(default)]
     pub services_base_dir: Option<PathBuf>,
 
+    /// Base directory for builtin services
+    #[serde(default)]
+    pub builtins_base_dir: Option<PathBuf>,
+
     /// Base directory for resources needed by application services
     #[serde(default)]
     pub stepper_base_dir: Option<PathBuf>,
@@ -49,6 +55,7 @@ impl UnresolvedDirConfig {
         let base = self.base_dir;
         let certificate_dir = self.certificate_dir.unwrap_or(cert_dir(&base));
         let services_base_dir = self.services_base_dir.unwrap_or(services_basedir(&base));
+        let builtins_base_dir = self.builtins_base_dir.unwrap_or(builtins_basedir(&base));
         let stepper_base_dir = self.stepper_base_dir.unwrap_or(stepper_basedir(&base));
         let air_interpreter_path = self
             .air_interpreter_path
@@ -58,6 +65,7 @@ impl UnresolvedDirConfig {
             base_dir: base,
             certificate_dir,
             services_base_dir,
+            builtins_base_dir,
             stepper_base_dir,
             air_interpreter_path,
         }
@@ -69,6 +77,7 @@ pub struct ResolvedDirConfig {
     pub base_dir: PathBuf,
     pub certificate_dir: PathBuf,
     pub services_base_dir: PathBuf,
+    pub builtins_base_dir: PathBuf,
     pub stepper_base_dir: PathBuf,
     pub air_interpreter_path: PathBuf,
 }

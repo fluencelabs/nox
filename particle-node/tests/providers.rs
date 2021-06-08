@@ -17,10 +17,11 @@
 use fluence_libp2p::RandomPeerId;
 use json_utils::into_array;
 use particle_providers::Provider;
-use test_utils::{make_swarms_with_cfg, uuid, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
 
 use eyre::{eyre, ContextCompat, WrapErr};
 use maplit::hashmap;
+use misc::uuid;
 use serde_json::json;
 use std::{collections::HashSet, thread::sleep};
 
