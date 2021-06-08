@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquamarineApi, AVM};
+use aquamarine::{AquamarineApi, SendParticle, AVM};
 use eyre::Result;
 use futures::executor::block_on;
 use libp2p::PeerId;
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
 use maplit::hashmap;
 use parking_lot::Mutex;
-use particle_modules::{list_files, AddBlueprint};
+use particle_modules::{hash_dependencies, list_files, AddBlueprint, Dependency, Hash};
 use serde_json::json;
 use serde_json::Value as JValue;
 use std::collections::HashMap;
@@ -38,6 +38,7 @@ struct Builtin {
     pub name: String,
     pub modules: Vec<Module>,
     pub blueprint: AddBlueprint,
+    pub blueprint_id: String,
 }
 
 pub struct BuiltinsLoader {
@@ -73,30 +74,11 @@ impl BuiltinsLoader {
         }
     }
 
-    // pub fn get_blueprint_id(builtin: &Builtin) {
-    //     let mut deps = builtin.blueprint.dependencies.clone();
-    //     let facade = deps.pop().unwrap();
-    //     hash_dependencies(facade, deps)
-    // }
-
-    fn add_module(&mut self, module: &Module) -> eyre::Result<()> {
-        let script = r#"
-        (xor
-            (seq
-                (call relay ("dist" "add_module") [module_bytes module_config])
-                (call %init_peer_id% ("op" "return") ["ok"])
-            )
-            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
-        )
-    "#
-        .to_string();
-
-        let data = hashmap! {
-            "relay" => json!(self.node_peer_id.to_string()),
-            "module_bytes" => json!(base64::encode(&module.data)),
-            "module_config" => serde_json::from_str(&module.config)?,
-        };
-
+    fn send_particle(
+        &mut self,
+        script: String,
+        data: HashMap<&str, JValue>,
+    ) -> eyre::Result<Vec<SendParticle>> {
         *self.call_service_in.lock() = data
             .into_iter()
             .map(|(key, value)| (key.to_string(), value))
@@ -112,7 +94,107 @@ impl BuiltinsLoader {
 
         let result = block_on(self.node_api.clone().handle(particle))?;
 
-        for pt in result.particles {
+        Ok(result.particles)
+    }
+
+    fn add_module(&mut self, module: &Module) -> eyre::Result<()> {
+        let script = r#"
+        (xor
+            (seq
+                (call relay ("dist" "add_module") [module_bytes module_config])
+                (call %init_peer_id% ("op" "return") ["ok"])
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        )
+        "#
+        .to_string();
+
+        let data = hashmap! {
+            "relay" => json!(self.node_peer_id.to_string()),
+            "module_bytes" => json!(base64::encode(&module.data)),
+            "module_config" => serde_json::from_str(&module.config)?,
+        };
+
+        let result = self.send_particle(script, data)?;
+
+        for pt in result {
+            let res = read_args(
+                pt.particle,
+                self.startup_peer_id.clone(),
+                &mut self.local_vm,
+                self.call_service_out.clone(),
+            );
+
+            for v in res.into_iter() {
+                log::info!("{}", v.to_string());
+            }
+        }
+
+        Ok(())
+    }
+
+    fn remove_service(&mut self, name: String) -> eyre::Result<()> {
+        let script = r#"
+        (xor
+            (seq
+                (call relay ("srv" "remove") [name])
+                (call %init_peer_id% ("op" "return") ["ok"])
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        )
+        "#
+        .to_string();
+
+        let data = hashmap! {
+            "relay" => json!(self.node_peer_id.to_string()),
+            "name" => json!(name),
+        };
+
+        let result = self.send_particle(script, data)?;
+
+        for pt in result {
+            let res = read_args(
+                pt.particle,
+                self.startup_peer_id.clone(),
+                &mut self.local_vm,
+                self.call_service_out.clone(),
+            );
+
+            for v in res.into_iter() {
+                log::info!("{}", v.to_string());
+            }
+        }
+
+        Ok(())
+    }
+
+    fn create_service(&mut self, builtin: &Builtin) -> eyre::Result<()> {
+        let script = r#"
+        (xor
+            (seq
+                (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                (seq
+                    (call relay ("srv" "create") [blueprint_id] service_id)
+                    (seq
+                        (call relay ("srv" "add_alias") [alias service_id] result)
+                        (call %init_peer_id% ("op" "return") ["ok"])
+                    )
+                )
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        )
+        "#
+        .to_string();
+
+        let data = hashmap! {
+            "relay" => json!(self.node_peer_id.to_string()),
+            "blueprint" => json!(builtin.blueprint),
+            "alias" => json!(builtin.name),
+        };
+
+        let result = self.send_particle(script, data)?;
+
+        for pt in result {
             let res = read_args(
                 pt.particle,
                 self.startup_peer_id.clone(),
@@ -142,13 +224,21 @@ impl BuiltinsLoader {
         );
 
         for builtin in available_builtins.iter() {
-            // let old_blueprint = local_services.get(&builtin.name);
-            //
-            // if old_blueprint.is_some() && old_blueprint.unwrap() == builtin.blueprint.
+            let old_blueprint = local_services.get(&builtin.name);
+
+            if let Some(id) = old_blueprint {
+                if *id == builtin.blueprint_id {
+                    continue;
+                } else {
+                    self.remove_service(builtin.name.clone())?;
+                }
+            }
 
             for module in builtin.modules.iter() {
                 self.add_module(module)?;
             }
+
+            self.create_service(&builtin)?;
         }
 
         Ok(())
@@ -162,38 +252,41 @@ impl BuiltinsLoader {
                 let builtin: Result<Builtin> = try {
                     let path = path.as_path();
                     let name = path.file_name().unwrap().to_str().unwrap().to_string();
-                    let blueprint =
+                    let blueprint: AddBlueprint =
                         serde_json::from_str(&fs::read_to_string(path.join("blueprint.json"))?)?;
 
-                    let modules_names = list_files(path)
-                        .unwrap()
-                        .into_iter()
-                        .filter(|p| p.extension().unwrap().eq("wasm"))
-                        .map(|m| m.file_stem().unwrap().to_str().unwrap().to_string())
-                        .collect::<Vec<String>>();
-
                     let mut modules: Vec<Module> = vec![];
-                    for module in modules_names.into_iter() {
-                        let config_name = module.clone() + "_cfg.json";
-                        let config = self
-                            .builtins_base_dir
-                            .join(name.clone())
-                            .join(Path::new(&config_name));
-                        let module = self
-                            .builtins_base_dir
-                            .join(name.clone())
-                            .join(module.clone() + ".wasm");
+                    for module_name in blueprint.dependencies.iter() {
+                        match module_name {
+                            Dependency::Name(module_name) => {
+                                let config_name = module_name.clone() + "_cfg.json";
+                                let config = self
+                                    .builtins_base_dir
+                                    .join(name.clone())
+                                    .join(Path::new(&config_name));
+                                let module = self
+                                    .builtins_base_dir
+                                    .join(name.clone())
+                                    .join(module_name.clone() + ".wasm");
 
-                        modules.push(Module {
-                            data: fs::read(module)?,
-                            config: fs::read_to_string(config)?,
-                        })
+                                modules.push(Module {
+                                    data: fs::read(module)?,
+                                    config: fs::read_to_string(config)?,
+                                })
+                            }
+                            _ => return Err(eyre::eyre!("incorrect blueprint")),
+                        }
                     }
+
+                    let mut deps_hashes: Vec<Hash> =
+                        modules.iter().map(|m| Hash::hash(&m.data)).collect();
+                    let facade = deps_hashes.pop().unwrap();
 
                     Builtin {
                         name,
                         modules,
                         blueprint,
+                        blueprint_id: hash_dependencies(facade, deps_hashes)?.to_string(),
                     }
                 };
 
@@ -216,30 +309,17 @@ impl BuiltinsLoader {
             )
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
-    "#
+        "#
         .to_string();
 
         let data = hashmap! {
             "relay" => json!(self.node_peer_id.to_string()),
         };
 
-        *self.call_service_in.lock() = data
-            .into_iter()
-            .map(|(key, value)| (key.to_string(), value))
-            .collect();
-
-        let particle = make_particle(
-            self.startup_peer_id.clone(),
-            self.call_service_in.clone(),
-            script,
-            None,
-            &mut self.local_vm,
-        );
-
-        let result = block_on(self.node_api.clone().handle(particle))?;
+        let result = self.send_particle(script, data)?;
 
         let mut blueprint_ids = hashmap! {};
-        for pt in result.particles {
+        for pt in result {
             let res = read_args(
                 pt.particle,
                 self.startup_peer_id.clone(),
