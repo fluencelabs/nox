@@ -27,7 +27,3 @@ members = [
 exclude = [
     "particle-node/tests/tetraplets",
 ]
-
-[patch.crates-io]
-libp2p = { package = "fluence-fork-libp2p", git = 'https://github.com/fluencelabs/rust-libp2p', branch = 'k_closest' }
-libp2p-core = { package = "fluence-fork-libp2p-core", git = 'https://github.com/fluencelabs/rust-libp2p', branch = 'k_closest' }

@@ -24,7 +24,7 @@ avm-server = "0.7.0"
 fluence-identity = "0.3.0"
 fluence-faas = "0.7.0"
 
-libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 rand = "0.7.3"
 async-std = "1.9.0"
