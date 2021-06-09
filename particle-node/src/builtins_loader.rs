@@ -15,6 +15,7 @@
  */
 
 use aquamarine::{AquamarineApi, AVM};
+use boolinator::Boolinator;
 use eyre::Result;
 use futures::executor::block_on;
 use libp2p::PeerId;
@@ -27,7 +28,6 @@ use serde_json::Value as JValue;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 use std::{fs, iter};
 
 struct Module {
@@ -40,6 +40,8 @@ struct Builtin {
     pub modules: Vec<Module>,
     pub blueprint: AddBlueprint,
     pub blueprint_id: String,
+    pub on_start_script: Option<String>,
+    pub on_start_data: Option<String>,
 }
 
 pub struct BuiltinsLoader {
@@ -50,6 +52,17 @@ pub struct BuiltinsLoader {
     call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     call_service_out: Arc<Mutex<Vec<JValue>>>,
     builtins_base_dir: PathBuf,
+}
+
+fn check_result(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
+    let result = result
+        .get(0)
+        .ok_or(eyre::eyre!(err_msg.to_string()))?
+        .as_str()
+        .ok_or(eyre::eyre!(err_msg.to_string()))?
+        .to_string();
+
+    result.eq("ok").ok_or(eyre::eyre!(err_msg.to_string()))
 }
 
 impl BuiltinsLoader {
@@ -78,7 +91,7 @@ impl BuiltinsLoader {
     fn send_particle(
         &mut self,
         script: String,
-        data: HashMap<&str, JValue>,
+        data: HashMap<String, JValue>,
     ) -> eyre::Result<Vec<JValue>> {
         *self.call_service_in.lock() = data
             .into_iter()
@@ -97,12 +110,7 @@ impl BuiltinsLoader {
             &mut self.local_vm,
         );
 
-        let result = block_on(
-            self.node_api
-                .clone()
-                .handle(particle)
-                .timeout(Duration::from_secs(1)),
-        )?;
+        let result = block_on(self.node_api.clone().handle(particle))?;
 
         let particle = result
             .particles
@@ -130,17 +138,13 @@ impl BuiltinsLoader {
         .to_string();
 
         let data = hashmap! {
-            "module_bytes" => json!(base64::encode(&module.data)),
-            "module_config" => serde_json::from_str(&module.config)?,
+            "module_bytes".to_string() => json!(base64::encode(&module.data)),
+            "module_config".to_string() => serde_json::from_str(&module.config)?,
         };
 
         let result = self.send_particle(script, data)?;
 
-        for v in result.into_iter() {
-            log::info!("{}", v.to_string());
-        }
-
-        Ok(())
+        check_result(result, "add_module call failed")
     }
 
     fn remove_service(&mut self, name: String) -> eyre::Result<()> {
@@ -155,13 +159,9 @@ impl BuiltinsLoader {
         "#
         .to_string();
 
-        let result = self.send_particle(script, hashmap! {"name" => json!(name)})?;
+        let result = self.send_particle(script, hashmap! {"name".to_string() => json!(name)})?;
 
-        for v in result.into_iter() {
-            log::info!("{}", v.to_string());
-        }
-
-        Ok(())
+        check_result(result, "remove_service call failed")
     }
 
     fn create_service(&mut self, builtin: &Builtin) -> eyre::Result<()> {
@@ -183,14 +183,23 @@ impl BuiltinsLoader {
         .to_string();
 
         let data = hashmap! {
-            "blueprint" => json!(builtin.blueprint),
-            "alias" => json!(builtin.name),
+            "blueprint".to_string() => json!(builtin.blueprint),
+            "alias".to_string() => json!(builtin.name),
         };
 
         let result = self.send_particle(script, data)?;
 
-        for v in result.into_iter() {
-            log::info!("{}", v.to_string());
+        check_result(result, "create_service call failed")
+    }
+
+    fn run_on_start(&mut self, builtin: &Builtin) -> eyre::Result<()> {
+        if builtin.on_start_script.is_some() && builtin.on_start_data.is_some() {
+            let data: HashMap<String, JValue> =
+                serde_json::from_str(builtin.on_start_data.as_ref().unwrap())?;
+
+            let res =
+                self.send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)?;
+            log::info!("{:?}", res);
         }
 
         Ok(())
@@ -205,6 +214,7 @@ impl BuiltinsLoader {
 
             if let Some(id) = old_blueprint {
                 if *id == builtin.blueprint_id {
+                    self.run_on_start(builtin);
                     continue;
                 } else {
                     self.remove_service(builtin.name.clone())?;
@@ -222,59 +232,58 @@ impl BuiltinsLoader {
     }
 
     fn list_builtins(&self) -> Result<Vec<Builtin>> {
-        list_files(self.builtins_base_dir.as_path())
-            .into_iter()
-            .flatten()
-            .try_fold(vec![], |mut acc: Vec<Builtin>, path: PathBuf| {
-                let builtin: Result<Builtin> = try {
-                    let path = path.as_path();
-                    let name = path.file_name().unwrap().to_str().unwrap().to_string();
-                    let blueprint: AddBlueprint =
-                        serde_json::from_str(&fs::read_to_string(path.join("blueprint.json"))?)?;
+        Ok(list_files(self.builtins_base_dir.as_path())
+            .ok_or(eyre::eyre!(""))?
+            .map(|path| {
+                let path = path.as_path();
+                let name = path
+                    .file_name()
+                    .ok_or(eyre::eyre!(""))?
+                    .to_str()
+                    .ok_or(eyre::eyre!(""))?
+                    .to_string();
+                let blueprint: AddBlueprint =
+                    serde_json::from_str(&fs::read_to_string(path.join("blueprint.json"))?)?;
 
-                    let mut modules: Vec<Module> = vec![];
-                    for module_name in blueprint.dependencies.iter() {
-                        match module_name {
-                            Dependency::Name(module_name) => {
-                                let config_name = module_name.clone() + "_cfg.json";
-                                let config = self
-                                    .builtins_base_dir
-                                    .join(name.clone())
-                                    .join(Path::new(&config_name));
-                                let module = self
-                                    .builtins_base_dir
-                                    .join(name.clone())
-                                    .join(module_name.clone() + ".wasm");
+                let mut modules: Vec<Module> = vec![];
+                for module_name in blueprint.dependencies.iter() {
+                    match module_name {
+                        Dependency::Name(module_name) => {
+                            let config_name = module_name.clone() + "_cfg.json";
+                            let config = self
+                                .builtins_base_dir
+                                .join(name.clone())
+                                .join(Path::new(&config_name));
+                            let module = self
+                                .builtins_base_dir
+                                .join(name.clone())
+                                .join(module_name.clone() + ".wasm");
 
-                                modules.push(Module {
-                                    data: fs::read(module)?,
-                                    config: fs::read_to_string(config)?,
-                                })
-                            }
-                            _ => return Err(eyre::eyre!("incorrect blueprint")),
+                            modules.push(Module {
+                                data: fs::read(module)?,
+                                config: fs::read_to_string(config)?,
+                            });
                         }
+                        _ => return Err(eyre::eyre!("incorrect blueprint")),
                     }
-
-                    let mut deps_hashes: Vec<Hash> =
-                        modules.iter().map(|m| Hash::hash(&m.data)).collect();
-                    let facade = deps_hashes.pop().unwrap();
-
-                    Builtin {
-                        name,
-                        modules,
-                        blueprint,
-                        blueprint_id: hash_dependencies(facade, deps_hashes)?.to_string(),
-                    }
-                };
-
-                match builtin {
-                    Ok(builtin) => {
-                        acc.push(builtin);
-                        Ok(acc)
-                    }
-                    Err(err) => Err(err),
                 }
+
+                let mut deps_hashes: Vec<Hash> =
+                    modules.iter().map(|m| Hash::hash(&m.data)).collect();
+                let facade = deps_hashes.pop().ok_or(eyre::eyre!(""))?;
+
+                Ok(Builtin {
+                    name,
+                    modules,
+                    blueprint,
+                    blueprint_id: hash_dependencies(facade, deps_hashes)?.to_string(),
+                    on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
+                    on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
+                })
             })
+            .filter(Result::is_ok)
+            .map(Result::unwrap)
+            .collect())
     }
 
     fn list_services(&mut self) -> Result<HashMap<String, String>> {
