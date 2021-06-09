@@ -119,25 +119,6 @@ impl ModuleRepository {
         }
     }
 
-    // pub fn add_module(&self) -> Closure {
-    //     let modules = self.modules_by_name.clone();
-    //     let modules_dir = self.modules_dir.clone();
-    //     closure(move |mut args| {
-    //         let module: String = Args::next("module", &mut args)?;
-    //         let module = base64::decode(&module).map_err(|err| {
-    //             JValue::String(format!("error decoding module from base64: {:?}", err))
-    //         })?;
-    //         let hash = Hash::hash(&module);
-    //         let config = Args::next("config", &mut args)?;
-    //         let config = files::add_module(&modules_dir, &hash, &module, config)?;
-    //
-    //         let hash_str = hash.to_hex().as_ref().to_owned();
-    //         modules.lock().insert(config.name, hash);
-    //
-    //         Ok(JValue::String(hash_str))
-    //     })
-    // }
-
     /// Adds a module to the filesystem, overwriting existing module.
     pub fn add_module(&self, module: String, config: TomlFaaSNamedModuleConfig) -> Result<String> {
         let module = base64::decode(&module)?;
@@ -473,11 +454,4 @@ mod tests {
         assert_eq!(hash1.to_string(), hash2.to_string());
         assert_ne!(hash2.to_string(), hash3.to_string());
     }
-
-    // #[test]
-    // fn test() {
-    //     let jv = r#"[["a", "b"], ["c", "d"]]"#;
-    //     let map: toml::value::Table = serde_json::from_str(&jv).unwrap();
-    //     println!("map: {:?}", map);
-    // }
 }
