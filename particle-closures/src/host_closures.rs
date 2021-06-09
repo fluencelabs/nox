@@ -15,20 +15,17 @@
  */
 
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
-use crate::identify::{identify, NodeInfo};
+use crate::identify::NodeInfo;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use host_closure::{
-    from_base58, Args, Closure, ClosureDescriptor, JError, ParticleClosure, ParticleParameters,
-};
-use ivalue_utils::{into_record, into_record_opt, ok, unit, IValue};
+use host_closure::{from_base58, Args, ClosureDescriptor, JError, ParticleParameters};
+use ivalue_utils::{error, into_record, into_record_opt, ok, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -51,28 +48,15 @@ use JValue::Array;
 
 #[derive(Clone)]
 pub struct HostClosures<C> {
-    pub create_service: ParticleClosure,
-    pub remove_service: ParticleClosure,
-    pub call_service: ParticleClosure,
-
-    pub get_interface: Closure,
-    pub list_services: Closure,
-
-    pub identify: Closure,
-    pub add_alias: ParticleClosure,
-    pub resolve_alias: Closure,
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
-
-    // deprecated
-    pub add_provider: Closure,
-    pub get_providers: Closure,
 
     pub management_peer_id: String,
     pub ipfs_state: Arc<Mutex<IpfsState>>,
 
-    // thin
     pub modules: ModuleRepository,
+    pub services: ParticleAppServices,
+    pub node_info: NodeInfo,
 }
 
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
@@ -86,28 +70,19 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     ) -> Self {
         let modules_dir = config.modules_dir.clone();
         let blueprint_dir = config.blueprint_dir.clone();
-        let providers = ProviderRepository::new(config.local_peer_id);
         let modules = ModuleRepository::new(&modules_dir, &blueprint_dir);
 
         let management_peer_id = config.management_peer_id.to_base58();
         let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
-            add_provider: providers.add_provider(),
-            get_providers: providers.get_providers(),
-            create_service: services.create_service(),
-            remove_service: services.remove_service(),
-            call_service: services.call_service(),
-            get_interface: services.get_interface(),
-            list_services: services.list_services(),
-            identify: identify(node_info),
-            add_alias: services.add_alias(),
-            resolve_alias: services.resolve_alias(),
             connectivity,
             script_storage,
             management_peer_id,
             ipfs_state: Arc::new(Mutex::new(IpfsState::default())),
             modules,
+            services,
+            node_info,
         }
     }
 
@@ -140,19 +115,19 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("peer", "is_connected")          => wrap(self.is_connected(args)),
             ("peer", "connect")               => wrap(self.connect(args)),
             ("peer", "get_contact")           => wrap_opt(self.get_contact(args)),
-            ("peer", "identify")              => (self.identify)(args),
+            ("peer", "identify")              => ok(json!(self.node_info)),
             ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args)),
             ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
 
-            ("srv", "create")                 => (self.create_service)(params, args),
-            ("srv", "remove")                 => (self.remove_service)(params, args),
-            ("srv", "list")                   => (self.list_services)(args),
-            ("srv", "get_interface")          => (self.get_interface)(args),
-            ("srv", "add_alias")              => (self.add_alias)(params, args),
-            ("srv", "resolve_alias")          => (self.resolve_alias)(args),
+            ("srv", "create")                 => wrap(self.create_service(args, params)),
+            ("srv", "get_interface")          => wrap(self.get_interface(args)),
+            ("srv", "resolve_alias")          => wrap(self.resolve_alias(args)),
+            ("srv", "list")                   => ok(self.list_services()),
+            ("srv", "add_alias")              => wrap_unit(self.add_alias(args, params)),
+            ("srv", "remove")                 => wrap_unit(self.remove_service(args, params)),
 
             ("dist", "add_module")                          => wrap(self.add_module(args)),
             ("dist", "add_blueprint")                       => wrap(self.add_blueprint(args)),
@@ -180,10 +155,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(args, params, &self.management_peer_id)),
             ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
 
-            ("deprecated", "add_provider")    => (self.add_provider)(args),
-            ("deprecated", "get_providers")   => (self.get_providers)(args),
-
-            _ => (self.call_service)(params, args),
+            _ => wrap(self.call_service(args, params)),
         };
         log::info!("{} ({})", log_args, pretty(start.elapsed()));
         result
@@ -498,6 +470,59 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             .collect()
     }
 
+    fn create_service(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
+
+        let service_id = self
+            .services
+            .create_service(blueprint_id, params.init_user_id.clone())?;
+
+        Ok(JValue::String(service_id))
+    }
+
+    fn remove_service(&self, args: Args, params: ParticleParameters) -> Result<(), JError> {
+        let mut args = args.function_args.into_iter();
+        let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
+
+        self.services
+            .remove_service(service_id_or_alias, params.init_user_id)?;
+        Ok(())
+    }
+
+    fn list_services(&self) -> JValue {
+        JValue::Array(self.services.list_services())
+    }
+
+    fn call_service(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+        Ok(self.services.call_service(args, params)?)
+    }
+
+    fn get_interface(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let service_id: String = Args::next("service_id", &mut args)?;
+        Ok(self.services.get_interface(service_id)?)
+    }
+
+    fn add_alias(&self, args: Args, params: ParticleParameters) -> Result<(), JError> {
+        let mut args = args.function_args.into_iter();
+
+        let alias: String = Args::next("alias", &mut args)?;
+        let service_id: String = Args::next("service_id", &mut args)?;
+        self.services
+            .add_alias(alias, service_id, params.init_user_id)?;
+        Ok(())
+    }
+
+    fn resolve_alias(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+
+        let alias: String = Args::next("alias", &mut args)?;
+        let service_id = self.services.resolve_alias(alias)?;
+
+        Ok(JValue::String(service_id))
+    }
+
     fn kademlia(&self) -> &KademliaApi {
         self.connectivity.as_ref()
     }
@@ -513,6 +538,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
 fn wrap(r: Result<JValue, JError>) -> Option<IValue> {
     into_record(r.map_err(Into::into))
+}
+
+fn wrap_unit(r: Result<(), JError>) -> Option<IValue> {
+    match r {
+        Err(e) => error(e.into()),
+        _ => unit(),
+    }
 }
 
 fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {

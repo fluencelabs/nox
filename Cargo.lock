@@ -3442,7 +3442,6 @@ dependencies = [
  "parking_lot 0.11.1",
  "particle-modules",
  "particle-protocol",
- "particle-providers",
  "particle-services",
  "ref-cast",
  "script-storage",
@@ -3521,7 +3520,6 @@ dependencies = [
  "parking_lot 0.11.1",
  "particle-closures",
  "particle-protocol",
- "particle-providers",
  "prometheus",
  "rand 0.7.3",
  "script-storage",
@@ -3554,18 +3552,6 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_derive",
- "serde_json",
-]
-
-[[package]]
-name = "particle-providers"
-version = "0.1.0"
-dependencies = [
- "control-macro",
- "fluence-libp2p",
- "host-closure",
- "json-utils",
- "serde",
  "serde_json",
 ]
 
