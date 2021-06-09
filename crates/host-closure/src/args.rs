@@ -109,12 +109,11 @@ impl Args {
     ) -> Result<Option<T>, ArgsError> {
         let value = ok_get!(args.next());
         let value = match value {
-            JValue::Array(values) if values.len() > 1 => {
-                return Err(ArgsError::NonUnaryOption {
-                    field,
-                    length: value.len(),
-                })
-            }
+            // If there are several values in the passed array,
+            // then that could be either a Some(array) in scalar form or an invalid option.
+            // The only way to tell one from the other is by looking at the return type.
+            // So that's exactly what I do here: asking T to deserialize itself.
+            JValue::Array(values) if values.len() > 1 => JValue::Array(values),
             JValue::Array(values) => {
                 ok_get!(values.into_iter().next())
             }
@@ -122,7 +121,7 @@ impl Args {
         };
 
         let value: T = Self::deserialize(field, value)?;
-        Ok(value)
+        Ok(Some(value))
     }
 
     /// `field` is to generate a more accurate error message
@@ -131,5 +130,58 @@ impl Args {
         v: JValue,
     ) -> Result<T, ArgsError> {
         serde_json::from_value(v).map_err(|err| SerdeJson { err, field })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Args;
+    use serde_json::json;
+
+    #[test]
+    fn test_next_opt() {
+        let mut args = vec![
+            json!([]),           // None
+            json!(["hi"]),       // Some String
+            json!(["hi", "hi"]), // Some Vec
+            json!([]),           // None Vec
+            json!(["hi", "hi"]), // Error
+            json!("hi"),         // Some String
+                                 // None String
+                                 // None Vec
+        ]
+        .into_iter();
+
+        fn hi() -> String {
+            "hi".to_string()
+        }
+
+        let none: Result<Option<String>, _> = Args::next_opt("", &mut args);
+        assert_eq!(none.unwrap(), None);
+
+        let some: Result<Option<String>, _> = Args::next_opt("", &mut args);
+        assert_eq!(some.unwrap(), Some(hi()));
+
+        let some_vec: Result<Option<Vec<String>>, _> = Args::next_opt("", &mut args);
+        assert_eq!(some_vec.unwrap(), Some(vec![hi(), hi()]));
+
+        let none_vec: Result<Option<Vec<String>>, _> = Args::next_opt("", &mut args);
+        assert_eq!(none_vec.unwrap(), None);
+
+        let scalar_err: Result<Option<String>, _> = Args::next_opt("scalar", &mut args);
+        assert!(scalar_err.is_err());
+        assert_eq!(
+            "Error while deserializing field scalar: invalid type: sequence, expected a string",
+            scalar_err.err().unwrap().to_string()
+        );
+
+        let some: Result<Option<String>, _> = Args::next_opt("", &mut args);
+        assert_eq!(some.unwrap(), Some(hi()));
+
+        let none: Result<Option<String>, _> = Args::next_opt("", &mut args);
+        assert_eq!(none.unwrap(), None);
+
+        let none_vec: Result<Option<Vec<String>>, _> = Args::next_opt("", &mut args);
+        assert_eq!(none_vec.unwrap(), None);
     }
 }
