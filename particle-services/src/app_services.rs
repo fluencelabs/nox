@@ -80,15 +80,19 @@ pub fn get_service<'l>(
     aliases: &HashMap<String, String>,
     id_or_alias: String,
 ) -> Result<(&'l Service, String), ServiceError> {
-    services
-        .get(&id_or_alias)
-        .map(|s| (s, id_or_alias.clone()))
-        .or_else(|| {
-            aliases
-                .get(&id_or_alias)
-                .and_then(|id| (services.get(id)).map(|s| (s, id.clone())))
-        })
-        .ok_or_else(|| ServiceError::NoSuchService(id_or_alias.clone()))
+    // retrieve service by service id
+    if let Some(service) = services.get(&id_or_alias) {
+        return Ok((service, id_or_alias));
+    }
+
+    // retrieve service by alias
+    let by_alias: Option<_> = try {
+        let resolved_id = aliases.get(&id_or_alias)?;
+        let service = services.get(resolved_id)?;
+        (service, resolved_id.clone())
+    };
+
+    by_alias.ok_or_else(|| ServiceError::NoSuchService(id_or_alias))
 }
 
 impl ParticleAppServices {
@@ -181,7 +185,17 @@ impl ParticleAppServices {
                 let services = services.read();
                 let aliases = aliases.read();
 
-                let (service, id) = get_service(&services, &aliases, args.service_id)?;
+                let function_name = args.function_name;
+                let (service, id) =
+                    get_service(&services, &aliases, args.service_id).map_err(|err| match err {
+                        ServiceError::NoSuchService(service) => {
+                            ServiceError::NoSuchServiceWithFunction {
+                                service,
+                                function: function_name.clone(),
+                            }
+                        }
+                        e => e,
+                    })?;
 
                 let params = CallParameters {
                     host_id: host_id.clone(),
@@ -194,11 +208,7 @@ impl ParticleAppServices {
 
                 let mut service = service.lock();
                 service
-                    .call(
-                        args.function_name,
-                        JValue::Array(args.function_args),
-                        params,
-                    )
+                    .call(function_name, JValue::Array(args.function_args), params)
                     .map_err(ServiceError::Engine)?
             };
 
