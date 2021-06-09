@@ -118,9 +118,11 @@ impl Args {
             // So that's what is done here:
             // keep value untouched, so T can deserialize itself and fail as needed
             JValue::Array(values) if values.len() > 1 => JValue::Array(values),
+            // Option backed by array of 1 or 0 elements
             JValue::Array(values) => {
                 ok_get!(values.into_iter().next())
             }
+            // Scalar value
             value => value,
         };
 
