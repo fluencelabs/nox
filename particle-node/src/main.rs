@@ -62,6 +62,7 @@ fn main() -> eyre::Result<()> {
         .version(version.as_str())
         .author(authors.as_str())
         .about(DESCRIPTION)
+        .override_usage(r#"particle-node [FLAGS] [OPTIONS]"#)
         .args(create_args().as_slice())
         .get_matches();
 
