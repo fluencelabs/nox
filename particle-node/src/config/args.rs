@@ -18,86 +18,142 @@ use server_config::config_keys::*;
 
 use clap::Arg;
 
-pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
+pub fn create_args<'help>() -> Vec<Arg<'help>> {
     vec![
-        Arg::with_name(TCP_PORT)
+        // networking
+        Arg::new(TCP_PORT)
+            .display_order(0)
+            .help_heading(Some("Networking"))
             .takes_value(true)
-            .short("t")
-            .help("tcp port [default: 7777]"),
-        Arg::with_name(WEBSOCKET_PORT)
+            .short('t')
+            .long("tcp-port")
+            .value_name("PORT")
+            .about("tcp port [default: 7777]"),
+        Arg::new(WEBSOCKET_PORT)
+            .display_order(1)
+            .help_heading(Some("Networking"))
             .takes_value(true)
-            .short("w")
-            .help("websocket port [default: 9999]"),
-        Arg::with_name(ROOT_KEY_PAIR_VALUE)
-            .takes_value(true)
-            .short("k")
-            .help("keypair in base58")
-            .conflicts_with(ROOT_KEY_PAIR_PATH),
-        Arg::with_name(ROOT_KEY_PAIR_PATH)
-            .takes_value(true)
-            .short("p")
-            .help("keypair path")
-            .conflicts_with(ROOT_KEY_PAIR_VALUE),
-        Arg::with_name(ROOT_KEY_PAIR_FORMAT)
-            .takes_value(true)
-            .short("f")
-            .help("keypair format"),
-        Arg::with_name(ROOT_KEY_PAIR_GENERATE)
-            .takes_value(true)
-            .short("g")
-            .help("generate keypair on absence"),
-        Arg::with_name(CONFIG_FILE)
-            .takes_value(true)
-            .short("c")
-            .help("TOML configuration file"),
-        Arg::with_name(CERTIFICATE_DIR)
-            .takes_value(true)
-            .short("d")
-            .help("path to certificate dir"),
-        Arg::with_name(BOOTSTRAP_NODE)
+            .short('w')
+            .long("ws-port")
+            .value_name("PORT")
+            .about("websocket port [default: 9999]"),
+        Arg::new(BOOTSTRAP_NODE)
+            .display_order(2)
+            .help_heading(Some("Networking"))
             .value_name("MULTIADDR")
             .takes_value(true)
-            .short("b")
+            .short('b')
             .long("bootstraps")
             .multiple(true)
-            .empty_values(false)
-            .help("bootstrap nodes of the Fluence network"),
-        Arg::with_name(EXTERNAL_ADDR)
-            .takes_value(true)
-            .short("x")
-            .help("node external IP address to advertise to other peers"),
-        Arg::with_name(EXTERNAL_MULTIADDRS)
-            .takes_value(true)
-            .multiple(true)
-            .long("external-maddrs")
-            .help("node external multiaddresses to advertize to other peers"),
-        Arg::with_name(SERVICE_ENVS)
-            .value_name("NAME=VALUE")
-            .takes_value(true)
-            .short("e")
-            .multiple(true)
-            .empty_values(false)
-            .help("envs to pass to core modules"),
-        Arg::with_name(BLUEPRINT_DIR)
-            .takes_value(true)
-            .long("blueprint-dir")
-            .help("path to directory containing blueprints and wasm modules"),
-        Arg::with_name(SERVICES_WORKDIR)
-            .takes_value(true)
-            .long("services-workdir")
-            .help("path to a directory where all services will store their data"),
-        Arg::with_name(MANAGEMENT_PEER_ID)
-            .takes_value(true)
-            .long("management-key")
-            .short("m")
-            .multiple(false)
-            .help(
-                "a key (PeerId) that will be used to manage a node like adding aliases to services",
-            ),
-        Arg::with_name(LOCAL)
+            .about("bootstrap nodes of the Fluence network"),
+        Arg::new(LOCAL)
+            .display_order(3)
+            .help_heading(Some("Networking"))
+            .short('l')
             .long("local")
             .takes_value(false)
             .conflicts_with(BOOTSTRAP_NODE)
-            .help("if passed, bootstrap nodes aren't used"),
+            .about("if passed, bootstrap nodes aren't used"),
+        Arg::new(EXTERNAL_ADDR)
+            .display_order(4)
+            .help_heading(Some("Networking"))
+            .takes_value(true)
+            .short('x')
+            .long("external-ip")
+            .value_name("IP")
+            .about("node external IP address to advertise to other peers"),
+        Arg::new(EXTERNAL_MULTIADDRS)
+            .display_order(5)
+            .help_heading(Some("Networking"))
+            .takes_value(true)
+            .multiple(true)
+            .short('z')
+            .long("external-maddrs")
+            .value_name("MULTIADDR")
+            .about("external multiaddresses to advertize"),
+        // keypair
+        Arg::new(ROOT_KEY_PAIR_VALUE)
+            .display_order(6)
+            .help_heading(Some("Node keypair"))
+            .takes_value(true)
+            .short('k')
+            .long("keypair-value")
+            .value_name("BYTES")
+            .about("keypair in base58 (conflicts with --keypair-path)")
+            .conflicts_with(ROOT_KEY_PAIR_PATH),
+        Arg::new(ROOT_KEY_PAIR_PATH)
+            .display_order(7)
+            .help_heading(Some("Node keypair"))
+            .takes_value(true)
+            .short('p')
+            .long("keypair-path")
+            .about("keypair path (conflicts with --keypair-value)")
+            .conflicts_with(ROOT_KEY_PAIR_VALUE),
+        Arg::new(ROOT_KEY_PAIR_FORMAT)
+            .display_order(8)
+            .help_heading(Some("Node keypair"))
+            .takes_value(true)
+            .short('f')
+            .long("keypair-format")
+            .possible_values(&["ed25519", "secp256k1", "rsa"]),
+        Arg::new(ROOT_KEY_PAIR_GENERATE)
+            .display_order(9)
+            .help_heading(Some("Node keypair"))
+            .takes_value(true)
+            .short('g')
+            .long("gen-keypair")
+            .about("generate keypair on absence"),
+        // node configuration
+        Arg::new(CONFIG_FILE)
+            .display_order(10)
+            .help_heading(Some("Node configuration"))
+            .takes_value(true)
+            .short('c')
+            .long("config")
+            .value_name("PATH")
+            .about("TOML configuration file"),
+        Arg::new(CERTIFICATE_DIR)
+            .display_order(11)
+            .help_heading(Some("Node configuration"))
+            .takes_value(true)
+            .short('d')
+            .long("cert-dir")
+            .value_name("PATH")
+            .about("certificate dir"),
+        Arg::new(MANAGEMENT_PEER_ID)
+            .display_order(12)
+            .help_heading(Some("Node configuration"))
+            .takes_value(true)
+            .long("management-key")
+            .short('m')
+            .multiple(false)
+            .value_name("PEER ID")
+            .about("PeerId of the node's administrator"),
+        // services
+        Arg::new(SERVICE_ENVS)
+            .display_order(13)
+            .help_heading(Some("Services configuration"))
+            .value_name("NAME=VALUE")
+            .takes_value(true)
+            .short('e')
+            .long("service-envs")
+            .multiple(true)
+            .about("envs to pass to core modules"),
+        Arg::new(BLUEPRINT_DIR)
+            .display_order(14)
+            .help_heading(Some("Services configuration"))
+            .takes_value(true)
+            .short('u')
+            .long("blueprint-dir")
+            .value_name("PATH")
+            .about("directory containing blueprints and wasm modules"),
+        Arg::new(SERVICES_WORKDIR)
+            .display_order(15)
+            .help_heading(Some("Services configuration"))
+            .takes_value(true)
+            .short('r')
+            .long("services-workdir")
+            .value_name("PATH")
+            .about("directory where all services will store their data"),
     ]
 }
