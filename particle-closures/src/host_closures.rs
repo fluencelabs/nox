@@ -203,8 +203,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let key = from_base58("key", &mut args)?;
-        let already_hashed: Option<bool> = Args::maybe_next("already_hashed", &mut args)?;
-        let count: Option<usize> = Args::maybe_next("count", &mut args)?;
+        let already_hashed: Option<bool> = Args::next_opt("already_hashed", &mut args)?;
+        let count: Option<usize> = Args::next_opt("count", &mut args)?;
         let count = count.unwrap_or(K_VALUE.get());
 
         let key = if already_hashed == Some(true) {
@@ -231,7 +231,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let peer_id: String = Args::next("peer_id", &mut args)?;
         let peer_id = PeerId::from_str(peer_id.as_str())?;
-        let addrs: Vec<Multiaddr> = Args::maybe_next("addresses", &mut args)?.unwrap_or_default();
+        let addrs: Vec<Multiaddr> = Args::next_opt("addresses", &mut args)?.unwrap_or_default();
 
         let contact = Contact::new(peer_id, addrs);
 
@@ -253,7 +253,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let mut args = args.function_args.into_iter();
 
         let script: String = Args::next("script", &mut args)?;
-        let interval = Args::maybe_next("interval_sec", &mut args)?;
+        let interval = Args::next_opt("interval_sec", &mut args)?;
         let interval = interval
             .map(|s: String| s.parse::<u64>())
             .transpose()
@@ -337,8 +337,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn sha256_string(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
         let mut args = args.into_iter();
         let string: String = Args::next("string", &mut args)?;
-        let digest_only: Option<bool> = Args::maybe_next("digest_only", &mut args)?;
-        let as_bytes: Option<bool> = Args::maybe_next("as_bytes", &mut args)?;
+        let digest_only: Option<bool> = Args::next_opt("digest_only", &mut args)?;
+        let as_bytes: Option<bool> = Args::next_opt("as_bytes", &mut args)?;
         let multihash: MultihashGeneric<_> = Code::Sha2_256.digest(string.as_bytes());
 
         let result = if digest_only == Some(true) {
@@ -362,7 +362,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let target: String = Args::next("target", &mut args)?;
         let left: Vec<String> = Args::next("left", &mut args)?;
         let right: Vec<String> = Args::next("right", &mut args)?;
-        let count: Option<usize> = Args::maybe_next("count", &mut args)?;
+        let count: Option<usize> = Args::next_opt("count", &mut args)?;
 
         let target = bs58::decode(target).into_vec().map_err(DecodeBase58)?;
         let target = Key::from(target);
