@@ -105,9 +105,9 @@ impl Args {
     /// `field` is to generate a more accurate error message
     ///
     /// In short, function returns:
-    /// - if args is `[T]` or `[ [T] ]`         => Some(T)
-    /// - if args is `[]` or `[ [] ]`           => None
-    /// - if args contains more than 1 element  => error
+    /// - if next arg is `T` or `[T]`               => Some(T)
+    /// - if next arg is `None` or `[]`             => None
+    /// - if next arg is array of several elements  => error
     pub fn next_opt<T: for<'de> Deserialize<'de>>(
         field: &'static str,
         args: &mut impl Iterator<Item = JValue>,
