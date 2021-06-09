@@ -92,10 +92,7 @@ pub fn get_service<'l>(
         (service, resolved_id.clone())
     };
 
-    by_alias.ok_or_else(|| ServiceError::NoSuchService {
-        service: id_or_alias,
-        function: None,
-    })
+    by_alias.ok_or_else(|| ServiceError::NoSuchService(id_or_alias))
 }
 
 impl ParticleAppServices {
@@ -191,10 +188,10 @@ impl ParticleAppServices {
                 let function_name = args.function_name;
                 let (service, id) =
                     get_service(&services, &aliases, args.service_id).map_err(|err| match err {
-                        ServiceError::NoSuchService { service, .. } => {
-                            ServiceError::NoSuchService {
+                        ServiceError::NoSuchService(service) => {
+                            ServiceError::NoSuchServiceWithFunction {
                                 service,
-                                function: Some(function_name.clone()),
+                                function: function_name.clone(),
                             }
                         }
                         e => e,
@@ -255,13 +252,9 @@ impl ParticleAppServices {
 
             let mut services = services.write();
 
-            let service =
-                services
-                    .get_mut(&service_id)
-                    .ok_or_else(|| ServiceError::NoSuchService {
-                        service: service_id.clone(),
-                        function: None,
-                    })?;
+            let service = services
+                .get_mut(&service_id)
+                .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
             service.add_alias(alias.clone());
             let persisted_new = PersistedService::from_service(service_id.clone(), service);
 
