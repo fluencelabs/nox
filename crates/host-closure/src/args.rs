@@ -113,9 +113,8 @@ impl Args {
             // then, depending on T, it may be one of:
             //    - Some(array) if T is an array
             //    - invalid option if T is a scalar (because you can't deserialize several values as a scalar)
-            // The only way to tell one from the other is by looking at the return type.
-            //
-            // So that's what is done here:
+            // The only way to tell one from the other is by looking at the T.
+            // And that's what is done here:
             // keep value untouched, so T can deserialize itself and fail as needed
             JValue::Array(values) if values.len() > 1 => JValue::Array(values),
             // Option backed by array of 1 or 0 elements
