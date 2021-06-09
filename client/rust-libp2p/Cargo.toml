@@ -24,7 +24,7 @@ log = "0.4.11"
 env_logger = "0.7.1"
 void = "1.0.2"
 rand = "0.7.3"
-clap = "3.0.0-beta.2"
+clap = "2.3.3"
 derivative = "2.1.1"
 
 [dev-dependencies]
