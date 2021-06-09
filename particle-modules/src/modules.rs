@@ -26,8 +26,8 @@ use crate::files::{load_config_by_path, load_module_by_path};
 use crate::Hash;
 use crate::{file_names, files, load_module_descriptor, Blueprint};
 
-use fluence_app_service::ModuleDescriptor;
-use host_closure::{closure, Args, Closure};
+use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
+use host_closure::JError;
 use marine_it_parser::module_interface;
 
 use eyre::WrapErr;
@@ -120,103 +120,87 @@ impl ModuleRepository {
     }
 
     /// Adds a module to the filesystem, overwriting existing module.
-    pub fn add_module(&self) -> Closure {
-        let modules = self.modules_by_name.clone();
-        let modules_dir = self.modules_dir.clone();
-        closure(move |mut args| {
-            let module: String = Args::next("module", &mut args)?;
-            let module = base64::decode(&module).map_err(|err| {
-                JValue::String(format!("error decoding module from base64: {:?}", err))
-            })?;
-            let hash = Hash::hash(&module);
-            let config = Args::next("config", &mut args)?;
-            let config = files::add_module(&modules_dir, &hash, &module, config)?;
+    pub fn add_module(&self, module: String, config: TomlFaaSNamedModuleConfig) -> Result<String> {
+        let module = base64::decode(&module)?;
+        let hash = Hash::hash(&module);
 
-            let hash_str = hash.to_hex().as_ref().to_owned();
-            modules.lock().insert(config.name, hash);
+        let config = files::add_module(&self.modules_dir, &hash, &module, config)?;
 
-            Ok(JValue::String(hash_str))
-        })
+        let module_hash = hash.to_hex().as_ref().to_owned();
+        self.modules_by_name.lock().insert(config.name, hash);
+
+        Ok(module_hash)
     }
 
     /// Saves new blueprint to disk
-    pub fn add_blueprint(&self) -> Closure {
-        let blueprints_dir = self.blueprints_dir.clone();
-        let modules = self.modules_by_name.clone();
-        let blueprints = self.blueprints.clone();
-        closure(move |mut args| {
-            let blueprint: AddBlueprint = Args::next("blueprint_request", &mut args)?;
+    pub fn add_blueprint(&self, blueprint: AddBlueprint) -> Result<String> {
+        // resolve dependencies by name to hashes, if any
+        let mut dependencies: Vec<Hash> = blueprint
+            .dependencies
+            .into_iter()
+            .map(|module| Ok(resolve_hash(&self.modules_by_name, module)?))
+            .collect::<Result<_>>()?;
 
-            // resolve dependencies by name to hashes, if any
-            let mut dependencies: Vec<Hash> = blueprint
-                .dependencies
+        let blueprint_name = blueprint.name.clone();
+        let facade = dependencies
+            .pop()
+            .ok_or_else(|| EmptyDependenciesList { id: blueprint_name })?;
+
+        let hash = hash_dependencies(facade.clone(), dependencies.clone())?.to_hex();
+
+        let blueprint = Blueprint {
+            id: hash.as_ref().to_string(),
+            dependencies: dependencies
                 .into_iter()
-                .map(|module| Ok(resolve_hash(&modules, module)?))
-                .collect::<Result<_>>()?;
+                .map(|h| Dependency::Hash(h))
+                .chain(iter::once(Dependency::Hash(facade)))
+                .collect(),
+            name: blueprint.name,
+        };
+        files::add_blueprint(&self.blueprints_dir, &blueprint)?;
 
-            let blueprint_name = blueprint.name.clone();
-            let facade = dependencies
-                .pop()
-                .ok_or_else(|| EmptyDependenciesList { id: blueprint_name })?;
+        self.blueprints
+            .write()
+            .insert(blueprint.id.clone(), blueprint.clone());
 
-            let hash = hash_dependencies(facade.clone(), dependencies.clone())?.to_hex();
-
-            let blueprint = Blueprint {
-                id: hash.as_ref().to_string(),
-                dependencies: dependencies
-                    .into_iter()
-                    .map(|h| Dependency::Hash(h))
-                    .chain(iter::once(Dependency::Hash(facade)))
-                    .collect(),
-                name: blueprint.name,
-            };
-            files::add_blueprint(&blueprints_dir, &blueprint)?;
-
-            blueprints
-                .write()
-                .insert(blueprint.id.clone(), blueprint.clone());
-
-            Ok(JValue::String(blueprint.id))
-        })
+        Ok(blueprint.id)
     }
 
-    pub fn list_modules(&self) -> Closure {
-        let modules_dir = self.modules_dir.clone();
-        closure(move |_| {
-            let modules = files::list_files(&modules_dir)
-                .into_iter()
-                .flatten()
-                .filter_map(|path| {
-                    let hash = extract_module_file_name(&path)?;
-                    let result: eyre::Result<_> = try {
-                        let hash = Hash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
-                        let config = modules_dir.join(module_config_name(&hash));
-                        let config = load_config_by_path(&config).wrap_err(f!("load config ${config:?}"))?;
+    pub fn list_modules(&self) -> std::result::Result<JValue, JError> {
+        // TODO: refactor errors to enums
+        let modules = files::list_files(&self.modules_dir)
+            .into_iter()
+            .flatten()
+            .filter_map(|path| {
+                let hash = extract_module_file_name(&path)?;
+                let result: eyre::Result<_> = try {
+                    let hash = Hash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
+                    let config = self.modules_dir.join(module_config_name(&hash));
+                    let config = load_config_by_path(&config).wrap_err(f!("load config ${config:?}"))?;
 
-                        (hash, config)
-                    };
+                    (hash, config)
+                };
 
-                    let result = match result {
-                        Ok((hash, config)) => json!({
-                            "name": config.name,
-                            "hash": hash.to_hex().as_ref(),
-                            "config": config.config,
-                        }),
-                        Err(err) => {
-                            log::warn!("list_modules error: {:?}", err);
-                            json!({
-                                "invalid_file_name": hash,
-                                "error": format!("{:?}", err).split("Stack backtrace:").next().unwrap_or_default(),
-                            })
-                        }
-                    };
+                let result = match result {
+                    Ok((hash, config)) => json!({
+                        "name": config.name,
+                        "hash": hash.to_hex().as_ref(),
+                        "config": config.config,
+                    }),
+                    Err(err) => {
+                        log::warn!("list_modules error: {:?}", err);
+                        json!({
+                            "invalid_file_name": hash,
+                            "error": format!("{:?}", err).split("Stack backtrace:").next().unwrap_or_default(),
+                        })
+                    }
+                };
 
-                    Some(result)
-                })
-                .collect();
+                Some(result)
+            })
+            .collect();
 
-            Ok(modules)
-        })
+        Ok(modules)
     }
 
     pub fn get_facade_interface(&self, id: &str) -> Result<JValue> {
@@ -245,32 +229,32 @@ impl ModuleRepository {
     }
 
     pub fn get_interface_by_hash(&self, hash: &Hash) -> Result<JValue> {
-        let modules_dir: PathBuf = self.modules_dir.clone();
         let cache: Arc<RwLock<HashMap<Hash, JValue>>> = self.module_interface_cache.clone();
 
-        get_interface_by_hash(modules_dir, cache, hash)
+        get_interface_by_hash(&self.modules_dir, cache, hash)
     }
 
-    pub fn get_interface(&self) -> Closure {
-        let modules_dir: PathBuf = self.modules_dir.clone();
-        let cache: Arc<RwLock<HashMap<Hash, JValue>>> = self.module_interface_cache.clone();
+    pub fn get_interface(&self, hex_hash: &str) -> std::result::Result<JValue, JError> {
+        // TODO: refactor errors to ModuleErrors enum
+        let interface: eyre::Result<_> = try {
+            let hash = Hash::from_hex(hex_hash)?;
 
-        closure(move |mut args| {
-            let interface: eyre::Result<_> = try {
-                let hash: String = Args::next("hash", &mut args)?;
-                let hash = Hash::from_hex(&hash)?;
+            get_interface_by_hash(
+                &self.modules_dir,
+                self.module_interface_cache.clone(),
+                &hash,
+            )?
+        };
 
-                get_interface_by_hash(modules_dir.clone(), cache.clone(), &hash)?
-            };
-
-            interface.map_err(|err| {
-                json!(format!("{:?}", err)
+        interface.map_err(|err| {
+            JError::new(
+                format!("{:?}", err)
                     // TODO: send patch to eyre so it can be done through their API
                     // Remove backtrace from the response
                     .split("Stack backtrace:")
                     .next()
-                    .unwrap_or_default())
-            })
+                    .unwrap_or_default(),
+            )
         })
     }
 
@@ -320,18 +304,8 @@ impl ModuleRepository {
     }
 
     /// Get available blueprints
-    pub fn get_blueprints(&self) -> Closure {
-        let blueprints = self.blueprints.clone();
-
-        closure(move |_| {
-            let blueprints: Vec<JValue> = blueprints
-                .read()
-                .values()
-                .cloned()
-                .map(|b| json!(b))
-                .collect();
-            Ok(JValue::Array(blueprints))
-        })
+    pub fn get_blueprints(&self) -> Vec<Blueprint> {
+        self.blueprints.read().values().cloned().collect()
     }
 
     pub fn resolve_blueprint(&self, blueprint_id: &str) -> Result<Vec<ModuleDescriptor>> {
@@ -353,7 +327,7 @@ impl ModuleRepository {
 }
 
 fn get_interface_by_hash(
-    modules_dir: PathBuf,
+    modules_dir: &Path,
     cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     hash: &Hash,
 ) -> Result<JValue> {
@@ -409,48 +383,8 @@ fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Result<Hash> {
 #[cfg(test)]
 mod tests {
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
-    use host_closure::Args;
-    use serde::{Deserialize, Serialize};
-    use serde_json::Value as JValue;
     use tempdir::TempDir;
-    use test_utils::{
-        add_bp, add_module, load_module, response_to_return, Dependency, Hash, ModuleRepository,
-        RetStruct,
-    };
-
-    fn get_interface(repo: &ModuleRepository, hash: String) -> RetStruct {
-        let hash_v: JValue = serde_json::to_value(hash).unwrap();
-
-        let args = Args {
-            service_id: "".to_string(),
-            function_name: "".to_string(),
-            function_args: vec![hash_v],
-            tetraplets: vec![],
-        };
-
-        let resp = repo.get_interface()(args);
-
-        response_to_return(resp.unwrap())
-    }
-
-    fn get_bps(repo: &ModuleRepository) -> RetStruct {
-        let args = Args {
-            service_id: "".to_string(),
-            function_name: "".to_string(),
-            function_args: vec![],
-            tetraplets: vec![],
-        };
-
-        let resp = repo.get_blueprints()(args);
-        response_to_return(resp.unwrap())
-    }
-
-    #[derive(Serialize, Deserialize, Debug, Clone)]
-    struct BpsResult {
-        dependencies: Vec<String>,
-        id: String,
-        name: String,
-    }
+    use test_utils::{add_bp, add_module, load_module, Dependency, Hash, ModuleRepository};
 
     #[test]
     fn test_add_blueprint() {
@@ -463,16 +397,14 @@ mod tests {
 
         let name1 = "bp1".to_string();
         let resp1 = add_bp(&repo, name1.clone(), vec![dep1.clone(), dep2.clone()]).unwrap();
-        let bps1 = get_bps(&repo);
-        let bps1: Vec<BpsResult> = serde_json::from_str(&bps1.result).unwrap();
+        let bps1 = repo.get_blueprints();
         assert_eq!(bps1.len(), 1);
         let bp1 = bps1.get(0).unwrap();
         assert_eq!(bp1.name, name1);
 
         let name2 = "bp2".to_string();
         let resp2 = add_bp(&repo, "bp2".to_string(), vec![dep1, dep2]).unwrap();
-        let bps2 = get_bps(&repo);
-        let bps2: Vec<BpsResult> = serde_json::from_str(&bps2.result).unwrap();
+        let bps2 = repo.get_blueprints();
         assert_eq!(bps2.len(), 1);
         let bp2 = bps2.get(0).unwrap();
         assert_eq!(bp2.name, name2);
@@ -503,8 +435,8 @@ mod tests {
 
         let hash = add_module(&repo, base64::encode(module), config).unwrap();
 
-        let result = get_interface(&repo, hash);
-        assert_eq!(0, result.ret_code);
+        let result = repo.get_interface(&hash);
+        assert!(result.is_ok())
     }
 
     #[test]

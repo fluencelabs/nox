@@ -22,6 +22,7 @@ fluence-libp2p = { path = "../crates/libp2p" }
 waiting-queues = { path = "../crates/waiting-queues" }
 async-unlock = { path = "../crates/async-unlock" }
 now-millis = { path = "../crates/now-millis" }
+toml-utils = { path = "../crates/toml-utils" }
 
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 trust-graph = "0.2.7"

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2021 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#![feature(try_blocks)]
+#![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
@@ -26,27 +26,11 @@
     unreachable_patterns
 )]
 
-#[macro_use]
-extern crate fstrings;
+use toml::value::{Table, Value};
 
-mod blueprint;
-mod dependency;
-mod error;
-mod file_names;
-mod files;
-mod hash;
-mod modules;
-
-pub use blueprint::Blueprint;
-pub use dependency::Dependency;
-pub use error::ModuleError;
-pub use file_names::{is_service, service_file_name};
-pub use files::{list_files, load_blueprint, load_module_descriptor};
-pub use hash::Hash;
-pub use modules::{AddBlueprint, ModuleRepository};
-
-// reexport
-pub use fluence_app_service::{
-    TomlFaaSModuleConfig as ModuleConfig, TomlFaaSNamedModuleConfig as NamedModuleConfig,
-    TomlWASIConfig as WASIConfig,
-};
+pub fn table(tuples: Vec<(String, String)>) -> Table {
+    tuples
+        .into_iter()
+        .map(|(k, v)| (k, Value::String(v)))
+        .collect()
+}
