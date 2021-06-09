@@ -128,7 +128,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('m')
             .multiple(false)
             .value_name("PEER ID")
-            .about("PeerId of the node's administrator")
+            .about("PeerId of the node's administrator"),
         // services
         Arg::new(SERVICE_ENVS)
             .display_order(13)
