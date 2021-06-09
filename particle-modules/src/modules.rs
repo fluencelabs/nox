@@ -19,15 +19,15 @@ use crate::error::ModuleError::{
     BlueprintNotFound, EmptyDependenciesList, FacadeShouldBeHash, InvalidModuleName,
     ReadModuleInterfaceError,
 };
-use crate::error::Result;
+use crate::error::{Result, StdResult};
 use crate::file_names::{extract_module_file_name, is_module_wasm};
 use crate::file_names::{module_config_name, module_file_name};
 use crate::files::{load_config_by_path, load_module_by_path};
 use crate::Hash;
 use crate::{file_names, files, load_module_descriptor, Blueprint};
 
-use fluence_app_service::ModuleDescriptor;
-use host_closure::{closure, Args, Closure};
+use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
+use host_closure::{closure, Args, Closure, JError};
 use marine_it_parser::module_interface;
 
 use eyre::WrapErr;
@@ -119,66 +119,87 @@ impl ModuleRepository {
         }
     }
 
+    // pub fn add_module(&self) -> Closure {
+    //     let modules = self.modules_by_name.clone();
+    //     let modules_dir = self.modules_dir.clone();
+    //     closure(move |mut args| {
+    //         let module: String = Args::next("module", &mut args)?;
+    //         let module = base64::decode(&module).map_err(|err| {
+    //             JValue::String(format!("error decoding module from base64: {:?}", err))
+    //         })?;
+    //         let hash = Hash::hash(&module);
+    //         let config = Args::next("config", &mut args)?;
+    //         let config = files::add_module(&modules_dir, &hash, &module, config)?;
+    //
+    //         let hash_str = hash.to_hex().as_ref().to_owned();
+    //         modules.lock().insert(config.name, hash);
+    //
+    //         Ok(JValue::String(hash_str))
+    //     })
+    // }
+
     /// Adds a module to the filesystem, overwriting existing module.
-    pub fn add_module(&self) -> Closure {
-        let modules = self.modules_by_name.clone();
-        let modules_dir = self.modules_dir.clone();
-        closure(move |mut args| {
-            let module: String = Args::next("module", &mut args)?;
-            let module = base64::decode(&module).map_err(|err| {
-                JValue::String(format!("error decoding module from base64: {:?}", err))
-            })?;
-            let hash = Hash::hash(&module);
-            let config = Args::next("config", &mut args)?;
-            let config = files::add_module(&modules_dir, &hash, &module, config)?;
+    pub fn add_module_thin(
+        &self,
+        module: String,
+        config: TomlFaaSNamedModuleConfig,
+    ) -> Result<String> {
+        let module = base64::decode(&module).map_err(|err| {
+            JValue::String(format!("error decoding module from base64: {:?}", err))
+        })?;
+        let hash = Hash::hash(&module);
 
-            let hash_str = hash.to_hex().as_ref().to_owned();
-            modules.lock().insert(config.name, hash);
+        let config = files::add_module(&self.modules_dir, &hash, &module, config)?;
 
-            Ok(JValue::String(hash_str))
-        })
+        self.modules.lock().insert(config.name, hash);
+
+        Ok(hash.to_hex().as_ref().to_owned())
     }
 
     /// Saves new blueprint to disk
-    pub fn add_blueprint(&self) -> Closure {
-        let blueprints_dir = self.blueprints_dir.clone();
-        let modules = self.modules_by_name.clone();
-        let blueprints = self.blueprints.clone();
-        closure(move |mut args| {
-            let blueprint: AddBlueprint = Args::next("blueprint_request", &mut args)?;
+    pub fn add_blueprint_thin(&self, blueprint: AddBlueprint) -> Result<String> {
+        // resolve dependencies by name to hashes, if any
+        let mut dependencies: Vec<Hash> = blueprint
+            .dependencies
+            .into_iter()
+            .map(|module| Ok(resolve_hash(&modules, module)?))
+            .collect::<Result<_>>()?;
 
-            // resolve dependencies by name to hashes, if any
-            let mut dependencies: Vec<Hash> = blueprint
-                .dependencies
+        let blueprint_name = blueprint.name.clone();
+        let facade = dependencies
+            .pop()
+            .ok_or_else(|| EmptyDependenciesList { id: blueprint_name })?;
+
+        let hash = hash_dependencies(facade.clone(), dependencies.clone())?.to_hex();
+
+        let blueprint = Blueprint {
+            id: hash.as_ref().to_string(),
+            dependencies: dependencies
                 .into_iter()
-                .map(|module| Ok(resolve_hash(&modules, module)?))
-                .collect::<Result<_>>()?;
+                .map(|h| Dependency::Hash(h))
+                .chain(iter::once(Dependency::Hash(facade)))
+                .collect(),
+            name: blueprint.name,
+        };
+        files::add_blueprint(&blueprints_dir, &blueprint)?;
 
-            let blueprint_name = blueprint.name.clone();
-            let facade = dependencies
-                .pop()
-                .ok_or_else(|| EmptyDependenciesList { id: blueprint_name })?;
+        blueprints
+            .write()
+            .insert(blueprint.id.clone(), blueprint.clone());
 
-            let hash = hash_dependencies(facade.clone(), dependencies.clone())?.to_hex();
-
-            let blueprint = Blueprint {
-                id: hash.as_ref().to_string(),
-                dependencies: dependencies
-                    .into_iter()
-                    .map(|h| Dependency::Hash(h))
-                    .chain(iter::once(Dependency::Hash(facade)))
-                    .collect(),
-                name: blueprint.name,
-            };
-            files::add_blueprint(&blueprints_dir, &blueprint)?;
-
-            blueprints
-                .write()
-                .insert(blueprint.id.clone(), blueprint.clone());
-
-            Ok(JValue::String(blueprint.id))
-        })
+        Ok(blueprint.id)
     }
+
+    // pub fn add_blueprint(&self) -> Closure {
+    //     let blueprints_dir = self.blueprints_dir.clone();
+    //     let modules = self.modules_by_name.clone();
+    //     let blueprints = self.blueprints.clone();
+    //     closure(move |mut args| {
+    //
+    //
+    //
+    //     })
+    // }
 
     pub fn list_modules(&self) -> Closure {
         let modules_dir = self.modules_dir.clone();

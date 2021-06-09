@@ -24,7 +24,9 @@ use host_closure::{
 use ivalue_utils::{into_record, into_record_opt, ok, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
-use particle_modules::ModuleRepository;
+use particle_modules::{
+    AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
+};
 use particle_protocol::Contact;
 use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
@@ -74,6 +76,9 @@ pub struct HostClosures<C> {
 
     pub management_peer_id: String,
     pub ipfs_state: Arc<Mutex<IpfsState>>,
+
+    // thin
+    pub modules: ModuleRepository,
 }
 
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
@@ -113,6 +118,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             script_storage,
             management_peer_id,
             ipfs_state: Arc::new(Mutex::new(IpfsState::default())),
+            modules,
         }
     }
 
@@ -159,11 +165,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("srv", "add_alias")              => (self.add_alias)(params, args),
             ("srv", "resolve_alias")          => (self.resolve_alias)(args),
 
-            ("dist", "add_module")            => (self.add_module)(args),
-            ("dist", "list_modules")          => (self.list_modules)(args),
-            ("dist", "get_module_interface")  => (self.get_module_interface)(args),
-            ("dist", "add_blueprint")         => (self.add_blueprint)(args),
-            ("dist", "list_blueprints")       => (self.get_blueprints)(args),
+            ("dist", "add_module")                          => (self.add_module)(args),
+            ("dist", "add_blueprint")                       => (self.add_blueprint)(args),
+            ("flat_dist", "add_module")                     => (self.flat_add_module(args)),
+            ("flat_dist", "add_blueprint")                  => (self.flat_add_blueprint(args)),
+            ("flat_dist" | "dist", "list_modules")          => (self.list_modules)(args),
+            ("flat_dist" | "dist", "get_module_interface")  => (self.get_module_interface)(args),
+            ("flat_dist" | "dist", "list_blueprints")       => (self.get_blueprints)(args),
 
             ("script", "add")                 => wrap(self.add_script(args, params)),
             ("script", "remove")              => wrap(self.remove_script(args, params)),
@@ -412,6 +420,62 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
                 })?;
 
         Ok(JValue::Array(flattened))
+    }
+
+    fn add_module(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let module_bytes: String = Args::next("module_bytes", &mut args)?;
+        let config = Args::next("config", &mut args)?;
+
+        let module_hash = self.modules.add_module_thin(module_bytes, config)?;
+
+        Ok(JValue::String(module_hash))
+    }
+
+    fn add_blueprint(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let blueprint_request: AddBlueprint = Args::next("blueprint_request", &mut args)?;
+
+        let blueprint_id = self.modules.add_blueprint_thin(blueprint_request)?;
+        Ok(JValue::String(blueprint_id))
+    }
+
+    fn flat_add_module(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+
+        let module_bytes: String = Args::next("module_bytes", &mut args)?;
+        let name = Args::next("name", &mut args)?;
+        let file_name = Args::maybe_next("file_name", &mut args)?;
+        let mem_pages_count = Args::maybe_next("mem_pages_count", &mut args)?;
+        let logger_enabled = Args::maybe_next("logger_enabled", &mut args)?;
+        let preopened_files = Args::maybe_next("preopened_files", &mut args)?;
+        let envs: Option<Vec> = Args::maybe_next("envs", &mut args)?;
+        let mapped_dirs = Args::maybe_next("mapped_dirs", &mut args)?;
+        let mounted_binaries = Args::maybe_next("mounted_binaries", &mut args)?;
+        let logging_mask = Args::maybe_next("logging_mask", &mut args)?;
+
+        let config = NamedModuleConfig {
+            name,
+            file_name,
+            config: ModuleConfig {
+                mem_pages_count,
+                logger_enabled,
+                wasi: Some(WASIConfig {
+                    preopened_files,
+                    envs,        // table
+                    mapped_dirs, // table
+                }),
+                mounted_binaries, // table
+                logging_mask,
+            },
+        };
+
+        let module_hash = self.modules.add_module_thin(module_bytes, config)?;
+
+        Ok(JValue::String(module_hash))
+    }
+    fn flat_add_blueprint(&self, args: Args) -> Result<Option<JValue>, JError> {
+        let mut args = args.function_args.into_iter();
     }
 
     fn kademlia(&self) -> &KademliaApi {
