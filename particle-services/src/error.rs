@@ -26,8 +26,11 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ServiceError {
-    #[error("Service with id '{0}' not found")]
-    NoSuchService(String),
+    #[error("Service with id '{}' not found{}", .service, .function.as_ref().map(|f| format!(" (function {})", f)).unwrap_or_default())]
+    NoSuchService {
+        service: String,
+        function: Option<String>,
+    },
     #[error("Service with alias '{0}' not found")]
     NoSuchAlias(String),
     #[error("Forbidden. User id '{user}' cannot call function '{function}': {reason}")]
