@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,4 +14,23 @@
  * limitations under the License.
  */
 
-pub struct Tuple<T>(T, T);
+#![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
+
+use toml::value::{Table, Value};
+
+pub fn table(tuples: Vec<(String, String)>) -> Table {
+    tuples
+        .into_iter()
+        .map(|(k, v)| (k, Value::String(v)))
+        .collect()
+}

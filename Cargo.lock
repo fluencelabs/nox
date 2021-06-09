@@ -3450,6 +3450,7 @@ dependencies = [
  "serde_json",
  "server-config",
  "thiserror",
+ "toml-utils",
  "trust-graph",
  "uuid",
  "waiting-queues",
@@ -4994,6 +4995,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a31142970826733df8241ef35dc040ef98c679ab14d7c3e54d827099b3acecaa"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "toml-utils"
+version = "0.0.1"
+dependencies = [
+ "toml",
 ]
 
 [[package]]

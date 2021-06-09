@@ -13,7 +13,6 @@ mod args;
 mod args_error;
 mod base58;
 mod closure;
-mod tuple;
 
 pub use args::Args;
 pub use args_error::{ArgsError, JError};
