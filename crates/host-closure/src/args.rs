@@ -109,10 +109,12 @@ impl Args {
     ) -> Result<Option<T>, ArgsError> {
         let value = ok_get!(args.next());
         let value = match value {
-            // If there are several values in the passed array,
-            // then that could be either a Some(array) in scalar form or an invalid option.
+            // If there is more than 1 value in the passed array
+            // then depending on T it may be one of:
+            //    - Some(array) if T is an array
+            //    - invalid option if T is a scalar (because you can't deserialize several values as a scalar)
             // The only way to tell one from the other is by looking at the return type.
-            // So that's exactly what I do here: asking T to deserialize itself.
+            // So that's exactly what I do here: asking T to deserialize itself and let it fail.
             JValue::Array(values) if values.len() > 1 => JValue::Array(values),
             JValue::Array(values) => {
                 ok_get!(values.into_iter().next())
