@@ -36,6 +36,7 @@ use crate::ipfs::IpfsState;
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::kad::kbucket::Key;
+use libp2p::kad::K_VALUE;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use parking_lot::{Mutex, MutexGuard};
@@ -195,12 +196,15 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let mut args = args.function_args.into_iter();
         let key = from_base58("key", &mut args)?;
         let already_hashed: Option<bool> = Args::maybe_next("already_hashed", &mut args)?;
+        let count: Option<usize> = Args::maybe_next("count", &mut args)?;
+        let count = count.unwrap_or(K_VALUE.get());
+
         let key = if already_hashed == Some(true) {
             MultihashGeneric::from_bytes(&key)?
         } else {
             Code::Sha2_256.digest(&key)
         };
-        let neighbors = task::block_on(self.kademlia().neighborhood(key));
+        let neighbors = task::block_on(self.kademlia().neighborhood(key, count));
         let neighbors = neighbors
             .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))?;
 
