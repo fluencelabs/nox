@@ -45,7 +45,6 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('b')
             .long("bootstraps")
             .multiple(true)
-            // .empty_values(false)
             .about("bootstrap nodes of the Fluence network"),
         Arg::new(LOCAL)
             .display_order(3)
@@ -96,7 +95,6 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .short('f')
             .long("keypair-format")
-            // .about("keypair format")
             .possible_values(&["ed25519", "secp256k1", "rsa"]),
         Arg::new(ROOT_KEY_PAIR_GENERATE)
             .display_order(9)
@@ -130,8 +128,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('m')
             .multiple(false)
             .value_name("PEER ID")
-            .about("PeerId of the node's administrator"),
-        // .long_about("Peer with that peerID will have administrator privileges (e.g. add and remove aliases)"),
+            .about("PeerId of the node's administrator")
         // services
         Arg::new(SERVICE_ENVS)
             .display_order(13)
@@ -141,7 +138,6 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('e')
             .long("service-envs")
             .multiple(true)
-            // .empty_values(false)
             .about("envs to pass to core modules"),
         Arg::new(BLUEPRINT_DIR)
             .display_order(14)
