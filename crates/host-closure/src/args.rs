@@ -140,15 +140,16 @@ mod tests {
 
     #[test]
     fn test_next_opt() {
+        #[rustfmt::skip]
         let mut args = vec![
-            json!([]),           // None
-            json!(["hi"]),       // Some String
-            json!(["hi", "hi"]), // Some Vec
-            json!([]),           // None Vec
-            json!(["hi", "hi"]), // Error
-            json!("hi"),         // Some String
-                                 // None String
-                                 // None Vec
+            json!([]),           // as String => None
+            json!(["hi"]),       // as String => Some
+            json!(["hi", "hi"]), // as Vec    => Some
+            json!([]),           // as Vec    => None
+            json!(["hi", "hi"]), // as String => Error
+            json!("hi"),         // as String => Some
+            /* absence */        // as String => None
+            /* absence */        // as Vec    => None
         ]
         .into_iter();
 
