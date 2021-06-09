@@ -13,7 +13,7 @@ host-closure = { path = "../crates/host-closure" }
 control-macro = { path = "../crates/control-macro" }
 
 avm-server = "0.7.0"
-libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 futures = "0.3.13"
 log = "0.4.11"

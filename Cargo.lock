@@ -1595,9 +1595,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p"
-version = "0.36.1"
+version = "0.36.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "776a8e1e7e983ff39fa6fb5fb53f5c48a34494d2f86e41a465db2099c5dbc5ee"
+checksum = "6cc81dc6d89ac9c706b058ca9d9f2fc2fa71680accd3e191c1e812e1832658ca"
 dependencies = [
  "atomic",
  "bytes 1.0.1",
@@ -1750,9 +1750,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-kad"
-version = "0.29.1"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83d19bd700242b26c7966a9d1029379ec86a07d3ac2344bc02b4bb3e0bcf22f7"
+checksum = "108d0f7ce75ba01d3f2ab0c5490edfe0fad5b355609523762773a2f9af8660bd"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
