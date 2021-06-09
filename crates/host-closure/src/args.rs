@@ -100,22 +100,29 @@ impl Args {
     }
 
     /// Retrieves a json value from iterator if it's not empty, and parses it to Aqua's option representation
-    /// Aqua's option is expected to be backed by an array of 1 or 0 elements. However, absence of value is also tolerated.
+    /// Aqua's option is expected to be backed by an array of 1 or 0 elements.
+    /// For the sakes of backward compatibility, scalar value and absence of value are tolerated as well.
     /// `field` is to generate a more accurate error message
     pub fn next_opt<T: for<'de> Deserialize<'de>>(
         field: &'static str,
         args: &mut impl Iterator<Item = JValue>,
     ) -> Result<Option<T>, ArgsError> {
         let value = ok_get!(args.next());
-        let value: Vec<T> = Self::deserialize(field, value)?;
-        if value.len() > 1 {
-            return Err(ArgsError::NonUnaryOption {
-                field,
-                length: value.len(),
-            });
-        }
+        let value = match value {
+            JValue::Array(values) if values.len() > 1 => {
+                return Err(ArgsError::NonUnaryOption {
+                    field,
+                    length: value.len(),
+                })
+            }
+            JValue::Array(values) => {
+                ok_get!(values.into_iter().next())
+            }
+            value => value,
+        };
 
-        Ok(value.into_iter().next())
+        let value: T = Self::deserialize(field, value)?;
+        Ok(value)
     }
 
     /// `field` is to generate a more accurate error message
