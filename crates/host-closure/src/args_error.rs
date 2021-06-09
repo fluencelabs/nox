@@ -34,6 +34,8 @@ pub enum ArgsError {
         field: &'static str,
         err: Cow<'static, str>,
     },
+    #[error("Option's array must contain at most 1 element, {field} was of {length} elements")]
+    NonUnaryOption { field: &'static str, length: usize },
 }
 
 impl From<ArgsError> for JValue {
