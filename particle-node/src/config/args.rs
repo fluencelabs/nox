@@ -18,104 +18,146 @@ use server_config::config_keys::*;
 
 use clap::Arg;
 
-pub fn create_args<'a, 'b>() -> Vec<Arg<'a, 'b>> {
+pub fn create_args<'help>() -> Vec<Arg<'help>> {
     vec![
         // networking
-        Arg::with_name(TCP_PORT)
+        Arg::new(TCP_PORT)
+            .display_order(0)
+            .help_heading(Some("Networking"))
             .takes_value(true)
-            .short("t")
+            .short('t')
             .long("tcp-port")
-            .help("tcp port [default: 7777]"),
-        Arg::with_name(WEBSOCKET_PORT)
+            .value_name("PORT")
+            .about("tcp port [default: 7777]"),
+        Arg::new(WEBSOCKET_PORT)
+            .display_order(1)
+            .help_heading(Some("Networking"))
             .takes_value(true)
-            .short("w")
+            .short('w')
             .long("ws-port")
-            .help("websocket port [default: 9999]"),
-        Arg::with_name(BOOTSTRAP_NODE)
+            .value_name("PORT")
+            .about("websocket port [default: 9999]"),
+        Arg::new(BOOTSTRAP_NODE)
+            .display_order(2)
+            .help_heading(Some("Networking"))
             .value_name("MULTIADDR")
             .takes_value(true)
-            .short("b")
+            .short('b')
             .long("bootstraps")
             .multiple(true)
-            .empty_values(false)
-            .help("bootstrap nodes of the Fluence network"),
-        Arg::with_name(LOCAL)
-            .short("l")
+            // .empty_values(false)
+            .about("bootstrap nodes of the Fluence network"),
+        Arg::new(LOCAL)
+            .display_order(3)
+            .help_heading(Some("Networking"))
+            .short('l')
             .long("local")
             .takes_value(false)
             .conflicts_with(BOOTSTRAP_NODE)
-            .help("if passed, bootstrap nodes aren't used"),
-        Arg::with_name(EXTERNAL_ADDR)
+            .about("if passed, bootstrap nodes aren't used"),
+        Arg::new(EXTERNAL_ADDR)
+            .display_order(4)
+            .help_heading(Some("Networking"))
             .takes_value(true)
-            .short("x")
+            .short('x')
             .long("external-ip")
-            .help("node external IP address to advertise to other peers"),
-        Arg::with_name(EXTERNAL_MULTIADDRS)
+            .value_name("IP")
+            .about("node external IP address to advertise to other peers"),
+        Arg::new(EXTERNAL_MULTIADDRS)
+            .display_order(5)
+            .help_heading(Some("Networking"))
             .takes_value(true)
             .multiple(true)
-            .short("z")
+            .short('z')
             .long("external-maddrs")
-            .help("node external multiaddresses to advertize to other peers"),
+            .value_name("MULTIADDR")
+            .about("external multiaddresses to advertize"),
         // keypair
-        Arg::with_name(ROOT_KEY_PAIR_VALUE)
+        Arg::new(ROOT_KEY_PAIR_VALUE)
+            .display_order(6)
+            .help_heading(Some("Node keypair"))
             .takes_value(true)
-            .short("k")
+            .short('k')
             .long("keypair-value")
-            .help("keypair in base58 (conflicts with --keypair-path)")
+            .value_name("BYTES")
+            .about("keypair in base58 (conflicts with --keypair-path)")
             .conflicts_with(ROOT_KEY_PAIR_PATH),
-        Arg::with_name(ROOT_KEY_PAIR_PATH)
+        Arg::new(ROOT_KEY_PAIR_PATH)
+            .display_order(7)
+            .help_heading(Some("Node keypair"))
             .takes_value(true)
-            .short("p")
+            .short('p')
             .long("keypair-path")
-            .help("keypair path (conflicts with --keypair-value)")
+            .about("keypair path (conflicts with --keypair-value)")
             .conflicts_with(ROOT_KEY_PAIR_VALUE),
-        Arg::with_name(ROOT_KEY_PAIR_FORMAT)
+        Arg::new(ROOT_KEY_PAIR_FORMAT)
+            .display_order(8)
+            .help_heading(Some("Node keypair"))
             .takes_value(true)
-            .short("f")
+            .short('f')
             .long("keypair-format")
-            .help("keypair format")
+            // .about("keypair format")
             .possible_values(&["ed25519", "secp256k1", "rsa"]),
-        Arg::with_name(ROOT_KEY_PAIR_GENERATE)
+        Arg::new(ROOT_KEY_PAIR_GENERATE)
+            .display_order(9)
+            .help_heading(Some("Node keypair"))
             .takes_value(true)
-            .short("g")
+            .short('g')
             .long("gen-keypair")
-            .help("generate keypair on absence"),
+            .about("generate keypair on absence"),
         // node configuration
-        Arg::with_name(CONFIG_FILE)
+        Arg::new(CONFIG_FILE)
+            .display_order(10)
+            .help_heading(Some("Node configuration"))
             .takes_value(true)
-            .short("c")
+            .short('c')
             .long("config")
-            .help("TOML configuration file"),
-        Arg::with_name(CERTIFICATE_DIR)
+            .value_name("PATH")
+            .about("TOML configuration file"),
+        Arg::new(CERTIFICATE_DIR)
+            .display_order(11)
+            .help_heading(Some("Node configuration"))
             .takes_value(true)
-            .short("d")
+            .short('d')
             .long("cert-dir")
-            .help("path to certificate dir"),
-        Arg::with_name(MANAGEMENT_PEER_ID)
+            .value_name("PATH")
+            .about("certificate dir"),
+        Arg::new(MANAGEMENT_PEER_ID)
+            .display_order(12)
+            .help_heading(Some("Node configuration"))
             .takes_value(true)
             .long("management-key")
-            .short("m")
+            .short('m')
             .multiple(false)
-            .help("PeerId of the node's administrator")
-            .long_help("Peer with that peerID will have administrator privileges (e.g. add and remove aliases)"),
+            .value_name("PEER ID")
+            .about("PeerId of the node's administrator"),
+        // .long_about("Peer with that peerID will have administrator privileges (e.g. add and remove aliases)"),
         // services
-        Arg::with_name(SERVICE_ENVS)
+        Arg::new(SERVICE_ENVS)
+            .display_order(13)
+            .help_heading(Some("Services configuration"))
             .value_name("NAME=VALUE")
             .takes_value(true)
-            .short("e")
+            .short('e')
             .long("service-envs")
             .multiple(true)
-            .empty_values(false)
-            .help("envs to pass to core modules"),
-        Arg::with_name(BLUEPRINT_DIR)
+            // .empty_values(false)
+            .about("envs to pass to core modules"),
+        Arg::new(BLUEPRINT_DIR)
+            .display_order(14)
+            .help_heading(Some("Services configuration"))
             .takes_value(true)
-            .short("u")
+            .short('u')
             .long("blueprint-dir")
-            .help("path to directory containing blueprints and wasm modules"),
-        Arg::with_name(SERVICES_WORKDIR)
+            .value_name("PATH")
+            .about("directory containing blueprints and wasm modules"),
+        Arg::new(SERVICES_WORKDIR)
+            .display_order(15)
+            .help_heading(Some("Services configuration"))
             .takes_value(true)
-            .short("r")
+            .short('r')
             .long("services-workdir")
-            .help("path to a directory where all services will store their data"),
+            .value_name("PATH")
+            .about("directory where all services will store their data"),
     ]
 }
