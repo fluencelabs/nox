@@ -112,30 +112,30 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
         let result = match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("peer", "is_connected")          => wrap(self.is_connected(args)),
-            ("peer", "connect")               => wrap(self.connect(args)),
-            ("peer", "get_contact")           => wrap_opt(self.get_contact(args)),
             ("peer", "identify")              => ok(json!(self.node_info)),
             ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
+            ("peer", "is_connected")          => wrap(self.is_connected(args)),
+            ("peer", "connect")               => wrap(self.connect(args)),
+            ("peer", "get_contact")           => wrap_opt(self.get_contact(args)),
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args)),
             ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
 
+            ("srv", "list")                   => ok(self.list_services()),
             ("srv", "create")                 => wrap(self.create_service(args, params)),
             ("srv", "get_interface")          => wrap(self.get_interface(args)),
             ("srv", "resolve_alias")          => wrap(self.resolve_alias(args)),
-            ("srv", "list")                   => ok(self.list_services()),
             ("srv", "add_alias")              => wrap_unit(self.add_alias(args, params)),
             ("srv", "remove")                 => wrap_unit(self.remove_service(args, params)),
 
-            ("dist", "add_module")                          => wrap(self.add_module(args)),
-            ("dist", "add_blueprint")                       => wrap(self.add_blueprint(args)),
-            ("flat_dist", "add_module")                     => wrap(self.flat_add_module(args)),
-            ("flat_dist", "add_blueprint")                  => wrap(self.flat_add_blueprint(args)),
-            ("flat_dist" | "dist", "list_modules")          => wrap(self.list_modules()),
-            ("flat_dist" | "dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
-            ("flat_dist" | "dist", "list_blueprints")       => wrap(self.get_blueprints()),
+            ("dist", "add_module")            => wrap(self.add_module(args)),
+            ("dist", "add_blueprint")         => wrap(self.add_blueprint(args)),
+            ("dist", "make_module_config")    => wrap(self.make_module_config(args)),
+            ("dist", "make_blueprint")        => wrap(self.make_blueprint(args)),
+            ("dist", "list_modules")          => wrap(self.list_modules()),
+            ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
+            ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
             ("script", "add")                 => wrap(self.add_script(args, params)),
             ("script", "remove")              => wrap(self.remove_script(args, params)),
@@ -143,17 +143,17 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
             ("op", "noop")                    => unit(),
             ("op", "array")                   => ok(Array(args.function_args)),
-            ("op", "identity")                => wrap_opt(self.identity(args.function_args)),
             ("op", "concat")                  => wrap(self.concat(args.function_args)),
             ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
             ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
             ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
             ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
             ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
+            ("op", "identity")                => wrap_opt(self.identity(args.function_args)),
 
             ("ipfs", "get_multiaddr")         => wrap(self.ipfs().get_multiaddr()),
-            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(args, params, &self.management_peer_id)),
             ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
+            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(args, params, &self.management_peer_id)),
 
             _ => wrap(self.call_service(args, params)),
         };
@@ -401,12 +401,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(JValue::String(blueprint_id))
     }
 
-    fn flat_add_module(&self, args: Args) -> Result<JValue, JError> {
+    fn make_module_config(&self, args: Args) -> Result<JValue, JError> {
         use toml_utils::table;
 
         let mut args = args.function_args.into_iter();
 
-        let module_bytes: String = Args::next("module_bytes", &mut args)?;
         let name = Args::next("name", &mut args)?;
         let file_name = Args::next_opt("file_name", &mut args)?;
         let mem_pages_count = Args::next_opt("mem_pages_count", &mut args)?;
@@ -425,27 +424,33 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
                 logger_enabled,
                 wasi: Some(WASIConfig {
                     preopened_files,
-                    envs,        // table
-                    mapped_dirs, // table
+                    envs,
+                    mapped_dirs,
                 }),
-                mounted_binaries, // table
+                mounted_binaries,
                 logging_mask,
             },
         };
 
-        let module_hash = self.modules.add_module(module_bytes, config)?;
+        let config = serde_json::to_value(config)
+            .map_err(|err| JError::new(format!("Error serializing config to JSON: {}", err)))?;
 
-        Ok(JValue::String(module_hash))
+        Ok(config)
     }
 
-    fn flat_add_blueprint(&self, args: Args) -> Result<JValue, JError> {
+    fn make_blueprint(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let name = Args::next("name", &mut args)?;
         let dependencies = Args::next("dependencies", &mut args)?;
         let blueprint_request = AddBlueprint { name, dependencies };
 
-        let blueprint_id = self.modules.add_blueprint(blueprint_request)?;
-        Ok(JValue::String(blueprint_id))
+        let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
+            JError::new(format!(
+                "Error serializing blueprint_request to JSON: {}",
+                err
+            ))
+        })?;
+        Ok(blueprint_request)
     }
 
     fn list_modules(&self) -> Result<JValue, JError> {
