@@ -158,6 +158,7 @@ mod tests {
             json!([]),           // as Vec    => None
             json!(["hi", "hi"]), // as String => Error
             json!("hi"),         // as String => Some
+            json!(["hi"])        // as Vec    => Some
             /* absence */        // as String => None
             /* absence */        // as Vec    => None
         ]
@@ -188,6 +189,9 @@ mod tests {
 
         let some: Result<Option<String>, _> = Args::next_opt("", &mut args);
         assert_eq!(some.unwrap(), Some(hi()));
+
+        let some_vec: Result<Option<Vec<String>>, _> = Args::next_opt("", &mut args);
+        assert_eq!(some_vec.unwrap(), Some(vec![hi()]));
 
         let none: Result<Option<String>, _> = Args::next_opt("", &mut args);
         assert_eq!(none.unwrap(), None);
