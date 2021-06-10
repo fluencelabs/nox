@@ -87,18 +87,6 @@ impl Args {
         Ok(value)
     }
 
-    /// Retrieves a json value from iterator if it's not empty, and parses it to T
-    /// `field` is to generate a more accurate error message
-    pub fn maybe_next<T: for<'de> Deserialize<'de>>(
-        field: &'static str,
-        args: &mut impl Iterator<Item = JValue>,
-    ) -> Result<Option<T>, ArgsError> {
-        let value = ok_get!(args.next());
-        let value: T = Self::deserialize(field, value)?;
-
-        Ok(Some(value))
-    }
-
     /// Retrieves a json value from iterator if it's not empty, and parses it to Aqua's option representation
     /// Aqua's option is expected to be an array of 1 or 0 elements.
     /// For the sakes of backward compatibility, scalar value and absence of value are tolerated as well.
@@ -113,25 +101,27 @@ impl Args {
         args: &mut impl Iterator<Item = JValue>,
     ) -> Result<Option<T>, ArgsError> {
         let value = ok_get!(args.next());
-        let value = match value {
-            // If there is more than 1 value in the passed array
-            // then, depending on T, it may be one of:
-            //    - Some(array) if T is an array
-            //    - invalid option if T is a scalar (because you can't deserialize several values as a scalar)
-            // The only way to tell one from the other is by looking at the T.
-            // And that's what is done here:
-            // keep value untouched, so T can deserialize itself and fail as needed
-            JValue::Array(values) if values.len() > 1 => JValue::Array(values),
-            // Option backed by array of 1 or 0 elements
-            JValue::Array(values) => {
-                ok_get!(values.into_iter().next())
-            }
-            // Scalar value
-            value => value,
-        };
 
-        let value: T = Self::deserialize(field, value)?;
-        Ok(Some(value))
+        #[derive(serde::Deserialize, Debug)]
+        #[serde(untagged)]
+        pub enum Opt<T> {
+            Array(Vec<T>),
+            Scalar(T),
+            None,
+        }
+        let value: Opt<T> = Self::deserialize(field, value)?;
+        let value = match value {
+            Opt::Scalar(v) => Some(v),
+            Opt::Array(v) if v.len() > 1 => {
+                return Err(ArgsError::NonUnaryOption {
+                    field,
+                    length: v.len(),
+                })
+            }
+            Opt::Array(v) => v.into_iter().next(),
+            Opt::None => None,
+        };
+        Ok(value)
     }
 
     /// `field` is to generate a more accurate error message
@@ -158,6 +148,7 @@ mod tests {
             json!([]),           // as Vec    => None
             json!(["hi", "hi"]), // as String => Error
             json!("hi"),         // as String => Some
+            json!(["hi"])        // as Vec    => Some
             /* absence */        // as String => None
             /* absence */        // as Vec    => None
         ]
@@ -182,12 +173,15 @@ mod tests {
         let scalar_err: Result<Option<String>, _> = Args::next_opt("scalar", &mut args);
         assert!(scalar_err.is_err());
         assert_eq!(
-            "Error while deserializing field scalar: invalid type: sequence, expected a string",
+            "Option's array must contain at most 1 element, scalar was of 2 elements",
             scalar_err.err().unwrap().to_string()
         );
 
         let some: Result<Option<String>, _> = Args::next_opt("", &mut args);
         assert_eq!(some.unwrap(), Some(hi()));
+
+        let some_vec: Result<Option<Vec<String>>, _> = Args::next_opt("", &mut args);
+        assert_eq!(some_vec.unwrap(), Some(vec![hi()]));
 
         let none: Result<Option<String>, _> = Args::next_opt("", &mut args);
         assert_eq!(none.unwrap(), None);

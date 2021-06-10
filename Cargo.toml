@@ -23,7 +23,6 @@ members = [
     "particle-services",
     "particle-closures",
     "particle-modules",
-    "particle-providers",
     "connection-pool",
     "script-storage",
 ]

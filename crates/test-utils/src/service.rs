@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{test_module_cfg, ConnectedClient};
+use crate::{test_module_cfg_map, ConnectedClient};
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
@@ -31,9 +31,15 @@ pub fn create_service(
 ) -> CreatedService {
     let script = f!(r#"
     (seq
-        (call relay ("dist" "add_module") [module_bytes module_config] module)
         (seq
-            (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+            (call relay ("dist" "make_module_config") [module_name mem_pages_count logger_enabled preopened_files envs mapped_dirs mounted_binaries logging_mask] module_config)
+            (call relay ("dist" "add_module") [module_bytes module_config] module)
+        )
+        (seq
+            (seq
+                (call relay ("dist" "make_blueprint") [name dependencies] blueprint)
+                (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+            )
             (seq
                 (call relay ("srv" "create") [blueprint_id] service_id)
                 (call client ("return" "") [service_id] client_result)
@@ -42,18 +48,22 @@ pub fn create_service(
     )
     "#);
 
-    let data = hashmap! {
+    let mut data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
         "module_bytes" => json!(base64::encode(module_bytes)),
-        "module_config" => test_module_cfg(module_name),
-        "blueprint" => json!({ "name": "blueprint", "dependencies": [module_name] }),
+        "name" => json!("blueprint"),
+        "dependencies" => json!([module_name]),
     };
+    data.extend(test_module_cfg_map(module_name).into_iter());
 
     client.send_particle(script, data);
     let response = client.receive_args().wrap_err("receive args").unwrap();
 
-    let service_id = response[0].as_str().expect("service_id").to_string();
+    let service_id = response[0]
+        .as_str()
+        .expect("service_id is in response")
+        .to_string();
 
     CreatedService { id: service_id }
 }

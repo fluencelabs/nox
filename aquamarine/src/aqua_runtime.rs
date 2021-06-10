@@ -19,11 +19,11 @@ use crate::invoke::{parse_outcome, ExecutionError};
 use crate::{SendParticle, StepperEffects};
 
 use avm_server::{AVMConfig, AVMError, InterpreterOutcome, AVM};
-use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
 use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
+use host_closure::ClosureDescriptor;
 use libp2p::PeerId;
 use log::LevelFilter;
 use std::{error::Error, task::Waker};

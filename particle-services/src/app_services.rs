@@ -22,7 +22,7 @@ use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
-use host_closure::{closure, closure_params, closure_params_opt, Args, Closure, ParticleClosure};
+use host_closure::{Args, ParticleParameters};
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
 
@@ -67,6 +67,7 @@ pub struct VmDescriptor<'a> {
     owner_id: &'a str,
 }
 
+#[derive(Clone)]
 pub struct ParticleAppServices {
     config: ServicesConfig,
     services: Services,
@@ -114,234 +115,177 @@ impl ParticleAppServices {
         this
     }
 
-    pub fn create_service(&self) -> ParticleClosure {
-        let services = self.services.clone();
-        let config = self.config.clone();
-        let modules = self.modules.clone();
+    pub fn create_service(
+        &self,
+        blueprint_id: String,
+        init_peer_id: String,
+    ) -> Result<String, ServiceError> {
+        let service_id = uuid::Uuid::new_v4().to_string();
 
-        closure_params(move |particle, args| {
-            let service_id = uuid::Uuid::new_v4().to_string();
-            let blueprint_id: String =
-                Args::next("blueprint_id", &mut args.function_args.into_iter())?;
+        let service = create_app_service(
+            self.config.clone(),
+            &self.modules,
+            blueprint_id.clone(),
+            service_id.clone(),
+            vec![],
+            init_peer_id.clone(),
+        )?;
+        let service = Service {
+            service: Mutex::new(service),
+            blueprint_id,
+            owner_id: init_peer_id,
+            aliases: vec![],
+        };
 
-            let service = create_app_service(
-                config.clone(),
-                &modules,
-                blueprint_id.clone(),
-                service_id.clone(),
-                vec![],
-                particle.init_user_id.clone(),
-            )?;
-            let service = Service {
-                service: Mutex::new(service),
-                blueprint_id,
-                owner_id: particle.init_user_id,
-                aliases: vec![],
-            };
+        self.services.write().insert(service_id.clone(), service);
 
-            services.write().insert(service_id.clone(), service);
-
-            Ok(json!(service_id))
-        })
+        Ok(service_id)
     }
 
-    pub fn remove_service(&self) -> ParticleClosure {
-        let services = self.services.clone();
-        let aliases = self.aliases.clone();
+    pub fn remove_service(
+        &self,
+        service_id_or_alias: String,
+        init_user_id: String,
+    ) -> Result<(), ServiceError> {
+        let service_id = {
+            let services_read = self.services.read();
+            let (service, service_id) =
+                get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
 
-        closure_params_opt(move |particle_params, args| {
-            let mut args = args.function_args.into_iter();
-            let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-            let service_id = {
-                let services_read = services.read();
-                let (service, service_id) =
-                    get_service(&services_read, &aliases.read(), service_id_or_alias)?;
-
-                if service.owner_id != particle_params.init_user_id {
-                    Err(ServiceError::Forbidden {
-                        user: particle_params.init_user_id,
-                        function: "remove_service",
-                        reason: "only creator can remove service",
-                    })?;
-                }
-
-                service_id
-            };
-
-            let service = services.write().remove(&service_id).unwrap();
-            let mut aliases = aliases.write();
-            for alias in service.aliases.iter() {
-                aliases.remove(alias);
+            if service.owner_id != init_user_id {
+                Err(ServiceError::Forbidden {
+                    user: init_user_id,
+                    function: "remove_service",
+                    reason: "only creator can remove service",
+                })?;
             }
-
-            Ok(None)
-        })
-    }
-
-    pub fn call_service(&self) -> ParticleClosure {
-        let services = self.services.clone();
-        let aliases = self.aliases.clone();
-        let host_id = self.config.local_peer_id.to_string();
-
-        closure_params(move |particle_params, args| {
-            let result: eyre::Result<_> = try {
-                let services = services.read();
-                let aliases = aliases.read();
-
-                let function_name = args.function_name;
-                let (service, id) =
-                    get_service(&services, &aliases, args.service_id).map_err(|err| match err {
-                        ServiceError::NoSuchService(service) => {
-                            ServiceError::NoSuchServiceWithFunction {
-                                service,
-                                function: function_name.clone(),
-                            }
-                        }
-                        e => e,
-                    })?;
-
-                let params = CallParameters {
-                    host_id: host_id.clone(),
-                    init_peer_id: particle_params.init_user_id,
-                    particle_id: particle_params.particle_id,
-                    tetraplets: args.tetraplets,
-                    service_id: id,
-                    service_creator_peer_id: service.owner_id.clone(),
-                };
-
-                let mut service = service.lock();
-                service
-                    .call(function_name, JValue::Array(args.function_args), params)
-                    .map_err(ServiceError::Engine)?
-            };
-
-            result.map_err(|err| {
-                log::warn!("call_service error: {:?}", err);
-                json!(format!("{:?}", err)
-                    // TODO: send patch to eyre so it can be done through their API
-                    // Remove backtrace from the response
-                    .split("Stack backtrace:")
-                    .next()
-                    .unwrap_or_default())
-            })
-        })
-    }
-
-    pub fn add_alias(&self) -> ParticleClosure {
-        let services = self.services.clone();
-        let aliases = self.aliases.clone();
-        let config = self.config.clone();
-        let management_peer_id = self.management_peer_id.clone();
-        let startup_peer_id = self.startup_management_peer_id.clone();
-
-        closure_params_opt(move |particle, args| {
-            if particle.init_user_id != management_peer_id
-                && particle.init_user_id != startup_peer_id
-            {
-                return Err(Forbidden {
-                    user: particle.init_user_id,
-                    function: "add_alias",
-                    reason: "only management peer id can add aliases",
-                }
-                .into());
-            };
-
-            let mut args = args.function_args.into_iter();
-            let alias: String = Args::next("alias", &mut args)?;
-            let service_id: String = Args::next("service_id", &mut args)?;
-
-            // if a client trying to add an alias that equals some created service id
-            // return an error
-            if services.read().get(&alias).is_some() {
-                return Err(AliasAsServiceId(alias).into());
-            }
-
-            let mut services = services.write();
-
-            let service = services
-                .get_mut(&service_id)
-                .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
-            service.add_alias(alias.clone());
-            let persisted_new = PersistedService::from_service(service_id.clone(), service);
-
-            let old_id = {
-                let lock = aliases.read();
-                lock.get(&alias).cloned()
-            };
-
-            let old = old_id.and_then(|s_id| services.get_mut(&s_id));
-            let old = old.map(|old| {
-                old.remove_alias(&alias);
-                PersistedService::from_service(service_id.clone(), old)
-            });
-
-            drop(services);
-            if let Some(old) = old {
-                persist_service(&config.services_dir, old)?;
-            }
-            persist_service(&config.services_dir, persisted_new)?;
-
-            aliases.write().insert(alias, service_id.clone());
-            Ok(None)
-        })
-    }
-
-    pub fn resolve_alias(&self) -> Closure {
-        let aliases = self.aliases.clone();
-
-        closure(move |mut args| {
-            let alias: String = Args::next("alias", &mut args)?;
-            let aliases = aliases.read();
-            let service_id = aliases.get(&alias);
 
             service_id
-                .ok_or(NoSuchAlias(alias.clone()))
-                .map(|value| json!(value))
-                .map_err(|err| {
-                    log::warn!("Error resolving alias {}: {:#?}", alias, err);
-                    json!(format!("{:?}", err)
-                        // TODO: send patch to eyre so it can be done through their API
-                        // Remove backtrace from the response
-                        .split("Stack backtrace:")
-                        .next()
-                        .unwrap_or_default())
-                })
-        })
+        };
+
+        let service = self.services.write().remove(&service_id).unwrap();
+        let mut aliases = self.aliases.write();
+        for alias in service.aliases.iter() {
+            aliases.remove(alias);
+        }
+
+        Ok(())
     }
 
-    pub fn get_interface(&self) -> Closure {
-        let services = self.services.clone();
-        let aliases = self.aliases.clone();
-        let modules = self.modules.clone();
+    pub fn call_service(
+        &self,
+        args: Args,
+        params: ParticleParameters,
+    ) -> Result<JValue, ServiceError> {
+        let services = self.services.read();
+        let aliases = self.aliases.read();
+        let host_id = self.config.local_peer_id.to_string();
 
-        closure(move |mut args| {
-            let services = services.read();
-            let service_id: String = Args::next("service_id", &mut args)?;
-            let (service, _) = get_service(&services, &aliases.read(), service_id)?;
+        let function_name = args.function_name;
+        let (service, id) =
+            get_service(&services, &aliases, args.service_id).map_err(|err| match err {
+                ServiceError::NoSuchService(service) => ServiceError::NoSuchServiceWithFunction {
+                    service,
+                    function: function_name.clone(),
+                },
+                e => e,
+            })?;
 
-            Ok(modules.get_facade_interface(&service.blueprint_id)?)
-        })
+        let params = CallParameters {
+            host_id: host_id.clone(),
+            init_peer_id: params.init_user_id,
+            particle_id: params.particle_id,
+            tetraplets: args.tetraplets,
+            service_id: id,
+            service_creator_peer_id: service.owner_id.clone(),
+        };
+
+        let mut service = service.lock();
+        service
+            .call(function_name, JValue::Array(args.function_args), params)
+            .map_err(ServiceError::Engine)
     }
 
-    pub fn list_services(&self) -> Closure {
-        let services = self.services.clone();
+    pub fn add_alias(
+        &self,
+        alias: String,
+        service_id: String,
+        init_user_id: String,
+    ) -> Result<(), ServiceError> {
+        if init_user_id != self.management_peer_id {
+            return Err(Forbidden {
+                user: init_user_id,
+                function: "add_alias",
+                reason: "only management peer id can add aliases",
+            }
+            .into());
+        };
 
-        closure(move |_| {
-            let services = services.read();
-            let services = services
-                .iter()
-                .map(|(id, srv)| {
-                    json!({
-                        "id": id,
-                        "blueprint_id": srv.blueprint_id,
-                        "owner_id": srv.owner_id,
-                        "aliases": srv.aliases
-                    })
+        // if a client trying to add an alias that equals some created service id
+        // return an error
+        if self.services.read().get(&alias).is_some() {
+            return Err(AliasAsServiceId(alias).into());
+        }
+
+        let mut services = self.services.write();
+
+        let service = services
+            .get_mut(&service_id)
+            .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
+        service.add_alias(alias.clone());
+        let persisted_new = PersistedService::from_service(service_id.clone(), service);
+
+        let old_id = {
+            let lock = self.aliases.read();
+            lock.get(&alias).cloned()
+        };
+
+        let old = old_id.and_then(|s_id| services.get_mut(&s_id));
+        let old = old.map(|old| {
+            old.remove_alias(&alias);
+            PersistedService::from_service(service_id.clone(), old)
+        });
+
+        drop(services);
+        if let Some(old) = old {
+            persist_service(&self.config.services_dir, old)?;
+        }
+        persist_service(&self.config.services_dir, persisted_new)?;
+
+        self.aliases.write().insert(alias, service_id.clone());
+
+        Ok(())
+    }
+
+    pub fn resolve_alias(&self, alias: String) -> Result<String, ServiceError> {
+        let aliases = self.aliases.read();
+        let service_id = aliases.get(&alias);
+
+        service_id.cloned().ok_or(NoSuchAlias(alias))
+    }
+
+    pub fn get_interface(&self, service_id: String) -> Result<JValue, ServiceError> {
+        let services = self.services.read();
+        let (service, _) = get_service(&services, &self.aliases.read(), service_id)?;
+
+        Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
+    }
+
+    pub fn list_services(&self) -> Vec<JValue> {
+        let services = self.services.read();
+        let services = services
+            .iter()
+            .map(|(id, srv)| {
+                json!({
+                    "id": id,
+                    "blueprint_id": srv.blueprint_id,
+                    "owner_id": srv.owner_id,
+                    "aliases": srv.aliases
                 })
-                .collect();
+            })
+            .collect();
 
-            Ok(services)
-        })
+        services
     }
 
     fn create_persisted_services(&self) {
@@ -401,21 +345,17 @@ mod tests {
 
     use libp2p_core::identity::Keypair;
     use libp2p_core::PeerId;
-    use serde_json::Value as JValue;
     use tempdir::TempDir;
 
-    use crate::ParticleAppServices;
+    use crate::{ParticleAppServices, ServiceError};
     use config_utils::{modules_dir, to_peer_id};
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
-    use host_closure::ParticleParameters;
     use misc::load_module;
     use particle_modules::{Dependency, Hash, ModuleRepository};
     use server_config::ServicesConfig;
     use std::fs::remove_file;
     use std::path::PathBuf;
-    use test_utils::{
-        add_bp, add_module, create_args, response_to_return, string_result, RetStruct,
-    };
+    use test_utils::{add_bp, add_module};
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
@@ -443,14 +383,11 @@ mod tests {
         ParticleAppServices::new(config, repo)
     }
 
-    fn params(pid: PeerId) -> ParticleParameters {
-        ParticleParameters {
-            init_user_id: pid.to_base58(),
-            particle_id: "".to_string(),
-        }
-    }
-
-    fn call_add_alias_raw(as_manager: bool, args: Vec<JValue>) -> RetStruct {
+    fn call_add_alias_raw(
+        as_manager: bool,
+        alias: String,
+        service_id: String,
+    ) -> Result<(), ServiceError> {
         let base_dir = TempDir::new("test3").unwrap();
         let local_pid = create_pid();
         let management_pid = create_pid();
@@ -463,15 +400,11 @@ mod tests {
             client_pid = create_pid();
         }
 
-        let params = params(client_pid);
-        let args = create_args(args);
-
-        let resp = pas.add_alias()(params, args);
-        response_to_return(resp.unwrap())
+        pas.add_alias(alias, service_id, client_pid.to_base58())
     }
 
-    fn call_add_alias(args: Vec<JValue>) -> RetStruct {
-        call_add_alias_raw(true, args)
+    fn call_add_alias(alias: String, service_id: String) -> Result<(), ServiceError> {
+        call_add_alias_raw(true, alias, service_id)
     }
 
     fn create_service(
@@ -482,48 +415,28 @@ mod tests {
         let dep = Dependency::Hash(Hash::from_hex(module).unwrap());
         let bp = add_bp(&pas.modules, module_name, vec![dep]).unwrap();
 
-        let args = create_args(vec![JValue::String(bp)]);
-
-        let particle: ParticleParameters = ParticleParameters {
-            init_user_id: "".to_string(),
-            particle_id: "".to_string(),
-        };
-
-        let resp = pas.create_service()(particle, args).unwrap();
-        string_result(response_to_return(resp))
-    }
-
-    fn get_interface(pas: &ParticleAppServices, id: String) -> RetStruct {
-        let args = create_args(vec![JValue::String(id)]);
-        let ret = pas.get_interface()(args).unwrap();
-        response_to_return(ret)
+        pas.create_service(bp, "".to_string())
+            .map_err(|e| e.to_string())
     }
 
     #[test]
     fn test_add_alias_forbidden() {
-        let resp = call_add_alias_raw(
-            false,
-            vec![
-                JValue::String("1".to_string()),
-                JValue::String("2".to_string()),
-            ],
-        );
-        assert_eq!(resp.ret_code, 1);
-        assert_eq!(true, resp.error.contains("Forbidden"))
+        let resp = call_add_alias_raw(false, "1".to_string(), "2".to_string());
+        assert!(resp.is_err());
+        assert!(matches!(
+            resp.err().unwrap(),
+            ServiceError::Forbidden { .. }
+        ))
     }
 
     #[test]
     fn test_add_alias_no_service() {
-        let resp = call_add_alias(vec![
-            JValue::String("1".to_string()),
-            JValue::String("2".to_string()),
-        ]);
-        assert_eq!(resp.ret_code, 1);
-        assert!(
-            resp.error.contains("Service with id") && resp.error.contains("not found"),
-            "Closure should not found a service to add alias `{}`",
-            resp.error
-        );
+        let resp = call_add_alias("1".to_string(), "2".to_string());
+        assert!(resp.is_err());
+        assert!(matches!(
+            resp.err().unwrap(),
+            ServiceError::NoSuchService(..)
+        ));
     }
 
     #[test]
@@ -552,19 +465,19 @@ mod tests {
         let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
         let service_id3 = create_service(&pas, module_name.clone(), &hash).unwrap();
 
-        let inter1 = get_interface(&pas, service_id1);
+        let inter1 = pas.get_interface(service_id1).unwrap();
 
         // delete module and check that interfaces will be returned anyway
         let dir = modules_dir(base_dir.path().into());
         let module_file = dir.join(format!("{}.wasm", hash));
         remove_file(module_file.clone()).unwrap();
 
-        let inter2 = get_interface(&pas, service_id2);
-        let inter3 = get_interface(&pas, service_id3);
+        let inter2 = pas.get_interface(service_id2).unwrap();
+        let inter3 = pas.get_interface(service_id3).unwrap();
 
         assert_eq!(module_file.exists(), false);
-        assert_eq!(inter1.result, inter2.result);
-        assert_eq!(inter3.result, inter2.result);
+        assert_eq!(inter1, inter2);
+        assert_eq!(inter3, inter2);
     }
 
     // TODO: add more tests

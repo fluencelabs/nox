@@ -57,7 +57,6 @@ json-utils = { path = "../crates/json-utils" }
 boolinator = "2.4.0"
 
 [dev-dependencies]
-particle-providers = { path = "../particle-providers"}
 test-utils = { path = "../crates/test-utils" }
 fluence-libp2p = { path = "../crates/libp2p" }
 misc = { path = "../crates/misc"}
