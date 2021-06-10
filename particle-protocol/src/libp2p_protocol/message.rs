@@ -88,6 +88,18 @@ pub enum ProtocolMessage {
     Upgrade,
 }
 
+impl std::fmt::Display for ProtocolMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProtocolMessage::Particle(particle) => particle.fmt(f),
+            ProtocolMessage::InboundUpgradeError(error) => {
+                write!(f, "InboundUpgradeError {}", error)
+            }
+            ProtocolMessage::Upgrade => write!(f, "Upgrade"),
+        }
+    }
+}
+
 impl From<ProtocolMessage> for HandlerMessage {
     fn from(msg: ProtocolMessage) -> HandlerMessage {
         match msg {
