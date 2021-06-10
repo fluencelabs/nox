@@ -1,0 +1,7 @@
+{
+  "name": "aqua-dht",
+  "dependencies": [
+    "name:sqlite3",
+    "name:aqua-dht"
+  ]
+}
