@@ -87,18 +87,6 @@ impl Args {
         Ok(value)
     }
 
-    /// Retrieves a json value from iterator if it's not empty, and parses it to T
-    /// `field` is to generate a more accurate error message
-    pub fn maybe_next<T: for<'de> Deserialize<'de>>(
-        field: &'static str,
-        args: &mut impl Iterator<Item = JValue>,
-    ) -> Result<Option<T>, ArgsError> {
-        let value = ok_get!(args.next());
-        let value: T = Self::deserialize(field, value)?;
-
-        Ok(Some(value))
-    }
-
     /// Retrieves a json value from iterator if it's not empty, and parses it to Aqua's option representation
     /// Aqua's option is expected to be an array of 1 or 0 elements.
     /// For the sakes of backward compatibility, scalar value and absence of value are tolerated as well.
