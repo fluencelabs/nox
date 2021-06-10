@@ -214,17 +214,20 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let mut args = args.function_args.into_iter();
 
         let script: String = Args::next("script", &mut args)?;
-        #[derive(serde::Deserialize), Debug]
+        #[derive(serde::Deserialize, Debug)]
         #[serde(untagged)]
         pub enum Interval {
             String(String),
-            Number(u64)
+            Number(u64),
         }
         let interval: Option<Interval> = Args::next_opt("interval_sec", &mut args)?;
-        let interval = interval.map(|i| match i {
-            Interval::String(s) => Ok(s.parse::<u64>()?),
-            Interval::Number(n) => Ok(n)
-        }).transpose().map_err(Error)?;
+        let interval = interval
+            .map(|i| match i {
+                Interval::String(s) => Ok(s.parse::<u64>()?),
+                Interval::Number(n) => Ok(n),
+            })
+            .transpose()
+            .map_err(Error)?;
 
         let interval = interval.map(Duration::from_secs);
         let creator = PeerId::from_str(&params.init_user_id)?;
