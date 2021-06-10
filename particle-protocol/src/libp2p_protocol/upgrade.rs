@@ -136,12 +136,16 @@ where
                 // };
 
                 serde_json::from_slice(&packet)
-                    .wrap_err_with(|| format!("unable to deserialize: '{}'", str))
+                    .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
             };
 
             match process(&mut socket).await {
                 Ok(msg) => {
-                    log::info!("Got inbound ProtocolMessage: {:?}", msg);
+                    if log::max_level() >= LevelFilter::Debug {
+                        log::debug!("Got inbound ProtocolMessage: {:?}", msg);
+                    } else {
+                        log::info!("Got inbound ProtocolMessage: {}", msg);
+                    }
                     socket.close().await?;
                     Ok(msg.into())
                 }
