@@ -199,7 +199,7 @@ impl BuiltinsLoader {
 
             let res =
                 self.send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)?;
-            log::info!("{:?}", res);
+            return check_result(res, "on_start call failed");
         }
 
         Ok(())
@@ -210,22 +210,28 @@ impl BuiltinsLoader {
         let local_services = self.list_services()?;
 
         for builtin in available_builtins.iter() {
-            let old_blueprint = local_services.get(&builtin.name);
-
-            if let Some(id) = old_blueprint {
-                if *id == builtin.blueprint_id {
-                    self.run_on_start(builtin);
-                    continue;
-                } else {
-                    self.remove_service(builtin.name.clone())?;
+            let result: Result<()> = try {
+                let old_blueprint = local_services.get(&builtin.name);
+                if let Some(id) = old_blueprint {
+                    if *id == builtin.blueprint_id {
+                        self.run_on_start(builtin)?;
+                        continue;
+                    } else {
+                        self.remove_service(builtin.name.clone())?;
+                    }
                 }
-            }
 
-            for module in builtin.modules.iter() {
-                self.add_module(module)?;
-            }
+                for module in builtin.modules.iter() {
+                    self.add_module(module)?;
+                }
 
-            self.create_service(&builtin)?;
+                self.create_service(&builtin)?;
+                self.run_on_start(builtin)?;
+            };
+
+            if let Err(err) = result {
+                log::error!("builtin {} init is failed: {}", builtin.name, err);
+            }
         }
 
         Ok(())

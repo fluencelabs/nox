@@ -2,6 +2,7 @@
 name = "particle-node"
 version = "0.5.1"
 authors = ["Fluence Labs"]
+description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2018"
 
 [dependencies]
@@ -24,7 +25,7 @@ trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
 air-interpreter-wasm = "0.9.14"
 
-libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 multihash ="0.13"
 futures = "0.3.13"
 futures-util = "0.3.5"
@@ -38,7 +39,7 @@ failure = "0.1.6"
 base64 = "0.13.0"
 log = "0.4.11"
 env_logger = "0.7.1"
-clap = "2.33.0"
+clap = "3.0.0-beta.2"
 void = "1.0.2"
 prometheus = "0.9.0"
 toml = "0.5.6"

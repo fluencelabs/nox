@@ -17,6 +17,7 @@
 use fluence_app_service::FaaSError;
 use json_utils::err_as_value;
 
+use base64::DecodeError;
 use marine_it_parser::ITParserError;
 use serde_json::Value as JValue;
 use std::path::PathBuf;
@@ -98,6 +99,12 @@ pub enum ModuleError {
     InvalidModuleName(String),
     #[error("Expected module reference of format hash:xx got {reference}. Context: calculating blueprint hash")]
     InvalidModuleReference { reference: String },
+    #[error("Error while decoding module bytes from base64: {err}")]
+    ModuleInvalidBase64 {
+        #[source]
+        #[from]
+        err: DecodeError,
+    },
 }
 
 impl From<ModuleError> for JValue {

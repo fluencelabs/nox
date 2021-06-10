@@ -16,6 +16,7 @@ members = [
     "crates/kademlia",
     "crates/async-unlock",
     "crates/now-millis",
+    "crates/toml-utils",
     "particle-node",
     "aquamarine",
     "particle-protocol",

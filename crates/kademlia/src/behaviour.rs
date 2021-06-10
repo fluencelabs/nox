@@ -219,9 +219,16 @@ impl Kademlia {
         }
     }
 
-    pub fn neighborhood(&mut self, key: Multihash, outlet: OneshotOutlet<Result<Vec<PeerId>>>) {
-        let peers = self.kademlia.local_closest_peers(key);
-        let peers = peers.into_iter().map(|p| p.peer_id.into_preimage());
+    pub fn neighborhood(
+        &mut self,
+        key: Multihash,
+        count: usize,
+        outlet: OneshotOutlet<Result<Vec<PeerId>>>,
+    ) {
+        let key = key.into();
+        let peers = self.kademlia.local_closest_peers(&key);
+        let peers = peers.take(count);
+        let peers = peers.map(|p| p.peer_id.into_preimage());
         outlet.send(Ok(peers.collect())).ok();
         self.wake();
     }

@@ -838,9 +838,41 @@ dependencies = [
  "atty",
  "bitflags",
  "strsim 0.8.0",
- "textwrap",
+ "textwrap 0.11.0",
  "unicode-width",
  "vec_map",
+]
+
+[[package]]
+name = "clap"
+version = "3.0.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bd1061998a501ee7d4b6d449020df3266ca3124b941ec56cf2005c3779ca142"
+dependencies = [
+ "atty",
+ "bitflags",
+ "clap_derive",
+ "indexmap",
+ "lazy_static",
+ "os_str_bytes",
+ "strsim 0.10.0",
+ "termcolor",
+ "textwrap 0.12.1",
+ "unicode-width",
+ "vec_map",
+]
+
+[[package]]
+name = "clap_derive"
+version = "3.0.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "370f715b81112975b1b69db93e0b56ea4cd4e5002ac43b2da8474106a54096a1"
+dependencies = [
+ "heck",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1016,7 +1048,7 @@ dependencies = [
  "async-std",
  "atty",
  "cast",
- "clap",
+ "clap 2.33.3",
  "criterion-plot",
  "csv",
  "futures",
@@ -1517,7 +1549,7 @@ version = "0.2.0"
 dependencies = [
  "async-std",
  "bs58 0.3.1",
- "clap",
+ "clap 2.33.3",
  "ctrlc-adapter",
  "derivative",
  "env_logger",
@@ -1563,9 +1595,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p"
-version = "0.36.1"
+version = "0.36.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "776a8e1e7e983ff39fa6fb5fb53f5c48a34494d2f86e41a465db2099c5dbc5ee"
+checksum = "6cc81dc6d89ac9c706b058ca9d9f2fc2fa71680accd3e191c1e812e1832658ca"
 dependencies = [
  "atomic",
  "bytes 1.0.1",
@@ -1718,9 +1750,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-fork-libp2p-kad"
-version = "0.29.1"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83d19bd700242b26c7966a9d1029379ec86a07d3ac2344bc02b4bb3e0bcf22f7"
+checksum = "108d0f7ce75ba01d3f2ab0c5490edfe0fad5b355609523762773a2f9af8660bd"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -2848,42 +2880,16 @@ name = "local-vm"
 version = "0.1.0"
 dependencies = [
  "air-interpreter-wasm",
- "aquamarine",
- "async-std",
  "avm-server",
- "base64 0.13.0",
- "chrono",
- "config-utils",
- "connection-pool",
- "derivative",
- "env_logger",
- "eyre",
- "fluence-client",
- "fluence-faas",
  "fluence-fork-libp2p",
- "fluence-identity",
- "fluence-libp2p",
  "fstrings",
- "futures",
- "futures-util",
  "host-closure",
- "itertools 0.10.0",
  "ivalue-utils",
  "log",
- "maplit",
  "misc",
  "parking_lot 0.11.1",
- "particle-modules",
  "particle-protocol",
- "prometheus",
- "rand 0.7.3",
- "script-storage",
- "serde",
  "serde_json",
- "server-config",
- "toml",
- "trust-graph",
- "uuid",
 ]
 
 [[package]]
@@ -3194,40 +3200,11 @@ name = "misc"
 version = "0.1.0"
 dependencies = [
  "air-interpreter-wasm",
- "aquamarine",
- "async-std",
- "avm-server",
- "base64 0.13.0",
- "chrono",
  "config-utils",
- "connection-pool",
- "derivative",
  "env_logger",
  "eyre",
- "fluence-client",
- "fluence-faas",
- "fluence-fork-libp2p",
- "fluence-identity",
- "fluence-libp2p",
- "fstrings",
- "futures",
- "futures-util",
- "host-closure",
- "itertools 0.10.0",
- "ivalue-utils",
  "log",
- "maplit",
- "parking_lot 0.11.1",
- "particle-modules",
- "particle-protocol",
- "prometheus",
  "rand 0.7.3",
- "script-storage",
- "serde",
- "serde_json",
- "server-config",
- "toml",
- "trust-graph",
  "uuid",
 ]
 
@@ -3387,6 +3364,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
+name = "os_str_bytes"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afb2e1c3ee07430c2cf76151675e583e0f19985fa6efae47d6848a3e2c824f85"
+
+[[package]]
 name = "page_size"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3497,6 +3480,7 @@ dependencies = [
  "serde_json",
  "server-config",
  "thiserror",
+ "toml-utils",
  "trust-graph",
  "uuid",
  "waiting-queues",
@@ -3519,6 +3503,7 @@ dependencies = [
  "json-utils",
  "log",
  "marine-it-parser 0.6.3",
+ "misc",
  "parking_lot 0.11.1",
  "serde",
  "serde_json",
@@ -3541,7 +3526,7 @@ dependencies = [
  "blake3",
  "boolinator",
  "bs58 0.3.1",
- "clap",
+ "clap 3.0.0-beta.2",
  "config-utils",
  "connection-pool",
  "control-macro",
@@ -3633,6 +3618,7 @@ dependencies = [
  "ivalue-utils",
  "json-utils",
  "log",
+ "misc",
  "parking_lot 0.11.1",
  "particle-modules",
  "serde",
@@ -4494,7 +4480,7 @@ dependencies = [
  "air-interpreter-wasm",
  "base64 0.13.0",
  "bs58 0.3.1",
- "clap",
+ "clap 3.0.0-beta.2",
  "config-utils",
  "derivative",
  "eyre",
@@ -4903,6 +4889,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "textwrap"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "203008d98caf094106cfaba70acfed15e18ed3ddb7d94e49baec153a2b462789"
+dependencies = [
+ "unicode-width",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5038,6 +5033,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a31142970826733df8241ef35dc040ef98c679ab14d7c3e54d827099b3acecaa"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "toml-utils"
+version = "0.0.1"
+dependencies = [
+ "toml",
 ]
 
 [[package]]

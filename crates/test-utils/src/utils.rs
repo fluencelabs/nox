@@ -65,13 +65,7 @@ pub fn add_module(
     bytes: String,
     config: TomlFaaSNamedModuleConfig,
 ) -> Result<String, String> {
-    let bytes_v: JValue = serde_json::to_value(bytes).unwrap();
-    let config_v: JValue = serde_json::to_value(config).unwrap();
-
-    let args = create_args(vec![bytes_v, config_v]);
-    let resp = repo.add_module()(args);
-    let resp = response_to_return(resp.unwrap());
-    string_result(resp)
+    repo.add_module(bytes, config).map_err(|e| e.to_string())
 }
 
 pub fn add_bp(
@@ -84,11 +78,5 @@ pub fn add_bp(
         dependencies: deps,
     };
 
-    let v: JValue = serde_json::to_value(req).unwrap();
-
-    let args = create_args(vec![v]);
-
-    let resp = repo.add_blueprint()(args);
-    let resp = response_to_return(resp.unwrap());
-    string_result(resp)
+    repo.add_blueprint(req).map_err(|e| e.to_string())
 }
