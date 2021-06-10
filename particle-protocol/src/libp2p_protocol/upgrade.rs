@@ -124,17 +124,6 @@ where
         async move {
             let process = async move |socket| -> Result<ProtocolMessage, Error> {
                 let packet = upgrade::read_one(socket, MAX_BUF_SIZE).await?;
-                // let str = match std::str::from_utf8(&packet) {
-                //     Ok(str) => {
-                //         log::debug!("Got inbound ProtocolMessage: {}", str);
-                //         str
-                //     }
-                //     Err(err) => {
-                //         log::warn!("Can't parse inbound ProtocolMessage to UTF8 {}", err);
-                //         "unable to parse as UTF8"
-                //     }
-                // };
-
                 serde_json::from_slice(&packet)
                     .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
             };
