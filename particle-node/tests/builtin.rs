@@ -700,6 +700,40 @@ fn concat() {
     assert_eq!(result, vec![json!([0, 0, 1, 2, 3, 4, 5])])
 }
 
+#[test]
+fn array_length() {
+    let result = exec_script(
+        r#"
+        (seq
+            (seq
+                (call relay ("op" "array_length") [empty_array] zero)
+                (call relay ("op" "array_length") [five_array] five)
+            )
+            (seq
+                (xor
+                    (call relay ("op" "array_length") [])
+                    (call relay ("op" "identity") [%last_error%.msg] zero_error)
+                )
+                (seq
+                    (xor
+                        (call relay ("op" "array_length") [empty_array five_array])
+                        (call relay ("op" "identity") [%last_error%.msg] count_error)
+                    )
+                    (xor
+                        (call relay ("op" "array_length") ["hola"])
+                        (call relay ("op" "identity") [%last_error%.msg] type_error)
+                    )
+                )
+            )
+        )
+        "#,
+        <_>::default(),
+        "zero five zero_error count_error type_error",
+        1,
+    );
+    dbg!(result);
+}
+
 fn exec_script(
     script: &str,
     args: HashMap<&'static str, JValue>,
