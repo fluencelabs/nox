@@ -29,6 +29,7 @@ jobs:
             - Dockerfile
             - target/release/particle-node
             - deploy/Config.default.toml
+            - deploy/builtins
       - save_cache:
           paths:
             - ~/.cargo
