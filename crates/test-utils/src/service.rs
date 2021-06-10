@@ -58,7 +58,7 @@ pub fn create_service(
     data.extend(test_module_cfg_map(module_name).into_iter());
 
     client.send_particle(script, data);
-    let response = dbg!(client.receive_args().wrap_err("receive args").unwrap());
+    let response = client.receive_args().wrap_err("receive args").unwrap();
 
     let service_id = response[0]
         .as_str()
