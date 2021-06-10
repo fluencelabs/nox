@@ -407,7 +407,6 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let mut args = args.function_args.into_iter();
 
         let name = Args::next("name", &mut args)?;
-        let file_name = Args::next_opt("file_name", &mut args)?;
         let mem_pages_count = Args::next_opt("mem_pages_count", &mut args)?;
         let logger_enabled = Args::next_opt("logger_enabled", &mut args)?;
         let preopened_files = Args::next_opt("preopened_files", &mut args)?;
@@ -418,7 +417,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let config = NamedModuleConfig {
             name,
-            file_name,
+            file_name: None,
             config: ModuleConfig {
                 mem_pages_count,
                 logger_enabled,

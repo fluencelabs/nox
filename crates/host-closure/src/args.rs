@@ -22,7 +22,6 @@ use ivalue_utils::{as_str, into_string, IValue};
 
 use serde::Deserialize;
 use serde_json::Value as JValue;
-use std::fmt::Debug;
 
 #[derive(Debug)]
 /// Arguments passed by VM to host on call_service
@@ -109,7 +108,7 @@ impl Args {
     /// - if next arg is `T` or `[T]`               => Some(T)
     /// - if next arg is `None` or `[]`             => None
     /// - if next arg is array of several elements  => error
-    pub fn next_opt<T: for<'de> Deserialize<'de> + Debug>(
+    pub fn next_opt<T: for<'de> Deserialize<'de>>(
         field: &'static str,
         args: &mut impl Iterator<Item = JValue>,
     ) -> Result<Option<T>, ArgsError> {
@@ -122,7 +121,7 @@ impl Args {
             Scalar(T),
             None,
         }
-        let value: Opt<T> = dbg!(Self::deserialize(field, value)?);
+        let value: Opt<T> = Self::deserialize(field, value)?;
         let value = match value {
             Opt::Scalar(v) => Some(v),
             Opt::Array(v) if v.len() > 1 => {

@@ -41,6 +41,7 @@ use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use rand::Rng;
 use serde_json::{json, Value as JValue};
+use std::collections::HashMap;
 use std::convert::identity;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -523,6 +524,19 @@ pub fn test_module_cfg(name: &str) -> JValue {
             }
         }
     )
+}
+
+pub fn test_module_cfg_map(name: &str) -> HashMap<&str, JValue> {
+    maplit::hashmap! {
+        "module_name" => json!(name),
+        "mem_pages_count" => json!(100),
+        "logger_enabled" => json!(true),
+        "preopened_files" => json!(["/tmp"]),
+        "envs" => json!([]),
+        "mapped_dirs" => json!([]),
+        "mounted_binaries" => json!([]),
+        "logging_mask" => JValue::Null,
+    }
 }
 
 pub fn now_ms() -> u128 {
