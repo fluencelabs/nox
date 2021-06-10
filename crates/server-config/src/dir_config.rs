@@ -18,7 +18,8 @@ use crate::defaults::{
     builtins_basedir, cert_dir, default_base_dir, services_basedir, stepper_basedir,
 };
 
-use config_utils::create_dirs;
+use fs_utils::create_dirs;
+
 use eyre::WrapErr;
 use serde::Deserialize;
 use std::path::PathBuf;

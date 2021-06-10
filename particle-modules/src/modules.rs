@@ -383,7 +383,7 @@ pub fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Hash {
 #[cfg(test)]
 mod tests {
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
-    use misc::load_module;
+    use services_utils::load_module;
     use tempdir::TempDir;
     use test_utils::{add_bp, add_module, Dependency, Hash, ModuleRepository};
 

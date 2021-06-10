@@ -1,14 +1,12 @@
 [package]
-name = "misc"
+name = "services-utils"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-config-utils = { path = "../config-utils" }
+fs-utils = { path = "../fs-utils" }
 
 air-interpreter-wasm = "0.9.14"
-
-rand = "0.7.3"
 
 eyre = "0.6.5"

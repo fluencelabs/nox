@@ -25,7 +25,7 @@ use serde_json::json;
 
 use eyre::WrapErr;
 use fluence_app_service::SecurityTetraplet;
-use misc::load_module;
+use services_utils::load_module;
 use test_utils::{create_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 #[test]

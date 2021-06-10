@@ -350,9 +350,9 @@ mod tests {
     use crate::{ParticleAppServices, ServiceError};
     use config_utils::{modules_dir, to_peer_id};
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
-    use misc::load_module;
     use particle_modules::{Dependency, Hash, ModuleRepository};
     use server_config::ServicesConfig;
+    use services_utils::load_module;
     use std::fs::remove_file;
     use std::path::PathBuf;
     use test_utils::{add_bp, add_module};

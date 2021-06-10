@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use config_utils::{create_dirs, to_abs_path};
+use fs_utils::{create_dirs, to_abs_path};
+
 use libp2p::PeerId;
 use std::collections::HashMap;
 use std::path::PathBuf;

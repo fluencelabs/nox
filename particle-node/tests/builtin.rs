@@ -31,8 +31,8 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::RandomPeerId;
 use json_utils::into_array;
-use misc::load_module;
 use particle_protocol::Particle;
+use services_utils::load_module;
 use test_utils::{
     create_service, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms, ConnectedClient,
     Transport, PARTICLE_TTL,

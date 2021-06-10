@@ -5,8 +5,8 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-misc = { path = "../misc" }
 ivalue-utils = { path = "../ivalue-utils" }
+services-utils = { path = "../services-utils" }
 host-closure = { path = "../host-closure" }
 particle-protocol = { path = "../../particle-protocol" }
 now-millis = { path = "../now-millis"}

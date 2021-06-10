@@ -58,8 +58,9 @@ boolinator = "2.4.0"
 
 [dev-dependencies]
 test-utils = { path = "../crates/test-utils" }
+fs-utils = { path = "../crates/fs-utils" }
+services-utils = { path = "../crates/services-utils" }
 fluence-libp2p = { path = "../crates/libp2p" }
-misc = { path = "../crates/misc"}
 
 fluence-app-service = "0.7.2"
 

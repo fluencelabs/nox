@@ -8,7 +8,6 @@ edition = "2018"
 host-closure = { path = "../crates/host-closure" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
-misc = { path = "../crates/misc" }
 
 marine-it-parser = "0.6.3"
 fluence-app-service = "0.7.2"
@@ -31,3 +30,4 @@ fstrings = "0.2.3"
 tempdir = "0.3.7"
 libp2p-core = { package = "fluence-fork-libp2p-core", version = "0.27.2" }
 test-utils = { path = "../crates/test-utils" }
+services-utils = { path = "../crates/services-utils" }

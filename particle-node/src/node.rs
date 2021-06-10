@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn run_node() {
-        config_utils::create_dir(default_base_dir()).unwrap();
+        fs_utils::create_dir(default_base_dir()).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&default_base_dir())).unwrap();
 
         let keypair = Keypair::generate_ed25519();

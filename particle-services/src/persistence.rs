@@ -19,7 +19,7 @@ use crate::error::ServiceError::{
     CreateServicesDir, DeserializePersistedService, ReadPersistedService,
 };
 
-use config_utils::create_dirs;
+use fs_utils::create_dirs;
 use particle_modules::{is_service, list_files, service_file_name, ModuleError};
 
 use crate::app_services::Service;
