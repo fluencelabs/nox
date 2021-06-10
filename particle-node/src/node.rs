@@ -93,13 +93,13 @@ impl Node<AVM> {
         let pool_config =
             VmPoolConfig::new(config.stepper_pool_size, config.particle_execution_timeout);
 
-        let startup_kp = Keypair::generate_ed25519();
+        let startup_keypair = Keypair::generate_ed25519();
         let services_config = ServicesConfig::new(
             local_peer_id,
             config.dir_config.services_base_dir.clone(),
             config.services_envs.clone(),
             config.management_peer_id,
-            to_peer_id(&startup_kp),
+            to_peer_id(&startup_keypair),
         )
         .expect("create services config");
 
@@ -148,7 +148,7 @@ impl Node<AVM> {
             registry.into(),
             config.metrics_listen_addr(),
             config.node_config.bootstrap_nodes,
-            startup_kp,
+            startup_keypair,
         ))
     }
 

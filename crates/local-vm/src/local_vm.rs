@@ -29,6 +29,8 @@ use serde_json::Value as JValue;
 use services_utils::put_aquamarine;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 
+pub static PARTICLE_TTL: u32 = 20000;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
     Seq(Box<Instruction>, Box<Instruction>),
@@ -184,7 +186,7 @@ pub fn make_particle(
         id,
         init_peer_id: peer_id,
         timestamp: now_ms() as u64,
-        ttl: 20000u32,
+        ttl: PARTICLE_TTL,
         script,
         signature: vec![],
         data,
