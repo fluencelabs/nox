@@ -63,14 +63,12 @@ pub struct Node<RT: AquaRuntime> {
     pub swarm: Swarm<NetworkBehaviour>,
     stepper_pool: AquamarineBackend<RT>,
     pub stepper_pool_api: AquamarineApi,
-    #[allow(dead_code)] // useful for debugging
     pub local_peer_id: PeerId,
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
     bootstrap_nodes: Vec<Multiaddr>,
     particle_failures: Outlet<String>,
     script_storage: ScriptStorageBackend,
-    #[allow(dead_code)] // useful for debugging
     pub startup_keypair: Keypair,
 }
 

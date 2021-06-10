@@ -19,4 +19,4 @@ extern crate fstrings;
 
 mod local_vm;
 
-pub use local_vm::*;
+pub use crate::local_vm::*;

@@ -132,7 +132,9 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
         builtins_dir,
     );
 
-    builtin_loader.load()?;
+    if let Err(error) = builtin_loader.load() {
+        log::error!("builtins init failed: {}", error);
+    }
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,

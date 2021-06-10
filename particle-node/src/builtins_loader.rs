@@ -239,7 +239,7 @@ impl BuiltinsLoader {
 
     fn list_builtins(&self) -> Result<Vec<Builtin>> {
         Ok(list_files(self.builtins_base_dir.as_path())
-            .ok_or(eyre::eyre!(""))?
+            .ok_or(eyre::eyre!("builtins folder not found"))?
             .map(|path| {
                 let path = path.as_path();
                 let name = path
@@ -270,7 +270,12 @@ impl BuiltinsLoader {
                                 config: fs::read_to_string(config)?,
                             });
                         }
-                        _ => return Err(eyre::eyre!("incorrect blueprint")),
+                        _ => {
+                            return Err(eyre::eyre!(
+                            "incorrect blueprint for {}: dependencies should contain only names",
+                            name
+                        ))
+                        }
                     }
                 }
 
@@ -307,7 +312,7 @@ impl BuiltinsLoader {
         let result = self.send_particle(script, hashmap! {})?;
         let result = result
             .get(0)
-            .ok_or(eyre::eyre!("list_services call failed"))?
+            .ok_or(eyre::eyre!("list_services call failed: response is empty"))?
             .as_array()
             .ok_or(eyre::eyre!("list_services call failed"))?;
         let mut blueprint_ids = hashmap! {};
