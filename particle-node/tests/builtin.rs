@@ -712,26 +712,36 @@ fn array_length() {
             (seq
                 (xor
                     (call relay ("op" "array_length") [])
-                    (call relay ("op" "identity") [%last_error%.msg] zero_error)
+                    (call relay ("op" "identity") [%last_error%.$.msg] zero_error)
                 )
                 (seq
                     (xor
                         (call relay ("op" "array_length") [empty_array five_array])
-                        (call relay ("op" "identity") [%last_error%.msg] count_error)
+                        (call relay ("op" "identity") [%last_error%.$.msg] count_error)
                     )
                     (xor
                         (call relay ("op" "array_length") ["hola"])
-                        (call relay ("op" "identity") [%last_error%.msg] type_error)
+                        (call relay ("op" "identity") [%last_error%.$.msg] type_error)
                     )
                 )
             )
         )
         "#,
-        <_>::default(),
+        hashmap! {
+            "empty_array" => json!([]),
+            "five_array" => json!([1, 2, 3, 4, 5])
+        },
         "zero five zero_error count_error type_error",
         1,
     );
-    dbg!(result);
+
+    assert_eq!(result, vec![
+        json!(0),
+        json!(5),
+        json!("Local service error: ret_code is 1, error message is '\"op array_length accepts exactly 1 arguments: 0 found\"'"),
+        json!("Local service error: ret_code is 1, error message is '\"op array_length accepts exactly 1 arguments: 2 found\"'"),
+        json!("Local service error: ret_code is 1, error message is '\"op array_length's argument must be an array\"'"),
+    ])
 }
 
 fn exec_script(
