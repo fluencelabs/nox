@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+use fs_utils::make_tmp_dir;
 use host_closure::Args;
-use misc::{make_tmp_dir, now_ms, put_aquamarine, uuid};
+use misc::put_aquamarine;
+use now_millis::now_ms;
 use particle_protocol::Particle;
+use uuid::uuid;
 
 use avm_server::{AVMConfig, CallServiceClosure, InterpreterOutcome, AVM};
 

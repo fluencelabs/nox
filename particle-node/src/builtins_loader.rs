@@ -16,7 +16,8 @@
 
 use aquamarine::{AquamarineApi, AVM};
 use boolinator::Boolinator;
-use eyre::Result;
+use eyre::eyre;
+use eyre::{Result, WrapErr};
 use futures::executor::block_on;
 use libp2p::PeerId;
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
@@ -59,12 +60,12 @@ pub struct BuiltinsLoader {
 fn check_result(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
     let result = result
         .get(0)
-        .ok_or(eyre::eyre!(err_msg.to_string()))?
+        .ok_or(eyre!(err_msg.to_string()))?
         .as_str()
-        .ok_or(eyre::eyre!(err_msg.to_string()))?
+        .ok_or(eyre!(err_msg.to_string()))?
         .to_string();
 
-    result.eq("ok").ok_or(eyre::eyre!(err_msg.to_string()))
+    result.eq("ok").ok_or(eyre!(err_msg.to_string()))
 }
 
 impl BuiltinsLoader {
@@ -117,7 +118,7 @@ impl BuiltinsLoader {
         let particle = result
             .particles
             .get(0)
-            .ok_or(eyre::eyre!("response doesn't contain particles".to_string()))?;
+            .ok_or(eyre!("response doesn't contain particles".to_string()))?;
 
         Ok(read_args(
             particle.particle.clone(),
@@ -240,25 +241,28 @@ impl BuiltinsLoader {
     }
 
     fn list_builtins(&self) -> Result<Vec<Builtin>> {
-        let (success, failed): (Vec<Result<Builtin>>, Vec<Result<Builtin>>) =
+        let (successful, failed): (Vec<Result<Builtin>>, Vec<Result<Builtin>>) =
             list_files(self.builtins_base_dir.as_path())
-                .ok_or(eyre::eyre!("builtins folder not found"))?
+                .ok_or(eyre!("builtins folder not found"))?
                 .map(|path| {
                     let path = path.as_path();
                     let name = path
                         .file_name()
-                        .ok_or(eyre::eyre!(""))?
+                        .ok_or(eyre!(""))?
                         .to_str()
-                        .ok_or(eyre::eyre!(""))?
+                        .ok_or(eyre!(""))?
                         .to_string();
-                    let blueprint: AddBlueprint =
-                        serde_json::from_str(&fs::read_to_string(path.join("blueprint.json"))?)?;
+                    let blueprint: AddBlueprint = serde_json::from_str(
+                        &fs::read_to_string(path.join("blueprint.json"))
+                            .wrap_err(eyre!("blueprint.json not found for {}", name))?,
+                    )?;
 
                     let mut modules: Vec<Module> = vec![];
                     for module_name in blueprint.dependencies.iter() {
                         match module_name {
                             Dependency::Name(module_name) => {
                                 let config_name = module_name.clone() + "_cfg.json";
+                                let module_name = module_name.clone() + ".wasm";
                                 let config = self
                                     .builtins_base_dir
                                     .join(name.clone())
@@ -266,15 +270,17 @@ impl BuiltinsLoader {
                                 let module = self
                                     .builtins_base_dir
                                     .join(name.clone())
-                                    .join(module_name.clone() + ".wasm");
+                                    .join(module_name.clone());
 
                                 modules.push(Module {
-                                    data: fs::read(module)?,
-                                    config: fs::read_to_string(config)?,
+                                    data: fs::read(module)
+                                        .wrap_err(eyre!("{} not found", module_name))?,
+                                    config: fs::read_to_string(config)
+                                        .wrap_err(eyre!("{} not found", module_name))?,
                                 });
                             }
                             _ => {
-                                return Err(eyre::eyre!(
+                                return Err(eyre!(
                             "incorrect blueprint for {}: dependencies should contain only names",
                             name
                         ));
@@ -284,13 +290,16 @@ impl BuiltinsLoader {
 
                     let mut deps_hashes: Vec<Hash> =
                         modules.iter().map(|m| Hash::hash(&m.data)).collect();
-                    let facade = deps_hashes.pop().ok_or(eyre::eyre!(""))?;
+                    let facade = deps_hashes.pop().ok_or(eyre!(
+                        "builtin {} loading error: dependencies can't be empty",
+                        name
+                    ))?;
 
                     Ok(Builtin {
                         name,
                         modules,
                         blueprint,
-                        blueprint_id: hash_dependencies(facade, deps_hashes)?.to_string(),
+                        blueprint_id: hash_dependencies(facade, deps_hashes).to_string(),
                         on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
                         on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
                     })
@@ -300,10 +309,10 @@ impl BuiltinsLoader {
         failed
             .into_iter()
             .map(Result::unwrap_err)
-            .map(|err| log::error!("builtin load failed: {}", err.to_string()))
+            .map(|err| log::error!("builtin load failed: {:#}", err))
             .for_each(drop);
 
-        Ok(success.into_iter().map(Result::unwrap).collect())
+        Ok(successful.into_iter().map(Result::unwrap).collect())
     }
 
     fn list_services(&mut self) -> Result<HashMap<String, String>> {
@@ -321,28 +330,28 @@ impl BuiltinsLoader {
         let result = self.send_particle(script, hashmap! {})?;
         let result = result
             .get(0)
-            .ok_or(eyre::eyre!("list_services call failed: response is empty"))?
+            .ok_or(eyre!("list_services call failed: response is empty"))?
             .as_array()
-            .ok_or(eyre::eyre!("list_services call failed"))?;
+            .ok_or(eyre!("list_services call failed"))?;
         let mut blueprint_ids = hashmap! {};
 
         for p in result.into_iter() {
             let blueprint_id = p
                 .get("blueprint_id")
-                .ok_or(eyre::eyre!("list_services call failed"))?
+                .ok_or(eyre!("list_services call failed"))?
                 .as_str()
-                .ok_or(eyre::eyre!("list_services call failed"))?
+                .ok_or(eyre!("list_services call failed"))?
                 .to_string();
             let aliases = p
                 .get("aliases")
-                .ok_or(eyre::eyre!("list_services call failed"))?
+                .ok_or(eyre!("list_services call failed"))?
                 .as_array()
-                .ok_or(eyre::eyre!("list_services call failed"))?;
+                .ok_or(eyre!("list_services call failed"))?;
 
             for alias in aliases.into_iter() {
                 let alias = alias
                     .as_str()
-                    .ok_or(eyre::eyre!("list_services call failed"))?
+                    .ok_or(eyre!("list_services call failed"))?
                     .to_string();
                 blueprint_ids.insert(alias, blueprint_id.clone());
             }

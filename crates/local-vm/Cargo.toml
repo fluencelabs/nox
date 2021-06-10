@@ -1,15 +1,17 @@
 [package]
 name = "local-vm"
 version = "0.1.0"
+authors = ["Fluence Labs"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 misc = { path = "../misc" }
 ivalue-utils = { path = "../ivalue-utils" }
 host-closure = { path = "../host-closure" }
 particle-protocol = { path = "../../particle-protocol" }
+now-millis = { path = "../now-millis"}
+uuid = { path = "../uuid" }
+fs-utils = { path = "../fs-utils"}
 
 air-interpreter-wasm = "0.9.14"
 avm-server = "0.7.0"

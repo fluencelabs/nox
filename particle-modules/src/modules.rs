@@ -146,7 +146,7 @@ impl ModuleRepository {
             .pop()
             .ok_or_else(|| EmptyDependenciesList { id: blueprint_name })?;
 
-        let hash = hash_dependencies(facade.clone(), dependencies.clone())?.to_hex();
+        let hash = hash_dependencies(facade.clone(), dependencies.clone()).to_hex();
 
         let blueprint = Blueprint {
             id: hash.as_ref().to_string(),
@@ -367,7 +367,7 @@ fn resolve_hash(
     }
 }
 
-pub fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Result<Hash> {
+pub fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Hash {
     let mut hasher = blake3::Hasher::new();
     deps.sort_by(|a, b| a.as_bytes().cmp(&b.as_bytes()));
 
@@ -377,7 +377,7 @@ pub fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Result<Hash> {
 
     let hash = hasher.finalize();
     let bytes = hash.as_bytes();
-    Ok(Hash::from(*bytes))
+    Hash::from(*bytes)
 }
 
 #[cfg(test)]
@@ -449,9 +449,9 @@ mod tests {
         let dep2 = Hash::hash(&[2, 1, 3]);
         let dep3 = Hash::hash(&[3, 2, 1]);
 
-        let hash1 = hash_dependencies(dep3.clone(), vec![dep1.clone(), dep2.clone()]).unwrap();
-        let hash2 = hash_dependencies(dep3.clone(), vec![dep2.clone(), dep1.clone()]).unwrap();
-        let hash3 = hash_dependencies(dep1.clone(), vec![dep2.clone(), dep3.clone()]).unwrap();
+        let hash1 = hash_dependencies(dep3.clone(), vec![dep1.clone(), dep2.clone()]);
+        let hash2 = hash_dependencies(dep3.clone(), vec![dep2.clone(), dep1.clone()]);
+        let hash3 = hash_dependencies(dep1.clone(), vec![dep2.clone(), dep3.clone()]);
         assert_eq!(hash1.to_string(), hash2.to_string());
         assert_ne!(hash2.to_string(), hash3.to_string());
     }

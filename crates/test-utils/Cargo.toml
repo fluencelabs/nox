@@ -18,8 +18,9 @@ particle-protocol = { path = "../../particle-protocol" }
 aquamarine = { path = "../../aquamarine" }
 connection-pool = { path = "../../connection-pool" }
 script-storage = { path = "../../script-storage" }
-local-vm = {path = "../local-vm"}
-misc = {path = "../misc"}
+local-vm = { path = "../local-vm" }
+misc = { path = "../misc" }
+fs-utils = { path = "../fs-utils" }
 
 air-interpreter-wasm = "0.9.14"
 avm-server = "0.7.0"

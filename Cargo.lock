@@ -2118,7 +2118,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -2135,6 +2135,13 @@ checksum = "5fc25a87fa4fd2094bffb06925852034d90a17f0d1e05197d4956d3555752191"
 dependencies = [
  "matches",
  "percent-encoding",
+]
+
+[[package]]
+name = "fs-utils"
+version = "0.1.0"
+dependencies = [
+ "rand 0.7.3",
 ]
 
 [[package]]
@@ -2882,14 +2889,17 @@ dependencies = [
  "air-interpreter-wasm",
  "avm-server",
  "fluence-fork-libp2p",
+ "fs-utils",
  "fstrings",
  "host-closure",
  "ivalue-utils",
  "log",
  "misc",
+ "now-millis",
  "parking_lot 0.11.1",
  "particle-protocol",
  "serde_json",
+ "uuid 0.1.0",
 ]
 
 [[package]]
@@ -2919,6 +2929,14 @@ dependencies = [
  "cfg-if 1.0.0",
  "serde",
  "value-bag",
+]
+
+[[package]]
+name = "log-utils"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "log",
 ]
 
 [[package]]
@@ -3030,7 +3048,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -3201,11 +3219,8 @@ version = "0.1.0"
 dependencies = [
  "air-interpreter-wasm",
  "config-utils",
- "env_logger",
  "eyre",
- "log",
  "rand 0.7.3",
- "uuid",
 ]
 
 [[package]]
@@ -3481,7 +3496,7 @@ dependencies = [
  "thiserror",
  "toml-utils",
  "trust-graph",
- "uuid",
+ "uuid 0.8.2",
  "waiting-queues",
 ]
 
@@ -3510,7 +3525,7 @@ dependencies = [
  "test-utils",
  "thiserror",
  "toml",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -3615,7 +3630,7 @@ dependencies = [
  "test-utils",
  "thiserror",
  "toml",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -4307,7 +4322,7 @@ dependencies = [
  "now-millis",
  "particle-protocol",
  "thiserror",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -4841,6 +4856,7 @@ dependencies = [
  "fluence-fork-libp2p",
  "fluence-identity",
  "fluence-libp2p",
+ "fs-utils",
  "fstrings",
  "futures",
  "futures-util",
@@ -4863,7 +4879,7 @@ dependencies = [
  "server-config",
  "toml",
  "trust-graph",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -5182,6 +5198,13 @@ dependencies = [
  "matches",
  "percent-encoding",
  "serde",
+]
+
+[[package]]
+name = "uuid"
+version = "0.1.0"
+dependencies = [
+ "uuid 0.8.2",
 ]
 
 [[package]]
