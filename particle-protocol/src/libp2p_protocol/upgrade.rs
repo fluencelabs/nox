@@ -126,7 +126,7 @@ where
                 let packet = upgrade::read_one(socket, MAX_BUF_SIZE).await?;
                 let str = match std::str::from_utf8(&packet) {
                     Ok(str) => {
-                        log::info!("Got inbound ProtocolMessage: {}", str);
+                        log::debug!("Got inbound ProtocolMessage: {}", str);
                         str
                     }
                     Err(err) => {
