@@ -22,6 +22,7 @@ use ivalue_utils::{as_str, into_string, IValue};
 
 use serde::Deserialize;
 use serde_json::Value as JValue;
+use std::fmt::Debug;
 
 #[derive(Debug)]
 /// Arguments passed by VM to host on call_service
@@ -108,30 +109,32 @@ impl Args {
     /// - if next arg is `T` or `[T]`               => Some(T)
     /// - if next arg is `None` or `[]`             => None
     /// - if next arg is array of several elements  => error
-    pub fn next_opt<T: for<'de> Deserialize<'de>>(
+    pub fn next_opt<T: for<'de> Deserialize<'de> + Debug>(
         field: &'static str,
         args: &mut impl Iterator<Item = JValue>,
     ) -> Result<Option<T>, ArgsError> {
         let value = ok_get!(args.next());
-        let value = match value {
-            // If there is more than 1 value in the passed array
-            // then, depending on T, it may be one of:
-            //    - Some(array) if T is an array
-            //    - invalid option if T is a scalar (because you can't deserialize several values as a scalar)
-            // The only way to tell one from the other is by looking at the T.
-            // And that's what is done here:
-            // keep value untouched, so T can deserialize itself and fail as needed
-            JValue::Array(values) if values.len() > 1 => JValue::Array(values),
-            // Option backed by array of 1 or 0 elements
-            JValue::Array(values) => {
-                ok_get!(values.into_iter().next())
-            }
-            // Scalar value
-            value => value,
-        };
 
-        let value: T = Self::deserialize(field, value)?;
-        Ok(Some(value))
+        #[derive(serde::Deserialize, Debug)]
+        #[serde(untagged)]
+        pub enum Opt<T> {
+            Array(Vec<T>),
+            Scalar(T),
+            None,
+        }
+        let value: Opt<T> = dbg!(Self::deserialize(field, value)?);
+        let value = match value {
+            Opt::Scalar(v) => Some(v),
+            Opt::Array(v) if v.len() > 1 => {
+                return Err(ArgsError::NonUnaryOption {
+                    field,
+                    length: v.len(),
+                })
+            }
+            Opt::Array(v) => v.into_iter().next(),
+            Opt::None => None,
+        };
+        Ok(value)
     }
 
     /// `field` is to generate a more accurate error message
@@ -183,7 +186,7 @@ mod tests {
         let scalar_err: Result<Option<String>, _> = Args::next_opt("scalar", &mut args);
         assert!(scalar_err.is_err());
         assert_eq!(
-            "Error while deserializing field scalar: invalid type: sequence, expected a string",
+            "Option's array must contain at most 1 element, scalar was of 2 elements",
             scalar_err.err().unwrap().to_string()
         );
 
