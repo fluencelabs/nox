@@ -132,7 +132,7 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
         builtins_dir,
     );
 
-    if let Err(error) = builtin_loader.load() {
+    if let Err(error) = builtin_loader.deploy_builtin_services() {
         log::error!("builtins init failed: {}", error);
     }
 

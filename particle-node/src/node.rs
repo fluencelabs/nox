@@ -33,7 +33,6 @@ use trust_graph::{InMemoryStorage, TrustGraph};
 use crate::Connectivity;
 use async_std::task;
 use eyre::WrapErr;
-use futures::executor::block_on;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     select,
@@ -46,15 +45,8 @@ use libp2p::{
     swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
-use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
-use maplit::hashmap;
-use parking_lot::Mutex;
-use particle_modules::list_files;
 use prometheus::Registry;
-use serde_json::{json, Value as JValue};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::path::Path;
 use std::{io, iter::once, net::SocketAddr};
 
 // TODO: documentation
@@ -299,69 +291,6 @@ pub fn write_default_air_interpreter(destination: &Path) -> eyre::Result<()> {
         "failed writing default INTERPRETER_WASM to {:?}",
         destination
     ))
-}
-
-pub fn load_builtin_services(
-    startup_keypair: Keypair,
-    builtins_base_dir: PathBuf,
-    stepper_pool_api: AquamarineApi,
-    local_peer_id: PeerId,
-) -> eyre::Result<()> {
-    let builtin_services: Vec<String> = list_files(builtins_base_dir.as_path())
-        .into_iter()
-        .flatten()
-        .map(|path| {
-            path.as_path()
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string()
-        })
-        .collect();
-
-    let peer_id = to_peer_id(&startup_keypair);
-    let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
-    let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
-
-    let call_in = call_service_in.clone();
-    let call_out = call_service_out.clone();
-
-    let mut vm = make_vm(
-        peer_id.clone(),
-        make_call_service_closure(call_in.clone(), call_out.clone()),
-    );
-
-    let script = r#"
-        (xor
-            (seq
-                (call relay ("srv" "list") [] list)
-                (call %init_peer_id% ("op" "return") [list])
-            )
-            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
-        )
-    "#
-    .to_string();
-
-    let data = hashmap! {
-        "relay" => json!(local_peer_id.to_string()),
-    };
-
-    *call_in.lock() = data
-        .into_iter()
-        .map(|(key, value)| (key.to_string(), value))
-        .collect();
-
-    let particle = make_particle(peer_id.clone(), call_in.clone(), script, None, &mut vm);
-
-    let result = block_on(stepper_pool_api.clone().handle(particle))?;
-    for pt in result.particles {
-        let res = read_args(pt.particle, peer_id.clone(), &mut vm, call_out.clone());
-        log::info!("result: {:?}", res);
-    }
-
-    log::info!("available builtin services: {:?}", builtin_services);
-    Ok(())
 }
 
 #[cfg(test)]

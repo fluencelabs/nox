@@ -49,7 +49,6 @@ pub mod config {
 
 pub use behaviour::NetworkBehaviour;
 pub use builtins_loader::BuiltinsLoader;
-pub use node::load_builtin_services;
 pub use node::write_default_air_interpreter;
 pub use node::Node;
 

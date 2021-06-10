@@ -34,13 +34,17 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 struct Module {
+    // .wasm data
     pub data: Vec<u8>,
-    pub config: String,
+    // parsed json module config
+    pub config: HashMap<String, JValue>,
 }
 
 #[derive(Debug)]
 struct Builtin {
+    // builtin alias
     pub name: String,
+    // list of dependencies
     pub modules: Vec<Module>,
     pub blueprint: AddBlueprint,
     pub blueprint_id: String,
@@ -77,8 +81,9 @@ fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Mo
 
                 modules.push(Module {
                     data: fs::read(module).wrap_err(eyre!("{} not found", module_name))?,
-                    config: fs::read_to_string(config)
-                        .wrap_err(eyre!("{} not found", module_name))?,
+                    config: serde_json::from_str(
+                        &fs::read_to_string(config).wrap_err(eyre!("{} not found", module_name))?,
+                    )?,
                 });
             }
             _ => Err(eyre!(
@@ -177,7 +182,7 @@ impl BuiltinsLoader {
 
         let data = hashmap! {
             "module_bytes".to_string() => json!(base64::encode(&module.data)),
-            "module_config".to_string() => serde_json::from_str(&module.config)?,
+            "module_config".to_string() => json!(module.config),
         };
 
         let result = self.send_particle(script, data)?;
@@ -243,20 +248,18 @@ impl BuiltinsLoader {
         Ok(())
     }
 
-    pub fn load(&mut self) -> Result<()> {
+    pub fn deploy_builtin_services(&mut self) -> Result<()> {
         let available_builtins = self.list_builtins()?;
         let local_services = self.list_services()?;
 
         for builtin in available_builtins.iter() {
             let result: Result<()> = try {
-                let old_blueprint = local_services.get(&builtin.name);
-                if let Some(id) = old_blueprint {
-                    if *id == builtin.blueprint_id {
+                match local_services.get(&builtin.name) {
+                    Some(id) if *id == builtin.blueprint_id => {
                         self.run_on_start(builtin)?;
                         continue;
-                    } else {
-                        self.remove_service(builtin.name.clone())?;
                     }
+                    _ => self.remove_service(builtin.name.clone())?,
                 }
 
                 for module in builtin.modules.iter() {
@@ -333,25 +336,23 @@ impl BuiltinsLoader {
         .to_string();
 
         let result = self.send_particle(script, hashmap! {})?;
-        let result = result
-            .get(0)
-            .ok_or(eyre!("list_services call failed: response is empty"))?
-            .as_array()
-            .ok_or(eyre!("list_services call failed"))?;
+        let result = match result.get(0) {
+            Some(JValue::Array(result)) => result,
+            _ => Err(eyre!("list_services call failed"))?,
+        };
+
         let mut blueprint_ids = hashmap! {};
 
         for p in result.into_iter() {
-            let blueprint_id = p
-                .get("blueprint_id")
-                .ok_or(eyre!("list_services call failed"))?
-                .as_str()
-                .ok_or(eyre!("list_services call failed"))?
-                .to_string();
-            let aliases = p
-                .get("aliases")
-                .ok_or(eyre!("list_services call failed"))?
-                .as_array()
-                .ok_or(eyre!("list_services call failed"))?;
+            let blueprint_id = match p.get("blueprint_id") {
+                Some(JValue::String(id)) => id,
+                _ => Err(eyre!("list_services call failed"))?,
+            };
+
+            let aliases = match p.get("aliases") {
+                Some(JValue::Array(aliases)) => aliases,
+                _ => Err(eyre!("list_services call failed"))?,
+            };
 
             for alias in aliases.into_iter() {
                 let alias = alias
