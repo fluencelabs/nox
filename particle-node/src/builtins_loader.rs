@@ -20,7 +20,6 @@ use particle_modules::{hash_dependencies, list_files, AddBlueprint, Dependency, 
 
 use aquamarine::{AquamarineApi, AVM};
 
-use boolinator::Boolinator;
 use eyre::{eyre, ErrReport};
 use eyre::{Result, WrapErr};
 use futures::executor::block_on;
@@ -59,15 +58,11 @@ pub struct BuiltinsLoader {
     builtins_base_dir: PathBuf,
 }
 
-fn check_result(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
-    let result = result
-        .get(0)
-        .ok_or(eyre!(err_msg.to_string()))?
-        .as_str()
-        .ok_or(eyre!(err_msg.to_string()))?
-        .to_string();
-
-    result.eq("ok").ok_or(eyre!(err_msg.to_string()))
+fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
+    match &result[..] {
+        [JValue::String(s)] if s == "ok" => Ok(()),
+        _ => Err(eyre!(err_msg.to_string())),
+    }
 }
 
 fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Module>> {
@@ -187,7 +182,7 @@ impl BuiltinsLoader {
 
         let result = self.send_particle(script, data)?;
 
-        check_result(result, "add_module call failed")
+        assert_ok(result, "add_module call failed")
     }
 
     fn remove_service(&mut self, name: String) -> eyre::Result<()> {
@@ -204,7 +199,7 @@ impl BuiltinsLoader {
 
         let result = self.send_particle(script, hashmap! {"name".to_string() => json!(name)})?;
 
-        check_result(result, "remove_service call failed")
+        assert_ok(result, "remove_service call failed")
     }
 
     fn create_service(&mut self, builtin: &Builtin) -> eyre::Result<()> {
@@ -232,7 +227,7 @@ impl BuiltinsLoader {
 
         let result = self.send_particle(script, data)?;
 
-        check_result(result, "create_service call failed")
+        assert_ok(result, "create_service call failed")
     }
 
     fn run_on_start(&mut self, builtin: &Builtin) -> eyre::Result<()> {
@@ -242,7 +237,7 @@ impl BuiltinsLoader {
 
             let res =
                 self.send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)?;
-            return check_result(res, "on_start call failed");
+            return assert_ok(res, "on_start call failed");
         }
 
         Ok(())
@@ -283,7 +278,7 @@ impl BuiltinsLoader {
     fn list_builtins(&self) -> Result<Vec<Builtin>> {
         let (successful, failed): (Vec<Builtin>, Vec<ErrReport>) =
             list_files(self.builtins_base_dir.as_path())
-                .ok_or(eyre!("builtins folder not found"))?
+                .ok_or(eyre!("{:#?} folder not found", self.builtins_base_dir))?
                 .fold(
                     (vec![], vec![]),
                     |(mut successful, mut failed): (Vec<Builtin>, Vec<ErrReport>), path| {
