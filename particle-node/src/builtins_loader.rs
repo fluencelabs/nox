@@ -30,11 +30,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{fs, iter};
 
+#[derive(Debug)]
 struct Module {
     pub data: Vec<u8>,
     pub config: String,
 }
 
+#[derive(Debug)]
 struct Builtin {
     pub name: String,
     pub modules: Vec<Module>,
@@ -238,63 +240,70 @@ impl BuiltinsLoader {
     }
 
     fn list_builtins(&self) -> Result<Vec<Builtin>> {
-        Ok(list_files(self.builtins_base_dir.as_path())
-            .ok_or(eyre::eyre!("builtins folder not found"))?
-            .map(|path| {
-                let path = path.as_path();
-                let name = path
-                    .file_name()
-                    .ok_or(eyre::eyre!(""))?
-                    .to_str()
-                    .ok_or(eyre::eyre!(""))?
-                    .to_string();
-                let blueprint: AddBlueprint =
-                    serde_json::from_str(&fs::read_to_string(path.join("blueprint.json"))?)?;
+        let (success, failed): (Vec<Result<Builtin>>, Vec<Result<Builtin>>) =
+            list_files(self.builtins_base_dir.as_path())
+                .ok_or(eyre::eyre!("builtins folder not found"))?
+                .map(|path| {
+                    let path = path.as_path();
+                    let name = path
+                        .file_name()
+                        .ok_or(eyre::eyre!(""))?
+                        .to_str()
+                        .ok_or(eyre::eyre!(""))?
+                        .to_string();
+                    let blueprint: AddBlueprint =
+                        serde_json::from_str(&fs::read_to_string(path.join("blueprint.json"))?)?;
 
-                let mut modules: Vec<Module> = vec![];
-                for module_name in blueprint.dependencies.iter() {
-                    match module_name {
-                        Dependency::Name(module_name) => {
-                            let config_name = module_name.clone() + "_cfg.json";
-                            let config = self
-                                .builtins_base_dir
-                                .join(name.clone())
-                                .join(Path::new(&config_name));
-                            let module = self
-                                .builtins_base_dir
-                                .join(name.clone())
-                                .join(module_name.clone() + ".wasm");
+                    let mut modules: Vec<Module> = vec![];
+                    for module_name in blueprint.dependencies.iter() {
+                        match module_name {
+                            Dependency::Name(module_name) => {
+                                let config_name = module_name.clone() + "_cfg.json";
+                                let config = self
+                                    .builtins_base_dir
+                                    .join(name.clone())
+                                    .join(Path::new(&config_name));
+                                let module = self
+                                    .builtins_base_dir
+                                    .join(name.clone())
+                                    .join(module_name.clone() + ".wasm");
 
-                            modules.push(Module {
-                                data: fs::read(module)?,
-                                config: fs::read_to_string(config)?,
-                            });
-                        }
-                        _ => {
-                            return Err(eyre::eyre!(
+                                modules.push(Module {
+                                    data: fs::read(module)?,
+                                    config: fs::read_to_string(config)?,
+                                });
+                            }
+                            _ => {
+                                return Err(eyre::eyre!(
                             "incorrect blueprint for {}: dependencies should contain only names",
                             name
-                        ))
+                        ));
+                            }
                         }
                     }
-                }
 
-                let mut deps_hashes: Vec<Hash> =
-                    modules.iter().map(|m| Hash::hash(&m.data)).collect();
-                let facade = deps_hashes.pop().ok_or(eyre::eyre!(""))?;
+                    let mut deps_hashes: Vec<Hash> =
+                        modules.iter().map(|m| Hash::hash(&m.data)).collect();
+                    let facade = deps_hashes.pop().ok_or(eyre::eyre!(""))?;
 
-                Ok(Builtin {
-                    name,
-                    modules,
-                    blueprint,
-                    blueprint_id: hash_dependencies(facade, deps_hashes)?.to_string(),
-                    on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
-                    on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
+                    Ok(Builtin {
+                        name,
+                        modules,
+                        blueprint,
+                        blueprint_id: hash_dependencies(facade, deps_hashes)?.to_string(),
+                        on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
+                        on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
+                    })
                 })
-            })
-            .filter(Result::is_ok)
-            .map(Result::unwrap)
-            .collect())
+                .partition(Result::is_ok);
+
+        failed
+            .into_iter()
+            .map(Result::unwrap_err)
+            .map(|err| log::error!("builtin load failed: {}", err.to_string()))
+            .for_each(drop);
+
+        Ok(success.into_iter().map(Result::unwrap).collect())
     }
 
     fn list_services(&mut self) -> Result<HashMap<String, String>> {
