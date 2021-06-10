@@ -5,11 +5,13 @@ run apt-get install curl --yes
 
 ARG exe=
 ARG config=
+ARG builtins=
 
 copy $exe /fluence
 run chmod +x /fluence
 
 copy $config /.fluence/v1/Config.toml
+copy $builtins /.fluence/v1/builtins
 
 volume /.fluence
 
