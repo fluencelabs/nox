@@ -738,7 +738,7 @@ fn array_length() {
     assert_eq!(result, vec![
         json!(0),
         json!(5),
-        json!("Local service error: ret_code is 1, error message is '\"op array_length accepts exactly 1 arguments: 0 found\"'"),
+        json!("Local service error: ret_code is 1, error message is '\"op array_length accepts exactly 1 argument: 0 found\"'"),
         json!("Local service error: ret_code is 1, error message is '\"op array_length accepts exactly 1 arguments: 2 found\"'"),
         json!("Local service error: ret_code is 1, error message is '\"op array_length's argument must be an array\"'"),
     ])
