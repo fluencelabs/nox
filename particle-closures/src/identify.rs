@@ -20,4 +20,6 @@ use serde::Serialize;
 #[derive(Serialize, Clone, Debug)]
 pub struct NodeInfo {
     pub external_addresses: Vec<Multiaddr>,
+    pub node_version: &'static str,
+    pub air_version: &'static str,
 }

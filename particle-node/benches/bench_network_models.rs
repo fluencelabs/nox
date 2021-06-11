@@ -304,6 +304,8 @@ where
 
     let node_info = NodeInfo {
         external_addresses: vec![],
+        node_version: "",
+        air_version: "",
     };
     let script_storage_api = ScriptStorageApi {
         outlet: mpsc::unbounded().0,
