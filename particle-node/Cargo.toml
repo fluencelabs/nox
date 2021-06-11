@@ -22,7 +22,7 @@ kademlia = { path = "../crates/kademlia" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
-air-interpreter-wasm = "0.9.14"
+air-interpreter-wasm = "0.10.5"
 
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 multihash ="0.13"
