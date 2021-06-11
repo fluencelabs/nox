@@ -22,7 +22,7 @@ script-storage = { path = "../../script-storage" }
 local-vm = { path = "../local-vm" }
 fs-utils = { path = "../fs-utils" }
 
-air-interpreter-wasm = "0.9.14"
+air-interpreter-wasm = "0.10.5"
 avm-server = "0.7.0"
 fluence-identity = "0.3.0"
 fluence-faas = "0.7.0"

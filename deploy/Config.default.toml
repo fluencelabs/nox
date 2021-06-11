@@ -7,11 +7,14 @@ root_key_pair.path = "./secret_key"
 root_key_pair.generate_on_absence = true
 
 ## Services will store their data here
-services_base_dir = "./services"
+# default is /.fluence/v1/services
+# services_base_dir = "./services"
 ## AIR Interpreter (stepper) will store its data here
-stepper_base_dir = "./stepper"
+# default is /.fluence/v1/stepper
+# stepper_base_dir = "./stepper"
 ## directory for TrustGraph certificates
-certificate_dir = "./certificates"
+# default is /.fluence/v1/certificates
+# certificate_dir = "./certificates"
 
 ## Path to AIR interpreter .wasm is set to specific version by default
 ## air_interpreter_path = "./aquamarine_${air_interpreter_wasm::VERSION}.wasm"
