@@ -212,7 +212,9 @@ impl ParticleAppServices {
         service_id: String,
         init_user_id: String,
     ) -> Result<(), ServiceError> {
-        if init_user_id != self.management_peer_id {
+        if init_user_id != self.management_peer_id
+            && init_user_id != self.startup_management_peer_id
+        {
             return Err(Forbidden {
                 user: init_user_id,
                 function: "add_alias",

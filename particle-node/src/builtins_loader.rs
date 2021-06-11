@@ -259,7 +259,8 @@ impl BuiltinsLoader {
                         self.run_on_start(builtin)?;
                         continue;
                     }
-                    _ => self.remove_service(builtin.name.clone())?,
+                    Some(_) => self.remove_service(builtin.name.clone())?,
+                    _ => {}
                 }
 
                 for module in builtin.modules.iter() {
