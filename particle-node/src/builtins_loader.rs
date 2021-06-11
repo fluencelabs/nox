@@ -80,9 +80,10 @@ fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Mo
                 let module = path.join(module_name.clone());
 
                 modules.push(Module {
-                    data: fs::read(module).wrap_err(eyre!("{} not found", module))?,
+                    data: fs::read(module.clone()).wrap_err(eyre!("{:?} not found", module))?,
                     config: serde_json::from_str(
-                        &fs::read_to_string(config).wrap_err(eyre!("{} not found", config))?,
+                        &fs::read_to_string(config.clone())
+                            .wrap_err(eyre!("{:?} not found", config))?,
                     )?,
                 });
             }
@@ -105,9 +106,10 @@ fn load_blueprint(path: &PathBuf) -> Result<AddBlueprint> {
 
 fn get_blueprint_id(modules: &Vec<Module>, name: String) -> Result<String> {
     let mut deps_hashes: Vec<Hash> = modules.iter().map(|m| Hash::hash(&m.data)).collect();
-    let facade = deps_hashes
-        .pop()
-        .ok_or(eyre!("invalid blueprint {}: dependencies can't be empty", name))?;
+    let facade = deps_hashes.pop().ok_or(eyre!(
+        "invalid blueprint {}: dependencies can't be empty",
+        name
+    ))?;
 
     Ok(hash_dependencies(facade, deps_hashes).to_string())
 }

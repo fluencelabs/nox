@@ -144,6 +144,15 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
+version = "0.9.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdedc983a7f993ddba8471ecd71427e5ce696e139079a6a477b9ab53f73ee5de"
+dependencies = [
+ "built",
+]
+
+[[package]]
+name = "air-interpreter-wasm"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64aec400e490f65cfa7065343b6208f074055381b9d7853d0213dbec337ccd31"
@@ -2874,7 +2883,7 @@ dependencies = [
 name = "local-vm"
 version = "0.1.0"
 dependencies = [
- "air-interpreter-wasm",
+ "air-interpreter-wasm 0.9.14",
  "avm-server",
  "fluence-fork-libp2p",
  "fs-utils",
@@ -3487,7 +3496,7 @@ dependencies = [
 name = "particle-node"
 version = "0.5.1"
 dependencies = [
- "air-interpreter-wasm",
+ "air-interpreter-wasm 0.10.5",
  "aquamarine",
  "async-std",
  "async-unlock",
@@ -3517,6 +3526,7 @@ dependencies = [
  "kademlia",
  "local-vm",
  "log",
+ "log-utils",
  "maplit",
  "multihash",
  "num_cpus",
@@ -4435,7 +4445,7 @@ dependencies = [
 name = "server-config"
 version = "0.2.0"
 dependencies = [
- "air-interpreter-wasm",
+ "air-interpreter-wasm 0.10.5",
  "base64 0.13.0",
  "bs58 0.3.1",
  "clap 3.0.0-beta.2",
@@ -4462,7 +4472,7 @@ dependencies = [
 name = "services-utils"
 version = "0.1.0"
 dependencies = [
- "air-interpreter-wasm",
+ "air-interpreter-wasm 0.9.14",
  "eyre",
  "fs-utils",
 ]
@@ -4806,7 +4816,7 @@ dependencies = [
 name = "test-utils"
 version = "0.2.0"
 dependencies = [
- "air-interpreter-wasm",
+ "air-interpreter-wasm 0.10.5",
  "aquamarine",
  "async-std",
  "avm-server",
