@@ -2896,7 +2896,7 @@ dependencies = [
  "particle-protocol",
  "serde_json",
  "services-utils",
- "uuid 0.1.0",
+ "uuid-utils",
 ]
 
 [[package]]
@@ -3018,7 +3018,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn",
- "uuid 0.8.2",
+ "uuid",
 ]
 
 [[package]]
@@ -3460,7 +3460,7 @@ dependencies = [
  "thiserror",
  "toml-utils",
  "trust-graph",
- "uuid 0.8.2",
+ "uuid",
  "waiting-queues",
 ]
 
@@ -3489,7 +3489,7 @@ dependencies = [
  "test-utils",
  "thiserror",
  "toml",
- "uuid 0.8.2",
+ "uuid",
 ]
 
 [[package]]
@@ -3596,7 +3596,7 @@ dependencies = [
  "test-utils",
  "thiserror",
  "toml",
- "uuid 0.8.2",
+ "uuid",
 ]
 
 [[package]]
@@ -4288,7 +4288,7 @@ dependencies = [
  "now-millis",
  "particle-protocol",
  "thiserror",
- "uuid 0.8.2",
+ "uuid",
 ]
 
 [[package]]
@@ -4855,7 +4855,7 @@ dependencies = [
  "services-utils",
  "toml",
  "trust-graph",
- "uuid 0.8.2",
+ "uuid",
 ]
 
 [[package]]
@@ -5178,18 +5178,18 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "0.1.0"
-dependencies = [
- "uuid 0.8.2",
-]
-
-[[package]]
-name = "uuid"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
  "getrandom 0.2.3",
+]
+
+[[package]]
+name = "uuid-utils"
+version = "0.1.0"
+dependencies = [
+ "uuid",
 ]
 
 [[package]]

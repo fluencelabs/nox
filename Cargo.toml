@@ -6,7 +6,7 @@ members = [
     "crates/control-macro",
     "crates/waiting-queues",
     "crates/local-vm",
-    "crates/uuid",
+    "crates/uuid-utils",
     "crates/test-utils",
     "crates/fs-utils",
     "crates/log-utils",

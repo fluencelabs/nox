@@ -1,5 +1,5 @@
 [package]
-name = "uuid"
+name = "uuid-utils"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2018"

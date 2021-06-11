@@ -10,7 +10,7 @@ services-utils = { path = "../services-utils" }
 host-closure = { path = "../host-closure" }
 particle-protocol = { path = "../../particle-protocol" }
 now-millis = { path = "../now-millis"}
-uuid = { path = "../uuid" }
+uuid-utils = { path = "../uuid-utils" }
 fs-utils = { path = "../fs-utils"}
 
 air-interpreter-wasm = "0.9.14"

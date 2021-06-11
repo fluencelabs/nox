@@ -174,8 +174,8 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
     fn show(cmd: ClientCommand) {
         println!("{}", serde_json::to_string_pretty(&cmd).unwrap());
     }
-    fn uuid() -> String {
-        uuid::Uuid::new_v4().to_string()
+    fn uuid-utils() -> String {
+        uuid-utils::Uuid::new_v4().to_string()
     }
 
     let time = SystemTime::now()
@@ -186,7 +186,7 @@ fn read_cmds_from_stdin() -> UnboundedReceiver<serde_json::error::Result<ClientC
 
     let call_identify = ClientCommand::Particle {
         call: FunctionCall {
-            uuid: uuid(),
+            uuid-utils: uuid-utils(),
             target: Some(node),
             reply_to: Some(reply_to.clone()),
             module: Some("provide".into()),

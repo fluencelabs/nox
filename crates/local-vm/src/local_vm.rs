@@ -18,7 +18,7 @@ use fs_utils::make_tmp_dir;
 use host_closure::Args;
 use now_millis::now_ms;
 use particle_protocol::Particle;
-use uuid::uuid;
+use uuid_utils::uuid;
 
 use avm_server::{AVMConfig, CallServiceClosure, InterpreterOutcome, AVM};
 
