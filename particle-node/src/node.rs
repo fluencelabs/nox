@@ -164,7 +164,11 @@ impl Node<AVM> {
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
     ) -> HostClosures<Connectivity> {
-        let node_info = NodeInfo { external_addresses };
+        let node_info = NodeInfo {
+            external_addresses,
+            node_version: env!("CARGO_PKG_VERSION"),
+            air_version: air_interpreter_wasm::VERSION,
+        };
 
         HostClosures::new(connectivity, script_storage_api, node_info, services_config)
     }
