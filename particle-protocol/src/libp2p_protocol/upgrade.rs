@@ -130,7 +130,7 @@ where
 
             match process(&mut socket).await {
                 Ok(msg) => {
-                    if log::max_level() >= LevelFilter::Debug {
+                    if log::log_enabled!(log::Level::Debug) {
                         log::debug!("Got inbound ProtocolMessage: {:?}", msg);
                     } else {
                         log::info!("Got inbound ProtocolMessage: {}", msg);
