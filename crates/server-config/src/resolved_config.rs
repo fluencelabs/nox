@@ -47,7 +47,8 @@ pub const BLUEPRINT_DIR: &str = "blueprint_dir";
 pub const MANAGEMENT_PEER_ID: &str = "management_peer_id";
 pub const SERVICES_WORKDIR: &str = "services_workdir";
 pub const LOCAL: &str = "local";
-pub const ALLOW_LOCAL: &str = "allow_local_addresses";
+pub const ALLOW_PRIVATE_IPS: &str = "allow_local_addresses";
+pub const PROMETHEUS_PORT: &str = "prometheus_port";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
@@ -64,7 +65,8 @@ const ARGS: &[&str] = &[
     SERVICE_ENVS,
     BLUEPRINT_DIR,
     MANAGEMENT_PEER_ID,
-    ALLOW_LOCAL,
+    ALLOW_PRIVATE_IPS,
+    PROMETHEUS_PORT,
 ];
 
 #[derive(Clone, Deserialize, Debug)]
