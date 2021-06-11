@@ -107,7 +107,7 @@ fn get_blueprint_id(modules: &Vec<Module>, name: String) -> Result<String> {
     let mut deps_hashes: Vec<Hash> = modules.iter().map(|m| Hash::hash(&m.data)).collect();
     let facade = deps_hashes
         .pop()
-        .ok_or(eyre!("{} loading error: dependencies can't be empty", name))?;
+        .ok_or(eyre!("invalid blueprint {}: dependencies can't be empty", name))?;
 
     Ok(hash_dependencies(facade, deps_hashes).to_string())
 }
