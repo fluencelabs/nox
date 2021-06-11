@@ -80,7 +80,7 @@ fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Mo
                 let module = path.join(module_name.clone());
 
                 modules.push(Module {
-                    data: fs::read(module).wrap_err(eyre!("{} not found", module_name))?,
+                    data: fs::read(module).wrap_err(eyre!("{} not found", module))?,
                     config: serde_json::from_str(
                         &fs::read_to_string(config).wrap_err(eyre!("{} not found", module_name))?,
                     )?,
