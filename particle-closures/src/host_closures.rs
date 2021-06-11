@@ -389,7 +389,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             [JValue::Array(array)] => Ok(json!(array.len())),
             [_] => Err(JError::new("op array_length's argument must be an array")),
             arr => Err(JError::new(format!(
-                "op array_length accepts exactly 1 arguments: {} found",
+                "op array_length accepts exactly 1 argument: {} found",
                 arr.len()
             ))),
         }
