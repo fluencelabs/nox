@@ -143,6 +143,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
             ("op", "noop")                    => unit(),
             ("op", "array")                   => ok(Array(args.function_args)),
+            ("op", "array_length")            => wrap(self.array_length(args.function_args)),
             ("op", "concat")                  => wrap(self.concat(args.function_args)),
             ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
             ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
@@ -391,6 +392,17 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
                 })?;
 
         Ok(JValue::Array(flattened))
+    }
+
+    fn array_length(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        match &args[..] {
+            [JValue::Array(array)] => Ok(json!(array.len())),
+            [_] => Err(JError::new("op array_length's argument must be an array")),
+            arr => Err(JError::new(format!(
+                "op array_length accepts exactly 1 argument: {} found",
+                arr.len()
+            ))),
+        }
     }
 
     fn add_module(&self, args: Args) -> Result<JValue, JError> {
