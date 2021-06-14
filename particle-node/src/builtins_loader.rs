@@ -18,14 +18,13 @@ use libp2p::PeerId;
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
 use particle_modules::{
     hash_dependencies, list_files, module_config_name_json, module_file_name, AddBlueprint,
-    Dependency, Hash,
+    Dependency, Hash, NamedModuleConfig,
 };
 
 use aquamarine::{AquamarineApi, AVM};
 
 use eyre::{eyre, ErrReport};
 use eyre::{Result, WrapErr};
-use fluence_app_service::TomlFaaSNamedModuleConfig;
 use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
@@ -48,7 +47,7 @@ struct Module {
     // .wasm data
     pub data: Vec<u8>,
     // parsed json module config
-    pub config: TomlFaaSNamedModuleConfig,
+    pub config: NamedModuleConfig,
 }
 
 #[derive(Debug)]
