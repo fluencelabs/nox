@@ -330,30 +330,46 @@ impl BuiltinsLoader {
         let available_builtins = self.list_builtins()?;
         let local_services = self.get_service_blueprints()?;
 
+        let mut services_to_create = vec![];
+        let mut created_builtins = vec![];
+
         for builtin in available_builtins.iter() {
+            match local_services.get(&builtin.name) {
+                Some(id) if *id == builtin.blueprint_id => {
+                    created_builtins.push(builtin);
+                }
+                Some(_) => {
+                    self.remove_service(builtin.name.clone())?;
+                    services_to_create.push(builtin)
+                }
+                None => services_to_create.push(builtin),
+            }
+        }
+
+        for builtin in services_to_create.into_iter() {
             let result: Result<()> = try {
-                match local_services.get(&builtin.name) {
-                    Some(id) if *id == builtin.blueprint_id => {
-                        self.run_on_start(builtin)?;
-                        self.run_scheduled_scripts(&builtin)?;
-                        continue;
-                    }
-                    Some(_) => self.remove_service(builtin.name.clone())?,
-                    _ => {}
-                }
-
-                for module in builtin.modules.iter() {
-                    self.add_module(module)?;
-                }
-
+                self.upload_modules(builtin)?;
                 self.create_service(&builtin)?;
-                self.run_on_start(builtin)?;
-                self.run_scheduled_scripts(&builtin)?;
+                created_builtins.push(builtin);
             };
 
             if let Err(err) = result {
                 log::error!("builtin {} init is failed: {}", builtin.name, err);
             }
+        }
+
+        for builtin in created_builtins.into_iter() {
+            self.run_on_start(builtin)?;
+            self.run_scheduled_scripts(&builtin)?;
+        }
+
+        Ok(())
+    }
+
+    fn upload_modules(&mut self, builtin: &Builtin) -> Result<()> {
+        for module in builtin.modules.iter() {
+            self.add_module(module)
+                .wrap_err(format!("builtin {} module upload failed", builtin.name))?;
         }
 
         Ok(())
