@@ -16,8 +16,8 @@ jobs:
           keys:
             - fluence04-{{ checksum "Cargo.lock" }}
       - run: |
-          rustup toolchain install nightly-2021-04-24-x86_64-unknown-linux-gnu
-          rustup default nightly-2021-04-24-x86_64-unknown-linux-gnu
+          rustup toolchain install nightly-2021-06-14-x86_64-unknown-linux-gnu
+          rustup default nightly-2021-06-14-x86_64-unknown-linux-gnu
           cargo build --release --all-features
       - persist_to_workspace:
           # Must be an absolute path, or relative path from working_directory.
@@ -46,7 +46,7 @@ jobs:
       - attach_workspace:
           at: .
       - run: |
-          rustup default nightly-2021-04-24-x86_64-unknown-linux-gnu
+          rustup default nightly-2021-06-14-x86_64-unknown-linux-gnu
           cargo test --no-fail-fast --release --all-features
 
   Publish Docker Container:
