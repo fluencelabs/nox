@@ -158,7 +158,7 @@ impl ResolvedConfig {
 
 /// Take all command line arguments, and insert them into config appropriately
 fn insert_args_to_config(
-    arguments: &ArgMatches<'_>,
+    arguments: &ArgMatches,
     config: &mut toml::value::Table,
 ) -> eyre::Result<()> {
     use toml::Value::*;
@@ -236,7 +236,7 @@ fn insert_args_to_config(
 
 // loads config from arguments and a config file
 // TODO: avoid depending on ArgMatches
-pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<ResolvedConfig> {
+pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
         .map(Into::into)
@@ -255,10 +255,7 @@ pub fn load_config(arguments: ArgMatches<'_>) -> eyre::Result<ResolvedConfig> {
     Ok(config)
 }
 
-pub fn deserialize_config(
-    arguments: ArgMatches<'_>,
-    content: Vec<u8>,
-) -> eyre::Result<ResolvedConfig> {
+pub fn deserialize_config(arguments: ArgMatches, content: Vec<u8>) -> eyre::Result<ResolvedConfig> {
     let mut config: toml::value::Table =
         toml::from_slice(&content).wrap_err("deserializing config")?;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2021 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-//! This crate describes how providers are stored in memory
-
-#![warn(missing_debug_implementations, rust_2018_idioms, missing_docs)]
+#![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
     nonstandard_style,
@@ -27,6 +26,11 @@
     unreachable_patterns
 )]
 
-mod providers;
+use toml::value::{Table, Value};
 
-pub use providers::{Provider, ProviderError, ProviderRepository};
+pub fn table(tuples: Vec<(String, String)>) -> Table {
+    tuples
+        .into_iter()
+        .map(|(k, v)| (k, Value::String(v)))
+        .collect()
+}

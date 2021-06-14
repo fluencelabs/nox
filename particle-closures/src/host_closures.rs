@@ -15,18 +15,17 @@
  */
 
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
-use crate::identify::{identify, NodeInfo};
+use crate::identify::NodeInfo;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use host_closure::{
-    from_base58, Args, Closure, ClosureDescriptor, JError, ParticleClosure, ParticleParameters,
-};
-use ivalue_utils::{into_record, into_record_opt, ok, unit, IValue};
+use host_closure::{from_base58, Args, ClosureDescriptor, JError, ParticleParameters};
+use ivalue_utils::{error, into_record, into_record_opt, ok, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
-use particle_modules::ModuleRepository;
+use particle_modules::{
+    AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
+};
 use particle_protocol::Contact;
-use particle_providers::ProviderRepository;
 use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -36,6 +35,7 @@ use crate::ipfs::IpfsState;
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::kad::kbucket::Key;
+use libp2p::kad::K_VALUE;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use parking_lot::{Mutex, MutexGuard};
@@ -48,31 +48,15 @@ use JValue::Array;
 
 #[derive(Clone)]
 pub struct HostClosures<C> {
-    pub create_service: ParticleClosure,
-    pub remove_service: ParticleClosure,
-    pub call_service: ParticleClosure,
-
-    pub add_module: Closure,
-    pub add_blueprint: Closure,
-    pub list_modules: Closure,
-    pub get_module_interface: Closure,
-    pub get_blueprints: Closure,
-
-    pub get_interface: Closure,
-    pub list_services: Closure,
-
-    pub identify: Closure,
-    pub add_alias: ParticleClosure,
-    pub resolve_alias: Closure,
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
-    // deprecated
-    pub add_provider: Closure,
-    pub get_providers: Closure,
-
     pub management_peer_id: String,
     pub ipfs_state: Arc<Mutex<IpfsState>>,
+
+    pub modules: ModuleRepository,
+    pub services: ParticleAppServices,
+    pub node_info: NodeInfo,
 }
 
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
@@ -86,32 +70,19 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     ) -> Self {
         let modules_dir = config.modules_dir.clone();
         let blueprint_dir = config.blueprint_dir.clone();
-        let providers = ProviderRepository::new(config.local_peer_id);
         let modules = ModuleRepository::new(&modules_dir, &blueprint_dir);
 
         let management_peer_id = config.management_peer_id.to_base58();
         let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
-            add_provider: providers.add_provider(),
-            get_providers: providers.get_providers(),
-            list_modules: modules.list_modules(),
-            get_module_interface: modules.get_interface(),
-            get_blueprints: modules.get_blueprints(),
-            add_module: modules.add_module(),
-            add_blueprint: modules.add_blueprint(),
-            create_service: services.create_service(),
-            remove_service: services.remove_service(),
-            call_service: services.call_service(),
-            get_interface: services.get_interface(),
-            list_services: services.list_services(),
-            identify: identify(node_info),
-            add_alias: services.add_alias(),
-            resolve_alias: services.resolve_alias(),
             connectivity,
             script_storage,
             management_peer_id,
             ipfs_state: Arc::new(Mutex::new(IpfsState::default())),
+            modules,
+            services,
+            node_info,
         }
     }
 
@@ -141,28 +112,30 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
         let result = match (args.service_id.as_str(), args.function_name.as_str()) {
+            ("peer", "identify")              => ok(json!(self.node_info)),
+            ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
+            ("peer", "timestamp_sec")         => ok(json!(now_sec())),
             ("peer", "is_connected")          => wrap(self.is_connected(args)),
             ("peer", "connect")               => wrap(self.connect(args)),
             ("peer", "get_contact")           => wrap_opt(self.get_contact(args)),
-            ("peer", "identify")              => (self.identify)(args),
-            ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
-            ("peer", "timestamp_sec")         => ok(json!(now_sec())),
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args)),
             ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
 
-            ("srv", "create")                 => (self.create_service)(params, args),
-            ("srv", "remove")                 => (self.remove_service)(params, args),
-            ("srv", "list")                   => (self.list_services)(args),
-            ("srv", "get_interface")          => (self.get_interface)(args),
-            ("srv", "add_alias")              => (self.add_alias)(params, args),
-            ("srv", "resolve_alias")          => (self.resolve_alias)(args),
+            ("srv", "list")                   => ok(self.list_services()),
+            ("srv", "create")                 => wrap(self.create_service(args, params)),
+            ("srv", "get_interface")          => wrap(self.get_interface(args)),
+            ("srv", "resolve_alias")          => wrap(self.resolve_alias(args)),
+            ("srv", "add_alias")              => wrap_unit(self.add_alias(args, params)),
+            ("srv", "remove")                 => wrap_unit(self.remove_service(args, params)),
 
-            ("dist", "add_module")            => (self.add_module)(args),
-            ("dist", "list_modules")          => (self.list_modules)(args),
-            ("dist", "get_module_interface")  => (self.get_module_interface)(args),
-            ("dist", "add_blueprint")         => (self.add_blueprint)(args),
-            ("dist", "list_blueprints")       => (self.get_blueprints)(args),
+            ("dist", "add_module")            => wrap(self.add_module(args)),
+            ("dist", "add_blueprint")         => wrap(self.add_blueprint(args)),
+            ("dist", "make_module_config")    => wrap(self.make_module_config(args)),
+            ("dist", "make_blueprint")        => wrap(self.make_blueprint(args)),
+            ("dist", "list_modules")          => wrap(self.list_modules()),
+            ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
+            ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
             ("script", "add")                 => wrap(self.add_script(args, params)),
             ("script", "remove")              => wrap(self.remove_script(args, params)),
@@ -170,22 +143,20 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
             ("op", "noop")                    => unit(),
             ("op", "array")                   => ok(Array(args.function_args)),
-            ("op", "identity")                => wrap_opt(self.identity(args.function_args)),
+            ("op", "array_length")            => wrap(self.array_length(args.function_args)),
             ("op", "concat")                  => wrap(self.concat(args.function_args)),
             ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
             ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
             ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
             ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
             ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
+            ("op", "identity")                => wrap_opt(self.identity(args.function_args)),
 
             ("ipfs", "get_multiaddr")         => wrap(self.ipfs().get_multiaddr()),
-            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(args, params, &self.management_peer_id)),
             ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
+            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(args, params, &self.management_peer_id)),
 
-            ("deprecated", "add_provider")    => (self.add_provider)(args),
-            ("deprecated", "get_providers")   => (self.get_providers)(args),
-
-            _ => (self.call_service)(params, args),
+            _ => wrap(self.call_service(args, params)),
         };
         log::info!("{} ({})", log_args, pretty(start.elapsed()));
         result
@@ -194,13 +165,16 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let key = from_base58("key", &mut args)?;
-        let already_hashed: Option<bool> = Args::maybe_next("already_hashed", &mut args)?;
+        let already_hashed: Option<bool> = Args::next_opt("already_hashed", &mut args)?;
+        let count: Option<usize> = Args::next_opt("count", &mut args)?;
+        let count = count.unwrap_or(K_VALUE.get());
+
         let key = if already_hashed == Some(true) {
             MultihashGeneric::from_bytes(&key)?
         } else {
             Code::Sha2_256.digest(&key)
         };
-        let neighbors = task::block_on(self.kademlia().neighborhood(key));
+        let neighbors = task::block_on(self.kademlia().neighborhood(key, count));
         let neighbors = neighbors
             .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))?;
 
@@ -219,7 +193,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let peer_id: String = Args::next("peer_id", &mut args)?;
         let peer_id = PeerId::from_str(peer_id.as_str())?;
-        let addrs: Vec<Multiaddr> = Args::maybe_next("addresses", &mut args)?.unwrap_or_default();
+        let addrs: Vec<Multiaddr> = Args::next_opt("addresses", &mut args)?.unwrap_or_default();
 
         let contact = Contact::new(peer_id, addrs);
 
@@ -241,11 +215,21 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let mut args = args.function_args.into_iter();
 
         let script: String = Args::next("script", &mut args)?;
-        let interval = Args::maybe_next("interval_sec", &mut args)?;
+        #[derive(serde::Deserialize, Debug)]
+        #[serde(untagged)]
+        pub enum Interval {
+            String(String),
+            Number(u64),
+        }
+        let interval: Option<Interval> = Args::next_opt("interval_sec", &mut args)?;
         let interval = interval
-            .map(|s: String| s.parse::<u64>())
+            .map(|i| match i {
+                Interval::String(s) => Ok(s.parse::<u64>()?),
+                Interval::Number(n) => Ok(n),
+            })
             .transpose()
             .map_err(Error)?;
+
         let interval = interval.map(Duration::from_secs);
         let creator = PeerId::from_str(&params.init_user_id)?;
         let id = self.script_storage.add_script(script, interval, creator)?;
@@ -325,8 +309,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn sha256_string(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
         let mut args = args.into_iter();
         let string: String = Args::next("string", &mut args)?;
-        let digest_only: Option<bool> = Args::maybe_next("digest_only", &mut args)?;
-        let as_bytes: Option<bool> = Args::maybe_next("as_bytes", &mut args)?;
+        let digest_only: Option<bool> = Args::next_opt("digest_only", &mut args)?;
+        let as_bytes: Option<bool> = Args::next_opt("as_bytes", &mut args)?;
         let multihash: MultihashGeneric<_> = Code::Sha2_256.digest(string.as_bytes());
 
         let result = if digest_only == Some(true) {
@@ -350,7 +334,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let target: String = Args::next("target", &mut args)?;
         let left: Vec<String> = Args::next("left", &mut args)?;
         let right: Vec<String> = Args::next("right", &mut args)?;
-        let count: Option<usize> = Args::maybe_next("count", &mut args)?;
+        let count: Option<usize> = Args::next_opt("count", &mut args)?;
 
         let target = bs58::decode(target).into_vec().map_err(DecodeBase58)?;
         let target = Key::from(target);
@@ -410,6 +394,161 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(JValue::Array(flattened))
     }
 
+    fn array_length(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        match &args[..] {
+            [JValue::Array(array)] => Ok(json!(array.len())),
+            [_] => Err(JError::new("op array_length's argument must be an array")),
+            arr => Err(JError::new(format!(
+                "op array_length accepts exactly 1 argument: {} found",
+                arr.len()
+            ))),
+        }
+    }
+
+    fn add_module(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let module_bytes: String = Args::next("module_bytes", &mut args)?;
+        let config = Args::next("config", &mut args)?;
+
+        let module_hash = self.modules.add_module(module_bytes, config)?;
+
+        Ok(JValue::String(module_hash))
+    }
+
+    fn add_blueprint(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let blueprint_request: AddBlueprint = Args::next("blueprint_request", &mut args)?;
+
+        let blueprint_id = self.modules.add_blueprint(blueprint_request)?;
+        Ok(JValue::String(blueprint_id))
+    }
+
+    fn make_module_config(&self, args: Args) -> Result<JValue, JError> {
+        use toml_utils::table;
+
+        let mut args = args.function_args.into_iter();
+
+        let name = Args::next("name", &mut args)?;
+        let mem_pages_count = Args::next_opt("mem_pages_count", &mut args)?;
+        let logger_enabled = Args::next_opt("logger_enabled", &mut args)?;
+        let preopened_files = Args::next_opt("preopened_files", &mut args)?;
+        let envs = Args::next_opt("envs", &mut args)?.map(table);
+        let mapped_dirs = Args::next_opt("mapped_dirs", &mut args)?.map(table);
+        let mounted_binaries = Args::next_opt("mounted_binaries", &mut args)?.map(table);
+        let logging_mask = Args::next_opt("logging_mask", &mut args)?;
+
+        let config = NamedModuleConfig {
+            name,
+            file_name: None,
+            config: ModuleConfig {
+                mem_pages_count,
+                logger_enabled,
+                wasi: Some(WASIConfig {
+                    preopened_files,
+                    envs,
+                    mapped_dirs,
+                }),
+                mounted_binaries,
+                logging_mask,
+            },
+        };
+
+        let config = serde_json::to_value(config)
+            .map_err(|err| JError::new(format!("Error serializing config to JSON: {}", err)))?;
+
+        Ok(config)
+    }
+
+    fn make_blueprint(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let name = Args::next("name", &mut args)?;
+        let dependencies = Args::next("dependencies", &mut args)?;
+        let blueprint_request = AddBlueprint { name, dependencies };
+
+        let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
+            JError::new(format!(
+                "Error serializing blueprint_request to JSON: {}",
+                err
+            ))
+        })?;
+        Ok(blueprint_request)
+    }
+
+    fn list_modules(&self) -> Result<JValue, JError> {
+        self.modules.list_modules()
+    }
+
+    fn get_module_interface(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let hash: String = Args::next("hex_hash", &mut args)?;
+        self.modules.get_interface(&hash)
+    }
+
+    fn get_blueprints(&self) -> Result<JValue, JError> {
+        self.modules
+            .get_blueprints()
+            .into_iter()
+            .map(|bp| {
+                serde_json::to_value(&bp).map_err(|err| {
+                    JError::new(format!("error serializing blueprint {:?}: {}", bp, err))
+                })
+            })
+            .collect()
+    }
+
+    fn create_service(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
+
+        let service_id = self
+            .services
+            .create_service(blueprint_id, params.init_user_id.clone())?;
+
+        Ok(JValue::String(service_id))
+    }
+
+    fn remove_service(&self, args: Args, params: ParticleParameters) -> Result<(), JError> {
+        let mut args = args.function_args.into_iter();
+        let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
+
+        self.services
+            .remove_service(service_id_or_alias, params.init_user_id)?;
+        Ok(())
+    }
+
+    fn list_services(&self) -> JValue {
+        JValue::Array(self.services.list_services())
+    }
+
+    fn call_service(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+        Ok(self.services.call_service(args, params)?)
+    }
+
+    fn get_interface(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let service_id: String = Args::next("service_id", &mut args)?;
+        Ok(self.services.get_interface(service_id)?)
+    }
+
+    fn add_alias(&self, args: Args, params: ParticleParameters) -> Result<(), JError> {
+        let mut args = args.function_args.into_iter();
+
+        let alias: String = Args::next("alias", &mut args)?;
+        let service_id: String = Args::next("service_id", &mut args)?;
+        self.services
+            .add_alias(alias, service_id, params.init_user_id)?;
+        Ok(())
+    }
+
+    fn resolve_alias(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+
+        let alias: String = Args::next("alias", &mut args)?;
+        let service_id = self.services.resolve_alias(alias)?;
+
+        Ok(JValue::String(service_id))
+    }
+
     fn kademlia(&self) -> &KademliaApi {
         self.connectivity.as_ref()
     }
@@ -425,6 +564,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
 fn wrap(r: Result<JValue, JError>) -> Option<IValue> {
     into_record(r.map_err(Into::into))
+}
+
+fn wrap_unit(r: Result<(), JError>) -> Option<IValue> {
+    match r {
+        Err(e) => error(e.into()),
+        _ => unit(),
+    }
 }
 
 fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {

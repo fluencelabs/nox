@@ -80,5 +80,19 @@ impl Particle {
 
 #[allow(clippy::ptr_arg)]
 fn fmt_data(data: &Vec<u8>, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-    write!(f, "{}", bs58::encode(data).into_string())
+    write!(f, "{}", base64::encode(data))
+}
+
+impl std::fmt::Display for Particle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "particle id {}, init_user_id {}, timestamp {}, ttl {}, data [{} bytes]",
+            self.id,
+            self.init_peer_id,
+            self.timestamp,
+            self.ttl,
+            self.data.len()
+        )
+    }
 }

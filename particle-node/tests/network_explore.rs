@@ -21,7 +21,6 @@ use test_utils::{
 use eyre::{ContextCompat, WrapErr};
 use futures::executor::block_on;
 use itertools::Itertools;
-use json_utils::into_array;
 use libp2p::core::Multiaddr;
 use maplit::hashmap;
 use serde::Deserialize;

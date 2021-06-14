@@ -179,7 +179,7 @@ impl ConnectedClient {
     pub fn send_particle(
         &mut self,
         script: impl Into<String>,
-        data: HashMap<&'static str, JValue>,
+        data: HashMap<&str, JValue>,
     ) -> String {
         self.send_particle_ext(script, data, false)
     }

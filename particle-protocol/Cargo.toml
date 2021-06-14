@@ -5,7 +5,7 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 fluence-libp2p = { path = "../crates/libp2p" }
 json-utils = { path = "../crates/json-utils" }
 now-millis = { path = "../crates/now-millis" }
@@ -20,6 +20,7 @@ log = "0.4.11"
 derivative = "2.1.3"
 bs58 = "0.4.0"
 itertools = "0.10.0"
+base64 = "0.13.0"
 
 [dev-dependencies]
 rand = "0.7.3"

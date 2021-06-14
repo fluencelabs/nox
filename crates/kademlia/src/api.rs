@@ -37,7 +37,7 @@ pub trait KademliaApiT {
     fn add_contact(&self, contact: Contact) -> bool;
     fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>>;
     fn discover_peer(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>>;
-    fn neighborhood(&self, key: Multihash) -> Future<Result<Vec<PeerId>>>;
+    fn neighborhood(&self, key: Multihash, count: usize) -> Future<Result<Vec<PeerId>>>;
 }
 
 // marked `pub` to be available in benchmarks
@@ -59,6 +59,7 @@ pub enum Command {
     },
     Neighborhood {
         key: Multihash,
+        count: usize,
         out: OneshotOutlet<Result<Vec<PeerId>>>,
     },
 }
@@ -95,7 +96,9 @@ impl KademliaApiInlet {
             Command::Bootstrap { out } => self.kademlia.bootstrap(out),
             Command::LocalLookup { peer, out } => self.kademlia.local_lookup(&peer, out),
             Command::DiscoverPeer { peer, out } => self.kademlia.discover_peer(peer, out),
-            Command::Neighborhood { key, out } => self.kademlia.neighborhood(key, out),
+            Command::Neighborhood { key, count, out } => {
+                self.kademlia.neighborhood(key, count, out)
+            }
         }
     }
 
@@ -179,7 +182,7 @@ impl KademliaApiT for KademliaApi {
         self.execute(|out| Command::DiscoverPeer { peer, out })
     }
 
-    fn neighborhood(&self, key: Multihash) -> Future<Result<Vec<PeerId>>> {
-        self.execute(|out| Command::Neighborhood { key, out })
+    fn neighborhood(&self, key: Multihash, count: usize) -> Future<Result<Vec<PeerId>>> {
+        self.execute(|out| Command::Neighborhood { key, count, out })
     }
 }

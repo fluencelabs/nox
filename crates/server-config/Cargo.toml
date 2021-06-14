@@ -11,9 +11,9 @@ fluence-libp2p = { path = "../libp2p" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
-air-interpreter-wasm = "0.9.14"
+air-interpreter-wasm = "0.10.5"
 
-libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"
@@ -21,7 +21,7 @@ humantime-serde = "1.0.1"
 prometheus = "0.9.0"
 log = "0.4.11"
 rand = "0.7.3"
-clap = "2.33.0"
+clap = "3.0.0-beta.2"
 toml = "0.5.6"
 bs58 = "0.3.1"
 base64 = "0.13.0"

@@ -14,18 +14,12 @@
  * limitations under the License.
  */
 
-use host_closure::{closure, Closure};
-
 use libp2p::core::Multiaddr;
 use serde::Serialize;
-use serde_json::json;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct NodeInfo {
     pub external_addresses: Vec<Multiaddr>,
-}
-
-/// Information about current node
-pub fn identify(info: NodeInfo) -> Closure {
-    closure(move |_| Ok(json!(info.clone())))
+    pub node_version: &'static str,
+    pub air_version: &'static str,
 }
