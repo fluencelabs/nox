@@ -90,7 +90,8 @@ fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Mo
         modules.push(Module {
             data: fs::read(module.clone()).wrap_err(eyre!("module {:?} not found", module))?,
             config: serde_json::from_str(
-                &fs::read_to_string(config.clone()).wrap_err(eyre!("config {:?} not found", config))?,
+                &fs::read_to_string(config.clone())
+                    .wrap_err(eyre!("config {:?} not found", config))?,
             )?,
         });
     }
@@ -100,7 +101,8 @@ fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Mo
 
 fn load_blueprint(path: &PathBuf) -> Result<AddBlueprint> {
     Ok(serde_json::from_str(
-        &fs::read_to_string(path.join("blueprint.json")).wrap_err(eyre!("blueprint {:?} not found", path))?,
+        &fs::read_to_string(path.join("blueprint.json"))
+            .wrap_err(eyre!("blueprint {:?} not found", path))?,
     )?)
 }
 
@@ -125,13 +127,15 @@ fn load_scheduled_scripts(path: &PathBuf) -> Result<Vec<ScheduledScript>> {
             let name = script_info
                 .next()
                 .ok_or(eyre!(
-                    "invalid name '{}', should be in {name}_{interval_in_sec}.air form", name
+                    "invalid script name {}, should be in %name%_%interval_in_sec%.air form",
+                    name
                 ))?
                 .to_string();
             let interval_sec: u64 = script_info
                 .next()
                 .ok_or(eyre!(
-                    "invalid script name '{}', should be in {name}_{interval_in_sec}.air form", name
+                    "invalid script name {}, should be in %name%_%interval_in_sec%.air form",
+                    name
                 ))?
                 .parse()?;
 
