@@ -125,7 +125,7 @@ fn load_scheduled_scripts(path: &PathBuf) -> Result<Vec<ScheduledScript>> {
             let name = script_info
                 .next()
                 .ok_or(eyre!(
-                    "invalid script naming, should be in {name}_{interval_in_sec}.air form"
+                    "invalid name '{}', should be in {name}_{interval_in_sec}.air form", name
                 ))?
                 .to_string();
             let interval_sec: u64 = script_info
