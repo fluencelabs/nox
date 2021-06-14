@@ -26,8 +26,7 @@ use eyre::{eyre, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
 use std::net::SocketAddr;
-use std::ops::{Deref, DerefMut, Try};
-use std::option::NoneError;
+use std::ops::{Deref, DerefMut};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
@@ -176,14 +175,8 @@ fn insert_args_to_config(
     }
 
     fn check_and_delete(config: &mut toml::value::Table, key: &str, sub_key: &str) {
-        let _res: Result<std::option::Option<toml::Value>, NoneError> = try {
-            config
-                .get_mut(key)
-                .into_result()?
-                .as_table_mut()
-                .into_result()?
-                .remove(sub_key)
-        };
+        let _res: Option<toml::Value> =
+            try { config.get_mut(key)?.as_table_mut()?.remove(sub_key)? };
     }
 
     // Check each possible command line argument
