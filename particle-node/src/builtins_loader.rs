@@ -100,7 +100,7 @@ fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Mo
 
 fn load_blueprint(path: &PathBuf) -> Result<AddBlueprint> {
     Ok(serde_json::from_str(
-        &fs::read_to_string(path.join("blueprint.json")).wrap_err(eyre!("{:?} not found", path))?,
+        &fs::read_to_string(path.join("blueprint.json")).wrap_err(eyre!("blueprint {:?} not found", path))?,
     )?)
 }
 
