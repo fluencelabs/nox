@@ -16,12 +16,16 @@
 
 use libp2p::PeerId;
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
-use particle_modules::{hash_dependencies, list_files, AddBlueprint, Dependency, Hash};
+use particle_modules::{
+    hash_dependencies, list_files, module_config_name_json, module_file_name, AddBlueprint,
+    Dependency, Hash,
+};
 
 use aquamarine::{AquamarineApi, AVM};
 
 use eyre::{eyre, ErrReport};
 use eyre::{Result, WrapErr};
+use fluence_app_service::TomlFaaSNamedModuleConfig;
 use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
@@ -33,11 +37,18 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(Debug)]
+struct ScheduledScript {
+    pub name: String,
+    pub data: String,
+    pub interval_sec: u64,
+}
+
+#[derive(Debug)]
 struct Module {
     // .wasm data
     pub data: Vec<u8>,
     // parsed json module config
-    pub config: HashMap<String, JValue>,
+    pub config: TomlFaaSNamedModuleConfig,
 }
 
 #[derive(Debug)]
@@ -50,6 +61,7 @@ struct Builtin {
     pub blueprint_id: String,
     pub on_start_script: Option<String>,
     pub on_start_data: Option<String>,
+    pub scheduled_scripts: Vec<ScheduledScript>,
 }
 
 pub struct BuiltinsLoader {
@@ -71,27 +83,16 @@ fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
 
 fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Module>> {
     let mut modules: Vec<Module> = vec![];
-    for module_name in dependencies.iter() {
-        match module_name {
-            Dependency::Name(module_name) => {
-                let config_name = module_name.clone() + "_cfg.json";
-                let module_name = module_name.clone() + ".wasm";
-                let config = path.join(Path::new(&config_name));
-                let module = path.join(module_name.clone());
+    for dep in dependencies.iter() {
+        let config = path.join(Path::new(&module_config_name_json(dep)));
+        let module = path.join(&module_file_name(dep));
 
-                modules.push(Module {
-                    data: fs::read(module.clone()).wrap_err(eyre!("{:?} not found", module))?,
-                    config: serde_json::from_str(
-                        &fs::read_to_string(config.clone())
-                            .wrap_err(eyre!("{:?} not found", config))?,
-                    )?,
-                });
-            }
-            _ => Err(eyre!(
-                "{:#?} parsing error: dependencies should contain only names",
-                path
-            ))?,
-        }
+        modules.push(Module {
+            data: fs::read(module.clone()).wrap_err(eyre!("{:?} not found", module))?,
+            config: serde_json::from_str(
+                &fs::read_to_string(config.clone()).wrap_err(eyre!("{:?} not found", config))?,
+            )?,
+        });
     }
 
     Ok(modules)
@@ -112,6 +113,43 @@ fn get_blueprint_id(modules: &Vec<Module>, name: String) -> Result<String> {
     ))?;
 
     Ok(hash_dependencies(facade, deps_hashes).to_string())
+}
+
+fn load_scheduled_scripts(path: &PathBuf) -> Result<Vec<ScheduledScript>> {
+    let mut scripts = vec![];
+    if let Some(files) = list_files(&path.join("scheduled")) {
+        for path in files.into_iter() {
+            let data = fs::read_to_string(path.clone())?;
+            let name = path
+                .file_stem()
+                .ok_or(eyre!("invalid path"))?
+                .to_str()
+                .ok_or(eyre!("path to {} contain non-UTF-8 character"))?
+                .to_string();
+
+            let script_info: Vec<&str> = name.split("_").collect();
+            let name = script_info
+                .get(0)
+                .ok_or(eyre!(
+                    "invalid script naming, should be in {name}_{interval_in_sec}.air form"
+                ))?
+                .to_string();
+            let interval_sec: u64 = script_info
+                .get(1)
+                .ok_or(eyre!(
+                    "invalid script naming, should be in {name}_{interval_in_sec}.air form"
+                ))?
+                .parse()?;
+
+            scripts.push(ScheduledScript {
+                name,
+                data,
+                interval_sec,
+            });
+        }
+    }
+
+    Ok(scripts)
 }
 
 impl BuiltinsLoader {
@@ -187,7 +225,9 @@ impl BuiltinsLoader {
             "module_config".to_string() => json!(module.config),
         };
 
-        let result = self.send_particle(script, data)?;
+        let result = self
+            .send_particle(script, data)
+            .wrap_err("add_module call failed")?;
 
         assert_ok(result, "add_module call failed")
     }
@@ -204,7 +244,9 @@ impl BuiltinsLoader {
         "#
         .to_string();
 
-        let result = self.send_particle(script, hashmap! {"name".to_string() => json!(name)})?;
+        let result = self
+            .send_particle(script, hashmap! {"name".to_string() => json!(name)})
+            .wrap_err("remove_service call failed")?;
 
         assert_ok(result, "remove_service call failed")
     }
@@ -232,7 +274,9 @@ impl BuiltinsLoader {
             "alias".to_string() => json!(builtin.name),
         };
 
-        let result = self.send_particle(script, data)?;
+        let result = self
+            .send_particle(script, data)
+            .wrap_err("create_service call failed")?;
 
         assert_ok(result, "create_service call failed")
     }
@@ -242,9 +286,42 @@ impl BuiltinsLoader {
             let data: HashMap<String, JValue> =
                 serde_json::from_str(builtin.on_start_data.as_ref().unwrap())?;
 
-            let res =
-                self.send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)?;
+            let res = self
+                .send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)
+                .wrap_err("on_start call failed")?;
             return assert_ok(res, "on_start call failed");
+        }
+
+        Ok(())
+    }
+
+    fn run_scheduled_scripts(&mut self, builtin: &Builtin) -> eyre::Result<()> {
+        for scheduled_script in builtin.scheduled_scripts.iter() {
+            let script = r#"
+            (xor
+                (seq
+                    (call relay ("script" "add") [script interval_sec])
+                    (call %init_peer_id% ("op" "return") ["ok"])
+                )
+                (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+            )
+            "#
+            .to_string();
+
+            let data = hashmap! {
+                "script".to_string() => json!(scheduled_script.data),
+                "interval_sec".to_string() => json!(scheduled_script.interval_sec),
+            };
+
+            let res = self.send_particle(script, data).wrap_err(format!(
+                "scheduled script {} run failed",
+                scheduled_script.name
+            ))?;
+
+            assert_ok(
+                res,
+                &format!("scheduled script {} run failed", scheduled_script.name),
+            )?;
         }
 
         Ok(())
@@ -252,13 +329,14 @@ impl BuiltinsLoader {
 
     pub fn deploy_builtin_services(&mut self) -> Result<()> {
         let available_builtins = self.list_builtins()?;
-        let local_services = self.list_services()?;
+        let local_services = self.get_service_blueprints()?;
 
         for builtin in available_builtins.iter() {
             let result: Result<()> = try {
                 match local_services.get(&builtin.name) {
                     Some(id) if *id == builtin.blueprint_id => {
                         self.run_on_start(builtin)?;
+                        self.run_scheduled_scripts(&builtin)?;
                         continue;
                     }
                     Some(_) => self.remove_service(builtin.name.clone())?,
@@ -271,6 +349,7 @@ impl BuiltinsLoader {
 
                 self.create_service(&builtin)?;
                 self.run_on_start(builtin)?;
+                self.run_scheduled_scripts(&builtin)?;
             };
 
             if let Err(err) = result {
@@ -299,6 +378,7 @@ impl BuiltinsLoader {
                             let blueprint = load_blueprint(&path)?;
                             let modules = load_modules(&path, &blueprint.dependencies)?;
                             let blueprint_id = get_blueprint_id(&modules, name.clone())?;
+                            let scheduled_scripts = load_scheduled_scripts(&path)?;
 
                             Builtin {
                                 name,
@@ -307,6 +387,7 @@ impl BuiltinsLoader {
                                 blueprint_id,
                                 on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
                                 on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
+                                scheduled_scripts,
                             }
                         };
 
@@ -326,7 +407,7 @@ impl BuiltinsLoader {
         Ok(successful)
     }
 
-    fn list_services(&mut self) -> Result<HashMap<String, String>> {
+    fn get_service_blueprints(&mut self) -> Result<HashMap<String, String>> {
         let script = r#"
         (xor
             (seq
@@ -338,7 +419,9 @@ impl BuiltinsLoader {
         "#
         .to_string();
 
-        let result = self.send_particle(script, hashmap! {})?;
+        let result = self
+            .send_particle(script, hashmap! {})
+            .wrap_err("srv list call failed")?;
         let result = match result.get(0) {
             Some(JValue::Array(result)) => result,
             _ => Err(eyre!("list_services call failed"))?,

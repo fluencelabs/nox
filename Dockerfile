@@ -11,7 +11,7 @@ copy $exe /fluence
 run chmod +x /fluence
 
 copy $config /.fluence/v1/Config.toml
-copy $builtins /.fluence/v1/builtins
+copy $builtins /builtins
 
 volume /.fluence
 

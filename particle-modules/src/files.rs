@@ -17,7 +17,7 @@
 use crate::blueprint::Blueprint;
 use crate::error::{ModuleError::*, Result};
 use crate::file_names;
-use crate::file_names::{module_config_name, module_file_name};
+use crate::file_names::{module_config_name_hash, module_file_name_hash};
 use crate::hash::Hash;
 
 use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
@@ -38,7 +38,7 @@ pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
 
 /// Load ModuleDescriptor from disk for a given module name
 pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<ModuleDescriptor> {
-    let config = modules_dir.join(module_config_name(module_hash));
+    let config = modules_dir.join(module_config_name_hash(module_hash));
     let config = load_config_by_path(&config)?;
     let mut config: ModuleDescriptor = config
         .try_into()
@@ -46,7 +46,7 @@ pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<
 
     // TODO HACK: This is required because by default file_name is set to be same as import_name
     //            That behavior is defined in TomlFaaSNamedModuleConfig. Would be nice to refactor that behavior.
-    config.file_name = module_file_name(module_hash);
+    config.file_name = module_file_name_hash(module_hash);
 
     Ok(config)
 }
@@ -77,15 +77,15 @@ pub fn add_module(
     bytes: &[u8],
     mut config: TomlFaaSNamedModuleConfig,
 ) -> Result<TomlFaaSNamedModuleConfig> {
-    let wasm = modules_dir.join(module_file_name(module_hash));
+    let wasm = modules_dir.join(module_file_name_hash(module_hash));
     std::fs::write(&wasm, bytes).map_err(|err| AddModule { path: wasm, err })?;
 
     // replace existing configuration with a new one
     // TODO HACK: use custom structure for API; TomlFaaSNamedModuleConfig is too powerful and clumsy.
     // Set file_name = ${hash}.wasm
-    config.file_name = Some(module_config_name(module_hash));
+    config.file_name = Some(module_config_name_hash(module_hash));
     let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
-    let path = modules_dir.join(module_config_name(module_hash));
+    let path = modules_dir.join(module_config_name_hash(module_hash));
     std::fs::write(&path, toml).map_err(|err| WriteConfig { path, err })?;
 
     Ok(config)

@@ -21,7 +21,7 @@ use crate::error::ModuleError::{
 };
 use crate::error::Result;
 use crate::file_names::{extract_module_file_name, is_module_wasm};
-use crate::file_names::{module_config_name, module_file_name};
+use crate::file_names::{module_config_name_hash, module_file_name_hash};
 use crate::files::{load_config_by_path, load_module_by_path};
 use crate::Hash;
 use crate::{file_names, files, load_module_descriptor, Blueprint};
@@ -104,10 +104,10 @@ impl ModuleRepository {
         let migrated: eyre::Result<_> = try {
             let file_name = extract_module_file_name(&path).ok_or_else(|| eyre!("no file name"))?;
             if file_name != hash.to_hex().as_ref() {
-                let new_name = module_file_name(hash);
+                let new_name = module_file_name_hash(hash);
                 log::debug!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
-                std::fs::rename(&path, modules_dir.join(module_file_name(hash)))?;
-                let new_name = module_config_name(hash);
+                std::fs::rename(&path, modules_dir.join(module_file_name_hash(hash)))?;
+                let new_name = module_config_name_hash(hash);
                 let config = path.with_file_name(format!("{}_config.toml", file_name));
                 log::debug!(target: "migration", "renaming config {:?} to {}", config.file_name().unwrap(), new_name);
                 std::fs::rename(&config, modules_dir.join(new_name))?;
@@ -175,7 +175,7 @@ impl ModuleRepository {
                 let hash = extract_module_file_name(&path)?;
                 let result: eyre::Result<_> = try {
                     let hash = Hash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
-                    let config = self.modules_dir.join(module_config_name(&hash));
+                    let config = self.modules_dir.join(module_config_name_hash(&hash));
                     let config = load_config_by_path(&config).wrap_err(f!("load config ${config:?}"))?;
 
                     (hash, config)
@@ -339,7 +339,7 @@ fn get_interface_by_hash(
     let interface = match interface_cache_opt {
         Some(interface) => interface,
         None => {
-            let path = modules_dir.join(module_file_name(hash));
+            let path = modules_dir.join(module_file_name_hash(hash));
             let interface =
                 module_interface(&path).map_err(|err| ReadModuleInterfaceError { path, err })?;
             let json = json!(interface);

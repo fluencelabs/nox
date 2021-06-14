@@ -244,7 +244,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let force = params.init_user_id == self.management_peer_id;
 
-        let uuid: String = Args::next("uuid-utils", &mut args)?;
+        let uuid: String = Args::next("uuid", &mut args)?;
         let actor = PeerId::from_str(&params.init_user_id)?;
 
         let ok = task::block_on(self.script_storage.remove_script(uuid, actor, force))?;
