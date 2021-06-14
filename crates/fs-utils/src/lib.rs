@@ -66,7 +66,7 @@ pub fn remove_dir(dir: &Path) -> Result<(), std::io::Error> {
 pub fn file_stem(path: &PathBuf) -> eyre::Result<String> {
     Ok(path
         .file_stem()
-        .ok_or(eyre!("invalid path"))?
+        .ok_or(eyre!("invalid path: {:?}", path))?
         .to_str()
         .ok_or(eyre!("path {:?} contain non-UTF-8 character", path))?
         .to_string())
