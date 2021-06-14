@@ -22,7 +22,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          # keep in sync rust-toolchain (you may cat into here as option)
           toolchain: nightly-2021-04-24
           override: true
 
