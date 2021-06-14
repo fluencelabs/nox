@@ -7,6 +7,6 @@ edition = "2018"
 [dependencies]
 fs-utils = { path = "../fs-utils" }
 
-air-interpreter-wasm = "0.9.14"
+air-interpreter-wasm = "0.10.5"
 
 eyre = "0.6.5"

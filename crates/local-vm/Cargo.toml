@@ -13,7 +13,7 @@ now-millis = { path = "../now-millis"}
 uuid-utils = { path = "../uuid-utils" }
 fs-utils = { path = "../fs-utils"}
 
-air-interpreter-wasm = "0.9.14"
+air-interpreter-wasm = "0.10.5"
 avm-server = "0.7.0"
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
