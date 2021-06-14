@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use eyre::eyre;
 use rand::Rng;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
@@ -60,4 +61,22 @@ pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> 
 pub fn remove_dir(dir: &Path) -> Result<(), std::io::Error> {
     std::fs::remove_dir_all(&dir)
         .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
+}
+
+pub fn file_stem(path: &PathBuf) -> eyre::Result<String> {
+    Ok(path
+        .file_stem()
+        .ok_or(eyre!("invalid path"))?
+        .to_str()
+        .ok_or(eyre!("path {:?} contain non-UTF-8 character", path))?
+        .to_string())
+}
+
+pub fn file_name(path: &PathBuf) -> eyre::Result<String> {
+    Ok(path
+        .file_name()
+        .ok_or(eyre!("invalid path"))?
+        .to_str()
+        .ok_or(eyre!("path {:?} contain non-UTF-8 character", path))?
+        .to_string())
 }

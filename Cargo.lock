@@ -2129,6 +2129,7 @@ dependencies = [
 name = "fs-utils"
 version = "0.1.0"
 dependencies = [
+ "eyre",
  "rand 0.7.3",
 ]
 

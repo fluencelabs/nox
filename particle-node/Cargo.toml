@@ -20,6 +20,9 @@ server-config = { path = "../crates/server-config" }
 async-unlock = { path = "../crates/async-unlock" }
 config-utils = { path = "../crates/config-utils" }
 kademlia = { path = "../crates/kademlia" }
+fs-utils = { path = "../crates/fs-utils" }
+local-vm = { path = "../crates/local-vm" }
+json-utils = { path = "../crates/json-utils" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
@@ -51,14 +54,11 @@ num_cpus = "1.13.0"
 fstrings = "0.2.3"
 eyre = "0.6.5"
 parking_lot = "0.11.0"
-local-vm = { path = "../crates/local-vm" }
 maplit = "1.0.2"
-json-utils = { path = "../crates/json-utils" }
 
 [dev-dependencies]
 test-utils = { path = "../crates/test-utils" }
 log-utils = { path = "../crates/log-utils" }
-fs-utils = { path = "../crates/fs-utils" }
 services-utils = { path = "../crates/services-utils" }
 fluence-libp2p = { path = "../crates/libp2p" }
 

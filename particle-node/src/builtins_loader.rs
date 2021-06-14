@@ -25,6 +25,7 @@ use aquamarine::{AquamarineApi, AVM};
 
 use eyre::{eyre, ErrReport};
 use eyre::{Result, WrapErr};
+use fs_utils::{file_name, file_stem};
 use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
@@ -99,8 +100,7 @@ fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Mo
 
 fn load_blueprint(path: &PathBuf) -> Result<AddBlueprint> {
     Ok(serde_json::from_str(
-        &fs::read_to_string(path.join("blueprint.json"))
-            .wrap_err(eyre!("{:#?} not found", path))?,
+        &fs::read_to_string(path.join("blueprint.json")).wrap_err(eyre!("{:?} not found", path))?,
     )?)
 }
 
@@ -119,22 +119,17 @@ fn load_scheduled_scripts(path: &PathBuf) -> Result<Vec<ScheduledScript>> {
     if let Some(files) = list_files(&path.join("scheduled")) {
         for path in files.into_iter() {
             let data = fs::read_to_string(path.clone())?;
-            let name = path
-                .file_stem()
-                .ok_or(eyre!("invalid path"))?
-                .to_str()
-                .ok_or(eyre!("path to {} contain non-UTF-8 character"))?
-                .to_string();
+            let name = file_stem(&path)?;
 
-            let script_info: Vec<&str> = name.split("_").collect();
+            let mut script_info = name.split("_");
             let name = script_info
-                .get(0)
+                .next()
                 .ok_or(eyre!(
                     "invalid script naming, should be in {name}_{interval_in_sec}.air form"
                 ))?
                 .to_string();
             let interval_sec: u64 = script_info
-                .get(1)
+                .next()
                 .ok_or(eyre!(
                     "invalid script naming, should be in {name}_{interval_in_sec}.air form"
                 ))?
@@ -327,30 +322,30 @@ impl BuiltinsLoader {
     }
 
     pub fn deploy_builtin_services(&mut self) -> Result<()> {
-        let available_builtins = self.list_builtins()?;
+        let from_disk = self.list_builtins()?;
         let local_services = self.get_service_blueprints()?;
 
-        let mut services_to_create = vec![];
-        let mut created_builtins = vec![];
+        let mut to_create = vec![];
+        let mut to_start = vec![];
 
-        for builtin in available_builtins.iter() {
+        for builtin in from_disk.iter() {
             match local_services.get(&builtin.name) {
                 Some(id) if *id == builtin.blueprint_id => {
-                    created_builtins.push(builtin);
+                    to_start.push(builtin);
                 }
                 Some(_) => {
                     self.remove_service(builtin.name.clone())?;
-                    services_to_create.push(builtin)
+                    to_create.push(builtin)
                 }
-                None => services_to_create.push(builtin),
+                None => to_create.push(builtin),
             }
         }
 
-        for builtin in services_to_create.into_iter() {
+        for builtin in to_create {
             let result: Result<()> = try {
                 self.upload_modules(builtin)?;
                 self.create_service(&builtin)?;
-                created_builtins.push(builtin);
+                to_start.push(builtin);
             };
 
             if let Err(err) = result {
@@ -358,7 +353,7 @@ impl BuiltinsLoader {
             }
         }
 
-        for builtin in created_builtins.into_iter() {
+        for builtin in to_start.into_iter() {
             self.run_on_start(builtin)?;
             self.run_scheduled_scripts(&builtin)?;
         }
@@ -383,12 +378,7 @@ impl BuiltinsLoader {
                     (vec![], vec![]),
                     |(mut successful, mut failed): (Vec<Builtin>, Vec<ErrReport>), path| {
                         let result = try {
-                            let name = path
-                                .file_name()
-                                .ok_or(eyre!(""))?
-                                .to_str()
-                                .ok_or(eyre!(""))?
-                                .to_string();
+                            let name = file_name(&path)?;
 
                             let blueprint = load_blueprint(&path)?;
                             let modules = load_modules(&path, &blueprint.dependencies)?;
