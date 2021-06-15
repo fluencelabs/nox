@@ -54,8 +54,8 @@ pub fn services_basedir(base_dir: &Path) -> PathBuf {
     base_dir.join("services")
 }
 
-pub fn builtins_basedir(base_dir: &Path) -> PathBuf {
-    base_dir.join("builtins")
+pub fn builtins_basedir() -> PathBuf {
+    Path::new("/builtins").into()
 }
 
 pub fn stepper_basedir(base_dir: &Path) -> PathBuf {

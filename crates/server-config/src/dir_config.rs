@@ -56,7 +56,7 @@ impl UnresolvedDirConfig {
         let base = self.base_dir;
         let certificate_dir = self.certificate_dir.unwrap_or(cert_dir(&base));
         let services_base_dir = self.services_base_dir.unwrap_or(services_basedir(&base));
-        let builtins_base_dir = self.builtins_base_dir.unwrap_or(builtins_basedir(&base));
+        let builtins_base_dir = self.builtins_base_dir.unwrap_or(builtins_basedir());
         let stepper_base_dir = self.stepper_base_dir.unwrap_or(stepper_basedir(&base));
         let air_interpreter_path = self
             .air_interpreter_path
