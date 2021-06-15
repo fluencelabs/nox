@@ -25,7 +25,7 @@ use config_utils::{modules_dir, to_peer_id};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::{build_memory_transport, build_transport};
-use particle_node::{Connectivity, Node};
+use particle_node::{BuiltinsLoader, Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use script_storage::ScriptStorageConfig;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend};
@@ -127,7 +127,7 @@ pub fn make_swarms_with_transport_and_mocked_vm(
 ) -> Vec<CreatedSwarm> {
     make_swarms_with::<EasyVM, _, _, _>(
         n,
-        |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_, _, _| None),
+        |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_, _, _, _| None),
         || match transport {
             Transport::Memory => create_memory_maddr(),
             Transport::Network => create_tcp_maddr(),
@@ -150,7 +150,7 @@ where
     make_swarms_with::<EasyVM, _, _, _>(
         n,
         |bs, maddr| {
-            create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), |_, _, _| delay)
+            create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), |_, _, _, _| delay)
         },
         create_memory_maddr,
         bootstraps,
@@ -166,7 +166,10 @@ pub fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, PathBuf, Keypair),
+    F: FnMut(
+        Vec<Multiaddr>,
+        Multiaddr,
+    ) -> (PeerId, Box<Node<RT>>, PathBuf, Keypair, Option<PathBuf>),
     M: FnMut() -> Multiaddr,
     B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
@@ -178,8 +181,12 @@ where
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
             let bootstraps = bootstraps(addrs);
             let bootstraps_num = bootstraps.len();
-            let (id, node, tmp, m_kp) = create_node(bootstraps, addr.clone());
-            ((id, addr.clone(), tmp, m_kp), node, bootstraps_num)
+            let (id, node, tmp, m_kp, builtins_dir) = create_node(bootstraps, addr.clone());
+            (
+                (id, addr.clone(), tmp, m_kp, builtins_dir),
+                node,
+                bootstraps_num,
+            )
         })
         .collect::<Vec<_>>();
 
@@ -206,9 +213,26 @@ where
     let infos = nodes
         .into_iter()
         .map(
-            |((peer_id, multiaddr, tmp_dir, management_keypair), node, _)| {
+            |((peer_id, multiaddr, tmp_dir, management_keypair, builtins_dir), node, _)| {
                 let connectivity = node.network_api.connectivity();
+                let stepper = node.stepper_pool_api.clone();
+                let kp = node.startup_keypair.clone();
+                let local_peer_id = node.local_peer_id.clone();
                 let outlet = node.start();
+
+                if let Some(builtins_dir) = builtins_dir {
+                    let mut builtin_loader = BuiltinsLoader::new(
+                        to_peer_id(&kp),
+                        local_peer_id.clone(),
+                        stepper,
+                        builtins_dir,
+                    );
+
+                    builtin_loader
+                        .deploy_builtin_services()
+                        .expect("builtins deployed");
+                }
+
                 CreatedSwarm {
                     peer_id,
                     multiaddr,
@@ -243,6 +267,7 @@ pub struct SwarmConfig {
     pub transport: Transport,
     pub tmp_dir: Option<PathBuf>,
     pub pool_size: Option<usize>,
+    pub builtins_dir: Option<PathBuf>,
 }
 
 impl SwarmConfig {
@@ -258,6 +283,7 @@ impl SwarmConfig {
             trust: <_>::default(),
             tmp_dir: <_>::default(),
             pool_size: <_>::default(),
+            builtins_dir: None,
         }
     }
 
@@ -279,6 +305,7 @@ pub fn aqua_vm_config(
     connectivity: Connectivity,
     script_storage_api: ScriptStorageApi,
     vm_config: BaseVmConfig,
+    startup_peer_id: PeerId,
 ) -> <AVM as AquaRuntime>::Config {
     let BaseVmConfig {
         peer_id,
@@ -293,13 +320,12 @@ pub fn aqua_vm_config(
     let vm_config =
         VmConfig::new(peer_id, stepper_base_dir, air_interpreter).expect("create vm config");
 
-    let startup_kp = Keypair::generate_ed25519();
     let services_config = ServicesConfig::new(
         peer_id,
         tmp_dir.join("services"),
         <_>::default(),
         manager,
-        to_peer_id(&startup_kp),
+        startup_peer_id,
     )
     .expect("create services config");
 
@@ -315,8 +341,8 @@ pub fn aqua_vm_config(
 
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     config: SwarmConfig,
-    vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig) -> RT::Config,
-) -> (PeerId, Box<Node<RT>>, PathBuf, Keypair) {
+    vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig, PeerId) -> RT::Config,
+) -> (PeerId, Box<Node<RT>>, PathBuf, Keypair, Option<PathBuf>) {
     #[rustfmt::skip]
     let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config;
 
@@ -386,6 +412,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let tmp_dir = config.tmp_dir.unwrap_or_else(make_tmp_dir);
     std::fs::create_dir_all(&tmp_dir).expect("create tmp dir");
 
+    let startup_keypair = Keypair::generate_ed25519();
     let vm_config = vm_config(
         connectivity,
         script_storage_api,
@@ -395,6 +422,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
             listen_on: listen_on.clone(),
             manager: m_id,
         },
+        to_peer_id(&startup_keypair),
     );
 
     let mut node = Node::with(
@@ -408,15 +436,17 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         None,
         "0.0.0.0:0".parse().unwrap(),
         bootstraps,
-        Keypair::generate_ed25519(),
+        startup_keypair,
     );
 
     node.listen(vec![listen_on]).expect("listen");
 
-    (peer_id, node, tmp_dir, management_kp)
+    (peer_id, node, tmp_dir, management_kp, config.builtins_dir)
 }
 
-pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, PathBuf, Keypair) {
+pub fn create_swarm(
+    config: SwarmConfig,
+) -> (PeerId, Box<Node<AVM>>, PathBuf, Keypair, Option<PathBuf>) {
     create_swarm_with_runtime(config, aqua_vm_config)
 }
 
