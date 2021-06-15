@@ -179,7 +179,7 @@ where
             let bootstraps = bootstraps(addrs);
             let bootstraps_num = bootstraps.len();
             let (id, node, m_kp, config) = create_node(bootstraps, addr.clone());
-            ((id, addr.clone(), m_kp, config), node, bootstraps_num)
+            ((id, m_kp, config), node, bootstraps_num)
         })
         .collect::<Vec<_>>();
 
@@ -205,37 +205,35 @@ where
     // start all nodes
     let infos = nodes
         .into_iter()
-        .map(
-            |((peer_id, multiaddr, management_keypair, config), node, _)| {
-                let connectivity = node.network_api.connectivity();
-                let stepper = node.stepper_pool_api.clone();
-                let kp = node.startup_keypair.clone();
-                let local_peer_id = node.local_peer_id.clone();
-                let outlet = node.start();
+        .map(|((peer_id, management_keypair, config), node, _)| {
+            let connectivity = node.network_api.connectivity();
+            let stepper = node.stepper_pool_api.clone();
+            let kp = node.startup_keypair.clone();
+            let local_peer_id = node.local_peer_id.clone();
+            let outlet = node.start();
 
-                if let Some(builtins_dir) = config.builtins_dir {
-                    let mut builtin_loader = BuiltinsDeployer::new(
-                        to_peer_id(&kp),
-                        local_peer_id.clone(),
-                        stepper,
-                        builtins_dir,
-                    );
+            if let Some(builtins_dir) = config.builtins_dir {
+                let mut builtin_loader = BuiltinsDeployer::new(
+                    to_peer_id(&kp),
+                    local_peer_id.clone(),
+                    stepper,
+                    builtins_dir,
+                );
 
-                    builtin_loader
-                        .deploy_builtin_services()
-                        .expect("builtins deployed");
-                }
+                builtin_loader
+                    .deploy_builtin_services()
+                    .expect("builtins deployed");
+            }
 
-                CreatedSwarm {
-                    peer_id,
-                    multiaddr,
-                    tmp_dir: config.tmp_dir,
-                    management_keypair,
-                    outlet,
-                    connectivity,
-                }
-            },
-        )
+            CreatedSwarm {
+                peer_id,
+                multiaddr: config.listen_on,
+                tmp_dir: config.tmp_dir,
+                management_keypair,
+                outlet,
+                connectivity,
+            }
+        })
         .collect();
 
     if wait_connected {
