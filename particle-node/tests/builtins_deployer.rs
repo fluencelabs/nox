@@ -17,7 +17,6 @@
 use test_utils::{make_swarms_with_cfg, ConnectedClient};
 
 use eyre::WrapErr;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::json;
 use std::path::Path;

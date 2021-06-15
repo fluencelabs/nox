@@ -64,7 +64,7 @@ struct Builtin {
     pub scheduled_scripts: Vec<ScheduledScript>,
 }
 
-pub struct BuiltinsLoader {
+pub struct BuiltinsDeployer {
     startup_peer_id: PeerId,
     node_peer_id: PeerId,
     node_api: AquamarineApi,
@@ -150,7 +150,7 @@ fn load_scheduled_scripts(path: &PathBuf) -> Result<Vec<ScheduledScript>> {
     Ok(scripts)
 }
 
-impl BuiltinsLoader {
+impl BuiltinsDeployer {
     pub fn new(
         startup_peer_id: PeerId,
         node_peer_id: PeerId,

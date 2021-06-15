@@ -26,7 +26,7 @@
     unreachable_patterns
 )]
 
-mod builtins_loader;
+mod builtins_deployer;
 mod metrics;
 mod network_api;
 mod network_tasks;
@@ -48,7 +48,7 @@ pub mod config {
 }
 
 pub use behaviour::NetworkBehaviour;
-pub use builtins_loader::BuiltinsLoader;
+pub use builtins_deployer::BuiltinsDeployer;
 pub use node::write_default_air_interpreter;
 pub use node::Node;
 

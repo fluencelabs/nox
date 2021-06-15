@@ -36,7 +36,7 @@ use eyre::WrapErr;
 use log::LevelFilter;
 use particle_node::{
     config::{certificates, create_args},
-    write_default_air_interpreter, BuiltinsLoader, Node,
+    write_default_air_interpreter, BuiltinsDeployer, Node,
 };
 use server_config::{load_config, ResolvedConfig};
 
@@ -125,16 +125,16 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     let local_peer_id = node.local_peer_id.clone();
     let node_exit_outlet = node.start();
 
-    let mut builtin_loader = BuiltinsLoader::new(
+    let mut builtin_deployer = BuiltinsDeployer::new(
         to_peer_id(&kp),
         local_peer_id.clone(),
         stepper,
         builtins_dir,
     );
 
-    if let Err(error) = builtin_loader.deploy_builtin_services() {
-        log::error!("builtins init failed: {}", error);
-    }
+    builtin_deployer
+        .deploy_builtin_services()
+        .wrap_err("builtins deploy failed")?;
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,
