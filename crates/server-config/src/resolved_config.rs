@@ -26,8 +26,7 @@ use eyre::{eyre, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
 use std::net::SocketAddr;
-use std::ops::{Deref, DerefMut, Try};
-use std::option::NoneError;
+use std::ops::{Deref, DerefMut};
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
@@ -37,6 +36,7 @@ pub const ROOT_KEY_PAIR_FORMAT: &str = "format";
 pub const ROOT_KEY_PAIR_PATH: &str = "path";
 pub const ROOT_KEY_PAIR_GENERATE: &str = "generate_on_absence";
 pub const BOOTSTRAP_NODE: &str = "bootstrap_nodes";
+pub const BOOTSTRAP_FREQ: &str = "bootstrap_frequency";
 pub const EXTERNAL_ADDR: &str = "external_address";
 pub const EXTERNAL_MULTIADDRS: &str = "external_multiaddresses";
 pub const CERTIFICATE_DIR: &str = "certificate_dir";
@@ -46,6 +46,8 @@ pub const BLUEPRINT_DIR: &str = "blueprint_dir";
 pub const MANAGEMENT_PEER_ID: &str = "management_peer_id";
 pub const SERVICES_WORKDIR: &str = "services_workdir";
 pub const LOCAL: &str = "local";
+pub const ALLOW_PRIVATE_IPS: &str = "allow_local_addresses";
+pub const PROMETHEUS_PORT: &str = "prometheus_port";
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
@@ -54,6 +56,7 @@ const ARGS: &[&str] = &[
     ROOT_KEY_PAIR_FORMAT,
     ROOT_KEY_PAIR_PATH,
     BOOTSTRAP_NODE,
+    BOOTSTRAP_FREQ,
     EXTERNAL_ADDR,
     EXTERNAL_MULTIADDRS,
     CERTIFICATE_DIR,
@@ -61,6 +64,8 @@ const ARGS: &[&str] = &[
     SERVICE_ENVS,
     BLUEPRINT_DIR,
     MANAGEMENT_PEER_ID,
+    ALLOW_PRIVATE_IPS,
+    PROMETHEUS_PORT,
 ];
 
 #[derive(Clone, Deserialize, Debug)]
@@ -176,14 +181,8 @@ fn insert_args_to_config(
     }
 
     fn check_and_delete(config: &mut toml::value::Table, key: &str, sub_key: &str) {
-        let _res: Result<std::option::Option<toml::Value>, NoneError> = try {
-            config
-                .get_mut(key)
-                .into_result()?
-                .as_table_mut()
-                .into_result()?
-                .remove(sub_key)
-        };
+        let _res: Option<toml::Value> =
+            try { config.get_mut(key)?.as_table_mut()?.remove(sub_key)? };
     }
 
     // Check each possible command line argument
