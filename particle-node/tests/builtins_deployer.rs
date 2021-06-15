@@ -100,7 +100,7 @@ fn builtins_replace_old() {
         r#"
         (xor
             (seq
-                (call relay ("srv" "add_alias") [alias service])q
+                (call relay ("srv" "add_alias") [alias service])
                 (call %init_peer_id% ("op" "return") ["ok"])
             )
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
