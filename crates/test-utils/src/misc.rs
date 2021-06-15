@@ -45,6 +45,7 @@ use serde_json::{json, Value as JValue};
 use services_utils::put_aquamarine;
 use std::collections::HashMap;
 use std::convert::identity;
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{path::PathBuf, time::Duration};
 
@@ -158,6 +159,27 @@ where
     )
 }
 
+pub fn make_swarms_with_keypair(n: usize, keypair: Keypair) -> Vec<CreatedSwarm> {
+    make_swarms_with_cfg(n, |mut cfg| {
+        cfg.keypair = keypair.clone();
+        cfg
+    })
+}
+
+pub fn make_swarms_with_builtins(
+    n: usize,
+    path: &Path,
+    keypair: Option<Keypair>,
+) -> Vec<CreatedSwarm> {
+    make_swarms_with_cfg(n, |mut cfg| {
+        if let Some(keypair) = &keypair {
+            cfg.keypair = keypair.clone();
+        }
+        cfg.builtins_dir = Some(path.into());
+        cfg
+    })
+}
+
 pub fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     n: usize,
     mut create_node: F,
@@ -246,8 +268,11 @@ pub struct Trust {
     pub cur_time: Duration,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct SwarmConfig {
+    #[derivative(Debug = "ignore")]
+    pub keypair: Keypair,
     pub bootstraps: Vec<Multiaddr>,
     pub listen_on: Multiaddr,
     pub trust: Option<Trust>,
@@ -264,6 +289,7 @@ impl SwarmConfig {
             _ => Transport::Network,
         };
         Self {
+            keypair: Keypair::generate_ed25519(),
             bootstraps,
             listen_on,
             transport,
@@ -333,9 +359,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     #[rustfmt::skip]
     let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config.clone();
 
-    let kp = Keypair::generate_ed25519();
-    let public_key = kp.public();
-    let peer_id = PeerId::from(public_key);
+    let peer_id = to_peer_id(&config.keypair);
 
     let management_kp = Keypair::generate_ed25519();
     let m_public_key = management_kp.public();
@@ -356,8 +380,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
 
     let network_config = NetworkConfig {
-        key_pair: kp.clone(),
-        local_peer_id: peer_id,
+        key_pair: config.keypair.clone(),
+        local_peer_id: peer_id.clone(),
         trust_graph,
         bootstrap_nodes: bootstraps.clone(),
         bootstrap: BootstrapConfig::zero(),
@@ -372,8 +396,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     };
 
     let transport = match transport {
-        Transport::Memory => build_memory_transport(kp, TRANSPORT_TIMEOUT),
-        Transport::Network => build_transport(kp, TRANSPORT_TIMEOUT),
+        Transport::Memory => build_memory_transport(config.keypair.clone(), TRANSPORT_TIMEOUT),
+        Transport::Network => build_transport(config.keypair.clone(), TRANSPORT_TIMEOUT),
     };
 
     let (swarm, network_api) =

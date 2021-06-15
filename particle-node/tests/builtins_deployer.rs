@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms_with_cfg, ConnectedClient};
+use particle_modules::list_files;
+use services_utils::load_module;
+use test_utils::{
+    create_service, make_swarms_with_builtins, make_swarms_with_keypair, ConnectedClient,
+};
+
+use libp2p::core::identity::Keypair;
 
 use eyre::WrapErr;
 use maplit::hashmap;
@@ -22,17 +28,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::path::Path;
 
-#[test]
-fn builtins_test() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.builtins_dir = Some(Path::new("../deploy/builtins").into());
-        cfg
-    });
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .wrap_err("connect client")
-        .unwrap();
-
+fn check_dht_builtin(client: &mut ConnectedClient) {
     client.send_particle(
         r#"(xor
             (seq
@@ -68,4 +64,100 @@ fn builtins_test() {
     let result: DhtResult = serde_json::from_value(result).unwrap();
 
     assert!(result.success);
+}
+
+#[test]
+fn builtins_test() {
+    let swarms = make_swarms_with_builtins(1, Path::new("../deploy/builtins"), None);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    check_dht_builtin(&mut client);
+}
+
+#[test]
+fn builtins_replace_old() {
+    let keypair = Keypair::generate_ed25519();
+    let swarms = make_swarms_with_keypair(1, keypair.clone());
+
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
+
+    // use this with aqua-dht alias to emulate old builtin
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
+    );
+
+    client.send_particle(
+        r#"
+        (xor
+            (seq
+                (call relay ("srv" "add_alias") [alias service])q
+                (call %init_peer_id% ("op" "return") ["ok"])
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+            "alias" => json!("aqua-dht".to_string()),
+        },
+    );
+
+    let result = client.receive_args().unwrap();
+    let result = result[0].as_str().unwrap();
+    assert_eq!(result, "ok");
+
+    // stop swarm
+    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+
+    // restart with same keypair
+    let swarms = make_swarms_with_builtins(1, Path::new("../deploy/builtins"), Some(keypair));
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    check_dht_builtin(&mut client);
+}
+
+#[test]
+fn builtins_scheduled_scripts() {
+    let swarms = make_swarms_with_builtins(1, Path::new("../deploy/builtins"), None);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"(xor
+            (seq
+                (call relay ("script" "list") [] result)
+                (call %init_peer_id% ("op" "return") [result])
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+        },
+    );
+
+    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = result[0].as_array().unwrap();
+    assert_eq!(
+        result.len(),
+        list_files(Path::new("../deploy/builtins/aqua-dht/scheduled"))
+            .unwrap()
+            .count()
+    )
 }
