@@ -18,6 +18,7 @@ use test_utils::{make_swarms_with_cfg, ConnectedClient};
 
 use eyre::WrapErr;
 use maplit::hashmap;
+use serde::Deserialize;
 use serde_json::json;
 use std::path::Path;
 
@@ -35,7 +36,13 @@ fn builtins_test() {
     client.send_particle(
         r#"(xor
             (seq
-                (call relay ("srv" "resolve_alias") [alias] result)
+                (seq
+                    (call relay ("srv" "resolve_alias") [alias] service_id)
+                    (seq
+                        (call relay ("peer" "timestamp_sec") [] timestamp)
+                        (call relay (service_id "register_key") [key timestamp pin weight] result)
+                    )
+                )
                 (call %init_peer_id% ("op" "return") [result])
             )
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
@@ -44,12 +51,21 @@ fn builtins_test() {
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "alias" => json!("aqua-dht".to_string()),
+            "key" => json!("some_key".to_string()),
+            "pin" => json!(false),
+            "weight" => json!(1u32),
         },
     );
 
-    let service_id = client.receive_args().wrap_err("receive args").unwrap();
-    let service_id = service_id.into_iter().next().unwrap();
-    let service_id: String = serde_json::from_value(service_id).unwrap();
+    #[derive(Deserialize)]
+    pub struct DhtResult {
+        pub success: bool,
+        pub error: String,
+    }
 
-    assert_ne!("", service_id);
+    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = result.into_iter().next().unwrap();
+    let result: DhtResult = serde_json::from_value(result).unwrap();
+
+    assert!(result.success);
 }
