@@ -152,7 +152,7 @@ impl ParticleAppServices {
             let (service, service_id) =
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
 
-            if service.owner_id != init_user_id {
+            if service.owner_id != init_user_id && self.startup_management_peer_id != init_user_id {
                 return Err(ServiceError::Forbidden {
                     user: init_user_id,
                     function: "remove_service",
