@@ -94,13 +94,8 @@ fn put_get() {
                 "alias" => json!("aqua-dht"),
             },
         );
-        client.receive_args();
+        client.receive_args().unwrap();
     }
-
-    std::thread::sleep(Duration::from_secs(1));
-
-    println!("ENABLING LOGS");
-    enable_logs();
 
     let key = "key";
     let id = client.send_particle_ext(
@@ -115,18 +110,12 @@ fn put_get() {
         },
         true,
     );
-    println!("put particle id: {}", id);
-    println!("client id: {}", client.peer_id);
-    println!("client node id: {}", client.node);
-    let result = client.wait_particle_args(&id);
-    println!("result: {:?}", result);
-    let result = client.wait_particle_args(&id);
-    println!("result: {:?}", result);
-    // std::thread::sleep(Duration::from_secs(100000));
-
-    // client.listen_for_n(100, |args| {
-    //     println!("received args: {:?}", args);
-    // });
+    // ignore first return
+    client.wait_particle_args(&id);
+    // receive 2 neighborhood nodes
+    let result = client.wait_particle_args(&id).unwrap();
+    let nodes = result.get(0).unwrap();
+    assert_eq!(nodes.as_array().unwrap().len(), 2);
 
     let id = client.send_particle_ext(
         get_values,
@@ -138,6 +127,8 @@ fn put_get() {
         },
         true,
     );
-    let result = client.wait_particle_args(&id);
-    println!("result: {:?}", result);
+    let result = client.wait_particle_args(&id).unwrap();
+    let record = result.get(0).unwrap();
+    let record = record.as_array().unwrap().get(0).unwrap();
+    assert_eq!(record.get("value"), Some(json!("value")).as_ref());
 }

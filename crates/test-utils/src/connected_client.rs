@@ -187,7 +187,7 @@ impl ConnectedClient {
     pub fn send_particle_ext(
         &mut self,
         script: impl Into<String>,
-        data: HashMap<&'static str, JValue>,
+        data: HashMap<&str, JValue>,
         generated: bool,
     ) -> String {
         *self.call_service_in.lock() = data
