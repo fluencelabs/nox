@@ -208,7 +208,7 @@ where
         .map(|((peer_id, management_keypair, config), node, _)| {
             let connectivity = node.network_api.connectivity();
             let stepper = node.stepper_pool_api.clone();
-            let kp = node.startup_keypair.clone();
+            let kp = &node.startup_keypair;
             let local_peer_id = node.local_peer_id;
             let outlet = node.start();
 
