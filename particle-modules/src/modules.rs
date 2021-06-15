@@ -57,18 +57,18 @@ pub struct ModuleRepository {
 
 impl ModuleRepository {
     pub fn new(modules_dir: &Path, blueprints_dir: &Path) -> Self {
-        let modules_by_name: HashMap<_, _> = files::list_files(&modules_dir)
+        let modules_by_name: HashMap<_, _> = files::list_files(modules_dir)
             .into_iter()
             .flatten()
-            .filter(|path| is_module_wasm(&path))
+            .filter(|path| is_module_wasm(path))
             .filter_map(|path| {
                 let name_hash: Result<_> = try {
                     let module = load_module_by_path(&path)?;
                     let hash = Hash::hash(&module);
 
-                    Self::maybe_migrate_module(&path, &hash, &modules_dir);
+                    Self::maybe_migrate_module(&path, &hash, modules_dir);
 
-                    let module = load_module_descriptor(&modules_dir, &hash)?;
+                    let module = load_module_descriptor(modules_dir, &hash)?;
                     (module.import_name, hash)
                 };
 
@@ -102,7 +102,7 @@ impl ModuleRepository {
         use eyre::eyre;
 
         let migrated: eyre::Result<_> = try {
-            let file_name = extract_module_file_name(&path).ok_or_else(|| eyre!("no file name"))?;
+            let file_name = extract_module_file_name(path).ok_or_else(|| eyre!("no file name"))?;
             if file_name != hash.to_hex().as_ref() {
                 let new_name = module_file_name_hash(hash);
                 log::debug!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
@@ -138,13 +138,13 @@ impl ModuleRepository {
         let mut dependencies: Vec<Hash> = blueprint
             .dependencies
             .into_iter()
-            .map(|module| Ok(resolve_hash(&self.modules_by_name, module)?))
+            .map(|module| resolve_hash(&self.modules_by_name, module))
             .collect::<Result<_>>()?;
 
         let blueprint_name = blueprint.name.clone();
         let facade = dependencies
             .pop()
-            .ok_or_else(|| EmptyDependenciesList { id: blueprint_name })?;
+            .ok_or(EmptyDependenciesList { id: blueprint_name })?;
 
         let hash = hash_dependencies(facade.clone(), dependencies.clone()).to_hex();
 
@@ -152,7 +152,7 @@ impl ModuleRepository {
             id: hash.as_ref().to_string(),
             dependencies: dependencies
                 .into_iter()
-                .map(|h| Dependency::Hash(h))
+                .map(Dependency::Hash)
                 .chain(iter::once(Dependency::Hash(facade)))
                 .collect(),
             name: blueprint.name,
@@ -369,7 +369,7 @@ fn resolve_hash(
 
 pub fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Hash {
     let mut hasher = blake3::Hasher::new();
-    deps.sort_by(|a, b| a.as_bytes().cmp(&b.as_bytes()));
+    deps.sort_by(|a, b| a.as_bytes().cmp(b.as_bytes()));
 
     for d in deps.iter().chain(iter::once(&facade)) {
         hasher.update(d.as_bytes());

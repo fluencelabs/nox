@@ -81,7 +81,7 @@ fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
     }
 }
 
-fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Module>> {
+fn load_modules(path: &Path, dependencies: &[Dependency]) -> Result<Vec<Module>> {
     let mut modules: Vec<Module> = vec![];
     for dep in dependencies.iter() {
         let config = path.join(Path::new(&module_config_name_json(dep)));
@@ -99,44 +99,47 @@ fn load_modules(path: &PathBuf, dependencies: &Vec<Dependency>) -> Result<Vec<Mo
     Ok(modules)
 }
 
-fn load_blueprint(path: &PathBuf) -> Result<AddBlueprint> {
+fn load_blueprint(path: &Path) -> Result<AddBlueprint> {
     Ok(serde_json::from_str(
         &fs::read_to_string(path.join("blueprint.json"))
             .wrap_err(eyre!("blueprint {:?} not found", path))?,
     )?)
 }
 
-fn get_blueprint_id(modules: &Vec<Module>, name: String) -> Result<String> {
+fn get_blueprint_id(modules: &[Module], name: String) -> Result<String> {
     let mut deps_hashes: Vec<Hash> = modules.iter().map(|m| Hash::hash(&m.data)).collect();
-    let facade = deps_hashes.pop().ok_or(eyre!(
-        "invalid blueprint {}: dependencies can't be empty",
-        name
-    ))?;
+    let facade = deps_hashes
+        .pop()
+        .ok_or_else(|| eyre!("invalid blueprint {}: dependencies can't be empty", name))?;
 
     Ok(hash_dependencies(facade, deps_hashes).to_string())
 }
 
-fn load_scheduled_scripts(path: &PathBuf) -> Result<Vec<ScheduledScript>> {
+fn load_scheduled_scripts(path: &Path) -> Result<Vec<ScheduledScript>> {
     let mut scripts = vec![];
     if let Some(files) = list_files(&path.join("scheduled")) {
         for path in files.into_iter() {
-            let data = fs::read_to_string(path.clone())?;
+            let data = fs::read_to_string(path.to_path_buf())?;
             let name = file_stem(&path)?;
 
-            let mut script_info = name.split("_");
+            let mut script_info = name.split('_');
             let name = script_info
                 .next()
-                .ok_or(eyre!(
-                    "invalid script name {}, should be in %name%_%interval_in_sec%.air form",
-                    name
-                ))?
+                .ok_or_else(|| {
+                    eyre!(
+                        "invalid script name {}, should be in %name%_%interval_in_sec%.air form",
+                        name
+                    )
+                })?
                 .to_string();
             let interval_sec: u64 = script_info
                 .next()
-                .ok_or(eyre!(
-                    "invalid script name {}, should be in %name%_%interval_in_sec%.air form",
-                    name
-                ))?
+                .ok_or_else(|| {
+                    eyre!(
+                        "invalid script name {}, should be in %name%_%interval_in_sec%.air form",
+                        name
+                    )
+                })?
                 .parse()?;
 
             scripts.push(ScheduledScript {
@@ -184,7 +187,7 @@ impl BuiltinsDeployer {
             .insert("relay".to_string(), json!(self.node_peer_id.to_string()));
 
         let particle = make_particle(
-            self.startup_peer_id.clone(),
+            self.startup_peer_id,
             self.call_service_in.clone(),
             script,
             None,
@@ -200,7 +203,7 @@ impl BuiltinsDeployer {
 
         Ok(read_args(
             particle.particle.clone(),
-            self.startup_peer_id.clone(),
+            self.startup_peer_id,
             &mut self.local_vm,
             self.call_service_out.clone(),
         ))
@@ -348,7 +351,7 @@ impl BuiltinsDeployer {
         for builtin in to_create {
             let result: Result<()> = try {
                 self.upload_modules(builtin)?;
-                self.create_service(&builtin)?;
+                self.create_service(builtin)?;
                 to_start.push(builtin);
             };
 
@@ -359,7 +362,7 @@ impl BuiltinsDeployer {
 
         for builtin in to_start.into_iter() {
             self.run_on_start(builtin)?;
-            self.run_scheduled_scripts(&builtin)?;
+            self.run_scheduled_scripts(builtin)?;
         }
 
         Ok(())
@@ -377,7 +380,7 @@ impl BuiltinsDeployer {
     fn list_builtins(&self) -> Result<Vec<Builtin>> {
         let (successful, failed): (Vec<Builtin>, Vec<ErrReport>) =
             list_files(self.builtins_base_dir.as_path())
-                .ok_or(eyre!("{:#?} folder not found", self.builtins_base_dir))?
+                .ok_or_else(|| eyre!("{:#?} folder not found", self.builtins_base_dir))?
                 .fold(
                     (vec![], vec![]),
                     |(mut successful, mut failed): (Vec<Builtin>, Vec<ErrReport>), path| {
@@ -433,26 +436,26 @@ impl BuiltinsDeployer {
             .wrap_err("srv list call failed")?;
         let result = match result.get(0) {
             Some(JValue::Array(result)) => result,
-            _ => Err(eyre!("list_services call failed"))?,
+            _ => return Err(eyre!("list_services call failed")),
         };
 
         let mut blueprint_ids = hashmap! {};
 
-        for p in result.into_iter() {
+        for p in result.iter() {
             let blueprint_id = match p.get("blueprint_id") {
                 Some(JValue::String(id)) => id,
-                _ => Err(eyre!("list_services call failed"))?,
+                _ => return Err(eyre!("list_services call failed")),
             };
 
             let aliases = match p.get("aliases") {
                 Some(JValue::Array(aliases)) => aliases,
-                _ => Err(eyre!("list_services call failed"))?,
+                _ => return Err(eyre!("list_services call failed")),
             };
 
-            for alias in aliases.into_iter() {
+            for alias in aliases.iter() {
                 let alias = alias
                     .as_str()
-                    .ok_or(eyre!("list_services call failed"))?
+                    .ok_or_else(|| eyre!("list_services call failed"))?
                     .to_string();
                 blueprint_ids.insert(alias, blueprint_id.clone());
             }

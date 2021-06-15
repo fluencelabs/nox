@@ -209,16 +209,12 @@ where
             let connectivity = node.network_api.connectivity();
             let stepper = node.stepper_pool_api.clone();
             let kp = node.startup_keypair.clone();
-            let local_peer_id = node.local_peer_id.clone();
+            let local_peer_id = node.local_peer_id;
             let outlet = node.start();
 
             if let Some(builtins_dir) = config.builtins_dir {
-                let mut builtin_loader = BuiltinsDeployer::new(
-                    to_peer_id(&kp),
-                    local_peer_id.clone(),
-                    stepper,
-                    builtins_dir,
-                );
+                let mut builtin_loader =
+                    BuiltinsDeployer::new(to_peer_id(&kp), local_peer_id, stepper, builtins_dir);
 
                 builtin_loader
                     .deploy_builtin_services()

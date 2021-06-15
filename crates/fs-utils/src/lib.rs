@@ -67,20 +67,20 @@ pub fn remove_dir(dir: &Path) -> Result<(), std::io::Error> {
     })
 }
 
-pub fn file_stem(path: &PathBuf) -> eyre::Result<String> {
+pub fn file_stem(path: &Path) -> eyre::Result<String> {
     Ok(path
         .file_stem()
-        .ok_or(eyre!("invalid path: {:?}", path))?
+        .ok_or_else(|| eyre!("invalid path: {:?}", path))?
         .to_str()
-        .ok_or(eyre!("path {:?} contain non-UTF-8 character", path))?
+        .ok_or_else(|| eyre!("path {:?} contain non-UTF-8 character", path))?
         .to_string())
 }
 
-pub fn file_name(path: &PathBuf) -> eyre::Result<String> {
+pub fn file_name(path: &Path) -> eyre::Result<String> {
     Ok(path
         .file_name()
-        .ok_or(eyre!("invalid path: {:?}", path))?
+        .ok_or_else(|| eyre!("invalid path: {:?}", path))?
         .to_str()
-        .ok_or(eyre!("path {:?} contain non-UTF-8 character", path))?
+        .ok_or_else(|| eyre!("path {:?} contain non-UTF-8 character", path))?
         .to_string())
 }

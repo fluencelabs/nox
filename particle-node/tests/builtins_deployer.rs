@@ -50,8 +50,8 @@ fn builtins_test() {
     "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
-            "alias" => json!("aqua-dht".to_string()),
-            "key" => json!("some_key".to_string()),
+            "alias" => json!("aqua-dht"),
+            "key" => json!("some_key"),
             "pin" => json!(false),
             "weight" => json!(1u32),
         },

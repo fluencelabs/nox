@@ -96,7 +96,7 @@ pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedServi
     };
 
     files
-        .filter(|p| is_service(&p))
+        .filter(|p| is_service(p))
         .map(|file| {
             // Load service's persisted info
             let bytes = std::fs::read(&file).map_err(|err| ReadPersistedService {

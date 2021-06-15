@@ -170,7 +170,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let key = from_base58("key", &mut args)?;
         let already_hashed: Option<bool> = Args::next_opt("already_hashed", &mut args)?;
         let count: Option<usize> = Args::next_opt("count", &mut args)?;
-        let count = count.unwrap_or(K_VALUE.get());
+        let count = count.unwrap_or_else(|| K_VALUE.get());
 
         let key = if already_hashed == Some(true) {
             MultihashGeneric::from_bytes(&key)?
@@ -505,7 +505,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let service_id = self
             .services
-            .create_service(blueprint_id, params.init_user_id.clone())?;
+            .create_service(blueprint_id, params.init_user_id)?;
 
         Ok(JValue::String(service_id))
     }

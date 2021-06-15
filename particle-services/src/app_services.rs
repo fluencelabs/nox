@@ -94,7 +94,7 @@ pub fn get_service<'l>(
         (service, resolved_id.clone())
     };
 
-    by_alias.ok_or_else(|| ServiceError::NoSuchService(id_or_alias))
+    by_alias.ok_or(ServiceError::NoSuchService(id_or_alias))
 }
 
 impl ParticleAppServices {
@@ -153,11 +153,11 @@ impl ParticleAppServices {
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
 
             if service.owner_id != init_user_id {
-                Err(ServiceError::Forbidden {
+                return Err(ServiceError::Forbidden {
                     user: init_user_id,
                     function: "remove_service",
                     reason: "only creator can remove service",
-                })?;
+                });
             }
 
             service_id
@@ -192,7 +192,7 @@ impl ParticleAppServices {
             })?;
 
         let params = CallParameters {
-            host_id: host_id.clone(),
+            host_id,
             init_peer_id: params.init_user_id,
             particle_id: params.particle_id,
             tetraplets: args.tetraplets,
@@ -219,14 +219,13 @@ impl ParticleAppServices {
                 user: init_user_id,
                 function: "add_alias",
                 reason: "only management peer id can add aliases",
-            }
-            .into());
+            });
         };
 
         // if a client trying to add an alias that equals some created service id
         // return an error
         if self.services.read().get(&alias).is_some() {
-            return Err(AliasAsServiceId(alias).into());
+            return Err(AliasAsServiceId(alias));
         }
 
         let mut services = self.services.write();
