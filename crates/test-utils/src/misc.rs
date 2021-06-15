@@ -208,13 +208,13 @@ where
         .map(|((peer_id, management_keypair, config), node, _)| {
             let connectivity = node.network_api.connectivity();
             let stepper = node.stepper_pool_api.clone();
-            let kp = &node.startup_keypair;
+            let startup_peer_id = to_peer_id(&node.startup_keypair);
             let local_peer_id = node.local_peer_id;
             let outlet = node.start();
 
             if let Some(builtins_dir) = config.builtins_dir {
                 let mut builtin_loader =
-                    BuiltinsDeployer::new(to_peer_id(&kp), local_peer_id, stepper, builtins_dir);
+                    BuiltinsDeployer::new(startup_peer_id, local_peer_id, stepper, builtins_dir);
 
                 builtin_loader
                     .deploy_builtin_services()

@@ -54,17 +54,13 @@ pub struct UnresolvedDirConfig {
 impl UnresolvedDirConfig {
     pub fn resolve(self) -> ResolvedDirConfig {
         let base = self.base_dir;
-        let certificate_dir = self.certificate_dir.unwrap_or_else(|| cert_dir(&base));
-        let services_base_dir = self
-            .services_base_dir
-            .unwrap_or_else(|| services_basedir(&base));
+        let certificate_dir = self.certificate_dir.unwrap_or(cert_dir(&base));
+        let services_base_dir = self.services_base_dir.unwrap_or(services_basedir(&base));
         let builtins_base_dir = self.builtins_base_dir.unwrap_or_else(builtins_basedir);
-        let stepper_base_dir = self
-            .stepper_base_dir
-            .unwrap_or_else(|| stepper_basedir(&base));
+        let stepper_base_dir = self.stepper_base_dir.unwrap_or(stepper_basedir(&base));
         let air_interpreter_path = self
             .air_interpreter_path
-            .unwrap_or_else(|| air_interpreter_path(&base));
+            .unwrap_or(air_interpreter_path(&base));
 
         ResolvedDirConfig {
             base_dir: base,

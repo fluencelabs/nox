@@ -121,12 +121,12 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
         .expect("Error starting node listener");
 
     let stepper = node.stepper_pool_api.clone();
-    let kp = node.startup_keypair.clone();
+    let startup_peer_id = to_peer_id(&node.startup_keypair);
     let local_peer_id = node.local_peer_id;
     let node_exit_outlet = node.start();
 
     let mut builtin_deployer =
-        BuiltinsDeployer::new(to_peer_id(&kp), local_peer_id, stepper, builtins_dir);
+        BuiltinsDeployer::new(startup_peer_id, local_peer_id, stepper, builtins_dir);
 
     builtin_deployer
         .deploy_builtin_services()
