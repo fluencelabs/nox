@@ -59,8 +59,12 @@ pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> 
 }
 
 pub fn remove_dir(dir: &Path) -> Result<(), std::io::Error> {
-    std::fs::remove_dir_all(&dir)
-        .map_err(|err| std::io::Error::new(err.kind(), format!("error removing directory {:?}: {:?}", dir, err)))
+    std::fs::remove_dir_all(&dir).map_err(|err| {
+        std::io::Error::new(
+            err.kind(),
+            format!("error removing directory {:?}: {:?}", dir, err),
+        )
+    })
 }
 
 pub fn file_stem(path: &PathBuf) -> eyre::Result<String> {
