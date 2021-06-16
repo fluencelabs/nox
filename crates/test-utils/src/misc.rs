@@ -35,7 +35,7 @@ use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 use async_std::task;
 use derivative::Derivative;
 use eyre::WrapErr;
-use fs_utils::{make_tmp_dir, make_tmp_dir_peer_id};
+use fs_utils::make_tmp_dir_peer_id;
 use futures::channel::mpsc::unbounded;
 use futures::{stream::iter, StreamExt};
 use libp2p::core::multiaddr::Protocol;
@@ -246,7 +246,7 @@ where
             CreatedSwarm {
                 peer_id,
                 multiaddr: config.listen_on,
-                tmp_dir: config.tmp_dir,
+                tmp_dir: config.tmp_dir.unwrap(),
                 management_keypair,
                 outlet,
                 connectivity,
@@ -277,7 +277,7 @@ pub struct SwarmConfig {
     pub listen_on: Multiaddr,
     pub trust: Option<Trust>,
     pub transport: Transport,
-    pub tmp_dir: PathBuf,
+    pub tmp_dir: Option<PathBuf>,
     pub pool_size: Option<usize>,
     pub builtins_dir: Option<PathBuf>,
 }
@@ -294,7 +294,7 @@ impl SwarmConfig {
             listen_on,
             transport,
             trust: <_>::default(),
-            tmp_dir: make_tmp_dir(),
+            tmp_dir: None,
             pool_size: <_>::default(),
             builtins_dir: None,
         }
@@ -360,8 +360,12 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config.clone();
 
     let peer_id = to_peer_id(&config.keypair);
-    config.tmp_dir = make_tmp_dir_peer_id(peer_id.to_string());
 
+    if config.tmp_dir.is_none() {
+        config.tmp_dir = Some(make_tmp_dir_peer_id(peer_id.to_string()));
+    }
+
+    let tmp_dir = config.tmp_dir.as_ref().unwrap();
     let management_kp = Keypair::generate_ed25519();
     let m_public_key = management_kp.public();
     let m_id = PeerId::from(m_public_key);
@@ -421,7 +425,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let pool_size = config.pool_size.unwrap_or(1);
     let pool_config = VmPoolConfig::new(pool_size, EXECUTION_TIMEOUT);
 
-    std::fs::create_dir_all(&config.tmp_dir).expect("create tmp dir");
+    std::fs::create_dir_all(tmp_dir).expect("create tmp dir");
 
     let startup_keypair = Keypair::generate_ed25519();
     let vm_config = vm_config(
@@ -429,7 +433,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         script_storage_api,
         BaseVmConfig {
             peer_id,
-            tmp_dir: config.tmp_dir.clone(),
+            tmp_dir: tmp_dir.clone(),
             listen_on: listen_on.clone(),
             manager: m_id,
         },
