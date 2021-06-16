@@ -42,6 +42,16 @@ pub fn make_tmp_dir() -> PathBuf {
     tmp
 }
 
+pub fn make_tmp_dir_peer_id(peer_id: String) -> PathBuf {
+    let mut tmp = std::env::temp_dir();
+    tmp.push("fluence_test/");
+    tmp.push(peer_id);
+
+    create_dir(&tmp).expect("create tmp dir");
+
+    tmp
+}
+
 pub fn create_dirs<Item>(dirs: &[Item]) -> Result<(), std::io::Error>
 where
     Item: AsRef<Path> + Debug,

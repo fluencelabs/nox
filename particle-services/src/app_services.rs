@@ -29,7 +29,9 @@ use server_config::ServicesConfig;
 use crate::app_service::create_app_service;
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
-use crate::persistence::{load_persisted_services, persist_service, PersistedService};
+use crate::persistence::{
+    load_persisted_services, persist_service, remove_persisted_service, PersistedService,
+};
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
@@ -163,6 +165,7 @@ impl ParticleAppServices {
             service_id
         };
 
+        remove_persisted_service(&self.config.services_dir, service_id.clone()).unwrap();
         let service = self.services.write().remove(&service_id).unwrap();
         let mut aliases = self.aliases.write();
         for alias in service.aliases.iter() {

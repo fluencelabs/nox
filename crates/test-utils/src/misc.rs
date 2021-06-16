@@ -35,7 +35,7 @@ use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 use async_std::task;
 use derivative::Derivative;
 use eyre::WrapErr;
-use fs_utils::make_tmp_dir;
+use fs_utils::{make_tmp_dir, make_tmp_dir_peer_id};
 use futures::channel::mpsc::unbounded;
 use futures::{stream::iter, StreamExt};
 use libp2p::core::multiaddr::Protocol;
@@ -353,13 +353,14 @@ pub fn aqua_vm_config(
 }
 
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(
-    config: SwarmConfig,
+    mut config: SwarmConfig,
     vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig, PeerId) -> RT::Config,
 ) -> (PeerId, Box<Node<RT>>, Keypair, SwarmConfig) {
     #[rustfmt::skip]
     let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config.clone();
 
     let peer_id = to_peer_id(&config.keypair);
+    config.tmp_dir = make_tmp_dir_peer_id(peer_id.to_string());
 
     let management_kp = Keypair::generate_ed25519();
     let m_public_key = management_kp.public();
