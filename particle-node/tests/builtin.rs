@@ -32,7 +32,6 @@ use serde_json::{json, Value as JValue};
 use fluence_libp2p::RandomPeerId;
 use json_utils::into_array;
 use libp2p::identity::Keypair;
-use log_utils::enable_logs;
 use particle_protocol::Particle;
 use services_utils::load_module;
 use test_utils::{
@@ -136,7 +135,6 @@ fn remove_service() {
 
 #[test]
 fn remove_service_restart() {
-    enable_logs();
     let kp = Keypair::generate_ed25519();
     let swarms = make_swarms_with_keypair(1, kp.clone());
 
