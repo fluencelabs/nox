@@ -15,15 +15,7 @@
  */
 
 use libp2p_core::{identity::Keypair, PeerId};
-use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-
-pub fn to_abs_path(path: PathBuf) -> PathBuf {
-    match std::env::current_dir().ok() {
-        Some(c) => c.join(path),
-        None => path,
-    }
-}
 
 pub fn workdir(path: &Path) -> PathBuf {
     path.join("workdir")
@@ -39,22 +31,6 @@ pub fn particles_dir(path: &Path) -> PathBuf {
 }
 pub fn blueprint_dir(path: &Path) -> PathBuf {
     path.join("blueprint")
-}
-
-pub fn create_dirs<Item>(dirs: &[Item]) -> Result<(), std::io::Error>
-where
-    Item: AsRef<Path> + Debug,
-{
-    for dir in dirs {
-        create_dir(dir)?;
-    }
-
-    Ok(())
-}
-
-pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
-    std::fs::create_dir_all(&dir)
-        .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
 }
 
 pub fn to_peer_id(kp: &Keypair) -> PeerId {

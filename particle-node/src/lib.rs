@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#![feature(try_blocks)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
@@ -25,6 +26,7 @@
     unreachable_patterns
 )]
 
+mod builtins_deployer;
 mod metrics;
 mod network_api;
 mod network_tasks;
@@ -46,6 +48,7 @@ pub mod config {
 }
 
 pub use behaviour::NetworkBehaviour;
+pub use builtins_deployer::BuiltinsDeployer;
 pub use node::write_default_air_interpreter;
 pub use node::Node;
 

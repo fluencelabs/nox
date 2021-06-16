@@ -29,13 +29,14 @@
 use clap::App;
 use futures::channel::oneshot;
 
+use config_utils::to_peer_id;
 use ctrlc_adapter::block_until_ctrlc;
 use env_logger::Env;
 use eyre::WrapErr;
 use log::LevelFilter;
 use particle_node::{
     config::{certificates, create_args},
-    write_default_air_interpreter, Node,
+    write_default_air_interpreter, BuiltinsDeployer, Node,
 };
 use server_config::{load_config, ResolvedConfig};
 
@@ -104,6 +105,7 @@ fn main() -> eyre::Result<()> {
 fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
+    let builtins_dir = config.dir_config.builtins_base_dir.clone();
     certificates::init(&config.dir_config.certificate_dir, &config.root_key_pair)
         .wrap_err("failed to init certificates")?;
 
@@ -118,7 +120,17 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     node.listen(&listen_config)
         .expect("Error starting node listener");
 
+    let stepper = node.stepper_pool_api.clone();
+    let startup_peer_id = to_peer_id(&node.startup_keypair);
+    let local_peer_id = node.local_peer_id;
     let node_exit_outlet = node.start();
+
+    let mut builtin_deployer =
+        BuiltinsDeployer::new(startup_peer_id, local_peer_id, stepper, builtins_dir);
+
+    builtin_deployer
+        .deploy_builtin_services()
+        .wrap_err("builtins deploy failed")?;
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,

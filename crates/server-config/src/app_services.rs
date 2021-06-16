@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use config_utils::create_dirs;
+use fs_utils::create_dirs;
 
 use std::ffi::OsStr;
 use std::path::PathBuf;

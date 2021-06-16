@@ -29,6 +29,7 @@ jobs:
             - Dockerfile
             - target/release/particle-node
             - deploy/Config.default.toml
+            - deploy/builtins
       - save_cache:
           paths:
             - ~/.cargo
@@ -70,7 +71,7 @@ jobs:
       - docker/build:
           image: fluencelabs/fluence
           tag: ${DOCKER_TAG}
-          extra_build_args: --build-arg exe=./target/release/particle-node --build-arg config=./deploy/Config.default.toml
+          extra_build_args: --build-arg exe=./target/release/particle-node --build-arg config=./deploy/Config.default.toml --build-arg builtins=./deploy/builtins/
       - docker/push:
           image: fluencelabs/fluence
           tag: ${DOCKER_TAG}

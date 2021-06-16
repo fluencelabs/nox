@@ -1,0 +1,26 @@
+(seq
+ (seq
+  (call %init_peer_id% ("peer" "timestamp_sec") [] t)
+  (call %init_peer_id% ("aqua-dht" "evict_stale") [t] res)
+ )
+ (fold res.$.results! r
+  (par
+   (seq
+    (seq
+     (call %init_peer_id% ("op" "string_to_b58") [r.$.key.key!] k)
+     (call %init_peer_id% ("kad" "neighborhood") [k false] nodes)
+    )
+    (fold nodes n
+     (par
+      (seq
+       (call n ("aqua-dht" "republish_key") [r.$.key! t])
+       (call n ("aqua-dht" "republish_values") [r.$.key.key! r.$.records! t])
+      )
+      (next n)
+     )
+    )
+   )
+   (next r)
+  )
+ )
+)

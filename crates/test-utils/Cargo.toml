@@ -8,6 +8,7 @@ edition = "2018"
 fluence-client = { path = "../../client/rust-libp2p" }
 trust-graph = "0.2.7"
 config-utils = { path = "../config-utils" }
+services-utils = { path = "../services-utils" }
 server-config = { path = "../server-config" }
 ivalue-utils = { path = "../ivalue-utils" }
 host-closure = { path = "../host-closure" }
@@ -18,6 +19,8 @@ particle-protocol = { path = "../../particle-protocol" }
 aquamarine = { path = "../../aquamarine" }
 connection-pool = { path = "../../connection-pool" }
 script-storage = { path = "../../script-storage" }
+local-vm = { path = "../local-vm" }
+fs-utils = { path = "../fs-utils" }
 
 air-interpreter-wasm = "0.10.5"
 avm-server = "0.7.0"

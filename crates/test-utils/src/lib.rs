@@ -29,19 +29,17 @@
 #[macro_use]
 extern crate fstrings;
 
+pub use crate::misc::*;
+pub use connected_client::*;
+pub use connection::*;
+pub use easy_vm::*;
+pub use service::*;
+pub use utils::*;
+
 mod connected_client;
 mod connection;
 mod easy_vm;
-mod local_vm;
 mod misc;
 mod service;
 mod singleton_vm;
 mod utils;
-
-pub use connected_client::*;
-pub use connection::*;
-pub use easy_vm::*;
-pub use local_vm::*;
-pub use misc::*;
-pub use service::*;
-pub use utils::*;
