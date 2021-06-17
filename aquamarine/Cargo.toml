@@ -11,6 +11,7 @@ fluence-libp2p = { path = "../crates/libp2p" }
 config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
 control-macro = { path = "../crates/control-macro" }
+fs-utils = { path = "../crates/fs-utils" }
 
 avm-server = "0.7.0"
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }

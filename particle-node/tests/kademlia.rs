@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
+use test_utils::{make_swarms, ConnectedClient, KAD_TIMEOUT};
 
 use eyre::WrapErr;
 use libp2p::PeerId;
@@ -24,7 +24,7 @@ use std::thread::sleep;
 
 #[test]
 fn neighborhood() {
-    let swarms = make_swarms_with_cfg(3, |cfg| cfg);
+    let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")

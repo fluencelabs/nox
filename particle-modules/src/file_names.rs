@@ -16,16 +16,33 @@
 
 use crate::blueprint::Blueprint;
 use crate::hash::Hash;
+use crate::Dependency;
 
 use std::path::Path;
 
+/// Calculates filename of the config for a wasm module, given a hash or name of the module.
+pub fn module_config_name_json(module: &Dependency) -> String {
+    match module {
+        Dependency::Name(name) => format!("{}_config.json", name),
+        Dependency::Hash(hash) => format!("{}_config.json", hash.to_hex().as_ref()),
+    }
+}
+
+/// Calculates the name of a wasm module file, given a hash or name of the module.
+pub fn module_file_name(module: &Dependency) -> String {
+    match module {
+        Dependency::Name(name) => format!("{}.wasm", name),
+        Dependency::Hash(hash) => module_file_name_hash(hash),
+    }
+}
+
 /// Calculates filename of the config for a wasm module
-pub(super) fn module_config_name(module_hash: &Hash) -> String {
+pub(super) fn module_config_name_hash(module_hash: &Hash) -> String {
     format!("{}_config.toml", module_hash.to_hex().as_ref())
 }
 
 /// Calculates the name of a wasm module file, given a hash of the module.
-pub(super) fn module_file_name(module_hash: &Hash) -> String {
+pub(super) fn module_file_name_hash(module_hash: &Hash) -> String {
     format!("{}.wasm", module_hash.to_hex().as_ref())
 }
 

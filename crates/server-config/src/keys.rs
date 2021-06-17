@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-use config_utils::create_dirs;
 use fluence_identity::{key_pair::KeyFormat, KeyPair};
+use fs_utils::create_dirs;
 
 use log::info;
 use std::str::FromStr;

@@ -401,7 +401,7 @@ fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut
         Some(wake_after) if !wake_after.is_zero() => {
             // wake up earlier, if needed
             *wake = min(wake_after, *wake);
-            return false;
+            false
         }
         // timed out
         _ => true,

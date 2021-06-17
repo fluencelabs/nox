@@ -21,7 +21,7 @@ use crate::error::ModuleError::{
 };
 use crate::error::Result;
 use crate::file_names::{extract_module_file_name, is_module_wasm};
-use crate::file_names::{module_config_name, module_file_name};
+use crate::file_names::{module_config_name_hash, module_file_name_hash};
 use crate::files::{load_config_by_path, load_module_by_path};
 use crate::Hash;
 use crate::{file_names, files, load_module_descriptor, Blueprint};
@@ -57,18 +57,18 @@ pub struct ModuleRepository {
 
 impl ModuleRepository {
     pub fn new(modules_dir: &Path, blueprints_dir: &Path) -> Self {
-        let modules_by_name: HashMap<_, _> = files::list_files(&modules_dir)
+        let modules_by_name: HashMap<_, _> = files::list_files(modules_dir)
             .into_iter()
             .flatten()
-            .filter(|path| is_module_wasm(&path))
+            .filter(|path| is_module_wasm(path))
             .filter_map(|path| {
                 let name_hash: Result<_> = try {
                     let module = load_module_by_path(&path)?;
                     let hash = Hash::hash(&module);
 
-                    Self::maybe_migrate_module(&path, &hash, &modules_dir);
+                    Self::maybe_migrate_module(&path, &hash, modules_dir);
 
-                    let module = load_module_descriptor(&modules_dir, &hash)?;
+                    let module = load_module_descriptor(modules_dir, &hash)?;
                     (module.import_name, hash)
                 };
 
@@ -102,12 +102,12 @@ impl ModuleRepository {
         use eyre::eyre;
 
         let migrated: eyre::Result<_> = try {
-            let file_name = extract_module_file_name(&path).ok_or_else(|| eyre!("no file name"))?;
+            let file_name = extract_module_file_name(path).ok_or_else(|| eyre!("no file name"))?;
             if file_name != hash.to_hex().as_ref() {
-                let new_name = module_file_name(hash);
+                let new_name = module_file_name_hash(hash);
                 log::debug!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
-                std::fs::rename(&path, modules_dir.join(module_file_name(hash)))?;
-                let new_name = module_config_name(hash);
+                std::fs::rename(&path, modules_dir.join(module_file_name_hash(hash)))?;
+                let new_name = module_config_name_hash(hash);
                 let config = path.with_file_name(format!("{}_config.toml", file_name));
                 log::debug!(target: "migration", "renaming config {:?} to {}", config.file_name().unwrap(), new_name);
                 std::fs::rename(&config, modules_dir.join(new_name))?;
@@ -138,21 +138,21 @@ impl ModuleRepository {
         let mut dependencies: Vec<Hash> = blueprint
             .dependencies
             .into_iter()
-            .map(|module| Ok(resolve_hash(&self.modules_by_name, module)?))
+            .map(|module| resolve_hash(&self.modules_by_name, module))
             .collect::<Result<_>>()?;
 
         let blueprint_name = blueprint.name.clone();
         let facade = dependencies
             .pop()
-            .ok_or_else(|| EmptyDependenciesList { id: blueprint_name })?;
+            .ok_or(EmptyDependenciesList { id: blueprint_name })?;
 
-        let hash = hash_dependencies(facade.clone(), dependencies.clone())?.to_hex();
+        let hash = hash_dependencies(facade.clone(), dependencies.clone()).to_hex();
 
         let blueprint = Blueprint {
             id: hash.as_ref().to_string(),
             dependencies: dependencies
                 .into_iter()
-                .map(|h| Dependency::Hash(h))
+                .map(Dependency::Hash)
                 .chain(iter::once(Dependency::Hash(facade)))
                 .collect(),
             name: blueprint.name,
@@ -175,7 +175,7 @@ impl ModuleRepository {
                 let hash = extract_module_file_name(&path)?;
                 let result: eyre::Result<_> = try {
                     let hash = Hash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
-                    let config = self.modules_dir.join(module_config_name(&hash));
+                    let config = self.modules_dir.join(module_config_name_hash(&hash));
                     let config = load_config_by_path(&config).wrap_err(f!("load config ${config:?}"))?;
 
                     (hash, config)
@@ -339,7 +339,7 @@ fn get_interface_by_hash(
     let interface = match interface_cache_opt {
         Some(interface) => interface,
         None => {
-            let path = modules_dir.join(module_file_name(hash));
+            let path = modules_dir.join(module_file_name_hash(hash));
             let interface =
                 module_interface(&path).map_err(|err| ReadModuleInterfaceError { path, err })?;
             let json = json!(interface);
@@ -367,9 +367,9 @@ fn resolve_hash(
     }
 }
 
-fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Result<Hash> {
+pub fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Hash {
     let mut hasher = blake3::Hasher::new();
-    deps.sort_by(|a, b| a.as_bytes().cmp(&b.as_bytes()));
+    deps.sort_by(|a, b| a.as_bytes().cmp(b.as_bytes()));
 
     for d in deps.iter().chain(iter::once(&facade)) {
         hasher.update(d.as_bytes());
@@ -377,14 +377,15 @@ fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Result<Hash> {
 
     let hash = hasher.finalize();
     let bytes = hash.as_bytes();
-    Ok(Hash::from(*bytes))
+    Hash::from(*bytes)
 }
 
 #[cfg(test)]
 mod tests {
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
+    use services_utils::load_module;
     use tempdir::TempDir;
-    use test_utils::{add_bp, add_module, load_module, Dependency, Hash, ModuleRepository};
+    use test_utils::{add_bp, add_module, Dependency, Hash, ModuleRepository};
 
     #[test]
     fn test_add_blueprint() {
@@ -448,9 +449,9 @@ mod tests {
         let dep2 = Hash::hash(&[2, 1, 3]);
         let dep3 = Hash::hash(&[3, 2, 1]);
 
-        let hash1 = hash_dependencies(dep3.clone(), vec![dep1.clone(), dep2.clone()]).unwrap();
-        let hash2 = hash_dependencies(dep3.clone(), vec![dep2.clone(), dep1.clone()]).unwrap();
-        let hash3 = hash_dependencies(dep1.clone(), vec![dep2.clone(), dep3.clone()]).unwrap();
+        let hash1 = hash_dependencies(dep3.clone(), vec![dep1.clone(), dep2.clone()]);
+        let hash2 = hash_dependencies(dep3.clone(), vec![dep2.clone(), dep1.clone()]);
+        let hash3 = hash_dependencies(dep1.clone(), vec![dep2.clone(), dep3.clone()]);
         assert_eq!(hash1.to_string(), hash2.to_string());
         assert_ne!(hash2.to_string(), hash3.to_string());
     }

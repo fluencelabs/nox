@@ -52,6 +52,7 @@ pub struct HostClosures<C> {
     pub script_storage: ScriptStorageApi,
 
     pub management_peer_id: String,
+    pub startup_management_peer_id: String,
     pub ipfs_state: Arc<Mutex<IpfsState>>,
 
     pub modules: ModuleRepository,
@@ -73,12 +74,14 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let modules = ModuleRepository::new(&modules_dir, &blueprint_dir);
 
         let management_peer_id = config.management_peer_id.to_base58();
+        let startup_management_peer_id = config.startup_management_peer_id.to_base58();
         let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
             connectivity,
             script_storage,
             management_peer_id,
+            startup_management_peer_id,
             ipfs_state: Arc::new(Mutex::new(IpfsState::default())),
             modules,
             services,
@@ -167,7 +170,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let key = from_base58("key", &mut args)?;
         let already_hashed: Option<bool> = Args::next_opt("already_hashed", &mut args)?;
         let count: Option<usize> = Args::next_opt("count", &mut args)?;
-        let count = count.unwrap_or(K_VALUE.get());
+        let count = count.unwrap_or_else(|| K_VALUE.get());
 
         let key = if already_hashed == Some(true) {
             MultihashGeneric::from_bytes(&key)?
@@ -502,7 +505,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let service_id = self
             .services
-            .create_service(blueprint_id, params.init_user_id.clone())?;
+            .create_service(blueprint_id, params.init_user_id)?;
 
         Ok(JValue::String(service_id))
     }
