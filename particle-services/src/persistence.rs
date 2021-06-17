@@ -113,3 +113,10 @@ pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedServi
         })
         .collect()
 }
+
+pub fn remove_persisted_service(
+    services_dir: &Path,
+    service_id: String,
+) -> Result<(), std::io::Error> {
+    std::fs::remove_file(services_dir.join(service_file_name(&service_id)))
+}

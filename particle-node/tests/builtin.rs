@@ -31,11 +31,12 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::RandomPeerId;
 use json_utils::into_array;
+use libp2p::identity::Keypair;
 use particle_protocol::Particle;
 use services_utils::load_module;
 use test_utils::{
-    create_service, make_swarms, make_swarms_with_transport_and_mocked_vm, now_ms, ConnectedClient,
-    Transport, PARTICLE_TTL,
+    create_service, make_swarms, make_swarms_with_keypair,
+    make_swarms_with_transport_and_mocked_vm, now_ms, ConnectedClient, Transport, PARTICLE_TTL,
 };
 
 #[derive(Deserialize, Debug)]
@@ -129,6 +130,76 @@ fn remove_service() {
         assert_eq!(after.len(), 0);
     } else {
         panic!("incorrect args: expected two arrays")
+    }
+}
+
+#[test]
+fn remove_service_restart() {
+    let kp = Keypair::generate_ed25519();
+    let swarms = make_swarms_with_keypair(1, kp.clone());
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets"),
+    );
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("srv" "list") [] list_before)
+                (call relay ("srv" "remove") [service])
+            )
+            (seq
+                (call relay ("srv" "list") [] list_after)
+                (call %init_peer_id% ("op" "return") [list_before list_after])
+            )
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+        },
+    );
+
+    use serde_json::Value::Array;
+
+    if let [Array(before), Array(after)] = client.receive_args().unwrap().as_slice() {
+        assert_eq!(before.len(), 1);
+        assert_eq!(after.len(), 0);
+    } else {
+        panic!("incorrect args: expected two arrays")
+    }
+
+    // stop swarm
+    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+    let swarms = make_swarms_with_keypair(1, kp.clone());
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("srv" "list") [] list_after)
+            (call %init_peer_id% ("op" "return") [list_after])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+        },
+    );
+
+    if let [Array(after)] = client.receive_args().unwrap().as_slice() {
+        assert_eq!(after.len(), 0);
+    } else {
+        panic!("incorrect args: expected array")
     }
 }
 
