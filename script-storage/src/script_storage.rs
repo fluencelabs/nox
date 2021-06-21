@@ -53,25 +53,32 @@ pub struct Script {
     /// Interval at which to execute this script.
     /// If None, that means the script will be executed only once
     pub interval: Option<Duration>,
+    pub delay: Option<Duration>,
     pub executed_at: Option<Instant>,
+    pub next_execution: Instant,
     pub owner: PeerId,
 }
 
 impl Script {
-    pub fn new(src: String, interval: Option<Duration>, owner: PeerId) -> Self {
+    pub fn new(
+        src: String,
+        interval: Option<Duration>,
+        delay: Option<Duration>,
+        owner: PeerId,
+    ) -> Self {
         Self {
             src,
             interval,
+            delay,
             failures: 0,
             executed_at: None,
+            next_execution: Instant::now() + delay.unwrap_or(Duration::from_secs(0)),
             owner,
         }
     }
 
-    pub fn deadline(&self) -> Option<Instant> {
-        let interval = self.interval?;
-        let executed_at = self.executed_at?;
-        Some(executed_at + interval)
+    pub fn deadline(&self) -> Instant {
+        self.next_execution
     }
 }
 
@@ -88,6 +95,7 @@ pub enum Command {
         uuid: String,
         script: String,
         interval: Option<Duration>,
+        delay: Option<Duration>,
         owner: PeerId,
     },
     RemoveScript {
@@ -172,7 +180,9 @@ async fn execute_scripts(
 
     // Remove all scripts without interval, they will be executing only once
     let single_shots: Vec<_> = unlock(scripts, |scripts| {
-        scripts.drain_filter(|_, s| s.interval.is_none()).collect()
+        scripts
+            .drain_filter(|_, s| s.interval.is_none() && s.deadline() <= now)
+            .collect()
     })
     .await;
 
@@ -180,10 +190,11 @@ async fn execute_scripts(
     let scripts: HashMap<ScriptId, Script> = unlock(scripts, |scripts| {
         scripts
             .iter_mut()
-            .filter(|(_, script)| script.deadline().map_or(true, |deadline| deadline <= now))
+            .filter(|(_, script)| script.deadline() <= now)
             .map(|(id, s)| {
-                // mark script as executed at the current timestamp
+                // mark script as executed at the current timestamp and schedule next
                 s.executed_at = Some(now);
+                s.next_execution = now + s.interval.unwrap(); // because all scripts without interval already removed
                 (id.clone(), s.clone())
             })
             .collect()
@@ -226,10 +237,11 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             uuid,
             script,
             interval,
+            delay,
             owner,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
-            let script = Script::new(script, interval, owner);
+            let script = Script::new(script, interval, delay, owner);
             unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
         }
         Command::RemoveScript {
@@ -315,6 +327,7 @@ impl ScriptStorageApi {
         &self,
         script: String,
         interval: Option<Duration>,
+        delay: Option<Duration>,
         owner: PeerId,
     ) -> Result<String, ScriptStorageError> {
         let uuid = uuid::Uuid::new_v4().to_string();
@@ -323,6 +336,7 @@ impl ScriptStorageApi {
             uuid: uuid.clone(),
             script,
             interval,
+            delay,
             owner,
         })?;
 
