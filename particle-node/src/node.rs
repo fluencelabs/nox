@@ -54,14 +54,14 @@ pub struct Node<RT: AquaRuntime> {
     pub network_api: NetworkApi,
     pub swarm: Swarm<NetworkBehaviour>,
     stepper_pool: AquamarineBackend<RT>,
-    stepper_pool_api: AquamarineApi,
-    #[allow(dead_code)] // useful for debugging
-    local_peer_id: PeerId,
+    pub stepper_pool_api: AquamarineApi,
+    pub local_peer_id: PeerId,
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
     bootstrap_nodes: Vec<Multiaddr>,
     particle_failures: Outlet<String>,
     script_storage: ScriptStorageBackend,
+    pub startup_keypair: Keypair,
 }
 
 impl Node<AVM> {
@@ -85,11 +85,13 @@ impl Node<AVM> {
         let pool_config =
             VmPoolConfig::new(config.stepper_pool_size, config.particle_execution_timeout);
 
+        let startup_keypair = Keypair::generate_ed25519();
         let services_config = ServicesConfig::new(
             local_peer_id,
             config.dir_config.services_base_dir.clone(),
             config.services_envs.clone(),
             config.management_peer_id,
+            to_peer_id(&startup_keypair),
         )
         .expect("create services config");
 
@@ -138,6 +140,7 @@ impl Node<AVM> {
             registry.into(),
             config.metrics_listen_addr(),
             config.node_config.bootstrap_nodes,
+            startup_keypair,
         ))
     }
 
@@ -189,6 +192,7 @@ impl<RT: AquaRuntime> Node<RT> {
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
         bootstrap_nodes: Vec<Multiaddr>,
+        startup_keypair: Keypair,
     ) -> Box<Self> {
         log::info!("server peer id = {}", local_peer_id);
 
@@ -205,6 +209,7 @@ impl<RT: AquaRuntime> Node<RT> {
             bootstrap_nodes,
             particle_failures,
             script_storage,
+            startup_keypair,
         };
 
         Box::new(node_service)
@@ -226,7 +231,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let script_storage = self.script_storage.start();
             let pool = self.stepper_pool.start();
             let mut network = {
-                let pool_api = self.stepper_pool_api;
+                let pool_api = self.stepper_pool_api.clone();
                 let failures = self.particle_failures;
                 let bootstrap_nodes = self.bootstrap_nodes.into_iter().collect();
                 self.network_api.start(pool_api, bootstrap_nodes, failures)
@@ -306,7 +311,7 @@ mod tests {
 
     #[test]
     fn run_node() {
-        config_utils::create_dir(default_base_dir()).unwrap();
+        fs_utils::create_dir(default_base_dir()).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&default_base_dir())).unwrap();
 
         let keypair = Keypair::generate_ed25519();

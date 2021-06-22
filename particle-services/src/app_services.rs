@@ -29,7 +29,9 @@ use server_config::ServicesConfig;
 use crate::app_service::create_app_service;
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
-use crate::persistence::{load_persisted_services, persist_service, PersistedService};
+use crate::persistence::{
+    load_persisted_services, persist_service, remove_persisted_service, PersistedService,
+};
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
@@ -74,6 +76,7 @@ pub struct ParticleAppServices {
     modules: ModuleRepository,
     aliases: Aliases,
     management_peer_id: String,
+    startup_management_peer_id: String,
 }
 
 pub fn get_service<'l>(
@@ -93,18 +96,20 @@ pub fn get_service<'l>(
         (service, resolved_id.clone())
     };
 
-    by_alias.ok_or_else(|| ServiceError::NoSuchService(id_or_alias))
+    by_alias.ok_or(ServiceError::NoSuchService(id_or_alias))
 }
 
 impl ParticleAppServices {
     pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
         let management_peer_id = config.management_peer_id.to_base58();
+        let startup_management_peer_id = config.startup_management_peer_id.to_base58();
         let this = Self {
             config,
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
             management_peer_id,
+            startup_management_peer_id,
         };
 
         this.create_persisted_services();
@@ -149,17 +154,18 @@ impl ParticleAppServices {
             let (service, service_id) =
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
 
-            if service.owner_id != init_user_id {
-                Err(ServiceError::Forbidden {
+            if service.owner_id != init_user_id && self.startup_management_peer_id != init_user_id {
+                return Err(ServiceError::Forbidden {
                     user: init_user_id,
                     function: "remove_service",
                     reason: "only creator can remove service",
-                })?;
+                });
             }
 
             service_id
         };
 
+        remove_persisted_service(&self.config.services_dir, service_id.clone()).unwrap();
         let service = self.services.write().remove(&service_id).unwrap();
         let mut aliases = self.aliases.write();
         for alias in service.aliases.iter() {
@@ -189,7 +195,7 @@ impl ParticleAppServices {
             })?;
 
         let params = CallParameters {
-            host_id: host_id.clone(),
+            host_id,
             init_peer_id: params.init_user_id,
             particle_id: params.particle_id,
             tetraplets: args.tetraplets,
@@ -209,19 +215,20 @@ impl ParticleAppServices {
         service_id: String,
         init_user_id: String,
     ) -> Result<(), ServiceError> {
-        if init_user_id != self.management_peer_id {
+        if init_user_id != self.management_peer_id
+            && init_user_id != self.startup_management_peer_id
+        {
             return Err(Forbidden {
                 user: init_user_id,
                 function: "add_alias",
                 reason: "only management peer id can add aliases",
-            }
-            .into());
+            });
         };
 
         // if a client trying to add an alias that equals some created service id
         // return an error
         if self.services.read().get(&alias).is_some() {
-            return Err(AliasAsServiceId(alias).into());
+            return Err(AliasAsServiceId(alias));
         }
 
         let mut services = self.services.write();
@@ -345,13 +352,14 @@ mod tests {
     use tempdir::TempDir;
 
     use crate::{ParticleAppServices, ServiceError};
-    use config_utils::modules_dir;
+    use config_utils::{modules_dir, to_peer_id};
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
     use particle_modules::{Dependency, Hash, ModuleRepository};
     use server_config::ServicesConfig;
+    use services_utils::load_module;
     use std::fs::remove_file;
     use std::path::PathBuf;
-    use test_utils::{add_bp, add_module, load_module};
+    use test_utils::{add_bp, add_module};
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
@@ -364,8 +372,15 @@ mod tests {
         management_pid: PeerId,
         base_dir: PathBuf,
     ) -> ParticleAppServices {
-        let config =
-            ServicesConfig::new(local_pid, base_dir, HashMap::new(), management_pid).unwrap();
+        let startup_kp = Keypair::generate_ed25519();
+        let config = ServicesConfig::new(
+            local_pid,
+            base_dir,
+            HashMap::new(),
+            management_pid,
+            to_peer_id(&startup_kp),
+        )
+        .unwrap();
 
         let repo = ModuleRepository::new(&config.modules_dir, &config.blueprint_dir);
 

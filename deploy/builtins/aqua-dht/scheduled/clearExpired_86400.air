@@ -1,0 +1,4 @@
+(seq
+ (call %init_peer_id% ("peer" "timestamp_sec") [] t)
+ (call %init_peer_id% ("aqua-dht" "clear_expired") [t])
+)

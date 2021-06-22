@@ -16,11 +16,8 @@
 
 pub use fluence_client::ClientEvent;
 
-use super::misc::Result;
-use crate::{
-    make_call_service_closure, make_particle, make_swarms, make_vm, read_args, timeout,
-    KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT,
-};
+use crate::{make_swarms, timeout, Result, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
+use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
 
 use avm_server::AVM;
 use fluence_client::{Client, Transport};

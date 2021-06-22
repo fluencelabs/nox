@@ -34,6 +34,7 @@ use aquamarine::{
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::{BackPressuredInlet, OneshotOutlet};
 use fluence_libp2p::RandomPeerId;
+use fs_utils::make_tmp_dir;
 use kademlia::KademliaApi;
 use particle_closures::{HostClosures, NodeInfo};
 use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
@@ -41,7 +42,7 @@ use particle_protocol::{Contact, Particle};
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 use std::convert::identity;
-use test_utils::{make_swarms_with_mocked_vm, make_tmp_dir, now_ms, EasyVM};
+use test_utils::{make_swarms_with_mocked_vm, now_ms, EasyVM};
 
 pub const TIMEOUT: Duration = Duration::from_secs(10);
 pub const PARALLELISM: Option<usize> = Some(16);
@@ -314,6 +315,7 @@ where
         local_peer_id,
         tmp_dir.join("services"),
         <_>::default(),
+        RandomPeerId::random(),
         RandomPeerId::random(),
     )
     .wrap_err("create service config")

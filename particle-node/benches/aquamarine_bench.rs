@@ -17,12 +17,12 @@
 use criterion::Criterion;
 use criterion::{criterion_group, criterion_main};
 use fluence_libp2p::RandomPeerId;
+use local_vm::{make_call_service_closure, make_vm};
 use maplit::hashmap;
 use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
 use std::collections::HashMap;
 use std::sync::Arc;
-use test_utils::{make_call_service_closure, make_vm};
 
 fn bench_script(name: &str, script: &str, data: HashMap<&'static str, JValue>, c: &mut Criterion) {
     let peer_id = RandomPeerId::random();

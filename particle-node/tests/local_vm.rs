@@ -19,7 +19,7 @@
 extern crate fstrings;
 
 use fluence_libp2p::RandomPeerId;
-use test_utils::{make_call_service_closure, make_particle, make_vm, read_args};
+use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
 
 use maplit::hashmap;
 use parking_lot::Mutex;

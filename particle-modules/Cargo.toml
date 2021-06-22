@@ -30,3 +30,4 @@ fstrings = "0.2.3"
 tempdir = "0.3.7"
 libp2p-core = { package = "fluence-fork-libp2p-core", version = "0.27.2" }
 test-utils = { path = "../crates/test-utils" }
+services-utils = { path = "../crates/services-utils" }

@@ -19,7 +19,7 @@ use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
 use crate::ListenConfig;
 
-use config_utils::to_abs_path;
+use fs_utils::to_abs_path;
 
 use clap::{ArgMatches, Values};
 use eyre::{eyre, WrapErr};
@@ -138,9 +138,9 @@ impl ResolvedConfig {
             .map(|(k, v)| {
                 Ok((
                     k.as_public_key()
-                        .ok_or(eyre!(
-                            "invalid root_weights key: PeerId doesn't contain PublicKey"
-                        ))?
+                        .ok_or_else(|| {
+                            eyre!("invalid root_weights key: PeerId doesn't contain PublicKey")
+                        })?
                         .into(),
                     v,
                 ))
@@ -239,7 +239,7 @@ pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
         .map(Into::into)
-        .unwrap_or(default_config_file());
+        .unwrap_or_else(default_config_file);
 
     let config_file = to_abs_path(config_file);
 

@@ -25,16 +25,17 @@ use criterion::{criterion_group, criterion_main, BatchSize};
 use criterion::{BenchmarkId, Criterion, Throughput};
 use fluence_libp2p::types::BackPressuredInlet;
 use fluence_libp2p::RandomPeerId;
+use fs_utils::make_tmp_dir;
 use futures::channel::mpsc;
 use futures::FutureExt;
 use humantime_serde::re::humantime::format_duration as pretty;
 use kademlia::KademliaApiT;
+use log_utils::enable_logs;
 use particle_protocol::{Contact, Particle};
+use services_utils::put_aquamarine;
 use std::convert::identity;
 use std::time::{Duration, Instant};
-use test_utils::{
-    enable_logs, make_swarms_with_mocked_vm, make_tmp_dir, put_aquamarine, ConnectedClient,
-};
+use test_utils::{make_swarms_with_mocked_vm, ConnectedClient};
 
 fn thousand_particles_bench(c: &mut Criterion) {
     c.bench_function("thousand_particles", move |b| {

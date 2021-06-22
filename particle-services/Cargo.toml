@@ -8,6 +8,8 @@ edition = "2018"
 particle-modules = { path = "../particle-modules" }
 
 config-utils = { path = "../crates/config-utils" }
+fs-utils = { path = "../crates/fs-utils" }
+services-utils = { path = "../crates/services-utils" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
 host-closure = { path = "../crates/host-closure" }

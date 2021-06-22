@@ -19,7 +19,7 @@ use crate::error::ServiceError::{
     CreateServicesDir, DeserializePersistedService, ReadPersistedService,
 };
 
-use config_utils::create_dirs;
+use fs_utils::create_dirs;
 use particle_modules::{is_service, list_files, service_file_name, ModuleError};
 
 use crate::app_services::Service;
@@ -96,7 +96,7 @@ pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedServi
     };
 
     files
-        .filter(|p| is_service(&p))
+        .filter(|p| is_service(p))
         .map(|file| {
             // Load service's persisted info
             let bytes = std::fs::read(&file).map_err(|err| ReadPersistedService {
@@ -112,4 +112,11 @@ pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedServi
             Ok(service)
         })
         .collect()
+}
+
+pub fn remove_persisted_service(
+    services_dir: &Path,
+    service_id: String,
+) -> Result<(), std::io::Error> {
+    std::fs::remove_file(services_dir.join(service_file_name(&service_id)))
 }
