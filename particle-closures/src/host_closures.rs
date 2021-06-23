@@ -221,6 +221,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let delay = parse_u64("delay_sec", &mut args)?;
         let delay = delay.map(Duration::from_secs);
+        let delay = get_delay(delay, interval);
 
         let creator = PeerId::from_str(&params.init_user_id)?;
         let id = self
@@ -608,4 +609,14 @@ fn parse_u64(
             }
             .into()
         })
+}
+
+fn get_delay(delay: Option<Duration>, interval: Option<Duration>) -> Duration {
+    use rand::prelude::*;
+    let mut rng = rand::thread_rng();
+    match (delay, interval) {
+        (Some(delay), _) => delay,
+        (None, Some(interval)) => Duration::from_secs(rng.gen_range(0..=interval.as_secs())),
+        (None, None) => Duration::from_secs(0),
+    }
 }

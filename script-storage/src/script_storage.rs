@@ -29,7 +29,6 @@ use futures::{
     FutureExt, StreamExt, TryFutureExt,
 };
 use now_millis::now_ms;
-use std::cmp::max;
 use std::{
     borrow::Borrow,
     collections::{hash_map::Entry, HashMap},
@@ -54,43 +53,21 @@ pub struct Script {
     /// Interval at which to execute this script.
     /// If None, that means the script will be executed only once
     pub interval: Option<Duration>,
-    pub delay: Option<Duration>,
+    pub delay: Duration,
     pub executed_at: Option<Instant>,
     pub next_execution: Instant,
     pub owner: PeerId,
 }
 
-fn get_delay(
-    delay: Option<Duration>,
-    interval: Option<Duration>,
-    timer_resolution: Duration,
-) -> Duration {
-    use rand::prelude::*;
-    let mut rng = rand::thread_rng();
-    match (delay, interval) {
-        (Some(delay), _) => delay,
-        (None, Some(interval)) => Duration::from_secs(
-            rng.gen_range(timer_resolution.as_secs()..=max(interval, timer_resolution).as_secs()),
-        ),
-        (None, None) => Duration::from_secs(0),
-    }
-}
-
 impl Script {
-    pub fn new(
-        src: String,
-        interval: Option<Duration>,
-        delay: Option<Duration>,
-        owner: PeerId,
-        timer_resolution: Duration,
-    ) -> Self {
+    pub fn new(src: String, interval: Option<Duration>, delay: Duration, owner: PeerId) -> Self {
         Self {
             src,
             interval,
             delay,
             failures: 0,
             executed_at: None,
-            next_execution: Instant::now() + get_delay(delay, interval, timer_resolution),
+            next_execution: Instant::now() + delay,
             owner,
         }
     }
@@ -113,7 +90,7 @@ pub enum Command {
         uuid: String,
         script: String,
         interval: Option<Duration>,
-        delay: Option<Duration>,
+        delay: Duration,
         owner: PeerId,
     },
     RemoveScript {
@@ -172,7 +149,7 @@ impl ScriptStorageBackend {
             loop {
                 select! {
                     command = inlet.select_next_some() => {
-                        execute_command(command, &scripts, self.config.timer_resolution).await;
+                        execute_command(command, &scripts).await;
                     },
                     failed = failed_particles.select_next_some() => {
                         remove_failed_scripts(failed, &sent_particles, &scripts, max_failures).await;
@@ -250,11 +227,7 @@ async fn execute_scripts(
     }
 }
 
-async fn execute_command(
-    command: Command,
-    scripts: &Mutex<HashMap<ScriptId, Script>>,
-    timer_resolution: Duration,
-) {
+async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Script>>) {
     match command {
         Command::AddScript {
             uuid,
@@ -264,7 +237,7 @@ async fn execute_command(
             owner,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
-            let script = Script::new(script, interval, delay, owner, timer_resolution);
+            let script = Script::new(script, interval, delay, owner);
             unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
         }
         Command::RemoveScript {
@@ -350,7 +323,7 @@ impl ScriptStorageApi {
         &self,
         script: String,
         interval: Option<Duration>,
-        delay: Option<Duration>,
+        delay: Duration,
         owner: PeerId,
     ) -> Result<String, ScriptStorageError> {
         let uuid = uuid::Uuid::new_v4().to_string();
