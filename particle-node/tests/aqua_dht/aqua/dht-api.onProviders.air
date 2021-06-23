@@ -8,7 +8,7 @@
     )
     (call %init_peer_id% ("getDataSrv" "key") [] key)
    )
-   (call -relay- ("op" "identity") [])
+   (call -relay- ("op" "noop") [])
   )
   (xor
    (seq
@@ -22,63 +22,37 @@
     (fold res.$.result! r
      (par
       (seq
-       (seq
+       (fold r.$.relay_id! -via-peer-
+        (seq
+         (call -via-peer- ("op" "noop") [])
+         (next -via-peer-)
+        )
+       )
+       (xor
         (seq
          (seq
           (fold r.$.relay_id! -via-peer-
            (seq
-            (call -via-peer- ("op" "identity") [])
+            (call -via-peer- ("op" "noop") [])
             (next -via-peer-)
            )
           )
-          (xor
-           (seq
-            (seq
-             (fold r.$.relay_id! -via-peer-
-              (seq
-               (call -via-peer- ("op" "identity") [])
-               (next -via-peer-)
-              )
-             )
-             (call -relay- ("op" "identity") [])
-            )
-            (xor
-             (call %init_peer_id% ("callbackSrv" "callback") [r])
-             (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
-            )
-           )
-           (seq
-            (call -relay- ("op" "identity") [])
-            (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
-           )
-          )
+          (call -relay- ("op" "noop") [])
          )
-         (fold r.$.relay_id! -via-peer-
-          (seq
-           (next -via-peer-)
-           (call -via-peer- ("op" "identity") [])
-          )
+         (xor
+          (call %init_peer_id% ("callbackSrv" "callback") [r])
+          (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
          )
         )
-        (call -relay- ("op" "identity") [])
+        (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
        )
-       (call %init_peer_id% ("op" "identity") [])
       )
       (next r)
      )
     )
    )
-   (seq
-    (seq
-     (call -relay- ("op" "identity") [])
-     (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
-    )
-    (call -relay- ("op" "identity") [])
-   )
+   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
   )
  )
- (seq
-  (call -relay- ("op" "identity") [])
-  (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 4])
- )
+ (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 4])
 )

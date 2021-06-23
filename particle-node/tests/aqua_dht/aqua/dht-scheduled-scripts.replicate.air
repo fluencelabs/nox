@@ -17,22 +17,19 @@
      (fold nodes n
       (par
        (seq
-        (call -relay- ("op" "identity") [])
+        (call -relay- ("op" "noop") [])
         (xor
          (seq
           (call n ("aqua-dht" "republish_key") [r.$.key! t])
           (call n ("aqua-dht" "republish_values") [r.$.key.key! r.$.records! t])
          )
          (seq
-          (call -relay- ("op" "identity") [])
+          (call -relay- ("op" "noop") [])
           (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
          )
         )
        )
-       (seq
-        (call -relay- ("op" "identity") [])
-        (next n)
-       )
+       (next n)
       )
      )
     )

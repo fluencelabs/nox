@@ -14,7 +14,7 @@
     )
     (call %init_peer_id% ("getDataSrv" "service_id") [] service_id)
    )
-   (call -relay- ("op" "identity") [])
+   (call -relay- ("op" "noop") [])
   )
   (xor
    (seq
@@ -22,16 +22,13 @@
     (call node_id ("aqua-dht" "put_host_value") [key value t $nil service_id 0])
    )
    (seq
-    (seq
-     (call -relay- ("op" "identity") [])
-     (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
-    )
-    (call -relay- ("op" "identity") [])
+    (call -relay- ("op" "noop") [])
+    (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
    )
   )
  )
  (seq
-  (call -relay- ("op" "identity") [])
+  (call -relay- ("op" "noop") [])
   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
  )
 )

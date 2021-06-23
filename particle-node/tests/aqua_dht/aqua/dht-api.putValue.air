@@ -20,7 +20,7 @@
        )
        (call %init_peer_id% ("getDataSrv" "service_id") [] service_id)
       )
-      (call -relay- ("op" "identity") [])
+      (call -relay- ("op" "noop") [])
      )
      (xor
       (seq
@@ -28,32 +28,26 @@
        (call node_id ("kad" "neighborhood") [k false] nodes)
       )
       (seq
-       (call -relay- ("op" "identity") [])
+       (call -relay- ("op" "noop") [])
        (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
       )
      )
     )
-    (call -relay- ("op" "identity") [])
+    (call -relay- ("op" "noop") [])
    )
    (fold nodes n
     (par
-     (seq
+     (xor
       (seq
-       (seq
-        (call -relay- ("op" "identity") [])
-        (xor
-         (seq
-          (call n ("peer" "timestamp_sec") [] t)
-          (call n ("aqua-dht" "put_value") [key value t relay_id service_id 0])
-         )
-         (null)
-        )
-       )
-       (call -relay- ("op" "identity") [])
+       (call n ("peer" "timestamp_sec") [] t)
+       (call n ("aqua-dht" "put_value") [key value t relay_id service_id 0])
       )
-      (call %init_peer_id% ("op" "identity") [])
+      (null)
      )
-     (next n)
+     (seq
+      (call -relay- ("op" "noop") [])
+      (next n)
+     )
     )
    )
   )
@@ -62,8 +56,5 @@
    (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
   )
  )
- (seq
-  (call -relay- ("op" "identity") [])
-  (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
- )
+ (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
 )

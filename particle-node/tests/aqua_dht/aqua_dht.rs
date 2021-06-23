@@ -17,6 +17,7 @@
 use eyre::{ContextCompat, WrapErr};
 use maplit::hashmap;
 use serde_json::json;
+use services_utils::load_module;
 use std::time::Duration;
 use test_utils::{enable_logs, load_module, make_swarms, module_config, ConnectedClient};
 

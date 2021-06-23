@@ -1,0 +1,28 @@
+(xor
+ (seq
+  (seq
+   (seq
+    (seq
+     (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
+     (call %init_peer_id% ("getDataSrv" "node_id") [] node_id)
+    )
+    (call %init_peer_id% ("getDataSrv" "topic") [] topic)
+   )
+   (call -relay- ("op" "noop") [])
+  )
+  (xor
+   (seq
+    (call node_id ("peer" "timestamp_sec") [] t)
+    (call node_id ("aqua-dht" "clear_host_value") [topic t])
+   )
+   (seq
+    (call -relay- ("op" "noop") [])
+    (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+   )
+  )
+ )
+ (seq
+  (call -relay- ("op" "noop") [])
+  (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
+ )
+)

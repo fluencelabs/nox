@@ -6,15 +6,15 @@
      (seq
       (seq
        (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
-       (call %init_peer_id% ("getDataSrv" "key") [] key)
+       (call %init_peer_id% ("getDataSrv" "node_id") [] node_id)
       )
-      (call %init_peer_id% ("getDataSrv" "node_id") [] node_id)
+      (call %init_peer_id% ("getDataSrv" "topic") [] topic)
      )
      (call -relay- ("op" "noop") [])
     )
     (xor
      (seq
-      (call node_id ("op" "string_to_b58") [key] k)
+      (call node_id ("op" "string_to_b58") [topic] k)
       (call node_id ("kad" "neighborhood") [k false] nodes)
      )
      (seq
@@ -30,7 +30,7 @@
     (xor
      (seq
       (call n ("peer" "timestamp_sec") [] t)
-      (call n ("aqua-dht" "clear_host_value") [key t])
+      (call n ("aqua-dht" "register_key") [topic t false 0])
      )
      (null)
     )
