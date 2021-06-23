@@ -212,47 +212,6 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     fn add_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
-        fn parse_u64(
-            field: &'static str,
-            mut args: &mut impl Iterator<Item = JValue>,
-        ) -> Result<Option<u64>, JError> {
-            #[derive(thiserror::Error, Debug)]
-            #[error("Error while deserializing field {field_name}: not a valid u64")]
-            struct Error {
-                field_name: String,
-                #[source]
-                err: ParseIntError,
-            }
-
-            #[derive(serde::Deserialize, Debug)]
-            #[serde(untagged)]
-            pub enum Number {
-                String(String),
-                Number(u64),
-            }
-
-            let number: Option<Number> = Args::next_opt(field, &mut args)?;
-
-            log::info!("{:?}", number);
-            if number.is_none() {
-                return Ok(None);
-            }
-
-            number
-                .map(|i| match i {
-                    Number::String(s) => Ok(s.parse::<u64>()?),
-                    Number::Number(n) => Ok(n),
-                })
-                .transpose()
-                .map_err(|err| {
-                    Error {
-                        field_name: field.to_string(),
-                        err,
-                    }
-                    .into()
-                })
-        }
-
         let mut args = args.function_args.into_iter();
 
         let script: String = Args::next("script", &mut args)?;
@@ -609,4 +568,45 @@ fn wrap_unit(r: Result<(), JError>) -> Option<IValue> {
 
 fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {
     into_record_opt(r.map_err(Into::into))
+}
+
+fn parse_u64(
+    field: &'static str,
+    mut args: &mut impl Iterator<Item = JValue>,
+) -> Result<Option<u64>, JError> {
+    #[derive(thiserror::Error, Debug)]
+    #[error("Error while deserializing field {field_name}: not a valid u64")]
+    struct Error {
+        field_name: String,
+        #[source]
+        err: ParseIntError,
+    }
+
+    #[derive(serde::Deserialize, Debug)]
+    #[serde(untagged)]
+    pub enum Period {
+        String(String),
+        Number(u64),
+    }
+
+    let number: Option<Period> = Args::next_opt(field, &mut args)?;
+
+    log::info!("{:?}", number);
+    if number.is_none() {
+        return Ok(None);
+    }
+
+    number
+        .map(|i| match i {
+            Period::String(s) => Ok(s.parse::<u64>()?),
+            Period::Number(n) => Ok(n),
+        })
+        .transpose()
+        .map_err(|err| {
+            Error {
+                field_name: field.to_string(),
+                err,
+            }
+            .into()
+        })
 }

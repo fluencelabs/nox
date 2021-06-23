@@ -29,6 +29,7 @@ use futures::{
     FutureExt, StreamExt, TryFutureExt,
 };
 use now_millis::now_ms;
+use std::cmp::max;
 use std::{
     borrow::Borrow,
     collections::{hash_map::Entry, HashMap},
@@ -59,12 +60,29 @@ pub struct Script {
     pub owner: PeerId,
 }
 
+fn get_delay(
+    delay: Option<Duration>,
+    interval: Option<Duration>,
+    timer_resolution: Duration,
+) -> Duration {
+    use rand::prelude::*;
+    let mut rng = rand::thread_rng();
+    match (delay, interval) {
+        (Some(delay), _) => delay,
+        (None, Some(interval)) => Duration::from_secs(
+            rng.gen_range(timer_resolution.as_secs()..=max(interval, timer_resolution).as_secs()),
+        ),
+        (None, None) => Duration::from_secs(0),
+    }
+}
+
 impl Script {
     pub fn new(
         src: String,
         interval: Option<Duration>,
         delay: Option<Duration>,
         owner: PeerId,
+        timer_resolution: Duration,
     ) -> Self {
         Self {
             src,
@@ -72,7 +90,7 @@ impl Script {
             delay,
             failures: 0,
             executed_at: None,
-            next_execution: Instant::now() + delay.unwrap_or(Duration::from_secs(0)),
+            next_execution: Instant::now() + get_delay(delay, interval, timer_resolution),
             owner,
         }
     }
@@ -154,7 +172,7 @@ impl ScriptStorageBackend {
             loop {
                 select! {
                     command = inlet.select_next_some() => {
-                        execute_command(command, &scripts).await;
+                        execute_command(command, &scripts, self.config.timer_resolution).await;
                     },
                     failed = failed_particles.select_next_some() => {
                         remove_failed_scripts(failed, &sent_particles, &scripts, max_failures).await;
@@ -231,7 +249,11 @@ async fn execute_scripts(
     }
 }
 
-async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Script>>) {
+async fn execute_command(
+    command: Command,
+    scripts: &Mutex<HashMap<ScriptId, Script>>,
+    timer_resolution: Duration,
+) {
     match command {
         Command::AddScript {
             uuid,
@@ -241,7 +263,7 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             owner,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
-            let script = Script::new(script, interval, delay, owner);
+            let script = Script::new(script, interval, delay, owner, timer_resolution);
             unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
         }
         Command::RemoveScript {
