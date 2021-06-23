@@ -591,7 +591,6 @@ fn parse_u64(
 
     let number: Option<Period> = Args::next_opt(field, &mut args)?;
 
-    log::info!("{:?}", number);
     if number.is_none() {
         return Ok(None);
     }

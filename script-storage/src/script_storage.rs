@@ -196,8 +196,8 @@ async fn execute_scripts(
     let now = Instant::now();
     let now_u64 = now_ms() as u64;
 
-    // Remove all scripts without interval, they will be executing only once
-    let single_shots: Vec<_> = unlock(scripts, |scripts| {
+    // Remove all ready scripts without interval, they will be executing only once
+    let ready_single_shots: Vec<_> = unlock(scripts, |scripts| {
         scripts
             .drain_filter(|_, s| s.interval.is_none() && s.deadline() <= now)
             .collect()
@@ -212,14 +212,15 @@ async fn execute_scripts(
             .map(|(id, s)| {
                 // mark script as executed at the current timestamp and schedule next
                 s.executed_at = Some(now);
-                s.next_execution = now + s.interval.unwrap(); // because all scripts without interval already removed
+                // SAFETY: safe to call unwrap because all scripts without interval already removed
+                s.next_execution = now + s.interval.unwrap();
                 (id.clone(), s.clone())
             })
             .collect()
     })
     .await;
     // concatenate single shots with other scripts
-    let scripts = single_shots.into_iter().chain(scripts);
+    let scripts = ready_single_shots.into_iter().chain(scripts);
 
     for (script_id, script) in scripts {
         let particle_id = format!("auto_{}", uuid::Uuid::new_v4());
