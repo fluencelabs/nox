@@ -426,3 +426,150 @@ fn remove_script_management_key() {
     let list = client.wait_particle_args(list_id).unwrap();
     assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
 }
+
+#[test]
+fn add_script_delay() {
+    let swarms = make_swarms(1);
+
+    let delay = 3u64;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = f!(r#"
+        (seq
+            (call "{client.node}" ("peer" "timestamp_sec") [] result)
+            (call "{client.peer_id}" ("op" "return") [result])
+        )
+    "#);
+
+    let now_id = client.send_particle(
+        r#"
+        (seq
+            (call relay ("peer" "timestamp_sec") [] now)
+            (seq
+                (call relay ("script" "add") [script "0" delay])
+                (call %init_peer_id% ("op" "return") [now])
+            )
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "delay" => json!(delay),
+            "script" => json!(script),
+        },
+    );
+
+    let res = client.wait_particle_args(now_id).unwrap().pop().unwrap();
+    let now = res.as_u64().unwrap();
+
+    let res = client.receive_args().wrap_err("receive").unwrap();
+    let res = res.into_iter().next().unwrap().as_u64().unwrap();
+    let eps = 3u64;
+    let expected = now + delay;
+    let check_range = expected - eps..expected + eps;
+    assert!(check_range.contains(&res));
+}
+
+#[test]
+fn add_script_delay_oneshot() {
+    let swarms = make_swarms(1);
+
+    let delay = 4u64;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = f!(r#"
+        (seq
+            (call "{client.node}" ("peer" "timestamp_sec") [] result)
+            (call "{client.peer_id}" ("op" "return") [result])
+        )
+    "#);
+
+    let now_id = client.send_particle(
+        r#"
+        (seq
+            (call relay ("peer" "timestamp_sec") [] now)
+            (seq
+                (call relay ("script" "add") [script $none delay])
+                (call %init_peer_id% ("op" "return") [now])
+            )
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "delay" => json!(delay),
+            "script" => json!(script),
+        },
+    );
+
+    let res = client.wait_particle_args(now_id).unwrap().pop().unwrap();
+    let now = res.as_u64().unwrap();
+
+    let res = client.receive_args().wrap_err("receive").unwrap();
+    let res = res.into_iter().next().unwrap().as_u64().unwrap();
+    let eps = 3u64;
+    let expected = now + delay;
+    let check_range = expected - eps..expected + eps;
+    assert!(check_range.contains(&res));
+
+    let list_id = client.send_particle(
+        r#"
+        (seq
+            (call relay ("script" "list") [] list)
+            (call client ("op" "return") [list])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+    let list = client.wait_particle_args(list_id).unwrap();
+    assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
+}
+
+#[test]
+fn add_script_random_delay() {
+    let swarms = make_swarms(1);
+
+    let interval = 1u64;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = f!(r#"
+        (seq
+            (call "{client.node}" ("peer" "timestamp_sec") [] result)
+            (call "{client.peer_id}" ("op" "return") [result])
+        )
+    "#);
+
+    let now_id = client.send_particle(
+        f!(r#"
+        (seq
+            (call relay ("peer" "timestamp_sec") [] now)
+            (seq
+                (call relay ("script" "add") [script "{interval}"])
+                (call %init_peer_id% ("op" "return") [now])
+            )
+        )
+        "#),
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "script" => json!(script),
+        },
+    );
+
+    let res = client.wait_particle_args(now_id).unwrap().pop().unwrap();
+    let now = res.as_u64().unwrap();
+
+    let res = client.receive_args().wrap_err("receive").unwrap();
+    let res = res.into_iter().next().unwrap().as_u64().unwrap();
+    let expected = now + interval;
+    assert!((now..=expected).contains(&res));
+}

@@ -212,30 +212,21 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     fn add_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
-        #[derive(thiserror::Error, Debug)]
-        #[error("Error while deserializing field interval_sec: not a valid u64")]
-        struct Error(#[source] ParseIntError);
         let mut args = args.function_args.into_iter();
 
         let script: String = Args::next("script", &mut args)?;
-        #[derive(serde::Deserialize, Debug)]
-        #[serde(untagged)]
-        pub enum Interval {
-            String(String),
-            Number(u64),
-        }
-        let interval: Option<Interval> = Args::next_opt("interval_sec", &mut args)?;
-        let interval = interval
-            .map(|i| match i {
-                Interval::String(s) => Ok(s.parse::<u64>()?),
-                Interval::Number(n) => Ok(n),
-            })
-            .transpose()
-            .map_err(Error)?;
 
+        let interval = parse_u64("interval_sec", &mut args)?;
         let interval = interval.map(Duration::from_secs);
+
+        let delay = parse_u64("delay_sec", &mut args)?;
+        let delay = delay.map(Duration::from_secs);
+        let delay = get_delay(delay, interval);
+
         let creator = PeerId::from_str(&params.init_user_id)?;
-        let id = self.script_storage.add_script(script, interval, creator)?;
+        let id = self
+            .script_storage
+            .add_script(script, interval, delay, creator)?;
 
         Ok(json!(id))
     }
@@ -578,4 +569,54 @@ fn wrap_unit(r: Result<(), JError>) -> Option<IValue> {
 
 fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {
     into_record_opt(r.map_err(Into::into))
+}
+
+fn parse_u64(
+    field: &'static str,
+    mut args: &mut impl Iterator<Item = JValue>,
+) -> Result<Option<u64>, JError> {
+    #[derive(thiserror::Error, Debug)]
+    #[error("Error while deserializing field {field_name}: not a valid u64")]
+    struct Error {
+        field_name: String,
+        #[source]
+        err: ParseIntError,
+    }
+
+    #[derive(serde::Deserialize, Debug)]
+    #[serde(untagged)]
+    pub enum Period {
+        String(String),
+        Number(u64),
+    }
+
+    let number: Option<Period> = Args::next_opt(field, &mut args)?;
+
+    if number.is_none() {
+        return Ok(None);
+    }
+
+    number
+        .map(|i| match i {
+            Period::String(s) => Ok(s.parse::<u64>()?),
+            Period::Number(n) => Ok(n),
+        })
+        .transpose()
+        .map_err(|err| {
+            Error {
+                field_name: field.to_string(),
+                err,
+            }
+            .into()
+        })
+}
+
+fn get_delay(delay: Option<Duration>, interval: Option<Duration>) -> Duration {
+    use rand::prelude::*;
+    let mut rng = rand::thread_rng();
+    match (delay, interval) {
+        (Some(delay), _) => delay,
+        (None, Some(interval)) => Duration::from_secs(rng.gen_range(0..=interval.as_secs())),
+        (None, None) => Duration::from_secs(0),
+    }
 }
