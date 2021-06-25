@@ -32,4 +32,5 @@ pub use config::modules_dir;
 pub use config::particles_dir;
 pub use config::services_dir;
 pub use config::to_peer_id;
+pub use config::vault_dir;
 pub use config::workdir;

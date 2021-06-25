@@ -66,6 +66,13 @@ pub enum ServiceError {
     CorruptedFaaSInterface(#[source] serde_json::Error),
     #[error("Error parsing arguments on call_service: {0}")]
     ArgParseError(#[source] ArgsError),
+    #[error("Vault creation (service {particle_id}, particle {service_id}) failed: {err:?}")]
+    VaultCreation {
+        #[source]
+        err: std::io::Error,
+        particle_id: String,
+        service_id: String,
+    },
 }
 
 impl From<AppServiceError> for ServiceError {

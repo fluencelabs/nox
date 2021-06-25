@@ -32,6 +32,7 @@ use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
+use crate::vault::create_vault;
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
@@ -193,6 +194,13 @@ impl ParticleAppServices {
                 },
                 e => e,
             })?;
+
+        create_vault(
+            &params.particle_id,
+            &id,
+            &self.config.workdir,
+            &self.config.vault_dir,
+        )?;
 
         let params = CallParameters {
             host_id,
