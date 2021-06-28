@@ -32,6 +32,7 @@ use serde_json::{json, Value as JValue};
 use fluence_libp2p::RandomPeerId;
 use json_utils::into_array;
 use libp2p::identity::Keypair;
+use log_utils::enable_logs;
 use particle_protocol::Particle;
 use services_utils::load_module;
 use test_utils::{
@@ -46,6 +47,8 @@ struct NodeInfo {
 
 #[test]
 fn identify() {
+    enable_logs();
+
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())

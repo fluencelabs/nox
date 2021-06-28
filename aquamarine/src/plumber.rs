@@ -94,6 +94,8 @@ impl<RT: AquaRuntime> Plumber<RT> {
                 }
                 true
             });
+
+            self.vm_pool.put_vm(vm);
         }
 
         // Gather effects and put VMs back
