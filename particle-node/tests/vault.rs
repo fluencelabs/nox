@@ -45,15 +45,18 @@ fn share_file() {
 
     client.send_particle(
         r#"
-        (xor
-            (seq
+        (seq
+            (call relay ("srv" "get_interface") [first] interface)
+            (xor
                 (seq
-                    (call relay (first "create_vault_file") [input_content] filename)
-                    (call relay (second "read_vault_file" ) [filename] output_content)
+                    (seq
+                        (call relay (first "create_vault_file") [input_content] filename)
+                        (call relay (second "read_vault_file" ) [filename] output_content)
+                    )
+                    (call %init_peer_id% ("op" "return") [output_content])
                 )
-                (call %init_peer_id% ("op" "return") [output_content])
+                (call %init_peer_id% ("op" "return") [%last_error%.$.msg interface])
             )
-            (call %init_peer_id% ("op" "return") [%last_error%.msg])
         )
         "#,
         hashmap! {
@@ -66,7 +69,7 @@ fn share_file() {
 
     use serde_json::Value::String;
 
-    if let [String(output)] = client.receive_args().unwrap().as_slice() {
+    if let [String(output)] = dbg!(client.receive_args().unwrap()).as_slice() {
         assert_eq!(output, "Hello");
     } else {
         panic!("incorrect args: expected a single string")
