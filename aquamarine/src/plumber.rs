@@ -79,9 +79,22 @@ impl<RT: AquaRuntime> Plumber<RT> {
         }
 
         // Remove expired actors
-        let now = now_ms();
-        // TODO: cleanup particle data store
-        self.actors.retain(|_, actor| !actor.is_expired(now));
+        if let Some(vm) = self.vm_pool.get_vm() {
+            let now = now_ms();
+            self.actors.retain(|particle_id, actor| {
+                if actor.is_expired(now) {
+                    if let Err(err) = vm.cleanup(particle_id) {
+                        log::warn!(
+                            "Error cleaning up after particle {}: {:?}",
+                            particle_id,
+                            err
+                        )
+                    }
+                    return false;
+                }
+                true
+            });
+        }
 
         // Gather effects and put VMs back
         let mut effects = vec![];

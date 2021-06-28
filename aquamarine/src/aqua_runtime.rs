@@ -51,6 +51,8 @@ pub trait AquaRuntime: Sized + Send + 'static {
         particle_id: String,
         // TODO: return StepperEffects
     ) -> Result<InterpreterOutcome, Self::Error>;
+
+    fn cleanup(&self, particle_id: &str) -> Result<(), Self::Error>;
 }
 
 impl AquaRuntime for AVM {
@@ -128,5 +130,10 @@ impl AquaRuntime for AVM {
         particle_id: String,
     ) -> Result<InterpreterOutcome, Self::Error> {
         AVM::call(self, init_user_id.to_string(), aqua, data, particle_id)
+    }
+
+    #[inline]
+    fn cleanup(&self, particle_id: &str) -> Result<(), Self::Error> {
+        AVM::cleanup_particle(self, particle_id)
     }
 }

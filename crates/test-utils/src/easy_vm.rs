@@ -92,4 +92,9 @@ impl AquaRuntime for EasyVM {
             next_peer_pks: vec![next_peer],
         })
     }
+
+    fn cleanup(&self, _particle_id: &str) -> Result<(), Self::Error> {
+        // Nothing to cleanup in EasyVM
+        Ok(())
+    }
 }
