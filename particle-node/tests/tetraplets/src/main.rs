@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-use fluence::{fce, module_manifest, SecurityTetraplet};
+use fluence::{marine, module_manifest, SecurityTetraplet};
 
 module_manifest!();
 
 pub fn main() {}
 
-#[fce]
+#[marine]
 pub fn get_tetraplets(_: String) -> Vec<Vec<SecurityTetraplet>> {
     fluence::get_call_parameters().tetraplets
 }
 
-#[fce]
+#[marine]
 pub fn not(b: bool) -> bool {
     !b
 }

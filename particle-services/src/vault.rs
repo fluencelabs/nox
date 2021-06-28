@@ -42,6 +42,7 @@ fn link_vault(
     services_workdir: &Path,
     vault_dir: &Path,
 ) -> Result<(), ServiceError> {
+    // Will be visible as /tmp/$particle_id inside the service
     let symlink_path = services_workdir
         .join(service_id)
         .join("tmp")
