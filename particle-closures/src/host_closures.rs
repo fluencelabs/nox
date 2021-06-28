@@ -111,6 +111,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             function_args.service_id, function_args.function_name
         );
 
+        let params = args.particle_parameters;
         let start = Instant::now();
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
@@ -126,11 +127,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("kad", "merge")                  => wrap(self.kad_merge(function_args.function_args)),
 
             ("srv", "list")                   => ok(self.list_services()),
-            ("srv", "create")                 => wrap(self.create_service(function_args, args.particle_parameters)),
+            ("srv", "create")                 => wrap(self.create_service(function_args, params)),
             ("srv", "get_interface")          => wrap(self.get_interface(function_args)),
             ("srv", "resolve_alias")          => wrap(self.resolve_alias(function_args)),
-            ("srv", "add_alias")              => wrap_unit(self.add_alias(function_args, args.particle_parameters)),
-            ("srv", "remove")                 => wrap_unit(self.remove_service(function_args, args.particle_parameters)),
+            ("srv", "add_alias")              => wrap_unit(self.add_alias(function_args, params)),
+            ("srv", "remove")                 => wrap_unit(self.remove_service(function_args, params)),
 
             ("dist", "add_module")            => wrap(self.add_module(function_args)),
             ("dist", "add_blueprint")         => wrap(self.add_blueprint(function_args)),
@@ -140,8 +141,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("dist", "get_module_interface")  => wrap(self.get_module_interface(function_args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
-            ("script", "add")                 => wrap(self.add_script(function_args, args.particle_parameters)),
-            ("script", "remove")              => wrap(self.remove_script(function_args, args.particle_parameters)),
+            ("script", "add")                 => wrap(self.add_script(function_args, params)),
+            ("script", "remove")              => wrap(self.remove_script(function_args, params)),
             ("script", "list")                => wrap(self.list_scripts()),
 
             ("op", "noop")                    => unit(),
@@ -156,10 +157,10 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "identity")                => wrap_opt(self.identity(function_args.function_args)),
 
             ("ipfs", "get_multiaddr")         => wrap(self.ipfs().get_multiaddr()),
-            ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(args.particle_parameters, &self.management_peer_id)),
-            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(function_args, args.particle_parameters, &self.management_peer_id)),
+            ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
+            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(function_args, params, &self.management_peer_id)),
 
-            _ => wrap(self.call_service(function_args, args.particle_parameters)),
+            _ => wrap(self.call_service(function_args, params)),
         };
         log::info!("{} ({})", log_args, pretty(start.elapsed()));
         result
