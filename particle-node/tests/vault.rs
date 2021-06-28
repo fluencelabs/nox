@@ -14,32 +14,13 @@
  * limitations under the License.
  */
 
-#[macro_use]
-extern crate fstrings;
-
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::time::Duration;
-
 use eyre::WrapErr;
-use libp2p::core::Multiaddr;
-use libp2p::identity::Keypair;
-use libp2p::kad::kbucket::Key;
-use libp2p::PeerId;
 use maplit::hashmap;
-use serde::Deserialize;
-use serde_json::{json, Value as JValue};
+use serde_json::json;
 
-use fluence_libp2p::RandomPeerId;
-use json_utils::into_array;
 use log_utils::enable_logs;
-use particle_protocol::Particle;
 use services_utils::load_module;
-use test_utils::{
-    create_service, make_swarms, make_swarms_with_keypair,
-    make_swarms_with_transport_and_mocked_vm, now_ms, ConnectedClient, CreatedService, Transport,
-    PARTICLE_TTL,
-};
+use test_utils::{create_service, make_swarms, ConnectedClient, CreatedService};
 
 fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
     create_service(
