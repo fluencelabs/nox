@@ -21,7 +21,7 @@ use crate::ipfs::IpfsState;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use host_closure::{
-    from_base58, Args, CallServiceArgs, ClosureDescriptor, JError, ParticleParameters,
+    from_base58, AVMEffect, Args, CallServiceArgs, ClosureDescriptor, JError, ParticleParameters,
 };
 use ivalue_utils::{error, into_record, into_record_opt, ok, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
@@ -42,6 +42,7 @@ use parking_lot::{Mutex, MutexGuard};
 use serde_json::{json, Value as JValue};
 use std::borrow::Borrow;
 use std::num::ParseIntError;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{str::FromStr, sync::Arc};
 use JValue::Array;
@@ -160,7 +161,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
             ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(function_args, params, &self.management_peer_id)),
 
-            _ => wrap(self.call_service(function_args, params)),
+            _ => wrap(self.call_service(function_args, params, args.create_vault)),
         };
         log::info!("{} ({})", log_args, pretty(start.elapsed()));
         result
@@ -515,8 +516,19 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         JValue::Array(self.services.list_services())
     }
 
-    fn call_service(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
-        Ok(self.services.call_service(args, params)?)
+    fn call_service(
+        &self,
+        function_args: Args,
+        particle_parameters: ParticleParameters,
+        create_vault: AVMEffect<PathBuf>,
+    ) -> Result<JValue, JError> {
+        Ok(self
+            .services
+            .call_service(particle_services::CallServiceArgs {
+                function_args,
+                particle_parameters,
+                create_vault,
+            })?)
     }
 
     fn get_interface(&self, args: Args) -> Result<JValue, JError> {
