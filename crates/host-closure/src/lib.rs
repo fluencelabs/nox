@@ -16,6 +16,7 @@ mod base58;
 pub use args::Args;
 pub use args_error::{ArgsError, JError};
 
+pub use avm_server::CallServiceArgs;
 pub use avm_server::ParticleParameters;
 pub use base58::from_base58;
 

@@ -80,6 +80,7 @@ impl<RT: AquaRuntime> Plumber<RT> {
 
         // Remove expired actors
         let now = now_ms();
+        // TODO: cleanup particle data store
         self.actors.retain(|_, actor| !actor.is_expired(now));
 
         // Gather effects and put VMs back

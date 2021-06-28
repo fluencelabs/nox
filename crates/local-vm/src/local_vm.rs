@@ -74,8 +74,8 @@ pub fn make_call_service_closure(
     service_in: Arc<Mutex<HashMap<String, JValue>>>,
     service_out: Arc<Mutex<Vec<JValue>>>,
 ) -> CallServiceClosure {
-    Box::new(move |_, args| {
-        let args = Args::parse(args).expect("valid args");
+    Box::new(move |args| {
+        let args = Args::parse(args.function_args).expect("valid args");
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("load", _) => service_in
                 .lock()

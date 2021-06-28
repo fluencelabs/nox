@@ -134,8 +134,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dceb8224a0af97263cd0ffef37f2abbc6ac04d7c7c81efba7ba02db009ca5cd"
+source = "git+https://github.com/fluencelabs/aquavm?branch=vault#9a4ebe2c085806860f558e47fa8b3fc63ed6b74b"
 dependencies = [
  "fluence",
  "fluence-it-types",
@@ -479,8 +478,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "avm-server"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54dc34e55312336dbbb2bcfc731ff62c42a2ecc461474f58983e43363dc41815"
+source = "git+https://github.com/fluencelabs/aquavm?branch=vault#9a4ebe2c085806860f558e47fa8b3fc63ed6b74b"
 dependencies = [
  "air-interpreter-interface",
  "fluence-faas",

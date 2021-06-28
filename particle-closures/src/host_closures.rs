@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
+use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
+use crate::ipfs::IpfsState;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use host_closure::{from_base58, Args, ClosureDescriptor, JError, ParticleParameters};
+use host_closure::{
+    from_base58, Args, CallServiceArgs, ClosureDescriptor, JError, ParticleParameters,
+};
 use ivalue_utils::{error, into_record, into_record_opt, ok, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
@@ -30,13 +34,9 @@ use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
-use crate::error::HostClosureCallError;
-use crate::ipfs::IpfsState;
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::kad::kbucket::Key;
-use libp2p::kad::K_VALUE;
-use libp2p::{core::Multiaddr, PeerId};
+use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use parking_lot::{Mutex, MutexGuard};
 use serde_json::{json, Value as JValue};
@@ -92,12 +92,12 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     pub fn descriptor(self) -> ClosureDescriptor {
         Arc::new(move || {
             let this = self.clone();
-            Box::new(move |particle, args| this.route(particle, args))
+            Box::new(move |args| this.route(args))
         })
     }
 
-    fn route(&self, params: ParticleParameters, args: Vec<IValue>) -> Option<IValue> {
-        let args = match Args::parse(args) {
+    fn route(&self, args: CallServiceArgs) -> Option<IValue> {
+        let function_args = match Args::parse(args.function_args) {
             Ok(args) => args,
             Err(err) => {
                 log::warn!("host function args parse error: {:?}", err);
@@ -105,61 +105,61 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             }
         };
 
-        log::trace!("Host function call, args: {:#?}", args);
+        log::trace!("Host function call, args: {:#?}", function_args);
         let log_args = format!(
             "Executed host call {:?} {:?}",
-            args.service_id, args.function_name
+            function_args.service_id, function_args.function_name
         );
 
         let start = Instant::now();
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
-        let result = match (args.service_id.as_str(), args.function_name.as_str()) {
+        let result = match (function_args.service_id.as_str(), function_args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
             ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
-            ("peer", "is_connected")          => wrap(self.is_connected(args)),
-            ("peer", "connect")               => wrap(self.connect(args)),
-            ("peer", "get_contact")           => wrap_opt(self.get_contact(args)),
+            ("peer", "is_connected")          => wrap(self.is_connected(function_args)),
+            ("peer", "connect")               => wrap(self.connect(function_args)),
+            ("peer", "get_contact")           => wrap_opt(self.get_contact(function_args)),
 
-            ("kad", "neighborhood")           => wrap(self.neighborhood(args)),
-            ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
+            ("kad", "neighborhood")           => wrap(self.neighborhood(function_args)),
+            ("kad", "merge")                  => wrap(self.kad_merge(function_args.function_args)),
 
             ("srv", "list")                   => ok(self.list_services()),
-            ("srv", "create")                 => wrap(self.create_service(args, params)),
-            ("srv", "get_interface")          => wrap(self.get_interface(args)),
-            ("srv", "resolve_alias")          => wrap(self.resolve_alias(args)),
-            ("srv", "add_alias")              => wrap_unit(self.add_alias(args, params)),
-            ("srv", "remove")                 => wrap_unit(self.remove_service(args, params)),
+            ("srv", "create")                 => wrap(self.create_service(function_args, args.particle_parameters)),
+            ("srv", "get_interface")          => wrap(self.get_interface(function_args)),
+            ("srv", "resolve_alias")          => wrap(self.resolve_alias(function_args)),
+            ("srv", "add_alias")              => wrap_unit(self.add_alias(function_args, args.particle_parameters)),
+            ("srv", "remove")                 => wrap_unit(self.remove_service(function_args, args.particle_parameters)),
 
-            ("dist", "add_module")            => wrap(self.add_module(args)),
-            ("dist", "add_blueprint")         => wrap(self.add_blueprint(args)),
-            ("dist", "make_module_config")    => wrap(self.make_module_config(args)),
-            ("dist", "make_blueprint")        => wrap(self.make_blueprint(args)),
+            ("dist", "add_module")            => wrap(self.add_module(function_args)),
+            ("dist", "add_blueprint")         => wrap(self.add_blueprint(function_args)),
+            ("dist", "make_module_config")    => wrap(self.make_module_config(function_args)),
+            ("dist", "make_blueprint")        => wrap(self.make_blueprint(function_args)),
             ("dist", "list_modules")          => wrap(self.list_modules()),
-            ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
+            ("dist", "get_module_interface")  => wrap(self.get_module_interface(function_args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
-            ("script", "add")                 => wrap(self.add_script(args, params)),
-            ("script", "remove")              => wrap(self.remove_script(args, params)),
+            ("script", "add")                 => wrap(self.add_script(function_args, args.particle_parameters)),
+            ("script", "remove")              => wrap(self.remove_script(function_args, args.particle_parameters)),
             ("script", "list")                => wrap(self.list_scripts()),
 
             ("op", "noop")                    => unit(),
-            ("op", "array")                   => ok(Array(args.function_args)),
-            ("op", "array_length")            => wrap(self.array_length(args.function_args)),
-            ("op", "concat")                  => wrap(self.concat(args.function_args)),
-            ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
-            ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
-            ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
-            ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
-            ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
-            ("op", "identity")                => wrap_opt(self.identity(args.function_args)),
+            ("op", "array")                   => ok(Array(function_args.function_args)),
+            ("op", "array_length")            => wrap(self.array_length(function_args.function_args)),
+            ("op", "concat")                  => wrap(self.concat(function_args.function_args)),
+            ("op", "string_to_b58")           => wrap(self.string_to_b58(function_args.function_args)),
+            ("op", "string_from_b58")         => wrap(self.string_from_b58(function_args.function_args)),
+            ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(function_args.function_args)),
+            ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(function_args.function_args)),
+            ("op", "sha256_string")           => wrap(self.sha256_string(function_args.function_args)),
+            ("op", "identity")                => wrap_opt(self.identity(function_args.function_args)),
 
             ("ipfs", "get_multiaddr")         => wrap(self.ipfs().get_multiaddr()),
-            ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
-            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(args, params, &self.management_peer_id)),
+            ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(args.particle_parameters, &self.management_peer_id)),
+            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(function_args, args.particle_parameters, &self.management_peer_id)),
 
-            _ => wrap(self.call_service(args, params)),
+            _ => wrap(self.call_service(function_args, args.particle_parameters)),
         };
         log::info!("{} ({})", log_args, pretty(start.elapsed()));
         result

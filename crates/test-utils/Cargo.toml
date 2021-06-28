@@ -23,7 +23,7 @@ local-vm = { path = "../local-vm" }
 fs-utils = { path = "../fs-utils" }
 
 air-interpreter-wasm = "0.10.5"
-avm-server = "0.7.0"
+avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "vault" } #0.7.0
 fluence-identity = "0.3.0"
 fluence-faas = "0.7.0"
 
