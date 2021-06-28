@@ -50,15 +50,15 @@ pub fn cert_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("certificates")
 }
 
-pub fn services_basedir(base_dir: &Path) -> PathBuf {
+pub fn services_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("services")
 }
 
-pub fn builtins_basedir() -> PathBuf {
+pub fn builtins_base_dir() -> PathBuf {
     Path::new("/builtins").into()
 }
 
-pub fn stepper_basedir(base_dir: &Path) -> PathBuf {
+pub fn avm_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("stepper")
 }
 

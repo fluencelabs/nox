@@ -11,7 +11,7 @@ root_key_pair.generate_on_absence = true
 # services_base_dir = "./services"
 ## AIR Interpreter (stepper) will store its data here
 # default is /.fluence/v1/stepper
-# stepper_base_dir = "./stepper"
+# avm_base_dir = "./stepper"
 ## directory for TrustGraph certificates
 # default is /.fluence/v1/certificates
 # certificate_dir = "./certificates"

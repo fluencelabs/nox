@@ -19,6 +19,7 @@ use crate::ServiceError;
 use fs_utils::{create_dir, symlink_dir};
 use std::path::Path;
 
+#[warn(unused)]
 pub fn create_vault(
     particle_id: &str,
     service_id: &str,

@@ -327,11 +327,11 @@ pub fn aqua_vm_config(
         manager,
     } = vm_config;
 
-    let stepper_base_dir = tmp_dir.join("stepper");
-    let air_interpreter = put_aquamarine(modules_dir(&stepper_base_dir));
+    let avm_base_dir = tmp_dir.join("stepper");
+    let air_interpreter = put_aquamarine(modules_dir(&avm_base_dir));
 
     let vm_config =
-        VmConfig::new(peer_id, stepper_base_dir, air_interpreter).expect("create vm config");
+        VmConfig::new(peer_id, avm_base_dir, air_interpreter).expect("create vm config");
 
     let services_config = ServicesConfig::new(
         peer_id,

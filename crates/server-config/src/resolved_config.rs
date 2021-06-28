@@ -283,7 +283,7 @@ mod tests {
             [root_key_pair]
             format = "ed25519"
             value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
-            stepper_base_dir = "/stepper"
+            avm_base_dir = "/stepper"
             stepper_module_name = "aquamarine"
 
             [root_weights]

@@ -35,8 +35,6 @@ pub struct ServicesConfig {
     pub modules_dir: PathBuf,
     /// Dir to persist info about running services
     pub services_dir: PathBuf,
-    /// Dir to share data between services per-particle
-    pub vault_dir: PathBuf,
     /// key that could manage services
     pub management_peer_id: PeerId,
     /// key to manage builtins services initialization
@@ -59,7 +57,6 @@ impl ServicesConfig {
             workdir: config_utils::workdir(&base_dir),
             modules_dir: config_utils::modules_dir(&base_dir),
             services_dir: config_utils::services_dir(&base_dir),
-            vault_dir: config_utils::vault_dir(&base_dir),
             envs,
             management_peer_id,
             startup_management_peer_id,

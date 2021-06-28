@@ -77,7 +77,7 @@ impl Node<AVM> {
 
         let vm_config = VmConfig::new(
             local_peer_id,
-            config.dir_config.stepper_base_dir.clone(),
+            config.dir_config.avm_base_dir.clone(),
             config.dir_config.air_interpreter_path.clone(),
         )
         .expect("create vm config");

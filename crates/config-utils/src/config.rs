@@ -32,9 +32,6 @@ pub fn particles_dir(path: &Path) -> PathBuf {
 pub fn blueprint_dir(path: &Path) -> PathBuf {
     path.join("blueprint")
 }
-pub fn vault_dir(path: &Path) -> PathBuf {
-    path.join("vault")
-}
 
 pub fn to_peer_id(kp: &Keypair) -> PeerId {
     PeerId::from(kp.public())
