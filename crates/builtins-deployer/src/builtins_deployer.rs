@@ -34,7 +34,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::{collections::HashMap, fs, sync::Arc};
 
-pub static ALLOWED_ENV_PREFIX: &str = "FLUENCE_ENV";
+pub static ALLOWED_ENV_PREFIX: &str = "$FLUENCE_ENV";
 
 #[derive(Debug)]
 struct ScheduledScript {
@@ -166,7 +166,7 @@ fn resolve_env_variables(
     for elem in data.into_iter() {
         match elem.1 {
             JValue::String(s) if s.starts_with(&env_prefix) => {
-                let value = env::var(s)?;
+                let value = env::var(&s[1..])?;
                 result.insert(elem.0, json!(value));
             }
             _ => {

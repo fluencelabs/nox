@@ -27,6 +27,7 @@ use libp2p::core::identity::Keypair;
 
 use eyre::WrapErr;
 use maplit::hashmap;
+use particle_node::ALLOWED_ENV_PREFIX;
 use serde::Deserialize;
 use serde_json::json;
 use std::{env, fs, path::Path};
@@ -180,9 +181,9 @@ fn builtins_resolving_env_variables() {
         (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
     )
     "#);
-    let env_variable_name = "FLUENCE_ENV_AQUA_DHT".to_string();
-    let on_start_data = json!({ "key": env_variable_name });
-    env::set_var(env_variable_name, key.clone());
+    let env_variable_name = format!("{}_AQUA_DHT", ALLOWED_ENV_PREFIX);
+    let on_start_data = json!({ "key": env_variable_name.clone() });
+    env::set_var(&env_variable_name[1..], key.clone());
     fs::write("../deploy/builtins/aqua-dht/on_start.air", on_start_script).unwrap();
     fs::write(
         "../deploy/builtins/aqua-dht/on_start.json",
