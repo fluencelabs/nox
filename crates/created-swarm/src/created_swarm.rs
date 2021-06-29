@@ -286,12 +286,12 @@ pub fn aqua_vm_config(
     write_default_air_interpreter(&air_interpreter).expect("write air interpreter");
 
     let avm_base_dir = tmp_dir.join("interpreter");
-    let vm_config = VmConfig::new(peer_id, avm_base_dir, air_interpreter);
+    let vm_config = VmConfig::new(peer_id, avm_base_dir.clone(), air_interpreter);
 
     let services_config = ServicesConfig::new(
         peer_id,
         config_utils::services_dir(&tmp_dir),
-        config_utils::particles_vault_dir(&tmp_dir),
+        config_utils::particles_vault_dir(&avm_base_dir),
         <_>::default(),
         manager,
         startup_peer_id,

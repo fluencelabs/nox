@@ -86,7 +86,7 @@ impl Node<AVM> {
         let services_config = ServicesConfig::new(
             local_peer_id,
             config.dir_config.services_base_dir.clone(),
-            config_utils::particles_vault_dir(&config.dir_config.base_dir),
+            config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
             config.management_peer_id,
             to_peer_id(&startup_keypair),

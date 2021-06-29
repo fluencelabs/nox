@@ -968,6 +968,7 @@ name = "connected-client"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "base64 0.13.0",
  "bs58 0.3.1",
  "clap 2.33.3",
  "ctrlc-adapter",

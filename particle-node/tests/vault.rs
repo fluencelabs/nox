@@ -72,7 +72,7 @@ fn share_file() {
     use serde_json::Value::String;
 
     if let [String(output)] = dbg!(client.receive_args().unwrap()).as_slice() {
-        assert_eq!(output, "Hello");
+        assert_eq!(output, "Hello!");
     } else {
         panic!("incorrect args: expected a single string")
     }
