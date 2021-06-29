@@ -28,8 +28,13 @@ use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
+use std::collections::HashMap;
+use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::{collections::HashMap, fs, sync::Arc};
+
+pub static ALLOWED_ENV_PREFIX: &str = "FLUENCE_ENV";
 
 #[derive(Debug)]
 struct ScheduledScript {
@@ -146,6 +151,32 @@ fn load_scheduled_scripts(path: &Path) -> Result<Vec<ScheduledScript>> {
     }
 
     Ok(scripts)
+}
+
+fn resolve_env_variables(
+    data: HashMap<String, JValue>,
+    service_name: &String,
+) -> Result<HashMap<String, JValue>> {
+    let mut result = hashmap! {};
+    let env_prefix = format!(
+        "{}_{}",
+        ALLOWED_ENV_PREFIX,
+        service_name.to_uppercase().replace('-', "_")
+    );
+    for elem in data.into_iter() {
+        match elem.1 {
+            JValue::String(s) if s.starts_with(&env_prefix) => {
+                let value = env::var(s)?;
+                result.insert(elem.0, json!(value));
+            }
+            _ => {
+                result.insert(elem.0, elem.1);
+            }
+        }
+    }
+
+    log::info!("{:?}", result);
+    Ok(result)
 }
 
 impl BuiltinsDeployer {
@@ -282,6 +313,7 @@ impl BuiltinsDeployer {
             let data: HashMap<String, JValue> =
                 serde_json::from_str(builtin.on_start_data.as_ref().unwrap())?;
 
+            let data = resolve_env_variables(data, &builtin.name)?;
             let res = self
                 .send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)
                 .wrap_err("on_start call failed")?;
