@@ -1,9 +1,8 @@
-pub use particle_modules::Hash;
-pub use particle_modules::{AddBlueprint, Dependency, ModuleRepository};
 
-use fluence_faas::TomlFaaSNamedModuleConfig;
 use host_closure::Args;
 use ivalue_utils::IValue;
+
+
 use serde_json::Value as JValue;
 
 #[derive(Debug, Clone)]
@@ -58,25 +57,4 @@ pub fn create_args(args: Vec<JValue>) -> Args {
         function_args: args,
         tetraplets: vec![],
     }
-}
-
-pub fn add_module(
-    repo: &ModuleRepository,
-    bytes: String,
-    config: TomlFaaSNamedModuleConfig,
-) -> Result<String, String> {
-    repo.add_module(bytes, config).map_err(|e| e.to_string())
-}
-
-pub fn add_bp(
-    repo: &ModuleRepository,
-    name: String,
-    deps: Vec<Dependency>,
-) -> Result<String, String> {
-    let req = AddBlueprint {
-        name,
-        dependencies: deps,
-    };
-
-    repo.add_blueprint(req).map_err(|e| e.to_string())
 }

@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-use crate::blueprint::Blueprint;
 use crate::error::{ModuleError::*, Result};
-use crate::file_names;
-use crate::file_names::{module_config_name_hash, module_file_name_hash};
-use crate::hash::Hash;
 
 use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
+use service_modules::{
+    blueprint_file_name, blueprint_fname, module_config_name_hash, module_file_name_hash,
+    Blueprint, Hash,
+};
 
 use std::path::Path;
 use std::{convert::TryInto, path::PathBuf};
 
 /// Load blueprint from disk
 pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
-    let bp_path = bp_dir.join(file_names::blueprint_fname(blueprint_id));
+    let bp_path = bp_dir.join(blueprint_fname(blueprint_id));
     let blueprint =
         std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
     let blueprint: Blueprint =
@@ -100,7 +100,7 @@ pub fn load_module_by_path(path: &Path) -> Result<Vec<u8>> {
 
 /// Saves new blueprint to disk
 pub fn add_blueprint(blueprint_dir: &Path, blueprint: &Blueprint) -> Result<()> {
-    let path = blueprint_dir.join(file_names::blueprint_file_name(blueprint));
+    let path = blueprint_dir.join(blueprint_file_name(blueprint));
 
     // Save blueprint to disk
     let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeConfig { err })?;

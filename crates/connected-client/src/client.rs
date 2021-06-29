@@ -21,6 +21,7 @@ use derivative::Derivative;
 use fluence_libp2p::{
     build_memory_transport, build_transport,
     types::{Inlet, OneshotOutlet, Outlet},
+    Transport,
 };
 use futures::{
     channel::{mpsc, mpsc::TrySendError, oneshot},
@@ -33,27 +34,6 @@ use libp2p::core::Multiaddr;
 use libp2p::{identity::Keypair, PeerId, Swarm};
 use particle_protocol::{Particle, ProtocolConfig};
 use std::{error::Error, ops::DerefMut, time::Duration};
-
-#[derive(Clone, Debug)]
-pub enum Transport {
-    Memory,
-    Network,
-}
-
-impl Transport {
-    pub fn is_network(&self) -> bool {
-        matches!(self, Transport::Network)
-    }
-
-    pub fn from_maddr(maddr: &Multiaddr) -> Self {
-        use libp2p::core::multiaddr::Protocol::Memory;
-        if maddr.iter().any(|p| matches!(p, Memory(_))) {
-            Transport::Memory
-        } else {
-            Transport::Network
-        }
-    }
-}
 
 #[derive(Debug)]
 struct Command {

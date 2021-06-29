@@ -69,6 +69,7 @@ impl AquaRuntime for AVM {
                 current_peer_id: config.current_peer_id.to_string(),
                 air_wasm_path: config.air_interpreter,
                 particle_data_store: config.particles_dir,
+                vault_dir: config.particles_vault_dir,
                 call_service: host_closure(),
                 logging_mask: i32::MAX,
             };

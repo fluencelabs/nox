@@ -29,4 +29,3 @@ thiserror = "1.0.23"
 
 [dev-dependencies]
 async-std = "1.9.0"
-test-utils = { path = "../test-utils" }

@@ -14,27 +14,22 @@
  * limitations under the License.
  */
 
-use libp2p::PeerId;
+use aquamarine::{AquamarineApi, AVM};
+use fluence_libp2p::PeerId;
+use fs_utils::{file_name, file_stem};
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
-use particle_modules::{
-    hash_dependencies, list_files, module_config_name_json, module_file_name, AddBlueprint,
-    Dependency, Hash, NamedModuleConfig,
+use particle_modules::{list_files, AddBlueprint, NamedModuleConfig};
+use service_modules::{
+    hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
 };
 
-use aquamarine::{AquamarineApi, AVM};
-
-use eyre::{eyre, ErrReport};
-use eyre::{Result, WrapErr};
-use fs_utils::{file_name, file_stem};
+use eyre::{eyre, ErrReport, Result, WrapErr};
 use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
-use serde_json::json;
-use serde_json::Value as JValue;
-use std::collections::HashMap;
-use std::fs;
+use serde_json::{json, Value as JValue};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::{collections::HashMap, fs, sync::Arc};
 
 #[derive(Debug)]
 struct ScheduledScript {

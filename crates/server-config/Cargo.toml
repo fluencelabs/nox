@@ -9,6 +9,7 @@ config-utils = { path = "../config-utils" }
 fs-utils = { path = "../fs-utils" }
 particle-protocol = { path = "../../particle-protocol"}
 fluence-libp2p = { path = "../libp2p" }
+air-interpreter-fs = { path = "../air-interpreter-fs" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"

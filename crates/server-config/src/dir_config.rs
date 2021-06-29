@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::air_interpreter_path;
 use crate::defaults::{
     avm_base_dir, builtins_base_dir, cert_dir, default_base_dir, services_base_dir,
 };
 
+use air_interpreter_fs::air_interpreter_path;
 use fs_utils::create_dirs;
 
 use eyre::WrapErr;

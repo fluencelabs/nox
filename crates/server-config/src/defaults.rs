@@ -66,12 +66,6 @@ pub fn default_config_file() -> PathBuf {
     default_base_dir().join("Config.toml")
 }
 
-pub fn air_interpreter_path(base_dir: &Path) -> PathBuf {
-    use air_interpreter_wasm as interpreter;
-
-    base_dir.join(format!("aquamarine_{}.wasm", interpreter::VERSION))
-}
-
 pub fn default_stepper_pool_size() -> usize {
     num_cpus::get() * 2
 }

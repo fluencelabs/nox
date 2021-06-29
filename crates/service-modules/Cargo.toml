@@ -1,5 +1,5 @@
 [package]
-name = "services-utils"
+name = "service-modules"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2018"
@@ -10,3 +10,7 @@ fs-utils = { path = "../fs-utils" }
 air-interpreter-wasm = "0.10.5"
 
 eyre = "0.6.5"
+serde = { version = "1.0.118", features = ["derive"] }
+serde_json = "1.0.64"
+blake3 = "0.3.8"
+faster-hex = "0.6.0"

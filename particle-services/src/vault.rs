@@ -16,41 +16,20 @@
 
 use crate::ServiceError;
 
-use fs_utils::symlink_dir;
 use host_closure::AVMEffect;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub fn create_vault(
     effect: AVMEffect<PathBuf>,
     service_id: &str,
     particle_id: &str,
-    services_workdir: &Path,
 ) -> Result<(), ServiceError> {
-    let vault_dir = effect().map_err(|err| ServiceError::VaultCreation {
+    effect().map_err(|err| ServiceError::VaultCreation {
         err,
         service_id: service_id.to_string(),
         particle_id: particle_id.to_string(),
     })?;
 
-    link_vault(particle_id, service_id, services_workdir, &vault_dir)
-}
-
-fn link_vault(
-    particle_id: &str,
-    service_id: &str,
-    services_workdir: &Path,
-    vault_dir: &Path,
-) -> Result<(), ServiceError> {
-    // Will be visible as /tmp/$particle_id inside the service
-    let symlink_path = services_workdir
-        .join(service_id)
-        .join("tmp")
-        .join(particle_id);
-
-    symlink_dir(vault_dir, &symlink_path).map_err(|err| ServiceError::VaultLink {
-        err,
-        particle_id: particle_id.to_string(),
-        service_id: service_id.to_string(),
-    })
+    Ok(())
 }

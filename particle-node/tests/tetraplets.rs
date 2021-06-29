@@ -23,10 +23,14 @@ use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 
-use eyre::WrapErr;
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
 use fluence_app_service::SecurityTetraplet;
-use services_utils::load_module;
-use test_utils::{create_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use service_modules::load_module;
+use test_constants::KAD_TIMEOUT;
+use test_utils::create_service;
+
+use eyre::WrapErr;
 
 #[test]
 fn test_tetraplets() {
@@ -39,7 +43,7 @@ fn test_tetraplets() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     let script = f!(r#"

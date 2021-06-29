@@ -14,21 +14,20 @@
  * limitations under the License.
  */
 
-use crate::dependency::Dependency;
 use crate::error::ModuleError::{
     BlueprintNotFound, EmptyDependenciesList, FacadeShouldBeHash, InvalidModuleName,
     ReadModuleInterfaceError,
 };
 use crate::error::Result;
-use crate::file_names::{extract_module_file_name, is_module_wasm};
-use crate::file_names::{module_config_name_hash, module_file_name_hash};
-use crate::files::{load_config_by_path, load_module_by_path};
-use crate::Hash;
-use crate::{file_names, files, load_module_descriptor, Blueprint};
+use crate::files::{self, load_config_by_path, load_module_by_path, load_module_descriptor};
 
 use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
 use host_closure::JError;
 use marine_it_parser::module_interface;
+use service_modules::{
+    extract_module_file_name, hash_dependencies, is_blueprint, is_module_wasm,
+    module_config_name_hash, module_file_name_hash, Blueprint, Dependency, Hash,
+};
 
 use eyre::WrapErr;
 use fstrings::f;
@@ -43,6 +42,12 @@ type ModuleName = String;
 pub struct AddBlueprint {
     pub name: String,
     pub dependencies: Vec<Dependency>,
+}
+
+impl AddBlueprint {
+    pub fn new(name: String, dependencies: Vec<Dependency>) -> Self {
+        Self { name, dependencies }
+    }
 }
 
 #[derive(Clone)]
@@ -265,7 +270,7 @@ impl ModuleRepository {
             .filter_map(|path| {
                 // Check if file name matches blueprint schema
                 let fname = path.file_name()?.to_str()?;
-                if !file_names::is_blueprint(fname) {
+                if !is_blueprint(fname) {
                     return None;
                 }
 
@@ -367,25 +372,15 @@ fn resolve_hash(
     }
 }
 
-pub fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Hash {
-    let mut hasher = blake3::Hasher::new();
-    deps.sort_by(|a, b| a.as_bytes().cmp(b.as_bytes()));
-
-    for d in deps.iter().chain(iter::once(&facade)) {
-        hasher.update(d.as_bytes());
-    }
-
-    let hash = hasher.finalize();
-    let bytes = hash.as_bytes();
-    Hash::from(*bytes)
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::{AddBlueprint, ModuleRepository};
+
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
-    use services_utils::load_module;
+    use service_modules::load_module;
+    use service_modules::{Dependency, Hash};
+
     use tempdir::TempDir;
-    use test_utils::{add_bp, add_module, Dependency, Hash, ModuleRepository};
 
     #[test]
     fn test_add_blueprint() {
@@ -397,14 +392,21 @@ mod tests {
         let dep2 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
 
         let name1 = "bp1".to_string();
-        let resp1 = add_bp(&repo, name1.clone(), vec![dep1.clone(), dep2.clone()]).unwrap();
+        let resp1 = repo
+            .add_blueprint(AddBlueprint::new(
+                name1.clone(),
+                vec![dep1.clone(), dep2.clone()],
+            ))
+            .unwrap();
         let bps1 = repo.get_blueprints();
         assert_eq!(bps1.len(), 1);
         let bp1 = bps1.get(0).unwrap();
         assert_eq!(bp1.name, name1);
 
         let name2 = "bp2".to_string();
-        let resp2 = add_bp(&repo, "bp2".to_string(), vec![dep1, dep2]).unwrap();
+        let resp2 = repo
+            .add_blueprint(AddBlueprint::new("bp2".to_string(), vec![dep1, dep2]))
+            .unwrap();
         let bps2 = repo.get_blueprints();
         assert_eq!(bps2.len(), 1);
         let bp2 = bps2.get(0).unwrap();
@@ -420,7 +422,8 @@ mod tests {
         let bp_dir = TempDir::new("test2").unwrap();
         let repo = ModuleRepository::new(module_dir.path(), bp_dir.path());
 
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets");
+        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
+            .expect("load module");
 
         let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
             name: "tetra".to_string(),
@@ -434,7 +437,7 @@ mod tests {
             },
         };
 
-        let hash = add_module(&repo, base64::encode(module), config).unwrap();
+        let hash = repo.add_module(base64::encode(module), config).unwrap();
 
         let result = repo.get_interface(&hash);
         assert!(result.is_ok())

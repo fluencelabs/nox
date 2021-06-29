@@ -17,22 +17,31 @@
 use libp2p_core::{identity::Keypair, PeerId};
 use std::path::{Path, PathBuf};
 
-pub fn workdir(path: &Path) -> PathBuf {
-    path.join("workdir")
-}
-pub fn modules_dir(path: &Path) -> PathBuf {
-    path.join("modules")
-}
-pub fn services_dir(path: &Path) -> PathBuf {
-    path.join("services")
-}
-pub fn particles_dir(path: &Path) -> PathBuf {
-    path.join("particles")
-}
-pub fn blueprint_dir(path: &Path) -> PathBuf {
-    path.join("blueprint")
+pub fn workdir(base_dir: &Path) -> PathBuf {
+    base_dir.join("workdir")
 }
 
+pub fn modules_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("modules")
+}
+
+pub fn services_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("services")
+}
+
+pub fn particles_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("particles")
+}
+
+pub fn particles_vault_dir(base_dir: &Path) -> PathBuf {
+    particles_dir(base_dir).join("vault")
+}
+
+pub fn blueprint_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("blueprint")
+}
+
+// TODO: move to fluence-identity crate
 pub fn to_peer_id(kp: &Keypair) -> PeerId {
     PeerId::from(kp.public())
 }

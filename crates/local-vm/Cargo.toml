@@ -6,12 +6,12 @@ edition = "2018"
 
 [dependencies]
 ivalue-utils = { path = "../ivalue-utils" }
-services-utils = { path = "../services-utils" }
 host-closure = { path = "../host-closure" }
 particle-protocol = { path = "../../particle-protocol" }
 now-millis = { path = "../now-millis"}
 uuid-utils = { path = "../uuid-utils" }
 fs-utils = { path = "../fs-utils"}
+air-interpreter-fs = { path = "../air-interpreter-fs" }
 
 air-interpreter-wasm = "0.10.5"
 avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "vault" } #0.7.0

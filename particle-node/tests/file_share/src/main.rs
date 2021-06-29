@@ -44,7 +44,7 @@ pub fn read_vault_file(filename: String) -> String {
 
 fn vault_dir() -> PathBuf {
     let particle_id = get_call_parameters().particle_id;
-    let vault = Path::new("/tmp").join(particle_id);
+    let vault = Path::new("/tmp").join("vault").join(particle_id);
 
     vault
 }

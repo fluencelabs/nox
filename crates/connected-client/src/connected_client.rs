@@ -14,23 +14,22 @@
  * limitations under the License.
  */
 
-pub use fluence_client::ClientEvent;
+use crate::client::Client;
+use crate::event::ClientEvent;
 
-use crate::{make_swarms, timeout, Result, KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
-use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
-
-use avm_server::AVM;
-use fluence_client::{Client, Transport};
+use fluence_libp2p::Transport;
+use local_vm::{make_call_service_closure, make_particle, make_vm, read_args, AVM};
 use particle_protocol::Particle;
+use test_constants::{KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
 
 use async_std::task;
 use core::ops::Deref;
+use eyre::Result;
 use eyre::{bail, WrapErr};
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
+use parking_lot::Mutex;
 use serde_json::Value as JValue;
 use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, sync::Arc, time::Duration};
-
-use parking_lot::Mutex;
 
 pub struct ConnectedClient {
     pub client: Client,
@@ -132,43 +131,6 @@ impl ConnectedClient {
         }
     }
 
-    pub fn make_clients() -> Result<(Self, Self)> {
-        let swarms = make_swarms(3);
-        let mut swarms = swarms.into_iter();
-        let swarm1 = swarms.next().expect("get swarm");
-        let swarm2 = swarms.next().expect("get swarm");
-
-        let connect = async move {
-            let (mut first, _) = Client::connect_with(
-                swarm1.multiaddr.clone(),
-                Transport::Memory,
-                None,
-                TRANSPORT_TIMEOUT,
-            )
-            .await
-            .expect("first connected");
-            first.receive_one().await;
-
-            let first = ConnectedClient::new(first, swarm1.peer_id, swarm1.multiaddr);
-
-            let (mut second, _) = Client::connect_with(
-                swarm2.multiaddr.clone(),
-                Transport::Memory,
-                None,
-                TRANSPORT_TIMEOUT,
-            )
-            .await
-            .expect("second connected");
-            second.receive_one().await;
-
-            let second = ConnectedClient::new(second, swarm2.peer_id, swarm2.multiaddr);
-
-            (first, second)
-        };
-
-        task::block_on(timeout(TIMEOUT, connect))
-    }
-
     pub fn send(&self, particle: Particle) {
         self.client.send(particle, self.node)
     }
@@ -251,4 +213,13 @@ impl ConnectedClient {
             }
         }
     }
+}
+
+pub async fn timeout<F, T>(dur: Duration, f: F) -> eyre::Result<T>
+where
+    F: std::future::Future<Output = T>,
+{
+    Ok(async_std::future::timeout(dur, f)
+        .await
+        .wrap_err(format!("timed out after {:?}", dur))?)
 }

@@ -14,21 +14,10 @@
  * limitations under the License.
  */
 
-use crate::{make_swarms_with_cfg, ConnectedClient, KAD_TIMEOUT};
+use crate::ConnectedClient;
 
 use libp2p::core::Multiaddr;
 use std::str::FromStr;
-use std::thread::sleep;
-
-pub fn connect_swarms(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
-    let swarms = make_swarms_with_cfg(node_count, |mut cfg| {
-        cfg.pool_size = Some(3);
-        cfg
-    });
-    sleep(KAD_TIMEOUT);
-
-    move |i| ConnectedClient::connect_to(swarms[i].multiaddr.clone()).expect("connect client")
-}
 
 pub fn connect_real(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
     let nodes = vec![

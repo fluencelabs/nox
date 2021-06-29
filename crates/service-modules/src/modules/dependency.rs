@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-use crate::hash::Hash;
-use serde::export::Formatter;
+use super::hash::Hash;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub enum Dependency {
@@ -80,7 +79,7 @@ impl Serialize for Dependency {
 
 #[cfg(test)]
 mod tests {
-    use crate::dependency::Hash;
+    use crate::modules::dependency::Hash;
 
     #[test]
     fn from_hex() {

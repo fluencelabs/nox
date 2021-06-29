@@ -21,7 +21,8 @@ use crate::Result;
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
 
-use fluence_app_service::{AppService, AppServiceConfig, FaaSConfig};
+use fluence_app_service::{AppService, AppServiceConfig, FaaSConfig, ModuleDescriptor};
+use std::path::Path;
 
 pub fn create_app_service(
     config: ServicesConfig,
@@ -32,7 +33,10 @@ pub fn create_app_service(
     owner_id: String,
 ) -> Result<AppService> {
     try {
-        let modules_config = modules.resolve_blueprint(&blueprint_id)?;
+        let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;
+        modules_config
+            .iter_mut()
+            .for_each(|module| inject_vault(&config.particles_vault_dir, module));
 
         let modules = AppServiceConfig {
             service_base_dir: config.workdir,
@@ -54,4 +58,19 @@ pub fn create_app_service(
 
         service
     }
+}
+
+/// Map `vault_dir` to `/tmp/vault` inside the service.
+/// Particle File Vaults will be available as `/tmp/vault/$particle_id`
+fn inject_vault(vault_dir: &Path, module: &mut ModuleDescriptor) {
+    let wasi = &mut module.config.wasi;
+    if let None = *wasi {
+        *wasi = <_>::default();
+    }
+
+    let vault_dir = vault_dir.to_path_buf();
+    let wasi = wasi.as_mut().unwrap();
+
+    wasi.preopened_files.insert(vault_dir.clone());
+    wasi.mapped_dirs.insert("/tmp/vault".into(), vault_dir);
 }

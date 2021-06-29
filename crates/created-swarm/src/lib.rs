@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2021 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#![recursion_limit = "512"]
+#![feature(try_blocks)]
 #![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
@@ -26,12 +26,6 @@
     unreachable_patterns
 )]
 
-mod api;
-mod behaviour;
-mod client;
-mod command;
-mod event;
+mod created_swarm;
 
-pub use client::{Client, Transport};
-pub use command::ClientCommand;
-pub use event::ClientEvent;
+pub use created_swarm::*;

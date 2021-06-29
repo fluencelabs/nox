@@ -17,8 +17,9 @@
 use futures::{AsyncRead, AsyncWrite};
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::{Boxed, MemoryTransport};
+use libp2p::core::Multiaddr;
 use libp2p::noise;
-use libp2p::{core, dns, identity::Keypair, PeerId, Transport};
+use libp2p::{core, dns, identity::Keypair, PeerId, Transport as NetworkTransport};
 use std::time::Duration;
 
 /// Creates transport that is common for all connections.
@@ -45,7 +46,7 @@ pub fn configure_transport<T, C>(
     transport_timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)>
 where
-    T: Transport<Output = C> + Clone + Send + Sync + 'static,
+    T: NetworkTransport<Output = C> + Clone + Send + Sync + 'static,
     C: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     T::Dial: Send + 'static,
     T::Listener: Send + 'static,
@@ -80,13 +81,25 @@ pub fn build_memory_transport(
     let transport = MemoryTransport::default();
 
     configure_transport(transport, key_pair, transport_timeout)
+}
 
-    // MemoryTransport::default()
-    //     .upgrade(upgrade::Version::V1)
-    //     .authenticate(PlainText2Config {
-    //         local_public_key: key_pair.public(),
-    //     })
-    //     .multiplex(yamux::YamuxConfig::default())
-    //     .map(|(p, m), _| (p, StreamMuxerBox::new(m)))
-    //     .boxed()
+#[derive(Clone, Debug)]
+pub enum Transport {
+    Memory,
+    Network,
+}
+
+impl Transport {
+    pub fn is_network(&self) -> bool {
+        matches!(self, Transport::Network)
+    }
+
+    pub fn from_maddr(maddr: &Multiaddr) -> Self {
+        use libp2p::core::multiaddr::Protocol::Memory;
+        if maddr.iter().any(|p| matches!(p, Memory(_))) {
+            Transport::Memory
+        } else {
+            Transport::Network
+        }
+    }
 }

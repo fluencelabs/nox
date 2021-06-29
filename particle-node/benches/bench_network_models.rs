@@ -42,7 +42,10 @@ use particle_protocol::{Contact, Particle};
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 use std::convert::identity;
-use test_utils::{make_swarms_with_mocked_vm, now_ms, EasyVM};
+
+use created_swarm::make_swarms_with_mocked_vm;
+use now_millis::now_ms;
+use toy_vms::EasyVM;
 
 pub const TIMEOUT: Duration = Duration::from_secs(10);
 pub const PARALLELISM: Option<usize> = Some(16);
@@ -313,7 +316,8 @@ where
     };
     let services_config = ServicesConfig::new(
         local_peer_id,
-        tmp_dir.join("services"),
+        config_utils::services_dir(&tmp_dir),
+        config_utils::particles_vault_dir(&tmp_dir),
         <_>::default(),
         RandomPeerId::random(),
         RandomPeerId::random(),
@@ -329,10 +333,9 @@ where
     };
     let vm_config = VmConfig {
         current_peer_id: local_peer_id,
-        workdir: tmp_dir.join("workdir"),
         air_interpreter: interpreter,
-        services_dir: tmp_dir.join("services_dir"),
-        particles_dir: tmp_dir.join("particles_dir"),
+        particles_dir: config_utils::particles_dir(&tmp_dir),
+        particles_vault_dir: config_utils::particles_vault_dir(&tmp_dir),
     };
     let (stepper_pool, stepper_pool_api): (AquamarineBackend<AVM>, _) =
         AquamarineBackend::new(pool_config, (vm_config, host_closures.descriptor()));

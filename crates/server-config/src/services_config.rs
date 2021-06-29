@@ -35,6 +35,9 @@ pub struct ServicesConfig {
     pub modules_dir: PathBuf,
     /// Dir to persist info about running services
     pub services_dir: PathBuf,
+    /// Dir to store directories shared between services
+    /// in the span of a single particle' execution  
+    pub particles_vault_dir: PathBuf,
     /// key that could manage services
     pub management_peer_id: PeerId,
     /// key to manage builtins services initialization
@@ -45,6 +48,7 @@ impl ServicesConfig {
     pub fn new(
         local_peer_id: PeerId,
         base_dir: PathBuf,
+        particles_vault_dir: PathBuf,
         envs: HashMap<Vec<u8>, Vec<u8>>,
         management_peer_id: PeerId,
         startup_management_peer_id: PeerId,
@@ -57,6 +61,7 @@ impl ServicesConfig {
             workdir: config_utils::workdir(&base_dir),
             modules_dir: config_utils::modules_dir(&base_dir),
             services_dir: config_utils::services_dir(&base_dir),
+            particles_vault_dir,
             envs,
             management_peer_id,
             startup_management_peer_id,

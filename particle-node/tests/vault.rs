@@ -18,15 +18,17 @@ use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
 
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
 use log_utils::enable_logs;
-use services_utils::load_module;
-use test_utils::{create_service, make_swarms, ConnectedClient, CreatedService};
+use service_modules::load_module;
+use test_utils::{create_service, CreatedService};
 
 fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
     create_service(
         client,
         "file_share",
-        load_module("tests/file_share/artifacts", "file_share"),
+        load_module("tests/file_share/artifacts", "file_share").expect("load module"),
     )
 }
 

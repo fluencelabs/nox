@@ -15,11 +15,11 @@
  */
 
 use aquamarine::{AquaRuntime, InterpreterOutcome, SendParticle, StepperEffects};
+use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
 use futures::{future::BoxFuture, FutureExt};
 use itertools::Itertools;
-use libp2p::PeerId;
 use std::str::FromStr;
 use std::{convert::Infallible, task::Waker, time::Duration};
 

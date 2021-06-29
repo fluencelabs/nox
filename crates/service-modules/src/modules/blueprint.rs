@@ -14,33 +14,19 @@
  * limitations under the License.
  */
 
-#![allow(dead_code)]
+use super::dependency::Dependency;
 
-use avm_server::AVM;
-use particle_protocol::Particle;
-use serde_json::Value as JValue;
-use std::cell::RefCell;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
-struct SingletonVM {
-    vm: AVM,
-    load_map: HashMap<String, JValue>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Blueprint {
+    pub name: String,
+    pub id: String,
+    pub dependencies: Vec<Dependency>,
 }
 
-impl SingletonVM {
-    pub fn new() -> Self {
-        unimplemented!()
+impl Blueprint {
+    pub fn get_facade_module(&self) -> Option<Dependency> {
+        self.dependencies.last().cloned()
     }
-
-    pub fn make_particle(&mut self) -> Particle {
-        unimplemented!()
-    }
-
-    pub fn read_args(&mut self, _particle: Particle) -> JValue {
-        unimplemented!()
-    }
-}
-
-thread_local! {
-    static VM: RefCell<SingletonVM> = RefCell::new(SingletonVM::new());
 }

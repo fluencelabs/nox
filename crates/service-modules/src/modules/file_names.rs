@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use crate::blueprint::Blueprint;
-use crate::hash::Hash;
+use super::blueprint::Blueprint;
+use super::hash::Hash;
 use crate::Dependency;
 
 use std::path::Path;
@@ -37,38 +37,38 @@ pub fn module_file_name(module: &Dependency) -> String {
 }
 
 /// Calculates filename of the config for a wasm module
-pub(super) fn module_config_name_hash(module_hash: &Hash) -> String {
+pub fn module_config_name_hash(module_hash: &Hash) -> String {
     format!("{}_config.toml", module_hash.to_hex().as_ref())
 }
 
 /// Calculates the name of a wasm module file, given a hash of the module.
-pub(super) fn module_file_name_hash(module_hash: &Hash) -> String {
+pub fn module_file_name_hash(module_hash: &Hash) -> String {
     format!("{}.wasm", module_hash.to_hex().as_ref())
 }
 
 /// Calculates filename of the blueprint
-pub(super) fn blueprint_file_name(blueprint: &Blueprint) -> String {
+pub fn blueprint_file_name(blueprint: &Blueprint) -> String {
     blueprint_fname(blueprint.id.as_str())
 }
 
-pub(super) fn blueprint_fname(id: &str) -> String {
+pub fn blueprint_fname(id: &str) -> String {
     format!("{}_blueprint.toml", id)
 }
 
 /// Returns true if file is named like a blueprint would be
-pub(super) fn is_blueprint(name: &str) -> bool {
+pub fn is_blueprint(name: &str) -> bool {
     name.ends_with("_blueprint.toml")
 }
 
 /// Return file name with .wasm extension stripped. None if extension wasn't .wasm
-pub(super) fn extract_module_file_name(path: &Path) -> Option<&str> {
+pub fn extract_module_file_name(path: &Path) -> Option<&str> {
     // return None if extension isn't "wasm"
     path.extension().filter(|ext| ext == &"wasm")?;
     // strip extension
     path.file_stem()?.to_str()
 }
 
-pub(super) fn is_module_wasm(path: &Path) -> bool {
+pub fn is_module_wasm(path: &Path) -> bool {
     path.extension().map_or(false, |ext| ext == "wasm")
 }
 
@@ -84,8 +84,9 @@ pub fn is_service(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::file_names::{extract_module_file_name, is_blueprint, is_module_wasm};
     use crate::is_service;
+    use crate::{extract_module_file_name, is_blueprint, is_module_wasm};
+
     use std::path::Path;
 
     #[test]

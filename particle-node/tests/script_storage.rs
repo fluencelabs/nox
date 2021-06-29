@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms, ConnectedClient};
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
 
 use eyre::WrapErr;
 use fstrings::f;

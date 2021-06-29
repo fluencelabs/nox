@@ -200,12 +200,12 @@ impl ParticleAppServices {
         )?;
 
         let particle_id = args.particle_parameters.particle_id;
-        create_vault(args.create_vault, &id, &particle_id, &self.config.workdir)?;
+        create_vault(args.create_vault, &id, &particle_id)?;
 
         let params = CallParameters {
             host_id,
-            init_peer_id: args.particle_parameters.init_user_id,
             particle_id,
+            init_peer_id: args.particle_parameters.init_user_id,
             tetraplets: function_args.tetraplets,
             service_id: id,
             service_creator_peer_id: service.owner_id.clone(),
@@ -357,21 +357,22 @@ impl ParticleAppServices {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use crate::{ParticleAppServices, ServiceError};
+
+    use config_utils::{modules_dir, to_peer_id};
+    use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
+    use particle_modules::{AddBlueprint, ModuleRepository};
+    use server_config::ServicesConfig;
+    use service_modules::load_module;
+    use service_modules::{Dependency, Hash};
 
     use libp2p_core::identity::Keypair;
     use libp2p_core::PeerId;
-    use tempdir::TempDir;
 
-    use crate::{ParticleAppServices, ServiceError};
-    use config_utils::{modules_dir, to_peer_id};
-    use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
-    use particle_modules::{Dependency, Hash, ModuleRepository};
-    use server_config::ServicesConfig;
-    use services_utils::load_module;
+    use std::collections::HashMap;
     use std::fs::remove_file;
     use std::path::PathBuf;
-    use test_utils::{add_bp, add_module};
+    use tempdir::TempDir;
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
@@ -385,9 +386,11 @@ mod tests {
         base_dir: PathBuf,
     ) -> ParticleAppServices {
         let startup_kp = Keypair::generate_ed25519();
+        let vault_dir = base_dir.join("..").join("vault");
         let config = ServicesConfig::new(
             local_pid,
             base_dir,
+            vault_dir,
             HashMap::new(),
             management_pid,
             to_peer_id(&startup_kp),
@@ -429,7 +432,10 @@ mod tests {
         module: &str,
     ) -> Result<String, String> {
         let dep = Dependency::Hash(Hash::from_hex(module).unwrap());
-        let bp = add_bp(&pas.modules, module_name, vec![dep]).unwrap();
+        let bp = pas
+            .modules
+            .add_blueprint(AddBlueprint::new(module_name, vec![dep]))
+            .unwrap();
 
         pas.create_service(bp, "".to_string())
             .map_err(|e| e.to_string())
@@ -462,7 +468,8 @@ mod tests {
         let base_dir = TempDir::new("test").unwrap();
         let pas = create_pas(local_pid, management_pid, base_dir.path().into());
 
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets");
+        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
+            .expect("load module");
 
         let module_name = "tetra".to_string();
         let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
@@ -476,7 +483,10 @@ mod tests {
                 logging_mask: None,
             },
         };
-        let hash = add_module(&pas.modules, base64::encode(module), config).unwrap();
+        let hash = pas
+            .modules
+            .add_module(base64::encode(module), config)
+            .unwrap();
         let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
         let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
         let service_id3 = create_service(&pas, module_name.clone(), &hash).unwrap();

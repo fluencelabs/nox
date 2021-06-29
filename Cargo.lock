@@ -132,9 +132,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "air-interpreter-fs"
+version = "0.1.0"
+dependencies = [
+ "air-interpreter-wasm",
+ "blake3",
+ "eyre",
+ "faster-hex 0.6.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "air-interpreter-interface"
 version = "0.5.1"
-source = "git+https://github.com/fluencelabs/aquavm?branch=vault#9a4ebe2c085806860f558e47fa8b3fc63ed6b74b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1dceb8224a0af97263cd0ffef37f2abbc6ac04d7c7c81efba7ba02db009ca5cd"
+dependencies = [
+ "fluence",
+ "fluence-it-types",
+ "serde",
+]
+
+[[package]]
+name = "air-interpreter-interface"
+version = "0.5.1"
+source = "git+https://github.com/fluencelabs/aquavm?branch=vault#c362d45583366ae2fdda2d7cff37db5901d56690"
 dependencies = [
  "fluence",
  "fluence-it-types",
@@ -170,7 +193,7 @@ name = "aquamarine"
 version = "0.2.0"
 dependencies = [
  "async-std",
- "avm-server",
+ "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
  "base64 0.13.0",
  "chrono",
  "config-utils",
@@ -478,9 +501,25 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "avm-server"
 version = "0.7.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=vault#9a4ebe2c085806860f558e47fa8b3fc63ed6b74b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54dc34e55312336dbbb2bcfc731ff62c42a2ecc461474f58983e43363dc41815"
 dependencies = [
- "air-interpreter-interface",
+ "air-interpreter-interface 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fluence-faas",
+ "log",
+ "maplit",
+ "parking_lot 0.11.1",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "avm-server"
+version = "0.7.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=vault#c362d45583366ae2fdda2d7cff37db5901d56690"
+dependencies = [
+ "air-interpreter-interface 0.5.1 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
  "fluence-faas",
  "log",
  "maplit",
@@ -683,6 +722,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8f1b029cb3929cb0c99780b0c10fe512f60be5438adf5f757e4afa1bc75a984"
 dependencies = [
  "cargo-lock",
+]
+
+[[package]]
+name = "builtins-deployer"
+version = "0.1.0"
+dependencies = [
+ "aquamarine",
+ "base64 0.13.0",
+ "eyre",
+ "fluence-libp2p",
+ "fs-utils",
+ "futures",
+ "local-vm",
+ "log",
+ "maplit",
+ "parking_lot 0.11.1",
+ "particle-modules",
+ "serde_json",
+ "service-modules",
 ]
 
 [[package]]
@@ -906,6 +964,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "connected-client"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "bs58 0.3.1",
+ "clap 2.33.3",
+ "ctrlc-adapter",
+ "derivative",
+ "env_logger",
+ "eyre",
+ "failure",
+ "fluence-fork-libp2p",
+ "fluence-libp2p",
+ "fnv",
+ "futures",
+ "futures-util",
+ "local-vm",
+ "log",
+ "multihash",
+ "parking_lot 0.11.1",
+ "particle-protocol",
+ "rand 0.7.3",
+ "serde",
+ "serde_json",
+ "test-constants",
+ "void",
+]
+
+[[package]]
 name = "connection-pool"
 version = "0.1.0"
 dependencies = [
@@ -1036,6 +1123,54 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81156fece84ab6a9f2afdb109ce3ae577e42b1228441eded99bd77f627953b1a"
 dependencies = [
  "cfg-if 1.0.0",
+]
+
+[[package]]
+name = "created-swarm"
+version = "0.1.0"
+dependencies = [
+ "air-interpreter-fs",
+ "air-interpreter-wasm",
+ "aquamarine",
+ "async-std",
+ "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
+ "base64 0.13.0",
+ "builtins-deployer",
+ "chrono",
+ "config-utils",
+ "connection-pool",
+ "derivative",
+ "env_logger",
+ "eyre",
+ "fluence-faas",
+ "fluence-fork-libp2p",
+ "fluence-identity",
+ "fluence-libp2p",
+ "fs-utils",
+ "fstrings",
+ "futures",
+ "futures-util",
+ "host-closure",
+ "itertools 0.10.1",
+ "ivalue-utils",
+ "local-vm",
+ "log",
+ "maplit",
+ "parking_lot 0.11.1",
+ "particle-node",
+ "particle-protocol",
+ "prometheus",
+ "rand 0.7.3",
+ "script-storage",
+ "serde",
+ "serde_json",
+ "server-config",
+ "service-modules",
+ "test-constants",
+ "toml",
+ "toy-vms",
+ "trust-graph",
+ "uuid",
 ]
 
 [[package]]
@@ -1471,6 +1606,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d68bae82fd85645631575599a2ebab9807b6d42000083417ac5dc3d2da2ba023"
 
 [[package]]
+name = "faster-hex"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b02a61fea82de8484f9d7ce99b698b0e190ef8de71035690a961a43d7b18a2ad"
+
+[[package]]
 name = "fastrand"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1540,31 +1681,6 @@ dependencies = [
  "serde_json",
  "toml",
  "wasmer-wasi-fl",
-]
-
-[[package]]
-name = "fluence-client"
-version = "0.2.0"
-dependencies = [
- "async-std",
- "bs58 0.3.1",
- "clap 2.33.3",
- "ctrlc-adapter",
- "derivative",
- "env_logger",
- "failure",
- "fluence-fork-libp2p",
- "fluence-libp2p",
- "fnv",
- "futures",
- "futures-util",
- "log",
- "multihash",
- "particle-protocol",
- "rand 0.7.3",
- "serde",
- "serde_json",
- "void",
 ]
 
 [[package]]
@@ -2494,7 +2610,7 @@ dependencies = [
 name = "host-closure"
 version = "0.1.0"
 dependencies = [
- "avm-server",
+ "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
  "bs58 0.4.0",
  "control-macro",
  "eyre",
@@ -2790,7 +2906,6 @@ dependencies = [
  "serde_json",
  "server-config",
  "smallvec",
- "test-utils",
  "thiserror",
  "trust-graph",
  "waiting-queues",
@@ -2873,8 +2988,9 @@ dependencies = [
 name = "local-vm"
 version = "0.1.0"
 dependencies = [
+ "air-interpreter-fs",
  "air-interpreter-wasm",
- "avm-server",
+ "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
  "fluence-fork-libp2p",
  "fs-utils",
  "fstrings",
@@ -2885,7 +3001,6 @@ dependencies = [
  "parking_lot 0.11.1",
  "particle-protocol",
  "serde_json",
- "services-utils",
  "uuid-utils",
 ]
 
@@ -3462,7 +3577,7 @@ dependencies = [
  "base64 0.13.0",
  "blake3",
  "eyre",
- "faster-hex",
+ "faster-hex 0.5.0",
  "fluence-app-service",
  "fluence-fork-libp2p-core",
  "fstrings",
@@ -3475,7 +3590,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "serde",
  "serde_json",
- "services-utils",
+ "service-modules",
  "tempdir",
  "test-utils",
  "thiserror",
@@ -3487,6 +3602,7 @@ dependencies = [
 name = "particle-node"
 version = "0.5.1"
 dependencies = [
+ "air-interpreter-fs",
  "air-interpreter-wasm",
  "aquamarine",
  "async-std",
@@ -3494,10 +3610,13 @@ dependencies = [
  "base64 0.13.0",
  "blake3",
  "bs58 0.3.1",
+ "builtins-deployer",
  "clap 3.0.0-beta.2",
  "config-utils",
+ "connected-client",
  "connection-pool",
  "control-macro",
+ "created-swarm",
  "criterion",
  "ctrlc-adapter",
  "env_logger",
@@ -3520,6 +3639,7 @@ dependencies = [
  "log-utils",
  "maplit",
  "multihash",
+ "now-millis",
  "num_cpus",
  "parking_lot 0.11.1",
  "particle-closures",
@@ -3531,10 +3651,12 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
- "services-utils",
+ "service-modules",
+ "test-constants",
  "test-utils",
  "tide",
  "toml",
+ "toy-vms",
  "trust-graph",
  "void",
 ]
@@ -3582,7 +3704,7 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
- "services-utils",
+ "service-modules",
  "tempdir",
  "test-utils",
  "thiserror",
@@ -4436,6 +4558,7 @@ dependencies = [
 name = "server-config"
 version = "0.2.0"
 dependencies = [
+ "air-interpreter-fs",
  "air-interpreter-wasm",
  "base64 0.13.0",
  "bs58 0.3.1",
@@ -4460,12 +4583,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "services-utils"
+name = "service-modules"
 version = "0.1.0"
 dependencies = [
  "air-interpreter-wasm",
+ "blake3",
  "eyre",
+ "faster-hex 0.6.0",
  "fs-utils",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4804,21 +4931,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-constants"
+version = "0.1.0"
+
+[[package]]
 name = "test-utils"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
+ "air-interpreter-fs",
  "air-interpreter-wasm",
  "aquamarine",
  "async-std",
- "avm-server",
+ "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
  "base64 0.13.0",
+ "builtins-deployer",
  "chrono",
  "config-utils",
+ "connected-client",
  "connection-pool",
+ "created-swarm",
  "derivative",
  "env_logger",
  "eyre",
- "fluence-client",
  "fluence-faas",
  "fluence-fork-libp2p",
  "fluence-identity",
@@ -4834,7 +4968,6 @@ dependencies = [
  "log",
  "maplit",
  "parking_lot 0.11.1",
- "particle-modules",
  "particle-node",
  "particle-protocol",
  "prometheus",
@@ -4843,7 +4976,8 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
- "services-utils",
+ "service-modules",
+ "test-constants",
  "toml",
  "trust-graph",
  "uuid",
@@ -5011,6 +5145,19 @@ name = "toml-utils"
 version = "0.0.1"
 dependencies = [
  "toml",
+]
+
+[[package]]
+name = "toy-vms"
+version = "0.1.0"
+dependencies = [
+ "aquamarine",
+ "avm-server 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fluence-libp2p",
+ "futures",
+ "itertools 0.10.1",
+ "particle-protocol",
+ "serde_json",
 ]
 
 [[package]]

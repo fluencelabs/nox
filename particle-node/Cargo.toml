@@ -23,6 +23,8 @@ kademlia = { path = "../crates/kademlia" }
 fs-utils = { path = "../crates/fs-utils" }
 local-vm = { path = "../crates/local-vm" }
 json-utils = { path = "../crates/json-utils" }
+air-interpreter-fs = { path = "../crates/air-interpreter-fs" }
+builtins-deployer = { path = "../crates/builtins-deployer" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
@@ -59,8 +61,13 @@ maplit = "1.0.2"
 [dev-dependencies]
 test-utils = { path = "../crates/test-utils" }
 log-utils = { path = "../crates/log-utils" }
-services-utils = { path = "../crates/services-utils" }
+service-modules = { path = "../crates/service-modules" }
 fluence-libp2p = { path = "../crates/libp2p" }
+created-swarm = { path = "../crates/created-swarm" }
+connected-client = { path = "../crates/connected-client" }
+test-constants = { path = "../crates/test-constants" }
+toy-vms = { path = "../crates/toy-vms" }
+now-millis = { path = "../crates/now-millis" }
 
 fluence-app-service = "0.7.2"
 
