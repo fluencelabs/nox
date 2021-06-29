@@ -77,7 +77,7 @@ pub fn make_call_service_closure(
     Box::new(move |_, args| {
         let args = Args::parse(args).expect("valid args");
         match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("load", _) => service_in
+            ("load", _) | ("getDataSrv", _) => service_in
                 .lock()
                 .get(args.function_name.as_str())
                 .map(|v| ivalue_utils::ok(v.clone()))
@@ -86,7 +86,7 @@ pub fn make_call_service_closure(
                         "variable not found: {args.function_name}"
                     )))
                 }),
-            ("return", _) | ("op", "return") => {
+            ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
                 #[cfg(test)]
                 {
                     log::warn!("return args {:.100}", format!("{:?}", args.function_args));
@@ -94,6 +94,9 @@ pub fn make_call_service_closure(
                 }
 
                 service_out.lock().extend(args.function_args);
+                ivalue_utils::unit()
+            }
+            ("errorHandlingSrv", "error") => {
                 ivalue_utils::unit()
             }
             (_, "identity") => ivalue_utils::ok(JValue::Array(args.function_args)),
