@@ -27,7 +27,12 @@ use eyre::{eyre, ErrReport, Result, WrapErr};
 use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
+<<<<<<< HEAD:crates/builtins-deployer/src/builtins_deployer.rs
 use serde_json::{json, Value as JValue};
+=======
+use regex::Regex;
+use serde_json::{json, Value as JValue};
+>>>>>>> 0e191e74 (fix):particle-node/src/builtins_deployer.rs
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -153,29 +158,19 @@ fn load_scheduled_scripts(path: &Path) -> Result<Vec<ScheduledScript>> {
     Ok(scripts)
 }
 
-fn resolve_env_variables(
-    data: HashMap<String, JValue>,
-    service_name: &String,
-) -> Result<HashMap<String, JValue>> {
-    let mut result = hashmap! {};
+fn resolve_env_variables(data: &String, service_name: &String) -> Result<String> {
+    let mut result = data.clone();
     let env_prefix = format!(
         "{}_{}",
         ALLOWED_ENV_PREFIX,
         service_name.to_uppercase().replace('-', "_")
     );
-    for elem in data.into_iter() {
-        match elem.1 {
-            JValue::String(s) if s.starts_with(&env_prefix) => {
-                let value = env::var(&s[1..])?;
-                result.insert(elem.0, json!(value));
-            }
-            _ => {
-                result.insert(elem.0, elem.1);
-            }
-        }
+
+    let re = Regex::new(&f!(r"(\{env_prefix}_\w+)"))?;
+    for elem in re.captures_iter(&data) {
+        result = result.replace(&elem[0], &env::var(&elem[0][1..])?);
     }
 
-    log::info!("{:?}", result);
     Ok(result)
 }
 
@@ -310,10 +305,11 @@ impl BuiltinsDeployer {
 
     fn run_on_start(&mut self, builtin: &Builtin) -> eyre::Result<()> {
         if builtin.on_start_script.is_some() && builtin.on_start_data.is_some() {
-            let data: HashMap<String, JValue> =
-                serde_json::from_str(builtin.on_start_data.as_ref().unwrap())?;
+            let data: HashMap<String, JValue> = serde_json::from_str(&resolve_env_variables(
+                builtin.on_start_data.as_ref().unwrap(),
+                &builtin.name,
+            )?)?;
 
-            let data = resolve_env_variables(data, &builtin.name)?;
             let res = self
                 .send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)
                 .wrap_err("on_start call failed")?;

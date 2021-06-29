@@ -19,6 +19,7 @@ extern crate fstrings;
 
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms_with_builtins, make_swarms_with_keypair};
+use fs_utils::copy_dir_all;
 use particle_modules::list_files;
 use service_modules::load_module;
 use test_utils::create_service;
@@ -168,6 +169,7 @@ fn builtins_scheduled_scripts() {
 
 #[test]
 fn builtins_resolving_env_variables() {
+    copy_dir_all("../deploy/builtins", "./builtins_test_env").unwrap();
     let key = "some_key".to_string();
     let on_start_script = f!(r#"
     (xor
@@ -181,17 +183,17 @@ fn builtins_resolving_env_variables() {
         (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
     )
     "#);
-    let env_variable_name = format!("{}_AQUA_DHT", ALLOWED_ENV_PREFIX);
+    let env_variable_name = format!("{}_AQUA_DHT_{}", ALLOWED_ENV_PREFIX, "KEY");
     let on_start_data = json!({ "key": env_variable_name.clone() });
     env::set_var(&env_variable_name[1..], key.clone());
-    fs::write("../deploy/builtins/aqua-dht/on_start.air", on_start_script).unwrap();
+    fs::write("./builtins_test_env/aqua-dht/on_start.air", on_start_script).unwrap();
     fs::write(
-        "../deploy/builtins/aqua-dht/on_start.json",
+        "./builtins_test_env/aqua-dht/on_start.json",
         on_start_data.to_string(),
     )
     .unwrap();
 
-    let swarms = make_swarms_with_builtins(1, Path::new("../deploy/builtins"), None);
+    let swarms = make_swarms_with_builtins(1, Path::new("./builtins_test_env"), None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -237,6 +239,5 @@ fn builtins_resolving_env_variables() {
 
     assert!(result.success);
     assert_eq!(key, result.key.key);
-    fs::remove_file("../deploy/builtins/aqua-dht/on_start.air").unwrap();
-    fs::remove_file("../deploy/builtins/aqua-dht/on_start.json").unwrap();
+    fs::remove_dir_all("./builtins_test_env").unwrap();
 }

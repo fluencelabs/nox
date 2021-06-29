@@ -537,7 +537,11 @@ fn add_script_delay_oneshot() {
 fn add_script_random_delay() {
     let swarms = make_swarms(1);
 
+<<<<<<< HEAD
     let interval = 3u64;
+=======
+    let interval = 2u64;
+>>>>>>> eafc1e42 (fix)
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
