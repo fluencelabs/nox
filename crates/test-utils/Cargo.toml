@@ -6,49 +6,15 @@ edition = "2018"
 
 [dependencies]
 trust-graph = "0.2.7"
-config-utils = { path = "../config-utils" }
-server-config = { path = "../server-config" }
 ivalue-utils = { path = "../ivalue-utils" }
 host-closure = { path = "../host-closure" }
-fluence-libp2p = { path = "../libp2p" }
-particle-node = { path = "../../particle-node" }
-particle-protocol = { path = "../../particle-protocol" }
-aquamarine = { path = "../../aquamarine" }
-connection-pool = { path = "../../connection-pool" }
-script-storage = { path = "../../script-storage" }
-local-vm = { path = "../local-vm" }
-fs-utils = { path = "../fs-utils" }
-service-modules = { path = "../service-modules" }
-air-interpreter-fs = { path = "../air-interpreter-fs" }
-builtins-deployer = { path = "../builtins-deployer" }
 connected-client = { path = "../connected-client" }
 created-swarm = { path = "../created-swarm" }
 test-constants = { path = "../test-constants" }
 
-
-air-interpreter-wasm = "0.10.5"
-avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "vault" } #0.7.0
-fluence-identity = "0.3.0"
-fluence-faas = "0.7.0"
-
-libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
-
-rand = "0.7.3"
 async-std = "1.9.0"
-futures = "0.3.13"
-futures-util = "0.3.5"
 serde_json = "1.0.64"
-serde = "1.0.118"
-log = "0.4.11"
-env_logger = "0.7.1"
-uuid = "0.8.1"
-toml = "0.5.6"
-prometheus = "0.9.0"
-chrono = "0.4.19"
 fstrings = "0.2.3"
 maplit = "1.0.2"
-parking_lot = "0.11.0"
 base64 = "0.13.0"
 eyre = "0.6.5"
-derivative = "2.1.1"
-itertools = "0.10.0"
