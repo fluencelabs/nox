@@ -138,7 +138,7 @@ dependencies = [
  "air-interpreter-wasm",
  "blake3",
  "eyre",
- "faster-hex 0.6.0",
+ "faster-hex",
  "serde",
  "serde_json",
 ]
@@ -1553,12 +1553,6 @@ name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
-
-[[package]]
-name = "faster-hex"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d68bae82fd85645631575599a2ebab9807b6d42000083417ac5dc3d2da2ba023"
 
 [[package]]
 name = "faster-hex"
@@ -3516,14 +3510,10 @@ name = "particle-modules"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
- "blake3",
  "eyre",
- "faster-hex 0.5.0",
  "fluence-app-service",
  "fstrings",
  "host-closure",
- "itertools 0.10.1",
- "ivalue-utils",
  "json-utils",
  "log",
  "marine-it-parser",
@@ -4513,7 +4503,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "eyre",
- "faster-hex 0.6.0",
+ "faster-hex",
  "fs-utils",
  "serde",
 ]
