@@ -13,4 +13,3 @@ path = "src/main.rs"
 [dependencies]
 fluence = "0.6.9"
 rand = "0.8.4"
-
