@@ -51,7 +51,6 @@ struct NodeInfo {
 
 #[test]
 fn identify() {
-
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
