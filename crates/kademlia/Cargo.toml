@@ -9,7 +9,6 @@ particle-protocol = { path = "../../particle-protocol" }
 
 trust-graph = "0.2.7"
 control-macro = { path = "../control-macro" }
-waiting-queues = { path = "../waiting-queues" }
 fluence-libp2p = { path = "../libp2p" }
 server-config = { path = "../server-config" }
 

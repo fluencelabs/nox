@@ -18,7 +18,6 @@ host-closure = { path = "../crates/host-closure" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
 fluence-libp2p = { path = "../crates/libp2p" }
-waiting-queues = { path = "../crates/waiting-queues" }
 async-unlock = { path = "../crates/async-unlock" }
 now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }

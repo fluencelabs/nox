@@ -1,6 +1,6 @@
 [package]
 name = "particle-node"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Fluence Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2018"
@@ -8,21 +8,15 @@ edition = "2018"
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
 particle-closures = { path = "../particle-closures"}
-particle-modules = { path = "../particle-modules"}
 connection-pool = { path = "../connection-pool"}
 script-storage = { path = "../script-storage"}
 aquamarine = { path = "../aquamarine" }
 
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
-control-macro = { path = "../crates/control-macro" }
 server-config = { path = "../crates/server-config" }
-async-unlock = { path = "../crates/async-unlock" }
 config-utils = { path = "../crates/config-utils" }
 kademlia = { path = "../crates/kademlia" }
-fs-utils = { path = "../crates/fs-utils" }
-local-vm = { path = "../crates/local-vm" }
-json-utils = { path = "../crates/json-utils" }
 air-interpreter-fs = { path = "../crates/air-interpreter-fs" }
 builtins-deployer = { path = "../crates/builtins-deployer" }
 
@@ -31,46 +25,43 @@ fluence-identity = "0.3.0"
 air-interpreter-wasm = "0.10.5"
 
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
-multihash ="0.13"
 futures = "0.3.13"
-futures-util = "0.3.5"
 async-std = { version = "1.6.5", features = ["unstable"] }
 
-serde = { version = "1.0.118", features = ["derive"] }
-serde_json = "1.0.64"
 humantime-serde = "1.0.1"
 
-failure = "0.1.6"
-base64 = "0.13.0"
 log = "0.4.11"
 env_logger = "0.7.1"
 clap = "3.0.0-beta.2"
-void = "1.0.2"
 prometheus = "0.9.0"
-toml = "0.5.6"
-rand = "0.7.3"
 tide = "0.16.0"
 bs58 = "0.3.1"
 itertools = "0.10.0"
-num_cpus = "1.13.0"
-fstrings = "0.2.3"
 eyre = "0.6.5"
-parking_lot = "0.11.0"
-maplit = "1.0.2"
 
 [dev-dependencies]
 test-utils = { path = "../crates/test-utils" }
 log-utils = { path = "../crates/log-utils" }
 service-modules = { path = "../crates/service-modules" }
-fluence-libp2p = { path = "../crates/libp2p" }
+particle-modules = { path = "../particle-modules" }
 created-swarm = { path = "../crates/created-swarm" }
 connected-client = { path = "../crates/connected-client" }
 test-constants = { path = "../crates/test-constants" }
 toy-vms = { path = "../crates/toy-vms" }
 now-millis = { path = "../crates/now-millis" }
+fs-utils = { path = "../crates/fs-utils" }
+local-vm = { path = "../crates/local-vm" }
+json-utils = { path = "../crates/json-utils" }
+control-macro = { path = "../crates/control-macro" }
 
 fluence-app-service = "0.7.2"
 
+parking_lot = "0.11.1"
+maplit = "1.0.2"
+serde_json = "1.0.64"
+fstrings = "0.2.3"
+serde = "1.0.118"
+multihash = "0.13"
 base64 = "0.13.0"
 blake3 = "0.3.7"
 criterion = { version = "0.3.4", features = ["async_std", "html_reports"] }

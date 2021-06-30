@@ -174,15 +174,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ansi_term"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -891,13 +882,9 @@ version = "2.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37e58ac78573c40708d45522f0d80fa2f01cc4f9b4e2bf749807255454312002"
 dependencies = [
- "ansi_term",
- "atty",
  "bitflags",
- "strsim 0.8.0",
  "textwrap 0.11.0",
  "unicode-width",
- "vec_map",
 ]
 
 [[package]]
@@ -912,7 +899,7 @@ dependencies = [
  "indexmap",
  "lazy_static",
  "os_str_bytes",
- "strsim 0.10.0",
+ "strsim",
  "termcolor",
  "textwrap 0.12.1",
  "unicode-width",
@@ -968,29 +955,19 @@ name = "connected-client"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "base64 0.13.0",
- "bs58 0.3.1",
- "clap 2.33.3",
- "ctrlc-adapter",
  "derivative",
- "env_logger",
  "eyre",
- "failure",
  "fluence-fork-libp2p",
  "fluence-libp2p",
- "fnv",
  "futures",
- "futures-util",
  "local-vm",
  "log",
- "multihash",
  "parking_lot 0.11.1",
  "particle-protocol",
  "rand 0.7.3",
  "serde",
  "serde_json",
  "test-constants",
- "void",
 ]
 
 [[package]]
@@ -1131,47 +1108,24 @@ name = "created-swarm"
 version = "0.1.0"
 dependencies = [
  "air-interpreter-fs",
- "air-interpreter-wasm",
  "aquamarine",
  "async-std",
- "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
- "base64 0.13.0",
  "builtins-deployer",
- "chrono",
  "config-utils",
  "connection-pool",
  "derivative",
- "env_logger",
- "eyre",
- "fluence-faas",
  "fluence-fork-libp2p",
  "fluence-identity",
  "fluence-libp2p",
  "fs-utils",
- "fstrings",
  "futures",
- "futures-util",
- "host-closure",
- "itertools 0.10.1",
- "ivalue-utils",
- "local-vm",
- "log",
- "maplit",
- "parking_lot 0.11.1",
  "particle-node",
  "particle-protocol",
- "prometheus",
- "rand 0.7.3",
  "script-storage",
- "serde",
- "serde_json",
  "server-config",
- "service-modules",
  "test-constants",
- "toml",
  "toy-vms",
  "trust-graph",
- "uuid",
 ]
 
 [[package]]
@@ -1406,7 +1360,7 @@ dependencies = [
  "ident_case",
  "proc-macro2",
  "quote",
- "strsim 0.10.0",
+ "strsim",
  "syn",
 ]
 
@@ -2614,7 +2568,6 @@ dependencies = [
  "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
  "bs58 0.4.0",
  "control-macro",
- "eyre",
  "fluence-app-service",
  "ivalue-utils",
  "json-utils",
@@ -2909,7 +2862,6 @@ dependencies = [
  "smallvec",
  "thiserror",
  "trust-graph",
- "waiting-queues",
 ]
 
 [[package]]
@@ -3568,7 +3520,6 @@ dependencies = [
  "toml-utils",
  "trust-graph",
  "uuid",
- "waiting-queues",
 ]
 
 [[package]]
@@ -3580,7 +3531,6 @@ dependencies = [
  "eyre",
  "faster-hex 0.5.0",
  "fluence-app-service",
- "fluence-fork-libp2p-core",
  "fstrings",
  "host-closure",
  "itertools 0.10.1",
@@ -3593,21 +3543,18 @@ dependencies = [
  "serde_json",
  "service-modules",
  "tempdir",
- "test-utils",
  "thiserror",
  "toml",
- "uuid",
 ]
 
 [[package]]
 name = "particle-node"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
  "aquamarine",
  "async-std",
- "async-unlock",
  "base64 0.13.0",
  "blake3",
  "bs58 0.3.1",
@@ -3622,7 +3569,6 @@ dependencies = [
  "ctrlc-adapter",
  "env_logger",
  "eyre",
- "failure",
  "fluence-app-service",
  "fluence-fork-libp2p",
  "fluence-identity",
@@ -3630,7 +3576,6 @@ dependencies = [
  "fs-utils",
  "fstrings",
  "futures",
- "futures-util",
  "humantime-serde",
  "itertools 0.10.1",
  "json-utils",
@@ -3641,13 +3586,11 @@ dependencies = [
  "maplit",
  "multihash",
  "now-millis",
- "num_cpus",
  "parking_lot 0.11.1",
  "particle-closures",
  "particle-modules",
  "particle-protocol",
  "prometheus",
- "rand 0.7.3",
  "script-storage",
  "serde",
  "serde_json",
@@ -3656,10 +3599,8 @@ dependencies = [
  "test-constants",
  "test-utils",
  "tide",
- "toml",
  "toy-vms",
  "trust-graph",
- "void",
 ]
 
 [[package]]
@@ -3707,7 +3648,6 @@ dependencies = [
  "server-config",
  "service-modules",
  "tempdir",
- "test-utils",
  "thiserror",
  "toml",
  "uuid",
@@ -3823,15 +3763,15 @@ dependencies = [
 
 [[package]]
 name = "plotters-backend"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b07fffcddc1cb3a1de753caa4e4df03b79922ba43cf882acc1bdd7e8df9f4590"
+checksum = "fd8be10f7485c8a323ea100b20d6052c27cf5968f08f8e3a56ee9f0cf38ebd3d"
 
 [[package]]
 name = "plotters-svg"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b38a02e23bd9604b842a812063aec4ef702b57989c37b655254bb61c471ad211"
+checksum = "521fa9638fa597e1dc53e9412a4f9cefb01187ee1f7413076f9e6749e2885ba9"
 dependencies = [
  "plotters-backend",
 ]
@@ -4834,12 +4774,6 @@ dependencies = [
  "block-cipher",
  "generic-array 0.14.4",
 ]
-
-[[package]]
-name = "strsim"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "strsim"

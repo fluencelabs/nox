@@ -15,23 +15,29 @@
  */
 
 use crate::ClientEvent;
-use failure::_core::task::{Context, Poll, Waker};
-use failure::_core::time::Duration;
+
 use fluence_libp2p::generate_swarm_event_type;
+use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
+
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use libp2p::core::connection::{ConnectedPoint, ConnectionId};
-use libp2p::core::either::EitherOutput;
-use libp2p::core::Multiaddr;
-use libp2p::ping::{Ping, PingConfig, PingResult};
-use libp2p::swarm::{
-    IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
-    NotifyHandler, OneShotHandler, PollParameters,
+use libp2p::{
+    core::{
+        connection::{ConnectedPoint, ConnectionId},
+        either::EitherOutput,
+        Multiaddr,
+    },
+    ping::{Ping, PingConfig, PingResult},
+    swarm::{
+        IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
+        NotifyHandler, OneShotHandler, PollParameters,
+    },
+    PeerId,
 };
-use libp2p::PeerId;
-use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 use std::collections::VecDeque;
 use std::error::Error;
+use std::task::{Context, Poll, Waker};
+use std::time::Duration;
 
 pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
 
