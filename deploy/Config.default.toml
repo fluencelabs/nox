@@ -1,9 +1,9 @@
 ## ed25519, rsa, secp256k1 private keys available for this node. Generation is available only for ed25519 and secp256k1.
 ## Either value or path should be defined. Value is base58 bytes.
 ## ed25519 format is set by default
-root_key_pair.format = "ed25519"
-#root_key_pair.value = "..."
-root_key_pair.path = "./secret_key"
+# root_key_pair.format = "ed25519"
+# root_key_pair.value = "..."
+# root_key_pair.path = "/.fluence/v1/secret_key.ed25519"
 root_key_pair.generate_on_absence = true
 
 ## Services will store their data here

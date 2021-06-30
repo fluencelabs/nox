@@ -126,6 +126,7 @@ struct KeypairConfig {
     #[serde(default = "default_keypair_format")]
     format: String,
     value: Option<String>,
+    #[serde(default = "default_keypair_path")]
     path: Option<PathBuf>,
     #[serde(default = "bool::default")]
     generate_on_absence: bool,
