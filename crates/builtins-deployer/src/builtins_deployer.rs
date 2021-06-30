@@ -27,15 +27,10 @@ use eyre::{eyre, ErrReport, Result, WrapErr};
 use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
-<<<<<<< HEAD:crates/builtins-deployer/src/builtins_deployer.rs
-use serde_json::{json, Value as JValue};
-=======
+
 use regex::Regex;
 use serde_json::{json, Value as JValue};
->>>>>>> 0e191e74 (fix):particle-node/src/builtins_deployer.rs
-use std::collections::HashMap;
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::{collections::HashMap, fs, sync::Arc};
 

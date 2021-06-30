@@ -26,13 +26,6 @@
     unreachable_patterns
 )]
 
-<<<<<<< HEAD
-=======
-#[macro_use]
-extern crate fstrings;
-
-mod builtins_deployer;
->>>>>>> 0e191e74 (fix)
 mod metrics;
 mod network_api;
 mod network_tasks;

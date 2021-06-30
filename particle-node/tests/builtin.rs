@@ -25,7 +25,6 @@ use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
 use json_utils::into_array;
 use libp2p::identity::Keypair;
-use log_utils::enable_logs;
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use service_modules::load_module;

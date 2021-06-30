@@ -26,9 +26,9 @@ use test_utils::create_service;
 
 use libp2p::core::identity::Keypair;
 
+use builtins_deployer::ALLOWED_ENV_PREFIX;
 use eyre::WrapErr;
 use maplit::hashmap;
-use particle_node::ALLOWED_ENV_PREFIX;
 use serde::Deserialize;
 use serde_json::json;
 use std::{env, fs, path::Path};
