@@ -34,7 +34,7 @@ mod connected_client;
 mod connection;
 mod event;
 
+pub use crate::connected_client::ConnectedClient;
 pub use command::ClientCommand;
-pub use connected_client::ConnectedClient;
 pub use connection::connect_real;
 pub use event::ClientEvent;
