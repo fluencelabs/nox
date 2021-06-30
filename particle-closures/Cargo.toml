@@ -13,31 +13,20 @@ script-storage = { path = "../script-storage"}
 
 server-config = { path = "../crates/server-config"}
 kademlia = { path = "../crates/kademlia"}
-config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
-json-utils = { path = "../crates/json-utils" }
-fluence-libp2p = { path = "../crates/libp2p" }
-async-unlock = { path = "../crates/async-unlock" }
 now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
-trust-graph = "0.2.7"
-fluence-identity = "0.3.0"
 
 async-std = { version = "1.9.0", features = ["unstable"] }
 multihash = "0.13.2"
-futures = "0.3.13"
 serde_json = "1.0.64"
 serde = "1.0.118"
 log = "0.4.11"
 bs58 = "0.3.1"
-ref-cast = "1.0.2"
 parking_lot = "0.11.1"
-uuid = "0.8.2"
-chrono = "0.4.19"
 thiserror = "1.0.23"
 humantime-serde = "1.0.1"
-eyre = "0.6.5"
 rand = "0.8.4"

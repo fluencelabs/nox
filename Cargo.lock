@@ -3488,20 +3488,12 @@ name = "particle-closures"
 version = "0.2.0"
 dependencies = [
  "async-std",
- "async-unlock",
  "bs58 0.3.1",
- "chrono",
- "config-utils",
  "connection-pool",
- "eyre",
  "fluence-fork-libp2p",
- "fluence-identity",
- "fluence-libp2p",
- "futures",
  "host-closure",
  "humantime-serde",
  "ivalue-utils",
- "json-utils",
  "kademlia",
  "log",
  "multihash",
@@ -3511,15 +3503,12 @@ dependencies = [
  "particle-protocol",
  "particle-services",
  "rand 0.8.4",
- "ref-cast",
  "script-storage",
  "serde",
  "serde_json",
  "server-config",
  "thiserror",
  "toml-utils",
- "trust-graph",
- "uuid",
 ]
 
 [[package]]
