@@ -14,10 +14,21 @@
  * limitations under the License.
  */
 
+#![recursion_limit = "512"]
+#![warn(rust_2018_idioms)]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
+
 use eyre::eyre;
 use rand::Rng;
 use std::fmt::Debug;
-use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
@@ -67,30 +78,6 @@ where
 pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
     std::fs::create_dir_all(&dir)
         .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
-}
-
-#[cfg(target_os = "windows")]
-mod symlink {
-    pub use std::os::windows::fs::symlink_dir;
-}
-
-#[cfg(unix)]
-mod symlink {
-    pub use std::os::unix::fs::symlink as symlink_dir;
-}
-
-pub fn symlink_dir<P: AsRef<Path> + Debug>(original: P, link: P) -> Result<(), std::io::Error> {
-    match symlink::symlink_dir(&original, &link) {
-        Err(err) if err.kind() == ErrorKind::AlreadyExists => Ok(()),
-        Err(err) => Err(std::io::Error::new(
-            err.kind(),
-            format!(
-                "Symlink creation {:?} -> {:?} failed {:?}",
-                original, link, err
-            ),
-        )),
-        ok => ok,
-    }
 }
 
 pub fn remove_dir(dir: &Path) -> Result<(), std::io::Error> {
