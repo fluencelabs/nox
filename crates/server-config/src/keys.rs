@@ -89,7 +89,7 @@ pub fn load_key_pair(
 ) -> Result<KeyPair, Box<dyn std::error::Error>> {
     if !key_path.exists() {
         return if generate_on_absence {
-            info!("generating a new key pair");
+            info!("Generating a new key pair to {:?}", key_path);
             Ok(create_new_key_pair(
                 &key_path,
                 KeyFormat::from_str(&keypair_format)?,
