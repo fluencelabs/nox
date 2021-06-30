@@ -36,7 +36,7 @@ pub struct ServicesConfig {
     /// Dir to persist info about running services
     pub services_dir: PathBuf,
     /// Dir to store directories shared between services
-    /// in the span of a single particle' execution  
+    /// in the span of a single particle execution  
     pub particles_vault_dir: PathBuf,
     /// key that could manage services
     pub management_peer_id: PeerId,

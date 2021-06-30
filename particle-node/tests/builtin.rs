@@ -51,7 +51,6 @@ struct NodeInfo {
 
 #[test]
 fn identify() {
-    enable_logs();
 
     let swarms = make_swarms(1);
 
