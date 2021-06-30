@@ -29,6 +29,7 @@
 use eyre::eyre;
 use rand::Rng;
 use std::fmt::Debug;
+use std::fs::Permissions;
 use std::path::{Path, PathBuf};
 
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
@@ -73,6 +74,18 @@ where
     }
 
     Ok(())
+}
+
+pub fn set_write_only(path: &Path) -> Result<(), std::io::Error> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let permissions = Permissions::from_mode(0o733);
+    std::fs::set_permissions(&path, permissions).map_err(|err| {
+        std::io::Error::new(
+            err.kind(),
+            format!("error making path write only (733) {:?}: {:?}", err, path),
+        )
+    })
 }
 
 pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {

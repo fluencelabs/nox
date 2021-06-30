@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use fs_utils::{create_dirs, to_abs_path};
+use fs_utils::{create_dirs, set_write_only, to_abs_path};
 
 use libp2p::PeerId;
 use std::collections::HashMap;
@@ -72,7 +72,10 @@ impl ServicesConfig {
             &this.workdir,
             &this.modules_dir,
             &this.services_dir,
+            &this.particles_vault_dir,
         ])?;
+
+        set_write_only(&this.particles_vault_dir)?;
 
         Ok(this)
     }
