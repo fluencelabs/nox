@@ -35,7 +35,12 @@ fn create_new_key_pair(key_path: &Path, keypair_format: KeyFormat) -> Result<Key
     let encoded = bs58::encode(key_pair.to_vec()).into_string();
 
     let mut key_file = File::create(key_path)?;
-    key_file.write_all(encoded.as_bytes())?;
+    key_file.write_all(encoded.as_bytes()).map_err(|err| {
+        std::io::Error::new(
+            err.kind(),
+            format!("error writing keypair to {:?}: {:?}", key_path, err),
+        )
+    })?;
 
     Ok(key_pair)
 }
