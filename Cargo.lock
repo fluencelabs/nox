@@ -3621,13 +3621,10 @@ version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "config-utils",
- "eyre",
  "fluence-app-service",
  "fluence-fork-libp2p-core",
  "fs-utils",
- "futures",
  "host-closure",
- "ivalue-utils",
  "json-utils",
  "log",
  "parking_lot 0.11.1",
