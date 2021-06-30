@@ -26,6 +26,6 @@
     unreachable_patterns
 )]
 
-mod created_swarm;
+mod swarm;
 
-pub use created_swarm::*;
+pub use crate::swarm::*;
