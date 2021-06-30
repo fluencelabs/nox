@@ -155,16 +155,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "air-interpreter-interface"
-version = "0.5.1"
-source = "git+https://github.com/fluencelabs/aquavm?branch=vault#c362d45583366ae2fdda2d7cff37db5901d56690"
-dependencies = [
- "fluence",
- "fluence-it-types",
- "serde",
-]
-
-[[package]]
 name = "air-interpreter-wasm"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -184,7 +174,7 @@ name = "aquamarine"
 version = "0.2.0"
 dependencies = [
  "async-std",
- "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
+ "avm-server",
  "base64 0.13.0",
  "chrono",
  "config-utils",
@@ -491,26 +481,11 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "avm-server"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54dc34e55312336dbbb2bcfc731ff62c42a2ecc461474f58983e43363dc41815"
+checksum = "8e82c7287e9d879ab41468ddeae369fde9859bbd54c11838ee27cc1e2ed2fe45"
 dependencies = [
- "air-interpreter-interface 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "fluence-faas",
- "log",
- "maplit",
- "parking_lot 0.11.1",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "avm-server"
-version = "0.7.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=vault#c362d45583366ae2fdda2d7cff37db5901d56690"
-dependencies = [
- "air-interpreter-interface 0.5.1 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
+ "air-interpreter-interface",
  "fluence-faas",
  "log",
  "maplit",
@@ -2559,7 +2534,7 @@ dependencies = [
 name = "host-closure"
 version = "0.1.0"
 dependencies = [
- "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
+ "avm-server",
  "bs58 0.4.0",
  "control-macro",
  "fluence-app-service",
@@ -2937,7 +2912,7 @@ version = "0.1.0"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
- "avm-server 0.7.0 (git+https://github.com/fluencelabs/aquavm?branch=vault)",
+ "avm-server",
  "fluence-fork-libp2p",
  "fs-utils",
  "fstrings",
@@ -5028,7 +5003,7 @@ name = "toy-vms"
 version = "0.1.0"
 dependencies = [
  "aquamarine",
- "avm-server 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "avm-server",
  "fluence-libp2p",
  "futures",
  "itertools 0.10.1",
