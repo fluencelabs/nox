@@ -4560,7 +4560,6 @@ name = "server-config"
 version = "0.2.0"
 dependencies = [
  "air-interpreter-fs",
- "air-interpreter-wasm",
  "base64 0.13.0",
  "bs58 0.3.1",
  "clap 3.0.0-beta.2",
@@ -4573,7 +4572,6 @@ dependencies = [
  "fs-utils",
  "humantime-serde",
  "log",
- "maplit",
  "num_cpus",
  "particle-protocol",
  "prometheus",
@@ -4587,13 +4585,11 @@ dependencies = [
 name = "service-modules"
 version = "0.1.0"
 dependencies = [
- "air-interpreter-wasm",
  "blake3",
  "eyre",
  "faster-hex 0.6.0",
  "fs-utils",
  "serde",
- "serde_json",
 ]
 
 [[package]]
