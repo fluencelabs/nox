@@ -97,6 +97,7 @@ pub fn make_call_service_closure(
                 ivalue_utils::unit()
             }
             ("errorHandlingSrv", "error") => {
+                log::info!("Handling an error");
                 ivalue_utils::unit()
             }
             (_, "identity") => ivalue_utils::ok(JValue::Array(args.function_args)),
