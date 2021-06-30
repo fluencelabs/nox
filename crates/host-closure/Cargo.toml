@@ -10,7 +10,7 @@ json-utils = { path = "../json-utils" }
 control-macro = { path = "../control-macro" }
 
 marine-runtime = "0.5.0"
-avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "vault" } #0.7.0
+avm-server = "0.8.0"
 fluence-app-service = "0.7.2"
 
 serde_json = "1.0.64"
