@@ -28,4 +28,4 @@
 
 mod builtins_deployer;
 
-pub use builtins_deployer::BuiltinsDeployer;
+pub use crate::builtins_deployer::BuiltinsDeployer;
