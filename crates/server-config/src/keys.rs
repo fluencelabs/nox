@@ -17,6 +17,7 @@ use fluence_identity::{key_pair::KeyFormat, KeyPair};
 use fs_utils::create_dirs;
 
 use log::info;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::{
     fs::{self, File},
@@ -34,7 +35,12 @@ fn create_new_key_pair(key_path: &Path, keypair_format: KeyFormat) -> Result<Key
     let key_pair = KeyPair::generate(keypair_format);
     let encoded = bs58::encode(key_pair.to_vec()).into_string();
 
-    let mut key_file = File::create(key_path)?;
+    let mut key_file = File::create(key_path).map_err(|err| {
+        std::io::Error::new(
+            err.kind(),
+            format!("error creating keypair file {:?}: {:?}", key_path, err),
+        )
+    })?;
     key_file.write_all(encoded.as_bytes()).map_err(|err| {
         std::io::Error::new(
             err.kind(),
@@ -77,30 +83,28 @@ pub fn decode_key_pair(
 
 /// Read the file with a secret key if it exists, generate a new key pair and write it to file if not.
 pub fn load_key_pair(
-    path: String,
+    key_path: PathBuf,
     keypair_format: String,
     generate_on_absence: bool,
 ) -> Result<KeyPair, Box<dyn std::error::Error>> {
-    let key_path = Path::new(path.as_str());
-
     if !key_path.exists() {
-        if generate_on_absence {
+        return if generate_on_absence {
             info!("generating a new key pair");
-            return Ok(create_new_key_pair(
-                key_path,
+            Ok(create_new_key_pair(
+                &key_path,
                 KeyFormat::from_str(&keypair_format)?,
-            )?);
+            )?)
         } else {
-            return Err(Error::new(
+            Err(Error::new(
                 ErrorKind::InvalidInput,
                 "Path to secret key does not exist".to_string(),
             )
-            .into());
-        }
+            .into())
+        };
     }
 
     if !key_path.is_dir() {
-        read_key_pair_from_file(key_path, keypair_format)
+        read_key_pair_from_file(&key_path, keypair_format)
     } else {
         Err(Error::new(
             ErrorKind::InvalidInput,

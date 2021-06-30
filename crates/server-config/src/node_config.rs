@@ -8,11 +8,13 @@ use fluence_libp2p::PeerId;
 use particle_protocol::ProtocolConfig;
 
 use derivative::Derivative;
+use fs_utils::to_abs_path;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::time::Duration;
 
 #[derive(Clone, Deserialize, Derivative)]
@@ -124,7 +126,7 @@ struct KeypairConfig {
     #[serde(default = "default_keypair_format")]
     format: String,
     value: Option<String>,
-    path: Option<String>,
+    path: Option<PathBuf>,
     #[serde(default = "bool::default")]
     generate_on_absence: bool,
 }
@@ -144,13 +146,14 @@ where
     }
 
     if let Some(path) = result.path {
+        let path = to_abs_path(path);
         load_key_pair(
             path.clone(),
             result.format.clone(),
             result.generate_on_absence,
         )
         .map_err(|e| {
-            serde::de::Error::custom(format!("Failed to load keypair from {}: {}", path, e))
+            serde::de::Error::custom(format!("Failed to load keypair from {:?}: {}", path, e))
         })
     } else {
         decode_key_pair(result.value.unwrap(), result.format)
