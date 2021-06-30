@@ -21,7 +21,9 @@ use crate::Result;
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
 
-use fluence_app_service::{AppService, AppServiceConfig, FaaSConfig, ModuleDescriptor};
+use fluence_app_service::{
+    AppService, AppServiceConfig, FaaSConfig, FaaSWASIConfig, ModuleDescriptor,
+};
 use std::path::Path;
 
 pub fn create_app_service(
@@ -65,11 +67,12 @@ pub fn create_app_service(
 fn inject_vault(vault_dir: &Path, module: &mut ModuleDescriptor) {
     let wasi = &mut module.config.wasi;
     if let None = *wasi {
-        *wasi = <_>::default();
+        *wasi = Some(FaaSWASIConfig::default());
     }
+    // SAFETY: set wasi to Some in the code above
+    let wasi = wasi.as_mut().unwrap();
 
     let vault_dir = vault_dir.to_path_buf();
-    let wasi = wasi.as_mut().unwrap();
 
     wasi.preopened_files.insert(vault_dir.clone());
     wasi.mapped_dirs.insert("/tmp/vault".into(), vault_dir);

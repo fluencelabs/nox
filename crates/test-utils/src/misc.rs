@@ -14,41 +14,14 @@
  * limitations under the License.
  */
 
-
-
-
-
-
 use connected_client::ConnectedClient;
-
 use created_swarm::make_swarms_with_cfg;
-
-
-
-
-
-
-
-
 use test_constants::KAD_TIMEOUT;
-use trust_graph::{Certificate};
-
-
-
+use trust_graph::Certificate;
 
 use eyre::WrapErr;
-
-
-
-
-
 use serde_json::{json, Value as JValue};
-use std::collections::HashMap;
-
-
-use std::thread::sleep;
-
-use std::{time::Duration};
+use std::{collections::HashMap, thread::sleep, time::Duration};
 
 pub fn connect_swarms(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
     let swarms = make_swarms_with_cfg(node_count, |mut cfg| {
