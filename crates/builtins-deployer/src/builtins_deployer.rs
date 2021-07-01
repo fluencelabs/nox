@@ -27,9 +27,14 @@ use eyre::{eyre, ErrReport, Result, WrapErr};
 use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
+
+use regex::Regex;
 use serde_json::{json, Value as JValue};
+use std::env;
 use std::path::{Path, PathBuf};
 use std::{collections::HashMap, fs, sync::Arc};
+
+pub static ALLOWED_ENV_PREFIX: &str = "$FLUENCE_ENV";
 
 #[derive(Debug)]
 struct ScheduledScript {
@@ -146,6 +151,22 @@ fn load_scheduled_scripts(path: &Path) -> Result<Vec<ScheduledScript>> {
     }
 
     Ok(scripts)
+}
+
+fn resolve_env_variables(data: &String, service_name: &String) -> Result<String> {
+    let mut result = data.clone();
+    let env_prefix = format!(
+        "{}_{}",
+        ALLOWED_ENV_PREFIX,
+        service_name.to_uppercase().replace('-', "_")
+    );
+
+    let re = Regex::new(&f!(r"(\{env_prefix}_\w+)"))?;
+    for elem in re.captures_iter(&data) {
+        result = result.replace(&elem[0], &env::var(&elem[0][1..])?);
+    }
+
+    Ok(result)
 }
 
 impl BuiltinsDeployer {
@@ -281,8 +302,10 @@ impl BuiltinsDeployer {
 
     fn run_on_start(&mut self, builtin: &Builtin) -> eyre::Result<()> {
         if builtin.on_start_script.is_some() && builtin.on_start_data.is_some() {
-            let data: HashMap<String, JValue> =
-                serde_json::from_str(builtin.on_start_data.as_ref().unwrap())?;
+            let data: HashMap<String, JValue> = serde_json::from_str(&resolve_env_variables(
+                builtin.on_start_data.as_ref().unwrap(),
+                &builtin.name,
+            )?)?;
 
             let res = self
                 .send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)

@@ -26,6 +26,10 @@
     unreachable_patterns
 )]
 
+#[macro_use]
+extern crate fstrings;
+
 mod builtins_deployer;
 
 pub use crate::builtins_deployer::BuiltinsDeployer;
+pub use crate::builtins_deployer::ALLOWED_ENV_PREFIX;
