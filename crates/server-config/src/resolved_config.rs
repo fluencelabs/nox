@@ -281,7 +281,7 @@ mod tests {
     fn parse_config() {
         let config = r#"
             root_key_pair.format = "ed25519"
-            root_key_pairvalue = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
+            root_key_pair.value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
             avm_base_dir = "/stepper"
             stepper_module_name = "aquamarine"
 
