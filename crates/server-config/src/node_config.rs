@@ -132,8 +132,8 @@ pub enum PathOrValue {
 struct KeypairConfig {
     #[serde(default = "default_keypair_format")]
     format: String,
-    #[serde(default = "default_keypair_path", flatten)]
-    keypair: PathOrValue,
+    #[serde(flatten)]
+    keypair: Option<PathOrValue>,
     #[serde(default = "bool::default")]
     generate_on_absence: bool,
 }
@@ -148,7 +148,7 @@ where
 
     let result = KeypairConfig::deserialize(deserializer)?;
 
-    match result.keypair {
+    match result.keypair.unwrap_or(default_keypair_path()) {
         Path { path } => {
             let path = to_abs_path(path);
             load_key_pair(
@@ -176,10 +176,4 @@ where
         .collect();
 
     Ok(envs)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn deserialize_keypair() {}
 }

@@ -67,7 +67,6 @@ pub fn default_config_file() -> PathBuf {
     default_base_dir().join("Config.toml")
 }
 
-#[allow(dead_code)]
 pub fn default_keypair_path() -> PathOrValue {
     PathOrValue::Path {
         path: default_base_dir().join("secret_key.ed25519"),

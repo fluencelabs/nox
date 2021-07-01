@@ -311,6 +311,14 @@ mod tests {
     }
 
     #[test]
+    fn parse_empty_keypair() {
+        let config = r#"
+            root_key_pair.generate_on_absence = true
+            "#;
+        deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
+    }
+
+    #[test]
     fn parse_default_config() {
         let config =
             std::fs::read("../../deploy/Config.default.toml").expect("find default config");
