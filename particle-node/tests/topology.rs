@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms, ConnectedClient, KAD_TIMEOUT};
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
+use test_constants::KAD_TIMEOUT;
 
 use eyre::WrapErr;
 use maplit::hashmap;

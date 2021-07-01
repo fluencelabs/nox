@@ -79,8 +79,26 @@ impl<RT: AquaRuntime> Plumber<RT> {
         }
 
         // Remove expired actors
-        let now = now_ms();
-        self.actors.retain(|_, actor| !actor.is_expired(now));
+        if let Some(vm) = self.vm_pool.get_vm() {
+            let now = now_ms();
+            self.actors.retain(|particle_id, actor| {
+                if !actor.is_expired(now) {
+                    return true; // keep actor
+                }
+
+                // cleanup files and dirs after particle processing (vault & prev_data)
+                if let Err(err) = vm.cleanup(particle_id) {
+                    log::warn!(
+                        "Error cleaning up after particle {}: {:?}",
+                        particle_id,
+                        err
+                    )
+                }
+                false // remove actor
+            });
+
+            self.vm_pool.put_vm(vm);
+        }
 
         // Gather effects and put VMs back
         let mut effects = vec![];
@@ -102,8 +120,6 @@ impl<RT: AquaRuntime> Plumber<RT> {
                     }
                     ActorPoll::Executing => {}
                 }
-            } else {
-                log::debug!("No more free Aquamarine interpreters");
             }
         }
 

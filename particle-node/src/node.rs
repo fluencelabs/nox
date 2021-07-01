@@ -32,7 +32,6 @@ use trust_graph::{InMemoryStorage, TrustGraph};
 
 use crate::Connectivity;
 use async_std::task;
-use eyre::WrapErr;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     select,
@@ -46,7 +45,6 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use prometheus::Registry;
-use std::path::Path;
 use std::{io, iter::once, net::SocketAddr};
 
 // TODO: documentation
@@ -77,10 +75,9 @@ impl Node<AVM> {
 
         let vm_config = VmConfig::new(
             local_peer_id,
-            config.dir_config.stepper_base_dir.clone(),
+            config.dir_config.avm_base_dir.clone(),
             config.dir_config.air_interpreter_path.clone(),
-        )
-        .expect("create vm config");
+        );
 
         let pool_config =
             VmPoolConfig::new(config.stepper_pool_size, config.particle_execution_timeout);
@@ -89,6 +86,7 @@ impl Node<AVM> {
         let services_config = ServicesConfig::new(
             local_peer_id,
             config.dir_config.services_base_dir.clone(),
+            config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
             config.management_peer_id,
             to_peer_id(&startup_keypair),
@@ -287,27 +285,20 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 }
 
-pub fn write_default_air_interpreter(destination: &Path) -> eyre::Result<()> {
-    use air_interpreter_wasm::INTERPRETER_WASM;
-    use std::fs::write;
-
-    write(destination, INTERPRETER_WASM).wrap_err(format!(
-        "failed writing default INTERPRETER_WASM to {:?}",
-        destination
-    ))
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::node::write_default_air_interpreter;
     use crate::Node;
-    use eyre::WrapErr;
+
+    use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
+    use connected_client::ConnectedClient;
+    use server_config::{default_base_dir, deserialize_config};
+
     use libp2p::core::Multiaddr;
     use libp2p::identity::Keypair;
+
+    use eyre::WrapErr;
     use maplit::hashmap;
     use serde_json::json;
-    use server_config::{air_interpreter_path, default_base_dir, deserialize_config};
-    use test_utils::ConnectedClient;
 
     #[test]
     fn run_node() {

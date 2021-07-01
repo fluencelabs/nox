@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-use crate::{test_module_cfg_map, ConnectedClient};
+use crate::test_module_cfg_map;
+
+use connected_client::ConnectedClient;
+
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;

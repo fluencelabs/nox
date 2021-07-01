@@ -1,0 +1,15 @@
+[package]
+name = "file_share"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[[bin]]
+name = "file_share"
+path = "src/main.rs"
+
+[workspace]
+
+[dependencies]
+fluence = "0.6.9"
+rand = "0.8.4"

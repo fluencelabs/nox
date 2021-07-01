@@ -1,11 +1,11 @@
 [package]
 name = "tetraplets"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-fluence = "0.6.1"
+fluence = "0.6.9"
 
 [[bin]]
 name = "tetraplets"

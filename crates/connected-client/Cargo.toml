@@ -1,0 +1,26 @@
+[package]
+name = "connected-client"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+particle-protocol = { path = "../../particle-protocol" }
+fluence-libp2p = { path = "../libp2p" }
+test-constants = { path = "../test-constants"}
+local-vm = { path = "../local-vm"}
+
+libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+
+async-std = "1.9.0"
+futures = "0.3.13"
+serde = { version = "1.0.118", features = ["derive"] }
+serde_json = "1.0.64"
+log = "0.4.11"
+derivative = "2.1.1"
+eyre = "0.6.5"
+parking_lot = "0.11.1"
+
+[dev-dependencies]
+rand = "0.7.3"
+log = { version = "0.4.8", features = ["serde"] }

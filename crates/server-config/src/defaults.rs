@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::node_config::PathOrValue;
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::PeerId;
@@ -50,15 +51,15 @@ pub fn cert_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("certificates")
 }
 
-pub fn services_basedir(base_dir: &Path) -> PathBuf {
+pub fn services_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("services")
 }
 
-pub fn builtins_basedir() -> PathBuf {
+pub fn builtins_base_dir() -> PathBuf {
     Path::new("/builtins").into()
 }
 
-pub fn stepper_basedir(base_dir: &Path) -> PathBuf {
+pub fn avm_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("stepper")
 }
 
@@ -66,10 +67,10 @@ pub fn default_config_file() -> PathBuf {
     default_base_dir().join("Config.toml")
 }
 
-pub fn air_interpreter_path(base_dir: &Path) -> PathBuf {
-    use air_interpreter_wasm as interpreter;
-
-    base_dir.join(format!("aquamarine_{}.wasm", interpreter::VERSION))
+pub fn default_keypair_path() -> PathOrValue {
+    PathOrValue::Path {
+        path: default_base_dir().join("secret_key.ed25519"),
+    }
 }
 
 pub fn default_stepper_pool_size() -> usize {

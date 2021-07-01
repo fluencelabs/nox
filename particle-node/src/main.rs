@@ -26,19 +26,23 @@
     unreachable_patterns
 )]
 
-use clap::App;
-use futures::channel::oneshot;
-
-use config_utils::to_peer_id;
-use ctrlc_adapter::block_until_ctrlc;
-use env_logger::Env;
-use eyre::WrapErr;
-use log::LevelFilter;
 use particle_node::{
     config::{certificates, create_args},
-    write_default_air_interpreter, BuiltinsDeployer, Node,
+    Node,
 };
+
+use air_interpreter_fs::write_default_air_interpreter;
+use builtins_deployer::BuiltinsDeployer;
+use config_utils::to_peer_id;
+use ctrlc_adapter::block_until_ctrlc;
 use server_config::{load_config, ResolvedConfig};
+
+use clap::App;
+use env_logger::Env;
+use eyre::WrapErr;
+use fs_utils::to_abs_path;
+use futures::channel::oneshot;
+use log::LevelFilter;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -83,11 +87,9 @@ fn main() -> eyre::Result<()> {
 
     let config = load_config(arg_matches)?;
 
-    write_default_air_interpreter(&config.dir_config.air_interpreter_path)?;
-    log::info!(
-        "AIR interpreter: {:?}",
-        config.dir_config.air_interpreter_path
-    );
+    let interpreter_path = to_abs_path(config.dir_config.air_interpreter_path.clone());
+    write_default_air_interpreter(&interpreter_path)?;
+    log::info!("AIR interpreter: {:?}", interpreter_path);
 
     let fluence = start_fluence(config)?;
     log::info!("Fluence has been successfully started.");

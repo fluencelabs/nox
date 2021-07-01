@@ -23,9 +23,12 @@ use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
 use eyre::WrapErr;
-use services_utils::load_module;
-use test_utils::{create_service, make_swarms, ConnectedClient, KAD_TIMEOUT};
+use service_modules::load_module;
+use test_constants::KAD_TIMEOUT;
+use test_utils::create_service;
 
 #[test]
 fn pass_boolean() {
@@ -38,7 +41,7 @@ fn pass_boolean() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     let script = f!(r#"

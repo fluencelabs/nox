@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "client/rust-libp2p",
     "crates/libp2p",
     "crates/ctrlc-adapter",
     "crates/control-macro",
@@ -11,7 +10,7 @@ members = [
     "crates/fs-utils",
     "crates/log-utils",
     "crates/config-utils",
-    "crates/services-utils",
+    "crates/service-modules",
     "crates/ivalue-utils",
     "crates/host-closure",
     "crates/json-utils",
@@ -20,6 +19,12 @@ members = [
     "crates/async-unlock",
     "crates/now-millis",
     "crates/toml-utils",
+    "crates/air-interpreter-fs",
+    "crates/builtins-deployer",
+    "crates/created-swarm",
+    "crates/toy-vms",
+    "crates/connected-client",
+    "crates/test-constants",
     "particle-node",
     "aquamarine",
     "particle-protocol",

@@ -22,11 +22,12 @@ use uuid_utils::uuid;
 
 use avm_server::{AVMConfig, CallServiceClosure, InterpreterOutcome, AVM};
 
+use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use fstrings::f;
 use libp2p::PeerId;
 use parking_lot::Mutex;
 use serde_json::Value as JValue;
-use services_utils::put_aquamarine;
+use std::path::PathBuf;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 pub static PARTICLE_TTL: u32 = 20000;
@@ -74,8 +75,8 @@ pub fn make_call_service_closure(
     service_in: Arc<Mutex<HashMap<String, JValue>>>,
     service_out: Arc<Mutex<Vec<JValue>>>,
 ) -> CallServiceClosure {
-    Box::new(move |_, args| {
-        let args = Args::parse(args).expect("valid args");
+    Box::new(move |args| {
+        let args = Args::parse(args.function_args).expect("valid args");
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("load", _) => service_in
                 .lock()
@@ -104,13 +105,16 @@ pub fn make_call_service_closure(
 
 pub fn make_vm(peer_id: PeerId, call_service: CallServiceClosure) -> AVM {
     let tmp = make_tmp_dir();
-    let interpreter = put_aquamarine(tmp.join("modules"));
+    let interpreter = air_interpreter_path(&tmp);
+    write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
+    let particle_data_store: PathBuf = format!("/tmp/{}", peer_id.to_string()).into();
     let config = AVMConfig {
         call_service,
         air_wasm_path: interpreter,
         current_peer_id: peer_id.to_string(),
-        particle_data_store: format!("/tmp/{}", peer_id.to_string()).into(),
+        vault_dir: particle_data_store.join("vault"),
+        particle_data_store,
         logging_mask: i32::MAX,
     };
     log::info!("particle_data_store: {:?}", config.particle_data_store);

@@ -31,3 +31,4 @@ extern crate fstrings;
 mod local_vm;
 
 pub use crate::local_vm::*;
+pub use avm_server::AVM;

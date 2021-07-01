@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use test_utils::{
-    create_service, make_swarms, module_config, test_module_cfg, timeout, ClientEvent,
-    ConnectedClient, KAD_TIMEOUT,
-};
+use connected_client::{ClientEvent, ConnectedClient};
+use created_swarm::make_swarms;
+use test_constants::KAD_TIMEOUT;
+use test_utils::{create_service, module_config, test_module_cfg, timeout};
 
 use eyre::{ContextCompat, WrapErr};
 use futures::executor::block_on;
@@ -27,7 +27,7 @@ use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
-use services_utils::load_module;
+use service_modules::load_module;
 use std::str::FromStr;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -71,12 +71,12 @@ fn get_interfaces() {
     let service1 = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load"),
     );
     let service2 = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load"),
     );
 
     client.send_particle(
@@ -142,7 +142,7 @@ fn get_modules() {
             )
         "#,
         hashmap! {
-            "module_bytes" => json!(base64::encode(load_module("tests/tetraplets/artifacts", "tetraplets"))),
+            "module_bytes" => json!(base64::encode(load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"))),
             "module_config" => test_module_cfg("greeting"),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
@@ -313,7 +313,7 @@ fn explore_services_fixed() {
         create_service(
             &mut client,
             "tetraplets",
-            load_module("tests/tetraplets/artifacts", "tetraplets"),
+            load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
         );
     }
 
