@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::node_config::PathOrValue;
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::PeerId;
@@ -66,8 +67,11 @@ pub fn default_config_file() -> PathBuf {
     default_base_dir().join("Config.toml")
 }
 
-pub fn default_keypair_path() -> Option<PathBuf> {
-    Some(default_base_dir().join("secret_key.ed25519"))
+#[allow(dead_code)]
+pub fn default_keypair_path() -> PathOrValue {
+    PathOrValue::Path {
+        path: default_base_dir().join("secret_key.ed25519"),
+    }
 }
 
 pub fn default_stepper_pool_size() -> usize {

@@ -122,12 +122,18 @@ impl Deref for PeerIdSerializable {
 }
 
 #[derive(Deserialize)]
+#[serde(untagged)]
+pub enum PathOrValue {
+    Value { value: String },
+    Path { path: PathBuf },
+}
+
+#[derive(Deserialize)]
 struct KeypairConfig {
     #[serde(default = "default_keypair_format")]
     format: String,
-    value: Option<String>,
-    #[serde(default = "default_keypair_path")]
-    path: Option<PathBuf>,
+    #[serde(default = "default_keypair_path", flatten)]
+    keypair: PathOrValue,
     #[serde(default = "bool::default")]
     generate_on_absence: bool,
 }
@@ -138,27 +144,24 @@ fn parse_or_load_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
+    use crate::node_config::PathOrValue::{Path, Value};
+
     let result = KeypairConfig::deserialize(deserializer)?;
 
-    if result.path.is_none() && result.value.is_none()
-        || result.path.is_some() && result.value.is_some()
-    {
-        panic!("Define either value or path")
-    }
-
-    if let Some(path) = result.path {
-        let path = to_abs_path(path);
-        load_key_pair(
-            path.clone(),
-            result.format.clone(),
-            result.generate_on_absence,
-        )
-        .map_err(|e| {
-            serde::de::Error::custom(format!("Failed to load keypair from {:?}: {}", path, e))
-        })
-    } else {
-        decode_key_pair(result.value.unwrap(), result.format)
-            .map_err(|e| serde::de::Error::custom(format!("Failed to decode keypair: {}", e)))
+    match result.keypair {
+        Path { path } => {
+            let path = to_abs_path(path);
+            load_key_pair(
+                path.clone(),
+                result.format.clone(),
+                result.generate_on_absence,
+            )
+            .map_err(|e| {
+                serde::de::Error::custom(format!("Failed to load keypair from {:?}: {}", path, e))
+            })
+        }
+        Value { value } => decode_key_pair(value, result.format)
+            .map_err(|e| serde::de::Error::custom(format!("Failed to decode keypair: {}", e))),
     }
 }
 
