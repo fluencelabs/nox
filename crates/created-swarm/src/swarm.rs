@@ -23,7 +23,7 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::{build_memory_transport, build_transport, Transport};
-use fs_utils::make_tmp_dir_peer_id;
+use fs_utils::{make_tmp_dir_peer_id, to_abs_path};
 use particle_node::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use script_storage::ScriptStorageConfig;
@@ -130,7 +130,7 @@ pub fn make_swarms_with_builtins(
         if let Some(keypair) = &keypair {
             cfg.keypair = keypair.clone();
         }
-        cfg.builtins_dir = Some(path.into());
+        cfg.builtins_dir = Some(to_abs_path(path.into()));
         cfg
     })
 }

@@ -140,6 +140,15 @@ impl ConnectedClient {
         script: impl Into<String>,
         data: HashMap<&str, JValue>,
     ) -> String {
+        self.send_particle_ext(script, data, false)
+    }
+
+    pub fn send_particle_ext(
+        &mut self,
+        script: impl Into<String>,
+        data: HashMap<&str, JValue>,
+        generated: bool,
+    ) -> String {
         *self.call_service_in.lock() = data
             .into_iter()
             .map(|(key, value)| (key.to_string(), value))
@@ -150,6 +159,7 @@ impl ConnectedClient {
             script.into(),
             self.node,
             &mut self.local_vm.lock(),
+            generated,
         );
         let id = particle.id.clone();
         self.send(particle);
@@ -193,16 +203,16 @@ impl ConnectedClient {
     }
 
     /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
-    pub fn wait_particle_args(&mut self, particle_id: String) -> Result<Vec<JValue>> {
+    pub fn wait_particle_args(&mut self, particle_id: impl AsRef<str>) -> Result<Vec<JValue>> {
         let mut max = 100;
         loop {
             max -= 1;
             if max <= 0 {
-                bail!("timed out waiting for particle {}", particle_id);
+                bail!("timed out waiting for particle {}", particle_id.as_ref());
             }
             let particle = self.receive().ok();
             if let Some(particle) = particle {
-                if particle.id == particle_id {
+                if &particle.id == particle_id.as_ref() {
                     break Ok(read_args(
                         particle,
                         self.peer_id,
@@ -210,6 +220,27 @@ impl ConnectedClient {
                         self.call_service_out.clone(),
                     ));
                 }
+            }
+        }
+    }
+
+    pub fn listen_for_n<F: Fn(Vec<JValue>)>(&mut self, mut n: usize, f: F) {
+        loop {
+            n -= 1;
+            if n <= 0 {
+                break;
+            }
+
+            let particle = self.receive().ok();
+            if let Some(particle) = particle {
+                println!("received particle {}", particle.id);
+                let args = read_args(
+                    particle,
+                    self.peer_id,
+                    &mut self.local_vm.lock(),
+                    self.call_service_out.clone(),
+                );
+                f(args);
             }
         }
     }

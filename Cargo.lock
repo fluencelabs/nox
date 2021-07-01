@@ -4482,7 +4482,9 @@ dependencies = [
  "eyre",
  "faster-hex",
  "fs-utils",
+ "maplit",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4832,6 +4834,7 @@ dependencies = [
  "ivalue-utils",
  "maplit",
  "serde_json",
+ "service-modules",
  "test-constants",
  "trust-graph",
 ]

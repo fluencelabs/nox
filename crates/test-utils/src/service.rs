@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-use crate::test_module_cfg_map;
-
 use connected_client::ConnectedClient;
+use service_modules::module_config_map;
 
 use eyre::WrapErr;
 use maplit::hashmap;
@@ -58,7 +57,7 @@ pub fn create_service(
         "name" => json!("blueprint"),
         "dependencies" => json!([module_name]),
     };
-    data.extend(test_module_cfg_map(module_name).into_iter());
+    data.extend(module_config_map(module_name).into_iter());
 
     client.send_particle(script, data);
     let response = client.receive_args().wrap_err("receive args").unwrap();

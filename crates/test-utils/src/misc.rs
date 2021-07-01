@@ -20,8 +20,7 @@ use test_constants::KAD_TIMEOUT;
 use trust_graph::Certificate;
 
 use eyre::WrapErr;
-use serde_json::{json, Value as JValue};
-use std::{collections::HashMap, thread::sleep, time::Duration};
+use std::{thread::sleep, time::Duration};
 
 pub fn connect_swarms(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
     let swarms = make_swarms_with_cfg(node_count, |mut cfg| {
@@ -56,34 +55,6 @@ HFF3V9XXbhdTLWGVZkJYd9a7NyuD5BLWLdwc4EFBcCZa
     .expect("deserialize cert")
 }
 
-pub fn test_module_cfg(name: &str) -> JValue {
-    json!(
-        {
-            "name": name,
-            "mem_pages_count": 100,
-            "logger_enabled": true,
-            "wasi": {
-                "envs": json!({}),
-                "preopened_files": vec!["/tmp"],
-                "mapped_dirs": json!({}),
-            }
-        }
-    )
-}
-
-pub fn test_module_cfg_map(name: &str) -> HashMap<&str, JValue> {
-    maplit::hashmap! {
-        "module_name" => json!(name),
-        "mem_pages_count" => json!(100),
-        "logger_enabled" => json!(true),
-        "preopened_files" => json!(["/tmp"]),
-        "envs" => json!([]),
-        "mapped_dirs" => json!([]),
-        "mounted_binaries" => json!([]),
-        "logging_mask" => JValue::Null,
-    }
-}
-
 pub async fn timeout<F, T>(dur: Duration, f: F) -> eyre::Result<T>
 where
     F: std::future::Future<Output = T>,
@@ -91,19 +62,4 @@ where
     Ok(async_std::future::timeout(dur, f)
         .await
         .wrap_err(format!("timed out after {:?}", dur))?)
-}
-
-pub fn module_config(import_name: &str) -> JValue {
-    json!(
-        {
-            "name": import_name,
-            "mem_pages_count": 100,
-            "logger_enabled": true,
-            "wasi": {
-                "envs": json!({}),
-                "preopened_files": vec!["/tmp"],
-                "mapped_dirs": json!({}),
-            }
-        }
-    )
 }
