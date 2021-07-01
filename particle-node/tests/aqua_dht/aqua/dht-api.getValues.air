@@ -45,12 +45,9 @@
    )
    (call -relay- ("op" "noop") [])
   )
-  (seq
-      (call -relay- ("op" "noop") [])
-      (xor
-       (call %init_peer_id% ("callbackSrv" "response") [nodes])
-       (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
-      )
+  (xor
+   (call %init_peer_id% ("callbackSrv" "response") [v.$.result!])
+   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
   )
  )
  (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
