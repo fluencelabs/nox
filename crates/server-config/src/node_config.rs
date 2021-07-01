@@ -177,3 +177,9 @@ where
 
     Ok(envs)
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn deserialize_keypair() {}
+}
