@@ -1,0 +1,29 @@
+[package]
+name = "created-swarm"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+trust-graph = "0.2.7"
+test-constants = { path = "../test-constants" }
+config-utils = { path = "../config-utils" }
+server-config = { path = "../server-config" }
+fluence-libp2p = { path = "../libp2p" }
+particle-node = { path = "../../particle-node" }
+particle-protocol = { path = "../../particle-protocol" }
+aquamarine = { path = "../../aquamarine" }
+connection-pool = { path = "../../connection-pool" }
+script-storage = { path = "../../script-storage" }
+fs-utils = { path = "../fs-utils" }
+air-interpreter-fs = { path = "../air-interpreter-fs" }
+builtins-deployer = { path = "../builtins-deployer" }
+toy-vms = { path = "../toy-vms" }
+
+fluence-identity = "0.3.0"
+
+libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+
+async-std = "1.9.0"
+futures = "0.3.13"
+derivative = "2.1.1"

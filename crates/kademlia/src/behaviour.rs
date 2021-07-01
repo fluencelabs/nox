@@ -434,6 +434,8 @@ mod tests {
     use crate::{KademliaConfig, KademliaError};
     use async_std::task;
     use fluence_libp2p::{build_memory_transport, RandomPeerId};
+
+    use fluence_libp2p::random_multiaddr::create_memory_maddr;
     use futures::channel::oneshot;
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
@@ -442,7 +444,6 @@ mod tests {
     use libp2p::Swarm;
     use std::task::Poll;
     use std::time::Duration;
-    use test_utils::create_memory_maddr;
     use trust_graph::{InMemoryStorage, TrustGraph};
 
     fn kad_config() -> KademliaConfig {

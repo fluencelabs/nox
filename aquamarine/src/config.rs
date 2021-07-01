@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use fs_utils::{create_dirs, to_abs_path};
+use fs_utils::to_abs_path;
+
 use libp2p::PeerId;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -30,14 +31,14 @@ pub struct VmPoolConfig {
 #[derive(Debug, Clone)]
 pub struct VmConfig {
     pub current_peer_id: PeerId,
-    /// Working dir for steppers
-    pub workdir: PathBuf,
     /// Path to AIR interpreter .wasm file (aquamarine.wasm)
     pub air_interpreter: PathBuf,
-    /// Dir to persist info about running steppers
-    pub services_dir: PathBuf,
-    /// Dir for stepper to persist particle data to merge it
+    /// Dir for the interpreter to persist particle data
+    /// to merge it between particles of the same particle_id
     pub particles_dir: PathBuf,
+    /// Dir to store directories shared between services
+    /// in the span of a single particle execution
+    pub particles_vault_dir: PathBuf,
 }
 
 impl VmPoolConfig {
@@ -50,26 +51,13 @@ impl VmPoolConfig {
 }
 
 impl VmConfig {
-    pub fn new(
-        current_peer_id: PeerId,
-        base_dir: PathBuf,
-        air_interpreter: PathBuf,
-    ) -> Result<Self, std::io::Error> {
+    pub fn new(current_peer_id: PeerId, base_dir: PathBuf, air_interpreter: PathBuf) -> Self {
         let base_dir = to_abs_path(base_dir);
-        let this = Self {
+        Self {
             current_peer_id,
-            workdir: config_utils::workdir(&base_dir),
-            services_dir: config_utils::services_dir(&base_dir),
             particles_dir: config_utils::particles_dir(&base_dir),
+            particles_vault_dir: config_utils::particles_vault_dir(&base_dir),
             air_interpreter,
-        };
-
-        this.create_dirs()?;
-
-        Ok(this)
-    }
-
-    pub fn create_dirs(&self) -> Result<(), std::io::Error> {
-        create_dirs(&[&self.workdir, &self.services_dir])
+        }
     }
 }

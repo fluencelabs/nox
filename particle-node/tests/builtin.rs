@@ -17,27 +17,31 @@
 #[macro_use]
 extern crate fstrings;
 
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::time::Duration;
+use connected_client::ConnectedClient;
+use created_swarm::{
+    make_swarms, make_swarms_with_keypair, make_swarms_with_transport_and_mocked_vm,
+};
+use fluence_libp2p::RandomPeerId;
+use fluence_libp2p::Transport;
+use json_utils::into_array;
+use libp2p::identity::Keypair;
+use now_millis::now_ms;
+use particle_protocol::Particle;
+use service_modules::load_module;
+use test_constants::PARTICLE_TTL;
 
-use eyre::WrapErr;
 use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
+
+use eyre::WrapErr;
 use libp2p::PeerId;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
-
-use fluence_libp2p::RandomPeerId;
-use json_utils::into_array;
-use libp2p::identity::Keypair;
-use particle_protocol::Particle;
-use services_utils::load_module;
-use test_utils::{
-    create_service, make_swarms, make_swarms_with_keypair,
-    make_swarms_with_transport_and_mocked_vm, now_ms, ConnectedClient, Transport, PARTICLE_TTL,
-};
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::time::Duration;
+use test_utils::create_service;
 
 #[derive(Deserialize, Debug)]
 struct NodeInfo {
@@ -101,7 +105,7 @@ fn remove_service() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     client.send_particle(
@@ -145,7 +149,7 @@ fn remove_service_restart() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     client.send_particle(
@@ -217,7 +221,7 @@ fn remove_service_by_alias() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     client.send_particle(
@@ -268,7 +272,7 @@ fn non_owner_remove_service() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     client2.send_particle(
@@ -321,7 +325,7 @@ fn resolve_alias() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     client.send_particle(
@@ -395,7 +399,7 @@ fn resolve_alias_removed() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     client.send_particle(

@@ -27,14 +27,15 @@
 mod bench_network_models;
 
 use bench_network_models::*;
+use connected_client::ConnectedClient;
 use connection_pool::ConnectionPoolT;
 use control_macro::measure;
+use created_swarm::make_swarms_with_mocked_vm;
 use itertools::Itertools;
 use kademlia::KademliaApiT;
 use particle_protocol::Contact;
 use std::convert::identity;
 use std::time::{Duration, Instant};
-use test_utils::{make_swarms_with_mocked_vm, ConnectedClient};
 
 #[test]
 fn kademlia_resolve() {

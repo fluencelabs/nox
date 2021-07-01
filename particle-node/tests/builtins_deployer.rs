@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+use connected_client::ConnectedClient;
+use created_swarm::{make_swarms_with_builtins, make_swarms_with_keypair};
 use particle_modules::list_files;
-use services_utils::load_module;
-use test_utils::{
-    create_service, make_swarms_with_builtins, make_swarms_with_keypair, ConnectedClient,
-};
+use service_modules::load_module;
+use test_utils::create_service;
 
 use libp2p::core::identity::Keypair;
 
@@ -93,7 +93,7 @@ fn builtins_replace_old() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets"),
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     client.send_particle(

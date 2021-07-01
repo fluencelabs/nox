@@ -1,0 +1,21 @@
+[package]
+name = "builtins-deployer"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+particle-modules = { path = "../../particle-modules" }
+aquamarine = { path = "../../aquamarine" }
+service-modules = { path = "../service-modules" }
+local-vm = { path = "../local-vm" }
+fs-utils = { path = "../fs-utils" }
+fluence-libp2p = { path = "../libp2p" }
+
+futures = "0.3.15"
+parking_lot = "0.11.1"
+eyre = "0.6.5"
+maplit = "1.0.2"
+serde_json = "1.0.64"
+log = "0.4.14"
+base64 = "0.13.0"

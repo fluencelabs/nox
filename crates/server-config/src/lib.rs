@@ -28,7 +28,6 @@
     unreachable_patterns
 )]
 
-mod app_services;
 mod bootstrap_config;
 mod defaults;
 mod dir_config;
@@ -40,10 +39,9 @@ mod node_config;
 mod resolved_config;
 mod services_config;
 
-pub use defaults::{air_interpreter_path, default_base_dir};
+pub use defaults::default_base_dir;
 pub use resolved_config::{deserialize_config, load_config};
 
-pub use app_services::AppServicesConfig;
 pub use bootstrap_config::BootstrapConfig;
 pub use kademlia_config::KademliaConfig;
 pub use listen_config::ListenConfig;

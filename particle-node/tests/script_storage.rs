@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use test_utils::{make_swarms, ConnectedClient};
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
 
 use eyre::WrapErr;
 use fstrings::f;
@@ -536,7 +537,7 @@ fn add_script_delay_oneshot() {
 fn add_script_random_delay() {
     let swarms = make_swarms(1);
 
-    let interval = 1u64;
+    let interval = 3u64;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -570,6 +571,7 @@ fn add_script_random_delay() {
 
     let res = client.receive_args().wrap_err("receive").unwrap();
     let res = res.into_iter().next().unwrap().as_u64().unwrap();
-    let expected = now + interval;
+    let eps = 2u64;
+    let expected = now + interval + eps;
     assert!((now..=expected).contains(&res));
 }

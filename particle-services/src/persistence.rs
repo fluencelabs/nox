@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
+use crate::app_services::Service;
 use crate::error::ServiceError;
 use crate::error::ServiceError::{
     CreateServicesDir, DeserializePersistedService, ReadPersistedService,
 };
 
 use fs_utils::create_dirs;
-use particle_modules::{is_service, list_files, service_file_name, ModuleError};
+use particle_modules::{list_files, ModuleError};
+use service_modules::{is_service, service_file_name};
 
-use crate::app_services::Service;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 

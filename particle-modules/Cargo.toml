@@ -6,28 +6,21 @@ edition = "2018"
 
 [dependencies]
 host-closure = { path = "../crates/host-closure" }
-ivalue-utils = { path = "../crates/ivalue-utils" }
 json-utils = { path = "../crates/json-utils" }
+service-modules = { path = "../crates/service-modules" }
 
 marine-it-parser = "0.6.3"
 fluence-app-service = "0.7.2"
 
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = "1.0.64"
-uuid = "0.8.1"
 toml = "0.5.6"
 log = "0.4.11"
 base64 = "0.13.0"
-blake3 = "0.3.7"
 thiserror = "1.0.23"
 parking_lot = "0.11.1"
 eyre = "0.6.5"
-itertools = "0.10.0"
-faster-hex = "0.5.0"
 fstrings = "0.2.3"
 
 [dev-dependencies]
 tempdir = "0.3.7"
-libp2p-core = { package = "fluence-fork-libp2p-core", version = "0.27.2" }
-test-utils = { path = "../crates/test-utils" }
-services-utils = { path = "../crates/services-utils" }

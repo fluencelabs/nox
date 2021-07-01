@@ -28,6 +28,7 @@
 
 mod connected_point;
 mod macros;
+pub mod random_multiaddr;
 mod random_peer_id;
 mod serde;
 mod transport;
@@ -37,7 +38,7 @@ pub use self::serde::*;
 pub use connected_point::*;
 pub use macros::*;
 pub use random_peer_id::RandomPeerId;
-pub use transport::{build_memory_transport, build_transport};
+pub use transport::{build_memory_transport, build_transport, Transport};
 
 // libp2p reexports
 pub use libp2p::PeerId;

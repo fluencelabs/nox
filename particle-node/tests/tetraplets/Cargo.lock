@@ -28,66 +28,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "fce-timestamp-macro"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c59a6302902583b2c84e87de9d72b949da4396a369baf0aaa49e97021600bb0"
-dependencies = [
- "chrono",
- "quote",
-]
-
-[[package]]
 name = "fluence"
-version = "0.6.1"
+version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54b2f78a2432dcd10e7113f9f08aac004373dee610a3b4ca692d5b12a3e7c867"
+checksum = "88b09e1cd11a51ba4d169db347d009fe41ece2714eef4d5df720343733a1d5a6"
 dependencies = [
- "fce-timestamp-macro",
- "fluence-sdk-macro",
  "fluence-sdk-main",
+ "marine-macro",
+ "marine-timestamp-macro",
  "serde",
-]
-
-[[package]]
-name = "fluence-sdk-macro"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb43d2f51f1becb70e2125ef8ca9759597900f95cc22ce7dca981a7d6ccd7dde"
-dependencies = [
- "fluence-sdk-wit",
 ]
 
 [[package]]
 name = "fluence-sdk-main"
-version = "0.6.1"
+version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a78910d85e3cdcb9c2baf56144f20a99925c67ac445d4156220c005bfd2f9604"
+checksum = "68d93cde99e1494e11755a39b93863333397245c9959c774fe3bebd9e4143879"
 dependencies = [
- "fluence-sdk-macro",
  "log",
+ "marine-macro",
  "serde",
-]
-
-[[package]]
-name = "fluence-sdk-wit"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab3ed39703b72e0e52bce9e1760746c73f65a5694c8da4dec751d3bfdec15b8"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
- "uuid",
 ]
 
 [[package]]
 name = "getrandom"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9495705279e7140bf035dde1f6e750c162df8b625267cd52cc44e0b156732c8"
+checksum = "7fcd999463524c52659517fe2cea98493cfe485d10565e7b0fb07dbba7ad2753"
 dependencies = [
  "cfg-if",
  "libc",
@@ -102,9 +69,9 @@ checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 
 [[package]]
 name = "libc"
-version = "0.2.94"
+version = "0.2.97"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18794a8ad5b29321f790b55d93dfba91e125cb1a9edbd4f8e3150acc771c1a5e"
+checksum = "12b8adadd720df158f4d70dfe7ccc6adb0472d7c55ca83445f6a5ab3e36f8fb6"
 
 [[package]]
 name = "log"
@@ -113,6 +80,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "marine-macro"
+version = "0.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f63d927851847cc3dd9e3bd0f10bdeb313859d4822d5b5f650d9d34d461ed419"
+dependencies = [
+ "marine-macro-impl",
+]
+
+[[package]]
+name = "marine-macro-impl"
+version = "0.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb504be4a90e229ab453c7369cc8a9063acec819f3397802eea719cd0a232be1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+ "uuid",
+]
+
+[[package]]
+name = "marine-timestamp-macro"
+version = "0.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5994c7db5567d21609f2a2e5a40d9d4564f86c17ca35b2d77007152619b9d7fc"
+dependencies = [
+ "chrono",
+ "quote",
 ]
 
 [[package]]
@@ -136,9 +136,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.26"
+version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a152013215dca273577e18d2bf00fa862b89b24169fb78c4c95aeb07992c9cec"
+checksum = "f0d8caf72986c1a598726adc988bb5984792ef84f5ee5aa50209145ee8077038"
 dependencies = [
  "unicode-xid",
 ]
@@ -191,9 +191,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.71"
+version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad184cc9470f9117b2ac6817bfe297307418819ba40552f9b3846f05c33d5373"
+checksum = "f71489ff30030d2ae598524f61326b902466f72a0fb1a8564c001cc63425bcc7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -202,7 +202,7 @@ dependencies = [
 
 [[package]]
 name = "tetraplets"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "fluence",
 ]
@@ -220,9 +220,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-xid"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
+checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
 name = "uuid"

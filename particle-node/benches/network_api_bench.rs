@@ -18,24 +18,26 @@ mod bench_network_models;
 
 use bench_network_models::*;
 
-use async_std::task;
+use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
+use connected_client::ConnectedClient;
 use connection_pool::ConnectionPoolT;
-use criterion::async_executor::AsyncStdExecutor;
-use criterion::{criterion_group, criterion_main, BatchSize};
-use criterion::{BenchmarkId, Criterion, Throughput};
+use created_swarm::make_swarms_with_mocked_vm;
 use fluence_libp2p::types::BackPressuredInlet;
 use fluence_libp2p::RandomPeerId;
 use fs_utils::make_tmp_dir;
-use futures::channel::mpsc;
-use futures::FutureExt;
-use humantime_serde::re::humantime::format_duration as pretty;
 use kademlia::KademliaApiT;
 use log_utils::enable_logs;
 use particle_protocol::{Contact, Particle};
-use services_utils::put_aquamarine;
+
+use async_std::task;
+use criterion::async_executor::AsyncStdExecutor;
+use criterion::{criterion_group, criterion_main, BatchSize};
+use criterion::{BenchmarkId, Criterion, Throughput};
+use futures::channel::mpsc;
+use futures::FutureExt;
+use humantime_serde::re::humantime::format_duration as pretty;
 use std::convert::identity;
 use std::time::{Duration, Instant};
-use test_utils::{make_swarms_with_mocked_vm, ConnectedClient};
 
 fn thousand_particles_bench(c: &mut Criterion) {
     c.bench_function("thousand_particles", move |b| {
@@ -113,8 +115,9 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
     let particle_parallelism = PARALLELISM;
     let particle_timeout = TIMEOUT;
 
-    let tmp_dir = make_tmp_dir();
-    let interpreter = put_aquamarine(tmp_dir.join("modules"));
+    let tmp = make_tmp_dir();
+    let interpreter = air_interpreter_path(&tmp);
+    write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
     let mut group = c.benchmark_group("particle_throughput_with_kad");
     let num = 100;

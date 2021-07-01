@@ -29,21 +29,13 @@
 #[macro_use]
 extern crate fstrings;
 
-mod blueprint;
-mod dependency;
 mod error;
-mod file_names;
 mod files;
-mod hash;
 mod modules;
 
-pub use blueprint::Blueprint;
-pub use dependency::Dependency;
 pub use error::ModuleError;
-pub use file_names::{is_service, module_config_name_json, module_file_name, service_file_name};
 pub use files::{list_files, load_blueprint, load_module_descriptor};
-pub use hash::Hash;
-pub use modules::{hash_dependencies, AddBlueprint, ModuleRepository};
+pub use modules::{AddBlueprint, ModuleRepository};
 
 // reexport
 pub use fluence_app_service::{

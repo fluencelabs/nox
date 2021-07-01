@@ -17,7 +17,7 @@
 use particle_modules::ModuleError;
 
 use fluence_app_service::AppServiceError;
-use host_closure::ArgsError;
+use host_closure::{AVMError, ArgsError};
 use json_utils::err_as_value;
 
 use serde_json::Value as JValue;
@@ -66,6 +66,20 @@ pub enum ServiceError {
     CorruptedFaaSInterface(#[source] serde_json::Error),
     #[error("Error parsing arguments on call_service: {0}")]
     ArgParseError(#[source] ArgsError),
+    #[error("Vault creation (service {particle_id}, particle {service_id}) failed: {err:?}")]
+    VaultCreation {
+        #[source]
+        err: AVMError,
+        particle_id: String,
+        service_id: String,
+    },
+    #[error("Vault linking (service {particle_id}, particle {service_id}) failed: {err:?}")]
+    VaultLink {
+        #[source]
+        err: std::io::Error,
+        particle_id: String,
+        service_id: String,
+    },
 }
 
 impl From<AppServiceError> for ServiceError {

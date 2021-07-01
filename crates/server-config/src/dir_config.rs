@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::air_interpreter_path;
 use crate::defaults::{
-    builtins_basedir, cert_dir, default_base_dir, services_basedir, stepper_basedir,
+    avm_base_dir, builtins_base_dir, cert_dir, default_base_dir, services_base_dir,
 };
 
+use air_interpreter_fs::air_interpreter_path;
 use fs_utils::create_dirs;
 
 use eyre::WrapErr;
@@ -44,7 +44,7 @@ pub struct UnresolvedDirConfig {
 
     /// Base directory for resources needed by application services
     #[serde(default)]
-    pub stepper_base_dir: Option<PathBuf>,
+    pub avm_base_dir: Option<PathBuf>,
 
     /// Path to AIR interpreter .wasm file (aquamarine.wasm)
     #[serde(default)]
@@ -55,9 +55,9 @@ impl UnresolvedDirConfig {
     pub fn resolve(self) -> ResolvedDirConfig {
         let base = self.base_dir;
         let certificate_dir = self.certificate_dir.unwrap_or(cert_dir(&base));
-        let services_base_dir = self.services_base_dir.unwrap_or(services_basedir(&base));
-        let builtins_base_dir = self.builtins_base_dir.unwrap_or_else(builtins_basedir);
-        let stepper_base_dir = self.stepper_base_dir.unwrap_or(stepper_basedir(&base));
+        let services_base_dir = self.services_base_dir.unwrap_or(services_base_dir(&base));
+        let builtins_base_dir = self.builtins_base_dir.unwrap_or_else(builtins_base_dir);
+        let avm_base_dir = self.avm_base_dir.unwrap_or(avm_base_dir(&base));
         let air_interpreter_path = self
             .air_interpreter_path
             .unwrap_or(air_interpreter_path(&base));
@@ -67,7 +67,7 @@ impl UnresolvedDirConfig {
             certificate_dir,
             services_base_dir,
             builtins_base_dir,
-            stepper_base_dir,
+            avm_base_dir,
             air_interpreter_path,
         }
     }
@@ -78,18 +78,17 @@ pub struct ResolvedDirConfig {
     pub base_dir: PathBuf,
     pub certificate_dir: PathBuf,
     pub services_base_dir: PathBuf,
+    /// Directory where configs for autodeployed builtins are stored
     pub builtins_base_dir: PathBuf,
-    pub stepper_base_dir: PathBuf,
+    /// Directory where particle's prev_data is stored
+    pub avm_base_dir: PathBuf,
+    /// Directory where interpreter's WASM module is stored
     pub air_interpreter_path: PathBuf,
 }
 
 impl ResolvedDirConfig {
     pub fn create_dirs(&self) -> eyre::Result<()> {
-        create_dirs(&[
-            &self.base_dir,
-            &self.certificate_dir,
-            &self.stepper_base_dir,
-        ])
-        .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
+        create_dirs(&[&self.base_dir, &self.certificate_dir, &self.avm_base_dir])
+            .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
     }
 }

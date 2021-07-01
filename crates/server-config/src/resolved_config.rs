@@ -276,20 +276,45 @@ mod tests {
     use crate::BootstrapConfig;
 
     use super::*;
+    use fs_utils::make_tmp_dir;
 
     #[test]
     fn parse_config() {
         let config = r#"
-            [root_key_pair]
-            format = "ed25519"
-            value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
-            stepper_base_dir = "/stepper"
+            root_key_pair.format = "ed25519"
+            root_key_pair.value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
+            avm_base_dir = "/stepper"
             stepper_module_name = "aquamarine"
 
             [root_weights]
             12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
         "#;
 
+        deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
+    }
+
+    #[test]
+    fn parse_path_keypair() {
+        let key_path = make_tmp_dir().join("secret_key.ed25519");
+        let config = format!(
+            r#"
+            root_key_pair.format = "ed25519"
+            root_key_pair.path = "{}"
+            root_key_pair.generate_on_absence = true
+            "#,
+            key_path.to_string_lossy()
+        );
+
+        assert!(!key_path.exists());
+        deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
+        assert!(key_path.exists());
+    }
+
+    #[test]
+    fn parse_empty_keypair() {
+        let config = r#"
+            root_key_pair.generate_on_absence = true
+            "#;
         deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
     }
 
