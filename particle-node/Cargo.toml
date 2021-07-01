@@ -19,6 +19,7 @@ config-utils = { path = "../crates/config-utils" }
 kademlia = { path = "../crates/kademlia" }
 air-interpreter-fs = { path = "../crates/air-interpreter-fs" }
 builtins-deployer = { path = "../crates/builtins-deployer" }
+fs-utils = { path = "../crates/fs-utils" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
@@ -49,7 +50,6 @@ connected-client = { path = "../crates/connected-client" }
 test-constants = { path = "../crates/test-constants" }
 toy-vms = { path = "../crates/toy-vms" }
 now-millis = { path = "../crates/now-millis" }
-fs-utils = { path = "../crates/fs-utils" }
 local-vm = { path = "../crates/local-vm" }
 json-utils = { path = "../crates/json-utils" }
 control-macro = { path = "../crates/control-macro" }
