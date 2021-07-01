@@ -14,19 +14,24 @@
  * limitations under the License.
  */
 
+#[macro_use]
+extern crate fstrings;
+
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms_with_builtins, make_swarms_with_keypair};
+use fs_utils::copy_dir_all;
 use particle_modules::list_files;
 use service_modules::load_module;
 use test_utils::create_service;
 
 use libp2p::core::identity::Keypair;
 
+use builtins_deployer::ALLOWED_ENV_PREFIX;
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
-use std::path::Path;
+use std::{env, fs, path::Path};
 
 fn check_dht_builtin(client: &mut ConnectedClient) {
     client.send_particle(
@@ -160,4 +165,79 @@ fn builtins_scheduled_scripts() {
             .unwrap()
             .count()
     )
+}
+
+#[test]
+fn builtins_resolving_env_variables() {
+    copy_dir_all("../deploy/builtins", "./builtins_test_env").unwrap();
+    let key = "some_key".to_string();
+    let on_start_script = f!(r#"
+    (xor
+        (seq
+            (seq
+                (call relay ("peer" "timestamp_sec") [] timestamp)
+                (call relay ("aqua-dht" "register_key") [key timestamp false 0])
+            )
+            (call %init_peer_id% ("op" "return") ["ok"])
+        )
+        (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+    )
+    "#);
+    let env_variable_name = format!("{}_AQUA_DHT_{}", ALLOWED_ENV_PREFIX, "KEY");
+    let on_start_data = json!({ "key": env_variable_name.clone() });
+    env::set_var(&env_variable_name[1..], key.clone());
+    fs::write("./builtins_test_env/aqua-dht/on_start.air", on_start_script).unwrap();
+    fs::write(
+        "./builtins_test_env/aqua-dht/on_start.json",
+        on_start_data.to_string(),
+    )
+    .unwrap();
+
+    let swarms = make_swarms_with_builtins(1, Path::new("./builtins_test_env"), None);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        f!(r#"(xor
+            (seq
+                (seq
+                    (call relay ("peer" "timestamp_sec") [] timestamp)
+                    (call relay ("aqua-dht" "get_key_metadata") ["{key}" timestamp] result)
+                )
+                (call %init_peer_id% ("op" "return") [result])
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        )
+    "#),
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+        },
+    );
+
+    let result = client.receive_args().wrap_err("receive args").unwrap();
+
+    #[derive(Deserialize)]
+    pub struct Key {
+        pub key: String,
+        pub peer_id: String,
+        pub timestamp_created: u64,
+        pub pinned: bool,
+        pub weight: u32,
+    }
+
+    #[derive(Deserialize)]
+    pub struct GetKeyMetadataResult {
+        pub success: bool,
+        pub error: String,
+        pub key: Key,
+    }
+
+    let result = result.into_iter().next().unwrap();
+    let result: GetKeyMetadataResult = serde_json::from_value(result).unwrap();
+
+    assert!(result.success);
+    assert_eq!(key, result.key.key);
+    fs::remove_dir_all("./builtins_test_env").unwrap();
 }

@@ -29,6 +29,7 @@
 use eyre::eyre;
 use rand::Rng;
 use std::fmt::Debug;
+use std::fs;
 use std::fs::Permissions;
 use std::path::{Path, PathBuf};
 
@@ -118,4 +119,18 @@ pub fn file_name(path: &Path) -> eyre::Result<String> {
         .to_str()
         .ok_or_else(|| eyre!("path {:?} contain non-UTF-8 character", path))?
         .to_string())
+}
+
+pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> eyre::Result<()> {
+    fs::create_dir_all(&dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        if entry.file_type()?.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+
+    Ok(())
 }
