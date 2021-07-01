@@ -20,3 +20,7 @@ extern crate fstrings;
 mod chat {
     mod chat;
 }
+
+mod aqua_dht {
+    mod aqua_dht;
+}

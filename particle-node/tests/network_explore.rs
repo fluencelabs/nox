@@ -16,7 +16,7 @@
 use connected_client::{ClientEvent, ConnectedClient};
 use created_swarm::make_swarms;
 use test_constants::KAD_TIMEOUT;
-use test_utils::{create_service, module_config, test_module_cfg, timeout};
+use test_utils::{create_service, timeout};
 
 use eyre::{ContextCompat, WrapErr};
 use futures::executor::block_on;
@@ -27,7 +27,7 @@ use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
-use service_modules::load_module;
+use service_modules::{load_module, module_config};
 use std::str::FromStr;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -143,7 +143,7 @@ fn get_modules() {
         "#,
         hashmap! {
             "module_bytes" => json!(base64::encode(load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"))),
-            "module_config" => test_module_cfg("greeting"),
+            "module_config" => module_config("greeting"),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
         },

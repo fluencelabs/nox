@@ -65,6 +65,7 @@ fn make() {
         script,
         None,
         &mut local_vm_a,
+        false,
     );
 
     let args = read_args(
