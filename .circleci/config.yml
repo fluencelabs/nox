@@ -86,7 +86,7 @@ jobs:
             -d '{
               "ref":"main",
               "inputs": {
-                "tag_prefix":' \"${DISTRO_TAG_PREFIX}_\" '
+                "tag_prefix":"'${DISTRO_TAG_PREFIX}'_"
               }
             }'
 
