@@ -64,17 +64,31 @@ jobs:
       - run: |
           if [ "$CIRCLE_BRANCH" = "master" ]; then
             echo "export DOCKER_TAG=latest" >> $BASH_ENV
+            echo "export DISTRO_TAG_PREFIX=''" >> $BASH_ENV
           else
             echo "export DOCKER_TAG=$CIRCLE_BRANCH" >> $BASH_ENV
+            echo "export DISTRO_TAG_PREFIX=$CIRCLE_BRANCH" >> $BASH_ENV
           fi
 
       - docker/build:
           image: fluencelabs/fluence
-          tag: ${DOCKER_TAG}
+          tag: ${DOCKER_TAG},${CIRCLE_BRANCH}_${CIRCLE_SHA1}
           extra_build_args: --build-arg exe=./target/release/particle-node --build-arg config=./deploy/Config.default.toml --build-arg builtins=./deploy/builtins/
       - docker/push:
           image: fluencelabs/fluence
-          tag: ${DOCKER_TAG}
+          tag: ${DOCKER_TAG},${CIRCLE_BRANCH}_${CIRCLE_SHA1}
+      - run: |
+          curl \
+            -u folex:${GITHUB_PERSONAL_TOKEN} \
+            -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/fluencelabs/node-distro/actions/workflows/container.yml/dispatches \
+            -d '{
+              "ref":"main",
+              "inputs": {
+                "tag_prefix":"'${DISTRO_TAG_PREFIX}'_"
+              }
+            }'
 
 
 workflows:
@@ -88,3 +102,4 @@ workflows:
       - Publish Docker Container:
           requires:
             - Build
+          context: Github Actions
