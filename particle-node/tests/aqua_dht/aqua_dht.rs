@@ -16,10 +16,9 @@
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_builtins;
-use eyre::{ContextCompat, WrapErr};
+use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
-use service_modules::{load_module, module_config};
 use std::path::Path;
 
 fn load_script(name: &str) -> String {
