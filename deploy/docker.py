@@ -69,8 +69,9 @@ def do_deploy_watchdog():
 @parallel
 def deploy_caddy():
     load_config()
+    target = target_environment()
 
-    for node in env.config['caddy']['nodes']:
+    for node in target['caddy']:
         env.hosts = [node['addr']]
         puts("node: {}".format(node))
         execute(do_deploy_caddy, node['ports'], node['host'])

@@ -63,5 +63,5 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -D warnings -Z unstable-options --all
+          args: -Z unstable-options --all
         continue-on-error: true # do not fail for now
