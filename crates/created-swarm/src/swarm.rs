@@ -22,7 +22,7 @@ use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::types::OneshotOutlet;
-use fluence_libp2p::{build_memory_transport, build_transport, Transport};
+use fluence_libp2p::{build_memory_transport, build_transport, RandomPeerId, Transport};
 use fs_utils::{make_tmp_dir_peer_id, to_abs_path};
 use particle_node::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
@@ -184,8 +184,8 @@ where
         .into_iter()
         .map(|((peer_id, management_keypair, config), node, _)| {
             let connectivity = node.network_api.connectivity();
-            let stepper = node.stepper_pool_api.clone();
-            let startup_peer_id = to_peer_id(&node.startup_keypair);
+            let stepper = node.aquamarine_api.clone();
+            let startup_peer_id = node.startup_management_peer_id;
             let local_peer_id = node.local_peer_id;
             let outlet = node.start();
 
@@ -383,7 +383,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 
     std::fs::create_dir_all(tmp_dir).expect("create tmp dir");
 
-    let startup_keypair = Keypair::generate_ed25519();
+    let startup_management_peer_id = RandomPeerId::random();
     let vm_config = vm_config(
         connectivity,
         script_storage_api,
@@ -393,7 +393,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
             listen_on: listen_on.clone(),
             manager: m_id,
         },
-        to_peer_id(&startup_keypair),
+        startup_management_peer_id,
     );
 
     let mut node = Node::with(
@@ -406,8 +406,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         particle_failures_out,
         None,
         "0.0.0.0:0".parse().unwrap(),
+        startup_management_peer_id,
         bootstraps,
-        startup_keypair,
     );
 
     node.listen(vec![listen_on]).expect("listen");
