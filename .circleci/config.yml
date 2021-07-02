@@ -72,11 +72,11 @@ jobs:
 
       - docker/build:
           image: fluencelabs/fluence
-          tag: ${DOCKER_TAG}
+          tag: ${DOCKER_TAG},${CIRCLE_BRANCH}_${CIRCLE_SHA1}
           extra_build_args: --build-arg exe=./target/release/particle-node --build-arg config=./deploy/Config.default.toml --build-arg builtins=./deploy/builtins/
       - docker/push:
           image: fluencelabs/fluence
-          tag: ${DOCKER_TAG}, ${CIRCLE_BRANCH}_${CIRCLE_SHA1}
+          tag: ${DOCKER_TAG},${CIRCLE_BRANCH}_${CIRCLE_SHA1}
       - run: |
           curl \
             -u folex:GITHUB_PERSONAL_TOKEN \
