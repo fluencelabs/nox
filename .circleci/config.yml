@@ -79,7 +79,7 @@ jobs:
           tag: ${DOCKER_TAG},${CIRCLE_BRANCH}_${CIRCLE_SHA1}
       - run: |
           curl \
-            -u folex:GITHUB_PERSONAL_TOKEN \
+            -u folex:${GITHUB_PERSONAL_TOKEN} \
             -X POST \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/fluencelabs/node-distro/actions/workflows/container.yml/dispatches \
