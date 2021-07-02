@@ -1,5 +1,5 @@
 {
-  "target": "krasnodar",
+  "target": "stage",
 
   "environments": [
     {
