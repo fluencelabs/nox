@@ -130,7 +130,7 @@
     },
     {
       "name": "stage",
-      "container_tag": "distro_trigger_latest",
+      "container_tag": "latest",
       "containers_per_host": 5,
       "hosts": [
         "134.209.186.43"
