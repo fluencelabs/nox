@@ -19,28 +19,22 @@ use libp2p::multiaddr::Protocol;
 
 use std::net::IpAddr;
 
-#[derive(Copy, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ListenConfig {
-    pub listen_ip: IpAddr,
-    pub tcp_port: u16,
-    pub websocket_port: u16,
+    pub multiaddrs: Vec<Multiaddr>,
 }
 
 impl ListenConfig {
-    pub fn multiaddrs(&self) -> Vec<Multiaddr> {
-        let mut tcp = Multiaddr::from(self.listen_ip);
-        tcp.push(Protocol::Tcp(self.tcp_port));
+    pub fn new(listen_ip: IpAddr, tcp_port: u16, websocket_port: u16) -> Self {
+        let mut tcp = Multiaddr::from(listen_ip);
+        tcp.push(Protocol::Tcp(tcp_port));
 
-        let mut ws = Multiaddr::from(self.listen_ip);
-        ws.push(Protocol::Tcp(self.websocket_port));
+        let mut ws = Multiaddr::from(listen_ip);
+        ws.push(Protocol::Tcp(websocket_port));
         ws.push(Protocol::Ws("/".into()));
 
-        vec![tcp, ws]
-    }
-}
-
-impl From<&ListenConfig> for Vec<Multiaddr> {
-    fn from(cfg: &ListenConfig) -> Self {
-        cfg.multiaddrs()
+        Self {
+            multiaddrs: vec![tcp, ws],
+        }
     }
 }

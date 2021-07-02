@@ -32,8 +32,8 @@ CONFIG = {
             'command': '-c /Config.toml -f ed25519 -k {keypair} -x {host} -t {tcp_port} -w {ws_port} -m {management_key}',
             'volumes': ['{container_name}:/.fluence'],
             'container_name': '{container_name}',
-            'image': 'fluencelabs/fluence:{container_tag}',
-            'ports': ['{tcp_port}:{tcp_port}', '{ws_port}:{ws_port}'],
+            'image': 'fluencelabs/node:{container_tag}',
+            'ports': ['{tcp_port}:{tcp_port}', '{ws_port}:{ws_port}', '{ipfs_port}:5001'],
             'restart': 'always'
         }
     },
@@ -50,10 +50,12 @@ def gen_compose_file(out, container_tag, scale, is_bootstrap, bootstraps, host, 
         container = 'fluence_bootstrap'
         tcp_port = 7770
         ws_port = 9990
+        ipfs_port = 5550
     else:
         container = 'fluence'
         tcp_port = 7001
         ws_port = 9001
+        ipfs_port = 5001
 
     config = copy.deepcopy(CONFIG)
     service = config['services']['fluence']
@@ -85,14 +87,17 @@ def gen_compose_file(out, container_tag, scale, is_bootstrap, bootstraps, host, 
 
         container_config['ports'] = map(lambda p: p.format(
             tcp_port=tcp_port,
-            ws_port=ws_port
+            ws_port=ws_port,
+            ipfs_port=ipfs_port
         ), container_config['ports'])
         config['volumes'][container_name] = None
 
         tcp_port += 1
         ws_port += 1
+        ipfs_port += 1
 
-    puts("Writing config to {}:\n{}".format(out, yaml.dump(config)))
-    run('rm {} || true'.format(out))
-    append(out, yaml.dump(config))
+    puts("Writing config to {}".format(out))
+    with hide('running'):
+        run('rm {} || true'.format(out))
+        append(out, yaml.dump(config))
 
