@@ -42,6 +42,7 @@ use env_logger::Env;
 use eyre::WrapErr;
 use fs_utils::to_abs_path;
 use futures::channel::oneshot;
+use libp2p::identity::Keypair;
 use log::LevelFilter;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -112,24 +113,23 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
         .wrap_err("failed to init certificates")?;
 
     let key_pair = config.root_key_pair.clone();
-    log::info!(
-        "public key = {}",
-        bs58::encode(key_pair.public().to_vec()).into_string()
-    );
+    let bs58_key_pair = bs58::encode(key_pair.public().to_vec()).into_string();
+    log::info!("node public key = {}", bs58_key_pair);
+    log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 
-    let listen_config = config.listen_config();
-    let mut node = Node::new(key_pair.into(), config).wrap_err("create node instance")?;
-    node.listen(&listen_config)
-        .expect("Error starting node listener");
+    let startup_management_key_pair = Keypair::generate_ed25519();
+    let startup_peer_id = to_peer_id(&startup_management_key_pair);
+    let listen_addrs = config.listen_config().multiaddrs;
+    let mut node = Node::new(config, startup_peer_id).wrap_err("error create node instance")?;
+    node.listen(listen_addrs).wrap_err("error on listen")?;
 
-    let stepper = node.stepper_pool_api.clone();
-    let startup_peer_id = to_peer_id(&node.startup_keypair);
+    let aquamarine_api = node.aquamarine_api.clone();
     let local_peer_id = node.local_peer_id;
     let node_exit_outlet = node.start();
 
     let mut builtin_deployer =
-        BuiltinsDeployer::new(startup_peer_id, local_peer_id, stepper, builtins_dir);
-
+        BuiltinsDeployer::new(startup_peer_id, local_peer_id, aquamarine_api, builtins_dir);
+    // TODO: start deploy after AquamarineVMs are started
     builtin_deployer
         .deploy_builtin_services()
         .wrap_err("builtins deploy failed")?;

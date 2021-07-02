@@ -96,7 +96,7 @@ def do_deploy_fluence(yml="fluence.yml"):
         compose('up --no-start', yml)  # was: 'create'
         copy_configs(yml)
         compose("restart", yml)
-        sleep(1)
+        sleep(5)
         addrs = get_fluence_addresses(yml)
         return addrs
 
@@ -147,7 +147,7 @@ def get_ports(container):
 
 
 def get_fluence_peer_ids(container, yml="fluence.yml"):
-    logs = run('docker logs %s' % container).splitlines()
+    logs = run('docker logs --tail 10000 %s' % container).splitlines()
     return parse_peer_ids(logs)
 
 

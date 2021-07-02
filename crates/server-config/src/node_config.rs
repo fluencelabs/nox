@@ -71,7 +71,7 @@ pub struct NodeConfig {
 
     /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
     #[serde(default = "default_stepper_pool_size")]
-    pub stepper_pool_size: usize,
+    pub aquavm_pool_size: usize,
 
     #[serde(default)]
     pub kademlia: KademliaConfig,
