@@ -432,11 +432,15 @@ impl BuiltinsDeployer {
                 );
 
         failed
-            .into_iter()
-            .map(|err| log::error!("builtin load failed: {:#}", err))
+            .iter()
+            .map(|err| log::error!("failed to load some builtins: {:#}", err))
             .for_each(drop);
 
-        Ok(successful)
+        return if !failed.is_empty() {
+            Err(eyre!("some builtins load failed"))
+        } else {
+            Ok(successful)
+        };
     }
 
     fn get_service_blueprints(&mut self) -> Result<HashMap<String, String>> {
