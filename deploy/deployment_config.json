@@ -130,7 +130,7 @@
     },
     {
       "name": "stage",
-      "container_tag": "latest",
+      "container_tag": "distro_trigger_latest",
       "containers_per_host": 5,
       "hosts": [
         "134.209.186.43"
@@ -142,7 +142,14 @@
       ],
       "management_key": "12D3KooWFRgVmb1uWcmCbmJqLr8tBQghL6ysSpK2VyE2VZbaQ6wy",
       "caddy": [
-        { "host": "stage.fluence.dev", "ports": [9990, 9001, 9002, 9003, 9004, 9005], "addr": "134.209.186.43" }
+        {
+          "host": "stage.fluence.dev",
+          "ports": [
+            9990, 9001, 9002, 9003, 9004, 9005,
+            5550, 5001, 5002, 5003, 5004, 5005
+          ],
+          "addr": "134.209.186.43"
+        }
       ],
       "keypairs": {
         "fluence_bootstrap.yml": [

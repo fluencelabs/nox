@@ -102,8 +102,6 @@ def do_deploy_fluence(yml="fluence.yml"):
 
 
 def get_host_idx(containers):
-    print("env.hosts: {}".format(env.hosts))
-    print("env.host_string: {}".format(env.host_string))
     return env.hosts.index(env.host_string) * containers
 
 def copy_configs(yml):
