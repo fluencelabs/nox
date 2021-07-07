@@ -86,6 +86,7 @@ impl<RT: AquaRuntime> Plumber<RT> {
                     return true; // keep actor
                 }
 
+                log::debug!("Reaping particle's actor {}", particle_id);
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 if let Err(err) = vm.cleanup(particle_id) {
                     log::warn!(
@@ -102,11 +103,13 @@ impl<RT: AquaRuntime> Plumber<RT> {
 
         // Gather effects and put VMs back
         let mut effects = vec![];
+        let mut mailbox_size = 0;
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 effects.push(result.effects);
                 self.vm_pool.put_vm(result.vm);
             }
+            mailbox_size += actor.mailbox_size();
         }
 
         // Execute next messages
@@ -120,6 +123,14 @@ impl<RT: AquaRuntime> Plumber<RT> {
                     }
                     ActorPoll::Executing => {}
                 }
+            } else {
+                if mailbox_size > 10 {
+                    log::warn!(
+                        "{} particles waiting in mailboxes, but all interpreters busy",
+                        mailbox_size
+                    );
+                }
+                break;
             }
         }
 

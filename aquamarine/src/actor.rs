@@ -83,6 +83,10 @@ where
         self.deadline.is_expired(now_ms)
     }
 
+    pub fn mailbox_size(&self) -> usize {
+        self.mailbox.len()
+    }
+
     pub fn ingest(&mut self, particle: AwaitedParticle) {
         self.mailbox.push_back(particle);
         self.wake();
