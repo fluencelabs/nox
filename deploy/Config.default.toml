@@ -9,7 +9,7 @@ root_key_pair.generate_on_absence = true
 ## Services will store their data here
 # default is /.fluence/v1/services
 # services_base_dir = "./services"
-## AIR Interpreter (stepper) will store its data here
+## AIR Interpreter will store its data here. NOTE: 'stepper' is an old name for interpreter.
 # default is /.fluence/v1/stepper
 # avm_base_dir = "./stepper"
 ## directory for TrustGraph certificates
@@ -42,7 +42,7 @@ bootstrap_nodes = [
 websocket_port = 9999
 #external_address = "85.85.35.35"
 prometheus_port = 18080
-stepper_pool_size = 16
+aquavm_pool_size = 16
 
 ## environment variables that will be passed to each service
 ## TODO: separate by service or move to service config

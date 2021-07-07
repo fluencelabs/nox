@@ -16,6 +16,10 @@
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_builtins;
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/master
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;

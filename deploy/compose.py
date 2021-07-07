@@ -30,16 +30,25 @@ CONFIG = {
                 'RUST_LOG': 'info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,particle_server::behaviour::identify=info,libp2p_mplex=info,libp2p_identify=info,walrus=info,particle_protocol::libp2p_protocol::upgrade=info'
             },
             'command': '-c /Config.toml -f ed25519 -k {keypair} -x {host} -t {tcp_port} -w {ws_port} -m {management_key}',
-            'volumes': ['{container_name}:/.fluence'],
+            'volumes': [
+                '{container_name}:/.fluence',
+                '{container_name}_config:/config',
+            ],
             'container_name': '{container_name}',
-            'image': 'fluencelabs/fluence:{container_tag}',
-            'ports': ['{tcp_port}:{tcp_port}', '{ws_port}:{ws_port}'],
+            'image': 'fluencelabs/node:{container_tag}',
+            'ports': [
+                '{tcp_port}:{tcp_port}',
+                '{ws_port}:{ws_port}',
+                '{ipfs_port}:5001',
+                '{ipfs_swarm_port}:4001'
+            ],
             'restart': 'always'
         }
     },
     'version': '3.5',
     'volumes': {
-        '{container_name}': None
+        '{container_name}': None,
+        '{container_name}_config': None,
     }
 }
 
@@ -50,10 +59,14 @@ def gen_compose_file(out, container_tag, scale, is_bootstrap, bootstraps, host, 
         container = 'fluence_bootstrap'
         tcp_port = 7770
         ws_port = 9990
+        ipfs_port = 5550
+        ipfs_swarm_port = 4440
     else:
         container = 'fluence'
         tcp_port = 7001
         ws_port = 9001
+        ipfs_port = 5001
+        ipfs_swarm_port = 4001
 
     config = copy.deepcopy(CONFIG)
     service = config['services']['fluence']
@@ -70,9 +83,11 @@ def gen_compose_file(out, container_tag, scale, is_bootstrap, bootstraps, host, 
         container_config['image'] = container_config['image'].format(
             container_tag=container_tag
         )
-        container_config['volumes'][0] = container_config['volumes'][0].format(
-            container_name=container_name
+        container_config['volumes'] = map(
+            lambda v: v.format(container_name=container_name),
+            container_config['volumes']
         )
+
         container_config['command'] = container_config['command'].format(
             keypair=keypairs[i],
             management_key=management_key,
@@ -85,14 +100,22 @@ def gen_compose_file(out, container_tag, scale, is_bootstrap, bootstraps, host, 
 
         container_config['ports'] = map(lambda p: p.format(
             tcp_port=tcp_port,
-            ws_port=ws_port
+            ws_port=ws_port,
+            ipfs_port=ipfs_port,
+            ipfs_swarm_port=ipfs_swarm_port
         ), container_config['ports'])
-        config['volumes'][container_name] = None
+
+        for key in CONFIG['volumes']:
+            key = key.format(container_name=container_name)
+            config['volumes'][key] = None
 
         tcp_port += 1
         ws_port += 1
+        ipfs_port += 1
+        ipfs_swarm_port += 1
 
-    puts("Writing config to {}:\n{}".format(out, yaml.dump(config)))
-    run('rm {} || true'.format(out))
-    append(out, yaml.dump(config))
+    puts("Writing config to {}".format(out))
+    with hide('running'):
+        run('rm {} || true'.format(out))
+        append(out, yaml.dump(config))
 

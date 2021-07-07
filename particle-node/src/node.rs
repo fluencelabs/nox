@@ -51,27 +51,30 @@ use std::{io, iter::once, net::SocketAddr};
 pub struct Node<RT: AquaRuntime> {
     pub network_api: NetworkApi,
     pub swarm: Swarm<NetworkBehaviour>,
-    stepper_pool: AquamarineBackend<RT>,
-    pub stepper_pool_api: AquamarineApi,
+    aquavm_pool: AquamarineBackend<RT>,
+    pub aquamarine_api: AquamarineApi,
     pub local_peer_id: PeerId,
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
     bootstrap_nodes: Vec<Multiaddr>,
     particle_failures: Outlet<String>,
     script_storage: ScriptStorageBackend,
-    pub startup_keypair: Keypair,
+    pub startup_management_peer_id: PeerId,
 }
 
 impl Node<AVM> {
-    pub fn new(key_pair: Keypair, config: ResolvedConfig) -> eyre::Result<Box<Self>> {
+    pub fn new(
+        config: ResolvedConfig,
+        startup_management_peer_id: PeerId,
+    ) -> eyre::Result<Box<Self>> {
+        let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
+        let local_peer_id = to_peer_id(&key_pair);
         let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
 
         let trust_graph = {
             let storage = InMemoryStorage::new_in_memory(config.root_weights()?);
             TrustGraph::new(storage)
         };
-
-        let local_peer_id = to_peer_id(&key_pair);
 
         let vm_config = VmConfig::new(
             local_peer_id,
@@ -80,16 +83,15 @@ impl Node<AVM> {
         );
 
         let pool_config =
-            VmPoolConfig::new(config.stepper_pool_size, config.particle_execution_timeout);
+            VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
 
-        let startup_keypair = Keypair::generate_ed25519();
         let services_config = ServicesConfig::new(
             local_peer_id,
             config.dir_config.services_base_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
             config.management_peer_id,
-            to_peer_id(&startup_keypair),
+            startup_management_peer_id,
         )
         .expect("create services config");
 
@@ -137,8 +139,8 @@ impl Node<AVM> {
             particle_failures_out,
             registry.into(),
             config.metrics_listen_addr(),
+            startup_management_peer_id,
             config.node_config.bootstrap_nodes,
-            startup_keypair,
         ))
     }
 
@@ -189,25 +191,23 @@ impl<RT: AquaRuntime> Node<RT> {
         particle_failures: Outlet<String>,
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
+        startup_management_peer_id: PeerId,
         bootstrap_nodes: Vec<Multiaddr>,
-        startup_keypair: Keypair,
     ) -> Box<Self> {
-        log::info!("server peer id = {}", local_peer_id);
-
-        let (stepper_pool, stepper_pool_api) = AquamarineBackend::new(pool_config, vm_config);
+        let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(pool_config, vm_config);
 
         let node_service = Self {
             network_api,
             swarm,
-            stepper_pool,
-            stepper_pool_api,
+            aquavm_pool,
+            aquamarine_api,
             local_peer_id,
             registry,
             metrics_listen_addr,
             bootstrap_nodes,
             particle_failures,
             script_storage,
-            startup_keypair,
+            startup_management_peer_id,
         };
 
         Box::new(node_service)
@@ -227,9 +227,9 @@ impl<RT: AquaRuntime> Node<RT> {
             .fuse();
 
             let script_storage = self.script_storage.start();
-            let pool = self.stepper_pool.start();
+            let pool = self.aquavm_pool.start();
             let mut network = {
-                let pool_api = self.stepper_pool_api.clone();
+                let pool_api = self.aquamarine_api.clone();
                 let failures = self.particle_failures;
                 let bootstrap_nodes = self.bootstrap_nodes.into_iter().collect();
                 self.network_api.start(pool_api, bootstrap_nodes, failures)
@@ -291,10 +291,10 @@ mod tests {
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use connected_client::ConnectedClient;
+    use fluence_libp2p::RandomPeerId;
     use server_config::{default_base_dir, deserialize_config};
 
     use libp2p::core::Multiaddr;
-    use libp2p::identity::Keypair;
 
     use eyre::WrapErr;
     use maplit::hashmap;
@@ -305,12 +305,10 @@ mod tests {
         fs_utils::create_dir(default_base_dir()).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&default_base_dir())).unwrap();
 
-        let keypair = Keypair::generate_ed25519();
-
         let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
         let mut config = deserialize_config(<_>::default(), config).expect("deserialize config");
-        config.stepper_pool_size = 1;
-        let mut node = Node::new(keypair, config).expect("create node");
+        config.aquavm_pool_size = 1;
+        let mut node = Node::new(config, RandomPeerId::random()).expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();

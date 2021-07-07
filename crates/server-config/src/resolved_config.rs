@@ -153,11 +153,7 @@ impl ResolvedConfig {
     }
 
     pub fn listen_config(&self) -> ListenConfig {
-        ListenConfig {
-            listen_ip: self.listen_ip,
-            tcp_port: self.tcp_port,
-            websocket_port: self.websocket_port,
-        }
+        ListenConfig::new(self.listen_ip, self.tcp_port, self.websocket_port)
     }
 }
 
