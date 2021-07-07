@@ -433,7 +433,7 @@ impl BuiltinsDeployer {
 
         failed
             .iter()
-            .map(|err| log::error!("failed to load some builtins: {:#}", err))
+            .map(|err| log::error!("failed to load builtins from disk: {:#}", err))
             .for_each(drop);
 
         return if !failed.is_empty() {
