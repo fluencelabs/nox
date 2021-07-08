@@ -1,10 +1,10 @@
 {
-  "target": "stage",
+  "target": "krasnodar",
 
   "environments": [
     {
       "name": "krasnodar",
-      "container_tag": "latest",
+      "container_tag": "debug_dashboardlatest",
       "containers_per_host": 1,
       "external_bootstraps": [
         "/ip4/165.227.164.206/tcp/7001",
