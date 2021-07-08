@@ -182,7 +182,13 @@ pub fn make_particle(
         error_message,
         ..
     } = local_vm
-        .call(peer_id.to_string(), script.clone(), "[]", id.clone())
+        .call(
+            peer_id.to_string(),
+            script.clone(),
+            "[]",
+            id.clone(),
+            uuid(),
+        )
         .expect("execute & make particle");
 
     service_in.lock().clear();
@@ -202,6 +208,7 @@ pub fn make_particle(
         script,
         signature: vec![],
         data,
+        execution_id: uuid(),
     }
 }
 
@@ -217,6 +224,7 @@ pub fn read_args(
             particle.script,
             particle.data,
             particle.id,
+            particle.execution_id,
         )
         .expect("execute read_args vm");
 

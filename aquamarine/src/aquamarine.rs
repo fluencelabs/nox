@@ -107,6 +107,7 @@ impl AquamarineApi {
 
         let mut interpreters = self.outlet;
         let particle_id = particle.id.clone();
+        let execution_id = particle.execution_id.clone();
         let fut = async move {
             let particle_id = particle.id.clone();
             let (outlet, inlet) = oneshot::channel();
@@ -128,6 +129,7 @@ impl AquamarineApi {
                 let result = r.map_err(|_| ExecutionTimedOut {
                     particle_id,
                     timeout: pretty(timeout),
+                    execution_id,
                 });
                 result.and_then(identity)
             })

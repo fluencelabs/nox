@@ -36,10 +36,14 @@ fn bench_script(name: &str, script: &str, data: HashMap<&'static str, JValue>, c
     );
 
     // warm
-    vm.call(peer_id.to_base58(), script, vec![], "id").unwrap();
+    vm.call(peer_id.to_base58(), script, vec![], "id", "execution_id")
+        .unwrap();
 
     c.bench_function(name, move |b| {
-        b.iter(|| vm.call(peer_id.to_base58(), script, vec![], "id").unwrap())
+        b.iter(|| {
+            vm.call(peer_id.to_base58(), script, vec![], "id", "execution_id")
+                .unwrap()
+        })
     });
 }
 

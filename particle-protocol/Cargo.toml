@@ -9,6 +9,7 @@ libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp
 fluence-libp2p = { path = "../crates/libp2p" }
 json-utils = { path = "../crates/json-utils" }
 now-millis = { path = "../crates/now-millis" }
+uuid-utils = { path = "../crates/uuid-utils" }
 
 serde_json = "1.0.64"
 futures = "0.3.13"

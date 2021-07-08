@@ -63,6 +63,7 @@ impl AquaRuntime for EasyVM {
         script: String,
         data: Vec<u8>,
         _particle_id: String,
+        _execution_id: String,
     ) -> Result<InterpreterOutcome, Self::Error> {
         if let Some(delay) = self.delay {
             std::thread::sleep(delay);

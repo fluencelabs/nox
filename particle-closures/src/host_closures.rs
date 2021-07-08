@@ -106,13 +106,20 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             }
         };
 
+        let params = args.particle_parameters;
+
         log::trace!("Host function call, args: {:#?}", function_args);
+        log::debug!(
+            "Will execute host call {:?} {:?} [{}]",
+            function_args.service_id,
+            function_args.function_name,
+            params.execution_id,
+        );
         let log_args = format!(
-            "Executed host call {:?} {:?}",
-            function_args.service_id, function_args.function_name
+            "Executed host call {:?} {:?} [{}]",
+            function_args.service_id, function_args.function_name, params.execution_id,
         );
 
-        let params = args.particle_parameters;
         let start = Instant::now();
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]

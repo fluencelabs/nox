@@ -13,7 +13,7 @@ host-closure = { path = "../crates/host-closure" }
 control-macro = { path = "../crates/control-macro" }
 fs-utils = { path = "../crates/fs-utils" }
 
-avm-server = "0.8.0"
+avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "execution_id" }
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 futures = "0.3.13"

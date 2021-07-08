@@ -38,6 +38,7 @@ pub enum AquamarineApiError {
     )]
     ExecutionTimedOut {
         particle_id: String,
+        execution_id: String,
         timeout: FormattedDuration,
     },
 }

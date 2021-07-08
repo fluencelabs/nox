@@ -16,6 +16,7 @@
 
 use fluence_libp2p::{peerid_serializer, RandomPeerId};
 use json_utils::base64_serde;
+use uuid_utils::uuid;
 
 use derivative::Derivative;
 use libp2p::PeerId;
@@ -37,6 +38,9 @@ pub struct Particle {
     #[serde(with = "base64_serde")]
     #[derivative(Debug(format_with = "fmt_data"))]
     pub data: Vec<u8>,
+    #[serde(skip)]
+    #[serde(default = "uuid")]
+    pub execution_id: String,
 }
 
 impl Default for Particle {
@@ -50,6 +54,7 @@ impl Default for Particle {
             script: "".to_string(),
             signature: vec![],
             data: vec![],
+            execution_id: uuid(),
         }
     }
 }

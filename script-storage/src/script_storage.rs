@@ -201,6 +201,7 @@ async fn execute_scripts(
 
     for (script_id, script) in scripts {
         let particle_id = format!("auto_{}", uuid::Uuid::new_v4());
+        let execution_id = format!("auto_{}", uuid::Uuid::new_v4());
 
         // Save info about sent particle to account for failures
         let info = SentParticle {
@@ -221,6 +222,7 @@ async fn execute_scripts(
             script: script.src,
             signature: vec![],
             data: vec![],
+            execution_id,
         };
         let contact = Contact::new(config.peer_id, vec![]);
         pool.send(contact, particle).await;

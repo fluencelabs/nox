@@ -49,6 +49,7 @@ pub trait AquaRuntime: Sized + Send + 'static {
         aqua: String,
         data: Vec<u8>,
         particle_id: String,
+        execution_id: String,
         // TODO: return StepperEffects
     ) -> Result<InterpreterOutcome, Self::Error>;
 
@@ -129,8 +130,16 @@ impl AquaRuntime for AVM {
         aqua: String,
         data: Vec<u8>,
         particle_id: String,
+        execution_id: String,
     ) -> Result<InterpreterOutcome, Self::Error> {
-        AVM::call(self, init_user_id.to_string(), aqua, data, particle_id)
+        AVM::call(
+            self,
+            init_user_id.to_string(),
+            aqua,
+            data,
+            particle_id,
+            execution_id,
+        )
     }
 
     #[inline]
