@@ -310,6 +310,7 @@ impl Connectivity {
 
 
                 let particle_id = particle.id.clone();
+                let execution_id = particle.execution_id.clone();
                 let p_id = particle_id.clone();
                 let exec_id = particle_id.clone();
                 let fut = async move {
@@ -331,15 +332,15 @@ impl Connectivity {
                             particle_failures_sink.feed(particle_id).await.ok();
                         }
                     };
-                    log::trace!(target: "network", "Particle {}({}) processing took {}", p_id, exec_id, pretty(start.elapsed()));
+                    log::trace!(target: "network", "Particle {} ({}) processing took {}", p_id, exec_id, pretty(start.elapsed()));
                 };
 
                 async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
                     if let Err(_err) = r {
                         if timeout != particle_timeout {
-                            log::info!("Particle {} expired", particle_id);
+                            log::info!("Particle {} ({}) expired", particle_id, execution_id);
                         } else {
-                            log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout));
+                            log::warn!("Particle {} ({}) timed out after {}", particle_id, execution_id, pretty(timeout));
                         }
                     }
                 }).boxed()
