@@ -1,0 +1,6 @@
+[http]
+timeout = 30                # timeout for each HTTP request, in seconds
+multiplexing = false        # HTTP/2 multiplexing
+
+[net]
+retry = 50                  # network retries
