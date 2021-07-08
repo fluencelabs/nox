@@ -158,10 +158,6 @@ impl Connectivity {
             let contact = self.discover_peer(target).await;
             match contact {
                 Ok(Some(contact)) => {
-                    println!(
-                        "resolved contact {} via KADEMLIA for particle {}",
-                        target, particle_id
-                    );
                     // connect to the discovered contact
                     self.connection_pool.connect(contact.clone()).await;
                     return Some(contact);
@@ -304,7 +300,7 @@ impl Connectivity {
                 let aquamarine = aquamarine.clone();
                 let connectivity = self.clone();
                 let mut particle_failures_sink = particle_failures_sink.clone();
-                log::info!(target: "network", "Will execute particle {}", particle.id);
+                log::info!(target: "network", "Will execute particle {} ({})", particle.id, particle.execution_id);
 
                 let timeout = min(particle.time_to_live(), particle_timeout);
                 if timeout.is_zero() {

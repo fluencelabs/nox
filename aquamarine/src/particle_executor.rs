@@ -46,7 +46,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
     fn execute(mut self, p: AwaitedParticle, waker: Waker) -> Self::Future {
         task::spawn_blocking(move || {
             let now = Instant::now();
-            log::info!("Executing particle {}", p.id);
+            log::info!("Executing particle {} ({})", p.id, p.execution_id);
 
             let (p, out) = p.into();
 
@@ -54,7 +54,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             if let Err(err) = &result {
                 log::warn!("Error executing particle {:#?}: {}", p, err)
             } else {
-                log::trace!(target: "network", "Particle {} executed in {}", p.id, pretty(now.elapsed()));
+                log::trace!(target: "network", "Particle {} ({}) executed in {}", p.id, p.execution_id, pretty(now.elapsed()));
             }
             let effects = Ok(Self::into_effects(result, p));
 
