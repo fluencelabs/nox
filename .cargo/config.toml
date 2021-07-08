@@ -1,10 +1,6 @@
 [http]
 timeout = 30                # timeout for each HTTP request, in seconds
-<<<<<<< HEAD
 multiplexing = false        # HTTP/2 multiplexing
-=======
-multiplexing = true         # HTTP/2 multiplexing
->>>>>>> cargo config with higher timeouts
 
 [net]
 retry = 50                  # network retries
