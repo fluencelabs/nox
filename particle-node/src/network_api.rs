@@ -304,7 +304,7 @@ impl Connectivity {
 
                 let timeout = min(particle.time_to_live(), particle_timeout);
                 if timeout.is_zero() {
-                    log::info!("Particle {} expired", particle.id);
+                    log::info!("Particle {} ({}) expired", particle.id, particle.execution_id);
                     return async {}.boxed();
                 }
 
