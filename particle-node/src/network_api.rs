@@ -311,6 +311,7 @@ impl Connectivity {
 
                 let particle_id = particle.id.clone();
                 let p_id = particle_id.clone();
+                let exec_id = particle_id.clone();
                 let fut = async move {
                     let start = Instant::now();
                     // execute particle on Aquamarine
@@ -330,7 +331,7 @@ impl Connectivity {
                             particle_failures_sink.feed(particle_id).await.ok();
                         }
                     };
-                    log::trace!(target: "network", "Particle {} processing took {}", p_id, pretty(start.elapsed()));
+                    log::trace!(target: "network", "Particle {}({}) processing took {}", p_id, exec_id, pretty(start.elapsed()));
                 };
 
                 async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
