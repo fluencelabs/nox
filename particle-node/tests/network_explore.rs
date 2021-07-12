@@ -261,14 +261,20 @@ fn explore_services() {
     client.timeout = Duration::from_secs(120);
 
     let args = client.receive_args().wrap_err("receive args").unwrap();
-    let external_addrs = args.into_iter().next().unwrap();
-    let external_addrs = external_addrs.as_array().unwrap();
+    let external_addrs = args.into_iter().next().expect("return non-empty args");
+    let external_addrs = external_addrs
+        .as_array()
+        .expect("external_addresses is an array");
     let mut external_addrs = external_addrs
         .iter()
         .map(|v| {
-            let external_addrs = v.get("external_addresses").unwrap().as_array().unwrap();
-            let maddr = external_addrs[0].as_str().unwrap();
-            Multiaddr::from_str(maddr).unwrap()
+            let external_addrs = v
+                .get("external_addresses")
+                .expect("field external_addresses")
+                .as_array()
+                .expect("external addresses is an array");
+            let maddr = external_addrs[0].as_str().expect("multiaddr is a string");
+            Multiaddr::from_str(maddr).expect("valid multiaddr")
         })
         .collect::<Vec<_>>();
     external_addrs.sort_unstable();
