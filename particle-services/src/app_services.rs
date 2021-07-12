@@ -26,6 +26,7 @@ use fluence_app_service::{AppService, CallParameters, ServiceInterface};
 use host_closure::{AVMEffect, Args, ParticleParameters};
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
+use uuid_utils::uuid;
 
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -129,7 +130,7 @@ impl ParticleAppServices {
         blueprint_id: String,
         init_peer_id: String,
     ) -> Result<String, ServiceError> {
-        let service_id = uuid::Uuid::new_v4().to_string();
+        let service_id = uuid();
 
         let service = create_app_service(
             self.config.clone(),

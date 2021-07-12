@@ -3602,7 +3602,7 @@ dependencies = [
  "tempdir",
  "thiserror",
  "toml",
- "uuid",
+ "uuid-utils",
 ]
 
 [[package]]
@@ -4294,7 +4294,7 @@ dependencies = [
  "now-millis",
  "particle-protocol",
  "thiserror",
- "uuid",
+ "uuid-utils",
 ]
 
 [[package]]

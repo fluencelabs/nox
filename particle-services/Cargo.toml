@@ -10,6 +10,7 @@ particle-modules = { path = "../particle-modules" }
 fs-utils = { path = "../crates/fs-utils" }
 service-modules = { path = "../crates/service-modules" }
 json-utils = { path = "../crates/json-utils" }
+uuid-utils = { path = "../crates/uuid-utils" }
 host-closure = { path = "../crates/host-closure" }
 server-config = { path = "../crates/server-config" }
 
@@ -19,7 +20,6 @@ parking_lot = "0.11.0"
 serde_json = "1.0.64"
 serde = "1.0.118"
 log = "0.4.11"
-uuid = "0.8.1"
 toml = "0.5.6"
 thiserror = "1.0.23"
 
