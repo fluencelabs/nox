@@ -132,12 +132,23 @@ impl AquaRuntime for AVM {
     ) -> Result<InterpreterOutcome, Self::Error> {
         let data_json = String::from_utf8_lossy(data.as_slice());
         log::debug!(
-            "Will execute particle {} with data {}",
+            "Will execute particle {} with current data {}",
             particle_id,
             data_json
         );
 
-        AVM::call(self, init_user_id.to_string(), aqua, data, particle_id)
+        let outcome = AVM::call(
+            self,
+            init_user_id.to_string(),
+            aqua,
+            data,
+            particle_id.clone(),
+        );
+        if let Ok(outcome) = &outcome {
+            let new_data = String::from_utf8_lossy(&outcome.data);
+            log::debug!("Particle {} new_data {}", particle_id, new_data);
+        }
+        outcome
     }
 
     #[inline]

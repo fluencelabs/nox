@@ -218,20 +218,28 @@ fn node_arrays(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
 
     let mut rng = rand::thread_rng();
     let mut pids: Vec<_> = swarms.iter().map(|s| s.peer_id.to_string()).collect();
+    let pid = |i: usize| swarms[i].peer_id.to_string();
+    // swarm_3
+    // swarm_2
+    // swarm_1
+    //
+    // swarm_0
+    // swarm_2
+    // swarm_1
+    //
+    // swarm_0
+    // swarm_3
+    // swarm_1
+    //
+    // swarm_2
+    // swarm_3
+    // swarm_0
+
     let node_arrays = vec![
-        pids.clone(),
-        {
-            pids.shuffle(&mut rng);
-            pids.clone()
-        },
-        {
-            pids.shuffle(&mut rng);
-            pids.clone()
-        },
-        {
-            pids.shuffle(&mut rng);
-            pids
-        },
+        vec![pid(3), pid(2), pid(1)],
+        vec![pid(0), pid(2), pid(1)],
+        vec![pid(0), pid(3), pid(1)],
+        vec![pid(2), pid(3), pid(0)],
     ];
 
     node_arrays
@@ -241,7 +249,7 @@ fn node_arrays(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
 fn fold_same_node() {
     enable_logs();
 
-    let swarms = make_swarms(5);
+    let swarms = make_swarms(4);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -283,13 +291,18 @@ fn fold_same_node() {
 fn fold_same_node_stream() {
     enable_logs();
 
-    let swarms = make_swarms(5);
+    let swarms = make_swarms(4);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
-    for i in 1..10 {
+    let node_arrays = node_arrays(&swarms);
+    let top = &node_arrays[0];
+    let node_arrays = &node_arrays[1..];
+    let node_arrays = top.iter().zip(node_arrays).collect::<Vec<_>>();
+
+    for i in 1..100 {
         log::info!("\n\n\n\n=========== Iteration {} ==========\n\n\n\n", i);
 
         client.send_particle(
@@ -298,10 +311,10 @@ fn fold_same_node_stream() {
             (seq
                 (null)
                 (seq
-                    (fold node_arrays n
+                    (fold node_arrays pair
                         (seq
-                            (call n ("op" "identity") [n] $inner)
-                            (next n)
+                            (call pair.$.[0]! ("op" "identity") [pair.$.[1]!] $inner)
+                            (next pair)
                         )
                     )
                     (fold $inner ns
@@ -326,7 +339,7 @@ fn fold_same_node_stream() {
             hashmap! {
                 "relay" => json!(client.node.to_string()),
                 "client" => json!(client.peer_id.to_string()),
-                "node_arrays" => json!(node_arrays(&swarms))
+                "node_arrays" => json!(node_arrays),
             },
         );
 
