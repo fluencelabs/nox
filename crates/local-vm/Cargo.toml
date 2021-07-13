@@ -14,7 +14,7 @@ fs-utils = { path = "../fs-utils"}
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 
 air-interpreter-wasm = "=0.11.0-new-data.10"
-avm-server = "0.8.0"
+avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "debug_interpreter" }
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 

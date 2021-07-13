@@ -65,6 +65,7 @@ multihash = "0.13"
 base64 = "0.13.0"
 blake3 = "0.3.7"
 criterion = { version = "0.3.4", features = ["async_std", "html_reports"] }
+rand = "0.8.4"
 
 [[bench]]
 name = "network_api_bench"

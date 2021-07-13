@@ -130,6 +130,13 @@ impl AquaRuntime for AVM {
         data: Vec<u8>,
         particle_id: String,
     ) -> Result<InterpreterOutcome, Self::Error> {
+        let data_json = String::from_utf8_lossy(data.as_slice());
+        log::debug!(
+            "Will execute particle {} with data {}",
+            particle_id,
+            data_json
+        );
+
         AVM::call(self, init_user_id.to_string(), aqua, data, particle_id)
     }
 
