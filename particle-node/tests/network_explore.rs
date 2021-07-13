@@ -236,11 +236,44 @@ fn node_arrays(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
     // swarm_0
 
     let node_arrays = vec![
-        vec![pid(3), pid(2), pid(1)],
-        vec![pid(0), pid(2), pid(1)],
-        vec![pid(0), pid(3), pid(1)],
-        vec![pid(2), pid(3), pid(0)],
+        pids.clone(),
+        {
+            pids.shuffle(&mut rng);
+            pids.clone()
+        },
+        {
+            pids.shuffle(&mut rng);
+            pids.clone()
+        },
+        {
+            pids.shuffle(&mut rng);
+            pids
+        },
     ];
+
+    // fail
+    // let node_arrays = vec![
+    //     vec![pid(3), pid(2), pid(1)],
+    //     vec![pid(0), pid(2), pid(1)],
+    //     vec![pid(0), pid(3), pid(1)],
+    //     vec![pid(2), pid(3), pid(0)],
+    // ];
+
+    // random manual
+    // let node_arrays = vec![
+    //     vec![pid(2), pid(1), pid(3)],
+    //     vec![pid(0), pid(1), pid(2)],
+    //     vec![pid(0), pid(1), pid(3)],
+    //     vec![pid(0), pid(2), pid(3)],
+    // ];
+
+    // // success
+    // let node_arrays = vec![
+    //     vec![pid(2), pid(3), pid(1)],
+    //     vec![pid(1), pid(3), pid(0)],
+    //     vec![pid(0), pid(2), pid(1)],
+    //     vec![pid(0), pid(3), pid(2)],
+    // ];
 
     node_arrays
 }
@@ -297,13 +330,25 @@ fn fold_same_node_stream() {
         .wrap_err("connect client")
         .unwrap();
 
-    let node_arrays = node_arrays(&swarms);
-    let top = &node_arrays[0];
-    let node_arrays = &node_arrays[1..];
-    let node_arrays = top.iter().zip(node_arrays).collect::<Vec<_>>();
+    for (i, swarm) in swarms.iter().enumerate() {
+        if i == 0 {
+            log::info!("swarm[{}] = {} (relay)", i, swarm.peer_id)
+        } else {
+            log::info!("swarm[{}] = {}", i, swarm.peer_id)
+        }
+    }
 
-    for i in 1..100 {
+    log::info!("client = {}", client.peer_id);
+
+    for i in 1..1000 {
         log::info!("\n\n\n\n=========== Iteration {} ==========\n\n\n\n", i);
+
+        let node_arrays = node_arrays(&swarms);
+        let top = &node_arrays[0];
+        let node_arrays = &node_arrays[1..];
+        let node_arrays = top.iter().zip(node_arrays).collect::<Vec<_>>();
+
+        log::info!("node_arrays: {}", json!(node_arrays));
 
         client.send_particle(
             r#"
@@ -343,10 +388,14 @@ fn fold_same_node_stream() {
             },
         );
 
-        client.timeout = Duration::from_secs(120);
+        client.timeout = Duration::from_secs(1);
 
-        let args = client.receive_args().wrap_err("receive args").unwrap();
-        println!("args: {:?}", args);
+        let args = client.receive_args().wrap_err("receive args");
+        if args.is_err() {
+            log::error!("{} failed", json!(node_arrays));
+        } else {
+            log::error!("{} succeeded", json!(node_arrays));
+        }
     }
 }
 
