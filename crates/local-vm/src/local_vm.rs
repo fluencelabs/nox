@@ -92,7 +92,7 @@ pub fn make_call_service_closure(
                 ivalue_utils::unit()
             }
             ("errorHandlingSrv", "error") => {
-                log::warn!("caught error: {:?}", args.function_args);
+                log::warn!("caught an error: {:?}", args.function_args);
                 ivalue_utils::unit()
             }
             (_, "identity") => ivalue_utils::ok(JValue::Array(args.function_args)),

@@ -76,9 +76,21 @@ impl ConnectedClient {
         Self::connect_with_keypair(node_address, None)
     }
 
+    pub fn connect_to_with_timeout(node_address: Multiaddr, timeout: Duration) -> Result<Self> {
+        Self::connect_with_timeout(node_address, None, timeout)
+    }
+
     pub fn connect_with_keypair(
         node_address: Multiaddr,
         key_pair: Option<Keypair>,
+    ) -> Result<Self> {
+        Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT)
+    }
+
+    pub fn connect_with_timeout(
+        node_address: Multiaddr,
+        key_pair: Option<Keypair>,
+        timeout: Duration,
     ) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
@@ -86,7 +98,7 @@ impl ConnectedClient {
         let transport = Transport::from_maddr(&node_address);
         let connect = async move {
             let (mut client, _) =
-                Client::connect_with(node_address.clone(), transport, key_pair, TRANSPORT_TIMEOUT)
+                Client::connect_with(node_address.clone(), transport, key_pair, timeout)
                     .await
                     .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {
@@ -100,7 +112,7 @@ impl ConnectedClient {
 
             result
         };
-        Ok(task::block_on(timeout(TIMEOUT, connect))??)
+        Ok(task::block_on(self::timeout(TIMEOUT, connect))??)
     }
 
     pub fn new(client: Client, node: PeerId, node_address: Multiaddr) -> Self {
