@@ -39,7 +39,8 @@ mod node_config;
 mod resolved_config;
 mod services_config;
 
-pub use defaults::default_base_dir;
+pub use defaults::{default_base_dir, default_builtins_keypair_path};
+pub use keys::load_key_pair;
 pub use resolved_config::{deserialize_config, load_config};
 
 pub use bootstrap_config::BootstrapConfig;
