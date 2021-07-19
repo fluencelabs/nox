@@ -13,3 +13,5 @@ path = "src/main.rs"
 [dependencies]
 fluence = "0.6.9"
 rand = "0.8.4"
+base64 = "0.13.0"
+libsecp256k1 = "0.5.0"

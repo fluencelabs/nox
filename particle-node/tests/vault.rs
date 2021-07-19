@@ -34,8 +34,6 @@ fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
 
 #[test]
 fn share_file() {
-    enable_logs();
-
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -71,9 +69,74 @@ fn share_file() {
 
     use serde_json::Value::String;
 
-    if let [String(output)] = dbg!(client.receive_args().unwrap()).as_slice() {
+    if let [String(output)] = client.receive_args().unwrap().as_slice() {
         assert_eq!(output, "Hello!");
     } else {
         panic!("incorrect args: expected a single string")
+    }
+}
+
+#[test]
+fn deploy_from_vault() {
+    enable_logs();
+
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let file_share = create_file_share(&mut client);
+    let module = load_module("tests/file_share/artifacts", "file_share").expect("load module");
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (seq
+                    (call relay (first_service "create_base64_vault_file") [module] filename)
+                    (call relay (first_service "create_vault_file") [config_string] config_filename)
+                )
+                (seq 
+                    (call relay ("dist" "load_module_config") [config_filename] module_config)
+                    (seq
+                        (call relay ("dist" "add_module_from_vault") [filename module_config] module_hash)
+                        (seq
+                            (call relay ("op" "concat_strings") ["hash:" module_hash] annotated_hash)
+                            (seq
+                                (call relay ("op" "array") [annotated_hash] dependencies)
+                                (seq
+                                    (call relay ("dist" "make_blueprint") ["file_share" dependencies] blueprint)
+                                    (seq
+                                        (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                                        (seq
+                                            (call relay ("srv" "create") [blueprint_id] second_service)
+                                            (call relay (second_service "read_base64_vault_file") [filename] output_content)
+                                        )
+                                    )
+                                )
+                            )
+                        )                
+                    )
+                )
+            )
+            (call %init_peer_id% ("op" "return") [output_content])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "first_service" => json!(file_share.id),
+            "module" => json!(base64::encode(&module)),
+            "config_string" => json!(r#"{"name": "file_share"}"#)
+        },
+    );
+
+    use serde_json::Value::String;
+
+    let args = client.receive_args().unwrap();
+    if let [String(output)] = args.as_slice() {
+        assert_eq!(output, &base64::encode(module));
+    } else {
+        panic!("incorrect args: expected a single string, got {:?}", args);
     }
 }
