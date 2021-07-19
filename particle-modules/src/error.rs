@@ -105,6 +105,38 @@ pub enum ModuleError {
         #[from]
         err: DecodeError,
     },
+    #[error("Invalid module path {module_path:?}: {err}")]
+    InvalidModulePath {
+        #[source]
+        err: eyre::Report,
+        module_path: String,
+    },
+    #[error("Invalid module config path {config_path:?}: {err}")]
+    InvalidModuleConfigPath {
+        #[source]
+        err: eyre::Report,
+        config_path: String,
+    },
+    #[error("Vault directory for this particle doesn't exist. You must call a service first.")]
+    VaultDoesNotExist { vault_path: PathBuf },
+    #[error("Module wasn't found in vault at {module_path:?}")]
+    ModuleNotFoundInVault {
+        module_path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Config wasn't found in vault at {config_path:?}")]
+    ConfigNotFoundInVault {
+        config_path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error parsing module config from vault {config_path:?}: {err}")]
+    IncorrectVaultModuleConfig {
+        config_path: PathBuf,
+        #[source]
+        err: serde_json::Error,
+    },
 }
 
 impl From<ModuleError> for JValue {
