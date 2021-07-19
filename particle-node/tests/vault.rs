@@ -78,8 +78,6 @@ fn share_file() {
 
 #[test]
 fn deploy_from_vault() {
-    enable_logs();
-
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -95,7 +93,10 @@ fn deploy_from_vault() {
             (seq
                 (seq
                     (call relay (first_service "create_base64_vault_file") [module] filename)
-                    (call relay (first_service "create_vault_file") [config_string] config_filename)
+                    (seq
+                        (call relay ("op" "concat_strings") ["{" q "name" q ": " q "file_share" q "}"] config_string)
+                        (call relay (first_service "create_vault_file") [config_string] config_filename)
+                    )
                 )
                 (seq 
                     (call relay ("dist" "load_module_config") [config_filename] module_config)
@@ -127,7 +128,7 @@ fn deploy_from_vault() {
             "relay" => json!(client.node.to_string()),
             "first_service" => json!(file_share.id),
             "module" => json!(base64::encode(&module)),
-            "config_string" => json!(r#"{"name": "file_share"}"#)
+            "q" => json!("\""),
         },
     );
 
@@ -137,6 +138,79 @@ fn deploy_from_vault() {
     if let [String(output)] = args.as_slice() {
         assert_eq!(output, &base64::encode(module));
     } else {
-        panic!("incorrect args: expected a single string, got {:?}", args);
+        panic!("#incorrect args: expected a single string, got {:?}", args);
+    }
+}
+
+#[test]
+fn load_blueprint_from_vault() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    // upload module
+    let module = load_module("tests/file_share/artifacts", "file_share").expect("load module");
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("dist" "default_module_config") ["file_share"] config)                
+                (call relay ("dist" "add_module") [module config] hash)
+            )
+            (call %init_peer_id% ("op" "return") [hash])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "module" => json!(base64::encode(module)),
+        },
+    );
+
+    let args = client.receive_args().unwrap();
+    let module_hash = args[0].as_str().expect("single string");
+
+    // create service from blueprint stored in vault
+    let file_share = create_file_share(&mut client);
+
+    let blueprint_string = json!({
+        "name": "file_share",
+        "dependencies": [format!("hash:{}", module_hash)]
+    })
+    .to_string();
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay (first_service "create_vault_file") [blueprint_string] filename)
+                (seq
+                    (call relay ("dist" "load_blueprint") [filename] blueprint)
+                    (seq
+                        (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                        (call relay ("srv" "create") [blueprint_id] second_service)
+                    )
+                )
+            )
+            (seq
+                (call relay (second_service "read_vault_file") [filename] output_content)
+                (call %init_peer_id% ("op" "return") [output_content])
+            )
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "first_service" => json!(file_share.id),
+            "blueprint_string" => json!(blueprint_string),
+        },
+    );
+
+    use serde_json::Value::String;
+
+    let args = client.receive_args().unwrap();
+    if let [String(output)] = args.as_slice() {
+        assert_eq!(output, &blueprint_string);
+    } else {
+        panic!("#incorrect args: expected a single string, got {:?}", args);
     }
 }

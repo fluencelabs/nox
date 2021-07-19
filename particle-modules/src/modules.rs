@@ -15,9 +15,10 @@
  */
 
 use crate::error::ModuleError::{
-    BlueprintNotFound, ConfigNotFoundInVault, EmptyDependenciesList, FacadeShouldBeHash,
-    IncorrectVaultModuleConfig, InvalidModuleConfigPath, InvalidModuleName, InvalidModulePath,
-    ModuleNotFoundInVault, ReadModuleInterfaceError, VaultDoesNotExist,
+    BlueprintNotFound, BlueprintNotFoundInVault, ConfigNotFoundInVault, EmptyDependenciesList,
+    FacadeShouldBeHash, IncorrectVaultBlueprint, IncorrectVaultModuleConfig, InvalidBlueprintPath,
+    InvalidModuleConfigPath, InvalidModuleName, InvalidModulePath, ModuleNotFoundInVault,
+    ReadModuleInterfaceError, VaultDoesNotExist,
 };
 use crate::error::Result;
 use crate::files::{self, load_config_by_path, load_module_by_path, load_module_descriptor};
@@ -164,6 +165,33 @@ impl ModuleRepository {
 
         serde_json::from_slice(&config)
             .map_err(|err| IncorrectVaultModuleConfig { config_path, err })
+    }
+
+    pub fn load_blueprint_from_vault(
+        &self,
+        blueprint_path: String,
+        params: ParticleParameters,
+    ) -> Result<AddBlueprint> {
+        let vault_path = self.check_vault_exists(&params.particle_id)?;
+
+        // load & deserialize module config from vault
+        let blueprint_fname = file_name(&blueprint_path).map_err(|err| InvalidBlueprintPath {
+            err,
+            blueprint_path,
+        })?;
+        let blueprint_path = vault_path.join(blueprint_fname);
+        let blueprint = std::fs::read(&blueprint_path).map_err(|err| {
+            let blueprint_path = blueprint_path.clone();
+            BlueprintNotFoundInVault {
+                blueprint_path,
+                err,
+            }
+        })?;
+
+        serde_json::from_slice(&blueprint).map_err(|err| IncorrectVaultBlueprint {
+            blueprint_path,
+            err,
+        })
     }
 
     /// Adds a module to the filesystem, overwriting existing module.

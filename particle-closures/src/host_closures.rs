@@ -143,6 +143,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("dist", "load_module_config")    => wrap(self.load_module_config(function_args, params)),
             ("dist", "default_module_config") => wrap(self.default_module_config(function_args)),
             ("dist", "make_blueprint")        => wrap(self.make_blueprint(function_args)),
+            ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(function_args, params)),
             ("dist", "list_modules")          => wrap(self.list_modules()),
             ("dist", "get_module_interface")  => wrap(self.get_module_interface(function_args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
@@ -529,6 +530,27 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let name = Args::next("name", &mut args)?;
         let dependencies = Args::next("dependencies", &mut args)?;
         let blueprint_request = AddBlueprint { name, dependencies };
+
+        let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
+            JError::new(format!(
+                "Error serializing blueprint_request to JSON: {}",
+                err
+            ))
+        })?;
+        Ok(blueprint_request)
+    }
+
+    fn load_blueprint_from_vault(
+        &self,
+        args: Args,
+        params: ParticleParameters,
+    ) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let blueprint_path = Args::next("blueprint_path", &mut args)?;
+
+        let blueprint_request = self
+            .modules
+            .load_blueprint_from_vault(blueprint_path, params)?;
 
         let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
             JError::new(format!(
