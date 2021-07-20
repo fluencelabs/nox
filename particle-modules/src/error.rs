@@ -105,6 +105,56 @@ pub enum ModuleError {
         #[from]
         err: DecodeError,
     },
+    #[error("Invalid module path {module_path:?}: {err}")]
+    InvalidModulePath {
+        module_path: String,
+        #[source]
+        err: eyre::Report,
+    },
+    #[error("Invalid module config path {config_path:?}: {err}")]
+    InvalidModuleConfigPath {
+        config_path: String,
+        #[source]
+        err: eyre::Report,
+    },
+    #[error("Vault directory for this particle doesn't exist. You must call a service first.")]
+    VaultDoesNotExist { vault_path: PathBuf },
+    #[error("Module not found in vault at {module_path:?}")]
+    ModuleNotFoundInVault {
+        module_path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Config not found in vault at {config_path:?}")]
+    ConfigNotFoundInVault {
+        config_path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error parsing module config from vault {config_path:?}: {err}")]
+    IncorrectVaultModuleConfig {
+        config_path: PathBuf,
+        #[source]
+        err: serde_json::Error,
+    },
+    #[error("Invalid blueprint path {blueprint_path:?}: {err}")]
+    InvalidBlueprintPath {
+        blueprint_path: String,
+        #[source]
+        err: eyre::Report,
+    },
+    #[error("Blueprint not found in vault at {blueprint_path:?}")]
+    BlueprintNotFoundInVault {
+        blueprint_path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error parsing blueprint from vault {blueprint_path:?}: {err}")]
+    IncorrectVaultBlueprint {
+        blueprint_path: PathBuf,
+        #[source]
+        err: serde_json::Error,
+    },
 }
 
 impl From<ModuleError> for JValue {
