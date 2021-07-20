@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
-use crate::error::HostClosureCallError;
-use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
-use crate::identify::NodeInfo;
-use crate::ipfs::IpfsState;
+use std::borrow::Borrow;
+use std::num::ParseIntError;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use async_std::task;
+use humantime_serde::re::humantime::format_duration as pretty;
+use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
+use multihash::{Code, MultihashDigest, MultihashGeneric};
+use parking_lot::{Mutex, MutexGuard};
+use serde_json::{json, Value as JValue};
+use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use host_closure::{
@@ -34,18 +44,10 @@ use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
-use async_std::task;
-use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
-use multihash::{Code, MultihashDigest, MultihashGeneric};
-use parking_lot::{Mutex, MutexGuard};
-use serde_json::{json, Value as JValue};
-use std::borrow::Borrow;
-use std::num::ParseIntError;
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
-use std::{str::FromStr, sync::Arc};
-use JValue::Array;
+use crate::error::HostClosureCallError;
+use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
+use crate::identify::NodeInfo;
+use crate::ipfs::IpfsState;
 
 #[derive(Clone)]
 pub struct HostClosures<C> {
@@ -70,9 +72,10 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         node_info: NodeInfo,
         config: ServicesConfig,
     ) -> Self {
-        let modules_dir = config.modules_dir.clone();
-        let blueprint_dir = config.blueprint_dir.clone();
-        let modules = ModuleRepository::new(&modules_dir, &blueprint_dir);
+        let modules_dir = &config.modules_dir;
+        let blueprint_dir = &config.blueprint_dir;
+        let vault_dir = &config.particles_vault_dir;
+        let modules = ModuleRepository::new(modules_dir, blueprint_dir, vault_dir);
 
         let management_peer_id = config.management_peer_id.to_base58();
         let startup_management_peer_id = config.startup_management_peer_id.to_base58();
@@ -134,10 +137,14 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("srv", "add_alias")              => wrap_unit(self.add_alias(function_args, params)),
             ("srv", "remove")                 => wrap_unit(self.remove_service(function_args, params)),
 
+            ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(function_args, params)),
             ("dist", "add_module")            => wrap(self.add_module(function_args)),
             ("dist", "add_blueprint")         => wrap(self.add_blueprint(function_args)),
             ("dist", "make_module_config")    => wrap(self.make_module_config(function_args)),
+            ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(function_args, params)),
+            ("dist", "default_module_config") => wrap(self.default_module_config(function_args)),
             ("dist", "make_blueprint")        => wrap(self.make_blueprint(function_args)),
+            ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(function_args, params)),
             ("dist", "list_modules")          => wrap(self.list_modules()),
             ("dist", "get_module_interface")  => wrap(self.get_module_interface(function_args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
@@ -155,6 +162,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(function_args.function_args)),
             ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(function_args.function_args)),
             ("op", "sha256_string")           => wrap(self.sha256_string(function_args.function_args)),
+            ("op", "concat_strings")          => wrap(self.concat_strings(function_args.function_args)),
             ("op", "identity")                => wrap_opt(self.identity(function_args.function_args)),
 
             ("ipfs", "get_multiaddr")         => wrap(self.ipfs().get_multiaddr()),
@@ -376,7 +384,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let flattened: Vec<JValue> =
             args.into_iter()
                 .enumerate()
-                .try_fold(vec![], |mut acc, (i, mut v)| match v.take() {
+                .try_fold(vec![], |mut acc, (i, v)| match v {
                     JValue::Array(mut array) => {
                         acc.append(&mut array);
                         Ok(acc)
@@ -388,6 +396,25 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
                 })?;
 
         Ok(JValue::Array(flattened))
+    }
+
+    /// Concatenates an array of arrays
+    fn concat_strings(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let string: String =
+            args.into_iter()
+                .enumerate()
+                .try_fold(String::new(), |mut acc, (i, v)| match v {
+                    JValue::String(s) => {
+                        acc.push_str(&s);
+                        Ok(acc)
+                    }
+                    _ => Err(JError::new(format!(
+                        "all arguments of 'concat_strings' must be strings: argument #{} is not",
+                        i
+                    ))),
+                })?;
+
+        Ok(JValue::String(string))
     }
 
     fn array_length(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
@@ -406,7 +433,23 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let module_bytes: String = Args::next("module_bytes", &mut args)?;
         let config = Args::next("config", &mut args)?;
 
-        let module_hash = self.modules.add_module(module_bytes, config)?;
+        let module_hash = self.modules.add_module_base64(module_bytes, config)?;
+
+        Ok(JValue::String(module_hash))
+    }
+
+    fn add_module_from_vault(
+        &self,
+        args: Args,
+        params: ParticleParameters,
+    ) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let module_path: String = Args::next("module_path", &mut args)?;
+        let config = Args::next("config", &mut args)?;
+
+        let module_hash = self
+            .modules
+            .add_module_from_vault(module_path, config, params)?;
 
         Ok(JValue::String(module_hash))
     }
@@ -455,11 +498,64 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(config)
     }
 
+    fn load_module_config_from_vault(
+        &self,
+        args: Args,
+        params: ParticleParameters,
+    ) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let config_path: String = Args::next("config_path", &mut args)?;
+
+        let config = self
+            .modules
+            .load_module_config_from_vault(config_path, params)?;
+        let config = serde_json::to_value(config)
+            .map_err(|err| JError::new(format!("Error serializing config to JSON: {}", err)))?;
+
+        Ok(config)
+    }
+
+    fn default_module_config(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let module_name: String = Args::next("module_name", &mut args)?;
+
+        let config = NamedModuleConfig {
+            name: module_name,
+            file_name: None,
+            config: <_>::default(),
+        };
+        let config = serde_json::to_value(config)
+            .map_err(|err| JError::new(format!("Error serializing config to JSON: {}", err)))?;
+
+        Ok(config)
+    }
+
     fn make_blueprint(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let name = Args::next("name", &mut args)?;
         let dependencies = Args::next("dependencies", &mut args)?;
         let blueprint_request = AddBlueprint { name, dependencies };
+
+        let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
+            JError::new(format!(
+                "Error serializing blueprint_request to JSON: {}",
+                err
+            ))
+        })?;
+        Ok(blueprint_request)
+    }
+
+    fn load_blueprint_from_vault(
+        &self,
+        args: Args,
+        params: ParticleParameters,
+    ) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let blueprint_path = Args::next("blueprint_path", &mut args)?;
+
+        let blueprint_request = self
+            .modules
+            .load_blueprint_from_vault(blueprint_path, params)?;
 
         let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
             JError::new(format!(

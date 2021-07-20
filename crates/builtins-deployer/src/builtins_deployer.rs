@@ -77,7 +77,8 @@ pub struct BuiltinsDeployer {
 fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
     match &result[..] {
         [JValue::String(s)] if s == "ok" => Ok(()),
-        _ => Err(eyre!(err_msg.to_string())),
+        [JValue::Bool(true)] => Ok(()),
+        _ => Err(eyre!("{}: {:?}", err_msg.to_string(), result)),
     }
 }
 
@@ -163,7 +164,10 @@ fn resolve_env_variables(data: &String, service_name: &String) -> Result<String>
 
     let re = Regex::new(&f!(r"(\{env_prefix}_\w+)"))?;
     for elem in re.captures_iter(&data) {
-        result = result.replace(&elem[0], &env::var(&elem[0][1..])?);
+        result = result.replace(
+            &elem[0],
+            &env::var(&elem[0][1..]).map_err(|e| eyre!("{}: {}", e.to_string(), &elem[0][1..]))?,
+        );
     }
 
     Ok(result)
@@ -233,7 +237,7 @@ impl BuiltinsDeployer {
         (xor
             (seq
                 (call relay ("dist" "add_module") [module_bytes module_config])
-                (call %init_peer_id% ("op" "return") ["ok"])
+                (call %init_peer_id% ("op" "return") [true])
             )
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
@@ -257,7 +261,7 @@ impl BuiltinsDeployer {
         (xor
             (seq
                 (call relay ("srv" "remove") [name])
-                (call %init_peer_id% ("op" "return") ["ok"])
+                (call %init_peer_id% ("op" "return") [true])
             )
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
@@ -280,7 +284,7 @@ impl BuiltinsDeployer {
                     (call relay ("srv" "create") [blueprint_id] service_id)
                     (seq
                         (call relay ("srv" "add_alias") [alias service_id] result)
-                        (call %init_peer_id% ("op" "return") ["ok"])
+                        (call %init_peer_id% ("op" "return") [true])
                     )
                 )
             )
@@ -323,7 +327,7 @@ impl BuiltinsDeployer {
             (xor
                 (seq
                     (call relay ("script" "add") [script interval_sec])
-                    (call %init_peer_id% ("op" "return") ["ok"])
+                    (call %init_peer_id% ("op" "return") [true])
                 )
                 (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
             )
