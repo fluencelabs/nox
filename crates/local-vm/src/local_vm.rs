@@ -181,7 +181,7 @@ pub fn make_particle(
         error_message,
         ..
     } = local_vm
-        .call(peer_id.to_string(), script.clone(), "[]", id.clone())
+        .call(peer_id.to_string(), script.clone(), vec![], id.clone())
         .expect("execute & make particle");
 
     service_in.lock().clear();
