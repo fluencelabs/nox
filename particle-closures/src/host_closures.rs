@@ -18,7 +18,8 @@ use std::borrow::Borrow;
 use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
+use std::sync::Arc;
 
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;

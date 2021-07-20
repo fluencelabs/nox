@@ -119,13 +119,13 @@ pub enum ModuleError {
     },
     #[error("Vault directory for this particle doesn't exist. You must call a service first.")]
     VaultDoesNotExist { vault_path: PathBuf },
-    #[error("Module wasn't found in vault at {module_path:?}")]
+    #[error("Module not found in vault at {module_path:?}")]
     ModuleNotFoundInVault {
         module_path: PathBuf,
         #[source]
         err: std::io::Error,
     },
-    #[error("Config wasn't found in vault at {config_path:?}")]
+    #[error("Config not found in vault at {config_path:?}")]
     ConfigNotFoundInVault {
         config_path: PathBuf,
         #[source]
@@ -143,7 +143,7 @@ pub enum ModuleError {
         #[source]
         err: eyre::Report,
     },
-    #[error("Blueprint wasn't found in vault at {blueprint_path:?}")]
+    #[error("Blueprint not found in vault at {blueprint_path:?}")]
     BlueprintNotFoundInVault {
         blueprint_path: PathBuf,
         #[source]
