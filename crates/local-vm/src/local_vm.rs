@@ -198,7 +198,7 @@ pub fn make_particle(
         id,
         init_peer_id: peer_id,
         timestamp: now_ms() as u64,
-        ttl: particle_ttl.map_or_else(|| { PARTICLE_TTL }, |ttl| { ttl.as_millis() as u32 }),
+        ttl: particle_ttl.map_or(PARTICLE_TTL, |ttl| { ttl.as_millis() as u32 }),
         script,
         signature: vec![],
         data,
