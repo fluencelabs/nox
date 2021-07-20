@@ -17,9 +17,9 @@
 use std::borrow::Borrow;
 use std::num::ParseIntError;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
@@ -141,7 +141,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("dist", "add_module")            => wrap(self.add_module(function_args)),
             ("dist", "add_blueprint")         => wrap(self.add_blueprint(function_args)),
             ("dist", "make_module_config")    => wrap(self.make_module_config(function_args)),
-            ("dist", "load_module_config")    => wrap(self.load_module_config(function_args, params)),
+            ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(function_args, params)),
             ("dist", "default_module_config") => wrap(self.default_module_config(function_args)),
             ("dist", "make_blueprint")        => wrap(self.make_blueprint(function_args)),
             ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(function_args, params)),
@@ -498,7 +498,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(config)
     }
 
-    fn load_module_config(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+    fn load_module_config_from_vault(
+        &self,
+        args: Args,
+        params: ParticleParameters,
+    ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let config_path: String = Args::next("config_path", &mut args)?;
 
