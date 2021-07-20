@@ -50,13 +50,6 @@ pub fn create_base64_vault_file(data: String) -> String {
     store_file(bytes)
 }
 
-#[marine]
-pub fn test() {
-    use libsecp256k1::PublicKey;
-    let slice: [u8; 65] = [0u8; 65];
-    PublicKey::parse(&slice).expect("fail");
-}
-
 fn store_file(contents: impl AsRef<[u8]>) -> String {
     let name: String = rand::thread_rng()
         .sample_iter(Alphanumeric)
