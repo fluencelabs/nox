@@ -78,7 +78,7 @@ fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
     match &result[..] {
         [JValue::String(s)] if s == "ok" => Ok(()),
         [JValue::Bool(true)] => Ok(()),
-        _ => Err(eyre!(err_msg.to_string())),
+        _ => Err(eyre!("{}: {:?}", err_msg.to_string(), result)),
     }
 }
 
@@ -164,7 +164,10 @@ fn resolve_env_variables(data: &String, service_name: &String) -> Result<String>
 
     let re = Regex::new(&f!(r"(\{env_prefix}_\w+)"))?;
     for elem in re.captures_iter(&data) {
-        result = result.replace(&elem[0], &env::var(&elem[0][1..])?);
+        result = result.replace(
+            &elem[0],
+            &env::var(&elem[0][1..]).map_err(|e| eyre!("{}: {}", e.to_string(), &elem[0][1..]))?,
+        );
     }
 
     Ok(result)
