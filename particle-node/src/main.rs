@@ -35,7 +35,7 @@ use air_interpreter_fs::write_default_air_interpreter;
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use ctrlc_adapter::block_until_ctrlc;
-use server_config::{default_builtins_keypair_path, load_config, load_key_pair, ResolvedConfig};
+use server_config::{load_config, ResolvedConfig};
 
 use clap::App;
 use env_logger::Env;
@@ -116,11 +116,7 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::info!("node public key = {}", bs58_key_pair);
     log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 
-    // TODO: add to_string() for KeyFormat in fluence-identity
-    let startup_keypair =
-        load_key_pair(default_builtins_keypair_path(), "ed25519".to_string(), true)
-            .expect("builtins keypair load failed");
-    let startup_peer_id = to_peer_id(&startup_keypair.into());
+    let startup_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
     let listen_addrs = config.listen_config().multiaddrs;
     let mut node = Node::new(config, startup_peer_id).wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
