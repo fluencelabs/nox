@@ -21,7 +21,6 @@ use fs_utils::to_abs_path;
 
 use eyre::{Result, WrapErr};
 use serde_json::{json, Value as JValue};
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub fn load_module(path: &str, module_name: impl Into<String>) -> Result<Vec<u8>> {
@@ -43,17 +42,4 @@ pub fn module_config(import_name: &str) -> JValue {
             }
         }
     )
-}
-
-pub fn module_config_map(name: &str) -> HashMap<&str, JValue> {
-    maplit::hashmap! {
-        "module_name" => json!(name),
-        "mem_pages_count" => json!(100),
-        "logger_enabled" => json!(true),
-        "preopened_files" => json!(["/tmp"]),
-        "envs" => json!([]),
-        "mapped_dirs" => json!([]),
-        "mounted_binaries" => json!([]),
-        "logging_mask" => JValue::Null,
-    }
 }

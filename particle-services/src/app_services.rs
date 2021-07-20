@@ -397,7 +397,11 @@ mod tests {
         )
         .unwrap();
 
-        let repo = ModuleRepository::new(&config.modules_dir, &config.blueprint_dir);
+        let repo = ModuleRepository::new(
+            &config.modules_dir,
+            &config.blueprint_dir,
+            &config.particles_vault_dir,
+        );
 
         ParticleAppServices::new(config, repo)
     }
@@ -485,7 +489,7 @@ mod tests {
         };
         let hash = pas
             .modules
-            .add_module(base64::encode(module), config)
+            .add_module_base64(base64::encode(module), config)
             .unwrap();
         let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
         let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
