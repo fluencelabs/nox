@@ -25,6 +25,32 @@ pub fn main() {}
 
 #[marine]
 pub fn create_vault_file(contents: String) -> String {
+    store_file(&contents)
+}
+
+#[marine]
+pub fn read_vault_file(filename: String) -> String {
+    let file = vault_dir().join(filename);
+    std::fs::read_to_string(file).expect("read")
+}
+
+#[marine]
+pub fn read_base64_vault_file(filename: String) -> String {
+    let file = vault_dir().join(filename);
+    let bytes = match std::fs::read(file) {
+        Ok(bs) => bs,
+        Err(err) => return err.to_string(),
+    };
+    base64::encode(bytes)
+}
+
+#[marine]
+pub fn create_base64_vault_file(data: String) -> String {
+    let bytes = base64::decode(data).expect("correct base64");
+    store_file(bytes)
+}
+
+fn store_file(contents: impl AsRef<[u8]>) -> String {
     let name: String = rand::thread_rng()
         .sample_iter(Alphanumeric)
         .take(16)
@@ -34,12 +60,6 @@ pub fn create_vault_file(contents: String) -> String {
     std::fs::write(file, contents).expect("write");
 
     name
-}
-
-#[marine]
-pub fn read_vault_file(filename: String) -> String {
-    let file = vault_dir().join(filename);
-    std::fs::read_to_string(file).expect("read")
 }
 
 fn vault_dir() -> PathBuf {
