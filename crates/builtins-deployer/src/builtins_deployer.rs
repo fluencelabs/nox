@@ -77,6 +77,7 @@ pub struct BuiltinsDeployer {
 fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
     match &result[..] {
         [JValue::String(s)] if s == "ok" => Ok(()),
+        [JValue::Bool(true)] => Ok(()),
         _ => Err(eyre!("{}: {:?}", err_msg.to_string(), result)),
     }
 }
@@ -235,7 +236,7 @@ impl BuiltinsDeployer {
         (xor
             (seq
                 (call relay ("dist" "add_module") [module_bytes module_config])
-                (call %init_peer_id% ("op" "return") ["ok"])
+                (call %init_peer_id% ("op" "return") [true])
             )
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
@@ -259,7 +260,7 @@ impl BuiltinsDeployer {
         (xor
             (seq
                 (call relay ("srv" "remove") [name])
-                (call %init_peer_id% ("op" "return") ["ok"])
+                (call %init_peer_id% ("op" "return") [true])
             )
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
@@ -282,7 +283,7 @@ impl BuiltinsDeployer {
                     (call relay ("srv" "create") [blueprint_id] service_id)
                     (seq
                         (call relay ("srv" "add_alias") [alias service_id] result)
-                        (call %init_peer_id% ("op" "return") ["ok"])
+                        (call %init_peer_id% ("op" "return") [true])
                     )
                 )
             )
@@ -325,7 +326,7 @@ impl BuiltinsDeployer {
             (xor
                 (seq
                     (call relay ("script" "add") [script interval_sec])
-                    (call %init_peer_id% ("op" "return") ["ok"])
+                    (call %init_peer_id% ("op" "return") [true])
                 )
                 (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
             )
