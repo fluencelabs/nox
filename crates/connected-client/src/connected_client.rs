@@ -41,6 +41,7 @@ pub struct ConnectedClient {
     pub call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     pub call_service_out: Arc<Mutex<Vec<JValue>>>,
     pub local_vm: Lazy<Mutex<AVM>, Box<dyn FnOnce() -> Mutex<AVM>>>,
+    pub particle_ttl: Option<Duration>,
 }
 
 impl ConnectedClient {
@@ -54,6 +55,14 @@ impl ConnectedClient {
 
     pub fn kad_timeout(&self) -> Duration {
         self.kad_timeout
+    }
+
+    pub fn particle_ttl(&self) -> Option<Duration> {
+        self.particle_ttl
+    }
+
+    pub fn set_particle_ttl(&mut self, particle_ttl: Duration) {
+        self.particle_ttl = particle_ttl.into();
     }
 }
 
@@ -76,21 +85,22 @@ impl ConnectedClient {
         Self::connect_with_keypair(node_address, None)
     }
 
-    pub fn connect_to_with_timeout(node_address: Multiaddr, timeout: Duration) -> Result<Self> {
-        Self::connect_with_timeout(node_address, None, timeout)
+    pub fn connect_to_with_timeout(node_address: Multiaddr, timeout: Duration, particle_ttl: Option<Duration>) -> Result<Self> {
+        Self::connect_with_timeout(node_address, None, timeout, particle_ttl)
     }
 
     pub fn connect_with_keypair(
         node_address: Multiaddr,
         key_pair: Option<Keypair>,
     ) -> Result<Self> {
-        Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT)
+        Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT, None)
     }
 
     pub fn connect_with_timeout(
         node_address: Multiaddr,
         key_pair: Option<Keypair>,
         timeout: Duration,
+        particle_ttl: Option<Duration>,
     ) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
@@ -105,7 +115,7 @@ impl ConnectedClient {
                 peer_id, ..
             }) = client.receive_one().await
             {
-                Ok(ConnectedClient::new(client, peer_id, node_address))
+                Ok(ConnectedClient::new(client, peer_id, node_address, particle_ttl))
             } else {
                 Err(ErrorKind::ConnectionAborted.into())
             };
@@ -115,7 +125,7 @@ impl ConnectedClient {
         Ok(task::block_on(self::timeout(TIMEOUT, connect))??)
     }
 
-    pub fn new(client: Client, node: PeerId, node_address: Multiaddr) -> Self {
+    pub fn new(client: Client, node: PeerId, node_address: Multiaddr, particle_ttl: Option<Duration>) -> Self {
         let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
         let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
 
@@ -140,6 +150,7 @@ impl ConnectedClient {
             call_service_in,
             call_service_out,
             local_vm,
+            particle_ttl,
         }
     }
 
@@ -172,6 +183,7 @@ impl ConnectedClient {
             self.node,
             &mut self.local_vm.lock(),
             generated,
+            self.particle_ttl()
         );
         let id = particle.id.clone();
         self.send(particle);

@@ -210,6 +210,7 @@ impl BuiltinsDeployer {
             &mut self.local_vm,
             // TODO: set to true if AIR script is generated from Aqua
             false,
+            None,
         );
 
         let result = block_on(self.node_api.clone().handle(particle))?;
