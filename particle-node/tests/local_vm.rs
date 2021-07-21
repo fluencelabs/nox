@@ -66,6 +66,7 @@ fn make() {
         None,
         &mut local_vm_a,
         false,
+        None,
     );
 
     let args = read_args(

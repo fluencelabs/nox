@@ -20,7 +20,6 @@ use serde_json::json;
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
-use log_utils::enable_logs;
 use service_modules::load_module;
 use test_utils::{create_service, CreatedService};
 
