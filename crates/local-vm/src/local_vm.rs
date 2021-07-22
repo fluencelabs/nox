@@ -29,7 +29,7 @@ use parking_lot::Mutex;
 use serde_json::Value as JValue;
 use std::path::PathBuf;
 use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
-pub static PARTICLE_TTL: u32 = 20000;
+pub static PARTICLE_TTL: u32 = 1000 * 60;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
