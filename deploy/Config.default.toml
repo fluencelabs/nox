@@ -6,6 +6,11 @@
 # root_key_pair.path = "/.fluence/v1/secret_key.ed25519"
 root_key_pair.generate_on_absence = true
 
+# builtins_key_pair.format = "ed25519"
+# builtins_key_pair.value = "..."
+# builtins_key_pair.path = "/.fluence/v1/secret_key.ed25519"
+builtins_key_pair.generate_on_absence = true
+
 ## Services will store their data here
 # default is /.fluence/v1/services
 # services_base_dir = "./services"

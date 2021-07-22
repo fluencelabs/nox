@@ -279,6 +279,8 @@ mod tests {
         let config = r#"
             root_key_pair.format = "ed25519"
             root_key_pair.value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
             avm_base_dir = "/stepper"
             stepper_module_name = "aquamarine"
 
@@ -292,24 +294,32 @@ mod tests {
     #[test]
     fn parse_path_keypair() {
         let key_path = make_tmp_dir().join("secret_key.ed25519");
+        let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
         let config = format!(
             r#"
             root_key_pair.format = "ed25519"
             root_key_pair.path = "{}"
             root_key_pair.generate_on_absence = true
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.path = "{}"
+            builtins_key_pair.generate_on_absence = true
             "#,
-            key_path.to_string_lossy()
+            key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
         );
 
         assert!(!key_path.exists());
+        assert!(!builtins_key_path.exists());
         deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
         assert!(key_path.exists());
+        assert!(builtins_key_path.exists());
     }
 
     #[test]
     fn parse_empty_keypair() {
         let config = r#"
             root_key_pair.generate_on_absence = true
+            builtins_key_pair.generate_on_absence = true
             "#;
         deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
     }
