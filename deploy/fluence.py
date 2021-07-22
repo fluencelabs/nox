@@ -91,7 +91,7 @@ def deploy_nodes():
 # returns {ip: Node}
 def do_deploy_fluence(yml="fluence.yml"):
     with hide():
-        compose("pull", yml)
+        compose("pull -q", yml)
         compose('rm -fs', yml)
         compose('up --no-start', yml)  # was: 'create'
         copy_configs(yml)
