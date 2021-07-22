@@ -20,9 +20,13 @@ use std::time::Duration;
 #[derive(Clone, Deserialize, Derivative)]
 #[derivative(Debug)]
 pub struct NodeConfig {
-    #[serde(deserialize_with = "parse_or_load_keypair")]
+    #[serde(deserialize_with = "parse_or_load_root_keypair")]
     #[derivative(Debug = "ignore")]
     pub root_key_pair: KeyPair,
+
+    #[serde(deserialize_with = "parse_or_load_builtins_keypair")]
+    #[derivative(Debug = "ignore")]
+    pub builtins_key_pair: KeyPair,
 
     /// For TCP connections
     #[serde(default = "default_tcp_port")]
@@ -138,9 +142,26 @@ struct KeypairConfig {
     generate_on_absence: bool,
 }
 
+fn parse_or_load_root_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    parse_or_load_keypair(deserializer, default_keypair_path())
+}
+
+fn parse_or_load_builtins_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    parse_or_load_keypair(deserializer, default_builtins_keypair_path())
+}
+
 /// Try to decode keypair from string as base58,
 /// if failed – load keypair from file pointed at by same string
-fn parse_or_load_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
+fn parse_or_load_keypair<'de, D>(
+    deserializer: D,
+    default_path: PathOrValue,
+) -> Result<KeyPair, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -148,7 +169,7 @@ where
 
     let result = KeypairConfig::deserialize(deserializer)?;
 
-    match result.keypair.unwrap_or(default_keypair_path()) {
+    match result.keypair.unwrap_or(default_path) {
         Path { path } => {
             let path = to_abs_path(path);
             load_key_pair(

@@ -30,7 +30,7 @@ pub use modules::blueprint::Blueprint;
 pub use modules::dependencies::*;
 pub use modules::dependency::Dependency;
 pub use modules::file_names::*;
-pub use modules::fixture::{load_module, module_config, module_config_map};
+pub use modules::fixture::{load_module, module_config};
 pub use modules::hash::Hash;
 
 mod modules {

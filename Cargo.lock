@@ -3494,6 +3494,7 @@ dependencies = [
  "base64 0.13.0",
  "eyre",
  "fluence-app-service",
+ "fs-utils",
  "fstrings",
  "host-closure",
  "json-utils",

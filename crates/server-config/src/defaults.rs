@@ -73,6 +73,12 @@ pub fn default_keypair_path() -> PathOrValue {
     }
 }
 
+pub fn default_builtins_keypair_path() -> PathOrValue {
+    PathOrValue::Path {
+        path: default_base_dir().join("builtins_secret_key.ed25519"),
+    }
+}
+
 pub fn default_stepper_pool_size() -> usize {
     num_cpus::get() * 2
 }

@@ -15,7 +15,6 @@
  */
 
 use connected_client::ConnectedClient;
-use service_modules::module_config_map;
 
 use eyre::WrapErr;
 use maplit::hashmap;
@@ -34,7 +33,7 @@ pub fn create_service(
     let script = f!(r#"
     (seq
         (seq
-            (call relay ("dist" "make_module_config") [module_name mem_pages_count logger_enabled preopened_files envs mapped_dirs mounted_binaries logging_mask] module_config)
+            (call relay ("dist" "default_module_config") [module_name] module_config)
             (call relay ("dist" "add_module") [module_bytes module_config] module)
         )
         (seq
@@ -50,14 +49,14 @@ pub fn create_service(
     )
     "#);
 
-    let mut data = hashmap! {
+    let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
+        "module_name" => json!(module_name),
         "module_bytes" => json!(base64::encode(module_bytes)),
         "name" => json!("blueprint"),
         "dependencies" => json!([module_name]),
     };
-    data.extend(module_config_map(module_name).into_iter());
 
     client.send_particle(script, data);
     let response = client.receive_args().wrap_err("receive args").unwrap();

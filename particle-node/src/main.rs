@@ -42,7 +42,6 @@ use env_logger::Env;
 use eyre::WrapErr;
 use fs_utils::to_abs_path;
 use futures::channel::oneshot;
-use libp2p::identity::Keypair;
 use log::LevelFilter;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -117,8 +116,7 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::info!("node public key = {}", bs58_key_pair);
     log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 
-    let startup_management_key_pair = Keypair::generate_ed25519();
-    let startup_peer_id = to_peer_id(&startup_management_key_pair);
+    let startup_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
     let listen_addrs = config.listen_config().multiaddrs;
     let mut node = Node::new(config, startup_peer_id).wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
