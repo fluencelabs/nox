@@ -130,7 +130,7 @@
     },
     {
       "name": "stage",
-      "container_tag": "save_autodeploy_key_v112",
+      "container_tag": "v119",
       "containers_per_host": 5,
       "hosts": [
         "134.209.186.43"
