@@ -27,7 +27,9 @@ CONFIG = {
             'environment': {
                 'RUST_BACKTRACE': 'full',
                 'WASM_LOG': 'info',
-                'RUST_LOG': 'info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,particle_server::behaviour::identify=info,libp2p_mplex=info,libp2p_identify=info,walrus=info,particle_protocol::libp2p_protocol::upgrade=info'
+                'RUST_LOG': 'info,network=trace,aquamarine=info,aquamarine::actor=info,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info ,cranelift_codegen=info,wasmer_wasi=info,async_io=info,polling=info,wasmer_interface_types_fl=info,particle_server::behaviour::identify=info,libp2p_mplex=info,libp2p_identify=info,walrus=info,particle_protocol::libp2p_protocol::upgrade=info',
+                'FLUENCE_ENV_IPFS_ADAPTER_EXTERNAL_API_MULTIADDR': '/ip4/{host}/tcp/{ipfs_port}',
+                'FLUENCE_ENV_IPFS_ADAPTER_EXTERNAL_SWARM_MULTIADDR': '/ip4/{host}/tcp/{ipfs_swarm_port}',
             },
             'command': '-c /Config.toml -f ed25519 -k {keypair} -x {host} -t {tcp_port} -w {ws_port} -m {management_key}',
             'volumes': [
@@ -40,7 +42,8 @@ CONFIG = {
                 '{tcp_port}:{tcp_port}',
                 '{ws_port}:{ws_port}',
                 '{ipfs_port}:5001',
-                '{ipfs_swarm_port}:4001'
+                '{ipfs_swarm_port}:4001',
+                '{ipfs_gateway_port}:8080',
             ],
             'restart': 'always'
         }
@@ -61,12 +64,14 @@ def gen_compose_file(out, container_tag, scale, is_bootstrap, bootstraps, host, 
         ws_port = 9990
         ipfs_port = 5550
         ipfs_swarm_port = 4440
+        ipfs_gateway_port = 8880
     else:
         container = 'fluence'
         tcp_port = 7001
         ws_port = 9001
         ipfs_port = 5001
         ipfs_swarm_port = 4001
+        ipfs_gateway_port = 8001
 
     config = copy.deepcopy(CONFIG)
     service = config['services']['fluence']
@@ -102,8 +107,17 @@ def gen_compose_file(out, container_tag, scale, is_bootstrap, bootstraps, host, 
             tcp_port=tcp_port,
             ws_port=ws_port,
             ipfs_port=ipfs_port,
-            ipfs_swarm_port=ipfs_swarm_port
+            ipfs_swarm_port=ipfs_swarm_port,
+            ipfs_gateway_port=ipfs_gateway_port,
         ), container_config['ports'])
+
+        for key in container_config['environment']:
+            container_config['environment'][key] = container_config['environment'][key].format(
+                host=host,
+                ipfs_port=ipfs_port,
+                ipfs_swarm_port=ipfs_swarm_port,
+                ipfs_gateway_port=ipfs_gateway_port,
+            )
 
         for key in CONFIG['volumes']:
             key = key.format(container_name=container_name)
@@ -113,6 +127,7 @@ def gen_compose_file(out, container_tag, scale, is_bootstrap, bootstraps, host, 
         ws_port += 1
         ipfs_port += 1
         ipfs_swarm_port += 1
+        ipfs_gateway_port += 1
 
     puts("Writing config to {}".format(out))
     with hide('running'):
