@@ -74,6 +74,7 @@ pub struct BuiltinsDeployer {
     call_service_out: Arc<Mutex<Vec<JValue>>>,
     builtins_base_dir: PathBuf,
     particle_ttl: Duration,
+    // if set to true, remove existing builtins before deploying
     force_redeploy: bool,
 }
 
@@ -367,6 +368,7 @@ impl BuiltinsDeployer {
         let mut to_create = vec![];
         let mut to_start = vec![];
 
+        // if force_redeploy is set, then first remove all builtins
         if self.force_redeploy {
             for builtin in from_disk.iter() {
                 if local_services.contains_key(&builtin.name) {
