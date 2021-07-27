@@ -117,6 +117,7 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 
     let startup_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
+    let autodeploy_particle_ttl = config.node_config.autodeploy_particle_ttl;
     let listen_addrs = config.listen_config().multiaddrs;
     let mut node = Node::new(config, startup_peer_id).wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
@@ -125,8 +126,14 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     let local_peer_id = node.local_peer_id;
     let node_exit_outlet = node.start();
 
-    let mut builtin_deployer =
-        BuiltinsDeployer::new(startup_peer_id, local_peer_id, aquamarine_api, builtins_dir);
+    let mut builtin_deployer = BuiltinsDeployer::new(
+        startup_peer_id,
+        local_peer_id,
+        aquamarine_api,
+        builtins_dir,
+        autodeploy_particle_ttl,
+    );
+
     // TODO: start deploy after AquamarineVMs are started
     builtin_deployer
         .deploy_builtin_services()

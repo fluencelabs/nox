@@ -190,8 +190,13 @@ where
             let outlet = node.start();
 
             if let Some(builtins_dir) = config.builtins_dir {
-                let mut builtin_loader =
-                    BuiltinsDeployer::new(startup_peer_id, local_peer_id, stepper, builtins_dir);
+                let mut builtin_loader = BuiltinsDeployer::new(
+                    startup_peer_id,
+                    local_peer_id,
+                    stepper,
+                    builtins_dir,
+                    None,
+                );
 
                 builtin_loader
                     .deploy_builtin_services()

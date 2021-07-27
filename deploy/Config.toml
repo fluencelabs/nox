@@ -6,6 +6,8 @@ path = "/node.key"
 format = "ed25519"
 generate_on_absence = true
 
+autodeploy_particle_ttl = "60s"
+
 [root_weights]
 12D3KooWDMWjFq1QZG5szbQRbyQ1A8wyrEJSQaFXwMyqkFeLoHTt = 3
 12D3KooWLH6rijQ7eTAdA2pcg31ohZCTkWZywYvwTB3sUEjrn5PU = 4
