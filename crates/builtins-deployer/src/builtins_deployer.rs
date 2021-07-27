@@ -73,7 +73,7 @@ pub struct BuiltinsDeployer {
     call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     call_service_out: Arc<Mutex<Vec<JValue>>>,
     builtins_base_dir: PathBuf,
-    particle_ttl: Option<Duration>,
+    particle_ttl: Duration,
 }
 
 fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
@@ -181,7 +181,7 @@ impl BuiltinsDeployer {
         node_peer_id: PeerId,
         node_api: AquamarineApi,
         base_dir: PathBuf,
-        particle_ttl: Option<Duration>,
+        particle_ttl: Duration,
     ) -> Self {
         let call_in = Arc::new(Mutex::new(hashmap! {}));
         let call_out = Arc::new(Mutex::new(vec![]));

@@ -29,7 +29,7 @@ use particle_protocol::ProtocolConfig;
 use script_storage::ScriptStorageConfig;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend};
 use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
-use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
+use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, PARTICLE_TTL, TRANSPORT_TIMEOUT};
 use toy_vms::EasyVM;
 use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
@@ -195,7 +195,7 @@ where
                     local_peer_id,
                     stepper,
                     builtins_dir,
-                    None,
+                    Duration::from_millis(PARTICLE_TTL as u64),
                 );
 
                 builtin_loader

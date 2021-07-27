@@ -29,7 +29,6 @@ use parking_lot::Mutex;
 use serde_json::Value as JValue;
 use std::path::PathBuf;
 use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
-pub static PARTICLE_TTL: u32 = 1000 * 60;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
@@ -139,7 +138,7 @@ pub fn make_particle(
     relay: impl Into<Option<PeerId>>,
     local_vm: &mut AVM,
     generated: bool,
-    particle_ttl: Option<Duration>,
+    particle_ttl: Duration,
 ) -> Particle {
     let load_variables = if generated {
         "   (null)".to_string()
@@ -198,7 +197,7 @@ pub fn make_particle(
         id,
         init_peer_id: peer_id,
         timestamp: now_ms() as u64,
-        ttl: particle_ttl.map_or(PARTICLE_TTL, |ttl| ttl.as_millis() as u32),
+        ttl: particle_ttl.as_millis() as u32,
         script,
         signature: vec![],
         data,

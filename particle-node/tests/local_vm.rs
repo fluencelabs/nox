@@ -27,6 +27,7 @@ use serde_json::json;
 use serde_json::Value as JValue;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[test]
 fn make() {
@@ -66,7 +67,7 @@ fn make() {
         None,
         &mut local_vm_a,
         false,
-        None,
+        Duration::from_secs(20),
     );
 
     let args = read_args(
