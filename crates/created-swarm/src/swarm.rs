@@ -196,6 +196,7 @@ where
                     stepper,
                     builtins_dir,
                     Duration::from_millis(PARTICLE_TTL as u64),
+                    false,
                 );
 
                 builtin_loader

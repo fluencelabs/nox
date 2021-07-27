@@ -33,6 +33,9 @@ pub struct NodeConfig {
     #[serde(with = "humantime_serde")]
     pub autodeploy_particle_ttl: Duration,
 
+    #[serde(default)]
+    pub force_builtins_redeploy: bool,
+
     /// For TCP connections
     #[serde(default = "default_tcp_port")]
     pub tcp_port: u16,

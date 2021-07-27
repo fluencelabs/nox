@@ -74,6 +74,7 @@ pub struct BuiltinsDeployer {
     call_service_out: Arc<Mutex<Vec<JValue>>>,
     builtins_base_dir: PathBuf,
     particle_ttl: Duration,
+    force_redeploy: bool,
 }
 
 fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
@@ -182,6 +183,7 @@ impl BuiltinsDeployer {
         node_api: AquamarineApi,
         base_dir: PathBuf,
         particle_ttl: Duration,
+        force_redeploy: bool,
     ) -> Self {
         let call_in = Arc::new(Mutex::new(hashmap! {}));
         let call_out = Arc::new(Mutex::new(vec![]));
@@ -197,6 +199,7 @@ impl BuiltinsDeployer {
             call_service_out: call_out,
             builtins_base_dir: base_dir,
             particle_ttl,
+            force_redeploy,
         }
     }
 
@@ -366,7 +369,7 @@ impl BuiltinsDeployer {
 
         for builtin in from_disk.iter() {
             match local_services.get(&builtin.name) {
-                Some(id) if *id == builtin.blueprint_id => {
+                Some(id) if *id == builtin.blueprint_id && !self.force_redeploy => {
                     to_start.push(builtin);
                 }
                 Some(_) => {
