@@ -33,6 +33,10 @@ pub fn default_listen_ip() -> IpAddr {
 pub fn default_socket_timeout() -> Duration {
     Duration::from_secs(20)
 }
+pub fn default_particle_ttl() -> Duration {
+    Duration::from_secs(20)
+}
+
 pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
     vec![]
 }

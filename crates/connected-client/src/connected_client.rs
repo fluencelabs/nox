@@ -20,7 +20,7 @@ use crate::event::ClientEvent;
 use fluence_libp2p::Transport;
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args, AVM};
 use particle_protocol::Particle;
-use test_constants::{KAD_TIMEOUT, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
+use test_constants::{KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
 
 use async_std::task;
 use core::ops::Deref;
@@ -41,7 +41,7 @@ pub struct ConnectedClient {
     pub call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     pub call_service_out: Arc<Mutex<Vec<JValue>>>,
     pub local_vm: Lazy<Mutex<AVM>, Box<dyn FnOnce() -> Mutex<AVM>>>,
-    pub particle_ttl: Option<Duration>,
+    pub particle_ttl: Duration,
 }
 
 impl ConnectedClient {
@@ -57,12 +57,12 @@ impl ConnectedClient {
         self.kad_timeout
     }
 
-    pub fn particle_ttl(&self) -> Option<Duration> {
+    pub fn particle_ttl(&self) -> Duration {
         self.particle_ttl
     }
 
     pub fn set_particle_ttl(&mut self, particle_ttl: Duration) {
-        self.particle_ttl = particle_ttl.into();
+        self.particle_ttl = particle_ttl;
     }
 }
 
@@ -164,7 +164,7 @@ impl ConnectedClient {
             call_service_in,
             call_service_out,
             local_vm,
-            particle_ttl,
+            particle_ttl: particle_ttl.unwrap_or(Duration::from_millis(PARTICLE_TTL as u64)),
         }
     }
 

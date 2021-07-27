@@ -28,6 +28,11 @@ pub struct NodeConfig {
     #[derivative(Debug = "ignore")]
     pub builtins_key_pair: KeyPair,
 
+    /// Particle ttl for autodeploy
+    #[serde(default = "default_particle_ttl")]
+    #[serde(with = "humantime_serde")]
+    pub autodeploy_particle_ttl: Duration,
+
     /// For TCP connections
     #[serde(default = "default_tcp_port")]
     pub tcp_port: u16,

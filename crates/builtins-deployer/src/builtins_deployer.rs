@@ -32,6 +32,7 @@ use regex::Regex;
 use serde_json::{json, Value as JValue};
 use std::env;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use std::{collections::HashMap, fs, sync::Arc};
 
 pub static ALLOWED_ENV_PREFIX: &str = "$FLUENCE_ENV";
@@ -72,6 +73,7 @@ pub struct BuiltinsDeployer {
     call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     call_service_out: Arc<Mutex<Vec<JValue>>>,
     builtins_base_dir: PathBuf,
+    particle_ttl: Duration,
 }
 
 fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
@@ -179,6 +181,7 @@ impl BuiltinsDeployer {
         node_peer_id: PeerId,
         node_api: AquamarineApi,
         base_dir: PathBuf,
+        particle_ttl: Duration,
     ) -> Self {
         let call_in = Arc::new(Mutex::new(hashmap! {}));
         let call_out = Arc::new(Mutex::new(vec![]));
@@ -193,6 +196,7 @@ impl BuiltinsDeployer {
             call_service_in: call_in,
             call_service_out: call_out,
             builtins_base_dir: base_dir,
+            particle_ttl,
         }
     }
 
@@ -214,7 +218,7 @@ impl BuiltinsDeployer {
             &mut self.local_vm,
             // TODO: set to true if AIR script is generated from Aqua
             false,
-            None,
+            self.particle_ttl,
         );
 
         let result = block_on(self.node_api.clone().handle(particle))?;
