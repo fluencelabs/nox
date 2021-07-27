@@ -378,13 +378,17 @@ impl BuiltinsDeployer {
 
         for builtin in from_disk.iter() {
             match local_services.get(&builtin.name) {
-                Some(id) if *id == builtin.blueprint_id => {
-                    to_start.push(builtin);
-                }
-                Some(_) => {
+                // already deployed
+                // if blueprint_id has changed, then redeploy builtin
+                Some(bp_id) if *bp_id != builtin.blueprint_id => {
                     self.remove_service(builtin.name.clone())?;
                     to_create.push(builtin)
                 }
+                // already deployed with expected blueprint_id
+                Some(_) => {
+                    to_start.push(builtin);
+                }
+                // isn't deployed yet
                 None => to_create.push(builtin),
             }
         }
