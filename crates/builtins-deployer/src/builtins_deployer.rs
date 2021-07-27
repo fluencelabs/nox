@@ -377,6 +377,7 @@ impl BuiltinsDeployer {
         }
 
         for builtin in from_disk.iter() {
+            // check if builtin is already deployed
             match local_services.get(&builtin.name) {
                 // already deployed
                 // if blueprint_id has changed, then redeploy builtin
