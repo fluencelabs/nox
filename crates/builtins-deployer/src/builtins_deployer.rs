@@ -74,6 +74,8 @@ pub struct BuiltinsDeployer {
     call_service_out: Arc<Mutex<Vec<JValue>>>,
     builtins_base_dir: PathBuf,
     particle_ttl: Duration,
+    // if set to true, remove existing builtins before deploying
+    force_redeploy: bool,
 }
 
 fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
@@ -182,6 +184,7 @@ impl BuiltinsDeployer {
         node_api: AquamarineApi,
         base_dir: PathBuf,
         particle_ttl: Duration,
+        force_redeploy: bool,
     ) -> Self {
         let call_in = Arc::new(Mutex::new(hashmap! {}));
         let call_out = Arc::new(Mutex::new(vec![]));
@@ -197,6 +200,7 @@ impl BuiltinsDeployer {
             call_service_out: call_out,
             builtins_base_dir: base_dir,
             particle_ttl,
+            force_redeploy,
         }
     }
 
@@ -359,20 +363,35 @@ impl BuiltinsDeployer {
 
     pub fn deploy_builtin_services(&mut self) -> Result<()> {
         let from_disk = self.list_builtins()?;
-        let local_services = self.get_service_blueprints()?;
+        let mut local_services = self.get_service_blueprints()?;
 
         let mut to_create = vec![];
         let mut to_start = vec![];
 
-        for builtin in from_disk.iter() {
-            match local_services.get(&builtin.name) {
-                Some(id) if *id == builtin.blueprint_id => {
-                    to_start.push(builtin);
+        // if force_redeploy is set, then first remove all builtins
+        if self.force_redeploy {
+            for builtin in from_disk.iter() {
+                if local_services.contains_key(&builtin.name) {
+                    self.remove_service(builtin.name.clone())?;
+                    local_services.remove(&builtin.name);
                 }
-                Some(_) => {
+            }
+        }
+
+        for builtin in from_disk.iter() {
+            // check if builtin is already deployed
+            match local_services.get(&builtin.name) {
+                // already deployed
+                // if blueprint_id has changed, then redeploy builtin
+                Some(bp_id) if *bp_id != builtin.blueprint_id => {
                     self.remove_service(builtin.name.clone())?;
                     to_create.push(builtin)
                 }
+                // already deployed with expected blueprint_id
+                Some(_) => {
+                    to_start.push(builtin);
+                }
+                // isn't deployed yet
                 None => to_create.push(builtin),
             }
         }
