@@ -33,7 +33,7 @@ pub struct NodeConfig {
     #[serde(with = "humantime_serde")]
     pub autodeploy_particle_ttl: Duration,
 
-    /// If set to true, then first remove all builtins
+    /// Affects builtins autodeploy. If set to true, then all builtins should be recreated and their state is cleaned up.
     #[serde(default)]
     pub force_builtins_redeploy: bool,
 
