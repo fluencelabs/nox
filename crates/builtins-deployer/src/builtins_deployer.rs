@@ -362,14 +362,23 @@ impl BuiltinsDeployer {
 
     pub fn deploy_builtin_services(&mut self) -> Result<()> {
         let from_disk = self.list_builtins()?;
-        let local_services = self.get_service_blueprints()?;
+        let mut local_services = self.get_service_blueprints()?;
 
         let mut to_create = vec![];
         let mut to_start = vec![];
 
+        if self.force_redeploy {
+            for builtin in from_disk.iter() {
+                if local_services.contains_key(&builtin.name) {
+                    self.remove_service(builtin.name.clone())?;
+                    local_services.remove(&builtin.name);
+                }
+            }
+        }
+
         for builtin in from_disk.iter() {
             match local_services.get(&builtin.name) {
-                Some(id) if *id == builtin.blueprint_id && !self.force_redeploy => {
+                Some(id) if *id == builtin.blueprint_id => {
                     to_start.push(builtin);
                 }
                 Some(_) => {
