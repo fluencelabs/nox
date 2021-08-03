@@ -99,10 +99,8 @@ impl AquaRuntime for AVM {
                     "Executed particle {}, next_peer_pks is empty. Won't send anywhere",
                     p.id
                 );
-                if log::max_level() >= LevelFilter::Debug {
-                    let data = String::from_utf8_lossy(data.as_slice());
-                    log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
-                }
+                let data = String::from_utf8_lossy(data.as_slice());
+                log::error!("particle {} next_peer_pks = [], data: {}", p.id, data);
                 vec![]
             }
             Err(ExecutionError::AquamarineError(err)) => {
