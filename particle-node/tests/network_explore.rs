@@ -247,6 +247,10 @@ fn node_arrays(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
         },
         {
             pids.shuffle(&mut rng);
+            pids.clone()
+        },
+        {
+            pids.shuffle(&mut rng);
             pids
         },
     ];

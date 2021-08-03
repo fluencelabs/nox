@@ -25,7 +25,7 @@ use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
 use host_closure::ClosureDescriptor;
 use libp2p::PeerId;
-use log::LevelFilter;
+// use log::LevelFilter;
 use std::{error::Error, task::Waker};
 
 pub trait AquaRuntime: Sized + Send + 'static {
