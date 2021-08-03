@@ -34,6 +34,7 @@ use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
 
 use eyre::WrapErr;
+use itertools::Itertools;
 use libp2p::PeerId;
 use maplit::hashmap;
 use serde::Deserialize;
@@ -42,7 +43,6 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 use test_utils::create_service;
-use itertools::Itertools;
 
 #[derive(Deserialize, Debug)]
 struct NodeInfo {

@@ -23,12 +23,12 @@ use std::time::{Duration, Instant};
 
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
+use itertools::Itertools;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use parking_lot::{Mutex, MutexGuard};
 use serde_json::{json, Value as JValue};
 use JValue::Array;
-use itertools::Itertools;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use host_closure::{
