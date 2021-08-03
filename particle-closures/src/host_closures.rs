@@ -20,10 +20,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
-use itertools::Itertools;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use parking_lot::{Mutex, MutexGuard};
@@ -355,11 +353,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             })
             .collect::<Result<Vec<_>, HostClosureCallError>>()?;
         keys.sort_by_cached_key(|k| target.distance(k.as_ref()));
+        keys.dedup();
 
         let keys = keys
             .into_iter()
-            .map(|k| bs58::encode(k.into_preimage()).into_string())
-            .unique();
+            .map(|k| bs58::encode(k.into_preimage()).into_string());
 
         let keys: Vec<_> = if let Some(count) = count {
             keys.take(count).collect()

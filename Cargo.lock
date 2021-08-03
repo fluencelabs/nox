@@ -3469,7 +3469,6 @@ dependencies = [
  "fluence-fork-libp2p",
  "host-closure",
  "humantime-serde",
- "itertools 0.10.1",
  "ivalue-utils",
  "kademlia",
  "log",
