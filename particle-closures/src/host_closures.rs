@@ -28,6 +28,7 @@ use multihash::{Code, MultihashDigest, MultihashGeneric};
 use parking_lot::{Mutex, MutexGuard};
 use serde_json::{json, Value as JValue};
 use JValue::Array;
+use itertools::Itertools;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use host_closure::{
@@ -357,7 +358,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let keys = keys
             .into_iter()
-            .map(|k| bs58::encode(k.into_preimage()).into_string());
+            .map(|k| bs58::encode(k.into_preimage()).into_string())
+            .unique();
 
         let keys: Vec<_> = if let Some(count) = count {
             keys.take(count).collect()
