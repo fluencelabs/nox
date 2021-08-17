@@ -90,6 +90,7 @@ pub fn make_call_service_closure(
                 ivalue_utils::unit()
             }
             ("errorHandlingSrv", "error") => {
+                panic!("WTF?!");
                 log::warn!("caught an error: {:?}", args.function_args);
                 ivalue_utils::unit()
             }
