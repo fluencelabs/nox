@@ -326,7 +326,7 @@ fn fold_same_node_stream() {
                     (fold node_arrays pair
                         (seq
                             (seq
-                                (call pair.$.[0]! ("op" "noop"))
+                                (call pair.$.[0]! ("op" "noop") [])
                                 (ap pair.$.[1]! $inner)
                             )
                             (next pair)
