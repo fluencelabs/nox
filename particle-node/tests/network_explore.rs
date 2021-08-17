@@ -218,22 +218,6 @@ fn node_arrays(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
 
     let mut rng = rand::thread_rng();
     let mut pids: Vec<_> = swarms.iter().map(|s| s.peer_id.to_string()).collect();
-    let pid = |i: usize| swarms[i].peer_id.to_string();
-    // swarm_3
-    // swarm_2
-    // swarm_1
-    //
-    // swarm_0
-    // swarm_2
-    // swarm_1
-    //
-    // swarm_0
-    // swarm_3
-    // swarm_1
-    //
-    // swarm_2
-    // swarm_3
-    // swarm_0
 
     let node_arrays = vec![
         pids.clone(),
@@ -255,30 +239,6 @@ fn node_arrays(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
         },
     ];
 
-    // fail
-    // let node_arrays = vec![
-    //     vec![pid(3), pid(2), pid(1)],
-    //     vec![pid(0), pid(2), pid(1)],
-    //     vec![pid(0), pid(3), pid(1)],
-    //     vec![pid(2), pid(3), pid(0)],
-    // ];
-
-    // random manual
-    // let node_arrays = vec![
-    //     vec![pid(2), pid(1), pid(3)],
-    //     vec![pid(0), pid(1), pid(2)],
-    //     vec![pid(0), pid(1), pid(3)],
-    //     vec![pid(0), pid(2), pid(3)],
-    // ];
-
-    // // success
-    // let node_arrays = vec![
-    //     vec![pid(2), pid(3), pid(1)],
-    //     vec![pid(1), pid(3), pid(0)],
-    //     vec![pid(0), pid(2), pid(1)],
-    //     vec![pid(0), pid(3), pid(2)],
-    // ];
-
     node_arrays
 }
 
@@ -299,7 +259,10 @@ fn fold_same_node() {
                 (seq
                     (fold ns n
                         (seq
-                            (call n ("op" "identity") [n] $result)
+                            (seq
+                                (call n ("op" "noop") [])
+                                (ap n $result)
+                            )
                             (next n)
                         )
                     )
@@ -307,7 +270,7 @@ fn fold_same_node() {
                 )
             )
             (seq
-                (call relay ("op" "identity") [])
+                (call relay ("op" "noop") [])
                 (call client ("return" "") [$result])
             )
         )
@@ -321,7 +284,7 @@ fn fold_same_node() {
 
     client.timeout = Duration::from_secs(120);
 
-    let args = client.receive_args().wrap_err("receive args").unwrap();
+    client.receive_args().wrap_err("receive args").unwrap();
 }
 
 #[test]
@@ -362,7 +325,10 @@ fn fold_same_node_stream() {
                 (seq
                     (fold node_arrays pair
                         (seq
-                            (call pair.$.[0]! ("op" "identity") [pair.$.[1]!] $inner)
+                            (seq
+                                (call pair.$.[0]! ("op" "noop"))
+                                (ap pair.$.[1]! $inner)
+                            )
                             (next pair)
                         )
                     )
@@ -370,7 +336,10 @@ fn fold_same_node_stream() {
                         (seq
                             (fold ns n
                                 (seq
-                                    (call n ("op" "identity") [n] $result)
+                                    (seq
+                                        (call n ("op" "noop") [])
+                                        (ap n $result)
+                                    )
                                     (next n)
                                 )
                             )
@@ -380,7 +349,7 @@ fn fold_same_node_stream() {
                 )
             )
             (seq
-                (call relay ("op" "identity") [])
+                (call relay ("op" "noop") [])
                 (call client ("return" "") [$result $inner])
             )
         )
@@ -451,7 +420,7 @@ fn explore_services_azaza() {
                 )
             )
             (seq
-                (call relay ("op" "identity") [])
+                (call relay ("op" "noop") [])
                 (call client ("return" "") [$external_addresses $neighs_inner neighs_top])
             )
         )
@@ -500,13 +469,13 @@ fn explore_services_fixed() {
     // language=Clojure
     let script = r#"
         (seq
-            (call relayId ("op" "identity") [])
+            (call relayId ("op" "noop") [])
             (fold peers p
                 (par
                     (seq
                         (call p ("srv" "list") [] $services)
                         (seq
-                            (call relayId ("op" "identity") [])
+                            (call relayId ("op" "noop") [])
                             (call %init_peer_id% ("return" "") [p $services])
                         )
                     )

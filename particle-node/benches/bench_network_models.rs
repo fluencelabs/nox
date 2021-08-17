@@ -37,7 +37,7 @@ use fluence_libp2p::RandomPeerId;
 use fs_utils::make_tmp_dir;
 use kademlia::KademliaApi;
 use particle_closures::{HostClosures, NodeInfo};
-use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand, NetworkApi};
+use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand};
 use particle_protocol::{Contact, Particle};
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -345,33 +345,16 @@ where
     (stepper_pool_api, handle)
 }
 
-pub async fn network_api(particles_num: usize) -> (NetworkApi, Vec<JoinHandle<()>>) {
-    let particle_stream: BackPressuredInlet<Particle> = particles(particles_num).await;
-    let particle_parallelism: usize = 1;
-    let (kademlia, kad_handle) = kademlia_api();
-    let (connection_pool, cp_handle) = connection_pool_api(1000, true);
-    let bootstrap_frequency: usize = 1000;
-    let particle_timeout: Duration = Duration::from_secs(5);
-
-    let api: NetworkApi = NetworkApi::new(
-        particle_stream,
-        particle_parallelism,
-        kademlia,
-        connection_pool,
-        bootstrap_frequency,
-        particle_timeout,
-    );
-    (api, vec![cp_handle, kad_handle])
-}
-
 pub fn connectivity(
     num_particles: usize,
+    current_peer_id: PeerId,
 ) -> (Connectivity, BoxFuture<'static, ()>, JoinHandle<()>) {
     let (kademlia, kad_handle) = kademlia_api();
     let (connection_pool, cp_handle) = connection_pool_api(num_particles, true);
     let connectivity = Connectivity {
         kademlia,
         connection_pool,
+        current_peer_id,
     };
 
     (connectivity, cp_handle.boxed(), kad_handle)
@@ -380,12 +363,14 @@ pub fn connectivity(
 pub fn connectivity_with_real_kad(
     num_particles: usize,
     network_size: usize,
+    current_peer_id: PeerId,
 ) -> (Connectivity, BoxFuture<'static, ()>, Stops, Vec<PeerId>) {
     let (kademlia, stops, peer_ids) = real_kademlia_api(network_size);
     let (connection_pool, cp_handle) = connection_pool_api(num_particles, false);
     let connectivity = Connectivity {
         kademlia,
         connection_pool,
+        current_peer_id,
     };
 
     (connectivity, cp_handle.boxed(), stops, peer_ids)
@@ -396,7 +381,8 @@ pub async fn process_particles(
     parallelism: Option<usize>,
     particle_timeout: Duration,
 ) {
-    let (con, finish, kademlia) = connectivity(num_particles);
+    let peer_id = RandomPeerId::random();
+    let (con, finish, kademlia) = connectivity(num_particles, peer_id);
     let (aquamarine, aqua_handle) = aquamarine_api();
     let (sink, _) = mpsc::unbounded();
 
@@ -424,7 +410,7 @@ pub async fn process_particles_with_vm(
 ) {
     let peer_id = RandomPeerId::random();
 
-    let (con, future, kademlia) = connectivity(num_particles);
+    let (con, future, kademlia) = connectivity(num_particles, peer_id);
     let (aquamarine, aqua_handle) =
         aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter);
     let (sink, _) = mpsc::unbounded();
@@ -450,7 +436,9 @@ pub async fn process_particles_with_delay(
     particle_parallelism: Option<usize>,
     particle_timeout: Duration,
 ) {
-    let (con, future, kademlia) = connectivity(num_particles);
+    let peer_id = RandomPeerId::random();
+
+    let (con, future, kademlia) = connectivity(num_particles, peer_id);
     let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, call_delay);
     let (sink, _) = mpsc::unbounded();
     let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;

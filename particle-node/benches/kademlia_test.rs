@@ -31,18 +31,21 @@ use connected_client::ConnectedClient;
 use connection_pool::ConnectionPoolT;
 use control_macro::measure;
 use created_swarm::make_swarms_with_mocked_vm;
-use itertools::Itertools;
+use fluence_libp2p::RandomPeerId;
 use kademlia::KademliaApiT;
 use particle_protocol::Contact;
+
+use itertools::Itertools;
 use std::convert::identity;
 use std::time::{Duration, Instant};
 
 #[test]
 fn kademlia_resolve() {
     let network_size = 10;
+    let peer_id = RandomPeerId::random();
 
     let (connectivity, _finish_fut, kademlia, peer_ids) =
-        connectivity_with_real_kad(1, network_size);
+        connectivity_with_real_kad(1, network_size, peer_id);
 
     async_std::task::block_on(async move {
         let start = Instant::now();

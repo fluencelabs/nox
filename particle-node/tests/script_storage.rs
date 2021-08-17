@@ -126,7 +126,7 @@ fn script_routing() {
 
     let script = f!(r#"
         (seq
-            (call "{client.node}" ("op" "identity") [])
+            (call "{client.node}" ("op" "noop") [])
             (call "{client.peer_id}" ("op" "return") ["hello"])
         )
     "#);
@@ -134,7 +134,7 @@ fn script_routing() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("op" "identity") [])
+            (call relay ("op" "noop") [])
             (call second ("script" "add") [script "0"] id)
         )
         "#,

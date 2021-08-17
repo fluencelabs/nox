@@ -132,10 +132,10 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
         b.iter_batched(
             || {
                 let _interpreter = interpreter.clone();
-                let _peer_id = RandomPeerId::random();
+                let peer_id = RandomPeerId::random();
 
                 let (con, finish_fut, kademlia, peer_ids) =
-                    connectivity_with_real_kad(n, network_size);
+                    connectivity_with_real_kad(n, network_size, peer_id);
                 // let (aquamarine, aqua_handle) =
                 //     aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
                 // let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, None);
@@ -191,13 +191,14 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
 fn kademlia_resolve_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("kademlia_resolve");
     println!();
+    let peer_id = RandomPeerId::random();
 
     let network_size = 10;
     group.sample_size(10);
     let bid = { BenchmarkId::from_parameter(format!("{} nodes", network_size)) };
     group.bench_function(bid, |b| {
         b.iter_batched(
-            || connectivity_with_real_kad(1, network_size),
+            || connectivity_with_real_kad(1, network_size, peer_id),
             move |(connectivity, _finish_fut, kademlia, peer_ids)| {
                 task::block_on(async move {
                     let start = Instant::now();
