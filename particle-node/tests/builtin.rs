@@ -34,6 +34,7 @@ use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
 
 use eyre::WrapErr;
+use itertools::Itertools;
 use libp2p::PeerId;
 use log_utils::enable_logs;
 use maplit::hashmap;
@@ -634,6 +635,7 @@ fn kad_merge() {
     let target = RandomPeerId::random();
     let left = (1..10).map(|_| RandomPeerId::random()).collect::<Vec<_>>();
     let mut right = (1..10).map(|_| RandomPeerId::random()).collect::<Vec<_>>();
+    right = right.into_iter().chain(left.clone().into_iter()).collect();
     let count = 10;
 
     let script = r#"
@@ -660,6 +662,7 @@ fn kad_merge() {
     let target_key = Key::from(target);
     let mut expected = left;
     expected.append(&mut right);
+    expected = expected.into_iter().unique().collect();
     expected.sort_by_cached_key(|id| target_key.distance(&Key::from(id.clone())));
     expected.truncate(count);
 
