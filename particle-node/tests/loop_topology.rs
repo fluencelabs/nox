@@ -43,6 +43,64 @@ fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
 }
 
 #[test]
+fn fold_fold_fold() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let nums: Vec<String> = (1..10).map(|i| i.to_string()).collect();
+    let vec = vec![nums.clone(), nums.clone(), nums.clone()];
+    let elems: Vec<(String, Vec<Vec<String>>)> = vec![
+        ("a".into(), vec.clone()),
+        ("a".into(), vec.clone()),
+        ("a".into(), vec.clone()),
+        ("a".into(), vec.clone()),
+        ("a".into(), vec.clone()),
+    ];
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (fold permutations pair
+                    (seq
+                        (fold pair.$.[1]! peer_ids
+                            (seq
+                                (ap peer_ids $inner)
+                                (next peer_ids)
+                            )
+                        )
+                        (next pair)
+                    )
+                )
+                (fold $inner ns
+                    (next ns)
+                )
+            )
+            (seq
+                (call relay ("op" "noop") [])
+                (call client ("return" "") [$inner])
+            )
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+            "permutations" => json!(elems),
+        },
+    );
+
+    client.timeout = Duration::from_secs(1);
+
+    let args = client.receive_args().wrap_err("receive args");
+    if args.is_err() {
+        panic!("{} failed", json!(elems));
+    }
+}
+
+#[test]
 fn fold_same_node_stream() {
     enable_logs();
 
@@ -81,7 +139,8 @@ fn fold_same_node_stream() {
                             (fold pair.$.[1]! peer_ids
                                 (seq
                                     (seq
-                                        (call pair.$.[0]! ("op" "noop") [])
+                                        ;; (call pair.$.[0]! ("op" "noop") [])
+                                        (null)
                                         (ap peer_ids $inner)
                                     )
                                     (next peer_ids)
@@ -91,24 +150,24 @@ fn fold_same_node_stream() {
                         )
                     )
                     (fold $inner ns
-                        (seq
-                            (fold ns n
-                                (seq
-                                    (seq
-                                        (call n ("op" "noop") [])
-                                        (ap n $result)
-                                    )
-                                    (next n)
-                                )
-                            )
+                    ;;    (seq
+                    ;;        (fold ns n
+                    ;;            (seq
+                    ;;                (seq
+                    ;;                    (call n ("op" "noop") [])
+                    ;;                    (ap n $result)
+                    ;;                )
+                    ;;                (next n)
+                    ;;            )
+                    ;;        )
                             (next ns)
-                        )
+                    ;;    )
                     )
                 )
             )
             (seq
                 (call relay ("op" "noop") [])
-                (call client ("return" "") [$result $inner])
+                (call client ("return" "") [$inner])
             )
         )
         "#,
