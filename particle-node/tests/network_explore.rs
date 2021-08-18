@@ -260,11 +260,8 @@ fn fold_same_node() {
                     (fold ns n
                         (seq
                             (seq
-                                (seq
-                                    (call n ("op" "noop") [])
-                                    (call n ("op" "identity") [n] hack)
-                                )
-                                (ap hack $result)
+                                (call n ("op" "noop") [])
+                                (ap n $result)
                             )
                             (next n)
                         )
