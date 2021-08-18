@@ -139,8 +139,7 @@ fn fold_same_node_stream() {
                             (fold pair.$.[1]! peer_ids
                                 (seq
                                     (seq
-                                        ;; (call pair.$.[0]! ("op" "noop") [])
-                                        (null)
+                                        (call pair.$.[0]! ("op" "noop") [])
                                         (ap peer_ids $inner)
                                     )
                                     (next peer_ids)
@@ -150,18 +149,18 @@ fn fold_same_node_stream() {
                         )
                     )
                     (fold $inner ns
-                    ;;    (seq
-                    ;;        (fold ns n
-                    ;;            (seq
-                    ;;                (seq
-                    ;;                    (call n ("op" "noop") [])
-                    ;;                    (ap n $result)
-                    ;;                )
-                    ;;                (next n)
-                    ;;            )
-                    ;;        )
+                        (seq
+                            (fold ns n
+                                (seq
+                                    (seq
+                                        (call n ("op" "noop") [])
+                                        (ap n $result)
+                                    )
+                                    (next n)
+                                )
+                            )
                             (next ns)
-                    ;;    )
+                        )
                     )
                 )
             )
