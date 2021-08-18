@@ -213,189 +213,16 @@ fn list_blueprints() {
     assert_eq!(hash.as_str(), raw_hash.as_str());
 }
 
-fn node_arrays(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
-    use rand::prelude::*;
-
-    let mut rng = rand::thread_rng();
-    let mut pids: Vec<_> = swarms.iter().map(|s| s.peer_id.to_string()).collect();
-
-    let node_arrays = vec![
-        pids.clone(),
-        {
-            pids.shuffle(&mut rng);
-            pids.clone()
-        },
-        {
-            pids.shuffle(&mut rng);
-            pids.clone()
-        },
-        {
-            pids.shuffle(&mut rng);
-            pids.clone()
-        },
-        {
-            pids.shuffle(&mut rng);
-            pids
-        },
-    ];
-
-    node_arrays
-}
-
 #[test]
-fn fold_same_node() {
-    enable_logs();
-
-    let swarms = make_swarms(4);
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .wrap_err("connect client")
-        .unwrap();
-
-    client.send_particle(
-        r#"
-        (seq
-            (fold node_arrays ns
-                (seq
-                    (fold ns n
-                        (seq
-                            (seq
-                                (call n ("op" "noop") [])
-                                (ap n $result)
-                            )
-                            (next n)
-                        )
-                    )
-                    (next ns)
-                )
-            )
-            (seq
-                (call relay ("op" "noop") [])
-                (call client ("return" "") [$result])
-            )
-        )
-        "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "node_arrays" => json!(node_arrays(&swarms))
-        },
-    );
-
-    client.timeout = Duration::from_secs(120);
-
-    client.receive_args().wrap_err("receive args").unwrap();
-}
-
-#[test]
-fn fold_same_node_stream() {
-    enable_logs();
-
-    let swarms = make_swarms(4);
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .wrap_err("connect client")
-        .unwrap();
-
-    for (i, swarm) in swarms.iter().enumerate() {
-        if i == 0 {
-            log::info!("swarm[{}] = {} (relay)", i, swarm.peer_id)
-        } else {
-            log::info!("swarm[{}] = {}", i, swarm.peer_id)
-        }
-    }
-
-    log::info!("client = {}", client.peer_id);
-
-    for i in 1..1000 {
-        log::info!("\n\n\n\n=========== Iteration {} ==========\n\n\n\n", i);
-
-        let node_arrays = node_arrays(&swarms);
-        let top = &node_arrays[0];
-        let node_arrays = &node_arrays[1..];
-        let node_arrays = top.iter().zip(node_arrays).collect::<Vec<_>>();
-
-        log::info!("node_arrays: {}", json!(node_arrays));
-
-        client.send_particle(
-            r#"
-        (seq
-            (seq
-                (null)
-                (seq
-                    (fold node_arrays pair
-                        (seq
-                            (seq
-                                (call pair.$.[0]! ("op" "noop") [])
-                                (ap pair.$.[1]! $inner)
-                            )
-                            (next pair)
-                        )
-                    )
-                    (fold $inner ns
-                        (seq
-                            (fold ns n
-                                (seq
-                                    (seq
-                                        (call n ("op" "noop") [])
-                                        (ap n $result)
-                                    )
-                                    (next n)
-                                )
-                            )
-                            (next ns)
-                        )
-                    )
-                )
-            )
-            (seq
-                (call relay ("op" "noop") [])
-                (call client ("return" "") [$result $inner])
-            )
-        )
-        "#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "client" => json!(client.peer_id.to_string()),
-                "node_arrays" => json!(node_arrays),
-            },
-        );
-
-        client.timeout = Duration::from_secs(1);
-
-        let args = client.receive_args().wrap_err("receive args");
-        if args.is_err() {
-            log::error!("{} failed", json!(node_arrays));
-        } else {
-            log::error!("{} succeeded", json!(node_arrays));
-        }
-    }
-}
-
-#[test]
-fn explore_services_azaza() {
-    enable_logs();
-    let swarms = make_swarms(4);
+fn explore_services() {
+    let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
-
-    for (i, swarm) in swarms.iter().enumerate() {
-        if i == 0 {
-            log::info!("swarm[{}] = {} (relay)", i, swarm.peer_id)
-        } else {
-            log::info!("swarm[{}] = {}", i, swarm.peer_id)
-        }
-    }
-
-    log::info!("client = {}", client.peer_id);
-
-    for i in 1..100 {
-        log::info!("\n\n\n\n=========== Iteration {} ==========\n\n\n\n", i);
-        client.send_particle(
-            r#"
+    client.send_particle(
+        r#"
         (seq
             (seq
                 (call relay ("kad" "neighborhood") [relay] neighs_top)
@@ -420,45 +247,38 @@ fn explore_services_azaza() {
                 )
             )
             (seq
-                (call relay ("op" "noop") [])
+                (call relay ("op" "identity") [])
                 (call client ("return" "") [$external_addresses $neighs_inner neighs_top])
             )
         )
         "#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "client" => json!(client.peer_id.to_string()),
-            },
-        );
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
 
-        client.timeout = Duration::from_secs(120);
+    client.timeout = Duration::from_secs(120);
 
-        let args = client.receive_args().wrap_err("receive args").unwrap();
-        let external_addrs = args.into_iter().next().expect("return non-empty args");
-        let external_addrs = external_addrs
-            .as_array()
-            .expect("external_addresses is an array");
-        let mut external_addrs = external_addrs
-            .iter()
-            .map(|v| {
-                let external_addrs = v
-                    .get("external_addresses")
-                    .expect("field external_addresses")
-                    .as_array()
-                    .expect("external addresses is an array");
-                let maddr = external_addrs[0].as_str().expect("multiaddr is a string");
-                Multiaddr::from_str(maddr).expect("valid multiaddr")
-            })
-            .collect::<Vec<_>>();
-        external_addrs.sort_unstable();
-        external_addrs.dedup();
-        let expected_addrs: Vec<_> = swarms
-            .iter()
-            .map(|s| s.multiaddr.clone())
-            .sorted_unstable()
-            .collect();
-        assert_eq!(external_addrs, expected_addrs);
-    }
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let external_addrs = args.into_iter().next().unwrap();
+    let external_addrs = external_addrs.as_array().unwrap();
+    let mut external_addrs = external_addrs
+        .iter()
+        .map(|v| {
+            let external_addrs = v.get("external_addresses").unwrap().as_array().unwrap();
+            let maddr = external_addrs[0].as_str().unwrap();
+            Multiaddr::from_str(maddr).unwrap()
+        })
+        .collect::<Vec<_>>();
+    external_addrs.sort_unstable();
+    external_addrs.dedup();
+    let expected_addrs: Vec<_> = swarms
+        .iter()
+        .map(|s| s.multiaddr.clone())
+        .sorted_unstable()
+        .collect();
+    assert_eq!(external_addrs, expected_addrs);
 }
 
 #[test]
