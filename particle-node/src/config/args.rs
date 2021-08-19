@@ -60,7 +60,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .display_order(5)
             .help_heading(Some("Networking"))
             .takes_value(true)
-            .multiple(true)
+            .multiple_values(true)
             .short('z')
             .long("external-maddrs")
             .value_name("MULTIADDR")
@@ -79,7 +79,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .short('b')
             .long("bootstraps")
-            .multiple(true)
+            .multiple_values(true)
             .about("bootstrap nodes of the Fluence network"),
         Arg::new(BOOTSTRAP_FREQ)
             .display_order(8)
@@ -88,7 +88,6 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .short('q')
             .long("bootstrap-freq")
-            .multiple(true)
             .about("bootstrap kademlia each time N bootstraps (re)connect"),
         Arg::new(LOCAL)
             .display_order(9)
@@ -153,7 +152,6 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .long("management-key")
             .short('m')
-            .multiple(false)
             .value_name("PEER ID")
             .about("PeerId of the node's administrator"),
         // services
@@ -164,7 +162,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .short('e')
             .long("service-envs")
-            .multiple(true)
+            .multiple_values(true)
             .about("envs to pass to core modules"),
         Arg::new(BLUEPRINT_DIR)
             .display_order(18)
