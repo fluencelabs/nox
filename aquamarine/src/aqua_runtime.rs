@@ -25,7 +25,7 @@ use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
 use host_closure::ClosureDescriptor;
 use libp2p::PeerId;
-// use log::LevelFilter;
+use log::LevelFilter;
 use std::{error::Error, task::Waker};
 
 pub trait AquaRuntime: Sized + Send + 'static {
@@ -99,8 +99,10 @@ impl AquaRuntime for AVM {
                     "Executed particle {}, next_peer_pks is empty. Won't send anywhere",
                     p.id
                 );
-                let data = String::from_utf8_lossy(data.as_slice());
-                log::error!("particle {} next_peer_pks = [], data: {}", p.id, data);
+                if log::max_level() >= LevelFilter::Debug {
+                    let data = String::from_utf8_lossy(data.as_slice());
+                    log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
+                }
                 vec![]
             }
             Err(ExecutionError::AquamarineError(err)) => {
@@ -128,25 +130,7 @@ impl AquaRuntime for AVM {
         data: Vec<u8>,
         particle_id: String,
     ) -> Result<InterpreterOutcome, Self::Error> {
-        let data_json = String::from_utf8_lossy(data.as_slice());
-        log::debug!(
-            "Will execute particle {} with current data {}",
-            particle_id,
-            data_json
-        );
-
-        let outcome = AVM::call(
-            self,
-            init_user_id.to_string(),
-            aqua,
-            data,
-            particle_id.clone(),
-        );
-        if let Ok(outcome) = &outcome {
-            let new_data = String::from_utf8_lossy(&outcome.data);
-            log::debug!("Particle {} new_data {}", particle_id, new_data);
-        }
-        outcome
+        AVM::call(self, init_user_id.to_string(), aqua, data, particle_id)
     }
 
     #[inline]

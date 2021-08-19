@@ -210,9 +210,6 @@ pub fn read_args(
     local_vm: &mut AVM,
     out: Arc<Mutex<Vec<JValue>>>,
 ) -> Vec<JValue> {
-    let data_json = String::from_utf8_lossy(particle.data.as_slice());
-    // TODO: remove after tests
-    log::info!("current_data: {}", data_json);
     let result = local_vm
         .call(
             peer_id.to_string(),

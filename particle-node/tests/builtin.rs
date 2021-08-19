@@ -98,7 +98,6 @@ fn big_identity() {
 
 #[test]
 fn remove_service_azaza() {
-    enable_logs();
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -212,7 +211,6 @@ fn remove_service_restart() {
 
 #[test]
 fn remove_service_by_alias() {
-    enable_logs();
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_with_keypair(
