@@ -25,6 +25,8 @@ pub fn enable_logs() {
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
         .filter(Some("aquamarine"), Trace)
+        .filter(Some("network"), Trace)
+        .filter(Some("network_api"), Trace)
         .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)

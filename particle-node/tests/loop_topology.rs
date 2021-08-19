@@ -102,8 +102,6 @@ fn fold_fold_fold() {
 
 #[test]
 fn fold_same_node_stream() {
-    enable_logs();
-
     let swarms = make_swarms(4);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -118,15 +116,19 @@ fn fold_same_node_stream() {
         }
     }
 
-    let mut pid_permutations = permutations(&swarms).into_iter();
-    let pid_permutations = &mut pid_permutations;
-    let per_node = pid_permutations.len() / swarms.len();
+    let pid_permutations = permutations(&swarms);
+    let mut permutations = pid_permutations.iter();
+    let permutations = &mut permutations;
+    let per_node = permutations.len() / swarms.len();
     let permutations = swarms.iter().fold(vec![], |mut acc, swarm| {
-        let perms = pid_permutations.take(per_node).collect::<Vec<_>>();
+        let perms = permutations.take(per_node).collect::<Vec<_>>();
         assert_eq!(perms.len(), per_node);
         acc.push((swarm.peer_id.to_string(), perms));
         acc
     });
+
+    client.timeout = Duration::from_secs(30);
+    client.particle_ttl = Duration::from_secs(30);
 
     client.send_particle(
         r#"
@@ -166,7 +168,7 @@ fn fold_same_node_stream() {
             )
             (seq
                 (call relay ("op" "noop") [])
-                (call client ("return" "") [$inner])
+                (call client ("return" "") [$inner $result])
             )
         )
         "#,
@@ -177,55 +179,26 @@ fn fold_same_node_stream() {
         },
     );
 
-    client.timeout = Duration::from_secs(1);
-
-    let args = client.receive_args().wrap_err("receive args");
-    if args.is_err() {
-        panic!("{} failed", json!(permutations));
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    if let [JValue::Array(inner), JValue::Array(result)] = args.as_slice() {
+        let inner: Vec<_> = inner
+            .iter()
+            .map(|a| {
+                a.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|s| s.as_str().unwrap().to_string())
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        assert_eq!(pid_permutations, inner);
+        let flat: Vec<_> = pid_permutations.into_iter().flatten().collect();
+        let result: Vec<_> = result
+            .iter()
+            .map(|s| s.as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(flat, result);
+    } else {
+        panic!("expected 2 arrays");
     }
-}
-
-#[test]
-fn fold_same_node() {
-    enable_logs();
-
-    let swarms = make_swarms(4);
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .wrap_err("connect client")
-        .unwrap();
-
-    client.send_particle(
-        r#"
-        (seq
-            (fold node_arrays ns
-                (seq
-                    (fold ns n
-                        (seq
-                            (seq
-                                (call n ("op" "noop") [])
-                                (ap n $result)
-                            )
-                            (next n)
-                        )
-                    )
-                    (next ns)
-                )
-            )
-            (seq
-                (call relay ("op" "noop") [])
-                (call client ("return" "") [$result])
-            )
-        )
-        "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "node_arrays" => json!(permutations(&swarms))
-        },
-    );
-
-    client.timeout = Duration::from_secs(120);
-
-    client.receive_args().wrap_err("receive args").unwrap();
 }
