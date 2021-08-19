@@ -225,7 +225,8 @@ impl BuiltinsDeployer {
             self.particle_ttl,
         );
 
-        let result = block_on(self.node_api.clone().handle(particle))?;
+        let result = block_on(self.node_api.clone().handle(particle))
+            .map_err(|e| eyre!("send_particle: handle failed: {}", e))?;
 
         let particle = result
             .particles
@@ -361,7 +362,47 @@ impl BuiltinsDeployer {
         Ok(())
     }
 
+    fn wait_for_vm_pool(&mut self) -> Result<()> {
+        let mut attempt = 0u32;
+        loop {
+            attempt += 1;
+
+            let result: eyre::Result<()> = try {
+                let script = r#"
+                    (seq
+                        (call relay ("op" "identity") [])
+                        (call %init_peer_id% ("op" "return") [true])
+                    )
+                    "#
+                .to_string();
+
+                let res = self
+                    .send_particle(script, hashmap! {})
+                    .map_err(|e| eyre::eyre!("ping send_particle #{} failed: {}", attempt, e))?;
+
+                assert_ok(res, &format!("ping call #{} failed", attempt))?
+            };
+
+            if let Err(err) = result {
+                log::warn!("wait_for_vm_pool: {}", err);
+
+                if attempt > 5 {
+                    return Err(eyre::eyre!(
+                        "Attempts limit exceeded. Can't connect to vm pool: {}",
+                        err
+                    ));
+                }
+            } else {
+                break;
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn deploy_builtin_services(&mut self) -> Result<()> {
+        self.wait_for_vm_pool()?;
+
         let from_disk = self.list_builtins()?;
         let mut local_services = self.get_service_blueprints()?;
 
@@ -405,6 +446,7 @@ impl BuiltinsDeployer {
 
             if let Err(err) = result {
                 log::error!("builtin {} init is failed: {}", builtin.name, err);
+                return Err(err);
             }
         }
 
