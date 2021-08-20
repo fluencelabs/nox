@@ -388,7 +388,7 @@ impl BuiltinsDeployer {
             };
 
             if let Err(err) = result {
-                log::warn!("wait_for_vm_pool: {}", err);
+                log::warn!("Attempt to ping vm pool failed: {}", err);
 
                 if attempt > self.retry_attempts_count {
                     return Err(eyre::eyre!(
