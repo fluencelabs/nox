@@ -115,7 +115,9 @@ pub fn default_execution_timeout() -> Duration {
     Duration::from_secs(20)
 }
 
-pub fn default_autodeploy_retry_attempts() -> u16 { 5 }
+pub fn default_autodeploy_retry_attempts() -> u16 {
+    5
+}
 
 pub fn default_processing_timeout() -> Duration {
     Duration::from_secs(120)
