@@ -76,6 +76,8 @@ pub struct BuiltinsDeployer {
     particle_ttl: Duration,
     // if set to true, remove existing builtins before deploying
     force_redeploy: bool,
+    // the number of ping attempts to check the readiness of the vm pool
+    retry_attempts_count: u16,
 }
 
 fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
@@ -185,6 +187,7 @@ impl BuiltinsDeployer {
         base_dir: PathBuf,
         particle_ttl: Duration,
         force_redeploy: bool,
+        retry_attempts_count: u16,
     ) -> Self {
         let call_in = Arc::new(Mutex::new(hashmap! {}));
         let call_out = Arc::new(Mutex::new(vec![]));
@@ -201,6 +204,7 @@ impl BuiltinsDeployer {
             builtins_base_dir: base_dir,
             particle_ttl,
             force_redeploy,
+            retry_attempts_count,
         }
     }
 
@@ -363,14 +367,14 @@ impl BuiltinsDeployer {
     }
 
     fn wait_for_vm_pool(&mut self) -> Result<()> {
-        let mut attempt = 0u32;
+        let mut attempt = 0u16;
         loop {
             attempt += 1;
 
             let result: eyre::Result<()> = try {
                 let script = r#"
                     (seq
-                        (call relay ("op" "identity") [])
+                        (call relay ("op" "noop") [])
                         (call %init_peer_id% ("op" "return") [true])
                     )
                     "#
@@ -386,7 +390,7 @@ impl BuiltinsDeployer {
             if let Err(err) = result {
                 log::warn!("wait_for_vm_pool: {}", err);
 
-                if attempt > 5 {
+                if attempt > self.retry_attempts_count {
                     return Err(eyre::eyre!(
                         "Attempts limit exceeded. Can't connect to vm pool: {}",
                         err
