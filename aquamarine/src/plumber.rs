@@ -124,6 +124,7 @@ impl<RT: AquaRuntime> Plumber<RT> {
                     ActorPoll::Executing => {}
                 }
             } else {
+                // TODO: calculate deviations from normal mailbox_size
                 if mailbox_size > 11 {
                     log::warn!(
                         "{} particles waiting in mailboxes, but all interpreters busy",

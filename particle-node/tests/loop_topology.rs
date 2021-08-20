@@ -24,7 +24,6 @@ use futures::executor::block_on;
 use itertools::Itertools;
 use libp2p::core::Multiaddr;
 use local_vm::read_args;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
