@@ -118,6 +118,7 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
 
     let startup_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
     let autodeploy_particle_ttl = config.node_config.autodeploy_particle_ttl;
+    let autodeploy_retry_attempts = config.node_config.autodeploy_retry_attempts;
     let force_builtins_redeploy = config.node_config.force_builtins_redeploy;
     let listen_addrs = config.listen_config().multiaddrs;
     let mut node = Node::new(config, startup_peer_id).wrap_err("error create node instance")?;
@@ -134,8 +135,8 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
         builtins_dir,
         autodeploy_particle_ttl,
         force_builtins_redeploy,
+        autodeploy_retry_attempts,
     );
-    // TODO: start deploy after AquamarineVMs are started
     builtin_deployer
         .deploy_builtin_services()
         .wrap_err("builtins deploy failed")?;
