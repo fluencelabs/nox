@@ -203,7 +203,7 @@ fn fold_same_node_stream() {
 }
 
 #[test]
-fn par_wait_two() {
+fn fold_via() {
     let swarms = make_swarms(4);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -273,4 +273,89 @@ fn par_wait_two() {
         },
         true,
     );
+
+    client.receive().unwrap();
 }
+
+#[test]
+fn air_hangs() {
+    let swarms = make_swarms(4);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle_ext(
+        r#"
+        (xor
+         (seq
+          (seq
+           (seq
+            (seq
+             (seq
+              (seq
+               (seq
+                (seq
+                 (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
+                 (call %init_peer_id% ("getDataSrv" "node_id") [] node_id)
+                )
+                (call %init_peer_id% ("getDataSrv" "viaAr") [] viaAr)
+               )
+               (call -relay- ("op" "noop") [])
+              )
+              (fold viaAr -via-peer-
+               (seq
+                (call -via-peer- ("op" "noop") [])
+                (next -via-peer-)
+               )
+              )
+             )
+             (xor
+              (call node_id ("peer" "identify") [] p)
+              (seq
+               (seq
+                (seq
+                 (fold viaAr -via-peer-
+                  (seq
+                   (call -via-peer- ("op" "noop") [])
+                   (next -via-peer-)
+                  )
+                 )
+                 (call -relay- ("op" "noop") [])
+                )
+                (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+               )
+               (call -relay- ("op" "noop") [])
+              )
+             )
+            )
+            (fold viaAr -via-peer-
+             (seq
+              (call -via-peer- ("op" "noop") [])
+              (next -via-peer-)
+             )
+            )
+           )
+           (call -relay- ("op" "noop") [])
+          )
+          (xor
+           (call %init_peer_id% ("callbackSrv" "response") [p])
+           (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
+          )
+         )
+         (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
+        )
+        "#,
+        hashmap! {
+            "-relay-" => json!(client.node.to_base58()),
+            "node_id" => json!(client.node.to_base58()),
+            "viaAr" => json!(swarms.iter().map(|s| s.peer_id.to_string()).collect::<Vec<_>>()),
+        },
+        true,
+    );
+
+    client.receive().unwrap();
+}
+/*
+
+*/
