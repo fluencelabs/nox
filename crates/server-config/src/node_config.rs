@@ -33,6 +33,11 @@ pub struct NodeConfig {
     #[serde(with = "humantime_serde")]
     pub autodeploy_particle_ttl: Duration,
 
+    /// Configure the number of ping attempts to check the readiness of the vm pool.
+    /// Total wait time is the autodeploy_particle_ttl times the number of attempts.
+    #[serde(default = "default_autodeploy_retry_attempts")]
+    pub autodeploy_retry_attempts: u16,
+
     /// Affects builtins autodeploy. If set to true, then all builtins should be recreated and their state is cleaned up.
     #[serde(default)]
     pub force_builtins_redeploy: bool,

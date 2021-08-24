@@ -197,6 +197,7 @@ where
                     builtins_dir,
                     Duration::from_millis(PARTICLE_TTL as u64),
                     false,
+                    5,
                 );
 
                 builtin_loader
