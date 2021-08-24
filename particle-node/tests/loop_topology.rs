@@ -14,24 +14,14 @@
  * limitations under the License.
  */
 
-use connected_client::{ClientEvent, ConnectedClient};
+use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, CreatedSwarm};
-use test_constants::KAD_TIMEOUT;
-use test_utils::{create_service, timeout};
 
-use eyre::{ContextCompat, WrapErr};
-use futures::executor::block_on;
-use itertools::Itertools;
-use libp2p::core::Multiaddr;
-use local_vm::read_args;
+use eyre::WrapErr;
 use maplit::hashmap;
-use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
-use service_modules::{load_module, module_config};
-use std::str::FromStr;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
     use itertools::*;
@@ -203,7 +193,7 @@ fn fold_same_node_stream() {
 }
 
 #[test]
-fn fold_via() {
+fn par_wait_two() {
     let swarms = make_swarms(4);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -278,7 +268,7 @@ fn fold_via() {
 }
 
 #[test]
-fn air_hangs() {
+fn fold_via() {
     let swarms = make_swarms(4);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
