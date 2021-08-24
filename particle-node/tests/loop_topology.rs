@@ -201,3 +201,76 @@ fn fold_same_node_stream() {
         panic!("expected 2 arrays");
     }
 }
+
+#[test]
+fn par_wait_two() {
+    let swarms = make_swarms(4);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle_ext(
+        r#"
+        (xor
+         (seq
+          (seq
+           (seq
+            (seq
+             (seq
+              (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
+              (call %init_peer_id% ("getDataSrv" "relay") [] relay)
+             )
+             (call -relay- ("op" "noop") [])
+            )
+            (xor
+             (seq
+              (seq
+               (seq
+                (seq
+                 (seq
+                  (call relay ("op" "string_to_b58") [%init_peer_id%] k)
+                  (call relay ("kad" "neighborhood") [k [] []] nodes)
+                 )
+                 (fold nodes n
+                  (par
+                   (seq
+                    (xor
+                     (call n ("peer" "timestamp_sec") [] $res)
+                     (null)
+                    )
+                    (call relay ("op" "noop") [])
+                   )
+                   (next n)
+                  )
+                 )
+                )
+                (call relay ("op" "identity") [$res.$.[0]!])
+               )
+               (call relay ("op" "identity") [$res.$.[1]!])
+              )
+              (call relay ("op" "identity") [$res.$.[2]!])
+             )
+             (seq
+              (call -relay- ("op" "noop") [])
+              (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+             )
+            )
+           )
+           (call -relay- ("op" "noop") [])
+          )
+          (xor
+           (call %init_peer_id% ("callbackSrv" "response") [$res])
+           (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
+          )
+         )
+         (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
+        )
+        "#,
+        hashmap! {
+            "-relay-" => json!(client.node.to_base58()),
+            "relay" => json!(client.node.to_base58()),
+        },
+        true,
+    );
+}

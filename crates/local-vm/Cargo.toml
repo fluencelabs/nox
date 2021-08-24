@@ -13,7 +13,7 @@ uuid-utils = { path = "../uuid-utils" }
 fs-utils = { path = "../fs-utils"}
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 
-air-interpreter-wasm = "=0.14.0-new-data.0"
+air-interpreter-wasm = "=0.14.0-new-data.1"
 avm-server = "0.10.0"
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
