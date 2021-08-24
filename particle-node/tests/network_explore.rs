@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 use connected_client::{ClientEvent, ConnectedClient};
-use created_swarm::{make_swarms};
+use created_swarm::make_swarms;
 use test_constants::KAD_TIMEOUT;
 use test_utils::{create_service, timeout};
 
