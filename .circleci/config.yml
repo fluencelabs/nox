@@ -14,7 +14,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - fluence04-{{ checksum "Cargo.lock" }}
+            - fluence05-{{ checksum "Cargo.lock" }}
       - run: |
           rustup toolchain install nightly-2021-06-14-x86_64-unknown-linux-gnu
           rustup override set nightly-2021-06-14-x86_64-unknown-linux-gnu
@@ -34,7 +34,7 @@ jobs:
           paths:
             - ~/.cargo
             - ~/.rustup
-          key: fluence04-{{ checksum "Cargo.lock" }}
+          key: fluence05-{{ checksum "Cargo.lock" }}
 
   Rust Tests:
     docker:

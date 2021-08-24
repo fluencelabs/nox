@@ -151,7 +151,7 @@ pub fn make_particle(
             .into_air()
     };
 
-    let catch = f!(r#"(call %init_peer_id% ("return" "") [%last_error%])"#);
+    let catch = f!(r#"(call %init_peer_id% ("errorHandlingSrv" "error") [%last_error%])"#);
     let catch = if let Some(relay) = relay.into() {
         f!(r#"
         (seq
@@ -181,7 +181,7 @@ pub fn make_particle(
         error_message,
         ..
     } = local_vm
-        .call(peer_id.to_string(), script.clone(), "[]", id.clone())
+        .call(peer_id.to_string(), script.clone(), vec![], id.clone())
         .expect("execute & make particle");
 
     service_in.lock().clear();

@@ -63,6 +63,7 @@ impl NetworkApi {
         connection_pool: ConnectionPoolApi,
         bootstrap_frequency: usize,
         particle_timeout: Duration,
+        current_peer_id: PeerId,
     ) -> Self {
         Self {
             particle_stream,
@@ -70,6 +71,7 @@ impl NetworkApi {
             connectivity: Connectivity {
                 kademlia,
                 connection_pool,
+                current_peer_id,
             },
             bootstrap_frequency,
             particle_timeout,
@@ -120,6 +122,7 @@ impl NetworkApi {
 pub struct Connectivity {
     pub kademlia: KademliaApi,
     pub connection_pool: ConnectionPoolApi,
+    pub current_peer_id: PeerId,
 }
 
 impl Connectivity {
@@ -303,8 +306,9 @@ impl Connectivity {
             .for_each_concurrent(particle_parallelism, move |particle| {
                 let aquamarine = aquamarine.clone();
                 let connectivity = self.clone();
+                let peer_id = connectivity.current_peer_id;
                 let mut particle_failures_sink = particle_failures_sink.clone();
-                log::info!(target: "network", "Will execute particle {}", particle.id);
+                log::info!(target: "network", "{} Will execute particle {}", peer_id, particle.id);
 
                 let timeout = min(particle.time_to_live(), particle_timeout);
                 if timeout.is_zero() {

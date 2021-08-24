@@ -37,14 +37,14 @@ fn identity() {
     a.send_particle(
         r#"
         (seq
-            (call node_a ("op" "identity") [])
+            (call node_a ("op" "noop") [])
             (seq
-                (call node_b ("op" "identity") [])
+                (call node_b ("op" "noop") [])
                 (seq
-                    (call node_c ("op" "identity") [])
+                    (call node_c ("op" "noop") [])
                     (seq
-                        (call node_b ("op" "identity") [])
-                        (call client_b ("op" "identity") [])
+                        (call node_b ("op" "noop") [])
+                        (call client_b ("op" "noop") [])
                     )
                 )
             )
@@ -74,7 +74,7 @@ fn init_peer_id() {
         (seq
             (call relay ("kad" "neighborhood") [client] peers)
             (seq
-                (call relay ("op" "identity") [])
+                (call relay ("op" "noop") [])
                 (call %init_peer_id% ("event" "peers_discovered") [relay peers])
             )
         )

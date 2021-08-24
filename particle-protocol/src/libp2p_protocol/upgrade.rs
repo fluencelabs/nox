@@ -94,7 +94,7 @@ impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent> From<ProtocolCo
 // 100 Mb
 #[allow(clippy::identity_op)]
 const MAX_BUF_SIZE: usize = 100 * 1024 * 1024;
-const PROTOCOL_INFO: &[u8] = b"/fluence/faas/1.0.0";
+const PROTOCOL_INFO: &[u8] = b"/fluence/particle/2.0.0";
 
 macro_rules! impl_upgrade_info {
     ($tname:ident) => {

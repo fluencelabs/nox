@@ -150,7 +150,6 @@ fn get_modules() {
     );
 
     let value = client.receive_args().wrap_err("receive args").unwrap();
-    println!("{:?}", value);
     let mut iter = value.into_iter();
     let modules = iter.next().unwrap();
     let modules: Vec<ModuleDescriptor> = serde_json::from_value(modules).unwrap();
@@ -289,13 +288,13 @@ fn explore_services_fixed() {
     // language=Clojure
     let script = r#"
         (seq
-            (call relayId ("op" "identity") [])
+            (call relayId ("op" "noop") [])
             (fold peers p
                 (par
                     (seq
                         (call p ("srv" "list") [] $services)
                         (seq
-                            (call relayId ("op" "identity") [])
+                            (call relayId ("op" "noop") [])
                             (call %init_peer_id% ("return" "") [p $services])
                         )
                     )

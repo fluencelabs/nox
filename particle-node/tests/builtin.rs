@@ -96,7 +96,7 @@ fn big_identity() {
 }
 
 #[test]
-fn remove_service() {
+fn remove_service_azaza() {
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -283,7 +283,7 @@ fn non_owner_remove_service() {
                 (call relay ("srv" "list") [] list_before)
                 (xor
                     (call relay ("srv" "remove") [service])
-                    (call relay ("op" "identity") [%last_error%.$.instruction] error)
+                    (ap %last_error%.$.instruction error)
                 )
             )
             (seq
@@ -601,7 +601,7 @@ fn neighborhood() {
         )
         (xor
             (call relay ("kad" "neighborhood") [key true])
-            (call relay ("op" "identity") [%last_error%.$.msg] error)
+            (ap %last_error%.$.msg error)
         )
     )
     "#;
@@ -677,7 +677,7 @@ fn ipfs_multiaddr() {
             (seq
                 (xor
                     (call relay ("ipfs" "get_multiaddr") [])
-                    (call relay ("op" "identity") [%last_error%.$.msg] uninit_error)
+                    (ap %last_error%.$.msg uninit_error)
                 )
                 (seq
                     (call relay ("ipfs" "set_multiaddr") [first_maddr])
@@ -690,7 +690,7 @@ fn ipfs_multiaddr() {
                     (call relay ("ipfs" "clear_multiaddr") [])
                     (xor
                         (call relay ("ipfs" "get_multiaddr") [])
-                        (call relay ("op" "identity") [%last_error%.$.msg] cleared_error)
+                        (ap %last_error%.$.msg cleared_error)
                     )
                 )
             )
@@ -739,7 +739,7 @@ fn identity() {
         r#"
         (xor
             (call relay ("op" "identity") ["hi" "there"] result)
-            (call relay ("op" "identity") [%last_error%.$.msg] error)
+            (ap %last_error%.$.msg error)
         )
         "#,
         <_>::default(),
@@ -791,16 +791,16 @@ fn array_length() {
             (seq
                 (xor
                     (call relay ("op" "array_length") [])
-                    (call relay ("op" "identity") [%last_error%.$.msg] zero_error)
+                    (ap %last_error%.$.msg zero_error)
                 )
                 (seq
                     (xor
                         (call relay ("op" "array_length") [empty_array five_array])
-                        (call relay ("op" "identity") [%last_error%.$.msg] count_error)
+                        (ap %last_error%.$.msg count_error)
                     )
                     (xor
                         (call relay ("op" "array_length") ["hola"])
-                        (call relay ("op" "identity") [%last_error%.$.msg] type_error)
+                        (ap %last_error%.$.msg type_error)
                     )
                 )
             )

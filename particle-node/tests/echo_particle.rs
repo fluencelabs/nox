@@ -39,7 +39,7 @@ fn echo_particle() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("op" "identity") [])
+            (call relay ("op" "noop") [])
             (call client ("return" "") [name])
         )"#,
         data.clone(),

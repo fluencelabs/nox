@@ -50,17 +50,29 @@ fn test_tetraplets() {
     (seq
         (seq
             (seq
-                (call host ("op" "identity") ["test"] result)
-                (call host (service_id "get_tetraplets") [result] first_tetraplets)
+                (seq
+                    (ap "test" ap_literal)
+                    (seq
+                        (call host ("op" "identity") ["test"] result)
+                        (ap result ap_result)
+                    )
+                )
+                (seq
+                    (seq
+                        (call host (service_id "get_tetraplets") [ap_literal] ap_literal_tetraplets)
+                        (call host (service_id "get_tetraplets") [result] first_tetraplets)
+                    )
+                    (call host (service_id "get_tetraplets") [ap_result] ap_first_tetraplets)
+                )
             )
             (seq
-                (call host ("op" "identity") [])
+                (call host ("op" "noop") [])
                 (call host (service_id "get_tetraplets") [first_tetraplets.$.[0][0].peer_pk] second_tetraplets)
             )
         )
         (seq
-            (call host ("op" "identity") [])
-            (call client ("return" "") [first_tetraplets second_tetraplets])
+            (call host ("op" "noop") [])
+            (call client ("return" "") [ap_literal_tetraplets first_tetraplets ap_first_tetraplets second_tetraplets])
         )
     )"#);
 
@@ -74,6 +86,20 @@ fn test_tetraplets() {
 
     let args = client.receive_args().wrap_err("receive").unwrap();
     let mut args = args.into_iter();
+
+    let ap_literal_tetraplets = args.next().unwrap();
+    let ap_literal_tetraplets: Vec<Vec<SecurityTetraplet>> =
+        serde_json::from_value(ap_literal_tetraplets)
+            .wrap_err("deserialize tetraplets")
+            .unwrap();
+    assert_eq!(ap_literal_tetraplets.len(), 1);
+    assert_eq!(ap_literal_tetraplets[0].len(), 1);
+    let tetraplet = &ap_literal_tetraplets[0][0];
+    assert_eq!(tetraplet.function_name, "");
+    assert_eq!(tetraplet.peer_pk, client.peer_id.to_base58());
+    assert_eq!(tetraplet.json_path, "");
+    assert_eq!(tetraplet.service_id, "");
+
     let first_tetraplets = args.next().unwrap();
     let first_tetraplets: Vec<Vec<SecurityTetraplet>> = serde_json::from_value(first_tetraplets)
         .wrap_err("deserialize tetraplets")
@@ -86,6 +112,14 @@ fn test_tetraplets() {
     assert_eq!(tetraplet.peer_pk, client.node.to_base58());
     assert_eq!(tetraplet.json_path, "");
     assert_eq!(tetraplet.service_id, "op");
+
+    let ap_first_tetraplets = args.next().unwrap();
+    let ap_first_tetraplets: Vec<Vec<SecurityTetraplet>> =
+        serde_json::from_value(ap_first_tetraplets)
+            .wrap_err("deserialize tetraplets")
+            .unwrap();
+    let ap_tetraplet = &ap_first_tetraplets[0][0];
+    assert_eq!(tetraplet, ap_tetraplet);
 
     let second_tetraplets = args.next().unwrap();
     let second_tetraplets: Vec<Vec<SecurityTetraplet>> = serde_json::from_value(second_tetraplets)
