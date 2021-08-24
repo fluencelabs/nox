@@ -190,7 +190,7 @@ fn insert_args_to_config(
 
         // Convert value to a type of the corresponding field in `FluenceConfig`
         let mut value = match k {
-            WEBSOCKET_PORT | TCP_PORT => Integer(single(arg).parse()?),
+            WEBSOCKET_PORT | TCP_PORT | PROMETHEUS_PORT => Integer(single(arg).parse()?),
             BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => Array(multiple(arg).collect()),
             ROOT_KEY_PAIR_VALUE => {
                 check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
