@@ -130,7 +130,7 @@
     },
     {
       "name": "stage",
-      "container_tag": "crdt_interpreter_v219",
+      "container_tag": "crdt_interpreter_v220",
       "containers_per_host": 5,
       "hosts": [
         "134.209.186.43"
