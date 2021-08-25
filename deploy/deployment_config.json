@@ -4,7 +4,7 @@
   "environments": [
     {
       "name": "krasnodar",
-      "container_tag": "v110",
+      "container_tag": "latest_v230",
       "containers_per_host": 1,
       "external_bootstraps": [
         "/ip4/165.227.164.206/tcp/7001",
@@ -69,7 +69,7 @@
     },
     {
       "name": "testnet",
-      "container_tag": "v110",
+      "container_tag": "latest_v230",
       "containers_per_host": 1,
       "external_bootstraps": [],
       "hosts": [
@@ -130,7 +130,7 @@
     },
     {
       "name": "stage",
-      "container_tag": "crdt_interpreter_v222",
+      "container_tag": "latest_v230",
       "containers_per_host": 5,
       "hosts": [
         "134.209.186.43"

@@ -16,7 +16,7 @@
 
 use aquamarine::{AquamarineApi, AVM};
 use fluence_libp2p::PeerId;
-use fs_utils::{file_name, file_stem};
+use fs_utils::{file_name, file_stem, to_abs_path};
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
 use particle_modules::{list_files, AddBlueprint, NamedModuleConfig};
 use service_modules::{
@@ -472,38 +472,38 @@ impl BuiltinsDeployer {
     }
 
     fn list_builtins(&self) -> Result<Vec<Builtin>> {
-        let (successful, failed): (Vec<Builtin>, Vec<ErrReport>) =
-            list_files(self.builtins_base_dir.as_path())
-                .ok_or_else(|| eyre!("{:#?} folder not found", self.builtins_base_dir))?
-                .fold(
-                    (vec![], vec![]),
-                    |(mut successful, mut failed): (Vec<Builtin>, Vec<ErrReport>), path| {
-                        let result = try {
-                            let name = file_name(&path)?;
+        let builtins_dir = to_abs_path(self.builtins_base_dir.clone());
+        let (successful, failed): (Vec<Builtin>, Vec<ErrReport>) = list_files(&builtins_dir)
+            .ok_or_else(|| eyre!("{:#?} directory not found", builtins_dir))?
+            .fold(
+                (vec![], vec![]),
+                |(mut successful, mut failed): (Vec<Builtin>, Vec<ErrReport>), path| {
+                    let result = try {
+                        let name = file_name(&path)?;
 
-                            let blueprint = load_blueprint(&path)?;
-                            let modules = load_modules(&path, &blueprint.dependencies)?;
-                            let blueprint_id = get_blueprint_id(&modules, name.clone())?;
-                            let scheduled_scripts = load_scheduled_scripts(&path)?;
+                        let blueprint = load_blueprint(&path)?;
+                        let modules = load_modules(&path, &blueprint.dependencies)?;
+                        let blueprint_id = get_blueprint_id(&modules, name.clone())?;
+                        let scheduled_scripts = load_scheduled_scripts(&path)?;
 
-                            Builtin {
-                                name,
-                                modules,
-                                blueprint,
-                                blueprint_id,
-                                on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
-                                on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
-                                scheduled_scripts,
-                            }
-                        };
-
-                        match result {
-                            Ok(builtin) => successful.push(builtin),
-                            Err(err) => failed.push(err),
+                        Builtin {
+                            name,
+                            modules,
+                            blueprint,
+                            blueprint_id,
+                            on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
+                            on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
+                            scheduled_scripts,
                         }
-                        (successful, failed)
-                    },
-                );
+                    };
+
+                    match result {
+                        Ok(builtin) => successful.push(builtin),
+                        Err(err) => failed.push(err),
+                    }
+                    (successful, failed)
+                },
+            );
 
         failed
             .iter()
@@ -511,7 +511,10 @@ impl BuiltinsDeployer {
             .for_each(drop);
 
         return if !failed.is_empty() {
-            Err(eyre!("failed to load builtins from disk"))
+            Err(eyre!(
+                "failed to load builtins from disk {:?}",
+                builtins_dir
+            ))
         } else {
             Ok(successful)
         };
