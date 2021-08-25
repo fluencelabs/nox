@@ -64,10 +64,10 @@ jobs:
       - run: |
           if [ "$CIRCLE_BRANCH" = "master" ]; then
             echo "export DOCKER_TAG=latest" >> $BASH_ENV
-            echo "export DISTRO_TAG_PREFIX=''" >> $BASH_ENV
+            echo "export BRANCH=''" >> $BASH_ENV
           else
             echo "export DOCKER_TAG=$CIRCLE_BRANCH" >> $BASH_ENV
-            echo "export DISTRO_TAG_PREFIX=$CIRCLE_BRANCH" >> $BASH_ENV
+            echo "export BRANCH=$CIRCLE_BRANCH" >> $BASH_ENV
           fi
 
       - docker/build:
@@ -78,7 +78,7 @@ jobs:
           image: fluencelabs/fluence
           tag: ${DOCKER_TAG},${CIRCLE_BRANCH}_${CIRCLE_SHA1}
       - run: |
-          curl \
+          curl --fail \
             -u folex:${GITHUB_PERSONAL_TOKEN} \
             -X POST \
             -H "Accept: application/vnd.github.v3+json" \
@@ -86,7 +86,7 @@ jobs:
             -d '{
               "ref":"main",
               "inputs": {
-                "tag_prefix":"'${DISTRO_TAG_PREFIX}'"
+                "fluence_branch":"'${BRANCH}'"
               }
             }'
 
