@@ -20,12 +20,15 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_builtins;
 
 use eyre::WrapErr;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::json;
 use std::path::Path;
 
 #[test]
 fn find_subscribers() {
+    enable_logs();
+
     let init_subscribe_script = load_script("pubsub.initTopicAndSubscribe.air");
     let find_subscribers_script = load_script("pubsub.findSubscribers.air");
 
@@ -35,6 +38,7 @@ fn find_subscribers() {
         .wrap_err("connect client")
         .unwrap();
 
+    log::info!("gonna send particle");
     // initTopicAndSubscribe(node_id: PeerId, topic: string, value: string, relay_id: ?PeerId, service_id: ?string):
     let topic = "topic";
     let init_particle = client.send_particle_ext(

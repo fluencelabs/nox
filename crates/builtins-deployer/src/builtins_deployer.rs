@@ -473,41 +473,44 @@ impl BuiltinsDeployer {
 
     fn list_builtins(&self) -> Result<Vec<Builtin>> {
         let builtins_dir = to_abs_path(self.builtins_base_dir.clone());
-        let (successful, failed): (Vec<Builtin>, Vec<ErrReport>) = list_files(&builtins_dir)
+        let builtins = list_files(&builtins_dir)
             .ok_or_else(|| eyre!("{:#?} directory not found", builtins_dir))?
-            .fold(
-                (vec![], vec![]),
-                |(mut successful, mut failed): (Vec<Builtin>, Vec<ErrReport>), path| {
-                    let result = try {
-                        let name = file_name(&path)?;
+            .filter(|p| p.is_dir());
 
-                        let blueprint = load_blueprint(&path)?;
-                        let modules = load_modules(&path, &blueprint.dependencies)?;
-                        let blueprint_id = get_blueprint_id(&modules, name.clone())?;
-                        let scheduled_scripts = load_scheduled_scripts(&path)?;
+        let (successful, failed): (Vec<Builtin>, Vec<ErrReport>) = builtins.fold(
+            (vec![], vec![]),
+            |(mut successful, mut failed): (Vec<Builtin>, Vec<ErrReport>), path| {
+                let result = try {
+                    let name = file_name(&path)?;
+                    let blueprint = load_blueprint(&path)?;
+                    let modules = load_modules(&path, &blueprint.dependencies)?;
+                    let blueprint_id = get_blueprint_id(&modules, name.clone())?;
+                    let scheduled_scripts = load_scheduled_scripts(&path)?;
 
-                        Builtin {
-                            name,
-                            modules,
-                            blueprint,
-                            blueprint_id,
-                            on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
-                            on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
-                            scheduled_scripts,
-                        }
-                    };
-
-                    match result {
-                        Ok(builtin) => successful.push(builtin),
-                        Err(err) => failed.push(err),
+                    Builtin {
+                        name,
+                        modules,
+                        blueprint,
+                        blueprint_id,
+                        on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
+                        on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
+                        scheduled_scripts,
                     }
-                    (successful, failed)
-                },
-            );
+                };
+
+                match result {
+                    Ok(builtin) => successful.push(builtin),
+                    Err(err) => failed.push(err),
+                }
+                (successful, failed)
+            },
+        );
 
         failed
             .iter()
-            .map(|err| log::error!("builtin load failed: {:#}", err))
+            .map(|err| {
+                log::error!("builtin load failed: {:#}", err);
+            })
             .for_each(drop);
 
         return if !failed.is_empty() {
