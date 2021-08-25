@@ -1,6 +1,9 @@
 # dht-api.getValues.air
 # dht-api.registerKeyPutValue.air
 
+# pubsub.initTopicAndSubscribe.air
+# pubsub.findSubscribers.air
+
 dht-api.clearHostValue.air
 dht-api.getNeighbours.air
 dht-api.onProviders.air
@@ -11,11 +14,11 @@ dht-api.registerKeyPutHostValue.air
 dht-scheduled-scripts.clearExpired.air
 dht-scheduled-scripts.replicate.air
 pubsub.executeOnSubscribers.air
-pubsub.findSubscribers.air
 pubsub.getNeighbours.air
 pubsub.initTopic.air
-pubsub.initTopicAndSubscribe.air
 pubsub.initTopicAndSubscribeNode.air
 pubsub.removeSubscriber.air
 pubsub.subscribe.air
 pubsub.subscribeNode.air
+dht-scheduled-scripts.clearExpired_86400.air
+dht-scheduled-scripts.replicate_3600.air
