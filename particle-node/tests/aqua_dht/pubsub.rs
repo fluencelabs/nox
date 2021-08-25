@@ -27,8 +27,6 @@ use std::path::Path;
 
 #[test]
 fn find_subscribers() {
-    enable_logs();
-
     let init_subscribe_script = load_script("pubsub.initTopicAndSubscribe.air");
     let find_subscribers_script = load_script("pubsub.findSubscribers.air");
 
@@ -41,7 +39,7 @@ fn find_subscribers() {
     log::info!("gonna send particle");
     // initTopicAndSubscribe(node_id: PeerId, topic: string, value: string, relay_id: ?PeerId, service_id: ?string):
     let topic = "topic";
-    let init_particle = client.send_particle_ext(
+    client.send_particle_ext(
         init_subscribe_script,
         hashmap! {
             "-relay-" => json!(client.node.to_string()),
@@ -54,9 +52,6 @@ fn find_subscribers() {
         },
         true,
     );
-    client
-        .wait_particle_args(&init_particle)
-        .expect("execute initTopicAndSubscribe");
 
     // func findSubscribers(node_id: PeerId, topic: string) -> []Record:
     let find_subscribers_particle = client.send_particle_ext(
