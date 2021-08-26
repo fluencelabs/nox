@@ -346,6 +346,31 @@ fn fold_via() {
 
     client.receive().unwrap();
 }
-/*
 
-*/
+#[test]
+fn join_empty_stream() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+        (seq
+            (xor
+                (call relay ("op" "noop") [])
+                (call %init_peer_id% ("op" "identity") [""] $ns)
+            )
+            (call %init_peer_id% ("op" "return") [$ns.$.[0]! $ns.$.[1]! $ns])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
+        },
+    );
+
+    let args = client.receive_args().wrap_err("receive args").unwrap();
+    assert_eq!(args.len(), 0, "args must be empty on join")
+}

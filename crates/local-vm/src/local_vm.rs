@@ -89,6 +89,10 @@ pub fn make_call_service_closure(
                 service_out.lock().extend(args.function_args);
                 ivalue_utils::unit()
             }
+            ("callbackSrv", _) => {
+                log::warn!("got callback: {:?}", args.function_args);
+                ivalue_utils::unit()
+            }
             ("errorHandlingSrv", "error") => {
                 log::warn!("caught an error: {:?}", args.function_args);
                 ivalue_utils::unit()

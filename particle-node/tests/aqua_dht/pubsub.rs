@@ -67,11 +67,7 @@ fn find_subscribers() {
         .expect("execute findSubscribers");
     let records = result.get_mut(0).unwrap().take();
     let records: Vec<Record> = serde_json::from_value(records).unwrap();
-    assert!(
-        records.len() > 1,
-        "expected more than 1 records, got {} records",
-        records.len()
-    );
+    assert_eq!(records.len(), 1, "expected 1 record, got {}", records.len());
 
     for record in records {
         assert_eq!(&record.value, "value");
