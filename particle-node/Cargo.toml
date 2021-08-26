@@ -23,7 +23,7 @@ fs-utils = { path = "../crates/fs-utils" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
-air-interpreter-wasm = "=0.14.2"
+air-interpreter-wasm = "=0.14.3"
 
 
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }

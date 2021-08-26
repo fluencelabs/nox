@@ -20,7 +20,6 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_builtins;
 
 use eyre::WrapErr;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::json;
 use std::path::Path;
@@ -68,6 +67,7 @@ fn find_subscribers() {
         .expect("execute findSubscribers");
     let records = result.get_mut(0).unwrap().take();
     let records: Vec<Record> = serde_json::from_value(records).unwrap();
+    assert_eq!(records.len(), 1, "expected 1 record, got {}", records.len());
 
     for record in records {
         assert_eq!(&record.value, "value");
