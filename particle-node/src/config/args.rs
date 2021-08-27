@@ -180,5 +180,13 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .long("services-workdir")
             .value_name("PATH")
             .about("directory where all services will store their data"),
+        // AIR
+        Arg::new(AQUA_VM_POOL_SIZE)
+            .display_order(20)
+            .help_heading(Some("AIR configuration"))
+            .takes_value(true)
+            .long("aqua-pool-size")
+            .value_name("NUM")
+            .about("Number of AquaVM instances (particle script execution parallelism)"),
     ]
 }

@@ -88,7 +88,7 @@ pub struct NodeConfig {
     pub protocol_config: ProtocolConfig,
 
     /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
-    #[serde(default = "default_stepper_pool_size")]
+    #[serde(default = "default_aquavm_pool_size")]
     pub aquavm_pool_size: usize,
 
     #[serde(default)]
