@@ -249,7 +249,6 @@ pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
     let file_content = std::fs::read(&config_file)
         .wrap_err_with(|| format!("Config wasn't found at {:?}", config_file))?;
     let config = deserialize_config(arguments, file_content)?;
-    println!("pool size: {}", config.aquavm_pool_size);
 
     config.dir_config.create_dirs()?;
 
