@@ -83,7 +83,7 @@ pub fn default_builtins_keypair_path() -> PathOrValue {
     }
 }
 
-pub fn default_stepper_pool_size() -> usize {
+pub fn default_aquavm_pool_size() -> usize {
     num_cpus::get() * 2
 }
 

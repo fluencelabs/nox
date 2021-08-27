@@ -48,6 +48,8 @@ pub const SERVICES_WORKDIR: &str = "services_workdir";
 pub const LOCAL: &str = "local";
 pub const ALLOW_PRIVATE_IPS: &str = "allow_local_addresses";
 pub const PROMETHEUS_PORT: &str = "prometheus_port";
+pub const AQUA_VM_POOL_SIZE: &str = "aquavm_pool_size";
+
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
@@ -66,6 +68,7 @@ const ARGS: &[&str] = &[
     MANAGEMENT_PEER_ID,
     ALLOW_PRIVATE_IPS,
     PROMETHEUS_PORT,
+    AQUA_VM_POOL_SIZE,
 ];
 
 #[derive(Clone, Deserialize, Debug)]
@@ -190,7 +193,9 @@ fn insert_args_to_config(
 
         // Convert value to a type of the corresponding field in `FluenceConfig`
         let mut value = match k {
-            WEBSOCKET_PORT | TCP_PORT | PROMETHEUS_PORT => Integer(single(arg).parse()?),
+            WEBSOCKET_PORT | TCP_PORT | PROMETHEUS_PORT | AQUA_VM_POOL_SIZE => {
+                Integer(single(arg).parse()?)
+            }
             BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => Array(multiple(arg).collect()),
             ROOT_KEY_PAIR_VALUE => {
                 check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
