@@ -97,7 +97,7 @@ jobs:
       - attach_workspace:
           at: .
       - store_artifacts:
-        path: ./target/release/particle-node
+          path: ./target/release/particle-node
       - run:
           name: Get artifacts
           command: |
