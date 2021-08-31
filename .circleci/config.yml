@@ -90,6 +90,25 @@ jobs:
               }
             }'
 
+  Publish Fluence Binary:
+    executor: docker/docker
+    resource_class: xlarge
+    steps:
+      - attach_workspace:
+          at: .
+      - store_artifacts:
+        path: ./target/release/particle-node
+      - name: Get artifacts
+        command: |
+          artifacts=$(curl -X GET "https://circleci.com/api/v2/project/(vcs)/(org)/(project)/$CIRCLE_BUILD_NUM/artifacts" \
+          -H "Accept: application/json" \
+          -u "$CIRCLE_API_TOKEN:")
+          # generate a heredoc in BASH_ENV
+          # the '\<<' is a CircleCI escape
+          echo "read -r -d '' STORED_ARTIFACTS \<< 'EOF_ARTIFACTS'" >> $BASH_ENV
+          echo "$artifacts" >> $BASH_ENV
+          echo "EOF_ARTIFACTS" >> $BASH_ENV
+          echo "$artifacts"
 
 workflows:
   version: 2
@@ -100,6 +119,10 @@ workflows:
           requires:
             - Build
       - Publish Docker Container:
+          requires:
+            - Build
+          context: Github Actions
+      - Publish Fluence Binary:
           requires:
             - Build
           context: Github Actions
