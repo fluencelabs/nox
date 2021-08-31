@@ -4,13 +4,19 @@ orbs:
   docker: circleci/docker@1.5.0
 
 jobs:
-  Build:
+  Publish Branch Binary:
     docker:
       - image: circleci/rust:latest
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: 1
     steps:
+      - run: |
+          if [ "$CIRCLE_BRANCH" = "master" ]; then
+            echo "export BRANCH=''" >> $BASH_ENV
+          else
+            echo "export BRANCH=$CIRCLE_BRANCH" >> $BASH_ENV
+          fi
       - checkout
       - restore_cache:
           keys:
@@ -19,17 +25,29 @@ jobs:
           rustup toolchain install nightly-2021-06-14-x86_64-unknown-linux-gnu
           rustup override set nightly-2021-06-14-x86_64-unknown-linux-gnu
           cargo build --release --all-features
-      - persist_to_workspace:
-          # Must be an absolute path, or relative path from working_directory.
-          # This is a directory on the container which is taken to be the root directory of the workspace.
-          root: .
-          # Must be relative path from root
-          paths:
-            - .dockerignore
-            - Dockerfile
-            - target/release/particle-node
-            - deploy/Config.default.toml
-            - deploy/builtins
+      - store_artifacts:
+          path: ./target/release/particle-node
+      - run:
+          name: Trigger Binary Publish
+          command: |
+            ARTIFACTS=$(curl -X GET "https://circleci.com/api/v2/project/github/fluencelabs/fluence/$CIRCLE_BUILD_NUM/artifacts" \
+            -H "Accept: application/json" \
+            -u "$CIRCLE_API_TOKEN:")
+
+            BINARY=$(echo "$ARTIFACTS" | jq -r ".items | .[] | select(.path == \"target/release/particle-node\") | \"\(.url)\"")
+            
+            curl --fail \
+              -u folex:${GITHUB_PERSONAL_TOKEN} \
+              -X POST \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/fluencelabs/node-distro/actions/workflows/container.yml/dispatches \
+              -d '{
+                "ref":"${CIRCLE_BRANCH}",
+                "inputs": {
+                  "fluence_branch":"'${BRANCH}'",
+                  "fluence_binary":"'${BINARY}'"
+                }
+              }'
       - save_cache:
           paths:
             - ~/.cargo
@@ -44,86 +62,19 @@ jobs:
       RUST_BACKTRACE: 1
     steps:
       - checkout
-      - attach_workspace:
-          at: .
       - run: |
           rustup override set nightly-2021-06-14-x86_64-unknown-linux-gnu
           cargo test --no-fail-fast --release --all-features
-
-  Publish Docker Container:
-    executor: docker/docker
-    resource_class: xlarge
-    steps:
-      - attach_workspace:
-          at: .
-      - setup_remote_docker
-      - docker/check:
-          docker-password: DOCKERHUB_TOKEN
-          docker-username: DOCKERHUB_USERNAME
-
-      - run: |
-          if [ "$CIRCLE_BRANCH" = "master" ]; then
-            echo "export DOCKER_TAG=latest" >> $BASH_ENV
-            echo "export BRANCH=''" >> $BASH_ENV
-          else
-            echo "export DOCKER_TAG=$CIRCLE_BRANCH" >> $BASH_ENV
-            echo "export BRANCH=$CIRCLE_BRANCH" >> $BASH_ENV
-          fi
-
-      - docker/build:
-          image: fluencelabs/fluence
-          tag: ${DOCKER_TAG},${CIRCLE_BRANCH}_${CIRCLE_SHA1}
-          extra_build_args: --build-arg exe=./target/release/particle-node --build-arg config=./deploy/Config.default.toml --build-arg builtins=./deploy/builtins/
-      - docker/push:
-          image: fluencelabs/fluence
-          tag: ${DOCKER_TAG},${CIRCLE_BRANCH}_${CIRCLE_SHA1}
-      - run: |
-          curl --fail \
-            -u folex:${GITHUB_PERSONAL_TOKEN} \
-            -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/fluencelabs/node-distro/actions/workflows/container.yml/dispatches \
-            -d '{
-              "ref":"main",
-              "inputs": {
-                "fluence_branch":"'${BRANCH}'"
-              }
-            }'
-
-  Publish Fluence Binary:
-    executor: docker/docker
-    resource_class: xlarge
-    steps:
-      - attach_workspace:
-          at: .
-      - store_artifacts:
-          path: ./target/release/particle-node
-      - run:
-          name: Get artifacts
-          command: |
-            artifacts=$(curl -X GET "https://circleci.com/api/v2/project/github/fluencelabs/fluence/$CIRCLE_BUILD_NUM/artifacts" \
-            -H "Accept: application/json" \
-            -u "$CIRCLE_API_TOKEN:")
-            # generate a heredoc in BASH_ENV
-            # the '\<<' is a CircleCI escape
-            echo "read -r -d '' STORED_ARTIFACTS \<< 'EOF_ARTIFACTS'" >> $BASH_ENV
-            echo "$artifacts" >> $BASH_ENV
-            echo "EOF_ARTIFACTS" >> $BASH_ENV
-            echo "$artifacts"
 
 workflows:
   version: 2
   CircleCI:
     jobs:
-      - Build
-      - Rust Tests:
-          requires:
-            - Build
-      - Publish Docker Container:
-          requires:
-            - Build
+      - Publish Branch Binary:
           context: Github Actions
-      - Publish Fluence Binary:
-          requires:
-            - Build
-          context: Github Actions
+          filters:
+            branches:
+              ignore:
+                - master
+                - main
+      - Rust Tests
