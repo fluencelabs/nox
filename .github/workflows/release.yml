@@ -43,7 +43,8 @@ jobs:
       - name: Build particle-node
         uses: actions-rs/cargo@v1
         with:
-          command: build --release -p particle-node
+          command: build 
+          args: --release -p particle-node
 
 ### Release
       - name: Calculate SHA256
