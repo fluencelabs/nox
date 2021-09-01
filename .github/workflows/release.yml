@@ -38,7 +38,9 @@ jobs:
 
 ### Build
       - name: Set version in particle-node/Cargo.toml to ${{ env.RELEASE_VERSION }}
-        run: sed -i 's/^version = ".*"/version = "${{ env.RELEASE_VERSION }}"/' ./particle-node/Cargo.toml
+        run: |
+          sed -i 's/^version = ".*"/version = "${{ env.RELEASE_VERSION }}"/' ./particle-node/Cargo.toml
+          cat ./particle-node/Cargo.toml
 
       - name: Build particle-node
         uses: actions-rs/cargo@v1
