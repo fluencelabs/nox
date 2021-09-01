@@ -88,7 +88,12 @@ pub struct ResolvedDirConfig {
 
 impl ResolvedDirConfig {
     pub fn create_dirs(&self) -> eyre::Result<()> {
-        create_dirs(&[&self.base_dir, &self.certificate_dir, &self.avm_base_dir, &self.builtins_base_dir])
-            .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
+        create_dirs(&[
+            &self.base_dir,
+            &self.certificate_dir,
+            &self.avm_base_dir,
+            &self.builtins_base_dir,
+        ])
+        .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
     }
 }

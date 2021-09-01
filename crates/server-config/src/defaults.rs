@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::node_config::{PathOrValue, KeypairConfig};
+use crate::node_config::{KeypairConfig, PathOrValue};
 use fluence_identity::KeyPair;
 
 use libp2p::core::Multiaddr;
@@ -85,10 +85,11 @@ pub fn default_root_keypair() -> KeyPair {
     let config = KeypairConfig {
         format: default_keypair_format(),
         keypair: None,
-        generate_on_absence: true
+        generate_on_absence: true,
     };
 
-    config.get_keypair(default_keypair_path())
+    config
+        .get_keypair(default_keypair_path())
         .expect("generate default root keypair")
 }
 
@@ -96,10 +97,11 @@ pub fn default_builtins_keypair() -> KeyPair {
     let config = KeypairConfig {
         format: default_keypair_format(),
         keypair: None,
-        generate_on_absence: true
+        generate_on_absence: true,
     };
 
-    config.get_keypair(default_builtins_keypair_path())
+    config
+        .get_keypair(default_builtins_keypair_path())
         .expect("generate default builtins keypair")
 }
 

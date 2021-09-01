@@ -236,10 +236,7 @@ fn insert_args_to_config(
 // loads config from arguments and a config file
 // TODO: avoid depending on ArgMatches
 pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
-    let config_file = arguments
-        .value_of(CONFIG_FILE)
-        .map(Into::into);
-
+    let config_file = arguments.value_of(CONFIG_FILE).map(Into::into);
 
     let config_bytes = if let Some(config_file) = config_file {
         let config_file = to_abs_path(config_file);
