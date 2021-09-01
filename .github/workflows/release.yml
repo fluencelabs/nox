@@ -108,7 +108,7 @@ jobs:
         with:
           workflow: update_fluence
           repo: fluencelabs/node-distro
-          ref: 'main'
+          ref: 'services_json'
           token: ${{ secrets.PERSONAL_TOKEN }}
           inputs: '{ 
             "version": "${{ env.RELEASE_VERSION }}",
