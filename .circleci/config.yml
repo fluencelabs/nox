@@ -42,9 +42,9 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/fluencelabs/node-distro/actions/workflows/container.yml/dispatches \
               -d '{
-                "ref":"${CIRCLE_BRANCH}",
+                "ref":"main",
                 "inputs": {
-                  "fluence_branch":"'${BRANCH}'",
+                  "container_tag":"'${BRANCH}'",
                   "fluence_binary":"'${BINARY}'"
                 }
               }'

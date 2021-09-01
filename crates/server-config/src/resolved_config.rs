@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-// use super::defaults::*;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
 use crate::ListenConfig;

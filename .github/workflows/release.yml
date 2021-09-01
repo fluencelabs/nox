@@ -41,7 +41,6 @@ jobs:
         run: |
           VERSION=$(echo ${{ env.RELEASE_VERSION }} | tr -d v)
           sed -i 's/^version = ".*"/version = "'${VERSION}'"/' ./particle-node/Cargo.toml
-          cat ./particle-node/Cargo.toml
 
       - name: Build particle-node
         uses: actions-rs/cargo@v1
@@ -69,7 +68,7 @@ jobs:
         id: release
         uses: softprops/action-gh-release@v1
         with:
-          name: aqua-dht ${{ env.RELEASE_VERSION }}
+          name: Fluence Node ${{ env.RELEASE_VERSION }}
           tag_name: ${{ env.RELEASE_VERSION }}
           files: |
             ./target/release/particle-node
@@ -107,7 +106,7 @@ jobs:
               throw e;
             }
 
-      - name: Update version in builtins repo
+      - name: Update version in node-distro
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: update_fluence
