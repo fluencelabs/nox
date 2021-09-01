@@ -18,7 +18,7 @@ use crate::defaults::{
 };
 
 use air_interpreter_fs::air_interpreter_path;
-use fs_utils::create_dirs;
+use fs_utils::{create_dirs, to_abs_path};
 
 use eyre::WrapErr;
 use serde::Deserialize;
@@ -53,10 +53,10 @@ pub struct UnresolvedDirConfig {
 
 impl UnresolvedDirConfig {
     pub fn resolve(self) -> ResolvedDirConfig {
-        let base = self.base_dir;
+        let base = to_abs_path(self.base_dir).to_path_buf();
         let certificate_dir = self.certificate_dir.unwrap_or(cert_dir(&base));
         let services_base_dir = self.services_base_dir.unwrap_or(services_base_dir(&base));
-        let builtins_base_dir = self.builtins_base_dir.unwrap_or_else(builtins_base_dir);
+        let builtins_base_dir = self.builtins_base_dir.unwrap_or(builtins_base_dir(&base));
         let avm_base_dir = self.avm_base_dir.unwrap_or(avm_base_dir(&base));
         let air_interpreter_path = self
             .air_interpreter_path
@@ -88,7 +88,7 @@ pub struct ResolvedDirConfig {
 
 impl ResolvedDirConfig {
     pub fn create_dirs(&self) -> eyre::Result<()> {
-        create_dirs(&[&self.base_dir, &self.certificate_dir, &self.avm_base_dir])
+        create_dirs(&[&self.base_dir, &self.certificate_dir, &self.avm_base_dir, &self.builtins_base_dir])
             .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
     }
 }

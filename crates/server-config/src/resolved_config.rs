@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use super::defaults::*;
+// use super::defaults::*;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
 use crate::ListenConfig;
@@ -239,25 +239,32 @@ fn insert_args_to_config(
 pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
     let config_file = arguments
         .value_of(CONFIG_FILE)
-        .map(Into::into)
-        .unwrap_or_else(default_config_file);
+        .map(Into::into);
 
-    let config_file = to_abs_path(config_file);
 
-    log::info!("Loading config from {:?}", config_file);
+    let config_bytes = if let Some(config_file) = config_file {
+        let config_file = to_abs_path(config_file);
 
-    let file_content = std::fs::read(&config_file)
-        .wrap_err_with(|| format!("Config wasn't found at {:?}", config_file))?;
-    let config = deserialize_config(arguments, file_content)?;
+        log::info!("Loading config from {:?}", config_file);
+
+        std::fs::read(&config_file)
+            .wrap_err_with(|| format!("Failed reading config {:?}", config_file))?
+    } else {
+        log::info!("Config wasn't found, using default settings");
+        Vec::default()
+    };
+
+    let config = deserialize_config(&arguments, &config_bytes)
+        .wrap_err(eyre!("config deserialization failed"))?;
 
     config.dir_config.create_dirs()?;
 
     Ok(config)
 }
 
-pub fn deserialize_config(arguments: ArgMatches, content: Vec<u8>) -> eyre::Result<ResolvedConfig> {
+pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Result<ResolvedConfig> {
     let mut config: toml::value::Table =
-        toml::from_slice(&content).wrap_err("deserializing config")?;
+        toml::from_slice(content).wrap_err("deserializing config")?;
 
     insert_args_to_config(&arguments, &mut config)?;
 

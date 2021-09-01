@@ -6,9 +6,9 @@ use fluence_identity::KeyPair;
 use fluence_libp2p::peerid_serializer;
 use fluence_libp2p::PeerId;
 use particle_protocol::ProtocolConfig;
+use fs_utils::to_abs_path;
 
 use derivative::Derivative;
-use fs_utils::to_abs_path;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -16,15 +16,18 @@ use std::net::IpAddr;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::time::Duration;
+use eyre::eyre;
 
 #[derive(Clone, Deserialize, Derivative)]
 #[derivative(Debug)]
 pub struct NodeConfig {
     #[serde(deserialize_with = "parse_or_load_root_keypair")]
+    #[serde(default = "default_root_keypair")]
     #[derivative(Debug = "ignore")]
     pub root_key_pair: KeyPair,
 
     #[serde(deserialize_with = "parse_or_load_builtins_keypair")]
+    #[serde(default = "default_builtins_keypair")]
     #[derivative(Debug = "ignore")]
     pub builtins_key_pair: KeyPair,
 
@@ -147,13 +150,33 @@ pub enum PathOrValue {
 }
 
 #[derive(Deserialize)]
-struct KeypairConfig {
+pub struct KeypairConfig {
     #[serde(default = "default_keypair_format")]
-    format: String,
+    pub format: String,
     #[serde(flatten)]
-    keypair: Option<PathOrValue>,
-    #[serde(default = "bool::default")]
-    generate_on_absence: bool,
+    pub keypair: Option<PathOrValue>,
+    #[serde(default)]
+    pub generate_on_absence: bool,
+}
+
+impl KeypairConfig {
+    pub fn get_keypair(self, default: PathOrValue) -> Result<KeyPair, eyre::Report> {
+        use crate::node_config::PathOrValue::{Path, Value};
+
+        match self.keypair.unwrap_or(default) {
+            Path { path } => {
+                let path = to_abs_path(path);
+                load_key_pair(
+                    path.clone(),
+                    self.format.clone(),
+                    self.generate_on_absence,
+                )
+                .map_err(|e| eyre!("Failed to load keypair from {:?}: {}", path, e))
+            }
+            Value { value } => decode_key_pair(value, self.format)
+                .map_err(|e| eyre!("Failed to decode keypair: {}", e)),
+        }
+    }
 }
 
 fn parse_or_load_root_keypair<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
@@ -179,25 +202,10 @@ fn parse_or_load_keypair<'de, D>(
 where
     D: serde::Deserializer<'de>,
 {
-    use crate::node_config::PathOrValue::{Path, Value};
-
-    let result = KeypairConfig::deserialize(deserializer)?;
-
-    match result.keypair.unwrap_or(default_path) {
-        Path { path } => {
-            let path = to_abs_path(path);
-            load_key_pair(
-                path.clone(),
-                result.format.clone(),
-                result.generate_on_absence,
-            )
-            .map_err(|e| {
-                serde::de::Error::custom(format!("Failed to load keypair from {:?}: {}", path, e))
-            })
-        }
-        Value { value } => decode_key_pair(value, result.format)
-            .map_err(|e| serde::de::Error::custom(format!("Failed to decode keypair: {}", e))),
-    }
+    let config = KeypairConfig::deserialize(deserializer)?;
+    config.get_keypair(default_path).map_err(|e| {
+        serde::de::Error::custom(format!("{:?}", e))
+    })
 }
 
 fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>

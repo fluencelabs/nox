@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-use crate::node_config::PathOrValue;
+use crate::node_config::{PathOrValue, KeypairConfig};
+use fluence_identity::KeyPair;
+
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::PeerId;
@@ -59,16 +61,12 @@ pub fn services_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("services")
 }
 
-pub fn builtins_base_dir() -> PathBuf {
-    Path::new("/builtins").into()
+pub fn builtins_base_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("builtins")
 }
 
 pub fn avm_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("stepper")
-}
-
-pub fn default_config_file() -> PathBuf {
-    default_base_dir().join("Config.toml")
 }
 
 pub fn default_keypair_path() -> PathOrValue {
@@ -81,6 +79,28 @@ pub fn default_builtins_keypair_path() -> PathOrValue {
     PathOrValue::Path {
         path: default_base_dir().join("builtins_secret_key.ed25519"),
     }
+}
+
+pub fn default_root_keypair() -> KeyPair {
+    let config = KeypairConfig {
+        format: default_keypair_format(),
+        keypair: None,
+        generate_on_absence: true
+    };
+
+    config.get_keypair(default_keypair_path())
+        .expect("generate default root keypair")
+}
+
+pub fn default_builtins_keypair() -> KeyPair {
+    let config = KeypairConfig {
+        format: default_keypair_format(),
+        keypair: None,
+        generate_on_absence: true
+    };
+
+    config.get_keypair(default_builtins_keypair_path())
+        .expect("generate default builtins keypair")
 }
 
 pub fn default_aquavm_pool_size() -> usize {

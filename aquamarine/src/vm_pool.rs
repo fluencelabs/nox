@@ -88,7 +88,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
                 // Remove completed future
                 creating_vms.remove(i);
                 if creating_vms.is_empty() {
-                    log::info!("All stepper VMs created.")
+                    log::info!("All {} AquaVMs created.", self.pool_size)
                 }
 
                 // Put created vm to self.vms
