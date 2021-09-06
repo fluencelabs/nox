@@ -3,9 +3,6 @@ name = "builtins"
 version = "0.1.0"
 edition = "2018"
 
-[dependencies]
-
-
 [dev-dependencies]
 fstrings = "0.2.3"
 eyre = "0.6.5"
@@ -24,7 +21,6 @@ particle-modules = { path = "../../../particle-modules" }
 created-swarm = { path = "../../../crates/created-swarm" }
 connected-client = { path = "../../../crates/connected-client" }
 test-constants = { path = "../../../crates/test-constants" }
-#toy-vms = { path = "../../../crates/toy-vms" }
 now-millis = { path = "../../../crates/now-millis" }
 local-vm = { path = "../../../crates/local-vm" }
 json-utils = { path = "../../../crates/json-utils" }
