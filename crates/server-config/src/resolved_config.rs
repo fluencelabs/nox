@@ -296,7 +296,7 @@ mod tests {
             12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
         "#;
 
-        deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
+        deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
     }
 
     #[test]
@@ -318,7 +318,7 @@ mod tests {
 
         assert!(!key_path.exists());
         assert!(!builtins_key_path.exists());
-        deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
+        deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
         assert!(key_path.exists());
         assert!(builtins_key_path.exists());
     }
@@ -329,14 +329,14 @@ mod tests {
             root_key_pair.generate_on_absence = true
             builtins_key_pair.generate_on_absence = true
             "#;
-        deserialize_config(<_>::default(), config.as_bytes().to_vec()).expect("deserialize config");
+        deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
     }
 
     #[test]
     fn parse_default_config() {
         let config =
             std::fs::read("../../deploy/Config.default.toml").expect("find default config");
-        let _config = deserialize_config(<_>::default(), config).expect("deserialize config");
+        let _config = deserialize_config(&<_>::default(), &config).expect("deserialize config");
     }
 
     #[test]

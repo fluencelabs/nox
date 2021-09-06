@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#[macro_use]
+extern crate fstrings;
+
+use builtins_deployer::ALLOWED_ENV_PREFIX;
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms_with_builtins, make_swarms_with_keypair};
 use fs_utils::copy_dir_all;
@@ -23,8 +27,8 @@ use test_utils::create_service;
 
 use libp2p::core::identity::Keypair;
 
-use builtins_deployer::ALLOWED_ENV_PREFIX;
 use eyre::WrapErr;
+use fstrings::f;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
