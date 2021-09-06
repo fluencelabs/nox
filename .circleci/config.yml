@@ -35,6 +35,7 @@ jobs:
             -u "$CIRCLE_API_TOKEN:")
 
             BINARY=$(echo "$ARTIFACTS" | jq -r ".items | .[] | select(.path == \"target/release/particle-node\") | \"\(.url)\"")
+            SHA256=$(sha256sum $BINARY | awk '{ print $1 }')
 
             OUTPUT_FILE=$(mktemp)
             HTTP_CODE=$(curl \
@@ -46,16 +47,18 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/fluencelabs/node-distro/actions/workflows/container.yml/dispatches \
               -d '{
-                "ref":"main",
+                "ref":"container_branch",
                 "inputs": {
                   "container_tag":"'${BRANCH}'",
-                  "fluence_binary":"'${BINARY}'"
+                  "version": "'${CIRCLE_BRANCH}_${CIRCLE_SHA1}'"
+                  "url": "'${BINARY}'"
+                  "sha256": "'${SHA256}'"
                 }
               }'
             )
             if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]] ; then
               >&2 cat $OUTPUT_FILE
-              return 22
+              exit 22
             fi
             cat $OUTPUT_FILE
             rm $OUTPUT_FILE
