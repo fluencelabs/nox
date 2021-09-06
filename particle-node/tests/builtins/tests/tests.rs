@@ -14,22 +14,29 @@
  * limitations under the License.
  */
 
-const SERVICES: &'static str = "./services";
+#[macro_use]
+extern crate fstrings;
 
-mod aqua_dht {
-    mod aqua_dht;
-    mod pubsub;
+pub const SERVICES: &'static str = "./services";
 
-    #[derive(serde::Deserialize, Debug)]
-    pub struct Record {
-        value: String,
-        peer_id: String,
-        set_by: String,
-        relay_id: Vec<String>,
-        service_id: Vec<String>,
-        timestamp_created: u64,
-        weight: u32,
+mod src {
+    mod aqua_dht {
+        mod aqua_dht;
+        mod pubsub;
+
+        #[derive(serde::Deserialize, Debug)]
+        pub struct Record {
+            value: String,
+            peer_id: String,
+            set_by: String,
+            relay_id: Vec<String>,
+            service_id: Vec<String>,
+            timestamp_created: u64,
+            weight: u32,
+        }
     }
+
+    mod builtins_deployer;
 }
 
 pub fn load_script(name: &str) -> String {

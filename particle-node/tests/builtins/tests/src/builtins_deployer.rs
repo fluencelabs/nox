@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#[macro_use]
-extern crate fstrings;
+use crate::SERVICES;
 
 use builtins_deployer::ALLOWED_ENV_PREFIX;
 use connected_client::ConnectedClient;
@@ -74,7 +73,7 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
 
 #[test]
 fn builtins_test() {
-    let swarms = make_swarms_with_builtins(1, Path::new("../deploy/builtins"), None);
+    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -95,11 +94,11 @@ fn builtins_replace_old() {
     .wrap_err("connect client")
     .unwrap();
 
-    // use this with aqua-dht alias to emulate old builtin
+    // use tetraplets as aqua-dht to emulate old builtin being replaced by a new version
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
+        load_module("../tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
     client.send_particle(
@@ -127,7 +126,7 @@ fn builtins_replace_old() {
     swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
 
     // restart with same keypair
-    let swarms = make_swarms_with_builtins(1, Path::new("../deploy/builtins"), Some(keypair));
+    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), Some(keypair));
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -138,7 +137,7 @@ fn builtins_replace_old() {
 
 #[test]
 fn builtins_scheduled_scripts() {
-    let swarms = make_swarms_with_builtins(1, Path::new("../deploy/builtins"), None);
+    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -162,7 +161,7 @@ fn builtins_scheduled_scripts() {
     let result = result[0].as_array().unwrap();
     assert_eq!(
         result.len(),
-        list_files(Path::new("../deploy/builtins/aqua-dht/scheduled"))
+        list_files(&Path::new(SERVICES).join("aqua-dht/scheduled"))
             .unwrap()
             .count()
     )
@@ -170,7 +169,7 @@ fn builtins_scheduled_scripts() {
 
 #[test]
 fn builtins_resolving_env_variables() {
-    copy_dir_all("../deploy/builtins", "./builtins_test_env").unwrap();
+    copy_dir_all(SERVICES, "./builtins_test_env").unwrap();
     let key = "some_key".to_string();
     let on_start_script = f!(r#"
     (xor
