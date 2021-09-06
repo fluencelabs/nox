@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2021 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
-mod chat {
-    mod chat;
+use std::process::Command;
+
+fn main() {
+    let status = Command::new("./download_builtins.sh").status().unwrap();
+    assert!(
+        status.success(),
+        "download_builtins failed with {:?}",
+        status
+    );
+    println!("cargo:rerun-if-changed=download_builtins.sh");
 }

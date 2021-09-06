@@ -104,7 +104,6 @@ dist
 # TernJS port file
 .tern-port
 
-
 .fluence/
 target/
 **/target/
@@ -113,3 +112,4 @@ target/
 .DS_Store
 *.iml
 **/*.iml
+cargo-timing*
