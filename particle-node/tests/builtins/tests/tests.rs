@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#[allow(unused_imports)]
 #[macro_use]
 extern crate fstrings;
 
@@ -35,6 +34,8 @@ mod aqua_dht {
         weight: u32,
     }
 }
+
+mod builtins_deployer;
 
 pub fn load_script(name: &str) -> String {
     std::fs::read_to_string(format!("./tests/aqua_dht/aqua/{}", name)).unwrap()

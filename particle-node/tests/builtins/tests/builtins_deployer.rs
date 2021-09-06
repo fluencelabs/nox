@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-#[macro_use]
-extern crate fstrings;
-
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms_with_builtins, make_swarms_with_keypair};
 use fs_utils::copy_dir_all;
