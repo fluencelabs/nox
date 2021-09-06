@@ -35,7 +35,7 @@ jobs:
             -u "$CIRCLE_API_TOKEN:")
 
             BINARY=$(echo "$ARTIFACTS" | jq -r ".items | .[] | select(.path == \"target/release/particle-node\") | \"\(.url)\"")
-            SHA256=$(sha256sum $BINARY | awk '{ print $1 }')
+            SHA256=$(sha256sum ./target/release/particle-node | awk '{ print $1 }')
 
             OUTPUT_FILE=$(mktemp)
             HTTP_CODE=$(curl \
