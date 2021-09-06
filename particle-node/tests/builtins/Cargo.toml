@@ -1,0 +1,27 @@
+[package]
+name = "builtins"
+version = "0.1.0"
+edition = "2018"
+
+[dev-dependencies]
+fstrings = "0.2.3"
+eyre = "0.6.5"
+maplit = "1.0.2"
+serde_json = "1.0.64"
+serde = "1.0.118"
+log = "0.4.11"
+libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+
+test-utils = { path = "../../../crates/test-utils" }
+fs-utils = { path = "../../../crates/fs-utils" }
+log-utils = { path = "../../../crates/log-utils" }
+service-modules = { path = "../../../crates/service-modules" }
+builtins-deployer = { path = "../../../crates/builtins-deployer" }
+particle-modules = { path = "../../../particle-modules" }
+created-swarm = { path = "../../../crates/created-swarm" }
+connected-client = { path = "../../../crates/connected-client" }
+test-constants = { path = "../../../crates/test-constants" }
+now-millis = { path = "../../../crates/now-millis" }
+local-vm = { path = "../../../crates/local-vm" }
+json-utils = { path = "../../../crates/json-utils" }
+control-macro = { path = "../../../crates/control-macro" }
