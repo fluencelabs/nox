@@ -40,5 +40,5 @@ mod src {
 }
 
 pub fn load_script(name: &str) -> String {
-    std::fs::read_to_string(format!("./tests/aqua_dht/aqua/{}", name)).unwrap()
+    std::fs::read_to_string(format!("./tests/src/aqua_dht/aqua/{}", name)).unwrap()
 }
