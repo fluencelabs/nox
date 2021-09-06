@@ -5,4 +5,24 @@ edition = "2018"
 
 [dependencies]
 
+
 [dev-dependencies]
+fstrings = "0.2.3"
+eyre = "0.6.5"
+maplit = "1.0.2"
+serde_json = "1.0.64"
+serde = "1.0.118"
+log = "0.4.11"
+
+test-utils = { path = "../../../crates/test-utils" }
+log-utils = { path = "../../../crates/log-utils" }
+#service-modules = { path = "../../../crates/service-modules" }
+#particle-modules = { path = "../../../particle-modules" }
+created-swarm = { path = "../../../crates/created-swarm" }
+connected-client = { path = "../../../crates/connected-client" }
+test-constants = { path = "../../../crates/test-constants" }
+#toy-vms = { path = "../../../crates/toy-vms" }
+now-millis = { path = "../../../crates/now-millis" }
+local-vm = { path = "../../../crates/local-vm" }
+json-utils = { path = "../../../crates/json-utils" }
+control-macro = { path = "../../../crates/control-macro" }

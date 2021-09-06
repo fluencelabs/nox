@@ -15,21 +15,20 @@
  */
 
 use crate::aqua_dht::Record;
-use crate::load_script;
+use crate::{load_script, SERVICES};
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_builtins;
 
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
-use std::path::Path;
 
 #[test]
 fn find_subscribers() {
     let init_subscribe_script = load_script("pubsub.initTopicAndSubscribe.air");
     let find_subscribers_script = load_script("pubsub.findSubscribers.air");
 
-    let swarms = make_swarms_with_builtins(3, Path::new("../deploy/builtins"), None);
+    let swarms = make_swarms_with_builtins(3, SERVICES.as_ref(), None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")

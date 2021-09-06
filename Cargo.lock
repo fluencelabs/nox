@@ -697,6 +697,23 @@ dependencies = [
 [[package]]
 name = "builtins"
 version = "0.1.0"
+dependencies = [
+ "connected-client",
+ "control-macro",
+ "created-swarm",
+ "eyre",
+ "fstrings",
+ "json-utils",
+ "local-vm",
+ "log",
+ "log-utils",
+ "maplit",
+ "now-millis",
+ "serde",
+ "serde_json",
+ "test-constants",
+ "test-utils",
+]
 
 [[package]]
 name = "builtins-deployer"

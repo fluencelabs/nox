@@ -13,4 +13,6 @@ curl --fail -L "$URL" -o $TAR
 echo "*** extracting $TAR ***"
 tar -C $SERVICES_DIR -xf $TAR
 
+rm $TAR
+
 echo "*** done ***"
