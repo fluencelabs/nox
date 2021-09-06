@@ -35,8 +35,12 @@ jobs:
             -u "$CIRCLE_API_TOKEN:")
 
             BINARY=$(echo "$ARTIFACTS" | jq -r ".items | .[] | select(.path == \"target/release/particle-node\") | \"\(.url)\"")
-            
-            curl --fail-with-body \
+
+            OUTPUT_FILE=$(mktemp)
+            HTTP_CODE=$(curl \
+              --silent \
+              --output $OUTPUT_FILE \
+              --write-out "%{http_code}" \
               -u folex:${GITHUB_PERSONAL_TOKEN} \
               -X POST \
               -H "Accept: application/vnd.github.v3+json" \
@@ -48,6 +52,13 @@ jobs:
                   "fluence_binary":"'${BINARY}'"
                 }
               }'
+            )
+            if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]] ; then
+              >&2 cat $OUTPUT_FILE
+              return 22
+            fi
+            cat $OUTPUT_FILE
+            rm $OUTPUT_FILE
       - save_cache:
           paths:
             - ~/.cargo
