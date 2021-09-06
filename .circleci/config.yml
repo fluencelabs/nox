@@ -36,7 +36,7 @@ jobs:
 
             BINARY=$(echo "$ARTIFACTS" | jq -r ".items | .[] | select(.path == \"target/release/particle-node\") | \"\(.url)\"")
             
-            curl --fail \
+            curl --fail-with-body \
               -u folex:${GITHUB_PERSONAL_TOKEN} \
               -X POST \
               -H "Accept: application/vnd.github.v3+json" \
