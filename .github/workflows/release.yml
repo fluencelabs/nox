@@ -1,0 +1,120 @@
+name: "publish-release"
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  npm-publish:
+    name: "Publish"
+    runs-on: ubuntu-latest
+    container: rust
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+### Setup
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2021-06-14
+          override: true
+
+### Build
+      - name: Set version in particle-node/Cargo.toml to ${{ env.RELEASE_VERSION }}
+        run: |
+          VERSION=$(echo ${{ env.RELEASE_VERSION }} | tr -d v)
+          sed -i 's/^version = ".*"/version = "'${VERSION}'"/' ./particle-node/Cargo.toml
+
+      - name: Build particle-node
+        uses: actions-rs/cargo@v1
+        with:
+          command: build 
+          args: --release -p particle-node
+
+### Release
+      - name: Calculate SHA256
+        run: |
+          BINARY="./target/release/particle-node"
+          du -hs $BINARY
+          echo $(sha256sum $BINARY)
+          echo "SHA256=$(sha256sum $BINARY | awk '{ print $1 }')" >> $GITHUB_ENV
+      
+      - name: Build Changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v1
+        with:
+          configuration: ".github/workflows/changelog_config.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Release
+        id: release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Fluence Node ${{ env.RELEASE_VERSION }}
+          tag_name: ${{ env.RELEASE_VERSION }}
+          files: |
+            ./target/release/particle-node
+          body: |
+            ${{ steps.changelog.outputs.changelog }}
+            
+
+            sha256: ${{ env.SHA256 }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+### Update version in node-distro
+      - name: Get binary URL
+        id: package-url
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          result-encoding: string
+          script: |
+            try {
+                let assets = await github.repos.listReleaseAssets({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  release_id: "${{ steps.release.outputs.id }}",
+                });
+                console.dir(assets);
+                let package = assets.data.find((a) => a.name === 'particle-node');
+                let url = package.browser_download_url;
+                console.log("URL: " + url);
+                return url;
+            } catch (e) {
+              console.log("Err: " + e);
+              throw e;
+            }
+
+      - name: Update version in node-distro
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: update_fluence
+          repo: fluencelabs/node-distro
+          ref: 'services_json'
+          token: ${{ secrets.PERSONAL_TOKEN }}
+          inputs: '{ 
+            "version": "${{ env.RELEASE_VERSION }}",
+            "url": "${{ steps.package-url.outputs.result }}",
+            "sha256": "${{ env.SHA256 }}"
+          }'

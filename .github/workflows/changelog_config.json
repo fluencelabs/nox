@@ -1,0 +1,5 @@
+{
+    "template": "${{CHANGELOG}}\n\n${{UNCATEGORIZED}}",
+    "pr_template": "- #${{NUMBER}} ${{TITLE}}",
+    "empty_template": "- no changes"
+}

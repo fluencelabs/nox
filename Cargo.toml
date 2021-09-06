@@ -25,6 +25,7 @@ members = [
     "crates/toy-vms",
     "crates/connected-client",
     "crates/test-constants",
+    "particle-node/tests/builtins",
     "particle-node",
     "aquamarine",
     "particle-protocol",

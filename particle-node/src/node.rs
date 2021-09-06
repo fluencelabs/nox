@@ -305,8 +305,7 @@ mod tests {
         fs_utils::create_dir(default_base_dir()).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&default_base_dir())).unwrap();
 
-        let config = std::fs::read("../deploy/Config.default.toml").expect("find default config");
-        let mut config = deserialize_config(<_>::default(), config).expect("deserialize config");
+        let mut config = deserialize_config(&<_>::default(), &[]).expect("deserialize config");
         config.aquavm_pool_size = 1;
         let mut node = Node::new(config, RandomPeerId::random()).expect("create node");
 

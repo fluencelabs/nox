@@ -9,7 +9,7 @@ test:
 
 server:
 	RUST_LOG="info,tide=off" \
-	cargo +nightly run --release -p particle-node -- -c ./deploy/Config.default.toml
+	cargo +nightly run --release -p particle-node
 
 server-debug:
 	RUST_LOG="debug,\
@@ -35,9 +35,5 @@ server-debug:
     async_io=info,\
     polling=info" \
 	cargo +nightly run --release -p particle-node -- -c ./deploy/Config.default.toml
-
-# deploy existing containers (configure tag in deployment_config.json)
-deploy:
-	cd deploy; fab deploy_fluence
 
 .PHONY: server server-debug test release build deploy
