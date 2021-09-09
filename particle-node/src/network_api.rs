@@ -161,10 +161,6 @@ impl Connectivity {
             let contact = self.discover_peer(target).await;
             match contact {
                 Ok(Some(contact)) => {
-                    println!(
-                        "resolved contact {} via KADEMLIA for particle {}",
-                        target, particle_id
-                    );
                     // connect to the discovered contact
                     self.connection_pool.connect(contact.clone()).await;
                     return Some(contact);
