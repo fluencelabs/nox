@@ -14,11 +14,11 @@ fs-utils = { path = "../fs-utils"}
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 
 air-interpreter-wasm = "=0.14.3"
-avm-server = "0.10.0"
+avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async" }
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 fstrings = "0.2.3"
-serde_json = "1.0.64"
+serde_json = "1.0.61"
 parking_lot = "0.11.1"
 log = "0.4.14"

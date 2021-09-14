@@ -22,7 +22,7 @@ libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp
 
 async-std = { version = "1.9.0", features = ["unstable"] }
 multihash = "0.13.2"
-serde_json = "1.0.64"
+serde_json = "1.0.61"
 serde = "1.0.118"
 log = "0.4.11"
 bs58 = "0.3.1"

@@ -6,5 +6,5 @@ edition = "2018"
 
 [dependencies]
 serde = "1.0.118"
-serde_json = "1.0.64"
+serde_json = "1.0.61"
 base64 = "0.13.0"

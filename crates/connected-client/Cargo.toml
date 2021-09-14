@@ -15,7 +15,7 @@ libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp
 async-std = "1.9.0"
 futures = "0.3.13"
 serde = { version = "1.0.118", features = ["derive"] }
-serde_json = "1.0.64"
+serde_json = "1.0.61"
 log = "0.4.11"
 derivative = "2.1.1"
 eyre = "0.6.5"

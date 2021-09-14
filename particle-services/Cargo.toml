@@ -13,10 +13,10 @@ json-utils = { path = "../crates/json-utils" }
 host-closure = { path = "../crates/host-closure" }
 server-config = { path = "../crates/server-config" }
 
-fluence-app-service = "0.9.0"
+fluence-app-service = { git = "https://github.com/fluencelabs/marine" }
 
 parking_lot = "0.11.0"
-serde_json = "1.0.64"
+serde_json = "1.0.61"
 serde = "1.0.118"
 log = "0.4.11"
 uuid = "0.8.1"
