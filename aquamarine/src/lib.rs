@@ -34,6 +34,7 @@ mod config;
 mod error;
 mod invoke;
 mod outcome;
+mod particle_data_store;
 mod particle_executor;
 mod plumber;
 mod vm_pool;

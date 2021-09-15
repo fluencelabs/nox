@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use avm_server::{AVMError, InterpreterOutcome};
+use avm_server::{AVMError, AVMOutcome, CallRequests, InterpreterOutcome};
 
 use libp2p::PeerId;
 use log::LevelFilter;
@@ -91,21 +91,9 @@ fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
 }
 
 pub fn parse_outcome(
-    outcome: Result<InterpreterOutcome, AVMError>,
-) -> Result<(Vec<u8>, Vec<PeerId>), ExecutionError> {
+    outcome: Result<AVMOutcome, AVMError>,
+) -> Result<(Vec<u8>, Vec<PeerId>, CallRequests), ExecutionError> {
     let outcome = outcome.map_err(ExecutionError::AquamarineError)?;
-
-    if outcome.ret_code != 0 {
-        return Err(ExecutionError::InterpreterOutcome {
-            error_message: outcome.error_message,
-            ret_code: outcome.ret_code,
-            readable_data: if log::max_level() > LevelFilter::Debug {
-                String::from_utf8_lossy(outcome.data.as_slice()).to_string()
-            } else {
-                String::new()
-            },
-        });
-    }
 
     let peer_ids = outcome
         .next_peer_pks
@@ -118,5 +106,5 @@ pub fn parse_outcome(
         })
         .collect::<Result<_, ExecutionError>>()?;
 
-    Ok((outcome.data, peer_ids))
+    Ok((outcome.data, peer_ids, outcome.call_requests))
 }

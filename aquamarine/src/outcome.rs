@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-use libp2p::PeerId;
+use avm_server::CallRequests;
 use particle_protocol::Particle;
+
+use libp2p::PeerId;
 
 #[derive(Clone, Debug)]
 pub struct SendParticle {
@@ -23,9 +25,10 @@ pub struct SendParticle {
     pub target: PeerId,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 /// Effects produced by particle execution. Currently the only effect is that of sending particles.
 pub struct StepperEffects {
     /// Particles that either correspond to `next_peer_pks` or represent an error being sent back to `init_peer_id`
     pub particles: Vec<SendParticle>,
+    pub call_requests: CallRequests,
 }

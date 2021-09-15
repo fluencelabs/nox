@@ -16,14 +16,14 @@
 
 use crate::config::VmConfig;
 use crate::invoke::{parse_outcome, ExecutionError};
+use crate::particle_data_store::ParticleDataStore;
 use crate::{SendParticle, StepperEffects};
-
-use avm_server::{AVMConfig, AVMError, InterpreterOutcome, AVM};
+use avm_server::{AVMConfig, AVMDataStore, AVMError, AVMOutcome, CallResults, AVM};
+use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
 
 use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
-use host_closure::ClosureDescriptor;
 use libp2p::PeerId;
 use log::LevelFilter;
 use std::{error::Error, task::Waker};
@@ -38,10 +38,7 @@ pub trait AquaRuntime: Sized + Send + 'static {
     ) -> BoxFuture<'static, Result<Self, Self::Error>>;
 
     // TODO: move into_effects inside call
-    fn into_effects(
-        outcome: Result<InterpreterOutcome, Self::Error>,
-        p: Particle,
-    ) -> StepperEffects;
+    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, p: Particle) -> StepperEffects;
 
     fn call(
         &mut self,
@@ -49,28 +46,30 @@ pub trait AquaRuntime: Sized + Send + 'static {
         aqua: String,
         data: Vec<u8>,
         particle_id: String,
-        // TODO: return StepperEffects
-    ) -> Result<InterpreterOutcome, Self::Error>;
+        call_results: &CallResults,
+    ) -> Result<AVMOutcome, Self::Error>;
 
     fn cleanup(&self, particle_id: &str) -> Result<(), Self::Error>;
 }
 
 impl AquaRuntime for AVM {
-    type Config = (VmConfig, ClosureDescriptor);
+    type Config = VmConfig;
     type Error = AVMError;
 
     /// Creates `AVM` in background (on blocking threadpool)
     fn create_runtime(
-        (config, host_closure): Self::Config,
+        config: Self::Config,
         waker: Waker,
     ) -> BoxFuture<'static, Result<Self, Self::Error>> {
         task::spawn_blocking(move || {
-            let config = AVMConfig {
-                current_peer_id: config.current_peer_id.to_string(),
-                air_wasm_path: config.air_interpreter,
+            let data_store = Box::new(ParticleDataStore {
                 particle_data_store: config.particles_dir,
                 vault_dir: config.particles_vault_dir,
-                call_service: host_closure(),
+            });
+            let config = AVMConfig {
+                data_store,
+                current_peer_id: config.current_peer_id.to_string(),
+                air_wasm_path: config.air_interpreter,
                 logging_mask: i32::MAX,
             };
             let vm = AVM::new(config);
@@ -80,46 +79,49 @@ impl AquaRuntime for AVM {
         .boxed()
     }
 
-    fn into_effects(outcome: Result<InterpreterOutcome, AVMError>, p: Particle) -> StepperEffects {
-        let particles = match parse_outcome(outcome) {
-            Ok((data, targets)) if !targets.is_empty() => {
+    fn into_effects(outcome: Result<AVMOutcome, AVMError>, p: Particle) -> StepperEffects {
+        match parse_outcome(outcome) {
+            Ok((data, targets, call_requests)) if !targets.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
                 log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
                 let particle = Particle { data, ..p };
-                targets
+                let particles = targets
                     .into_iter()
                     .map(|target| SendParticle {
                         particle: particle.clone(),
                         target,
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+
+                StepperEffects {
+                    particles,
+                    call_requests,
+                }
             }
             Ok((data, _)) => {
                 log::warn!(
-                    "Executed particle {}, next_peer_pks is empty. Won't send anywhere",
+                    "Executed particle {}, next_peer_pks is empty, no call requests. Nothing to do.",
                     p.id
                 );
                 if log::max_level() >= LevelFilter::Debug {
                     let data = String::from_utf8_lossy(data.as_slice());
                     log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
                 }
-                vec![]
+                <_>::default()
             }
             Err(ExecutionError::AquamarineError(err)) => {
                 log::warn!("Error executing particle {:#?}: {}", p, err);
-                vec![]
+                <_>::default()
             }
-            Err(err @ ExecutionError::InterpreterOutcome { .. }) => {
+            Err(err @ ExecutionError::AVMOutcome { .. }) => {
                 log::warn!("Error executing script: {}", err);
-                vec![]
+                <_>::default()
             }
             Err(err @ ExecutionError::InvalidResultField { .. }) => {
                 log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
-                vec![]
+                <_>::default()
             }
-        };
-
-        StepperEffects { particles }
+        }
     }
 
     #[inline]
@@ -128,9 +130,17 @@ impl AquaRuntime for AVM {
         init_user_id: PeerId,
         aqua: String,
         data: Vec<u8>,
-        particle_id: String,
-    ) -> Result<InterpreterOutcome, Self::Error> {
-        AVM::call(self, init_user_id.to_string(), aqua, data, particle_id)
+        particle_id: &str,
+        call_results: &CallResults,
+    ) -> Result<AVMOutcome, Self::Error> {
+        AVM::call(
+            self,
+            init_user_id.to_string(),
+            aqua,
+            data,
+            particle_id,
+            call_results,
+        )
     }
 
     #[inline]
