@@ -151,11 +151,12 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=remove-serde-version-lock#5185c500b3217bff1ec2e70eb2b2929b6648ffd7"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async-no-serde-lock#d6a75d7a394d12dca1d59c074f520ba2bf65d8ac"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -483,11 +484,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "avm-data-store"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async-no-serde-lock#d6a75d7a394d12dca1d59c074f520ba2bf65d8ac"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
 name = "avm-server"
-version = "0.10.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=remove-serde-version-lock#5185c500b3217bff1ec2e70eb2b2929b6648ffd7"
+version = "0.11.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async-no-serde-lock#d6a75d7a394d12dca1d59c074f520ba2bf65d8ac"
 dependencies = [
  "air-interpreter-interface",
+ "anyhow",
+ "avm-data-store",
  "fluence-faas",
  "log",
  "maplit",
