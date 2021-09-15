@@ -13,7 +13,7 @@ libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp
 
 futures = "0.3.13"
 log = "0.4.13"
-serde = "1.0.118"
+serde = "1.0.130"
 async-std = "1.9.0"
 itertools = "0.10.0"
 

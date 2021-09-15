@@ -11,10 +11,10 @@ fs-utils = { path = "../crates/fs-utils" }
 service-modules = { path = "../crates/service-modules" }
 
 marine-it-parser = "0.6.5"
-fluence-app-service = { git = "https://github.com/fluencelabs/marine" }
+fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
 
 serde = { version = "1.0.118", features = ["derive"] }
-serde_json = "1.0.61"
+serde_json = "1.0.64"
 toml = "0.5.6"
 log = "0.4.11"
 base64 = "0.13.0"

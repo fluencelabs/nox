@@ -38,3 +38,33 @@ members = [
 exclude = [
     "particle-node/tests/tetraplets",
 ]
+
+[patch.'https://github.com/fluencelabs/marine']
+marine-macro-impl = { version = "0.6.12", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+marine-macro = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+marine-rs-sdk = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+
+
+[patch.'https://github.com/fluencelabs/aquavm']
+marine-macro-impl = { version = "0.6.12", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+marine-macro = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+marine-rs-sdk = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+
+
+[patch.crates-io]
+marine-runtime = { version = "0.7.1", git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
+avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "remove-serde-version-lock" }
+fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
+fluence-faas = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
+marine-it-parser = { version = "0.6.7", git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
+marine-it-generator = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
+
+marine-macro-impl = { version = "0.6.12", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+marine-macro = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+marine-rs-sdk = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "remove_serde_version_lock" }
+
+trust-graph = { git = "https://github.com/fluencelabs/trust-graph", branch = "remove_serde_version_lock" }
+fluence-identity = { git = "https://github.com/fluencelabs/trust-graph", branch = "remove_serde_version_lock" }

@@ -7,8 +7,8 @@ edition = "2018"
 fstrings = "0.2.3"
 eyre = "0.6.5"
 maplit = "1.0.2"
-serde_json = "1.0.61"
-serde = "1.0.118"
+serde_json = "1.0.64"
+serde = "1.0.130"
 log = "0.4.11"
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
