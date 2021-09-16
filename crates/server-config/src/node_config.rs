@@ -169,8 +169,9 @@ impl KeypairConfig {
                 load_key_pair(path.clone(), self.format.clone(), self.generate_on_absence)
                     .map_err(|e| eyre!("Failed to load keypair from {:?}: {}", path, e))
             }
-            Value { value } => decode_key_pair(value, self.format)
-                .map_err(|e| eyre!("Failed to decode keypair: {}", e)),
+            Value { value } => {
+                decode_key_pair(value, self.format).map_err(|e| eyre!("Failed to decode keypair: {}", e))
+            }
         }
     }
 }
@@ -191,10 +192,7 @@ where
 
 /// Try to decode keypair from string as base58,
 /// if failed – load keypair from file pointed at by same string
-fn parse_or_load_keypair<'de, D>(
-    deserializer: D,
-    default_path: PathOrValue,
-) -> Result<KeyPair, D::Error>
+fn parse_or_load_keypair<'de, D>(deserializer: D, default_path: PathOrValue) -> Result<KeyPair, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

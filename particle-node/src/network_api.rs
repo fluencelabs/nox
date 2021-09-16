@@ -26,7 +26,7 @@
 
 use crate::network_tasks::NetworkTasks;
 
-use aquamarine::{AquamarineApi, SendParticle, StepperEffects};
+use aquamarine::{AquamarineApi, ParticleEffects, SendParticle};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
 
 use fluence_libp2p::types::BackPressuredInlet;
@@ -35,10 +35,12 @@ use particle_protocol::Contact;
 use particle_protocol::Particle;
 
 use async_std::task::{sleep, spawn};
-use futures::{stream::iter, FutureExt, Sink, SinkExt, StreamExt};
+use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, PeerId};
 use std::{cmp::min, collections::HashSet, time::Duration, time::Instant};
+
+type Sink<T> = impl futures::Sink<T> + Clone + Unpin + Send + Sync + 'static;
 
 /// API provided by the network
 pub struct NetworkApi {
@@ -126,31 +128,6 @@ pub struct Connectivity {
 }
 
 impl Connectivity {
-    /// Perform effects that Aquamarine instructed us to
-    pub async fn execute_effects(&self, effects: StepperEffects) {
-        let ps = iter(effects.particles.into_iter().filter(|p| {
-            if p.particle.is_expired() {
-                log::info!("Particle {} is expired", p.particle.id);
-                false
-            } else {
-                true
-            }
-        }));
-        // take every particle, and try to send it concurrently
-        ps.for_each_concurrent(None, move |p| {
-            let SendParticle { target, particle } = p;
-            let this = self.clone();
-            async move {
-                // resolve contact
-                if let Some(contact) = this.resolve_contact(target, &particle.id).await {
-                    // forward particle
-                    this.send(contact, particle).await;
-                }
-            }
-        })
-        .await;
-    }
-
     async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
         let contact = self.connection_pool.get_contact(target).await;
         if let Some(contact) = contact {
@@ -289,67 +266,107 @@ impl Connectivity {
             .for_each_concurrent(None, |addr| reconnect(kademlia.clone(), pool.clone(), addr))
             .await;
     }
+}
 
-    pub async fn process_particles(
-        self,
-        particle_parallelism: Option<usize>,
-        particle_stream: BackPressuredInlet<Particle>,
-        aquamarine: AquamarineApi,
-        particle_failures_sink: impl Sink<String> + Clone + Unpin + Send + Sync + 'static,
-        particle_timeout: Duration,
-    ) {
-        particle_stream
-            .for_each_concurrent(particle_parallelism, move |particle| {
-                let aquamarine = aquamarine.clone();
-                let connectivity = self.clone();
-                let peer_id = connectivity.current_peer_id;
-                let mut particle_failures_sink = particle_failures_sink.clone();
-                log::info!(target: "network", "{} Will execute particle {}", peer_id, particle.id);
+#[derive(Debug, Clone)]
+struct Dispatcher {
+    connectivity: Connectivity,
+    particle_parallelism: Option<usize>,
+    particle_stream: BackPressuredInlet<Particle>,
+    particle_sink: Sink<Particle>,
+    aquamarine: AquamarineApi,
+    particle_failures_sink: Sink<String>,
+    particle_timeout: Duration,
+}
 
-                let timeout = min(particle.time_to_live(), particle_timeout);
-                if timeout.is_zero() {
-                    log::info!("Particle {} expired", particle.id);
-                    return async {}.boxed();
-                }
-
-
+impl Dispatcher {
+    pub async fn process_particles(self) {
+        self.particle_stream
+            .for_each_concurrent(self.particle_parallelism, move |particle| {
                 let particle_id = particle.id.clone();
-                let p_id = particle_id.clone();
-                let fut = async move {
-                    let start = Instant::now();
-                    // execute particle on Aquamarine
-                    let stepper_effects = aquamarine.handle(particle).await;
+                let fut = self.execute_particle(particle).map(Ok);
 
-                    match stepper_effects {
-                        Ok(stepper_effects) => {
-                            // perform effects as instructed by aquamarine
-                            connectivity.execute_effects(stepper_effects).await;
+                async_std::io::timeout(timeout, fut)
+                    .map(move |r| {
+                        if r.is_ok() {
+                            return;
                         }
-                        Err(err) => {
-                            // particles are sent in fire and forget fashion, so
-                            // there's nothing to do here but log
-                            log::warn!("Error executing particle: {}", err);
-                            // sent info that particle has failed to the outer world
-                            let particle_id = err.into_particle_id();
-                            particle_failures_sink.feed(particle_id).await.ok();
-                        }
-                    };
-                    log::trace!(target: "network", "Particle {} processing took {}", p_id, pretty(start.elapsed()));
-                };
 
-                async_std::io::timeout(timeout, fut.map(Ok)).map(move |r| {
-                    if let Err(_err) = r {
                         if timeout != particle_timeout {
                             log::info!("Particle {} expired", particle_id);
                         } else {
-                            log::warn!("Particle {} timed out after {}", particle_id, pretty(timeout));
+                            let tout = pretty(timeout);
+                            log::warn!("Particle {} timed out after {}", particle_id, tout);
                         }
-                    }
-                }).boxed()
+                    })
+                    .boxed()
             })
             .await;
 
         log::error!("Particle stream has ended");
+    }
+
+    async fn execute_particle(&self, particle: Particle) {
+        let aquamarine = self.aquamarine.clone();
+        let connectivity = self.connectivity.clone();
+        let peer_id = connectivity.current_peer_id;
+        let mut particle_failures_sink = particle_failures_sink.clone();
+        log::info!(target: "network", "{} Will execute particle {}", peer_id, particle.id);
+
+        let timeout = min(particle.time_to_live(), particle_timeout);
+        if timeout.is_zero() {
+            log::info!("Particle {} expired", particle.id);
+            return;
+        }
+
+        let particle_id = particle.id.clone();
+        let start = Instant::now();
+        // execute particle on Aquamarine
+        let effects = aquamarine.handle(particle).await;
+
+        match effects {
+            Ok(effects) => {
+                // perform effects as instructed by aquamarine
+                connectivity.execute_effects(effects).await;
+            }
+            Err(err) => {
+                // particles are sent in fire and forget fashion, so
+                // there's nothing to do here but log
+                log::warn!("Error executing particle: {}", err);
+                // sent info that particle has failed to the outer world
+                let particle_id = err.into_particle_id();
+                particle_failures_sink.feed(particle_id).await.ok();
+            }
+        };
+        log::trace!(target: "network", "Particle {} processing took {}", particle_id, pretty(start.elapsed()));
+    }
+
+    /// Perform effects that Aquamarine instructed us to
+    pub async fn execute_effects(&self, effects: ParticleEffects) {
+        if effects.particle.is_expired() {
+            log::info!("Particle {} is expired", p.particle.id);
+            return;
+        }
+
+        // take every particle, and try to send it concurrently
+        let nps = effects.next_peers;
+        let particle = &effects.particle;
+        let connectivity = self.connectivity.clone();
+        nps.for_each_concurrent(None, move |t| {
+            let connectivity = connectivity.clone();
+            let particle = particle.clone();
+            async move {
+                // resolve contact
+                if let Some(contact) = connectivity.resolve_contact(target, &particle.id).await {
+                    // forward particle
+                    connectivity.send(contact, particle).await;
+                }
+            }
+        })
+        .await;
+
+        let crs = effects.call_requests;
+        crs.for_each_concurrent(None, move |call| {}).await;
     }
 }
 

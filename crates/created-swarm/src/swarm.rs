@@ -77,10 +77,7 @@ where
     )
 }
 
-pub fn make_swarms_with_transport_and_mocked_vm(
-    n: usize,
-    transport: Transport,
-) -> Vec<CreatedSwarm> {
+pub fn make_swarms_with_transport_and_mocked_vm(n: usize, transport: Transport) -> Vec<CreatedSwarm> {
     make_swarms_with::<EasyVM, _, _, _>(
         n,
         |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_, _, _, _| None),
@@ -105,9 +102,7 @@ where
 {
     make_swarms_with::<EasyVM, _, _, _>(
         n,
-        |bs, maddr| {
-            create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), |_, _, _, _| delay)
-        },
+        |bs, maddr| create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), |_, _, _, _| delay),
         create_memory_maddr,
         bootstraps,
         true,
@@ -121,11 +116,7 @@ pub fn make_swarms_with_keypair(n: usize, keypair: Keypair) -> Vec<CreatedSwarm>
     })
 }
 
-pub fn make_swarms_with_builtins(
-    n: usize,
-    path: &Path,
-    keypair: Option<Keypair>,
-) -> Vec<CreatedSwarm> {
+pub fn make_swarms_with_builtins(n: usize, path: &Path, keypair: Option<Keypair>) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, |mut cfg| {
         if let Some(keypair) = &keypair {
             cfg.keypair = keypair.clone();
@@ -200,9 +191,7 @@ where
                     5,
                 );
 
-                builtin_loader
-                    .deploy_builtin_services()
-                    .expect("builtins deployed");
+                builtin_loader.deploy_builtin_services().expect("builtins deployed");
             }
 
             CreatedSwarm {
@@ -305,12 +294,7 @@ pub fn aqua_vm_config(
     )
     .expect("create services config");
 
-    let host_closures = Node::host_closures(
-        connectivity,
-        vec![listen_on],
-        services_config,
-        script_storage_api,
-    );
+    let host_closures = Node::host_closures(connectivity, vec![listen_on], services_config, script_storage_api);
 
     (vm_config, host_closures.descriptor())
 }
@@ -344,8 +328,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         }
     }
 
-    let protocol_config =
-        ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
+    let protocol_config = ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
 
     let network_config = NetworkConfig {
         key_pair: config.keypair.clone(),
@@ -368,8 +351,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         Transport::Network => build_transport(config.keypair.clone(), TRANSPORT_TIMEOUT),
     };
 
-    let (swarm, network_api) =
-        Node::swarm(peer_id, network_config, transport, vec![listen_on.clone()]);
+    let (swarm, network_api) = Node::swarm(peer_id, network_config, transport, vec![listen_on.clone()]);
 
     let connectivity = network_api.connectivity();
     let (particle_failures_out, particle_failures_in) = unbounded();

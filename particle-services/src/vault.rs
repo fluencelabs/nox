@@ -20,11 +20,7 @@ use host_closure::AVMEffect;
 
 use std::path::PathBuf;
 
-pub fn create_vault(
-    effect: AVMEffect<PathBuf>,
-    service_id: &str,
-    particle_id: &str,
-) -> Result<(), ServiceError> {
+pub fn create_vault(effect: AVMEffect<PathBuf>, service_id: &str, particle_id: &str) -> Result<(), ServiceError> {
     effect().map_err(|err| ServiceError::VaultCreation {
         err,
         service_id: service_id.to_string(),

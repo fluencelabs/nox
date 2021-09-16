@@ -28,9 +28,8 @@ use libp2p::{
     core::Multiaddr,
     identity,
     kad::{
-        self, store::MemoryStore, BootstrapError, BootstrapOk, BootstrapResult,
-        GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult, KademliaEvent, QueryId,
-        QueryResult,
+        self, store::MemoryStore, BootstrapError, BootstrapOk, BootstrapResult, GetClosestPeersError,
+        GetClosestPeersOk, GetClosestPeersResult, KademliaEvent, QueryId, QueryResult,
     },
     swarm::{NetworkBehaviour, NetworkBehaviourEventProcess},
     PeerId,
@@ -120,11 +119,7 @@ pub struct Kademlia {
 }
 
 impl Kademlia {
-    pub fn new(
-        config: KademliaConfig,
-        trust_graph: TrustGraph,
-        registry: Option<&Registry>,
-    ) -> Self {
+    pub fn new(config: KademliaConfig, trust_graph: TrustGraph, registry: Option<&Registry>) -> Self {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
@@ -153,8 +148,7 @@ impl Kademlia {
 
     pub fn add_kad_node(&mut self, peer: PeerId, addresses: Vec<Multiaddr>, public_key: PublicKey) {
         for addr in addresses {
-            self.kademlia
-                .add_address(&peer, addr.clone(), public_key.clone());
+            self.kademlia.add_address(&peer, addr.clone(), public_key.clone());
         }
         self.wake();
     }
@@ -175,8 +169,7 @@ impl Kademlia {
             }
         };
         for addr in contact.addresses {
-            self.kademlia
-                .add_address(&contact.peer_id, addr, pk.clone());
+            self.kademlia.add_address(&contact.peer_id, addr, pk.clone());
         }
     }
 
@@ -219,12 +212,7 @@ impl Kademlia {
         }
     }
 
-    pub fn neighborhood(
-        &mut self,
-        key: Multihash,
-        count: usize,
-        outlet: OneshotOutlet<Result<Vec<PeerId>>>,
-    ) {
+    pub fn neighborhood(&mut self, key: Multihash, count: usize, outlet: OneshotOutlet<Result<Vec<PeerId>>>) {
         let key = key.into();
         let peers = self.kademlia.local_closest_peers(&key);
         let peers = peers.take(count);
@@ -233,14 +221,9 @@ impl Kademlia {
         self.wake();
     }
 
-    pub fn remote_neighborhood(
-        &mut self,
-        key: Multihash,
-        outlet: OneshotOutlet<Result<Vec<PeerId>>>,
-    ) {
+    pub fn remote_neighborhood(&mut self, key: Multihash, outlet: OneshotOutlet<Result<Vec<PeerId>>>) {
         let query_id = self.kademlia.get_closest_peers(key);
-        self.queries
-            .insert(query_id, PendingQuery::Neighborhood(outlet));
+        self.queries.insert(query_id, PendingQuery::Neighborhood(outlet));
         self.wake();
     }
 }
@@ -331,9 +314,7 @@ impl Kademlia {
         // Remove empty keys
         self.pending_peers.retain(|id, peers| {
             // remove expired
-            let expired = peers.drain_filter(|p| {
-                has_timed_out(now, p.created, config.query_timeout, &mut next_wake)
-            });
+            let expired = peers.drain_filter(|p| has_timed_out(now, p.created, config.query_timeout, &mut next_wake));
 
             let mut timed_out = false;
             for p in expired {
@@ -382,9 +363,7 @@ impl Kademlia {
     }
 
     fn is_banned(&self, peer: &PeerId) -> bool {
-        self.failed_peers
-            .get(peer)
-            .map_or(false, |f| f.ban.is_some())
+        self.failed_peers.get(peer).map_or(false, |f| f.ban.is_some())
     }
 }
 
@@ -417,11 +396,8 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
                 _ => {}
             },
             KademliaEvent::UnroutablePeer { .. } => {}
-            KademliaEvent::RoutingUpdated {
-                peer, addresses, ..
-            } => self.peer_discovered(peer, addresses.into_vec()),
-            KademliaEvent::RoutablePeer { peer, address }
-            | KademliaEvent::PendingRoutablePeer { peer, address } => {
+            KademliaEvent::RoutingUpdated { peer, addresses, .. } => self.peer_discovered(peer, addresses.into_vec()),
+            KademliaEvent::RoutablePeer { peer, address } | KademliaEvent::PendingRoutablePeer { peer, address } => {
                 self.peer_discovered(peer, vec![address])
             }
         }
@@ -492,20 +468,15 @@ mod tests {
         Swarm::dial_addr(&mut a, c_addr.clone()).unwrap();
         Swarm::dial_addr(&mut a, d_addr.clone()).unwrap();
         Swarm::dial_addr(&mut a, e_addr.clone()).unwrap();
-        a.kademlia
-            .add_address(Swarm::local_peer_id(&b), b_addr.clone(), b_pk);
-        a.kademlia
-            .add_address(Swarm::local_peer_id(&c), c_addr.clone(), c_pk);
-        a.kademlia
-            .add_address(Swarm::local_peer_id(&d), d_addr.clone(), d_pk);
-        a.kademlia
-            .add_address(Swarm::local_peer_id(&e), e_addr.clone(), e_pk);
+        a.kademlia.add_address(Swarm::local_peer_id(&b), b_addr.clone(), b_pk);
+        a.kademlia.add_address(Swarm::local_peer_id(&c), c_addr.clone(), c_pk);
+        a.kademlia.add_address(Swarm::local_peer_id(&d), d_addr.clone(), d_pk);
+        a.kademlia.add_address(Swarm::local_peer_id(&e), e_addr.clone(), e_pk);
         a.kademlia.bootstrap().ok();
 
         // b knows only a, wants to discover c
         Swarm::dial_addr(&mut b, a_addr.clone()).unwrap();
-        b.kademlia
-            .add_address(Swarm::local_peer_id(&a), a_addr, a_pk);
+        b.kademlia.add_address(Swarm::local_peer_id(&a), a_addr, a_pk);
         let (out, inlet) = oneshot::channel();
         b.discover_peer(Swarm::local_peer_id(&c).clone(), out);
         let discover_fut = inlet;

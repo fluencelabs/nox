@@ -29,8 +29,8 @@ use libp2p::{
     },
     ping::{Ping, PingConfig, PingResult},
     swarm::{
-        IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
-        NotifyHandler, OneShotHandler, PollParameters,
+        IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler,
+        OneShotHandler, PollParameters,
     },
     PeerId,
 };
@@ -62,12 +62,11 @@ impl ClientBehaviour {
     }
 
     pub fn call(&mut self, peer_id: PeerId, call: Particle) {
-        self.events
-            .push_back(NetworkBehaviourAction::NotifyHandler {
-                event: EitherOutput::First(HandlerMessage::OutParticle(call, <_>::default())),
-                handler: NotifyHandler::Any,
-                peer_id,
-            });
+        self.events.push_back(NetworkBehaviourAction::NotifyHandler {
+            event: EitherOutput::First(HandlerMessage::OutParticle(call, <_>::default())),
+            handler: NotifyHandler::Any,
+            peer_id,
+        });
 
         self.wake();
     }
@@ -99,12 +98,7 @@ impl NetworkBehaviour for ClientBehaviour {
 
     fn inject_disconnected(&mut self, _: &PeerId) {}
 
-    fn inject_connection_established(
-        &mut self,
-        peer_id: &PeerId,
-        _: &ConnectionId,
-        cp: &ConnectedPoint,
-    ) {
+    fn inject_connection_established(&mut self, peer_id: &PeerId, _: &ConnectionId, cp: &ConnectedPoint) {
         let multiaddr = match cp {
             ConnectedPoint::Dialer { address } => address,
             ConnectedPoint::Listener {
@@ -121,27 +115,17 @@ impl NetworkBehaviour for ClientBehaviour {
             }
         };
 
-        self.events.push_back(NetworkBehaviourAction::GenerateEvent(
-            ClientEvent::NewConnection {
+        self.events
+            .push_back(NetworkBehaviourAction::GenerateEvent(ClientEvent::NewConnection {
                 peer_id: *peer_id,
                 multiaddr: multiaddr.clone(),
-            },
-        ))
+            }))
     }
 
-    fn inject_connection_closed(
-        &mut self,
-        peer_id: &PeerId,
-        _: &ConnectionId,
-        cp: &ConnectedPoint,
-    ) {
+    fn inject_connection_closed(&mut self, peer_id: &PeerId, _: &ConnectionId, cp: &ConnectedPoint) {
         match cp {
             ConnectedPoint::Dialer { address } => {
-                log::warn!(
-                    "Disconnected from {} @ {:?}, reconnecting",
-                    peer_id,
-                    address
-                );
+                log::warn!("Disconnected from {} @ {:?}, reconnecting", peer_id, address);
                 self.events.push_back(NetworkBehaviourAction::DialAddress {
                     address: address.clone(),
                 });
@@ -160,34 +144,22 @@ impl NetworkBehaviour for ClientBehaviour {
         }
     }
 
-    fn inject_event(
-        &mut self,
-        peer_id: PeerId,
-        cid: ConnectionId,
-        event: EitherOutput<HandlerMessage, PingResult>,
-    ) {
+    fn inject_event(&mut self, peer_id: PeerId, cid: ConnectionId, event: EitherOutput<HandlerMessage, PingResult>) {
         use ClientEvent::Particle;
         use EitherOutput::*;
         use NetworkBehaviourAction::GenerateEvent;
 
         match event {
-            First(HandlerMessage::InParticle(particle)) => {
-                self.events.push_back(GenerateEvent(Particle {
-                    particle,
-                    sender: peer_id,
-                }))
-            }
+            First(HandlerMessage::InParticle(particle)) => self.events.push_back(GenerateEvent(Particle {
+                particle,
+                sender: peer_id,
+            })),
             Second(ping) => self.ping.inject_event(peer_id, cid, ping),
             First(_) => {}
         }
     }
 
-    fn inject_addr_reach_failure(
-        &mut self,
-        _: Option<&PeerId>,
-        addr: &Multiaddr,
-        error: &dyn Error,
-    ) {
+    fn inject_addr_reach_failure(&mut self, _: Option<&PeerId>, addr: &Multiaddr, error: &dyn Error) {
         log::warn!("Failed to connect to {:?}: {:?}, reconnecting", addr, error);
         let address = addr.clone();
         self.reconnect = async move {
@@ -199,11 +171,7 @@ impl NetworkBehaviour for ClientBehaviour {
         .into();
     }
 
-    fn poll(
-        &mut self,
-        cx: &mut Context<'_>,
-        params: &mut impl PollParameters,
-    ) -> Poll<SwarmEventType> {
+    fn poll(&mut self, cx: &mut Context<'_>, params: &mut impl PollParameters) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
         // just polling it to the end
@@ -211,8 +179,7 @@ impl NetworkBehaviour for ClientBehaviour {
 
         if let Some(Poll::Ready(address)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
             self.reconnect = None;
-            self.events
-                .push_back(NetworkBehaviourAction::DialAddress { address });
+            self.events.push_back(NetworkBehaviourAction::DialAddress { address });
         }
 
         if let Some(event) = self.events.pop_front() {

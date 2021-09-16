@@ -140,9 +140,7 @@ impl ResolvedConfig {
             .map(|(k, v)| {
                 Ok((
                     k.as_public_key()
-                        .ok_or_else(|| {
-                            eyre!("invalid root_weights key: PeerId doesn't contain PublicKey")
-                        })?
+                        .ok_or_else(|| eyre!("invalid root_weights key: PeerId doesn't contain PublicKey"))?
                         .into(),
                     v,
                 ))
@@ -160,10 +158,7 @@ impl ResolvedConfig {
 }
 
 /// Take all command line arguments, and insert them into config appropriately
-fn insert_args_to_config(
-    arguments: &ArgMatches,
-    config: &mut toml::value::Table,
-) -> eyre::Result<()> {
+fn insert_args_to_config(arguments: &ArgMatches, config: &mut toml::value::Table) -> eyre::Result<()> {
     use toml::Value::*;
 
     fn single(mut value: Values<'_>) -> &str {
@@ -179,8 +174,7 @@ fn insert_args_to_config(
     }
 
     fn check_and_delete(config: &mut toml::value::Table, key: &str, sub_key: &str) {
-        let _res: Option<toml::Value> =
-            try { config.get_mut(key)?.as_table_mut()?.remove(sub_key)? };
+        let _res: Option<toml::Value> = try { config.get_mut(key)?.as_table_mut()?.remove(sub_key)? };
     }
 
     // Check each possible command line argument
@@ -192,9 +186,7 @@ fn insert_args_to_config(
 
         // Convert value to a type of the corresponding field in `FluenceConfig`
         let mut value = match k {
-            WEBSOCKET_PORT | TCP_PORT | PROMETHEUS_PORT | AQUA_VM_POOL_SIZE => {
-                Integer(single(arg).parse()?)
-            }
+            WEBSOCKET_PORT | TCP_PORT | PROMETHEUS_PORT | AQUA_VM_POOL_SIZE => Integer(single(arg).parse()?),
             BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => Array(multiple(arg).collect()),
             ROOT_KEY_PAIR_VALUE => {
                 check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
@@ -209,10 +201,7 @@ fn insert_args_to_config(
         };
 
         let key = match k {
-            ROOT_KEY_PAIR_VALUE
-            | ROOT_KEY_PAIR_FORMAT
-            | ROOT_KEY_PAIR_PATH
-            | ROOT_KEY_PAIR_GENERATE => ROOT_KEY_PAIR,
+            ROOT_KEY_PAIR_VALUE | ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_PATH | ROOT_KEY_PAIR_GENERATE => ROOT_KEY_PAIR,
 
             k => k,
         };
@@ -243,15 +232,13 @@ pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
 
         log::info!("Loading config from {:?}", config_file);
 
-        std::fs::read(&config_file)
-            .wrap_err_with(|| format!("Failed reading config {:?}", config_file))?
+        std::fs::read(&config_file).wrap_err_with(|| format!("Failed reading config {:?}", config_file))?
     } else {
         log::info!("Config wasn't found, using default settings");
         Vec::default()
     };
 
-    let config = deserialize_config(&arguments, &config_bytes)
-        .wrap_err(eyre!("config deserialization failed"))?;
+    let config = deserialize_config(&arguments, &config_bytes).wrap_err(eyre!("config deserialization failed"))?;
 
     config.dir_config.create_dirs()?;
 
@@ -259,8 +246,7 @@ pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
 }
 
 pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Result<ResolvedConfig> {
-    let mut config: toml::value::Table =
-        toml::from_slice(content).wrap_err("deserializing config")?;
+    let mut config: toml::value::Table = toml::from_slice(content).wrap_err("deserializing config")?;
 
     insert_args_to_config(&arguments, &mut config)?;
 

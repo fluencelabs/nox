@@ -33,9 +33,7 @@ pub enum AquamarineApiError {
         This is unexpected and shouldn't happen."#
     )]
     AquamarineDied { particle_id: String },
-    #[error(
-        "AquamarineApiError::ExecutionTimedOut: particle_id = {particle_id}, timeout = {timeout}"
-    )]
+    #[error("AquamarineApiError::ExecutionTimedOut: particle_id = {particle_id}, timeout = {timeout}")]
     ExecutionTimedOut {
         particle_id: String,
         timeout: FormattedDuration,

@@ -63,11 +63,7 @@ impl IpfsState {
         }
     }
 
-    pub fn clear_multiaddr(
-        &mut self,
-        params: ParticleParameters,
-        management_peer_id: &str,
-    ) -> Result<JValue, JError> {
+    pub fn clear_multiaddr(&mut self, params: ParticleParameters, management_peer_id: &str) -> Result<JValue, JError> {
         if params.init_user_id != management_peer_id {
             return Err(JError(json!({
                 "user": params.init_user_id,

@@ -17,7 +17,7 @@
 use crate::config::VmConfig;
 use crate::invoke::{parse_outcome, ExecutionError};
 use crate::particle_data_store::ParticleDataStore;
-use crate::{SendParticle, StepperEffects};
+use crate::{ParticleEffects, SendParticle};
 use avm_server::{AVMConfig, AVMDataStore, AVMError, AVMOutcome, CallResults, AVM};
 use host_closure::ClosureDescriptor;
 use particle_protocol::Particle;
@@ -32,13 +32,10 @@ pub trait AquaRuntime: Sized + Send + 'static {
     type Config: Clone + Send + 'static;
     type Error: Error;
 
-    fn create_runtime(
-        config: Self::Config,
-        waker: Waker,
-    ) -> BoxFuture<'static, Result<Self, Self::Error>>;
+    fn create_runtime(config: Self::Config, waker: Waker) -> BoxFuture<'static, Result<Self, Self::Error>>;
 
     // TODO: move into_effects inside call
-    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, p: Particle) -> StepperEffects;
+    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, p: Particle) -> ParticleEffects;
 
     fn call(
         &mut self,
@@ -57,10 +54,7 @@ impl AquaRuntime for AVM {
     type Error = AVMError;
 
     /// Creates `AVM` in background (on blocking threadpool)
-    fn create_runtime(
-        config: Self::Config,
-        waker: Waker,
-    ) -> BoxFuture<'static, Result<Self, Self::Error>> {
+    fn create_runtime(config: Self::Config, waker: Waker) -> BoxFuture<'static, Result<Self, Self::Error>> {
         task::spawn_blocking(move || {
             let data_store = Box::new(ParticleDataStore {
                 particle_data_store: config.particles_dir,
@@ -79,23 +73,16 @@ impl AquaRuntime for AVM {
         .boxed()
     }
 
-    fn into_effects(outcome: Result<AVMOutcome, AVMError>, p: Particle) -> StepperEffects {
+    fn into_effects(outcome: Result<AVMOutcome, AVMError>, p: Particle) -> ParticleEffects {
         match parse_outcome(outcome) {
-            Ok((data, targets, call_requests)) if !targets.is_empty() || !calls.is_empty() => {
+            Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
                 log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
-                let particle = Particle { data, ..p };
-                let particles = targets
-                    .into_iter()
-                    .map(|target| SendParticle {
-                        particle: particle.clone(),
-                        target,
-                    })
-                    .collect::<Vec<_>>();
 
-                StepperEffects {
-                    particles,
-                    call_requests,
+                ParticleEffects {
+                    next_peers,
+                    call_requests: calls,
+                    particle: Particle { data, ..p },
                 }
             }
             Ok((data, _)) => {
@@ -133,14 +120,7 @@ impl AquaRuntime for AVM {
         particle_id: &str,
         call_results: &CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
-        AVM::call(
-            self,
-            init_user_id.to_string(),
-            aqua,
-            data,
-            particle_id,
-            call_results,
-        )
+        AVM::call(self, init_user_id.to_string(), aqua, data, particle_id, call_results)
     }
 
     #[inline]

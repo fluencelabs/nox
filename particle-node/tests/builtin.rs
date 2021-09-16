@@ -18,9 +18,7 @@
 extern crate fstrings;
 
 use connected_client::ConnectedClient;
-use created_swarm::{
-    make_swarms, make_swarms_with_keypair, make_swarms_with_transport_and_mocked_vm,
-};
+use created_swarm::{make_swarms, make_swarms_with_keypair, make_swarms_with_transport_and_mocked_vm};
 use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
 use json_utils::into_array;
@@ -212,12 +210,10 @@ fn remove_service_restart() {
 fn remove_service_by_alias() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_with_keypair(
-        swarms[0].multiaddr.clone(),
-        Some(swarms[0].management_keypair.clone()),
-    )
-    .wrap_err("connect client")
-    .unwrap();
+    let mut client =
+        ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), Some(swarms[0].management_keypair.clone()))
+            .wrap_err("connect client")
+            .unwrap();
 
     let tetraplets_service = create_service(
         &mut client,
@@ -316,12 +312,10 @@ fn non_owner_remove_service() {
 fn resolve_alias() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_with_keypair(
-        swarms[0].multiaddr.clone(),
-        Some(swarms[0].management_keypair.clone()),
-    )
-    .wrap_err("connect client")
-    .unwrap();
+    let mut client =
+        ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), Some(swarms[0].management_keypair.clone()))
+            .wrap_err("connect client")
+            .unwrap();
 
     let tetraplets_service = create_service(
         &mut client,
@@ -390,12 +384,10 @@ fn resolve_alias_not_exists() {
 fn resolve_alias_removed() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_with_keypair(
-        swarms[0].multiaddr.clone(),
-        Some(swarms[0].management_keypair.clone()),
-    )
-    .wrap_err("connect client")
-    .unwrap();
+    let mut client =
+        ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), Some(swarms[0].management_keypair.clone()))
+            .wrap_err("connect client")
+            .unwrap();
 
     let tetraplets_service = create_service(
         &mut client,
@@ -562,23 +554,12 @@ fn sha256() {
         "string" => json!(string),
     };
 
-    let result = exec_script(
-        script,
-        args,
-        "string_mhash string_digest bytes_mhash bytes_digest",
-        1,
-    );
+    let result = exec_script(script, args, "string_mhash string_digest bytes_mhash bytes_digest", 1);
 
     // multihash as base58
-    assert_eq!(
-        result[0],
-        json!(bs58::encode(sha_256.to_bytes()).into_string())
-    );
+    assert_eq!(result[0], json!(bs58::encode(sha_256.to_bytes()).into_string()));
     // sha256 digest as base58
-    assert_eq!(
-        result[1],
-        json!(bs58::encode(sha_256.digest()).into_string())
-    );
+    assert_eq!(result[1], json!(bs58::encode(sha_256.digest()).into_string()));
     // multihash as byte array
     assert_eq!(result[2], json!(sha_256.to_bytes()));
     // sha256 digest as byte array
@@ -651,9 +632,7 @@ fn kad_merge() {
     let merged = into_array(merged).expect("merged is an array");
     let merged = merged
         .into_iter()
-        .map(|id| {
-            PeerId::from_str(id.as_str().expect("peerid is a string")).expect("peerid is correct")
-        })
+        .map(|id| PeerId::from_str(id.as_str().expect("peerid is a string")).expect("peerid is correct"))
         .collect::<Vec<_>>();
 
     let target_key = Key::from(target);
@@ -823,12 +802,7 @@ fn array_length() {
     ])
 }
 
-fn exec_script(
-    script: &str,
-    args: HashMap<&'static str, JValue>,
-    result: &str,
-    node_count: usize,
-) -> Vec<JValue> {
+fn exec_script(script: &str, args: HashMap<&'static str, JValue>, result: &str, node_count: usize) -> Vec<JValue> {
     exec_script_as_admin(script, args, result, node_count, false)
 }
 

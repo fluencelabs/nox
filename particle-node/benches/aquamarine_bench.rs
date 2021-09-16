@@ -30,10 +30,7 @@ fn bench_script(name: &str, script: &str, data: HashMap<&'static str, JValue>, c
     let data: HashMap<_, _> = data.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
     let data = Arc::new(Mutex::new(data));
 
-    let mut vm = make_vm(
-        peer_id,
-        make_call_service_closure(data.into(), <_>::default()),
-    );
+    let mut vm = make_vm(peer_id, make_call_service_closure(data.into(), <_>::default()));
 
     // warm
     vm.call(peer_id.to_base58(), script, vec![], "id").unwrap();
@@ -77,12 +74,7 @@ fn host_load_return(c: &mut Criterion) {
     )
     "#;
 
-    bench_script(
-        "host_load_return",
-        script,
-        hashmap! { "data" => json!("data") },
-        c,
-    )
+    bench_script("host_load_return", script, hashmap! { "data" => json!("data") }, c)
 }
 
 criterion_group!(

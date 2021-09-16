@@ -15,10 +15,9 @@
  */
 
 use crate::error::ModuleError::{
-    BlueprintNotFound, BlueprintNotFoundInVault, ConfigNotFoundInVault, EmptyDependenciesList,
-    FacadeShouldBeHash, IncorrectVaultBlueprint, IncorrectVaultModuleConfig, InvalidBlueprintPath,
-    InvalidModuleConfigPath, InvalidModuleName, InvalidModulePath, ModuleNotFoundInVault,
-    ReadModuleInterfaceError, VaultDoesNotExist,
+    BlueprintNotFound, BlueprintNotFoundInVault, ConfigNotFoundInVault, EmptyDependenciesList, FacadeShouldBeHash,
+    IncorrectVaultBlueprint, IncorrectVaultModuleConfig, InvalidBlueprintPath, InvalidModuleConfigPath,
+    InvalidModuleName, InvalidModulePath, ModuleNotFoundInVault, ReadModuleInterfaceError, VaultDoesNotExist,
 };
 use crate::error::Result;
 use crate::files::{self, load_config_by_path, load_module_by_path, load_module_descriptor};
@@ -27,8 +26,8 @@ use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
 use host_closure::{JError, ParticleParameters};
 use marine_it_parser::module_interface;
 use service_modules::{
-    extract_module_file_name, hash_dependencies, is_blueprint, is_module_wasm,
-    module_config_name_hash, module_file_name_hash, Blueprint, Dependency, Hash,
+    extract_module_file_name, hash_dependencies, is_blueprint, is_module_wasm, module_config_name_hash,
+    module_file_name_hash, Blueprint, Dependency, Hash,
 };
 
 use eyre::WrapErr;
@@ -155,16 +154,14 @@ impl ModuleRepository {
     ) -> Result<TomlFaaSNamedModuleConfig> {
         let vault_path = self.check_vault_exists(&params.particle_id)?;
         // load & deserialize module config from vault
-        let config_fname =
-            file_name(&config_path).map_err(|err| InvalidModuleConfigPath { err, config_path })?;
+        let config_fname = file_name(&config_path).map_err(|err| InvalidModuleConfigPath { err, config_path })?;
         let config_path = vault_path.join(config_fname);
         let config = std::fs::read(&config_path).map_err(|err| {
             let config_path = config_path.clone();
             ConfigNotFoundInVault { config_path, err }
         })?;
 
-        serde_json::from_slice(&config)
-            .map_err(|err| IncorrectVaultModuleConfig { config_path, err })
+        serde_json::from_slice(&config).map_err(|err| IncorrectVaultModuleConfig { config_path, err })
     }
 
     pub fn load_blueprint_from_vault(
@@ -175,31 +172,18 @@ impl ModuleRepository {
         let vault_path = self.check_vault_exists(&params.particle_id)?;
 
         // load & deserialize module config from vault
-        let blueprint_fname = file_name(&blueprint_path).map_err(|err| InvalidBlueprintPath {
-            err,
-            blueprint_path,
-        })?;
+        let blueprint_fname = file_name(&blueprint_path).map_err(|err| InvalidBlueprintPath { err, blueprint_path })?;
         let blueprint_path = vault_path.join(blueprint_fname);
         let blueprint = std::fs::read(&blueprint_path).map_err(|err| {
             let blueprint_path = blueprint_path.clone();
-            BlueprintNotFoundInVault {
-                blueprint_path,
-                err,
-            }
+            BlueprintNotFoundInVault { blueprint_path, err }
         })?;
 
-        serde_json::from_slice(&blueprint).map_err(|err| IncorrectVaultBlueprint {
-            blueprint_path,
-            err,
-        })
+        serde_json::from_slice(&blueprint).map_err(|err| IncorrectVaultBlueprint { blueprint_path, err })
     }
 
     /// Adds a module to the filesystem, overwriting existing module.
-    pub fn add_module_base64(
-        &self,
-        module: String,
-        config: TomlFaaSNamedModuleConfig,
-    ) -> Result<String> {
+    pub fn add_module_base64(&self, module: String, config: TomlFaaSNamedModuleConfig) -> Result<String> {
         let module = base64::decode(&module)?;
         self.add_module(module, config)
     }
@@ -213,11 +197,9 @@ impl ModuleRepository {
         let vault_path = self.check_vault_exists(&params.particle_id)?;
 
         // load module
-        let module_fname =
-            file_name(&module_path).map_err(|err| InvalidModulePath { err, module_path })?;
+        let module_fname = file_name(&module_path).map_err(|err| InvalidModulePath { err, module_path })?;
         let module_path = vault_path.join(module_fname);
-        let module = std::fs::read(&module_path)
-            .map_err(|err| ModuleNotFoundInVault { module_path, err })?;
+        let module = std::fs::read(&module_path).map_err(|err| ModuleNotFoundInVault { module_path, err })?;
 
         // copy module & config to module_dir
         self.add_module(module, config)
@@ -233,9 +215,7 @@ impl ModuleRepository {
             .collect::<Result<_>>()?;
 
         let blueprint_name = blueprint.name.clone();
-        let facade = dependencies
-            .pop()
-            .ok_or(EmptyDependenciesList { id: blueprint_name })?;
+        let facade = dependencies.pop().ok_or(EmptyDependenciesList { id: blueprint_name })?;
 
         let hash = hash_dependencies(facade.clone(), dependencies.clone()).to_hex();
 
@@ -250,9 +230,7 @@ impl ModuleRepository {
         };
         files::add_blueprint(&self.blueprints_dir, &blueprint)?;
 
-        self.blueprints
-            .write()
-            .insert(blueprint.id.clone(), blueprint.clone());
+        self.blueprints.write().insert(blueprint.id.clone(), blueprint.clone());
 
         Ok(blueprint.id)
     }
@@ -330,11 +308,7 @@ impl ModuleRepository {
         let interface: eyre::Result<_> = try {
             let hash = Hash::from_hex(hex_hash)?;
 
-            get_interface_by_hash(
-                &self.modules_dir,
-                self.module_interface_cache.clone(),
-                &hash,
-            )?
+            get_interface_by_hash(&self.modules_dir, self.module_interface_cache.clone(), &hash)?
         };
 
         interface.map_err(|err| {
@@ -417,11 +391,7 @@ impl ModuleRepository {
     }
 }
 
-fn get_interface_by_hash(
-    modules_dir: &Path,
-    cache: Arc<RwLock<HashMap<Hash, JValue>>>,
-    hash: &Hash,
-) -> Result<JValue> {
+fn get_interface_by_hash(modules_dir: &Path, cache: Arc<RwLock<HashMap<Hash, JValue>>>, hash: &Hash) -> Result<JValue> {
     let interface_cache_opt = {
         let lock = cache.read();
         lock.get(hash).cloned()
@@ -431,8 +401,7 @@ fn get_interface_by_hash(
         Some(interface) => interface,
         None => {
             let path = modules_dir.join(module_file_name_hash(hash));
-            let interface =
-                module_interface(&path).map_err(|err| ReadModuleInterfaceError { path, err })?;
+            let interface = module_interface(&path).map_err(|err| ReadModuleInterfaceError { path, err })?;
             let json = json!(interface);
             json
         }
@@ -443,10 +412,7 @@ fn get_interface_by_hash(
     Ok(interface)
 }
 
-fn resolve_hash(
-    modules: &Arc<Mutex<HashMap<ModuleName, Hash>>>,
-    module: Dependency,
-) -> Result<Hash> {
+fn resolve_hash(modules: &Arc<Mutex<HashMap<ModuleName, Hash>>>, module: Dependency) -> Result<Hash> {
     match module {
         Dependency::Hash(hash) => Ok(hash),
         Dependency::Name(name) => {
@@ -480,10 +446,7 @@ mod tests {
 
         let name1 = "bp1".to_string();
         let resp1 = repo
-            .add_blueprint(AddBlueprint::new(
-                name1.clone(),
-                vec![dep1.clone(), dep2.clone()],
-            ))
+            .add_blueprint(AddBlueprint::new(name1.clone(), vec![dep1.clone(), dep2.clone()]))
             .unwrap();
         let bps1 = repo.get_blueprints();
         assert_eq!(bps1.len(), 1);
@@ -510,8 +473,7 @@ mod tests {
         let vault_dir = TempDir::new("test3").unwrap();
         let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), vault_dir.path());
 
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
-            .expect("load module");
+        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets").expect("load module");
 
         let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
             name: "tetra".to_string(),
@@ -525,9 +487,7 @@ mod tests {
             },
         };
 
-        let hash = repo
-            .add_module_base64(base64::encode(module), config)
-            .unwrap();
+        let hash = repo.add_module_base64(base64::encode(module), config).unwrap();
 
         let result = repo.get_interface(&hash);
         assert!(result.is_ok())

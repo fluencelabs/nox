@@ -119,10 +119,7 @@ mod tests {
     #[test]
     fn module_fname() {
         let path = Path::new("/.fluence/services/modules/facade_url_downloader.wasm");
-        assert_eq!(
-            extract_module_file_name(&path),
-            Some("facade_url_downloader")
-        );
+        assert_eq!(extract_module_file_name(&path), Some("facade_url_downloader"));
 
         let path = Path::new("/.fluence/services/modules/facade_url_downloader_config.toml");
         assert_eq!(extract_module_file_name(&path), None);

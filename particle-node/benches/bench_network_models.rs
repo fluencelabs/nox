@@ -28,9 +28,7 @@ use futures::future::BoxFuture;
 use futures::{FutureExt, SinkExt};
 use libp2p::PeerId;
 
-use aquamarine::{
-    AquamarineApi, AquamarineBackend, SendParticle, StepperEffects, VmConfig, VmPoolConfig, AVM,
-};
+use aquamarine::{AquamarineApi, AquamarineBackend, ParticleEffects, SendParticle, VmConfig, VmPoolConfig, AVM};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::{BackPressuredInlet, OneshotOutlet};
 use fluence_libp2p::RandomPeerId;
@@ -64,10 +62,7 @@ pub async fn particles_to_network(n: usize, peer_ids: Vec<PeerId>) -> BackPressu
     .await
 }
 
-pub async fn particles_with_script(
-    n: usize,
-    script: impl Fn(usize) -> String,
-) -> BackPressuredInlet<Particle> {
+pub async fn particles_with_script(n: usize, script: impl Fn(usize) -> String) -> BackPressuredInlet<Particle> {
     particles_with(n, |i, mut p| {
         p.script = script(i);
         p
@@ -90,20 +85,13 @@ pub fn generate_particles(n: usize, modify: impl Fn(usize, Particle) -> Particle
         }
     }
 
-    (0..n)
-        .map(|i| modify(i, particle(i)))
-        .chain(last_particle)
-        .collect()
+    (0..n).map(|i| modify(i, particle(i))).chain(last_particle).collect()
 }
 
-pub async fn particles_with(
-    n: usize,
-    modify: impl Fn(usize, Particle) -> Particle,
-) -> BackPressuredInlet<Particle> {
+pub async fn particles_with(n: usize, modify: impl Fn(usize, Particle) -> Particle) -> BackPressuredInlet<Particle> {
     let (mut outlet, inlet) = mpsc::channel(n * 2);
 
-    let mut particles =
-        futures::stream::iter(generate_particles(n, modify).into_iter().map(|p| Ok(p)));
+    let mut particles = futures::stream::iter(generate_particles(n, modify).into_iter().map(|p| Ok(p)));
     outlet.send_all(&mut particles).await.unwrap();
     mem::forget(outlet);
 
@@ -177,24 +165,17 @@ pub fn real_kademlia_api(network_size: usize) -> (KademliaApi, Stops, Vec<PeerId
         discoverer
             .connectivity
             .connection_pool
-            .connect(Contact::new(
-                swarms[0].peer_id,
-                vec![swarms[0].multiaddr.clone()],
-            )),
+            .connect(Contact::new(swarms[0].peer_id, vec![swarms[0].multiaddr.clone()])),
     );
 
-    let (mut stops, peer_ids): (Vec<_>, _) =
-        swarms.into_iter().map(|s| (s.outlet, s.peer_id)).unzip();
+    let (mut stops, peer_ids): (Vec<_>, _) = swarms.into_iter().map(|s| (s.outlet, s.peer_id)).unzip();
     stops.push(discoverer.outlet);
 
     let discoverer = discoverer.connectivity.kademlia;
     (discoverer, Stops(stops), peer_ids)
 }
 
-pub fn connection_pool_api(
-    num_particles: usize,
-    return_contact: bool,
-) -> (ConnectionPoolApi, JoinHandle<()>) {
+pub fn connection_pool_api(num_particles: usize, return_contact: bool) -> (ConnectionPoolApi, JoinHandle<()>) {
     use futures::StreamExt;
 
     let (outlet, mut inlet) = mpsc::unbounded();
@@ -262,7 +243,7 @@ pub fn aquamarine_api() -> (AquamarineApi, JoinHandle<()>) {
         while let Poll::Ready(Some(a)) = inlet.poll_next_unpin(cx) {
             wake = true;
             let (particle, ch) = a;
-            ch.send(Ok(StepperEffects {
+            ch.send(Ok(ParticleEffects {
                 particles: vec![SendParticle {
                     target: particle.init_peer_id,
                     particle,
@@ -281,10 +262,7 @@ pub fn aquamarine_api() -> (AquamarineApi, JoinHandle<()>) {
     (api, handle)
 }
 
-pub fn aquamarine_with_backend(
-    pool_size: usize,
-    delay: Option<Duration>,
-) -> (AquamarineApi, JoinHandle<()>) {
+pub fn aquamarine_with_backend(pool_size: usize, delay: Option<Duration>) -> (AquamarineApi, JoinHandle<()>) {
     let config = VmPoolConfig {
         pool_size,
         execution_timeout: TIMEOUT,
@@ -324,8 +302,7 @@ where
     )
     .wrap_err("create service config")
     .unwrap();
-    let host_closures =
-        HostClosures::new(connectivity, script_storage_api, node_info, services_config);
+    let host_closures = HostClosures::new(connectivity, script_storage_api, node_info, services_config);
 
     let pool_config = VmPoolConfig {
         pool_size,
@@ -376,24 +353,18 @@ pub fn connectivity_with_real_kad(
     (connectivity, cp_handle.boxed(), stops, peer_ids)
 }
 
-pub async fn process_particles(
-    num_particles: usize,
-    parallelism: Option<usize>,
-    particle_timeout: Duration,
-) {
+pub async fn process_particles(num_particles: usize, parallelism: Option<usize>, particle_timeout: Duration) {
     let peer_id = RandomPeerId::random();
     let (con, finish, kademlia) = connectivity(num_particles, peer_id);
     let (aquamarine, aqua_handle) = aquamarine_api();
     let (sink, _) = mpsc::unbounded();
 
     let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
-    let process = spawn(con.clone().process_particles(
-        parallelism,
-        particle_stream,
-        aquamarine,
-        sink,
-        particle_timeout,
-    ));
+    let process =
+        spawn(
+            con.clone()
+                .process_particles(parallelism, particle_stream, aquamarine, sink, particle_timeout),
+        );
     finish.await;
 
     process.cancel().await;
@@ -411,8 +382,7 @@ pub async fn process_particles_with_vm(
     let peer_id = RandomPeerId::random();
 
     let (con, future, kademlia) = connectivity(num_particles, peer_id);
-    let (aquamarine, aqua_handle) =
-        aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter);
+    let (aquamarine, aqua_handle) = aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter);
     let (sink, _) = mpsc::unbounded();
     let particle_stream: BackPressuredInlet<Particle> = particles(num_particles).await;
     let process = spawn(con.clone().process_particles(

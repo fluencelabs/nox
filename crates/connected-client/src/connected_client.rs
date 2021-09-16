@@ -93,10 +93,7 @@ impl ConnectedClient {
         Self::connect_with_timeout(node_address, None, timeout, particle_ttl)
     }
 
-    pub fn connect_with_keypair(
-        node_address: Multiaddr,
-        key_pair: Option<Keypair>,
-    ) -> Result<Self> {
+    pub fn connect_with_keypair(node_address: Multiaddr, key_pair: Option<Keypair>) -> Result<Self> {
         Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT, None)
     }
 
@@ -111,47 +108,30 @@ impl ConnectedClient {
 
         let transport = Transport::from_maddr(&node_address);
         let connect = async move {
-            let (mut client, _) =
-                Client::connect_with(node_address.clone(), transport, key_pair, timeout)
-                    .await
-                    .expect("sender connected");
-            let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {
-                peer_id, ..
-            }) = client.receive_one().await
-            {
-                Ok(ConnectedClient::new(
-                    client,
-                    peer_id,
-                    node_address,
-                    particle_ttl,
-                ))
-            } else {
-                Err(ErrorKind::ConnectionAborted.into())
-            };
+            let (mut client, _) = Client::connect_with(node_address.clone(), transport, key_pair, timeout)
+                .await
+                .expect("sender connected");
+            let result: Result<_, Error> =
+                if let Some(ClientEvent::NewConnection { peer_id, .. }) = client.receive_one().await {
+                    Ok(ConnectedClient::new(client, peer_id, node_address, particle_ttl))
+                } else {
+                    Err(ErrorKind::ConnectionAborted.into())
+                };
 
             result
         };
         Ok(task::block_on(self::timeout(TIMEOUT, connect))??)
     }
 
-    pub fn new(
-        client: Client,
-        node: PeerId,
-        node_address: Multiaddr,
-        particle_ttl: Option<Duration>,
-    ) -> Self {
+    pub fn new(client: Client, node: PeerId, node_address: Multiaddr, particle_ttl: Option<Duration>) -> Self {
         let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
         let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
 
         let peer_id = client.peer_id;
         let call_in = call_service_in.clone();
         let call_out = call_service_out.clone();
-        let f: Box<dyn FnOnce() -> Mutex<AVM>> = Box::new(move || {
-            Mutex::new(make_vm(
-                peer_id,
-                make_call_service_closure(call_in, call_out),
-            ))
-        });
+        let f: Box<dyn FnOnce() -> Mutex<AVM>> =
+            Box::new(move || Mutex::new(make_vm(peer_id, make_call_service_closure(call_in, call_out))));
         let local_vm = Lazy::new(f);
 
         Self {
@@ -172,11 +152,7 @@ impl ConnectedClient {
         self.client.send(particle, self.node)
     }
 
-    pub fn send_particle(
-        &mut self,
-        script: impl Into<String>,
-        data: HashMap<&str, JValue>,
-    ) -> String {
+    pub fn send_particle(&mut self, script: impl Into<String>, data: HashMap<&str, JValue>) -> String {
         self.send_particle_ext(script, data, false)
     }
 
@@ -186,10 +162,7 @@ impl ConnectedClient {
         data: HashMap<&str, JValue>,
         generated: bool,
     ) -> String {
-        *self.call_service_in.lock() = data
-            .into_iter()
-            .map(|(key, value)| (key.to_string(), value))
-            .collect();
+        *self.call_service_in.lock() = data.into_iter().map(|(key, value)| (key.to_string(), value)).collect();
         let particle = make_particle(
             self.peer_id,
             self.call_service_in.clone(),

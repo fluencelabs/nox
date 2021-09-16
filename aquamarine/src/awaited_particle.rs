@@ -15,14 +15,14 @@
  */
 
 use crate::error::AquamarineApiError;
-use crate::StepperEffects;
+use crate::ParticleEffects;
 
 use fluence_libp2p::types::OneshotOutlet;
 use particle_protocol::Particle;
 
 use std::ops::Deref;
 
-pub type EffectsChannel = OneshotOutlet<Result<StepperEffects, AquamarineApiError>>;
+pub type EffectsChannel = OneshotOutlet<Result<ParticleEffects, AquamarineApiError>>;
 
 #[derive(Debug)]
 /// A particle scheduled for execution.
@@ -59,13 +59,13 @@ impl Deref for AwaitedParticle {
 pub struct AwaitedEffects {
     /// Description of effects (e.g next_peer_pks of InterpreterOutcome) produced by particle execution
     /// or an error
-    pub effects: Result<StepperEffects, AquamarineApiError>,
+    pub effects: Result<ParticleEffects, AquamarineApiError>,
     /// Destination that waits to receive StepperEffects produced by particle execution
     pub out: EffectsChannel,
 }
 
 impl AwaitedEffects {
-    pub fn ok(effects: StepperEffects, out: EffectsChannel) -> Self {
+    pub fn ok(effects: ParticleEffects, out: EffectsChannel) -> Self {
         Self {
             effects: Ok(effects),
             out,
@@ -82,9 +82,6 @@ impl AwaitedEffects {
     }
 
     pub fn err(err: AquamarineApiError, out: EffectsChannel) -> Self {
-        Self {
-            effects: Err(err),
-            out,
-        }
+        Self { effects: Err(err), out }
     }
 }

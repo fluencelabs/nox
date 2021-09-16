@@ -33,11 +33,7 @@ pub struct NetworkTasks {
 }
 
 impl NetworkTasks {
-    pub fn new(
-        particles: JoinHandle<()>,
-        reconnect_bootstraps: JoinHandle<()>,
-        run_bootstrap: JoinHandle<()>,
-    ) -> Self {
+    pub fn new(particles: JoinHandle<()>, reconnect_bootstraps: JoinHandle<()>, run_bootstrap: JoinHandle<()>) -> Self {
         Self {
             particles: Some(particles),
             reconnect_bootstraps: Some(reconnect_bootstraps),
@@ -77,9 +73,7 @@ impl Future for NetworkTasks {
 
 impl FusedFuture for NetworkTasks {
     fn is_terminated(&self) -> bool {
-        self.particles.is_none()
-            && self.reconnect_bootstraps.is_none()
-            && self.run_bootstrap.is_none()
+        self.particles.is_none() && self.reconnect_bootstraps.is_none() && self.run_bootstrap.is_none()
     }
 }
 

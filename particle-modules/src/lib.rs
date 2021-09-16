@@ -39,6 +39,5 @@ pub use modules::{AddBlueprint, ModuleRepository};
 
 // reexport
 pub use fluence_app_service::{
-    TomlFaaSModuleConfig as ModuleConfig, TomlFaaSNamedModuleConfig as NamedModuleConfig,
-    TomlWASIConfig as WASIConfig,
+    TomlFaaSModuleConfig as ModuleConfig, TomlFaaSNamedModuleConfig as NamedModuleConfig, TomlWASIConfig as WASIConfig,
 };

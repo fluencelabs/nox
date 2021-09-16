@@ -36,14 +36,12 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
                     info.protocol_version,
                     info.listen_addrs
                 );
-                let supports_kademlia =
-                    info.protocols.iter().any(|p| p.contains("/ipfs/kad/1.0.0"));
+                let supports_kademlia = info.protocols.iter().any(|p| p.contains("/ipfs/kad/1.0.0"));
 
                 if supports_kademlia {
                     let addresses = filter_addresses(info.listen_addrs, self.allow_local_addresses);
                     // TODO: check that address is available before adding it? Or will kademlia check it?
-                    self.kademlia
-                        .add_addresses(peer_id, addresses, info.public_key);
+                    self.kademlia.add_addresses(peer_id, addresses, info.public_key);
                 }
             }
 

@@ -24,8 +24,8 @@ use futures::channel::mpsc;
 use libp2p::{
     core::{connection::ConnectionId, ConnectedPoint, Multiaddr},
     swarm::{
-        DialPeerCondition, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler,
-        PollParameters, ProtocolsHandler,
+        DialPeerCondition, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
+        ProtocolsHandler,
     },
     PeerId,
 };
@@ -105,10 +105,7 @@ impl ConnectionPoolBehaviour {
                 }
             },
             Entry::Vacant(slot) => {
-                slot.insert(Peer::Dialing(
-                    contact.addresses.into_iter().collect(),
-                    vec![outlet],
-                ));
+                slot.insert(Peer::Dialing(contact.addresses.into_iter().collect(), vec![outlet]));
             }
         };
     }
@@ -270,9 +267,7 @@ impl ConnectionPoolBehaviour {
 
     fn get_contact_impl(&self, peer_id: PeerId) -> Option<Contact> {
         match self.contacts.get(&peer_id) {
-            Some(Peer::Connected(addrs)) => {
-                Some(Contact::new(peer_id, addrs.iter().cloned().collect()))
-            }
+            Some(Peer::Connected(addrs)) => Some(Contact::new(peer_id, addrs.iter().cloned().collect())),
             _ => None,
         }
     }
@@ -307,31 +302,16 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         self.remove_contact(peer_id, "disconnected");
     }
 
-    fn inject_connection_established(
-        &mut self,
-        peer_id: &PeerId,
-        _: &ConnectionId,
-        cp: &ConnectedPoint,
-    ) {
+    fn inject_connection_established(&mut self, peer_id: &PeerId, _: &ConnectionId, cp: &ConnectedPoint) {
         let multiaddr = remote_multiaddr(cp).clone();
 
         self.add_address(*peer_id, multiaddr.clone());
 
-        self.lifecycle_event(LifecycleEvent::Connected(Contact::new(
-            *peer_id,
-            vec![multiaddr],
-        )))
+        self.lifecycle_event(LifecycleEvent::Connected(Contact::new(*peer_id, vec![multiaddr])))
     }
 
-    fn inject_addr_reach_failure(
-        &mut self,
-        peer_id: Option<&PeerId>,
-        addr: &Multiaddr,
-        error: &dyn Error,
-    ) {
-        let peer = peer_id
-            .map(|id| format!(" peer id {}", id))
-            .unwrap_or_default();
+    fn inject_addr_reach_failure(&mut self, peer_id: Option<&PeerId>, addr: &Multiaddr, error: &dyn Error) {
+        let peer = peer_id.map(|id| format!(" peer id {}", id)).unwrap_or_default();
         log::warn!("failed to connect to {}{}: {}", addr, peer, error);
 
         if let Some(peer_id) = peer_id {
@@ -346,10 +326,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
 
             // if contact is empty (there are no addresses), remove it
             if empty {
-                self.remove_contact(
-                    peer_id,
-                    format!("address {} reach failure {}", addr, error).as_str(),
-                );
+                self.remove_contact(peer_id, format!("address {} reach failure {}", addr, error).as_str());
             }
         }
 

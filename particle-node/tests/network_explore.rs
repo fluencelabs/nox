@@ -197,9 +197,7 @@ fn list_blueprints() {
     let args = client.receive_args().wrap_err("receive args").unwrap();
     let mut args = args.into_iter();
     let value = args.next().unwrap();
-    let bp: Vec<Blueprint> = serde_json::from_value(value)
-        .wrap_err("deserialize blueprint")
-        .unwrap();
+    let bp: Vec<Blueprint> = serde_json::from_value(value).wrap_err("deserialize blueprint").unwrap();
     assert_eq!(bp.len(), 1);
     assert_eq!(bp[0].name, "blueprint");
     assert_eq!(bp[0].dependencies.len(), 2);
@@ -272,11 +270,7 @@ fn explore_services() {
         .collect::<Vec<_>>();
     external_addrs.sort_unstable();
     external_addrs.dedup();
-    let expected_addrs: Vec<_> = swarms
-        .iter()
-        .map(|s| s.multiaddr.clone())
-        .sorted_unstable()
-        .collect();
+    let expected_addrs: Vec<_> = swarms.iter().map(|s| s.multiaddr.clone()).sorted_unstable().collect();
     assert_eq!(external_addrs, expected_addrs);
 }
 
@@ -320,11 +314,7 @@ fn explore_services_fixed() {
         .wrap_err("connect client")
         .unwrap();
 
-    let peers: Vec<_> = swarms
-        .iter()
-        .skip(1)
-        .map(|s| s.peer_id.to_string())
-        .collect();
+    let peers: Vec<_> = swarms.iter().skip(1).map(|s| s.peer_id.to_string()).collect();
     let data = hashmap! {
         "peers" => json!(peers),
         "clientId" => json!(client.peer_id.to_string()),

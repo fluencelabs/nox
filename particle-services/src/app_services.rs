@@ -17,9 +17,7 @@
 use crate::app_service::create_app_service;
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
-use crate::persistence::{
-    load_persisted_services, persist_service, remove_persisted_service, PersistedService,
-};
+use crate::persistence::{load_persisted_services, persist_service, remove_persisted_service, PersistedService};
 use crate::vault::create_vault;
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
@@ -124,11 +122,7 @@ impl ParticleAppServices {
         this
     }
 
-    pub fn create_service(
-        &self,
-        blueprint_id: String,
-        init_peer_id: String,
-    ) -> Result<String, ServiceError> {
+    pub fn create_service(&self, blueprint_id: String, init_peer_id: String) -> Result<String, ServiceError> {
         let service_id = uuid::Uuid::new_v4().to_string();
 
         let service = create_app_service(
@@ -151,15 +145,10 @@ impl ParticleAppServices {
         Ok(service_id)
     }
 
-    pub fn remove_service(
-        &self,
-        service_id_or_alias: String,
-        init_user_id: String,
-    ) -> Result<(), ServiceError> {
+    pub fn remove_service(&self, service_id_or_alias: String, init_user_id: String) -> Result<(), ServiceError> {
         let service_id = {
             let services_read = self.services.read();
-            let (service, service_id) =
-                get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
+            let (service, service_id) = get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
 
             if service.owner_id != init_user_id && self.startup_management_peer_id != init_user_id {
                 return Err(ServiceError::Forbidden {
@@ -189,15 +178,13 @@ impl ParticleAppServices {
 
         let function_args = args.function_args;
         let function_name = function_args.function_name;
-        let (service, id) = get_service(&services, &aliases, function_args.service_id).map_err(
-            |err| match err {
-                ServiceError::NoSuchService(service) => ServiceError::NoSuchServiceWithFunction {
-                    service,
-                    function: function_name.clone(),
-                },
-                e => e,
+        let (service, id) = get_service(&services, &aliases, function_args.service_id).map_err(|err| match err {
+            ServiceError::NoSuchService(service) => ServiceError::NoSuchServiceWithFunction {
+                service,
+                function: function_name.clone(),
             },
-        )?;
+            e => e,
+        })?;
 
         let particle_id = args.particle_parameters.particle_id;
         create_vault(args.create_vault, &id, &particle_id)?;
@@ -213,23 +200,12 @@ impl ParticleAppServices {
 
         let mut service = service.lock();
         service
-            .call(
-                function_name,
-                JValue::Array(function_args.function_args),
-                params,
-            )
+            .call(function_name, JValue::Array(function_args.function_args), params)
             .map_err(ServiceError::Engine)
     }
 
-    pub fn add_alias(
-        &self,
-        alias: String,
-        service_id: String,
-        init_user_id: String,
-    ) -> Result<(), ServiceError> {
-        if init_user_id != self.management_peer_id
-            && init_user_id != self.startup_management_peer_id
-        {
+    pub fn add_alias(&self, alias: String, service_id: String, init_user_id: String) -> Result<(), ServiceError> {
+        if init_user_id != self.management_peer_id && init_user_id != self.startup_management_peer_id {
             return Err(Forbidden {
                 user: init_user_id,
                 function: "add_alias",
@@ -345,10 +321,7 @@ impl ParticleAppServices {
                 aliases.insert(alias, s.service_id.clone());
             }
 
-            debug_assert!(
-                replaced.is_none(),
-                "shouldn't replace any existing services"
-            );
+            debug_assert!(replaced.is_none(), "shouldn't replace any existing services");
 
             log::info!("Persisted service {} created", s.service_id);
         }
@@ -380,11 +353,7 @@ mod tests {
         peer_id
     }
 
-    fn create_pas(
-        local_pid: PeerId,
-        management_pid: PeerId,
-        base_dir: PathBuf,
-    ) -> ParticleAppServices {
+    fn create_pas(local_pid: PeerId, management_pid: PeerId, base_dir: PathBuf) -> ParticleAppServices {
         let startup_kp = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
         let config = ServicesConfig::new(
@@ -397,20 +366,12 @@ mod tests {
         )
         .unwrap();
 
-        let repo = ModuleRepository::new(
-            &config.modules_dir,
-            &config.blueprint_dir,
-            &config.particles_vault_dir,
-        );
+        let repo = ModuleRepository::new(&config.modules_dir, &config.blueprint_dir, &config.particles_vault_dir);
 
         ParticleAppServices::new(config, repo)
     }
 
-    fn call_add_alias_raw(
-        as_manager: bool,
-        alias: String,
-        service_id: String,
-    ) -> Result<(), ServiceError> {
+    fn call_add_alias_raw(as_manager: bool, alias: String, service_id: String) -> Result<(), ServiceError> {
         let base_dir = TempDir::new("test3").unwrap();
         let local_pid = create_pid();
         let management_pid = create_pid();
@@ -430,39 +391,28 @@ mod tests {
         call_add_alias_raw(true, alias, service_id)
     }
 
-    fn create_service(
-        pas: &ParticleAppServices,
-        module_name: String,
-        module: &str,
-    ) -> Result<String, String> {
+    fn create_service(pas: &ParticleAppServices, module_name: String, module: &str) -> Result<String, String> {
         let dep = Dependency::Hash(Hash::from_hex(module).unwrap());
         let bp = pas
             .modules
             .add_blueprint(AddBlueprint::new(module_name, vec![dep]))
             .unwrap();
 
-        pas.create_service(bp, "".to_string())
-            .map_err(|e| e.to_string())
+        pas.create_service(bp, "".to_string()).map_err(|e| e.to_string())
     }
 
     #[test]
     fn test_add_alias_forbidden() {
         let resp = call_add_alias_raw(false, "1".to_string(), "2".to_string());
         assert!(resp.is_err());
-        assert!(matches!(
-            resp.err().unwrap(),
-            ServiceError::Forbidden { .. }
-        ))
+        assert!(matches!(resp.err().unwrap(), ServiceError::Forbidden { .. }))
     }
 
     #[test]
     fn test_add_alias_no_service() {
         let resp = call_add_alias("1".to_string(), "2".to_string());
         assert!(resp.is_err());
-        assert!(matches!(
-            resp.err().unwrap(),
-            ServiceError::NoSuchService(..)
-        ));
+        assert!(matches!(resp.err().unwrap(), ServiceError::NoSuchService(..)));
     }
 
     #[test]
@@ -472,8 +422,7 @@ mod tests {
         let base_dir = TempDir::new("test").unwrap();
         let pas = create_pas(local_pid, management_pid, base_dir.path().into());
 
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
-            .expect("load module");
+        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets").expect("load module");
 
         let module_name = "tetra".to_string();
         let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
@@ -487,10 +436,7 @@ mod tests {
                 logging_mask: None,
             },
         };
-        let hash = pas
-            .modules
-            .add_module_base64(base64::encode(module), config)
-            .unwrap();
+        let hash = pas.modules.add_module_base64(base64::encode(module), config).unwrap();
         let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
         let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
         let service_id3 = create_service(&pas, module_name.clone(), &hash).unwrap();

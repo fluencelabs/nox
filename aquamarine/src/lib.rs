@@ -33,8 +33,8 @@ mod awaited_particle;
 mod config;
 mod error;
 mod invoke;
-mod outcome;
 mod particle_data_store;
+mod particle_effects;
 mod particle_executor;
 mod plumber;
 mod vm_pool;
@@ -43,7 +43,7 @@ pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
 pub use aqua_runtime::AquaRuntime;
 pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
 pub use config::{VmConfig, VmPoolConfig};
-pub use outcome::{SendParticle, StepperEffects};
+pub use particle_effects::{ParticleEffects, SendParticle};
 pub use plumber::Plumber;
 
 // reexport

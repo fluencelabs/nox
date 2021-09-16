@@ -80,11 +80,7 @@ pub fn make_call_service_closure(
                 .lock()
                 .get(args.function_name.as_str())
                 .map(|v| ivalue_utils::ok(v.clone()))
-                .unwrap_or_else(|| {
-                    ivalue_utils::error(JValue::String(f!(
-                        "variable not found: {args.function_name}"
-                    )))
-                }),
+                .unwrap_or_else(|| ivalue_utils::error(JValue::String(f!("variable not found: {args.function_name}")))),
             ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
                 service_out.lock().extend(args.function_args);
                 ivalue_utils::unit()
@@ -208,26 +204,12 @@ pub fn make_particle(
     }
 }
 
-pub fn read_args(
-    particle: Particle,
-    peer_id: PeerId,
-    local_vm: &mut AVM,
-    out: Arc<Mutex<Vec<JValue>>>,
-) -> Vec<JValue> {
+pub fn read_args(particle: Particle, peer_id: PeerId, local_vm: &mut AVM, out: Arc<Mutex<Vec<JValue>>>) -> Vec<JValue> {
     let result = local_vm
-        .call(
-            peer_id.to_string(),
-            particle.script,
-            particle.data,
-            particle.id,
-        )
+        .call(peer_id.to_string(), particle.script, particle.data, particle.id)
         .expect("execute read_args vm");
 
-    assert_eq!(
-        result.ret_code, 0,
-        "read_args failed: {}",
-        result.error_message
-    );
+    assert_eq!(result.ret_code, 0, "read_args failed: {}", result.error_message);
 
     let result = out.lock().deref().clone();
     out.lock().clear();

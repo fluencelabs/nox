@@ -67,17 +67,13 @@ pub fn into_record(v: std::result::Result<JValue, JValue>) -> Option<IValue> {
 /// Converts successful result of call_service into `IValue::Record`  
 pub fn ok(value: JValue) -> Option<IValue> {
     let value = IValue::String(value.to_string());
-    Some(IValue::Record(
-        NEVec::new(vec![IValue::U32(0), value]).unwrap(),
-    ))
+    Some(IValue::Record(NEVec::new(vec![IValue::U32(0), value]).unwrap()))
 }
 
 /// Converts erroneous result of call_service into `IValue::Record`
 pub fn error(err: JValue) -> Option<IValue> {
     let err = IValue::String(err.to_string());
-    Some(IValue::Record(
-        NEVec::new(vec![IValue::U32(1), err]).unwrap(),
-    ))
+    Some(IValue::Record(NEVec::new(vec![IValue::U32(1), err]).unwrap()))
 }
 
 /// Converts empty result of call_service into `IValue::Record`

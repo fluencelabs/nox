@@ -16,7 +16,7 @@
 use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::EffectsChannel;
 use crate::error::AquamarineApiError;
-use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
+use crate::{AwaitedEffects, AwaitedParticle, ParticleEffects, Plumber, VmPoolConfig};
 
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
 use particle_protocol::Particle;
@@ -88,10 +88,7 @@ pub struct AquamarineApi {
     execution_timeout: Duration,
 }
 impl AquamarineApi {
-    pub fn new(
-        outlet: BackPressuredOutlet<(Particle, EffectsChannel)>,
-        execution_timeout: Duration,
-    ) -> Self {
+    pub fn new(outlet: BackPressuredOutlet<(Particle, EffectsChannel)>, execution_timeout: Duration) -> Self {
         Self {
             outlet,
             execution_timeout,
@@ -99,10 +96,7 @@ impl AquamarineApi {
     }
 
     /// Send particle to interpreters pool and wait response back
-    pub fn handle(
-        self,
-        particle: Particle,
-    ) -> BoxFuture<'static, Result<StepperEffects, AquamarineApiError>> {
+    pub fn handle(self, particle: Particle) -> BoxFuture<'static, Result<ParticleEffects, AquamarineApiError>> {
         use AquamarineApiError::*;
 
         let mut interpreters = self.outlet;

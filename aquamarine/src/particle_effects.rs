@@ -19,16 +19,13 @@ use particle_protocol::Particle;
 
 use libp2p::PeerId;
 
-#[derive(Clone, Debug)]
-pub struct SendParticle {
-    pub particle: Particle,
-    pub target: PeerId,
-}
-
 #[derive(Clone, Debug, Default)]
 /// Effects produced by particle execution. Currently the only effect is that of sending particles.
-pub struct StepperEffects {
-    /// Particles that either correspond to `next_peer_pks` or represent an error being sent back to `init_peer_id`
-    pub particles: Vec<SendParticle>,
+pub struct ParticleEffects {
+    /// Particle associated with these effects
+    pub particle: Particle,
+    /// Instruction to send particle to these peers
+    pub next_peers: Vec<PeerId>,
+    /// Instruction to execute host calls
     pub call_requests: CallRequests,
 }

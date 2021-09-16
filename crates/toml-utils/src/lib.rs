@@ -29,8 +29,5 @@
 use toml::value::{Table, Value};
 
 pub fn table(tuples: Vec<(String, String)>) -> Table {
-    tuples
-        .into_iter()
-        .map(|(k, v)| (k, Value::String(v)))
-        .collect()
+    tuples.into_iter().map(|(k, v)| (k, Value::String(v))).collect()
 }

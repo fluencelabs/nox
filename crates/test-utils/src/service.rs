@@ -25,11 +25,7 @@ pub struct CreatedService {
     pub id: String,
 }
 
-pub fn create_service(
-    client: &mut ConnectedClient,
-    module_name: &str,
-    module_bytes: Vec<u8>,
-) -> CreatedService {
+pub fn create_service(client: &mut ConnectedClient, module_name: &str, module_bytes: Vec<u8>) -> CreatedService {
     let script = f!(r#"
     (seq
         (seq
@@ -61,10 +57,7 @@ pub fn create_service(
     client.send_particle(script, data);
     let response = client.receive_args().wrap_err("receive args").unwrap();
 
-    let service_id = response[0]
-        .as_str()
-        .expect("service_id is in response")
-        .to_string();
+    let service_id = response[0].as_str().expect("service_id is in response").to_string();
 
     CreatedService { id: service_id }
 }

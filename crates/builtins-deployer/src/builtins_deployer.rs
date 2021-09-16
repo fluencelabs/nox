@@ -19,9 +19,7 @@ use fluence_libp2p::PeerId;
 use fs_utils::{file_name, file_stem, to_abs_path};
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
 use particle_modules::{list_files, AddBlueprint, NamedModuleConfig};
-use service_modules::{
-    hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
-};
+use service_modules::{hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash};
 
 use eyre::{eyre, ErrReport, Result, WrapErr};
 use futures::executor::block_on;
@@ -97,8 +95,7 @@ fn load_modules(path: &Path, dependencies: &[Dependency]) -> Result<Vec<Module>>
         modules.push(Module {
             data: fs::read(module.clone()).wrap_err(eyre!("module {:?} not found", module))?,
             config: serde_json::from_str(
-                &fs::read_to_string(config.clone())
-                    .wrap_err(eyre!("config {:?} not found", config))?,
+                &fs::read_to_string(config.clone()).wrap_err(eyre!("config {:?} not found", config))?,
             )?,
         });
     }
@@ -108,8 +105,7 @@ fn load_modules(path: &Path, dependencies: &[Dependency]) -> Result<Vec<Module>>
 
 fn load_blueprint(path: &Path) -> Result<AddBlueprint> {
     Ok(serde_json::from_str(
-        &fs::read_to_string(path.join("blueprint.json"))
-            .wrap_err(eyre!("blueprint {:?} not found", path))?,
+        &fs::read_to_string(path.join("blueprint.json")).wrap_err(eyre!("blueprint {:?} not found", path))?,
     )?)
 }
 
@@ -208,11 +204,7 @@ impl BuiltinsDeployer {
         }
     }
 
-    fn send_particle(
-        &mut self,
-        script: String,
-        data: HashMap<String, JValue>,
-    ) -> eyre::Result<Vec<JValue>> {
+    fn send_particle(&mut self, script: String, data: HashMap<String, JValue>) -> eyre::Result<Vec<JValue>> {
         *self.call_service_in.lock() = data;
         self.call_service_in
             .lock()
@@ -262,9 +254,7 @@ impl BuiltinsDeployer {
             "module_config".to_string() => json!(module.config),
         };
 
-        let result = self
-            .send_particle(script, data)
-            .wrap_err("add_module call failed")?;
+        let result = self.send_particle(script, data).wrap_err("add_module call failed")?;
 
         assert_ok(result, "add_module call failed")
     }
@@ -352,15 +342,11 @@ impl BuiltinsDeployer {
                 "interval_sec".to_string() => json!(scheduled_script.interval_sec),
             };
 
-            let res = self.send_particle(script, data).wrap_err(format!(
-                "scheduled script {} run failed",
-                scheduled_script.name
-            ))?;
+            let res = self
+                .send_particle(script, data)
+                .wrap_err(format!("scheduled script {} run failed", scheduled_script.name))?;
 
-            assert_ok(
-                res,
-                &format!("scheduled script {} run failed", scheduled_script.name),
-            )?;
+            assert_ok(res, &format!("scheduled script {} run failed", scheduled_script.name))?;
         }
 
         Ok(())
@@ -514,10 +500,7 @@ impl BuiltinsDeployer {
             .for_each(drop);
 
         return if !failed.is_empty() {
-            Err(eyre!(
-                "failed to load builtins from disk {:?}",
-                builtins_dir
-            ))
+            Err(eyre!("failed to load builtins from disk {:?}", builtins_dir))
         } else {
             Ok(successful)
         };

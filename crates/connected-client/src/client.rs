@@ -113,10 +113,7 @@ impl Client {
             }
 
             match transport {
-                Transport::Memory => swarm!(build_memory_transport(
-                    self.key_pair.clone(),
-                    transport_timeout
-                )),
+                Transport::Memory => swarm!(build_memory_transport(self.key_pair.clone(), transport_timeout)),
                 Transport::Network => {
                     swarm!(build_transport(self.key_pair.clone(), transport_timeout))
                 }

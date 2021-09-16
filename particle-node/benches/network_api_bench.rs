@@ -70,15 +70,8 @@ fn thousand_particles_with_aquamarine_bench(c: &mut Criterion) {
         let particle_parallelism = PARALLELISM;
         let particle_timeout = TIMEOUT;
 
-        b.to_async(AsyncStdExecutor).iter(move || {
-            process_particles_with_delay(
-                n,
-                pool_size,
-                call_time,
-                particle_parallelism,
-                particle_timeout,
-            )
-        })
+        b.to_async(AsyncStdExecutor)
+            .iter(move || process_particles_with_delay(n, pool_size, call_time, particle_parallelism, particle_timeout))
     });
 }
 
@@ -97,13 +90,7 @@ fn particle_throughput_with_delay_bench(c: &mut Criterion) {
                 };
                 group.bench_with_input(bid, &(delay, num), |b, (&delay, n)| {
                     b.to_async(AsyncStdExecutor).iter(move || {
-                        process_particles_with_delay(
-                            *n,
-                            pool_size,
-                            delay,
-                            particle_parallelism,
-                            particle_timeout,
-                        )
+                        process_particles_with_delay(*n, pool_size, delay, particle_parallelism, particle_timeout)
                     })
                 });
             }
@@ -134,16 +121,14 @@ fn particle_throughput_with_kad_bench(c: &mut Criterion) {
                 let _interpreter = interpreter.clone();
                 let peer_id = RandomPeerId::random();
 
-                let (con, finish_fut, kademlia, peer_ids) =
-                    connectivity_with_real_kad(n, network_size, peer_id);
+                let (con, finish_fut, kademlia, peer_ids) = connectivity_with_real_kad(n, network_size, peer_id);
                 // let (aquamarine, aqua_handle) =
                 //     aquamarine_with_vm(pool_size, con.clone(), peer_id, interpreter.clone());
                 // let (aquamarine, aqua_handle) = aquamarine_with_backend(pool_size, None);
                 let (aquamarine, aqua_handle) = aquamarine_api();
 
                 let (sink, _) = mpsc::unbounded();
-                let particle_stream: BackPressuredInlet<Particle> =
-                    task::block_on(particles_to_network(n, peer_ids));
+                let particle_stream: BackPressuredInlet<Particle> = task::block_on(particles_to_network(n, peer_ids));
                 let process_fut = Box::new(con.clone().process_particles(
                     particle_parallelism,
                     particle_stream,
@@ -260,8 +245,8 @@ fn connectivity_bench(c: &mut Criterion) {
                         .connect(Contact::new(last.peer_id, vec![last.multiaddr.clone()])),
                 );
 
-                let receiver_client = ConnectedClient::connect_to(receiver_node.multiaddr.clone())
-                    .expect("connect receiver_client");
+                let receiver_client =
+                    ConnectedClient::connect_to(receiver_node.multiaddr.clone()).expect("connect receiver_client");
 
                 println!(
                     "data = {},{},{}",
@@ -286,10 +271,7 @@ fn connectivity_bench(c: &mut Criterion) {
                     let contact = Contact::new(sender_node.peer_id, vec![]);
                     let num_particles = particles.len();
                     for particle in particles {
-                        sender_node
-                            .connectivity
-                            .connection_pool
-                            .send(contact.clone(), particle);
+                        sender_node.connectivity.connection_pool.send(contact.clone(), particle);
                     }
                     for _ in 0..num_particles {
                         if let Err(err) = receiver_client.receive() {

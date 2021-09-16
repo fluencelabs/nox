@@ -62,9 +62,7 @@ fn put_get() {
         },
         true,
     );
-    let mut result = client
-        .wait_particle_args(&get_particle)
-        .expect("execute getValues");
+    let mut result = client.wait_particle_args(&get_particle).expect("execute getValues");
     let records = result.get_mut(0).unwrap().take();
     let records: Vec<Record> = serde_json::from_value(records).unwrap();
 

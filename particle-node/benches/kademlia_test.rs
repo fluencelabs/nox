@@ -44,8 +44,7 @@ fn kademlia_resolve() {
     let network_size = 10;
     let peer_id = RandomPeerId::random();
 
-    let (connectivity, _finish_fut, kademlia, peer_ids) =
-        connectivity_with_real_kad(1, network_size, peer_id);
+    let (connectivity, _finish_fut, kademlia, peer_ids) = connectivity_with_real_kad(1, network_size, peer_id);
 
     async_std::task::block_on(async move {
         let start = Instant::now();
@@ -96,8 +95,8 @@ fn connectivity_test() {
             .connect(Contact::new(last.peer_id, vec![last.multiaddr.clone()])),
     );
 
-    let mut receiver_client = ConnectedClient::connect_to(receiver_node.multiaddr.clone())
-        .expect("connect receiver_client");
+    let mut receiver_client =
+        ConnectedClient::connect_to(receiver_node.multiaddr.clone()).expect("connect receiver_client");
 
     println!(
         "data = {},{},{}",
@@ -106,15 +105,11 @@ fn connectivity_test() {
     let particles = generate_particles(num_particles, |_, mut p| {
         p.ttl = (u16::MAX - 10) as _;
         p.script = String::from("!");
-        p.data = vec![
-            first.peer_id,
-            receiver_node.peer_id,
-            receiver_client.peer_id,
-        ]
-        .into_iter()
-        .map(|p| p.to_string())
-        .join(",")
-        .into_bytes();
+        p.data = vec![first.peer_id, receiver_node.peer_id, receiver_client.peer_id]
+            .into_iter()
+            .map(|p| p.to_string())
+            .join(",")
+            .into_bytes();
         p
     });
 
@@ -122,10 +117,7 @@ fn connectivity_test() {
         let contact = Contact::new(sender_node.peer_id, vec![]);
         let num_particles = particles.len();
         for particle in particles {
-            sender_node
-                .connectivity
-                .connection_pool
-                .send(contact.clone(), particle);
+            sender_node.connectivity.connection_pool.send(contact.clone(), particle);
         }
         for _ in 1..num_particles {
             if let Err(err) = receiver_client.receive() {

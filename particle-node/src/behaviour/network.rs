@@ -39,11 +39,7 @@ pub struct NetworkBehaviour {
 impl NetworkBehaviour {
     pub fn new(cfg: NetworkConfig) -> (Self, NetworkApi) {
         let local_public_key = cfg.key_pair.public();
-        let identity = Identify::new(
-            "/fluence/faas/1.0.0".into(),
-            "0.1.0".into(),
-            local_public_key,
-        );
+        let identity = Identify::new("/fluence/faas/1.0.0".into(), "0.1.0".into(), local_public_key);
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
 
         let kad_config = KademliaConfig {
@@ -55,11 +51,8 @@ impl NetworkBehaviour {
         // TODO: this is hazy; names are bad, conversion is far from transparent. Hide behaviours?
         let kademlia = Kademlia::new(kad_config, cfg.trust_graph, cfg.registry.as_ref());
         let (kademlia_api, kademlia) = kademlia.into();
-        let (connection_pool, particle_stream) = ConnectionPoolBehaviour::new(
-            cfg.particle_queue_buffer,
-            cfg.protocol_config,
-            cfg.local_peer_id,
-        );
+        let (connection_pool, particle_stream) =
+            ConnectionPoolBehaviour::new(cfg.particle_queue_buffer, cfg.protocol_config, cfg.local_peer_id);
         let (connection_pool_api, connection_pool) = connection_pool.into();
 
         (

@@ -87,10 +87,7 @@ impl ConnectionPoolInlet {
             outlet,
             send_timeout: connection_pool.protocol_config.upgrade_timeout,
         };
-        let inlet = Self {
-            inlet,
-            connection_pool,
-        };
+        let inlet = Self { inlet, connection_pool };
         (api, inlet)
     }
 
@@ -99,9 +96,7 @@ impl ConnectionPoolInlet {
             Command::Dial { addr, out } => self.connection_pool.dial(addr, out),
             Command::Connect { contact, out } => self.connection_pool.connect(contact, out),
             Command::Disconnect { contact, out } => self.connection_pool.disconnect(contact, out),
-            Command::IsConnected { peer_id, out } => {
-                self.connection_pool.is_connected(peer_id, out)
-            }
+            Command::IsConnected { peer_id, out } => self.connection_pool.is_connected(peer_id, out),
             Command::GetContact { peer_id, out } => self.connection_pool.get_contact(peer_id, out),
             Command::Send { to, particle, out } => self.connection_pool.send(to, particle, out),
             Command::CountConnections { out } => self.connection_pool.count_connections(out),

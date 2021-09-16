@@ -21,9 +21,7 @@ use crate::Result;
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
 
-use fluence_app_service::{
-    AppService, AppServiceConfig, FaaSConfig, FaaSWASIConfig, ModuleDescriptor,
-};
+use fluence_app_service::{AppService, AppServiceConfig, FaaSConfig, FaaSWASIConfig, ModuleDescriptor};
 use std::path::Path;
 
 pub fn create_app_service(
@@ -51,8 +49,7 @@ pub fn create_app_service(
 
         log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
 
-        let service = AppService::new(modules, service_id.clone(), config.envs)
-            .map_err(ServiceError::Engine)?;
+        let service = AppService::new(modules, service_id.clone(), config.envs).map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
         let persisted = PersistedService::new(service_id, blueprint_id, aliases, owner_id);

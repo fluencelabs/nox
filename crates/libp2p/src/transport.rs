@@ -26,10 +26,7 @@ use std::time::Duration;
 ///
 /// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
 /// the multiplexing layer.
-pub fn build_transport(
-    key_pair: Keypair,
-    socket_timeout: Duration,
-) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub fn build_transport(key_pair: Keypair, socket_timeout: Duration) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = {
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
         let tcp = dns::DnsConfig::new(tcp).expect("Can't build DNS");
@@ -74,10 +71,7 @@ where
         .boxed()
 }
 
-pub fn build_memory_transport(
-    key_pair: Keypair,
-    transport_timeout: Duration,
-) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub fn build_memory_transport(key_pair: Keypair, transport_timeout: Duration) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = MemoryTransport::default();
 
     configure_transport(transport, key_pair, transport_timeout)

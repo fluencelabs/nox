@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquaRuntime, InterpreterOutcome, SendParticle, StepperEffects};
+use aquamarine::{AquaRuntime, InterpreterOutcome, ParticleEffects, SendParticle};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
@@ -31,21 +31,15 @@ impl AquaRuntime for EasyVM {
     type Config = Option<Duration>;
     type Error = Infallible;
 
-    fn create_runtime(
-        delay: Option<Duration>,
-        _: Waker,
-    ) -> BoxFuture<'static, Result<Self, Self::Error>> {
+    fn create_runtime(delay: Option<Duration>, _: Waker) -> BoxFuture<'static, Result<Self, Self::Error>> {
         futures::future::ok(EasyVM { delay }).boxed()
     }
 
-    fn into_effects(
-        outcome: Result<InterpreterOutcome, Self::Error>,
-        mut p: Particle,
-    ) -> StepperEffects {
+    fn into_effects(outcome: Result<InterpreterOutcome, Self::Error>, mut p: Particle) -> ParticleEffects {
         let outcome = outcome.unwrap();
         p.data = outcome.data;
 
-        StepperEffects {
+        ParticleEffects {
             particles: outcome
                 .next_peer_pks
                 .into_iter()

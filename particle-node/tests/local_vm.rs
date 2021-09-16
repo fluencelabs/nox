@@ -70,12 +70,7 @@ fn make() {
         Duration::from_secs(20),
     );
 
-    let args = read_args(
-        particle,
-        client_b,
-        &mut local_vm_b,
-        call_service_out_b.clone(),
-    );
+    let args = read_args(particle, client_b, &mut local_vm_b, call_service_out_b.clone());
     assert_eq!(data["a"], args[0]);
     assert_eq!(data["b"], args[1]);
     assert_eq!(data["c"], args[2]);

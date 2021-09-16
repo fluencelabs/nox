@@ -16,9 +16,7 @@
 
 use crate::app_services::Service;
 use crate::error::ServiceError;
-use crate::error::ServiceError::{
-    CreateServicesDir, DeserializePersistedService, ReadPersistedService,
-};
+use crate::error::ServiceError::{CreateServicesDir, DeserializePersistedService, ReadPersistedService};
 
 use fs_utils::create_dirs;
 use particle_modules::{list_files, ModuleError};
@@ -41,12 +39,7 @@ pub struct PersistedService {
 }
 
 impl PersistedService {
-    pub fn new(
-        service_id: String,
-        blueprint_id: String,
-        aliases: Vec<String>,
-        owner_id: String,
-    ) -> Self {
+    pub fn new(service_id: String, blueprint_id: String, aliases: Vec<String>, owner_id: String) -> Self {
         Self {
             service_id,
             blueprint_id,
@@ -66,10 +59,7 @@ impl PersistedService {
 }
 
 /// Persist service info to disk, so it is recreated after restart
-pub fn persist_service(
-    services_dir: &Path,
-    persisted_service: PersistedService,
-) -> Result<(), ModuleError> {
+pub fn persist_service(services_dir: &Path, persisted_service: PersistedService) -> Result<(), ModuleError> {
     use ModuleError::*;
 
     let path = services_dir.join(service_file_name(&persisted_service.service_id));
@@ -104,20 +94,16 @@ pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedServi
                 err,
                 path: file.to_path_buf(),
             })?;
-            let service =
-                toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedService {
-                    err,
-                    path: file.to_path_buf(),
-                })?;
+            let service = toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedService {
+                err,
+                path: file.to_path_buf(),
+            })?;
 
             Ok(service)
         })
         .collect()
 }
 
-pub fn remove_persisted_service(
-    services_dir: &Path,
-    service_id: String,
-) -> Result<(), std::io::Error> {
+pub fn remove_persisted_service(services_dir: &Path, service_id: String) -> Result<(), std::io::Error> {
     std::fs::remove_file(services_dir.join(service_file_name(&service_id)))
 }

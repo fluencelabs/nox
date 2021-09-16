@@ -45,10 +45,7 @@ pub fn make_tmp_dir() -> PathBuf {
 
     let mut tmp = std::env::temp_dir();
     tmp.push("fluence_test/");
-    let dir: String = rand::thread_rng()
-        .sample_iter(Alphanumeric)
-        .take(16)
-        .collect();
+    let dir: String = rand::thread_rng().sample_iter(Alphanumeric).take(16).collect();
     tmp.push(dir);
 
     create_dir(&tmp).expect("create tmp dir");
@@ -90,17 +87,12 @@ pub fn set_write_only(path: &Path) -> Result<(), std::io::Error> {
 }
 
 pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
-    std::fs::create_dir_all(&dir)
-        .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
+    std::fs::create_dir_all(&dir).map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
 }
 
 pub fn remove_dir(dir: &Path) -> Result<(), std::io::Error> {
-    std::fs::remove_dir_all(&dir).map_err(|err| {
-        std::io::Error::new(
-            err.kind(),
-            format!("error removing directory {:?}: {:?}", dir, err),
-        )
-    })
+    std::fs::remove_dir_all(&dir)
+        .map_err(|err| std::io::Error::new(err.kind(), format!("error removing directory {:?}: {:?}", dir, err)))
 }
 
 pub fn file_stem(path: impl AsRef<Path>) -> eyre::Result<String> {
