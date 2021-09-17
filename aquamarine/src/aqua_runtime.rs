@@ -17,9 +17,8 @@
 use crate::config::VmConfig;
 use crate::invoke::{parse_outcome, ExecutionError};
 use crate::particle_data_store::ParticleDataStore;
-use crate::{ParticleEffects, SendParticle};
-use avm_server::{AVMConfig, AVMDataStore, AVMError, AVMOutcome, CallResults, AVM};
-use host_closure::ClosureDescriptor;
+use crate::ParticleEffects;
+use avm_server::{AVMConfig, AVMError, AVMOutcome, CallResults, AVM};
 use particle_protocol::Particle;
 
 use async_std::task;
@@ -32,7 +31,10 @@ pub trait AquaRuntime: Sized + Send + 'static {
     type Config: Clone + Send + 'static;
     type Error: Error;
 
-    fn create_runtime(config: Self::Config, waker: Waker) -> BoxFuture<'static, Result<Self, Self::Error>>;
+    fn create_runtime(
+        config: Self::Config,
+        waker: Waker,
+    ) -> BoxFuture<'static, Result<Self, Self::Error>>;
 
     // TODO: move into_effects inside call
     fn into_effects(outcome: Result<AVMOutcome, Self::Error>, p: Particle) -> ParticleEffects;
@@ -42,11 +44,11 @@ pub trait AquaRuntime: Sized + Send + 'static {
         init_user_id: PeerId,
         aqua: String,
         data: Vec<u8>,
-        particle_id: String,
+        particle_id: &str,
         call_results: &CallResults,
     ) -> Result<AVMOutcome, Self::Error>;
 
-    fn cleanup(&self, particle_id: &str) -> Result<(), Self::Error>;
+    fn cleanup(&mut self, particle_id: &str) -> Result<(), Self::Error>;
 }
 
 impl AquaRuntime for AVM {
@@ -54,7 +56,10 @@ impl AquaRuntime for AVM {
     type Error = AVMError;
 
     /// Creates `AVM` in background (on blocking threadpool)
-    fn create_runtime(config: Self::Config, waker: Waker) -> BoxFuture<'static, Result<Self, Self::Error>> {
+    fn create_runtime(
+        config: Self::Config,
+        waker: Waker,
+    ) -> BoxFuture<'static, Result<Self, Self::Error>> {
         task::spawn_blocking(move || {
             let data_store = Box::new(ParticleDataStore {
                 particle_data_store: config.particles_dir,
@@ -77,15 +82,15 @@ impl AquaRuntime for AVM {
         match parse_outcome(outcome) {
             Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
-                log::debug!("Particle {} executed, will be sent to {} targets", p.id, targets.len());
+                log::debug!("Particle {} executed, will be sent to {} targets", p.id, peers.len());
 
                 ParticleEffects {
-                    next_peers,
+                    next_peers: peers,
                     call_requests: calls,
                     particle: Particle { data, ..p },
                 }
             }
-            Ok((data, _)) => {
+            Ok((data, ..)) => {
                 log::warn!(
                     "Executed particle {}, next_peer_pks is empty, no call requests. Nothing to do.",
                     p.id
@@ -98,10 +103,6 @@ impl AquaRuntime for AVM {
             }
             Err(ExecutionError::AquamarineError(err)) => {
                 log::warn!("Error executing particle {:#?}: {}", p, err);
-                <_>::default()
-            }
-            Err(err @ ExecutionError::AVMOutcome { .. }) => {
-                log::warn!("Error executing script: {}", err);
                 <_>::default()
             }
             Err(err @ ExecutionError::InvalidResultField { .. }) => {
@@ -120,11 +121,18 @@ impl AquaRuntime for AVM {
         particle_id: &str,
         call_results: &CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
-        AVM::call(self, init_user_id.to_string(), aqua, data, particle_id, call_results)
+        AVM::call(
+            self,
+            aqua,
+            data,
+            init_user_id.to_string(),
+            particle_id,
+            call_results,
+        )
     }
 
     #[inline]
-    fn cleanup(&self, particle_id: &str) -> Result<(), Self::Error> {
-        AVM::cleanup_particle(self, particle_id)
+    fn cleanup(&mut self, particle_id: &str) -> Result<(), Self::Error> {
+        AVM::cleanup_data(&mut self, particle_id)
     }
 }

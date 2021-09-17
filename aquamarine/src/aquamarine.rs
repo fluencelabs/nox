@@ -16,10 +16,10 @@
 use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::EffectsChannel;
 use crate::error::AquamarineApiError;
+use crate::observation::Observation;
 use crate::{AwaitedEffects, AwaitedParticle, ParticleEffects, Plumber, VmPoolConfig};
 
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
-use particle_protocol::Particle;
 
 use async_std::{task, task::JoinHandle};
 use futures::{
@@ -33,7 +33,7 @@ use std::task::Poll;
 use std::time::Duration;
 
 pub struct AquamarineBackend<RT: AquaRuntime> {
-    inlet: BackPressuredInlet<(Particle, EffectsChannel)>,
+    inlet: BackPressuredInlet<(Observation, EffectsChannel)>,
     plumber: Plumber<RT>,
 }
 
@@ -84,11 +84,14 @@ impl<RT: AquaRuntime> AquamarineBackend<RT> {
 #[derive(Clone)]
 pub struct AquamarineApi {
     // send particle along with a "return address"; it's like the Ask pattern in Akka
-    outlet: BackPressuredOutlet<(Particle, EffectsChannel)>,
+    outlet: BackPressuredOutlet<(Observation, EffectsChannel)>,
     execution_timeout: Duration,
 }
 impl AquamarineApi {
-    pub fn new(outlet: BackPressuredOutlet<(Particle, EffectsChannel)>, execution_timeout: Duration) -> Self {
+    pub fn new(
+        outlet: BackPressuredOutlet<(Observation, EffectsChannel)>,
+        execution_timeout: Duration,
+    ) -> Self {
         Self {
             outlet,
             execution_timeout,
@@ -96,7 +99,10 @@ impl AquamarineApi {
     }
 
     /// Send particle to interpreters pool and wait response back
-    pub fn handle(self, particle: Particle) -> BoxFuture<'static, Result<ParticleEffects, AquamarineApiError>> {
+    pub fn handle(
+        self,
+        particle: Observation,
+    ) -> BoxFuture<'static, Result<ParticleEffects, AquamarineApiError>> {
         use AquamarineApiError::*;
 
         let mut interpreters = self.outlet;

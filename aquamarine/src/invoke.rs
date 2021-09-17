@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use avm_server::{AVMError, AVMOutcome, CallRequests, InterpreterOutcome};
+use avm_server::{AVMError, AVMOutcome, CallRequests};
 
 use libp2p::PeerId;
-use log::LevelFilter;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -42,11 +41,6 @@ pub enum ExecutionError {
         field: &'static str,
         error: FieldError,
     },
-    InterpreterOutcome {
-        error_message: String,
-        ret_code: i32,
-        readable_data: String,
-    },
     AquamarineError(AVMError),
 }
 
@@ -55,7 +49,6 @@ impl Error for ExecutionError {
         match &self {
             ExecutionError::InvalidResultField { error, .. } => Some(error),
             ExecutionError::AquamarineError(err) => Some(err),
-            ExecutionError::InterpreterOutcome { .. } => None,
         }
     }
 }
@@ -64,21 +57,14 @@ impl Display for ExecutionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ExecutionError::InvalidResultField { field, error } => {
-                write!(f, "Execution error: invalid result field {}: {}", field, error)
+                write!(
+                    f,
+                    "Execution error: invalid result field {}: {}",
+                    field, error
+                )
             }
             ExecutionError::AquamarineError(err) => {
                 write!(f, "Execution error: aquamarine error: {}", err)
-            }
-            ExecutionError::InterpreterOutcome {
-                error_message,
-                ret_code,
-                readable_data,
-            } => {
-                write!(
-                    f,
-                    "Execution error: InterpreterOutcome (ret_code = {}): {} {}",
-                    ret_code, error_message, readable_data
-                )
             }
         }
     }

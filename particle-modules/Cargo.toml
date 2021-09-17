@@ -9,6 +9,7 @@ host-closure = { path = "../crates/host-closure" }
 json-utils = { path = "../crates/json-utils" }
 fs-utils = { path = "../crates/fs-utils" }
 service-modules = { path = "../crates/service-modules" }
+particle-protocol = { path = "../particle-protocol" }
 
 marine-it-parser = "0.6.5"
 fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }

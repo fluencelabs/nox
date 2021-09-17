@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use host_closure::{Args, JError, ParticleParameters};
+use host_closure::{Args, JError};
 use libp2p::core::Multiaddr;
 use serde_json::{json, Value as JValue};
 
@@ -63,7 +63,11 @@ impl IpfsState {
         }
     }
 
-    pub fn clear_multiaddr(&mut self, params: ParticleParameters, management_peer_id: &str) -> Result<JValue, JError> {
+    pub fn clear_multiaddr(
+        &mut self,
+        params: ParticleParameters,
+        management_peer_id: &str,
+    ) -> Result<JValue, JError> {
         if params.init_user_id != management_peer_id {
             return Err(JError(json!({
                 "user": params.init_user_id,

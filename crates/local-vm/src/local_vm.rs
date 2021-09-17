@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
+use aquamarine::ParticleDataStore;
 use fs_utils::make_tmp_dir;
 use host_closure::Args;
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use uuid_utils::uuid;
 
-use avm_server::{AVMConfig, CallServiceClosure, InterpreterOutcome, AVM};
-
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
+use avm_server::{AVMConfig, AVMOutcome, IValue, AVM};
+
 use fstrings::f;
 use libp2p::PeerId;
 use parking_lot::Mutex;
@@ -72,15 +73,19 @@ impl Instruction {
 pub fn make_call_service_closure(
     service_in: Arc<Mutex<HashMap<String, JValue>>>,
     service_out: Arc<Mutex<Vec<JValue>>>,
-) -> CallServiceClosure {
+) -> Box<dyn FnOnce(Args) -> Option<IValue>> {
     Box::new(move |args| {
-        let args = Args::parse(args.function_args).expect("valid args");
+        // let args = Args::parse(args.function_args).expect("valid args");
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("load", _) | ("getDataSrv", _) => service_in
                 .lock()
                 .get(args.function_name.as_str())
                 .map(|v| ivalue_utils::ok(v.clone()))
-                .unwrap_or_else(|| ivalue_utils::error(JValue::String(f!("variable not found: {args.function_name}")))),
+                .unwrap_or_else(|| {
+                    ivalue_utils::error(JValue::String(f!(
+                        "variable not found: {args.function_name}"
+                    )))
+                }),
             ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
                 service_out.lock().extend(args.function_args);
                 ivalue_utils::unit()
@@ -104,20 +109,24 @@ pub fn make_call_service_closure(
     })
 }
 
-pub fn make_vm(peer_id: PeerId, call_service: CallServiceClosure) -> AVM {
+pub fn make_vm(peer_id: PeerId) -> AVM {
     let tmp = make_tmp_dir();
     let interpreter = air_interpreter_path(&tmp);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
     let particle_data_store: PathBuf = format!("/tmp/{}", peer_id.to_string()).into();
-    let config = AVMConfig {
-        call_service,
-        air_wasm_path: interpreter,
-        current_peer_id: peer_id.to_string(),
-        vault_dir: particle_data_store.join("vault"),
+    let vault_dir = particle_data_store.join("vault");
+    let data_store = Box::new(ParticleDataStore {
         particle_data_store,
+        vault_dir,
+    });
+    let config = AVMConfig {
+        data_store,
+        current_peer_id: cpeer_id.to_string(),
+        air_wasm_path: air_interpreter,
         logging_mask: i32::MAX,
     };
+
     log::info!("particle_data_store: {:?}", config.particle_data_store);
 
     AVM::new(config)
@@ -175,21 +184,21 @@ pub fn make_particle(
 
     let id = uuid();
 
-    let InterpreterOutcome {
+    let AVMOutcome {
         data,
-        ret_code,
-        error_message,
-        ..
+        call_requests,
+        next_peer_pks,
     } = local_vm
-        .call(peer_id.to_string(), script.clone(), vec![], id.clone())
+        .call(
+            peer_id.to_string(),
+            script.clone(),
+            vec![],
+            &id,
+            todo!("pass CallRequests"),
+        )
         .expect("execute & make particle");
 
     service_in.lock().clear();
-
-    if ret_code != 0 {
-        log::error!("failed to make a particle {}: {}", ret_code, error_message);
-        panic!("failed to make a particle {}: {}", ret_code, error_message);
-    }
 
     log::info!("Made a particle {}", id);
 
@@ -204,12 +213,26 @@ pub fn make_particle(
     }
 }
 
-pub fn read_args(particle: Particle, peer_id: PeerId, local_vm: &mut AVM, out: Arc<Mutex<Vec<JValue>>>) -> Vec<JValue> {
+pub fn read_args(
+    particle: Particle,
+    peer_id: PeerId,
+    local_vm: &mut AVM,
+    out: Arc<Mutex<Vec<JValue>>>,
+) -> Vec<JValue> {
     let result = local_vm
-        .call(peer_id.to_string(), particle.script, particle.data, particle.id)
+        .call(
+            peer_id.to_string(),
+            particle.script,
+            particle.data,
+            particle.id,
+        )
         .expect("execute read_args vm");
 
-    assert_eq!(result.ret_code, 0, "read_args failed: {}", result.error_message);
+    assert_eq!(
+        result.ret_code, 0,
+        "read_args failed: {}",
+        result.error_message
+    );
 
     let result = out.lock().deref().clone();
     out.lock().clear();

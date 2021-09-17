@@ -132,7 +132,8 @@ where
             Some(p) => {
                 // Particle is expired, return vm and error
                 let (p, out) = p.into();
-                let effects = Err(AquamarineApiError::ParticleExpired { particle_id: p.id });
+                let particle_id = p.particle().id;
+                let effects = Err(AquamarineApiError::ParticleExpired { particle_id });
                 let effects = AwaitedEffects { effects, out };
                 ActorPoll::Expired(effects, vm)
             }

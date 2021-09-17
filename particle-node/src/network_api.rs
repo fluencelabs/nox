@@ -46,8 +46,10 @@ type Sink<T> = impl futures::Sink<T> + Clone + Unpin + Send + Sync + 'static;
 pub struct NetworkApi {
     /// Stream of particles coming from other peers, lifted here from [[ConnectionPoolBehaviour]]
     particle_stream: BackPressuredInlet<Particle>,
+    /// Sink to push particles back to `particle_stream`
+    particle_sink: Sink<Particle>,
     /// Number of concurrently processed particles
-    particle_parallelism: usize,
+    particle_parallelism: Option<usize>,
     /// Kademlia and ConnectionPool in a single Clone-able structure
     connectivity: Connectivity,
     /// Bootstrap will be executed after [1, N, 2*N, 3*N, ...] bootstrap nodes connected
@@ -60,7 +62,8 @@ pub struct NetworkApi {
 impl NetworkApi {
     pub fn new(
         particle_stream: BackPressuredInlet<Particle>,
-        particle_parallelism: usize,
+        particle_sink: Sink<Particle>,
+        particle_parallelism: Option<usize>,
         kademlia: KademliaApi,
         connection_pool: ConnectionPoolApi,
         bootstrap_frequency: usize,
@@ -69,6 +72,7 @@ impl NetworkApi {
     ) -> Self {
         Self {
             particle_stream,
+            particle_sink,
             particle_parallelism,
             connectivity: Connectivity {
                 kademlia,
@@ -93,10 +97,11 @@ impl NetworkApi {
         self,
         aquamarine: AquamarineApi,
         bootstrap_nodes: HashSet<Multiaddr>,
-        particle_failures_sink: impl Sink<String> + Clone + Unpin + Send + Sync + 'static,
+        particle_failures_sink: Sink<String>,
     ) -> NetworkTasks {
         let NetworkApi {
             particle_stream,
+            particle_sink,
             particle_parallelism,
             connectivity,
             bootstrap_frequency: freq,
@@ -105,13 +110,17 @@ impl NetworkApi {
         let bs = bootstrap_nodes;
         let reconnect_bootstraps = spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
         let run_bootstrap = spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
-        let particles = spawn(connectivity.process_particles(
-            Some(particle_parallelism),
-            particle_stream,
+
+        let dispatcher = Dispatcher {
             aquamarine,
             particle_failures_sink,
+            connectivity,
+            particle_parallelism,
+            particle_stream,
+            particle_sink,
             particle_timeout,
-        ));
+        };
+        let particles = spawn(dispatcher.process_particles());
 
         NetworkTasks::new(particles, reconnect_bootstraps, run_bootstrap)
     }

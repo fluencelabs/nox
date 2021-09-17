@@ -15,10 +15,10 @@
  */
 
 use crate::error::AquamarineApiError;
+use crate::observation::Observation;
 use crate::ParticleEffects;
 
 use fluence_libp2p::types::OneshotOutlet;
-use particle_protocol::Particle;
 
 use std::ops::Deref;
 
@@ -26,26 +26,26 @@ pub type EffectsChannel = OneshotOutlet<Result<ParticleEffects, AquamarineApiErr
 
 #[derive(Debug)]
 /// A particle scheduled for execution.
-/// Execution will produce StepperEffects, which are to be sent to `out`
+/// Execution will produce ParticleEffects, which are to be sent to `out`
 pub struct AwaitedParticle {
-    pub particle: Particle,
+    pub particle: Observation,
     pub out: EffectsChannel,
 }
 
-impl From<AwaitedParticle> for (Particle, EffectsChannel) {
-    fn from(item: AwaitedParticle) -> (Particle, EffectsChannel) {
+impl From<AwaitedParticle> for (Observation, EffectsChannel) {
+    fn from(item: AwaitedParticle) -> (Observation, EffectsChannel) {
         (item.particle, item.out)
     }
 }
 
-impl AsRef<Particle> for AwaitedParticle {
-    fn as_ref(&self) -> &Particle {
+impl AsRef<Observation> for AwaitedParticle {
+    fn as_ref(&self) -> &Observation {
         &self.particle
     }
 }
 
 impl Deref for AwaitedParticle {
-    type Target = Particle;
+    type Target = Observation;
 
     fn deref(&self) -> &Self::Target {
         &self.particle
@@ -60,7 +60,7 @@ pub struct AwaitedEffects {
     /// Description of effects (e.g next_peer_pks of InterpreterOutcome) produced by particle execution
     /// or an error
     pub effects: Result<ParticleEffects, AquamarineApiError>,
-    /// Destination that waits to receive StepperEffects produced by particle execution
+    /// Destination that waits to receive ParticleEffects produced by particle execution
     pub out: EffectsChannel,
 }
 
@@ -75,13 +75,16 @@ impl AwaitedEffects {
     pub fn expired(particle: AwaitedParticle) -> Self {
         Self {
             effects: Err(AquamarineApiError::ParticleExpired {
-                particle_id: particle.particle.id,
+                particle_id: particle.particle().id,
             }),
             out: particle.out,
         }
     }
 
     pub fn err(err: AquamarineApiError, out: EffectsChannel) -> Self {
-        Self { effects: Err(err), out }
+        Self {
+            effects: Err(err),
+            out,
+        }
     }
 }
