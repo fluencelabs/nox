@@ -16,8 +16,11 @@
 
 use crate::app_services::Service;
 use crate::error::ServiceError;
-use crate::error::ServiceError::{CreateServicesDir, DeserializePersistedService, ReadPersistedService};
+use crate::error::ServiceError::{
+    CreateServicesDir, DeserializePersistedService, ReadPersistedService,
+};
 
+use fluence_libp2p::{peerid_serializer, PeerId, RandomPeerId};
 use fs_utils::create_dirs;
 use particle_modules::{list_files, ModuleError};
 use service_modules::{is_service, service_file_name};
@@ -33,13 +36,19 @@ pub struct PersistedService {
     #[serde(default)]
     // Old versions of PersistedService may omit `aliases` field, tolerate that
     pub aliases: Vec<String>,
-    // Old versions of PersistedService may omit `owner` field, tolerate that
-    #[serde(default)]
-    pub owner_id: String,
+    // Old versions of PersistedService may omit `owner` field, tolerate that via RandomPeerId::random
+    #[serde(default = "RandomPeerId::random")]
+    #[serde(with = "peerid_serializer")]
+    pub owner_id: PeerId,
 }
 
 impl PersistedService {
-    pub fn new(service_id: String, blueprint_id: String, aliases: Vec<String>, owner_id: String) -> Self {
+    pub fn new(
+        service_id: String,
+        blueprint_id: String,
+        aliases: Vec<String>,
+        owner_id: PeerId,
+    ) -> Self {
         Self {
             service_id,
             blueprint_id,
@@ -59,7 +68,10 @@ impl PersistedService {
 }
 
 /// Persist service info to disk, so it is recreated after restart
-pub fn persist_service(services_dir: &Path, persisted_service: PersistedService) -> Result<(), ModuleError> {
+pub fn persist_service(
+    services_dir: &Path,
+    persisted_service: PersistedService,
+) -> Result<(), ModuleError> {
     use ModuleError::*;
 
     let path = services_dir.join(service_file_name(&persisted_service.service_id));
@@ -94,16 +106,20 @@ pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedServi
                 err,
                 path: file.to_path_buf(),
             })?;
-            let service = toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedService {
-                err,
-                path: file.to_path_buf(),
-            })?;
+            let service =
+                toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedService {
+                    err,
+                    path: file.to_path_buf(),
+                })?;
 
             Ok(service)
         })
         .collect()
 }
 
-pub fn remove_persisted_service(services_dir: &Path, service_id: String) -> Result<(), std::io::Error> {
+pub fn remove_persisted_service(
+    services_dir: &Path,
+    service_id: String,
+) -> Result<(), std::io::Error> {
     std::fs::remove_file(services_dir.join(service_file_name(&service_id)))
 }

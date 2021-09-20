@@ -18,14 +18,12 @@ use std::borrow::Borrow;
 use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
-use parking_lot::{Mutex, MutexGuard};
 use serde_json::{json, Value as JValue};
 use JValue::Array;
 
@@ -37,7 +35,7 @@ use now_millis::{now_ms, now_sec};
 use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
-use particle_protocol::Contact;
+use particle_protocol::{Contact, Particle};
 use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -45,16 +43,14 @@ use server_config::ServicesConfig;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
-use crate::ipfs::IpfsState;
 
 #[derive(Clone)]
 pub struct HostClosures<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
-    pub management_peer_id: String,
-    pub startup_management_peer_id: String,
-    pub ipfs_state: Arc<Mutex<IpfsState>>,
+    pub management_peer_id: PeerId,
+    pub startup_management_peer_id: PeerId,
 
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
@@ -75,8 +71,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let vault_dir = &config.particles_vault_dir;
         let modules = ModuleRepository::new(modules_dir, blueprint_dir, vault_dir);
 
-        let management_peer_id = config.management_peer_id.to_base58();
-        let startup_management_peer_id = config.startup_management_peer_id.to_base58();
+        let management_peer_id = config.management_peer_id;
+        let startup_management_peer_id = config.startup_management_peer_id;
         let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
@@ -84,14 +80,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             script_storage,
             management_peer_id,
             startup_management_peer_id,
-            ipfs_state: Arc::new(Mutex::new(IpfsState::default())),
             modules,
             services,
             node_info,
         }
     }
 
-    fn route(&self, function_args: Args, params: ParticleAppServices) -> Option<IValue> {
+    fn route(&self, function_args: Args, particle: Particle) -> Option<IValue> {
         log::trace!("Host function call, args: {:#?}", function_args);
         let log_args = format!(
             "Executed host call {:?} {:?}",
@@ -113,26 +108,26 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("kad", "merge")                  => wrap(self.kad_merge(function_args.function_args)),
 
             ("srv", "list")                   => ok(self.list_services()),
-            ("srv", "create")                 => wrap(self.create_service(function_args, params)),
+            ("srv", "create")                 => wrap(self.create_service(function_args, particle)),
             ("srv", "get_interface")          => wrap(self.get_interface(function_args)),
             ("srv", "resolve_alias")          => wrap(self.resolve_alias(function_args)),
-            ("srv", "add_alias")              => wrap_unit(self.add_alias(function_args, params)),
-            ("srv", "remove")                 => wrap_unit(self.remove_service(function_args, params)),
+            ("srv", "add_alias")              => wrap_unit(self.add_alias(function_args, particle)),
+            ("srv", "remove")                 => wrap_unit(self.remove_service(function_args, particle)),
 
-            ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(function_args, params)),
+            ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(function_args, particle)),
             ("dist", "add_module")            => wrap(self.add_module(function_args)),
             ("dist", "add_blueprint")         => wrap(self.add_blueprint(function_args)),
             ("dist", "make_module_config")    => wrap(self.make_module_config(function_args)),
-            ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(function_args, params)),
+            ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(function_args, particle)),
             ("dist", "default_module_config") => wrap(self.default_module_config(function_args)),
             ("dist", "make_blueprint")        => wrap(self.make_blueprint(function_args)),
-            ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(function_args, params)),
+            ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(function_args, particle)),
             ("dist", "list_modules")          => wrap(self.list_modules()),
             ("dist", "get_module_interface")  => wrap(self.get_module_interface(function_args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
-            ("script", "add")                 => wrap(self.add_script(function_args, params)),
-            ("script", "remove")              => wrap(self.remove_script(function_args, params)),
+            ("script", "add")                 => wrap(self.add_script(function_args, particle)),
+            ("script", "remove")              => wrap(self.remove_script(function_args, particle)),
             ("script", "list")                => wrap(self.list_scripts()),
 
             ("op", "noop")                    => unit(),
@@ -147,11 +142,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "concat_strings")          => wrap(self.concat_strings(function_args.function_args)),
             ("op", "identity")                => wrap_opt(self.identity(function_args.function_args)),
 
-            ("ipfs", "get_multiaddr")         => wrap(self.ipfs().get_multiaddr()),
-            ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
-            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(function_args, params, &self.management_peer_id)),
-
-            _ => wrap(self.call_service(function_args, params, args.create_vault)),
+            _ => wrap(self.call_service(function_args, particle, todo!("create vault isn't implemented"))),
         };
         log::info!("{} ({})", log_args, pretty(start.elapsed()));
         result
@@ -203,7 +194,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(contact.map(|c| json!(c)))
     }
 
-    fn add_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+    fn add_script(&self, args: Args, params: Particle) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
         let script: String = Args::next("script", &mut args)?;
@@ -215,7 +206,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let delay = delay.map(Duration::from_secs);
         let delay = get_delay(delay, interval);
 
-        let creator = PeerId::from_str(&params.init_user_id)?;
+        let creator = params.init_peer_id;
         let id = self
             .script_storage
             .add_script(script, interval, delay, creator)?;
@@ -223,13 +214,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(json!(id))
     }
 
-    fn remove_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+    fn remove_script(&self, args: Args, params: Particle) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
-        let force = params.init_user_id == self.management_peer_id;
+        let force = params.init_peer_id == self.management_peer_id;
 
         let uuid: String = Args::next("uuid", &mut args)?;
-        let actor = PeerId::from_str(&params.init_user_id)?;
+        let actor = params.init_peer_id;
 
         let ok = task::block_on(self.script_storage.remove_script(uuid, actor, force))?;
 
@@ -418,11 +409,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(JValue::String(module_hash))
     }
 
-    fn add_module_from_vault(
-        &self,
-        args: Args,
-        params: ParticleParameters,
-    ) -> Result<JValue, JError> {
+    fn add_module_from_vault(&self, args: Args, params: Particle) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_path: String = Args::next("module_path", &mut args)?;
         let config = Args::next("config", &mut args)?;
@@ -481,7 +468,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn load_module_config_from_vault(
         &self,
         args: Args,
-        params: ParticleParameters,
+        params: Particle,
     ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let config_path: String = Args::next("config_path", &mut args)?;
@@ -525,11 +512,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(blueprint_request)
     }
 
-    fn load_blueprint_from_vault(
-        &self,
-        args: Args,
-        params: ParticleParameters,
-    ) -> Result<JValue, JError> {
+    fn load_blueprint_from_vault(&self, args: Args, params: Particle) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_path = Args::next("blueprint_path", &mut args)?;
 
@@ -568,23 +551,23 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             .collect()
     }
 
-    fn create_service(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+    fn create_service(&self, args: Args, params: Particle) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
 
         let service_id = self
             .services
-            .create_service(blueprint_id, params.init_user_id)?;
+            .create_service(blueprint_id, params.init_peer_id)?;
 
         Ok(JValue::String(service_id))
     }
 
-    fn remove_service(&self, args: Args, params: ParticleParameters) -> Result<(), JError> {
+    fn remove_service(&self, args: Args, params: Particle) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
 
         self.services
-            .remove_service(service_id_or_alias, params.init_user_id)?;
+            .remove_service(service_id_or_alias, params.init_peer_id)?;
         Ok(())
     }
 
@@ -595,14 +578,14 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn call_service(
         &self,
         function_args: Args,
-        particle_parameters: ParticleParameters,
+        particle: Particle,
         create_vault: AVMEffect<PathBuf>,
     ) -> Result<JValue, JError> {
         Ok(self
             .services
             .call_service(particle_services::CallServiceArgs {
                 function_args,
-                particle_parameters,
+                particle,
                 create_vault,
             })?)
     }
@@ -613,13 +596,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(self.services.get_interface(service_id)?)
     }
 
-    fn add_alias(&self, args: Args, params: ParticleParameters) -> Result<(), JError> {
+    fn add_alias(&self, args: Args, params: Particle) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
 
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
         self.services
-            .add_alias(alias, service_id, params.init_user_id)?;
+            .add_alias(alias, service_id, params.init_peer_id)?;
         Ok(())
     }
 
@@ -638,10 +621,6 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
     fn connection_pool(&self) -> &ConnectionPoolApi {
         self.connectivity.as_ref()
-    }
-
-    fn ipfs(&self) -> MutexGuard<'_, IpfsState> {
-        self.ipfs_state.lock()
     }
 }
 

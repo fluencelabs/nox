@@ -73,11 +73,11 @@ impl AwaitedEffects {
     }
 
     pub fn expired(particle: AwaitedParticle) -> Self {
+        let out = particle.out;
+        let particle_id = particle.particle.particle().id;
         Self {
-            effects: Err(AquamarineApiError::ParticleExpired {
-                particle_id: particle.particle().id,
-            }),
-            out: particle.out,
+            out,
+            effects: Err(AquamarineApiError::ParticleExpired { particle_id }),
         }
     }
 

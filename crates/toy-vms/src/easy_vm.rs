@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquaRuntime, InterpreterOutcome, ParticleEffects, SendParticle};
+use aquamarine::{AquaRuntime, ParticleEffects};
+use avm_server::AVMOutcome;
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
@@ -31,11 +32,14 @@ impl AquaRuntime for EasyVM {
     type Config = Option<Duration>;
     type Error = Infallible;
 
-    fn create_runtime(delay: Option<Duration>, _: Waker) -> BoxFuture<'static, Result<Self, Self::Error>> {
+    fn create_runtime(
+        delay: Option<Duration>,
+        _: Waker,
+    ) -> BoxFuture<'static, Result<Self, Self::Error>> {
         futures::future::ok(EasyVM { delay }).boxed()
     }
 
-    fn into_effects(outcome: Result<InterpreterOutcome, Self::Error>, mut p: Particle) -> ParticleEffects {
+    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, mut p: Particle) -> ParticleEffects {
         let outcome = outcome.unwrap();
         p.data = outcome.data;
 
@@ -57,7 +61,7 @@ impl AquaRuntime for EasyVM {
         script: String,
         data: Vec<u8>,
         _particle_id: String,
-    ) -> Result<InterpreterOutcome, Self::Error> {
+    ) -> Result<AVMOutcome, Self::Error> {
         if let Some(delay) = self.delay {
             std::thread::sleep(delay);
         }
@@ -79,7 +83,7 @@ impl AquaRuntime for EasyVM {
 
         println!("next peer = {}", next_peer);
 
-        Ok(InterpreterOutcome {
+        Ok(AVMOutcome {
             ret_code: 0,
             error_message: "".to_string(),
             data,

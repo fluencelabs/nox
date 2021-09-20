@@ -133,6 +133,6 @@ impl AquaRuntime for AVM {
 
     #[inline]
     fn cleanup(&mut self, particle_id: &str) -> Result<(), Self::Error> {
-        AVM::cleanup_data(&mut self, particle_id)
+        AVM::cleanup_data(self, particle_id)
     }
 }

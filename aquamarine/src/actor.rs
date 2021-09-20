@@ -36,8 +36,7 @@ pub struct Deadline {
 }
 
 impl Deadline {
-    pub fn from(particle: impl AsRef<Particle>) -> Self {
-        let particle = particle.as_ref();
+    pub fn from(particle: &Particle) -> Self {
         Self {
             timestamp: particle.timestamp,
             ttl: particle.ttl,

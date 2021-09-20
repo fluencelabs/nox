@@ -54,7 +54,7 @@ marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", bra
 
 
 [patch.crates-io]
-avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async-no-serde-lock" }
+avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async" }
 
 marine-runtime = { version = "0.7.1", git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
 fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }

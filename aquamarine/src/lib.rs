@@ -50,5 +50,4 @@ pub use plumber::Plumber;
 
 // reexport
 pub use avm_server::AVMConfig;
-pub use avm_server::InterpreterOutcome;
 pub use avm_server::AVM;

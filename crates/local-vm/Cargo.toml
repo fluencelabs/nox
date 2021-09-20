@@ -15,7 +15,7 @@ aquamarine = { path = "../../aquamarine"}
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 
 air-interpreter-wasm = "=0.14.3"
-avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async-no-serde-lock" }
+avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async" }
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 

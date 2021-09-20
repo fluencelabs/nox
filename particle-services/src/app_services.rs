@@ -23,6 +23,7 @@ use crate::persistence::{
 use crate::vault::create_vault;
 
 use fluence_app_service::{AppService, CallParameters, ServiceInterface};
+use fluence_libp2p::PeerId;
 use host_closure::{AVMEffect, Args};
 use particle_modules::ModuleRepository;
 use particle_protocol::Particle;
@@ -41,7 +42,7 @@ type Aliases = Arc<RwLock<HashMap<String, String>>>;
 pub struct Service {
     pub service: Mutex<AppService>,
     pub blueprint_id: String,
-    pub owner_id: String,
+    pub owner_id: PeerId,
     pub aliases: Vec<String>,
 }
 
@@ -73,7 +74,7 @@ pub struct VmDescriptor<'a> {
 
 pub struct CallServiceArgs {
     pub function_args: Args,
-    pub particle_parameters: Particle,
+    pub particle: Particle,
     pub create_vault: AVMEffect<PathBuf>,
 }
 
@@ -83,8 +84,8 @@ pub struct ParticleAppServices {
     services: Services,
     modules: ModuleRepository,
     aliases: Aliases,
-    management_peer_id: String,
-    startup_management_peer_id: String,
+    management_peer_id: PeerId,
+    startup_management_peer_id: PeerId,
 }
 
 pub fn get_service<'l>(
@@ -109,8 +110,8 @@ pub fn get_service<'l>(
 
 impl ParticleAppServices {
     pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
-        let management_peer_id = config.management_peer_id.to_base58();
-        let startup_management_peer_id = config.startup_management_peer_id.to_base58();
+        let management_peer_id = config.management_peer_id;
+        let startup_management_peer_id = config.startup_management_peer_id;
         let this = Self {
             config,
             services: <_>::default(),
@@ -128,7 +129,7 @@ impl ParticleAppServices {
     pub fn create_service(
         &self,
         blueprint_id: String,
-        init_peer_id: String,
+        init_peer_id: PeerId,
     ) -> Result<String, ServiceError> {
         let service_id = uuid::Uuid::new_v4().to_string();
 
@@ -155,16 +156,16 @@ impl ParticleAppServices {
     pub fn remove_service(
         &self,
         service_id_or_alias: String,
-        init_user_id: String,
+        init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
         let service_id = {
             let services_read = self.services.read();
             let (service, service_id) =
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
 
-            if service.owner_id != init_user_id && self.startup_management_peer_id != init_user_id {
+            if service.owner_id != init_peer_id && self.startup_management_peer_id != init_peer_id {
                 return Err(ServiceError::Forbidden {
-                    user: init_user_id,
+                    user: init_peer_id,
                     function: "remove_service",
                     reason: "only creator can remove service",
                 });
@@ -200,16 +201,16 @@ impl ParticleAppServices {
             },
         )?;
 
-        let particle_id = args.particle_parameters.id;
+        let particle_id = args.particle.id;
         create_vault(args.create_vault, &id, &particle_id)?;
 
         let params = CallParameters {
             host_id,
             particle_id,
-            init_peer_id: args.particle_parameters.init_peer_id.to_string(),
+            init_peer_id: args.particle.init_peer_id.to_string(),
             tetraplets: function_args.tetraplets,
             service_id: id,
-            service_creator_peer_id: service.owner_id.clone(),
+            service_creator_peer_id: service.owner_id.to_string(),
         };
 
         let mut service = service.lock();
@@ -226,13 +227,13 @@ impl ParticleAppServices {
         &self,
         alias: String,
         service_id: String,
-        init_user_id: String,
+        init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
-        if init_user_id != self.management_peer_id
-            && init_user_id != self.startup_management_peer_id
+        if init_peer_id != self.management_peer_id
+            && init_peer_id != self.startup_management_peer_id
         {
             return Err(Forbidden {
-                user: init_user_id,
+                user: init_peer_id,
                 function: "add_alias",
                 reason: "only management peer id can add aliases",
             });
@@ -296,7 +297,7 @@ impl ParticleAppServices {
                 json!({
                     "id": id,
                     "blueprint_id": srv.blueprint_id,
-                    "owner_id": srv.owner_id,
+                    "owner_id": srv.owner_id.to_string(),
                     "aliases": srv.aliases
                 })
             })
@@ -370,6 +371,7 @@ mod tests {
     use libp2p_core::identity::Keypair;
     use libp2p_core::PeerId;
 
+    use fluence_libp2p::RandomPeerId;
     use std::collections::HashMap;
     use std::fs::remove_file;
     use std::path::PathBuf;
@@ -424,7 +426,7 @@ mod tests {
             client_pid = create_pid();
         }
 
-        pas.add_alias(alias, service_id, client_pid.to_base58())
+        pas.add_alias(alias, service_id, client_pid)
     }
 
     fn call_add_alias(alias: String, service_id: String) -> Result<(), ServiceError> {
@@ -442,7 +444,7 @@ mod tests {
             .add_blueprint(AddBlueprint::new(module_name, vec![dep]))
             .unwrap();
 
-        pas.create_service(bp, "".to_string())
+        pas.create_service(bp, RandomPeerId::random())
             .map_err(|e| e.to_string())
     }
 

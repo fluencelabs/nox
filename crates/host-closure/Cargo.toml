@@ -10,7 +10,7 @@ json-utils = { path = "../json-utils" }
 control-macro = { path = "../control-macro" }
 
 marine-runtime = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
-avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async-no-serde-lock" }
+avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async" }
 fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
 
 serde_json = "1.0.64"

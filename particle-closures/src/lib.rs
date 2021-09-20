@@ -17,7 +17,7 @@
 #![feature(stmt_expr_attributes)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
-#![deny(
+#![allow(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -30,7 +30,6 @@
 mod error;
 mod host_closures;
 mod identify;
-mod ipfs;
 
 pub use host_closures::HostClosures;
 pub use identify::NodeInfo;

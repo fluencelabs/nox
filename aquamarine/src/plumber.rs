@@ -56,7 +56,7 @@ impl<RT: AquaRuntime> Plumber<RT> {
     pub fn ingest(&mut self, particle: AwaitedParticle) {
         self.wake();
 
-        let deadline = Deadline::from(&particle);
+        let deadline = Deadline::from(&particle.particle);
         if deadline.is_expired(now_ms()) {
             log::info!("Particle {} is expired, ignoring", particle.id);
             self.events.push_back(AwaitedEffects::expired(particle));
@@ -79,7 +79,7 @@ impl<RT: AquaRuntime> Plumber<RT> {
         }
 
         // Remove expired actors
-        if let Some(vm) = self.vm_pool.get_vm() {
+        if let Some(mut vm) = self.vm_pool.get_vm() {
             let now = now_ms();
             self.actors.retain(|particle_id, actor| {
                 if !actor.is_expired(now) {
@@ -89,7 +89,11 @@ impl<RT: AquaRuntime> Plumber<RT> {
                 log::debug!("Reaping particle's actor {}", particle_id);
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 if let Err(err) = vm.cleanup(particle_id) {
-                    log::warn!("Error cleaning up after particle {}: {:?}", particle_id, err)
+                    log::warn!(
+                        "Error cleaning up after particle {}: {:?}",
+                        particle_id,
+                        err
+                    )
                 }
                 false // remove actor
             });

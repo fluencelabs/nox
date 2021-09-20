@@ -13,6 +13,7 @@ service-modules = { path = "../crates/service-modules" }
 json-utils = { path = "../crates/json-utils" }
 host-closure = { path = "../crates/host-closure" }
 server-config = { path = "../crates/server-config" }
+fluence-libp2p = { path = "../crates/libp2p" }
 
 fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
 

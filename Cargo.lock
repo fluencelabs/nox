@@ -150,8 +150,8 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-interface"
-version = "0.6.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=async-no-serde-lock#d6a75d7a394d12dca1d59c074f520ba2bf65d8ac"
+version = "0.6.1"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async#7b8e7814157ff15e473aa97ce97f9e49189e98ef"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -488,19 +488,19 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "avm-data-store"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=async-no-serde-lock#d6a75d7a394d12dca1d59c074f520ba2bf65d8ac"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async#7b8e7814157ff15e473aa97ce97f9e49189e98ef"
 dependencies = [
- "anyhow",
+ "eyre",
 ]
 
 [[package]]
 name = "avm-server"
 version = "0.11.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=async-no-serde-lock#d6a75d7a394d12dca1d59c074f520ba2bf65d8ac"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async#7b8e7814157ff15e473aa97ce97f9e49189e98ef"
 dependencies = [
  "air-interpreter-interface",
- "anyhow",
  "avm-data-store",
+ "eyre",
  "fluence-faas",
  "log",
  "maplit",
@@ -3621,6 +3621,7 @@ dependencies = [
  "config-utils",
  "fluence-app-service",
  "fluence-fork-libp2p-core",
+ "fluence-libp2p",
  "fs-utils",
  "host-closure",
  "json-utils",

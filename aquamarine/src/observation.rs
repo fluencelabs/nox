@@ -50,3 +50,12 @@ impl Deref for Observation {
         }
     }
 }
+
+impl From<Observation> for (Particle, CallResults) {
+    fn from(this: Observation) -> (Particle, CallResults) {
+        match this {
+            Observation::First(p) => (p, <_>::default()),
+            Observation::Next { particle, results } => (particle, results),
+        }
+    }
+}

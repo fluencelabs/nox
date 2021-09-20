@@ -18,10 +18,13 @@ use crate::error::ServiceError;
 use crate::persistence::{persist_service, PersistedService};
 use crate::Result;
 
+use fluence_app_service::{
+    AppService, AppServiceConfig, FaaSConfig, FaaSWASIConfig, ModuleDescriptor,
+};
+use fluence_libp2p::PeerId;
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
 
-use fluence_app_service::{AppService, AppServiceConfig, FaaSConfig, FaaSWASIConfig, ModuleDescriptor};
 use std::path::Path;
 
 pub fn create_app_service(
@@ -30,7 +33,7 @@ pub fn create_app_service(
     blueprint_id: String,
     service_id: String,
     aliases: Vec<String>,
-    owner_id: String,
+    owner_id: PeerId,
 ) -> Result<AppService> {
     try {
         let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;
@@ -49,7 +52,8 @@ pub fn create_app_service(
 
         log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
 
-        let service = AppService::new(modules, service_id.clone(), config.envs).map_err(ServiceError::Engine)?;
+        let service = AppService::new(modules, service_id.clone(), config.envs)
+            .map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
         let persisted = PersistedService::new(service_id, blueprint_id, aliases, owner_id);

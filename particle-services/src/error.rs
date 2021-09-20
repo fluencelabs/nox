@@ -17,6 +17,7 @@
 use particle_modules::ModuleError;
 
 use fluence_app_service::AppServiceError;
+use fluence_libp2p::PeerId;
 use host_closure::{AVMError, ArgsError};
 use json_utils::err_as_value;
 
@@ -34,7 +35,7 @@ pub enum ServiceError {
     NoSuchAlias(String),
     #[error("Forbidden. User id '{user}' cannot call function '{function}': {reason}")]
     Forbidden {
-        user: String,
+        user: PeerId,
         function: &'static str,
         reason: &'static str,
     },

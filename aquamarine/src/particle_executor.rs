@@ -18,6 +18,9 @@ use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::AwaitedParticle;
 use crate::AwaitedEffects;
 
+use avm_server::CallResults;
+use particle_protocol::Particle;
+
 use async_std::task;
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
@@ -48,9 +51,10 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             let now = Instant::now();
             log::info!("Executing particle {}", p.id);
 
-            let (p, out) = p.into();
+            let (observation, out) = p.into();
+            let (p, calls): (Particle, CallResults) = observation.into();
 
-            let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), p.id.clone());
+            let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), &p.id, &calls);
             if let Err(err) = &result {
                 log::warn!("Error executing particle {:#?}: {}", p, err)
             } else {
