@@ -37,7 +37,7 @@ pub struct NetworkConfig {
     pub protocol_config: ProtocolConfig,
     pub kademlia_config: KademliaConfig,
     pub particle_queue_buffer: usize,
-    pub particle_parallelism: usize,
+    pub particle_parallelism: Option<usize>,
     pub bootstrap_frequency: usize,
     pub allow_local_addresses: bool,
     pub particle_timeout: Duration,

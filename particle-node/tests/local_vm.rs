@@ -36,16 +36,10 @@ fn make() {
 
     let call_service_in_a: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
     let call_service_out_a: Arc<Mutex<Vec<JValue>>> = <_>::default();
-    let mut local_vm_a = make_vm(
-        client_a,
-        make_call_service_closure(call_service_in_a.clone(), call_service_out_a.clone()),
-    );
+    let mut local_vm_a = make_vm(client_a);
     let call_service_in_b: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
     let call_service_out_b: Arc<Mutex<Vec<JValue>>> = <_>::default();
-    let mut local_vm_b = make_vm(
-        client_b,
-        make_call_service_closure(call_service_in_b.clone(), call_service_out_b.clone()),
-    );
+    let mut local_vm_b = make_vm(client_b);
 
     let script = r#"(call client_b ("return" "") [a b c])"#.to_string();
     let data = hashmap! {
@@ -70,7 +64,12 @@ fn make() {
         Duration::from_secs(20),
     );
 
-    let args = read_args(particle, client_b, &mut local_vm_b, call_service_out_b.clone());
+    let args = read_args(
+        particle,
+        client_b,
+        &mut local_vm_b,
+        call_service_out_b.clone(),
+    );
     assert_eq!(data["a"], args[0]);
     assert_eq!(data["b"], args[1]);
     assert_eq!(data["c"], args[2]);

@@ -63,7 +63,10 @@ pub struct Node<RT: AquaRuntime> {
 }
 
 impl Node<AVM> {
-    pub fn new(config: ResolvedConfig, startup_management_peer_id: PeerId) -> eyre::Result<Box<Self>> {
+    pub fn new(
+        config: ResolvedConfig,
+        startup_management_peer_id: PeerId,
+    ) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let local_peer_id = to_peer_id(&key_pair);
         let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
@@ -79,7 +82,8 @@ impl Node<AVM> {
             config.dir_config.air_interpreter_path.clone(),
         );
 
-        let pool_config = VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
+        let pool_config =
+            VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
 
         let services_config = ServicesConfig::new(
             local_peer_id,
@@ -92,9 +96,15 @@ impl Node<AVM> {
         .expect("create services config");
 
         let registry = Registry::new();
-        let network_config = NetworkConfig::new(trust_graph, Some(registry.clone()), key_pair, &config);
+        let network_config =
+            NetworkConfig::new(trust_graph, Some(registry.clone()), key_pair, &config);
 
-        let (swarm, network_api) = Self::swarm(local_peer_id, network_config, transport, config.external_addresses());
+        let (swarm, network_api) = Self::swarm(
+            local_peer_id,
+            network_config,
+            transport,
+            config.external_addresses(),
+        );
 
         let (particle_failures_out, particle_failures_in) = unbounded();
 
@@ -117,7 +127,7 @@ impl Node<AVM> {
             services_config,
             script_storage_api,
         );
-        let vm_config = (vm_config, host_closures.descriptor());
+        let vm_config = vm_config;
 
         Ok(Self::with(
             local_peer_id,
@@ -261,7 +271,10 @@ impl<RT: AquaRuntime> Node<RT> {
 
     /// Starts node service listener.
     #[inline]
-    pub fn listen(&mut self, addrs: impl Into<Vec<Multiaddr>>) -> Result<(), TransportError<io::Error>> {
+    pub fn listen(
+        &mut self,
+        addrs: impl Into<Vec<Multiaddr>>,
+    ) -> Result<(), TransportError<io::Error>> {
         let addrs = addrs.into();
         log::info!("Fluence listening on {:?}", addrs);
 

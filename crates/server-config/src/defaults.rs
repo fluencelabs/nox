@@ -113,8 +113,8 @@ pub fn default_particle_queue_buffer_size() -> usize {
     100
 }
 
-pub fn default_particle_processor_parallelism() -> usize {
-    32
+pub fn default_particle_processor_parallelism() -> Option<usize> {
+    Some(num_cpus::get() * 2)
 }
 
 pub fn default_script_storage_timer_resolution() -> Duration {

@@ -107,27 +107,28 @@ impl NetworkApi {
         let (obs_sink, obs_src) = futures::channel::mpsc::unbounded();
 
         let particle_stream = particle_stream.map(|p: Particle| Observation::from(p));
+        let effectors = Effectors {
+            host_functions: connectivity.clone(),
+            connectivity,
+            particle_sink: obs_sink,
+        };
         let dispatcher = Dispatcher {
-            particle_sink: obs_sink.clone(),
+            effectors: effectors.clone(),
             aquamarine: aquamarine.clone(),
             particle_failures_sink: particle_failures_sink.clone(),
-            connectivity: connectivity.clone(),
             particle_parallelism: particle_parallelism.clone(),
-            particle_stream: particle_stream.clone(),
             particle_timeout: particle_timeout.clone(),
         };
-        let particles = spawn(dispatcher.process_particles());
+        let particles = spawn(dispatcher.process_particles(particle_stream));
 
         let dispatcher = Dispatcher {
-            particle_sink: obs_sink,
-            particle_stream: obs_src,
+            effectors,
             aquamarine,
             particle_failures_sink,
-            connectivity,
             particle_parallelism,
             particle_timeout,
         };
-        let observations = spawn(dispatcher.process_particles());
+        let observations = spawn(dispatcher.process_particles(obs_src));
 
         NetworkTasks::new(particles, reconnect_bootstraps, run_bootstrap, observations)
     }
@@ -284,34 +285,41 @@ impl Connectivity {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Dispatcher<Src, Sink, FSink> {
-    connectivity: Connectivity,
+#[derive(Clone)]
+struct Dispatcher<Sink, FSink> {
     particle_parallelism: Option<usize>,
-    particle_stream: Src,
-    particle_sink: Sink,
     aquamarine: AquamarineApi,
     particle_failures_sink: FSink,
     particle_timeout: Duration,
+    effectors: Effectors<Sink>,
 }
 
-impl<Src, Sink, FSink> Dispatcher<Src, Sink, FSink>
+impl<Sink, FSink> Dispatcher<Sink, FSink>
 where
-    Src: futures::Stream<Item = Observation> + Unpin + Send + Sync + 'static,
     Sink: futures::Sink<Observation> + Clone + Unpin + Send + Sync + 'static,
+    // Sink::Error: std::fmt::Display,
     FSink: futures::Sink<String> + Clone + Unpin + Send + Sync + 'static,
+    // FSink::Error: std::fmt::Display,
 {
-    pub async fn process_particles(mut self) {
-        self.particle_stream
-            .for_each_concurrent(self.particle_parallelism, move |particle| {
-                let timeout = min(particle.time_to_live(), self.particle_timeout);
+    pub async fn process_particles<Src>(self, particle_stream: Src)
+    where
+        Src: futures::Stream<Item = Observation> + Unpin + Send + Sync + 'static,
+    {
+        let particle_timeout = self.particle_timeout;
+        let parallelism = self.particle_parallelism;
+        let this = self;
+        particle_stream
+            .for_each_concurrent(parallelism, move |particle| {
+                let this = this.clone();
+
+                let timeout = min(particle.time_to_live(), particle_timeout);
                 if timeout.is_zero() {
                     log::info!("Particle {} expired", particle.id);
-                    return;
+                    return async {}.boxed();
                 }
 
                 let particle_id = particle.id.clone();
-                let fut = self.execute_particle(particle).map(Ok);
+                let fut = this.execute_particle(particle).map(Ok);
 
                 async_std::io::timeout(timeout, fut)
                     .map(move |r| {
@@ -319,7 +327,7 @@ where
                             return;
                         }
 
-                        if timeout != self.particle_timeout {
+                        if timeout != particle_timeout {
                             log::info!("Particle {} expired", particle_id);
                         } else {
                             let tout = pretty(timeout);
@@ -333,22 +341,19 @@ where
         log::error!("Particle stream has ended");
     }
 
-    async fn execute_particle(&mut self, particle: Observation) {
-        let aquamarine = self.aquamarine.clone();
-        let connectivity = self.connectivity.clone();
-        let peer_id = connectivity.current_peer_id;
+    async fn execute_particle(mut self, particle: Observation) {
         let mut particle_failures_sink = self.particle_failures_sink.clone();
-        log::info!(target: "network", "{} Will execute particle {}", peer_id, particle.id);
+        log::info!(target: "network", "{} Will execute particle {}", self.peer_id(), particle.id);
 
         let particle_id = particle.id.clone();
         let start = Instant::now();
         // execute particle on Aquamarine
-        let effects = aquamarine.handle(particle).await;
+        let effects = self.aquamarine.handle(particle).await;
 
         match effects {
             Ok(effects) => {
                 // perform effects as instructed by aquamarine
-                self.execute_effects(effects).await;
+                self.effectors.execute(effects).await;
             }
             Err(err) => {
                 // particles are sent in fire and forget fashion, so
@@ -362,15 +367,31 @@ where
         log::trace!(target: "network", "Particle {} processing took {}", particle_id, pretty(start.elapsed()));
     }
 
+    fn peer_id(&self) -> PeerId {
+        self.effectors.connectivity.current_peer_id
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Effectors<Sink> {
+    pub connectivity: Connectivity,
+    pub host_functions: Connectivity,
+    particle_sink: Sink,
+}
+
+impl<Sink> Effectors<Sink>
+where
+    Sink: futures::Sink<Observation> + Clone + Unpin + Send + Sync + 'static,
+{
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute_effects(&mut self, effects: ParticleEffects) {
+    pub async fn execute(&mut self, effects: ParticleEffects) {
         if effects.particle.is_expired() {
             log::info!("Particle {} is expired", effects.particle.id);
             return;
         }
 
         // take every particle, and try to send it concurrently
-        let nps = effects.next_peers;
+        let nps = iter(effects.next_peers);
         let particle = &effects.particle;
         let connectivity = self.connectivity.clone();
         nps.for_each_concurrent(None, move |target| {
@@ -386,12 +407,19 @@ where
         })
         .await;
 
-        let crs = effects.call_requests;
+        let crs = iter(effects.call_requests);
+        let particle = effects.particle;
         crs.for_each_concurrent(None, move |call| {
-            let particle = effects.particle.clone();
+            let particle_id = particle.id.clone();
+            let particle = particle.clone();
             let results = todo!("execute call requests");
-            self.particle_sink
-                .send(Observation::Next { particle, results })
+            async move {
+                let observation = Observation::Next { particle, results };
+                let send = self.particle_sink.send(observation).await;
+                if let Err(e) = send {
+                    log::warn!("Failed to send particle {} to execution", particle_id,);
+                }
+            }
         })
         .await;
     }
