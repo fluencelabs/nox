@@ -19,7 +19,9 @@ use fluence_libp2p::PeerId;
 use fs_utils::{file_name, file_stem, to_abs_path};
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
 use particle_modules::{list_files, AddBlueprint, NamedModuleConfig};
-use service_modules::{hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash};
+use service_modules::{
+    hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
+};
 
 use eyre::{eyre, ErrReport, Result, WrapErr};
 use futures::executor::block_on;
@@ -95,7 +97,8 @@ fn load_modules(path: &Path, dependencies: &[Dependency]) -> Result<Vec<Module>>
         modules.push(Module {
             data: fs::read(module.clone()).wrap_err(eyre!("module {:?} not found", module))?,
             config: serde_json::from_str(
-                &fs::read_to_string(config.clone()).wrap_err(eyre!("config {:?} not found", config))?,
+                &fs::read_to_string(config.clone())
+                    .wrap_err(eyre!("config {:?} not found", config))?,
             )?,
         });
     }
@@ -105,7 +108,8 @@ fn load_modules(path: &Path, dependencies: &[Dependency]) -> Result<Vec<Module>>
 
 fn load_blueprint(path: &Path) -> Result<AddBlueprint> {
     Ok(serde_json::from_str(
-        &fs::read_to_string(path.join("blueprint.json")).wrap_err(eyre!("blueprint {:?} not found", path))?,
+        &fs::read_to_string(path.join("blueprint.json"))
+            .wrap_err(eyre!("blueprint {:?} not found", path))?,
     )?)
 }
 
@@ -191,10 +195,7 @@ impl BuiltinsDeployer {
             startup_peer_id,
             node_peer_id,
             node_api,
-            local_vm: make_vm(
-                startup_peer_id,
-                make_call_service_closure(call_in.clone(), call_out.clone()),
-            ),
+            local_vm: make_vm(startup_peer_id),
             call_service_in: call_in,
             call_service_out: call_out,
             builtins_base_dir: base_dir,
@@ -204,7 +205,11 @@ impl BuiltinsDeployer {
         }
     }
 
-    fn send_particle(&mut self, script: String, data: HashMap<String, JValue>) -> eyre::Result<Vec<JValue>> {
+    fn send_particle(
+        &mut self,
+        script: String,
+        data: HashMap<String, JValue>,
+    ) -> eyre::Result<Vec<JValue>> {
         *self.call_service_in.lock() = data;
         self.call_service_in
             .lock()
@@ -221,16 +226,13 @@ impl BuiltinsDeployer {
             self.particle_ttl,
         );
 
-        let result = block_on(self.node_api.clone().handle(particle))
+        let result = block_on(self.node_api.clone().handle(particle.into()))
             .map_err(|e| eyre!("send_particle: handle failed: {}", e))?;
 
-        let particle = result
-            .particles
-            .get(0)
-            .ok_or(eyre!("response doesn't contain particles".to_string()))?;
+        let particle = result.particle;
 
         Ok(read_args(
-            particle.particle.clone(),
+            particle,
             self.startup_peer_id,
             &mut self.local_vm,
             self.call_service_out.clone(),
@@ -254,7 +256,9 @@ impl BuiltinsDeployer {
             "module_config".to_string() => json!(module.config),
         };
 
-        let result = self.send_particle(script, data).wrap_err("add_module call failed")?;
+        let result = self
+            .send_particle(script, data)
+            .wrap_err("add_module call failed")?;
 
         assert_ok(result, "add_module call failed")
     }
@@ -342,11 +346,15 @@ impl BuiltinsDeployer {
                 "interval_sec".to_string() => json!(scheduled_script.interval_sec),
             };
 
-            let res = self
-                .send_particle(script, data)
-                .wrap_err(format!("scheduled script {} run failed", scheduled_script.name))?;
+            let res = self.send_particle(script, data).wrap_err(format!(
+                "scheduled script {} run failed",
+                scheduled_script.name
+            ))?;
 
-            assert_ok(res, &format!("scheduled script {} run failed", scheduled_script.name))?;
+            assert_ok(
+                res,
+                &format!("scheduled script {} run failed", scheduled_script.name),
+            )?;
         }
 
         Ok(())
@@ -500,7 +508,10 @@ impl BuiltinsDeployer {
             .for_each(drop);
 
         return if !failed.is_empty() {
-            Err(eyre!("failed to load builtins from disk {:?}", builtins_dir))
+            Err(eyre!(
+                "failed to load builtins from disk {:?}",
+                builtins_dir
+            ))
         } else {
             Ok(successful)
         };

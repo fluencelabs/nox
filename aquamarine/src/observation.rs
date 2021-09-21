@@ -59,3 +59,9 @@ impl From<Observation> for (Particle, CallResults) {
         }
     }
 }
+
+impl From<Particle> for Observation {
+    fn from(p: Particle) -> Self {
+        Observation::First(p)
+    }
+}

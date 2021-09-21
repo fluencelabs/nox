@@ -15,7 +15,7 @@
  */
 
 use aquamarine::{AquaRuntime, ParticleEffects};
-use avm_server::AVMOutcome;
+use avm_server::{AVMOutcome, CallResults};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
@@ -44,14 +44,13 @@ impl AquaRuntime for EasyVM {
         p.data = outcome.data;
 
         ParticleEffects {
-            particles: outcome
+            particle: p,
+            next_peers: outcome
                 .next_peer_pks
-                .into_iter()
-                .map(|target| SendParticle {
-                    particle: p.clone(),
-                    target: PeerId::from_str(&target).unwrap(),
-                })
+                .iter()
+                .map(|peer| PeerId::from_str(peer).expect("invalid peer id"))
                 .collect(),
+            call_requests: outcome.call_requests,
         }
     }
 
@@ -60,7 +59,8 @@ impl AquaRuntime for EasyVM {
         init_user_id: PeerId,
         script: String,
         data: Vec<u8>,
-        _particle_id: String,
+        _particle_id: &str,
+        _call_results: &CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
         if let Some(delay) = self.delay {
             std::thread::sleep(delay);
@@ -84,14 +84,13 @@ impl AquaRuntime for EasyVM {
         println!("next peer = {}", next_peer);
 
         Ok(AVMOutcome {
-            ret_code: 0,
-            error_message: "".to_string(),
             data,
+            call_requests: Default::default(),
             next_peer_pks: vec![next_peer],
         })
     }
 
-    fn cleanup(&self, _particle_id: &str) -> Result<(), Self::Error> {
+    fn cleanup(&mut self, _particle_id: &str) -> Result<(), Self::Error> {
         // Nothing to cleanup in EasyVM
         Ok(())
     }

@@ -122,12 +122,10 @@ pub fn make_vm(peer_id: PeerId) -> AVM {
     });
     let config = AVMConfig {
         data_store,
-        current_peer_id: cpeer_id.to_string(),
-        air_wasm_path: air_interpreter,
+        current_peer_id: peer_id.to_base58(),
+        air_wasm_path: interpreter,
         logging_mask: i32::MAX,
     };
-
-    log::info!("particle_data_store: {:?}", config.particle_data_store);
 
     AVM::new(config)
         .map_err(|err| {
@@ -186,13 +184,13 @@ pub fn make_particle(
 
     let AVMOutcome {
         data,
-        call_requests,
         next_peer_pks,
+        ..
     } = local_vm
         .call(
-            peer_id.to_string(),
             script.clone(),
             vec![],
+            peer_id.to_string(),
             &id,
             todo!("pass CallRequests"),
         )
@@ -221,18 +219,13 @@ pub fn read_args(
 ) -> Vec<JValue> {
     let result = local_vm
         .call(
-            peer_id.to_string(),
             particle.script,
             particle.data,
-            particle.id,
+            peer_id.to_string(),
+            &particle.id,
+            todo!("pass CallResults"),
         )
         .expect("execute read_args vm");
-
-    assert_eq!(
-        result.ret_code, 0,
-        "read_args failed: {}",
-        result.error_message
-    );
 
     let result = out.lock().deref().clone();
     out.lock().clear();

@@ -30,14 +30,22 @@ pub struct NetworkTasks {
     pub reconnect_bootstraps: Option<JoinHandle<()>>,
     /// Task that runs Kademlia::bootstrap when enough bootstrap nodes have changed
     pub run_bootstrap: Option<JoinHandle<()>>,
+    /// Task that runs particles after CallRequests are processed
+    pub observations: Option<JoinHandle<()>>,
 }
 
 impl NetworkTasks {
-    pub fn new(particles: JoinHandle<()>, reconnect_bootstraps: JoinHandle<()>, run_bootstrap: JoinHandle<()>) -> Self {
+    pub fn new(
+        particles: JoinHandle<()>,
+        reconnect_bootstraps: JoinHandle<()>,
+        run_bootstrap: JoinHandle<()>,
+        observations: JoinHandle<()>,
+    ) -> Self {
         Self {
             particles: Some(particles),
             reconnect_bootstraps: Some(reconnect_bootstraps),
             run_bootstrap: Some(run_bootstrap),
+            observations: Some(observations),
         }
     }
 
@@ -51,6 +59,9 @@ impl NetworkTasks {
         if let Some(particles) = self.particles {
             particles.cancel().await;
         };
+        if let Some(observations) = self.observations {
+            observations.cancel().await;
+        }
     }
 }
 
@@ -61,6 +72,7 @@ impl Future for NetworkTasks {
         poll_opt(&mut self.particles, cx);
         poll_opt(&mut self.reconnect_bootstraps, cx);
         poll_opt(&mut self.run_bootstrap, cx);
+        poll_opt(&mut self.observations, cx);
 
         if self.is_terminated() {
             log::warn!("FuturesHandle terminated");
@@ -73,7 +85,10 @@ impl Future for NetworkTasks {
 
 impl FusedFuture for NetworkTasks {
     fn is_terminated(&self) -> bool {
-        self.particles.is_none() && self.reconnect_bootstraps.is_none() && self.run_bootstrap.is_none()
+        self.particles.is_none()
+            && self.reconnect_bootstraps.is_none()
+            && self.run_bootstrap.is_none()
+            && self.observations.is_none()
     }
 }
 

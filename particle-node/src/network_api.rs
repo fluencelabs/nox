@@ -26,7 +26,7 @@
 
 use crate::network_tasks::NetworkTasks;
 
-use aquamarine::{AquamarineApi, ParticleEffects, SendParticle};
+use aquamarine::{AquamarineApi, Observation, ParticleEffects};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
 
 use fluence_libp2p::types::BackPressuredInlet;
@@ -40,14 +40,10 @@ use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, PeerId};
 use std::{cmp::min, collections::HashSet, time::Duration, time::Instant};
 
-type Sink<T> = impl futures::Sink<T> + Clone + Unpin + Send + Sync + 'static;
-
 /// API provided by the network
 pub struct NetworkApi {
     /// Stream of particles coming from other peers, lifted here from [[ConnectionPoolBehaviour]]
     particle_stream: BackPressuredInlet<Particle>,
-    /// Sink to push particles back to `particle_stream`
-    particle_sink: Sink<Particle>,
     /// Number of concurrently processed particles
     particle_parallelism: Option<usize>,
     /// Kademlia and ConnectionPool in a single Clone-able structure
@@ -62,7 +58,6 @@ pub struct NetworkApi {
 impl NetworkApi {
     pub fn new(
         particle_stream: BackPressuredInlet<Particle>,
-        particle_sink: Sink<Particle>,
         particle_parallelism: Option<usize>,
         kademlia: KademliaApi,
         connection_pool: ConnectionPoolApi,
@@ -72,7 +67,6 @@ impl NetworkApi {
     ) -> Self {
         Self {
             particle_stream,
-            particle_sink,
             particle_parallelism,
             connectivity: Connectivity {
                 kademlia,
@@ -97,11 +91,10 @@ impl NetworkApi {
         self,
         aquamarine: AquamarineApi,
         bootstrap_nodes: HashSet<Multiaddr>,
-        particle_failures_sink: Sink<String>,
+        particle_failures_sink: impl futures::Sink<String> + Clone + Unpin + Send + Sync + 'static,
     ) -> NetworkTasks {
         let NetworkApi {
             particle_stream,
-            particle_sink,
             particle_parallelism,
             connectivity,
             bootstrap_frequency: freq,
@@ -111,18 +104,32 @@ impl NetworkApi {
         let reconnect_bootstraps = spawn(connectivity.clone().reconnect_bootstraps(bs.clone()));
         let run_bootstrap = spawn(connectivity.clone().kademlia_bootstrap(bs, freq));
 
+        let (obs_sink, obs_src) = futures::channel::mpsc::unbounded();
+
+        let particle_stream = particle_stream.map(|p: Particle| Observation::from(p));
         let dispatcher = Dispatcher {
+            particle_sink: obs_sink.clone(),
+            aquamarine: aquamarine.clone(),
+            particle_failures_sink: particle_failures_sink.clone(),
+            connectivity: connectivity.clone(),
+            particle_parallelism: particle_parallelism.clone(),
+            particle_stream: particle_stream.clone(),
+            particle_timeout: particle_timeout.clone(),
+        };
+        let particles = spawn(dispatcher.process_particles());
+
+        let dispatcher = Dispatcher {
+            particle_sink: obs_sink,
+            particle_stream: obs_src,
             aquamarine,
             particle_failures_sink,
             connectivity,
             particle_parallelism,
-            particle_stream,
-            particle_sink,
             particle_timeout,
         };
-        let particles = spawn(dispatcher.process_particles());
+        let observations = spawn(dispatcher.process_particles());
 
-        NetworkTasks::new(particles, reconnect_bootstraps, run_bootstrap)
+        NetworkTasks::new(particles, reconnect_bootstraps, run_bootstrap, observations)
     }
 }
 
@@ -278,20 +285,31 @@ impl Connectivity {
 }
 
 #[derive(Debug, Clone)]
-struct Dispatcher {
+struct Dispatcher<Src, Sink, FSink> {
     connectivity: Connectivity,
     particle_parallelism: Option<usize>,
-    particle_stream: BackPressuredInlet<Particle>,
-    particle_sink: Sink<Particle>,
+    particle_stream: Src,
+    particle_sink: Sink,
     aquamarine: AquamarineApi,
-    particle_failures_sink: Sink<String>,
+    particle_failures_sink: FSink,
     particle_timeout: Duration,
 }
 
-impl Dispatcher {
-    pub async fn process_particles(self) {
+impl<Src, Sink, FSink> Dispatcher<Src, Sink, FSink>
+where
+    Src: futures::Stream<Item = Observation> + Unpin + Send + Sync + 'static,
+    Sink: futures::Sink<Observation> + Clone + Unpin + Send + Sync + 'static,
+    FSink: futures::Sink<String> + Clone + Unpin + Send + Sync + 'static,
+{
+    pub async fn process_particles(mut self) {
         self.particle_stream
             .for_each_concurrent(self.particle_parallelism, move |particle| {
+                let timeout = min(particle.time_to_live(), self.particle_timeout);
+                if timeout.is_zero() {
+                    log::info!("Particle {} expired", particle.id);
+                    return;
+                }
+
                 let particle_id = particle.id.clone();
                 let fut = self.execute_particle(particle).map(Ok);
 
@@ -301,7 +319,7 @@ impl Dispatcher {
                             return;
                         }
 
-                        if timeout != particle_timeout {
+                        if timeout != self.particle_timeout {
                             log::info!("Particle {} expired", particle_id);
                         } else {
                             let tout = pretty(timeout);
@@ -315,18 +333,12 @@ impl Dispatcher {
         log::error!("Particle stream has ended");
     }
 
-    async fn execute_particle(&self, particle: Particle) {
+    async fn execute_particle(&mut self, particle: Observation) {
         let aquamarine = self.aquamarine.clone();
         let connectivity = self.connectivity.clone();
         let peer_id = connectivity.current_peer_id;
-        let mut particle_failures_sink = particle_failures_sink.clone();
+        let mut particle_failures_sink = self.particle_failures_sink.clone();
         log::info!(target: "network", "{} Will execute particle {}", peer_id, particle.id);
-
-        let timeout = min(particle.time_to_live(), particle_timeout);
-        if timeout.is_zero() {
-            log::info!("Particle {} expired", particle.id);
-            return;
-        }
 
         let particle_id = particle.id.clone();
         let start = Instant::now();
@@ -336,7 +348,7 @@ impl Dispatcher {
         match effects {
             Ok(effects) => {
                 // perform effects as instructed by aquamarine
-                connectivity.execute_effects(effects).await;
+                self.execute_effects(effects).await;
             }
             Err(err) => {
                 // particles are sent in fire and forget fashion, so
@@ -351,9 +363,9 @@ impl Dispatcher {
     }
 
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute_effects(&self, effects: ParticleEffects) {
+    pub async fn execute_effects(&mut self, effects: ParticleEffects) {
         if effects.particle.is_expired() {
-            log::info!("Particle {} is expired", p.particle.id);
+            log::info!("Particle {} is expired", effects.particle.id);
             return;
         }
 
@@ -361,7 +373,7 @@ impl Dispatcher {
         let nps = effects.next_peers;
         let particle = &effects.particle;
         let connectivity = self.connectivity.clone();
-        nps.for_each_concurrent(None, move |t| {
+        nps.for_each_concurrent(None, move |target| {
             let connectivity = connectivity.clone();
             let particle = particle.clone();
             async move {
@@ -375,7 +387,13 @@ impl Dispatcher {
         .await;
 
         let crs = effects.call_requests;
-        crs.for_each_concurrent(None, move |call| {}).await;
+        crs.for_each_concurrent(None, move |call| {
+            let particle = effects.particle.clone();
+            let results = todo!("execute call requests");
+            self.particle_sink
+                .send(Observation::Next { particle, results })
+        })
+        .await;
     }
 }
 

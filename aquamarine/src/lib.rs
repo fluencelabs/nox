@@ -44,6 +44,7 @@ pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
 pub use aqua_runtime::AquaRuntime;
 pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
 pub use config::{VmConfig, VmPoolConfig};
+pub use observation::Observation;
 pub use particle_data_store::ParticleDataStore;
 pub use particle_effects::ParticleEffects;
 pub use plumber::Plumber;
