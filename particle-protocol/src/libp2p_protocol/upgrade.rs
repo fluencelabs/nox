@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::HandlerMessage;
+use crate::{HandlerMessage, PROTOCOL_NAME};
 
 use futures::{future::BoxFuture, AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt};
 use libp2p::{
@@ -58,7 +58,11 @@ impl Default for ProtocolConfig {
 }
 
 impl ProtocolConfig {
-    pub fn new(upgrade_timeout: Duration, keep_alive_timeout: Duration, outbound_substream_timeout: Duration) -> Self {
+    pub fn new(
+        upgrade_timeout: Duration,
+        keep_alive_timeout: Duration,
+        outbound_substream_timeout: Duration,
+    ) -> Self {
         Self {
             upgrade_timeout,
             keep_alive_timeout,
@@ -76,7 +80,8 @@ impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent> From<ProtocolCo
 {
     fn from(item: ProtocolConfig) -> OneShotHandler<ProtocolConfig, OutProto, OutEvent> {
         OneShotHandler::new(
-            protocols_handler::SubstreamProtocol::new(item.clone(), ()).with_timeout(item.upgrade_timeout),
+            protocols_handler::SubstreamProtocol::new(item.clone(), ())
+                .with_timeout(item.upgrade_timeout),
             OneShotHandlerConfig {
                 keep_alive_timeout: item.keep_alive_timeout,
                 outbound_substream_timeout: item.outbound_substream_timeout,
@@ -89,7 +94,7 @@ impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent> From<ProtocolCo
 // 100 Mb
 #[allow(clippy::identity_op)]
 const MAX_BUF_SIZE: usize = 100 * 1024 * 1024;
-const PROTOCOL_INFO: &[u8] = b"/fluence/particle/2.0.0";
+const PROTOCOL_INFO: &[u8] = PROTOCOL_NAME.as_bytes();
 
 macro_rules! impl_upgrade_info {
     ($tname:ident) => {
@@ -119,7 +124,8 @@ where
         async move {
             let process = async move |socket| -> Result<ProtocolMessage, Error> {
                 let packet = upgrade::read_one(socket, MAX_BUF_SIZE).await?;
-                serde_json::from_slice(&packet).wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
+                serde_json::from_slice(&packet)
+                    .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
             };
 
             match process(&mut socket).await {
@@ -200,24 +206,27 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     const BYTES: [u8; 175] = [
-        123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105, 99, 108, 101, 34, 44, 34, 105, 100, 34,
-        58, 34, 49, 34, 44, 34, 105, 110, 105, 116, 95, 112, 101, 101, 114, 95, 105, 100, 34, 58, 34, 49, 50, 68, 51,
-        75, 111, 111, 87, 67, 74, 104, 76, 98, 78, 51, 118, 67, 101, 112, 109, 70, 106, 114, 87, 70, 53, 90, 70, 68,
-        71, 65, 117, 65, 89, 86, 121, 78, 74, 51, 70, 49, 49, 101, 80, 99, 119, 76, 76, 82, 120, 86, 76, 34, 44, 34,
-        116, 105, 109, 101, 115, 116, 97, 109, 112, 34, 58, 49, 54, 49, 55, 55, 51, 55, 48, 49, 54, 57, 51, 49, 44, 34,
-        116, 116, 108, 34, 58, 54, 53, 53, 50, 53, 44, 34, 115, 99, 114, 105, 112, 116, 34, 58, 34, 34, 44, 34, 115,
-        105, 103, 110, 97, 116, 117, 114, 101, 34, 58, 91, 93, 44, 34, 100, 97, 116, 97, 34, 58, 34, 34, 125,
+        123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105, 99, 108, 101, 34,
+        44, 34, 105, 100, 34, 58, 34, 49, 34, 44, 34, 105, 110, 105, 116, 95, 112, 101, 101, 114,
+        95, 105, 100, 34, 58, 34, 49, 50, 68, 51, 75, 111, 111, 87, 67, 74, 104, 76, 98, 78, 51,
+        118, 67, 101, 112, 109, 70, 106, 114, 87, 70, 53, 90, 70, 68, 71, 65, 117, 65, 89, 86, 121,
+        78, 74, 51, 70, 49, 49, 101, 80, 99, 119, 76, 76, 82, 120, 86, 76, 34, 44, 34, 116, 105,
+        109, 101, 115, 116, 97, 109, 112, 34, 58, 49, 54, 49, 55, 55, 51, 55, 48, 49, 54, 57, 51,
+        49, 44, 34, 116, 116, 108, 34, 58, 54, 53, 53, 50, 53, 44, 34, 115, 99, 114, 105, 112, 116,
+        34, 58, 34, 34, 44, 34, 115, 105, 103, 110, 97, 116, 117, 114, 101, 34, 58, 91, 93, 44, 34,
+        100, 97, 116, 97, 34, 58, 34, 34, 125,
     ];
 
     #[test]
     fn oneshot_channel_test() {
         let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
         let mut listener = MemoryTransport.listen_on(mem_addr).unwrap();
-        let listener_addr = if let Some(Some(Ok(ListenerEvent::NewAddress(a)))) = listener.next().now_or_never() {
-            a
-        } else {
-            panic!("MemoryTransport not listening on an address!");
-        };
+        let listener_addr =
+            if let Some(Some(Ok(ListenerEvent::NewAddress(a)))) = listener.next().now_or_never() {
+                a
+            } else {
+                panic!("MemoryTransport not listening on an address!");
+            };
 
         let inbound = async_std::task::spawn(async move {
             let listener_event = listener.next().await.unwrap();
@@ -235,7 +244,9 @@ mod tests {
             };
             let msg = HandlerMessage::OutParticle(particle.clone(), <_>::default());
             let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
-            upgrade::apply_outbound(c, msg, upgrade::Version::V1).await.unwrap();
+            upgrade::apply_outbound(c, msg, upgrade::Version::V1)
+                .await
+                .unwrap();
             particle
         });
 

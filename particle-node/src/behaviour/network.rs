@@ -13,21 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::network_api::NetworkApi;
-
-use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet};
-use kademlia::{Kademlia, KademliaApiInlet, KademliaConfig};
-use server_config::NetworkConfig;
-
 use libp2p::{
     identify::Identify,
     ping::{Ping, PingConfig, PingEvent},
 };
 
+use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet};
+use fluence_libp2p::types::{BackPressuredInlet, Inlet};
+use kademlia::{Kademlia, KademliaApiInlet, KademliaConfig};
+use particle_protocol::{Particle, PROTOCOL_INFO, PROTOCOL_NAME};
+use server_config::NetworkConfig;
+
+use crate::connectivity::Connectivity;
+use crate::network_api::NetworkApi;
+use libp2p::wasm_ext::ffi::connection;
+
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
 pub struct NetworkBehaviour {
-    identity: Identify,
+    identify: Identify,
     ping: Ping,
     pub(crate) connection_pool: ConnectionPoolInlet,
     pub(crate) kademlia: KademliaApiInlet,
@@ -37,9 +41,13 @@ pub struct NetworkBehaviour {
 }
 
 impl NetworkBehaviour {
-    pub fn new(cfg: NetworkConfig) -> (Self, NetworkApi) {
+    pub fn new(cfg: NetworkConfig) -> (Self, Connectivity, BackPressuredInlet<Particle>) {
         let local_public_key = cfg.key_pair.public();
-        let identity = Identify::new("/fluence/faas/1.0.0".into(), "0.1.0".into(), local_public_key);
+        let identify = Identify::new(
+            PROTOCOL_NAME.into(),
+            cfg.node_version.into(),
+            local_public_key,
+        );
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
 
         let kad_config = KademliaConfig {
@@ -48,31 +56,31 @@ impl NetworkBehaviour {
             kad_config: cfg.kademlia_config,
         };
 
-        // TODO: this is hazy; names are bad, conversion is far from transparent. Hide behaviours?
         let kademlia = Kademlia::new(kad_config, cfg.trust_graph, cfg.registry.as_ref());
         let (kademlia_api, kademlia) = kademlia.into();
-        let (connection_pool, particle_stream) =
-            ConnectionPoolBehaviour::new(cfg.particle_queue_buffer, cfg.protocol_config, cfg.local_peer_id);
+        let (connection_pool, particle_stream) = ConnectionPoolBehaviour::new(
+            cfg.particle_queue_buffer,
+            cfg.protocol_config,
+            cfg.local_peer_id,
+        );
         let (connection_pool_api, connection_pool) = connection_pool.into();
 
-        (
-            Self {
-                kademlia,
-                connection_pool,
-                identity,
-                ping,
-                allow_local_addresses: cfg.allow_local_addresses,
-            },
-            NetworkApi::new(
-                particle_stream,
-                cfg.particle_parallelism,
-                kademlia_api,
-                connection_pool_api,
-                cfg.bootstrap_frequency,
-                cfg.particle_timeout,
-                cfg.local_peer_id,
-            ),
-        )
+        let this = Self {
+            kademlia,
+            connection_pool,
+            identify,
+            ping,
+            allow_local_addresses: cfg.allow_local_addresses,
+        };
+
+        let connectivity = Connectivity {
+            kademlia: kademlia_api,
+            connection_pool: connection_pool_api,
+            bootstrap_nodes: cfg.bootstrap_nodes.into_iter().collect(),
+            bootstrap_frequency: cfg.bootstrap_frequency,
+        };
+
+        (this, connectivity, particle_stream)
     }
 }
 

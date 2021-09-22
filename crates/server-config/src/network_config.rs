@@ -30,6 +30,7 @@ type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 pub struct NetworkConfig {
     pub key_pair: Keypair,
     pub local_peer_id: PeerId,
+    pub node_version: &'static str,
     pub trust_graph: TrustGraph,
     pub bootstrap_nodes: Vec<Multiaddr>,
     pub bootstrap: BootstrapConfig,

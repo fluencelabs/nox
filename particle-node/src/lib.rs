@@ -26,10 +26,13 @@
     unreachable_patterns
 )]
 
+mod connectivity;
+mod dispatcher;
+mod effectors;
 mod metrics;
 mod network_api;
-mod network_tasks;
 mod node;
+mod tasks;
 
 mod behaviour {
     mod identify;

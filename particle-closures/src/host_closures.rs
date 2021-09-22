@@ -86,7 +86,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         }
     }
 
-    fn route(&self, function_args: Args, particle: Particle) -> Option<IValue> {
+    pub async fn route(&self, function_args: Args, particle: Particle) -> Option<IValue> {
         log::trace!("Host function call, args: {:#?}", function_args);
         let log_args = format!(
             "Executed host call {:?} {:?}",
@@ -148,7 +148,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         result
     }
 
-    fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
+    async fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let key = from_base58("key", &mut args)?;
         let already_hashed: Option<bool> = Args::next_opt("already_hashed", &mut args)?;
@@ -160,21 +160,21 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         } else {
             Code::Sha2_256.digest(&key)
         };
-        let neighbors = task::block_on(self.kademlia().neighborhood(key, count));
+        let neighbors = self.kademlia().neighborhood(key, count).await;
         let neighbors = neighbors
             .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))?;
 
         Ok(neighbors)
     }
 
-    fn is_connected(&self, args: Args) -> Result<JValue, JError> {
+    async fn is_connected(&self, args: Args) -> Result<JValue, JError> {
         let peer: String = Args::next("peer_id", &mut args.function_args.into_iter())?;
         let peer = PeerId::from_str(peer.as_str())?;
-        let ok = task::block_on(self.connection_pool().is_connected(peer));
+        let ok = self.connection_pool().is_connected(peer).await;
         Ok(json!(ok))
     }
 
-    fn connect(&self, args: Args) -> Result<JValue, JError> {
+    async fn connect(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
         let peer_id: String = Args::next("peer_id", &mut args)?;
@@ -183,14 +183,14 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let contact = Contact::new(peer_id, addrs);
 
-        let ok = task::block_on(self.connection_pool().connect(contact));
+        let ok = self.connection_pool().connect(contact).await;
         Ok(json!(ok))
     }
 
-    fn get_contact(&self, args: Args) -> Result<Option<JValue>, JError> {
+    async fn get_contact(&self, args: Args) -> Result<Option<JValue>, JError> {
         let peer: String = Args::next("peer_id", &mut args.function_args.into_iter())?;
         let peer = PeerId::from_str(peer.as_str())?;
-        let contact = task::block_on(self.connection_pool().get_contact(peer));
+        let contact = self.connection_pool().get_contact(peer).await;
         Ok(contact.map(|c| json!(c)))
     }
 
@@ -214,7 +214,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(json!(id))
     }
 
-    fn remove_script(&self, args: Args, params: Particle) -> Result<JValue, JError> {
+    async fn remove_script(&self, args: Args, params: Particle) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
         let force = params.init_peer_id == self.management_peer_id;
@@ -222,13 +222,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let uuid: String = Args::next("uuid", &mut args)?;
         let actor = params.init_peer_id;
 
-        let ok = task::block_on(self.script_storage.remove_script(uuid, actor, force))?;
+        let ok = self.script_storage.remove_script(uuid, actor, force).await?;
 
         Ok(json!(ok))
     }
 
-    fn list_scripts(&self) -> Result<JValue, JError> {
-        let scripts = task::block_on(self.script_storage.list_scripts())?;
+    async fn list_scripts(&self) -> Result<JValue, JError> {
+        let scripts = (self.script_storage.list_scripts().await?;
 
         Ok(JValue::Array(
             scripts

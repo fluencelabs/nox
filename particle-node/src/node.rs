@@ -14,23 +14,8 @@
  * limitations under the License.
  */
 
-use super::behaviour::NetworkBehaviour;
-use crate::metrics::start_metrics_endpoint;
-use crate::network_api::NetworkApi;
+use std::{io, iter::once, net::SocketAddr};
 
-use aquamarine::{AquaRuntime, AquamarineApi, AquamarineBackend, VmConfig, VmPoolConfig, AVM};
-use config_utils::to_peer_id;
-use connection_pool::ConnectionPoolApi;
-use fluence_libp2p::{
-    build_transport,
-    types::{OneshotOutlet, Outlet},
-};
-use particle_closures::{HostClosures, NodeInfo};
-use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
-use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
-use trust_graph::{InMemoryStorage, TrustGraph};
-
-use crate::Connectivity;
 use async_std::task;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
@@ -45,20 +30,47 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use prometheus::Registry;
-use std::{io, iter::once, net::SocketAddr};
+use trust_graph::{InMemoryStorage, TrustGraph};
+
+use aquamarine::{
+    AquaRuntime, AquamarineApi, AquamarineBackend, Observation, VmConfig, VmPoolConfig, AVM,
+};
+use config_utils::to_peer_id;
+use connection_pool::ConnectionPoolApi;
+use fluence_libp2p::types::{BackPressuredInlet, Inlet};
+use fluence_libp2p::{
+    build_transport,
+    types::{OneshotOutlet, Outlet},
+};
+use particle_closures::{HostClosures, NodeInfo};
+use particle_protocol::Particle;
+use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
+use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
+
+use crate::connectivity::Connectivity;
+use crate::dispatcher::Dispatcher;
+use crate::effectors::Effectors;
+use crate::metrics::start_metrics_endpoint;
+use crate::network_api::NetworkApi;
+use crate::Connectivity;
+
+use super::behaviour::NetworkBehaviour;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
-    pub network_api: NetworkApi,
+    particle_stream: BackPressuredInlet<Particle>,
+    observation_stream: Inlet<Observation>,
     pub swarm: Swarm<NetworkBehaviour>,
+
+    pub connectivity: Connectivity,
+    dispatcher: Dispatcher,
     aquavm_pool: AquamarineBackend<RT>,
-    pub aquamarine_api: AquamarineApi,
-    pub local_peer_id: PeerId,
+    script_storage: ScriptStorageBackend,
+
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
-    bootstrap_nodes: Vec<Multiaddr>,
-    particle_failures: Outlet<String>,
-    script_storage: ScriptStorageBackend,
+
+    pub local_peer_id: PeerId,
     pub startup_management_peer_id: PeerId,
 }
 
@@ -99,7 +111,7 @@ impl Node<AVM> {
         let network_config =
             NetworkConfig::new(trust_graph, Some(registry.clone()), key_pair, &config);
 
-        let (swarm, network_api) = Self::swarm(
+        let (swarm, connectivity, particle_stream) = Self::swarm(
             local_peer_id,
             network_config,
             transport,
@@ -108,7 +120,6 @@ impl Node<AVM> {
 
         let (particle_failures_out, particle_failures_in) = unbounded();
 
-        let connectivity = network_api.connectivity();
         let (script_storage_api, script_storage_backend) = {
             let script_storage_config = ScriptStorageConfig {
                 timer_resolution: config.script_storage_timer_resolution,
@@ -121,26 +132,32 @@ impl Node<AVM> {
             ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
         };
 
-        let host_closures = Self::host_closures(
-            connectivity,
+        let host_functions = Self::host_functions(
+            connectivity.clone(),
             config.external_addresses(),
             services_config,
             script_storage_api,
         );
-        let vm_config = vm_config;
+
+        let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(pool_config, vm_config);
+        let (effectors, observation_stream) = Effectors::new(connectivity.clone(), host_functions);
+        let dispatcher = {
+            let failures = particle_failures_out;
+            Dispatcher::new(local_peer_id, aquamarine_api, effectors, failures)
+        };
 
         Ok(Self::with(
-            local_peer_id,
+            particle_stream,
+            observation_stream,
             swarm,
-            network_api,
+            connectivity,
+            dispatcher,
+            aquavm_pool,
             script_storage_backend,
-            vm_config,
-            pool_config,
-            particle_failures_out,
             registry.into(),
             config.metrics_listen_addr(),
+            local_peer_id,
             startup_management_peer_id,
-            config.node_config.bootstrap_nodes,
         ))
     }
 
@@ -149,8 +166,12 @@ impl Node<AVM> {
         network_config: NetworkConfig,
         transport: Boxed<(PeerId, StreamMuxerBox)>,
         external_addresses: Vec<Multiaddr>,
-    ) -> (Swarm<NetworkBehaviour>, NetworkApi) {
-        let (behaviour, network_api) = NetworkBehaviour::new(network_config);
+    ) -> (
+        Swarm<NetworkBehaviour>,
+        Connectivity,
+        BackPressuredInlet<Particle>,
+    ) {
+        let (behaviour, connectivity, particle_stream) = NetworkBehaviour::new(network_config);
         let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
 
         // Add external addresses to Swarm
@@ -158,10 +179,10 @@ impl Node<AVM> {
             Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
         });
 
-        (swarm, network_api)
+        (swarm, connectivity, particle_stream)
     }
 
-    pub fn host_closures(
+    pub fn host_functions(
         connectivity: Connectivity,
         external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
@@ -180,33 +201,35 @@ impl Node<AVM> {
 impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
-        local_peer_id: PeerId,
+        particle_stream: BackPressuredInlet<Particle>,
+        observation_stream: Inlet<Observation>,
         swarm: Swarm<NetworkBehaviour>,
-        network_api: NetworkApi,
+
+        connectivity: Connectivity,
+        dispatcher: Dispatcher,
+        aquavm_pool: AquamarineBackend<RT>,
         script_storage: ScriptStorageBackend,
 
-        vm_config: RT::Config,
-        pool_config: VmPoolConfig,
-
-        particle_failures: Outlet<String>,
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
-        startup_management_peer_id: PeerId,
-        bootstrap_nodes: Vec<Multiaddr>,
-    ) -> Box<Self> {
-        let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(pool_config, vm_config);
 
+        local_peer_id: PeerId,
+        startup_management_peer_id: PeerId,
+    ) -> Box<Self> {
         let node_service = Self {
-            network_api,
+            particle_stream,
+            observation_stream,
             swarm,
+
+            connectivity,
+            dispatcher,
             aquavm_pool,
-            aquamarine_api,
-            local_peer_id,
+            script_storage,
+
             registry,
             metrics_listen_addr,
-            bootstrap_nodes,
-            particle_failures,
-            script_storage,
+
+            local_peer_id,
             startup_management_peer_id,
         };
 
@@ -228,12 +251,10 @@ impl<RT: AquaRuntime> Node<RT> {
 
             let script_storage = self.script_storage.start();
             let pool = self.aquavm_pool.start();
-            let mut network = {
-                let pool_api = self.aquamarine_api.clone();
-                let failures = self.particle_failures;
-                let bootstrap_nodes = self.bootstrap_nodes.into_iter().collect();
-                self.network_api.start(pool_api, bootstrap_nodes, failures)
-            };
+            let mut connectivity = self.connectivity.start();
+            let mut dispatcher = self
+                .dispatcher
+                .start(self.particle_stream, self.observation_stream);
             let stopped = stream::iter(once(Err(())));
             let mut swarm = self.swarm.map(|_e| Ok(())).chain(stopped).fuse();
 
@@ -262,7 +283,8 @@ impl<RT: AquaRuntime> Node<RT> {
 
             log::info!("Stopping node");
             script_storage.cancel().await;
-            network.cancel().await;
+            dispatcher.cancel().await;
+            connectivity.cancel().await;
             pool.cancel().await;
         });
 
@@ -287,18 +309,17 @@ impl<RT: AquaRuntime> Node<RT> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Node;
+    use eyre::WrapErr;
+    use libp2p::core::Multiaddr;
+    use maplit::hashmap;
+    use serde_json::json;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use connected_client::ConnectedClient;
     use fluence_libp2p::RandomPeerId;
     use server_config::{default_base_dir, deserialize_config};
 
-    use libp2p::core::Multiaddr;
-
-    use eyre::WrapErr;
-    use maplit::hashmap;
-    use serde_json::json;
+    use crate::Node;
 
     #[test]
     fn run_node() {

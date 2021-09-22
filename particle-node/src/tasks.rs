@@ -23,29 +23,25 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 /// Holds handles to spawned tasks
-pub struct NetworkTasks {
-    /// Task that processes particles from particle stream
-    pub particles: Option<JoinHandle<()>>,
+pub struct ConnectivityTasks {
     /// Task that reconnects to disconnected bootstraps
     pub reconnect_bootstraps: Option<JoinHandle<()>>,
     /// Task that runs Kademlia::bootstrap when enough bootstrap nodes have changed
     pub run_bootstrap: Option<JoinHandle<()>>,
+}
+
+pub struct DispatcherTasks {
+    /// Task that processes particles from particle stream
+    pub particles: Option<JoinHandle<()>>,
     /// Task that runs particles after CallRequests are processed
     pub observations: Option<JoinHandle<()>>,
 }
 
-impl NetworkTasks {
-    pub fn new(
-        particles: JoinHandle<()>,
-        reconnect_bootstraps: JoinHandle<()>,
-        run_bootstrap: JoinHandle<()>,
-        observations: JoinHandle<()>,
-    ) -> Self {
+impl ConnectivityTasks {
+    pub fn new(reconnect_bootstraps: JoinHandle<()>, run_bootstrap: JoinHandle<()>) -> Self {
         Self {
-            particles: Some(particles),
             reconnect_bootstraps: Some(reconnect_bootstraps),
             run_bootstrap: Some(run_bootstrap),
-            observations: Some(observations),
         }
     }
 
@@ -65,17 +61,15 @@ impl NetworkTasks {
     }
 }
 
-impl Future for NetworkTasks {
+impl Future for ConnectivityTasks {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        poll_opt(&mut self.particles, cx);
         poll_opt(&mut self.reconnect_bootstraps, cx);
         poll_opt(&mut self.run_bootstrap, cx);
-        poll_opt(&mut self.observations, cx);
 
         if self.is_terminated() {
-            log::warn!("FuturesHandle terminated");
+            log::warn!("NetworkTasks terminated");
             Poll::Ready(())
         } else {
             Poll::Pending
@@ -83,12 +77,43 @@ impl Future for NetworkTasks {
     }
 }
 
-impl FusedFuture for NetworkTasks {
+impl FusedFuture for ConnectivityTasks {
     fn is_terminated(&self) -> bool {
-        self.particles.is_none()
-            && self.reconnect_bootstraps.is_none()
-            && self.run_bootstrap.is_none()
+        self.reconnect_bootstraps.is_none() && self.run_bootstrap.is_none()
+    }
+}
+
+impl DispatcherTasks {
+    pub fn new(particles: JoinHandle<()>, observations: JoinHandle<()>) -> Self {
+        Self {
+            particles: Some(particles),
+            observations: Some(observations),
+        }
+    }
+}
+
+impl Future for DispatcherTasks {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        poll_opt(&mut self.particles, cx);
+        poll_opt(&mut self.observations, cx);
+        self.network_tasks.poll_unpin(cx);
+
+        if self.is_terminated() {
+            log::warn!("DispatcherTasks terminated");
+            Poll::Ready(())
+        } else {
+            Poll::Pending
+        }
+    }
+}
+
+impl FusedFuture for DispatcherTasks {
+    fn is_terminated(&self) -> bool {
+        self.network_tasks.is_terminated()
             && self.observations.is_none()
+            && self.particles.is_none()
     }
 }
 
