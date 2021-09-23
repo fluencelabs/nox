@@ -21,12 +21,10 @@ use libp2p::{
 use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use kademlia::{Kademlia, KademliaApiInlet, KademliaConfig};
-use particle_protocol::{Particle, PROTOCOL_INFO, PROTOCOL_NAME};
+use particle_protocol::{Particle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
 
 use crate::connectivity::Connectivity;
-use crate::network_api::NetworkApi;
-use libp2p::wasm_ext::ffi::connection;
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]

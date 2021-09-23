@@ -29,6 +29,7 @@ use particle_modules::ModuleRepository;
 use particle_protocol::Particle;
 use server_config::ServicesConfig;
 
+use derivative::Derivative;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
@@ -39,7 +40,10 @@ use std::{collections::HashMap, sync::Arc};
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Service {
+    #[derivative(Debug(format_with = "fmt_service"))]
     pub service: Mutex<AppService>,
     pub blueprint_id: String,
     pub owner_id: PeerId,
@@ -64,6 +68,13 @@ impl Deref for Service {
     }
 }
 
+fn fmt_service(
+    _: &Mutex<AppService>,
+    f: &mut std::fmt::Formatter<'_>,
+) -> Result<(), std::fmt::Error> {
+    f.debug_struct("Mutex<AppService>").finish()
+}
+
 #[derive(Serialize)]
 pub struct VmDescriptor<'a> {
     interface: ServiceInterface,
@@ -78,14 +89,14 @@ pub struct CallServiceArgs {
     pub create_vault: AVMEffect<PathBuf>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ParticleAppServices {
     config: ServicesConfig,
     services: Services,
     modules: ModuleRepository,
     aliases: Aliases,
     management_peer_id: PeerId,
-    startup_management_peer_id: PeerId,
+    builtins_management_peer_id: PeerId,
 }
 
 pub fn get_service<'l>(
@@ -111,14 +122,14 @@ pub fn get_service<'l>(
 impl ParticleAppServices {
     pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
         let management_peer_id = config.management_peer_id;
-        let startup_management_peer_id = config.startup_management_peer_id;
+        let builtins_management_peer_id = config.builtins_management_peer_id;
         let this = Self {
             config,
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
             management_peer_id,
-            startup_management_peer_id,
+            builtins_management_peer_id,
         };
 
         this.create_persisted_services();
@@ -163,7 +174,8 @@ impl ParticleAppServices {
             let (service, service_id) =
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
 
-            if service.owner_id != init_peer_id && self.startup_management_peer_id != init_peer_id {
+            if service.owner_id != init_peer_id && self.builtins_management_peer_id != init_peer_id
+            {
                 return Err(ServiceError::Forbidden {
                     user: init_peer_id,
                     function: "remove_service",
@@ -230,7 +242,7 @@ impl ParticleAppServices {
         init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
         if init_peer_id != self.management_peer_id
-            && init_peer_id != self.startup_management_peer_id
+            && init_peer_id != self.builtins_management_peer_id
         {
             return Err(Forbidden {
                 user: init_peer_id,

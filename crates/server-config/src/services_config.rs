@@ -41,7 +41,7 @@ pub struct ServicesConfig {
     /// key that could manage services
     pub management_peer_id: PeerId,
     /// key to manage builtins services initialization
-    pub startup_management_peer_id: PeerId,
+    pub builtins_management_peer_id: PeerId,
 }
 
 impl ServicesConfig {
@@ -51,7 +51,7 @@ impl ServicesConfig {
         particles_vault_dir: PathBuf,
         envs: HashMap<Vec<u8>, Vec<u8>>,
         management_peer_id: PeerId,
-        startup_management_peer_id: PeerId,
+        builtins_management_peer_id: PeerId,
     ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
 
@@ -64,7 +64,7 @@ impl ServicesConfig {
             particles_vault_dir,
             envs,
             management_peer_id,
-            startup_management_peer_id,
+            builtins_management_peer_id,
         };
 
         create_dirs(&[

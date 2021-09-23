@@ -3619,6 +3619,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "config-utils",
+ "derivative",
  "fluence-app-service",
  "fluence-fork-libp2p-core",
  "fluence-libp2p",

@@ -44,13 +44,13 @@ use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct HostClosures<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
     pub management_peer_id: PeerId,
-    pub startup_management_peer_id: PeerId,
+    pub builtins_management_peer_id: PeerId,
 
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
@@ -72,14 +72,14 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let modules = ModuleRepository::new(modules_dir, blueprint_dir, vault_dir);
 
         let management_peer_id = config.management_peer_id;
-        let startup_management_peer_id = config.startup_management_peer_id;
+        let builtins_management_peer_id = config.builtins_management_peer_id;
         let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
             connectivity,
             script_storage,
             management_peer_id,
-            startup_management_peer_id,
+            builtins_management_peer_id,
             modules,
             services,
             node_info,
@@ -100,11 +100,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("peer", "identify")              => ok(json!(self.node_info)),
             ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
-            ("peer", "is_connected")          => wrap(self.is_connected(function_args)),
-            ("peer", "connect")               => wrap(self.connect(function_args)),
-            ("peer", "get_contact")           => wrap_opt(self.get_contact(function_args)),
+            ("peer", "is_connected")          => wrap(self.is_connected(function_args).await),
+            ("peer", "connect")               => wrap(self.connect(function_args).await),
+            ("peer", "get_contact")           => wrap_opt(self.get_contact(function_args).await),
 
-            ("kad", "neighborhood")           => wrap(self.neighborhood(function_args)),
+            ("kad", "neighborhood")           => wrap(self.neighborhood(function_args).await),
             ("kad", "merge")                  => wrap(self.kad_merge(function_args.function_args)),
 
             ("srv", "list")                   => ok(self.list_services()),
@@ -127,8 +127,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
             ("script", "add")                 => wrap(self.add_script(function_args, particle)),
-            ("script", "remove")              => wrap(self.remove_script(function_args, particle)),
-            ("script", "list")                => wrap(self.list_scripts()),
+            ("script", "remove")              => wrap(self.remove_script(function_args, particle).await),
+            ("script", "list")                => wrap(self.list_scripts().await),
 
             ("op", "noop")                    => unit(),
             ("op", "array")                   => ok(Array(function_args.function_args)),
@@ -222,13 +222,16 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let uuid: String = Args::next("uuid", &mut args)?;
         let actor = params.init_peer_id;
 
-        let ok = self.script_storage.remove_script(uuid, actor, force).await?;
+        let ok = self
+            .script_storage
+            .remove_script(uuid, actor, force)
+            .await?;
 
         Ok(json!(ok))
     }
 
     async fn list_scripts(&self) -> Result<JValue, JError> {
-        let scripts = (self.script_storage.list_scripts().await?;
+        let scripts = self.script_storage.list_scripts().await?;
 
         Ok(JValue::Array(
             scripts

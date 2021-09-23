@@ -207,7 +207,10 @@ async fn execute_scripts(
             script_id,
             deadline: now + config.particle_ttl,
         };
-        unlock(sent_particles, |sent| sent.insert(particle_id.clone(), info)).await;
+        unlock(sent_particles, |sent| {
+            sent.insert(particle_id.clone(), info)
+        })
+        .await;
 
         // Send particle to the current node
         let particle = Particle {
@@ -292,7 +295,7 @@ async fn cleanup(sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>) {
     .await
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ScriptStorageApi {
     pub outlet: Outlet<Command>,
 }
@@ -303,7 +306,9 @@ pub enum ScriptStorageError {
     OutletError,
     #[error("ScriptStorageError::InletError: can't receive response from script storage")]
     InletError,
-    #[error("ScriptStorageError::PermissionDenied: only the owner (creator) of a script can remove it")]
+    #[error(
+        "ScriptStorageError::PermissionDenied: only the owner (creator) of a script can remove it"
+    )]
     PermissionDenied,
 }
 
@@ -352,10 +357,14 @@ impl ScriptStorageApi {
         if let Err(err) = self.send(command) {
             return futures::future::err(err).boxed();
         }
-        inlet.map(|r| r.map_err(|_| InletError).and_then(identity)).boxed()
+        inlet
+            .map(|r| r.map_err(|_| InletError).and_then(identity))
+            .boxed()
     }
 
-    pub fn list_scripts(&self) -> BoxFuture<'static, Result<HashMap<ScriptId, Script>, ScriptStorageError>> {
+    pub fn list_scripts(
+        &self,
+    ) -> BoxFuture<'static, Result<HashMap<ScriptId, Script>, ScriptStorageError>> {
         let (outlet, inlet) = oneshot::channel();
         if let Err(err) = self.send(Command::ListScripts { outlet }) {
             return futures::future::err(err).boxed();

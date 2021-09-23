@@ -30,7 +30,6 @@ mod connectivity;
 mod dispatcher;
 mod effectors;
 mod metrics;
-mod network_api;
 mod node;
 mod tasks;
 
@@ -54,5 +53,5 @@ pub use node::Node;
 
 // to be available in benchmarks
 pub use connection_pool::Command as ConnectionPoolCommand;
+pub use connectivity::Connectivity;
 pub use kademlia::Command as KademliaCommand;
-pub use network_api::{Connectivity, NetworkApi};

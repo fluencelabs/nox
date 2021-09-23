@@ -24,6 +24,7 @@ log = "0.4.11"
 uuid = "0.8.1"
 toml = "0.5.6"
 thiserror = "1.0.23"
+derivative = "2.2.0"
 
 [dev-dependencies]
 tempdir = "0.3.7"

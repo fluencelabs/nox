@@ -17,6 +17,7 @@
 use std::{io, iter::once, net::SocketAddr};
 
 use async_std::task;
+use eyre::WrapErr;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     select,
@@ -35,6 +36,7 @@ use trust_graph::{InMemoryStorage, TrustGraph};
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineBackend, Observation, VmConfig, VmPoolConfig, AVM,
 };
+use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
@@ -47,11 +49,9 @@ use particle_protocol::Particle;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 
-use crate::connectivity::Connectivity;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
 use crate::metrics::start_metrics_endpoint;
-use crate::network_api::NetworkApi;
 use crate::Connectivity;
 
 use super::behaviour::NetworkBehaviour;
@@ -63,25 +63,26 @@ pub struct Node<RT: AquaRuntime> {
     pub swarm: Swarm<NetworkBehaviour>,
 
     pub connectivity: Connectivity,
-    dispatcher: Dispatcher,
+    pub dispatcher: Dispatcher,
     aquavm_pool: AquamarineBackend<RT>,
     script_storage: ScriptStorageBackend,
+    builtins_deployer: BuiltinsDeployer,
 
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
 
     pub local_peer_id: PeerId,
-    pub startup_management_peer_id: PeerId,
+    // TODO: remove?
+    pub builtins_management_peer_id: PeerId,
 }
 
 impl Node<AVM> {
-    pub fn new(
-        config: ResolvedConfig,
-        startup_management_peer_id: PeerId,
-    ) -> eyre::Result<Box<Self>> {
+    pub fn new(config: ResolvedConfig, node_version: &'static str) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let local_peer_id = to_peer_id(&key_pair);
         let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
+
+        let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
         let trust_graph = {
             let storage = InMemoryStorage::new_in_memory(config.root_weights()?);
@@ -103,13 +104,18 @@ impl Node<AVM> {
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
             config.management_peer_id,
-            startup_management_peer_id,
+            builtins_peer_id,
         )
         .expect("create services config");
 
         let registry = Registry::new();
-        let network_config =
-            NetworkConfig::new(trust_graph, Some(registry.clone()), key_pair, &config);
+        let network_config = NetworkConfig::new(
+            trust_graph,
+            Some(registry.clone()),
+            key_pair,
+            &config,
+            node_version,
+        );
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
             local_peer_id,
@@ -143,8 +149,27 @@ impl Node<AVM> {
         let (effectors, observation_stream) = Effectors::new(connectivity.clone(), host_functions);
         let dispatcher = {
             let failures = particle_failures_out;
-            Dispatcher::new(local_peer_id, aquamarine_api, effectors, failures)
+            let parallelism = config.particle_processor_parallelism;
+            let timeout = config.particle_processing_timeout;
+            Dispatcher::new(
+                local_peer_id,
+                aquamarine_api.clone(),
+                effectors,
+                failures,
+                parallelism,
+                timeout,
+            )
         };
+
+        let builtins_deployer = BuiltinsDeployer::new(
+            builtins_peer_id,
+            local_peer_id,
+            aquamarine_api,
+            config.dir_config.builtins_base_dir.clone(),
+            config.node_config.autodeploy_particle_ttl,
+            config.node_config.force_builtins_redeploy,
+            config.node_config.autodeploy_retry_attempts,
+        );
 
         Ok(Self::with(
             particle_stream,
@@ -154,10 +179,11 @@ impl Node<AVM> {
             dispatcher,
             aquavm_pool,
             script_storage_backend,
+            builtins_deployer,
             registry.into(),
             config.metrics_listen_addr(),
             local_peer_id,
-            startup_management_peer_id,
+            builtins_peer_id,
         ))
     }
 
@@ -209,12 +235,13 @@ impl<RT: AquaRuntime> Node<RT> {
         dispatcher: Dispatcher,
         aquavm_pool: AquamarineBackend<RT>,
         script_storage: ScriptStorageBackend,
+        builtins_deployer: BuiltinsDeployer,
 
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
 
         local_peer_id: PeerId,
-        startup_management_peer_id: PeerId,
+        builtins_management_peer_id: PeerId,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -225,38 +252,49 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher,
             aquavm_pool,
             script_storage,
+            builtins_deployer,
 
             registry,
             metrics_listen_addr,
 
             local_peer_id,
-            startup_management_peer_id,
+            builtins_management_peer_id,
         };
 
         Box::new(node_service)
     }
 
     /// Starts node service
-    pub fn start(self: Box<Self>) -> OneshotOutlet<()> {
+    pub fn start(self: Box<Self>) -> eyre::Result<OneshotOutlet<()>> {
         let (exit_outlet, exit_inlet) = oneshot::channel();
         let mut exit_inlet = exit_inlet.into_stream().fuse();
 
+        let particle_stream = self.particle_stream;
+        let observation_stream = self.observation_stream;
+        let swarm = self.swarm;
+        let connectivity = self.connectivity;
+        let dispatcher = self.dispatcher;
+        let aquavm_pool = self.aquavm_pool;
+        let script_storage = self.script_storage;
+        let registry = self.registry;
+        let metrics_listen_addr = self.metrics_listen_addr;
+        let local_peer_id = self.local_peer_id;
+        let builtins_management_peer_id = self.builtins_management_peer_id;
+
         task::spawn(async move {
-            let mut metrics = if let Some(registry) = self.registry {
-                start_metrics_endpoint(registry, self.metrics_listen_addr)
+            let mut metrics = if let Some(registry) = registry {
+                start_metrics_endpoint(registry, metrics_listen_addr)
             } else {
                 futures::future::ready(Ok(())).boxed()
             }
             .fuse();
 
-            let script_storage = self.script_storage.start();
-            let pool = self.aquavm_pool.start();
-            let mut connectivity = self.connectivity.start();
-            let mut dispatcher = self
-                .dispatcher
-                .start(self.particle_stream, self.observation_stream);
+            let script_storage = script_storage.start();
+            let pool = aquavm_pool.start();
+            let mut connectivity = connectivity.start();
+            let mut dispatcher = dispatcher.start(particle_stream, observation_stream);
             let stopped = stream::iter(once(Err(())));
-            let mut swarm = self.swarm.map(|_e| Ok(())).chain(stopped).fuse();
+            let mut swarm = swarm.map(|_e| Ok(())).chain(stopped).fuse();
 
             loop {
                 select!(
@@ -271,7 +309,8 @@ impl<RT: AquaRuntime> Node<RT> {
                             log::warn!("Metrics returned error: {}", err)
                         }
                     },
-                    _ = network => {},
+                    _ = connectivity => {},
+                    _ = dispatcher => {},
                     event = exit_inlet.next() => {
                         // Ignore Err and None – if exit_outlet is dropped, we'll run forever!
                         if let Some(Ok(_)) = event {
@@ -288,7 +327,13 @@ impl<RT: AquaRuntime> Node<RT> {
             pool.cancel().await;
         });
 
-        exit_outlet
+        // TODO: make `deploy_builtin_services` async and add to the "select! loop" above
+        let mut builtins_deployer = self.builtins_deployer;
+        builtins_deployer
+            .deploy_builtin_services()
+            .wrap_err("builtins deploy failed")?;
+
+        Ok(exit_outlet)
     }
 
     /// Starts node service listener.

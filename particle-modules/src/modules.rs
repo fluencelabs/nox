@@ -54,7 +54,7 @@ impl AddBlueprint {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
     blueprints_dir: PathBuf,

@@ -52,12 +52,6 @@ impl ConnectivityTasks {
         if let Some(reconnect_bootstraps) = self.reconnect_bootstraps {
             reconnect_bootstraps.cancel().await;
         };
-        if let Some(particles) = self.particles {
-            particles.cancel().await;
-        };
-        if let Some(observations) = self.observations {
-            observations.cancel().await;
-        }
     }
 }
 
@@ -90,6 +84,15 @@ impl DispatcherTasks {
             observations: Some(observations),
         }
     }
+
+    pub async fn cancel(self) {
+        if let Some(particles) = self.particles {
+            particles.cancel().await;
+        };
+        if let Some(observations) = self.observations {
+            observations.cancel().await;
+        }
+    }
 }
 
 impl Future for DispatcherTasks {
@@ -98,7 +101,6 @@ impl Future for DispatcherTasks {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         poll_opt(&mut self.particles, cx);
         poll_opt(&mut self.observations, cx);
-        self.network_tasks.poll_unpin(cx);
 
         if self.is_terminated() {
             log::warn!("DispatcherTasks terminated");
@@ -111,9 +113,7 @@ impl Future for DispatcherTasks {
 
 impl FusedFuture for DispatcherTasks {
     fn is_terminated(&self) -> bool {
-        self.network_tasks.is_terminated()
-            && self.observations.is_none()
-            && self.particles.is_none()
+        self.observations.is_none() && self.particles.is_none()
     }
 }
 

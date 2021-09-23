@@ -81,7 +81,7 @@ impl<RT: AquaRuntime> AquamarineBackend<RT> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AquamarineApi {
     // send particle along with a "return address"; it's like the Ask pattern in Akka
     outlet: BackPressuredOutlet<(Observation, EffectsChannel)>,

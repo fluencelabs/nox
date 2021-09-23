@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+use std::cmp::min;
 use std::collections::HashSet;
 use std::time::Duration;
 
 use async_std::task::{sleep, spawn};
 use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
+use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::Multiaddr;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
@@ -27,7 +29,6 @@ use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::{Contact, Particle};
 
 use crate::tasks::ConnectivityTasks;
-use std::cmp::min;
 
 #[derive(Clone, Debug)]
 /// This structure is just a composition of Kademlia and ConnectionPool.
@@ -44,12 +45,10 @@ pub struct Connectivity {
 
 impl Connectivity {
     pub fn start(self) -> ConnectivityTasks {
-        let freq = self.bootstrap_frequency;
-        let bs = self.bootstrap_nodes;
-        let reconnect_bootstraps = spawn(self.clone().reconnect_bootstraps(bs.clone()));
-        let run_bootstrap = spawn(self.kademlia_bootstrap(bs, freq));
+        let reconnect_bootstraps = spawn(self.clone().reconnect_bootstraps());
+        let run_bootstrap = spawn(self.kademlia_bootstrap());
 
-        ConnectivityTasks::new(particles, reconnect_bootstraps)
+        ConnectivityTasks::new(run_bootstrap, reconnect_bootstraps)
     }
 
     pub async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
@@ -103,15 +102,16 @@ impl Connectivity {
     }
 
     /// Run kademlia bootstrap after first bootstrap is connected, and then every `frequency`
-    pub async fn kademlia_bootstrap(self, bootstrap_nodes: HashSet<Multiaddr>, frequency: usize) {
+    pub async fn kademlia_bootstrap(self) {
         let kademlia = self.kademlia;
         let pool = self.connection_pool;
+        let bootstrap_nodes = self.bootstrap_nodes;
+        let frequency = self.bootstrap_frequency;
 
         // Count connected (and reconnected) bootstrap nodes
         let connections = {
             use async_std::stream::StreamExt as stream;
 
-            let bootstrap_nodes = bootstrap_nodes.clone();
             let events = pool.lifecycle_events();
             stream::filter_map(events, move |e| {
                 if let LifecycleEvent::Connected(c) = e {
@@ -142,9 +142,10 @@ impl Connectivity {
     }
 
     /// Dial bootstraps, and then re-dial on each disconnection
-    pub async fn reconnect_bootstraps(self, bootstrap_nodes: HashSet<Multiaddr>) {
+    pub async fn reconnect_bootstraps(self) {
         let pool = self.connection_pool;
         let kademlia = self.kademlia;
+        let bootstrap_nodes = self.bootstrap_nodes;
 
         let disconnections = {
             use async_std::stream::StreamExt as stream;

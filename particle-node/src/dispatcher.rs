@@ -20,6 +20,7 @@ use std::time::{Duration, Instant};
 
 use async_std::task::{sleep, spawn};
 use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
+use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::Multiaddr;
 
 use aquamarine::{AquamarineApi, Observation};
@@ -28,11 +29,11 @@ use fluence_libp2p::PeerId;
 use particle_closures::HostClosures;
 use particle_protocol::Particle;
 
-use crate::connectivity::Connectivity;
 use crate::effectors::Effectors;
 use crate::tasks::DispatcherTasks;
-use crate::{Connectivity, NetworkApi};
+use crate::Connectivity;
 
+#[derive(Debug, Clone)]
 pub struct Dispatcher {
     peer_id: PeerId,
     /// Number of concurrently processed particles
@@ -50,15 +51,17 @@ impl Dispatcher {
         aquamarine: AquamarineApi,
         effectors: Effectors,
         particle_failures_sink: Outlet<String>,
+        particle_parallelism: Option<usize>,
+        particle_timeout: Duration,
     ) -> Self {
-        let dispatcher = Dispatcher {
+        Self {
             peer_id,
             effectors,
             aquamarine,
             particle_failures_sink,
             particle_parallelism,
             particle_timeout,
-        };
+        }
     }
 }
 

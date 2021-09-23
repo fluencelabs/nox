@@ -23,7 +23,6 @@ use trust_graph::InMemoryStorage;
 
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use prometheus::Registry;
-use std::time::Duration;
 
 type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
@@ -38,10 +37,10 @@ pub struct NetworkConfig {
     pub protocol_config: ProtocolConfig,
     pub kademlia_config: KademliaConfig,
     pub particle_queue_buffer: usize,
-    pub particle_parallelism: Option<usize>,
+    // pub particle_parallelism: Option<usize>,
     pub bootstrap_frequency: usize,
     pub allow_local_addresses: bool,
-    pub particle_timeout: Duration,
+    // pub particle_timeout: Duration,
 }
 
 impl NetworkConfig {
@@ -50,8 +49,10 @@ impl NetworkConfig {
         registry: Option<Registry>,
         key_pair: Keypair,
         config: &ResolvedConfig,
+        node_version: &'static str,
     ) -> Self {
         Self {
+            node_version,
             trust_graph,
             registry,
             local_peer_id: to_peer_id(&key_pair),
@@ -61,10 +62,10 @@ impl NetworkConfig {
             protocol_config: config.protocol_config.clone(),
             kademlia_config: config.kademlia.clone(),
             particle_queue_buffer: config.particle_queue_buffer,
-            particle_parallelism: config.particle_processor_parallelism,
+            // particle_parallelism: config.particle_processor_parallelism,
             bootstrap_frequency: config.bootstrap_frequency,
             allow_local_addresses: config.allow_local_addresses,
-            particle_timeout: config.particle_processing_timeout,
+            // particle_timeout: config.particle_processing_timeout,
         }
     }
 }

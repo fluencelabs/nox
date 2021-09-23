@@ -28,7 +28,7 @@ use particle_node::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use script_storage::ScriptStorageConfig;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend};
-use server_config::{BootstrapConfig, NetworkConfig, ServicesConfig};
+use server_config::{BootstrapConfig, NetworkConfig, ResolvedConfig, ServicesConfig};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, PARTICLE_TTL, TRANSPORT_TIMEOUT};
 use toy_vms::EasyVM;
 use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
@@ -163,7 +163,7 @@ where
     let pools = iter(
         nodes
             .iter()
-            .map(|(_, n, bootstraps_num)| (n.network_api.connectivity(), *bootstraps_num))
+            .map(|(_, n, bootstraps_num)| (n.connectivity.clone(), *bootstraps_num))
             .collect::<Vec<_>>(),
     );
     let connected = pools.for_each_concurrent(None, |(pool, bootstraps_num)| async move {
@@ -183,27 +183,10 @@ where
     let infos = nodes
         .into_iter()
         .map(|((peer_id, management_keypair, config), node, _)| {
-            let connectivity = node.network_api.connectivity();
-            let stepper = node.aquamarine_api.clone();
-            let startup_peer_id = node.startup_management_peer_id;
+            let connectivity = node.connectivity.clone();
+            let startup_peer_id = node.builtins_management_peer_id;
             let local_peer_id = node.local_peer_id;
-            let outlet = node.start();
-
-            if let Some(builtins_dir) = config.builtins_dir {
-                let mut builtin_loader = BuiltinsDeployer::new(
-                    startup_peer_id,
-                    local_peer_id,
-                    stepper,
-                    builtins_dir,
-                    Duration::from_millis(PARTICLE_TTL as u64),
-                    false,
-                    5,
-                );
-
-                builtin_loader
-                    .deploy_builtin_services()
-                    .expect("builtins deployed");
-            }
+            let outlet = node.start().expect("node start");
 
             CreatedSwarm {
                 peer_id,
@@ -305,14 +288,54 @@ pub fn aqua_vm_config(
     )
     .expect("create services config");
 
-    let host_closures = Node::host_closures(
-        connectivity,
-        vec![listen_on],
-        services_config,
-        script_storage_api,
-    );
-
     vm_config
+}
+
+pub fn create_swarm_with_runtime_take_two<RT: AquaRuntime>(
+    mut config: SwarmConfig,
+    vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig, PeerId) -> RT::Config,
+) -> (PeerId, Box<Node<RT>>, Keypair, SwarmConfig) {
+    let resolved_config = ResolvedConfig {
+        dir_config: ResolvedDirConfig {
+            base_dir: Default::default(),
+            certificate_dir: Default::default(),
+            services_base_dir: Default::default(),
+            builtins_base_dir: Default::default(),
+            avm_base_dir: Default::default(),
+            air_interpreter_path: Default::default(),
+        },
+        node_config: NodeConfig {
+            root_key_pair: (),
+            builtins_key_pair: (),
+            autodeploy_particle_ttl: Default::default(),
+            autodeploy_retry_attempts: 0,
+            force_builtins_redeploy: false,
+            tcp_port: 0,
+            listen_ip: (),
+            socket_timeout: Default::default(),
+            bootstrap_nodes: vec![],
+            websocket_port: 0,
+            external_address: None,
+            external_multiaddresses: vec![],
+            prometheus_port: 0,
+            bootstrap_config: Default::default(),
+            root_weights: Default::default(),
+            services_envs: Default::default(),
+            protocol_config: Default::default(),
+            aquavm_pool_size: 0,
+            kademlia: Default::default(),
+            particle_queue_buffer: 0,
+            particle_processor_parallelism: None,
+            script_storage_timer_resolution: Default::default(),
+            script_storage_max_failures: 0,
+            script_storage_particle_ttl: Default::default(),
+            bootstrap_frequency: 0,
+            allow_local_addresses: false,
+            particle_execution_timeout: Default::default(),
+            particle_processing_timeout: Default::default(),
+            management_peer_id: (),
+        },
+    };
 }
 
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(
@@ -320,7 +343,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig, PeerId) -> RT::Config,
 ) -> (PeerId, Box<Node<RT>>, Keypair, SwarmConfig) {
     #[rustfmt::skip]
-        let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config.clone();
+    let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config.clone();
 
     let peer_id = to_peer_id(&config.keypair);
 
@@ -350,6 +373,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let network_config = NetworkConfig {
         key_pair: config.keypair.clone(),
         local_peer_id: peer_id.clone(),
+        node_version: "<node version>",
         trust_graph,
         bootstrap_nodes: bootstraps.clone(),
         bootstrap: BootstrapConfig::zero(),
@@ -357,10 +381,10 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         protocol_config,
         kademlia_config: Default::default(),
         particle_queue_buffer: 100,
-        particle_parallelism: Some(16),
+        // particle_parallelism: Some(16),
         bootstrap_frequency: 1,
         allow_local_addresses: true,
-        particle_timeout: Duration::from_secs(45),
+        // particle_timeout: Duration::from_secs(45),
     };
 
     let transport = match transport {
@@ -368,7 +392,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         Transport::Network => build_transport(config.keypair.clone(), TRANSPORT_TIMEOUT),
     };
 
-    let (swarm, network_api) =
+    let (swarm, network_api, particle_stream) =
         Node::swarm(peer_id, network_config, transport, vec![listen_on.clone()]);
 
     let connectivity = network_api.connectivity();
@@ -390,7 +414,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 
     std::fs::create_dir_all(tmp_dir).expect("create tmp dir");
 
-    let startup_management_peer_id = RandomPeerId::random();
+    let builtins_management_peer_id = RandomPeerId::random();
     let vm_config = vm_config(
         connectivity,
         script_storage_api,
@@ -400,10 +424,11 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
             listen_on: listen_on.clone(),
             manager: m_id,
         },
-        startup_management_peer_id,
+        builtins_management_peer_id,
     );
 
     let mut node = Node::with(
+        particle_stream,
         peer_id,
         swarm,
         network_api,
@@ -413,7 +438,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         particle_failures_out,
         None,
         "0.0.0.0:0".parse().unwrap(),
-        startup_management_peer_id,
+        builtins_management_peer_id,
         bootstraps,
     );
 
