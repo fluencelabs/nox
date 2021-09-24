@@ -14,19 +14,35 @@
  * limitations under the License.
  */
 
+use std::time::Duration;
+
 use futures::{AsyncRead, AsyncWrite};
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::{Boxed, MemoryTransport};
 use libp2p::core::Multiaddr;
 use libp2p::noise;
 use libp2p::{core, dns, identity::Keypair, PeerId, Transport as NetworkTransport};
-use std::time::Duration;
+use serde::{Deserialize, Serialize};
+
+pub fn build_transport(
+    transport: Transport,
+    key_pair: Keypair,
+    timeout: Duration,
+) -> Boxed<(PeerId, StreamMuxerBox)> {
+    match transport {
+        Transport::Network => build_network_transport(key_pair, timeout),
+        Transport::Memory => build_memory_transport(key_pair, timeout),
+    }
+}
 
 /// Creates transport that is common for all connections.
 ///
 /// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
 /// the multiplexing layer.
-pub fn build_transport(key_pair: Keypair, socket_timeout: Duration) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub fn build_network_transport(
+    key_pair: Keypair,
+    socket_timeout: Duration,
+) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = {
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
         let tcp = dns::DnsConfig::new(tcp).expect("Can't build DNS");
@@ -71,13 +87,16 @@ where
         .boxed()
 }
 
-pub fn build_memory_transport(key_pair: Keypair, transport_timeout: Duration) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub fn build_memory_transport(
+    key_pair: Keypair,
+    transport_timeout: Duration,
+) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = MemoryTransport::default();
 
     configure_transport(transport, key_pair, transport_timeout)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize, Copy)]
 pub enum Transport {
     Memory,
     Network,

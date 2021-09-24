@@ -16,6 +16,7 @@
 
 use crate::node_config::{KeypairConfig, PathOrValue};
 use fluence_identity::KeyPair;
+use fluence_libp2p::Transport;
 
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
@@ -25,6 +26,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const CONFIG_VERSION: usize = 1;
+
+pub fn default_transport() -> Transport {
+    Transport::Network
+}
 
 pub fn default_tcp_port() -> u16 {
     7777
@@ -47,6 +52,9 @@ pub fn default_websocket_port() -> u16 {
 }
 pub fn default_prometheus_port() -> u16 {
     18080
+}
+pub fn default_prometheus_enabled() -> bool {
+    true
 }
 
 pub fn default_base_dir() -> PathBuf {

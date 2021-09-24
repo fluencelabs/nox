@@ -14,6 +14,20 @@
  * limitations under the License.
  */
 
+use std::convert::identity;
+use std::path::Path;
+use std::{path::PathBuf, time::Duration};
+
+use async_std::task;
+use derivative::Derivative;
+use fluence_identity::KeyPair;
+use futures::channel::mpsc::unbounded;
+use futures::{stream::iter, StreamExt};
+use libp2p::core::multiaddr::Protocol;
+use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
+use serde::Deserialize;
+use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
+
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::VmPoolConfig;
 use aquamarine::{AquaRuntime, VmConfig, AVM};
@@ -28,21 +42,11 @@ use particle_node::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use script_storage::ScriptStorageConfig;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend};
-use server_config::{BootstrapConfig, NetworkConfig, ResolvedConfig, ServicesConfig};
+use server_config::{
+    BootstrapConfig, NetworkConfig, NodeConfig, ResolvedConfig, ServicesConfig, UnresolvedConfig,
+};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, PARTICLE_TTL, TRANSPORT_TIMEOUT};
 use toy_vms::EasyVM;
-use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
-
-use async_std::task;
-use derivative::Derivative;
-use futures::channel::mpsc::unbounded;
-use futures::{stream::iter, StreamExt};
-use libp2p::core::multiaddr::Protocol;
-use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
-
-use std::convert::identity;
-use std::path::Path;
-use std::{path::PathBuf, time::Duration};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -53,7 +57,7 @@ pub struct CreatedSwarm {
     pub tmp_dir: PathBuf,
     // management_peer_id
     #[derivative(Debug = "ignore")]
-    pub management_keypair: Keypair,
+    pub management_keypair: KeyPair,
     // stop signal
     pub outlet: OneshotOutlet<()>,
     // node connectivity
@@ -114,7 +118,7 @@ where
     )
 }
 
-pub fn make_swarms_with_keypair(n: usize, keypair: Keypair) -> Vec<CreatedSwarm> {
+pub fn make_swarms_with_keypair(n: usize, keypair: KeyPair) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, |mut cfg| {
         cfg.keypair = keypair.clone();
         cfg
@@ -124,7 +128,7 @@ pub fn make_swarms_with_keypair(n: usize, keypair: Keypair) -> Vec<CreatedSwarm>
 pub fn make_swarms_with_builtins(
     n: usize,
     path: &Path,
-    keypair: Option<Keypair>,
+    keypair: Option<KeyPair>,
 ) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, |mut cfg| {
         if let Some(keypair) = &keypair {
@@ -143,7 +147,7 @@ pub fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, Keypair, SwarmConfig),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig),
     M: FnMut() -> Multiaddr,
     B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
@@ -152,7 +156,7 @@ where
         .iter()
         .map(|addr| {
             #[rustfmt::skip]
-                let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
+            let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
             let bootstraps = bootstraps(addrs);
             let bootstraps_num = bootstraps.len();
             let (id, node, m_kp, config) = create_node(bootstraps, addr.clone());
@@ -217,7 +221,7 @@ pub struct Trust {
 #[derivative(Debug)]
 pub struct SwarmConfig {
     #[derivative(Debug = "ignore")]
-    pub keypair: Keypair,
+    pub keypair: fluence_identity::KeyPair,
     pub bootstraps: Vec<Multiaddr>,
     pub listen_on: Multiaddr,
     pub trust: Option<Trust>,
@@ -234,7 +238,7 @@ impl SwarmConfig {
             _ => Transport::Network,
         };
         Self {
-            keypair: Keypair::generate_ed25519(),
+            keypair: fluence_identity::KeyPair::generate_ed25519(),
             bootstraps,
             listen_on,
             transport,
@@ -291,162 +295,189 @@ pub fn aqua_vm_config(
     vm_config
 }
 
-pub fn create_swarm_with_runtime_take_two<RT: AquaRuntime>(
-    mut config: SwarmConfig,
-    vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig, PeerId) -> RT::Config,
-) -> (PeerId, Box<Node<RT>>, Keypair, SwarmConfig) {
-    let resolved_config = ResolvedConfig {
-        dir_config: ResolvedDirConfig {
-            base_dir: Default::default(),
-            certificate_dir: Default::default(),
-            services_base_dir: Default::default(),
-            builtins_base_dir: Default::default(),
-            avm_base_dir: Default::default(),
-            air_interpreter_path: Default::default(),
-        },
-        node_config: NodeConfig {
-            root_key_pair: (),
-            builtins_key_pair: (),
-            autodeploy_particle_ttl: Default::default(),
-            autodeploy_retry_attempts: 0,
-            force_builtins_redeploy: false,
-            tcp_port: 0,
-            listen_ip: (),
-            socket_timeout: Default::default(),
-            bootstrap_nodes: vec![],
-            websocket_port: 0,
-            external_address: None,
-            external_multiaddresses: vec![],
-            prometheus_port: 0,
-            bootstrap_config: Default::default(),
-            root_weights: Default::default(),
-            services_envs: Default::default(),
-            protocol_config: Default::default(),
-            aquavm_pool_size: 0,
-            kademlia: Default::default(),
-            particle_queue_buffer: 0,
-            particle_processor_parallelism: None,
-            script_storage_timer_resolution: Default::default(),
-            script_storage_max_failures: 0,
-            script_storage_particle_ttl: Default::default(),
-            bootstrap_frequency: 0,
-            allow_local_addresses: false,
-            particle_execution_timeout: Default::default(),
-            particle_processing_timeout: Default::default(),
-            management_peer_id: (),
-        },
-    };
-}
-
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     mut config: SwarmConfig,
     vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig, PeerId) -> RT::Config,
-) -> (PeerId, Box<Node<RT>>, Keypair, SwarmConfig) {
-    #[rustfmt::skip]
-    let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config.clone();
+) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig) {
+    use serde_json::json;
 
-    let peer_id = to_peer_id(&config.keypair);
+    let cfg = config.clone();
+
+    let format = match &config.keypair {
+        KeyPair::Ed25519(_) => "ed25519",
+        KeyPair::Rsa(_) => "rsa",
+        KeyPair::Secp256k1(_) => "secp256k1",
+    };
+
+    let peer_id = libp2p::identity::Keypair::from(config.keypair.clone())
+        .public()
+        .into_peer_id();
 
     if config.tmp_dir.is_none() {
         config.tmp_dir = Some(make_tmp_dir_peer_id(peer_id.to_string()));
     }
-
     let tmp_dir = config.tmp_dir.as_ref().unwrap();
-    let management_kp = Keypair::generate_ed25519();
-    let m_public_key = management_kp.public();
-    let m_id = PeerId::from(m_public_key);
-
-    let root_weights: &[_] = trust.as_ref().map_or(&[], |t| &t.root_weights);
-    let mut trust_graph = {
-        let storage = InMemoryStorage::new_in_memory(root_weights.to_vec());
-        TrustGraph::new(storage)
-    };
-    if let Some(trust) = trust {
-        for cert in trust.certificates.into_iter() {
-            trust_graph.add(cert, trust.cur_time).expect("add cert");
-        }
-    }
-
-    let protocol_config =
-        ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
-
-    let network_config = NetworkConfig {
-        key_pair: config.keypair.clone(),
-        local_peer_id: peer_id.clone(),
-        node_version: "<node version>",
-        trust_graph,
-        bootstrap_nodes: bootstraps.clone(),
-        bootstrap: BootstrapConfig::zero(),
-        registry: None,
-        protocol_config,
-        kademlia_config: Default::default(),
-        particle_queue_buffer: 100,
-        // particle_parallelism: Some(16),
-        bootstrap_frequency: 1,
-        allow_local_addresses: true,
-        // particle_timeout: Duration::from_secs(45),
-    };
-
-    let transport = match transport {
-        Transport::Memory => build_memory_transport(config.keypair.clone(), TRANSPORT_TIMEOUT),
-        Transport::Network => build_transport(config.keypair.clone(), TRANSPORT_TIMEOUT),
-    };
-
-    let (swarm, network_api, particle_stream) =
-        Node::swarm(peer_id, network_config, transport, vec![listen_on.clone()]);
-
-    let connectivity = network_api.connectivity();
-    let (particle_failures_out, particle_failures_in) = unbounded();
-    let (script_storage_api, script_storage_backend) = {
-        let script_storage_config = ScriptStorageConfig {
-            timer_resolution: Duration::from_millis(500),
-            max_failures: 1,
-            particle_ttl: Duration::from_secs(5),
-            peer_id,
-        };
-
-        let pool: &ConnectionPoolApi = connectivity.as_ref();
-        ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
-    };
-
-    let pool_size = config.pool_size.unwrap_or(1);
-    let pool_config = VmPoolConfig::new(pool_size, EXECUTION_TIMEOUT);
-
     std::fs::create_dir_all(tmp_dir).expect("create tmp dir");
 
-    let builtins_management_peer_id = RandomPeerId::random();
-    let vm_config = vm_config(
-        connectivity,
-        script_storage_api,
-        BaseVmConfig {
-            peer_id,
-            tmp_dir: tmp_dir.clone(),
-            listen_on: listen_on.clone(),
-            manager: m_id,
-        },
-        builtins_management_peer_id,
-    );
+    let node_config = json!({
+        "base_dir": tmp_dir.to_string_lossy(),
+        "root_key_pair": {
+            "format": format,
+            "generate_on_absence": "false",
+            "value": bs58::encode(config.keypair.to_vec()).into_string(),
+        }
+    });
 
-    let mut node = Node::with(
-        particle_stream,
-        peer_id,
-        swarm,
-        network_api,
-        script_storage_backend,
-        vm_config,
-        pool_config,
-        particle_failures_out,
-        None,
-        "0.0.0.0:0".parse().unwrap(),
-        builtins_management_peer_id,
-        bootstraps,
-    );
+    let node_config: UnresolvedConfig =
+        UnresolvedConfig::deserialize(node_config).expect("empty config");
 
-    node.listen(vec![listen_on]).expect("listen");
+    let mut resolved = node_config.resolve();
+    resolved.node_config.transport_config.transport = Transport::Memory;
+    resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
+    resolved.node_config.protocol_config =
+        ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
 
-    (peer_id, node, management_kp, config)
+    resolved.node_config.bootstrap_nodes = config.bootstraps;
+    resolved.node_config.bootstrap_config = BootstrapConfig::zero();
+    resolved.node_config.bootstrap_frequency = 1;
+
+    resolved.prometheus_config.prometheus_enabled = false;
+
+    resolved.node_config.allow_local_addresses = true;
+    resolved.node_config.particle_processing_timeout = Duration::from_secs(45);
+    // resolved.node_config.listen_config.listen_multiaddrs = vec![.clone()];
+
+    resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
+    resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
+
+    let management_kp = fluence_identity::KeyPair::generate_ed25519();
+    let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())
+        .public()
+        .into_peer_id();
+    resolved.node_config.management_peer_id = management_peer_id;
+
+    let mut node = Node::new(resolved, "some version").expect("create node");
+    node.listen(vec![config.listen_on]).expect("listen");
+
+    (node.local_peer_id, node, management_kp, cfg)
+
+    // TODO: this requires ability to convert public keys to PeerId
+    // if let Some(trust) = config.trust {
+    //     node_config.root_weights = trust.root_weights.into_iter().map(|(pk, weight)| {
+    //         pk.
+    //     }).collect();
+    // }
 }
 
-pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, Keypair, SwarmConfig) {
+// pub fn create_swarm_with_runtime<RT: AquaRuntime>(
+//     mut config: SwarmConfig,
+//     vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig, PeerId) -> RT::Config,
+// ) -> (PeerId, Box<Node<RT>>, Keypair, SwarmConfig) {
+//     #[rustfmt::skip]
+//     let SwarmConfig { bootstraps, listen_on, trust, transport, .. } = config.clone();
+//
+//     let peer_id = to_peer_id(&config.keypair);
+//
+//     if config.tmp_dir.is_none() {
+//         config.tmp_dir = Some(make_tmp_dir_peer_id(peer_id.to_string()));
+//     }
+//
+//     let tmp_dir = config.tmp_dir.as_ref().unwrap();
+//     let management_kp = Keypair::generate_ed25519();
+//     let m_public_key = management_kp.public();
+//     let m_id = PeerId::from(m_public_key);
+//
+//     let root_weights: &[_] = trust.as_ref().map_or(&[], |t| &t.root_weights);
+//     let mut trust_graph = {
+//         let storage = InMemoryStorage::new_in_memory(root_weights.to_vec());
+//         TrustGraph::new(storage)
+//     };
+//     if let Some(trust) = trust {
+//         for cert in trust.certificates.into_iter() {
+//             trust_graph.add(cert, trust.cur_time).expect("add cert");
+//         }
+//     }
+//
+//     let protocol_config =
+//         ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
+//
+//     let network_config = NetworkConfig {
+//         key_pair: config.keypair.clone(),
+//         local_peer_id: peer_id.clone(),
+//         node_version: "<node version>",
+//         trust_graph,
+//         bootstrap_nodes: bootstraps.clone(),
+//         bootstrap: BootstrapConfig::zero(),
+//         registry: None,
+//         protocol_config,
+//         kademlia_config: Default::default(),
+//         particle_queue_buffer: 100,
+//         // particle_parallelism: Some(16),
+//         bootstrap_frequency: 1,
+//         allow_local_addresses: true,
+//         // particle_timeout: Duration::from_secs(45),
+//     };
+//
+//     let transport = match transport {
+//         Transport::Memory => build_memory_transport(config.keypair.clone(), TRANSPORT_TIMEOUT),
+//         Transport::Network => build_network_transport(config.keypair.clone(), TRANSPORT_TIMEOUT),
+//     };
+//
+//     let (swarm, network_api, particle_stream) =
+//         Node::swarm(peer_id, network_config, transport, vec![listen_on.clone()]);
+//
+//     let connectivity = network_api.connectivity();
+//     let (particle_failures_out, particle_failures_in) = unbounded();
+//     let (script_storage_api, script_storage_backend) = {
+//         let script_storage_config = ScriptStorageConfig {
+//             timer_resolution: Duration::from_millis(500),
+//             max_failures: 1,
+//             particle_ttl: Duration::from_secs(5),
+//             peer_id,
+//         };
+//
+//         let pool: &ConnectionPoolApi = connectivity.as_ref();
+//         ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
+//     };
+//
+//     let pool_size = config.pool_size.unwrap_or(1);
+//     let pool_config = VmPoolConfig::new(pool_size, EXECUTION_TIMEOUT);
+//
+//     std::fs::create_dir_all(tmp_dir).expect("create tmp dir");
+//
+//     let builtins_management_peer_id = RandomPeerId::random();
+//     let vm_config = vm_config(
+//         connectivity,
+//         script_storage_api,
+//         BaseVmConfig {
+//             peer_id,
+//             tmp_dir: tmp_dir.clone(),
+//             listen_on: listen_on.clone(),
+//             manager: m_id,
+//         },
+//         builtins_management_peer_id,
+//     );
+//
+//     let mut node = Node::with(
+//         particle_stream,
+//         peer_id,
+//         swarm,
+//         network_api,
+//         script_storage_backend,
+//         vm_config,
+//         pool_config,
+//         particle_failures_out,
+//         None,
+//         "0.0.0.0:0".parse().unwrap(),
+//         builtins_management_peer_id,
+//         bootstraps,
+//     );
+//
+//     node.listen(vec![listen_on]).expect("listen");
+//
+//     (peer_id, node, management_kp, config)
+// }
+
+pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig) {
     create_swarm_with_runtime(config, aqua_vm_config)
 }

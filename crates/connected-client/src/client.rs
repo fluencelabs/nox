@@ -105,19 +105,8 @@ impl Client {
         let mut swarm = {
             let behaviour = ClientBehaviour::new(protocol_config);
 
-            macro_rules! swarm {
-                ($transport:expr) => {{
-                    let transport = $transport;
-                    Swarm::new(transport, behaviour, self.peer_id.clone())
-                }};
-            }
-
-            match transport {
-                Transport::Memory => swarm!(build_memory_transport(self.key_pair.clone(), transport_timeout)),
-                Transport::Network => {
-                    swarm!(build_transport(self.key_pair.clone(), transport_timeout))
-                }
-            }
+            let transport = build_transport(transport, self.key_pair.clone(), transport_timeout);
+            Swarm::new(transport, behaviour, self.peer_id.clone())
         };
 
         match Swarm::dial_addr(&mut swarm, node.clone()) {

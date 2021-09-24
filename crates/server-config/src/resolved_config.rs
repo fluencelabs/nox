@@ -71,7 +71,7 @@ const ARGS: &[&str] = &[
 ];
 
 #[derive(Clone, Deserialize, Debug)]
-struct UnresolvedConfig {
+pub struct UnresolvedConfig {
     #[serde(flatten)]
     dir_config: UnresolvedDirConfig,
     #[serde(flatten)]
@@ -112,13 +112,13 @@ impl ResolvedConfig {
         let mut addrs = if let Some(external_address) = self.external_address {
             let external_tcp = {
                 let mut maddr = Multiaddr::from(external_address);
-                maddr.push(Protocol::Tcp(self.tcp_port));
+                maddr.push(Protocol::Tcp(self.listen_config.tcp_port));
                 maddr
             };
 
             let external_ws = {
                 let mut maddr = Multiaddr::from(external_address);
-                maddr.push(Protocol::Tcp(self.websocket_port));
+                maddr.push(Protocol::Tcp(self.listen_config.websocket_port));
                 maddr.push(Protocol::Ws("/".into()));
                 maddr
             };
@@ -140,7 +140,9 @@ impl ResolvedConfig {
             .map(|(k, v)| {
                 Ok((
                     k.as_public_key()
-                        .ok_or_else(|| eyre!("invalid root_weights key: PeerId doesn't contain PublicKey"))?
+                        .ok_or_else(|| {
+                            eyre!("invalid root_weights key: PeerId doesn't contain PublicKey")
+                        })?
                         .into(),
                     v,
                 ))
@@ -149,16 +151,27 @@ impl ResolvedConfig {
     }
 
     pub fn metrics_listen_addr(&self) -> SocketAddr {
-        SocketAddr::new(self.listen_ip, self.prometheus_port)
+        SocketAddr::new(
+            self.listen_config.listen_ip,
+            self.prometheus_config.prometheus_port,
+        )
     }
 
     pub fn listen_config(&self) -> ListenConfig {
-        ListenConfig::new(self.listen_ip, self.tcp_port, self.websocket_port)
+        // TODO: only 1 ListenConfig must survive
+        ListenConfig::new(
+            self.listen_config.listen_ip,
+            self.listen_config.tcp_port,
+            self.listen_config.websocket_port,
+        )
     }
 }
 
 /// Take all command line arguments, and insert them into config appropriately
-fn insert_args_to_config(arguments: &ArgMatches, config: &mut toml::value::Table) -> eyre::Result<()> {
+fn insert_args_to_config(
+    arguments: &ArgMatches,
+    config: &mut toml::value::Table,
+) -> eyre::Result<()> {
     use toml::Value::*;
 
     fn single(mut value: Values<'_>) -> &str {
@@ -174,7 +187,8 @@ fn insert_args_to_config(arguments: &ArgMatches, config: &mut toml::value::Table
     }
 
     fn check_and_delete(config: &mut toml::value::Table, key: &str, sub_key: &str) {
-        let _res: Option<toml::Value> = try { config.get_mut(key)?.as_table_mut()?.remove(sub_key)? };
+        let _res: Option<toml::Value> =
+            try { config.get_mut(key)?.as_table_mut()?.remove(sub_key)? };
     }
 
     // Check each possible command line argument
@@ -186,7 +200,9 @@ fn insert_args_to_config(arguments: &ArgMatches, config: &mut toml::value::Table
 
         // Convert value to a type of the corresponding field in `FluenceConfig`
         let mut value = match k {
-            WEBSOCKET_PORT | TCP_PORT | PROMETHEUS_PORT | AQUA_VM_POOL_SIZE => Integer(single(arg).parse()?),
+            WEBSOCKET_PORT | TCP_PORT | PROMETHEUS_PORT | AQUA_VM_POOL_SIZE => {
+                Integer(single(arg).parse()?)
+            }
             BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => Array(multiple(arg).collect()),
             ROOT_KEY_PAIR_VALUE => {
                 check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
@@ -201,7 +217,10 @@ fn insert_args_to_config(arguments: &ArgMatches, config: &mut toml::value::Table
         };
 
         let key = match k {
-            ROOT_KEY_PAIR_VALUE | ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_PATH | ROOT_KEY_PAIR_GENERATE => ROOT_KEY_PAIR,
+            ROOT_KEY_PAIR_VALUE
+            | ROOT_KEY_PAIR_FORMAT
+            | ROOT_KEY_PAIR_PATH
+            | ROOT_KEY_PAIR_GENERATE => ROOT_KEY_PAIR,
 
             k => k,
         };
@@ -232,13 +251,15 @@ pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
 
         log::info!("Loading config from {:?}", config_file);
 
-        std::fs::read(&config_file).wrap_err_with(|| format!("Failed reading config {:?}", config_file))?
+        std::fs::read(&config_file)
+            .wrap_err_with(|| format!("Failed reading config {:?}", config_file))?
     } else {
         log::info!("Config wasn't found, using default settings");
         Vec::default()
     };
 
-    let config = deserialize_config(&arguments, &config_bytes).wrap_err(eyre!("config deserialization failed"))?;
+    let config = deserialize_config(&arguments, &config_bytes)
+        .wrap_err(eyre!("config deserialization failed"))?;
 
     config.dir_config.create_dirs()?;
 
@@ -246,7 +267,8 @@ pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
 }
 
 pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Result<ResolvedConfig> {
-    let mut config: toml::value::Table = toml::from_slice(content).wrap_err("deserializing config")?;
+    let mut config: toml::value::Table =
+        toml::from_slice(content).wrap_err("deserializing config")?;
 
     insert_args_to_config(&arguments, &mut config)?;
 

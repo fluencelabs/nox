@@ -80,7 +80,12 @@ impl Node<AVM> {
     pub fn new(config: ResolvedConfig, node_version: &'static str) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let local_peer_id = to_peer_id(&key_pair);
-        let transport = { build_transport(key_pair.clone(), config.socket_timeout) };
+        let transport = config.transport_config.transport;
+        let transport = build_transport(
+            transport,
+            key_pair.clone(),
+            config.transport_config.socket_timeout,
+        );
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
@@ -95,9 +100,6 @@ impl Node<AVM> {
             config.dir_config.air_interpreter_path.clone(),
         );
 
-        let pool_config =
-            VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
-
         let services_config = ServicesConfig::new(
             local_peer_id,
             config.dir_config.services_base_dir.clone(),
@@ -108,10 +110,14 @@ impl Node<AVM> {
         )
         .expect("create services config");
 
-        let registry = Registry::new();
+        let metrics_registry = if config.prometheus_config.prometheus_enabled {
+            Some(Registry::new())
+        } else {
+            None
+        };
         let network_config = NetworkConfig::new(
             trust_graph,
-            Some(registry.clone()),
+            metrics_registry.clone(),
             key_pair,
             &config,
             node_version,
@@ -145,6 +151,8 @@ impl Node<AVM> {
             script_storage_api,
         );
 
+        let pool_config =
+            VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
         let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(pool_config, vm_config);
         let (effectors, observation_stream) = Effectors::new(connectivity.clone(), host_functions);
         let dispatcher = {
@@ -180,7 +188,7 @@ impl Node<AVM> {
             aquavm_pool,
             script_storage_backend,
             builtins_deployer,
-            registry.into(),
+            metrics_registry,
             config.metrics_listen_addr(),
             local_peer_id,
             builtins_peer_id,

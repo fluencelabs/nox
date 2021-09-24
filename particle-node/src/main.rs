@@ -118,7 +118,7 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     let mut node = Node::new(config, VERSION).wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
 
-    let node_exit_outlet = node.start();
+    let node_exit_outlet = node.start().wrap_err("node failed to start")?;
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,
