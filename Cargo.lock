@@ -151,7 +151,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.6.1"
-source = "git+https://github.com/fluencelabs/aquavm?branch=async#7b8e7814157ff15e473aa97ce97f9e49189e98ef"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async#cf21974cf5f46bd6d144e326ce5cb07333d49d1a"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -161,9 +161,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.14.3"
+version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c707ecad755665fe9431574df341f089b1fc4116eaf67664dbdf9bd29b42e2b"
+checksum = "27024b3d09a523e98a7b87400a090acbeb4d768a07cc55b8beccad8d570fb431"
 dependencies = [
  "built",
 ]
@@ -488,15 +488,12 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "avm-data-store"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=async#7b8e7814157ff15e473aa97ce97f9e49189e98ef"
-dependencies = [
- "eyre",
-]
+source = "git+https://github.com/fluencelabs/aquavm?branch=async#cf21974cf5f46bd6d144e326ce5cb07333d49d1a"
 
 [[package]]
 name = "avm-server"
 version = "0.11.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=async#7b8e7814157ff15e473aa97ce97f9e49189e98ef"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async#cf21974cf5f46bd6d144e326ce5cb07333d49d1a"
 dependencies = [
  "air-interpreter-interface",
  "avm-data-store",
@@ -3490,8 +3487,10 @@ name = "particle-closures"
 version = "0.2.0"
 dependencies = [
  "async-std",
+ "avm-server",
  "bs58 0.3.1",
  "connection-pool",
+ "fluence-app-service",
  "fluence-fork-libp2p",
  "host-closure",
  "humantime-serde",
@@ -3544,6 +3543,7 @@ dependencies = [
  "air-interpreter-wasm",
  "aquamarine",
  "async-std",
+ "avm-server",
  "base64 0.13.0",
  "blake3",
  "bs58 0.3.1",
@@ -4901,18 +4901,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.26"
+version = "1.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93119e4feac1cbe6c798c34d3a53ea0026b0b1de6a120deef895137c0529bfe2"
+checksum = "602eca064b2d83369e2b2f34b09c70b605402801927c65c11071ac911d299b88"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.26"
+version = "1.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "060d69a0afe7796bf42e9e2ff91f5ee691fb15c53d38b4b62a9a53eb23164745"
+checksum = "bad553cc2c78e8de258400763a647e80e6d1b31ee237275d756f6836d204494c"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -18,21 +18,22 @@ use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
 
 use aquamarine::{Observation, ParticleEffects};
 use fluence_libp2p::types::{Inlet, Outlet};
-use particle_closures::HostClosures;
+use particle_closures::HostFunctions;
+use avm_server::CallRequests;
 
 use crate::connectivity::Connectivity;
 
 #[derive(Debug, Clone)]
 pub struct Effectors {
     pub connectivity: Connectivity,
-    pub host_functions: HostClosures<Connectivity>,
+    pub host_functions: HostFunctions<Connectivity>,
     pub particle_sink: Outlet<Observation>,
 }
 
 impl Effectors {
     pub fn new(
         connectivity: Connectivity,
-        host_functions: HostClosures<Connectivity>,
+        host_functions: HostFunctions<Connectivity>,
     ) -> (Self, Inlet<Observation>) {
         let (particle_sink, particle_source) = futures::channel::mpsc::unbounded();
         let this = Self {
@@ -45,7 +46,7 @@ impl Effectors {
     }
 
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute(&mut self, effects: ParticleEffects) {
+    pub async fn execute(&self, effects: ParticleEffects) {
         if effects.particle.is_expired() {
             log::info!("Particle {} is expired", effects.particle.id);
             return;
@@ -68,15 +69,25 @@ impl Effectors {
         })
         .await;
 
-        let crs = iter(effects.call_requests);
+        let crs = effects.call_requests;
         let particle = effects.particle;
+        let host_functions = self.host_functions.clone();
+        let particle_sink = self.particle_sink.clone();
+
+        // let a = futures::stream::futures_unordered::FuturesUnordered:;
+
+        async_std::task::spawn_blocking(move || {
+            crs.into_iter().map(|call| )
+            let results = host_functions.route()
+        }).await;
+
         crs.for_each_concurrent(None, move |call| {
             let particle_id = particle.id.clone();
             let particle = particle.clone();
-            let results = todo!("execute call requests");
+            let results = host_functions.;
             async move {
                 let observation = Observation::Next { particle, results };
-                let send = self.particle_sink.send(observation).await;
+                let send = particle_sink.send(observation).await;
                 if let Err(e) = send {
                     log::warn!("Failed to send particle {} to execution", particle_id,);
                 }

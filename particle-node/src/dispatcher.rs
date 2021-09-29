@@ -26,7 +26,7 @@ use libp2p::Multiaddr;
 use aquamarine::{AquamarineApi, Observation};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};
 use fluence_libp2p::PeerId;
-use particle_closures::HostClosures;
+use particle_closures::HostFunctions;
 use particle_protocol::Particle;
 
 use crate::effectors::Effectors;

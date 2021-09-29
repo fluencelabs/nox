@@ -44,7 +44,7 @@ use fluence_libp2p::{
     build_transport,
     types::{OneshotOutlet, Outlet},
 };
-use particle_closures::{HostClosures, NodeInfo};
+use particle_closures::{HostFunctions, NodeInfo};
 use particle_protocol::Particle;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -221,14 +221,14 @@ impl Node<AVM> {
         external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
-    ) -> HostClosures<Connectivity> {
+    ) -> HostFunctions<Connectivity> {
         let node_info = NodeInfo {
             external_addresses,
             node_version: env!("CARGO_PKG_VERSION"),
             air_version: air_interpreter_wasm::VERSION,
         };
 
-        HostClosures::new(connectivity, script_storage_api, node_info, services_config)
+        HostFunctions::new(connectivity, script_storage_api, node_info, services_config)
     }
 }
 

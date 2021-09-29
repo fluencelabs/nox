@@ -28,8 +28,8 @@
 )]
 
 mod error;
-mod host_closures;
+mod host_functions;
 mod identify;
 
-pub use host_closures::HostClosures;
+pub use host_functions::HostFunctions;
 pub use identify::NodeInfo;

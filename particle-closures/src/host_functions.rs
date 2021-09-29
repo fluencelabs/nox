@@ -27,8 +27,10 @@ use multihash::{Code, MultihashDigest, MultihashGeneric};
 use serde_json::{json, Value as JValue};
 use JValue::Array;
 
+use avm_server::{CallRequestParams, CallServiceResult};
+
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use host_closure::{from_base58, AVMEffect, Args, JError};
+use host_closure::{from_base58, AVMEffect, Args, ArgsError, JError};
 use ivalue_utils::{error, into_record, into_record_opt, ok, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
@@ -43,9 +45,10 @@ use server_config::ServicesConfig;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
+use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug, Clone)]
-pub struct HostClosures<C> {
+pub struct HostFunctions<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
@@ -58,7 +61,7 @@ pub struct HostClosures<C> {
 }
 
 impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
-    HostClosures<C>
+    HostFunctions<C>
 {
     pub fn new(
         connectivity: C,
@@ -86,63 +89,74 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         }
     }
 
-    pub async fn route(&self, function_args: Args, particle: Particle) -> Option<IValue> {
+    pub async fn call(
+        &self,
+        call_request: CallRequestParams,
+        particle: Particle,
+    ) -> CallServiceResult {
+        let args = match Args::try_from(call_request) {
+            Ok(args) => args,
+            Err(err) => {
+                return CallServiceResult {
+                    ret_code: 1,
+                    result: format!("Failed to deserialize CallRequestParams to Args: {}", err),
+                }
+            }
+        };
+
         log::trace!("Host function call, args: {:#?}", function_args);
-        let log_args = format!(
-            "Executed host call {:?} {:?}",
-            function_args.service_id, function_args.function_name
-        );
+        let log_args = format!("Executed host call {:?} {:?}", service_id, function_name);
 
         let start = Instant::now();
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
-        let result = match (function_args.service_id.as_str(), function_args.function_name.as_str()) {
+        let result = match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
             ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
-            ("peer", "is_connected")          => wrap(self.is_connected(function_args).await),
-            ("peer", "connect")               => wrap(self.connect(function_args).await),
-            ("peer", "get_contact")           => wrap_opt(self.get_contact(function_args).await),
+            ("peer", "is_connected")          => wrap(self.is_connected(args).await),
+            ("peer", "connect")               => wrap(self.connect(args).await),
+            ("peer", "get_contact")           => wrap_opt(self.get_contact(args).await),
 
-            ("kad", "neighborhood")           => wrap(self.neighborhood(function_args).await),
-            ("kad", "merge")                  => wrap(self.kad_merge(function_args.function_args)),
+            ("kad", "neighborhood")           => wrap(self.neighborhood(args).await),
+            ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
 
             ("srv", "list")                   => ok(self.list_services()),
-            ("srv", "create")                 => wrap(self.create_service(function_args, particle)),
-            ("srv", "get_interface")          => wrap(self.get_interface(function_args)),
-            ("srv", "resolve_alias")          => wrap(self.resolve_alias(function_args)),
-            ("srv", "add_alias")              => wrap_unit(self.add_alias(function_args, particle)),
-            ("srv", "remove")                 => wrap_unit(self.remove_service(function_args, particle)),
+            ("srv", "create")                 => wrap(self.create_service(args, particle)),
+            ("srv", "get_interface")          => wrap(self.get_interface(args)),
+            ("srv", "resolve_alias")          => wrap(self.resolve_alias(args)),
+            ("srv", "add_alias")              => wrap_unit(self.add_alias(args, particle)),
+            ("srv", "remove")                 => wrap_unit(self.remove_service(args, particle)),
 
-            ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(function_args, particle)),
-            ("dist", "add_module")            => wrap(self.add_module(function_args)),
-            ("dist", "add_blueprint")         => wrap(self.add_blueprint(function_args)),
-            ("dist", "make_module_config")    => wrap(self.make_module_config(function_args)),
-            ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(function_args, particle)),
-            ("dist", "default_module_config") => wrap(self.default_module_config(function_args)),
-            ("dist", "make_blueprint")        => wrap(self.make_blueprint(function_args)),
-            ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(function_args, particle)),
+            ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
+            ("dist", "add_module")            => wrap(self.add_module(args)),
+            ("dist", "add_blueprint")         => wrap(self.add_blueprint(args)),
+            ("dist", "make_module_config")    => wrap(self.make_module_config(args)),
+            ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(args, particle)),
+            ("dist", "default_module_config") => wrap(self.default_module_config(args)),
+            ("dist", "make_blueprint")        => wrap(self.make_blueprint(args)),
+            ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(args, particle)),
             ("dist", "list_modules")          => wrap(self.list_modules()),
-            ("dist", "get_module_interface")  => wrap(self.get_module_interface(function_args)),
+            ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
-            ("script", "add")                 => wrap(self.add_script(function_args, particle)),
-            ("script", "remove")              => wrap(self.remove_script(function_args, particle).await),
+            ("script", "add")                 => wrap(self.add_script(args, particle)),
+            ("script", "remove")              => wrap(self.remove_script(args, particle).await),
             ("script", "list")                => wrap(self.list_scripts().await),
 
             ("op", "noop")                    => unit(),
-            ("op", "array")                   => ok(Array(function_args.function_args)),
-            ("op", "array_length")            => wrap(self.array_length(function_args.function_args)),
-            ("op", "concat")                  => wrap(self.concat(function_args.function_args)),
-            ("op", "string_to_b58")           => wrap(self.string_to_b58(function_args.function_args)),
-            ("op", "string_from_b58")         => wrap(self.string_from_b58(function_args.function_args)),
-            ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(function_args.function_args)),
-            ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(function_args.function_args)),
-            ("op", "sha256_string")           => wrap(self.sha256_string(function_args.function_args)),
-            ("op", "concat_strings")          => wrap(self.concat_strings(function_args.function_args)),
-            ("op", "identity")                => wrap_opt(self.identity(function_args.function_args)),
+            ("op", "array")                   => ok(Array(args.function_args)),
+            ("op", "array_length")            => wrap(self.array_length(args.function_args)),
+            ("op", "concat")                  => wrap(self.concat(args.function_args)),
+            ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
+            ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
+            ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
+            ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
+            ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
+            ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
+            ("op", "identity")                => wrap_opt(self.identity(args.function_args)),
 
-            _ => wrap(self.call_service(function_args, particle, todo!("create vault isn't implemented"))),
+            _ => self.call_service(args, particle, todo!("create vault isn't implemented")),
         };
         log::info!("{} ({})", log_args, pretty(start.elapsed()));
         result
