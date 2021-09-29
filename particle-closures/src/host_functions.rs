@@ -24,14 +24,14 @@ use async_std::task;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
-use serde_json::{json, Value as JValue};
+use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
 use avm_server::{CallRequestParams, CallServiceResult};
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use host_closure::{from_base58, AVMEffect, Args, ArgsError, JError};
-use ivalue_utils::{error, into_record, into_record_opt, ok, unit, IValue};
+use ivalue_utils::{error, into_record, into_record_opt, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_modules::{
@@ -105,7 +105,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         };
 
         log::trace!("Host function call, args: {:#?}", function_args);
-        let log_args = format!("Executed host call {:?} {:?}", service_id, function_name);
+        let log_args = format!("{:?} {:?}", service_id, function_name);
 
         let start = Instant::now();
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
@@ -116,7 +116,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
             ("peer", "is_connected")          => wrap(self.is_connected(args).await),
             ("peer", "connect")               => wrap(self.connect(args).await),
-            ("peer", "get_contact")           => wrap_opt(self.get_contact(args).await),
+            ("peer", "get_contact")           => self.get_contact(args).await,
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args).await),
             ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
@@ -154,19 +154,34 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
             ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
             ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
-            ("op", "identity")                => wrap_opt(self.identity(args.function_args)),
+            ("op", "identity")                => self.identity(args.function_args),
 
             _ => self.call_service(args, particle, todo!("create vault isn't implemented")),
         };
-        log::info!("{} ({})", log_args, pretty(start.elapsed()));
-        result
+        let elapsed = pretty(start.elapsed());
+        if let Err(err) = &result {
+            log::warn!("Failed host call {} ({}): {}", log_args, elapsed, err)
+        } else {
+            log::info!("Executed host call {} ({})", log_args, elapsed);
+        };
+
+        match result {
+            Ok(v) => CallServiceResult {
+                ret_code: 0,
+                result: v.map_or_else(json!([]), |v| json!([v])).to_string()
+            },
+            Err(e) => CallServiceResult {
+                ret_code: 1,
+                result: json!([JValue::from(e)]).to_string()
+            }
+        }
     }
 
     async fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let key = from_base58("key", &mut args)?;
         let already_hashed: Option<bool> = Args::next_opt("already_hashed", &mut args)?;
-        let count: Option<usize> = Args::next_opt("count", &mut args)?;
+        let count: Option<usize> = Args::next_opt("count", &mut args)?
         let count = count.unwrap_or_else(|| K_VALUE.get());
 
         let key = if already_hashed == Some(true) {
@@ -641,19 +656,16 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 }
 
-fn wrap(r: Result<JValue, JError>) -> Option<IValue> {
-    into_record(r.map_err(Into::into))
+fn ok(v: JValue) -> Result<Option<JValue>, JError> {
+    Ok(Some(v))
 }
 
-fn wrap_unit(r: Result<(), JError>) -> Option<IValue> {
-    match r {
-        Err(e) => error(e.into()),
-        _ => unit(),
-    }
+fn wrap(r: Result<JValue, JError>) -> Result<Option<JValue>, JError> {
+    r.map(Some)
 }
 
-fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {
-    into_record_opt(r.map_err(Into::into))
+fn wrap_unit(r: Result<(), JError>) -> Result<Option<JValue>, JError> {
+    r.map(|_| Some(json!({})))
 }
 
 fn parse_u64(

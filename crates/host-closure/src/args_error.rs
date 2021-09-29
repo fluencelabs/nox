@@ -18,6 +18,7 @@ use json_utils::err_as_value;
 
 use serde_json::{json, Value as JValue};
 use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -48,6 +49,12 @@ impl From<ArgsError> for JValue {
 /// An error that can be created from any other error
 /// Simplifies life by converting errors to be returnable from host closures
 pub struct JError(pub JValue);
+
+impl Display for JError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl JError {
     pub fn new(msg: impl AsRef<str>) -> Self {
