@@ -14,19 +14,22 @@
  * limitations under the License.
  */
 
+use std::convert::TryFrom;
 use std::path::PathBuf;
 use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
 
-use avm_server::{AVMConfig, AVMOutcome, IValue, AVM};
+use avm_server::{
+    AVMConfig, AVMOutcome, CallRequestParams, CallResults, CallServiceResult, IValue, AVM,
+};
 use fstrings::f;
 use libp2p::PeerId;
 use parking_lot::Mutex;
-use serde_json::Value as JValue;
+use serde_json::{Value as JValue, Value};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{DataStoreError, ParticleDataStore};
 use fs_utils::make_tmp_dir;
-use host_closure::Args;
+use host_closure::{Args, JError};
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use uuid_utils::uuid;
@@ -70,42 +73,48 @@ impl Instruction {
     }
 }
 
-pub fn make_call_service_closure(
-    service_in: Arc<Mutex<HashMap<String, JValue>>>,
-    service_out: Arc<Mutex<Vec<JValue>>>,
-) -> Box<dyn FnOnce(Args) -> Option<IValue>> {
-    Box::new(move |args| {
-        // let args = Args::parse(args.function_args).expect("valid args");
+pub fn host_call(
+    data: &HashMap<String, JValue>,
+    call: CallRequestParams,
+) -> Result<CallServiceResult, Vec<JValue>> {
+    let args = Args::try_from(call).expect("valid args");
+    let result: Result<Option<JValue>, JError> =
         match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("load", _) | ("getDataSrv", _) => service_in
-                .lock()
+            ("load", _) | ("getDataSrv", _) => data
                 .get(args.function_name.as_str())
-                .map(|v| ivalue_utils::ok(v.clone()))
-                .unwrap_or_else(|| {
-                    ivalue_utils::error(JValue::String(f!(
-                        "variable not found: {args.function_name}"
-                    )))
-                }),
+                .cloned()
+                .ok_or_else(|| JError::new(f!("variable not found: {args.function_name}")))
+                .map(Some),
             ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
-                service_out.lock().extend(args.function_args);
-                ivalue_utils::unit()
+                return Err(args.function_args)
             }
             ("callbackSrv", _) => {
                 log::warn!("got callback: {:?}", args.function_args);
-                ivalue_utils::unit()
+                Ok(None)
             }
             ("errorHandlingSrv", "error") => {
                 log::warn!("caught an error: {:?}", args.function_args);
-                ivalue_utils::unit()
+                // TODO: return error?
+                Ok(None)
             }
-            (_, "identity") => ivalue_utils::ok(JValue::Array(args.function_args)),
+            (_, "identity") => Ok(args.function_args.into_iter().next()),
             (service, function) => {
                 let error = f!("service not found: {service} {function}");
                 println!("{}", error);
                 log::warn!("{}", error);
-                ivalue_utils::error(JValue::String(error))
+                Err(JError::new(error))
             }
-        }
+        };
+
+    Ok(match result {
+        Ok(r) => CallServiceResult {
+            ret_code: 0,
+            result: r.map(|v| v.to_string()).unwrap_or_default(),
+        },
+        Err(e) => CallServiceResult {
+            ret_code: 1,
+            result: JValue::from(e).to_string(),
+        },
     })
 }
 
@@ -137,18 +146,17 @@ pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
 
 pub fn make_particle(
     peer_id: PeerId,
-    service_in: Arc<Mutex<HashMap<String, JValue>>>,
+    service_in: &HashMap<String, JValue>,
     script: String,
     relay: impl Into<Option<PeerId>>,
     local_vm: &mut AVM<DataStoreError>,
     generated: bool,
     particle_ttl: Duration,
-) -> Particle {
+) -> Result<Particle, Vec<JValue>> {
     let load_variables = if generated {
         "   (null)".to_string()
     } else {
         service_in
-            .lock()
             .keys()
             .map(|name| f!(r#"  (call %init_peer_id% ("load" "{name}") [] {name})"#))
             .fold(Instruction::Null, |acc, call| acc.add(call))
@@ -179,53 +187,89 @@ pub fn make_particle(
 
     let id = uuid();
 
-    let AVMOutcome {
-        data,
-        next_peer_pks,
-        ..
-    } = local_vm
-        .call(
-            script.clone(),
-            vec![],
-            peer_id.to_string(),
-            &id,
-            todo!("pass CallRequests"),
-        )
-        .expect("execute & make particle");
+    let mut call_results: CallResults = <_>::default();
+    let mut particle_data = vec![];
+    loop {
+        let AVMOutcome {
+            data,
+            next_peer_pks,
+            call_requests,
+        } = local_vm
+            .call(
+                script.clone(),
+                particle_data,
+                peer_id.to_string(),
+                &id,
+                &call_results,
+            )
+            .expect("execute & make particle");
 
-    service_in.lock().clear();
+        particle_data = data;
+        call_results.clear();
+
+        if call_requests.is_empty() {
+            break;
+        }
+        for (id, call) in call_requests {
+            let result = host_call(service_in, call);
+            match result {
+                Ok(call_result) => {
+                    call_results.insert(id, call_result);
+                }
+                Err(returned_data) => return Err(returned_data),
+            }
+        }
+    }
 
     log::info!("Made a particle {}", id);
 
-    Particle {
+    Ok(Particle {
         id,
         init_peer_id: peer_id,
         timestamp: now_ms() as u64,
         ttl: particle_ttl.as_millis() as u32,
         script,
         signature: vec![],
-        data,
-    }
+        data: particle_data,
+    })
 }
 
 pub fn read_args(
     particle: Particle,
     peer_id: PeerId,
     local_vm: &mut AVM<DataStoreError>,
-    out: Arc<Mutex<Vec<JValue>>>,
 ) -> Vec<JValue> {
-    let result = local_vm
-        .call(
-            particle.script,
-            particle.data,
-            peer_id.to_string(),
-            &particle.id,
-            todo!("pass CallResults"),
-        )
-        .expect("execute read_args vm");
+    let mut call_results: CallResults = <_>::default();
+    let mut particle_data = particle.data;
+    loop {
+        let AVMOutcome {
+            data,
+            next_peer_pks,
+            call_requests,
+        } = local_vm
+            .call(
+                &particle.script,
+                particle_data,
+                particle.init_peer_id.to_string(),
+                &particle.id,
+                &call_results,
+            )
+            .expect("execute & make particle");
 
-    let result = out.lock().deref().clone();
-    out.lock().clear();
+        particle_data = data;
+        call_results.clear();
 
-    result
+        if call_requests.is_empty() {
+            return vec![];
+        }
+        for (id, call) in call_requests {
+            let result = host_call(&<_>::default(), call);
+            match result {
+                Ok(call_result) => {
+                    call_results.insert(id, call_result);
+                }
+                Err(returned_data) => return returned_data,
+            }
+        }
+    }
 }

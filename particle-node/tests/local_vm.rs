@@ -19,7 +19,7 @@
 extern crate fstrings;
 
 use fluence_libp2p::RandomPeerId;
-use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
+use local_vm::{make_particle, make_vm, read_args};
 
 use maplit::hashmap;
 use parking_lot::Mutex;
@@ -34,11 +34,7 @@ fn make() {
     let client_a = RandomPeerId::random();
     let client_b = RandomPeerId::random();
 
-    let call_service_in_a: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
-    let call_service_out_a: Arc<Mutex<Vec<JValue>>> = <_>::default();
     let mut local_vm_a = make_vm(client_a);
-    let call_service_in_b: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
-    let call_service_out_b: Arc<Mutex<Vec<JValue>>> = <_>::default();
     let mut local_vm_b = make_vm(client_b);
 
     let script = r#"(call client_b ("return" "") [a b c])"#.to_string();
@@ -49,14 +45,14 @@ fn make() {
         "c" => json!({"c1": "c1_value", "c2": "c2_value"})
     };
 
-    *call_service_in_a.lock() = data
+    let data = data
         .iter()
         .map(|(key, value)| (key.to_string(), value.clone()))
         .collect();
 
-    let particle = make_particle(
+    let result = make_particle(
         client_a,
-        call_service_in_a.clone(),
+        &data,
         script,
         None,
         &mut local_vm_a,
@@ -64,12 +60,9 @@ fn make() {
         Duration::from_secs(20),
     );
 
-    let args = read_args(
-        particle,
-        client_b,
-        &mut local_vm_b,
-        call_service_out_b.clone(),
-    );
+    let args = result.err().expect("should return immediately");
+
+    // let args = read_args(particle, client_b, &mut local_vm_b);
     assert_eq!(data["a"], args[0]);
     assert_eq!(data["b"], args[1]);
     assert_eq!(data["c"], args[2]);

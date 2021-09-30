@@ -26,7 +26,7 @@ use parking_lot::Mutex;
 use serde_json::Value as JValue;
 
 use fluence_libp2p::Transport;
-use local_vm::{make_call_service_closure, make_particle, make_vm, read_args, DataStoreError};
+use local_vm::{make_particle, make_vm, read_args, DataStoreError};
 use particle_protocol::Particle;
 use test_constants::{KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
 
@@ -42,8 +42,6 @@ pub struct ConnectedClient {
     pub timeout: Duration,
     pub short_timeout: Duration,
     pub kad_timeout: Duration,
-    pub call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
-    pub call_service_out: Arc<Mutex<Vec<JValue>>>,
     pub local_vm: Lazy<Mutex<AVM>, Box<dyn FnOnce() -> Mutex<AVM>>>,
     pub particle_ttl: Duration,
 }
@@ -148,17 +146,8 @@ impl ConnectedClient {
         node_address: Multiaddr,
         particle_ttl: Option<Duration>,
     ) -> Self {
-        let call_service_in: Arc<Mutex<HashMap<String, JValue>>> = <_>::default();
-        let call_service_out: Arc<Mutex<Vec<JValue>>> = <_>::default();
-
         let peer_id = client.peer_id;
-        let call_in = call_service_in.clone();
-        let call_out = call_service_out.clone();
-        let f: Box<dyn FnOnce() -> Mutex<AVM>> = Box::new(move || {
-            Mutex::new(make_vm(
-                peer_id, /*make_call_service_closure(call_in, call_out)*/
-            ))
-        });
+        let f: Box<dyn FnOnce() -> Mutex<AVM>> = Box::new(move || Mutex::new(make_vm(peer_id)));
         let local_vm = Lazy::new(f);
 
         Self {
@@ -168,8 +157,6 @@ impl ConnectedClient {
             timeout: TIMEOUT,
             short_timeout: SHORT_TIMEOUT,
             kad_timeout: KAD_TIMEOUT,
-            call_service_in,
-            call_service_out,
             local_vm,
             particle_ttl: particle_ttl.unwrap_or(Duration::from_millis(PARTICLE_TTL as u64)),
         }
@@ -193,19 +180,20 @@ impl ConnectedClient {
         data: HashMap<&str, JValue>,
         generated: bool,
     ) -> String {
-        *self.call_service_in.lock() = data
+        let data = data
             .into_iter()
             .map(|(key, value)| (key.to_string(), value))
             .collect();
         let particle = make_particle(
             self.peer_id,
-            self.call_service_in.clone(),
+            &data,
             script.into(),
             self.node,
             &mut self.local_vm.lock(),
             generated,
             self.particle_ttl(),
-        );
+        )
+        .expect("unexpected: make_particle returned result instead of a particle");
         let id = particle.id.clone();
         self.send(particle);
         id
@@ -239,12 +227,7 @@ impl ConnectedClient {
 
     pub fn receive_args(&mut self) -> Result<Vec<JValue>> {
         let particle = self.receive().wrap_err("receive_args")?;
-        Ok(read_args(
-            particle,
-            self.peer_id,
-            &mut self.local_vm.lock(),
-            self.call_service_out.clone(),
-        ))
+        Ok(read_args(particle, self.peer_id, &mut self.local_vm.lock()))
     }
 
     /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
@@ -258,12 +241,7 @@ impl ConnectedClient {
             let particle = self.receive().ok();
             if let Some(particle) = particle {
                 if &particle.id == particle_id.as_ref() {
-                    break Ok(read_args(
-                        particle,
-                        self.peer_id,
-                        &mut self.local_vm.lock(),
-                        self.call_service_out.clone(),
-                    ));
+                    break Ok(read_args(particle, self.peer_id, &mut self.local_vm.lock()));
                 }
             }
         }
@@ -279,12 +257,7 @@ impl ConnectedClient {
             let particle = self.receive().ok();
             if let Some(particle) = particle {
                 println!("received particle {}", particle.id);
-                let args = read_args(
-                    particle,
-                    self.peer_id,
-                    &mut self.local_vm.lock(),
-                    self.call_service_out.clone(),
-                );
+                let args = read_args(particle, self.peer_id, &mut self.local_vm.lock());
                 f(args);
             }
         }

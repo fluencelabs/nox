@@ -29,7 +29,7 @@ use serde_json::{json, Value as JValue};
 use aquamarine::{AquamarineApi, DataStoreError, AVM};
 use fluence_libp2p::PeerId;
 use fs_utils::{file_name, file_stem, to_abs_path};
-use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
+use local_vm::{make_particle, make_vm, read_args};
 use particle_modules::{list_files, AddBlueprint, NamedModuleConfig};
 use service_modules::{
     hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
@@ -70,8 +70,6 @@ pub struct BuiltinsDeployer {
     node_peer_id: PeerId,
     node_api: AquamarineApi,
     local_vm: AVM<DataStoreError>,
-    call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
-    call_service_out: Arc<Mutex<Vec<JValue>>>,
     builtins_base_dir: PathBuf,
     particle_ttl: Duration,
     // if set to true, remove existing builtins before deploying
@@ -189,15 +187,11 @@ impl BuiltinsDeployer {
         force_redeploy: bool,
         retry_attempts_count: u16,
     ) -> Self {
-        let call_in = Arc::new(Mutex::new(hashmap! {}));
-        let call_out = Arc::new(Mutex::new(vec![]));
         Self {
             startup_peer_id,
             node_peer_id,
             node_api,
             local_vm: make_vm(startup_peer_id),
-            call_service_in: call_in,
-            call_service_out: call_out,
             builtins_base_dir: base_dir,
             particle_ttl,
             force_redeploy,
@@ -208,23 +202,27 @@ impl BuiltinsDeployer {
     fn send_particle(
         &mut self,
         script: String,
-        data: HashMap<String, JValue>,
+        mut data: HashMap<String, JValue>,
     ) -> eyre::Result<Vec<JValue>> {
-        *self.call_service_in.lock() = data;
-        self.call_service_in
-            .lock()
-            .insert("relay".to_string(), json!(self.node_peer_id.to_string()));
+        data.insert("relay".to_string(), json!(self.node_peer_id.to_string()));
 
         let particle = make_particle(
             self.startup_peer_id,
-            self.call_service_in.clone(),
+            &data,
             script,
             None,
             &mut self.local_vm,
             // TODO: set to true if AIR script is generated from Aqua
             false,
             self.particle_ttl,
-        );
+        )
+        // TODO: return Vec<JValue> instead?
+        .map_err(|vec| {
+            eyre!(
+                "send_particle: make_particle failed: returned result instead of a particle: {:?}",
+                vec
+            )
+        })?;
 
         let result = block_on(self.node_api.clone().handle(particle.into()))
             .map_err(|e| eyre!("send_particle: handle failed: {}", e))?;
@@ -235,7 +233,6 @@ impl BuiltinsDeployer {
             particle,
             self.startup_peer_id,
             &mut self.local_vm,
-            self.call_service_out.clone(),
         ))
     }
 
