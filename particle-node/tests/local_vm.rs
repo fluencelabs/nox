@@ -18,16 +18,13 @@
 #[macro_use]
 extern crate fstrings;
 
-use fluence_libp2p::RandomPeerId;
-use local_vm::{make_particle, make_vm, read_args};
+use std::time::Duration;
 
 use maplit::hashmap;
-use parking_lot::Mutex;
 use serde_json::json;
-use serde_json::Value as JValue;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
+
+use fluence_libp2p::RandomPeerId;
+use local_vm::{make_particle, make_vm, read_args};
 
 #[test]
 fn make() {
