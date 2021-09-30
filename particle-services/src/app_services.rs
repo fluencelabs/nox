@@ -382,7 +382,6 @@ mod tests {
     use libp2p_core::PeerId;
     use tempdir::TempDir;
 
-    use aquamarine::{ParticleDataStore, ParticleVault};
     use config_utils::{modules_dir, to_peer_id};
     use fluence_libp2p::RandomPeerId;
     use particle_modules::{AddBlueprint, ModuleRepository};

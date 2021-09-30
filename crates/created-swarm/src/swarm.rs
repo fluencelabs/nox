@@ -29,8 +29,8 @@ use serde::Deserialize;
 use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::VmPoolConfig;
-use aquamarine::{AquaRuntime, VmConfig, AVM};
+use aquamarine::{AquaRuntime, VmConfig};
+use aquamarine::{DataStoreError, VmPoolConfig};
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
@@ -47,6 +47,8 @@ use server_config::{
 };
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, PARTICLE_TTL, TRANSPORT_TIMEOUT};
 use toy_vms::EasyVM;
+
+type AVM = aquamarine::AVM<DataStoreError>;
 
 #[derive(Derivative)]
 #[derivative(Debug)]

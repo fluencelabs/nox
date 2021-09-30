@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-use aquamarine::ParticleDataStore;
+use std::path::PathBuf;
+use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
+
+use avm_server::{AVMConfig, AVMOutcome, IValue, AVM};
+use fstrings::f;
+use libp2p::PeerId;
+use parking_lot::Mutex;
+use serde_json::Value as JValue;
+
+use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
+use aquamarine::{DataStoreError, ParticleDataStore};
 use fs_utils::make_tmp_dir;
 use host_closure::Args;
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use uuid_utils::uuid;
-
-use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use avm_server::{AVMConfig, AVMOutcome, IValue, AVM};
-
-use fstrings::f;
-use libp2p::PeerId;
-use parking_lot::Mutex;
-use serde_json::Value as JValue;
-use std::path::PathBuf;
-use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
@@ -109,17 +109,14 @@ pub fn make_call_service_closure(
     })
 }
 
-pub fn make_vm(peer_id: PeerId) -> AVM {
+pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
     let tmp = make_tmp_dir();
     let interpreter = air_interpreter_path(&tmp);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
     let particle_data_store: PathBuf = format!("/tmp/{}", peer_id.to_string()).into();
     let vault_dir = particle_data_store.join("vault");
-    let data_store = Box::new(ParticleDataStore {
-        particle_data_store,
-        vault_dir,
-    });
+    let data_store = Box::new(ParticleDataStore::new(particle_data_store, vault_dir));
     let config = AVMConfig {
         data_store,
         current_peer_id: peer_id.to_base58(),
@@ -143,7 +140,7 @@ pub fn make_particle(
     service_in: Arc<Mutex<HashMap<String, JValue>>>,
     script: String,
     relay: impl Into<Option<PeerId>>,
-    local_vm: &mut AVM,
+    local_vm: &mut AVM<DataStoreError>,
     generated: bool,
     particle_ttl: Duration,
 ) -> Particle {
@@ -214,7 +211,7 @@ pub fn make_particle(
 pub fn read_args(
     particle: Particle,
     peer_id: PeerId,
-    local_vm: &mut AVM,
+    local_vm: &mut AVM<DataStoreError>,
     out: Arc<Mutex<Vec<JValue>>>,
 ) -> Vec<JValue> {
     let result = local_vm

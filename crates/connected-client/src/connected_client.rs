@@ -18,7 +18,7 @@ use crate::client::Client;
 use crate::event::ClientEvent;
 
 use fluence_libp2p::Transport;
-use local_vm::{make_call_service_closure, make_particle, make_vm, read_args, AVM};
+use local_vm::{make_call_service_closure, make_particle, make_vm, read_args, DataStoreError};
 use particle_protocol::Particle;
 use test_constants::{KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
 
@@ -30,6 +30,8 @@ use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use parking_lot::Mutex;
 use serde_json::Value as JValue;
 use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, sync::Arc, time::Duration};
+
+type AVM = local_vm::AVM<DataStoreError>;
 
 pub struct ConnectedClient {
     pub client: Client,

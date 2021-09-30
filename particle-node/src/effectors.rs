@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
+use avm_server::{CallRequests, CallResults};
 use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
 
 use aquamarine::{Observation, ParticleEffects};
 use fluence_libp2p::types::{Inlet, Outlet};
 use particle_closures::HostFunctions;
-use avm_server::CallRequests;
 
 use crate::connectivity::Connectivity;
+use futures::stream::FuturesUnordered;
 
 #[derive(Debug, Clone)]
 pub struct Effectors {
@@ -72,26 +73,25 @@ impl Effectors {
         let crs = effects.call_requests;
         let particle = effects.particle;
         let host_functions = self.host_functions.clone();
-        let particle_sink = self.particle_sink.clone();
-
-        // let a = futures::stream::futures_unordered::FuturesUnordered:;
+        let mut particle_sink = self.particle_sink.clone();
 
         async_std::task::spawn_blocking(move || {
-            crs.into_iter().map(|call| )
-            let results = host_functions.route()
-        }).await;
-
-        crs.for_each_concurrent(None, move |call| {
-            let particle_id = particle.id.clone();
-            let particle = particle.clone();
-            let results = host_functions.;
-            async move {
+            let host_functions = host_functions;
+            async_std::task::block_on(async {
+                let results = crs.into_iter().map(|(id, call)| {
+                    host_functions
+                        .call(call, particle.clone())
+                        .map(move |r| (id, r))
+                });
+                let results: FuturesUnordered<_> = results.collect();
+                let results: CallResults = results.collect().await;
+                let particle_id = particle.id.clone();
                 let observation = Observation::Next { particle, results };
                 let send = particle_sink.send(observation).await;
                 if let Err(e) = send {
-                    log::warn!("Failed to send particle {} to execution", particle_id,);
+                    log::warn!("Failed to send particle {} to execution", particle_id);
                 }
-            }
+            })
         })
         .await;
     }

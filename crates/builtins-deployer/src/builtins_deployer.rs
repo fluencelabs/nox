@@ -14,7 +14,19 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquamarineApi, AVM};
+use std::env;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+use std::{collections::HashMap, fs, sync::Arc};
+
+use eyre::{eyre, ErrReport, Result, WrapErr};
+use futures::executor::block_on;
+use maplit::hashmap;
+use parking_lot::Mutex;
+use regex::Regex;
+use serde_json::{json, Value as JValue};
+
+use aquamarine::{AquamarineApi, DataStoreError, AVM};
 use fluence_libp2p::PeerId;
 use fs_utils::{file_name, file_stem, to_abs_path};
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args};
@@ -22,18 +34,6 @@ use particle_modules::{list_files, AddBlueprint, NamedModuleConfig};
 use service_modules::{
     hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
 };
-
-use eyre::{eyre, ErrReport, Result, WrapErr};
-use futures::executor::block_on;
-use maplit::hashmap;
-use parking_lot::Mutex;
-
-use regex::Regex;
-use serde_json::{json, Value as JValue};
-use std::env;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
-use std::{collections::HashMap, fs, sync::Arc};
 
 pub static ALLOWED_ENV_PREFIX: &str = "$FLUENCE_ENV";
 
@@ -69,7 +69,7 @@ pub struct BuiltinsDeployer {
     startup_peer_id: PeerId,
     node_peer_id: PeerId,
     node_api: AquamarineApi,
-    local_vm: AVM,
+    local_vm: AVM<DataStoreError>,
     call_service_in: Arc<Mutex<HashMap<String, JValue>>>,
     call_service_out: Arc<Mutex<Vec<JValue>>>,
     builtins_base_dir: PathBuf,

@@ -34,7 +34,8 @@ use prometheus::Registry;
 use trust_graph::{InMemoryStorage, TrustGraph};
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineBackend, Observation, VmConfig, VmPoolConfig, AVM,
+    AquaRuntime, AquamarineApi, AquamarineBackend, DataStoreError, Observation, VmConfig,
+    VmPoolConfig, AVM,
 };
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
@@ -76,7 +77,7 @@ pub struct Node<RT: AquaRuntime> {
     pub builtins_management_peer_id: PeerId,
 }
 
-impl Node<AVM> {
+impl Node<AVM<DataStoreError>> {
     pub fn new(config: ResolvedConfig, node_version: &'static str) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let local_peer_id = to_peer_id(&key_pair);
