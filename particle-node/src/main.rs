@@ -26,22 +26,22 @@
     unreachable_patterns
 )]
 
+use clap::App;
+use env_logger::Env;
+use eyre::WrapErr;
+use futures::channel::oneshot;
+use log::LevelFilter;
+
+use air_interpreter_fs::write_default_air_interpreter;
+use aquamarine::{VmConfig, AVM};
+use config_utils::to_peer_id;
+use ctrlc_adapter::block_until_ctrlc;
+use fs_utils::to_abs_path;
 use particle_node::{
     config::{certificates, create_args},
     Node,
 };
-
-use air_interpreter_fs::write_default_air_interpreter;
-use config_utils::to_peer_id;
-use ctrlc_adapter::block_until_ctrlc;
 use server_config::{load_config, ResolvedConfig};
-
-use clap::App;
-use env_logger::Env;
-use eyre::WrapErr;
-use fs_utils::to_abs_path;
-use futures::channel::oneshot;
-use log::LevelFilter;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -115,7 +115,10 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 
     let listen_addrs = config.listen_config().multiaddrs;
-    let mut node = Node::new(config, VERSION).wrap_err("error create node instance")?;
+    let vm_config = vm_config(&config);
+
+    let mut node: Box<Node<AVM<_>>> =
+        Node::new(config, vm_config, VERSION).wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
 
     let node_exit_outlet = node.start().wrap_err("node failed to start")?;
@@ -133,4 +136,12 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     }
 
     Ok(Fluence { node_exit_outlet })
+}
+
+fn vm_config(config: &ResolvedConfig) -> VmConfig {
+    VmConfig::new(
+        to_peer_id(&config.root_key_pair.clone().into()),
+        config.dir_config.avm_base_dir.clone(),
+        config.dir_config.air_interpreter_path.clone(),
+    )
 }

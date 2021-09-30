@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
-use crate::SERVICES;
+use std::{env, fs, path::Path};
+
+use eyre::WrapErr;
+use fluence_identity::KeyPair;
+use fstrings::f;
+use maplit::hashmap;
+use serde::Deserialize;
+use serde_json::json;
 
 use builtins_deployer::ALLOWED_ENV_PREFIX;
 use connected_client::ConnectedClient;
@@ -24,14 +31,7 @@ use particle_modules::list_files;
 use service_modules::load_module;
 use test_utils::create_service;
 
-use libp2p::core::identity::Keypair;
-
-use eyre::WrapErr;
-use fstrings::f;
-use maplit::hashmap;
-use serde::Deserialize;
-use serde_json::json;
-use std::{env, fs, path::Path};
+use crate::SERVICES;
 
 fn check_dht_builtin(client: &mut ConnectedClient) {
     client.send_particle(
@@ -84,13 +84,15 @@ fn builtins_test() {
 
 #[test]
 fn builtins_replace_old() {
-    let keypair = Keypair::generate_ed25519();
+    let keypair = KeyPair::generate_ed25519();
     let swarms = make_swarms_with_keypair(1, keypair.clone());
 
-    let mut client =
-        ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), Some(swarms[0].management_keypair.clone()))
-            .wrap_err("connect client")
-            .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
 
     // use tetraplets as aqua-dht to emulate old builtin being replaced by a new version
     let tetraplets_service = create_service(
@@ -185,7 +187,11 @@ fn builtins_resolving_env_variables() {
     let on_start_data = json!({ "key": env_variable_name.clone() });
     env::set_var(&env_variable_name[1..], key.clone());
     fs::write("./builtins_test_env/aqua-dht/on_start.air", on_start_script).unwrap();
-    fs::write("./builtins_test_env/aqua-dht/on_start.json", on_start_data.to_string()).unwrap();
+    fs::write(
+        "./builtins_test_env/aqua-dht/on_start.json",
+        on_start_data.to_string(),
+    )
+    .unwrap();
 
     let swarms = make_swarms_with_builtins(1, Path::new("./builtins_test_env"), None);
 

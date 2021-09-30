@@ -89,7 +89,7 @@ pub fn make_swarms_with_transport_and_mocked_vm(
 ) -> Vec<CreatedSwarm> {
     make_swarms_with::<EasyVM, _, _, _>(
         n,
-        |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_, _, _, _| None),
+        |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_| None),
         || match transport {
             Transport::Memory => create_memory_maddr(),
             Transport::Network => create_tcp_maddr(),
@@ -111,9 +111,7 @@ where
 {
     make_swarms_with::<EasyVM, _, _, _>(
         n,
-        |bs, maddr| {
-            create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), |_, _, _, _| delay)
-        },
+        |bs, maddr| create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), |_| delay),
         create_memory_maddr,
         bootstraps,
         true,
@@ -266,10 +264,8 @@ pub struct BaseVmConfig {
 }
 
 pub fn aqua_vm_config(
-    connectivity: Connectivity,
-    script_storage_api: ScriptStorageApi,
     vm_config: BaseVmConfig,
-    startup_peer_id: PeerId,
+    // startup_peer_id: PeerId,
 ) -> <AVM as AquaRuntime>::Config {
     let BaseVmConfig {
         peer_id,
@@ -284,22 +280,22 @@ pub fn aqua_vm_config(
     let avm_base_dir = tmp_dir.join("interpreter");
     let vm_config = VmConfig::new(peer_id, avm_base_dir.clone(), air_interpreter);
 
-    let services_config = ServicesConfig::new(
-        peer_id,
-        config_utils::services_dir(&tmp_dir),
-        config_utils::particles_vault_dir(&avm_base_dir),
-        <_>::default(),
-        manager,
-        startup_peer_id,
-    )
-    .expect("create services config");
+    // let services_config = ServicesConfig::new(
+    //     peer_id,
+    //     config_utils::services_dir(&tmp_dir),
+    //     config_utils::particles_vault_dir(&avm_base_dir),
+    //     <_>::default(),
+    //     manager,
+    //     startup_peer_id,
+    // )
+    // .expect("create services config");
 
     vm_config
 }
 
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     mut config: SwarmConfig,
-    vm_config: impl Fn(Connectivity, ScriptStorageApi, BaseVmConfig, PeerId) -> RT::Config,
+    vm_config: impl Fn(BaseVmConfig) -> RT::Config,
 ) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig) {
     use serde_json::json;
 
@@ -358,7 +354,16 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         .into_peer_id();
     resolved.node_config.management_peer_id = management_peer_id;
 
-    let mut node = Node::new(resolved, "some version").expect("create node");
+    let vm_config = vm_config(
+        BaseVmConfig {
+            peer_id,
+            tmp_dir: tmp_dir.clone(),
+            listen_on: config.listen_on.clone(),
+            manager: management_peer_id,
+        },
+        // to_peer_id(resolved.builtins_key_pair.clone().into()),
+    );
+    let mut node = Node::new(resolved, vm_config, "some version").expect("create node");
     node.listen(vec![config.listen_on]).expect("listen");
 
     (node.local_peer_id, node, management_kp, cfg)

@@ -77,8 +77,12 @@ pub struct Node<RT: AquaRuntime> {
     pub builtins_management_peer_id: PeerId,
 }
 
-impl Node<AVM<DataStoreError>> {
-    pub fn new(config: ResolvedConfig, node_version: &'static str) -> eyre::Result<Box<Self>> {
+impl<RT: AquaRuntime> Node<RT> {
+    pub fn new(
+        config: ResolvedConfig,
+        vm_config: RT::Config,
+        node_version: &'static str,
+    ) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let local_peer_id = to_peer_id(&key_pair);
         let transport = config.transport_config.transport;
@@ -94,12 +98,6 @@ impl Node<AVM<DataStoreError>> {
             let storage = InMemoryStorage::new_in_memory(config.root_weights()?);
             TrustGraph::new(storage)
         };
-
-        let vm_config = VmConfig::new(
-            local_peer_id,
-            config.dir_config.avm_base_dir.clone(),
-            config.dir_config.air_interpreter_path.clone(),
-        );
 
         let services_config = ServicesConfig::new(
             local_peer_id,
@@ -369,6 +367,8 @@ mod tests {
     use serde_json::json;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
+    use aquamarine::{VmConfig, AVM};
+    use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use fluence_libp2p::RandomPeerId;
     use server_config::{default_base_dir, deserialize_config};
@@ -382,11 +382,17 @@ mod tests {
 
         let mut config = deserialize_config(&<_>::default(), &[]).expect("deserialize config");
         config.aquavm_pool_size = 1;
-        let mut node = Node::new(config, RandomPeerId::random()).expect("create node");
+        let vm_config = VmConfig::new(
+            to_peer_id(&config.root_key_pair.clone().into()),
+            config.dir_config.avm_base_dir.clone(),
+            config.dir_config.air_interpreter_path.clone(),
+        );
+        let mut node: Box<Node<AVM<_>>> =
+            Node::new(config, vm_config, "some version").expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();
-        Box::new(node).start();
+        node.start().expect("start node");
 
         let mut client = ConnectedClient::connect_to(listening_address).expect("connect client");
         println!("client: {}", client.peer_id);

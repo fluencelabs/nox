@@ -12,6 +12,8 @@ serde = "1.0.130"
 log = "0.4.11"
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
+fluence-identity = "0.3.0"
+
 test-utils = { path = "../../../crates/test-utils" }
 fs-utils = { path = "../../../crates/fs-utils" }
 log-utils = { path = "../../../crates/log-utils" }

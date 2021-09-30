@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-use crate::client::Client;
-use crate::event::ClientEvent;
+use core::ops::Deref;
+use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, sync::Arc, time::Duration};
+
+use async_std::task;
+use eyre::Result;
+use eyre::{bail, WrapErr};
+use fluence_identity::KeyPair;
+use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
+use parking_lot::Mutex;
+use serde_json::Value as JValue;
 
 use fluence_libp2p::Transport;
 use local_vm::{make_call_service_closure, make_particle, make_vm, read_args, DataStoreError};
 use particle_protocol::Particle;
 use test_constants::{KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
 
-use async_std::task;
-use core::ops::Deref;
-use eyre::Result;
-use eyre::{bail, WrapErr};
-use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
-use parking_lot::Mutex;
-use serde_json::Value as JValue;
-use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, sync::Arc, time::Duration};
+use crate::client::Client;
+use crate::event::ClientEvent;
 
 type AVM = local_vm::AVM<DataStoreError>;
 
@@ -97,14 +99,14 @@ impl ConnectedClient {
 
     pub fn connect_with_keypair(
         node_address: Multiaddr,
-        key_pair: Option<Keypair>,
+        key_pair: Option<KeyPair>,
     ) -> Result<Self> {
         Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT, None)
     }
 
     pub fn connect_with_timeout(
         node_address: Multiaddr,
-        key_pair: Option<Keypair>,
+        key_pair: Option<KeyPair>,
         timeout: Duration,
         particle_ttl: Option<Duration>,
     ) -> Result<Self> {
@@ -113,10 +115,14 @@ impl ConnectedClient {
 
         let transport = Transport::from_maddr(&node_address);
         let connect = async move {
-            let (mut client, _) =
-                Client::connect_with(node_address.clone(), transport, key_pair, timeout)
-                    .await
-                    .expect("sender connected");
+            let (mut client, _) = Client::connect_with(
+                node_address.clone(),
+                transport,
+                key_pair.map(Into::into),
+                timeout,
+            )
+            .await
+            .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {
                 peer_id, ..
             }) = client.receive_one().await
