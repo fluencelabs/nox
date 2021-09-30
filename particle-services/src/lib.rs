@@ -32,11 +32,9 @@ mod app_service;
 mod app_services;
 mod error;
 mod persistence;
-mod vault;
 
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
 
-pub use app_services::CallServiceArgs;
 pub use app_services::ParticleAppServices;
 
 pub use fluence_app_service::{IType, IValue};

@@ -14,67 +14,85 @@
  * limitations under the License.
  */
 
-use avm_server::DataStore;
-use fs_utils::{create_dir, remove_dirs};
-
-use eyre::{Result, WrapErr};
 use std::path::PathBuf;
 
+use avm_server::DataStore;
+use thiserror::Error;
+
+use fs_utils::{create_dir, remove_dir};
+use DataStoreError::{CleanupData, CreateDataStore, ReadData, StoreData};
+
+use crate::particle_vault::VaultError;
+use crate::ParticleVault;
+
+type Result<T> = std::result::Result<T, DataStoreError>;
+
+#[derive(Debug, Clone)]
 pub struct ParticleDataStore {
     pub particle_data_store: PathBuf,
-    pub vault_dir: PathBuf,
+    pub vault: ParticleVault,
 }
 
-// fn as_anyhow(e: Report) -> anyhow::Error {
-//     let err: dyn std::error::Error + Send + Sync + Sized + 'static = *e;
-//     anyhow::Error::from(err)
-// }
-
 impl ParticleDataStore {
+    pub fn new(particle_data_store: PathBuf, vault_dir: PathBuf) -> Self {
+        Self {
+            particle_data_store,
+            vault: ParticleVault::new(vault_dir),
+        }
+    }
+
     pub fn data_file(&self, key: &str) -> PathBuf {
         self.particle_data_store.join(key)
     }
 
-    pub fn particle_vault(&self, key: &str) -> PathBuf {
-        self.vault_dir.join(key)
-    }
-
     pub fn create_particle_vault(&self, key: &str) -> Result<()> {
-        let path = self.particle_vault(key);
-        create_dir(path).wrap_err("error creating particle vault dir")?;
+        self.vault.create(key)?;
 
         Ok(())
     }
 }
 
-impl DataStore for ParticleDataStore {
+impl DataStore<DataStoreError> for ParticleDataStore {
     fn initialize(&mut self) -> Result<()> {
-        create_dir(&self.particle_data_store).wrap_err("error creating particle_data_store")?;
+        create_dir(&self.particle_data_store).map_err(CreateDataStore)?;
 
-        create_dir(&self.vault_dir).wrap_err("error creating vault_dir")?;
+        self.vault.initialize()?;
 
         Ok(())
     }
 
     fn store_data(&mut self, data: &[u8], key: &str) -> Result<()> {
         let data_path = self.data_file(&key);
-        std::fs::write(&data_path, data)
-            .wrap_err_with(|| format!("error writing data to {:?}", data_path))?;
+        std::fs::write(&data_path, data).map_err(|err| StoreData(err, data_path))?;
 
         Ok(())
     }
 
     fn read_data(&mut self, key: &str) -> Result<Vec<u8>> {
         let data_path = self.data_file(&key);
-        let data = std::fs::read(&data_path)
-            .wrap_err_with(|| format!("error reading from {:?}", data_path))?;
+        let data = std::fs::read(&data_path).map_err(|err| ReadData(err, data_path))?;
 
         Ok(data)
     }
 
     fn cleanup_data(&mut self, key: &str) -> Result<()> {
-        remove_dirs(&[&self.particle_vault(key), &self.data_file(key)])?;
+        remove_dir(&self.data_file(key)).map_err(CleanupData)?;
+        self.vault.cleanup(key)?;
 
         Ok(())
     }
+}
+
+#[derive(Debug, Error)]
+pub enum DataStoreError {
+    #[error("error creating particle_data_store")]
+    CreateDataStore(#[source] std::io::Error),
+    #[error(transparent)]
+    VaultError(#[from] VaultError),
+    #[error("error writing data to {1:?}")]
+    StoreData(#[source] std::io::Error, PathBuf),
+    #[error("error reading data from {1:?}")]
+    ReadData(#[source] std::io::Error, PathBuf),
+    #[error("error cleaning up data")]
+    CleanupData(#[source] std::io::Error),
 }

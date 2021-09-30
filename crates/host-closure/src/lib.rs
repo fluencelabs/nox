@@ -18,5 +18,3 @@ pub use args_error::{ArgsError, JError};
 
 pub use avm_server::AVMError;
 pub use base58::from_base58;
-
-pub type AVMEffect<T> = Box<dyn Fn() -> Result<T, AVMError<eyre::Report>>>;

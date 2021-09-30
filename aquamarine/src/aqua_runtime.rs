@@ -16,7 +16,7 @@
 
 use crate::config::VmConfig;
 use crate::invoke::{parse_outcome, ExecutionError};
-use crate::particle_data_store::ParticleDataStore;
+use crate::particle_data_store::{DataStoreError, ParticleDataStore};
 use crate::ParticleEffects;
 use avm_server::{AVMConfig, AVMError, AVMOutcome, CallResults, AVM};
 use particle_protocol::Particle;
@@ -51,9 +51,9 @@ pub trait AquaRuntime: Sized + Send + 'static {
     fn cleanup(&mut self, particle_id: &str) -> Result<(), Self::Error>;
 }
 
-impl AquaRuntime for AVM {
+impl AquaRuntime for AVM<DataStoreError> {
     type Config = VmConfig;
-    type Error = AVMError;
+    type Error = AVMError<DataStoreError>;
 
     /// Creates `AVM` in background (on blocking threadpool)
     fn create_runtime(
@@ -61,10 +61,10 @@ impl AquaRuntime for AVM {
         waker: Waker,
     ) -> BoxFuture<'static, Result<Self, Self::Error>> {
         task::spawn_blocking(move || {
-            let data_store = Box::new(ParticleDataStore {
-                particle_data_store: config.particles_dir,
-                vault_dir: config.particles_vault_dir,
-            });
+            let data_store = Box::new(ParticleDataStore::new(
+                config.particles_dir,
+                config.particles_vault_dir,
+            ));
             let config = AVMConfig {
                 data_store,
                 current_peer_id: config.current_peer_id.to_string(),
@@ -78,7 +78,10 @@ impl AquaRuntime for AVM {
         .boxed()
     }
 
-    fn into_effects(outcome: Result<AVMOutcome, AVMError>, p: Particle) -> ParticleEffects {
+    fn into_effects(
+        outcome: Result<AVMOutcome, AVMError<DataStoreError>>,
+        p: Particle,
+    ) -> ParticleEffects {
         match parse_outcome(outcome) {
             Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]

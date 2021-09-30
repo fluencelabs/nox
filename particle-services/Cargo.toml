@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 particle-modules = { path = "../particle-modules" }
 particle-protocol = { path = "../particle-protocol" }
+aquamarine = { path = "../aquamarine" }
 
 fs-utils = { path = "../crates/fs-utils" }
 service-modules = { path = "../crates/service-modules" }

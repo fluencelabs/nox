@@ -37,6 +37,7 @@ mod observation;
 mod particle_data_store;
 mod particle_effects;
 mod particle_executor;
+mod particle_vault;
 mod plumber;
 mod vm_pool;
 
@@ -45,8 +46,9 @@ pub use aqua_runtime::AquaRuntime;
 pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
 pub use config::{VmConfig, VmPoolConfig};
 pub use observation::Observation;
-pub use particle_data_store::ParticleDataStore;
+pub use particle_data_store::{DataStoreError, ParticleDataStore};
 pub use particle_effects::ParticleEffects;
+pub use particle_vault::{ParticleVault, VaultError};
 pub use plumber::Plumber;
 
 // reexport

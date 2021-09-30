@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-use particle_modules::ModuleError;
+use std::path::PathBuf;
 
 use fluence_app_service::AppServiceError;
+use serde_json::Value as JValue;
+use thiserror::Error;
+
+use aquamarine::VaultError;
 use fluence_libp2p::PeerId;
 use host_closure::ArgsError;
 use json_utils::err_as_value;
-
-use serde_json::Value as JValue;
-use std::path::PathBuf;
-use thiserror::Error;
+use particle_modules::ModuleError;
 
 #[derive(Debug, Error)]
 pub enum ServiceError {
@@ -74,6 +75,8 @@ pub enum ServiceError {
         particle_id: String,
         service_id: String,
     },
+    #[error(transparent)]
+    VaultError(#[from] VaultError),
 }
 
 impl From<AppServiceError> for ServiceError {

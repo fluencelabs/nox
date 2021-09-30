@@ -15,22 +15,22 @@
  */
 
 use std::borrow::Borrow;
+use std::convert::{TryFrom, TryInto};
 use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use async_std::task;
+use avm_server::{CallRequestParams, CallServiceResult};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
-use avm_server::{CallRequestParams, CallServiceResult};
-
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use host_closure::{from_base58, AVMEffect, Args, ArgsError, JError};
+use host_closure::{from_base58, Args, ArgsError, JError};
 use ivalue_utils::{error, into_record, into_record_opt, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
@@ -45,7 +45,6 @@ use server_config::ServicesConfig;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
-use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug, Clone)]
 pub struct HostFunctions<C> {
@@ -108,7 +107,6 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
 
         let start = Instant::now();
-        // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
         #[rustfmt::skip]
         let result = match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
@@ -156,7 +154,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
             ("op", "identity")                => self.identity(args.function_args),
 
-            _ => self.call_service(args, particle, todo!("create vault isn't implemented")).map(Some),
+            _ => self.call_service(args, particle).map(Some),
         };
         let elapsed = pretty(start.elapsed());
         if let Err(err) = &result {
@@ -607,19 +605,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         JValue::Array(self.services.list_services())
     }
 
-    fn call_service(
-        &self,
-        function_args: Args,
-        particle: Particle,
-        create_vault: AVMEffect<PathBuf>,
-    ) -> Result<JValue, JError> {
-        Ok(self
-            .services
-            .call_service(particle_services::CallServiceArgs {
-                function_args,
-                particle,
-                create_vault,
-            })?)
+    fn call_service(&self, function_args: Args, particle: Particle) -> Result<JValue, JError> {
+        Ok(self.services.call_service(function_args, particle)?)
     }
 
     fn get_interface(&self, args: Args) -> Result<JValue, JError> {

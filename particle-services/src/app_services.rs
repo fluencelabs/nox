@@ -14,28 +14,28 @@
  * limitations under the License.
  */
 
+use std::ops::Deref;
+use std::{collections::HashMap, sync::Arc};
+
+use derivative::Derivative;
+use fluence_app_service::{AppService, CallParameters, ServiceInterface};
+use parking_lot::{Mutex, RwLock};
+use serde::Serialize;
+use serde_json::{json, Value as JValue};
+
+use aquamarine::{ParticleVault, VaultError};
+use fluence_libp2p::PeerId;
+use host_closure::Args;
+use particle_modules::ModuleRepository;
+use particle_protocol::Particle;
+use server_config::ServicesConfig;
+
 use crate::app_service::create_app_service;
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
-use crate::vault::create_vault;
-
-use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use fluence_libp2p::PeerId;
-use host_closure::{AVMEffect, Args};
-use particle_modules::ModuleRepository;
-use particle_protocol::Particle;
-use server_config::ServicesConfig;
-
-use derivative::Derivative;
-use parking_lot::{Mutex, RwLock};
-use serde::Serialize;
-use serde_json::{json, Value as JValue};
-use std::ops::Deref;
-use std::path::PathBuf;
-use std::{collections::HashMap, sync::Arc};
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
@@ -83,15 +83,10 @@ pub struct VmDescriptor<'a> {
     owner_id: &'a str,
 }
 
-pub struct CallServiceArgs {
-    pub function_args: Args,
-    pub particle: Particle,
-    pub create_vault: AVMEffect<PathBuf>,
-}
-
 #[derive(Debug, Clone)]
 pub struct ParticleAppServices {
     config: ServicesConfig,
+    vault: ParticleVault,
     services: Services,
     modules: ModuleRepository,
     aliases: Aliases,
@@ -121,10 +116,12 @@ pub fn get_service<'l>(
 
 impl ParticleAppServices {
     pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
+        let vault = ParticleVault::new(config.particles_vault_dir.clone());
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
         let this = Self {
             config,
+            vault,
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
@@ -196,32 +193,33 @@ impl ParticleAppServices {
         Ok(())
     }
 
-    pub fn call_service(&self, args: CallServiceArgs) -> Result<JValue, ServiceError> {
+    pub fn call_service(
+        &self,
+        function_args: Args,
+        particle: Particle,
+    ) -> Result<JValue, ServiceError> {
         let services = self.services.read();
         let aliases = self.aliases.read();
         let host_id = self.config.local_peer_id.to_string();
 
-        let function_args = args.function_args;
         let function_name = function_args.function_name;
-        let (service, id) = get_service(&services, &aliases, function_args.service_id).map_err(
-            |err| match err {
+        let (service, service_id) = get_service(&services, &aliases, function_args.service_id)
+            .map_err(|err| match err {
                 ServiceError::NoSuchService(service) => ServiceError::NoSuchServiceWithFunction {
                     service,
                     function: function_name.clone(),
                 },
                 e => e,
-            },
-        )?;
+            })?;
 
-        let particle_id = args.particle.id;
-        create_vault(args.create_vault, &id, &particle_id)?;
+        self.create_vault(&particle.id)?;
 
         let params = CallParameters {
             host_id,
-            particle_id,
-            init_peer_id: args.particle.init_peer_id.to_string(),
+            particle_id: particle.id,
+            init_peer_id: particle.init_peer_id.to_string(),
             tetraplets: function_args.tetraplets,
-            service_id: id,
+            service_id,
             service_creator_peer_id: service.owner_id.to_string(),
         };
 
@@ -367,27 +365,32 @@ impl ParticleAppServices {
             log::info!("Persisted service {} created", s.service_id);
         }
     }
+
+    fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
+        self.vault.create(particle_id)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{ParticleAppServices, ServiceError};
+    use std::collections::HashMap;
+    use std::fs::remove_file;
+    use std::path::PathBuf;
 
-    use config_utils::{modules_dir, to_peer_id};
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
+    use libp2p_core::identity::Keypair;
+    use libp2p_core::PeerId;
+    use tempdir::TempDir;
+
+    use aquamarine::{ParticleDataStore, ParticleVault};
+    use config_utils::{modules_dir, to_peer_id};
+    use fluence_libp2p::RandomPeerId;
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
     use service_modules::{Dependency, Hash};
 
-    use libp2p_core::identity::Keypair;
-    use libp2p_core::PeerId;
-
-    use fluence_libp2p::RandomPeerId;
-    use std::collections::HashMap;
-    use std::fs::remove_file;
-    use std::path::PathBuf;
-    use tempdir::TempDir;
+    use crate::{ParticleAppServices, ServiceError};
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
@@ -404,8 +407,8 @@ mod tests {
         let vault_dir = base_dir.join("..").join("vault");
         let config = ServicesConfig::new(
             local_pid,
-            base_dir,
-            vault_dir,
+            base_dir.clone(),
+            vault_dir.clone(),
             HashMap::new(),
             management_pid,
             to_peer_id(&startup_kp),

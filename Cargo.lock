@@ -3620,6 +3620,7 @@ dependencies = [
 name = "particle-services"
 version = "0.1.0"
 dependencies = [
+ "aquamarine",
  "base64 0.13.0",
  "config-utils",
  "derivative",
