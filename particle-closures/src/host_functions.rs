@@ -104,8 +104,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             }
         };
 
-        log::trace!("Host function call, args: {:#?}", function_args);
-        let log_args = format!("{:?} {:?}", service_id, function_name);
+        log::trace!("Host function call, args: {:#?}", args);
+        let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
 
         let start = Instant::now();
         // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
@@ -144,7 +144,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("script", "remove")              => wrap(self.remove_script(args, particle).await),
             ("script", "list")                => wrap(self.list_scripts().await),
 
-            ("op", "noop")                    => unit(),
+            ("op", "noop")                    => Ok(None),
             ("op", "array")                   => ok(Array(args.function_args)),
             ("op", "array_length")            => wrap(self.array_length(args.function_args)),
             ("op", "concat")                  => wrap(self.concat(args.function_args)),
@@ -156,7 +156,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
             ("op", "identity")                => self.identity(args.function_args),
 
-            _ => self.call_service(args, particle, todo!("create vault isn't implemented")),
+            _ => self.call_service(args, particle, todo!("create vault isn't implemented")).map(Some),
         };
         let elapsed = pretty(start.elapsed());
         if let Err(err) = &result {
@@ -168,12 +168,12 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         match result {
             Ok(v) => CallServiceResult {
                 ret_code: 0,
-                result: v.map_or_else(json!([]), |v| json!([v])).to_string()
+                result: v.map_or(json!([]), |v| json!([v])).to_string(),
             },
             Err(e) => CallServiceResult {
                 ret_code: 1,
-                result: json!([JValue::from(e)]).to_string()
-            }
+                result: json!([JValue::from(e)]).to_string(),
+            },
         }
     }
 
@@ -181,7 +181,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let mut args = args.function_args.into_iter();
         let key = from_base58("key", &mut args)?;
         let already_hashed: Option<bool> = Args::next_opt("already_hashed", &mut args)?;
-        let count: Option<usize> = Args::next_opt("count", &mut args)?
+        let count: Option<usize> = Args::next_opt("count", &mut args)?;
         let count = count.unwrap_or_else(|| K_VALUE.get());
 
         let key = if already_hashed == Some(true) {
