@@ -20,7 +20,7 @@ use avm_server::DataStore;
 use thiserror::Error;
 
 use fs_utils::{create_dir, remove_dir};
-use DataStoreError::{CleanupData, CreateDataStore, ReadData, StoreData};
+use DataStoreError::{CleanupData, CreateDataStore, StoreData};
 
 use crate::particle_vault::VaultError;
 use crate::ParticleVault;
@@ -70,7 +70,7 @@ impl DataStore<DataStoreError> for ParticleDataStore {
 
     fn read_data(&mut self, key: &str) -> Result<Vec<u8>> {
         let data_path = self.data_file(&key);
-        let data = std::fs::read(&data_path).map_err(|err| ReadData(err, data_path))?;
+        let data = std::fs::read(&data_path).unwrap_or_default();
 
         Ok(data)
     }
@@ -91,8 +91,6 @@ pub enum DataStoreError {
     VaultError(#[from] VaultError),
     #[error("error writing data to {1:?}")]
     StoreData(#[source] std::io::Error, PathBuf),
-    #[error("error reading data from {1:?}")]
-    ReadData(#[source] std::io::Error, PathBuf),
     #[error("error cleaning up data")]
     CleanupData(#[source] std::io::Error),
 }

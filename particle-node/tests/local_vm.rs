@@ -60,9 +60,10 @@ fn make() {
         Duration::from_secs(20),
     );
 
-    let args = result.err().expect("should return immediately");
+    // let args = result.err().expect("should return immediately");
+    let particle = result.expect("get particle");
 
-    // let args = read_args(particle, client_b, &mut local_vm_b);
+    let args = read_args(particle, client_b, &mut local_vm_b);
     assert_eq!(data["a"], args[0]);
     assert_eq!(data["b"], args[1]);
     assert_eq!(data["c"], args[2]);
