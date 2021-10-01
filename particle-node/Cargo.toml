@@ -55,7 +55,7 @@ local-vm = { path = "../crates/local-vm" }
 json-utils = { path = "../crates/json-utils" }
 control-macro = { path = "../crates/control-macro" }
 
-fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "remove_serde_version_lock" }
+fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "master" }
 
 parking_lot = "0.11.1"
 maplit = "1.0.2"
