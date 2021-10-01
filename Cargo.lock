@@ -151,7 +151,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.6.1"
-source = "git+https://github.com/fluencelabs/aquavm?branch=async#cf21974cf5f46bd6d144e326ce5cb07333d49d1a"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async#9efb9419b778d4ac98401fca247d104323f0132d"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -488,17 +488,17 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "avm-data-store"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=async#cf21974cf5f46bd6d144e326ce5cb07333d49d1a"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async#9efb9419b778d4ac98401fca247d104323f0132d"
 
 [[package]]
 name = "avm-server"
 version = "0.11.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=async#cf21974cf5f46bd6d144e326ce5cb07333d49d1a"
+source = "git+https://github.com/fluencelabs/aquavm?branch=async#9efb9419b778d4ac98401fca247d104323f0132d"
 dependencies = [
  "air-interpreter-interface",
  "avm-data-store",
  "eyre",
- "fluence-faas",
+ "fluence-faas 0.9.1 (git+https://github.com/fluencelabs/marine?branch=master)",
  "log",
  "maplit",
  "parking_lot 0.11.1",
@@ -1628,7 +1628,7 @@ name = "fluence-app-service"
 version = "0.9.1"
 source = "git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock#8fdcb7d7cdadca89c9070c3bd209514b7aa4ce0e"
 dependencies = [
- "fluence-faas",
+ "fluence-faas 0.9.1 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
  "log",
  "maplit",
  "serde",
@@ -1641,16 +1641,41 @@ dependencies = [
 [[package]]
 name = "fluence-faas"
 version = "0.9.1"
+source = "git+https://github.com/fluencelabs/marine?branch=master#0ccf5eda5b8a2fca9ae6cf9603b15e48c6d27a92"
+dependencies = [
+ "cmd_lib",
+ "itertools 0.9.0",
+ "log",
+ "marine-module-interface 0.1.6 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "marine-rs-sdk",
+ "marine-rs-sdk-main",
+ "marine-runtime 0.7.1 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "marine-utils 0.2.0 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "safe-transmute",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thiserror",
+ "toml",
+ "wasmer-interface-types-fl",
+ "wasmer-runtime-core-fl",
+ "wasmer-runtime-fl",
+ "wasmer-wasi-fl",
+]
+
+[[package]]
+name = "fluence-faas"
+version = "0.9.1"
 source = "git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock#8fdcb7d7cdadca89c9070c3bd209514b7aa4ce0e"
 dependencies = [
  "cmd_lib",
  "itertools 0.9.0",
  "log",
- "marine-module-interface",
+ "marine-module-interface 0.1.6 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
  "marine-rs-sdk",
  "marine-rs-sdk-main",
- "marine-runtime",
- "marine-utils",
+ "marine-runtime 0.7.1 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
+ "marine-utils 0.2.0 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
  "safe-transmute",
  "serde",
  "serde_derive",
@@ -2112,8 +2137,8 @@ dependencies = [
 
 [[package]]
 name = "fluence-identity"
-version = "0.3.0"
-source = "git+https://github.com/fluencelabs/trust-graph?branch=remove_serde_version_lock#cb389c98a1e7acfb6e67230c1f5d6b0447496bac"
+version = "0.3.1"
+source = "git+https://github.com/fluencelabs/trust-graph?branch=remove_serde_version_lock#4832387b323632c220fa7bd4312947b49cfd3fb1"
 dependencies = [
  "asn1_der",
  "bs58 0.3.1",
@@ -2560,7 +2585,7 @@ dependencies = [
  "fluence-app-service",
  "ivalue-utils",
  "json-utils",
- "marine-runtime",
+ "marine-runtime 0.7.1 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
  "serde",
  "serde_json",
  "thiserror",
@@ -3002,17 +3027,43 @@ checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 [[package]]
 name = "marine-it-generator"
 version = "0.5.5"
-source = "git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock#8fdcb7d7cdadca89c9070c3bd209514b7aa4ce0e"
+source = "git+https://github.com/fluencelabs/marine?branch=master#0ccf5eda5b8a2fca9ae6cf9603b15e48c6d27a92"
 dependencies = [
  "cargo_toml",
  "it-lilo",
- "marine-it-parser",
+ "marine-it-parser 0.6.7 (git+https://github.com/fluencelabs/marine?branch=master)",
  "marine-macro-impl",
  "once_cell",
  "serde",
  "serde_json",
  "thiserror",
  "walrus",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "marine-it-generator"
+version = "0.5.5"
+source = "git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock#8fdcb7d7cdadca89c9070c3bd209514b7aa4ce0e"
+dependencies = [
+ "cargo_toml",
+ "it-lilo",
+ "marine-it-parser 0.6.7 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
+ "marine-macro-impl",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "walrus",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "marine-it-interfaces"
+version = "0.4.1"
+source = "git+https://github.com/fluencelabs/marine?branch=master#0ccf5eda5b8a2fca9ae6cf9603b15e48c6d27a92"
+dependencies = [
+ "multimap",
  "wasmer-interface-types-fl",
 ]
 
@@ -3028,12 +3079,30 @@ dependencies = [
 [[package]]
 name = "marine-it-parser"
 version = "0.6.7"
+source = "git+https://github.com/fluencelabs/marine?branch=master#0ccf5eda5b8a2fca9ae6cf9603b15e48c6d27a92"
+dependencies = [
+ "anyhow",
+ "itertools 0.10.1",
+ "marine-it-interfaces 0.4.1 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "marine-module-interface 0.1.6 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "nom",
+ "semver 0.11.0",
+ "serde",
+ "thiserror",
+ "walrus",
+ "wasmer-interface-types-fl",
+ "wasmer-runtime-core-fl",
+]
+
+[[package]]
+name = "marine-it-parser"
+version = "0.6.7"
 source = "git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock#8fdcb7d7cdadca89c9070c3bd209514b7aa4ce0e"
 dependencies = [
  "anyhow",
  "itertools 0.10.1",
- "marine-it-interfaces",
- "marine-module-interface",
+ "marine-it-interfaces 0.4.1 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
+ "marine-module-interface 0.1.6 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
  "nom",
  "semver 0.11.0",
  "serde",
@@ -3045,16 +3114,16 @@ dependencies = [
 
 [[package]]
 name = "marine-macro"
-version = "0.6.12"
-source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=remove_serde_version_lock#c3fe935b116800be252a8d0166fbc3a28b4cd463"
+version = "0.6.13"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=master#17eb14aa48ce36619bc6f8eedc897446304122ca"
 dependencies = [
  "marine-macro-impl",
 ]
 
 [[package]]
 name = "marine-macro-impl"
-version = "0.6.12"
-source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=remove_serde_version_lock#c3fe935b116800be252a8d0166fbc3a28b4cd463"
+version = "0.6.13"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=master#17eb14aa48ce36619bc6f8eedc897446304122ca"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3062,6 +3131,21 @@ dependencies = [
  "serde_json",
  "syn",
  "uuid",
+]
+
+[[package]]
+name = "marine-module-info-parser"
+version = "0.2.1"
+source = "git+https://github.com/fluencelabs/marine?branch=master#0ccf5eda5b8a2fca9ae6cf9603b15e48c6d27a92"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "marine-rs-sdk-main",
+ "semver 0.11.0",
+ "serde",
+ "thiserror",
+ "walrus",
+ "wasmer-runtime-core-fl",
 ]
 
 [[package]]
@@ -3082,11 +3166,28 @@ dependencies = [
 [[package]]
 name = "marine-module-interface"
 version = "0.1.6"
+source = "git+https://github.com/fluencelabs/marine?branch=master#0ccf5eda5b8a2fca9ae6cf9603b15e48c6d27a92"
+dependencies = [
+ "anyhow",
+ "itertools 0.10.1",
+ "marine-it-interfaces 0.4.1 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "nom",
+ "semver 0.11.0",
+ "serde",
+ "thiserror",
+ "walrus",
+ "wasmer-interface-types-fl",
+ "wasmer-runtime-core-fl",
+]
+
+[[package]]
+name = "marine-module-interface"
+version = "0.1.6"
 source = "git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock#8fdcb7d7cdadca89c9070c3bd209514b7aa4ce0e"
 dependencies = [
  "anyhow",
  "itertools 0.10.1",
- "marine-it-interfaces",
+ "marine-it-interfaces 0.4.1 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
  "nom",
  "semver 0.11.0",
  "serde",
@@ -3098,8 +3199,8 @@ dependencies = [
 
 [[package]]
 name = "marine-rs-sdk"
-version = "0.6.12"
-source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=remove_serde_version_lock#c3fe935b116800be252a8d0166fbc3a28b4cd463"
+version = "0.6.13"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=master#17eb14aa48ce36619bc6f8eedc897446304122ca"
 dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
@@ -3109,12 +3210,41 @@ dependencies = [
 
 [[package]]
 name = "marine-rs-sdk-main"
-version = "0.6.12"
-source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=remove_serde_version_lock#c3fe935b116800be252a8d0166fbc3a28b4cd463"
+version = "0.6.13"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=master#17eb14aa48ce36619bc6f8eedc897446304122ca"
 dependencies = [
  "log",
  "marine-macro",
  "serde",
+]
+
+[[package]]
+name = "marine-runtime"
+version = "0.7.1"
+source = "git+https://github.com/fluencelabs/marine?branch=master#0ccf5eda5b8a2fca9ae6cf9603b15e48c6d27a92"
+dependencies = [
+ "anyhow",
+ "boolinator",
+ "it-lilo",
+ "log",
+ "marine-it-generator 0.5.5 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "marine-it-interfaces 0.4.1 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "marine-it-parser 0.6.7 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "marine-module-info-parser 0.2.1 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "marine-module-interface 0.1.6 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "marine-utils 0.2.0 (git+https://github.com/fluencelabs/marine?branch=master)",
+ "multimap",
+ "once_cell",
+ "parity-wasm",
+ "paste",
+ "pwasm-utils",
+ "semver 0.11.0",
+ "serde",
+ "thiserror",
+ "wasmer-interface-types-fl",
+ "wasmer-runtime-core-fl",
+ "wasmer-runtime-fl",
+ "wasmer-wasi-fl",
 ]
 
 [[package]]
@@ -3126,12 +3256,12 @@ dependencies = [
  "boolinator",
  "it-lilo",
  "log",
- "marine-it-generator",
- "marine-it-interfaces",
- "marine-it-parser",
- "marine-module-info-parser",
- "marine-module-interface",
- "marine-utils",
+ "marine-it-generator 0.5.5 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
+ "marine-it-interfaces 0.4.1 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
+ "marine-it-parser 0.6.7 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
+ "marine-module-info-parser 0.2.1 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
+ "marine-module-interface 0.1.6 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
+ "marine-utils 0.2.0 (git+https://github.com/fluencelabs/marine?branch=remove_serde_version_lock)",
  "multimap",
  "once_cell",
  "parity-wasm",
@@ -3148,12 +3278,17 @@ dependencies = [
 
 [[package]]
 name = "marine-timestamp-macro"
-version = "0.6.12"
-source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=remove_serde_version_lock#c3fe935b116800be252a8d0166fbc3a28b4cd463"
+version = "0.6.13"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=master#17eb14aa48ce36619bc6f8eedc897446304122ca"
 dependencies = [
  "chrono",
  "quote",
 ]
+
+[[package]]
+name = "marine-utils"
+version = "0.2.0"
+source = "git+https://github.com/fluencelabs/marine?branch=master#0ccf5eda5b8a2fca9ae6cf9603b15e48c6d27a92"
 
 [[package]]
 name = "marine-utils"
@@ -3526,7 +3661,7 @@ dependencies = [
  "host-closure",
  "json-utils",
  "log",
- "marine-it-parser",
+ "marine-it-parser 0.6.7 (git+https://github.com/fluencelabs/marine?branch=master)",
  "parking_lot 0.11.1",
  "particle-protocol",
  "serde",
@@ -5064,8 +5199,8 @@ dependencies = [
 
 [[package]]
 name = "trust-graph"
-version = "0.2.7"
-source = "git+https://github.com/fluencelabs/trust-graph?branch=remove_serde_version_lock#cb389c98a1e7acfb6e67230c1f5d6b0447496bac"
+version = "0.2.8"
+source = "git+https://github.com/fluencelabs/trust-graph?branch=remove_serde_version_lock#4832387b323632c220fa7bd4312947b49cfd3fb1"
 dependencies = [
  "bs58 0.3.1",
  "derivative",
@@ -5738,3 +5873,8 @@ dependencies = [
  "syn",
  "synstructure",
 ]
+
+[[patch.unused]]
+name = "fluence-app-service"
+version = "0.10.0"
+source = "git+https://github.com/fluencelabs/marine?branch=master#0ccf5eda5b8a2fca9ae6cf9603b15e48c6d27a92"
