@@ -71,8 +71,8 @@ fn identify() {
     );
 
     let info = client.receive_args().wrap_err("receive args").unwrap();
-    let info = info.into_iter().next().unwrap();
-    let _: NodeInfo = serde_json::from_value(info).unwrap();
+    let _: NodeInfo =
+        serde_json::from_value(info[0].clone()).expect(&format!("deserialize {:?}", info[0]));
 }
 
 #[ignore]
@@ -96,7 +96,7 @@ fn big_identity() {
 }
 
 #[test]
-fn remove_service_azaza() {
+fn remove_service() {
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())

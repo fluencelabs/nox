@@ -98,7 +98,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             Err(err) => {
                 return CallServiceResult {
                     ret_code: 1,
-                    result: format!("Failed to deserialize CallRequestParams to Args: {}", err),
+                    result: json!(format!(
+                        "Failed to deserialize CallRequestParams to Args: {}",
+                        err
+                    ))
+                    .to_string(),
                 }
             }
         };
@@ -166,11 +170,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         match result {
             Ok(v) => CallServiceResult {
                 ret_code: 0,
-                result: v.map_or(json!([]), |v| json!([v])).to_string(),
+                result: v.map_or(json!(""), |v| json!(v)).to_string(),
             },
             Err(e) => CallServiceResult {
                 ret_code: 1,
-                result: json!([JValue::from(e)]).to_string(),
+                result: json!(JValue::from(e)).to_string(),
             },
         }
     }
@@ -652,7 +656,7 @@ fn wrap(r: Result<JValue, JError>) -> Result<Option<JValue>, JError> {
 }
 
 fn wrap_unit(r: Result<(), JError>) -> Result<Option<JValue>, JError> {
-    r.map(|_| Some(json!({})))
+    r.map(|_| Some(json!("")))
 }
 
 fn parse_u64(

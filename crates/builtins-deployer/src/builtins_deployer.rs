@@ -396,9 +396,14 @@ impl BuiltinsDeployer {
     }
 
     pub fn deploy_builtin_services(&mut self) -> Result<()> {
+        let from_disk = self.list_builtins()?;
+        if from_disk.is_empty() {
+            log::info!("No builtin services found at {:?}", self.builtins_base_dir);
+            return Ok(());
+        }
+
         self.wait_for_vm_pool()?;
 
-        let from_disk = self.list_builtins()?;
         let mut local_services = self.get_service_blueprints()?;
 
         let mut to_create = vec![];

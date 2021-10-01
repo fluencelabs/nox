@@ -109,7 +109,7 @@ pub fn host_call(
     Ok(match result {
         Ok(r) => CallServiceResult {
             ret_code: 0,
-            result: r.map(|v| v.to_string()).unwrap_or_default(),
+            result: r.unwrap_or(JValue::String(<_>::default())).to_string(),
         },
         Err(e) => CallServiceResult {
             ret_code: 1,

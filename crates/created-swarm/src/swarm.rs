@@ -37,7 +37,7 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::{build_memory_transport, build_transport, RandomPeerId, Transport};
-use fs_utils::{make_tmp_dir_peer_id, to_abs_path};
+use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
 use particle_node::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use script_storage::ScriptStorageConfig;
@@ -299,8 +299,6 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 ) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig) {
     use serde_json::json;
 
-    let cfg = config.clone();
-
     let format = match &config.keypair {
         KeyPair::Ed25519(_) => "ed25519",
         KeyPair::Rsa(_) => "rsa",
@@ -315,27 +313,29 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         config.tmp_dir = Some(make_tmp_dir_peer_id(peer_id.to_string()));
     }
     let tmp_dir = config.tmp_dir.as_ref().unwrap();
-    std::fs::create_dir_all(tmp_dir).expect("create tmp dir");
+    create_dir(tmp_dir).expect("create tmp dir");
 
     let node_config = json!({
         "base_dir": tmp_dir.to_string_lossy(),
         "root_key_pair": {
             "format": format,
-            "generate_on_absence": "false",
+            "generate_on_absence": false,
             "value": bs58::encode(config.keypair.to_vec()).into_string(),
         }
     });
 
     let node_config: UnresolvedConfig =
-        UnresolvedConfig::deserialize(node_config).expect("empty config");
+        UnresolvedConfig::deserialize(node_config).expect("created_swarm: deserialize config");
 
     let mut resolved = node_config.resolve();
+    create_dir(&resolved.dir_config.builtins_base_dir).expect("create builtins dir");
+
     resolved.node_config.transport_config.transport = Transport::Memory;
     resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
     resolved.node_config.protocol_config =
         ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
 
-    resolved.node_config.bootstrap_nodes = config.bootstraps;
+    resolved.node_config.bootstrap_nodes = config.bootstraps.clone();
     resolved.node_config.bootstrap_config = BootstrapConfig::zero();
     resolved.node_config.bootstrap_frequency = 1;
 
@@ -364,9 +364,9 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         // to_peer_id(resolved.builtins_key_pair.clone().into()),
     );
     let mut node = Node::new(resolved, vm_config, "some version").expect("create node");
-    node.listen(vec![config.listen_on]).expect("listen");
+    node.listen(vec![config.listen_on.clone()]).expect("listen");
 
-    (node.local_peer_id, node, management_kp, cfg)
+    (node.local_peer_id, node, management_kp, config)
 
     // TODO: this requires ability to convert public keys to PeerId
     // if let Some(trust) = config.trust {
