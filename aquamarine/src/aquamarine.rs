@@ -13,13 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::aqua_runtime::AquaRuntime;
-use crate::awaited_particle::EffectsChannel;
-use crate::error::AquamarineApiError;
-use crate::observation::Observation;
-use crate::{AwaitedEffects, AwaitedParticle, ParticleEffects, Plumber, VmPoolConfig};
-
-use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
+use std::convert::identity;
+use std::task::Poll;
+use std::time::Duration;
 
 use async_std::{task, task::JoinHandle};
 use futures::{
@@ -28,9 +24,14 @@ use futures::{
     FutureExt, SinkExt, StreamExt,
 };
 use humantime::format_duration as pretty;
-use std::convert::identity;
-use std::task::Poll;
-use std::time::Duration;
+
+use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
+
+use crate::aqua_runtime::AquaRuntime;
+use crate::awaited_particle::EffectsChannel;
+use crate::error::AquamarineApiError;
+use crate::observation::Observation;
+use crate::{AwaitedEffects, AwaitedParticle, ParticleEffects, Plumber, VmPoolConfig};
 
 pub struct AquamarineBackend<RT: AquaRuntime> {
     inlet: BackPressuredInlet<(Observation, EffectsChannel)>,

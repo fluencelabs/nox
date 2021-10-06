@@ -85,7 +85,7 @@ impl AquaRuntime for AVM<DataStoreError> {
         match parse_outcome(outcome) {
             Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
-                log::debug!("Particle {} executed, will be sent to {} targets", p.id, peers.len());
+                log::debug!("Particle {} executed: {} call requests, {} next peers", p.id, calls.len(), peers.len());
 
                 ParticleEffects {
                     next_peers: peers,

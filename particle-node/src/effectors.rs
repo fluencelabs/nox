@@ -48,6 +48,13 @@ impl Effectors {
 
     /// Perform effects that Aquamarine instructed us to
     pub async fn execute(&self, effects: ParticleEffects) {
+        log::info!(
+            "ParticleEffects {}: {} calls, {} next peers",
+            effects.particle.id,
+            effects.call_requests.len(),
+            effects.next_peers.len()
+        );
+
         if effects.particle.is_expired() {
             log::info!("Particle {} is expired", effects.particle.id);
             return;

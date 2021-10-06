@@ -32,6 +32,7 @@ use service_modules::load_module;
 use test_utils::create_service;
 
 use crate::SERVICES;
+use log_utils::enable_logs;
 
 fn check_dht_builtin(client: &mut ConnectedClient) {
     client.send_particle(
@@ -46,7 +47,7 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
                 )
                 (call %init_peer_id% ("op" "return") [result])
             )
-            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+            (call %init_peer_id% ("op" "return") [%last_error%])
         )
     "#,
         hashmap! {
@@ -64,7 +65,9 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
         pub error: String,
     }
 
-    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = dbg!(client.receive_args())
+        .wrap_err("receive args")
+        .unwrap();
     let result = result.into_iter().next().unwrap();
     let result: DhtResult = serde_json::from_value(result).unwrap();
 
@@ -73,6 +76,8 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
 
 #[test]
 fn builtins_test() {
+    enable_logs();
+
     let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())

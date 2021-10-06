@@ -31,7 +31,7 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use prometheus::Registry;
-use trust_graph::{InMemoryStorage, TrustGraph};
+use trust_graph::InMemoryStorage;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineBackend, DataStoreError, Observation, VmConfig,
@@ -56,6 +56,8 @@ use crate::metrics::start_metrics_endpoint;
 use crate::Connectivity;
 
 use super::behaviour::NetworkBehaviour;
+
+type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -114,19 +116,15 @@ impl<RT: AquaRuntime> Node<RT> {
         } else {
             None
         };
-        let network_config = NetworkConfig::new(
-            trust_graph,
-            metrics_registry.clone(),
-            key_pair,
-            &config,
-            node_version,
-        );
+        let network_config =
+            NetworkConfig::new(metrics_registry.clone(), key_pair, &config, node_version);
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
             local_peer_id,
             network_config,
             transport,
             config.external_addresses(),
+            trust_graph,
         );
 
         let (particle_failures_out, particle_failures_in) = unbounded();
@@ -199,12 +197,14 @@ impl<RT: AquaRuntime> Node<RT> {
         network_config: NetworkConfig,
         transport: Boxed<(PeerId, StreamMuxerBox)>,
         external_addresses: Vec<Multiaddr>,
+        trust_graph: TrustGraph,
     ) -> (
         Swarm<NetworkBehaviour>,
         Connectivity,
         BackPressuredInlet<Particle>,
     ) {
-        let (behaviour, connectivity, particle_stream) = NetworkBehaviour::new(network_config);
+        let (behaviour, connectivity, particle_stream) =
+            NetworkBehaviour::new(network_config, trust_graph);
         let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
 
         // Add external addresses to Swarm
@@ -299,6 +299,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let script_storage = script_storage.start();
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
+            log::info!("will start dispatcher");
             let mut dispatcher = dispatcher.start(particle_stream, observation_stream);
             let stopped = stream::iter(once(Err(())));
             let mut swarm = swarm.map(|_e| Ok(())).chain(stopped).fuse();

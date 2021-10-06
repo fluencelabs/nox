@@ -86,7 +86,8 @@ pub fn host_call(
                 .ok_or_else(|| JError::new(f!("variable not found: {args.function_name}")))
                 .map(Some),
             ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
-                return Err(args.function_args)
+                println!("op return: {:?}", args.function_args);
+                return Err(args.function_args);
             }
             ("callbackSrv", _) => {
                 log::warn!("got callback: {:?}", args.function_args);

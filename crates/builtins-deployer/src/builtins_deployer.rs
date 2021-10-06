@@ -24,7 +24,7 @@ use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
 use regex::Regex;
-use serde_json::{json, Value as JValue};
+use serde_json::{json, Value as JValue, Value};
 
 use aquamarine::{AquamarineApi, DataStoreError, AVM};
 use fluence_libp2p::PeerId;
@@ -35,35 +35,11 @@ use service_modules::{
     hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
 };
 
-pub static ALLOWED_ENV_PREFIX: &str = "$FLUENCE_ENV";
-
-#[derive(Debug)]
-struct ScheduledScript {
-    pub name: String,
-    pub data: String,
-    pub interval_sec: u64,
-}
-
-#[derive(Debug)]
-struct Module {
-    // .wasm data
-    pub data: Vec<u8>,
-    // parsed json module config
-    pub config: NamedModuleConfig,
-}
-
-#[derive(Debug)]
-struct Builtin {
-    // builtin alias
-    pub name: String,
-    // list of dependencies
-    pub modules: Vec<Module>,
-    pub blueprint: AddBlueprint,
-    pub blueprint_id: String,
-    pub on_start_script: Option<String>,
-    pub on_start_data: Option<String>,
-    pub scheduled_scripts: Vec<ScheduledScript>,
-}
+use crate::builtin::{Builtin, Module};
+use crate::utils::{
+    assert_ok, get_blueprint_id, load_blueprint, load_modules, load_scheduled_scripts,
+    resolve_env_variables,
+};
 
 pub struct BuiltinsDeployer {
     startup_peer_id: PeerId,
@@ -76,105 +52,6 @@ pub struct BuiltinsDeployer {
     force_redeploy: bool,
     // the number of ping attempts to check the readiness of the vm pool
     retry_attempts_count: u16,
-}
-
-fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
-    match &result[..] {
-        [JValue::String(s)] if s == "ok" => Ok(()),
-        [JValue::Bool(true)] => Ok(()),
-        _ => Err(eyre!("{}: {:?}", err_msg.to_string(), result)),
-    }
-}
-
-fn load_modules(path: &Path, dependencies: &[Dependency]) -> Result<Vec<Module>> {
-    let mut modules: Vec<Module> = vec![];
-    for dep in dependencies.iter() {
-        let config = path.join(Path::new(&module_config_name_json(dep)));
-        let module = path.join(&module_file_name(dep));
-
-        modules.push(Module {
-            data: fs::read(module.clone()).wrap_err(eyre!("module {:?} not found", module))?,
-            config: serde_json::from_str(
-                &fs::read_to_string(config.clone())
-                    .wrap_err(eyre!("config {:?} not found", config))?,
-            )?,
-        });
-    }
-
-    Ok(modules)
-}
-
-fn load_blueprint(path: &Path) -> Result<AddBlueprint> {
-    Ok(serde_json::from_str(
-        &fs::read_to_string(path.join("blueprint.json"))
-            .wrap_err(eyre!("blueprint {:?} not found", path))?,
-    )?)
-}
-
-fn get_blueprint_id(modules: &[Module], name: String) -> Result<String> {
-    let mut deps_hashes: Vec<Hash> = modules.iter().map(|m| Hash::hash(&m.data)).collect();
-    let facade = deps_hashes
-        .pop()
-        .ok_or_else(|| eyre!("invalid blueprint {}: dependencies can't be empty", name))?;
-
-    Ok(hash_dependencies(facade, deps_hashes).to_string())
-}
-
-fn load_scheduled_scripts(path: &Path) -> Result<Vec<ScheduledScript>> {
-    let mut scripts = vec![];
-    if let Some(files) = list_files(&path.join("scheduled")) {
-        for path in files.into_iter() {
-            let data = fs::read_to_string(path.to_path_buf())?;
-            let name = file_stem(&path)?;
-
-            let mut script_info = name.split('_');
-            let name = script_info
-                .next()
-                .ok_or_else(|| {
-                    eyre!(
-                        "invalid script name {}, should be in %name%_%interval_in_sec%.air form",
-                        name
-                    )
-                })?
-                .to_string();
-            let interval_sec: u64 = script_info
-                .next()
-                .ok_or_else(|| {
-                    eyre!(
-                        "invalid script name {}, should be in %name%_%interval_in_sec%.air form",
-                        name
-                    )
-                })?
-                .parse()?;
-
-            scripts.push(ScheduledScript {
-                name,
-                data,
-                interval_sec,
-            });
-        }
-    }
-
-    Ok(scripts)
-}
-
-fn resolve_env_variables(data: &String, service_name: &String) -> Result<String> {
-    let mut result = data.clone();
-    let env_prefix = format!(
-        "{}_{}",
-        ALLOWED_ENV_PREFIX,
-        service_name.to_uppercase().replace('-', "_")
-    );
-
-    let re = Regex::new(&f!(r"(\{env_prefix}_\w+)"))?;
-    for elem in re.captures_iter(&data) {
-        result = result.replace(
-            &elem[0],
-            &env::var(&elem[0][1..]).map_err(|e| eyre!("{}: {}", e.to_string(), &elem[0][1..]))?,
-        );
-    }
-
-    Ok(result)
 }
 
 impl BuiltinsDeployer {
@@ -206,7 +83,7 @@ impl BuiltinsDeployer {
     ) -> eyre::Result<Vec<JValue>> {
         data.insert("relay".to_string(), json!(self.node_peer_id.to_string()));
 
-        let particle = make_particle(
+        let result = make_particle(
             self.startup_peer_id,
             &data,
             script,
@@ -215,14 +92,11 @@ impl BuiltinsDeployer {
             // TODO: set to true if AIR script is generated from Aqua
             false,
             self.particle_ttl,
-        )
-        // TODO: return Vec<JValue> instead?
-        .map_err(|vec| {
-            eyre!(
-                "send_particle: make_particle failed: returned result instead of a particle: {:?}",
-                vec
-            )
-        })?;
+        );
+        let particle = match result {
+            Ok(particle) => particle,
+            Err(result) => return Ok(result),
+        };
 
         let result = block_on(self.node_api.clone().handle(particle.into()))
             .map_err(|e| eyre!("send_particle: handle failed: {}", e))?;
@@ -365,7 +239,7 @@ impl BuiltinsDeployer {
             let result: eyre::Result<()> = try {
                 let script = r#"
                     (seq
-                        (call relay ("op" "noop") [])
+                        (null)
                         (call %init_peer_id% ("op" "return") [true])
                     )
                     "#

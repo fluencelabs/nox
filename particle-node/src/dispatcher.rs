@@ -73,7 +73,11 @@ impl Dispatcher {
         // Stream of particles with executed CallRequests
         observation_stream: Inlet<Observation>,
     ) -> DispatcherTasks {
-        let particle_stream = particle_stream.map(|p: Particle| Observation::from(p));
+        log::info!("starting dispatcher");
+        let particle_stream = particle_stream.map(|p: Particle| {
+            log::info!("converting particle to observation");
+            Observation::from(p)
+        });
         let particles = spawn(self.clone().process_particles(particle_stream));
         let observations = spawn(self.process_particles(observation_stream));
 
