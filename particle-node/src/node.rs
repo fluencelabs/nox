@@ -45,7 +45,7 @@ use fluence_libp2p::{
     build_transport,
     types::{OneshotOutlet, Outlet},
 };
-use particle_closures::{HostFunctions, NodeInfo};
+use particle_closures::{HostFunctions, NodeInfo, ParticleFunctions, ParticleFunctionsApi};
 use particle_protocol::Particle;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -70,6 +70,7 @@ pub struct Node<RT: AquaRuntime> {
     aquavm_pool: AquamarineBackend<RT>,
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
+    pub particle_functions: ParticleFunctionsApi,
 
     registry: Option<Registry>,
     metrics_listen_addr: SocketAddr,
@@ -147,11 +148,15 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             script_storage_api,
         );
+        let (func_inlet, func_outlet) = unbounded();
+        let particle_functions = ParticleFunctions::new(func_outlet);
+        let particle_functions_api = ParticleFunctionsApi::new(func_inlet);
 
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
         let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(pool_config, vm_config);
-        let (effectors, observation_stream) = Effectors::new(connectivity.clone(), host_functions);
+        let (effectors, observation_stream) =
+            Effectors::new(connectivity.clone(), host_functions, particle_functions);
         let dispatcher = {
             let failures = particle_failures_out;
             let parallelism = config.particle_processor_parallelism;
@@ -243,6 +248,7 @@ impl<RT: AquaRuntime> Node<RT> {
         aquavm_pool: AquamarineBackend<RT>,
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
+        particle_functions: ParticleFunctionsApi,
 
         registry: Option<Registry>,
         metrics_listen_addr: SocketAddr,
@@ -260,6 +266,7 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage,
             builtins_deployer,
+            particle_functions,
 
             registry,
             metrics_listen_addr,

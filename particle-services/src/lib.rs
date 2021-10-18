@@ -26,15 +26,17 @@
     unreachable_patterns
 )]
 
+pub use fluence_app_service::{IType, IValue};
+
+pub use app_services::ParticleAppServices;
+pub use particle_vault::{ParticleVault, VaultError};
+
 pub use crate::error::ServiceError;
 
 mod app_service;
 mod app_services;
 mod error;
+mod particle_vault;
 mod persistence;
 
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
-
-pub use app_services::ParticleAppServices;
-
-pub use fluence_app_service::{IType, IValue};

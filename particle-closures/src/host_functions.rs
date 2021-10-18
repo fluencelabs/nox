@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 use std::convert::{TryFrom, TryInto};
 use std::num::ParseIntError;
 use std::path::PathBuf;
@@ -45,6 +45,8 @@ use server_config::ServicesConfig;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
+use crate::ParticleFunction;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct HostFunctions<C> {
@@ -88,10 +90,12 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         }
     }
 
+    // TODO: get rid of all blocking methods (std::fs and such)
     pub async fn call(
         &self,
         call_request: CallRequestParams,
         particle: Particle,
+        mut functions: HashMap<(Cow<str>, Cow<str>), ParticleFunction>,
     ) -> CallServiceResult {
         let args = match Args::try_from(call_request) {
             Ok(args) => args,
@@ -109,6 +113,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         log::trace!("Host function call, args: {:#?}", args);
         let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
+
+        let mut function = functions.get_mut(&(
+            Cow::Borrowed(args.service_id.as_str()),
+            Cow::Borrowed(args.function_name.as_str()),
+        ));
 
         let start = Instant::now();
         #[rustfmt::skip]
@@ -158,7 +167,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
             ("op", "identity")                => self.identity(args.function_args),
 
-            _ => self.call_service(args, particle).map(Some),
+            _ if function.is_some()           => wrap(function.unwrap()(args, particle)),
+            _                                 => wrap(self.call_service(args, particle)),
         };
         let elapsed = pretty(start.elapsed());
         if let Err(err) = &result {

@@ -19,7 +19,7 @@ use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
 
 use aquamarine::{Observation, ParticleEffects};
 use fluence_libp2p::types::{Inlet, Outlet};
-use particle_closures::HostFunctions;
+use particle_closures::{HostFunctions, ParticleFunctions};
 
 use crate::connectivity::Connectivity;
 use futures::stream::FuturesUnordered;
@@ -29,25 +29,28 @@ pub struct Effectors {
     pub connectivity: Connectivity,
     pub host_functions: HostFunctions<Connectivity>,
     pub particle_sink: Outlet<Observation>,
+    pub particle_functions: ParticleFunctions,
 }
 
 impl Effectors {
     pub fn new(
         connectivity: Connectivity,
         host_functions: HostFunctions<Connectivity>,
+        particle_functions: ParticleFunctions,
     ) -> (Self, Inlet<Observation>) {
         let (particle_sink, particle_source) = futures::channel::mpsc::unbounded();
         let this = Self {
             connectivity,
             host_functions,
             particle_sink,
+            particle_functions,
         };
 
         (this, particle_source)
     }
 
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute(&self, effects: ParticleEffects) {
+    pub async fn execute(mut self, effects: ParticleEffects) {
         log::info!(
             "ParticleEffects {}: {} calls, {} next peers",
             effects.particle.id,
@@ -60,7 +63,7 @@ impl Effectors {
             return;
         }
 
-        // take every particle, and try to send it concurrently
+        // take every next peers, and try to send particle there concurrently
         let nps = iter(effects.next_peers);
         let particle = &effects.particle;
         let connectivity = self.connectivity.clone();
@@ -76,6 +79,9 @@ impl Effectors {
             }
         })
         .await;
+
+        // poll particle functions so any new functions are ingested
+        self.particle_functions.poll();
 
         let crs = effects.call_requests;
         let particle = effects.particle;

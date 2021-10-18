@@ -78,29 +78,6 @@ impl<RT: AquaRuntime> Plumber<RT> {
             return Poll::Ready(event);
         }
 
-        // Remove expired actors
-        if let Some(mut vm) = self.vm_pool.get_vm() {
-            let now = now_ms();
-            self.actors.retain(|particle_id, actor| {
-                if !actor.is_expired(now) {
-                    return true; // keep actor
-                }
-
-                log::debug!("Reaping particle's actor {}", particle_id);
-                // cleanup files and dirs after particle processing (vault & prev_data)
-                if let Err(err) = vm.cleanup(particle_id) {
-                    log::warn!(
-                        "Error cleaning up after particle {}: {:?}",
-                        particle_id,
-                        err
-                    )
-                }
-                false // remove actor
-            });
-
-            self.vm_pool.put_vm(vm);
-        }
-
         // Gather effects and put VMs back
         let mut effects = vec![];
         let mut mailbox_size = 0;
@@ -111,6 +88,28 @@ impl<RT: AquaRuntime> Plumber<RT> {
             }
             mailbox_size += actor.mailbox_size();
         }
+
+        // Remove expired actors
+        let now = now_ms();
+        self.actors.retain(|particle_id, actor| {
+            // if actor hasn't yet expired or is still executing, keep it
+            // TODO: if actor is expired, cancel execution and return VM back to pool
+            if !actor.is_expired(now) || actor.is_executing() {
+                return true; // keep actor
+            }
+
+            log::debug!("Reaping particle's actor {}", particle_id);
+            // cleanup files and dirs after particle processing (vault & prev_data)
+            // TODO: actor.cleanup instead of vm.cleanup
+            if let Err(err) = actor.cleanup(&particle_id) {
+                log::warn!(
+                    "Error cleaning up after particle {}: {:?}",
+                    particle_id,
+                    err
+                )
+            }
+            false // remove actor
+        });
 
         // Execute next messages
         for actor in self.actors.values_mut() {

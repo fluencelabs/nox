@@ -14,14 +14,7 @@
  * limitations under the License.
  */
 
-use crate::awaited_particle::AwaitedParticle;
-use crate::error::AquamarineApiError;
-use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
-use crate::AwaitedEffects;
-
-use particle_protocol::Particle;
-
-use futures::FutureExt;
+use std::collections::HashMap;
 use std::ops::Mul;
 use std::{
     collections::VecDeque,
@@ -29,49 +22,38 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-#[derive(Debug, Clone)]
-pub struct Deadline {
-    timestamp: u64,
-    ttl: u32,
-}
+use avm_server::{CallRequestParams, CallServiceResult};
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
+use futures::FutureExt;
 
-impl Deadline {
-    pub fn from(particle: &Particle) -> Self {
-        Self {
-            timestamp: particle.timestamp,
-            ttl: particle.ttl,
-        }
-    }
+use particle_protocol::Particle;
 
-    pub fn is_expired(&self, now_ms: u64) -> bool {
-        self.timestamp
-            .mul(1000)
-            .checked_add(self.ttl as u64)
-            // Whether ts is in the past
-            .map(|ts| ts < now_ms)
-            // If timestamp + ttl gives overflow, consider particle expired
-            .unwrap_or_else(|| {
-                log::warn!("timestamp {} + ttl {} overflowed", self.timestamp, self.ttl);
-                true
-            })
-    }
-}
+use crate::awaited_particle::AwaitedParticle;
+use crate::deadline::Deadline;
+use crate::error::AquamarineApiError;
+use crate::functions::Functions;
+use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
+use crate::AwaitedEffects;
 
-pub struct Actor<RT> {
+pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
     future: Option<Fut<RT>>,
     mailbox: VecDeque<AwaitedParticle>,
     waker: Option<Waker>,
+    functions: Functions<F>,
 }
 
-impl<RT> Actor<RT>
+impl<RT, F> Actor<RT, F>
 where
     RT: ParticleExecutor<Particle = AwaitedParticle, Future = Fut<RT>>,
+    F: Fn((CallRequestParams, Particle)) -> BoxFuture<CallServiceResult>,
 {
-    pub fn new(deadline: Deadline) -> Self {
+    pub fn new(deadline: Deadline, host_functions: F) -> Self {
         Self {
             deadline,
+            functions: Functions::new(host_functions),
             future: None,
             mailbox: <_>::default(),
             waker: <_>::default(),
@@ -80,6 +62,15 @@ where
 
     pub fn is_expired(&self, now_ms: u64) -> bool {
         self.deadline.is_expired(now_ms)
+    }
+
+    pub fn is_executing(&self) -> bool {
+        self.future.is_some()
+    }
+
+    pub fn cleanup(particle_id: &str) -> eyre::Result<()> {
+        // TODO: remove vault and particle data, maybe particle_functions?
+        todo!(particle_id)
     }
 
     pub fn mailbox_size(&self) -> usize {
@@ -103,7 +94,7 @@ where
             Some((Poll::Ready(r), _)) => Poll::Ready(r),
             o => {
                 // Either keep pending future or keep it None
-                self.future = o.map(|t| t.1);
+                self.future = o.map(|(_, fut)| fut);
                 Poll::Pending
             }
         }
@@ -117,7 +108,7 @@ where
         self.waker = Some(cx.waker().clone());
 
         // Return vm if previous particle is still executing
-        if self.future.is_some() {
+        if self.is_executing() {
             return ActorPoll::Vm(vm);
         }
 

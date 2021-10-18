@@ -194,7 +194,9 @@ dependencies = [
  "humantime 2.1.0",
  "log",
  "parking_lot 0.11.1",
+ "particle-closures",
  "particle-protocol",
+ "particle-services",
  "serde_json",
  "thiserror",
 ]
@@ -3494,6 +3496,7 @@ dependencies = [
  "bs58 0.3.1",
  "connection-pool",
  "fluence-fork-libp2p",
+ "futures",
  "host-closure",
  "humantime-serde",
  "ivalue-utils",
@@ -3622,7 +3625,6 @@ dependencies = [
 name = "particle-services"
 version = "0.1.0"
 dependencies = [
- "aquamarine",
  "base64 0.13.0",
  "config-utils",
  "derivative",

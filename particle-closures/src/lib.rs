@@ -30,6 +30,10 @@
 mod error;
 mod host_functions;
 mod identify;
+mod particle_functions;
 
 pub use host_functions::HostFunctions;
 pub use identify::NodeInfo;
+pub use particle_functions::{
+    Function as ParticleFunction, ParticleFunctions, ParticleFunctionsApi,
+};
