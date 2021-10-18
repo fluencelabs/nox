@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use crate::error::AquamarineApiError;
-use crate::observation::Observation;
-use crate::ParticleEffects;
+use std::ops::Deref;
 
 use fluence_libp2p::types::OneshotOutlet;
+use particle_protocol::Particle;
 
-use std::ops::Deref;
+use crate::error::AquamarineApiError;
+use crate::ParticleEffects;
 
 pub type EffectsChannel = OneshotOutlet<Result<ParticleEffects, AquamarineApiError>>;
 
@@ -28,24 +28,24 @@ pub type EffectsChannel = OneshotOutlet<Result<ParticleEffects, AquamarineApiErr
 /// A particle scheduled for execution.
 /// Execution will produce ParticleEffects, which are to be sent to `out`
 pub struct AwaitedParticle {
-    pub particle: Observation,
+    pub particle: Particle,
     pub out: EffectsChannel,
 }
 
-impl From<AwaitedParticle> for (Observation, EffectsChannel) {
-    fn from(item: AwaitedParticle) -> (Observation, EffectsChannel) {
+impl From<AwaitedParticle> for (Particle, EffectsChannel) {
+    fn from(item: AwaitedParticle) -> (Particle, EffectsChannel) {
         (item.particle, item.out)
     }
 }
 
-impl AsRef<Observation> for AwaitedParticle {
-    fn as_ref(&self) -> &Observation {
+impl AsRef<Particle> for AwaitedParticle {
+    fn as_ref(&self) -> &Particle {
         &self.particle
     }
 }
 
 impl Deref for AwaitedParticle {
-    type Target = Observation;
+    type Target = Particle;
 
     fn deref(&self) -> &Self::Target {
         &self.particle
@@ -56,16 +56,16 @@ impl Deref for AwaitedParticle {
 /// Effects produced by particle execution along with destination that waits for those effects
 ///
 /// Kind of like a completed promise
-pub struct AwaitedEffects {
+pub struct AwaitedEffects<Eff> {
     /// Description of effects (e.g next_peer_pks of InterpreterOutcome) produced by particle execution
     /// or an error
-    pub effects: Result<ParticleEffects, AquamarineApiError>,
+    pub effects: Result<Eff, AquamarineApiError>,
     /// Destination that waits to receive ParticleEffects produced by particle execution
     pub out: EffectsChannel,
 }
 
-impl AwaitedEffects {
-    pub fn ok(effects: ParticleEffects, out: EffectsChannel) -> Self {
+impl<Eff> AwaitedEffects<Eff> {
+    pub fn ok(effects: Eff, out: EffectsChannel) -> Self {
         Self {
             effects: Ok(effects),
             out,

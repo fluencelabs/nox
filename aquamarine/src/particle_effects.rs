@@ -29,3 +29,10 @@ pub struct ParticleEffects {
     /// Instruction to execute host calls
     pub call_requests: CallRequests,
 }
+
+/// Network part of the [[ParticleEffects]. Can't be executed by Aquamarine layer,
+/// thus delegated to outside.
+pub struct NetworkEffects {
+    pub particle: Particle,
+    pub next_peers: Vec<PeerId>,
+}

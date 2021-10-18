@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-use crate::aqua_runtime::AquaRuntime;
-use crate::awaited_particle::AwaitedParticle;
-use crate::AwaitedEffects;
-
-use avm_server::CallResults;
-use particle_protocol::Particle;
-
-use async_std::task;
-use futures::{future::BoxFuture, FutureExt};
-use humantime::format_duration as pretty;
 use std::{task::Waker, time::Instant};
 
-pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT>>;
+use async_std::task;
+use avm_server::{CallRequests, CallResults};
+use futures::{future::BoxFuture, FutureExt};
+use humantime::format_duration as pretty;
+
+use particle_protocol::Particle;
+
+use crate::aqua_runtime::AquaRuntime;
+use crate::awaited_particle::AwaitedParticle;
+use crate::{AwaitedEffects, ParticleEffects};
+
+pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects>>;
 
 pub trait ParticleExecutor {
     type Future;
@@ -35,24 +36,24 @@ pub trait ParticleExecutor {
 }
 
 /// Result of a particle execution along a VM that has just executed the particle
-pub struct FutResult<RT> {
+pub struct FutResult<RT, Eff> {
     /// AVM that just executed a particle
     pub vm: RT,
     /// Effects produced by particle execution
-    pub effects: AwaitedEffects,
+    pub effects: AwaitedEffects<Eff>,
 }
 
 impl<RT: AquaRuntime> ParticleExecutor for RT {
     type Future = Fut<Self>;
-    type Particle = AwaitedParticle;
+    type Particle = (AwaitedParticle, CallResults);
 
-    fn execute(mut self, p: AwaitedParticle, waker: Waker) -> Self::Future {
+    fn execute(mut self, p: Self::Particle, waker: Waker) -> Self::Future {
         task::spawn_blocking(move || {
             let now = Instant::now();
             log::info!("Executing particle {}", p.id);
 
-            let (observation, out) = p.into();
-            let (p, calls): (Particle, CallResults) = observation.into();
+            let (particle, calls) = p;
+            let (p, out) = particle.into();
 
             let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), &p.id, &calls);
             if let Err(err) = &result {

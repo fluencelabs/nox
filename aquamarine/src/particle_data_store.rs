@@ -22,8 +22,7 @@ use thiserror::Error;
 use fs_utils::{create_dir, remove_dir};
 use DataStoreError::{CleanupData, CreateDataStore, StoreData};
 
-use crate::ParticleVault;
-use particle_services::particle_vault::VaultError;
+use particle_services::{ParticleVault, VaultError};
 
 type Result<T> = std::result::Result<T, DataStoreError>;
 

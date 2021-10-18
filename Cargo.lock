@@ -194,7 +194,7 @@ dependencies = [
  "humantime 2.1.0",
  "log",
  "parking_lot 0.11.1",
- "particle-closures",
+ "particle-functions",
  "particle-protocol",
  "particle-services",
  "serde_json",
@@ -3488,7 +3488,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "particle-closures"
+name = "particle-functions"
 version = "0.2.0"
 dependencies = [
  "async-std",
@@ -3581,7 +3581,7 @@ dependencies = [
  "multihash",
  "now-millis",
  "parking_lot 0.11.1",
- "particle-closures",
+ "particle-functions",
  "particle-modules",
  "particle-protocol",
  "prometheus",

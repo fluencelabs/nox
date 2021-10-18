@@ -14,40 +14,44 @@
  * limitations under the License.
  */
 
-use crate::actor::{Actor, ActorPoll, Deadline};
-use crate::config::VmPoolConfig;
-use crate::vm_pool::VmPool;
-
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
     task::{Context, Poll},
 };
 
+use futures::task::Waker;
+
+/// For tests, mocked time is used
+#[cfg(test)]
+use mock_time::now_ms;
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
 
+use crate::actor::{Actor, ActorPoll, Deadline};
 use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
-use futures::task::Waker;
-/// For tests, mocked time is used
-#[cfg(test)]
-use mock_time::now_ms;
+use crate::config::VmPoolConfig;
+use crate::functions::{Functions, HostFunction};
+use crate::particle_effects::NetworkEffects;
+use crate::vm_pool::VmPool;
+use particle_functions::particle_params::ParticleParams;
 
-pub struct Plumber<RT: AquaRuntime> {
-    events: VecDeque<AwaitedEffects>,
-    actors: HashMap<String, Actor<RT>>,
+pub struct Plumber<RT, F> {
+    events: VecDeque<AwaitedEffects<NetworkEffects>>,
+    actors: HashMap<String, Actor<RT, F>>,
     vm_pool: VmPool<RT>,
+    host_functions: F,
     waker: Option<Waker>,
 }
 
-impl<RT: AquaRuntime> Plumber<RT> {
-    pub fn new(config: VmPoolConfig, vm_config: RT::Config) -> Self {
-        let vm_pool = VmPool::new(config.pool_size, vm_config);
+impl<RT: AquaRuntime, F: HostFunction> Plumber<RT, F> {
+    pub fn new(vm_pool: VmPool<RT>, host_functions: F) -> Self {
         Self {
             vm_pool,
             events: <_>::default(),
             actors: <_>::default(),
+            host_functions,
             waker: <_>::default(),
         }
     }
@@ -64,13 +68,18 @@ impl<RT: AquaRuntime> Plumber<RT> {
         }
 
         match self.actors.entry(particle.id.clone()) {
-            Entry::Vacant(entry) => entry.insert(Actor::new(deadline)).ingest(particle),
+            Entry::Vacant(entry) => {
+                let params = ParticleParams::clone_from(&particle);
+                let functions = Functions::new(params, self.host_functions.clone());
+                let actor = Actor::new(deadline, functions);
+                entry.insert(actor).ingest(particle)
+            }
             Entry::Occupied(mut entry) => entry.get_mut().ingest(particle),
         }
     }
 
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<AwaitedEffects> {
-        self.waker = cx.waker().clone().into();
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<AwaitedEffects<NetworkEffects>> {
+        self.waker = Some(cx.waker().clone());
 
         self.vm_pool.poll(cx);
 

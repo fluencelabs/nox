@@ -196,7 +196,7 @@ impl ParticleAppServices {
     pub fn call_service(
         &self,
         function_args: Args,
-        particle: Particle,
+        particle: ParticleParams,
     ) -> Result<JValue, ServiceError> {
         let services = self.services.read();
         let aliases = self.aliases.read();

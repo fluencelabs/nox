@@ -30,19 +30,26 @@ use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
 use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::EffectsChannel;
 use crate::error::AquamarineApiError;
+use crate::functions::HostFunction;
 use crate::observation::Observation;
+use crate::vm_pool::VmPool;
 use crate::{AwaitedEffects, AwaitedParticle, ParticleEffects, Plumber, VmPoolConfig};
 
-pub struct AquamarineBackend<RT: AquaRuntime> {
+pub struct AquamarineBackend<RT, F> {
     inlet: BackPressuredInlet<(Observation, EffectsChannel)>,
-    plumber: Plumber<RT>,
+    plumber: Plumber<RT, F>,
 }
 
-impl<RT: AquaRuntime> AquamarineBackend<RT> {
-    pub fn new(config: VmPoolConfig, runtime_config: RT::Config) -> (Self, AquamarineApi) {
+impl<RT: AquaRuntime, F: HostFunction> AquamarineBackend<RT, F> {
+    pub fn new(
+        config: VmPoolConfig,
+        runtime_config: RT::Config,
+        host_functions: F,
+    ) -> (Self, AquamarineApi) {
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
-        let plumber = Plumber::new(config, runtime_config);
+        let vm_pool = VmPool::new(config.pool_size, runtime_config);
+        let plumber = Plumber::new(vm_pool, host_functions);
         let this = Self { inlet, plumber };
 
         (this, sender)

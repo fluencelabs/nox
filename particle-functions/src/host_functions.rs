@@ -15,6 +15,7 @@
  */
 
 use std::borrow::{Borrow, Cow};
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::num::ParseIntError;
 use std::path::PathBuf;
@@ -45,8 +46,8 @@ use server_config::ServicesConfig;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
+use crate::particle_params::ParticleParams;
 use crate::ParticleFunction;
-use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct HostFunctions<C> {
@@ -91,12 +92,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     // TODO: get rid of all blocking methods (std::fs and such)
-    pub async fn call(
-        &self,
-        call_request: CallRequestParams,
-        particle: Particle,
-        mut functions: HashMap<(Cow<str>, Cow<str>), ParticleFunction>,
-    ) -> CallServiceResult {
+    pub async fn call(&self, args: Args, particle: ParticleParamsParams) -> CallServiceResult {
         let args = match Args::try_from(call_request) {
             Ok(args) => args,
             Err(err) => {
@@ -113,11 +109,6 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         log::trace!("Host function call, args: {:#?}", args);
         let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
-
-        let mut function = functions.get_mut(&(
-            Cow::Borrowed(args.service_id.as_str()),
-            Cow::Borrowed(args.function_name.as_str()),
-        ));
 
         let start = Instant::now();
         #[rustfmt::skip]
@@ -167,7 +158,6 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
             ("op", "identity")                => self.identity(args.function_args),
 
-            _ if function.is_some()           => wrap(function.unwrap()(args, particle)),
             _                                 => wrap(self.call_service(args, particle)),
         };
         let elapsed = pretty(start.elapsed());
@@ -235,7 +225,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(contact.map(|c| json!(c)))
     }
 
-    fn add_script(&self, args: Args, params: Particle) -> Result<JValue, JError> {
+    fn add_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
         let script: String = Args::next("script", &mut args)?;
@@ -255,7 +245,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(json!(id))
     }
 
-    async fn remove_script(&self, args: Args, params: Particle) -> Result<JValue, JError> {
+    async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
         let force = params.init_peer_id == self.management_peer_id;
@@ -453,7 +443,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(JValue::String(module_hash))
     }
 
-    fn add_module_from_vault(&self, args: Args, params: Particle) -> Result<JValue, JError> {
+    fn add_module_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_path: String = Args::next("module_path", &mut args)?;
         let config = Args::next("config", &mut args)?;
@@ -512,7 +502,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn load_module_config_from_vault(
         &self,
         args: Args,
-        params: Particle,
+        params: ParticleParams,
     ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let config_path: String = Args::next("config_path", &mut args)?;
@@ -556,7 +546,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(blueprint_request)
     }
 
-    fn load_blueprint_from_vault(&self, args: Args, params: Particle) -> Result<JValue, JError> {
+    fn load_blueprint_from_vault(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_path = Args::next("blueprint_path", &mut args)?;
 
@@ -595,7 +589,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             .collect()
     }
 
-    fn create_service(&self, args: Args, params: Particle) -> Result<JValue, JError> {
+    fn create_service(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
 
@@ -606,7 +600,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(JValue::String(service_id))
     }
 
-    fn remove_service(&self, args: Args, params: Particle) -> Result<(), JError> {
+    fn remove_service(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
 
@@ -619,7 +613,11 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         JValue::Array(self.services.list_services())
     }
 
-    fn call_service(&self, function_args: Args, particle: Particle) -> Result<JValue, JError> {
+    fn call_service(
+        &self,
+        function_args: Args,
+        particle: ParticleParams,
+    ) -> Result<JValue, JError> {
         Ok(self.services.call_service(function_args, particle)?)
     }
 
@@ -629,7 +627,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(self.services.get_interface(service_id)?)
     }
 
-    fn add_alias(&self, args: Args, params: Particle) -> Result<(), JError> {
+    fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
 
         let alias: String = Args::next("alias", &mut args)?;

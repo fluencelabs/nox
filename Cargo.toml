@@ -30,7 +30,7 @@ members = [
     "aquamarine",
     "particle-protocol",
     "particle-services",
-    "particle-closures",
+    "particle-functions",
     "particle-modules",
     "connection-pool",
     "script-storage",

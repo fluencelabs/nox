@@ -35,48 +35,6 @@ pub struct Args {
 }
 
 impl Args {
-    /// Construct Args from `Vec<IValue>`
-    pub fn parse(call_args: Vec<IValue>) -> Result<Args, ArgsError> {
-        let mut call_args = call_args.into_iter();
-        let service_id = call_args
-            .next()
-            .and_then(into_string)
-            .ok_or(MissingField("service_id"))?;
-
-        let fname = call_args
-            .next()
-            .and_then(into_string)
-            .ok_or(MissingField("fname"))?;
-
-        let function_args = call_args
-            .next()
-            .as_ref()
-            .and_then(as_str)
-            .ok_or(MissingField("args"))
-            .and_then(|v| {
-                serde_json::from_str(v).map_err(|err| SerdeJson { field: "args", err })
-            })?;
-
-        let tetraplets: Vec<Vec<SecurityTetraplet>> = call_args
-            .next()
-            .as_ref()
-            .and_then(as_str)
-            .ok_or(MissingField("tetraplets"))
-            .and_then(|v| {
-                serde_json::from_str(v).map_err(|err| SerdeJson {
-                    field: "tetraplets",
-                    err,
-                })
-            })?;
-
-        Ok(Args {
-            service_id,
-            function_name: fname,
-            function_args,
-            tetraplets,
-        })
-    }
-
     /// Retrieves next json value from iterator, parse it to T
     /// `field` is to generate a more accurate error message
     pub fn next<T: for<'de> Deserialize<'de>>(

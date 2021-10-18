@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::{peerid_serializer, RandomPeerId};
-use json_utils::base64_serde;
+use std::time::Duration;
 
 use derivative::Derivative;
 use libp2p::PeerId;
-use now_millis::now_ms;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+
+use fluence_libp2p::{peerid_serializer, RandomPeerId};
+use json_utils::base64_serde;
+use now_millis::now_ms;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
 #[derivative(Debug)]

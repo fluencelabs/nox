@@ -22,7 +22,7 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-use avm_server::{CallRequestParams, CallServiceResult};
+use avm_server::{CallRequestParams, CallResults, CallServiceResult};
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
@@ -32,9 +32,10 @@ use particle_protocol::Particle;
 use crate::awaited_particle::AwaitedParticle;
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
-use crate::functions::Functions;
+use crate::functions::{Functions, HostFunction};
+use crate::particle_effects::NetworkEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
-use crate::AwaitedEffects;
+use crate::{AwaitedEffects, ParticleEffects};
 
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
@@ -47,13 +48,13 @@ pub struct Actor<RT, F> {
 
 impl<RT, F> Actor<RT, F>
 where
-    RT: ParticleExecutor<Particle = AwaitedParticle, Future = Fut<RT>>,
-    F: Fn((CallRequestParams, Particle)) -> BoxFuture<CallServiceResult>,
+    RT: ParticleExecutor<Particle = (AwaitedParticle, CallResults), Future = Fut<RT>>,
+    F: HostFunction,
 {
-    pub fn new(deadline: Deadline, host_functions: F) -> Self {
+    pub fn new(deadline: Deadline, functions: Functions<F>) -> Self {
         Self {
             deadline,
-            functions: Functions::new(host_functions),
+            functions,
             future: None,
             mailbox: <_>::default(),
             waker: <_>::default(),
@@ -69,7 +70,7 @@ where
     }
 
     pub fn cleanup(particle_id: &str) -> eyre::Result<()> {
-        // TODO: remove vault and particle data, maybe particle_functions?
+        // TODO: remove vault and particle data, maybe also particle_functions?
         todo!(particle_id)
     }
 
@@ -83,21 +84,49 @@ where
     }
 
     /// Polls actor for result on previously ingested particle
-    pub fn poll_completed(&mut self, cx: &mut Context<'_>) -> Poll<FutResult<RT>> {
+    pub fn poll_completed(&mut self, cx: &mut Context<'_>) -> Poll<FutResult<RT, NetworkEffects>> {
         self.waker = Some(cx.waker().clone());
 
-        // Poll self.future
-        let future = self.future.take().map(|mut fut| (fut.poll_unpin(cx), fut));
+        self.functions.poll();
 
-        match future {
-            // If future is ready, return effects and vm
-            Some((Poll::Ready(r), _)) => Poll::Ready(r),
-            o => {
-                // Either keep pending future or keep it None
-                self.future = o.map(|(_, fut)| fut);
-                Poll::Pending
-            }
+        // Poll AquaVM future
+        if let Some(Poll::Ready(r)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
+            self.future.clear();
+
+            let effects = match r.effects.effects {
+                Ok(effects) => {
+                    // Schedule execution of functions
+                    self.functions.execute(effects.call_requests);
+                    Ok(NetworkEffects {
+                        particle: effects.particle,
+                        next_peers: effects.next_peers,
+                    })
+                }
+                Err(err) => Err(err),
+            };
+
+            return Poll::Ready(FutResult {
+                vm: r.vm,
+                effects: AwaitedEffects {
+                    effects,
+                    out: r.effects.out,
+                },
+            });
         }
+
+        Poll::Pending
+
+        // Poll self.future
+        // let future = self.future.take().map(|mut fut| (fut.poll_unpin(cx), fut));
+        // match future {
+        //     // If future is ready, return effects and vm
+        //     Some((Poll::Ready(r), _)) => Poll::Ready(r),
+        //     o => {
+        //         // Either keep pending future or keep it None
+        //         self.future = o.map(|(_, fut)| fut);
+        //         Poll::Pending
+        //     }
+        // }
     }
 
     /// Provide actor with new `vm` to execute particles, if there are any.
@@ -107,6 +136,8 @@ where
     pub fn poll_next(&mut self, vm: RT, cx: &mut Context<'_>) -> ActorPoll<RT> {
         self.waker = Some(cx.waker().clone());
 
+        self.functions.poll();
+
         // Return vm if previous particle is still executing
         if self.is_executing() {
             return ActorPoll::Vm(vm);
@@ -114,9 +145,12 @@ where
 
         match self.mailbox.pop_front() {
             Some(p) if !p.is_expired() => {
-                // Take ownership of vm to process particle
+                // Gather CallResults
+                let calls = self.functions.drain();
+
                 // TODO: add timeout for execution
-                self.future = vm.execute(p, cx.waker().clone()).into();
+                // Take ownership of vm to process particle
+                self.future = Some(vm.execute((p, calls), cx.waker().clone()));
                 ActorPoll::Executing
             }
             Some(p) => {
@@ -142,5 +176,5 @@ where
 pub enum ActorPoll<RT> {
     Executing,
     Vm(RT),
-    Expired(AwaitedEffects, RT),
+    Expired(AwaitedEffects<NetworkEffects>, RT),
 }
