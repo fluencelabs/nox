@@ -50,7 +50,7 @@ use crate::particle_params::ParticleParams;
 use crate::ParticleFunction;
 
 #[derive(Debug, Clone)]
-pub struct HostFunctions<C> {
+pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
@@ -62,9 +62,7 @@ pub struct HostFunctions<C> {
     pub node_info: NodeInfo,
 }
 
-impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
-    HostFunctions<C>
-{
+impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>> Builtins<C> {
     pub fn new(
         connectivity: C,
         script_storage: ScriptStorageApi,

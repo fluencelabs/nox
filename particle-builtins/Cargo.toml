@@ -1,5 +1,5 @@
 [package]
-name = "particle-functions"
+name = "particle-builtins"
 version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2018"

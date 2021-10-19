@@ -30,8 +30,8 @@ use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
 use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::EffectsChannel;
 use crate::error::AquamarineApiError;
-use crate::functions::HostFunction;
 use crate::observation::Observation;
+use crate::particle_functions::HostFunction;
 use crate::vm_pool::VmPool;
 use crate::{AwaitedEffects, AwaitedParticle, ParticleEffects, Plumber, VmPoolConfig};
 

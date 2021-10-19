@@ -32,8 +32,8 @@ use crate::actor::{Actor, ActorPoll, Deadline};
 use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
 use crate::config::VmPoolConfig;
-use crate::functions::{Functions, HostFunction};
 use crate::particle_effects::NetworkEffects;
+use crate::particle_functions::{Functions, HostFunction};
 use crate::vm_pool::VmPool;
 use particle_functions::particle_params::ParticleParams;
 

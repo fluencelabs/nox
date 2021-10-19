@@ -18,7 +18,6 @@ use crate::args_error::ArgsError::{self, MissingField, SerdeJson};
 
 use control_macro::ok_get;
 use fluence_app_service::SecurityTetraplet;
-use ivalue_utils::{as_str, into_string, IValue};
 
 use avm_server::CallRequestParams;
 use serde::Deserialize;

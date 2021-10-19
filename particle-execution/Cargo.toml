@@ -1,0 +1,11 @@
+[package]
+name = "particle-execution"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+particle-protocol = { path = "../particle-protocol" }
+fluence-libp2p = { path = "../crates/libp2p" }
+fs-utils = { path = "../crates/fs-utils" }
+
+thiserror = "1.0.24"

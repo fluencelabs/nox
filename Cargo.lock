@@ -194,7 +194,8 @@ dependencies = [
  "humantime 2.1.0",
  "log",
  "parking_lot 0.11.1",
- "particle-functions",
+ "particle-builtins",
+ "particle-execution",
  "particle-protocol",
  "particle-services",
  "serde_json",
@@ -3488,7 +3489,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "particle-functions"
+name = "particle-builtins"
 version = "0.2.0"
 dependencies = [
  "async-std",
@@ -3515,6 +3516,16 @@ dependencies = [
  "server-config",
  "thiserror",
  "toml-utils",
+]
+
+[[package]]
+name = "particle-execution"
+version = "0.1.0"
+dependencies = [
+ "fluence-libp2p",
+ "fs-utils",
+ "particle-protocol",
+ "thiserror",
 ]
 
 [[package]]
@@ -3581,7 +3592,7 @@ dependencies = [
  "multihash",
  "now-millis",
  "parking_lot 0.11.1",
- "particle-functions",
+ "particle-builtins",
  "particle-modules",
  "particle-protocol",
  "prometheus",
@@ -3637,6 +3648,7 @@ dependencies = [
  "json-utils",
  "log",
  "parking_lot 0.11.1",
+ "particle-execution",
  "particle-modules",
  "particle-protocol",
  "serde",

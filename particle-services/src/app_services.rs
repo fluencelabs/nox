@@ -25,8 +25,8 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::PeerId;
 use host_closure::Args;
+use particle_execution::{ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
-use particle_protocol::Particle;
 use server_config::ServicesConfig;
 
 use crate::app_service::create_app_service;
@@ -35,7 +35,6 @@ use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
-use crate::{ParticleVault, VaultError};
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
@@ -86,6 +85,7 @@ pub struct VmDescriptor<'a> {
 #[derive(Debug, Clone)]
 pub struct ParticleAppServices {
     config: ServicesConfig,
+    // TODO: move vault to Plumber or Actor
     vault: ParticleVault,
     services: Services,
     modules: ModuleRepository,
@@ -212,6 +212,7 @@ impl ParticleAppServices {
                 e => e,
             })?;
 
+        // TODO: move particle vault creation to aquamarine::particle_functions
         self.create_vault(&particle.id)?;
 
         let params = CallParameters {

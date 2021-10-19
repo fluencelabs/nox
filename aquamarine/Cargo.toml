@@ -7,13 +7,14 @@ edition = "2018"
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
 particle-services = { path = "../particle-services"}
-particle-functions = { path = "../particle-functions"}
+particle-builtins = { path = "../particle-builtins" }
 
 fluence-libp2p = { path = "../crates/libp2p" }
 config-utils = { path = "../crates/config-utils" }
 host-closure = { path = "../crates/host-closure" }
 control-macro = { path = "../crates/control-macro" }
 fs-utils = { path = "../crates/fs-utils" }
+particle-execution = { path = "../particle-execution" }
 
 avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async" }
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }

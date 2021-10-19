@@ -32,9 +32,9 @@ use particle_protocol::Particle;
 use crate::awaited_particle::AwaitedParticle;
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
-use crate::functions::{Functions, HostFunction};
 use crate::particle_effects::NetworkEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
+use crate::particle_functions::{Functions, HostFunction};
 use crate::{AwaitedEffects, ParticleEffects};
 
 pub struct Actor<RT, F> {

@@ -27,14 +27,14 @@
     unreachable_patterns
 )]
 
-pub use host_functions::HostFunctions;
+pub use builtins::Builtins;
 pub use identify::NodeInfo;
 pub use particle_functions::{
     Function as ParticleFunction, ParticleFunctions, ParticleFunctionsApi,
 };
 
+mod builtins;
 mod error;
-mod host_functions;
 mod identify;
 mod particle_functions;
 pub mod particle_params;

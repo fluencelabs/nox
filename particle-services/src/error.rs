@@ -20,10 +20,10 @@ use fluence_app_service::AppServiceError;
 use serde_json::Value as JValue;
 use thiserror::Error;
 
-use aquamarine::VaultError;
 use fluence_libp2p::PeerId;
 use host_closure::ArgsError;
 use json_utils::err_as_value;
+use particle_execution::VaultError;
 use particle_modules::ModuleError;
 
 #[derive(Debug, Error)]

@@ -18,8 +18,9 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
-use crate::particle_vault::VaultError::{CleanupVault, CreateVault, InitializeVault};
 use fs_utils::{create_dir, remove_dir};
+
+use VaultError::{CleanupVault, CreateVault, InitializeVault};
 
 #[derive(Debug, Clone)]
 pub struct ParticleVault {
