@@ -33,8 +33,6 @@ pub struct ConnectivityTasks {
 pub struct DispatcherTasks {
     /// Task that processes particles from particle stream
     pub particles: Option<JoinHandle<()>>,
-    /// Task that runs particles after CallRequests are processed
-    pub observations: Option<JoinHandle<()>>,
 }
 
 impl ConnectivityTasks {
@@ -78,10 +76,9 @@ impl FusedFuture for ConnectivityTasks {
 }
 
 impl DispatcherTasks {
-    pub fn new(particles: JoinHandle<()>, observations: JoinHandle<()>) -> Self {
+    pub fn new(particles: JoinHandle<()>) -> Self {
         Self {
             particles: Some(particles),
-            observations: Some(observations),
         }
     }
 
@@ -89,9 +86,6 @@ impl DispatcherTasks {
         if let Some(particles) = self.particles {
             particles.cancel().await;
         };
-        if let Some(observations) = self.observations {
-            observations.cancel().await;
-        }
     }
 }
 
@@ -100,7 +94,6 @@ impl Future for DispatcherTasks {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         poll_opt(&mut self.particles, cx);
-        poll_opt(&mut self.observations, cx);
 
         if self.is_terminated() {
             log::warn!("DispatcherTasks terminated");
@@ -113,7 +106,7 @@ impl Future for DispatcherTasks {
 
 impl FusedFuture for DispatcherTasks {
     fn is_terminated(&self) -> bool {
-        self.observations.is_none() && self.particles.is_none()
+        self.particles.is_none()
     }
 }
 

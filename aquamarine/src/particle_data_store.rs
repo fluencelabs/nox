@@ -20,9 +20,8 @@ use avm_server::DataStore;
 use thiserror::Error;
 
 use fs_utils::{create_dir, remove_dir};
+use particle_execution::{ParticleVault, VaultError};
 use DataStoreError::{CleanupData, CreateDataStore, StoreData};
-
-use particle_services::{ParticleVault, VaultError};
 
 type Result<T> = std::result::Result<T, DataStoreError>;
 

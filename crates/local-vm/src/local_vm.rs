@@ -29,8 +29,8 @@ use serde_json::{Value as JValue, Value};
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{DataStoreError, ParticleDataStore};
 use fs_utils::make_tmp_dir;
-use host_closure::{Args, JError};
 use now_millis::now_ms;
+use particle_args::{Args, JError};
 use particle_protocol::Particle;
 use uuid_utils::uuid;
 

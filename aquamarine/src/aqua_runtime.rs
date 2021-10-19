@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-use crate::config::VmConfig;
-use crate::invoke::{parse_outcome, ExecutionError};
-use crate::particle_data_store::{DataStoreError, ParticleDataStore};
-use crate::ParticleEffects;
-use avm_server::{AVMConfig, AVMError, AVMOutcome, CallResults, AVM};
-use particle_protocol::Particle;
+use std::{error::Error, task::Waker};
 
 use async_std::task;
+use avm_server::{AVMConfig, AVMError, AVMOutcome, CallResults, AVM};
 use futures::{future::BoxFuture, FutureExt};
 use libp2p::PeerId;
 use log::LevelFilter;
-use std::{error::Error, task::Waker};
+
+use particle_protocol::Particle;
+
+use crate::config::VmConfig;
+use crate::invoke::{parse_outcome, ExecutionError};
+use crate::particle_data_store::{DataStoreError, ParticleDataStore};
+use crate::particle_effects::ParticleEffects;
 
 pub trait AquaRuntime: Sized + Send + 'static {
     type Config: Clone + Send + 'static;

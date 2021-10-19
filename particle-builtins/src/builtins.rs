@@ -31,10 +31,11 @@ use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use host_closure::{from_base58, Args, ArgsError, JError};
 use ivalue_utils::{error, into_record, into_record_opt, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
+use particle_args::{from_base58, Args, ArgsError, JError};
+use particle_execution::ParticleParams;
 use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
@@ -46,8 +47,6 @@ use server_config::ServicesConfig;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
-use crate::particle_params::ParticleParams;
-use crate::ParticleFunction;
 
 #[derive(Debug, Clone)]
 pub struct Builtins<C> {
@@ -62,7 +61,10 @@ pub struct Builtins<C> {
     pub node_info: NodeInfo,
 }
 
-impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>> Builtins<C> {
+impl<C> Builtins<C>
+where
+    C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
+{
     pub fn new(
         connectivity: C,
         script_storage: ScriptStorageApi,
@@ -90,27 +92,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     }
 
     // TODO: get rid of all blocking methods (std::fs and such)
-    pub async fn call(&self, args: Args, particle: ParticleParamsParams) -> CallServiceResult {
-        let args = match Args::try_from(call_request) {
-            Ok(args) => args,
-            Err(err) => {
-                return CallServiceResult {
-                    ret_code: 1,
-                    result: json!(format!(
-                        "Failed to deserialize CallRequestParams to Args: {}",
-                        err
-                    ))
-                    .to_string(),
-                }
-            }
-        };
-
-        log::trace!("Host function call, args: {:#?}", args);
-        let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
-
-        let start = Instant::now();
+    pub async fn call(
+        &self,
+        args: Args,
+        particle: ParticleParams,
+    ) -> Result<Option<JValue>, JError> {
         #[rustfmt::skip]
-        let result = match (args.service_id.as_str(), args.function_name.as_str()) {
+        match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
             ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
@@ -157,23 +145,6 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             ("op", "identity")                => self.identity(args.function_args),
 
             _                                 => wrap(self.call_service(args, particle)),
-        };
-        let elapsed = pretty(start.elapsed());
-        if let Err(err) = &result {
-            log::warn!("Failed host call {} ({}): {}", log_args, elapsed, err)
-        } else {
-            log::info!("Executed host call {} ({})", log_args, elapsed);
-        };
-
-        match result {
-            Ok(v) => CallServiceResult {
-                ret_code: 0,
-                result: v.map_or(json!(""), |v| json!(v)).to_string(),
-            },
-            Err(e) => CallServiceResult {
-                ret_code: 1,
-                result: json!(JValue::from(e)).to_string(),
-            },
         }
     }
 

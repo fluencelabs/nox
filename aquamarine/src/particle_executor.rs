@@ -17,15 +17,14 @@
 use std::{task::Waker, time::Instant};
 
 use async_std::task;
-use avm_server::{CallRequests, CallResults};
+use avm_server::CallResults;
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
 
-use particle_protocol::Particle;
-
 use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::AwaitedParticle;
-use crate::{AwaitedEffects, ParticleEffects};
+use crate::particle_effects::ParticleEffects;
+use crate::AwaitedEffects;
 
 pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects>>;
 
@@ -50,9 +49,9 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
     fn execute(mut self, p: Self::Particle, waker: Waker) -> Self::Future {
         task::spawn_blocking(move || {
             let now = Instant::now();
-            log::info!("Executing particle {}", p.id);
-
             let (particle, calls) = p;
+            log::info!("Executing particle {}", particle.id);
+
             let (p, out) = particle.into();
 
             let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), &p.id, &calls);

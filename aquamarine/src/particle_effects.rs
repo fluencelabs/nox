@@ -32,6 +32,7 @@ pub struct ParticleEffects {
 
 /// Network part of the [[ParticleEffects]. Can't be executed by Aquamarine layer,
 /// thus delegated to outside.
+#[derive(Clone, Debug)]
 pub struct NetworkEffects {
     pub particle: Particle,
     pub next_peers: Vec<PeerId>,

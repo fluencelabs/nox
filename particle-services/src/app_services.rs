@@ -24,7 +24,7 @@ use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::PeerId;
-use host_closure::Args;
+use particle_args::Args;
 use particle_execution::{ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;

@@ -12,7 +12,7 @@ members = [
     "crates/config-utils",
     "crates/service-modules",
     "crates/ivalue-utils",
-    "crates/host-closure",
+    "crates/particle-args",
     "crates/json-utils",
     "crates/server-config",
     "crates/kademlia",

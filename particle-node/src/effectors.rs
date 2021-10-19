@@ -15,49 +15,33 @@
  */
 
 use avm_server::{CallRequests, CallResults};
+use futures::stream::FuturesUnordered;
 use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
 
-use aquamarine::{Observation, ParticleEffects};
+use aquamarine::{NetworkEffects, Observation, ParticleEffects};
 use fluence_libp2p::types::{Inlet, Outlet};
-use particle_closures::{HostFunctions, ParticleFunctions};
 
 use crate::connectivity::Connectivity;
-use futures::stream::FuturesUnordered;
 
 #[derive(Debug, Clone)]
 pub struct Effectors {
     pub connectivity: Connectivity,
-    pub host_functions: HostFunctions<Connectivity>,
     pub particle_sink: Outlet<Observation>,
-    pub particle_functions: ParticleFunctions,
 }
 
 impl Effectors {
-    pub fn new(
-        connectivity: Connectivity,
-        host_functions: HostFunctions<Connectivity>,
-        particle_functions: ParticleFunctions,
-    ) -> (Self, Inlet<Observation>) {
+    pub fn new(connectivity: Connectivity) -> (Self, Inlet<Observation>) {
         let (particle_sink, particle_source) = futures::channel::mpsc::unbounded();
         let this = Self {
             connectivity,
-            host_functions,
             particle_sink,
-            particle_functions,
         };
 
         (this, particle_source)
     }
 
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute(mut self, effects: ParticleEffects) {
-        log::info!(
-            "ParticleEffects {}: {} calls, {} next peers",
-            effects.particle.id,
-            effects.call_requests.len(),
-            effects.next_peers.len()
-        );
-
+    pub async fn execute(mut self, effects: NetworkEffects) {
         if effects.particle.is_expired() {
             log::info!("Particle {} is expired", effects.particle.id);
             return;
@@ -80,32 +64,29 @@ impl Effectors {
         })
         .await;
 
-        // poll particle functions so any new functions are ingested
-        self.particle_functions.poll();
-
-        let crs = effects.call_requests;
-        let particle = effects.particle;
-        let host_functions = self.host_functions.clone();
-        let mut particle_sink = self.particle_sink.clone();
-
-        async_std::task::spawn_blocking(move || {
-            let host_functions = host_functions;
-            async_std::task::block_on(async {
-                let results = crs.into_iter().map(|(id, call)| {
-                    host_functions
-                        .call(call, particle.clone())
-                        .map(move |r| (id, r))
-                });
-                let results: FuturesUnordered<_> = results.collect();
-                let results: CallResults = results.collect().await;
-                let particle_id = particle.id.clone();
-                let observation = Observation::Next { particle, results };
-                let send = particle_sink.send(observation).await;
-                if let Err(e) = send {
-                    log::warn!("Failed to send particle {} to execution", particle_id);
-                }
-            })
-        })
-        .await;
+        // let crs = effects.call_requests;
+        // let particle = effects.particle;
+        // let host_functions = self.host_functions.clone();
+        // let mut particle_sink = self.particle_sink.clone();
+        //
+        // async_std::task::spawn_blocking(move || {
+        //     let host_functions = host_functions;
+        //     async_std::task::block_on(async {
+        //         let results = crs.into_iter().map(|(id, call)| {
+        //             host_functions
+        //                 .call(call, particle.clone())
+        //                 .map(move |r| (id, r))
+        //         });
+        //         let results: FuturesUnordered<_> = results.collect();
+        //         let results: CallResults = results.collect().await;
+        //         let particle_id = particle.id.clone();
+        //         let observation = Observation::Next { particle, results };
+        //         let send = particle_sink.send(observation).await;
+        //         if let Err(e) = send {
+        //             log::warn!("Failed to send particle {} to execution", particle_id);
+        //         }
+        //     })
+        // })
+        // .await;
     }
 }

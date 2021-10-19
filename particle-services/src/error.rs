@@ -21,8 +21,8 @@ use serde_json::Value as JValue;
 use thiserror::Error;
 
 use fluence_libp2p::PeerId;
-use host_closure::ArgsError;
 use json_utils::err_as_value;
+use particle_args::ArgsError;
 use particle_execution::VaultError;
 use particle_modules::ModuleError;
 

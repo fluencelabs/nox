@@ -190,10 +190,10 @@ dependencies = [
  "fluence-libp2p",
  "fs-utils",
  "futures",
- "host-closure",
  "humantime 2.1.0",
  "log",
  "parking_lot 0.11.1",
+ "particle-args",
  "particle-builtins",
  "particle-execution",
  "particle-protocol",
@@ -2553,23 +2553,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "host-closure"
-version = "0.1.0"
-dependencies = [
- "avm-server",
- "bs58 0.4.0",
- "control-macro",
- "eyre",
- "fluence-app-service",
- "ivalue-utils",
- "json-utils",
- "marine-runtime",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "http-client"
 version = "6.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2940,11 +2923,11 @@ dependencies = [
  "fluence-fork-libp2p",
  "fs-utils",
  "fstrings",
- "host-closure",
  "ivalue-utils",
  "log",
  "now-millis",
  "parking_lot 0.11.1",
+ "particle-args",
  "particle-protocol",
  "serde_json",
  "uuid-utils",
@@ -3489,6 +3472,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "particle-args"
+version = "0.1.0"
+dependencies = [
+ "avm-server",
+ "bs58 0.4.0",
+ "control-macro",
+ "eyre",
+ "fluence-app-service",
+ "ivalue-utils",
+ "json-utils",
+ "marine-runtime",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "particle-builtins"
 version = "0.2.0"
 dependencies = [
@@ -3498,7 +3498,6 @@ dependencies = [
  "connection-pool",
  "fluence-fork-libp2p",
  "futures",
- "host-closure",
  "humantime-serde",
  "ivalue-utils",
  "kademlia",
@@ -3506,6 +3505,8 @@ dependencies = [
  "multihash",
  "now-millis",
  "parking_lot 0.11.1",
+ "particle-args",
+ "particle-execution",
  "particle-modules",
  "particle-protocol",
  "particle-services",
@@ -3524,7 +3525,10 @@ version = "0.1.0"
 dependencies = [
  "fluence-libp2p",
  "fs-utils",
+ "futures",
+ "particle-args",
  "particle-protocol",
+ "serde_json",
  "thiserror",
 ]
 
@@ -3537,12 +3541,12 @@ dependencies = [
  "fluence-app-service",
  "fs-utils",
  "fstrings",
- "host-closure",
  "json-utils",
  "log",
  "marine-it-parser",
  "parking_lot 0.11.1",
- "particle-protocol",
+ "particle-args",
+ "particle-execution",
  "serde",
  "serde_json",
  "service-modules",
@@ -3644,10 +3648,10 @@ dependencies = [
  "fluence-fork-libp2p-core",
  "fluence-libp2p",
  "fs-utils",
- "host-closure",
  "json-utils",
  "log",
  "parking_lot 0.11.1",
+ "particle-args",
  "particle-execution",
  "particle-modules",
  "particle-protocol",
@@ -4890,9 +4894,9 @@ dependencies = [
  "created-swarm",
  "eyre",
  "fstrings",
- "host-closure",
  "ivalue-utils",
  "maplit",
+ "particle-args",
  "serde_json",
  "service-modules",
  "test-constants",

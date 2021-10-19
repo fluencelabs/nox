@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
     task::{Context, Poll},
@@ -24,34 +25,34 @@ use futures::task::Waker;
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
+use particle_execution::{ParticleFunction, ParticleParams};
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
 
-use crate::actor::{Actor, ActorPoll, Deadline};
+use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
-use crate::config::VmPoolConfig;
+use crate::deadline::Deadline;
 use crate::particle_effects::NetworkEffects;
-use crate::particle_functions::{Functions, HostFunction};
+use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
-use particle_functions::particle_params::ParticleParams;
 
-pub struct Plumber<RT, F> {
+pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<AwaitedEffects<NetworkEffects>>,
     actors: HashMap<String, Actor<RT, F>>,
     vm_pool: VmPool<RT>,
-    host_functions: F,
+    builtins: Arc<F>,
     waker: Option<Waker>,
 }
 
-impl<RT: AquaRuntime, F: HostFunction> Plumber<RT, F> {
-    pub fn new(vm_pool: VmPool<RT>, host_functions: F) -> Self {
+impl<RT: AquaRuntime, F: ParticleFunction + 'static> Plumber<RT, F> {
+    pub fn new(vm_pool: VmPool<RT>, builtins: F) -> Self {
         Self {
             vm_pool,
+            builtins: Arc::new(builtins),
             events: <_>::default(),
             actors: <_>::default(),
-            host_functions,
             waker: <_>::default(),
         }
     }
@@ -70,7 +71,7 @@ impl<RT: AquaRuntime, F: HostFunction> Plumber<RT, F> {
         match self.actors.entry(particle.id.clone()) {
             Entry::Vacant(entry) => {
                 let params = ParticleParams::clone_from(&particle);
-                let functions = Functions::new(params, self.host_functions.clone());
+                let functions = Functions::new(params, self.builtins.clone());
                 let actor = Actor::new(deadline, functions);
                 entry.insert(actor).ingest(particle)
             }

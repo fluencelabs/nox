@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 trust-graph = "0.2.7"
 ivalue-utils = { path = "../ivalue-utils" }
-host-closure = { path = "../host-closure" }
+particle-args = { path = "../particle-args" }
 connected-client = { path = "../connected-client" }
 created-swarm = { path = "../created-swarm" }
 test-constants = { path = "../test-constants" }

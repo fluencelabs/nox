@@ -16,46 +16,39 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::task::Poll;
+use std::convert::TryFrom;
+use std::task::{Context, Poll};
+use std::time::Instant;
 
 use async_std::sync::Arc;
 use avm_server::{CallRequestParams, CallRequests, CallResults, CallServiceResult};
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
+use humantime::format_duration as pretty;
+use parking_lot::Mutex;
+use serde_json::json;
 use serde_json::Value as JValue;
 
-use host_closure::{Args, JError};
-use particle_protocol::Particle;
+use particle_args::Args;
+use particle_execution::{ParticleFunction, ParticleParams};
 
-use parking_lot::Mutex;
-use particle_functions::particle_params::ParticleParams;
-use std::convert::TryFrom;
-use std::time::Instant;
-
-type ParticleId = String;
-type FunctionDuplet = (Cow<'static, str>, Cow<'static, str>);
-type Output = BoxFuture<'static, Result<Option<JValue>, JError>>;
-pub type Function = Arc<Mutex<Box<dyn HostFunction>>>;
-
-pub trait HostFunction: Clone {
-    fn call(&self, args: Args, particle: ParticleParams) -> Output;
-    fn call_mut(&mut self, args: Args, particle: ParticleParams) -> Output;
-}
+type FunctionDuplet<'a> = (Cow<'a, str>, Cow<'a, str>);
+pub type Function = Arc<Mutex<Box<dyn ParticleFunction>>>;
 
 pub struct Functions<F> {
     particle: ParticleParams,
-    host_functions: F,
-    function_calls: FuturesUnordered<(u32, CallServiceResult)>,
+    builtins: Arc<F>,
+    function_calls: FuturesUnordered<BoxFuture<'static, (u32, CallServiceResult)>>,
     call_results: CallResults,
-    particle_functions: HashMap<FunctionDuplet, Function>,
+    particle_functions: HashMap<FunctionDuplet<'static>, Function>,
 }
 
-impl<F: HostFunction> Functions<F> {
-    pub fn new(particle: ParticleParams, host_functions: F) -> Self {
+impl<F: ParticleFunction + 'static> Functions<F> {
+    pub fn new(particle: ParticleParams, builtins: Arc<F>) -> Self {
         Self {
             particle,
-            host_functions,
+            builtins,
             function_calls: <_>::default(),
             call_results: <_>::default(),
             particle_functions: <_>::default(),
@@ -63,9 +56,9 @@ impl<F: HostFunction> Functions<F> {
     }
 
     /// Advance call requests execution
-    pub fn poll(&mut self) {
-        while let Poll::Ready(Some((id, result))) = self.function_calls.poll_next_unpin() {
-            let overwritten = self.call_results.insert(id, result).is_none();
+    pub fn poll(&mut self, cx: &mut Context<'_>) {
+        while let Poll::Ready(Some((id, result))) = self.function_calls.poll_next_unpin(cx) {
+            let overwritten = self.call_results.insert(id, result);
 
             debug_assert!(
                 overwritten.is_none(),
@@ -77,9 +70,11 @@ impl<F: HostFunction> Functions<F> {
 
     /// Add a bunch of call requests to execution
     pub fn execute(&mut self, requests: CallRequests) {
-        let futs = requests.into_iter().map(|(id, call)| self.call(id, call));
+        let futs: Vec<_> = requests
+            .into_iter()
+            .map(|(id, call)| self.call(id, call))
+            .collect();
         self.function_calls.extend(futs);
-        self.poll();
     }
 
     /// Retrieve all existing call results
@@ -94,7 +89,11 @@ impl<F: HostFunction> Functions<F> {
     //       I see the main obstacle to cooperation in streaming results to `self.call_results`.
     //       Streaming can be done through an MPSC channel, but it seems like an overkill. Though
     //       maybe it's a good option.
-    async fn call(&self, id: u32, call: CallRequestParams) -> (u32, CallServiceResult) {
+    fn call(
+        &self,
+        id: u32,
+        call: CallRequestParams,
+    ) -> BoxFuture<'static, (u32, CallServiceResult)> {
         use async_std::task::{block_on, spawn_blocking};
         use Cow::Borrowed;
 
@@ -102,17 +101,15 @@ impl<F: HostFunction> Functions<F> {
         let args = match Args::try_from(call) {
             Ok(args) => args,
             Err(err) => {
-                return (
-                    id,
-                    CallServiceResult {
-                        ret_code: 1,
-                        result: json!(format!(
-                            "Failed to deserialize CallRequestParams to Args: {}",
-                            err
-                        ))
-                        .to_string(),
-                    },
-                )
+                let result = CallServiceResult {
+                    ret_code: 1,
+                    result: json!(format!(
+                        "Failed to deserialize CallRequestParams to Args: {}",
+                        err
+                    ))
+                    .to_string(),
+                };
+                return async move { (id, result) }.boxed();
             }
         };
 
@@ -123,7 +120,8 @@ impl<F: HostFunction> Functions<F> {
 
         let params = self.particle.clone();
         // Check if a user-defined callback fits
-        let duplet: FunctionDuplet = (Borrowed(&call.service_id), Borrowed(&call.function_name));
+        let duplet: FunctionDuplet<'_> =
+            (Borrowed(&args.service_id), Borrowed(&args.function_name));
         let result = if let Some(func) = self.particle_functions.get(&duplet) {
             let func = func.clone();
             // Move to blocking threadpool 'cause user-defined callback may use blocking calls
@@ -131,33 +129,39 @@ impl<F: HostFunction> Functions<F> {
                 // TODO: Actors would allow to get rid of Mutex
                 //       i.e., wrap each callback with a queue & channel
                 let mut func = func.lock();
-                block_on(func.call_mut(args, params).await)
+                block_on(func.call_mut(args, params))
             })
-            .await
         } else {
-            // Move to blocking threadpool 'cause particle_closures::HostFunctions
+            let builtins = self.builtins.clone();
+            // Move to blocking threadpool 'cause particle_closures::ParticleFunctions
             // uses std::fs and parking_lot which are blocking
-            spawn_blocking(move || task::block_on(self.host_functions.call(args, params))).await
+            spawn_blocking(move || block_on(builtins.call(args, params)))
         };
 
         let elapsed = pretty(start.elapsed());
-        if let Err(err) = &result {
-            log::warn!("Failed host call {} ({}): {}", log_args, elapsed, err)
-        } else {
-            log::info!("Executed host call {} ({})", log_args, elapsed);
-        };
 
-        let result = match result {
-            Ok(v) => CallServiceResult {
-                ret_code: 0,
-                result: v.map_or(json!(""), |v| json!(v)).to_string(),
-            },
-            Err(e) => CallServiceResult {
-                ret_code: 1,
-                result: json!(JValue::from(e)).to_string(),
-            },
-        };
+        async move {
+            let result = result.await;
 
-        (id, result)
+            if let Err(err) = &result {
+                log::warn!("Failed host call {} ({}): {}", log_args, elapsed, err)
+            } else {
+                log::info!("Executed host call {} ({})", log_args, elapsed);
+            };
+
+            let result = match result {
+                Ok(v) => CallServiceResult {
+                    ret_code: 0,
+                    result: v.map_or(json!(""), |v| json!(v)).to_string(),
+                },
+                Err(e) => CallServiceResult {
+                    ret_code: 1,
+                    result: json!(JValue::from(e)).to_string(),
+                },
+            };
+
+            (id, result)
+        }
+        .boxed()
     }
 }

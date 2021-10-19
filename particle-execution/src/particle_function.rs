@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2021 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,15 @@
  * limitations under the License.
  */
 
-#![feature(stmt_expr_attributes)]
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![allow(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use futures::future::BoxFuture;
+use serde_json::Value as JValue;
 
-pub use builtins::Builtins;
-pub use identify::NodeInfo;
+use particle_args::{Args, JError};
 
-mod builtins;
-mod error;
-mod identify;
-mod particle_function;
+use crate::ParticleParams;
+
+pub type Output = BoxFuture<'static, Result<Option<JValue>, JError>>;
+pub trait ParticleFunction: 'static + Send + Sync {
+    fn call(&self, args: Args, particle: ParticleParams) -> Output;
+    fn call_mut(&mut self, args: Args, particle: ParticleParams) -> Output;
+}

@@ -14,28 +14,23 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
-use std::ops::Mul;
 use std::{
     collections::VecDeque,
-    fmt::Debug,
     task::{Context, Poll, Waker},
 };
 
-use avm_server::{CallRequestParams, CallResults, CallServiceResult};
-use futures::future::BoxFuture;
-use futures::stream::FuturesUnordered;
+use avm_server::CallResults;
 use futures::FutureExt;
 
-use particle_protocol::Particle;
+use particle_execution::ParticleFunction;
 
 use crate::awaited_particle::AwaitedParticle;
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
-use crate::particle_functions::{Functions, HostFunction};
-use crate::{AwaitedEffects, ParticleEffects};
+use crate::particle_functions::Functions;
+use crate::AwaitedEffects;
 
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
@@ -49,7 +44,7 @@ pub struct Actor<RT, F> {
 impl<RT, F> Actor<RT, F>
 where
     RT: ParticleExecutor<Particle = (AwaitedParticle, CallResults), Future = Fut<RT>>,
-    F: HostFunction,
+    F: ParticleFunction + 'static,
 {
     pub fn new(deadline: Deadline, functions: Functions<F>) -> Self {
         Self {
@@ -69,9 +64,9 @@ where
         self.future.is_some()
     }
 
-    pub fn cleanup(particle_id: &str) -> eyre::Result<()> {
+    pub fn cleanup(&self, particle_id: &str) -> eyre::Result<()> {
         // TODO: remove vault and particle data, maybe also particle_functions?
-        todo!(particle_id)
+        todo!("{}", particle_id)
     }
 
     pub fn mailbox_size(&self) -> usize {
@@ -87,11 +82,11 @@ where
     pub fn poll_completed(&mut self, cx: &mut Context<'_>) -> Poll<FutResult<RT, NetworkEffects>> {
         self.waker = Some(cx.waker().clone());
 
-        self.functions.poll();
+        self.functions.poll(cx);
 
         // Poll AquaVM future
         if let Some(Poll::Ready(r)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
-            self.future.clear();
+            self.future.take();
 
             let effects = match r.effects.effects {
                 Ok(effects) => {
@@ -136,7 +131,7 @@ where
     pub fn poll_next(&mut self, vm: RT, cx: &mut Context<'_>) -> ActorPoll<RT> {
         self.waker = Some(cx.waker().clone());
 
-        self.functions.poll();
+        self.functions.poll(cx);
 
         // Return vm if previous particle is still executing
         if self.is_executing() {
@@ -156,7 +151,7 @@ where
             Some(p) => {
                 // Particle is expired, return vm and error
                 let (p, out) = p.into();
-                let particle_id = p.particle().id;
+                let particle_id = p.id;
                 let effects = Err(AquamarineApiError::ParticleExpired { particle_id });
                 let effects = AwaitedEffects { effects, out };
                 ActorPoll::Expired(effects, vm)

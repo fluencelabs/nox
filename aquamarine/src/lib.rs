@@ -35,7 +35,7 @@ pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
 pub use config::{VmConfig, VmPoolConfig};
 pub use observation::Observation;
 pub use particle_data_store::{DataStoreError, ParticleDataStore};
-pub use particle_effects::ParticleEffects;
+pub use particle_effects::{NetworkEffects, ParticleEffects};
 pub use plumber::Plumber;
 
 pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};

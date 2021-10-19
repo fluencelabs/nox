@@ -11,7 +11,7 @@ particle-builtins = { path = "../particle-builtins" }
 
 fluence-libp2p = { path = "../crates/libp2p" }
 config-utils = { path = "../crates/config-utils" }
-host-closure = { path = "../crates/host-closure" }
+particle-args = { path = "../crates/particle-args" }
 control-macro = { path = "../crates/control-macro" }
 fs-utils = { path = "../crates/fs-utils" }
 particle-execution = { path = "../particle-execution" }

@@ -26,7 +26,6 @@ use libp2p::Multiaddr;
 use aquamarine::{AquamarineApi, Observation};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};
 use fluence_libp2p::PeerId;
-use particle_closures::HostFunctions;
 use particle_protocol::Particle;
 
 use crate::effectors::Effectors;
@@ -74,19 +73,14 @@ impl Dispatcher {
         observation_stream: Inlet<Observation>,
     ) -> DispatcherTasks {
         log::info!("starting dispatcher");
-        let particle_stream = particle_stream.map(|p: Particle| {
-            log::info!("converting particle to observation");
-            Observation::from(p)
-        });
         let particles = spawn(self.clone().process_particles(particle_stream));
-        let observations = spawn(self.process_particles(observation_stream));
 
-        DispatcherTasks::new(particles, observations)
+        DispatcherTasks::new(particles)
     }
 
     pub async fn process_particles<Src>(self, particle_stream: Src)
     where
-        Src: futures::Stream<Item = Observation> + Unpin + Send + Sync + 'static,
+        Src: futures::Stream<Item = Particle> + Unpin + Send + Sync + 'static,
     {
         let particle_timeout = self.particle_timeout;
         let parallelism = self.particle_parallelism;
@@ -124,7 +118,7 @@ impl Dispatcher {
         log::error!("Particle stream has ended");
     }
 
-    async fn execute_particle(mut self, particle: Observation) {
+    async fn execute_particle(mut self, particle: Particle) {
         let mut particle_failures_sink = self.particle_failures_sink.clone();
         log::info!(target: "network", "{} Will execute particle {}", self.peer_id, particle.id);
 

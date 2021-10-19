@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
+particle-execution = { path = "../particle-execution"}
 particle-services = { path = "../particle-services"}
 particle-modules = { path = "../particle-modules"}
 connection-pool = { path = "../connection-pool"}
@@ -13,7 +14,7 @@ script-storage = { path = "../script-storage"}
 
 server-config = { path = "../crates/server-config"}
 kademlia = { path = "../crates/kademlia"}
-host-closure = { path = "../crates/host-closure" }
+particle-args = { path = "../crates/particle-args" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }

@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 ivalue-utils = { path = "../ivalue-utils" }
-host-closure = { path = "../host-closure" }
+particle-args = { path = "../particle-args" }
 particle-protocol = { path = "../../particle-protocol" }
 now-millis = { path = "../now-millis"}
 uuid-utils = { path = "../uuid-utils" }

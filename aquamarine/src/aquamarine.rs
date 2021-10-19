@@ -26,30 +26,31 @@ use futures::{
 use humantime::format_duration as pretty;
 
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
+use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::awaited_particle::EffectsChannel;
 use crate::error::AquamarineApiError;
-use crate::observation::Observation;
-use crate::particle_functions::HostFunction;
+use crate::particle_effects::NetworkEffects;
 use crate::vm_pool::VmPool;
-use crate::{AwaitedEffects, AwaitedParticle, ParticleEffects, Plumber, VmPoolConfig};
+use crate::{AwaitedEffects, AwaitedParticle, Plumber, VmPoolConfig};
+use particle_execution::ParticleFunction;
 
-pub struct AquamarineBackend<RT, F> {
-    inlet: BackPressuredInlet<(Observation, EffectsChannel)>,
+pub struct AquamarineBackend<RT: AquaRuntime, F> {
+    inlet: BackPressuredInlet<(Particle, EffectsChannel)>,
     plumber: Plumber<RT, F>,
 }
 
-impl<RT: AquaRuntime, F: HostFunction> AquamarineBackend<RT, F> {
+impl<RT: AquaRuntime, F: ParticleFunction + 'static> AquamarineBackend<RT, F> {
     pub fn new(
         config: VmPoolConfig,
         runtime_config: RT::Config,
-        host_functions: F,
+        builtins: F,
     ) -> (Self, AquamarineApi) {
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
         let vm_pool = VmPool::new(config.pool_size, runtime_config);
-        let plumber = Plumber::new(vm_pool, host_functions);
+        let plumber = Plumber::new(vm_pool, builtins);
         let this = Self { inlet, plumber };
 
         (this, sender)
@@ -92,12 +93,12 @@ impl<RT: AquaRuntime, F: HostFunction> AquamarineBackend<RT, F> {
 #[derive(Debug, Clone)]
 pub struct AquamarineApi {
     // send particle along with a "return address"; it's like the Ask pattern in Akka
-    outlet: BackPressuredOutlet<(Observation, EffectsChannel)>,
+    outlet: BackPressuredOutlet<(Particle, EffectsChannel)>,
     execution_timeout: Duration,
 }
 impl AquamarineApi {
     pub fn new(
-        outlet: BackPressuredOutlet<(Observation, EffectsChannel)>,
+        outlet: BackPressuredOutlet<(Particle, EffectsChannel)>,
         execution_timeout: Duration,
     ) -> Self {
         Self {
@@ -109,8 +110,8 @@ impl AquamarineApi {
     /// Send particle to interpreters pool and wait response back
     pub fn handle(
         self,
-        particle: Observation,
-    ) -> BoxFuture<'static, Result<ParticleEffects, AquamarineApiError>> {
+        particle: Particle,
+    ) -> BoxFuture<'static, Result<NetworkEffects, AquamarineApiError>> {
         use AquamarineApiError::*;
 
         let mut interpreters = self.outlet;

@@ -20,9 +20,9 @@ use fluence_libp2p::types::OneshotOutlet;
 use particle_protocol::Particle;
 
 use crate::error::AquamarineApiError;
-use crate::ParticleEffects;
+use crate::particle_effects::NetworkEffects;
 
-pub type EffectsChannel = OneshotOutlet<Result<ParticleEffects, AquamarineApiError>>;
+pub type EffectsChannel = OneshotOutlet<Result<NetworkEffects, AquamarineApiError>>;
 
 #[derive(Debug)]
 /// A particle scheduled for execution.
@@ -74,7 +74,7 @@ impl<Eff> AwaitedEffects<Eff> {
 
     pub fn expired(particle: AwaitedParticle) -> Self {
         let out = particle.out;
-        let particle_id = particle.particle.particle().id;
+        let particle_id = particle.particle.id;
         Self {
             out,
             effects: Err(AquamarineApiError::ParticleExpired { particle_id }),

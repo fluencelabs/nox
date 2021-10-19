@@ -11,7 +11,7 @@ particle-protocol = { path = "../particle-protocol" }
 fs-utils = { path = "../crates/fs-utils" }
 service-modules = { path = "../crates/service-modules" }
 json-utils = { path = "../crates/json-utils" }
-host-closure = { path = "../crates/host-closure" }
+particle-args = { path = "../crates/particle-args" }
 server-config = { path = "../crates/server-config" }
 fluence-libp2p = { path = "../crates/libp2p" }
 particle-execution = { path = "../particle-execution" }
