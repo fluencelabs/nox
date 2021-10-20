@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::{io, iter::once, net::SocketAddr};
 
 use async_std::task;
@@ -67,7 +68,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub connectivity: Connectivity,
     pub dispatcher: Dispatcher,
-    aquavm_pool: AquamarineBackend<RT, Builtins<Connectivity>>,
+    aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
 
@@ -147,12 +148,11 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             script_storage_api,
         );
-        let (func_inlet, func_outlet) = unbounded();
 
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
         let (aquavm_pool, aquamarine_api) =
-            AquamarineBackend::new(pool_config, vm_config, builtins);
+            AquamarineBackend::new(pool_config, vm_config, Arc::new(builtins));
         let (effectors, observation_stream) = Effectors::new(connectivity.clone());
         let dispatcher = {
             let failures = particle_failures_out;
@@ -242,7 +242,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         connectivity: Connectivity,
         dispatcher: Dispatcher,
-        aquavm_pool: AquamarineBackend<RT, Builtins<Connectivity>>,
+        aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
 

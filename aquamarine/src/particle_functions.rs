@@ -31,10 +31,10 @@ use serde_json::json;
 use serde_json::Value as JValue;
 
 use particle_args::Args;
-use particle_execution::{ParticleFunction, ParticleParams};
+use particle_execution::{ParticleFunctionMut, ParticleFunctionStatic, ParticleParams};
 
 type FunctionDuplet<'a> = (Cow<'a, str>, Cow<'a, str>);
-pub type Function = Arc<Mutex<Box<dyn ParticleFunction>>>;
+pub type Function = Arc<Mutex<Box<dyn ParticleFunctionMut>>>;
 
 pub struct Functions<F> {
     particle: ParticleParams,
@@ -44,7 +44,7 @@ pub struct Functions<F> {
     particle_functions: HashMap<FunctionDuplet<'static>, Function>,
 }
 
-impl<F: ParticleFunction + 'static> Functions<F> {
+impl<F: ParticleFunctionStatic> Functions<F> {
     pub fn new(particle: ParticleParams, builtins: Arc<F>) -> Self {
         Self {
             particle,

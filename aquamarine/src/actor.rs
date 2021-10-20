@@ -22,7 +22,7 @@ use std::{
 use avm_server::CallResults;
 use futures::FutureExt;
 
-use particle_execution::ParticleFunction;
+use particle_execution::ParticleFunctionStatic;
 
 use crate::awaited_particle::AwaitedParticle;
 use crate::deadline::Deadline;
@@ -44,7 +44,7 @@ pub struct Actor<RT, F> {
 impl<RT, F> Actor<RT, F>
 where
     RT: ParticleExecutor<Particle = (AwaitedParticle, CallResults), Future = Fut<RT>>,
-    F: ParticleFunction + 'static,
+    F: ParticleFunctionStatic,
 {
     pub fn new(deadline: Deadline, functions: Functions<F>) -> Self {
         Self {

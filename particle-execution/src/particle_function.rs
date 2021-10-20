@@ -14,15 +14,32 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use futures::future::BoxFuture;
+use futures::FutureExt;
 use serde_json::Value as JValue;
 
 use particle_args::{Args, JError};
 
 use crate::ParticleParams;
 
-pub type Output = BoxFuture<'static, Result<Option<JValue>, JError>>;
+pub type Output<'a> = BoxFuture<'a, Result<Option<JValue>, JError>>;
 pub trait ParticleFunction: 'static + Send + Sync {
-    fn call(&self, args: Args, particle: ParticleParams) -> Output;
-    fn call_mut(&mut self, args: Args, particle: ParticleParams) -> Output;
+    fn call(&self, args: Args, particle: ParticleParams) -> Output<'_>;
+}
+
+pub trait ParticleFunctionMut: ParticleFunction {
+    fn call_mut(&mut self, args: Args, particle: ParticleParams) -> Output<'_>;
+}
+
+pub trait ParticleFunctionStatic: 'static + Send + Sync {
+    fn call(&self, args: Args, particle: ParticleParams) -> Output<'static>;
+}
+
+impl<F: ParticleFunction> ParticleFunctionStatic for Arc<F> {
+    fn call(self: &Arc<F>, args: Args, particle: ParticleParams) -> Output<'static> {
+        let this = self.clone();
+        async move { ParticleFunction::call(this.as_ref(), args, particle).await }.boxed()
+    }
 }

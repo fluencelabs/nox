@@ -14,6 +14,13 @@
  * limitations under the License.
  */
 
+/// For tests, mocked time is used
+#[cfg(test)]
+use mock_time::now_ms;
+/// Get current time from OS
+#[cfg(not(test))]
+use real_time::now_ms;
+
 use std::sync::Arc;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
@@ -22,13 +29,7 @@ use std::{
 
 use futures::task::Waker;
 
-/// For tests, mocked time is used
-#[cfg(test)]
-use mock_time::now_ms;
-use particle_execution::{ParticleFunction, ParticleParams};
-/// Get current time from OS
-#[cfg(not(test))]
-use real_time::now_ms;
+use particle_execution::{ParticleFunctionStatic, ParticleParams};
 
 use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
@@ -46,7 +47,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     waker: Option<Waker>,
 }
 
-impl<RT: AquaRuntime, F: ParticleFunction + 'static> Plumber<RT, F> {
+impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(vm_pool: VmPool<RT>, builtins: F) -> Self {
         Self {
             vm_pool,

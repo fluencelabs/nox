@@ -1,7 +1,4 @@
-use host_closure::Args;
 use ivalue_utils::IValue;
-
-use serde_json::Value as JValue;
 
 #[derive(Debug, Clone)]
 pub struct RetStruct {
@@ -45,14 +42,5 @@ pub fn string_result(ret: RetStruct) -> Result<String, String> {
         Ok(hash)
     } else {
         Err(ret.error)
-    }
-}
-
-pub fn create_args(args: Vec<JValue>) -> Args {
-    Args {
-        service_id: "".to_string(),
-        function_name: "".to_string(),
-        function_args: args,
-        tetraplets: vec![],
     }
 }

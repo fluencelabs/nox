@@ -26,6 +26,7 @@ use futures::{
 use humantime::format_duration as pretty;
 
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
+use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
@@ -34,14 +35,13 @@ use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
 use crate::vm_pool::VmPool;
 use crate::{AwaitedEffects, AwaitedParticle, Plumber, VmPoolConfig};
-use particle_execution::ParticleFunction;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
     inlet: BackPressuredInlet<(Particle, EffectsChannel)>,
     plumber: Plumber<RT, F>,
 }
 
-impl<RT: AquaRuntime, F: ParticleFunction + 'static> AquamarineBackend<RT, F> {
+impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     pub fn new(
         config: VmPoolConfig,
         runtime_config: RT::Config,

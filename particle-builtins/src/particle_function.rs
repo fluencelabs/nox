@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use futures::FutureExt;
 
 use connection_pool::ConnectionPoolApi;
@@ -27,11 +29,7 @@ impl<C> ParticleFunction for Builtins<C>
 where
     C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
-    fn call(&self, args: Args, particle: ParticleParams) -> ParticleFunctionOutput {
-        Builtins::call(self, args, particle).boxed()
-    }
-
-    fn call_mut(&mut self, args: Args, particle: ParticleParams) -> ParticleFunctionOutput {
-        Self::call(self, args, particle)
+    fn call(&self, args: Args, particle: ParticleParams) -> ParticleFunctionOutput<'_> {
+        Builtins::call(&self, args, particle).boxed()
     }
 }
