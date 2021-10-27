@@ -20,6 +20,7 @@ use crate::ListenConfig;
 
 use fs_utils::to_abs_path;
 
+use crate::defaults::default_config_path;
 use clap::{ArgMatches, Values};
 use eyre::{eyre, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
@@ -237,8 +238,9 @@ fn insert_args_to_config(
 // TODO: avoid depending on ArgMatches
 pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
     let config_file = arguments.value_of(CONFIG_FILE).map(Into::into);
+    let config_file = config_file.unwrap_or(default_config_path());
 
-    let config_bytes = if let Some(config_file) = config_file {
+    let config_bytes = if config_file.is_file() {
         let config_file = to_abs_path(config_file);
 
         log::info!("Loading config from {:?}", config_file);
