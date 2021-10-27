@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+use crate::defaults::default_config_path;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
 use crate::ListenConfig;
 
 use fs_utils::to_abs_path;
 
-use crate::defaults::default_config_path;
 use clap::{ArgMatches, Values};
 use eyre::{eyre, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
