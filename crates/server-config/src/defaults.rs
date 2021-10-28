@@ -26,6 +26,10 @@ use std::time::Duration;
 
 const CONFIG_VERSION: usize = 1;
 
+pub fn default_config_path() -> PathBuf {
+    default_base_dir().join("Config.toml")
+}
+
 pub fn default_tcp_port() -> u16 {
     7777
 }
