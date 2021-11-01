@@ -14,13 +14,6 @@
  * limitations under the License.
  */
 
-/// For tests, mocked time is used
-#[cfg(test)]
-use mock_time::now_ms;
-/// Get current time from OS
-#[cfg(not(test))]
-use real_time::now_ms;
-
 use std::sync::Arc;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
@@ -29,18 +22,25 @@ use std::{
 
 use futures::task::Waker;
 
+/// For tests, mocked time is used
+#[cfg(test)]
+use mock_time::now_ms;
 use particle_execution::{ParticleFunctionStatic, ParticleParams};
+use particle_protocol::Particle;
+/// Get current time from OS
+#[cfg(not(test))]
+use real_time::now_ms;
 
 use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
-use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
 use crate::deadline::Deadline;
+use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
 use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
 
 pub struct Plumber<RT: AquaRuntime, F> {
-    events: VecDeque<AwaitedEffects<NetworkEffects>>,
+    events: VecDeque<Result<NetworkEffects, AquamarineApiError>>,
     actors: HashMap<String, Actor<RT, F>>,
     vm_pool: VmPool<RT>,
     builtins: Arc<F>,
@@ -59,13 +59,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
-    pub fn ingest(&mut self, particle: AwaitedParticle) {
+    pub fn ingest(&mut self, particle: Particle) {
         self.wake();
 
-        let deadline = Deadline::from(&particle.particle);
+        let deadline = Deadline::from(&particle);
         if deadline.is_expired(now_ms()) {
             log::info!("Particle {} is expired, ignoring", particle.id);
-            self.events.push_back(AwaitedEffects::expired(particle));
+            self.events
+                .push_back(Err(AquamarineApiError::ParticleExpired {
+                    particle_id: particle.id,
+                }));
             return;
         }
 
@@ -80,7 +83,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
     }
 
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<AwaitedEffects<NetworkEffects>> {
+    pub fn poll(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<NetworkEffects, AquamarineApiError>> {
         self.waker = Some(cx.waker().clone());
 
         self.vm_pool.poll(cx);

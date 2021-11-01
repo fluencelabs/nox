@@ -19,18 +19,20 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use async_std::task::{sleep, spawn};
-use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
+use futures::{stream::iter, FutureExt, SinkExt, StreamExt, TryFutureExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::Multiaddr;
 
-use aquamarine::{AquamarineApi, Observation};
+use aquamarine::{AquamarineApi, AquamarineApiError, NetworkEffects, Observation};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
 use crate::effectors::Effectors;
-use crate::tasks::DispatcherTasks;
+use crate::tasks::Tasks;
 use crate::Connectivity;
+
+type Effects = Result<NetworkEffects, AquamarineApiError>;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -67,15 +69,14 @@ impl Dispatcher {
 impl Dispatcher {
     pub fn start(
         self,
-        // Stream of particles coming from other peers, lifted here from [[ConnectionPoolBehaviour]]
         particle_stream: BackPressuredInlet<Particle>,
-        // Stream of particles with executed CallRequests
-        observation_stream: Inlet<Observation>,
-    ) -> DispatcherTasks {
+        effects_stream: Inlet<Effects>,
+    ) -> Tasks {
         log::info!("starting dispatcher");
         let particles = spawn(self.clone().process_particles(particle_stream));
+        let effects = spawn(self.clone().process_effects(effects_stream));
 
-        DispatcherTasks::new(particles)
+        Tasks::new("Dispatcher", vec![particles, effects])
     }
 
     pub async fn process_particles<Src>(self, particle_stream: Src)
@@ -84,63 +85,67 @@ impl Dispatcher {
     {
         let particle_timeout = self.particle_timeout;
         let parallelism = self.particle_parallelism;
-        let this = self;
+        let aquamarine = self.aquamarine;
         particle_stream
             .for_each_concurrent(parallelism, move |particle| {
-                let this = this.clone();
+                let mut aquamarine = aquamarine.clone();
 
-                let timeout = min(particle.time_to_live(), particle_timeout);
-                if timeout.is_zero() {
+                if particle.is_expired() {
                     log::info!("Particle {} expired", particle.id);
                     return async {}.boxed();
                 }
 
                 let particle_id = particle.id.clone();
-                let fut = this.execute_particle(particle).map(Ok);
-
-                async_std::io::timeout(timeout, fut)
-                    .map(move |r| {
-                        if r.is_ok() {
-                            return;
-                        }
-
-                        if timeout != particle_timeout {
-                            log::info!("Particle {} expired", particle_id);
-                        } else {
-                            let tout = pretty(timeout);
-                            log::warn!("Particle {} timed out after {}", particle_id, tout);
-                        }
-                    })
-                    .boxed()
+                async move {
+                    aquamarine
+                        .handle(particle)
+                        // do not log errors: Aquamarine will log them fine
+                        .map(|_| ())
+                        .await
+                }
+                .boxed()
             })
             .await;
 
         log::error!("Particle stream has ended");
+
+        // TODO: restore these logs
+        // log::info!(target: "network", "{} Will execute particle {}", self.peer_id, particle.id);
+        // log::trace!(target: "network", "Particle {} processing took {}", particle_id, pretty(start.elapsed()));
     }
 
-    async fn execute_particle(mut self, particle: Particle) {
-        let mut particle_failures_sink = self.particle_failures_sink.clone();
-        log::info!(target: "network", "{} Will execute particle {}", self.peer_id, particle.id);
+    async fn process_effects<Src>(self, effects_stream: Src)
+    where
+        Src: futures::Stream<Item = Effects> + Unpin + Send + Sync + 'static,
+    {
+        let particle_timeout = self.particle_timeout;
+        let parallelism = self.particle_parallelism;
+        let effectors = self.effectors;
+        let particle_failures = self.particle_failures_sink;
+        effects_stream
+            .for_each_concurrent(parallelism, move |effects| {
+                let effectors = effectors.clone();
+                let mut particle_failures = particle_failures.clone();
 
-        let particle_id = particle.id.clone();
-        let start = Instant::now();
-        // execute particle on Aquamarine
-        let effects = self.aquamarine.handle(particle).await;
+                async move {
+                    match effects {
+                        Ok(effects) => {
+                            // perform effects as instructed by aquamarine
+                            effectors.execute(effects).await;
+                        }
+                        Err(err) => {
+                            // particles are sent in fire and forget fashion, so
+                            // there's nothing to do here but log
+                            log::warn!("Error executing particle: {}", err);
+                            // and send indication about particle failure to the outer world
+                            let particle_id = err.into_particle_id();
+                            particle_failures.send(particle_id).await;
+                        }
+                    };
+                }
+            })
+            .await;
 
-        match effects {
-            Ok(effects) => {
-                // perform effects as instructed by aquamarine
-                self.effectors.execute(effects).await;
-            }
-            Err(err) => {
-                // particles are sent in fire and forget fashion, so
-                // there's nothing to do here but log
-                log::warn!("Error executing particle: {}", err);
-                // sent info that particle has failed to the outer world
-                let particle_id = err.into_particle_id();
-                particle_failures_sink.feed(particle_id).await.ok();
-            }
-        };
-        log::trace!(target: "network", "Particle {} processing took {}", particle_id, pretty(start.elapsed()));
+        log::error!("Effects stream has ended");
     }
 }

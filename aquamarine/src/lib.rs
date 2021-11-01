@@ -31,7 +31,6 @@ pub use avm_server::AVM;
 pub use avm_server::AVMConfig;
 
 pub use aqua_runtime::AquaRuntime;
-pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
 pub use config::{VmConfig, VmPoolConfig};
 pub use observation::Observation;
 pub use particle_data_store::{DataStoreError, ParticleDataStore};
@@ -39,11 +38,11 @@ pub use particle_effects::{NetworkEffects, ParticleEffects};
 pub use plumber::Plumber;
 
 pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
+pub use error::AquamarineApiError;
 
 mod actor;
 mod aqua_runtime;
 mod aquamarine;
-mod awaited_particle;
 mod config;
 mod deadline;
 mod error;

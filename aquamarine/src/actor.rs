@@ -23,27 +23,26 @@ use avm_server::CallResults;
 use futures::FutureExt;
 
 use particle_execution::ParticleFunctionStatic;
+use particle_protocol::Particle;
 
-use crate::awaited_particle::AwaitedParticle;
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
 use crate::particle_functions::Functions;
-use crate::AwaitedEffects;
 
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
     future: Option<Fut<RT>>,
-    mailbox: VecDeque<AwaitedParticle>,
+    mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
     functions: Functions<F>,
 }
 
 impl<RT, F> Actor<RT, F>
 where
-    RT: ParticleExecutor<Particle = (AwaitedParticle, CallResults), Future = Fut<RT>>,
+    RT: ParticleExecutor<Particle = (Particle, CallResults), Future = Fut<RT>>,
     F: ParticleFunctionStatic,
 {
     pub fn new(deadline: Deadline, functions: Functions<F>) -> Self {
@@ -73,7 +72,7 @@ where
         self.mailbox.len()
     }
 
-    pub fn ingest(&mut self, particle: AwaitedParticle) {
+    pub fn ingest(&mut self, particle: Particle) {
         self.mailbox.push_back(particle);
         self.wake();
     }
@@ -88,7 +87,7 @@ where
         if let Some(Poll::Ready(r)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
             self.future.take();
 
-            let effects = match r.effects.effects {
+            let effects = match r.effects {
                 Ok(effects) => {
                     // Schedule execution of functions
                     self.functions.execute(effects.call_requests);
@@ -100,13 +99,7 @@ where
                 Err(err) => Err(err),
             };
 
-            return Poll::Ready(FutResult {
-                vm: r.vm,
-                effects: AwaitedEffects {
-                    effects,
-                    out: r.effects.out,
-                },
-            });
+            return Poll::Ready(FutResult { vm: r.vm, effects });
         }
 
         Poll::Pending
@@ -150,11 +143,10 @@ where
             }
             Some(p) => {
                 // Particle is expired, return vm and error
-                let (p, out) = p.into();
-                let particle_id = p.id;
-                let effects = Err(AquamarineApiError::ParticleExpired { particle_id });
-                let effects = AwaitedEffects { effects, out };
-                ActorPoll::Expired(effects, vm)
+                ActorPoll::Expired(
+                    Err(AquamarineApiError::ParticleExpired { particle_id: p.id }),
+                    vm,
+                )
             }
             // Mailbox is empty, return vm
             None => ActorPoll::Vm(vm),
@@ -171,5 +163,5 @@ where
 pub enum ActorPoll<RT> {
     Executing,
     Vm(RT),
-    Expired(AwaitedEffects<NetworkEffects>, RT),
+    Expired(Result<NetworkEffects, AquamarineApiError>, RT),
 }

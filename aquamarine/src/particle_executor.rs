@@ -21,10 +21,11 @@ use avm_server::CallResults;
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
 
+use particle_protocol::Particle;
+
 use crate::aqua_runtime::AquaRuntime;
-use crate::awaited_particle::AwaitedParticle;
+use crate::error::AquamarineApiError;
 use crate::particle_effects::ParticleEffects;
-use crate::AwaitedEffects;
 
 pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects>>;
 
@@ -39,20 +40,18 @@ pub struct FutResult<RT, Eff> {
     /// AVM that just executed a particle
     pub vm: RT,
     /// Effects produced by particle execution
-    pub effects: AwaitedEffects<Eff>,
+    pub effects: Result<Eff, AquamarineApiError>,
 }
 
 impl<RT: AquaRuntime> ParticleExecutor for RT {
     type Future = Fut<Self>;
-    type Particle = (AwaitedParticle, CallResults);
+    type Particle = (Particle, CallResults);
 
     fn execute(mut self, p: Self::Particle, waker: Waker) -> Self::Future {
         task::spawn_blocking(move || {
             let now = Instant::now();
-            let (particle, calls) = p;
-            log::info!("Executing particle {}", particle.id);
-
-            let (p, out) = particle.into();
+            let (p, calls) = p;
+            log::info!("Executing particle {}", p.id);
 
             let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), &p.id, &calls);
             if let Err(err) = &result {
@@ -66,7 +65,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
 
             FutResult {
                 vm: self,
-                effects: AwaitedEffects { effects, out },
+                effects,
             }
         })
         .boxed()

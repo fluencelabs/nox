@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #![feature(try_blocks)]
+#![feature(drain_filter)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![allow(

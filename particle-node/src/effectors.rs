@@ -26,18 +26,11 @@ use crate::connectivity::Connectivity;
 #[derive(Debug, Clone)]
 pub struct Effectors {
     pub connectivity: Connectivity,
-    pub particle_sink: Outlet<Observation>,
 }
 
 impl Effectors {
-    pub fn new(connectivity: Connectivity) -> (Self, Inlet<Observation>) {
-        let (particle_sink, particle_source) = futures::channel::mpsc::unbounded();
-        let this = Self {
-            connectivity,
-            particle_sink,
-        };
-
-        (this, particle_source)
+    pub fn new(connectivity: Connectivity) -> Self {
+        Self { connectivity }
     }
 
     /// Perform effects that Aquamarine instructed us to

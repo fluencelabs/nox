@@ -98,16 +98,10 @@ impl BuiltinsDeployer {
             Err(result) => return Ok(result),
         };
 
-        let result = block_on(self.node_api.clone().handle(particle.into()))
-            .map_err(|e| eyre!("send_particle: handle failed: {}", e))?;
+        // let result = block_on(self.node_api.clone().handle(particle.into()))
+        //     .map_err(|e| eyre!("send_particle: handle failed: {}", e))?;
 
-        let particle = result.particle;
-
-        Ok(read_args(
-            particle,
-            self.startup_peer_id,
-            &mut self.local_vm,
-        ))
+        Ok(read_args(todo!(), self.startup_peer_id, &mut self.local_vm))
     }
 
     fn add_module(&mut self, module: &Module) -> eyre::Result<()> {

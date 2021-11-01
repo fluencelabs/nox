@@ -28,7 +28,7 @@ use fluence_libp2p::PeerId;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::{Contact, Particle};
 
-use crate::tasks::ConnectivityTasks;
+use crate::tasks::Tasks;
 
 #[derive(Clone, Debug)]
 /// This structure is just a composition of Kademlia and ConnectionPool.
@@ -44,11 +44,11 @@ pub struct Connectivity {
 }
 
 impl Connectivity {
-    pub fn start(self) -> ConnectivityTasks {
+    pub fn start(self) -> Tasks {
         let reconnect_bootstraps = spawn(self.clone().reconnect_bootstraps());
         let run_bootstrap = spawn(self.kademlia_bootstrap());
 
-        ConnectivityTasks::new(run_bootstrap, reconnect_bootstraps)
+        Tasks::new("Connectivity", vec![run_bootstrap, reconnect_bootstraps])
     }
 
     pub async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {

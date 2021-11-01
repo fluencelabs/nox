@@ -35,8 +35,8 @@ use prometheus::Registry;
 use trust_graph::InMemoryStorage;
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineBackend, DataStoreError, Observation, VmConfig,
-    VmPoolConfig, AVM,
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreError,
+    NetworkEffects, Observation, VmConfig, VmPoolConfig, AVM,
 };
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
@@ -63,7 +63,7 @@ type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: BackPressuredInlet<Particle>,
-    observation_stream: Inlet<Observation>,
+    effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
     pub swarm: Swarm<NetworkBehaviour>,
 
     pub connectivity: Connectivity,
@@ -149,11 +149,13 @@ impl<RT: AquaRuntime> Node<RT> {
             script_storage_api,
         );
 
+        let (effects_out, effects_in) = unbounded();
+
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
         let (aquavm_pool, aquamarine_api) =
-            AquamarineBackend::new(pool_config, vm_config, Arc::new(builtins));
-        let (effectors, observation_stream) = Effectors::new(connectivity.clone());
+            AquamarineBackend::new(pool_config, vm_config, Arc::new(builtins), effects_out);
+        let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
             let failures = particle_failures_out;
             let parallelism = config.particle_processor_parallelism;
@@ -180,7 +182,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         Ok(Self::with(
             particle_stream,
-            observation_stream,
+            effects_in,
             swarm,
             connectivity,
             dispatcher,
@@ -237,7 +239,7 @@ impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
         particle_stream: BackPressuredInlet<Particle>,
-        observation_stream: Inlet<Observation>,
+        effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
         swarm: Swarm<NetworkBehaviour>,
 
         connectivity: Connectivity,
@@ -254,7 +256,7 @@ impl<RT: AquaRuntime> Node<RT> {
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
-            observation_stream,
+            effects_stream,
             swarm,
 
             connectivity,
@@ -279,7 +281,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let mut exit_inlet = exit_inlet.into_stream().fuse();
 
         let particle_stream = self.particle_stream;
-        let observation_stream = self.observation_stream;
+        let effects_stream = self.effects_stream;
         let swarm = self.swarm;
         let connectivity = self.connectivity;
         let dispatcher = self.dispatcher;
@@ -302,7 +304,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
             log::info!("will start dispatcher");
-            let mut dispatcher = dispatcher.start(particle_stream, observation_stream);
+            let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let stopped = stream::iter(once(Err(())));
             let mut swarm = swarm.map(|_e| Ok(())).chain(stopped).fuse();
 
