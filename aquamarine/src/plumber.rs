@@ -131,13 +131,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // Execute next messages
         for actor in self.actors.values_mut() {
             if let Some(vm) = self.vm_pool.get_vm() {
-                match actor.poll_next(vm, cx) {
-                    ActorPoll::Vm(vm) => self.vm_pool.put_vm(vm),
-                    ActorPoll::Expired(es, vm) => {
-                        effects.push(es);
-                        self.vm_pool.put_vm(vm);
-                    }
-                    ActorPoll::Executing => {}
+                if let ActorPoll::Vm(vm) = actor.poll_next(vm, cx) {
+                    self.vm_pool.put_vm(vm)
                 }
             } else {
                 // TODO: calculate deviations from normal mailbox_size

@@ -124,6 +124,7 @@ impl Dispatcher {
         let particle_failures = self.particle_failures_sink;
         effects_stream
             .for_each_concurrent(parallelism, move |effects| {
+                log::info!("Effects: {:?}", effects);
                 let effectors = effectors.clone();
                 let mut particle_failures = particle_failures.clone();
 
@@ -139,7 +140,7 @@ impl Dispatcher {
                             log::warn!("Error executing particle: {}", err);
                             // and send indication about particle failure to the outer world
                             let particle_id = err.into_particle_id();
-                            particle_failures.send(particle_id).await;
+                            particle_failures.send(particle_id).await.ok();
                         }
                     };
                 }

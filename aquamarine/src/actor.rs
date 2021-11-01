@@ -26,7 +26,6 @@ use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
 
 use crate::deadline::Deadline;
-use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
 use crate::particle_functions::Functions;
@@ -38,6 +37,10 @@ pub struct Actor<RT, F> {
     mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
     functions: Functions<F>,
+    /// Particle that's memoized on the first ingestion.
+    /// Used to execute CallRequests when mailbox is empty.
+    /// Particle's data is empty.
+    particle: Option<Particle>,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -51,7 +54,8 @@ where
             functions,
             future: None,
             mailbox: <_>::default(),
-            waker: <_>::default(),
+            waker: None,
+            particle: None,
         }
     }
 
@@ -73,6 +77,8 @@ where
     }
 
     pub fn ingest(&mut self, particle: Particle) {
+        self.memoize_particle(&particle);
+
         self.mailbox.push_back(particle);
         self.wake();
     }
@@ -90,7 +96,8 @@ where
             let effects = match r.effects {
                 Ok(effects) => {
                     // Schedule execution of functions
-                    self.functions.execute(effects.call_requests);
+                    self.functions
+                        .execute(effects.call_requests, cx.waker().clone());
                     Ok(NetworkEffects {
                         particle: effects.particle,
                         next_peers: effects.next_peers,
@@ -131,26 +138,26 @@ where
             return ActorPoll::Vm(vm);
         }
 
-        match self.mailbox.pop_front() {
-            Some(p) if !p.is_expired() => {
-                // Gather CallResults
-                let calls = self.functions.drain();
+        // Gather CallResults
+        let calls = self.functions.drain();
+        log::info!("CallResults: {:?}", calls);
 
-                // TODO: add timeout for execution
-                // Take ownership of vm to process particle
-                self.future = Some(vm.execute((p, calls), cx.waker().clone()));
-                ActorPoll::Executing
-            }
-            Some(p) => {
-                // Particle is expired, return vm and error
-                ActorPoll::Expired(
-                    Err(AquamarineApiError::ParticleExpired { particle_id: p.id }),
-                    vm,
-                )
-            }
-            // Mailbox is empty, return vm
-            None => ActorPoll::Vm(vm),
+        // Take the next particle
+        let particle = self.mailbox.pop_front();
+
+        if particle.is_none() && calls.is_empty() {
+            // Nothing to execute, return vm
+            return ActorPoll::Vm(vm);
         }
+
+        // SAFETY: At least one particle was ingested or calls/mailbox would be empty.
+        let particle = particle.or(self.particle.clone()).unwrap();
+        let waker = cx.waker().clone();
+        // TODO: add timeout for execution
+        // Take ownership of vm to process particle
+        self.future = Some(vm.execute((particle, calls), waker));
+
+        ActorPoll::Executing
     }
 
     fn wake(&self) {
@@ -158,10 +165,24 @@ where
             waker.wake_by_ref();
         }
     }
+
+    fn memoize_particle(&mut self, particle: &Particle) {
+        if self.particle.is_none() {
+            // Clone particle without data
+            self.particle = Some(Particle {
+                id: particle.id.clone(),
+                init_peer_id: particle.init_peer_id.clone(),
+                timestamp: particle.timestamp.clone(),
+                ttl: particle.ttl.clone(),
+                script: particle.script.clone(),
+                signature: particle.signature.clone(),
+                data: vec![],
+            });
+        }
+    }
 }
 
 pub enum ActorPoll<RT> {
     Executing,
     Vm(RT),
-    Expired(Result<NetworkEffects, AquamarineApiError>, RT),
 }

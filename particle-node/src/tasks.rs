@@ -46,7 +46,7 @@ impl Future for Tasks {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.tasks
-            .drain_filter(|mut task| task.poll_unpin(cx).is_pending());
+            .drain_filter(|mut task| task.poll_unpin(cx).is_ready());
 
         if self.is_terminated() {
             log::warn!("{} tasks terminated", self.name);

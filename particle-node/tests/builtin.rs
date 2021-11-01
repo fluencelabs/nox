@@ -36,6 +36,7 @@ use eyre::WrapErr;
 use fluence_identity::KeyPair;
 use itertools::Itertools;
 use libp2p::PeerId;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
@@ -716,6 +717,8 @@ fn ipfs_multiaddr() {
 
 #[test]
 fn noop() {
+    enable_logs();
+
     let result = exec_script(
         r#"(call relay ("op" "noop") ["hi"] result)"#,
         <_>::default(),

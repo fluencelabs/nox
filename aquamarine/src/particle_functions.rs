@@ -17,7 +17,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::task::{Context, Poll};
+use std::task::{Context, Poll, Waker};
 use std::time::Instant;
 
 use async_std::sync::Arc;
@@ -69,10 +69,10 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     }
 
     /// Add a bunch of call requests to execution
-    pub fn execute(&mut self, requests: CallRequests) {
+    pub fn execute(&mut self, requests: CallRequests, waker: Waker) {
         let futs: Vec<_> = requests
             .into_iter()
-            .map(|(id, call)| self.call(id, call))
+            .map(|(id, call)| self.call(id, call, waker.clone()))
             .collect();
         self.function_calls.extend(futs);
     }
@@ -93,6 +93,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         &self,
         id: u32,
         call: CallRequestParams,
+        waker: Waker,
     ) -> BoxFuture<'static, (u32, CallServiceResult)> {
         use async_std::task::{block_on, spawn_blocking};
         use Cow::Borrowed;
@@ -142,6 +143,8 @@ impl<F: ParticleFunctionStatic> Functions<F> {
 
         async move {
             let result = result.await;
+
+            waker.wake();
 
             if let Err(err) = &result {
                 log::warn!("Failed host call {} ({}): {}", log_args, elapsed, err)
