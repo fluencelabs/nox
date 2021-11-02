@@ -25,9 +25,12 @@ use serde_json::json;
 
 use fluence_libp2p::RandomPeerId;
 use local_vm::{make_particle, make_vm, read_args};
+use log_utils::enable_logs;
 
 #[test]
 fn make() {
+    enable_logs();
+
     let client_a = RandomPeerId::random();
     let client_b = RandomPeerId::random();
 
@@ -47,7 +50,7 @@ fn make() {
         .map(|(key, value)| (key.to_string(), value.clone()))
         .collect();
 
-    let result = make_particle(
+    let particle = make_particle(
         client_a,
         &data,
         script,
@@ -56,9 +59,6 @@ fn make() {
         false,
         Duration::from_secs(20),
     );
-
-    // let args = result.err().expect("should return immediately");
-    let particle = result.expect("get particle");
 
     let args = read_args(particle, client_b, &mut local_vm_b).expect("read args");
     assert_eq!(data["a"], args[0]);

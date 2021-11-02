@@ -31,7 +31,7 @@ use aquamarine::{AquamarineApi, DataStoreError, AVM};
 use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use fluence_libp2p::PeerId;
 use fs_utils::{file_name, file_stem, to_abs_path};
-use local_vm::{client_functions, host_call, make_particle, make_vm, read_args, wrap_script};
+use local_vm::{client_functions, host_call, make_vm, read_args, wrap_script};
 use now_millis::{now, now_ms, now_sec};
 use particle_args::Args;
 use particle_execution::{

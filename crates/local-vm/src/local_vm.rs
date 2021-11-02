@@ -77,6 +77,7 @@ impl Instruction {
 
 pub type Returned = Option<Result<Vec<JValue>, Vec<JValue>>>;
 
+#[derive(Debug)]
 pub struct ClientFunctionsResult {
     pub outcome: FunctionOutcome,
     pub returned: Returned,
@@ -136,6 +137,7 @@ pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFun
 
 pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResult, Returned) {
     let result = client_functions(data, args);
+    log::info!("host_call result: {:?}", result);
     let outcome = result.outcome;
     let outcome = match outcome {
         FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
@@ -195,19 +197,19 @@ pub fn wrap_script(
     executor: Option<PeerId>,
 ) -> String {
     let executor = executor
-        .map(|p| p.to_string())
+        .map(|p| format!("\"{}\"", p))
         .unwrap_or(String::from("%init_peer_id%"));
 
     let load_variables = if generated {
         "   (null)".to_string()
     } else {
         data.keys()
-            .map(|name| f!(r#"  (call "{executor}" ("load" "{name}") [] {name})"#))
+            .map(|name| f!(r#"  (call {executor} ("load" "{name}") [] {name})"#))
             .fold(Instruction::Null, |acc, call| acc.add(call))
             .into_air()
     };
 
-    let catch = f!(r#"(call "{executor}" ("errorHandlingSrv" "error") [%last_error%])"#);
+    let catch = f!(r#"(call {executor} ("errorHandlingSrv" "error") [%last_error%])"#);
     let catch = if let Some(relay) = relay.into() {
         f!(r#"
         (seq
@@ -252,7 +254,7 @@ pub fn make_particle(
             data,
             next_peer_pks,
             call_requests,
-        } = local_vm
+        } = dbg!(local_vm
             .call(
                 script.clone(),
                 particle_data,
@@ -260,7 +262,9 @@ pub fn make_particle(
                 &id,
                 &call_results,
             )
-            .expect("execute & make particle");
+            .expect("execute & make particle"));
+
+        log::info!("Making particle, data: {}", String::from_utf8_lossy(&data));
 
         particle_data = data;
         call_results.clear();
