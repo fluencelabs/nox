@@ -376,14 +376,16 @@ mod tests {
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use fluence_libp2p::RandomPeerId;
-    use server_config::{default_base_dir, deserialize_config};
+    use server_config::{builtins_base_dir, default_base_dir, deserialize_config};
 
     use crate::Node;
 
     #[test]
     fn run_node() {
-        fs_utils::create_dir(default_base_dir()).unwrap();
-        write_default_air_interpreter(&air_interpreter_path(&default_base_dir())).unwrap();
+        let base_dir = default_base_dir();
+        fs_utils::create_dir(&base_dir).unwrap();
+        fs_utils::create_dir(builtins_base_dir(&base_dir)).unwrap();
+        write_default_air_interpreter(&air_interpreter_path(&base_dir)).unwrap();
 
         let mut config = deserialize_config(&<_>::default(), &[]).expect("deserialize config");
         config.aquavm_pool_size = 1;
@@ -400,7 +402,6 @@ mod tests {
         node.start().expect("start node");
 
         let mut client = ConnectedClient::connect_to(listening_address).expect("connect client");
-        println!("client: {}", client.peer_id);
         let data = hashmap! {
             "name" => json!("folex"),
             "client" => json!(client.peer_id.to_string()),
@@ -415,7 +416,6 @@ mod tests {
             "#,
             data.clone(),
         );
-        let response = client.receive_args().wrap_err("receive args").unwrap();
-        println!("got response!: {:#?}", response);
+        client.receive_args().wrap_err("receive args").unwrap();
     }
 }

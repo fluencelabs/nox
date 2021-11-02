@@ -39,7 +39,7 @@ mod node_config;
 mod resolved_config;
 mod services_config;
 
-pub use defaults::default_base_dir;
+pub use defaults::*;
 pub use resolved_config::{deserialize_config, load_config};
 
 pub use bootstrap_config::BootstrapConfig;
