@@ -254,7 +254,7 @@ pub fn make_particle(
             data,
             next_peer_pks,
             call_requests,
-        } = dbg!(local_vm
+        } = local_vm
             .call(
                 script.clone(),
                 particle_data,
@@ -262,7 +262,7 @@ pub fn make_particle(
                 &id,
                 call_results,
             )
-            .expect("execute & make particle"));
+            .expect("execute & make particle");
 
         log::info!("Making particle, data: {}", String::from_utf8_lossy(&data));
 
