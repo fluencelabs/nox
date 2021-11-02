@@ -15,6 +15,7 @@
  */
 
 use std::convert::TryFrom;
+use std::ops::Try;
 use std::path::PathBuf;
 use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
 
@@ -31,6 +32,7 @@ use aquamarine::{DataStoreError, ParticleDataStore};
 use fs_utils::make_tmp_dir;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
+use particle_execution::FunctionOutcome;
 use particle_protocol::Particle;
 use uuid_utils::uuid;
 
@@ -73,50 +75,90 @@ impl Instruction {
     }
 }
 
-pub fn host_call(
-    data: &HashMap<String, JValue>,
-    call: CallRequestParams,
-) -> Result<CallServiceResult, Vec<JValue>> {
-    let args = Args::try_from(call).expect("valid args");
-    let result: Result<Option<JValue>, JError> =
-        match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("load", _) | ("getDataSrv", _) => data
-                .get(args.function_name.as_str())
-                .cloned()
-                .ok_or_else(|| JError::new(f!("variable not found: {args.function_name}")))
-                .map(Some),
-            ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
-                println!("op return: {:?}", args.function_args);
-                return Err(args.function_args);
-            }
-            ("callbackSrv", _) => {
-                log::warn!("got callback: {:?}", args.function_args);
-                Ok(None)
-            }
-            ("errorHandlingSrv", "error") => {
-                log::warn!("caught an error: {:?}", args.function_args);
-                // TODO: return error?
-                Ok(None)
-            }
-            (_, "identity") => Ok(args.function_args.into_iter().next()),
-            (service, function) => {
-                let error = f!("service not found: {service} {function}");
-                println!("{}", error);
-                log::warn!("{}", error);
-                Err(JError::new(error))
-            }
-        };
+pub type Returned = Option<Result<Vec<JValue>, Vec<JValue>>>;
 
-    Ok(match result {
-        Ok(r) => CallServiceResult {
+pub struct ClientFunctionsResult {
+    pub outcome: FunctionOutcome,
+    pub returned: Returned,
+}
+
+pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFunctionsResult {
+    match (args.service_id.as_str(), args.function_name.as_str()) {
+        ("load", _) | ("getDataSrv", _) => {
+            let value = data.get(args.function_name.as_str()).cloned();
+            let outcome = match value {
+                Some(v) => FunctionOutcome::Ok(v),
+                None => FunctionOutcome::Err(JError::new(f!(
+                    "variable not found: {args.function_name}"
+                ))),
+            };
+            ClientFunctionsResult {
+                outcome,
+                returned: None,
+            }
+        }
+        ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
+            log::info!("op return: {:?}", args.function_args);
+            ClientFunctionsResult {
+                outcome: FunctionOutcome::Empty,
+                returned: Some(Ok(args.function_args)),
+            }
+        }
+        ("callbackSrv", _) => {
+            log::warn!("got callback: {:?}", args.function_args);
+            ClientFunctionsResult {
+                outcome: FunctionOutcome::Empty,
+                returned: None,
+            }
+        }
+        ("errorHandlingSrv", "error") => {
+            log::warn!("caught an error: {:?}", args.function_args);
+            ClientFunctionsResult {
+                outcome: FunctionOutcome::Empty,
+                returned: Some(Err(args.function_args)),
+            }
+        }
+        (_, "identity") => ClientFunctionsResult {
+            outcome: FunctionOutcome::from_output(args.function_args.into_iter().next()),
+            returned: None,
+        },
+        (service, function) => {
+            let error = f!("service not found: {service} {function}");
+            println!("{}", error);
+            log::warn!("{}", error);
+            ClientFunctionsResult {
+                outcome: FunctionOutcome::Err(JError::new(error)),
+                returned: None,
+            }
+        }
+    }
+}
+
+pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResult, Returned) {
+    let result = client_functions(data, args);
+    let outcome = result.outcome;
+    let outcome = match outcome {
+        FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
+            "Service with id '{}' not found (function {})",
+            args.service_id, args.function_name
+        ))),
+        FunctionOutcome::Empty => Ok(JValue::String(String::new())),
+        FunctionOutcome::Ok(v) => Ok(v),
+        FunctionOutcome::Err(err) => Err(err),
+    };
+
+    let outcome = match outcome {
+        Ok(result) => CallServiceResult {
             ret_code: 0,
-            result: r.unwrap_or(JValue::String(<_>::default())).to_string(),
+            result: result.to_string(),
         },
-        Err(e) => CallServiceResult {
+        Err(err) => CallServiceResult {
             ret_code: 1,
-            result: JValue::from(e).to_string(),
+            result: JValue::from(err).to_string(),
         },
-    })
+    };
+
+    (outcome, result.returned)
 }
 
 pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
@@ -145,26 +187,27 @@ pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
         .expect("vm should be created")
 }
 
-pub fn make_particle(
-    peer_id: PeerId,
-    service_in: &HashMap<String, JValue>,
+pub fn wrap_script(
     script: String,
+    data: &HashMap<String, JValue>,
     relay: impl Into<Option<PeerId>>,
-    local_vm: &mut AVM<DataStoreError>,
     generated: bool,
-    particle_ttl: Duration,
-) -> Result<Particle, Vec<JValue>> {
+    executor: Option<PeerId>,
+) -> String {
+    let executor = executor
+        .map(|p| p.to_string())
+        .unwrap_or(String::from("%init_peer_id%"));
+
     let load_variables = if generated {
         "   (null)".to_string()
     } else {
-        service_in
-            .keys()
-            .map(|name| f!(r#"  (call %init_peer_id% ("load" "{name}") [] {name})"#))
+        data.keys()
+            .map(|name| f!(r#"  (call "{executor}" ("load" "{name}") [] {name})"#))
             .fold(Instruction::Null, |acc, call| acc.add(call))
             .into_air()
     };
 
-    let catch = f!(r#"(call %init_peer_id% ("errorHandlingSrv" "error") [%last_error%])"#);
+    let catch = f!(r#"(call "{executor}" ("errorHandlingSrv" "error") [%last_error%])"#);
     let catch = if let Some(relay) = relay.into() {
         f!(r#"
         (seq
@@ -185,6 +228,20 @@ pub fn make_particle(
     )
 )
     "#);
+
+    script
+}
+
+pub fn make_particle(
+    peer_id: PeerId,
+    service_in: &HashMap<String, JValue>,
+    script: String,
+    relay: impl Into<Option<PeerId>>,
+    local_vm: &mut AVM<DataStoreError>,
+    generated: bool,
+    particle_ttl: Duration,
+) -> Particle {
+    let script = wrap_script(script, service_in, relay, generated, None);
 
     let id = uuid();
 
@@ -212,19 +269,19 @@ pub fn make_particle(
             break;
         }
         for (id, call) in call_requests {
-            let result = host_call(service_in, call);
-            match result {
-                Ok(call_result) => {
-                    call_results.insert(id, call_result);
-                }
-                Err(returned_data) => return Err(returned_data),
-            }
+            let args = Args::try_from(call).expect("valid args");
+            let result = host_call(service_in, args);
+            call_results.insert(id, result.0);
         }
     }
 
-    log::info!("Made a particle {}", id);
+    log::info!(
+        "Made a particle {}: {}",
+        id,
+        String::from_utf8_lossy(&particle_data)
+    );
 
-    Ok(Particle {
+    Particle {
         id,
         init_peer_id: peer_id,
         timestamp: now_ms() as u64,
@@ -232,14 +289,14 @@ pub fn make_particle(
         script,
         signature: vec![],
         data: particle_data,
-    })
+    }
 }
 
 pub fn read_args(
     particle: Particle,
     peer_id: PeerId,
     local_vm: &mut AVM<DataStoreError>,
-) -> Vec<JValue> {
+) -> Result<Vec<JValue>, Vec<JValue>> {
     let mut call_results: CallResults = <_>::default();
     let mut particle_data = particle.data;
     loop {
@@ -261,15 +318,15 @@ pub fn read_args(
         call_results.clear();
 
         if call_requests.is_empty() {
-            return vec![];
+            return Ok(vec![]);
         }
         for (id, call) in call_requests {
-            let result = host_call(&<_>::default(), call);
-            match result {
-                Ok(call_result) => {
-                    call_results.insert(id, call_result);
-                }
-                Err(returned_data) => return returned_data,
+            let args = Args::try_from(call).expect("valid args");
+            let result = host_call(&<_>::default(), args);
+            call_results.insert(id, result.0);
+
+            if result.1.is_some() {
+                return result.1.unwrap();
             }
         }
     }

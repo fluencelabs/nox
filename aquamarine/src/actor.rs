@@ -28,7 +28,7 @@ use particle_protocol::Particle;
 use crate::deadline::Deadline;
 use crate::particle_effects::NetworkEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
-use crate::particle_functions::Functions;
+use crate::particle_functions::{Function, Functions};
 
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
@@ -67,13 +67,18 @@ where
         self.future.is_some()
     }
 
-    pub fn cleanup(&self, particle_id: &str) -> eyre::Result<()> {
+    pub fn cleanup(&self, _particle_id: &str) -> eyre::Result<()> {
         // TODO: remove vault and particle data, maybe also particle_functions?
-        todo!("{}", particle_id)
+        log::info!("TODO: cleanup after actor!");
+        Ok(())
     }
 
     pub fn mailbox_size(&self) -> usize {
         self.mailbox.len()
+    }
+
+    pub fn set_function(&mut self, function: Function) {
+        self.functions.set_function(function)
     }
 
     pub fn ingest(&mut self, particle: Particle) {
@@ -98,6 +103,7 @@ where
                     // Schedule execution of functions
                     self.functions
                         .execute(effects.call_requests, cx.waker().clone());
+                    log::info!("creating effects for particle {:?}", effects.particle);
                     Ok(NetworkEffects {
                         particle: effects.particle,
                         next_peers: effects.next_peers,
@@ -140,7 +146,6 @@ where
 
         // Gather CallResults
         let calls = self.functions.drain();
-        log::info!("CallResults: {:?}", calls);
 
         // Take the next particle
         let particle = self.mailbox.pop_front();

@@ -18,7 +18,7 @@ use avm_server::{CallRequests, CallResults};
 use futures::stream::FuturesUnordered;
 use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
 
-use aquamarine::{NetworkEffects, Observation, ParticleEffects};
+use aquamarine::{NetworkEffects, ParticleEffects};
 use fluence_libp2p::types::{Inlet, Outlet};
 
 use crate::connectivity::Connectivity;

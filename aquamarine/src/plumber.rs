@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 use std::{
-    collections::{hash_map::Entry, HashMap, VecDeque},
+    collections::{HashMap, VecDeque},
     task::{Context, Poll},
 };
 
@@ -36,8 +36,9 @@ use crate::aqua_runtime::AquaRuntime;
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
-use crate::particle_functions::Functions;
+use crate::particle_functions::{Function, Functions};
 use crate::vm_pool::VmPool;
+use std::collections::hash_map::Entry;
 
 pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<NetworkEffects, AquamarineApiError>>,
@@ -59,7 +60,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
-    pub fn ingest(&mut self, particle: Particle) {
+    pub fn ingest(&mut self, particle: Particle, function: Option<Function>) {
         self.wake();
 
         let deadline = Deadline::from(&particle);
@@ -77,10 +78,20 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 let params = ParticleParams::clone_from(&particle);
                 let functions = Functions::new(params, self.builtins.clone());
                 let actor = Actor::new(deadline, functions);
-                entry.insert(actor).ingest(particle)
+                let actor = entry.insert(actor);
+                actor.ingest(particle);
+                if let Some(function) = function {
+                    actor.set_function(function);
+                }
             }
-            Entry::Occupied(mut entry) => entry.get_mut().ingest(particle),
-        }
+            Entry::Occupied(mut entry) => {
+                let actor = entry.get_mut();
+                actor.ingest(particle);
+                if let Some(function) = function {
+                    actor.set_function(function);
+                }
+            }
+        };
     }
 
     pub fn poll(

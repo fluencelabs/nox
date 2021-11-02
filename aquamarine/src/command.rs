@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2021 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,13 @@
  * limitations under the License.
  */
 
-#![feature(stmt_expr_attributes)]
-#![feature(try_trait_v2)]
-#![recursion_limit = "512"]
-#![warn(rust_2018_idioms)]
-#![allow(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
+use particle_protocol::Particle;
 
-pub use builtins::Builtins;
-pub use identify::NodeInfo;
+use crate::particle_functions::Function;
 
-mod builtins;
-mod error;
-mod identify;
-mod particle_function;
+pub enum Command {
+    Ingest {
+        particle: Particle,
+        function: Option<Function>,
+    },
+}

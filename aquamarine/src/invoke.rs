@@ -25,14 +25,16 @@ use crate::particle_data_store::DataStoreError;
 
 #[derive(Debug)]
 pub enum FieldError {
-    InvalidPeerId(String),
+    InvalidPeerId { peer_id: String, err: String },
 }
 
 impl Error for FieldError {}
 impl Display for FieldError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            FieldError::InvalidPeerId(err) => write!(f, "invalid PeerId: {}", err),
+            FieldError::InvalidPeerId { peer_id, err } => {
+                write!(f, "invalid PeerId '{}': {}", peer_id, err)
+            }
         }
     }
 }
@@ -73,7 +75,10 @@ impl Display for ExecutionError {
 }
 
 fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
-    PeerId::from_str(s).map_err(|err| FieldError::InvalidPeerId(err.to_string()))
+    PeerId::from_str(s).map_err(|err| FieldError::InvalidPeerId {
+        peer_id: s.to_string(),
+        err: err.to_string(),
+    })
 }
 
 pub fn parse_outcome(

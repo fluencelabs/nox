@@ -8,6 +8,7 @@ edition = "2018"
 ivalue-utils = { path = "../ivalue-utils" }
 particle-args = { path = "../particle-args" }
 particle-protocol = { path = "../../particle-protocol" }
+particle-execution = { path = "../../particle-execution" }
 now-millis = { path = "../now-millis"}
 uuid-utils = { path = "../uuid-utils" }
 fs-utils = { path = "../fs-utils"}
@@ -23,3 +24,4 @@ fstrings = "0.2.3"
 serde_json = "1.0.64"
 parking_lot = "0.11.1"
 log = "0.4.14"
+maplit = "1.0.2"

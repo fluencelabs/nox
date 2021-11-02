@@ -25,7 +25,7 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::PeerId;
 use particle_args::Args;
-use particle_execution::{ParticleParams, ParticleVault, VaultError};
+use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
 
@@ -98,7 +98,7 @@ pub fn get_service<'l>(
     services: &'l HashMap<String, Service>,
     aliases: &HashMap<String, String>,
     id_or_alias: String,
-) -> Result<(&'l Service, String), ServiceError> {
+) -> Result<(&'l Service, String), String> {
     // retrieve service by service id
     if let Some(service) = services.get(&id_or_alias) {
         return Ok((service, id_or_alias));
@@ -111,7 +111,7 @@ pub fn get_service<'l>(
         (service, resolved_id.clone())
     };
 
-    by_alias.ok_or(ServiceError::NoSuchService(id_or_alias))
+    by_alias.ok_or(id_or_alias)
 }
 
 impl ParticleAppServices {
@@ -169,7 +169,8 @@ impl ParticleAppServices {
         let service_id = {
             let services_read = self.services.read();
             let (service, service_id) =
-                get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
+                get_service(&services_read, &self.aliases.read(), service_id_or_alias)
+                    .map_err(|id| ServiceError::NoSuchService(id))?;
 
             if service.owner_id != init_peer_id && self.builtins_management_peer_id != init_peer_id
             {
@@ -195,25 +196,29 @@ impl ParticleAppServices {
 
     pub fn call_service(
         &self,
-        function_args: Args,
+        mut function_args: Args,
         particle: ParticleParams,
-    ) -> Result<JValue, ServiceError> {
+    ) -> FunctionOutcome {
         let services = self.services.read();
         let aliases = self.aliases.read();
         let host_id = self.config.local_peer_id.to_string();
 
-        let function_name = function_args.function_name;
-        let (service, service_id) = get_service(&services, &aliases, function_args.service_id)
-            .map_err(|err| match err {
-                ServiceError::NoSuchService(service) => ServiceError::NoSuchServiceWithFunction {
-                    service,
-                    function: function_name.clone(),
-                },
-                e => e,
-            })?;
+        let service = get_service(&services, &aliases, function_args.service_id);
+        let (service, service_id) = match service {
+            Ok(found) => found,
+            // If service is not found, report it
+            Err(service_id) => {
+                // move field back
+                function_args.service_id = service_id;
+                return FunctionOutcome::NotDefined {
+                    args: function_args,
+                    params: particle,
+                };
+            }
+        };
 
         // TODO: move particle vault creation to aquamarine::particle_functions
-        self.create_vault(&particle.id)?;
+        // self.create_vault(&particle.id)?;
 
         let params = CallParameters {
             host_id,
@@ -223,15 +228,18 @@ impl ParticleAppServices {
             service_id,
             service_creator_peer_id: service.owner_id.to_string(),
         };
+        let function_name = function_args.function_name;
 
         let mut service = service.lock();
-        service
-            .call(
-                function_name,
-                JValue::Array(function_args.function_args),
-                params,
-            )
-            .map_err(ServiceError::Engine)
+        let result = service.call(
+            function_name,
+            JValue::Array(function_args.function_args),
+            params,
+        );
+        match result {
+            Ok(v) => FunctionOutcome::Ok(v),
+            Err(e) => FunctionOutcome::Err(ServiceError::Engine(e).into()),
+        }
     }
 
     pub fn add_alias(
@@ -295,7 +303,8 @@ impl ParticleAppServices {
 
     pub fn get_interface(&self, service_id: String) -> Result<JValue, ServiceError> {
         let services = self.services.read();
-        let (service, _) = get_service(&services, &self.aliases.read(), service_id)?;
+        let (service, _) = get_service(&services, &self.aliases.read(), service_id)
+            .map_err(|id| ServiceError::NoSuchService(id))?;
 
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
@@ -367,6 +376,7 @@ impl ParticleAppServices {
         }
     }
 
+    #[warn(dead_code)]
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
         self.vault.create(particle_id)
     }

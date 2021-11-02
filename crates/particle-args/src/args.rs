@@ -24,7 +24,7 @@ use serde::Deserialize;
 use serde_json::Value as JValue;
 use std::convert::TryFrom;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Arguments passed by VM to host on call_service
 pub struct Args {
     pub service_id: String,

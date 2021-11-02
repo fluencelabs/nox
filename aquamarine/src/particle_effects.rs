@@ -19,7 +19,7 @@ use particle_protocol::Particle;
 
 use libp2p::PeerId;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 /// Effects produced by particle execution. Currently the only effect is that of sending particles.
 pub struct ParticleEffects {
     /// Particle associated with these effects
@@ -28,6 +28,16 @@ pub struct ParticleEffects {
     pub next_peers: Vec<PeerId>,
     /// Instruction to execute host calls
     pub call_requests: CallRequests,
+}
+
+impl ParticleEffects {
+    pub fn empty(particle: Particle) -> Self {
+        Self {
+            particle,
+            next_peers: vec![],
+            call_requests: <_>::default(),
+        }
+    }
 }
 
 /// Network part of the [[ParticleEffects]. Can't be executed by Aquamarine layer,

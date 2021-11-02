@@ -9,6 +9,7 @@ particle-protocol = { path = "../particle-protocol" }
 particle-args = { path = "../crates/particle-args" }
 fluence-libp2p = { path = "../crates/libp2p" }
 fs-utils = { path = "../crates/fs-utils" }
+json-utils = { path = "../crates/json-utils" }
 
 thiserror = "1.0.24"
 futures = "0.3.13"

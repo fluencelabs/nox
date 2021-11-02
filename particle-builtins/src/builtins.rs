@@ -18,6 +18,7 @@ use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::num::ParseIntError;
+use std::ops::Try;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
@@ -35,7 +36,7 @@ use ivalue_utils::{error, into_record, into_record_opt, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
-use particle_execution::ParticleParams;
+use particle_execution::{FunctionOutcome, ParticleParams};
 use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
@@ -92,11 +93,7 @@ where
     }
 
     // TODO: get rid of all blocking methods (std::fs and such)
-    pub async fn call(
-        &self,
-        args: Args,
-        particle: ParticleParams,
-    ) -> Result<Option<JValue>, JError> {
+    pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
@@ -132,7 +129,7 @@ where
             ("script", "remove")              => wrap(self.remove_script(args, particle).await),
             ("script", "list")                => wrap(self.list_scripts().await),
 
-            ("op", "noop")                    => Ok(None),
+            ("op", "noop")                    => FunctionOutcome::Empty,
             ("op", "array")                   => ok(Array(args.function_args)),
             ("op", "array_length")            => wrap(self.array_length(args.function_args)),
             ("op", "concat")                  => wrap(self.concat(args.function_args)),
@@ -144,7 +141,7 @@ where
             ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
             ("op", "identity")                => self.identity(args.function_args),
 
-            _                                 => wrap(self.call_service(args, particle)),
+            _                                 => self.call_service(args, particle),
         }
     }
 
@@ -187,11 +184,14 @@ where
         Ok(json!(ok))
     }
 
-    async fn get_contact(&self, args: Args) -> Result<Option<JValue>, JError> {
+    async fn get_contact(&self, args: Args) -> FunctionOutcome {
         let peer: String = Args::next("peer_id", &mut args.function_args.into_iter())?;
         let peer = PeerId::from_str(peer.as_str())?;
         let contact = self.connection_pool().get_contact(peer).await;
-        Ok(contact.map(|c| json!(c)))
+        match contact {
+            Some(c) => FunctionOutcome::Ok(json!(c)),
+            None => FunctionOutcome::Empty,
+        }
     }
 
     fn add_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
@@ -342,14 +342,14 @@ where
         Ok(json!(keys))
     }
 
-    fn identity(&self, args: Vec<serde_json::Value>) -> Result<Option<JValue>, JError> {
+    fn identity(&self, args: Vec<serde_json::Value>) -> FunctionOutcome {
         if args.len() > 1 {
-            Err(JError::new(format!(
+            FunctionOutcome::Err(JError::new(format!(
                 "identity accepts up to 1 arguments, received {} arguments",
                 args.len()
             )))
         } else {
-            Ok(args.into_iter().next())
+            Try::from_output(args.into_iter().next())
         }
     }
 
@@ -582,12 +582,8 @@ where
         JValue::Array(self.services.list_services())
     }
 
-    fn call_service(
-        &self,
-        function_args: Args,
-        particle: ParticleParams,
-    ) -> Result<JValue, JError> {
-        Ok(self.services.call_service(function_args, particle)?)
+    fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
+        self.services.call_service(function_args, particle)
     }
 
     fn get_interface(&self, args: Args) -> Result<JValue, JError> {
@@ -624,16 +620,22 @@ where
     }
 }
 
-fn ok(v: JValue) -> Result<Option<JValue>, JError> {
-    Ok(Some(v))
+fn ok(v: JValue) -> FunctionOutcome {
+    FunctionOutcome::Ok(v)
 }
 
-fn wrap(r: Result<JValue, JError>) -> Result<Option<JValue>, JError> {
-    r.map(Some)
+fn wrap(r: Result<JValue, JError>) -> FunctionOutcome {
+    match r {
+        Ok(v) => FunctionOutcome::Ok(v),
+        Err(err) => FunctionOutcome::Err(err),
+    }
 }
 
-fn wrap_unit(r: Result<(), JError>) -> Result<Option<JValue>, JError> {
-    r.map(|_| Some(json!("")))
+fn wrap_unit(r: Result<(), JError>) -> FunctionOutcome {
+    match r {
+        Ok(_) => FunctionOutcome::Empty,
+        Err(err) => FunctionOutcome::Err(err),
+    }
 }
 
 fn parse_u64(

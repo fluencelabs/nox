@@ -668,54 +668,6 @@ fn kad_merge() {
 }
 
 #[test]
-fn ipfs_multiaddr() {
-    let first_maddr = "/ip4/1.1.1.1/tcp/1111";
-    let second_maddr = "/ip4/2.2.2.2/tcp/2222";
-
-    let result = exec_script_as_admin(
-        r#"
-        (seq
-            (seq
-                (xor
-                    (call relay ("ipfs" "get_multiaddr") [])
-                    (ap %last_error%.$.msg uninit_error)
-                )
-                (seq
-                    (call relay ("ipfs" "set_multiaddr") [first_maddr])
-                    (call relay ("ipfs" "set_multiaddr") [second_maddr] replaced_maddr)
-                )
-            )
-            (seq
-                (call relay ("ipfs" "get_multiaddr") [] set_maddr)
-                (seq
-                    (call relay ("ipfs" "clear_multiaddr") [])
-                    (xor
-                        (call relay ("ipfs" "get_multiaddr") [])
-                        (ap %last_error%.$.msg cleared_error)
-                    )
-                )
-            )
-        )
-        "#,
-        hashmap! {
-            "first_maddr" => json!(first_maddr),
-            "second_maddr" => json!(second_maddr),
-        },
-        "uninit_error replaced_maddr set_maddr cleared_error",
-        1,
-        true,
-    );
-
-    let uninit_error = result[0].as_str().unwrap();
-    let cleared_error = result[3].as_str().unwrap();
-
-    assert!(uninit_error.contains("ipfs multiaddr isn't set"));
-    assert_eq!(result[1], json!(first_maddr));
-    assert_eq!(result[2], json!(second_maddr));
-    assert!(cleared_error.contains("ipfs multiaddr isn't set"));
-}
-
-#[test]
 fn noop() {
     enable_logs();
 

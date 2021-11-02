@@ -45,7 +45,7 @@ impl From<ArgsError> for JValue {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// An error that can be created from any other error
 /// Simplifies life by converting errors to be returnable from host closures
 pub struct JError(pub JValue);

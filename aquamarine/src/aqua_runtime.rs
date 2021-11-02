@@ -84,6 +84,8 @@ impl AquaRuntime for AVM<DataStoreError> {
         outcome: Result<AVMOutcome, AVMError<DataStoreError>>,
         p: Particle,
     ) -> ParticleEffects {
+        log::info!("parsing outcome for {:?}", p);
+
         match parse_outcome(outcome) {
             Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
@@ -104,15 +106,15 @@ impl AquaRuntime for AVM<DataStoreError> {
                     let data = String::from_utf8_lossy(data.as_slice());
                     log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
                 }
-                <_>::default()
+                ParticleEffects::empty(Particle { data, ..p })
             }
             Err(ExecutionError::AquamarineError(err)) => {
                 log::warn!("Error executing particle {:#?}: {}", p, err);
-                <_>::default()
+                ParticleEffects::empty(p)
             }
             Err(err @ ExecutionError::InvalidResultField { .. }) => {
                 log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
-                <_>::default()
+                ParticleEffects::empty(p)
             }
         }
     }

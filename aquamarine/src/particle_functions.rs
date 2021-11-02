@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::borrow::Cow;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::task::{Context, Poll, Waker};
 use std::time::Instant;
@@ -30,18 +28,19 @@ use parking_lot::Mutex;
 use serde_json::json;
 use serde_json::Value as JValue;
 
-use particle_args::Args;
-use particle_execution::{ParticleFunctionMut, ParticleFunctionStatic, ParticleParams};
+use particle_args::{Args, JError};
+use particle_execution::{
+    FunctionOutcome, ParticleFunctionMut, ParticleFunctionStatic, ParticleParams,
+};
 
-type FunctionDuplet<'a> = (Cow<'a, str>, Cow<'a, str>);
-pub type Function = Arc<Mutex<Box<dyn ParticleFunctionMut>>>;
+pub type Function = Box<dyn ParticleFunctionMut>;
 
 pub struct Functions<F> {
     particle: ParticleParams,
     builtins: Arc<F>,
     function_calls: FuturesUnordered<BoxFuture<'static, (u32, CallServiceResult)>>,
     call_results: CallResults,
-    particle_functions: HashMap<FunctionDuplet<'static>, Function>,
+    particle_function: Option<Arc<Mutex<Function>>>,
 }
 
 impl<F: ParticleFunctionStatic> Functions<F> {
@@ -51,7 +50,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             builtins,
             function_calls: <_>::default(),
             call_results: <_>::default(),
-            particle_functions: <_>::default(),
+            particle_function: None,
         }
     }
 
@@ -82,6 +81,11 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         std::mem::replace(&mut self.call_results, <_>::default())
     }
 
+    pub fn set_function(&mut self, function: Function) {
+        log::info!("Setting function");
+        self.particle_function = Some(Arc::new(Mutex::new(function)));
+    }
+
     // TODO: currently AFAIK there's no cooperation between tasks/executors because all futures
     //       are executed inside `block_on`.
     //       i.e., if one future yields, it blocks the whole thread (does it? I'm not sure)
@@ -96,7 +100,6 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         waker: Waker,
     ) -> BoxFuture<'static, (u32, CallServiceResult)> {
         use async_std::task::{block_on, spawn_blocking};
-        use Cow::Borrowed;
 
         // Deserialize params
         let args = match Args::try_from(call) {
@@ -120,31 +123,47 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         let start = Instant::now();
 
         let params = self.particle.clone();
-        // Check if a user-defined callback fits
-        let duplet: FunctionDuplet<'_> =
-            (Borrowed(&args.service_id), Borrowed(&args.function_name));
-        let result = if let Some(func) = self.particle_functions.get(&duplet) {
-            let func = func.clone();
-            // Move to blocking threadpool 'cause user-defined callback may use blocking calls
-            spawn_blocking(move || {
-                // TODO: Actors would allow to get rid of Mutex
-                //       i.e., wrap each callback with a queue & channel
-                let mut func = func.lock();
-                block_on(func.call_mut(args, params))
+        let builtins = self.builtins.clone();
+        let particle_function = self.particle_function.clone();
+
+        let result = spawn_blocking(move || {
+            block_on(async move {
+                let outcome = builtins.call(args, params).await;
+                match outcome {
+                    // If particle_function isn't set, just return what we have
+                    outcome if particle_function.is_none() => outcome,
+                    // If builtins weren't defined over these args, try particle_function
+                    FunctionOutcome::NotDefined { args, params } => {
+                        let func = particle_function.unwrap();
+                        // TODO: Actors would allow to get rid of Mutex
+                        //       i.e., wrap each callback with a queue & channel
+                        let mut func = func.lock();
+                        let outcome = func.call_mut(args, params).await;
+                        log::info!("Outcome from the particle function: {:?}", outcome);
+                        outcome
+                    }
+                    // Builtins were called, return their outcome
+                    outcome => outcome,
+                }
             })
-        } else {
-            let builtins = self.builtins.clone();
-            // Move to blocking threadpool 'cause particle_closures::ParticleFunctions
-            // uses std::fs and parking_lot which are blocking
-            spawn_blocking(move || block_on(builtins.call(args, params)))
-        };
+        });
 
         let elapsed = pretty(start.elapsed());
 
         async move {
-            let result = result.await;
+            let result: FunctionOutcome = result.await;
 
-            waker.wake();
+            log::info!("FunctionOutcome: {:?}", result);
+
+            let result = match result {
+                FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
+                    "Service with id '{}' not found (function {})",
+                    args.service_id, args.function_name
+                ))),
+                FunctionOutcome::Empty => Ok(JValue::String(String::new())),
+                FunctionOutcome::Ok(v) => Ok(v),
+                FunctionOutcome::Err(err) => Err(err),
+            };
 
             if let Err(err) = &result {
                 log::warn!("Failed host call {} ({}): {}", log_args, elapsed, err)
@@ -153,15 +172,17 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             };
 
             let result = match result {
-                Ok(v) => CallServiceResult {
+                Ok(result) => CallServiceResult {
                     ret_code: 0,
-                    result: v.map_or(json!(""), |v| json!(v)).to_string(),
+                    result: result.to_string(),
                 },
-                Err(e) => CallServiceResult {
+                Err(err) => CallServiceResult {
                     ret_code: 1,
-                    result: json!(JValue::from(e)).to_string(),
+                    result: JValue::from(err).to_string(),
                 },
             };
+
+            waker.wake();
 
             (id, result)
         }

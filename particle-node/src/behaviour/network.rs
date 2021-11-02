@@ -19,7 +19,6 @@ use libp2p::{
 };
 use trust_graph::InMemoryStorage;
 
-use aquamarine::Observation;
 use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet};
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, Inlet};
 use kademlia::{Kademlia, KademliaApiInlet, KademliaConfig};

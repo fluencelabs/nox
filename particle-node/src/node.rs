@@ -36,7 +36,7 @@ use trust_graph::InMemoryStorage;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreError,
-    NetworkEffects, Observation, VmConfig, VmPoolConfig, AVM,
+    NetworkEffects, VmConfig, VmPoolConfig, AVM,
 };
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;

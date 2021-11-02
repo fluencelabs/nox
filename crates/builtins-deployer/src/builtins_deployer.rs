@@ -20,6 +20,7 @@ use std::time::Duration;
 use std::{collections::HashMap, fs, sync::Arc};
 
 use eyre::{eyre, ErrReport, Result, WrapErr};
+use futures::channel::oneshot::channel;
 use futures::executor::block_on;
 use maplit::hashmap;
 use parking_lot::Mutex;
@@ -27,24 +28,33 @@ use regex::Regex;
 use serde_json::{json, Value as JValue, Value};
 
 use aquamarine::{AquamarineApi, DataStoreError, AVM};
+use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use fluence_libp2p::PeerId;
 use fs_utils::{file_name, file_stem, to_abs_path};
-use local_vm::{make_particle, make_vm, read_args};
+use local_vm::{client_functions, host_call, make_particle, make_vm, read_args, wrap_script};
+use now_millis::{now, now_ms, now_sec};
+use particle_args::Args;
+use particle_execution::{
+    FunctionOutcome, ParticleFunction, ParticleFunctionMut, ParticleFunctionOutput, ParticleParams,
+};
 use particle_modules::{list_files, AddBlueprint, NamedModuleConfig};
+use particle_protocol::Particle;
 use service_modules::{
     hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
 };
+use uuid_utils::uuid;
 
 use crate::builtin::{Builtin, Module};
 use crate::utils::{
     assert_ok, get_blueprint_id, load_blueprint, load_modules, load_scheduled_scripts,
     resolve_env_variables,
 };
+use futures::FutureExt;
 
 pub struct BuiltinsDeployer {
     startup_peer_id: PeerId,
     node_peer_id: PeerId,
-    node_api: AquamarineApi,
+    aquamarine: AquamarineApi,
     local_vm: AVM<DataStoreError>,
     builtins_base_dir: PathBuf,
     particle_ttl: Duration,
@@ -58,7 +68,7 @@ impl BuiltinsDeployer {
     pub fn new(
         startup_peer_id: PeerId,
         node_peer_id: PeerId,
-        node_api: AquamarineApi,
+        aquamarine: AquamarineApi,
         base_dir: PathBuf,
         particle_ttl: Duration,
         force_redeploy: bool,
@@ -67,7 +77,7 @@ impl BuiltinsDeployer {
         Self {
             startup_peer_id,
             node_peer_id,
-            node_api,
+            aquamarine,
             local_vm: make_vm(startup_peer_id),
             builtins_base_dir: base_dir,
             particle_ttl,
@@ -81,37 +91,100 @@ impl BuiltinsDeployer {
         script: String,
         mut data: HashMap<String, JValue>,
     ) -> eyre::Result<Vec<JValue>> {
-        data.insert("relay".to_string(), json!(self.node_peer_id.to_string()));
+        data.insert("node".to_string(), json!(self.node_peer_id.to_string()));
 
-        let result = make_particle(
-            self.startup_peer_id,
-            &data,
-            script,
-            None,
-            &mut self.local_vm,
-            // TODO: set to true if AIR script is generated from Aqua
-            false,
-            self.particle_ttl,
-        );
-        let particle = match result {
-            Ok(particle) => particle,
-            Err(result) => return Ok(result),
+        // let result = make_particle(
+        //     self.startup_peer_id,
+        //     &data,
+        //     script,
+        //     None,
+        //     &mut self.local_vm,
+        //     // TODO: set to true if AIR script is generated from Aqua
+        //     false,
+        //     self.particle_ttl,
+        // );
+        // let particle = match result {
+        //     Ok(particle) => particle,
+        //     Err(result) => return Ok(result),
+        // };
+
+        struct Closure {
+            outlet: Option<OneshotOutlet<std::result::Result<Vec<JValue>, Vec<JValue>>>>,
+            data: HashMap<String, JValue>,
+        }
+
+        impl Drop for Closure {
+            fn drop(&mut self) {
+                log::info!("dropping closure!");
+                println!("dropping closure!");
+            }
+        }
+
+        impl ParticleFunctionMut for Closure {
+            fn call_mut(
+                &mut self,
+                args: Args,
+                particle: ParticleParams,
+            ) -> ParticleFunctionOutput<'_> {
+                let result = client_functions(&self.data, args);
+
+                if let Some(returned) = result.returned {
+                    if let Some(outlet) = self.outlet.take() {
+                        log::info!("BuiltinsDeployer closure called!");
+                        outlet.send(returned).expect("send response back")
+                    } else {
+                        log::info!("WTF!")
+                    }
+                }
+
+                let outcome = result.outcome;
+                return async { outcome }.boxed();
+            }
+        }
+
+        // TODO: set to true if AIR script is generated from Aqua
+        let script = wrap_script(script, &data, None, false, Some(self.node_peer_id));
+        let (outlet, inlet) = channel();
+        let closure = Closure {
+            outlet: Some(outlet),
+            data,
+        };
+        let aquamarine = self.aquamarine.clone();
+
+        let future = async move {
+            aquamarine
+                .execute(
+                    Particle {
+                        id: uuid(),
+                        init_peer_id: self.startup_peer_id,
+                        timestamp: now_ms() as u64,
+                        ttl: self.particle_ttl.as_millis() as u32,
+                        script,
+                        signature: vec![],
+                        data: vec![],
+                    },
+                    Some(Box::new(closure)),
+                )
+                .await
+                .expect("submit to aquamarine execution");
+
+            let result = inlet.await;
+            result
+                .map_err(|err| eyre!("error reading from inlet: {:?}", err))
+                .and_then(|r| r.map_err(|args| eyre!("AIR caught an error on args: {:?}", args)))
         };
 
-        // let result = block_on(self.node_api.clone().handle(particle.into()))
-        //     .map_err(|e| eyre!("send_particle: handle failed: {}", e))?;
-
-        Ok(read_args(todo!(), self.startup_peer_id, &mut self.local_vm))
+        block_on(future)
     }
 
     fn add_module(&mut self, module: &Module) -> eyre::Result<()> {
         let script = r#"
         (xor
             (seq
-                (call relay ("dist" "add_module") [module_bytes module_config])
-                (call %init_peer_id% ("op" "return") [true])
+                (call node ("dist" "add_module") [module_bytes module_config])
+                (call node ("op" "return") [true])
             )
-            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+            (call node ("op" "return") [%last_error%.$.instruction])
         )
         "#
         .to_string();
@@ -132,10 +205,10 @@ impl BuiltinsDeployer {
         let script = r#"
         (xor
             (seq
-                (call relay ("srv" "remove") [name])
-                (call %init_peer_id% ("op" "return") [true])
+                (call node ("srv" "remove") [name])
+                (call node ("op" "return") [true])
             )
-            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+            (call node ("op" "return") [%last_error%.$.instruction])
         )
         "#
         .to_string();
@@ -151,16 +224,16 @@ impl BuiltinsDeployer {
         let script = r#"
         (xor
             (seq
-                (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                (call node ("dist" "add_blueprint") [blueprint] blueprint_id)
                 (seq
-                    (call relay ("srv" "create") [blueprint_id] service_id)
+                    (call node ("srv" "create") [blueprint_id] service_id)
                     (seq
-                        (call relay ("srv" "add_alias") [alias service_id] result)
-                        (call %init_peer_id% ("op" "return") [true])
+                        (call node ("srv" "add_alias") [alias service_id] result)
+                        (call node ("op" "return") [true])
                     )
                 )
             )
-            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+            (call node ("op" "return") [%last_error%.$.instruction])
         )
         "#
         .to_string();
@@ -174,7 +247,11 @@ impl BuiltinsDeployer {
             .send_particle(script, data)
             .wrap_err("create_service call failed")?;
 
-        assert_ok(result, "create_service call failed")
+        assert_ok(result, "create_service call failed")?;
+
+        log::info!("service was created!");
+
+        Ok(())
     }
 
     fn run_on_start(&mut self, builtin: &Builtin) -> eyre::Result<()> {
@@ -198,10 +275,10 @@ impl BuiltinsDeployer {
             let script = r#"
             (xor
                 (seq
-                    (call relay ("script" "add") [script interval_sec])
-                    (call %init_peer_id% ("op" "return") [true])
+                    (call node ("script" "add") [script interval_sec])
+                    (call node ("op" "return") [true])
                 )
-                (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+                (call node ("op" "return") [%last_error%.$.instruction])
             )
             "#
             .to_string();
@@ -234,7 +311,7 @@ impl BuiltinsDeployer {
                 let script = r#"
                     (seq
                         (null)
-                        (call %init_peer_id% ("op" "return") [true])
+                        (call node ("op" "return") [true])
                     )
                     "#
                 .to_string();
@@ -391,10 +468,10 @@ impl BuiltinsDeployer {
         let script = r#"
         (xor
             (seq
-                (call relay ("srv" "list") [] list)
-                (call %init_peer_id% ("op" "return") [list])
+                (call node ("srv" "list") [] list)
+                (call node ("op" "return") [list])
             )
-            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+            (call node ("op" "return") [%last_error%.$.instruction])
         )
         "#
         .to_string();

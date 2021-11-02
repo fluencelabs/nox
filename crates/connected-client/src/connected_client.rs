@@ -19,7 +19,7 @@ use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, sync::Arc, time::Dura
 
 use async_std::task;
 use eyre::Result;
-use eyre::{bail, WrapErr};
+use eyre::{bail, eyre, WrapErr};
 use fluence_identity::KeyPair;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use parking_lot::Mutex;
@@ -192,8 +192,7 @@ impl ConnectedClient {
             &mut self.local_vm.lock(),
             generated,
             self.particle_ttl(),
-        )
-        .expect("unexpected: make_particle returned result instead of a particle");
+        );
         let id = particle.id.clone();
         self.send(particle);
         id
@@ -227,7 +226,8 @@ impl ConnectedClient {
 
     pub fn receive_args(&mut self) -> Result<Vec<JValue>> {
         let particle = self.receive().wrap_err("receive_args")?;
-        Ok(read_args(particle, self.peer_id, &mut self.local_vm.lock()))
+        read_args(particle, self.peer_id, &mut self.local_vm.lock())
+            .map_err(|args| eyre!("AIR caught an error: {:?}", args))
     }
 
     /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
@@ -241,13 +241,14 @@ impl ConnectedClient {
             let particle = self.receive().ok();
             if let Some(particle) = particle {
                 if &particle.id == particle_id.as_ref() {
-                    break Ok(read_args(particle, self.peer_id, &mut self.local_vm.lock()));
+                    break read_args(particle, self.peer_id, &mut self.local_vm.lock())
+                        .map_err(|args| eyre!("AIR caught an error: {:?}", args));
                 }
             }
         }
     }
 
-    pub fn listen_for_n<F: Fn(Vec<JValue>)>(&mut self, mut n: usize, f: F) {
+    pub fn listen_for_n<F: Fn(Result<Vec<JValue>, Vec<JValue>>)>(&mut self, mut n: usize, f: F) {
         loop {
             n -= 1;
             if n <= 0 {

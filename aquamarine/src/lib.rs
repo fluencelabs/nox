@@ -32,22 +32,21 @@ pub use avm_server::AVMConfig;
 
 pub use aqua_runtime::AquaRuntime;
 pub use config::{VmConfig, VmPoolConfig};
-pub use observation::Observation;
+pub use error::AquamarineApiError;
 pub use particle_data_store::{DataStoreError, ParticleDataStore};
 pub use particle_effects::{NetworkEffects, ParticleEffects};
 pub use plumber::Plumber;
 
 pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
-pub use error::AquamarineApiError;
 
 mod actor;
 mod aqua_runtime;
 mod aquamarine;
+mod command;
 mod config;
 mod deadline;
 mod error;
 mod invoke;
-mod observation;
 mod particle_data_store;
 mod particle_effects;
 mod particle_executor;

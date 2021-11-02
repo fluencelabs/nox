@@ -18,18 +18,17 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use serde_json::Value as JValue;
 
-use particle_args::{Args, JError};
+use particle_args::Args;
 
-use crate::ParticleParams;
+use crate::{FunctionOutcome, ParticleParams};
 
-pub type Output<'a> = BoxFuture<'a, Result<Option<JValue>, JError>>;
+pub type Output<'a> = BoxFuture<'a, FunctionOutcome>;
 pub trait ParticleFunction: 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'_>;
 }
 
-pub trait ParticleFunctionMut: ParticleFunction {
+pub trait ParticleFunctionMut: 'static + Send + Sync {
     fn call_mut(&mut self, args: Args, particle: ParticleParams) -> Output<'_>;
 }
 
@@ -43,3 +42,21 @@ impl<F: ParticleFunction> ParticleFunctionStatic for Arc<F> {
         async move { ParticleFunction::call(this.as_ref(), args, particle).await }.boxed()
     }
 }
+
+// impl<F> ParticleFunction for F
+// where
+//     F: for<'a> FnMut((Args, ParticleParams)) -> Output<'a>,
+// {
+//     fn call(&self, args: Args, particle: ParticleParams) -> F::Output {
+//         self((args, particle))
+//     }
+// }
+
+// impl<F> ParticleFunctionMut for F
+// where
+//     F: FnMut<(Args, ParticleParams), Output = Output>,
+// {
+//     fn call_mut(&mut self, args: Args, particle: ParticleParams) -> Output<'_> {
+//         self((args, particle))
+//     }
+// }

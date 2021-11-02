@@ -322,7 +322,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
             "generate_on_absence": false,
             "value": bs58::encode(config.keypair.to_vec()).into_string(),
         },
-        "builtins_base_dir": config.builtins_dir
+        "builtins_base_dir": config.builtins_dir,
+        "external_multiaddresses": [config.listen_on]
     });
 
     let node_config: UnresolvedConfig =

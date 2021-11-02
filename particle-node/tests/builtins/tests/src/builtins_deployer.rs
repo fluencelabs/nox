@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::time::Duration;
 use std::{env, fs, path::Path};
 
 use eyre::WrapErr;
@@ -27,14 +28,16 @@ use builtins_deployer::ALLOWED_ENV_PREFIX;
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms_with_builtins, make_swarms_with_keypair};
 use fs_utils::copy_dir_all;
+use log_utils::enable_logs;
 use particle_modules::list_files;
 use service_modules::load_module;
 use test_utils::create_service;
 
 use crate::SERVICES;
-use log_utils::enable_logs;
 
 fn check_dht_builtin(client: &mut ConnectedClient) {
+    std::thread::sleep(Duration::from_millis(5000));
+
     client.send_particle(
         r#"(xor
             (seq

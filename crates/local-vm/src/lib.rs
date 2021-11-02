@@ -1,3 +1,4 @@
+#![feature(try_trait_v2)]
 /*
  * Copyright 2021 Fluence Labs Limited
  *
@@ -13,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #![warn(rust_2018_idioms)]
 #![allow(
     dead_code,

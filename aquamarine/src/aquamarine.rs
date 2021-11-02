@@ -25,15 +25,18 @@ use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
+use crate::command::Command;
+use crate::command::Command::Ingest;
 use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
+use crate::particle_functions::Function;
 use crate::vm_pool::VmPool;
 use crate::{Plumber, VmPoolConfig};
 
 pub type EffectsChannel = Outlet<Result<NetworkEffects, AquamarineApiError>>;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
-    inlet: BackPressuredInlet<Particle>,
+    inlet: BackPressuredInlet<Command>,
     plumber: Plumber<RT, F>,
     out: EffectsChannel,
 }
@@ -62,10 +65,11 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let mut wake = false;
 
         // check if there are new particles
-        while let Poll::Ready(Some(particle)) = self.inlet.poll_next_unpin(cx) {
+        while let Poll::Ready(Some(Ingest { particle, function })) = self.inlet.poll_next_unpin(cx)
+        {
             wake = true;
-            // set new particles to be executed
-            self.plumber.ingest(particle);
+            // set new particle to be executed
+            self.plumber.ingest(particle, function);
         }
 
         // check if there are executed particles
@@ -95,24 +99,25 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AquamarineApi {
-    outlet: BackPressuredOutlet<Particle>,
+    outlet: BackPressuredOutlet<Command>,
     execution_timeout: Duration,
 }
 
 impl AquamarineApi {
-    pub fn new(outlet: BackPressuredOutlet<Particle>, execution_timeout: Duration) -> Self {
+    pub fn new(outlet: BackPressuredOutlet<Command>, execution_timeout: Duration) -> Self {
         Self {
             outlet,
             execution_timeout,
         }
     }
 
-    /// Send particle to interpreters pool and wait response back
-    pub fn handle(
+    /// Send particle to the interpreters pool
+    pub fn execute(
         self,
         particle: Particle,
+        function: Option<Function>,
     ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         use AquamarineApiError::*;
 
@@ -120,7 +125,8 @@ impl AquamarineApi {
         let particle_id = particle.id.clone();
 
         async move {
-            let sent = interpreters.send(particle).await;
+            let command = Ingest { particle, function };
+            let sent = interpreters.send(command).await;
 
             sent.map_err(|err| match err {
                 err if err.is_disconnected() => {
@@ -128,6 +134,7 @@ impl AquamarineApi {
                     AquamarineDied { particle_id }
                 }
                 _ /* if err.is_full() */ => {
+                    // This couldn't happen AFAIU, because `SinkExt::send` checks for availability
                     log::error!("UNREACHABLE: Aquamarine outlet reported being full!");
                     AquamarineQueueFull { particle_id }
                 }

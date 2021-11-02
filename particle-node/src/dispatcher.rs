@@ -23,7 +23,7 @@ use futures::{stream::iter, FutureExt, SinkExt, StreamExt, TryFutureExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::Multiaddr;
 
-use aquamarine::{AquamarineApi, AquamarineApiError, NetworkEffects, Observation};
+use aquamarine::{AquamarineApi, AquamarineApiError, NetworkEffects};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
@@ -34,7 +34,7 @@ use crate::Connectivity;
 
 type Effects = Result<NetworkEffects, AquamarineApiError>;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Dispatcher {
     peer_id: PeerId,
     /// Number of concurrently processed particles
@@ -98,7 +98,7 @@ impl Dispatcher {
                 let particle_id = particle.id.clone();
                 async move {
                     aquamarine
-                        .handle(particle)
+                        .execute(particle, None)
                         // do not log errors: Aquamarine will log them fine
                         .map(|_| ())
                         .await
