@@ -218,7 +218,7 @@ impl ParticleAppServices {
         };
 
         // TODO: move particle vault creation to aquamarine::particle_functions
-        // self.create_vault(&particle.id)?;
+        self.create_vault(&particle.id)?;
 
         let params = CallParameters {
             host_id,
@@ -231,15 +231,15 @@ impl ParticleAppServices {
         let function_name = function_args.function_name;
 
         let mut service = service.lock();
-        let result = service.call(
-            function_name,
-            JValue::Array(function_args.function_args),
-            params,
-        );
-        match result {
-            Ok(v) => FunctionOutcome::Ok(v),
-            Err(e) => FunctionOutcome::Err(ServiceError::Engine(e).into()),
-        }
+        let result = service
+            .call(
+                function_name,
+                JValue::Array(function_args.function_args),
+                params,
+            )
+            .map_err(ServiceError::Engine)?;
+
+        FunctionOutcome::Ok(result)
     }
 
     pub fn add_alias(
@@ -376,7 +376,6 @@ impl ParticleAppServices {
         }
     }
 
-    #[warn(dead_code)]
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
         self.vault.create(particle_id)
     }

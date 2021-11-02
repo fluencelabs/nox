@@ -94,31 +94,9 @@ impl BuiltinsDeployer {
         data.insert("node".to_string(), json!(self.node_peer_id.to_string()));
         data.insert("relay".to_string(), json!(self.node_peer_id.to_string()));
 
-        // let result = make_particle(
-        //     self.startup_peer_id,
-        //     &data,
-        //     script,
-        //     None,
-        //     &mut self.local_vm,
-        //     // TODO: set to true if AIR script is generated from Aqua
-        //     false,
-        //     self.particle_ttl,
-        // );
-        // let particle = match result {
-        //     Ok(particle) => particle,
-        //     Err(result) => return Ok(result),
-        // };
-
         struct Closure {
             outlet: Option<OneshotOutlet<std::result::Result<Vec<JValue>, Vec<JValue>>>>,
             data: HashMap<String, JValue>,
-        }
-
-        impl Drop for Closure {
-            fn drop(&mut self) {
-                log::info!("dropping closure!");
-                println!("dropping closure!");
-            }
         }
 
         impl ParticleFunctionMut for Closure {
@@ -152,27 +130,27 @@ impl BuiltinsDeployer {
         };
         let aquamarine = self.aquamarine.clone();
 
-        let future = async move {
-            aquamarine
-                .execute(
-                    Particle {
-                        id: uuid(),
-                        init_peer_id: self.startup_peer_id,
-                        timestamp: now_ms() as u64,
-                        ttl: self.particle_ttl.as_millis() as u32,
-                        script,
-                        signature: vec![],
-                        data: vec![],
-                    },
-                    Some(Box::new(closure)),
-                )
-                .await
-                .expect("submit to aquamarine execution");
+        let particle = Particle {
+            id: uuid(),
+            init_peer_id: self.startup_peer_id,
+            timestamp: now_ms() as u64,
+            ttl: self.particle_ttl.as_millis() as u32,
+            script,
+            signature: vec![],
+            data: vec![],
+        };
 
-            let result = inlet.await;
-            result
-                .map_err(|err| eyre!("error reading from inlet: {:?}", err))
-                .and_then(|r| r.map_err(|args| eyre!("AIR caught an error on args: {:?}", args)))
+        let future = async move {
+            try {
+                aquamarine
+                    .execute(particle, Some(Box::new(closure)))
+                    .await?;
+
+                let result = inlet.await;
+                result
+                    .map_err(|err| eyre!("error reading from inlet: {:?}", err))?
+                    .map_err(|args| eyre!("AIR caught an error on args: {:?}", args))?
+            }
         };
 
         block_on(future)
