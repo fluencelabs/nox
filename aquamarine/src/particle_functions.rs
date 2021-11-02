@@ -116,7 +116,6 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             }
         };
 
-        log::trace!("Host function call, args: {:#?}", args);
         let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
 
         let start = Instant::now();
@@ -138,7 +137,6 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         //       i.e., wrap each callback with a queue & channel
                         let mut func = func.lock();
                         let outcome = func(args, params).await;
-                        log::info!("Outcome from the particle function: {:?}", outcome);
                         outcome
                     }
                     // Builtins were called, return their outcome

@@ -103,7 +103,6 @@ where
                     // Schedule execution of functions
                     self.functions
                         .execute(effects.call_requests, cx.waker().clone());
-                    log::info!("creating effects for particle {:?}", effects.particle);
                     Ok(NetworkEffects {
                         particle: effects.particle,
                         next_peers: effects.next_peers,

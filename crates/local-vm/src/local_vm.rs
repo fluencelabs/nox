@@ -137,7 +137,6 @@ pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFun
 
 pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResult, Returned) {
     let result = client_functions(data, args);
-    log::info!("host_call result: {:?}", result);
     let outcome = result.outcome;
     let outcome = match outcome {
         FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
