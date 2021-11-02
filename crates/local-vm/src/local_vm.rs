@@ -264,8 +264,6 @@ pub fn make_particle(
             )
             .expect("execute & make particle");
 
-        log::info!("Making particle, data: {}", String::from_utf8_lossy(&data));
-
         particle_data = data;
         call_results = <_>::default();
 
@@ -279,11 +277,7 @@ pub fn make_particle(
         }
     }
 
-    log::info!(
-        "Made a particle {}: {}",
-        id,
-        String::from_utf8_lossy(&particle_data)
-    );
+    log::info!("Made a particle {}", id);
 
     Particle {
         id,

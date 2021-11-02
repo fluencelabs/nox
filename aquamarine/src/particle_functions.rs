@@ -152,8 +152,6 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         async move {
             let result: FunctionOutcome = result.await;
 
-            log::info!("FunctionOutcome: {:?}", result);
-
             let result = match result {
                 FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
                     "Service with id '{}' not found (function {})",

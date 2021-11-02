@@ -84,8 +84,6 @@ impl AquaRuntime for AVM<DataStoreError> {
         outcome: Result<AVMOutcome, AVMError<DataStoreError>>,
         p: Particle,
     ) -> ParticleEffects {
-        log::info!("parsing outcome for {:?}", p);
-
         match parse_outcome(outcome) {
             Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
