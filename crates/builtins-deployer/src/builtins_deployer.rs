@@ -92,6 +92,7 @@ impl BuiltinsDeployer {
         mut data: HashMap<String, JValue>,
     ) -> eyre::Result<Vec<JValue>> {
         data.insert("node".to_string(), json!(self.node_peer_id.to_string()));
+        data.insert("relay".to_string(), json!(self.node_peer_id.to_string()));
 
         // let result = make_particle(
         //     self.startup_peer_id,
@@ -254,6 +255,7 @@ impl BuiltinsDeployer {
         Ok(())
     }
 
+    // TODO: right now, if AIR in on_start.air is invalid, everything just hangs
     fn run_on_start(&mut self, builtin: &Builtin) -> eyre::Result<()> {
         if builtin.on_start_script.is_some() && builtin.on_start_data.is_some() {
             let data: HashMap<String, JValue> = serde_json::from_str(&resolve_env_variables(

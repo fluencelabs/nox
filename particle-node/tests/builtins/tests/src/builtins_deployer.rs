@@ -183,12 +183,12 @@ fn builtins_resolving_env_variables() {
     (xor
         (seq
             (seq
-                (call relay ("peer" "timestamp_sec") [] timestamp)
-                (call relay ("aqua-dht" "register_key") [key timestamp false 0])
+                (call relay ("peer" "timestamp_sec") [] timestamp0)
+                (call relay ("aqua-dht" "register_key") [key timestamp0 false 0])
             )
-            (call %init_peer_id% ("op" "return") ["ok"])
+            (call relay ("op" "return") ["ok"])
         )
-        (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        (call relay ("op" "return") [%last_error%.$.instruction])
     )
     "#);
     let env_variable_name = format!("{}_AQUA_DHT_{}", ALLOWED_ENV_PREFIX, "KEY");
@@ -211,8 +211,8 @@ fn builtins_resolving_env_variables() {
         f!(r#"(xor
             (seq
                 (seq
-                    (call relay ("peer" "timestamp_sec") [] timestamp)
-                    (call relay ("aqua-dht" "get_key_metadata") ["{key}" timestamp] result)
+                    (call relay ("peer" "timestamp_sec") [] timestamp1)
+                    (call relay ("aqua-dht" "get_key_metadata") ["{key}" timestamp1] result)
                 )
                 (call %init_peer_id% ("op" "return") [result])
             )
