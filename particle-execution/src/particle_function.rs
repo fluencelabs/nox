@@ -42,21 +42,3 @@ impl<F: ParticleFunction> ParticleFunctionStatic for Arc<F> {
         async move { ParticleFunction::call(this.as_ref(), args, particle).await }.boxed()
     }
 }
-
-// impl<F> ParticleFunction for F
-// where
-//     F: for<'a> FnMut((Args, ParticleParams)) -> Output<'a>,
-// {
-//     fn call(&self, args: Args, particle: ParticleParams) -> F::Output {
-//         self((args, particle))
-//     }
-// }
-
-// impl<F> ParticleFunctionMut for F
-// where
-//     F: FnMut<(Args, ParticleParams), Output = Output>,
-// {
-//     fn call_mut(&mut self, args: Args, particle: ParticleParams) -> Output<'_> {
-//         self((args, particle))
-//     }
-// }

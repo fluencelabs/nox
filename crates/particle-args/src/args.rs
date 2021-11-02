@@ -17,9 +17,8 @@
 use crate::args_error::ArgsError::{self, MissingField, SerdeJson};
 
 use control_macro::ok_get;
-use fluence_app_service::SecurityTetraplet;
 
-use avm_server::CallRequestParams;
+use avm_server::{CallRequestParams, SecurityTetraplet};
 use serde::Deserialize;
 use serde_json::Value as JValue;
 use std::convert::TryFrom;
@@ -99,18 +98,8 @@ impl TryFrom<CallRequestParams> for Args {
         Ok(Args {
             service_id: value.service_id,
             function_name: value.function_name,
-            function_args: serde_json::from_str(&value.arguments).map_err(|err| {
-                ArgsError::SerdeJson {
-                    field: "function_args",
-                    err,
-                }
-            })?,
-            tetraplets: serde_json::from_str(&value.tetraplets).map_err(|err| {
-                ArgsError::SerdeJson {
-                    field: "tetraplets",
-                    err,
-                }
-            })?,
+            function_args: value.arguments,
+            tetraplets: value.tetraplets,
         })
     }
 }

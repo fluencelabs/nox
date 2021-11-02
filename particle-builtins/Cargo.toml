@@ -20,7 +20,7 @@ now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
-avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async" }
+avm-server = "0.11.0"
 
 async-std = { version = "1.9.0", features = ["unstable"] }
 multihash = "0.13.2"

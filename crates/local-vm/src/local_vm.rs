@@ -152,11 +152,11 @@ pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResu
     let outcome = match outcome {
         Ok(result) => CallServiceResult {
             ret_code: 0,
-            result: result.to_string(),
+            result,
         },
         Err(err) => CallServiceResult {
             ret_code: 1,
-            result: JValue::from(err).to_string(),
+            result: JValue::from(err),
         },
     };
 
@@ -260,14 +260,14 @@ pub fn make_particle(
                 particle_data,
                 peer_id.to_string(),
                 &id,
-                &call_results,
+                call_results,
             )
             .expect("execute & make particle"));
 
         log::info!("Making particle, data: {}", String::from_utf8_lossy(&data));
 
         particle_data = data;
-        call_results.clear();
+        call_results = <_>::default();
 
         if call_requests.is_empty() {
             break;
@@ -314,12 +314,12 @@ pub fn read_args(
                 particle_data,
                 particle.init_peer_id.to_string(),
                 &particle.id,
-                &call_results,
+                call_results,
             )
             .expect("execute & make particle");
 
         particle_data = data;
-        call_results.clear();
+        call_results = <_>::default();
 
         if call_requests.is_empty() {
             return Ok(vec![]);

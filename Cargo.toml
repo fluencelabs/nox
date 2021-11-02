@@ -40,33 +40,32 @@ exclude = [
     "particle-node/tests/tetraplets",
 ]
 
-[patch.'https://github.com/fluencelabs/marine']
-marine-macro-impl = { version = "0.6.12", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-marine-macro = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-marine-rs-sdk = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-
-
-[patch.'https://github.com/fluencelabs/aquavm']
-marine-macro-impl = { version = "0.6.12", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-marine-macro = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-marine-rs-sdk = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#[patch.'https://github.com/fluencelabs/marine']
+#marine-macro-impl = { version = "0.6.12", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#marine-macro = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#marine-rs-sdk = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#
+#
+#[patch.'https://github.com/fluencelabs/aquavm']
+#marine-macro-impl = { version = "0.6.12", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#marine-macro = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#marine-rs-sdk = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
 
 
 [patch.crates-io]
-avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async" }
-
-marine-runtime = { version = "0.7.1", git = "https://github.com/fluencelabs/marine", branch = "master" }
-fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "master" }
-fluence-faas = { git = "https://github.com/fluencelabs/marine", branch = "master" }
-marine-it-parser = { version = "0.6.7", git = "https://github.com/fluencelabs/marine", branch = "master" }
-marine-it-generator = { git = "https://github.com/fluencelabs/marine", branch = "master" }
-
-marine-macro-impl = { version = "0.6.12", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-marine-macro = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-marine-rs-sdk = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
-marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async" }
+#
+#marine-runtime = { version = "0.7.1", git = "https://github.com/fluencelabs/marine", branch = "master" }
+#fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "master" }
+#fluence-faas = { git = "https://github.com/fluencelabs/marine", branch = "master" }
+#marine-it-parser = { version = "0.6.7", git = "https://github.com/fluencelabs/marine", branch = "master" }
+#marine-it-generator = { git = "https://github.com/fluencelabs/marine", branch = "master" }
+#
+#marine-macro = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#marine-rs-sdk = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
+#marine-rs-sdk-main = { git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "master" }
 
 trust-graph = { git = "https://github.com/fluencelabs/trust-graph", branch = "remove_serde_version_lock" }
 fluence-identity = { git = "https://github.com/fluencelabs/trust-graph", branch = "remove_serde_version_lock" }

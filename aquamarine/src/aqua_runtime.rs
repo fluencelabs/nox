@@ -47,7 +47,7 @@ pub trait AquaRuntime: Sized + Send + 'static {
         aqua: String,
         data: Vec<u8>,
         particle_id: &str,
-        call_results: &CallResults,
+        call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error>;
 
     fn cleanup(&mut self, particle_id: &str) -> Result<(), Self::Error>;
@@ -126,7 +126,7 @@ impl AquaRuntime for AVM<DataStoreError> {
         aqua: String,
         data: Vec<u8>,
         particle_id: &str,
-        call_results: &CallResults,
+        call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
         AVM::call(
             self,

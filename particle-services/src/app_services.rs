@@ -18,7 +18,7 @@ use std::ops::Deref;
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{AppService, CallParameters, ServiceInterface};
+use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface};
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
@@ -224,7 +224,20 @@ impl ParticleAppServices {
             host_id,
             particle_id: particle.id,
             init_peer_id: particle.init_peer_id.to_string(),
-            tetraplets: function_args.tetraplets,
+            tetraplets: function_args
+                .tetraplets
+                .into_iter()
+                .map(|sts| {
+                    sts.into_iter()
+                        .map(|st| SecurityTetraplet {
+                            peer_pk: st.triplet.peer_pk,
+                            service_id: st.triplet.service_id,
+                            function_name: st.triplet.function_name,
+                            json_path: st.json_path,
+                        })
+                        .collect()
+                })
+                .collect(),
             service_id,
             service_creator_peer_id: service.owner_id.to_string(),
         };

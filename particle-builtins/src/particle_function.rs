@@ -25,6 +25,8 @@ use particle_execution::{ParticleFunction, ParticleFunctionOutput, ParticleParam
 
 use crate::Builtins;
 
+pub struct ArcBuiltins<C>(Arc<Builtins<C>>);
+
 impl<C> ParticleFunction for Builtins<C>
 where
     C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,

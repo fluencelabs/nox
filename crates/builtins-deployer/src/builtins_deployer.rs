@@ -14,34 +14,24 @@
  * limitations under the License.
  */
 
-use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
-use std::{collections::HashMap, fs, sync::Arc};
+use std::{collections::HashMap, fs};
 
 use eyre::{eyre, ErrReport, Result, WrapErr};
 use futures::channel::oneshot::channel;
 use futures::executor::block_on;
+use futures::FutureExt;
 use maplit::hashmap;
-use parking_lot::Mutex;
-use regex::Regex;
-use serde_json::{json, Value as JValue, Value};
+use serde_json::{json, Value as JValue};
 
-use aquamarine::{AquamarineApi, DataStoreError, AVM};
-use fluence_libp2p::types::{OneshotOutlet, Outlet};
+use aquamarine::AquamarineApi;
 use fluence_libp2p::PeerId;
-use fs_utils::{file_name, file_stem, to_abs_path};
-use local_vm::{client_functions, host_call, make_vm, read_args, wrap_script};
-use now_millis::{now, now_ms, now_sec};
-use particle_args::Args;
-use particle_execution::{
-    FunctionOutcome, ParticleFunction, ParticleFunctionMut, ParticleFunctionOutput, ParticleParams,
-};
-use particle_modules::{list_files, AddBlueprint, NamedModuleConfig};
+use fs_utils::{file_name, to_abs_path};
+use local_vm::{client_functions, wrap_script};
+use now_millis::now_ms;
+use particle_modules::list_files;
 use particle_protocol::Particle;
-use service_modules::{
-    hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
-};
 use uuid_utils::uuid;
 
 use crate::builtin::{Builtin, Module};
@@ -49,13 +39,11 @@ use crate::utils::{
     assert_ok, get_blueprint_id, load_blueprint, load_modules, load_scheduled_scripts,
     resolve_env_variables,
 };
-use futures::FutureExt;
 
 pub struct BuiltinsDeployer {
     startup_peer_id: PeerId,
     node_peer_id: PeerId,
     aquamarine: AquamarineApi,
-    local_vm: AVM<DataStoreError>,
     builtins_base_dir: PathBuf,
     particle_ttl: Duration,
     // if set to true, remove existing builtins before deploying
@@ -78,7 +66,6 @@ impl BuiltinsDeployer {
             startup_peer_id,
             node_peer_id,
             aquamarine,
-            local_vm: make_vm(startup_peer_id),
             builtins_base_dir: base_dir,
             particle_ttl,
             force_redeploy,
@@ -94,39 +81,25 @@ impl BuiltinsDeployer {
         data.insert("node".to_string(), json!(self.node_peer_id.to_string()));
         data.insert("relay".to_string(), json!(self.node_peer_id.to_string()));
 
-        struct Closure {
-            outlet: Option<OneshotOutlet<std::result::Result<Vec<JValue>, Vec<JValue>>>>,
-            data: HashMap<String, JValue>,
-        }
-
-        impl ParticleFunctionMut for Closure {
-            fn call_mut(
-                &mut self,
-                args: Args,
-                particle: ParticleParams,
-            ) -> ParticleFunctionOutput<'_> {
-                let result = client_functions(&self.data, args);
-
-                if let Some(returned) = result.returned {
-                    if let Some(outlet) = self.outlet.take() {
-                        log::info!("BuiltinsDeployer closure called!");
-                        outlet.send(returned).expect("send response back")
-                    } else {
-                        log::info!("WTF!")
-                    }
-                }
-
-                let outcome = result.outcome;
-                return async { outcome }.boxed();
-            }
-        }
-
         // TODO: set to true if AIR script is generated from Aqua
         let script = wrap_script(script, &data, None, false, Some(self.node_peer_id));
         let (outlet, inlet) = channel();
-        let closure = Closure {
-            outlet: Some(outlet),
-            data,
+
+        let mut outlet = Some(outlet);
+        let closure = move |args, _| {
+            let result = client_functions(&data, args);
+
+            if let Some(returned) = result.returned {
+                if let Some(outlet) = outlet.take() {
+                    log::info!("BuiltinsDeployer closure called!");
+                    outlet.send(returned).expect("send response back")
+                } else {
+                    log::info!("WTF!")
+                }
+            }
+
+            let outcome = result.outcome;
+            return async { outcome }.boxed();
         };
         let aquamarine = self.aquamarine.clone();
 

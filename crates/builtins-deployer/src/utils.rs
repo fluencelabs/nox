@@ -17,7 +17,7 @@
 use std::path::Path;
 use std::{env, fs};
 
-use eyre::{eyre, ErrReport, Result, WrapErr};
+use eyre::{eyre, Result, WrapErr};
 use regex::Regex;
 use serde_json::Value as JValue;
 

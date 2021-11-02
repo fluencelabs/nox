@@ -15,10 +15,10 @@
  */
 
 use std::convert::TryFrom;
+use std::sync::Arc;
 use std::task::{Context, Poll, Waker};
 use std::time::Instant;
 
-use async_std::sync::Arc;
 use avm_server::{CallRequestParams, CallRequests, CallResults, CallServiceResult};
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
@@ -30,10 +30,11 @@ use serde_json::Value as JValue;
 
 use particle_args::{Args, JError};
 use particle_execution::{
-    FunctionOutcome, ParticleFunctionMut, ParticleFunctionStatic, ParticleParams,
+    FunctionOutcome, ParticleFunctionOutput, ParticleFunctionStatic, ParticleParams,
 };
 
-pub type Function = Box<dyn ParticleFunctionMut>;
+pub type Function =
+    Box<dyn FnMut(Args, ParticleParams) -> ParticleFunctionOutput<'static> + 'static + Send + Sync>;
 
 pub struct Functions<F> {
     particle: ParticleParams,
@@ -109,8 +110,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                     result: json!(format!(
                         "Failed to deserialize CallRequestParams to Args: {}",
                         err
-                    ))
-                    .to_string(),
+                    )),
                 };
                 return async move { (id, result) }.boxed();
             }
@@ -137,7 +137,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         // TODO: Actors would allow to get rid of Mutex
                         //       i.e., wrap each callback with a queue & channel
                         let mut func = func.lock();
-                        let outcome = func.call_mut(args, params).await;
+                        let outcome = func(args, params).await;
                         log::info!("Outcome from the particle function: {:?}", outcome);
                         outcome
                     }
@@ -173,11 +173,11 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             let result = match result {
                 Ok(result) => CallServiceResult {
                     ret_code: 0,
-                    result: result.to_string(),
+                    result,
                 },
                 Err(err) => CallServiceResult {
                     ret_code: 1,
-                    result: JValue::from(err).to_string(),
+                    result: JValue::from(err),
                 },
             };
 

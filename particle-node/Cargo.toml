@@ -23,8 +23,8 @@ fs-utils = { path = "../crates/fs-utils" }
 
 trust-graph = "0.2.7"
 fluence-identity = "0.3.0"
-air-interpreter-wasm = "=0.14.1-async.9"
-avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "async" }
+air-interpreter-wasm = "=0.16.3"
+avm-server = "0.11.0"
 
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 futures = "0.3.13"
@@ -55,7 +55,7 @@ local-vm = { path = "../crates/local-vm" }
 json-utils = { path = "../crates/json-utils" }
 control-macro = { path = "../crates/control-macro" }
 
-fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "master" }
+fluence-app-service = "0.10.1"
 
 parking_lot = "0.11.1"
 maplit = "1.0.2"
