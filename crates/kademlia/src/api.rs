@@ -81,7 +81,12 @@ impl KademliaApiInlet {
         (outlet, Self { inlet, kademlia })
     }
 
-    pub fn add_addresses(&mut self, peer: PeerId, addresses: Vec<Multiaddr>, public_key: PublicKey) {
+    pub fn add_addresses(
+        &mut self,
+        peer: PeerId,
+        addresses: Vec<Multiaddr>,
+        public_key: PublicKey,
+    ) {
         self.kademlia.add_kad_node(peer, addresses, public_key)
     }
 
@@ -91,7 +96,9 @@ impl KademliaApiInlet {
             Command::Bootstrap { out } => self.kademlia.bootstrap(out),
             Command::LocalLookup { peer, out } => self.kademlia.local_lookup(&peer, out),
             Command::DiscoverPeer { peer, out } => self.kademlia.discover_peer(peer, out),
-            Command::Neighborhood { key, count, out } => self.kademlia.neighborhood(key, count, out),
+            Command::Neighborhood { key, count, out } => {
+                self.kademlia.neighborhood(key, count, out)
+            }
         }
     }
 
@@ -166,7 +173,9 @@ impl KademliaApiT for KademliaApi {
         if send.is_err() {
             return futures::future::err(KademliaError::Cancelled).boxed();
         }
-        inlet.map(|r| r.map_err(|_| KademliaError::Cancelled)).boxed()
+        inlet
+            .map(|r| r.map_err(|_| KademliaError::Cancelled))
+            .boxed()
     }
 
     fn discover_peer(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {

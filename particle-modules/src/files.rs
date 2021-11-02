@@ -18,7 +18,8 @@ use crate::error::{ModuleError::*, Result};
 
 use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
 use service_modules::{
-    blueprint_file_name, blueprint_fname, module_config_name_hash, module_file_name_hash, Blueprint, Hash,
+    blueprint_file_name, blueprint_fname, module_config_name_hash, module_file_name_hash,
+    Blueprint, Hash,
 };
 
 use std::path::Path;
@@ -27,8 +28,10 @@ use std::{convert::TryInto, path::PathBuf};
 /// Load blueprint from disk
 pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
     let bp_path = bp_dir.join(blueprint_fname(blueprint_id));
-    let blueprint = std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
-    let blueprint: Blueprint = toml::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
+    let blueprint =
+        std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
+    let blueprint: Blueprint =
+        toml::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
 
     Ok(blueprint)
 }
@@ -37,7 +40,9 @@ pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
 pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<ModuleDescriptor> {
     let config = modules_dir.join(module_config_name_hash(module_hash));
     let config = load_config_by_path(&config)?;
-    let mut config: ModuleDescriptor = config.try_into().map_err(|err| ModuleConvertError { err })?;
+    let mut config: ModuleDescriptor = config
+        .try_into()
+        .map_err(|err| ModuleConvertError { err })?;
 
     // TODO HACK: This is required because by default file_name is set to be same as import_name
     //            That behavior is defined in TomlFaaSNamedModuleConfig. Would be nice to refactor that behavior.

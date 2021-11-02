@@ -17,10 +17,15 @@
 use crate::{Args, ArgsError};
 use serde_json::Value as JValue;
 
-pub fn from_base58(name: &'static str, args: &mut impl Iterator<Item = JValue>) -> Result<Vec<u8>, ArgsError> {
+pub fn from_base58(
+    name: &'static str,
+    args: &mut impl Iterator<Item = JValue>,
+) -> Result<Vec<u8>, ArgsError> {
     let result: String = Args::next(name, args)?;
-    bs58::decode(result).into_vec().map_err(|err| ArgsError::InvalidFormat {
-        field: "key",
-        err: format!("not a base58: {}", err).into(),
-    })
+    bs58::decode(result)
+        .into_vec()
+        .map_err(|err| ArgsError::InvalidFormat {
+            field: "key",
+            err: format!("not a base58: {}", err).into(),
+        })
 }

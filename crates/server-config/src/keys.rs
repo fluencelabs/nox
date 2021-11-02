@@ -51,7 +51,10 @@ fn create_new_key_pair(key_path: &Path, keypair_format: KeyFormat) -> Result<Key
     Ok(key_pair)
 }
 
-fn read_key_pair_from_file(path: &Path, keypair_format: String) -> Result<KeyPair, Box<dyn std::error::Error>> {
+fn read_key_pair_from_file(
+    path: &Path,
+    keypair_format: String,
+) -> Result<KeyPair, Box<dyn std::error::Error>> {
     let base58 = fs::read_to_string(path).map_err(|e| {
         std::io::Error::new(
             ErrorKind::InvalidData,
@@ -66,11 +69,16 @@ fn read_key_pair_from_file(path: &Path, keypair_format: String) -> Result<KeyPai
     decode_key_pair(base58.trim().to_string(), keypair_format)
 }
 
-pub fn decode_key_pair(base58: String, key_pair_format: String) -> Result<KeyPair, Box<dyn std::error::Error>> {
+pub fn decode_key_pair(
+    base58: String,
+    key_pair_format: String,
+) -> Result<KeyPair, Box<dyn std::error::Error>> {
     let key_pair = bs58::decode(base58).into_vec()?;
 
-    Ok(KeyPair::from_vec(key_pair, KeyFormat::from_str(&key_pair_format)?)
-        .map_err(|e| Error::new(ErrorKind::InvalidInput, e.to_string()))?)
+    Ok(
+        KeyPair::from_vec(key_pair, KeyFormat::from_str(&key_pair_format)?)
+            .map_err(|e| Error::new(ErrorKind::InvalidInput, e.to_string()))?,
+    )
 }
 
 /// Read the file with a secret key if it exists, generate a new key pair and write it to file if not.
@@ -82,9 +90,16 @@ pub fn load_key_pair(
     if !key_path.exists() {
         return if generate_on_absence {
             info!("Generating a new key pair to {:?}", key_path);
-            Ok(create_new_key_pair(&key_path, KeyFormat::from_str(&keypair_format)?)?)
+            Ok(create_new_key_pair(
+                &key_path,
+                KeyFormat::from_str(&keypair_format)?,
+            )?)
         } else {
-            Err(Error::new(ErrorKind::InvalidInput, "Path to secret key does not exist".to_string()).into())
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Path to secret key does not exist".to_string(),
+            )
+            .into())
         };
     }
 

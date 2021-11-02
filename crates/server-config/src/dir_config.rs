@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::defaults::{avm_base_dir, builtins_base_dir, cert_dir, default_base_dir, services_base_dir};
+use crate::defaults::{
+    avm_base_dir, builtins_base_dir, cert_dir, default_base_dir, services_base_dir,
+};
 
 use air_interpreter_fs::air_interpreter_path;
 use fs_utils::{create_dirs, to_abs_path};
@@ -56,7 +58,9 @@ impl UnresolvedDirConfig {
         let services_base_dir = self.services_base_dir.unwrap_or(services_base_dir(&base));
         let builtins_base_dir = self.builtins_base_dir.unwrap_or(builtins_base_dir(&base));
         let avm_base_dir = self.avm_base_dir.unwrap_or(avm_base_dir(&base));
-        let air_interpreter_path = self.air_interpreter_path.unwrap_or(air_interpreter_path(&base));
+        let air_interpreter_path = self
+            .air_interpreter_path
+            .unwrap_or(air_interpreter_path(&base));
 
         ResolvedDirConfig {
             base_dir: base,

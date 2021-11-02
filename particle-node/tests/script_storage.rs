@@ -289,7 +289,10 @@ fn remove_script_unauth() {
     );
 
     let removed = client2.wait_particle_args(remove_id).unwrap();
-    assert_eq!(removed, vec![serde_json::Value::String("failed".to_string())]);
+    assert_eq!(
+        removed,
+        vec![serde_json::Value::String("failed".to_string())]
+    );
 
     // check script is still in the list
     let list_id = client.send_particle(
@@ -304,7 +307,12 @@ fn remove_script_unauth() {
             "client" => json!(client.peer_id.to_string()),
         },
     );
-    let list = client.wait_particle_args(list_id).unwrap().into_iter().next().unwrap();
+    let list = client
+        .wait_particle_args(list_id)
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
     if let serde_json::Value::Array(list) = list {
         assert_eq!(list.len(), 1);
     } else {
@@ -378,10 +386,12 @@ fn remove_script_management_key() {
     let script_id = args.into_iter().next().unwrap();
 
     // try to remove with management key
-    let mut client2 =
-        ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), Some(swarms[0].management_keypair.clone()))
-            .wrap_err("connect client")
-            .unwrap();
+    let mut client2 = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
 
     let remove_id = client2.send_particle(
         r#"

@@ -51,7 +51,9 @@ impl<K: Eq + Hash + Debug, V: Debug> Default for WaitingQueues<K, V> {
 
 impl<K: Eq + Hash + Debug, V: Debug> WaitingQueues<K, V> {
     pub fn new() -> Self {
-        Self { map: HashMap::new() }
+        Self {
+            map: HashMap::new(),
+        }
     }
 
     /// Inserts `item` in the queue associated with `key`

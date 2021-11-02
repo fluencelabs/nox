@@ -56,8 +56,12 @@ pub enum HandlerMessage {
 impl HandlerMessage {
     pub fn into_protocol_message(self) -> (ProtocolMessage, Option<OneshotOutlet<bool>>) {
         match self {
-            HandlerMessage::OutParticle(particle, channel) => (ProtocolMessage::Particle(particle), channel.outlet()),
-            HandlerMessage::InboundUpgradeError(err) => (ProtocolMessage::InboundUpgradeError(err), None),
+            HandlerMessage::OutParticle(particle, channel) => {
+                (ProtocolMessage::Particle(particle), channel.outlet())
+            }
+            HandlerMessage::InboundUpgradeError(err) => {
+                (ProtocolMessage::InboundUpgradeError(err), None)
+            }
             HandlerMessage::Upgrade => (ProtocolMessage::Upgrade, None),
             HandlerMessage::InParticle(_) => {
                 unreachable!("InParticle is never sent, only received")

@@ -33,8 +33,9 @@ pub mod peerid_serializer {
         D: Deserializer<'de>,
     {
         let str = String::deserialize(deserializer)?;
-        PeerId::from_str(&str)
-            .map_err(|e| serde::de::Error::custom(format!("peer id deserialization failed for {:?}", e)))
+        PeerId::from_str(&str).map_err(|e| {
+            serde::de::Error::custom(format!("peer id deserialization failed for {:?}", e))
+        })
     }
 }
 
@@ -82,7 +83,10 @@ pub mod provider_serializer {
 
                     if let Some(peer_id) = peer_id_bytes {
                         let peer_id = PeerId::from_str(&peer_id).map_err(|e| {
-                            serde::de::Error::custom(format!("peer id deserialization failed for {:?}", e))
+                            serde::de::Error::custom(format!(
+                                "peer id deserialization failed for {:?}",
+                                e
+                            ))
                         })?;
                         vec.push((multiaddr, peer_id));
                     } else {
@@ -123,7 +127,10 @@ mod tests {
         let peer_id_1 = RandomPeerId::random();
         let peer_id_2 = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
 
-        let test = Test { peer_id_1, peer_id_2 };
+        let test = Test {
+            peer_id_1,
+            peer_id_2,
+        };
 
         let serialized_test = serde_json::to_value(test.clone());
         assert!(

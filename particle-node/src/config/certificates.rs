@@ -29,8 +29,12 @@ use std::{
 
 /// Loads all certificates from a disk. Creates a root certificate for key pair if there is no one.
 pub fn init(certificate_dir: &Path, key_pair: &KeyPair) -> eyre::Result<Vec<Certificate>> {
-    let mut certs = load_certificates(certificate_dir)
-        .wrap_err_with(|| format!("failed to load root certificates on init from {:?}", certificate_dir))?;
+    let mut certs = load_certificates(certificate_dir).wrap_err_with(|| {
+        format!(
+            "failed to load root certificates on init from {:?}",
+            certificate_dir
+        )
+    })?;
 
     let public_key = key_pair.public();
 
@@ -39,7 +43,9 @@ pub fn init(certificate_dir: &Path, key_pair: &KeyPair) -> eyre::Result<Vec<Cert
     // Creates and stores a new root certificate if needed.
     if root_cert.is_none() {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let expires_at = now.checked_add(Duration::new(60 * 60 * 24 * 365, 0)).unwrap();
+        let expires_at = now
+            .checked_add(Duration::new(60 * 60 * 24 * 365, 0))
+            .unwrap();
         let root_cert = store_root_certificate(certificate_dir, key_pair, expires_at, now)
             .context("Failed to store root certificates on init")?;
         certs.push(root_cert);
@@ -53,7 +59,8 @@ pub fn init(certificate_dir: &Path, key_pair: &KeyPair) -> eyre::Result<Vec<Cert
 pub fn load_certificates(cert_dir: &Path) -> eyre::Result<Vec<Certificate>> {
     // cold start, if there is no directory, create a new one
     if !cert_dir.exists() {
-        create_dir(&cert_dir).wrap_err_with(|| format!("failed to create cert_dir {:?}", cert_dir))?;
+        create_dir(&cert_dir)
+            .wrap_err_with(|| format!("failed to create cert_dir {:?}", cert_dir))?;
     }
 
     if cert_dir.is_file() {
@@ -62,15 +69,18 @@ pub fn load_certificates(cert_dir: &Path) -> eyre::Result<Vec<Certificate>> {
 
     let mut certs = Vec::new();
 
-    for entry in fs::read_dir(&cert_dir).wrap_err_with(|| format!("failed to read cert_dir {:?}", cert_dir))? {
+    for entry in fs::read_dir(&cert_dir)
+        .wrap_err_with(|| format!("failed to read cert_dir {:?}", cert_dir))?
+    {
         let entry = entry.wrap_err("read_dir entry failed")?;
         let path = entry.path();
 
         // ignore sub directories
         if !path.is_dir() {
-            let str_cert = fs::read_to_string(&path).wrap_err_with(|| format!("can't read {:?}", path))?;
-            let cert =
-                Certificate::from_str(str_cert.as_str()).map_err(|e| eyre!("error parsing certificate: {:#?}", e))?;
+            let str_cert =
+                fs::read_to_string(&path).wrap_err_with(|| format!("can't read {:?}", path))?;
+            let cert = Certificate::from_str(str_cert.as_str())
+                .map_err(|e| eyre!("error parsing certificate: {:#?}", e))?;
             certs.push(cert);
         }
     }
@@ -85,7 +95,8 @@ pub fn store_root_certificate(
     issued_at: Duration,
 ) -> Result<Certificate, Error> {
     info!("storing new certificate for the key pair");
-    let cert: Certificate = Certificate::issue_root(key_pair, key_pair.public(), expires_at, issued_at);
+    let cert: Certificate =
+        Certificate::issue_root(key_pair, key_pair.public(), expires_at, issued_at);
 
     let root_cert_path = cert_dir.join(Path::new("root.cert"));
 

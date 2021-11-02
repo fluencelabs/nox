@@ -182,7 +182,10 @@ fn fold_same_node_stream() {
             .collect();
         assert_eq!(pid_permutations, inner);
         let flat: Vec<_> = pid_permutations.into_iter().flatten().collect();
-        let result: Vec<_> = result.iter().map(|s| s.as_str().unwrap().to_string()).collect();
+        let result: Vec<_> = result
+            .iter()
+            .map(|s| s.as_str().unwrap().to_string())
+            .collect();
         assert_eq!(flat, result);
     } else {
         panic!("expected 2 arrays");
