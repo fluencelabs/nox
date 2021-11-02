@@ -82,7 +82,6 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     }
 
     pub fn set_function(&mut self, function: Function) {
-        log::info!("Setting function");
         self.particle_function = Some(Arc::new(Mutex::new(function)));
     }
 

@@ -32,6 +32,7 @@ use crate::effectors::Effectors;
 use crate::tasks::Tasks;
 use crate::Connectivity;
 
+// TODO: move error into NetworkEffects
 type Effects = Result<NetworkEffects, AquamarineApiError>;
 
 #[derive(Clone)]
@@ -124,7 +125,6 @@ impl Dispatcher {
         let particle_failures = self.particle_failures_sink;
         effects_stream
             .for_each_concurrent(parallelism, move |effects| {
-                log::info!("Effects: {:?}", effects);
                 let effectors = effectors.clone();
                 let mut particle_failures = particle_failures.clone();
 

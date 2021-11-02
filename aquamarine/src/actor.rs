@@ -116,18 +116,6 @@ where
         }
 
         Poll::Pending
-
-        // Poll self.future
-        // let future = self.future.take().map(|mut fut| (fut.poll_unpin(cx), fut));
-        // match future {
-        //     // If future is ready, return effects and vm
-        //     Some((Poll::Ready(r), _)) => Poll::Ready(r),
-        //     o => {
-        //         // Either keep pending future or keep it None
-        //         self.future = o.map(|(_, fut)| fut);
-        //         Poll::Pending
-        //     }
-        // }
     }
 
     /// Provide actor with new `vm` to execute particles, if there are any.
@@ -176,9 +164,9 @@ where
             // Clone particle without data
             self.particle = Some(Particle {
                 id: particle.id.clone(),
-                init_peer_id: particle.init_peer_id.clone(),
-                timestamp: particle.timestamp.clone(),
-                ttl: particle.ttl.clone(),
+                init_peer_id: particle.init_peer_id,
+                timestamp: particle.timestamp,
+                ttl: particle.ttl,
                 script: particle.script.clone(),
                 signature: particle.signature.clone(),
                 data: vec![],
