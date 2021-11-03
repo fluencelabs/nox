@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-use connected_client::ConnectedClient;
-use created_swarm::make_swarms;
+#[macro_use]
+extern crate fstrings;
 
 use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 
-#[macro_use]
-extern crate fstrings;
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
 
 #[test]
 fn stream_hello() {
@@ -512,7 +512,7 @@ fn add_script_delay_oneshot() {
 
     let res = client.receive_args().wrap_err("receive").unwrap();
     let res = res.into_iter().next().unwrap().as_u64().unwrap();
-    let eps = 3u64;
+    let eps = 10u64;
     let expected = now + delay;
     let check_range = expected - eps..expected + eps;
     assert!(check_range.contains(&res));
