@@ -347,7 +347,8 @@ fn explore_services_fixed() {
                         client.peer_id.clone(),
                         &mut client.local_vm.lock(),
                     )
-                    .expect("read args");
+                    .expect("read args")
+                    .expect("no error");
                     received.push(args);
                 }
                 ClientEvent::NewConnection { .. } => {}

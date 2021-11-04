@@ -60,7 +60,9 @@ fn make() {
         Duration::from_secs(20),
     );
 
-    let args = read_args(particle, client_b, &mut local_vm_b).expect("read args");
+    let args = read_args(particle, client_b, &mut local_vm_b)
+        .expect("read args")
+        .expect("read args");
     assert_eq!(data["a"], args[0]);
     assert_eq!(data["b"], args[1]);
     assert_eq!(data["c"], args[2]);

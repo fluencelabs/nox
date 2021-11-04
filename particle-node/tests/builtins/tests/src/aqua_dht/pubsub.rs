@@ -24,7 +24,6 @@ use created_swarm::make_swarms_with_builtins;
 use crate::{load_script, SERVICES};
 
 use super::Record;
-use std::time::Duration;
 
 #[test]
 fn find_subscribers() {
