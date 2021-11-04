@@ -32,6 +32,6 @@ where
     C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
     fn call(&self, args: Args, particle: ParticleParams) -> ParticleFunctionOutput<'_> {
-        Builtins::call(&self, args, particle).boxed()
+        Builtins::call(self, args, particle).boxed()
     }
 }

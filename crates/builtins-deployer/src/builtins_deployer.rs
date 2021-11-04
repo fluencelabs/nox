@@ -98,7 +98,7 @@ impl BuiltinsDeployer {
             }
 
             let outcome = result.outcome;
-            return async { outcome }.boxed();
+            async { outcome }.boxed()
         };
         let aquamarine = self.aquamarine.clone();
 

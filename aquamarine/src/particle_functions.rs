@@ -79,7 +79,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
 
     /// Retrieve all existing call results
     pub fn drain(&mut self) -> CallResults {
-        std::mem::replace(&mut self.call_results, <_>::default())
+        std::mem::take(&mut self.call_results)
     }
 
     pub fn set_function(&mut self, function: Function) {

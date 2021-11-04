@@ -143,7 +143,7 @@ where
         }
 
         // SAFETY: At least one particle was ingested or calls/mailbox would be empty.
-        let particle = particle.or(self.particle.clone()).unwrap();
+        let particle = particle.or_else(|| self.particle.clone()).unwrap();
         let waker = cx.waker().clone();
         // TODO: add timeout for execution
         // Take ownership of vm to process particle

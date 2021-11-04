@@ -60,14 +60,14 @@ impl DataStore<DataStoreError> for ParticleDataStore {
     }
 
     fn store_data(&mut self, data: &[u8], key: &str) -> Result<()> {
-        let data_path = self.data_file(&key);
+        let data_path = self.data_file(key);
         std::fs::write(&data_path, data).map_err(|err| StoreData(err, data_path))?;
 
         Ok(())
     }
 
     fn read_data(&mut self, key: &str) -> Result<Vec<u8>> {
-        let data_path = self.data_file(&key);
+        let data_path = self.data_file(key);
         let data = std::fs::read(&data_path).unwrap_or_default();
 
         Ok(data)

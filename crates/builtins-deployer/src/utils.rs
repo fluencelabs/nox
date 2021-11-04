@@ -110,8 +110,8 @@ pub fn load_scheduled_scripts(path: &Path) -> Result<Vec<ScheduledScript>> {
     Ok(scripts)
 }
 
-pub fn resolve_env_variables(data: &String, service_name: &String) -> Result<String> {
-    let mut result = data.clone();
+pub fn resolve_env_variables(data: &str, service_name: &str) -> Result<String> {
+    let mut result = data.to_string();
     let env_prefix = format!(
         "{}_{}",
         ALLOWED_ENV_PREFIX,
@@ -119,7 +119,7 @@ pub fn resolve_env_variables(data: &String, service_name: &String) -> Result<Str
     );
 
     let re = Regex::new(&f!(r"(\{env_prefix}_\w+)"))?;
-    for elem in re.captures_iter(&data) {
+    for elem in re.captures_iter(data) {
         result = result.replace(
             &elem[0],
             &env::var(&elem[0][1..]).map_err(|e| eyre!("{}: {}", e.to_string(), &elem[0][1..]))?,

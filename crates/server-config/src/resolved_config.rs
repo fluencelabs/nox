@@ -270,7 +270,7 @@ pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Resul
     let mut config: toml::value::Table =
         toml::from_slice(content).wrap_err("deserializing config")?;
 
-    insert_args_to_config(&arguments, &mut config)?;
+    insert_args_to_config(arguments, &mut config)?;
 
     let config = toml::value::Value::Table(config);
     let mut config = UnresolvedConfig::deserialize(config)?.resolve();

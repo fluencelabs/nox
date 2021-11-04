@@ -147,7 +147,7 @@ impl ParticleAppServices {
             blueprint_id.clone(),
             service_id.clone(),
             vec![],
-            init_peer_id.clone(),
+            init_peer_id,
         )?;
         let service = Service {
             service: Mutex::new(service),
@@ -170,7 +170,7 @@ impl ParticleAppServices {
             let services_read = self.services.read();
             let (service, service_id) =
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)
-                    .map_err(|id| ServiceError::NoSuchService(id))?;
+                    .map_err(ServiceError::NoSuchService)?;
 
             if service.owner_id != init_peer_id && self.builtins_management_peer_id != init_peer_id
             {
@@ -317,7 +317,7 @@ impl ParticleAppServices {
     pub fn get_interface(&self, service_id: String) -> Result<JValue, ServiceError> {
         let services = self.services.read();
         let (service, _) = get_service(&services, &self.aliases.read(), service_id)
-            .map_err(|id| ServiceError::NoSuchService(id))?;
+            .map_err(ServiceError::NoSuchService)?;
 
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
@@ -356,7 +356,7 @@ impl ParticleAppServices {
                 s.blueprint_id.clone(),
                 s.service_id.clone(),
                 s.aliases.clone(),
-                s.owner_id.clone(),
+                s.owner_id,
             );
             let service = match service {
                 Ok(service) => service,

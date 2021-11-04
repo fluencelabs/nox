@@ -62,7 +62,7 @@ impl PersistedService {
             service_id,
             service.blueprint_id.clone(),
             service.aliases.clone(),
-            service.owner_id.clone(),
+            service.owner_id,
         )
     }
 }

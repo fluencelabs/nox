@@ -75,7 +75,7 @@ impl Dispatcher {
     ) -> Tasks {
         log::info!("starting dispatcher");
         let particles = spawn(self.clone().process_particles(particle_stream));
-        let effects = spawn(self.clone().process_effects(effects_stream));
+        let effects = spawn(self.process_effects(effects_stream));
 
         Tasks::new("Dispatcher", vec![particles, effects])
     }

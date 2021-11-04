@@ -129,7 +129,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             log::debug!("Reaping particle's actor {}", particle_id);
             // cleanup files and dirs after particle processing (vault & prev_data)
             // TODO: actor.cleanup instead of vm.cleanup
-            if let Err(err) = actor.cleanup(&particle_id) {
+            if let Err(err) = actor.cleanup(particle_id) {
                 log::warn!(
                     "Error cleaning up after particle {}: {:?}",
                     particle_id,
