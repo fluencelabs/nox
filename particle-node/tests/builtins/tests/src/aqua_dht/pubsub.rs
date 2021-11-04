@@ -58,9 +58,10 @@ fn find_subscribers() {
         },
         true,
     );
-    client
+    let init = client
         .wait_particle_args(&init_particle)
         .expect("execute initTopicAndSubscribeBlocking");
+    assert!(init[0].get("success").unwrap().as_bool().unwrap());
 
     // func findSubscribers(node_id: PeerId, topic: string) -> []Record:
     let find_subscribers_particle = client.send_particle_ext(

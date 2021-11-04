@@ -54,7 +54,7 @@
                (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
               )
              )
-             (ap result.$.success $results)
+             (null)
             )
            )
            (null)
