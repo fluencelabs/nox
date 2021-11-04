@@ -28,6 +28,7 @@ use std::time::Duration;
 
 #[test]
 fn find_subscribers() {
+    // NOTE: the AIR script is heavily modified by hand to avoid topology bugs
     let init_subscribe_script = load_script("pubsub.initTopicAndSubscribeBlocking.air");
     let find_subscribers_script = load_script("pubsub.findSubscribers.air");
 

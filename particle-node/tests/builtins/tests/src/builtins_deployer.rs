@@ -68,9 +68,7 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
         pub error: String,
     }
 
-    let result = dbg!(client.receive_args())
-        .wrap_err("receive args")
-        .unwrap();
+    let result = client.receive_args().wrap_err("receive args").unwrap();
     let result = result.into_iter().next().unwrap();
     let result: DhtResult = serde_json::from_value(result).unwrap();
 

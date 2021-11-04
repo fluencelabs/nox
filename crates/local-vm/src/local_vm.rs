@@ -84,7 +84,6 @@ pub struct ClientFunctionsResult {
 }
 
 pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFunctionsResult {
-    dbg!(&args);
     match (args.service_id.as_str(), args.function_name.as_str()) {
         ("load", _) | ("getDataSrv", _) => {
             let value = data.get(args.function_name.as_str()).cloned();
