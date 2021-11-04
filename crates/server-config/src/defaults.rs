@@ -97,6 +97,7 @@ pub fn default_root_keypair() -> KeyPair {
     };
 
     config
+        // TODO: respect base_dir https://github.com/fluencelabs/fluence/issues/1210
         .get_keypair(default_keypair_path())
         .expect("generate default root keypair")
 }
@@ -109,6 +110,7 @@ pub fn default_builtins_keypair() -> KeyPair {
     };
 
     config
+        // TODO: respect base_dir https://github.com/fluencelabs/fluence/issues/1210
         .get_keypair(default_builtins_keypair_path())
         .expect("generate default builtins keypair")
 }

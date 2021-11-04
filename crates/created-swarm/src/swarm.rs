@@ -222,6 +222,8 @@ pub struct Trust {
 pub struct SwarmConfig {
     #[derivative(Debug = "ignore")]
     pub keypair: fluence_identity::KeyPair,
+    #[derivative(Debug = "ignore")]
+    pub builtins_keypair: fluence_identity::KeyPair,
     pub bootstraps: Vec<Multiaddr>,
     pub listen_on: Multiaddr,
     pub trust: Option<Trust>,
@@ -239,6 +241,7 @@ impl SwarmConfig {
         };
         Self {
             keypair: fluence_identity::KeyPair::generate_ed25519(),
+            builtins_keypair: fluence_identity::KeyPair::generate_ed25519(),
             bootstraps,
             listen_on,
             transport,
@@ -321,6 +324,11 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
             "format": format,
             "generate_on_absence": false,
             "value": bs58::encode(config.keypair.to_vec()).into_string(),
+        },
+        "builtins_key_pair": {
+            "format": format,
+            "generate_on_absence": false,
+            "value": bs58::encode(config.builtins_keypair.to_vec()).into_string(),
         },
         "builtins_base_dir": config.builtins_dir,
         "external_multiaddresses": [config.listen_on]
