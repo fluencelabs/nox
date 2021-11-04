@@ -25,12 +25,9 @@ use serde_json::json;
 
 use fluence_libp2p::RandomPeerId;
 use local_vm::{make_particle, make_vm, read_args};
-use log_utils::enable_logs;
 
 #[test]
 fn make() {
-    enable_logs();
-
     let client_a = RandomPeerId::random();
     let client_b = RandomPeerId::random();
 

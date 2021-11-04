@@ -18,7 +18,6 @@ use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, CreatedSwarm};
 
 use eyre::WrapErr;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::json;
 use serde_json::Value as JValue;
@@ -92,8 +91,6 @@ fn fold_fold_fold() {
 
 #[test]
 fn fold_same_node_stream() {
-    enable_logs();
-
     let swarms = make_swarms(4);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())

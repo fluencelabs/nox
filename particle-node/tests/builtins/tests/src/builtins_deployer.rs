@@ -28,7 +28,6 @@ use builtins_deployer::ALLOWED_ENV_PREFIX;
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms_with_builtins, make_swarms_with_keypair};
 use fs_utils::copy_dir_all;
-use log_utils::enable_logs;
 use particle_modules::list_files;
 use service_modules::load_module;
 use test_utils::create_service;
@@ -77,8 +76,6 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
 
 #[test]
 fn builtins_test() {
-    enable_logs();
-
     let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
