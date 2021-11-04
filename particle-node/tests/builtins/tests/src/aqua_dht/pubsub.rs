@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-use super::Record;
-use crate::{load_script, SERVICES};
-use connected_client::ConnectedClient;
-use created_swarm::make_swarms_with_builtins;
-
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
+
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms_with_builtins;
+
+use crate::{load_script, SERVICES};
+
+use super::Record;
+use std::time::Duration;
 
 #[test]
 fn find_subscribers() {
@@ -34,8 +37,13 @@ fn find_subscribers() {
         .wrap_err("connect client")
         .unwrap();
 
-    log::info!("gonna send particle");
-    // initTopicAndSubscribe(node_id: PeerId, topic: string, value: string, relay_id: ?PeerId, service_id: ?string):
+    // log::info!("client: {} => {}", client.peer_id, client.node);
+
+    // func initTopicAndSubscribeBlocking(
+    //   topic: string, value: string,
+    //   relay_id: ?PeerId, service_id: ?string,
+    //   progress: string -> ()
+    // ) -> DhtResult:
     let topic = "topic";
     let init_particle = client.send_particle_ext(
         init_subscribe_script,

@@ -91,7 +91,6 @@ impl BuiltinsDeployer {
 
             if let Some(returned) = result.returned {
                 if let Some(outlet) = outlet.take() {
-                    log::info!("BuiltinsDeployer closure called!");
                     outlet.send(returned).expect("send response back")
                 } else {
                     log::info!("WTF!")

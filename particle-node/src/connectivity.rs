@@ -35,6 +35,7 @@ use crate::tasks::Tasks;
 /// It exists solely for code conciseness (i.e. avoid tuples);
 /// there's no architectural motivation behind
 pub struct Connectivity {
+    pub peer_id: PeerId,
     pub kademlia: KademliaApi,
     pub connection_pool: ConnectionPoolApi,
     pub bootstrap_nodes: HashSet<Multiaddr>,
@@ -66,11 +67,22 @@ impl Connectivity {
                     return Some(contact);
                 }
                 Ok(None) => {
-                    log::warn!("Couldn't discover {} for particle {}", target, particle_id);
+                    log::warn!(
+                        "{} Couldn't discover {} for particle {}",
+                        self.peer_id,
+                        target,
+                        particle_id
+                    );
                 }
                 Err(err) => {
                     let id = particle_id;
-                    log::warn!("Failed to discover {} for particle {}: {}", target, id, err);
+                    log::warn!(
+                        "{} Failed to discover {} for particle {}: {}",
+                        self.peer_id,
+                        target,
+                        id,
+                        err
+                    );
                 }
             }
         };

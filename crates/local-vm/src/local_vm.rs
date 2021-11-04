@@ -84,6 +84,7 @@ pub struct ClientFunctionsResult {
 }
 
 pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFunctionsResult {
+    dbg!(&args);
     match (args.service_id.as_str(), args.function_name.as_str()) {
         ("load", _) | ("getDataSrv", _) => {
             let value = data.get(args.function_name.as_str()).cloned();
@@ -98,13 +99,10 @@ pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFun
                 returned: None,
             }
         }
-        ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
-            log::info!("op return: {:?}", args.function_args);
-            ClientFunctionsResult {
-                outcome: FunctionOutcome::Empty,
-                returned: Some(Ok(args.function_args)),
-            }
-        }
+        ("return", _) | ("op", "return") | ("callbackSrv", "response") => ClientFunctionsResult {
+            outcome: FunctionOutcome::Empty,
+            returned: Some(Ok(args.function_args)),
+        },
         ("callbackSrv", _) => {
             log::warn!("got callback: {:?}", args.function_args);
             ClientFunctionsResult {
@@ -121,6 +119,10 @@ pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFun
         }
         (_, "identity") => ClientFunctionsResult {
             outcome: FunctionOutcome::from_output(args.function_args.into_iter().next()),
+            returned: None,
+        },
+        ("op", "noop") => ClientFunctionsResult {
+            outcome: FunctionOutcome::Empty,
             returned: None,
         },
         (service, function) => {
@@ -293,7 +295,7 @@ pub fn read_args(
     particle: Particle,
     peer_id: PeerId,
     local_vm: &mut AVM<DataStoreError>,
-) -> Result<Vec<JValue>, Vec<JValue>> {
+) -> Option<Result<Vec<JValue>, Vec<JValue>>> {
     let mut call_results: CallResults = <_>::default();
     let mut particle_data = particle.data;
     loop {
@@ -315,15 +317,15 @@ pub fn read_args(
         call_results = <_>::default();
 
         if call_requests.is_empty() {
-            return Ok(vec![]);
+            return None;
         }
         for (id, call) in call_requests {
             let args = Args::try_from(call).expect("valid args");
-            let result = host_call(&<_>::default(), args);
-            call_results.insert(id, result.0);
+            let (call_result, returned) = host_call(&<_>::default(), args);
+            call_results.insert(id, call_result);
 
-            if result.1.is_some() {
-                return result.1.unwrap();
+            if returned.is_some() {
+                return returned;
             }
         }
     }

@@ -78,6 +78,7 @@ impl NetworkBehaviour {
         };
 
         let connectivity = Connectivity {
+            peer_id: cfg.local_peer_id,
             kademlia: kademlia_api,
             connection_pool: connection_pool_api,
             bootstrap_nodes: cfg.bootstrap_nodes.into_iter().collect(),
