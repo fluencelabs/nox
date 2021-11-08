@@ -73,9 +73,9 @@ jobs:
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: full
-      # set stack size to 8MB
+      # set stack size to 16MB
       # https://github.com/rayon-rs/rayon/issues/751
-      RUST_MIN_STACK: 8388608
+      RUST_MIN_STACK: 16777216
     steps:
       - checkout
       - run: |
