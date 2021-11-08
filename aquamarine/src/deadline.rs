@@ -15,7 +15,6 @@
  */
 
 use particle_protocol::Particle;
-use std::ops::Mul;
 
 #[derive(Debug, Clone)]
 pub struct Deadline {

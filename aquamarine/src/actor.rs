@@ -29,6 +29,7 @@ use crate::deadline::Deadline;
 use crate::particle_effects::NetworkEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
 use crate::particle_functions::{Function, Functions};
+use crate::AquaRuntime;
 
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
@@ -45,7 +46,7 @@ pub struct Actor<RT, F> {
 
 impl<RT, F> Actor<RT, F>
 where
-    RT: ParticleExecutor<Particle = (Particle, CallResults), Future = Fut<RT>>,
+    RT: AquaRuntime + ParticleExecutor<Particle = (Particle, CallResults), Future = Fut<RT>>,
     F: ParticleFunctionStatic,
 {
     pub fn new(deadline: Deadline, functions: Functions<F>) -> Self {
@@ -67,9 +68,9 @@ where
         self.future.is_some()
     }
 
-    pub fn cleanup(&self, _particle_id: &str) -> eyre::Result<()> {
-        // TODO: remove vault and particle data, maybe also particle_functions?
-        log::info!("TODO: cleanup after actor!");
+    pub fn cleanup(&self, particle_id: &str, vm: &mut RT) -> eyre::Result<()> {
+        // TODO: remove dirs without using vm https://github.com/fluencelabs/fluence/issues/1216
+        vm.cleanup(particle_id)?;
         Ok(())
     }
 

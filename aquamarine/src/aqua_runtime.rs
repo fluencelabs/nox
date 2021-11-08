@@ -31,7 +31,7 @@ use crate::particle_effects::ParticleEffects;
 
 pub trait AquaRuntime: Sized + Send + 'static {
     type Config: Clone + Send + 'static;
-    type Error: Error;
+    type Error: Error + Send + Sync + 'static;
 
     fn create_runtime(
         config: Self::Config,

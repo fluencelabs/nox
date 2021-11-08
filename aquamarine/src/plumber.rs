@@ -118,26 +118,31 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         // Remove expired actors
-        let now = now_ms();
-        self.actors.retain(|particle_id, actor| {
-            // if actor hasn't yet expired or is still executing, keep it
-            // TODO: if actor is expired, cancel execution and return VM back to pool
-            //       https://github.com/fluencelabs/fluence/issues/1212
-            if !actor.is_expired(now) || actor.is_executing() {
-                return true; // keep actor
-            }
+        if let Some(mut vm) = self.vm_pool.get_vm() {
+            let now = now_ms();
+            self.actors.retain(|particle_id, actor| {
+                // if actor hasn't yet expired or is still executing, keep it
+                // TODO: if actor is expired, cancel execution and return VM back to pool
+                //       https://github.com/fluencelabs/fluence/issues/1212
+                if !actor.is_expired(now) || actor.is_executing() {
+                    return true; // keep actor
+                }
 
-            log::debug!("Reaping particle's actor {}", particle_id);
-            // cleanup files and dirs after particle processing (vault & prev_data)
-            if let Err(err) = actor.cleanup(particle_id) {
-                log::warn!(
-                    "Error cleaning up after particle {}: {:?}",
-                    particle_id,
-                    err
-                )
-            }
-            false // remove actor
-        });
+                log::debug!("Reaping particle's actor {}", particle_id);
+                // cleanup files and dirs after particle processing (vault & prev_data)
+                // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
+                if let Err(err) = actor.cleanup(particle_id, &mut vm) {
+                    log::warn!(
+                        "Error cleaning up after particle {}: {:?}",
+                        particle_id,
+                        err
+                    )
+                }
+                false // remove actor
+            });
+
+            self.vm_pool.put_vm(vm);
+        }
 
         // Execute next messages
         for actor in self.actors.values_mut() {
