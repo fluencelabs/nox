@@ -75,11 +75,11 @@ jobs:
       RUST_BACKTRACE: full
       # set stack size to 16MB
       # https://github.com/rayon-rs/rayon/issues/751
-      RUST_MIN_STACK: 16777216
+#      RUST_MIN_STACK: 16777216
     steps:
       - checkout
       - run: |
-          cargo test --release --all-features --no-fail-fast
+          cargo test --release --all-features --no-fail-fast -- --test-threads=10
 
 workflows:
   version: 2
