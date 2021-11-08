@@ -239,18 +239,34 @@ fn autoremove_failed() {
         list
     };
 
-    let list = get_list();
-    assert_eq!(list.len(), 1);
-    if let JValue::Array(arr) = &list[0] {
-        let failures = arr[0].get("failures");
-        assert_eq!(failures, Some(&json!(0)));
-    } else {
-        panic!("expected array");
-    }
-
     let timeout = Duration::from_secs(5);
     let deadline = now() + timeout;
 
+    // wait for script to appear in the list
+    while now() < deadline {
+        let list = get_list();
+
+        if list.len() == 0 {
+            continue;
+        }
+
+        if let JValue::Array(arr) = &list[0] {
+            if arr.len() == 0 {
+                continue;
+            }
+            let failures = arr[0].get("failures");
+            assert_eq!(failures, Some(&json!(0)));
+            break;
+        } else {
+            panic!("expected array");
+        }
+    }
+
+    if now() >= deadline {
+        panic!("timed out adding script after {}", format_duration(timeout));
+    }
+
+    // wait for script to disappear from the list
     while now() < deadline {
         let list = get_list();
         if list == vec![serde_json::Value::Array(vec![])] {
