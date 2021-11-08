@@ -50,7 +50,8 @@ jobs:
                   "container_tag":"'${BRANCH}'",
                   "version": "'${CIRCLE_BRANCH}_${CIRCLE_SHA1}'",
                   "url": "'${BINARY}'",
-                  "sha256": "'${SHA256}'"
+                  "sha256": "'${SHA256}'",
+                  "update_fluence": "true"
                 }
               }'
             )

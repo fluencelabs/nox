@@ -31,6 +31,10 @@ pub fn default_transport() -> Transport {
     Transport::Network
 }
 
+pub fn default_config_path() -> PathBuf {
+    default_base_dir().join("Config.toml")
+}
+
 pub fn default_tcp_port() -> u16 {
     7777
 }
