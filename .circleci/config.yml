@@ -73,7 +73,8 @@ jobs:
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: full
-      # RUSTFLAGS: "-C link-args=-Wl,-zstack-size=8388608"
+      # set stack size to 8MB
+      # https://github.com/rayon-rs/rayon/issues/751
       RUST_MIN_STACK: 8388608
     steps:
       - checkout
