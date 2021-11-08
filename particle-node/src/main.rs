@@ -114,7 +114,7 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::info!("node public key = {}", bs58_key_pair);
     log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 
-    let listen_addrs = config.listen_config().multiaddrs;
+    let listen_addrs = config.listen_multiaddrs();
     let vm_config = vm_config(&config);
 
     let mut node: Box<Node<AVM<_>>> =

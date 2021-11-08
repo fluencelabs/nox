@@ -23,7 +23,9 @@ use particle_protocol::Particle;
 pub struct ParticleParams {
     pub id: String,
     pub init_peer_id: PeerId,
+    /// Unix timestamp in milliseconds
     pub timestamp: u64,
+    /// TTL in milliseconds
     pub ttl: u32,
     pub script: String,
     pub signature: Vec<u8>,

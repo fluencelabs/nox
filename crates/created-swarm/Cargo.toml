@@ -20,6 +20,7 @@ air-interpreter-fs = { path = "../air-interpreter-fs" }
 builtins-deployer = { path = "../builtins-deployer" }
 toy-vms = { path = "../toy-vms" }
 
+
 fluence-identity = "0.3.0"
 
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }

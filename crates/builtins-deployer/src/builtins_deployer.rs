@@ -206,6 +206,7 @@ impl BuiltinsDeployer {
     }
 
     // TODO: right now, if AIR in on_start.air is invalid, everything just hangs
+    //       https://github.com/fluencelabs/fluence/issues/1214
     fn run_on_start(&mut self, builtin: &Builtin) -> eyre::Result<()> {
         if builtin.on_start_script.is_some() && builtin.on_start_data.is_some() {
             let data: HashMap<String, JValue> = serde_json::from_str(&resolve_env_variables(

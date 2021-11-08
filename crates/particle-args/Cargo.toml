@@ -9,9 +9,7 @@ ivalue-utils = { path = "../ivalue-utils" }
 json-utils = { path = "../json-utils" }
 control-macro = { path = "../control-macro" }
 
-marine-runtime = { git = "https://github.com/fluencelabs/marine", branch = "master" }
 avm-server = "0.11.0"
-#fluence-app-service = "0.10.1"
 
 serde_json = "1.0.64"
 serde = "1.0.130"

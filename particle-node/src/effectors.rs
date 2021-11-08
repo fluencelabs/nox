@@ -56,30 +56,5 @@ impl Effectors {
             }
         })
         .await;
-
-        // let crs = effects.call_requests;
-        // let particle = effects.particle;
-        // let host_functions = self.host_functions.clone();
-        // let mut particle_sink = self.particle_sink.clone();
-        //
-        // async_std::task::spawn_blocking(move || {
-        //     let host_functions = host_functions;
-        //     async_std::task::block_on(async {
-        //         let results = crs.into_iter().map(|(id, call)| {
-        //             host_functions
-        //                 .call(call, particle.clone())
-        //                 .map(move |r| (id, r))
-        //         });
-        //         let results: FuturesUnordered<_> = results.collect();
-        //         let results: CallResults = results.collect().await;
-        //         let particle_id = particle.id.clone();
-        //         let observation = Observation::Next { particle, results };
-        //         let send = particle_sink.send(observation).await;
-        //         if let Err(e) = send {
-        //             log::warn!("Failed to send particle {} to execution", particle_id);
-        //         }
-        //     })
-        // })
-        // .await;
     }
 }

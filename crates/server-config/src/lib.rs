@@ -33,7 +33,6 @@ mod defaults;
 mod dir_config;
 mod kademlia_config;
 mod keys;
-mod listen_config;
 mod network_config;
 mod node_config;
 mod resolved_config;
@@ -44,7 +43,6 @@ pub use resolved_config::{deserialize_config, load_config};
 
 pub use bootstrap_config::BootstrapConfig;
 pub use kademlia_config::KademliaConfig;
-pub use listen_config::ListenConfig;
 pub use network_config::NetworkConfig;
 pub use node_config::{NodeConfig, TransportConfig};
 pub use resolved_config::{ResolvedConfig, UnresolvedConfig};

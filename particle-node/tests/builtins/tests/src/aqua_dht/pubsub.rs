@@ -37,8 +37,6 @@ fn find_subscribers() {
         .wrap_err("connect client")
         .unwrap();
 
-    // log::info!("client: {} => {}", client.peer_id, client.node);
-
     // func initTopicAndSubscribeBlocking(
     //   topic: string, value: string,
     //   relay_id: ?PeerId, service_id: ?string,

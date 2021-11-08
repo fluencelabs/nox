@@ -76,7 +76,6 @@ pub struct Node<RT: AquaRuntime> {
     metrics_listen_addr: SocketAddr,
 
     pub local_peer_id: PeerId,
-    // TODO: remove?
     pub builtins_management_peer_id: PeerId,
 }
 
@@ -303,7 +302,6 @@ impl<RT: AquaRuntime> Node<RT> {
             let script_storage = script_storage.start();
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
-            log::info!("will start dispatcher");
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let stopped = stream::iter(once(Err(())));
             let mut swarm = swarm.map(|_e| Ok(())).chain(stopped).fuse();
@@ -339,7 +337,6 @@ impl<RT: AquaRuntime> Node<RT> {
             pool.cancel().await;
         });
 
-        // TODO: make `deploy_builtin_services` async and add to the "select! loop" above
         let mut builtins_deployer = self.builtins_deployer;
         builtins_deployer
             .deploy_builtin_services()

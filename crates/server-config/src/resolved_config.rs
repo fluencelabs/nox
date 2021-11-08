@@ -16,7 +16,6 @@
 
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
-use crate::ListenConfig;
 
 use fs_utils::to_abs_path;
 
@@ -157,13 +156,17 @@ impl ResolvedConfig {
         )
     }
 
-    pub fn listen_config(&self) -> ListenConfig {
-        // TODO: only 1 ListenConfig must survive
-        ListenConfig::new(
-            self.listen_config.listen_ip,
-            self.listen_config.tcp_port,
-            self.listen_config.websocket_port,
-        )
+    pub fn listen_multiaddrs(&self) -> Vec<Multiaddr> {
+        let config = &self.listen_config;
+
+        let mut tcp = Multiaddr::from(config.listen_ip);
+        tcp.push(Protocol::Tcp(config.tcp_port));
+
+        let mut ws = Multiaddr::from(config.listen_ip);
+        ws.push(Protocol::Tcp(config.websocket_port));
+        ws.push(Protocol::Ws("/".into()));
+
+        vec![tcp, ws]
     }
 }
 
