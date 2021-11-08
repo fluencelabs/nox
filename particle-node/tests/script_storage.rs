@@ -256,6 +256,7 @@ fn autoremove_failed() {
         if list == vec![serde_json::Value::Array(vec![])] {
             return;
         }
+        std::thread::sleep(Duration::from_millis(100));
     }
 
     panic!(
