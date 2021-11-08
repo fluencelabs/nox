@@ -38,7 +38,6 @@ use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
 use crate::particle_functions::{Function, Functions};
 use crate::vm_pool::VmPool;
-use std::collections::hash_map::Entry;
 
 pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<NetworkEffects, AquamarineApiError>>,
@@ -73,25 +72,17 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             return;
         }
 
-        match self.actors.entry(particle.id.clone()) {
-            Entry::Vacant(entry) => {
-                let params = ParticleParams::clone_from(&particle);
-                let functions = Functions::new(params, self.builtins.clone());
-                let actor = Actor::new(deadline, functions);
-                let actor = entry.insert(actor);
-                actor.ingest(particle);
-                if let Some(function) = function {
-                    actor.set_function(function);
-                }
-            }
-            Entry::Occupied(mut entry) => {
-                let actor = entry.get_mut();
-                actor.ingest(particle);
-                if let Some(function) = function {
-                    actor.set_function(function);
-                }
-            }
-        };
+        let builtins = &self.builtins;
+        let actor = self.actors.entry(particle.id.clone()).or_insert_with(|| {
+            let params = ParticleParams::clone_from(&particle);
+            let functions = Functions::new(params, builtins.clone());
+            Actor::new(&particle, functions)
+        });
+
+        actor.ingest(particle);
+        if let Some(function) = function {
+            actor.set_function(function);
+        }
     }
 
     pub fn poll(

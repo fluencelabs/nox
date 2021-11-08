@@ -38,10 +38,10 @@ pub struct Actor<RT, F> {
     mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
     functions: Functions<F>,
-    /// Particle that's memoized on the first ingestion.
+    /// Particle that's memoized on the actor creation.
     /// Used to execute CallRequests when mailbox is empty.
     /// Particle's data is empty.
-    particle: Option<Particle>,
+    particle: Particle,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -49,14 +49,23 @@ where
     RT: AquaRuntime + ParticleExecutor<Particle = (Particle, CallResults), Future = Fut<RT>>,
     F: ParticleFunctionStatic,
 {
-    pub fn new(deadline: Deadline, functions: Functions<F>) -> Self {
+    pub fn new(particle: &Particle, functions: Functions<F>) -> Self {
         Self {
-            deadline,
+            deadline: Deadline::from(&particle),
             functions,
             future: None,
             mailbox: <_>::default(),
             waker: None,
-            particle: None,
+            // Clone particle without data
+            particle: Particle {
+                id: particle.id.clone(),
+                init_peer_id: particle.init_peer_id,
+                timestamp: particle.timestamp,
+                ttl: particle.ttl,
+                script: particle.script.clone(),
+                signature: particle.signature.clone(),
+                data: vec![],
+            },
         }
     }
 
@@ -83,8 +92,6 @@ where
     }
 
     pub fn ingest(&mut self, particle: Particle) {
-        self.memoize_particle(&particle);
-
         self.mailbox.push_back(particle);
         self.wake();
     }
@@ -143,8 +150,7 @@ where
             return ActorPoll::Vm(vm);
         }
 
-        // SAFETY: At least one particle was ingested or calls/mailbox would be empty.
-        let particle = particle.or_else(|| self.particle.clone()).unwrap();
+        let particle = particle.unwrap_or_else(|| self.particle.clone());
         let waker = cx.waker().clone();
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         // Take ownership of vm to process particle
@@ -156,21 +162,6 @@ where
     fn wake(&self) {
         if let Some(waker) = &self.waker {
             waker.wake_by_ref();
-        }
-    }
-
-    fn memoize_particle(&mut self, particle: &Particle) {
-        if self.particle.is_none() {
-            // Clone particle without data
-            self.particle = Some(Particle {
-                id: particle.id.clone(),
-                init_peer_id: particle.init_peer_id,
-                timestamp: particle.timestamp,
-                ttl: particle.ttl,
-                script: particle.script.clone(),
-                signature: particle.signature.clone(),
-                data: vec![],
-            });
         }
     }
 }
