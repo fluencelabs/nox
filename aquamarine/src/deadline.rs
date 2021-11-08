@@ -35,7 +35,6 @@ impl Deadline {
 
     pub fn is_expired(&self, now_ms: u64) -> bool {
         self.timestamp
-            .mul(1000)
             .checked_add(self.ttl as u64)
             // Whether ts is in the past
             .map(|ts| ts < now_ms)
