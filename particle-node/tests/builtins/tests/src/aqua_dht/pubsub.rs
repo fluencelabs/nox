@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-use super::Record;
-use crate::{load_script, SERVICES};
-use connected_client::ConnectedClient;
-use created_swarm::make_swarms_with_builtins;
-
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
 
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms_with_builtins;
+
+use crate::{load_script, SERVICES};
+
+use super::Record;
+
 #[test]
 fn find_subscribers() {
-    let init_subscribe_script = load_script("pubsub.initTopicAndSubscribe.air");
+    // NOTE: the AIR script is heavily modified by hand to avoid topology bugs
+    let init_subscribe_script = load_script("pubsub.initTopicAndSubscribeBlocking.air");
     let find_subscribers_script = load_script("pubsub.findSubscribers.air");
 
     let swarms = make_swarms_with_builtins(3, SERVICES.as_ref(), None);
@@ -34,10 +37,13 @@ fn find_subscribers() {
         .wrap_err("connect client")
         .unwrap();
 
-    log::info!("gonna send particle");
-    // initTopicAndSubscribe(node_id: PeerId, topic: string, value: string, relay_id: ?PeerId, service_id: ?string):
+    // func initTopicAndSubscribeBlocking(
+    //   topic: string, value: string,
+    //   relay_id: ?PeerId, service_id: ?string,
+    //   progress: string -> ()
+    // ) -> DhtResult:
     let topic = "topic";
-    client.send_particle_ext(
+    let init_particle = client.send_particle_ext(
         init_subscribe_script,
         hashmap! {
             "-relay-" => json!(client.node.to_string()),
@@ -50,6 +56,10 @@ fn find_subscribers() {
         },
         true,
     );
+    let init = client
+        .wait_particle_args(&init_particle)
+        .expect("execute initTopicAndSubscribeBlocking");
+    assert!(init[0].get("success").unwrap().as_bool().unwrap());
 
     // func findSubscribers(node_id: PeerId, topic: string) -> []Record:
     let find_subscribers_particle = client.send_particle_ext(

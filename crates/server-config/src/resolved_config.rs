@@ -17,7 +17,6 @@
 use crate::defaults::default_config_path;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
-use crate::ListenConfig;
 
 use fs_utils::to_abs_path;
 
@@ -72,7 +71,7 @@ const ARGS: &[&str] = &[
 ];
 
 #[derive(Clone, Deserialize, Debug)]
-struct UnresolvedConfig {
+pub struct UnresolvedConfig {
     #[serde(flatten)]
     dir_config: UnresolvedDirConfig,
     #[serde(flatten)]
@@ -113,13 +112,13 @@ impl ResolvedConfig {
         let mut addrs = if let Some(external_address) = self.external_address {
             let external_tcp = {
                 let mut maddr = Multiaddr::from(external_address);
-                maddr.push(Protocol::Tcp(self.tcp_port));
+                maddr.push(Protocol::Tcp(self.listen_config.tcp_port));
                 maddr
             };
 
             let external_ws = {
                 let mut maddr = Multiaddr::from(external_address);
-                maddr.push(Protocol::Tcp(self.websocket_port));
+                maddr.push(Protocol::Tcp(self.listen_config.websocket_port));
                 maddr.push(Protocol::Ws("/".into()));
                 maddr
             };
@@ -152,11 +151,23 @@ impl ResolvedConfig {
     }
 
     pub fn metrics_listen_addr(&self) -> SocketAddr {
-        SocketAddr::new(self.listen_ip, self.prometheus_port)
+        SocketAddr::new(
+            self.listen_config.listen_ip,
+            self.prometheus_config.prometheus_port,
+        )
     }
 
-    pub fn listen_config(&self) -> ListenConfig {
-        ListenConfig::new(self.listen_ip, self.tcp_port, self.websocket_port)
+    pub fn listen_multiaddrs(&self) -> Vec<Multiaddr> {
+        let config = &self.listen_config;
+
+        let mut tcp = Multiaddr::from(config.listen_ip);
+        tcp.push(Protocol::Tcp(config.tcp_port));
+
+        let mut ws = Multiaddr::from(config.listen_ip);
+        ws.push(Protocol::Tcp(config.websocket_port));
+        ws.push(Protocol::Ws("/".into()));
+
+        vec![tcp, ws]
     }
 }
 
@@ -264,7 +275,7 @@ pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Resul
     let mut config: toml::value::Table =
         toml::from_slice(content).wrap_err("deserializing config")?;
 
-    insert_args_to_config(&arguments, &mut config)?;
+    insert_args_to_config(arguments, &mut config)?;
 
     let config = toml::value::Value::Table(config);
     let mut config = UnresolvedConfig::deserialize(config)?.resolve();

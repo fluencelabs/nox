@@ -14,7 +14,15 @@
  * limitations under the License.
  */
 
-use crate::SERVICES;
+use std::time::Duration;
+use std::{env, fs, path::Path};
+
+use eyre::WrapErr;
+use fluence_identity::KeyPair;
+use fstrings::f;
+use maplit::hashmap;
+use serde::Deserialize;
+use serde_json::json;
 
 use builtins_deployer::ALLOWED_ENV_PREFIX;
 use connected_client::ConnectedClient;
@@ -24,16 +32,11 @@ use particle_modules::list_files;
 use service_modules::load_module;
 use test_utils::create_service;
 
-use libp2p::core::identity::Keypair;
-
-use eyre::WrapErr;
-use fstrings::f;
-use maplit::hashmap;
-use serde::Deserialize;
-use serde_json::json;
-use std::{env, fs, path::Path};
+use crate::SERVICES;
 
 fn check_dht_builtin(client: &mut ConnectedClient) {
+    std::thread::sleep(Duration::from_millis(5000));
+
     client.send_particle(
         r#"(xor
             (seq
@@ -46,7 +49,7 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
                 )
                 (call %init_peer_id% ("op" "return") [result])
             )
-            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+            (call %init_peer_id% ("op" "return") [%last_error%])
         )
     "#,
         hashmap! {
@@ -84,7 +87,7 @@ fn builtins_test() {
 
 #[test]
 fn builtins_replace_old() {
-    let keypair = Keypair::generate_ed25519();
+    let keypair = KeyPair::generate_ed25519();
     let swarms = make_swarms_with_keypair(1, keypair.clone());
 
     let mut client = ConnectedClient::connect_with_keypair(
@@ -175,12 +178,12 @@ fn builtins_resolving_env_variables() {
     (xor
         (seq
             (seq
-                (call relay ("peer" "timestamp_sec") [] timestamp)
-                (call relay ("aqua-dht" "register_key") [key timestamp false 0])
+                (call relay ("peer" "timestamp_sec") [] timestamp0)
+                (call relay ("aqua-dht" "register_key") [key timestamp0 false 0])
             )
-            (call %init_peer_id% ("op" "return") ["ok"])
+            (call relay ("op" "return") ["ok"])
         )
-        (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        (call relay ("op" "return") [%last_error%.$.instruction])
     )
     "#);
     let env_variable_name = format!("{}_AQUA_DHT_{}", ALLOWED_ENV_PREFIX, "KEY");
@@ -203,8 +206,8 @@ fn builtins_resolving_env_variables() {
         f!(r#"(xor
             (seq
                 (seq
-                    (call relay ("peer" "timestamp_sec") [] timestamp)
-                    (call relay ("aqua-dht" "get_key_metadata") ["{key}" timestamp] result)
+                    (call relay ("peer" "timestamp_sec") [] timestamp1)
+                    (call relay ("aqua-dht" "get_key_metadata") ["{key}" timestamp1] result)
                 )
                 (call %init_peer_id% ("op" "return") [result])
             )

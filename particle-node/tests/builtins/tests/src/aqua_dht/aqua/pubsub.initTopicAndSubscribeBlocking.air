@@ -1,0 +1,80 @@
+(xor
+ (seq
+  (seq
+   (seq
+    (seq
+     (seq
+      (seq
+       (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
+       (call %init_peer_id% ("getDataSrv" "topic") [] topic)
+      )
+      (call %init_peer_id% ("getDataSrv" "value") [] value)
+     )
+     (call %init_peer_id% ("getDataSrv" "relay_id") [] relay_id)
+    )
+    (call %init_peer_id% ("getDataSrv" "service_id") [] service_id)
+   )
+   (xor
+    (par
+     (seq
+      (seq
+       (call -relay- ("op" "string_to_b58") [topic] k)
+       (call -relay- ("kad" "neighborhood") [k [] []] nodes)
+      )
+      (call %init_peer_id% ("op" "noop") [])
+     )
+     (seq
+      (fold nodes n
+       (par
+        (seq
+         (seq
+          (call -relay- ("op" "noop") [])
+          (xor
+           (seq
+            (seq
+             (seq
+              (call n ("peer" "timestamp_sec") [] t)
+              (call n ("aqua-dht" "register_key") [topic t false 0])
+             )
+             (call n ("aqua-dht" "put_value") [topic value t relay_id service_id 0] result)
+            )
+            (xor
+             (match result.$.success! true
+              (xor
+               (seq
+                (seq
+                 (ap result $results)
+                 (call -relay- ("op" "noop") [])
+                )
+                (xor
+                 (call %init_peer_id% ("callbackSrv" "progress") [n])
+                 (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+                )
+               )
+               (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
+              )
+             )
+             (null)
+            )
+           )
+           (null)
+          )
+         )
+         (call %init_peer_id% ("op" "noop") [])
+        )
+        (next n)
+       )
+      )
+      (call %init_peer_id% ("op" "noop") [])
+     )
+    )
+    (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
+   )
+  )
+  (xor
+   (call %init_peer_id% ("callbackSrv" "response") [$results.$.[0]!])
+   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 4])
+  )
+ )
+ (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 5])
+)

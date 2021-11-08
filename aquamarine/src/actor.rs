@@ -14,68 +14,58 @@
  * limitations under the License.
  */
 
-use crate::awaited_particle::AwaitedParticle;
-use crate::error::AquamarineApiError;
-use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
-use crate::AwaitedEffects;
-
-use particle_protocol::Particle;
-
-use futures::FutureExt;
-use std::ops::Mul;
 use std::{
     collections::VecDeque,
-    fmt::Debug,
     task::{Context, Poll, Waker},
 };
 
-#[derive(Debug, Clone)]
-pub struct Deadline {
-    timestamp: u64,
-    ttl: u32,
-}
+use avm_server::CallResults;
+use futures::FutureExt;
 
-impl Deadline {
-    pub fn from(particle: impl AsRef<Particle>) -> Self {
-        let particle = particle.as_ref();
-        Self {
-            timestamp: particle.timestamp,
-            ttl: particle.ttl,
-        }
-    }
+use particle_execution::ParticleFunctionStatic;
+use particle_protocol::Particle;
 
-    pub fn is_expired(&self, now_ms: u64) -> bool {
-        self.timestamp
-            .mul(1000)
-            .checked_add(self.ttl as u64)
-            // Whether ts is in the past
-            .map(|ts| ts < now_ms)
-            // If timestamp + ttl gives overflow, consider particle expired
-            .unwrap_or_else(|| {
-                log::warn!("timestamp {} + ttl {} overflowed", self.timestamp, self.ttl);
-                true
-            })
-    }
-}
+use crate::deadline::Deadline;
+use crate::particle_effects::NetworkEffects;
+use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
+use crate::particle_functions::{Function, Functions};
+use crate::AquaRuntime;
 
-pub struct Actor<RT> {
+pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
     future: Option<Fut<RT>>,
-    mailbox: VecDeque<AwaitedParticle>,
+    mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
+    functions: Functions<F>,
+    /// Particle that's memoized on the actor creation.
+    /// Used to execute CallRequests when mailbox is empty.
+    /// Particle's data is empty.
+    particle: Particle,
 }
 
-impl<RT> Actor<RT>
+impl<RT, F> Actor<RT, F>
 where
-    RT: ParticleExecutor<Particle = AwaitedParticle, Future = Fut<RT>>,
+    RT: AquaRuntime + ParticleExecutor<Particle = (Particle, CallResults), Future = Fut<RT>>,
+    F: ParticleFunctionStatic,
 {
-    pub fn new(deadline: Deadline) -> Self {
+    pub fn new(particle: &Particle, functions: Functions<F>) -> Self {
         Self {
-            deadline,
+            deadline: Deadline::from(&particle),
+            functions,
             future: None,
             mailbox: <_>::default(),
-            waker: <_>::default(),
+            waker: None,
+            // Clone particle without data
+            particle: Particle {
+                id: particle.id.clone(),
+                init_peer_id: particle.init_peer_id,
+                timestamp: particle.timestamp,
+                ttl: particle.ttl,
+                script: particle.script.clone(),
+                signature: particle.signature.clone(),
+                data: vec![],
+            },
         }
     }
 
@@ -83,31 +73,56 @@ where
         self.deadline.is_expired(now_ms)
     }
 
+    pub fn is_executing(&self) -> bool {
+        self.future.is_some()
+    }
+
+    pub fn cleanup(&self, particle_id: &str, vm: &mut RT) -> eyre::Result<()> {
+        // TODO: remove dirs without using vm https://github.com/fluencelabs/fluence/issues/1216
+        vm.cleanup(particle_id)?;
+        Ok(())
+    }
+
     pub fn mailbox_size(&self) -> usize {
         self.mailbox.len()
     }
 
-    pub fn ingest(&mut self, particle: AwaitedParticle) {
+    pub fn set_function(&mut self, function: Function) {
+        self.functions.set_function(function)
+    }
+
+    pub fn ingest(&mut self, particle: Particle) {
         self.mailbox.push_back(particle);
         self.wake();
     }
 
     /// Polls actor for result on previously ingested particle
-    pub fn poll_completed(&mut self, cx: &mut Context<'_>) -> Poll<FutResult<RT>> {
+    pub fn poll_completed(&mut self, cx: &mut Context<'_>) -> Poll<FutResult<RT, NetworkEffects>> {
         self.waker = Some(cx.waker().clone());
 
-        // Poll self.future
-        let future = self.future.take().map(|mut fut| (fut.poll_unpin(cx), fut));
+        self.functions.poll(cx);
 
-        match future {
-            // If future is ready, return effects and vm
-            Some((Poll::Ready(r), _)) => Poll::Ready(r),
-            o => {
-                // Either keep pending future or keep it None
-                self.future = o.map(|t| t.1);
-                Poll::Pending
-            }
+        // Poll AquaVM future
+        if let Some(Poll::Ready(r)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
+            self.future.take();
+
+            let effects = match r.effects {
+                Ok(effects) => {
+                    // Schedule execution of functions
+                    self.functions
+                        .execute(effects.call_requests, cx.waker().clone());
+                    Ok(NetworkEffects {
+                        particle: effects.particle,
+                        next_peers: effects.next_peers,
+                    })
+                }
+                Err(err) => Err(err),
+            };
+
+            return Poll::Ready(FutResult { vm: r.vm, effects });
         }
+
+        Poll::Pending
     }
 
     /// Provide actor with new `vm` to execute particles, if there are any.
@@ -117,28 +132,31 @@ where
     pub fn poll_next(&mut self, vm: RT, cx: &mut Context<'_>) -> ActorPoll<RT> {
         self.waker = Some(cx.waker().clone());
 
+        self.functions.poll(cx);
+
         // Return vm if previous particle is still executing
-        if self.future.is_some() {
+        if self.is_executing() {
             return ActorPoll::Vm(vm);
         }
 
-        match self.mailbox.pop_front() {
-            Some(p) if !p.is_expired() => {
-                // Take ownership of vm to process particle
-                // TODO: add timeout for execution
-                self.future = vm.execute(p, cx.waker().clone()).into();
-                ActorPoll::Executing
-            }
-            Some(p) => {
-                // Particle is expired, return vm and error
-                let (p, out) = p.into();
-                let effects = Err(AquamarineApiError::ParticleExpired { particle_id: p.id });
-                let effects = AwaitedEffects { effects, out };
-                ActorPoll::Expired(effects, vm)
-            }
-            // Mailbox is empty, return vm
-            None => ActorPoll::Vm(vm),
+        // Gather CallResults
+        let calls = self.functions.drain();
+
+        // Take the next particle
+        let particle = self.mailbox.pop_front();
+
+        if particle.is_none() && calls.is_empty() {
+            // Nothing to execute, return vm
+            return ActorPoll::Vm(vm);
         }
+
+        let particle = particle.unwrap_or_else(|| self.particle.clone());
+        let waker = cx.waker().clone();
+        // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
+        // Take ownership of vm to process particle
+        self.future = Some(vm.execute((particle, calls), waker));
+
+        ActorPoll::Executing
     }
 
     fn wake(&self) {
@@ -151,5 +169,4 @@ where
 pub enum ActorPoll<RT> {
     Executing,
     Vm(RT),
-    Expired(AwaitedEffects, RT),
 }

@@ -24,7 +24,6 @@ use created_swarm::{
 use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
 use json_utils::into_array;
-use libp2p::identity::Keypair;
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use service_modules::load_module;
@@ -34,6 +33,7 @@ use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
 
 use eyre::WrapErr;
+use fluence_identity::KeyPair;
 use itertools::Itertools;
 use libp2p::PeerId;
 use maplit::hashmap;
@@ -71,8 +71,8 @@ fn identify() {
     );
 
     let info = client.receive_args().wrap_err("receive args").unwrap();
-    let info = info.into_iter().next().unwrap();
-    let _: NodeInfo = serde_json::from_value(info).unwrap();
+    let _: NodeInfo =
+        serde_json::from_value(info[0].clone()).expect(&format!("deserialize {:?}", info[0]));
 }
 
 #[ignore]
@@ -96,7 +96,7 @@ fn big_identity() {
 }
 
 #[test]
-fn remove_service_azaza() {
+fn remove_service() {
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -140,7 +140,7 @@ fn remove_service_azaza() {
 
 #[test]
 fn remove_service_restart() {
-    let kp = Keypair::generate_ed25519();
+    let kp = KeyPair::generate_ed25519();
     let swarms = make_swarms_with_keypair(1, kp.clone());
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -664,54 +664,6 @@ fn kad_merge() {
     expected.truncate(count);
 
     assert_eq!(expected, merged);
-}
-
-#[test]
-fn ipfs_multiaddr() {
-    let first_maddr = "/ip4/1.1.1.1/tcp/1111";
-    let second_maddr = "/ip4/2.2.2.2/tcp/2222";
-
-    let result = exec_script_as_admin(
-        r#"
-        (seq
-            (seq
-                (xor
-                    (call relay ("ipfs" "get_multiaddr") [])
-                    (ap %last_error%.$.msg uninit_error)
-                )
-                (seq
-                    (call relay ("ipfs" "set_multiaddr") [first_maddr])
-                    (call relay ("ipfs" "set_multiaddr") [second_maddr] replaced_maddr)
-                )
-            )
-            (seq
-                (call relay ("ipfs" "get_multiaddr") [] set_maddr)
-                (seq
-                    (call relay ("ipfs" "clear_multiaddr") [])
-                    (xor
-                        (call relay ("ipfs" "get_multiaddr") [])
-                        (ap %last_error%.$.msg cleared_error)
-                    )
-                )
-            )
-        )
-        "#,
-        hashmap! {
-            "first_maddr" => json!(first_maddr),
-            "second_maddr" => json!(second_maddr),
-        },
-        "uninit_error replaced_maddr set_maddr cleared_error",
-        1,
-        true,
-    );
-
-    let uninit_error = result[0].as_str().unwrap();
-    let cleared_error = result[3].as_str().unwrap();
-
-    assert!(uninit_error.contains("ipfs multiaddr isn't set"));
-    assert_eq!(result[1], json!(first_maddr));
-    assert_eq!(result[2], json!(second_maddr));
-    assert!(cleared_error.contains("ipfs multiaddr isn't set"));
 }
 
 #[test]

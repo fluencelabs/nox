@@ -14,24 +14,27 @@
  * limitations under the License.
  */
 
-use avm_server::{AVMError, InterpreterOutcome};
-
-use libp2p::PeerId;
-use log::LevelFilter;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
+use avm_server::{AVMError, AVMOutcome, CallRequests};
+use libp2p::PeerId;
+
+use crate::particle_data_store::DataStoreError;
+
 #[derive(Debug)]
 pub enum FieldError {
-    InvalidPeerId(String),
+    InvalidPeerId { peer_id: String, err: String },
 }
 
 impl Error for FieldError {}
 impl Display for FieldError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            FieldError::InvalidPeerId(err) => write!(f, "invalid PeerId: {}", err),
+            FieldError::InvalidPeerId { peer_id, err } => {
+                write!(f, "invalid PeerId '{}': {}", peer_id, err)
+            }
         }
     }
 }
@@ -42,12 +45,7 @@ pub enum ExecutionError {
         field: &'static str,
         error: FieldError,
     },
-    InterpreterOutcome {
-        error_message: String,
-        ret_code: i32,
-        readable_data: String,
-    },
-    AquamarineError(AVMError),
+    AquamarineError(AVMError<DataStoreError>),
 }
 
 impl Error for ExecutionError {
@@ -55,7 +53,6 @@ impl Error for ExecutionError {
         match &self {
             ExecutionError::InvalidResultField { error, .. } => Some(error),
             ExecutionError::AquamarineError(err) => Some(err),
-            ExecutionError::InterpreterOutcome { .. } => None,
         }
     }
 }
@@ -63,49 +60,31 @@ impl Error for ExecutionError {
 impl Display for ExecutionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ExecutionError::InvalidResultField { field, error } => write!(
-                f,
-                "Execution error: invalid result field {}: {}",
-                field, error
-            ),
-            ExecutionError::AquamarineError(err) => {
-                write!(f, "Execution error: aquamarine error: {}", err)
-            }
-            ExecutionError::InterpreterOutcome {
-                error_message,
-                ret_code,
-                readable_data,
-            } => {
+            ExecutionError::InvalidResultField { field, error } => {
                 write!(
                     f,
-                    "Execution error: InterpreterOutcome (ret_code = {}): {} {}",
-                    ret_code, error_message, readable_data
+                    "Execution error: invalid result field {}: {}",
+                    field, error
                 )
+            }
+            ExecutionError::AquamarineError(err) => {
+                write!(f, "Execution error: aquamarine error: {}", err)
             }
         }
     }
 }
 
 fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
-    PeerId::from_str(s).map_err(|err| FieldError::InvalidPeerId(err.to_string()))
+    PeerId::from_str(s).map_err(|err| FieldError::InvalidPeerId {
+        peer_id: s.to_string(),
+        err: err.to_string(),
+    })
 }
 
 pub fn parse_outcome(
-    outcome: Result<InterpreterOutcome, AVMError>,
-) -> Result<(Vec<u8>, Vec<PeerId>), ExecutionError> {
+    outcome: Result<AVMOutcome, AVMError<DataStoreError>>,
+) -> Result<(Vec<u8>, Vec<PeerId>, CallRequests), ExecutionError> {
     let outcome = outcome.map_err(ExecutionError::AquamarineError)?;
-
-    if outcome.ret_code != 0 {
-        return Err(ExecutionError::InterpreterOutcome {
-            error_message: outcome.error_message,
-            ret_code: outcome.ret_code,
-            readable_data: if log::max_level() > LevelFilter::Debug {
-                String::from_utf8_lossy(outcome.data.as_slice()).to_string()
-            } else {
-                String::new()
-            },
-        });
-    }
 
     let peer_ids = outcome
         .next_peer_pks
@@ -118,5 +97,5 @@ pub fn parse_outcome(
         })
         .collect::<Result<_, ExecutionError>>()?;
 
-    Ok((outcome.data, peer_ids))
+    Ok((outcome.data, peer_ids, outcome.call_requests))
 }

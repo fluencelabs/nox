@@ -22,8 +22,6 @@ jobs:
           keys:
             - fluence05-{{ checksum "Cargo.lock" }}
       - run: |
-          rustup toolchain install nightly-2021-06-14-x86_64-unknown-linux-gnu
-          rustup override set nightly-2021-06-14-x86_64-unknown-linux-gnu
           cargo build --release --all-features
       - store_artifacts:
           path: ./target/release/particle-node
@@ -74,12 +72,14 @@ jobs:
       - image: circleci/rust:latest
     resource_class: xlarge
     environment:
-      RUST_BACKTRACE: 1
+      RUST_BACKTRACE: full
+      # set stack size to 16MB
+      # https://github.com/rayon-rs/rayon/issues/751
+#      RUST_MIN_STACK: 16777216
     steps:
       - checkout
       - run: |
-          rustup override set nightly-2021-06-14-x86_64-unknown-linux-gnu
-          cargo test --no-fail-fast --release --all-features
+          cargo test --release --all-features --no-fail-fast -- --test-threads=10
 
 workflows:
   version: 2

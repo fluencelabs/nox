@@ -14,22 +14,13 @@
  * limitations under the License.
  */
 
-use crate::ServiceError;
+use particle_protocol::Particle;
 
-use host_closure::AVMEffect;
+use crate::particle_functions::Function;
 
-use std::path::PathBuf;
-
-pub fn create_vault(
-    effect: AVMEffect<PathBuf>,
-    service_id: &str,
-    particle_id: &str,
-) -> Result<(), ServiceError> {
-    effect().map_err(|err| ServiceError::VaultCreation {
-        err,
-        service_id: service_id.to_string(),
-        particle_id: particle_id.to_string(),
-    })?;
-
-    Ok(())
+pub enum Command {
+    Ingest {
+        particle: Particle,
+        function: Option<Function>,
+    },
 }

@@ -14,21 +14,27 @@
  * limitations under the License.
  */
 
-use fs_utils::make_tmp_dir;
-use host_closure::Args;
-use now_millis::now_ms;
-use particle_protocol::Particle;
-use uuid_utils::uuid;
+use std::convert::TryFrom;
+use std::ops::Try;
+use std::path::PathBuf;
+use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
 
-use avm_server::{AVMConfig, CallServiceClosure, InterpreterOutcome, AVM};
-
-use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
+use avm_server::{
+    AVMConfig, AVMOutcome, CallRequestParams, CallResults, CallServiceResult, IValue, AVM,
+};
 use fstrings::f;
 use libp2p::PeerId;
 use parking_lot::Mutex;
-use serde_json::Value as JValue;
-use std::path::PathBuf;
-use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
+use serde_json::{Value as JValue, Value};
+
+use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
+use aquamarine::{DataStoreError, ParticleDataStore};
+use fs_utils::make_tmp_dir;
+use now_millis::now_ms;
+use particle_args::{Args, JError};
+use particle_execution::FunctionOutcome;
+use particle_protocol::Particle;
+use uuid_utils::uuid;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
@@ -69,60 +75,108 @@ impl Instruction {
     }
 }
 
-pub fn make_call_service_closure(
-    service_in: Arc<Mutex<HashMap<String, JValue>>>,
-    service_out: Arc<Mutex<Vec<JValue>>>,
-) -> CallServiceClosure {
-    Box::new(move |args| {
-        let args = Args::parse(args.function_args).expect("valid args");
-        match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("load", _) | ("getDataSrv", _) => service_in
-                .lock()
-                .get(args.function_name.as_str())
-                .map(|v| ivalue_utils::ok(v.clone()))
-                .unwrap_or_else(|| {
-                    ivalue_utils::error(JValue::String(f!(
-                        "variable not found: {args.function_name}"
-                    )))
-                }),
-            ("return", _) | ("op", "return") | ("callbackSrv", "response") => {
-                service_out.lock().extend(args.function_args);
-                ivalue_utils::unit()
-            }
-            ("callbackSrv", _) => {
-                log::warn!("got callback: {:?}", args.function_args);
-                ivalue_utils::unit()
-            }
-            ("errorHandlingSrv", "error") => {
-                log::warn!("caught an error: {:?}", args.function_args);
-                ivalue_utils::unit()
-            }
-            (_, "identity") => ivalue_utils::ok(JValue::Array(args.function_args)),
-            (service, function) => {
-                let error = f!("service not found: {service} {function}");
-                println!("{}", error);
-                log::warn!("{}", error);
-                ivalue_utils::error(JValue::String(error))
-            }
-        }
-    })
+pub type Returned = Option<Result<Vec<JValue>, Vec<JValue>>>;
+
+#[derive(Debug)]
+pub struct ClientFunctionsResult {
+    pub outcome: FunctionOutcome,
+    pub returned: Returned,
 }
 
-pub fn make_vm(peer_id: PeerId, call_service: CallServiceClosure) -> AVM {
+pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFunctionsResult {
+    match (args.service_id.as_str(), args.function_name.as_str()) {
+        ("load", _) | ("getDataSrv", _) => {
+            let value = data.get(args.function_name.as_str()).cloned();
+            let outcome = match value {
+                Some(v) => FunctionOutcome::Ok(v),
+                None => FunctionOutcome::Err(JError::new(f!(
+                    "variable not found: {args.function_name}"
+                ))),
+            };
+            ClientFunctionsResult {
+                outcome,
+                returned: None,
+            }
+        }
+        ("return", _) | ("op", "return") | ("callbackSrv", "response") => ClientFunctionsResult {
+            outcome: FunctionOutcome::Empty,
+            returned: Some(Ok(args.function_args)),
+        },
+        ("callbackSrv", _) => {
+            log::warn!("got callback: {:?}", args.function_args);
+            ClientFunctionsResult {
+                outcome: FunctionOutcome::Empty,
+                returned: None,
+            }
+        }
+        ("errorHandlingSrv", "error") => {
+            log::warn!("caught an error: {:?}", args.function_args);
+            ClientFunctionsResult {
+                outcome: FunctionOutcome::Empty,
+                returned: Some(Err(args.function_args)),
+            }
+        }
+        (_, "identity") => ClientFunctionsResult {
+            outcome: FunctionOutcome::from_output(args.function_args.into_iter().next()),
+            returned: None,
+        },
+        ("op", "noop") => ClientFunctionsResult {
+            outcome: FunctionOutcome::Empty,
+            returned: None,
+        },
+        (service, function) => {
+            let error = f!("service not found: {service} {function}");
+            println!("{}", error);
+            log::warn!("{}", error);
+            ClientFunctionsResult {
+                outcome: FunctionOutcome::Err(JError::new(error)),
+                returned: None,
+            }
+        }
+    }
+}
+
+pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResult, Returned) {
+    let result = client_functions(data, args);
+    let outcome = result.outcome;
+    let outcome = match outcome {
+        FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
+            "Service with id '{}' not found (function {})",
+            args.service_id, args.function_name
+        ))),
+        FunctionOutcome::Empty => Ok(JValue::String(String::new())),
+        FunctionOutcome::Ok(v) => Ok(v),
+        FunctionOutcome::Err(err) => Err(err),
+    };
+
+    let outcome = match outcome {
+        Ok(result) => CallServiceResult {
+            ret_code: 0,
+            result,
+        },
+        Err(err) => CallServiceResult {
+            ret_code: 1,
+            result: JValue::from(err),
+        },
+    };
+
+    (outcome, result.returned)
+}
+
+pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
     let tmp = make_tmp_dir();
     let interpreter = air_interpreter_path(&tmp);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
     let particle_data_store: PathBuf = format!("/tmp/{}", peer_id.to_string()).into();
+    let vault_dir = particle_data_store.join("vault");
+    let data_store = Box::new(ParticleDataStore::new(particle_data_store, vault_dir));
     let config = AVMConfig {
-        call_service,
+        data_store,
+        current_peer_id: peer_id.to_base58(),
         air_wasm_path: interpreter,
-        current_peer_id: peer_id.to_string(),
-        vault_dir: particle_data_store.join("vault"),
-        particle_data_store,
         logging_mask: i32::MAX,
     };
-    log::info!("particle_data_store: {:?}", config.particle_data_store);
 
     AVM::new(config)
         .map_err(|err| {
@@ -135,27 +189,27 @@ pub fn make_vm(peer_id: PeerId, call_service: CallServiceClosure) -> AVM {
         .expect("vm should be created")
 }
 
-pub fn make_particle(
-    peer_id: PeerId,
-    service_in: Arc<Mutex<HashMap<String, JValue>>>,
+pub fn wrap_script(
     script: String,
+    data: &HashMap<String, JValue>,
     relay: impl Into<Option<PeerId>>,
-    local_vm: &mut AVM,
     generated: bool,
-    particle_ttl: Duration,
-) -> Particle {
+    executor: Option<PeerId>,
+) -> String {
+    let executor = executor
+        .map(|p| format!("\"{}\"", p))
+        .unwrap_or(String::from("%init_peer_id%"));
+
     let load_variables = if generated {
         "   (null)".to_string()
     } else {
-        service_in
-            .lock()
-            .keys()
-            .map(|name| f!(r#"  (call %init_peer_id% ("load" "{name}") [] {name})"#))
+        data.keys()
+            .map(|name| f!(r#"  (call {executor} ("load" "{name}") [] {name})"#))
             .fold(Instruction::Null, |acc, call| acc.add(call))
             .into_air()
     };
 
-    let catch = f!(r#"(call %init_peer_id% ("errorHandlingSrv" "error") [%last_error%])"#);
+    let catch = f!(r#"(call {executor} ("errorHandlingSrv" "error") [%last_error%])"#);
     let catch = if let Some(relay) = relay.into() {
         f!(r#"
         (seq
@@ -177,22 +231,50 @@ pub fn make_particle(
 )
     "#);
 
+    script
+}
+
+pub fn make_particle(
+    peer_id: PeerId,
+    service_in: &HashMap<String, JValue>,
+    script: String,
+    relay: impl Into<Option<PeerId>>,
+    local_vm: &mut AVM<DataStoreError>,
+    generated: bool,
+    particle_ttl: Duration,
+) -> Particle {
+    let script = wrap_script(script, service_in, relay, generated, None);
+
     let id = uuid();
 
-    let InterpreterOutcome {
-        data,
-        ret_code,
-        error_message,
-        ..
-    } = local_vm
-        .call(peer_id.to_string(), script.clone(), vec![], id.clone())
-        .expect("execute & make particle");
+    let mut call_results: CallResults = <_>::default();
+    let mut particle_data = vec![];
+    loop {
+        let AVMOutcome {
+            data,
+            next_peer_pks,
+            call_requests,
+        } = local_vm
+            .call(
+                script.clone(),
+                particle_data,
+                peer_id.to_string(),
+                &id,
+                call_results,
+            )
+            .expect("execute & make particle");
 
-    service_in.lock().clear();
+        particle_data = data;
+        call_results = <_>::default();
 
-    if ret_code != 0 {
-        log::error!("failed to make a particle {}: {}", ret_code, error_message);
-        panic!("failed to make a particle {}: {}", ret_code, error_message);
+        if call_requests.is_empty() {
+            break;
+        }
+        for (id, call) in call_requests {
+            let args = Args::try_from(call).expect("valid args");
+            let result = host_call(service_in, args);
+            call_results.insert(id, result.0);
+        }
     }
 
     log::info!("Made a particle {}", id);
@@ -204,33 +286,46 @@ pub fn make_particle(
         ttl: particle_ttl.as_millis() as u32,
         script,
         signature: vec![],
-        data,
+        data: particle_data,
     }
 }
 
 pub fn read_args(
     particle: Particle,
     peer_id: PeerId,
-    local_vm: &mut AVM,
-    out: Arc<Mutex<Vec<JValue>>>,
-) -> Vec<JValue> {
-    let result = local_vm
-        .call(
-            peer_id.to_string(),
-            particle.script,
-            particle.data,
-            particle.id,
-        )
-        .expect("execute read_args vm");
+    local_vm: &mut AVM<DataStoreError>,
+) -> Option<Result<Vec<JValue>, Vec<JValue>>> {
+    let mut call_results: CallResults = <_>::default();
+    let mut particle_data = particle.data;
+    loop {
+        let AVMOutcome {
+            data,
+            next_peer_pks,
+            call_requests,
+        } = local_vm
+            .call(
+                &particle.script,
+                particle_data,
+                particle.init_peer_id.to_string(),
+                &particle.id,
+                call_results,
+            )
+            .expect("execute & make particle");
 
-    assert_eq!(
-        result.ret_code, 0,
-        "read_args failed: {}",
-        result.error_message
-    );
+        particle_data = data;
+        call_results = <_>::default();
 
-    let result = out.lock().deref().clone();
-    out.lock().clear();
+        if call_requests.is_empty() {
+            return None;
+        }
+        for (id, call) in call_requests {
+            let args = Args::try_from(call).expect("valid args");
+            let (call_result, returned) = host_call(&<_>::default(), args);
+            call_results.insert(id, call_result);
 
-    result
+            if returned.is_some() {
+                return returned;
+            }
+        }
+    }
 }

@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquaRuntime, InterpreterOutcome, SendParticle, StepperEffects};
+use aquamarine::{AquaRuntime, ParticleEffects};
+use avm_server::{AVMOutcome, CallResults};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
@@ -38,22 +39,18 @@ impl AquaRuntime for EasyVM {
         futures::future::ok(EasyVM { delay }).boxed()
     }
 
-    fn into_effects(
-        outcome: Result<InterpreterOutcome, Self::Error>,
-        mut p: Particle,
-    ) -> StepperEffects {
+    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, mut p: Particle) -> ParticleEffects {
         let outcome = outcome.unwrap();
         p.data = outcome.data;
 
-        StepperEffects {
-            particles: outcome
+        ParticleEffects {
+            particle: p,
+            next_peers: outcome
                 .next_peer_pks
-                .into_iter()
-                .map(|target| SendParticle {
-                    particle: p.clone(),
-                    target: PeerId::from_str(&target).unwrap(),
-                })
+                .iter()
+                .map(|peer| PeerId::from_str(peer).expect("invalid peer id"))
                 .collect(),
+            call_requests: outcome.call_requests,
         }
     }
 
@@ -62,8 +59,9 @@ impl AquaRuntime for EasyVM {
         init_user_id: PeerId,
         script: String,
         data: Vec<u8>,
-        _particle_id: String,
-    ) -> Result<InterpreterOutcome, Self::Error> {
+        _particle_id: &str,
+        _call_results: CallResults,
+    ) -> Result<AVMOutcome, Self::Error> {
         if let Some(delay) = self.delay {
             std::thread::sleep(delay);
         }
@@ -85,15 +83,14 @@ impl AquaRuntime for EasyVM {
 
         println!("next peer = {}", next_peer);
 
-        Ok(InterpreterOutcome {
-            ret_code: 0,
-            error_message: "".to_string(),
+        Ok(AVMOutcome {
             data,
+            call_requests: Default::default(),
             next_peer_pks: vec![next_peer],
         })
     }
 
-    fn cleanup(&self, _particle_id: &str) -> Result<(), Self::Error> {
+    fn cleanup(&mut self, _particle_id: &str) -> Result<(), Self::Error> {
         // Nothing to cleanup in EasyVM
         Ok(())
     }

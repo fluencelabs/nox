@@ -14,6 +14,24 @@
  * limitations under the License.
  */
 
+use std::{collections::HashMap, iter, path::Path, path::PathBuf, sync::Arc};
+
+use eyre::WrapErr;
+use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
+use fstrings::f;
+use marine_it_parser::module_interface;
+use parking_lot::{Mutex, RwLock};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value as JValue};
+
+use fs_utils::file_name;
+use particle_args::JError;
+use particle_execution::ParticleParams;
+use service_modules::{
+    extract_module_file_name, hash_dependencies, is_blueprint, is_module_wasm,
+    module_config_name_hash, module_file_name_hash, Blueprint, Dependency, Hash,
+};
+
 use crate::error::ModuleError::{
     BlueprintNotFound, BlueprintNotFoundInVault, ConfigNotFoundInVault, EmptyDependenciesList,
     FacadeShouldBeHash, IncorrectVaultBlueprint, IncorrectVaultModuleConfig, InvalidBlueprintPath,
@@ -22,22 +40,6 @@ use crate::error::ModuleError::{
 };
 use crate::error::Result;
 use crate::files::{self, load_config_by_path, load_module_by_path, load_module_descriptor};
-
-use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
-use host_closure::{JError, ParticleParameters};
-use marine_it_parser::module_interface;
-use service_modules::{
-    extract_module_file_name, hash_dependencies, is_blueprint, is_module_wasm,
-    module_config_name_hash, module_file_name_hash, Blueprint, Dependency, Hash,
-};
-
-use eyre::WrapErr;
-use fs_utils::file_name;
-use fstrings::f;
-use parking_lot::{Mutex, RwLock};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value as JValue};
-use std::{collections::HashMap, iter, path::Path, path::PathBuf, sync::Arc};
 
 type ModuleName = String;
 
@@ -53,7 +55,7 @@ impl AddBlueprint {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
     blueprints_dir: PathBuf,
@@ -151,9 +153,9 @@ impl ModuleRepository {
     pub fn load_module_config_from_vault(
         &self,
         config_path: String,
-        params: ParticleParameters,
+        particle: ParticleParams,
     ) -> Result<TomlFaaSNamedModuleConfig> {
-        let vault_path = self.check_vault_exists(&params.particle_id)?;
+        let vault_path = self.check_vault_exists(&particle.id)?;
         // load & deserialize module config from vault
         let config_fname =
             file_name(&config_path).map_err(|err| InvalidModuleConfigPath { err, config_path })?;
@@ -170,9 +172,9 @@ impl ModuleRepository {
     pub fn load_blueprint_from_vault(
         &self,
         blueprint_path: String,
-        params: ParticleParameters,
+        particle: ParticleParams,
     ) -> Result<AddBlueprint> {
-        let vault_path = self.check_vault_exists(&params.particle_id)?;
+        let vault_path = self.check_vault_exists(&particle.id)?;
 
         // load & deserialize module config from vault
         let blueprint_fname = file_name(&blueprint_path).map_err(|err| InvalidBlueprintPath {
@@ -208,9 +210,9 @@ impl ModuleRepository {
         &self,
         module_path: String,
         config: TomlFaaSNamedModuleConfig,
-        params: ParticleParameters,
+        particle: ParticleParams,
     ) -> Result<String> {
-        let vault_path = self.check_vault_exists(&params.particle_id)?;
+        let vault_path = self.check_vault_exists(&particle.id)?;
 
         // load module
         let module_fname =
@@ -460,13 +462,13 @@ fn resolve_hash(
 
 #[cfg(test)]
 mod tests {
-    use crate::{AddBlueprint, ModuleRepository};
-
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
+    use tempdir::TempDir;
+
     use service_modules::load_module;
     use service_modules::{Dependency, Hash};
 
-    use tempdir::TempDir;
+    use crate::{AddBlueprint, ModuleRepository};
 
     #[test]
     fn test_add_blueprint() {

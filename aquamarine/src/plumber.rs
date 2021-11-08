@@ -14,38 +14,44 @@
  * limitations under the License.
  */
 
-use crate::actor::{Actor, ActorPoll, Deadline};
-use crate::config::VmPoolConfig;
-use crate::vm_pool::VmPool;
-
+use std::sync::Arc;
 use std::{
-    collections::{hash_map::Entry, HashMap, VecDeque},
+    collections::{HashMap, VecDeque},
     task::{Context, Poll},
 };
 
+use futures::task::Waker;
+
+/// For tests, mocked time is used
+#[cfg(test)]
+use mock_time::now_ms;
+use particle_execution::{ParticleFunctionStatic, ParticleParams};
+use particle_protocol::Particle;
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
 
+use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
-use crate::awaited_particle::{AwaitedEffects, AwaitedParticle};
-use futures::task::Waker;
-/// For tests, mocked time is used
-#[cfg(test)]
-use mock_time::now_ms;
+use crate::deadline::Deadline;
+use crate::error::AquamarineApiError;
+use crate::particle_effects::NetworkEffects;
+use crate::particle_functions::{Function, Functions};
+use crate::vm_pool::VmPool;
 
-pub struct Plumber<RT: AquaRuntime> {
-    events: VecDeque<AwaitedEffects>,
-    actors: HashMap<String, Actor<RT>>,
+pub struct Plumber<RT: AquaRuntime, F> {
+    events: VecDeque<Result<NetworkEffects, AquamarineApiError>>,
+    actors: HashMap<String, Actor<RT, F>>,
     vm_pool: VmPool<RT>,
+    builtins: Arc<F>,
     waker: Option<Waker>,
 }
 
-impl<RT: AquaRuntime> Plumber<RT> {
-    pub fn new(config: VmPoolConfig, vm_config: RT::Config) -> Self {
-        let vm_pool = VmPool::new(config.pool_size, vm_config);
+impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
+    pub fn new(vm_pool: VmPool<RT>, builtins: F) -> Self {
         Self {
             vm_pool,
+            builtins: Arc::new(builtins),
             events: <_>::default(),
             actors: <_>::default(),
             waker: <_>::default(),
@@ -53,52 +59,42 @@ impl<RT: AquaRuntime> Plumber<RT> {
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
-    pub fn ingest(&mut self, particle: AwaitedParticle) {
+    pub fn ingest(&mut self, particle: Particle, function: Option<Function>) {
         self.wake();
 
         let deadline = Deadline::from(&particle);
         if deadline.is_expired(now_ms()) {
             log::info!("Particle {} is expired, ignoring", particle.id);
-            self.events.push_back(AwaitedEffects::expired(particle));
+            self.events
+                .push_back(Err(AquamarineApiError::ParticleExpired {
+                    particle_id: particle.id,
+                }));
             return;
         }
 
-        match self.actors.entry(particle.id.clone()) {
-            Entry::Vacant(entry) => entry.insert(Actor::new(deadline)).ingest(particle),
-            Entry::Occupied(mut entry) => entry.get_mut().ingest(particle),
+        let builtins = &self.builtins;
+        let actor = self.actors.entry(particle.id.clone()).or_insert_with(|| {
+            let params = ParticleParams::clone_from(&particle);
+            let functions = Functions::new(params, builtins.clone());
+            Actor::new(&particle, functions)
+        });
+
+        actor.ingest(particle);
+        if let Some(function) = function {
+            actor.set_function(function);
         }
     }
 
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<AwaitedEffects> {
-        self.waker = cx.waker().clone().into();
+    pub fn poll(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<NetworkEffects, AquamarineApiError>> {
+        self.waker = Some(cx.waker().clone());
 
         self.vm_pool.poll(cx);
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);
-        }
-
-        // Remove expired actors
-        if let Some(vm) = self.vm_pool.get_vm() {
-            let now = now_ms();
-            self.actors.retain(|particle_id, actor| {
-                if !actor.is_expired(now) {
-                    return true; // keep actor
-                }
-
-                log::debug!("Reaping particle's actor {}", particle_id);
-                // cleanup files and dirs after particle processing (vault & prev_data)
-                if let Err(err) = vm.cleanup(particle_id) {
-                    log::warn!(
-                        "Error cleaning up after particle {}: {:?}",
-                        particle_id,
-                        err
-                    )
-                }
-                false // remove actor
-            });
-
-            self.vm_pool.put_vm(vm);
         }
 
         // Gather effects and put VMs back
@@ -112,16 +108,38 @@ impl<RT: AquaRuntime> Plumber<RT> {
             mailbox_size += actor.mailbox_size();
         }
 
+        // Remove expired actors
+        if let Some(mut vm) = self.vm_pool.get_vm() {
+            let now = now_ms();
+            self.actors.retain(|particle_id, actor| {
+                // if actor hasn't yet expired or is still executing, keep it
+                // TODO: if actor is expired, cancel execution and return VM back to pool
+                //       https://github.com/fluencelabs/fluence/issues/1212
+                if !actor.is_expired(now) || actor.is_executing() {
+                    return true; // keep actor
+                }
+
+                log::debug!("Reaping particle's actor {}", particle_id);
+                // cleanup files and dirs after particle processing (vault & prev_data)
+                // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
+                if let Err(err) = actor.cleanup(particle_id, &mut vm) {
+                    log::warn!(
+                        "Error cleaning up after particle {}: {:?}",
+                        particle_id,
+                        err
+                    )
+                }
+                false // remove actor
+            });
+
+            self.vm_pool.put_vm(vm);
+        }
+
         // Execute next messages
         for actor in self.actors.values_mut() {
             if let Some(vm) = self.vm_pool.get_vm() {
-                match actor.poll_next(vm, cx) {
-                    ActorPoll::Vm(vm) => self.vm_pool.put_vm(vm),
-                    ActorPoll::Expired(es, vm) => {
-                        effects.push(es);
-                        self.vm_pool.put_vm(vm);
-                    }
-                    ActorPoll::Executing => {}
+                if let ActorPoll::Vm(vm) = actor.poll_next(vm, cx) {
+                    self.vm_pool.put_vm(vm)
                 }
             } else {
                 // TODO: calculate deviations from normal mailbox_size

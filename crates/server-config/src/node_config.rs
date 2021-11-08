@@ -3,8 +3,8 @@ use crate::keys::{decode_key_pair, load_key_pair};
 use crate::{BootstrapConfig, KademliaConfig};
 
 use fluence_identity::KeyPair;
-use fluence_libp2p::peerid_serializer;
 use fluence_libp2p::PeerId;
+use fluence_libp2p::{peerid_serializer, Transport};
 use fs_utils::to_abs_path;
 use particle_protocol::ProtocolConfig;
 
@@ -45,26 +45,15 @@ pub struct NodeConfig {
     #[serde(default)]
     pub force_builtins_redeploy: bool,
 
-    /// For TCP connections
-    #[serde(default = "default_tcp_port")]
-    pub tcp_port: u16,
+    #[serde(flatten)]
+    pub transport_config: TransportConfig,
 
-    /// Local ip address to listen on
-    #[serde(default = "default_listen_ip")]
-    pub listen_ip: IpAddr,
-
-    /// Socket timeout for main transport
-    #[serde(default = "default_socket_timeout")]
-    #[serde(with = "humantime_serde")]
-    pub socket_timeout: Duration,
+    #[serde(flatten)]
+    pub listen_config: ListenConfig,
 
     /// Bootstrap nodes to join to the Fluence network
     #[serde(default = "default_bootstrap_nodes")]
     pub bootstrap_nodes: Vec<Multiaddr>,
-
-    /// For ws connections
-    #[serde(default = "default_websocket_port")]
-    pub websocket_port: u16,
 
     /// External address to advertise via identify protocol
     pub external_address: Option<IpAddr>,
@@ -73,9 +62,8 @@ pub struct NodeConfig {
     #[serde(default)]
     pub external_multiaddresses: Vec<Multiaddr>,
 
-    /// Prometheus port
-    #[serde(default = "default_prometheus_port")]
-    pub prometheus_port: u16,
+    #[serde(flatten)]
+    pub prometheus_config: PrometheusConfig,
 
     #[serde(default)]
     pub bootstrap_config: BootstrapConfig,
@@ -100,7 +88,7 @@ pub struct NodeConfig {
     #[serde(default = "default_particle_queue_buffer_size")]
     pub particle_queue_buffer: usize,
     #[serde(default = "default_particle_processor_parallelism")]
-    pub particle_processor_parallelism: usize,
+    pub particle_processor_parallelism: Option<usize>,
 
     #[serde(default = "default_script_storage_timer_resolution")]
     pub script_storage_timer_resolution: Duration,
@@ -129,6 +117,48 @@ pub struct NodeConfig {
     #[serde(with = "peerid_serializer")]
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
+}
+
+#[derive(Clone, Deserialize, Derivative)]
+#[derivative(Debug)]
+pub struct TransportConfig {
+    #[serde(default = "default_transport")]
+    pub transport: Transport,
+
+    /// Socket timeout for main transport
+    #[serde(default = "default_socket_timeout")]
+    #[serde(with = "humantime_serde")]
+    pub socket_timeout: Duration,
+}
+
+#[derive(Clone, Deserialize, Derivative)]
+#[derivative(Debug)]
+pub struct PrometheusConfig {
+    #[serde(default = "default_prometheus_enabled")]
+    pub prometheus_enabled: bool,
+
+    /// Prometheus port
+    #[serde(default = "default_prometheus_port")]
+    pub prometheus_port: u16,
+}
+
+#[derive(Clone, Deserialize, Derivative)]
+#[derivative(Debug)]
+pub struct ListenConfig {
+    /// For TCP connections
+    #[serde(default = "default_tcp_port")]
+    pub tcp_port: u16,
+
+    /// Local ip address to listen on
+    #[serde(default = "default_listen_ip")]
+    pub listen_ip: IpAddr,
+
+    /// For ws connections
+    #[serde(default = "default_websocket_port")]
+    pub websocket_port: u16,
+
+    #[serde(default)]
+    pub listen_multiaddrs: Vec<Multiaddr>,
 }
 
 #[derive(Clone, Deserialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]

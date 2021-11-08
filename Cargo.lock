@@ -150,49 +150,55 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-interface"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07a291cc5516f282fd2ca8d1d2143380f5d260a728f05762573c48190f2eb921"
+checksum = "b36cf32872b2fff22bf5b872e0a0206b0f7dfe8e2b0ad3aa675bbbe78081fac9"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.14.10"
+version = "0.16.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed4422f4b70d0c607c7944d515115d655b20bf8d2fdc57718c758618b9515573"
+checksum = "79588dee14354241b16e257adc50e3101dc65a2158cd79b29d006d4eb2d40cc6"
 dependencies = [
  "built",
 ]
 
 [[package]]
 name = "anyhow"
-version = "1.0.43"
+version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28ae2b3dec75a406790005a200b1bd89785afc02517a00ca99ecfe093ee9e6cf"
+checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
 name = "aquamarine"
 version = "0.2.0"
 dependencies = [
+ "anyhow",
  "async-std",
  "avm-server",
  "base64 0.13.0",
  "chrono",
  "config-utils",
  "control-macro",
+ "eyre",
  "fluence-fork-libp2p",
  "fluence-libp2p",
  "fs-utils",
  "futures",
- "host-closure",
  "humantime 2.1.0",
  "log",
  "parking_lot 0.11.1",
+ "particle-args",
+ "particle-builtins",
+ "particle-execution",
  "particle-protocol",
+ "particle-services",
  "serde_json",
  "thiserror",
 ]
@@ -484,16 +490,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
-name = "avm-server"
-version = "0.10.0"
+name = "avm-data-store"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8ccb21658a44ce238da4c593e5a5a9b5e09797f42c237c40f264c5e63ecf032"
+checksum = "dac8b9b7b7f1739169079c382581679b1466cfcb807fb3f7a9723c7a7f78f373"
+
+[[package]]
+name = "avm-server"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7e4a5751733da5341d3430f63b6159c5f334d93e4958c4ca668c5ab29dfbc13"
 dependencies = [
  "air-interpreter-interface",
+ "avm-data-store",
+ "eyre",
  "fluence-faas",
  "log",
  "maplit",
  "parking_lot 0.11.1",
+ "polyplets",
  "serde",
  "serde_json",
  "thiserror",
@@ -704,6 +719,7 @@ dependencies = [
  "created-swarm",
  "eyre",
  "fluence-fork-libp2p",
+ "fluence-identity",
  "fs-utils",
  "fstrings",
  "json-utils",
@@ -734,11 +750,16 @@ dependencies = [
  "local-vm",
  "log",
  "maplit",
+ "now-millis",
  "parking_lot 0.11.1",
+ "particle-args",
+ "particle-execution",
  "particle-modules",
+ "particle-protocol",
  "regex",
  "serde_json",
  "service-modules",
+ "uuid-utils",
 ]
 
 [[package]]
@@ -964,6 +985,7 @@ dependencies = [
  "derivative",
  "eyre",
  "fluence-fork-libp2p",
+ "fluence-identity",
  "fluence-libp2p",
  "futures",
  "local-vm",
@@ -1116,6 +1138,7 @@ dependencies = [
  "air-interpreter-fs",
  "aquamarine",
  "async-std",
+ "bs58 0.4.0",
  "builtins-deployer",
  "config-utils",
  "connection-pool",
@@ -1128,6 +1151,8 @@ dependencies = [
  "particle-node",
  "particle-protocol",
  "script-storage",
+ "serde",
+ "serde_json",
  "server-config",
  "test-constants",
  "toy-vms",
@@ -1612,9 +1637,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.9.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58d92fd37b7673513efafb0d1e0c366b8d6f297b74e9bfcda27c452f400af70a"
+checksum = "056981dd5707a42412774d0b95629898f21dbce129b99835ac3f59d39b4a5760"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1628,9 +1653,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-faas"
-version = "0.9.0"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87e91fe7deca2726f7bdca5ba59ecb68ab27282078fccf160fd4faefa9283f19"
+checksum = "3fe120218635fd3055bdf3f7e4cf765e2e72866874818bd10f40e2abde882326"
 dependencies = [
  "cmd_lib",
  "itertools 0.9.0",
@@ -2101,9 +2126,8 @@ dependencies = [
 
 [[package]]
 name = "fluence-identity"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dfc591e947a3c3a95b29f308ccaef18b4b2dc73fb47bb4ee8187a79b4db2543"
+version = "0.3.1"
+source = "git+https://github.com/fluencelabs/trust-graph?branch=remove_serde_version_lock#4832387b323632c220fa7bd4312947b49cfd3fb1"
 dependencies = [
  "asn1_der",
  "bs58 0.3.1",
@@ -2126,13 +2150,14 @@ dependencies = [
 
 [[package]]
 name = "fluence-it-types"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5006d09553345421af5dd2334cc945fc34dc2a73d7c1ed842a39a3803699619d"
+checksum = "047f670b4807cab8872550a607b1515daff08b3e3bb7576ce8f45971fd811a4e"
 dependencies = [
  "it-to-bytes",
  "nom",
  "serde",
+ "variant_count",
  "wast",
 ]
 
@@ -2539,22 +2564,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "host-closure"
-version = "0.1.0"
-dependencies = [
- "avm-server",
- "bs58 0.4.0",
- "control-macro",
- "fluence-app-service",
- "ivalue-utils",
- "json-utils",
- "marine-runtime",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "http-client"
 version = "6.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2920,15 +2929,18 @@ version = "0.1.0"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
+ "aquamarine",
  "avm-server",
  "fluence-fork-libp2p",
  "fs-utils",
  "fstrings",
- "host-closure",
  "ivalue-utils",
  "log",
+ "maplit",
  "now-millis",
  "parking_lot 0.11.1",
+ "particle-args",
+ "particle-execution",
  "particle-protocol",
  "serde_json",
  "uuid-utils",
@@ -2988,9 +3000,9 @@ checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
 name = "marine-it-generator"
-version = "0.5.3"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e62f29b16bbdb0763a04f8561c954624ee9cd9f558af4e67b95eb00880da11ec"
+checksum = "890b228b9151e9dff213501986f564445a2f9ca5a706088b5d900f5ecf67f7e7"
 dependencies = [
  "cargo_toml",
  "it-lilo",
@@ -3006,9 +3018,9 @@ dependencies = [
 
 [[package]]
 name = "marine-it-interfaces"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f18c137e51fd52ab7a3652233fc4eaa68e25a6a53d609bf9dd0f2e3bf67adee1"
+checksum = "42e229143e72ba20e754de4766ff0d02e0cf176001f7471593f82b16c72dc26d"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
@@ -3016,9 +3028,9 @@ dependencies = [
 
 [[package]]
 name = "marine-it-parser"
-version = "0.6.5"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19a6606e472587b2e7b759b16d037a4ea951facc2a6650f668f22403978c2442"
+checksum = "edd97bd85072fc540763769be153a7c8ee83391e668b37ef96d6c48decec2cd5"
 dependencies = [
  "anyhow",
  "itertools 0.10.1",
@@ -3035,18 +3047,18 @@ dependencies = [
 
 [[package]]
 name = "marine-macro"
-version = "0.6.10"
+version = "0.6.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd64d5febc6b2ed709a4461c510c1429dc6e4cfcbd6ca0d88463911630acd67b"
+checksum = "94b05da94255c230b7bf139c39c04447677b5d238579bf38ca7b3fcdc3e04993"
 dependencies = [
  "marine-macro-impl",
 ]
 
 [[package]]
 name = "marine-macro-impl"
-version = "0.6.10"
+version = "0.6.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c644127c4a9a3345434116f6887f8522c51bddde599b51d7d312aa8b2ecfaa54"
+checksum = "7846a749f35186f923f71b3132a15add0735376e73978f41f552b92e9d43cbab"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3058,9 +3070,9 @@ dependencies = [
 
 [[package]]
 name = "marine-module-info-parser"
-version = "0.2.0"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4a0951d77c38171d8b2ddcc888d1153a2c4f777b3b7a7dca093a06c69b32d77"
+checksum = "0ec8f4ab2eeeb5c1d66d9b56fe6b0b5bf39820aa8cc2f1d7be42bdf95654d529"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3074,9 +3086,9 @@ dependencies = [
 
 [[package]]
 name = "marine-module-interface"
-version = "0.1.4"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8a5936273bebb523ed169863282dbc19fc66bb983c7031c5b8b0556584f2401"
+checksum = "06bc36ef268bf7436916f1fa9b0c84104692a717ea5eef3c90b9f25c3407f6b7"
 dependencies = [
  "anyhow",
  "itertools 0.10.1",
@@ -3092,9 +3104,9 @@ dependencies = [
 
 [[package]]
 name = "marine-rs-sdk"
-version = "0.6.11"
+version = "0.6.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9157bae63a4bbdd7a29984f6ded08f8ed72991b83ca3bdd59d2f889fa8b8ea02"
+checksum = "5b349c8b5a09045a2a509f7ee5106a52c70ef6782febe9be6748044c6f8c477a"
 dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
@@ -3104,9 +3116,9 @@ dependencies = [
 
 [[package]]
 name = "marine-rs-sdk-main"
-version = "0.6.10"
+version = "0.6.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95c49b5893d8689589219e07cf67421cc415dc5f219ad0e9c197a9a050b5dd4f"
+checksum = "1e9d9b9ecd87f0dfa8ad9ee594e71f71d8b4f0b819d3b025632a1a6597063088"
 dependencies = [
  "log",
  "marine-macro",
@@ -3115,9 +3127,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.7.0"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b27b0f7162a3a1ee314fc3ed46b424b2dd988849bdc17085dbacacfb820bc3be"
+checksum = "983262d394c59d4321b141e303eb55015bc412f319d54bbad7f253e4583253b2"
 dependencies = [
  "anyhow",
  "boolinator",
@@ -3145,9 +3157,9 @@ dependencies = [
 
 [[package]]
 name = "marine-timestamp-macro"
-version = "0.6.10"
+version = "0.6.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29ae1a5630bd9b652a77405750c3c37a5fdcfcdc679818bf7d970871ae28f7e6"
+checksum = "cb6e81c03cc0c2f546680bf21e10f3514f69acfa4d4d84a8f2b17b2fcebe8ce9"
 dependencies = [
  "chrono",
  "quote",
@@ -3485,14 +3497,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "particle-closures"
+name = "particle-args"
+version = "0.1.0"
+dependencies = [
+ "avm-server",
+ "bs58 0.4.0",
+ "control-macro",
+ "eyre",
+ "ivalue-utils",
+ "json-utils",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "particle-builtins"
 version = "0.2.0"
 dependencies = [
  "async-std",
+ "avm-server",
  "bs58 0.3.1",
  "connection-pool",
  "fluence-fork-libp2p",
- "host-closure",
+ "futures",
  "humantime-serde",
  "ivalue-utils",
  "kademlia",
@@ -3500,6 +3528,8 @@ dependencies = [
  "multihash",
  "now-millis",
  "parking_lot 0.11.1",
+ "particle-args",
+ "particle-execution",
  "particle-modules",
  "particle-protocol",
  "particle-services",
@@ -3513,6 +3543,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "particle-execution"
+version = "0.1.0"
+dependencies = [
+ "fluence-libp2p",
+ "fs-utils",
+ "futures",
+ "json-utils",
+ "particle-args",
+ "particle-protocol",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "particle-modules"
 version = "0.1.0"
 dependencies = [
@@ -3521,11 +3565,12 @@ dependencies = [
  "fluence-app-service",
  "fs-utils",
  "fstrings",
- "host-closure",
  "json-utils",
  "log",
  "marine-it-parser",
  "parking_lot 0.11.1",
+ "particle-args",
+ "particle-execution",
  "serde",
  "serde_json",
  "service-modules",
@@ -3542,6 +3587,7 @@ dependencies = [
  "air-interpreter-wasm",
  "aquamarine",
  "async-std",
+ "avm-server",
  "base64 0.13.0",
  "blake3",
  "bs58 0.3.1",
@@ -3574,7 +3620,7 @@ dependencies = [
  "multihash",
  "now-millis",
  "parking_lot 0.11.1",
- "particle-closures",
+ "particle-builtins",
  "particle-modules",
  "particle-protocol",
  "prometheus",
@@ -3620,14 +3666,19 @@ version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "config-utils",
+ "derivative",
+ "eyre",
  "fluence-app-service",
  "fluence-fork-libp2p-core",
+ "fluence-libp2p",
  "fs-utils",
- "host-closure",
  "json-utils",
  "log",
  "parking_lot 0.11.1",
+ "particle-args",
+ "particle-execution",
  "particle-modules",
+ "particle-protocol",
  "serde",
  "serde_json",
  "server-config",
@@ -3782,6 +3833,16 @@ checksum = "4b7456bc1ad2d4cf82b3a016be4c2ac48daf11bf990c1603ebd447fe6f30fca8"
 dependencies = [
  "cpuid-bool",
  "universal-hash",
+]
+
+[[package]]
+name = "polyplets"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8d83e585f13bdc02196e29d726697f0bc55b4aa645b74bac415433f4f83476d"
+dependencies = [
+ "marine-rs-sdk",
+ "serde",
 ]
 
 [[package]]
@@ -4382,9 +4443,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.118"
+version = "1.0.130"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06c64263859d87aa2eb554587e2d23183398d617427327cf2b3d0ed8c69e4800"
+checksum = "f12d06de37cf59146fbdecab66aa99f9fe4f78722e3607577a5375d66bd0c913"
 dependencies = [
  "serde_derive",
 ]
@@ -4420,9 +4481,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.118"
+version = "1.0.130"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c84d3526699cd55261af4b941e4e725444df67aa4f9e6a3564f18030d12672df"
+checksum = "d7bc1a1ab1961464eae040d96713baa5a724a8152c1222492465b54322ec508b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4431,9 +4492,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.66"
+version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "336b10da19a12ad094b59d870ebde26a45402e5b470add4b5fd03c5048a32127"
+checksum = "0f690853975602e1bfe1ccbf50504d67174e3bcf340f23b5ea9992e0587a52d8"
 dependencies = [
  "itoa",
  "ryu",
@@ -4867,9 +4928,9 @@ dependencies = [
  "created-swarm",
  "eyre",
  "fstrings",
- "host-closure",
  "ivalue-utils",
  "maplit",
+ "particle-args",
  "serde_json",
  "service-modules",
  "test-constants",
@@ -4896,18 +4957,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.26"
+version = "1.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93119e4feac1cbe6c798c34d3a53ea0026b0b1de6a120deef895137c0529bfe2"
+checksum = "602eca064b2d83369e2b2f34b09c70b605402801927c65c11071ac911d299b88"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.26"
+version = "1.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "060d69a0afe7796bf42e9e2ff91f5ee691fb15c53d38b4b62a9a53eb23164745"
+checksum = "bad553cc2c78e8de258400763a647e80e6d1b31ee237275d756f6836d204494c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5055,9 +5116,8 @@ dependencies = [
 
 [[package]]
 name = "trust-graph"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f274fa3b687b82ae65c603da34f57af738bcbf732952c86096d8a0a3de975553"
+version = "0.2.8"
+source = "git+https://github.com/fluencelabs/trust-graph?branch=remove_serde_version_lock#4832387b323632c220fa7bd4312947b49cfd3fb1"
 dependencies = [
  "bs58 0.3.1",
  "derivative",
@@ -5230,6 +5290,16 @@ dependencies = [
  "ctor",
  "sval",
  "version_check",
+]
+
+[[package]]
+name = "variant_count"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aae2faf80ac463422992abf4de234731279c058aaf33171ca70277c98406b124"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -5452,9 +5522,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-interface-types-fl"
-version = "0.20.1"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df960871d756f87237e7630daa0e8453dd48f9e44e0f214e795362a6daa04967"
+checksum = "14ba3b5a07989987994b96bf5cc7ac2947005f9ff6123d71b7064232f07d28fa"
 dependencies = [
  "fluence-it-types",
  "it-lilo",

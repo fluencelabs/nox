@@ -6,10 +6,15 @@ edition = "2018"
 
 [dependencies]
 particle-modules = { path = "../../particle-modules" }
+particle-protocol = { path = "../../particle-protocol" }
+particle-execution = { path = "../../particle-execution" }
+particle-args = { path = "../particle-args" }
 aquamarine = { path = "../../aquamarine" }
 service-modules = { path = "../service-modules" }
 local-vm = { path = "../local-vm" }
 fs-utils = { path = "../fs-utils" }
+uuid-utils = { path = "../uuid-utils" }
+now-millis = { path = "../now-millis" }
 fluence-libp2p = { path = "../libp2p" }
 
 futures = "0.3.15"

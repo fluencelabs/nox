@@ -14,33 +14,38 @@
  * limitations under the License.
  */
 
+use std::ops::Deref;
+use std::{collections::HashMap, sync::Arc};
+
+use derivative::Derivative;
+use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface};
+use parking_lot::{Mutex, RwLock};
+use serde::Serialize;
+use serde_json::{json, Value as JValue};
+
+use fluence_libp2p::PeerId;
+use particle_args::Args;
+use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
+use particle_modules::ModuleRepository;
+use server_config::ServicesConfig;
+
 use crate::app_service::create_app_service;
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
-use crate::vault::create_vault;
-
-use fluence_app_service::{AppService, CallParameters, ServiceInterface};
-use host_closure::{AVMEffect, Args, ParticleParameters};
-use particle_modules::ModuleRepository;
-use server_config::ServicesConfig;
-
-use parking_lot::{Mutex, RwLock};
-use serde::Serialize;
-use serde_json::{json, Value as JValue};
-use std::ops::Deref;
-use std::path::PathBuf;
-use std::{collections::HashMap, sync::Arc};
 
 type Services = Arc<RwLock<HashMap<String, Service>>>;
 type Aliases = Arc<RwLock<HashMap<String, String>>>;
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Service {
+    #[derivative(Debug(format_with = "fmt_service"))]
     pub service: Mutex<AppService>,
     pub blueprint_id: String,
-    pub owner_id: String,
+    pub owner_id: PeerId,
     pub aliases: Vec<String>,
 }
 
@@ -62,6 +67,13 @@ impl Deref for Service {
     }
 }
 
+fn fmt_service(
+    _: &Mutex<AppService>,
+    f: &mut std::fmt::Formatter<'_>,
+) -> Result<(), std::fmt::Error> {
+    f.debug_struct("Mutex<AppService>").finish()
+}
+
 #[derive(Serialize)]
 pub struct VmDescriptor<'a> {
     interface: ServiceInterface,
@@ -70,27 +82,23 @@ pub struct VmDescriptor<'a> {
     owner_id: &'a str,
 }
 
-pub struct CallServiceArgs {
-    pub function_args: Args,
-    pub particle_parameters: ParticleParameters,
-    pub create_vault: AVMEffect<PathBuf>,
-}
-
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ParticleAppServices {
     config: ServicesConfig,
+    // TODO: move vault to Plumber or Actor
+    vault: ParticleVault,
     services: Services,
     modules: ModuleRepository,
     aliases: Aliases,
-    management_peer_id: String,
-    startup_management_peer_id: String,
+    management_peer_id: PeerId,
+    builtins_management_peer_id: PeerId,
 }
 
 pub fn get_service<'l>(
     services: &'l HashMap<String, Service>,
     aliases: &HashMap<String, String>,
     id_or_alias: String,
-) -> Result<(&'l Service, String), ServiceError> {
+) -> Result<(&'l Service, String), String> {
     // retrieve service by service id
     if let Some(service) = services.get(&id_or_alias) {
         return Ok((service, id_or_alias));
@@ -103,20 +111,22 @@ pub fn get_service<'l>(
         (service, resolved_id.clone())
     };
 
-    by_alias.ok_or(ServiceError::NoSuchService(id_or_alias))
+    by_alias.ok_or(id_or_alias)
 }
 
 impl ParticleAppServices {
     pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
-        let management_peer_id = config.management_peer_id.to_base58();
-        let startup_management_peer_id = config.startup_management_peer_id.to_base58();
+        let vault = ParticleVault::new(config.particles_vault_dir.clone());
+        let management_peer_id = config.management_peer_id;
+        let builtins_management_peer_id = config.builtins_management_peer_id;
         let this = Self {
             config,
+            vault,
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
             management_peer_id,
-            startup_management_peer_id,
+            builtins_management_peer_id,
         };
 
         this.create_persisted_services();
@@ -127,7 +137,7 @@ impl ParticleAppServices {
     pub fn create_service(
         &self,
         blueprint_id: String,
-        init_peer_id: String,
+        init_peer_id: PeerId,
     ) -> Result<String, ServiceError> {
         let service_id = uuid::Uuid::new_v4().to_string();
 
@@ -137,7 +147,7 @@ impl ParticleAppServices {
             blueprint_id.clone(),
             service_id.clone(),
             vec![],
-            init_peer_id.clone(),
+            init_peer_id,
         )?;
         let service = Service {
             service: Mutex::new(service),
@@ -154,16 +164,18 @@ impl ParticleAppServices {
     pub fn remove_service(
         &self,
         service_id_or_alias: String,
-        init_user_id: String,
+        init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
         let service_id = {
             let services_read = self.services.read();
             let (service, service_id) =
-                get_service(&services_read, &self.aliases.read(), service_id_or_alias)?;
+                get_service(&services_read, &self.aliases.read(), service_id_or_alias)
+                    .map_err(ServiceError::NoSuchService)?;
 
-            if service.owner_id != init_user_id && self.startup_management_peer_id != init_user_id {
+            if service.owner_id != init_peer_id && self.builtins_management_peer_id != init_peer_id
+            {
                 return Err(ServiceError::Forbidden {
-                    user: init_user_id,
+                    user: init_peer_id,
                     function: "remove_service",
                     reason: "only creator can remove service",
                 });
@@ -182,56 +194,79 @@ impl ParticleAppServices {
         Ok(())
     }
 
-    pub fn call_service(&self, args: CallServiceArgs) -> Result<JValue, ServiceError> {
+    pub fn call_service(
+        &self,
+        mut function_args: Args,
+        particle: ParticleParams,
+    ) -> FunctionOutcome {
         let services = self.services.read();
         let aliases = self.aliases.read();
         let host_id = self.config.local_peer_id.to_string();
 
-        let function_args = args.function_args;
-        let function_name = function_args.function_name;
-        let (service, id) = get_service(&services, &aliases, function_args.service_id).map_err(
-            |err| match err {
-                ServiceError::NoSuchService(service) => ServiceError::NoSuchServiceWithFunction {
-                    service,
-                    function: function_name.clone(),
-                },
-                e => e,
-            },
-        )?;
+        let service = get_service(&services, &aliases, function_args.service_id);
+        let (service, service_id) = match service {
+            Ok(found) => found,
+            // If service is not found, report it
+            Err(service_id) => {
+                // move field back
+                function_args.service_id = service_id;
+                return FunctionOutcome::NotDefined {
+                    args: function_args,
+                    params: particle,
+                };
+            }
+        };
 
-        let particle_id = args.particle_parameters.particle_id;
-        create_vault(args.create_vault, &id, &particle_id)?;
+        // TODO: move particle vault creation to aquamarine::particle_functions
+        self.create_vault(&particle.id)?;
 
         let params = CallParameters {
             host_id,
-            particle_id,
-            init_peer_id: args.particle_parameters.init_user_id,
-            tetraplets: function_args.tetraplets,
-            service_id: id,
-            service_creator_peer_id: service.owner_id.clone(),
+            particle_id: particle.id,
+            init_peer_id: particle.init_peer_id.to_string(),
+            tetraplets: function_args
+                .tetraplets
+                .into_iter()
+                .map(|sts| {
+                    sts.into_iter()
+                        .map(|st| SecurityTetraplet {
+                            peer_pk: st.triplet.peer_pk,
+                            service_id: st.triplet.service_id,
+                            function_name: st.triplet.function_name,
+                            json_path: st.json_path,
+                        })
+                        .collect()
+                })
+                .collect(),
+            service_id,
+            service_creator_peer_id: service.owner_id.to_string(),
         };
+        let function_name = function_args.function_name;
 
         let mut service = service.lock();
-        service
+        // TODO: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
+        let result = service
             .call(
                 function_name,
                 JValue::Array(function_args.function_args),
                 params,
             )
-            .map_err(ServiceError::Engine)
+            .map_err(ServiceError::Engine)?;
+
+        FunctionOutcome::Ok(result)
     }
 
     pub fn add_alias(
         &self,
         alias: String,
         service_id: String,
-        init_user_id: String,
+        init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
-        if init_user_id != self.management_peer_id
-            && init_user_id != self.startup_management_peer_id
+        if init_peer_id != self.management_peer_id
+            && init_peer_id != self.builtins_management_peer_id
         {
             return Err(Forbidden {
-                user: init_user_id,
+                user: init_peer_id,
                 function: "add_alias",
                 reason: "only management peer id can add aliases",
             });
@@ -282,7 +317,8 @@ impl ParticleAppServices {
 
     pub fn get_interface(&self, service_id: String) -> Result<JValue, ServiceError> {
         let services = self.services.read();
-        let (service, _) = get_service(&services, &self.aliases.read(), service_id)?;
+        let (service, _) = get_service(&services, &self.aliases.read(), service_id)
+            .map_err(ServiceError::NoSuchService)?;
 
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
@@ -295,7 +331,7 @@ impl ParticleAppServices {
                 json!({
                     "id": id,
                     "blueprint_id": srv.blueprint_id,
-                    "owner_id": srv.owner_id,
+                    "owner_id": srv.owner_id.to_string(),
                     "aliases": srv.aliases
                 })
             })
@@ -321,7 +357,7 @@ impl ParticleAppServices {
                 s.blueprint_id.clone(),
                 s.service_id.clone(),
                 s.aliases.clone(),
-                s.owner_id.clone(),
+                s.owner_id,
             );
             let service = match service {
                 Ok(service) => service,
@@ -353,26 +389,31 @@ impl ParticleAppServices {
             log::info!("Persisted service {} created", s.service_id);
         }
     }
+
+    fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
+        self.vault.create(particle_id)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{ParticleAppServices, ServiceError};
+    use std::collections::HashMap;
+    use std::fs::remove_file;
+    use std::path::PathBuf;
+
+    use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
+    use libp2p_core::identity::Keypair;
+    use libp2p_core::PeerId;
+    use tempdir::TempDir;
 
     use config_utils::{modules_dir, to_peer_id};
-    use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
+    use fluence_libp2p::RandomPeerId;
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
     use service_modules::{Dependency, Hash};
 
-    use libp2p_core::identity::Keypair;
-    use libp2p_core::PeerId;
-
-    use std::collections::HashMap;
-    use std::fs::remove_file;
-    use std::path::PathBuf;
-    use tempdir::TempDir;
+    use crate::{ParticleAppServices, ServiceError};
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
@@ -389,8 +430,8 @@ mod tests {
         let vault_dir = base_dir.join("..").join("vault");
         let config = ServicesConfig::new(
             local_pid,
-            base_dir,
-            vault_dir,
+            base_dir.clone(),
+            vault_dir.clone(),
             HashMap::new(),
             management_pid,
             to_peer_id(&startup_kp),
@@ -423,7 +464,7 @@ mod tests {
             client_pid = create_pid();
         }
 
-        pas.add_alias(alias, service_id, client_pid.to_base58())
+        pas.add_alias(alias, service_id, client_pid)
     }
 
     fn call_add_alias(alias: String, service_id: String) -> Result<(), ServiceError> {
@@ -441,7 +482,7 @@ mod tests {
             .add_blueprint(AddBlueprint::new(module_name, vec![dep]))
             .unwrap();
 
-        pas.create_service(bp, "".to_string())
+        pas.create_service(bp, RandomPeerId::random())
             .map_err(|e| e.to_string())
     }
 

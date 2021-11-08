@@ -53,7 +53,7 @@ pub struct UnresolvedDirConfig {
 
 impl UnresolvedDirConfig {
     pub fn resolve(self) -> ResolvedDirConfig {
-        let base = to_abs_path(self.base_dir).to_path_buf();
+        let base = to_abs_path(self.base_dir);
         let certificate_dir = self.certificate_dir.unwrap_or(cert_dir(&base));
         let services_base_dir = self.services_base_dir.unwrap_or(services_base_dir(&base));
         let builtins_base_dir = self.builtins_base_dir.unwrap_or(builtins_base_dir(&base));

@@ -14,16 +14,20 @@
  * limitations under the License.
  */
 
-use connected_client::ConnectedClient;
-use created_swarm::make_swarms;
+#[macro_use]
+extern crate fstrings;
 
 use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
+use serde_json::Value as JValue;
 
-#[macro_use]
-extern crate fstrings;
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
+use humantime_serde::re::humantime::format_duration;
+use now_millis::now;
+use std::time::Duration;
 
 #[test]
 fn stream_hello() {
@@ -218,7 +222,7 @@ fn autoremove_failed() {
         },
     );
 
-    for _ in 0..500 {
+    let mut get_list = move || {
         let list_id = client.send_particle(
             r#"
             (seq
@@ -232,12 +236,49 @@ fn autoremove_failed() {
             },
         );
         let list = client.wait_particle_args(list_id).unwrap();
-        if list == vec![serde_json::Value::Array(vec![])] {
-            return;
+        list
+    };
+
+    let timeout = Duration::from_secs(5);
+    let deadline = now() + timeout;
+
+    // wait for script to appear in the list
+    while now() < deadline {
+        let list = get_list();
+
+        if list.len() == 0 {
+            continue;
+        }
+
+        if let JValue::Array(arr) = &list[0] {
+            if arr.len() == 0 {
+                continue;
+            }
+            let failures = arr[0].get("failures");
+            assert_eq!(failures, Some(&json!(0)));
+            break;
+        } else {
+            panic!("expected array");
         }
     }
 
-    panic!("failed script wasn't deleted in time or at all");
+    if now() >= deadline {
+        panic!("timed out adding script after {}", format_duration(timeout));
+    }
+
+    // wait for script to disappear from the list
+    while now() < deadline {
+        let list = get_list();
+        if list == vec![serde_json::Value::Array(vec![])] {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+
+    panic!(
+        "failed script wasn't deleted after {}",
+        format_duration(timeout)
+    );
 }
 
 #[test]
@@ -467,7 +508,7 @@ fn add_script_delay() {
 
     let res = client.receive_args().wrap_err("receive").unwrap();
     let res = res.into_iter().next().unwrap().as_u64().unwrap();
-    let eps = 3u64;
+    let eps = 10u64;
     let expected = now + delay;
     let check_range = expected - eps..expected + eps;
     assert!(check_range.contains(&res));
@@ -512,7 +553,7 @@ fn add_script_delay_oneshot() {
 
     let res = client.receive_args().wrap_err("receive").unwrap();
     let res = res.into_iter().next().unwrap().as_u64().unwrap();
-    let eps = 3u64;
+    let eps = 10u64;
     let expected = now + delay;
     let check_range = expected - eps..expected + eps;
     assert!(check_range.contains(&res));

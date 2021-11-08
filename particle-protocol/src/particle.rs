@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::{peerid_serializer, RandomPeerId};
-use json_utils::base64_serde;
+use std::time::Duration;
 
 use derivative::Derivative;
 use libp2p::PeerId;
-use now_millis::now_ms;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+
+use fluence_libp2p::{peerid_serializer, RandomPeerId};
+use json_utils::base64_serde;
+use now_millis::now_ms;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
 #[derivative(Debug)]
@@ -29,7 +30,9 @@ pub struct Particle {
     pub id: String,
     #[serde(with = "peerid_serializer")]
     pub init_peer_id: PeerId,
+    // Unix timestamp in milliseconds
     pub timestamp: u64,
+    // TTL in milliseconds
     pub ttl: u32,
     pub script: String,
     pub signature: Vec<u8>,
@@ -64,6 +67,7 @@ impl Particle {
         true
     }
 
+    /// Deadline in milliseconds
     #[inline]
     pub fn deadline(&self) -> Option<u64> {
         self.timestamp.checked_add(self.ttl as u64)

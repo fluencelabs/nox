@@ -40,6 +40,10 @@ pub enum AquamarineApiError {
         particle_id: String,
         timeout: FormattedDuration,
     },
+    #[error(
+        "AquamarineApiError::AquamarineQueueFull: can't send particle {particle_id} to Aquamarine"
+    )]
+    AquamarineQueueFull { particle_id: String },
 }
 
 impl AquamarineApiError {
@@ -49,6 +53,7 @@ impl AquamarineApiError {
             AquamarineApiError::OneshotCancelled { particle_id } => particle_id,
             AquamarineApiError::AquamarineDied { particle_id } => particle_id,
             AquamarineApiError::ExecutionTimedOut { particle_id, .. } => particle_id,
+            AquamarineApiError::AquamarineQueueFull { particle_id, .. } => particle_id,
         }
     }
 }

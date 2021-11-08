@@ -18,8 +18,7 @@ use particle_protocol::{Contact, Particle};
 
 use futures::{future::BoxFuture, stream::BoxStream};
 use libp2p::{core::Multiaddr, PeerId};
-use serde::export::Formatter;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub enum LifecycleEvent {

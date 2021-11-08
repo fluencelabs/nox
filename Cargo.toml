@@ -12,7 +12,7 @@ members = [
     "crates/config-utils",
     "crates/service-modules",
     "crates/ivalue-utils",
-    "crates/host-closure",
+    "crates/particle-args",
     "crates/json-utils",
     "crates/server-config",
     "crates/kademlia",
@@ -30,11 +30,16 @@ members = [
     "aquamarine",
     "particle-protocol",
     "particle-services",
-    "particle-closures",
+    "particle-builtins",
     "particle-modules",
     "connection-pool",
     "script-storage",
+    "particle-execution",
 ]
 exclude = [
     "particle-node/tests/tetraplets",
 ]
+
+[patch.crates-io]
+trust-graph = { git = "https://github.com/fluencelabs/trust-graph", branch = "remove_serde_version_lock" }
+fluence-identity = { git = "https://github.com/fluencelabs/trust-graph", branch = "remove_serde_version_lock" }

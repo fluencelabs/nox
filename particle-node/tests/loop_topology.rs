@@ -116,8 +116,8 @@ fn fold_same_node_stream() {
         acc
     });
 
-    client.timeout = Duration::from_secs(30);
-    client.particle_ttl = Duration::from_secs(30);
+    client.timeout = Duration::from_secs(200);
+    client.particle_ttl = Duration::from_secs(200);
 
     client.send_particle(
         r#"
@@ -371,6 +371,9 @@ fn join_empty_stream() {
         },
     );
 
-    let args = client.receive_args().wrap_err("receive args").unwrap();
-    assert_eq!(args.len(), 0, "args must be empty on join")
+    let err = client.receive_args().err().expect("receive error");
+    assert_eq!(
+        err.to_string(),
+        "Received a particle, but it didn't return anything"
+    );
 }

@@ -26,26 +26,30 @@
     unreachable_patterns
 )]
 
+pub use avm_server::AVM;
+// reexport
+pub use avm_server::AVMConfig;
+
+pub use aqua_runtime::AquaRuntime;
+pub use config::{VmConfig, VmPoolConfig};
+pub use error::AquamarineApiError;
+pub use particle_data_store::{DataStoreError, ParticleDataStore};
+pub use particle_effects::{NetworkEffects, ParticleEffects};
+pub use plumber::Plumber;
+
+pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
+
 mod actor;
 mod aqua_runtime;
 mod aquamarine;
-mod awaited_particle;
+mod command;
 mod config;
+mod deadline;
 mod error;
 mod invoke;
-mod outcome;
+mod particle_data_store;
+mod particle_effects;
 mod particle_executor;
+mod particle_functions;
 mod plumber;
 mod vm_pool;
-
-pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
-pub use aqua_runtime::AquaRuntime;
-pub use awaited_particle::{AwaitedEffects, AwaitedParticle};
-pub use config::{VmConfig, VmPoolConfig};
-pub use outcome::{SendParticle, StepperEffects};
-pub use plumber::Plumber;
-
-// reexport
-pub use avm_server::AVMConfig;
-pub use avm_server::InterpreterOutcome;
-pub use avm_server::AVM;

@@ -14,32 +14,33 @@
  * limitations under the License.
  */
 
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
+use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
 use std::num::ParseIntError;
+use std::ops::Try;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_std::task;
+use avm_server::{CallRequestParams, CallServiceResult};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
-use parking_lot::{Mutex, MutexGuard};
-use serde_json::{json, Value as JValue};
+use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use host_closure::{
-    from_base58, AVMEffect, Args, CallServiceArgs, ClosureDescriptor, JError, ParticleParameters,
-};
-use ivalue_utils::{error, into_record, into_record_opt, ok, unit, IValue};
+use ivalue_utils::{error, into_record, into_record_opt, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
+use particle_args::{from_base58, Args, ArgsError, JError};
+use particle_execution::{FunctionOutcome, ParticleParams};
 use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
-use particle_protocol::Contact;
+use particle_protocol::{Contact, Particle};
 use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -47,24 +48,23 @@ use server_config::ServicesConfig;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
-use crate::ipfs::IpfsState;
 
-#[derive(Clone)]
-pub struct HostClosures<C> {
+#[derive(Debug, Clone)]
+pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
-    pub management_peer_id: String,
-    pub startup_management_peer_id: String,
-    pub ipfs_state: Arc<Mutex<IpfsState>>,
+    pub management_peer_id: PeerId,
+    pub builtins_management_peer_id: PeerId,
 
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
 }
 
-impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>>
-    HostClosures<C>
+impl<C> Builtins<C>
+where
+    C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
     pub fn new(
         connectivity: C,
@@ -77,105 +77,75 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let vault_dir = &config.particles_vault_dir;
         let modules = ModuleRepository::new(modules_dir, blueprint_dir, vault_dir);
 
-        let management_peer_id = config.management_peer_id.to_base58();
-        let startup_management_peer_id = config.startup_management_peer_id.to_base58();
+        let management_peer_id = config.management_peer_id;
+        let builtins_management_peer_id = config.builtins_management_peer_id;
         let services = ParticleAppServices::new(config, modules.clone());
 
         Self {
             connectivity,
             script_storage,
             management_peer_id,
-            startup_management_peer_id,
-            ipfs_state: Arc::new(Mutex::new(IpfsState::default())),
+            builtins_management_peer_id,
             modules,
             services,
             node_info,
         }
     }
 
-    pub fn descriptor(self) -> ClosureDescriptor {
-        Arc::new(move || {
-            let this = self.clone();
-            Box::new(move |args| this.route(args))
-        })
-    }
-
-    fn route(&self, args: CallServiceArgs) -> Option<IValue> {
-        let function_args = match Args::parse(args.function_args) {
-            Ok(args) => args,
-            Err(err) => {
-                log::warn!("host function args parse error: {:?}", err);
-                return ivalue_utils::error(json!(err.to_string()));
-            }
-        };
-
-        log::trace!("Host function call, args: {:#?}", function_args);
-        let log_args = format!(
-            "Executed host call {:?} {:?}",
-            function_args.service_id, function_args.function_name
-        );
-
-        let params = args.particle_parameters;
-        let start = Instant::now();
-        // TODO: maybe error handling and conversion should happen here, so it is possible to log::warn errors
+    // TODO: get rid of all blocking methods (std::fs and such)
+    pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         #[rustfmt::skip]
-        let result = match (function_args.service_id.as_str(), function_args.function_name.as_str()) {
+        match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
             ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec")         => ok(json!(now_sec())),
-            ("peer", "is_connected")          => wrap(self.is_connected(function_args)),
-            ("peer", "connect")               => wrap(self.connect(function_args)),
-            ("peer", "get_contact")           => wrap_opt(self.get_contact(function_args)),
+            ("peer", "is_connected")          => wrap(self.is_connected(args).await),
+            ("peer", "connect")               => wrap(self.connect(args).await),
+            ("peer", "get_contact")           => self.get_contact(args).await,
 
-            ("kad", "neighborhood")           => wrap(self.neighborhood(function_args)),
-            ("kad", "merge")                  => wrap(self.kad_merge(function_args.function_args)),
+            ("kad", "neighborhood")           => wrap(self.neighborhood(args).await),
+            ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
 
             ("srv", "list")                   => ok(self.list_services()),
-            ("srv", "create")                 => wrap(self.create_service(function_args, params)),
-            ("srv", "get_interface")          => wrap(self.get_interface(function_args)),
-            ("srv", "resolve_alias")          => wrap(self.resolve_alias(function_args)),
-            ("srv", "add_alias")              => wrap_unit(self.add_alias(function_args, params)),
-            ("srv", "remove")                 => wrap_unit(self.remove_service(function_args, params)),
+            ("srv", "create")                 => wrap(self.create_service(args, particle)),
+            ("srv", "get_interface")          => wrap(self.get_interface(args)),
+            ("srv", "resolve_alias")          => wrap(self.resolve_alias(args)),
+            ("srv", "add_alias")              => wrap_unit(self.add_alias(args, particle)),
+            ("srv", "remove")                 => wrap_unit(self.remove_service(args, particle)),
 
-            ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(function_args, params)),
-            ("dist", "add_module")            => wrap(self.add_module(function_args)),
-            ("dist", "add_blueprint")         => wrap(self.add_blueprint(function_args)),
-            ("dist", "make_module_config")    => wrap(self.make_module_config(function_args)),
-            ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(function_args, params)),
-            ("dist", "default_module_config") => wrap(self.default_module_config(function_args)),
-            ("dist", "make_blueprint")        => wrap(self.make_blueprint(function_args)),
-            ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(function_args, params)),
+            ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
+            ("dist", "add_module")            => wrap(self.add_module(args)),
+            ("dist", "add_blueprint")         => wrap(self.add_blueprint(args)),
+            ("dist", "make_module_config")    => wrap(self.make_module_config(args)),
+            ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(args, particle)),
+            ("dist", "default_module_config") => wrap(self.default_module_config(args)),
+            ("dist", "make_blueprint")        => wrap(self.make_blueprint(args)),
+            ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(args, particle)),
             ("dist", "list_modules")          => wrap(self.list_modules()),
-            ("dist", "get_module_interface")  => wrap(self.get_module_interface(function_args)),
+            ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
-            ("script", "add")                 => wrap(self.add_script(function_args, params)),
-            ("script", "remove")              => wrap(self.remove_script(function_args, params)),
-            ("script", "list")                => wrap(self.list_scripts()),
+            ("script", "add")                 => wrap(self.add_script(args, particle)),
+            ("script", "remove")              => wrap(self.remove_script(args, particle).await),
+            ("script", "list")                => wrap(self.list_scripts().await),
 
-            ("op", "noop")                    => unit(),
-            ("op", "array")                   => ok(Array(function_args.function_args)),
-            ("op", "array_length")            => wrap(self.array_length(function_args.function_args)),
-            ("op", "concat")                  => wrap(self.concat(function_args.function_args)),
-            ("op", "string_to_b58")           => wrap(self.string_to_b58(function_args.function_args)),
-            ("op", "string_from_b58")         => wrap(self.string_from_b58(function_args.function_args)),
-            ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(function_args.function_args)),
-            ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(function_args.function_args)),
-            ("op", "sha256_string")           => wrap(self.sha256_string(function_args.function_args)),
-            ("op", "concat_strings")          => wrap(self.concat_strings(function_args.function_args)),
-            ("op", "identity")                => wrap_opt(self.identity(function_args.function_args)),
+            ("op", "noop")                    => FunctionOutcome::Empty,
+            ("op", "array")                   => ok(Array(args.function_args)),
+            ("op", "array_length")            => wrap(self.array_length(args.function_args)),
+            ("op", "concat")                  => wrap(self.concat(args.function_args)),
+            ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
+            ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
+            ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
+            ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
+            ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
+            ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
+            ("op", "identity")                => self.identity(args.function_args),
 
-            ("ipfs", "get_multiaddr")         => wrap(self.ipfs().get_multiaddr()),
-            ("ipfs", "clear_multiaddr")       => wrap(self.ipfs().clear_multiaddr(params, &self.management_peer_id)),
-            ("ipfs", "set_multiaddr")         => wrap_opt(self.ipfs().set_multiaddr(function_args, params, &self.management_peer_id)),
-
-            _ => wrap(self.call_service(function_args, params, args.create_vault)),
-        };
-        log::info!("{} ({})", log_args, pretty(start.elapsed()));
-        result
+            _                                 => self.call_service(args, particle),
+        }
     }
 
-    fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
+    async fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let key = from_base58("key", &mut args)?;
         let already_hashed: Option<bool> = Args::next_opt("already_hashed", &mut args)?;
@@ -187,21 +157,21 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         } else {
             Code::Sha2_256.digest(&key)
         };
-        let neighbors = task::block_on(self.kademlia().neighborhood(key, count));
+        let neighbors = self.kademlia().neighborhood(key, count).await;
         let neighbors = neighbors
             .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))?;
 
         Ok(neighbors)
     }
 
-    fn is_connected(&self, args: Args) -> Result<JValue, JError> {
+    async fn is_connected(&self, args: Args) -> Result<JValue, JError> {
         let peer: String = Args::next("peer_id", &mut args.function_args.into_iter())?;
         let peer = PeerId::from_str(peer.as_str())?;
-        let ok = task::block_on(self.connection_pool().is_connected(peer));
+        let ok = self.connection_pool().is_connected(peer).await;
         Ok(json!(ok))
     }
 
-    fn connect(&self, args: Args) -> Result<JValue, JError> {
+    async fn connect(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
         let peer_id: String = Args::next("peer_id", &mut args)?;
@@ -210,18 +180,21 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
 
         let contact = Contact::new(peer_id, addrs);
 
-        let ok = task::block_on(self.connection_pool().connect(contact));
+        let ok = self.connection_pool().connect(contact).await;
         Ok(json!(ok))
     }
 
-    fn get_contact(&self, args: Args) -> Result<Option<JValue>, JError> {
+    async fn get_contact(&self, args: Args) -> FunctionOutcome {
         let peer: String = Args::next("peer_id", &mut args.function_args.into_iter())?;
         let peer = PeerId::from_str(peer.as_str())?;
-        let contact = task::block_on(self.connection_pool().get_contact(peer));
-        Ok(contact.map(|c| json!(c)))
+        let contact = self.connection_pool().get_contact(peer).await;
+        match contact {
+            Some(c) => FunctionOutcome::Ok(json!(c)),
+            None => FunctionOutcome::Empty,
+        }
     }
 
-    fn add_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+    fn add_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
         let script: String = Args::next("script", &mut args)?;
@@ -233,7 +206,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         let delay = delay.map(Duration::from_secs);
         let delay = get_delay(delay, interval);
 
-        let creator = PeerId::from_str(&params.init_user_id)?;
+        let creator = params.init_peer_id;
         let id = self
             .script_storage
             .add_script(script, interval, delay, creator)?;
@@ -241,21 +214,24 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(json!(id))
     }
 
-    fn remove_script(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+    async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
-        let force = params.init_user_id == self.management_peer_id;
+        let force = params.init_peer_id == self.management_peer_id;
 
         let uuid: String = Args::next("uuid", &mut args)?;
-        let actor = PeerId::from_str(&params.init_user_id)?;
+        let actor = params.init_peer_id;
 
-        let ok = task::block_on(self.script_storage.remove_script(uuid, actor, force))?;
+        let ok = self
+            .script_storage
+            .remove_script(uuid, actor, force)
+            .await?;
 
         Ok(json!(ok))
     }
 
-    fn list_scripts(&self) -> Result<JValue, JError> {
-        let scripts = task::block_on(self.script_storage.list_scripts())?;
+    async fn list_scripts(&self) -> Result<JValue, JError> {
+        let scripts = self.script_storage.list_scripts().await?;
 
         Ok(JValue::Array(
             scripts
@@ -366,14 +342,14 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(json!(keys))
     }
 
-    fn identity(&self, args: Vec<serde_json::Value>) -> Result<Option<JValue>, JError> {
+    fn identity(&self, args: Vec<serde_json::Value>) -> FunctionOutcome {
         if args.len() > 1 {
-            Err(JError::new(format!(
+            FunctionOutcome::Err(JError::new(format!(
                 "identity accepts up to 1 arguments, received {} arguments",
                 args.len()
             )))
         } else {
-            Ok(args.into_iter().next())
+            Try::from_output(args.into_iter().next())
         }
     }
 
@@ -436,11 +412,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(JValue::String(module_hash))
     }
 
-    fn add_module_from_vault(
-        &self,
-        args: Args,
-        params: ParticleParameters,
-    ) -> Result<JValue, JError> {
+    fn add_module_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_path: String = Args::next("module_path", &mut args)?;
         let config = Args::next("config", &mut args)?;
@@ -499,7 +471,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn load_module_config_from_vault(
         &self,
         args: Args,
-        params: ParticleParameters,
+        params: ParticleParams,
     ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let config_path: String = Args::next("config_path", &mut args)?;
@@ -546,7 +518,7 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn load_blueprint_from_vault(
         &self,
         args: Args,
-        params: ParticleParameters,
+        params: ParticleParams,
     ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_path = Args::next("blueprint_path", &mut args)?;
@@ -586,23 +558,23 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
             .collect()
     }
 
-    fn create_service(&self, args: Args, params: ParticleParameters) -> Result<JValue, JError> {
+    fn create_service(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
 
         let service_id = self
             .services
-            .create_service(blueprint_id, params.init_user_id)?;
+            .create_service(blueprint_id, params.init_peer_id)?;
 
         Ok(JValue::String(service_id))
     }
 
-    fn remove_service(&self, args: Args, params: ParticleParameters) -> Result<(), JError> {
+    fn remove_service(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
 
         self.services
-            .remove_service(service_id_or_alias, params.init_user_id)?;
+            .remove_service(service_id_or_alias, params.init_peer_id)?;
         Ok(())
     }
 
@@ -610,19 +582,8 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         JValue::Array(self.services.list_services())
     }
 
-    fn call_service(
-        &self,
-        function_args: Args,
-        particle_parameters: ParticleParameters,
-        create_vault: AVMEffect<PathBuf>,
-    ) -> Result<JValue, JError> {
-        Ok(self
-            .services
-            .call_service(particle_services::CallServiceArgs {
-                function_args,
-                particle_parameters,
-                create_vault,
-            })?)
+    fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
+        self.services.call_service(function_args, particle)
     }
 
     fn get_interface(&self, args: Args) -> Result<JValue, JError> {
@@ -631,13 +592,13 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
         Ok(self.services.get_interface(service_id)?)
     }
 
-    fn add_alias(&self, args: Args, params: ParticleParameters) -> Result<(), JError> {
+    fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
 
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
         self.services
-            .add_alias(alias, service_id, params.init_user_id)?;
+            .add_alias(alias, service_id, params.init_peer_id)?;
         Ok(())
     }
 
@@ -657,25 +618,24 @@ impl<C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoo
     fn connection_pool(&self) -> &ConnectionPoolApi {
         self.connectivity.as_ref()
     }
-
-    fn ipfs(&self) -> MutexGuard<'_, IpfsState> {
-        self.ipfs_state.lock()
-    }
 }
 
-fn wrap(r: Result<JValue, JError>) -> Option<IValue> {
-    into_record(r.map_err(Into::into))
+fn ok(v: JValue) -> FunctionOutcome {
+    FunctionOutcome::Ok(v)
 }
 
-fn wrap_unit(r: Result<(), JError>) -> Option<IValue> {
+fn wrap(r: Result<JValue, JError>) -> FunctionOutcome {
     match r {
-        Err(e) => error(e.into()),
-        _ => unit(),
+        Ok(v) => FunctionOutcome::Ok(v),
+        Err(err) => FunctionOutcome::Err(err),
     }
 }
 
-fn wrap_opt(r: Result<Option<JValue>, JError>) -> Option<IValue> {
-    into_record_opt(r.map_err(Into::into))
+fn wrap_unit(r: Result<(), JError>) -> FunctionOutcome {
+    match r {
+        Ok(_) => FunctionOutcome::Empty,
+        Err(err) => FunctionOutcome::Err(err),
+    }
 }
 
 fn parse_u64(

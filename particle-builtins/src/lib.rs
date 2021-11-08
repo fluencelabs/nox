@@ -15,9 +15,10 @@
  */
 
 #![feature(stmt_expr_attributes)]
+#![feature(try_trait_v2)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
-#![deny(
+#![allow(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -27,10 +28,10 @@
     unreachable_patterns
 )]
 
-mod error;
-mod host_closures;
-mod identify;
-mod ipfs;
-
-pub use host_closures::HostClosures;
+pub use builtins::Builtins;
 pub use identify::NodeInfo;
+
+mod builtins;
+mod error;
+mod identify;
+mod particle_function;

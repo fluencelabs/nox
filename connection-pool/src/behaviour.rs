@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-use crate::connection_pool::LifecycleEvent;
-
-use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
-use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
-use particle_protocol::{CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig};
+use std::{
+    collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+    error::Error,
+    task::{Context, Poll, Waker},
+};
 
 use futures::channel::mpsc;
 use libp2p::{
@@ -29,11 +29,12 @@ use libp2p::{
     },
     PeerId,
 };
-use std::{
-    collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
-    error::Error,
-    task::{Context, Poll, Waker},
-};
+
+use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
+use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
+use particle_protocol::{CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig};
+
+use crate::connection_pool::LifecycleEvent;
 
 type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 

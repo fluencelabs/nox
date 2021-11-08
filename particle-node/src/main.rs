@@ -26,23 +26,22 @@
     unreachable_patterns
 )]
 
+use clap::App;
+use env_logger::Env;
+use eyre::WrapErr;
+use futures::channel::oneshot;
+use log::LevelFilter;
+
+use air_interpreter_fs::write_default_air_interpreter;
+use aquamarine::{VmConfig, AVM};
+use config_utils::to_peer_id;
+use ctrlc_adapter::block_until_ctrlc;
+use fs_utils::to_abs_path;
 use particle_node::{
     config::{certificates, create_args},
     Node,
 };
-
-use air_interpreter_fs::write_default_air_interpreter;
-use builtins_deployer::BuiltinsDeployer;
-use config_utils::to_peer_id;
-use ctrlc_adapter::block_until_ctrlc;
 use server_config::{load_config, ResolvedConfig};
-
-use clap::App;
-use env_logger::Env;
-use eyre::WrapErr;
-use fs_utils::to_abs_path;
-use futures::channel::oneshot;
-use log::LevelFilter;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -107,7 +106,6 @@ fn main() -> eyre::Result<()> {
 fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
-    let builtins_dir = config.dir_config.builtins_base_dir.clone();
     certificates::init(&config.dir_config.certificate_dir, &config.root_key_pair)
         .wrap_err("failed to init certificates")?;
 
@@ -116,30 +114,14 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::info!("node public key = {}", bs58_key_pair);
     log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 
-    let startup_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
-    let autodeploy_particle_ttl = config.node_config.autodeploy_particle_ttl;
-    let autodeploy_retry_attempts = config.node_config.autodeploy_retry_attempts;
-    let force_builtins_redeploy = config.node_config.force_builtins_redeploy;
-    let listen_addrs = config.listen_config().multiaddrs;
-    let mut node = Node::new(config, startup_peer_id).wrap_err("error create node instance")?;
+    let listen_addrs = config.listen_multiaddrs();
+    let vm_config = vm_config(&config);
+
+    let mut node: Box<Node<AVM<_>>> =
+        Node::new(config, vm_config, VERSION).wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
 
-    let aquamarine_api = node.aquamarine_api.clone();
-    let local_peer_id = node.local_peer_id;
-    let node_exit_outlet = node.start();
-
-    let mut builtin_deployer = BuiltinsDeployer::new(
-        startup_peer_id,
-        local_peer_id,
-        aquamarine_api,
-        builtins_dir,
-        autodeploy_particle_ttl,
-        force_builtins_redeploy,
-        autodeploy_retry_attempts,
-    );
-    builtin_deployer
-        .deploy_builtin_services()
-        .wrap_err("builtins deploy failed")?;
+    let node_exit_outlet = node.start().wrap_err("node failed to start")?;
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,
@@ -154,4 +136,12 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     }
 
     Ok(Fluence { node_exit_outlet })
+}
+
+fn vm_config(config: &ResolvedConfig) -> VmConfig {
+    VmConfig::new(
+        to_peer_id(&config.root_key_pair.clone().into()),
+        config.dir_config.avm_base_dir.clone(),
+        config.dir_config.air_interpreter_path.clone(),
+    )
 }

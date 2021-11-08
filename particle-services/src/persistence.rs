@@ -20,6 +20,7 @@ use crate::error::ServiceError::{
     CreateServicesDir, DeserializePersistedService, ReadPersistedService,
 };
 
+use fluence_libp2p::{peerid_serializer, PeerId, RandomPeerId};
 use fs_utils::create_dirs;
 use particle_modules::{list_files, ModuleError};
 use service_modules::{is_service, service_file_name};
@@ -35,9 +36,10 @@ pub struct PersistedService {
     #[serde(default)]
     // Old versions of PersistedService may omit `aliases` field, tolerate that
     pub aliases: Vec<String>,
-    // Old versions of PersistedService may omit `owner` field, tolerate that
-    #[serde(default)]
-    pub owner_id: String,
+    // Old versions of PersistedService may omit `owner` field, tolerate that via RandomPeerId::random
+    #[serde(default = "RandomPeerId::random")]
+    #[serde(with = "peerid_serializer")]
+    pub owner_id: PeerId,
 }
 
 impl PersistedService {
@@ -45,7 +47,7 @@ impl PersistedService {
         service_id: String,
         blueprint_id: String,
         aliases: Vec<String>,
-        owner_id: String,
+        owner_id: PeerId,
     ) -> Self {
         Self {
             service_id,
@@ -60,7 +62,7 @@ impl PersistedService {
             service_id,
             service.blueprint_id.clone(),
             service.aliases.clone(),
-            service.owner_id.clone(),
+            service.owner_id,
         )
     }
 }

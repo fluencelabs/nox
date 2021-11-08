@@ -14,16 +14,20 @@
  * limitations under the License.
  */
 
-use crate::aqua_runtime::AquaRuntime;
-use crate::awaited_particle::AwaitedParticle;
-use crate::AwaitedEffects;
-
-use async_std::task;
-use futures::{future::BoxFuture, FutureExt};
-use humantime::format_duration as pretty;
 use std::{task::Waker, time::Instant};
 
-pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT>>;
+use async_std::task;
+use avm_server::CallResults;
+use futures::{future::BoxFuture, FutureExt};
+use humantime::format_duration as pretty;
+
+use particle_protocol::Particle;
+
+use crate::aqua_runtime::AquaRuntime;
+use crate::error::AquamarineApiError;
+use crate::particle_effects::ParticleEffects;
+
+pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects>>;
 
 pub trait ParticleExecutor {
     type Future;
@@ -32,29 +36,29 @@ pub trait ParticleExecutor {
 }
 
 /// Result of a particle execution along a VM that has just executed the particle
-pub struct FutResult<RT> {
+pub struct FutResult<RT, Eff> {
     /// AVM that just executed a particle
     pub vm: RT,
     /// Effects produced by particle execution
-    pub effects: AwaitedEffects,
+    pub effects: Result<Eff, AquamarineApiError>,
 }
 
 impl<RT: AquaRuntime> ParticleExecutor for RT {
     type Future = Fut<Self>;
-    type Particle = AwaitedParticle;
+    type Particle = (Particle, CallResults);
 
-    fn execute(mut self, p: AwaitedParticle, waker: Waker) -> Self::Future {
+    fn execute(mut self, p: Self::Particle, waker: Waker) -> Self::Future {
         task::spawn_blocking(move || {
             let now = Instant::now();
+            let (p, calls) = p;
             log::info!("Executing particle {}", p.id);
 
-            let (p, out) = p.into();
+            let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), &p.id, calls);
 
-            let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), p.id.clone());
             if let Err(err) = &result {
                 log::warn!("Error executing particle {:#?}: {}", p, err)
             } else {
-                log::trace!(target: "network", "Particle {} executed in {}", p.id, pretty(now.elapsed()));
+                log::trace!(target: "network", "Particle {} executed in {} [{} bytes => {} bytes]", p.id, pretty(now.elapsed()), p.data.len(), result.as_ref().map(|e| e.data.len() as i32).unwrap_or(-1));
             }
             let effects = Ok(Self::into_effects(result, p));
 
@@ -62,7 +66,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
 
             FutResult {
                 vm: self,
-                effects: AwaitedEffects { effects, out },
+                effects,
             }
         })
         .boxed()

@@ -1,3 +1,4 @@
+#![feature(try_trait_v2)]
 /*
  * Copyright 2021 Fluence Labs Limited
  *
@@ -13,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #![warn(rust_2018_idioms)]
-#![deny(
+#![allow(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -31,4 +31,5 @@ extern crate fstrings;
 mod local_vm;
 
 pub use crate::local_vm::*;
+pub use aquamarine::DataStoreError;
 pub use avm_server::AVM;

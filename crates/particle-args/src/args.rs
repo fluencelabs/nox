@@ -17,13 +17,13 @@
 use crate::args_error::ArgsError::{self, MissingField, SerdeJson};
 
 use control_macro::ok_get;
-use fluence_app_service::SecurityTetraplet;
-use ivalue_utils::{as_str, into_string, IValue};
 
+use avm_server::{CallRequestParams, SecurityTetraplet};
 use serde::Deserialize;
 use serde_json::Value as JValue;
+use std::convert::TryFrom;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Arguments passed by VM to host on call_service
 pub struct Args {
     pub service_id: String,
@@ -33,48 +33,6 @@ pub struct Args {
 }
 
 impl Args {
-    /// Construct Args from `Vec<IValue>`
-    pub fn parse(call_args: Vec<IValue>) -> Result<Args, ArgsError> {
-        let mut call_args = call_args.into_iter();
-        let service_id = call_args
-            .next()
-            .and_then(into_string)
-            .ok_or(MissingField("service_id"))?;
-
-        let fname = call_args
-            .next()
-            .and_then(into_string)
-            .ok_or(MissingField("fname"))?;
-
-        let function_args = call_args
-            .next()
-            .as_ref()
-            .and_then(as_str)
-            .ok_or(MissingField("args"))
-            .and_then(|v| {
-                serde_json::from_str(v).map_err(|err| SerdeJson { field: "args", err })
-            })?;
-
-        let tetraplets: Vec<Vec<SecurityTetraplet>> = call_args
-            .next()
-            .as_ref()
-            .and_then(as_str)
-            .ok_or(MissingField("tetraplets"))
-            .and_then(|v| {
-                serde_json::from_str(v).map_err(|err| SerdeJson {
-                    field: "tetraplets",
-                    err,
-                })
-            })?;
-
-        Ok(Args {
-            service_id,
-            function_name: fname,
-            function_args,
-            tetraplets,
-        })
-    }
-
     /// Retrieves next json value from iterator, parse it to T
     /// `field` is to generate a more accurate error message
     pub fn next<T: for<'de> Deserialize<'de>>(
@@ -130,6 +88,19 @@ impl Args {
         v: JValue,
     ) -> Result<T, ArgsError> {
         serde_json::from_value(v).map_err(|err| SerdeJson { err, field })
+    }
+}
+
+impl TryFrom<CallRequestParams> for Args {
+    type Error = ArgsError;
+
+    fn try_from(value: CallRequestParams) -> Result<Self, Self::Error> {
+        Ok(Args {
+            service_id: value.service_id,
+            function_name: value.function_name,
+            function_args: value.arguments,
+            tetraplets: value.tetraplets,
+        })
     }
 }
 

@@ -295,7 +295,7 @@ async fn cleanup(sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>) {
     .await
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ScriptStorageApi {
     pub outlet: Outlet<Command>,
 }

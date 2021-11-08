@@ -16,6 +16,7 @@
 
 use crate::node_config::{KeypairConfig, PathOrValue};
 use fluence_identity::KeyPair;
+use fluence_libp2p::Transport;
 
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
@@ -25,6 +26,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const CONFIG_VERSION: usize = 1;
+
+pub fn default_transport() -> Transport {
+    Transport::Network
+}
 
 pub fn default_config_path() -> PathBuf {
     default_base_dir().join("Config.toml")
@@ -51,6 +56,9 @@ pub fn default_websocket_port() -> u16 {
 }
 pub fn default_prometheus_port() -> u16 {
     18080
+}
+pub fn default_prometheus_enabled() -> bool {
+    true
 }
 
 pub fn default_base_dir() -> PathBuf {
@@ -93,6 +101,7 @@ pub fn default_root_keypair() -> KeyPair {
     };
 
     config
+        // TODO: respect base_dir https://github.com/fluencelabs/fluence/issues/1210
         .get_keypair(default_keypair_path())
         .expect("generate default root keypair")
 }
@@ -105,6 +114,7 @@ pub fn default_builtins_keypair() -> KeyPair {
     };
 
     config
+        // TODO: respect base_dir https://github.com/fluencelabs/fluence/issues/1210
         .get_keypair(default_builtins_keypair_path())
         .expect("generate default builtins keypair")
 }
@@ -117,8 +127,8 @@ pub fn default_particle_queue_buffer_size() -> usize {
     100
 }
 
-pub fn default_particle_processor_parallelism() -> usize {
-    32
+pub fn default_particle_processor_parallelism() -> Option<usize> {
+    Some(num_cpus::get() * 2)
 }
 
 pub fn default_script_storage_timer_resolution() -> Duration {

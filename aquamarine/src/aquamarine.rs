@@ -13,36 +13,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::aqua_runtime::AquaRuntime;
-use crate::awaited_particle::EffectsChannel;
-use crate::error::AquamarineApiError;
-use crate::{AwaitedEffects, AwaitedParticle, Plumber, StepperEffects, VmPoolConfig};
-
-use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet};
-use particle_protocol::Particle;
-
-use async_std::{task, task::JoinHandle};
-use futures::{
-    channel::{mpsc, oneshot},
-    future::BoxFuture,
-    FutureExt, SinkExt, StreamExt,
-};
-use humantime::format_duration as pretty;
-use std::convert::identity;
+use std::future::Future;
 use std::task::Poll;
 use std::time::Duration;
 
-pub struct AquamarineBackend<RT: AquaRuntime> {
-    inlet: BackPressuredInlet<(Particle, EffectsChannel)>,
-    plumber: Plumber<RT>,
+use async_std::{task, task::JoinHandle};
+use futures::{channel::mpsc, SinkExt, StreamExt};
+
+use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, Outlet};
+use particle_execution::ParticleFunctionStatic;
+use particle_protocol::Particle;
+
+use crate::aqua_runtime::AquaRuntime;
+use crate::command::Command;
+use crate::command::Command::Ingest;
+use crate::error::AquamarineApiError;
+use crate::particle_effects::NetworkEffects;
+use crate::particle_functions::Function;
+use crate::vm_pool::VmPool;
+use crate::{Plumber, VmPoolConfig};
+
+pub type EffectsChannel = Outlet<Result<NetworkEffects, AquamarineApiError>>;
+
+pub struct AquamarineBackend<RT: AquaRuntime, F> {
+    inlet: BackPressuredInlet<Command>,
+    plumber: Plumber<RT, F>,
+    out: EffectsChannel,
 }
 
-impl<RT: AquaRuntime> AquamarineBackend<RT> {
-    pub fn new(config: VmPoolConfig, runtime_config: RT::Config) -> (Self, AquamarineApi) {
+impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
+    pub fn new(
+        config: VmPoolConfig,
+        runtime_config: RT::Config,
+        builtins: F,
+        out: EffectsChannel,
+    ) -> (Self, AquamarineApi) {
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
-        let plumber = Plumber::new(config, runtime_config);
-        let this = Self { inlet, plumber };
+        let vm_pool = VmPool::new(config.pool_size, runtime_config);
+        let plumber = Plumber::new(vm_pool, builtins);
+        let this = Self {
+            inlet,
+            plumber,
+            out,
+        };
 
         (this, sender)
     }
@@ -51,17 +65,21 @@ impl<RT: AquaRuntime> AquamarineBackend<RT> {
         let mut wake = false;
 
         // check if there are new particles
-        while let Poll::Ready(Some((particle, out))) = self.inlet.poll_next_unpin(cx) {
+        while let Poll::Ready(Some(Ingest { particle, function })) = self.inlet.poll_next_unpin(cx)
+        {
             wake = true;
-            // set new particles to be executed
-            self.plumber.ingest(AwaitedParticle { particle, out });
+            // set new particle to be executed
+            self.plumber.ingest(particle, function);
         }
 
         // check if there are executed particles
-        while let Poll::Ready(AwaitedEffects { effects, out }) = self.plumber.poll(cx) {
+        while let Poll::Ready(effects) = self.plumber.poll(cx) {
             wake = true;
             // send results back
-            out.send(effects).ok();
+            let sent = self.out.unbounded_send(effects);
+            if let Err(err) = sent {
+                log::error!("Aquamarine effects outlet has died: {}", err);
+            }
         }
 
         if wake {
@@ -83,54 +101,44 @@ impl<RT: AquaRuntime> AquamarineBackend<RT> {
 
 #[derive(Clone)]
 pub struct AquamarineApi {
-    // send particle along with a "return address"; it's like the Ask pattern in Akka
-    outlet: BackPressuredOutlet<(Particle, EffectsChannel)>,
+    outlet: BackPressuredOutlet<Command>,
     execution_timeout: Duration,
 }
+
 impl AquamarineApi {
-    pub fn new(
-        outlet: BackPressuredOutlet<(Particle, EffectsChannel)>,
-        execution_timeout: Duration,
-    ) -> Self {
+    pub fn new(outlet: BackPressuredOutlet<Command>, execution_timeout: Duration) -> Self {
         Self {
             outlet,
             execution_timeout,
         }
     }
 
-    /// Send particle to interpreters pool and wait response back
-    pub fn handle(
+    /// Send particle to the interpreters pool
+    pub fn execute(
         self,
         particle: Particle,
-    ) -> BoxFuture<'static, Result<StepperEffects, AquamarineApiError>> {
+        function: Option<Function>,
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         use AquamarineApiError::*;
 
         let mut interpreters = self.outlet;
         let particle_id = particle.id.clone();
-        let fut = async move {
-            let particle_id = particle.id.clone();
-            let (outlet, inlet) = oneshot::channel();
-            let send_ok = interpreters.send((particle, outlet)).await.is_ok();
-            if send_ok {
-                let effects = inlet.await.map_err(|err| {
-                    log::info!(target: "debug", "oneshot cancelled: {:?}", err);
-                    OneshotCancelled { particle_id }
-                });
-                effects.and_then(identity)
-            } else {
-                Err(AquamarineDied { particle_id })
-            }
-        };
 
-        let timeout = self.execution_timeout;
-        async_std::io::timeout(timeout, fut.map(Ok))
-            .map(move |r| {
-                let result = r.map_err(|_| ExecutionTimedOut {
-                    particle_id,
-                    timeout: pretty(timeout),
-                });
-                result.and_then(identity)
+        async move {
+            let command = Ingest { particle, function };
+            let sent = interpreters.send(command).await;
+
+            sent.map_err(|err| match err {
+                err if err.is_disconnected() => {
+                    log::error!("Aquamarine outlet died!");
+                    AquamarineDied { particle_id }
+                }
+                _ /* if err.is_full() */ => {
+                    // This couldn't happen AFAIU, because `SinkExt::send` checks for availability
+                    log::error!("UNREACHABLE: Aquamarine outlet reported being full!");
+                    AquamarineQueueFull { particle_id }
+                }
             })
-            .boxed()
+        }
     }
 }

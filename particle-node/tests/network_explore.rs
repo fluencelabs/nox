@@ -346,8 +346,9 @@ fn explore_services_fixed() {
                         particle,
                         client.peer_id.clone(),
                         &mut client.local_vm.lock(),
-                        client.call_service_out.clone(),
-                    );
+                    )
+                    .expect("read args")
+                    .expect("no error");
                     received.push(args);
                 }
                 ClientEvent::NewConnection { .. } => {}

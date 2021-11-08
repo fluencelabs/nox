@@ -1,7 +1,7 @@
 # dht-api.getValues.air
 # dht-api.registerKeyPutValue.air
 
-# pubsub.initTopicAndSubscribe.air
+# pubsub.initTopicAndSubscribeBlocking.air
 # pubsub.findSubscribers.air
 
 dht-api.clearHostValue.air
@@ -20,5 +20,6 @@ pubsub.initTopicAndSubscribeNode.air
 pubsub.removeSubscriber.air
 pubsub.subscribe.air
 pubsub.subscribeNode.air
+pubsub.initTopicAndSubscribe.air
 dht-scheduled-scripts.clearExpired_86400.air
 dht-scheduled-scripts.replicate_3600.air

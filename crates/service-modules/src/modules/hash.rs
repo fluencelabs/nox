@@ -16,8 +16,7 @@
 
 use blake3::hash;
 use faster_hex::hex_decode;
-use serde::export::Formatter;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Hash(blake3::Hash);

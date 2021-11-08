@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-use particle_modules::ModuleError;
+use std::path::PathBuf;
 
 use fluence_app_service::AppServiceError;
-use host_closure::{AVMError, ArgsError};
-use json_utils::err_as_value;
-
 use serde_json::Value as JValue;
-use std::path::PathBuf;
 use thiserror::Error;
+
+use fluence_libp2p::PeerId;
+use json_utils::err_as_value;
+use particle_args::ArgsError;
+use particle_execution::VaultError;
+use particle_modules::ModuleError;
 
 #[derive(Debug, Error)]
 pub enum ServiceError {
@@ -34,7 +36,7 @@ pub enum ServiceError {
     NoSuchAlias(String),
     #[error("Forbidden. User id '{user}' cannot call function '{function}': {reason}")]
     Forbidden {
-        user: String,
+        user: PeerId,
         function: &'static str,
         reason: &'static str,
     },
@@ -66,13 +68,6 @@ pub enum ServiceError {
     CorruptedFaaSInterface(#[source] serde_json::Error),
     #[error("Error parsing arguments on call_service: {0}")]
     ArgParseError(#[source] ArgsError),
-    #[error("Vault creation (service {particle_id}, particle {service_id}) failed: {err:?}")]
-    VaultCreation {
-        #[source]
-        err: AVMError,
-        particle_id: String,
-        service_id: String,
-    },
     #[error("Vault linking (service {particle_id}, particle {service_id}) failed: {err:?}")]
     VaultLink {
         #[source]
@@ -80,6 +75,8 @@ pub enum ServiceError {
         particle_id: String,
         service_id: String,
     },
+    #[error(transparent)]
+    VaultError(#[from] VaultError),
 }
 
 impl From<AppServiceError> for ServiceError {
