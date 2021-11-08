@@ -75,7 +75,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          cargo test --test-threads=1 --release --all-features # --no-fail-fast
+          cargo test --release --all-features -- --test-threads=1  # --no-fail-fast
 
 workflows:
   version: 2
