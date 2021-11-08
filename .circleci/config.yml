@@ -69,7 +69,7 @@ jobs:
   Rust Tests:
     docker:
       - image: circleci/rust:latest
-    resource_class: 2xlarge
+    resource_class: xlarge
     environment:
       RUST_BACKTRACE: full
     steps:
