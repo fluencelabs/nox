@@ -21,9 +21,13 @@ use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
+use serde_json::Value as JValue;
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
+use humantime_serde::re::humantime::format_duration;
+use now_millis::now;
+use std::time::Duration;
 
 #[test]
 fn stream_hello() {
@@ -218,7 +222,7 @@ fn autoremove_failed() {
         },
     );
 
-    for _ in 0..500 {
+    let mut get_list = move || {
         let list_id = client.send_particle(
             r#"
             (seq
@@ -232,12 +236,32 @@ fn autoremove_failed() {
             },
         );
         let list = client.wait_particle_args(list_id).unwrap();
+        list
+    };
+
+    let list = get_list();
+    assert_eq!(list.len(), 1);
+    if let JValue::Array(arr) = &list[0] {
+        let failures = arr[0].get("failures");
+        assert_eq!(failures, Some(&json!(0)));
+    } else {
+        panic!("expected array");
+    }
+
+    let timeout = Duration::from_secs(5);
+    let deadline = now() + timeout;
+
+    while now() < deadline {
+        let list = get_list();
         if list == vec![serde_json::Value::Array(vec![])] {
             return;
         }
     }
 
-    panic!("failed script wasn't deleted in time or at all");
+    panic!(
+        "failed script wasn't deleted after {}",
+        format_duration(timeout)
+    );
 }
 
 #[test]

@@ -71,7 +71,7 @@ jobs:
       - image: circleci/rust:latest
     resource_class: xlarge
     environment:
-      RUST_BACKTRACE: 1
+      RUST_BACKTRACE: full
     steps:
       - checkout
       - run: |
