@@ -508,7 +508,7 @@ fn add_script_delay() {
 
     let res = client.receive_args().wrap_err("receive").unwrap();
     let res = res.into_iter().next().unwrap().as_u64().unwrap();
-    let eps = 3u64;
+    let eps = 10u64;
     let expected = now + delay;
     let check_range = expected - eps..expected + eps;
     assert!(check_range.contains(&res));
