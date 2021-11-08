@@ -69,13 +69,13 @@ jobs:
   Rust Tests:
     docker:
       - image: circleci/rust:latest
-    resource_class: xlarge
+    resource_class: 2xlarge
     environment:
       RUST_BACKTRACE: full
     steps:
       - checkout
       - run: |
-          cargo test --release --all-features -- --test-threads=1  # --no-fail-fast
+          cargo test --release --all-features --no-fail-fast
 
 workflows:
   version: 2
