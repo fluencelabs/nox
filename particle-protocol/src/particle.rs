@@ -30,7 +30,9 @@ pub struct Particle {
     pub id: String,
     #[serde(with = "peerid_serializer")]
     pub init_peer_id: PeerId,
+    // Unix timestamp in milliseconds
     pub timestamp: u64,
+    // TTL in milliseconds
     pub ttl: u32,
     pub script: String,
     pub signature: Vec<u8>,
@@ -65,6 +67,7 @@ impl Particle {
         true
     }
 
+    /// Deadline in milliseconds
     #[inline]
     pub fn deadline(&self) -> Option<u64> {
         self.timestamp.checked_add(self.ttl as u64)

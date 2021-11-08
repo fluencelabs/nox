@@ -145,7 +145,7 @@ where
         // SAFETY: At least one particle was ingested or calls/mailbox would be empty.
         let particle = particle.or_else(|| self.particle.clone()).unwrap();
         let waker = cx.waker().clone();
-        // TODO: add timeout for execution
+        // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         // Take ownership of vm to process particle
         self.future = Some(vm.execute((particle, calls), waker));
 

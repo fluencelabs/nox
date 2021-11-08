@@ -122,6 +122,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         self.actors.retain(|particle_id, actor| {
             // if actor hasn't yet expired or is still executing, keep it
             // TODO: if actor is expired, cancel execution and return VM back to pool
+            //       https://github.com/fluencelabs/fluence/issues/1212
             if !actor.is_expired(now) || actor.is_executing() {
                 return true; // keep actor
             }

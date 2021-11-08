@@ -19,7 +19,9 @@ use std::ops::Mul;
 
 #[derive(Debug, Clone)]
 pub struct Deadline {
+    // Unix timestamp in milliseconds
     timestamp: u64,
+    // TTL in milliseconds
     ttl: u32,
 }
 

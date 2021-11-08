@@ -244,6 +244,7 @@ impl ParticleAppServices {
         let function_name = function_args.function_name;
 
         let mut service = service.lock();
+        // TODO: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
         let result = service
             .call(
                 function_name,
