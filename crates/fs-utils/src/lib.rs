@@ -106,10 +106,19 @@ where
 }
 
 pub fn remove_dir(dir: &Path) -> Result<(), std::io::Error> {
-    std::fs::remove_dir_all(&dir).map_err(|err| {
+    std::fs::remove_dir_all(dir).map_err(|err| {
         std::io::Error::new(
             err.kind(),
             format!("error removing directory {:?}: {:?}", dir, err),
+        )
+    })
+}
+
+pub fn remove_file(file: &Path) -> Result<(), std::io::Error> {
+    std::fs::remove_file(file).map_err(|err| {
+        std::io::Error::new(
+            err.kind(),
+            format!("error removing file {:?}: {:?}", file, err),
         )
     })
 }
