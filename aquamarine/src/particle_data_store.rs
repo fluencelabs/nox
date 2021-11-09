@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use avm_server::DataStore;
 use thiserror::Error;
 
-use fs_utils::{create_dir, remove_dir, remove_file};
+use fs_utils::{create_dir, remove_file};
 use particle_execution::{ParticleVault, VaultError};
 use DataStoreError::{CleanupData, CreateDataStore, StoreData};
 
