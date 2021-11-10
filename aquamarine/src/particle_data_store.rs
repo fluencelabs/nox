@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use avm_server::DataStore;
 use thiserror::Error;
 
-use fs_utils::{create_dir, remove_dir};
+use fs_utils::{create_dir, remove_file};
 use particle_execution::{ParticleVault, VaultError};
 use DataStoreError::{CleanupData, CreateDataStore, StoreData};
 
@@ -74,7 +74,7 @@ impl DataStore<DataStoreError> for ParticleDataStore {
     }
 
     fn cleanup_data(&mut self, key: &str) -> Result<()> {
-        remove_dir(&self.data_file(key)).map_err(CleanupData)?;
+        remove_file(&self.data_file(key)).map_err(CleanupData)?;
         self.vault.cleanup(key)?;
 
         Ok(())

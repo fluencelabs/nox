@@ -31,6 +31,7 @@ use rand::Rng;
 use std::fmt::Debug;
 use std::fs;
 use std::fs::Permissions;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
@@ -106,12 +107,27 @@ where
 }
 
 pub fn remove_dir(dir: &Path) -> Result<(), std::io::Error> {
-    std::fs::remove_dir_all(&dir).map_err(|err| {
-        std::io::Error::new(
+    match std::fs::remove_dir_all(dir) {
+        Ok(_) => Ok(()),
+        // ignore NotFound
+        Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(std::io::Error::new(
             err.kind(),
             format!("error removing directory {:?}: {:?}", dir, err),
-        )
-    })
+        )),
+    }
+}
+
+pub fn remove_file(file: &Path) -> Result<(), std::io::Error> {
+    match std::fs::remove_file(file) {
+        Ok(_) => Ok(()),
+        // ignore NotFound
+        Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(std::io::Error::new(
+            err.kind(),
+            format!("error removing file {:?}: {:?}", file, err),
+        )),
+    }
 }
 
 pub fn file_stem(path: impl AsRef<Path>) -> eyre::Result<String> {
