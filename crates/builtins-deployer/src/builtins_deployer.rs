@@ -300,6 +300,12 @@ impl BuiltinsDeployer {
             return Ok(());
         }
 
+        log::info!(
+            "{} builtin services found at {:?}",
+            from_disk.len(),
+            self.builtins_base_dir
+        );
+
         self.wait_for_vm_pool()?;
 
         let mut local_services = self.get_service_blueprints()?;
@@ -343,7 +349,7 @@ impl BuiltinsDeployer {
             };
 
             if let Err(err) = result {
-                log::error!("builtin {} init is failed: {}", builtin.name, err);
+                log::error!("Builtin service {} init is failed: {}", builtin.name, err);
                 return Err(err);
             }
         }
@@ -351,6 +357,8 @@ impl BuiltinsDeployer {
         for builtin in to_start.into_iter() {
             self.run_on_start(builtin)?;
             self.run_scheduled_scripts(builtin)?;
+
+            log::info!("Builtin service {} successfully started", builtin.name);
         }
 
         Ok(())

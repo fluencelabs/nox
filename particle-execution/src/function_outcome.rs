@@ -66,7 +66,7 @@ impl FromResidual for FunctionOutcome {
     }
 }
 
-impl<E: std::error::Error> FromResidual<Result<Infallible, E>> for FunctionOutcome {
+impl<E: Into<JError>> FromResidual<Result<Infallible, E>> for FunctionOutcome {
     fn from_residual(residual: Result<Infallible, E>) -> Self {
         let Err(e) = residual;
         FunctionOutcome::Err(e.into())
