@@ -267,6 +267,8 @@ where
         // sleep for `duration`
         future::timeout(duration, pending::<()>()).await.ok();
 
+        log::info!("timed out!");
+
         message
             .map(|msg: String| FunctionOutcome::Ok(msg.into()))
             .unwrap_or(FunctionOutcome::Empty)
