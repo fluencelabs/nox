@@ -780,10 +780,10 @@ fn timeout_race() {
     let fast_result = exec_script(
         r#"
         (par
-            (call relay ("peer" "timeout") [1 "slow_result"] $result)
+            (call relay ("peer" "timeout") [1000 "slow_result"] $result)
             ;;(ap "fast_result" $result)
             (call relay ("op" "identity") ["fast_result"] $result)
-            ;;(call relay ("peer" "timeout") [2 "very_slow_result"] $result)
+            ;;(call relay ("peer" "timeout") [2000 "very_slow_result"] $result)
         )
     "#,
         <_>::default(),
@@ -800,7 +800,7 @@ fn timeout_wait() {
         r#"
         (seq
             (par
-                (call relay ("peer" "timeout") [1 "timed_out"] $ok_or_err)
+                (call relay ("peer" "timeout") [1000 "timed_out"] $ok_or_err)
                 (call "invalid_peer" ("op" "identity") ["never"] $ok_or_err) 
             )
             (xor

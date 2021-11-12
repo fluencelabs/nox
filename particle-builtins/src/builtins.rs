@@ -257,10 +257,10 @@ where
 
         let mut args = args.function_args.into_iter();
 
-        let dur_field = "duration_sec";
+        let dur_field = "duration_ms";
         let duration = parse_u64(dur_field, &mut args)?;
         let duration = duration.ok_or(ArgsError::MissingField(dur_field))?;
-        let duration = Duration::from_secs(duration);
+        let duration = Duration::from_millis(duration);
 
         let message = Args::next_opt("message", &mut args)?;
 
