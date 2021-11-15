@@ -775,6 +775,50 @@ fn array_length() {
     ])
 }
 
+#[test]
+fn timeout_race() {
+    let fast_result = exec_script(
+        r#"
+        (par
+            (call relay ("peer" "timeout") [1000 "slow_result"] $result)
+            ;;(ap "fast_result" $result)
+            (call relay ("op" "identity") ["fast_result"] $result)
+            ;;(call relay ("peer" "timeout") [2000 "very_slow_result"] $result)
+        )
+    "#,
+        <_>::default(),
+        "$result.$[0]",
+        1,
+    );
+
+    assert_eq!(&fast_result[0], "fast_result");
+}
+
+#[test]
+fn timeout_wait() {
+    let slow_result = exec_script(
+        r#"
+        (seq
+            (par
+                (call relay ("peer" "timeout") [1000 "timed_out"] $ok_or_err)
+                (call "invalid_peer" ("op" "identity") ["never"] $ok_or_err) 
+            )
+            (xor
+                (match $ok_or_err.$[0] "timed_out"
+                    (ap "timed out" $result)
+                )
+                (ap "impossible happened" $result)
+            )
+        )
+    "#,
+        <_>::default(),
+        "$result.$[0]",
+        1,
+    );
+
+    assert_eq!(&slow_result[0], "timed out");
+}
+
 fn exec_script(
     script: &str,
     args: HashMap<&'static str, JValue>,

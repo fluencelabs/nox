@@ -102,6 +102,7 @@ where
             ("peer", "is_connected")          => wrap(self.is_connected(args).await),
             ("peer", "connect")               => wrap(self.connect(args).await),
             ("peer", "get_contact")           => self.get_contact(args).await,
+            ("peer", "timeout")               => self.timeout(args).await,
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args).await),
             ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
@@ -248,6 +249,27 @@ where
                 })
                 .collect(),
         ))
+    }
+
+    async fn timeout(&self, args: Args) -> FunctionOutcome {
+        use async_std::future;
+        use std::future::pending;
+
+        let mut args = args.function_args.into_iter();
+
+        let dur_field = "duration_ms";
+        let duration = parse_u64(dur_field, &mut args)?;
+        let duration = duration.ok_or(ArgsError::MissingField(dur_field))?;
+        let duration = Duration::from_millis(duration);
+
+        let message = Args::next_opt("message", &mut args)?;
+
+        // sleep for `duration`
+        future::timeout(duration, pending::<()>()).await.ok();
+
+        message
+            .map(|msg: String| FunctionOutcome::Ok(msg.into()))
+            .unwrap_or(FunctionOutcome::Empty)
     }
 
     fn string_to_b58(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
