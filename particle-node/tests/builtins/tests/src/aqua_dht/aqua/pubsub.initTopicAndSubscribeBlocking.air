@@ -14,65 +14,70 @@
     )
     (call %init_peer_id% ("getDataSrv" "service_id") [] service_id)
    )
-   (xor
-    (par
-     (seq
-      (seq
-       (call -relay- ("op" "string_to_b58") [topic] k)
-       (call -relay- ("kad" "neighborhood") [k [] []] nodes)
-      )
-      (call %init_peer_id% ("op" "noop") [])
-     )
-     (seq
-      (fold nodes n
-       (par
+   (new $results
+    (seq
+     (xor
+      (par
+       (seq
         (seq
-         (seq
-          (call -relay- ("op" "noop") [])
-          (xor
+         (call -relay- ("op" "string_to_b58") [topic] k)
+         (call -relay- ("kad" "neighborhood") [k [] []] nodes)
+        )
+        (call %init_peer_id% ("op" "noop") [])
+       )
+       (seq
+        (fold nodes n
+         (par
+          (seq
            (seq
-            (seq
-             (seq
-              (call n ("peer" "timestamp_sec") [] t)
-              (call n ("aqua-dht" "register_key") [topic t false 0])
-             )
-             (call n ("aqua-dht" "put_value") [topic value t relay_id service_id 0] result)
-            )
+            (call -relay- ("op" "noop") [])
             (xor
-             (match result.$.success! true
-              (xor
+             (seq
+              (seq
                (seq
-                (seq
-                 (ap result $results)
-                 (call -relay- ("op" "noop") [])
-                )
+                (call n ("peer" "timestamp_sec") [] t)
+                (call n ("aqua-dht" "register_key") [topic t false 0])
+               )
+               (call n ("aqua-dht" "put_value") [topic value t relay_id service_id 0] result)
+              )
+              (xor
+               (match result.$.success! true
                 (xor
-                 (call %init_peer_id% ("callbackSrv" "progress") [n])
-                 (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+                 (seq
+                  (seq
+                   (ap result $results)
+                   (call -relay- ("op" "noop") [])
+                  )
+                  (xor
+                   (call %init_peer_id% ("callbackSrv" "progress") [n])
+                   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+                  )
+                 )
+                 (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
                 )
                )
-               (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
+               (null)
               )
              )
              (null)
             )
            )
-           (null)
+           (call %init_peer_id% ("op" "noop") [])
           )
+          (next n)
          )
-         (call %init_peer_id% ("op" "noop") [])
         )
-        (next n)
+        (call %init_peer_id% ("op" "noop") [])
        )
       )
-      (call %init_peer_id% ("op" "noop") [])
+      (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
      )
+     (call %init_peer_id% ("op" "identity") [$results.$.[0]!] results-fix)
     )
-    (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
    )
   )
   (xor
-   (call %init_peer_id% ("callbackSrv" "response") [$results.$.[0]!])
+   (call %init_peer_id% ("callbackSrv" "response") [results-fix])
    (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 4])
   )
  )

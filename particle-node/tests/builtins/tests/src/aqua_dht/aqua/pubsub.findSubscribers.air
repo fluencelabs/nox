@@ -5,38 +5,40 @@
     (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
     (call %init_peer_id% ("getDataSrv" "topic") [] topic)
    )
-   (xor
-    (seq
+   (new $res
+    (xor
      (seq
       (seq
-       (call -relay- ("op" "string_to_b58") [topic] k)
-       (call -relay- ("kad" "neighborhood") [k [] []] nodes)
-      )
-      (par
        (seq
-        (fold nodes n
-         (par
-          (seq
-           (xor
-            (seq
-             (call n ("peer" "timestamp_sec") [] t)
-             (call n ("aqua-dht" "get_values") [topic t] $res)
-            )
-            (null)
-           )
-           (call -relay- ("op" "noop") [])
-          )
-          (next n)
-         )
-        )
-        (call -relay- ("op" "noop") [])
+        (call -relay- ("op" "string_to_b58") [topic] k)
+        (call -relay- ("kad" "neighborhood") [k [] []] nodes)
        )
-       (null)
+       (par
+        (seq
+         (fold nodes n
+          (par
+           (seq
+            (xor
+             (seq
+              (call n ("peer" "timestamp_sec") [] t)
+              (call n ("aqua-dht" "get_values") [topic t] $res)
+             )
+             (null)
+            )
+            (call -relay- ("op" "noop") [])
+           )
+           (next n)
+          )
+         )
+         (call -relay- ("op" "noop") [])
+        )
+        (null)
+       )
       )
+      (call -relay- ("aqua-dht" "merge_two") [$res.$.[0].result! $res.$.[1].result!] v)
      )
-     (call -relay- ("aqua-dht" "merge_two") [$res.$.[0].result! $res.$.[1].result!] v)
+     (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
     )
-    (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
    )
   )
   (xor
