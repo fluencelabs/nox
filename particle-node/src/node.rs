@@ -64,7 +64,9 @@ type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 pub struct Node<RT: AquaRuntime> {
     particle_stream: BackPressuredInlet<Particle>,
     effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
+
     pub swarm: Swarm<NetworkBehaviour>,
+    pub aquamarine_api: AquamarineApi,
 
     pub connectivity: Connectivity,
     pub dispatcher: Dispatcher,
@@ -172,7 +174,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let builtins_deployer = BuiltinsDeployer::new(
             builtins_peer_id,
             local_peer_id,
-            aquamarine_api,
+            aquamarine_api.clone(),
             config.dir_config.builtins_base_dir.clone(),
             config.node_config.autodeploy_particle_ttl,
             config.node_config.force_builtins_redeploy,
@@ -183,6 +185,7 @@ impl<RT: AquaRuntime> Node<RT> {
             particle_stream,
             effects_in,
             swarm,
+            aquamarine_api,
             connectivity,
             dispatcher,
             aquavm_pool,
@@ -239,7 +242,9 @@ impl<RT: AquaRuntime> Node<RT> {
     pub fn with(
         particle_stream: BackPressuredInlet<Particle>,
         effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
+
         swarm: Swarm<NetworkBehaviour>,
+        aquamarine_api: AquamarineApi,
 
         connectivity: Connectivity,
         dispatcher: Dispatcher,
@@ -256,7 +261,9 @@ impl<RT: AquaRuntime> Node<RT> {
         let node_service = Self {
             particle_stream,
             effects_stream,
+
             swarm,
+            aquamarine_api,
 
             connectivity,
             dispatcher,

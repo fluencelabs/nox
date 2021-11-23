@@ -93,7 +93,7 @@ impl BuiltinsDeployer {
                 if let Some(outlet) = outlet.take() {
                     outlet.send(returned).expect("send response back")
                 } else {
-                    log::info!("WTF!")
+                    // ignore further calls
                 }
             }
 
@@ -118,6 +118,7 @@ impl BuiltinsDeployer {
                     .execute(particle, Some(Box::new(closure)))
                     .await?;
 
+                // TODO: add timeout
                 let result = inlet.await;
                 result
                     .map_err(|err| eyre!("error reading from inlet: {:?}", err))?

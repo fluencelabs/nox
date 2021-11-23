@@ -14,14 +14,27 @@
  * limitations under the License.
  */
 
-use connected_client::ConnectedClient;
-use created_swarm::{make_swarms, CreatedSwarm};
+#![feature(try_blocks)]
 
+use std::time::Duration;
+
+use eyre::eyre;
 use eyre::WrapErr;
+use futures::channel::oneshot::channel;
+use futures::executor::block_on;
+use futures::FutureExt;
 use maplit::hashmap;
 use serde_json::json;
 use serde_json::Value as JValue;
-use std::time::Duration;
+
+use connected_client::ConnectedClient;
+use created_swarm::{make_swarms, CreatedSwarm};
+use local_vm::{client_functions, wrap_script};
+use log_utils::enable_logs;
+use now_millis::now_ms;
+use particle_protocol::Particle;
+use test_constants::PARTICLE_TTL;
+use uuid_utils::uuid;
 
 fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
     use itertools::*;
@@ -376,4 +389,215 @@ fn join_empty_stream() {
         err.to_string(),
         "Received a particle, but it didn't return anything"
     );
+}
+
+#[test]
+fn fold_send_same_variable() {
+    enable_logs();
+
+    let swarms = make_swarms(5);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    println!("relay: {}", client.node);
+
+    // let outer_iterable = vec!["1", "2", "3", "4", "5"];
+    let outer_iterable: Vec<_> = swarms.iter().map(|s| s.peer_id.to_string()).collect();
+    // let inner_iterable = vec![1, 2, 3, 4, 5];
+
+    let mut data = hashmap! {
+        "-relay-" => json!(client.node.to_string()),
+        "client" => json!(client.peer_id.to_string()),
+        "outer" => json!(outer_iterable),
+
+    };
+    client.send_particle_ext(
+        r#"
+        (seq
+            (seq
+                (seq
+                    (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
+                    (call %init_peer_id% ("getDataSrv" "outer") [] outer)
+                )
+                (call -relay- ("op" "noop") [])
+            )
+            (fold outer o
+                (par
+                    (seq
+                        (seq
+                            (call -relay- ("op" "noop") [])
+                            (call o ("op" "identity") [o] inner)
+                        )
+                        (par
+                            (seq
+                                (call -relay- ("op" "noop") [])
+                                (call %init_peer_id% ("op" "return") [inner])
+                            )
+                            (null)
+                        )
+                    )
+                    (next o)
+                )
+            )
+        )
+        "#,
+        data,
+        true,
+    );
+
+    client.timeout = Duration::from_secs(10);
+
+    let mut iter = outer_iterable.len();
+    loop {
+        let args = client.receive_args().wrap_err("receive args");
+        println!("args: {:?}", args);
+        if args.is_err() {
+            panic!("{:?} failed", args.err().unwrap());
+        }
+        iter = iter - 1;
+        if iter == 0 {
+            break;
+        }
+    }
+}
+
+#[test]
+fn fold_dashboard() {
+    enable_logs();
+
+    let swarms = make_swarms(5);
+    let sender = &swarms[0];
+
+    let script = r#"
+    (xor
+ (seq
+  (seq
+   (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
+   (call %init_peer_id% ("getDataSrv" "clientId") [] clientId)
+  )
+  (xor
+   (par
+    (seq
+     (call -relay- ("kad" "neighborhood") [clientId [] []] neighbors)
+     (call %init_peer_id% ("op" "noop") [])
+    )
+    (fold neighbors n
+     (par
+      (seq
+       (call -relay- ("op" "noop") [])
+       (xor
+        (seq
+         (seq
+          (call n ("kad" "neighborhood") [n [] []] neighbors2)
+          (par
+           (seq
+            (call -relay- ("op" "noop") [])
+            (xor
+             (call %init_peer_id% ("callbackSrv" "logNeighs") [neighbors2])
+             (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+            )
+           )
+           (null)
+          )
+         )
+         (fold neighbors2 n2
+          (seq
+           (seq
+            (seq
+             (call -relay- ("op" "noop") [])
+             (xor
+              (seq
+               (seq
+                (seq
+                 (seq
+                  (seq
+                   (call n2 ("peer" "identify") [] ident)
+                   (call n2 ("dist" "list_blueprints") [] blueprints)
+                  )
+                  (call n2 ("dist" "list_modules") [] modules)
+                 )
+                 (call n2 ("srv" "list") [] services)
+                )
+                (call -relay- ("op" "noop") [])
+               )
+               (xor
+                (call %init_peer_id% ("callbackSrv" "collectPeerInfo") [n2 ident services blueprints modules])
+                (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
+               )
+              )
+              (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
+             )
+            )
+            (call -relay- ("op" "noop") [])
+           )
+           (next n2)
+          )
+         )
+        )
+        (seq
+         (call -relay- ("op" "noop") [])
+         (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 4])
+        )
+       )
+      )
+      (next n)
+     )
+    )
+   )
+   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 5])
+  )
+ )
+ (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 6])
+)
+    "#;
+    let data = hashmap! {
+        String::from("clientId") => json!(sender.peer_id.to_string()),
+        String::from("-relay-") => json!(sender.peer_id.to_string())
+    };
+    let script = wrap_script(script.into(), &data, None, true, Some(sender.peer_id));
+    let (outlet, inlet) = channel();
+
+    let mut outlet = Some(outlet);
+    let closure = move |args, _| {
+        let result = client_functions(&data, args);
+
+        if let Some(returned) = result.returned {
+            if let Some(outlet) = outlet.take() {
+                outlet.send(returned).expect("send response back")
+            } else {
+                // ignore further calls
+            }
+        }
+
+        let outcome = result.outcome;
+        async { outcome }.boxed()
+    };
+
+    let particle = Particle {
+        id: uuid(),
+        init_peer_id: sender.peer_id,
+        timestamp: now_ms() as u64,
+        ttl: PARTICLE_TTL,
+        script,
+        signature: vec![],
+        data: vec![],
+    };
+
+    let aquamarine = sender.aquamarine_api.clone();
+    let future = async move {
+        try {
+            aquamarine
+                .execute(particle, Some(Box::new(closure)))
+                .await?;
+
+            let result = inlet.await;
+            result
+                .map_err(|err| eyre!("error reading from inlet: {:?}", err))?
+                .map_err(|args| eyre!("AIR caught an error on args: {:?}", args))?
+        }
+    };
+
+    let result: eyre::Result<Vec<JValue>> = block_on(future);
 }

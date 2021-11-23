@@ -90,7 +90,7 @@ pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFun
             let outcome = match value {
                 Some(v) => FunctionOutcome::Ok(v),
                 None => FunctionOutcome::Err(JError::new(f!(
-                    "variable not found: {args.function_name}"
+                    "variable not found: {args.function_name} in {data:?}"
                 ))),
             };
             ClientFunctionsResult {
@@ -103,7 +103,13 @@ pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFun
             returned: Some(Ok(args.function_args)),
         },
         ("callbackSrv", _) => {
-            log::warn!("got callback: {:?}", args.function_args);
+            log::warn!(
+                "got callback ({}, {}): {:?} {:?}",
+                args.service_id,
+                args.function_name,
+                args.function_args,
+                args.tetraplets
+            );
             ClientFunctionsResult {
                 outcome: FunctionOutcome::Empty,
                 returned: None,

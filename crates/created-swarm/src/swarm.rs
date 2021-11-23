@@ -29,7 +29,7 @@ use serde::Deserialize;
 use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::{AquaRuntime, VmConfig};
+use aquamarine::{AquaRuntime, AquamarineApi, VmConfig};
 use aquamarine::{DataStoreError, VmPoolConfig};
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
@@ -50,20 +50,21 @@ use toy_vms::EasyVM;
 
 type AVM = aquamarine::AVM<DataStoreError>;
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+// #[derive(Derivative)]
+// #[derivative(Debug)]
 pub struct CreatedSwarm {
     pub peer_id: PeerId,
     pub multiaddr: Multiaddr,
     // tmp dir, must be cleaned
     pub tmp_dir: PathBuf,
     // management_peer_id
-    #[derivative(Debug = "ignore")]
+    // #[derivative(Debug = "ignore")]
     pub management_keypair: KeyPair,
     // stop signal
     pub outlet: OneshotOutlet<()>,
     // node connectivity
     pub connectivity: Connectivity,
+    pub aquamarine_api: AquamarineApi,
 }
 
 pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
@@ -190,6 +191,7 @@ where
             let connectivity = node.connectivity.clone();
             let startup_peer_id = node.builtins_management_peer_id;
             let local_peer_id = node.local_peer_id;
+            let aquamarine_api = node.aquamarine_api.clone();
             let outlet = node.start().expect("node start");
 
             CreatedSwarm {
@@ -199,6 +201,7 @@ where
                 management_keypair,
                 outlet,
                 connectivity,
+                aquamarine_api,
             }
         })
         .collect();
