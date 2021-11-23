@@ -36,6 +36,7 @@ use eyre::WrapErr;
 use fluence_identity::KeyPair;
 use itertools::Itertools;
 use libp2p::PeerId;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
@@ -777,21 +778,47 @@ fn array_length() {
 
 #[test]
 fn timeout_race() {
-    let fast_result = exec_script(
-        r#"
+    enable_logs();
+
+    // let fast_result = exec_script(
+    //     r#"
+    //     (par
+    //         (call relay ("peer" "timeout") [1000 "slow_result"] $result)
+    //         (ap "fast_result" $result)
+    //         ;;(call relay ("op" "identity") ["fast_result"] $result)
+    //         ;;(call relay ("peer" "timeout") [2000 "very_slow_result"] $result)
+    //     )
+    // "#,
+    //     <_>::default(),
+    //     "$result.$[0]",
+    //     1,
+    // );
+
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), None)
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        f!(r#"
         (par
-            (call relay ("peer" "timeout") [1000 "slow_result"] $result)
-            ;;(ap "fast_result" $result)
-            (call relay ("op" "identity") ["fast_result"] $result)
-            ;;(call relay ("peer" "timeout") [2000 "very_slow_result"] $result)
+            (call relay ("peer" "timeout") [1000 "slow_request"] join_it)
+            (seq
+                (par
+                    (call relay ("peer" "timeout") [1000 join_it] $result)
+                    (ap "fast_result" $result)
+                )
+                (call %init_peer_id% ("op" "return") [$result.$[0]])
+            )
         )
-    "#,
-        <_>::default(),
-        "$result.$[0]",
-        1,
+        "#),
+        hashmap! {
+            "relay" => json!(client.node.to_string())
+        },
     );
 
-    assert_eq!(&fast_result[0], "fast_result");
+    let result = client.receive_args().wrap_err("receive args").unwrap();
 }
 
 #[test]

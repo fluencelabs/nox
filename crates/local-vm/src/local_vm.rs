@@ -270,6 +270,9 @@ pub fn make_particle(
             )
             .expect("execute & make particle");
 
+        log::info!("local particle: call_requests {:?}", call_requests);
+        log::info!("local particle: next_peer_pks {:?}", next_peer_pks);
+
         particle_data = data;
         call_results = <_>::default();
 
@@ -283,7 +286,7 @@ pub fn make_particle(
         }
     }
 
-    log::info!("Made a particle {}", id);
+    log::info!("Made a particle {}: {}", id, script);
 
     Particle {
         id,
