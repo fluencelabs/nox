@@ -520,6 +520,7 @@ mod tests {
             file_name: None,
             config: TomlFaaSModuleConfig {
                 mem_pages_count: None,
+                max_heap_size: None,
                 logger_enabled: None,
                 wasi: None,
                 mounted_binaries: None,
