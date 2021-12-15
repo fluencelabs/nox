@@ -15,7 +15,7 @@ fs-utils = { path = "../fs-utils"}
 aquamarine = { path = "../../aquamarine"}
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 
-air-interpreter-wasm = "=0.17.7"
+air-interpreter-wasm = "=0.18.0"
 avm-server = "0.11.0"
 
 libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
