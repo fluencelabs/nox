@@ -1646,9 +1646,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39bd8cd944fb4879cfa072fbbceb24c2cf0468f122d5aeeb5cf532b5e5735359"
+checksum = "6f597f7a1b056dcb08ab9ada0bbd43b978fb1f177de7de72bf4b2021586aa642"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1662,9 +1662,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-faas"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bbb9c5b3178f6374e0b14f12fbfa661c7232b7567cdb65b3c718f1ff38ca597"
+checksum = "999490a4665246d0f6904743b3b5c8b4abe6723529d9c9b72c58a3f3e5df65d6"
 dependencies = [
  "bytesize",
  "cmd_lib",
@@ -1674,7 +1674,7 @@ dependencies = [
  "marine-rs-sdk",
  "marine-rs-sdk-main",
  "marine-runtime",
- "marine-utils 0.3.0",
+ "marine-utils",
  "safe-transmute",
  "serde",
  "serde_derive",
@@ -3139,9 +3139,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be19d5b67f04a8ad65f334a4382b15156a3e130e41c58ea44ba9f95f9966bbaa"
+checksum = "b06f9bc60de3416381b56783f9060f1fcb75fc9dc99c3debdb6c5fc1dd306f52"
 dependencies = [
  "anyhow",
  "boolinator",
@@ -3152,7 +3152,7 @@ dependencies = [
  "marine-it-parser",
  "marine-module-info-parser",
  "marine-module-interface",
- "marine-utils 0.3.0",
+ "marine-utils",
  "multimap",
  "once_cell",
  "parity-wasm",
@@ -3176,12 +3176,6 @@ dependencies = [
  "chrono",
  "quote",
 ]
-
-[[package]]
-name = "marine-utils"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a227f549086e34de1d9d4d1f21823eacdce55839a85fc44a2dfb9f244f3fdcc"
 
 [[package]]
 name = "marine-utils"
@@ -3587,7 +3581,7 @@ dependencies = [
  "json-utils",
  "log",
  "marine-it-parser",
- "marine-utils 0.4.0",
+ "marine-utils",
  "parking_lot 0.11.1",
  "particle-args",
  "particle-execution",
