@@ -230,9 +230,9 @@ impl ParticleAppServices {
                 .map(|sts| {
                     sts.into_iter()
                         .map(|st| SecurityTetraplet {
-                            peer_pk: st.triplet.peer_pk,
-                            service_id: st.triplet.service_id,
-                            function_name: st.triplet.function_name,
+                            peer_pk: st.peer_pk,
+                            service_id: st.service_id,
+                            function_name: st.function_name,
                             json_path: st.json_path,
                         })
                         .collect()
@@ -435,6 +435,8 @@ mod tests {
             HashMap::new(),
             management_pid,
             to_peer_id(&startup_kp),
+            None,
+            None,
         )
         .unwrap();
 
@@ -442,6 +444,8 @@ mod tests {
             &config.modules_dir,
             &config.blueprint_dir,
             &config.particles_vault_dir,
+            None,
+            None,
         );
 
         ParticleAppServices::new(config, repo)

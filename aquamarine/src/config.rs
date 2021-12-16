@@ -39,6 +39,8 @@ pub struct VmConfig {
     /// Dir to store directories shared between services
     /// in the span of a single particle execution
     pub particles_vault_dir: PathBuf,
+    /// Maximum heap size in bytes available for the interpreter.
+    pub max_heap_size: Option<u64>,
 }
 
 impl VmPoolConfig {
@@ -51,13 +53,19 @@ impl VmPoolConfig {
 }
 
 impl VmConfig {
-    pub fn new(current_peer_id: PeerId, base_dir: PathBuf, air_interpreter: PathBuf) -> Self {
+    pub fn new(
+        current_peer_id: PeerId,
+        base_dir: PathBuf,
+        air_interpreter: PathBuf,
+        max_heap_size: Option<u64>,
+    ) -> Self {
         let base_dir = to_abs_path(base_dir);
         Self {
             current_peer_id,
             particles_dir: config_utils::particles_dir(&base_dir),
             particles_vault_dir: config_utils::particles_vault_dir(&base_dir),
             air_interpreter,
+            max_heap_size,
         }
     }
 }

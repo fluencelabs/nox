@@ -12,12 +12,15 @@ use derivative::Derivative;
 use eyre::eyre;
 use libp2p::core::Multiaddr;
 use serde::Deserialize;
+use serde_with::serde_as;
+use serde_with::DisplayFromStr;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[serde_as]
 #[derive(Clone, Deserialize, Derivative)]
 #[derivative(Debug)]
 pub struct NodeConfig {
@@ -81,6 +84,16 @@ pub struct NodeConfig {
     /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
     #[serde(default = "default_aquavm_pool_size")]
     pub aquavm_pool_size: usize,
+
+    /// Maximum heap size in bytes available for the module.
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
+
+    /// Default heap size in bytes available for the module unless otherwise specified.
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub aquavm_default_heap_size: Option<bytesize::ByteSize>,
 
     #[serde(default)]
     pub kademlia: KademliaConfig,

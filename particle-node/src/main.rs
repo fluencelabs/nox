@@ -143,5 +143,9 @@ fn vm_config(config: &ResolvedConfig) -> VmConfig {
         to_peer_id(&config.root_key_pair.clone().into()),
         config.dir_config.avm_base_dir.clone(),
         config.dir_config.air_interpreter_path.clone(),
+        config
+            .node_config
+            .aquavm_max_heap_size
+            .map(|byte_size| byte_size.as_u64()),
     )
 }

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use bytesize::ByteSize;
 use std::{collections::HashMap, iter, path::Path, path::PathBuf, sync::Arc};
 
 use eyre::WrapErr;
@@ -35,8 +36,8 @@ use service_modules::{
 use crate::error::ModuleError::{
     BlueprintNotFound, BlueprintNotFoundInVault, ConfigNotFoundInVault, EmptyDependenciesList,
     FacadeShouldBeHash, IncorrectVaultBlueprint, IncorrectVaultModuleConfig, InvalidBlueprintPath,
-    InvalidModuleConfigPath, InvalidModuleName, InvalidModulePath, ModuleNotFoundInVault,
-    ReadModuleInterfaceError, VaultDoesNotExist,
+    InvalidModuleConfigPath, InvalidModuleName, InvalidModulePath, MaxHeapSizeOverflow,
+    ModuleNotFoundInVault, ReadModuleInterfaceError, VaultDoesNotExist,
 };
 use crate::error::Result;
 use crate::files::{self, load_config_by_path, load_module_by_path, load_module_descriptor};
@@ -64,10 +65,18 @@ pub struct ModuleRepository {
     modules_by_name: Arc<Mutex<HashMap<ModuleName, Hash>>>,
     module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
+    max_heap_size: Option<ByteSize>,
+    default_heap_size: Option<ByteSize>,
 }
 
 impl ModuleRepository {
-    pub fn new(modules_dir: &Path, blueprints_dir: &Path, particles_vault_dir: &Path) -> Self {
+    pub fn new(
+        modules_dir: &Path,
+        blueprints_dir: &Path,
+        particles_vault_dir: &Path,
+        max_heap_size: Option<ByteSize>,
+        default_heap_size: Option<ByteSize>,
+    ) -> Self {
         let modules_by_name: HashMap<_, _> = files::list_files(modules_dir)
             .into_iter()
             .flatten()
@@ -105,6 +114,8 @@ impl ModuleRepository {
             module_interface_cache: <_>::default(),
             blueprints: blueprints_cache,
             particles_vault_dir: particles_vault_dir.to_path_buf(),
+            max_heap_size,
+            default_heap_size,
         }
     }
 
@@ -131,11 +142,34 @@ impl ModuleRepository {
         }
     }
 
+    // set default if max_heap_size and mem_pages_count are not specified
+    fn check_module_heap_size(&self, config: &mut TomlFaaSNamedModuleConfig) -> Result<()> {
+        let heap_size = match (config.config.max_heap_size, config.config.mem_pages_count) {
+            (Some(heap_size), _) => Some(heap_size),
+            (None, Some(pages_count)) => {
+                Some(ByteSize::b(marine_utils::wasm_pages_to_bytes(pages_count)))
+            }
+            (None, None) => self.default_heap_size.clone(),
+        };
+
+        config.config.max_heap_size = heap_size.clone();
+
+        if let (Some(heap_size), Some(max_heap_size)) = (heap_size, self.max_heap_size) {
+            if heap_size > max_heap_size {
+                return Err(MaxHeapSizeOverflow {
+                    max_heap_size_wanted: heap_size.as_u64(),
+                    max_heap_size_allowed: max_heap_size.as_u64(),
+                });
+            }
+        }
+
+        Ok(())
+    }
     fn add_module(&self, module: Vec<u8>, config: TomlFaaSNamedModuleConfig) -> Result<String> {
         let hash = Hash::hash(&module);
 
-        let config = files::add_module(&self.modules_dir, &hash, &module, config)?;
-
+        let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
+        self.check_module_heap_size(&mut config)?;
         let module_hash = hash.to_hex().as_ref().to_owned();
         self.modules_by_name.lock().insert(config.name, hash);
 
@@ -462,12 +496,15 @@ fn resolve_hash(
 
 #[cfg(test)]
 mod tests {
+    use bytesize::ByteSize;
     use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
+    use std::str::FromStr;
     use tempdir::TempDir;
 
     use service_modules::load_module;
     use service_modules::{Dependency, Hash};
 
+    use crate::error::ModuleError::MaxHeapSizeOverflow;
     use crate::{AddBlueprint, ModuleRepository};
 
     #[test]
@@ -475,7 +512,13 @@ mod tests {
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test").unwrap();
         let vault_dir = TempDir::new("test").unwrap();
-        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), vault_dir.path());
+        let repo = ModuleRepository::new(
+            module_dir.path(),
+            bp_dir.path(),
+            vault_dir.path(),
+            None,
+            None,
+        );
 
         let dep1 = Dependency::Hash(Hash::hash(&[1, 2, 3]));
         let dep2 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
@@ -510,7 +553,13 @@ mod tests {
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test2").unwrap();
         let vault_dir = TempDir::new("test3").unwrap();
-        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), vault_dir.path());
+        let repo = ModuleRepository::new(
+            module_dir.path(),
+            bp_dir.path(),
+            vault_dir.path(),
+            None,
+            None,
+        );
 
         let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
             .expect("load module");
@@ -550,5 +599,50 @@ mod tests {
         let hash3 = hash_dependencies(dep1.clone(), vec![dep2.clone(), dep3.clone()]);
         assert_eq!(hash1.to_string(), hash2.to_string());
         assert_ne!(hash2.to_string(), hash3.to_string());
+    }
+
+    #[test]
+    fn test_add_module_max_heap_size_overflow() {
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let vault_dir = TempDir::new("test3").unwrap();
+        let max_heap_size = ByteSize::from_str("10 Mb").unwrap();
+        let repo = ModuleRepository::new(
+            module_dir.path(),
+            bp_dir.path(),
+            vault_dir.path(),
+            Some(max_heap_size),
+            None,
+        );
+
+        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
+            .expect("load module");
+
+        let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
+            name: "tetra".to_string(),
+            file_name: None,
+            config: TomlFaaSModuleConfig {
+                mem_pages_count: None,
+                max_heap_size: Some(ByteSize::b(max_heap_size.as_u64() + 10)),
+                logger_enabled: None,
+                wasi: None,
+                mounted_binaries: None,
+                logging_mask: None,
+            },
+        };
+
+        let result = repo.add_module_base64(base64::encode(module), config);
+
+        assert!(result.is_err());
+        assert_eq!(
+            format!("{:?}", result.unwrap_err()),
+            format!(
+                "{:?}",
+                MaxHeapSizeOverflow {
+                    max_heap_size_wanted: max_heap_size.as_u64() + 10,
+                    max_heap_size_allowed: max_heap_size.as_u64()
+                }
+            )
+        );
     }
 }

@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
-libp2p-noise = { package = "fluence-fork-libp2p-noise", version = "0.29.0" }
+libp2p-noise = { package = "fluence-fork-libp2p-noise", version = "0.29.1" }
 multihash = { version = "0.13", features = ["serde-codec"] }
 futures = "0.3.13"
 futures-util = "0.3.5"
