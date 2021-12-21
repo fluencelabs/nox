@@ -93,12 +93,12 @@ pub struct NodeConfig {
     /// Maximum heap size in bytes available for a WASM module.
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    pub app_service_max_heap_size: Option<bytesize::ByteSize>,
+    pub service_max_heap_size: Option<bytesize::ByteSize>,
 
-    /// Default heap size in bytes available for the module unless otherwise specified.
+    /// Default heap size in bytes available for a WASM module unless otherwise specified.
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    pub app_service_default_heap_size: Option<bytesize::ByteSize>,
+    pub service_default_heap_size: Option<bytesize::ByteSize>,
 
     #[serde(default)]
     pub kademlia: KademliaConfig,

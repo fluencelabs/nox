@@ -152,7 +152,7 @@ impl ModuleRepository {
             (None, None) => self.default_heap_size,
         };
 
-        config.config.max_heap_size = heap_size.clone();
+        config.config.max_heap_size = heap_size;
 
         if let (Some(heap_size), Some(max_heap_size)) = (heap_size, self.max_heap_size) {
             if heap_size > max_heap_size {
