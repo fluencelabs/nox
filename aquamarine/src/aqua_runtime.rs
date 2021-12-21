@@ -72,6 +72,7 @@ impl AquaRuntime for AVM<DataStoreError> {
                 current_peer_id: config.current_peer_id.to_string(),
                 air_wasm_path: config.air_interpreter,
                 logging_mask: i32::MAX,
+                max_heap_size: config.max_heap_size,
             };
             let vm = AVM::new(config);
             waker.wake();

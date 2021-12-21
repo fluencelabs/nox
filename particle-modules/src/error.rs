@@ -155,6 +155,14 @@ pub enum ModuleError {
         #[source]
         err: serde_json::Error,
     },
+
+    #[error(
+    "Config error: max_heap_size = '{max_heap_size_wanted}' can't be bigger than {max_heap_size_allowed}'"
+    )]
+    MaxHeapSizeOverflow {
+        max_heap_size_wanted: u64,
+        max_heap_size_allowed: u64,
+    },
 }
 
 impl From<ModuleError> for JValue {
