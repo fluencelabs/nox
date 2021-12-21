@@ -781,20 +781,6 @@ fn array_length() {
 fn timeout_race() {
     enable_logs();
 
-    // let fast_result = exec_script(
-    //     r#"
-    //     (par
-    //         (call relay ("peer" "timeout") [1000 "slow_result"] $result)
-    //         (ap "fast_result" $result)
-    //         ;;(call relay ("op" "identity") ["fast_result"] $result)
-    //         ;;(call relay ("peer" "timeout") [2000 "very_slow_result"] $result)
-    //     )
-    // "#,
-    //     <_>::default(),
-    //     "$result.$[0]",
-    //     1,
-    // );
-
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), None)
@@ -808,7 +794,7 @@ fn timeout_race() {
             (seq
                 (par
                     (call relay ("peer" "timeout") [1000 join_it] $result)
-                    (ap "fast_result" $result)
+                    (call relay ("op" "identity") ["fast_result"] $result)
                 )
                 (call %init_peer_id% ("op" "return") [$result.$[0]])
             )

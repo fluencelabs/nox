@@ -57,19 +57,21 @@ impl Instruction {
         }
     }
 
-    pub fn into_air(self) -> String {
+    pub fn into_air(self, indent: &str) -> String {
         use Instruction::*;
 
         match self {
-            Null => "(null)".to_string(),
-            Call(call) => call,
+            Null => f!("{indent}(null)"),
+            Call(call) => f!("{indent}{call}"),
             Seq(l, r) => {
-                let l = l.into_air();
-                let r = r.into_air();
-                f!("(seq 
-{l}
-{r}
-)")
+                let l = l.into_air(indent);
+                let r = r.into_air(indent);
+                f!(
+"{indent}(seq
+{indent}{l}
+{indent}{r}
+{indent})"
+                 )
             }
         }
     }
@@ -211,18 +213,18 @@ pub fn wrap_script(
         "   (null)".to_string()
     } else {
         data.keys()
-            .map(|name| f!(r#"  (call {executor} ("load" "{name}") [] {name})"#))
+            .map(|name| f!(r#"(call {executor} ("load" "{name}") [] {name})"#))
             .fold(Instruction::Null, |acc, call| acc.add(call))
-            .into_air()
+            .into_air("  ")
     };
 
     let catch = f!(r#"(call {executor} ("errorHandlingSrv" "error") [%last_error%])"#);
     let catch = if let Some(relay) = relay.into() {
         f!(r#"
-        (seq
-            (call "{relay}" ("op" "identity") [])
-            {catch}
-        )
+    (seq
+      (call "{relay}" ("op" "identity") [])
+      {catch}
+    )
         "#)
     } else {
         catch
@@ -230,11 +232,14 @@ pub fn wrap_script(
 
     let script = f!(r#"
 (seq
+  ;; load variables
 {load_variables}
-    (xor
-        {script}
-        {catch}
-    )
+  (xor
+    ;; main script
+    {script}
+    ;; catch
+    {catch}
+  )
 )
     "#);
 
