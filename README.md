@@ -4,7 +4,9 @@
 
 *The project is a work in progress!* 
 
-See the [Motivation](http://fluence.network/manifesto.html), follow updates on [Twitter](https://twitter.com/fluence_project) or subscribe to the [newsletter](https://fluence.network/).
+[fluence.network](https://fluence.network)
+
+See the [Vision manifesto](http://fluence.one/manifesto.html), follow updates on [Twitter](https://twitter.com/fluence_project) or subscribe to the [newsletter](https://fluence.network/).
 
 For documentation, go [here](https://fluence.dev/)
 

@@ -75,7 +75,13 @@ where
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
         let vault_dir = &config.particles_vault_dir;
-        let modules = ModuleRepository::new(modules_dir, blueprint_dir, vault_dir);
+        let modules = ModuleRepository::new(
+            modules_dir,
+            blueprint_dir,
+            vault_dir,
+            config.max_heap_size,
+            config.default_heap_size,
+        );
 
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
@@ -461,6 +467,7 @@ where
 
         let name = Args::next("name", &mut args)?;
         let mem_pages_count = Args::next_opt("mem_pages_count", &mut args)?;
+        let max_heap_size = Args::next_opt("max_heap_size", &mut args)?;
         let logger_enabled = Args::next_opt("logger_enabled", &mut args)?;
         let preopened_files = Args::next_opt("preopened_files", &mut args)?;
         let envs = Args::next_opt("envs", &mut args)?.map(table);
@@ -473,6 +480,7 @@ where
             file_name: None,
             config: ModuleConfig {
                 mem_pages_count,
+                max_heap_size,
                 logger_enabled,
                 wasi: Some(WASIConfig {
                     preopened_files,

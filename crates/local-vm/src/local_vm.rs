@@ -182,6 +182,7 @@ pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
         current_peer_id: peer_id.to_base58(),
         air_wasm_path: interpreter,
         logging_mask: i32::MAX,
+        max_heap_size: None,
     };
 
     AVM::new(config)

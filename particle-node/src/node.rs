@@ -110,6 +110,8 @@ impl<RT: AquaRuntime> Node<RT> {
             config.services_envs.clone(),
             config.management_peer_id,
             builtins_peer_id,
+            config.node_config.module_max_heap_size,
+            config.node_config.module_default_heap_size,
         )
         .expect("create services config");
 
@@ -397,6 +399,7 @@ mod tests {
             to_peer_id(&config.root_key_pair.clone().into()),
             config.dir_config.avm_base_dir.clone(),
             config.dir_config.air_interpreter_path.clone(),
+            None,
         );
         let mut node: Box<Node<AVM<_>>> =
             Node::new(config, vm_config, "some version").expect("create node");
