@@ -149,7 +149,7 @@ impl ModuleRepository {
             (None, Some(pages_count)) => {
                 Some(ByteSize::b(marine_utils::wasm_pages_to_bytes(pages_count)))
             }
-            (None, None) => self.default_heap_size.clone(),
+            (None, None) => self.default_heap_size,
         };
 
         config.config.max_heap_size = heap_size.clone();

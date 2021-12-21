@@ -85,15 +85,20 @@ pub struct NodeConfig {
     #[serde(default = "default_aquavm_pool_size")]
     pub aquavm_pool_size: usize,
 
-    /// Maximum heap size in bytes available for the module.
+    /// Maximum heap size in bytes available for the VM.
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
 
+    /// Maximum heap size in bytes available for the module.
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub app_service_max_heap_size: Option<bytesize::ByteSize>,
+
     /// Default heap size in bytes available for the module unless otherwise specified.
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    pub aquavm_default_heap_size: Option<bytesize::ByteSize>,
+    pub app_service_default_heap_size: Option<bytesize::ByteSize>,
 
     #[serde(default)]
     pub kademlia: KademliaConfig,
