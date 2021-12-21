@@ -25,6 +25,7 @@ mod src {
         mod pubsub;
 
         #[derive(serde::Deserialize, Debug)]
+        #[allow(dead_code)] // allowing dead_code here because the fields are never read, only written
         pub struct Record {
             value: String,
             peer_id: String,

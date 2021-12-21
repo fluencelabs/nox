@@ -45,7 +45,7 @@ use script_storage::{ScriptStorageApi, ScriptStorageBackend};
 use server_config::{
     BootstrapConfig, NetworkConfig, NodeConfig, ResolvedConfig, ServicesConfig, UnresolvedConfig,
 };
-use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, PARTICLE_TTL, TRANSPORT_TIMEOUT};
+use test_constants::{KEEP_ALIVE_TIMEOUT, PARTICLE_TTL, TRANSPORT_TIMEOUT};
 use toy_vms::EasyVM;
 
 type AVM = aquamarine::AVM<DataStoreError>;
@@ -348,7 +348,6 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     resolved.node_config.particle_processing_timeout = Duration::from_secs(45);
 
     resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
-    resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
 
     let management_kp = fluence_identity::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())

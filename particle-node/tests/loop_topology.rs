@@ -407,7 +407,7 @@ fn fold_send_same_variable() {
     let outer_iterable: Vec<_> = swarms.iter().map(|s| s.peer_id.to_string()).collect();
     // let inner_iterable = vec![1, 2, 3, 4, 5];
 
-    let mut data = hashmap! {
+    let data = hashmap! {
         "-relay-" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
         "outer" => json!(outer_iterable),
@@ -599,5 +599,5 @@ fn fold_dashboard() {
         }
     };
 
-    let result: eyre::Result<Vec<JValue>> = block_on(future);
+    let _: eyre::Result<Vec<JValue>> = block_on(future);
 }

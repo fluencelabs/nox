@@ -15,7 +15,6 @@
  */
 use std::future::Future;
 use std::task::Poll;
-use std::time::Duration;
 
 use async_std::{task, task::JoinHandle};
 use futures::{channel::mpsc, SinkExt, StreamExt};
@@ -49,7 +48,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         out: EffectsChannel,
     ) -> (Self, AquamarineApi) {
         let (outlet, inlet) = mpsc::channel(100);
-        let sender = AquamarineApi::new(outlet, config.execution_timeout);
+        let sender = AquamarineApi::new(outlet);
         let vm_pool = VmPool::new(config.pool_size, runtime_config);
         let plumber = Plumber::new(vm_pool, builtins);
         let this = Self {
@@ -102,14 +101,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
 #[derive(Clone)]
 pub struct AquamarineApi {
     outlet: BackPressuredOutlet<Command>,
-    execution_timeout: Duration,
 }
 
 impl AquamarineApi {
-    pub fn new(outlet: BackPressuredOutlet<Command>, execution_timeout: Duration) -> Self {
+    pub fn new(outlet: BackPressuredOutlet<Command>) -> Self {
         Self {
-            outlet,
-            execution_timeout,
+            outlet
         }
     }
 

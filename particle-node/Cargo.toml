@@ -54,6 +54,7 @@ now-millis = { path = "../crates/now-millis" }
 local-vm = { path = "../crates/local-vm" }
 json-utils = { path = "../crates/json-utils" }
 control-macro = { path = "../crates/control-macro" }
+uuid-utils = { path = "../crates/uuid-utils" }
 
 fluence-app-service = "0.11.1"
 

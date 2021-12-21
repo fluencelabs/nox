@@ -3649,6 +3649,7 @@ dependencies = [
  "tide",
  "toy-vms",
  "trust-graph",
+ "uuid-utils",
 ]
 
 [[package]]

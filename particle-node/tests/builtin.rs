@@ -47,6 +47,7 @@ use test_utils::create_service;
 
 #[derive(Deserialize, Debug)]
 struct NodeInfo {
+    #[allow(dead_code)] // field is never read, only deserialized to
     pub external_addresses: Vec<Multiaddr>,
 }
 

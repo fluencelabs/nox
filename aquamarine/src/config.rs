@@ -18,14 +18,11 @@ use fs_utils::to_abs_path;
 
 use libp2p::PeerId;
 use std::path::PathBuf;
-use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct VmPoolConfig {
     /// Number of VMs to create
     pub pool_size: usize,
-    /// Timeout of a particle execution
-    pub execution_timeout: Duration,
 }
 
 #[derive(Debug, Clone)]
@@ -44,10 +41,9 @@ pub struct VmConfig {
 }
 
 impl VmPoolConfig {
-    pub fn new(pool_size: usize, execution_timeout: Duration) -> Self {
+    pub fn new(pool_size: usize) -> Self {
         Self {
             pool_size,
-            execution_timeout,
         }
     }
 }
