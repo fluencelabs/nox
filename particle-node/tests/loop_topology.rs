@@ -404,11 +404,7 @@ fn fold_send_same_variable() {
         .wrap_err("connect client")
         .unwrap();
 
-    println!("relay: {}", client.node);
-
-    // let outer_iterable = vec!["1", "2", "3", "4", "5"];
     let outer_iterable: Vec<_> = swarms.iter().map(|s| s.peer_id.to_string()).collect();
-    // let inner_iterable = vec![1, 2, 3, 4, 5];
 
     let data = hashmap! {
         "-relay-" => json!(client.node.to_string()),
@@ -455,7 +451,6 @@ fn fold_send_same_variable() {
     let mut iter = outer_iterable.len();
     loop {
         let args = client.receive_args().wrap_err("receive args");
-        println!("args: {:?}", args);
         if args.is_err() {
             panic!("{:?} failed", args.err().unwrap());
         }
@@ -467,6 +462,7 @@ fn fold_send_same_variable() {
 }
 
 #[test]
+/// run 'findAndAskNeighboursSchema' on node
 fn fold_dashboard() {
     let swarms = make_swarms(10);
     let sender = &swarms[0];

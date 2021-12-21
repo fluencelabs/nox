@@ -50,15 +50,12 @@ use toy_vms::EasyVM;
 
 type AVM = aquamarine::AVM<DataStoreError>;
 
-// #[derive(Derivative)]
-// #[derivative(Debug)]
 pub struct CreatedSwarm {
     pub peer_id: PeerId,
     pub multiaddr: Multiaddr,
     // tmp dir, must be cleaned
     pub tmp_dir: PathBuf,
     // management_peer_id
-    // #[derivative(Debug = "ignore")]
     pub management_keypair: KeyPair,
     // stop signal
     pub outlet: OneshotOutlet<()>,
