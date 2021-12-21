@@ -16,7 +16,7 @@ control-macro = { path = "../crates/control-macro" }
 fs-utils = { path = "../crates/fs-utils" }
 particle-execution = { path = "../particle-execution" }
 
-avm-server = "0.12.0"
+avm-server = "0.13.0"
 libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
 
 futures = "0.3.13"
