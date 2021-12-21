@@ -5,7 +5,7 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-air-interpreter-wasm = "=0.18.0"
+air-interpreter-wasm = "=0.19.3"
 
 eyre = "0.6.5"
 serde = { version = "1.0.118", features = ["derive"] }
