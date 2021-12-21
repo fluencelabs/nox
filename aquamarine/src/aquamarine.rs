@@ -105,9 +105,7 @@ pub struct AquamarineApi {
 
 impl AquamarineApi {
     pub fn new(outlet: BackPressuredOutlet<Command>) -> Self {
-        Self {
-            outlet
-        }
+        Self { outlet }
     }
 
     /// Send particle to the interpreters pool

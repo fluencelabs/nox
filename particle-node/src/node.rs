@@ -154,8 +154,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let (effects_out, effects_in) = unbounded();
 
-        let pool_config =
-            VmPoolConfig::new(config.aquavm_pool_size);
+        let pool_config = VmPoolConfig::new(config.aquavm_pool_size);
         let (aquavm_pool, aquamarine_api) =
             AquamarineBackend::new(pool_config, vm_config, Arc::new(builtins), effects_out);
         let effectors = Effectors::new(connectivity.clone());

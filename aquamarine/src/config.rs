@@ -42,9 +42,7 @@ pub struct VmConfig {
 
 impl VmPoolConfig {
     pub fn new(pool_size: usize) -> Self {
-        Self {
-            pool_size,
-        }
+        Self { pool_size }
     }
 }
 

@@ -66,12 +66,10 @@ impl Instruction {
             Seq(l, r) => {
                 let l = l.into_air(indent);
                 let r = r.into_air(indent);
-                f!(
-"{indent}(seq
+                f!("{indent}(seq
 {indent}{l}
 {indent}{r}
-{indent})"
-                 )
+{indent})")
             }
         }
     }
