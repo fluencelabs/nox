@@ -3634,6 +3634,7 @@ dependencies = [
  "multihash",
  "now-millis",
  "parking_lot 0.11.1",
+ "particle-args",
  "particle-builtins",
  "particle-modules",
  "particle-protocol",

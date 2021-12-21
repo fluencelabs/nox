@@ -26,8 +26,8 @@ use std::convert::Infallible;
 
 #[derive(Debug, Clone)]
 pub enum FunctionOutcome {
-    NotDefined { args: Args, params: ParticleParams },
     Empty,
+    NotDefined { args: Args, params: ParticleParams },
     Ok(JValue),
     Err(JError),
 }
