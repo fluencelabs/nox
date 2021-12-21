@@ -108,8 +108,8 @@ impl<RT: AquaRuntime> Node<RT> {
             config.services_envs.clone(),
             config.management_peer_id,
             builtins_peer_id,
-            config.node_config.service_max_heap_size,
-            config.node_config.service_default_heap_size,
+            config.node_config.module_max_heap_size,
+            config.node_config.module_default_heap_size,
         )
         .expect("create services config");
 
