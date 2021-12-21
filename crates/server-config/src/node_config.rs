@@ -85,7 +85,7 @@ pub struct NodeConfig {
     #[serde(default = "default_aquavm_pool_size")]
     pub aquavm_pool_size: usize,
 
-    /// Maximum heap size in bytes available for the VM.
+    /// Maximum heap size in bytes available for an interpreter instance.
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
