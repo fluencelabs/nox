@@ -803,6 +803,7 @@ fn timeout_race() {
     );
 
     let result = client.receive_args().wrap_err("receive args").unwrap();
+    assert_eq!(result[0].as_str().unwrap(), "fast_result");
 }
 
 #[test]
