@@ -25,12 +25,17 @@ use futures::channel::oneshot::channel;
 use futures::executor::block_on;
 use futures::FutureExt;
 use itertools::Itertools;
+use libp2p::Multiaddr;
 use maplit::hashmap;
 use serde_json::json;
 use serde_json::Value as JValue;
 
 use connected_client::ConnectedClient;
-use created_swarm::{make_swarms, CreatedSwarm};
+use created_swarm::{
+    create_swarm, make_swarms, start_node, wait_bootstrap, CreatedSwarm, SwarmConfig,
+};
+use fluence_libp2p::random_multiaddr::create_tcp_maddr;
+use fluence_libp2p::Transport;
 use local_vm::{client_functions, wrap_script};
 use log_utils::enable_logs;
 use now_millis::now_ms;
@@ -464,8 +469,26 @@ fn fold_send_same_variable() {
 #[test]
 /// run 'findAndAskNeighboursSchema' on node
 fn fold_dashboard() {
-    let swarms = make_swarms(10);
-    let sender = &swarms[0];
+    // enable_logs();
+
+    // let mut swarms = make_swarms(10);
+    // swarms.remove(1).stop.send(());
+    // swarms.remove(3).stop.send(());
+
+    // let sender = &swarms[0];
+
+    let bs: Vec<Multiaddr> = vec![
+        "/dns4/kras-00.fluence.dev/tcp/7770".parse().unwrap(),
+        "/dns4/kras-00.fluence.dev/tcp/7001".parse().unwrap(),
+        "/dns4/kras-01.fluence.dev/tcp/7001".parse().unwrap(),
+    ];
+    let maddr = create_tcp_maddr();
+    let mut config = SwarmConfig::new(bs, maddr);
+    config.transport = Transport::Network;
+    let (node, mkp, config) = create_swarm(config);
+    let connected = wait_bootstrap(node.connectivity.clone(), config.bootstraps.len());
+    let sender = start_node(node, config, mkp);
+    block_on(connected);
 
     let script = r#"
 (xor
@@ -486,30 +509,61 @@ fn fold_dashboard() {
          (par
           (fold neighbors2 n2
            (par
-            (seq
-             (call n ("peer" "connect") [n2 []] connected)
-             (xor
-              (match connected true
-               (xor
+            (new $status
+             (seq
+              (call n ("peer" "connect") [n2 []] connected)
+              (xor
+               (match connected true
                 (xor
                  (seq
                   (seq
-                   (call n2 ("peer" "identify") [])
-                   (call -relay- ("op" "noop") [])
+                   (par
+                    (seq
+                     (xor
+                      (seq
+                       (call n2 ("peer" "identify") [])
+                       (ap "done" $status)
+                      )
+                      (seq
+                       (seq
+                        (call -relay- ("op" "noop") [])
+                        (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+                       )
+                       (call -relay- ("op" "noop") [])
+                      )
+                     )
+                     (call n ("op" "noop") [])
+                    )
+                    (null)
+                   )
+                   (call n ("peer" "timeout") [1000 "timedout"] $status)
                   )
                   (xor
-                   (call %init_peer_id% ("callbackSrv" "logStatus") ["success" n2])
-                   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
+                   (match $status.$.[0]! "done"
+                    (xor
+                     (seq
+                      (call -relay- ("op" "noop") [])
+                      (xor
+                       (call %init_peer_id% ("callbackSrv" "logStatus") ["success" n2])
+                       (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
+                      )
+                     )
+                     (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
+                    )
+                   )
+                   (xor
+                    (call %init_peer_id% ("callbackSrv" "logStatus") ["timed out" n2])
+                    (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 4])
+                   )
                   )
                  )
-                 (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
+                 (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 5])
                 )
-                (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
                )
-              )
-              (xor
-               (call %init_peer_id% ("callbackSrv" "logStatus") ["fail" n2])
-               (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 4])
+               (xor
+                (call %init_peer_id% ("callbackSrv" "logStatus") ["failed to connect" n2])
+                (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 6])
+               )
               )
              )
             )
@@ -519,7 +573,7 @@ fn fold_dashboard() {
           (null)
          )
         )
-        (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 5])
+        (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 7])
        )
        (next n)
       )
@@ -527,10 +581,10 @@ fn fold_dashboard() {
      (null)
     )
    )
-   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 6])
+   (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 8])
   )
  )
- (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 7])
+ (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 9])
 )
     "#;
     let data = hashmap! {
@@ -542,13 +596,14 @@ fn fold_dashboard() {
 
     let mut outlet = Some(outlet);
     let mut nodes = hashmap! {};
-    let target_count = swarms.len();
+    // let target_count = swarms.len();
     let closure = move |args: Args, _| {
         if args.service_id == "callbackSrv" && args.function_name == "logStatus" {
             let status = args.function_args[0].as_str().unwrap().to_string();
             let node = args.function_args[1].as_str().unwrap().to_string();
+            println!("{} {}", node, status);
             nodes.entry(node).or_insert(vec![]).push(status);
-            if nodes.len() == target_count {
+            if nodes.len() == 999999 {
                 if let Some(outlet) = outlet.take() {
                     outlet.send(nodes.clone()).expect("send response back")
                 }
@@ -583,15 +638,15 @@ fn fold_dashboard() {
 
     let result: eyre::Result<_> = block_on(future);
     let nodes: HashMap<_, _> = result.unwrap();
-    assert_eq!(nodes.len(), swarms.len());
+    // assert_eq!(nodes.len(), swarms.len());
 
-    let expected_peer_ids: Vec<_> = swarms
-        .iter()
-        .map(|s| s.peer_id.to_base58())
-        .sorted()
-        .collect();
+    // let expected_peer_ids: Vec<_> = swarms
+    //     .iter()
+    //     .map(|s| s.peer_id.to_base58())
+    //     .sorted()
+    //     .collect();
     let peer_ids: Vec<_> = nodes.keys().map(|k| k.to_string()).sorted().collect();
-    assert_eq!(expected_peer_ids, peer_ids);
+    // assert_eq!(expected_peer_ids, peer_ids);
 
     for vs in nodes.values() {
         for v in vs {

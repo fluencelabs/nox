@@ -145,7 +145,7 @@ pub fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (Box<Node<RT>>, KeyPair, SwarmConfig),
     M: FnMut() -> Multiaddr,
     B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
@@ -156,58 +156,68 @@ where
             #[rustfmt::skip]
             let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
             let bootstraps = bootstraps(addrs);
-            let bootstraps_num = bootstraps.len();
-            let (id, node, m_kp, config) = create_node(bootstraps, addr.clone());
-            ((id, m_kp, config), node, bootstraps_num)
+            let (node, m_kp, config) = create_node(bootstraps, addr.clone());
+            (node, m_kp, config)
         })
         .collect::<Vec<_>>();
 
     let pools = iter(
         nodes
             .iter()
-            .map(|(_, n, bootstraps_num)| (n.connectivity.clone(), *bootstraps_num))
+            .map(|(node, m_kp, config)| (node.connectivity.clone(), config.bootstraps.len()))
             .collect::<Vec<_>>(),
     );
-    let connected = pools.for_each_concurrent(None, |(pool, bootstraps_num)| async move {
-        let pool = AsRef::<ConnectionPoolApi>::as_ref(&pool);
-        let mut events = pool.lifecycle_events();
-        loop {
-            let num = pool.count_connections().await;
-            if num >= bootstraps_num {
-                break;
-            }
-            // wait until something changes
-            events.next().await;
-        }
+
+    let connected = pools.for_each_concurrent(None, |(connectivity, bootstraps_num)| {
+        wait_bootstrap(connectivity, bootstraps_num)
     });
 
     // start all nodes
-    let infos = nodes
+    let swarms = nodes
         .into_iter()
-        .map(|((peer_id, management_keypair, config), node, _)| {
-            let connectivity = node.connectivity.clone();
-            let startup_peer_id = node.builtins_management_peer_id;
-            let local_peer_id = node.local_peer_id;
-            let aquamarine_api = node.aquamarine_api.clone();
-            let outlet = node.start().expect("node start");
-
-            CreatedSwarm {
-                peer_id,
-                multiaddr: config.listen_on,
-                tmp_dir: config.tmp_dir.unwrap(),
-                management_keypair,
-                outlet,
-                connectivity,
-                aquamarine_api,
-            }
-        })
+        .map(|(node, m_kp, config)| start_node(node, config, m_kp))
         .collect();
 
     if wait_connected {
         task::block_on(connected);
     }
 
-    infos
+    swarms
+}
+
+pub async fn wait_bootstrap(connectivity: Connectivity, bootstraps_num: usize) {
+    let pool = AsRef::<ConnectionPoolApi>::as_ref(&connectivity);
+    let mut events = pool.lifecycle_events();
+    loop {
+        let num = pool.count_connections().await;
+        if num >= bootstraps_num {
+            break;
+        }
+        // wait until something changes
+        events.next().await;
+    }
+}
+
+pub fn start_node<RT: AquaRuntime>(
+    node: Box<Node<RT>>,
+    config: SwarmConfig,
+    management_keypair: KeyPair,
+) -> CreatedSwarm {
+    let connectivity = node.connectivity.clone();
+    let startup_peer_id = node.builtins_management_peer_id;
+    let peer_id = node.local_peer_id;
+    let aquamarine_api = node.aquamarine_api.clone();
+    let outlet = node.start().expect("node start");
+
+    CreatedSwarm {
+        peer_id,
+        multiaddr: config.listen_on,
+        tmp_dir: config.tmp_dir.unwrap(),
+        management_keypair,
+        outlet,
+        connectivity,
+        aquamarine_api,
+    }
 }
 
 #[derive(Default, Clone, Debug)]
@@ -289,7 +299,7 @@ pub fn aqua_vm_config(
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     mut config: SwarmConfig,
     vm_config: impl Fn(BaseVmConfig) -> RT::Config,
-) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig) {
+) -> (Box<Node<RT>>, KeyPair, SwarmConfig) {
     use serde_json::json;
 
     let format = match &config.keypair {
@@ -330,7 +340,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let mut resolved = node_config.resolve();
     create_dir(&resolved.dir_config.builtins_base_dir).expect("create builtins dir");
 
-    resolved.node_config.transport_config.transport = Transport::Memory;
+    resolved.node_config.transport_config.transport = config.transport;
     resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
     resolved.node_config.protocol_config =
         ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
@@ -364,7 +374,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let mut node = Node::new(resolved, vm_config, "some version").expect("create node");
     node.listen(vec![config.listen_on.clone()]).expect("listen");
 
-    (node.local_peer_id, node, management_kp, config)
+    (node, management_kp, config)
 
     // TODO: this requires ability to convert public keys to PeerId
     // if let Some(trust) = config.trust {
@@ -374,6 +384,6 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     // }
 }
 
-pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig) {
+pub fn create_swarm(config: SwarmConfig) -> (Box<Node<AVM>>, KeyPair, SwarmConfig) {
     create_swarm_with_runtime(config, aqua_vm_config)
 }

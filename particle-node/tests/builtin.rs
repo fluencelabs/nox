@@ -184,7 +184,7 @@ fn remove_service_restart() {
     }
 
     // stop swarm
-    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+    swarms.into_iter().map(|s| s.stop.send(())).for_each(drop);
     let swarms = make_swarms_with_keypair(1, kp.clone());
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")

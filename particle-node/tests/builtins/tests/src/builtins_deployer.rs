@@ -126,7 +126,7 @@ fn builtins_replace_old() {
     assert_eq!(result, "ok");
 
     // stop swarm
-    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+    swarms.into_iter().map(|s| s.stop.send(())).for_each(drop);
 
     // restart with same keypair
     let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), Some(keypair));
