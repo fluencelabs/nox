@@ -58,7 +58,7 @@ pub struct CreatedSwarm {
     // management_peer_id
     pub management_keypair: KeyPair,
     // stop signal
-    pub outlet: OneshotOutlet<()>,
+    pub stop: OneshotOutlet<()>,
     // node connectivity
     pub connectivity: Connectivity,
     pub aquamarine_api: AquamarineApi,
@@ -214,7 +214,7 @@ pub fn start_node<RT: AquaRuntime>(
         multiaddr: config.listen_on,
         tmp_dir: config.tmp_dir.unwrap(),
         management_keypair,
-        outlet,
+        stop: outlet,
         connectivity,
         aquamarine_api,
     }
