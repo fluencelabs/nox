@@ -79,7 +79,9 @@ jobs:
     steps:
       - checkout
       - run: |
-          cargo test --release --all-features --no-fail-fast -- --test-threads=10
+          # setting threads to 8 because rayon in Wasmer consumes too much stack size causing a stack overflow
+          # limiting number of threads limits stack memory used
+          cargo test --release --all-features --no-fail-fast -- --test-threads=8
 
 workflows:
   version: 2

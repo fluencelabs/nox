@@ -32,7 +32,6 @@ use serde_json::Value as JValue;
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, CreatedSwarm};
 use local_vm::{client_functions, wrap_script};
-use log_utils::enable_logs;
 use now_millis::now_ms;
 use particle_args::Args;
 use particle_protocol::Particle;
@@ -397,8 +396,6 @@ fn join_empty_stream() {
 
 #[test]
 fn fold_send_same_variable() {
-    enable_logs();
-
     let swarms = make_swarms(5);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())

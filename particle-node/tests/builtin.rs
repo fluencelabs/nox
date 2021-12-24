@@ -36,7 +36,6 @@ use eyre::WrapErr;
 use fluence_identity::KeyPair;
 use itertools::Itertools;
 use libp2p::PeerId;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
@@ -779,8 +778,6 @@ fn array_length() {
 
 #[test]
 fn timeout_race() {
-    enable_logs();
-
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), None)
