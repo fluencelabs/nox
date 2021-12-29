@@ -748,11 +748,11 @@ fn array_length() {
                 (seq
                     (xor
                         (call relay ("op" "array_length") [empty_array five_array])
-                        (ap %last_error%.$.msg count_error)
+                        (ap %last_error%.$.message count_error)
                     )
                     (xor
                         (call relay ("op" "array_length") ["hola"])
-                        (ap %last_error%.$.msg type_error)
+                        (ap %last_error%.$.message type_error)
                     )
                 )
             )
