@@ -102,6 +102,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
 #[derive(Clone)]
 pub struct AquamarineApi {
     outlet: BackPressuredOutlet<Command>,
+    #[allow(dead_code)]
     execution_timeout: Duration,
 }
 
