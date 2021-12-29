@@ -601,7 +601,7 @@ fn neighborhood() {
         )
         (xor
             (call relay ("kad" "neighborhood") [key true])
-            (ap %last_error%.$.msg error)
+            (ap %last_error%.$.message error)
         )
     )
     "#;
@@ -691,7 +691,7 @@ fn identity() {
         r#"
         (xor
             (call relay ("op" "identity") ["hi" "there"] result)
-            (ap %last_error%.$.msg error)
+            (ap %last_error%.$.message error)
         )
         "#,
         <_>::default(),
@@ -743,7 +743,7 @@ fn array_length() {
             (seq
                 (xor
                     (call relay ("op" "array_length") [])
-                    (ap %last_error%.$.msg zero_error)
+                    (ap %last_error%.$.message zero_error)
                 )
                 (seq
                     (xor
