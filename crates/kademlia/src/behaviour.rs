@@ -24,6 +24,7 @@ use trust_graph::InMemoryStorage;
 use futures::FutureExt;
 use futures_timer::Delay;
 use libp2p::identity::PublicKey;
+use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{
     core::Multiaddr,
     identity,
@@ -37,6 +38,7 @@ use libp2p::{
 };
 use multihash::Multihash;
 use prometheus::Registry;
+use std::convert::TryFrom;
 use std::{
     cmp::min,
     collections::HashMap,
@@ -96,7 +98,9 @@ impl FailedPeer {
     }
 }
 
-type SwarmEventType = generate_swarm_event_type!(Kademlia);
+// type SwarmEventType = generate_swarm_event_type!(Kademlia);
+type SwarmEventType =
+    NetworkBehaviourAction<(), <Kademlia as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler>;
 type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 #[derive(::libp2p::NetworkBehaviour)]
@@ -128,17 +132,11 @@ impl Kademlia {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
-        let mut kademlia = kad::Kademlia::with_config(
-            config.keypair.clone(),
-            config.peer_id,
-            store,
-            config.as_libp2p(),
-            trust_graph,
-        );
+        let mut kademlia = kad::Kademlia::with_config(config.peer_id, store, config.as_libp2p());
 
-        if let Some(registry) = registry {
-            kademlia.enable_metrics(registry);
-        }
+        // if let Some(registry) = registry {
+        //     kademlia.enable_metrics(registry);
+        // }
 
         Self {
             kademlia,
@@ -153,8 +151,7 @@ impl Kademlia {
 
     pub fn add_kad_node(&mut self, peer: PeerId, addresses: Vec<Multiaddr>, public_key: PublicKey) {
         for addr in addresses {
-            self.kademlia
-                .add_address(&peer, addr.clone(), public_key.clone());
+            self.kademlia.add_address(&peer, addr.clone());
         }
         self.wake();
     }
@@ -164,19 +161,8 @@ impl Kademlia {
     pub fn add_contact(&mut self, contact: Contact) {
         debug_assert!(!contact.addresses.is_empty(), "no addresses in contact");
 
-        let pk = contact.peer_id.as_public_key();
-        debug_assert!(pk.is_some(), "peer id must contain public key");
-
-        let pk = match pk {
-            Some(pk) => pk,
-            None => {
-                log::error!("No public key in the peer id of contact {}", contact);
-                return;
-            }
-        };
         for addr in contact.addresses {
-            self.kademlia
-                .add_address(&contact.peer_id, addr, pk.clone());
+            self.kademlia.add_address(&contact.peer_id, addr);
         }
     }
 
@@ -225,12 +211,13 @@ impl Kademlia {
         count: usize,
         outlet: OneshotOutlet<Result<Vec<PeerId>>>,
     ) {
-        let key = key.into();
-        let peers = self.kademlia.local_closest_peers(&key);
-        let peers = peers.take(count);
-        let peers = peers.map(|p| p.peer_id.into_preimage());
-        outlet.send(Ok(peers.collect())).ok();
-        self.wake();
+        // let key = key.into();
+        // let peers = self.kademlia.local_closest_peers(&key);
+        // let peers = peers.take(count);
+        // let peers = peers.map(|p| p.peer_id.into_preimage());
+        // outlet.send(Ok(peers.collect())).ok();
+        // self.wake();
+        todo!()
     }
 
     pub fn remote_neighborhood(

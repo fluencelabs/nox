@@ -26,6 +26,7 @@ use futures::{
     future::BoxFuture,
     FutureExt, StreamExt,
 };
+use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{core::Multiaddr, identity::PublicKey, swarm::NetworkBehaviourEventProcess, PeerId};
 use multihash::Multihash;
 use std::convert::identity;
@@ -64,14 +65,19 @@ pub enum Command {
     },
 }
 
-pub type SwarmEventType = generate_swarm_event_type!(KademliaApiInlet);
+// pub type SwarmEventType = generate_swarm_event_type!(KademliaApiInlet);
+
+pub type SwarmEventType = NetworkBehaviourAction<
+    (),
+    <KademliaApiInlet as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler,
+>;
 
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll")]
 pub struct KademliaApiInlet {
+    kademlia: Kademlia,
     #[behaviour(ignore)]
     inlet: Inlet<Command>,
-    kademlia: Kademlia,
 }
 
 impl KademliaApiInlet {
