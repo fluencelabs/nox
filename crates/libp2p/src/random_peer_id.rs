@@ -21,6 +21,6 @@ pub struct RandomPeerId();
 impl RandomPeerId {
     /// Generates PeerId from random Ed25519 key
     pub fn random() -> PeerId {
-        Keypair::generate_ed25519().public().into_peer_id()
+        Keypair::generate_ed25519().public().to_peer_id()
     }
 }

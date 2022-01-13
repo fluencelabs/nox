@@ -10,7 +10,7 @@ maplit = "1.0.2"
 serde_json = "1.0.64"
 serde = "1.0.130"
 log = "0.4.11"
-libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = "0.41.1"
 
 fluence-identity = "0.3.0"
 

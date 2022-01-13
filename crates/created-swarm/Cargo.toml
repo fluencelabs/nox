@@ -22,7 +22,7 @@ toy-vms = { path = "../toy-vms" }
 
 fluence-identity = "0.3.0"
 
-libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = "0.41.1"
 
 async-std = "1.9.0"
 futures = "0.3.13"

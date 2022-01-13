@@ -12,9 +12,9 @@ control-macro = { path = "../control-macro" }
 fluence-libp2p = { path = "../libp2p" }
 server-config = { path = "../server-config" }
 
-libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = "0.41.1"
 
-multihash = "0.13.2"
+multihash = "0.15.0"
 once_cell = "1.4.1"
 prost = "0.6.1"
 smallvec = "1.4.2"

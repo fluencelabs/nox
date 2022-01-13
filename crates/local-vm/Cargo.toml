@@ -18,7 +18,7 @@ air-interpreter-fs = { path = "../air-interpreter-fs" }
 air-interpreter-wasm = "=0.19.8"
 avm-server = "0.13.0"
 
-libp2p = { version = "0.36.1", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = "0.41.1"
 
 fstrings = "0.2.3"
 serde_json = "1.0.64"

@@ -45,7 +45,8 @@ pub fn build_network_transport(
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = {
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
-        let tcp = dns::DnsConfig::new(tcp).expect("Can't build DNS");
+        // TODO: expose async?
+        let tcp = async_std::task::block_on(dns::DnsConfig::system(tcp)).expect("Can't build DNS");
         let websocket = libp2p::websocket::WsConfig::new(tcp.clone());
         tcp.or_transport(websocket)
     };
