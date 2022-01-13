@@ -4,3 +4,6 @@ multiplexing = false        # HTTP/2 multiplexing
 
 [net]
 retry = 50                  # network retries
+
+[build]
+target = "x86_64-apple-darwin"

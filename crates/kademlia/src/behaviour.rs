@@ -398,7 +398,7 @@ fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut
 impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
     fn inject_event(&mut self, event: KademliaEvent) {
         match event {
-            KademliaEvent::QueryResult { id, result, .. } => match result {
+            KademliaEvent::OutboundQueryCompleted { id, result, .. } => match result {
                 QueryResult::GetClosestPeers(result) => self.closest_finished(id, result),
                 QueryResult::Bootstrap(result) => self.bootstrap_finished(id, result),
                 _ => {}
@@ -411,6 +411,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
             | KademliaEvent::PendingRoutablePeer { peer, address } => {
                 self.peer_discovered(peer, vec![address])
             }
+            KademliaEvent::InboundRequest { .. } => {}
         }
     }
 }
