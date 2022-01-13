@@ -100,7 +100,7 @@ type SwarmEventType = generate_swarm_event_type!(Kademlia);
 type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 #[derive(::libp2p::NetworkBehaviour)]
-#[behaviour(poll_method = "custom_poll")]
+#[behaviour(poll_method = "custom_poll", event_process = true)]
 pub struct Kademlia {
     kademlia: kad::Kademlia<MemoryStore>,
 

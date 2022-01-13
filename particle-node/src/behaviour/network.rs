@@ -31,6 +31,7 @@ type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
+#[behaviour(event_process = true)]
 pub struct NetworkBehaviour {
     identify: Identify,
     ping: Ping,

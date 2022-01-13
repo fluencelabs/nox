@@ -123,10 +123,6 @@ impl KademliaApiInlet {
     }
 }
 
-impl NetworkBehaviourEventProcess<()> for KademliaApiInlet {
-    fn inject_event(&mut self, _: ()) {}
-}
-
 impl From<Kademlia> for (KademliaApi, KademliaApiInlet) {
     fn from(kademlia: Kademlia) -> Self {
         KademliaApiInlet::new(kademlia)
