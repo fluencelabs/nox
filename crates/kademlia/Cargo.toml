@@ -11,7 +11,8 @@ control-macro = { path = "../control-macro" }
 fluence-libp2p = { path = "../libp2p" }
 server-config = { path = "../server-config" }
 
-libp2p = { version = "0.42", default-features = false, features = [ "deflate", "dns-async-std", "floodsub", "identify", "kad", "gossipsub", "mdns", "mplex", "noise", "ping", "plaintext", "pnet", "relay", "request-response", "rendezvous", "secp256k1", "tcp-async-io", "uds", "wasm-ext", "websocket", "yamux" ] }
+libp2p = { version = "0.42", default-features = false, features = [ "dns-async-std", "floodsub", "identify", "kad", "gossipsub", "mdns", "mplex", "noise", "ping", "plaintext", "pnet", "relay", "request-response", "rendezvous", "secp256k1", "tcp-async-io", "uds", "wasm-ext", "websocket", "yamux" ] }
+
 
 multihash = "0.14"
 once_cell = "1.4.1"
