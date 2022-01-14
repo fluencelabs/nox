@@ -205,13 +205,12 @@ impl Kademlia {
         count: usize,
         outlet: OneshotOutlet<Result<Vec<PeerId>>>,
     ) {
-        // let key = key.into();
-        // let peers = self.kademlia.local_closest_peers(&key);
-        // let peers = peers.take(count);
-        // let peers = peers.map(|p| p.peer_id.into_preimage());
-        // outlet.send(Ok(peers.collect())).ok();
-        // self.wake();
-        todo!()
+        let key = key.into();
+        let peers = self.kademlia.local_closest_peers(&key);
+        let peers = peers.take(count);
+        let peers = peers.map(|p| p.into_preimage());
+        outlet.send(Ok(peers.collect())).ok();
+        self.wake();
     }
 
     pub fn remote_neighborhood(
