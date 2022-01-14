@@ -5,7 +5,7 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p = "0.41.1"
+libp2p = { version = "0.42", default-features = false, features = [ "deflate", "dns-async-std", "floodsub", "identify", "kad", "gossipsub", "mdns", "mplex", "noise", "ping", "plaintext", "pnet", "relay", "request-response", "rendezvous", "secp256k1", "tcp-async-io", "uds", "wasm-ext", "websocket", "yamux" ] }
 fluence-libp2p = { path = "../crates/libp2p" }
 json-utils = { path = "../crates/json-utils" }
 now-millis = { path = "../crates/now-millis" }
