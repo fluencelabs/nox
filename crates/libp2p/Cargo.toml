@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 
-libp2p = { version = "0.42", default-features = false, features = [ "dns-async-std", "floodsub", "identify", "kad", "gossipsub", "mdns", "mplex", "noise", "ping", "plaintext", "pnet", "relay", "request-response", "rendezvous", "secp256k1", "tcp-async-io", "uds", "wasm-ext", "websocket", "yamux" ] }
+libp2p = "0.42"
 
 libp2p-noise = { version = "0.34" }
 multihash = { version = "0.14", features = ["serde-codec"] }

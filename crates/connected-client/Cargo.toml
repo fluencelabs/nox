@@ -11,7 +11,7 @@ test-constants = { path = "../test-constants"}
 local-vm = { path = "../local-vm"}
 
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
-libp2p = { version = "0.42", default-features = false, features = [ "dns-async-std", "floodsub", "identify", "kad", "gossipsub", "mdns", "mplex", "noise", "ping", "plaintext", "pnet", "relay", "request-response", "rendezvous", "secp256k1", "tcp-async-io", "uds", "wasm-ext", "websocket", "yamux" ] }
+libp2p = "0.42"
 
 
 async-std = "1.9.0"

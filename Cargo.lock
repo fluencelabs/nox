@@ -2604,6 +2604,7 @@ dependencies = [
  "instant",
  "lazy_static",
  "libp2p-core",
+ "libp2p-deflate",
  "libp2p-dns",
  "libp2p-floodsub",
  "libp2p-gossipsub",
@@ -2665,6 +2666,16 @@ dependencies = [
  "unsigned-varint",
  "void",
  "zeroize",
+]
+
+[[package]]
+name = "libp2p-deflate"
+version = "0.31.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=libp2p_core_disable_default_features#27cff9445797f95b36607dd763ce18cf3833653c"
+dependencies = [
+ "flate2",
+ "futures",
+ "libp2p-core",
 ]
 
 [[package]]
