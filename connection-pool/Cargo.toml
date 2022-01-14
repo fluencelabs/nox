@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
-trust-graph = "0.2.7"
 fluence-libp2p = { path = "../crates/libp2p" }
 
 libp2p = "0.41.1"

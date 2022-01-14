@@ -21,6 +21,8 @@ use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use libp2p::swarm::dial_opts::DialOpts;
+use libp2p::swarm::DialError;
 use libp2p::{
     core::{
         connection::{ConnectedPoint, ConnectionId},
@@ -39,13 +41,15 @@ use std::error::Error;
 use std::task::{Context, Poll, Waker};
 use std::time::Duration;
 
-pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
+// pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
+pub type SwarmEventType =
+    NetworkBehaviourAction<ClientEvent, <ClientBehaviour as NetworkBehaviour>::ProtocolsHandler>;
 
 pub struct ClientBehaviour {
     protocol_config: ProtocolConfig,
     events: VecDeque<SwarmEventType>,
     ping: Ping,
-    reconnect: Option<BoxFuture<'static, Multiaddr>>,
+    reconnect: Option<BoxFuture<'static, Vec<Multiaddr>>>,
     waker: Option<Waker>,
 }
 
@@ -104,6 +108,7 @@ impl NetworkBehaviour for ClientBehaviour {
         peer_id: &PeerId,
         _: &ConnectionId,
         cp: &ConnectedPoint,
+        _failed_addresses: Option<&Vec<Multiaddr>>,
     ) {
         let multiaddr = match cp {
             ConnectedPoint::Dialer { address } => address,
@@ -134,6 +139,7 @@ impl NetworkBehaviour for ClientBehaviour {
         peer_id: &PeerId,
         _: &ConnectionId,
         cp: &ConnectedPoint,
+        _: <Self::ProtocolsHandler as IntoProtocolsHandler>::Handler,
     ) {
         match cp {
             ConnectedPoint::Dialer { address } => {
@@ -142,8 +148,10 @@ impl NetworkBehaviour for ClientBehaviour {
                     peer_id,
                     address
                 );
-                self.events.push_back(NetworkBehaviourAction::DialAddress {
-                    address: address.clone(),
+                let handler = self.new_handler();
+                self.events.push_back(NetworkBehaviourAction::Dial {
+                    opts: address.clone().into(),
+                    handler,
                 });
             }
             ConnectedPoint::Listener {
@@ -182,21 +190,28 @@ impl NetworkBehaviour for ClientBehaviour {
         }
     }
 
-    fn inject_addr_reach_failure(
+    fn inject_dial_failure(
         &mut self,
-        _: Option<&PeerId>,
-        addr: &Multiaddr,
-        error: &dyn Error,
+        peer_id: Option<PeerId>,
+        _handler: Self::ProtocolsHandler,
+        error: &DialError,
     ) {
-        log::warn!("Failed to connect to {:?}: {:?}, reconnecting", addr, error);
-        let address = addr.clone();
-        self.reconnect = async move {
-            // TODO: move timeout to config
-            async_std::task::sleep(Duration::from_secs(1)).await;
-            address
+        log::warn!(
+            "Failed to connect to {:?}: {:?}, reconnecting",
+            peer_id,
+            error
+        );
+
+        if let DialError::Transport(addresses) = error {
+            let addresses = addresses.iter().map(|(a, _)| a.clone()).collect();
+            self.reconnect = async move {
+                // TODO: move timeout to config
+                async_std::task::sleep(Duration::from_secs(1)).await;
+                addresses
+            }
+            .boxed()
+            .into();
         }
-        .boxed()
-        .into();
     }
 
     fn poll(
@@ -209,10 +224,15 @@ impl NetworkBehaviour for ClientBehaviour {
         // just polling it to the end
         while self.ping.poll(cx, params).is_ready() {}
 
-        if let Some(Poll::Ready(address)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
+        if let Some(Poll::Ready(addresses)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
             self.reconnect = None;
-            self.events
-                .push_back(NetworkBehaviourAction::DialAddress { address });
+            for addr in addresses {
+                let handler = self.new_handler();
+                self.events.push_back(NetworkBehaviourAction::Dial {
+                    opts: addr.into(),
+                    handler,
+                });
+            }
         }
 
         if let Some(event) = self.events.pop_front() {

@@ -725,7 +725,7 @@ dependencies = [
  "control-macro",
  "created-swarm",
  "eyre",
- "fluence-identity",
+ "fluence-keypair",
  "fs-utils",
  "fstrings",
  "json-utils",
@@ -1011,7 +1011,7 @@ dependencies = [
  "async-std",
  "derivative",
  "eyre",
- "fluence-identity",
+ "fluence-keypair",
  "fluence-libp2p",
  "futures",
  "libp2p",
@@ -1038,7 +1038,6 @@ dependencies = [
  "parking_lot 0.11.1",
  "particle-protocol",
  "serde",
- "trust-graph",
 ]
 
 [[package]]
@@ -1179,7 +1178,7 @@ dependencies = [
  "config-utils",
  "connection-pool",
  "derivative",
- "fluence-identity",
+ "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
  "futures",
@@ -1192,7 +1191,6 @@ dependencies = [
  "server-config",
  "test-constants",
  "toy-vms",
- "trust-graph",
 ]
 
 [[package]]
@@ -1681,12 +1679,6 @@ dependencies = [
 
 [[package]]
 name = "fixedbitset"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
-
-[[package]]
-name = "fixedbitset"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "279fb028e20b3c4c320317955b77c5e0c9701f05a1d309905d6fc702cdc5053e"
@@ -1747,83 +1739,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "fluence-fork-libp2p-core"
-version = "0.27.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77ffef53cfb8b873bf75998669b0aedd5212907d29d8be8e7915c4695967c40d"
-dependencies = [
- "asn1_der 0.6.3",
- "bs58 0.4.0",
- "ed25519-dalek",
- "either",
- "fluence-fork-multistream-select",
- "fluence-fork-parity-multiaddr",
- "fnv",
- "futures",
- "futures-timer",
- "lazy_static",
- "libsecp256k1 0.3.5",
- "log",
- "multihash 0.13.2",
- "parking_lot 0.11.1",
- "pin-project 1.0.8",
- "prost 0.7.0",
- "prost-build 0.7.0",
- "rand 0.7.3",
- "ring",
- "rw-stream-sink",
- "serde",
- "sha2 0.9.5",
- "smallvec",
- "thiserror",
- "unsigned-varint 0.7.0",
- "void",
- "zeroize",
-]
-
-[[package]]
-name = "fluence-fork-multistream-select"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34dacd25fddb6fed5c3fa6109fb29e4eea49b731a2548e09f4e54620fa4d6310"
-dependencies = [
- "bytes 1.0.1",
- "futures",
- "log",
- "pin-project 1.0.8",
- "smallvec",
- "unsigned-varint 0.7.0",
-]
-
-[[package]]
-name = "fluence-fork-parity-multiaddr"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06228daafbf129ef49806f15779857012c01d49658930d086498e78f12191da7"
-dependencies = [
- "arrayref",
- "bs58 0.4.0",
- "byteorder",
- "data-encoding",
- "multihash 0.13.2",
- "percent-encoding",
- "serde",
- "static_assertions",
- "unsigned-varint 0.7.0",
- "url",
-]
-
-[[package]]
-name = "fluence-identity"
+name = "fluence-it-types"
 version = "0.3.1"
-source = "git+https://github.com/fluencelabs/trust-graph?branch=remove_serde_version_lock#4832387b323632c220fa7bd4312947b49cfd3fb1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "047f670b4807cab8872550a607b1515daff08b3e3bb7576ce8f45971fd811a4e"
+dependencies = [
+ "it-to-bytes",
+ "nom",
+ "serde",
+ "variant_count",
+ "wast",
+]
+
+[[package]]
+name = "fluence-keypair"
+version = "0.5.1"
+source = "git+https://github.com/fluencelabs/trust-graph?branch=libp2p_version#84956ab9745c0a2c9a181e0df4bbaeb44520c5e0"
 dependencies = [
  "asn1_der 0.6.3",
  "bs58 0.3.1",
  "ed25519",
  "ed25519-dalek",
- "fluence-fork-libp2p-core",
+ "eyre",
  "lazy_static",
+ "libp2p-core",
  "libsecp256k1 0.3.5",
  "rand 0.7.3",
  "ring",
@@ -1835,19 +1774,6 @@ dependencies = [
  "signature",
  "thiserror",
  "zeroize",
-]
-
-[[package]]
-name = "fluence-it-types"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "047f670b4807cab8872550a607b1515daff08b3e3bb7576ce8f45971fd811a4e"
-dependencies = [
- "it-to-bytes",
- "nom",
- "serde",
- "variant_count",
- "wast",
 ]
 
 [[package]]
@@ -1863,7 +1789,7 @@ dependencies = [
  "libp2p",
  "libp2p-noise",
  "log",
- "multihash 0.14.0",
+ "multihash",
  "rand 0.7.3",
  "serde",
  "serde_json",
@@ -2571,7 +2497,7 @@ dependencies = [
  "futures-timer",
  "libp2p",
  "log",
- "multihash 0.14.0",
+ "multihash",
  "once_cell",
  "particle-protocol",
  "prometheus",
@@ -2580,7 +2506,6 @@ dependencies = [
  "server-config",
  "smallvec",
  "thiserror",
- "trust-graph",
 ]
 
 [[package]]
@@ -2690,19 +2615,19 @@ dependencies = [
  "libsecp256k1 0.7.0",
  "log",
  "multiaddr",
- "multihash 0.14.0",
+ "multihash",
  "multistream-select",
  "parking_lot 0.11.1",
  "pin-project 1.0.8",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.8.4",
  "ring",
  "rw-stream-sink",
  "sha2 0.9.5",
  "smallvec",
  "thiserror",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
  "void",
  "zeroize",
 ]
@@ -2745,7 +2670,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.7.3",
  "smallvec",
 ]
@@ -2771,12 +2696,12 @@ dependencies = [
  "open-metrics-client",
  "pin-project 1.0.8",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.7.3",
  "regex",
  "sha2 0.9.5",
  "smallvec",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -2792,7 +2717,7 @@ dependencies = [
  "log",
  "lru",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "smallvec",
 ]
 
@@ -2814,12 +2739,12 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.7.3",
  "sha2 0.9.5",
  "smallvec",
  "uint",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
  "void",
 ]
 
@@ -2874,7 +2799,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "rand 0.7.3",
  "smallvec",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -2890,7 +2815,7 @@ dependencies = [
  "libp2p-core",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.8.4",
  "sha2 0.9.5",
  "snow",
@@ -2927,8 +2852,8 @@ dependencies = [
  "libp2p-core",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
- "unsigned-varint 0.7.0",
+ "prost-build",
+ "unsigned-varint",
  "void",
 ]
 
@@ -2962,10 +2887,10 @@ dependencies = [
  "log",
  "pin-project 1.0.8",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.7.3",
  "smallvec",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
  "void",
 ]
 
@@ -2984,11 +2909,11 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.8.4",
  "sha2 0.9.5",
  "thiserror",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
  "void",
 ]
 
@@ -3008,7 +2933,7 @@ dependencies = [
  "lru",
  "rand 0.7.3",
  "smallvec",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -3554,25 +3479,12 @@ dependencies = [
  "bs58 0.4.0",
  "byteorder",
  "data-encoding",
- "multihash 0.14.0",
+ "multihash",
  "percent-encoding",
  "serde",
  "static_assertions",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
  "url",
-]
-
-[[package]]
-name = "multihash"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dac63698b887d2d929306ea48b63760431ff8a24fac40ddb22f9c7f49fb7cab"
-dependencies = [
- "digest 0.9.0",
- "generic-array 0.14.4",
- "multihash-derive",
- "sha2 0.9.5",
- "unsigned-varint 0.5.1",
 ]
 
 [[package]]
@@ -3590,7 +3502,7 @@ dependencies = [
  "serde",
  "sha2 0.9.5",
  "sha3",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -3627,7 +3539,7 @@ dependencies = [
  "log",
  "pin-project 1.0.8",
  "smallvec",
- "unsigned-varint 0.7.0",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -3883,7 +3795,7 @@ dependencies = [
  "kademlia",
  "libp2p",
  "log",
- "multihash 0.14.0",
+ "multihash",
  "now-millis",
  "parking_lot 0.11.1",
  "particle-args",
@@ -3963,7 +3875,7 @@ dependencies = [
  "env_logger",
  "eyre",
  "fluence-app-service",
- "fluence-identity",
+ "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
  "fstrings",
@@ -3977,7 +3889,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.14.0",
+ "multihash",
  "now-millis",
  "parking_lot 0.11.1",
  "particle-builtins",
@@ -3994,7 +3906,6 @@ dependencies = [
  "test-utils",
  "tide",
  "toy-vms",
- "trust-graph",
 ]
 
 [[package]]
@@ -4072,21 +3983,11 @@ dependencies = [
 
 [[package]]
 name = "petgraph"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
-dependencies = [
- "fixedbitset 0.2.0",
- "indexmap",
-]
-
-[[package]]
-name = "petgraph"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a13a2fa9d0b63e5f22328828741e523766fff0ee9e779316902290dff3f824f"
 dependencies = [
- "fixedbitset 0.4.1",
+ "fixedbitset",
  "indexmap",
 ]
 
@@ -4327,40 +4228,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e6984d2f1a23009bd270b8bb56d0926810a3d483f59c987d77969e9d8e840b2"
-dependencies = [
- "bytes 1.0.1",
- "prost-derive 0.7.0",
-]
-
-[[package]]
-name = "prost"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "444879275cb4fd84958b1a1d5420d15e6fcf7c235fe47f053c9c2a80aceb6001"
 dependencies = [
  "bytes 1.0.1",
  "prost-derive 0.9.0",
-]
-
-[[package]]
-name = "prost-build"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32d3ebd75ac2679c2af3a92246639f9fcc8a442ee420719cc4fe195b98dd5fa3"
-dependencies = [
- "bytes 1.0.1",
- "heck",
- "itertools 0.9.0",
- "log",
- "multimap",
- "petgraph 0.5.1",
- "prost 0.7.0",
- "prost-types 0.7.0",
- "tempfile",
- "which",
 ]
 
 [[package]]
@@ -4375,9 +4248,9 @@ dependencies = [
  "lazy_static",
  "log",
  "multimap",
- "petgraph 0.6.0",
+ "petgraph",
  "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost-types",
  "regex",
  "tempfile",
  "which",
@@ -4398,19 +4271,6 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "169a15f3008ecb5160cba7d37bcd690a7601b6d30cfb87a117d45e59d52af5d4"
-dependencies = [
- "anyhow",
- "itertools 0.9.0",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "prost-derive"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9cc1a3263e07e0bf68e96268f37665207b49560d98739662cdfaae215c720fe"
@@ -4420,16 +4280,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b518d7cdd93dab1d1122cf07fa9a60771836c668dde9d9e2a139f957f0d9f1bb"
-dependencies = [
- "bytes 1.0.1",
- "prost 0.7.0",
 ]
 
 [[package]]
@@ -4652,26 +4502,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8383f39639269cde97d255a32bdb68c047337295414940c68bdd30c2e13203ff"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "ref-cast"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "300f2a835d808734ee295d45007adacb9ebb29dd3ae2424acfa17930cae541da"
-dependencies = [
- "ref-cast-impl",
-]
-
-[[package]]
-name = "ref-cast-impl"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c38e3aecd2b21cb3959637b883bb3714bc7e43f0268b9a29d3743ee3e55cdd2"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -5020,7 +4850,7 @@ dependencies = [
  "config-utils",
  "derivative",
  "eyre",
- "fluence-identity",
+ "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
  "humantime-serde",
@@ -5033,7 +4863,6 @@ dependencies = [
  "serde",
  "serde_with",
  "toml",
- "trust-graph",
 ]
 
 [[package]]
@@ -5388,7 +5217,6 @@ dependencies = [
  "serde_json",
  "service-modules",
  "test-constants",
- "trust-graph",
 ]
 
 [[package]]
@@ -5599,29 +5427,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-graph"
-version = "0.2.8"
-source = "git+https://github.com/fluencelabs/trust-graph?branch=remove_serde_version_lock#4832387b323632c220fa7bd4312947b49cfd3fb1"
-dependencies = [
- "bs58 0.3.1",
- "derivative",
- "ed25519-dalek",
- "failure",
- "fluence-fork-libp2p-core",
- "fluence-identity",
- "libsecp256k1 0.3.5",
- "log",
- "rand 0.7.3",
- "ref-cast",
- "ring",
- "serde",
- "serde_json",
- "serde_with",
- "signature",
- "thiserror",
-]
-
-[[package]]
 name = "typenum"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5711,12 +5516,6 @@ dependencies = [
  "generic-array 0.14.4",
  "subtle 2.4.1",
 ]
-
-[[package]]
-name = "unsigned-varint"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7fdeedbf205afadfe39ae559b75c3240f24e257d0ca27e85f85cb82aa19ac35"
 
 [[package]]
 name = "unsigned-varint"

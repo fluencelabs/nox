@@ -32,7 +32,6 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use prometheus::Registry;
-use trust_graph::InMemoryStorage;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreError,
@@ -57,8 +56,6 @@ use crate::metrics::start_metrics_endpoint;
 use crate::Connectivity;
 
 use super::behaviour::NetworkBehaviour;
-
-type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -96,11 +93,6 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
-        let trust_graph = {
-            let storage = InMemoryStorage::new_in_memory(config.root_weights()?);
-            TrustGraph::new(storage)
-        };
-
         let services_config = ServicesConfig::new(
             local_peer_id,
             config.dir_config.services_base_dir.clone(),
@@ -126,7 +118,6 @@ impl<RT: AquaRuntime> Node<RT> {
             network_config,
             transport,
             config.external_addresses(),
-            trust_graph,
         );
 
         let (particle_failures_out, particle_failures_in) = unbounded();
@@ -202,14 +193,12 @@ impl<RT: AquaRuntime> Node<RT> {
         network_config: NetworkConfig,
         transport: Boxed<(PeerId, StreamMuxerBox)>,
         external_addresses: Vec<Multiaddr>,
-        trust_graph: TrustGraph,
     ) -> (
         Swarm<NetworkBehaviour>,
         Connectivity,
         BackPressuredInlet<Particle>,
     ) {
-        let (behaviour, connectivity, particle_stream) =
-            NetworkBehaviour::new(network_config, trust_graph);
+        let (behaviour, connectivity, particle_stream) = NetworkBehaviour::new(network_config);
         let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
 
         // Add external addresses to Swarm

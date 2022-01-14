@@ -19,7 +19,6 @@ use crate::error::{KademliaError, Result};
 use control_macro::get_return;
 use fluence_libp2p::{generate_swarm_event_type, types::OneshotOutlet};
 use particle_protocol::Contact;
-use trust_graph::InMemoryStorage;
 
 use futures::FutureExt;
 use futures_timer::Delay;
@@ -101,7 +100,6 @@ impl FailedPeer {
 // type SwarmEventType = generate_swarm_event_type!(Kademlia);
 type SwarmEventType =
     NetworkBehaviourAction<(), <Kademlia as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler>;
-type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll", event_process = true)]
@@ -124,11 +122,7 @@ pub struct Kademlia {
 }
 
 impl Kademlia {
-    pub fn new(
-        config: KademliaConfig,
-        trust_graph: TrustGraph,
-        registry: Option<&Registry>,
-    ) -> Self {
+    pub fn new(config: KademliaConfig, registry: Option<&Registry>) -> Self {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
@@ -432,7 +426,6 @@ mod tests {
     use libp2p::Swarm;
     use std::task::Poll;
     use std::time::Duration;
-    use trust_graph::{InMemoryStorage, TrustGraph};
 
     fn kad_config() -> KademliaConfig {
         let keypair = Keypair::generate_ed25519();
@@ -452,12 +445,11 @@ mod tests {
     }
 
     fn make_node() -> (Swarm<Kademlia>, Multiaddr, PublicKey) {
-        let trust_graph = TrustGraph::new(InMemoryStorage::new());
         let config = kad_config();
         let kp = config.keypair.clone();
         let peer_id = config.peer_id.clone();
         let pk = config.keypair.public();
-        let kad = Kademlia::new(config, trust_graph, None);
+        let kad = Kademlia::new(config, None);
         let timeout = Duration::from_secs(20);
 
         let mut swarm = Swarm::new(build_memory_transport(kp, timeout), kad, peer_id);
@@ -476,26 +468,32 @@ mod tests {
         let (e, e_addr, e_pk) = make_node();
 
         // a knows everybody
-        Swarm::dial_addr(&mut a, b_addr.clone()).unwrap();
-        Swarm::dial_addr(&mut a, c_addr.clone()).unwrap();
-        Swarm::dial_addr(&mut a, d_addr.clone()).unwrap();
-        Swarm::dial_addr(&mut a, e_addr.clone()).unwrap();
-        a.kademlia
-            .add_address(Swarm::local_peer_id(&b), b_addr.clone(), b_pk);
-        a.kademlia
-            .add_address(Swarm::local_peer_id(&c), c_addr.clone(), c_pk);
-        a.kademlia
-            .add_address(Swarm::local_peer_id(&d), d_addr.clone(), d_pk);
-        a.kademlia
-            .add_address(Swarm::local_peer_id(&e), e_addr.clone(), e_pk);
-        a.kademlia.bootstrap().ok();
+        Swarm::dial(&mut a, b_addr.clone()).unwrap();
+        Swarm::dial(&mut a, c_addr.clone()).unwrap();
+        Swarm::dial(&mut a, d_addr.clone()).unwrap();
+        Swarm::dial(&mut a, e_addr.clone()).unwrap();
+        a.behaviour_mut()
+            .kademlia
+            .add_address(Swarm::local_peer_id(&b), b_addr.clone());
+        a.behaviour_mut()
+            .kademlia
+            .add_address(Swarm::local_peer_id(&c), c_addr.clone());
+        a.behaviour_mut()
+            .kademlia
+            .add_address(Swarm::local_peer_id(&d), d_addr.clone());
+        a.behaviour_mut()
+            .kademlia
+            .add_address(Swarm::local_peer_id(&e), e_addr.clone());
+        a.behaviour_mut().kademlia.bootstrap().ok();
 
         // b knows only a, wants to discover c
-        Swarm::dial_addr(&mut b, a_addr.clone()).unwrap();
-        b.kademlia
-            .add_address(Swarm::local_peer_id(&a), a_addr, a_pk);
+        Swarm::dial(&mut b, a_addr.clone()).unwrap();
+        b.behaviour_mut()
+            .kademlia
+            .add_address(Swarm::local_peer_id(&a), a_addr);
         let (out, inlet) = oneshot::channel();
-        b.discover_peer(Swarm::local_peer_id(&c).clone(), out);
+        b.behaviour_mut()
+            .discover_peer(Swarm::local_peer_id(&c).clone(), out);
         let discover_fut = inlet;
 
         let maddr = async_std::task::block_on(async move {
@@ -520,10 +518,12 @@ mod tests {
         let (mut node, _, _) = make_node();
         let peer = RandomPeerId::random();
 
-        node.discover_peer(peer, oneshot::channel().0);
-        assert_eq!(node.queries.len(), 1);
-        node.discover_peer(peer, oneshot::channel().0);
-        assert_eq!(node.queries.len(), 1);
+        node.behaviour_mut()
+            .discover_peer(peer, oneshot::channel().0);
+        assert_eq!(node.behaviour().queries.len(), 1);
+        node.behaviour_mut()
+            .discover_peer(peer, oneshot::channel().0);
+        assert_eq!(node.behaviour().queries.len(), 1);
     }
 
     #[test]
@@ -533,15 +533,22 @@ mod tests {
         let (mut node, _, _) = make_node();
         let peer = RandomPeerId::random();
 
-        node.discover_peer(peer, oneshot::channel().0);
-        assert_eq!(node.queries.len(), 1);
+        node.behaviour_mut()
+            .discover_peer(peer, oneshot::channel().0);
+        assert_eq!(node.behaviour_mut().queries.len(), 1);
 
         task::block_on(timeout(Duration::from_millis(200), node.select_next_some())).ok();
-        assert_eq!(node.failed_peers.len(), 1);
-        assert!(node.failed_peers.get(&peer).unwrap().ban.is_some());
+        assert_eq!(node.behaviour_mut().failed_peers.len(), 1);
+        assert!(node
+            .behaviour_mut()
+            .failed_peers
+            .get(&peer)
+            .unwrap()
+            .ban
+            .is_some());
 
         let (out, inlet) = oneshot::channel();
-        node.discover_peer(peer, out);
+        node.behaviour_mut().discover_peer(peer, out);
 
         let banned = task::block_on(timeout(Duration::from_millis(200), inlet))
             .unwrap()

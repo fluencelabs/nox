@@ -33,7 +33,7 @@ use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
 
 use eyre::WrapErr;
-use fluence_identity::KeyPair;
+use fluence_keypair::KeyPair;
 use itertools::Itertools;
 use libp2p::PeerId;
 use maplit::hashmap;
@@ -46,6 +46,7 @@ use test_utils::create_service;
 
 #[derive(Deserialize, Debug)]
 struct NodeInfo {
+    #[allow(dead_code)]
     pub external_addresses: Vec<Multiaddr>,
 }
 

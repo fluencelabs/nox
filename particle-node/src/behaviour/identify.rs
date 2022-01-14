@@ -52,8 +52,8 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
                 log::debug!("Identify error on {}: {}", peer_id, error);
             }
 
-            // We don't care about Sent identification info
-            IdentifyEvent::Sent { .. } => {}
+            // We don't care about outgoing identification info
+            IdentifyEvent::Sent { .. } | IdentifyEvent::Pushed { .. } => {}
         }
     }
 }

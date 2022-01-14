@@ -135,34 +135,6 @@ impl ResolvedConfig {
         addrs
     }
 
-    // fn as_public_key(peer_id: &PeerId) -> Option<PublicKey> {
-    //     let mhash = peer_id.as_ref();
-    //
-    //     match multihash::Code::try_from(mhash.code()) {
-    //         Ok(multihash::Code::Identity) => PublicKey::from_protobuf_encoding(mhash.digest()).ok(),
-    //         _ => None,
-    //     }
-    // }
-
-    pub fn root_weights(&self) -> eyre::Result<Vec<(fluence_identity::PublicKey, u32)>> {
-        // self.root_weights
-        //     .clone()
-        //     .into_iter()
-        //     .map(|(k, v)| {
-        //         Ok((
-        //             Self::as_public_key(k.deref())
-        //                 .ok_or_else(|| {
-        //                     eyre!("invalid root_weights key: PeerId doesn't contain PublicKey")
-        //                 })?
-        //                 .into(),
-        //             v,
-        //         ))
-        //     })
-        //     .collect()
-        // TODO: update libp2p in fluence-identity
-        Ok(vec![])
-    }
-
     pub fn metrics_listen_addr(&self) -> SocketAddr {
         SocketAddr::new(
             self.listen_config.listen_ip,

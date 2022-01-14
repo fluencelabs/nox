@@ -44,8 +44,6 @@ mod behaviour {
 pub mod config {
     mod args;
 
-    pub mod certificates;
-
     pub use args::create_args;
 }
 

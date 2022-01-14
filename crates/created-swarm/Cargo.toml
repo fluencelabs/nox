@@ -5,7 +5,6 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-trust-graph = "0.2.7"
 test-constants = { path = "../test-constants" }
 config-utils = { path = "../config-utils" }
 server-config = { path = "../server-config" }
@@ -20,7 +19,7 @@ air-interpreter-fs = { path = "../air-interpreter-fs" }
 builtins-deployer = { path = "../builtins-deployer" }
 toy-vms = { path = "../toy-vms" }
 
-fluence-identity = "0.3.0"
+fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
 
 libp2p = "0.41.1"
 

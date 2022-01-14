@@ -11,8 +11,7 @@ particle-protocol = { path = "../../particle-protocol"}
 fluence-libp2p = { path = "../libp2p" }
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 
-trust-graph = "0.2.7"
-fluence-identity = "0.3.0"
+fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
 
 libp2p = "0.41.1"
 

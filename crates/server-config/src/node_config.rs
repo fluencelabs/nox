@@ -2,7 +2,7 @@ use super::defaults::*;
 use crate::keys::{decode_key_pair, load_key_pair};
 use crate::{BootstrapConfig, KademliaConfig};
 
-use fluence_identity::KeyPair;
+use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
 use fluence_libp2p::{peerid_serializer, Transport};
 use fs_utils::to_abs_path;

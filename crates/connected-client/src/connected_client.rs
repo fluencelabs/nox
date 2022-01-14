@@ -20,7 +20,7 @@ use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, sync::Arc, time::Dura
 use async_std::task;
 use eyre::Result;
 use eyre::{bail, eyre, WrapErr};
-use fluence_identity::KeyPair;
+use fluence_keypair::KeyPair;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use parking_lot::Mutex;
 use serde_json::Value as JValue;

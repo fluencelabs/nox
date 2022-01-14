@@ -33,6 +33,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Service {
     blueprint_id: String,
     id: String,

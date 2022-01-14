@@ -20,13 +20,12 @@ use std::{path::PathBuf, time::Duration};
 
 use async_std::task;
 use derivative::Derivative;
-use fluence_identity::KeyPair;
+use fluence_keypair::KeyPair;
 use futures::channel::mpsc::unbounded;
 use futures::{stream::iter, StreamExt};
 use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use serde::Deserialize;
-use trust_graph::{Certificate, InMemoryStorage, TrustGraph};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{AquaRuntime, VmConfig};
@@ -210,23 +209,15 @@ where
     infos
 }
 
-#[derive(Default, Clone, Debug)]
-pub struct Trust {
-    pub root_weights: Vec<(fluence_identity::PublicKey, u32)>,
-    pub certificates: Vec<Certificate>,
-    pub cur_time: Duration,
-}
-
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SwarmConfig {
     #[derivative(Debug = "ignore")]
-    pub keypair: fluence_identity::KeyPair,
+    pub keypair: fluence_keypair::KeyPair,
     #[derivative(Debug = "ignore")]
-    pub builtins_keypair: fluence_identity::KeyPair,
+    pub builtins_keypair: fluence_keypair::KeyPair,
     pub bootstraps: Vec<Multiaddr>,
     pub listen_on: Multiaddr,
-    pub trust: Option<Trust>,
     pub transport: Transport,
     pub tmp_dir: Option<PathBuf>,
     pub pool_size: Option<usize>,
@@ -240,22 +231,15 @@ impl SwarmConfig {
             _ => Transport::Network,
         };
         Self {
-            keypair: fluence_identity::KeyPair::generate_ed25519(),
-            builtins_keypair: fluence_identity::KeyPair::generate_ed25519(),
+            keypair: fluence_keypair::KeyPair::generate_ed25519(),
+            builtins_keypair: fluence_keypair::KeyPair::generate_ed25519(),
             bootstraps,
             listen_on,
             transport,
-            trust: <_>::default(),
             tmp_dir: None,
             pool_size: <_>::default(),
             builtins_dir: None,
         }
-    }
-
-    pub fn with_trust(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr, trust: Trust) -> Self {
-        let mut this = Self::new(bootstraps, listen_on);
-        this.trust = Some(trust);
-        this
     }
 }
 
@@ -300,7 +284,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 
     let peer_id = libp2p::identity::Keypair::from(config.keypair.clone())
         .public()
-        .into_peer_id();
+        .to_peer_id();
 
     if config.tmp_dir.is_none() {
         config.tmp_dir = Some(make_tmp_dir_peer_id(peer_id.to_string()));
@@ -347,10 +331,10 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
     resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
 
-    let management_kp = fluence_identity::KeyPair::generate_ed25519();
+    let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())
         .public()
-        .into_peer_id();
+        .to_peer_id();
     resolved.node_config.management_peer_id = management_peer_id;
 
     let vm_config = vm_config(

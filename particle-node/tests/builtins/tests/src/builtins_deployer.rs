@@ -18,7 +18,7 @@ use std::time::Duration;
 use std::{env, fs, path::Path};
 
 use eyre::WrapErr;
-use fluence_identity::KeyPair;
+use fluence_keypair::KeyPair;
 use fstrings::f;
 use maplit::hashmap;
 use serde::Deserialize;

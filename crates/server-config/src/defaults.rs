@@ -15,7 +15,7 @@
  */
 
 use crate::node_config::{KeypairConfig, PathOrValue};
-use fluence_identity::KeyPair;
+use fluence_keypair::KeyPair;
 use fluence_libp2p::Transport;
 
 use libp2p::core::Multiaddr;

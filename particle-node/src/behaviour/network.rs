@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use libp2p::identify::IdentifyConfig;
 use libp2p::{
     identify::Identify,
     ping::{Ping, PingConfig, PingEvent},
 };
-use trust_graph::InMemoryStorage;
 
 use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet};
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, Inlet};
@@ -26,8 +26,6 @@ use particle_protocol::{Particle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
 
 use crate::connectivity::Connectivity;
-
-type TrustGraph = trust_graph::TrustGraph<InMemoryStorage>;
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
@@ -43,15 +41,11 @@ pub struct NetworkBehaviour {
 }
 
 impl NetworkBehaviour {
-    pub fn new(
-        cfg: NetworkConfig,
-        trust_graph: TrustGraph,
-    ) -> (Self, Connectivity, BackPressuredInlet<Particle>) {
+    pub fn new(cfg: NetworkConfig) -> (Self, Connectivity, BackPressuredInlet<Particle>) {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(
-            PROTOCOL_NAME.into(),
-            cfg.node_version.into(),
-            local_public_key,
+            IdentifyConfig::new(PROTOCOL_NAME.into(), local_public_key)
+                .with_agent_version(cfg.node_version.into()),
         );
         let ping = Ping::new(PingConfig::new().with_keep_alive(false));
 
@@ -61,7 +55,7 @@ impl NetworkBehaviour {
             kad_config: cfg.kademlia_config,
         };
 
-        let kademlia = Kademlia::new(kad_config, trust_graph, cfg.registry.as_ref());
+        let kademlia = Kademlia::new(kad_config, cfg.registry.as_ref());
         let (kademlia_api, kademlia) = kademlia.into();
         let (connection_pool, particle_stream) = ConnectionPoolBehaviour::new(
             cfg.particle_queue_buffer,
