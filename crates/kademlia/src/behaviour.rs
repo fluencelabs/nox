@@ -23,6 +23,7 @@ use particle_protocol::Contact;
 use futures::FutureExt;
 use futures_timer::Delay;
 use libp2p::identity::PublicKey;
+use libp2p::kad::kbucket::Key;
 use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{
     core::Multiaddr,
@@ -205,7 +206,7 @@ impl Kademlia {
         count: usize,
         outlet: OneshotOutlet<Result<Vec<PeerId>>>,
     ) {
-        let key = key.into();
+        let key: Key<Multihash> = key.into();
         let peers = self.kademlia.local_closest_peers(&key);
         let peers = peers.take(count);
         let peers = peers.map(|p| p.into_preimage());
