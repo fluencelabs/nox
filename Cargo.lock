@@ -1724,12 +1724,6 @@ dependencies = [
 
 [[package]]
 name = "fixedbitset"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
-
-[[package]]
-name = "fixedbitset"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "279fb028e20b3c4c320317955b77c5e0c9701f05a1d309905d6fc702cdc5053e"
@@ -1805,7 +1799,7 @@ dependencies = [
 [[package]]
 name = "fluence-keypair"
 version = "0.5.1"
-source = "git+https://github.com/fluencelabs/trust-graph?branch=libp2p_version#334426c9f146335b87f06f3b68534e1477cfb639"
+source = "git+https://github.com/fluencelabs/trust-graph?branch=libp2p_version#87034c2a423a3186f333a39623b90d5306a9df5e"
 dependencies = [
  "asn1_der 0.6.3",
  "bs58 0.3.1",
@@ -2600,7 +2594,7 @@ checksum = "3cb00336871be5ed2c8ed44b60ae9959dc5b9f08539422ed43f09e34ecaeba21"
 [[package]]
 name = "libp2p"
 version = "0.42.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "atomic",
  "bytes 1.0.1",
@@ -2643,8 +2637,8 @@ dependencies = [
 
 [[package]]
 name = "libp2p-autonat"
-version = "0.20.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "async-trait",
  "futures",
@@ -2654,15 +2648,15 @@ dependencies = [
  "libp2p-request-response",
  "libp2p-swarm",
  "log",
- "prost 0.8.0",
- "prost-build 0.6.1",
+ "prost 0.9.0",
+ "prost-build",
  "rand 0.8.4",
 ]
 
 [[package]]
 name = "libp2p-core"
 version = "0.31.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "asn1_der 0.7.5",
  "bs58 0.4.0",
@@ -2681,7 +2675,7 @@ dependencies = [
  "parking_lot 0.11.1",
  "pin-project 1.0.8",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.8.4",
  "ring",
  "rw-stream-sink",
@@ -2696,7 +2690,7 @@ dependencies = [
 [[package]]
 name = "libp2p-deflate"
 version = "0.31.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "flate2",
  "futures",
@@ -2706,7 +2700,7 @@ dependencies = [
 [[package]]
 name = "libp2p-dns"
 version = "0.31.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "async-std-resolver",
  "futures",
@@ -2719,7 +2713,7 @@ dependencies = [
 [[package]]
 name = "libp2p-floodsub"
 version = "0.33.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "cuckoofilter",
  "fnv",
@@ -2728,7 +2722,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.7.3",
  "smallvec",
 ]
@@ -2736,7 +2730,7 @@ dependencies = [
 [[package]]
 name = "libp2p-gossipsub"
 version = "0.35.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "asynchronous-codec",
  "base64 0.13.0",
@@ -2753,7 +2747,7 @@ dependencies = [
  "open-metrics-client",
  "pin-project 1.0.8",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.7.3",
  "regex",
  "sha2 0.10.1",
@@ -2764,7 +2758,7 @@ dependencies = [
 [[package]]
 name = "libp2p-identify"
 version = "0.33.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "futures",
  "futures-timer",
@@ -2773,14 +2767,14 @@ dependencies = [
  "log",
  "lru",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "smallvec",
 ]
 
 [[package]]
 name = "libp2p-kad"
 version = "0.34.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -2794,7 +2788,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.7.3",
  "sha2 0.10.1",
  "smallvec",
@@ -2807,7 +2801,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mdns"
 version = "0.34.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "async-io",
  "data-encoding",
@@ -2827,7 +2821,7 @@ dependencies = [
 [[package]]
 name = "libp2p-metrics"
 version = "0.3.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "libp2p-core",
  "libp2p-gossipsub",
@@ -2842,7 +2836,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mplex"
 version = "0.31.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.0.1",
@@ -2859,7 +2853,7 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.34.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "bytes 1.0.1",
  "curve25519-dalek",
@@ -2868,7 +2862,7 @@ dependencies = [
  "libp2p-core",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.8.4",
  "sha2 0.10.1",
  "snow",
@@ -2880,7 +2874,7 @@ dependencies = [
 [[package]]
 name = "libp2p-ping"
 version = "0.33.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "futures",
  "futures-timer",
@@ -2895,7 +2889,7 @@ dependencies = [
 [[package]]
 name = "libp2p-plaintext"
 version = "0.31.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.0.1",
@@ -2903,7 +2897,7 @@ dependencies = [
  "libp2p-core",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "unsigned-varint",
  "void",
 ]
@@ -2911,7 +2905,7 @@ dependencies = [
 [[package]]
 name = "libp2p-pnet"
 version = "0.22.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "futures",
  "log",
@@ -2924,7 +2918,7 @@ dependencies = [
 [[package]]
 name = "libp2p-relay"
 version = "0.6.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.0.1",
@@ -2937,7 +2931,7 @@ dependencies = [
  "log",
  "pin-project 1.0.8",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.8.4",
  "smallvec",
  "static_assertions",
@@ -2949,7 +2943,7 @@ dependencies = [
 [[package]]
 name = "libp2p-rendezvous"
 version = "0.3.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "asynchronous-codec",
  "bimap",
@@ -2960,7 +2954,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "prost 0.9.0",
- "prost-build 0.9.0",
+ "prost-build",
  "rand 0.8.4",
  "sha2 0.10.1",
  "thiserror",
@@ -2971,7 +2965,7 @@ dependencies = [
 [[package]]
 name = "libp2p-request-response"
 version = "0.15.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "async-trait",
  "bytes 1.0.1",
@@ -2988,7 +2982,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm"
 version = "0.33.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "either",
  "futures",
@@ -3004,7 +2998,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm-derive"
 version = "0.26.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "quote",
  "syn",
@@ -3013,7 +3007,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.31.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "async-io",
  "futures",
@@ -3029,7 +3023,7 @@ dependencies = [
 [[package]]
 name = "libp2p-uds"
 version = "0.31.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "async-std",
  "futures",
@@ -3040,7 +3034,7 @@ dependencies = [
 [[package]]
 name = "libp2p-wasm-ext"
 version = "0.31.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "futures",
  "js-sys",
@@ -3053,7 +3047,7 @@ dependencies = [
 [[package]]
 name = "libp2p-websocket"
 version = "0.33.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "either",
  "futures",
@@ -3070,7 +3064,7 @@ dependencies = [
 [[package]]
 name = "libp2p-yamux"
 version = "0.35.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -3573,7 +3567,7 @@ dependencies = [
 [[package]]
 name = "multistream-select"
 version = "0.11.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2785d16b63ad41932aec80b7b17be152c68d74cc"
+source = "git+https://github.com/fluencelabs/rust-libp2p?branch=local_closest_peers#2c2596ea86e529162c21518fcac467f04cdc09a4"
 dependencies = [
  "bytes 1.0.1",
  "futures",
@@ -4089,21 +4083,11 @@ dependencies = [
 
 [[package]]
 name = "petgraph"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
-dependencies = [
- "fixedbitset 0.2.0",
- "indexmap",
-]
-
-[[package]]
-name = "petgraph"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a13a2fa9d0b63e5f22328828741e523766fff0ee9e779316902290dff3f824f"
 dependencies = [
- "fixedbitset 0.4.1",
+ "fixedbitset",
  "indexmap",
 ]
 
@@ -4338,40 +4322,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de5e2533f59d08fcf364fd374ebda0692a70bd6d7e66ef97f306f45c6c5d8020"
-dependencies = [
- "bytes 1.0.1",
- "prost-derive 0.8.0",
-]
-
-[[package]]
-name = "prost"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "444879275cb4fd84958b1a1d5420d15e6fcf7c235fe47f053c9c2a80aceb6001"
 dependencies = [
  "bytes 1.0.1",
  "prost-derive 0.9.0",
-]
-
-[[package]]
-name = "prost-build"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02b10678c913ecbd69350e8535c3aef91a8676c0773fc1d7b95cdd196d7f2f26"
-dependencies = [
- "bytes 0.5.6",
- "heck",
- "itertools 0.8.2",
- "log",
- "multimap",
- "petgraph 0.5.1",
- "prost 0.6.1",
- "prost-types 0.6.1",
- "tempfile",
- "which 3.1.1",
 ]
 
 [[package]]
@@ -4386,12 +4342,12 @@ dependencies = [
  "lazy_static",
  "log",
  "multimap",
- "petgraph 0.6.0",
+ "petgraph",
  "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost-types",
  "regex",
  "tempfile",
- "which 4.2.2",
+ "which",
 ]
 
 [[package]]
@@ -4409,19 +4365,6 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "600d2f334aa05acb02a755e217ef1ab6dea4d51b58b7846588b747edec04efba"
-dependencies = [
- "anyhow",
- "itertools 0.10.1",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "prost-derive"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9cc1a3263e07e0bf68e96268f37665207b49560d98739662cdfaae215c720fe"
@@ -4431,16 +4374,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1834f67c0697c001304b75be76f67add9c89742eda3a085ad8ee0bb38c3417aa"
-dependencies = [
- "bytes 0.5.6",
- "prost 0.6.1",
 ]
 
 [[package]]
@@ -6198,15 +6131,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d743fdedc5c64377b5fc2bc036b01c7fd642205a0d96356034ae3404d49eb7fb"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "which"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d011071ae14a2f6671d0b74080ae0cd8ebf3a6f8c9589a2cd45f23126fe29724"
-dependencies = [
- "libc",
 ]
 
 [[package]]
