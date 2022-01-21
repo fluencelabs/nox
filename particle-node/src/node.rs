@@ -158,14 +158,13 @@ impl<RT: AquaRuntime> Node<RT> {
         let dispatcher = {
             let failures = particle_failures_out;
             let parallelism = config.particle_processor_parallelism;
-            let timeout = config.particle_processing_timeout;
             Dispatcher::new(
                 local_peer_id,
                 aquamarine_api.clone(),
                 effectors,
                 failures,
                 parallelism,
-                timeout,
+                metrics_registry.as_mut(),
             )
         };
 

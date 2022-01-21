@@ -326,7 +326,6 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     resolved.metrics_config.metrics_enabled = false;
 
     resolved.node_config.allow_local_addresses = true;
-    resolved.node_config.particle_processing_timeout = Duration::from_secs(45);
 
     resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
     resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;

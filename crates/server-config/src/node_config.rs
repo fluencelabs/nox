@@ -128,10 +128,6 @@ pub struct NodeConfig {
     #[serde(with = "humantime_serde")]
     pub particle_execution_timeout: Duration,
 
-    #[serde(default = "default_processing_timeout")]
-    #[serde(with = "humantime_serde")]
-    pub particle_processing_timeout: Duration,
-
     #[serde(with = "peerid_serializer")]
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
