@@ -1046,6 +1046,7 @@ dependencies = [
  "log",
  "parking_lot 0.11.2",
  "particle-protocol",
+ "peer-metrics",
  "serde",
 ]
 

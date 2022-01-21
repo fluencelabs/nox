@@ -35,6 +35,7 @@ use libp2p::{
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
 use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
 use particle_protocol::{CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig};
+use peer_metrics::ConnectionPoolMetrics;
 
 use crate::connection_pool::LifecycleEvent;
 
@@ -83,6 +84,8 @@ pub struct ConnectionPoolBehaviour {
     events: VecDeque<SwarmEventType>,
     waker: Option<Waker>,
     pub(super) protocol_config: ProtocolConfig,
+
+    metrics: Option<ConnectionPoolMetrics>,
 }
 
 impl ConnectionPoolBehaviour {
@@ -183,6 +186,10 @@ impl ConnectionPoolBehaviour {
     pub fn add_subscriber(&mut self, outlet: Outlet<LifecycleEvent>) {
         self.subscribers.push(outlet);
     }
+
+    fn meter<U, F: Fn(&ConnectionPoolMetrics) -> U>(&self, f: F) {
+        self.metrics.as_ref().map(f);
+    }
 }
 
 impl ConnectionPoolBehaviour {
@@ -190,6 +197,7 @@ impl ConnectionPoolBehaviour {
         buffer: usize,
         protocol_config: ProtocolConfig,
         peer_id: PeerId,
+        metrics: Option<ConnectionPoolMetrics>,
     ) -> (Self, BackPressuredInlet<Particle>) {
         let (outlet, inlet) = mpsc::channel(buffer);
 
@@ -203,6 +211,7 @@ impl ConnectionPoolBehaviour {
             events: <_>::default(),
             waker: None,
             protocol_config,
+            metrics,
         };
 
         (this, inlet)
@@ -249,6 +258,8 @@ impl ConnectionPoolBehaviour {
                 out.send(contact.clone()).ok();
             }
         }
+
+        self.meter(|m| m.connected_peers.set(self.contacts.len() as u64));
     }
 
     fn lifecycle_event(&mut self, event: LifecycleEvent) {
@@ -281,7 +292,9 @@ impl ConnectionPoolBehaviour {
             self.lifecycle_event(LifecycleEvent::Disconnected(Contact::new(
                 *peer_id,
                 addresses.into_iter().collect(),
-            )))
+            )));
+
+            self.meter(|m| m.connected_peers.set(self.contacts.len() as u64));
         }
     }
 
@@ -395,6 +408,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             HandlerMessage::InParticle(particle) => {
                 log::trace!(target: "network", "received particle {} from {}; queue {}", particle.id, from, self.queue.len());
                 self.queue.push_back(particle);
+                self.meter(|m| {
+                    m.particle_queue_size.set(self.queue.len() as u64);
+                    m.received_particles.inc();
+                    m.particle_sizes.observe(particle.data.len() as f64);
+                });
                 self.wake();
             }
             HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
@@ -441,6 +459,8 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 }
             }
         }
+
+        self.meter(|m| m.particle_queue_size.set(self.queue.len() as u64));
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);

@@ -4,6 +4,7 @@ mod dispatcher;
 mod network_protocol;
 mod particle_executor;
 
+pub use connection_pool::ConnectionPoolMetrics;
 pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
