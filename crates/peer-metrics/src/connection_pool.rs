@@ -15,28 +15,28 @@ impl ConnectionPoolMetrics {
     pub fn new(registry: &mut Registry) -> Self {
         let sub_registry = registry.sub_registry_with_prefix("connection_pool");
 
-        let received_particles = Counter.default();
+        let received_particles = Counter::default();
         sub_registry.register(
             "received_particles",
             "Number of particles received from the network (not unique)",
             Box::new(received_particles.clone()),
         );
 
-        let particle_sizes = Histogram.default();
+        let particle_sizes = Histogram::default();
         sub_registry.register(
             "particle_sizes",
             "Distribution of particle data sizes",
             Box::new(particle_sizes.clone()),
         );
 
-        let connected_peers = Gauge.default();
+        let connected_peers = Gauge::default();
         sub_registry.register(
             "connected_peers",
             "Number of peers we have connections to at a given moment",
             Box::new(connected_peers.clone()),
         );
 
-        let particle_queue_size = Gauge.default();
+        let particle_queue_size = Gauge::default();
         sub_registry.register(
             "particle_queue_size",
             "Size of a particle queue in connection pool",

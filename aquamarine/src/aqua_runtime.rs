@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::time::Duration;
 use std::{error::Error, task::Waker};
 
 use async_std::task;
@@ -27,7 +28,7 @@ use particle_protocol::Particle;
 use crate::config::VmConfig;
 use crate::invoke::{parse_outcome, ExecutionError};
 use crate::particle_data_store::{DataStoreError, ParticleDataStore};
-use crate::particle_effects::ParticleEffects;
+use crate::particle_effects::{InterpretationStats, ParticleEffects};
 
 pub trait AquaRuntime: Sized + Send + 'static {
     type Config: Clone + Send + 'static;
@@ -39,7 +40,11 @@ pub trait AquaRuntime: Sized + Send + 'static {
     ) -> BoxFuture<'static, Result<Self, Self::Error>>;
 
     // TODO: move into_effects inside call
-    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, p: Particle) -> ParticleEffects;
+    fn into_effects(
+        outcome: Result<AVMOutcome, Self::Error>,
+        p: Particle,
+        interpretation_time: Duration,
+    ) -> ParticleEffects;
 
     fn call(
         &mut self,
@@ -84,7 +89,12 @@ impl AquaRuntime for AVM<DataStoreError> {
     fn into_effects(
         outcome: Result<AVMOutcome, AVMError<DataStoreError>>,
         p: Particle,
+        interpretation_time: Duration,
     ) -> ParticleEffects {
+        let stats = InterpretationStats {
+            interpretation_time,
+            new_data_len: outcome.as_ref().map(|o| o.data.len()).ok(),
+        };
         match parse_outcome(outcome) {
             Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
@@ -94,6 +104,7 @@ impl AquaRuntime for AVM<DataStoreError> {
                     next_peers: peers,
                     call_requests: calls,
                     particle: Particle { data, ..p },
+                    stats,
                 }
             }
             Ok((data, ..)) => {
@@ -105,15 +116,15 @@ impl AquaRuntime for AVM<DataStoreError> {
                     let data = String::from_utf8_lossy(data.as_slice());
                     log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
                 }
-                ParticleEffects::empty(Particle { data, ..p })
+                ParticleEffects::empty(Particle { data, ..p }, stats)
             }
             Err(ExecutionError::AquamarineError(err)) => {
                 log::warn!("Error executing particle {:#?}: {}", p, err);
-                ParticleEffects::empty(p)
+                ParticleEffects::empty(p, stats)
             }
             Err(err @ ExecutionError::InvalidResultField { .. }) => {
                 log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
-                ParticleEffects::empty(p)
+                ParticleEffects::empty(p, stats)
             }
         }
     }

@@ -16,6 +16,7 @@
 
 use avm_server::CallRequests;
 use particle_protocol::Particle;
+use std::time::Duration;
 
 use libp2p::PeerId;
 
@@ -28,16 +29,24 @@ pub struct ParticleEffects {
     pub next_peers: Vec<PeerId>,
     /// Instruction to execute host calls
     pub call_requests: CallRequests,
+    pub stats: InterpretationStats,
 }
 
 impl ParticleEffects {
-    pub fn empty(particle: Particle) -> Self {
+    pub fn empty(particle: Particle, stats: InterpretationStats) -> Self {
         Self {
             particle,
             next_peers: vec![],
             call_requests: <_>::default(),
+            stats,
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct InterpretationStats {
+    pub interpretation_time: Duration,
+    pub new_data_len: Option<usize>,
 }
 
 /// Network part of the [[ParticleEffects]. Can't be executed by Aquamarine layer,
