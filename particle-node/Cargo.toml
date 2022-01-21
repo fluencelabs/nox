@@ -20,6 +20,7 @@ kademlia = { path = "../crates/kademlia" }
 air-interpreter-fs = { path = "../crates/air-interpreter-fs" }
 builtins-deployer = { path = "../crates/builtins-deployer" }
 fs-utils = { path = "../crates/fs-utils" }
+peer-metrics = { path = "../crates/peer-metrics" }
 
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
 air-interpreter-wasm = "=0.19.8"

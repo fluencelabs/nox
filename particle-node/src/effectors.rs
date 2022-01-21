@@ -23,7 +23,7 @@ use fluence_libp2p::types::{Inlet, Outlet};
 
 use crate::connectivity::Connectivity;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Effectors {
     pub connectivity: Connectivity,
 }
@@ -34,7 +34,7 @@ impl Effectors {
     }
 
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute(mut self, effects: NetworkEffects) {
+    pub async fn execute(mut self, effects: NetworkEffects, particle_failures: Outlet<String>) {
         if effects.particle.is_expired() {
             log::info!("Particle {} is expired", effects.particle.id);
             return;
@@ -47,12 +47,20 @@ impl Effectors {
         nps.for_each_concurrent(None, move |target| {
             let connectivity = connectivity.clone();
             let particle = particle.clone();
+            let particle_id = particle.id.clone();
+            let mut particle_failures = particle_failures.clone();
             async move {
                 // resolve contact
                 if let Some(contact) = connectivity.resolve_contact(target, &particle.id).await {
                     // forward particle
-                    connectivity.send(contact, particle).await;
+                    let sent = connectivity.send(contact, particle).await;
+                    if sent {
+                        // resolved and sent, exit
+                        return;
+                    }
                 }
+                // not exited yet, so either resolve or send failed. Report failure.
+                particle_failures.send(particle_id);
             }
         })
         .await;

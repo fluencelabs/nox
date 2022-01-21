@@ -62,6 +62,7 @@ pub struct CreatedSwarm {
     // stop signal
     pub outlet: OneshotOutlet<()>,
     // node connectivity
+    #[derivative(Debug = "ignore")]
     pub connectivity: Connectivity,
 }
 

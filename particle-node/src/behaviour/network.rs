@@ -78,6 +78,7 @@ impl NetworkBehaviour {
             connection_pool: connection_pool_api,
             bootstrap_nodes: cfg.bootstrap_nodes.into_iter().collect(),
             bootstrap_frequency: cfg.bootstrap_frequency,
+            metrics: cfg.connectivity_metrics,
         };
 
         (this, connectivity, particle_stream)

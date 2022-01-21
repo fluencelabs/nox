@@ -10,6 +10,7 @@ fs-utils = { path = "../fs-utils" }
 particle-protocol = { path = "../../particle-protocol"}
 fluence-libp2p = { path = "../libp2p" }
 air-interpreter-fs = { path = "../air-interpreter-fs" }
+peer-metrics = { path = "../peer-metrics"}
 
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
 
@@ -19,7 +20,6 @@ libp2p-metrics = "0.3.0"
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"
 
-prometheus = "0.9.0"
 log = "0.4.11"
 rand = "0.7.3"
 clap = "3.0.0-beta.2"

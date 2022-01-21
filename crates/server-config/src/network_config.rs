@@ -16,10 +16,10 @@
 
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use libp2p_metrics::Metrics;
-use prometheus::Registry;
 
 use config_utils::to_peer_id;
 use particle_protocol::ProtocolConfig;
+use peer_metrics::{ConnectivityMetrics, DispatcherMetrics};
 
 use crate::{BootstrapConfig, KademliaConfig, ResolvedConfig};
 
@@ -35,11 +35,13 @@ pub struct NetworkConfig {
     pub particle_queue_buffer: usize,
     pub bootstrap_frequency: usize,
     pub allow_local_addresses: bool,
+    pub connectivity_metrics: Option<ConnectivityMetrics>,
 }
 
 impl NetworkConfig {
     pub fn new(
         libp2p_metrics: Option<Metrics>,
+        connectivity_metrics: Option<ConnectivityMetrics>,
         key_pair: Keypair,
         config: &ResolvedConfig,
         node_version: &'static str,
@@ -56,6 +58,7 @@ impl NetworkConfig {
             particle_queue_buffer: config.particle_queue_buffer,
             bootstrap_frequency: config.bootstrap_frequency,
             allow_local_addresses: config.allow_local_addresses,
+            connectivity_metrics,
         }
     }
 }

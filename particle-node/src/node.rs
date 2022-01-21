@@ -52,6 +52,7 @@ use fluence_libp2p::{
 };
 use particle_builtins::{Builtins, NodeInfo};
 use particle_protocol::Particle;
+use peer_metrics::{ConnectivityMetrics, DispatcherMetrics};
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 
@@ -117,8 +118,15 @@ impl<RT: AquaRuntime> Node<RT> {
             None
         };
         let libp2p_metrics = metrics_registry.as_mut().map(Metrics::new);
+        let connectivity_metrics = metrics_registry.as_mut().map(ConnectivityMetrics::new);
 
-        let network_config = NetworkConfig::new(libp2p_metrics, key_pair, &config, node_version);
+        let network_config = NetworkConfig::new(
+            libp2p_metrics,
+            connectivity_metrics,
+            key_pair,
+            &config,
+            node_version,
+        );
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
             local_peer_id,

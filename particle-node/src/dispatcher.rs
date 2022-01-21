@@ -30,6 +30,7 @@ use aquamarine::{AquamarineApi, AquamarineApiError, NetworkEffects};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
+use peer_metrics::DispatcherMetrics;
 
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
@@ -131,7 +132,7 @@ impl Dispatcher {
                     match effects {
                         Ok(effects) => {
                             // perform effects as instructed by aquamarine
-                            effectors.execute(effects).await;
+                            effectors.execute(effects, particle_failures.clone()).await;
                         }
                         Err(err) => {
                             // particles are sent in fire and forget fashion, so
@@ -147,35 +148,5 @@ impl Dispatcher {
             .await;
 
         log::error!("Effects stream has ended");
-    }
-}
-
-#[derive(Clone)]
-struct DispatcherMetrics {
-    expired_particles: Counter,
-}
-
-impl DispatcherMetrics {
-    pub fn new(registry: &mut Registry, parallelism: Option<usize>) -> Self {
-        let sub_registry = registry.sub_registry_with_prefix("dispatcher");
-
-        let parallelism = Info::new(vec![
-            "particle_parallelism".to_string(),
-            parallelism.map_or("unlimited".to_string(), |p| p.to_string()),
-        ]);
-        sub_registry.register(
-            "particle_parallelism",
-            "limit of simultaneously processed particles",
-            Box::new(parallelism),
-        );
-
-        let expired_particles = Counter::default();
-        sub_registry.register(
-            "particles_expired",
-            "Number of particles expired by TTL",
-            Box::new(expired_particles.clone()),
-        );
-
-        DispatcherMetrics { expired_particles }
     }
 }
