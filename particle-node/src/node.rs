@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::io::Error;
 use std::sync::Arc;
 use std::{io, iter::once, net::SocketAddr};
 
@@ -25,13 +26,17 @@ use futures::{
     stream::{self, StreamExt},
     FutureExt,
 };
+use libp2p::core::either::EitherError;
+use libp2p::ping::Failure;
+use libp2p::swarm::{ProtocolsHandlerUpgrErr, SwarmEvent};
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
     swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
-use prometheus::Registry;
+use libp2p_metrics::{Metrics, Recorder};
+use open_metrics_client::registry::Registry;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreError,
@@ -70,6 +75,7 @@ pub struct Node<RT: AquaRuntime> {
     builtins_deployer: BuiltinsDeployer,
 
     registry: Option<Registry>,
+
     metrics_listen_addr: SocketAddr,
 
     pub local_peer_id: PeerId,
@@ -105,13 +111,14 @@ impl<RT: AquaRuntime> Node<RT> {
         )
         .expect("create services config");
 
-        let metrics_registry = if config.prometheus_config.prometheus_enabled {
-            Some(Registry::new())
+        let mut metrics_registry = if config.metrics_config.metrics_enabled {
+            Some(Registry::default())
         } else {
             None
         };
-        let network_config =
-            NetworkConfig::new(metrics_registry.clone(), key_pair, &config, node_version);
+        let libp2p_metrics = metrics_registry.as_mut().map(Metrics::new);
+
+        let network_config = NetworkConfig::new(libp2p_metrics, key_pair, &config, node_version);
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
             local_peer_id,
@@ -277,25 +284,34 @@ impl<RT: AquaRuntime> Node<RT> {
         let dispatcher = self.dispatcher;
         let aquavm_pool = self.aquavm_pool;
         let script_storage = self.script_storage;
-        let registry = self.registry;
+        let mut registry = self.registry;
         let metrics_listen_addr = self.metrics_listen_addr;
         let local_peer_id = self.local_peer_id;
         let builtins_management_peer_id = self.builtins_management_peer_id;
 
         task::spawn(async move {
-            let mut metrics = if let Some(registry) = registry {
-                start_metrics_endpoint(registry, metrics_listen_addr)
+            let (metrics_fut, libp2p_metrics) = if let Some(mut registry) = registry {
+                let libp2p_metrics = Metrics::new(&mut registry);
+                let fut = start_metrics_endpoint(registry, metrics_listen_addr);
+                (fut, Some(libp2p_metrics))
             } else {
-                futures::future::ready(Ok(())).boxed()
-            }
-            .fuse();
+                (futures::future::ready(Ok(())).boxed(), None)
+            };
+            let mut metrics_fut = metrics_fut.fuse();
 
             let script_storage = script_storage.start();
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let stopped = stream::iter(once(Err(())));
-            let mut swarm = swarm.map(|_e| Ok(())).chain(stopped).fuse();
+
+            let mut swarm = swarm
+                .map(|e| {
+                    libp2p_metrics.as_ref().map(|m| m.record(&e));
+                    Ok(())
+                })
+                .chain(stopped)
+                .fuse();
 
             loop {
                 select!(
@@ -305,7 +321,7 @@ impl<RT: AquaRuntime> Node<RT> {
                             break;
                         }
                     },
-                    e = metrics => {
+                    e = metrics_fut => {
                         if let Err(err) = e {
                             log::warn!("Metrics returned error: {}", err)
                         }

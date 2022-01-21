@@ -323,7 +323,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     resolved.node_config.bootstrap_config = BootstrapConfig::zero();
     resolved.node_config.bootstrap_frequency = 1;
 
-    resolved.prometheus_config.prometheus_enabled = false;
+    resolved.metrics_config.metrics_enabled = false;
 
     resolved.node_config.allow_local_addresses = true;
     resolved.node_config.particle_processing_timeout = Duration::from_secs(45);
@@ -337,26 +337,16 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         .to_peer_id();
     resolved.node_config.management_peer_id = management_peer_id;
 
-    let vm_config = vm_config(
-        BaseVmConfig {
-            peer_id,
-            tmp_dir: tmp_dir.clone(),
-            listen_on: config.listen_on.clone(),
-            manager: management_peer_id,
-        },
-        // to_peer_id(resolved.builtins_key_pair.clone().into()),
-    );
+    let vm_config = vm_config(BaseVmConfig {
+        peer_id,
+        tmp_dir: tmp_dir.clone(),
+        listen_on: config.listen_on.clone(),
+        manager: management_peer_id,
+    });
     let mut node = Node::new(resolved, vm_config, "some version").expect("create node");
     node.listen(vec![config.listen_on.clone()]).expect("listen");
 
     (node.local_peer_id, node, management_kp, config)
-
-    // TODO: this requires ability to convert public keys to PeerId
-    // if let Some(trust) = config.trust {
-    //     node_config.root_weights = trust.root_weights.into_iter().map(|(pk, weight)| {
-    //         pk.
-    //     }).collect();
-    // }
 }
 
 pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig) {

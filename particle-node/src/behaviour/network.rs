@@ -55,7 +55,7 @@ impl NetworkBehaviour {
             kad_config: cfg.kademlia_config,
         };
 
-        let kademlia = Kademlia::new(kad_config, cfg.registry.as_ref());
+        let kademlia = Kademlia::new(kad_config, cfg.libp2p_metrics);
         let (kademlia_api, kademlia) = kademlia.into();
         let (connection_pool, particle_stream) = ConnectionPoolBehaviour::new(
             cfg.particle_queue_buffer,

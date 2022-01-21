@@ -15,6 +15,7 @@
  */
 
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
+use libp2p_metrics::Metrics;
 use prometheus::Registry;
 
 use config_utils::to_peer_id;
@@ -28,7 +29,7 @@ pub struct NetworkConfig {
     pub node_version: &'static str,
     pub bootstrap_nodes: Vec<Multiaddr>,
     pub bootstrap: BootstrapConfig,
-    pub registry: Option<Registry>,
+    pub libp2p_metrics: Option<Metrics>,
     pub protocol_config: ProtocolConfig,
     pub kademlia_config: KademliaConfig,
     pub particle_queue_buffer: usize,
@@ -38,14 +39,14 @@ pub struct NetworkConfig {
 
 impl NetworkConfig {
     pub fn new(
-        registry: Option<Registry>,
+        libp2p_metrics: Option<Metrics>,
         key_pair: Keypair,
         config: &ResolvedConfig,
         node_version: &'static str,
     ) -> Self {
         Self {
             node_version,
-            registry,
+            libp2p_metrics,
             local_peer_id: to_peer_id(&key_pair),
             key_pair,
             bootstrap_nodes: config.bootstrap_nodes.clone(),

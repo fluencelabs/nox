@@ -14,39 +14,37 @@
  * limitations under the License.
  */
 
-use futures::future::BoxFuture;
-use futures::FutureExt;
-use prometheus::Registry;
 use std::io;
 use std::net::SocketAddr;
+use std::sync::Arc;
+
+use futures::future::BoxFuture;
+use futures::FutureExt;
+use open_metrics_client::registry::Registry;
+use parking_lot::Mutex;
 
 pub fn start_metrics_endpoint(
     registry: Registry,
     listen_addr: SocketAddr,
 ) -> BoxFuture<'static, io::Result<()>> {
-    use prometheus::{Encoder, TextEncoder};
+    use open_metrics_client::encoding::text::encode;
     use tide::{Error, StatusCode::InternalServerError};
 
+    let registry = Arc::new(Mutex::new(registry));
     let mut app = tide::with_state(registry);
     app.at("/metrics")
-        .get(|req: tide::Request<Registry>| async move {
-            let mut buffer = vec![];
-            let encoder = TextEncoder::new();
-            let metric_families = req.state().gather();
-
-            encoder
-                .encode(&metric_families, &mut buffer)
-                .map_err(|err| {
-                    let msg = format!("Error encoding prometheus metrics: {:?}", err);
-                    log::warn!("{}", msg);
-                    Error::from_str(InternalServerError, msg)
-                })?;
-
-            String::from_utf8(buffer).map_err(|err| {
-                let msg = format!("Error encoding prometheus metrics: {:?}", err);
+        .get(|req: tide::Request<Arc<Mutex<Registry>>>| async move {
+            let mut encoded = Vec::new();
+            encode(&mut encoded, &req.state().lock()).map_err(|e| {
+                let msg = format!("Error while text-encoding metrics: {}", e);
                 log::warn!("{}", msg);
                 Error::from_str(InternalServerError, msg)
-            })
+            })?;
+            let response = tide::Response::builder(200)
+                .body(encoded)
+                .content_type("application/openmetrics-text; version=1.0.0; charset=utf-8")
+                .build();
+            Ok(response)
         });
 
     app.listen(listen_addr).boxed()

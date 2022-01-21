@@ -48,7 +48,7 @@ pub const MANAGEMENT_PEER_ID: &str = "management_peer_id";
 pub const SERVICES_WORKDIR: &str = "services_workdir";
 pub const LOCAL: &str = "local";
 pub const ALLOW_PRIVATE_IPS: &str = "allow_local_addresses";
-pub const PROMETHEUS_PORT: &str = "prometheus_port";
+pub const METRICS_PORT: &str = "metrics_port";
 pub const AQUA_VM_POOL_SIZE: &str = "aquavm_pool_size";
 
 const ARGS: &[&str] = &[
@@ -68,7 +68,7 @@ const ARGS: &[&str] = &[
     BLUEPRINT_DIR,
     MANAGEMENT_PEER_ID,
     ALLOW_PRIVATE_IPS,
-    PROMETHEUS_PORT,
+    METRICS_PORT,
     AQUA_VM_POOL_SIZE,
 ];
 
@@ -138,7 +138,7 @@ impl ResolvedConfig {
     pub fn metrics_listen_addr(&self) -> SocketAddr {
         SocketAddr::new(
             self.listen_config.listen_ip,
-            self.prometheus_config.prometheus_port,
+            self.metrics_config.metrics_port,
         )
     }
 
@@ -189,7 +189,7 @@ fn insert_args_to_config(
 
         // Convert value to a type of the corresponding field in `FluenceConfig`
         let mut value = match k {
-            WEBSOCKET_PORT | TCP_PORT | PROMETHEUS_PORT | AQUA_VM_POOL_SIZE => {
+            WEBSOCKET_PORT | TCP_PORT | METRICS_PORT | AQUA_VM_POOL_SIZE => {
                 Integer(single(arg).parse()?)
             }
             BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => Array(multiple(arg).collect()),

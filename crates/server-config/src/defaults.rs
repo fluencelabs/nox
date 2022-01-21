@@ -54,10 +54,10 @@ pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
 pub fn default_websocket_port() -> u16 {
     9999
 }
-pub fn default_prometheus_port() -> u16 {
+pub fn default_metrics_port() -> u16 {
     18080
 }
-pub fn default_prometheus_enabled() -> bool {
+pub fn default_metrics_enabled() -> bool {
     true
 }
 

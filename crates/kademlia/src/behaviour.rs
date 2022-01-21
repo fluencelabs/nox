@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-use crate::error::{KademliaError, Result};
-
-use control_macro::get_return;
-use fluence_libp2p::{generate_swarm_event_type, types::OneshotOutlet};
-use particle_protocol::Contact;
+use std::convert::TryFrom;
+use std::{
+    cmp::min,
+    collections::HashMap,
+    ops::Deref,
+    task::Waker,
+    time::{Duration, Instant},
+};
 
 use futures::FutureExt;
 use futures_timer::Delay;
@@ -36,16 +39,15 @@ use libp2p::{
     swarm::{NetworkBehaviour, NetworkBehaviourEventProcess},
     PeerId,
 };
+use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
-use prometheus::Registry;
-use std::convert::TryFrom;
-use std::{
-    cmp::min,
-    collections::HashMap,
-    ops::Deref,
-    task::Waker,
-    time::{Duration, Instant},
-};
+use open_metrics_client::registry::Registry;
+
+use control_macro::get_return;
+use fluence_libp2p::{generate_swarm_event_type, types::OneshotOutlet};
+use particle_protocol::Contact;
+
+use crate::error::{KademliaError, Result};
 
 pub struct KademliaConfig {
     pub peer_id: PeerId,
@@ -120,18 +122,16 @@ pub struct Kademlia {
     #[behaviour(ignore)]
     // Timer to track timed out requests, and return errors ASAP
     timer: Delay,
+    #[behaviour(ignore)]
+    metrics: Option<Metrics>,
 }
 
 impl Kademlia {
-    pub fn new(config: KademliaConfig, registry: Option<&Registry>) -> Self {
+    pub fn new(config: KademliaConfig, metrics: Option<Metrics>) -> Self {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
         let mut kademlia = kad::Kademlia::with_config(config.peer_id, store, config.as_libp2p());
-
-        // if let Some(registry) = registry {
-        //     kademlia.enable_metrics(registry);
-        // }
 
         Self {
             kademlia,
@@ -141,6 +141,7 @@ impl Kademlia {
             config,
             waker: None,
             timer,
+            metrics,
         }
     }
 
@@ -391,6 +392,10 @@ fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut
 
 impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
     fn inject_event(&mut self, event: KademliaEvent) {
+        if let Some(metrics) = &self.metrics {
+            metrics.record(&event);
+        }
+
         match event {
             KademliaEvent::OutboundQueryCompleted { id, result, .. } => match result {
                 QueryResult::GetClosestPeers(result) => self.closest_finished(id, result),
@@ -412,20 +417,23 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
 
 #[cfg(test)]
 mod tests {
-    use super::Kademlia;
-    use crate::{KademliaConfig, KademliaError};
-    use async_std::task;
-    use fluence_libp2p::{build_memory_transport, RandomPeerId};
+    use std::task::Poll;
+    use std::time::Duration;
 
-    use fluence_libp2p::random_multiaddr::create_memory_maddr;
+    use async_std::task;
     use futures::channel::oneshot;
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
     use libp2p::identity::{Keypair, PublicKey};
     use libp2p::PeerId;
     use libp2p::Swarm;
-    use std::task::Poll;
-    use std::time::Duration;
+
+    use fluence_libp2p::random_multiaddr::create_memory_maddr;
+    use fluence_libp2p::{build_memory_transport, RandomPeerId};
+
+    use crate::{KademliaConfig, KademliaError};
+
+    use super::Kademlia;
 
     fn kad_config() -> KademliaConfig {
         let keypair = Keypair::generate_ed25519();

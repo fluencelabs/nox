@@ -14,7 +14,7 @@ air-interpreter-fs = { path = "../air-interpreter-fs" }
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
 
 libp2p = "0.42"
-
+libp2p-metrics = "0.3.0"
 
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"
