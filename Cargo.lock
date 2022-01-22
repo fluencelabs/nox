@@ -4047,6 +4047,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fs-utils",
+ "humantime-serde",
  "json-utils",
  "libp2p-core",
  "log",
