@@ -28,7 +28,7 @@ use futures::task::Waker;
 use mock_time::now_ms;
 use particle_execution::{ParticleFunctionStatic, ParticleParams};
 use particle_protocol::Particle;
-use peer_metrics::{ParticleExecutorMetrics, ServiceCall};
+use peer_metrics::ParticleExecutorMetrics;
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
@@ -182,22 +182,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             }
 
             for stat in &stats {
-                let label = if stat.builtin {
-                    ServiceCall::Builtin
-                } else {
-                    ServiceCall::Service
-                };
-
-                if stat.success {
-                    m.service_call_success.get_or_create(&label).inc();
-                } else {
-                    m.service_call_failure.get_or_create(&label).inc();
-                }
-                if let Some(run_time) = stat.run_time {
-                    m.service_call_time_sec
-                        .get_or_create(&label)
-                        .observe(run_time.as_secs_f64())
-                }
+                m.service_call(stat.success, stat.builtin, stat.run_time)
             }
         });
 

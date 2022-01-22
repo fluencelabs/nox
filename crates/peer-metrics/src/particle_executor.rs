@@ -4,11 +4,16 @@ use open_metrics_client::metrics::family::Family;
 use open_metrics_client::metrics::gauge::Gauge;
 use open_metrics_client::metrics::histogram::Histogram;
 use open_metrics_client::registry::Registry;
+use std::time::Duration;
 
-#[derive(Encode, Hash, Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Encode, Hash, Clone, Eq, PartialEq)]
 pub enum ServiceCall {
     Builtin,
     Service,
+}
+#[derive(Encode, Hash, Clone, Eq, PartialEq)]
+pub struct ServiceCallLabel {
+    call_kind: ServiceCall,
 }
 
 #[derive(Clone)]
@@ -20,9 +25,9 @@ pub struct ParticleExecutorMetrics {
     pub free_interpreters: Gauge,
     pub total_actors_mailbox: Gauge,
     pub alive_actors: Gauge,
-    pub service_call_time_sec: Family<ServiceCall, Histogram>,
-    pub service_call_success: Family<ServiceCall, Counter>,
-    pub service_call_failure: Family<ServiceCall, Counter>,
+    service_call_time_sec: Family<ServiceCallLabel, Histogram>,
+    service_call_success: Family<ServiceCallLabel, Counter>,
+    service_call_failure: Family<ServiceCallLabel, Counter>,
 }
 
 impl ParticleExecutorMetrics {
@@ -108,6 +113,26 @@ impl ParticleExecutorMetrics {
             service_call_time_sec,
             service_call_success,
             service_call_failure,
+        }
+    }
+
+    pub fn service_call(&self, success: bool, builtin: bool, run_time: Option<Duration>) {
+        let call_kind = if builtin {
+            ServiceCall::Builtin
+        } else {
+            ServiceCall::Service
+        };
+        let label = ServiceCallLabel { call_kind };
+
+        if success {
+            self.service_call_success.get_or_create(&label).inc();
+        } else {
+            self.service_call_failure.get_or_create(&label).inc();
+        }
+        if let Some(run_time) = run_time {
+            self.service_call_time_sec
+                .get_or_create(&label)
+                .observe(run_time.as_secs_f64())
         }
     }
 }

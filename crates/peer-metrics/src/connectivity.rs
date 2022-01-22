@@ -11,9 +11,13 @@ pub enum Resolution {
     KademliaError,
     ConnectionFailed,
 }
+#[derive(Encode, Hash, Clone, Eq, PartialEq)]
+pub struct ResolutionLabel {
+    action: Resolution,
+}
 #[derive(Clone)]
 pub struct ConnectivityMetrics {
-    contact_resolve: Family<Resolution, Counter>,
+    contact_resolve: Family<ResolutionLabel, Counter>,
     pub particle_send_success: Counter,
     pub particle_send_failure: Counter,
     pub bootstrap_disconnected: Counter,
@@ -69,6 +73,8 @@ impl ConnectivityMetrics {
     }
 
     pub fn count_resolution(&self, resolution: Resolution) {
-        self.contact_resolve.get_or_create(&resolution).inc();
+        self.contact_resolve
+            .get_or_create(&ResolutionLabel { action: resolution })
+            .inc();
     }
 }
