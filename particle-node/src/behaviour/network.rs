@@ -61,6 +61,7 @@ impl NetworkBehaviour {
             cfg.particle_queue_buffer,
             cfg.protocol_config,
             cfg.local_peer_id,
+            cfg.connection_pool_metrics,
         );
         let (connection_pool_api, connection_pool) = connection_pool.into();
 

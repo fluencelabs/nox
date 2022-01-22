@@ -407,12 +407,12 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         match event {
             HandlerMessage::InParticle(particle) => {
                 log::trace!(target: "network", "received particle {} from {}; queue {}", particle.id, from, self.queue.len());
-                self.queue.push_back(particle);
                 self.meter(|m| {
-                    m.particle_queue_size.set(self.queue.len() as u64);
+                    m.particle_queue_size.set(self.queue.len() as u64 + 1);
                     m.received_particles.inc();
                     m.particle_sizes.observe(particle.data.len() as f64);
                 });
+                self.queue.push_back(particle);
                 self.wake();
             }
             HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),

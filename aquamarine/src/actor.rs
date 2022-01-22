@@ -106,19 +106,14 @@ where
         if let Some(Poll::Ready(r)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
             self.future.take();
 
-            let effects = match r.effects {
-                Ok(effects) => {
-                    // Schedule execution of functions
-                    self.functions
-                        .execute(effects.call_requests, cx.waker().clone());
-                    Ok(NetworkEffects {
-                        particle: effects.particle,
-                        next_peers: effects.next_peers,
-                    })
-                }
-                Err(err) => Err(err),
-            };
+            // Schedule execution of functions
+            let waker = cx.waker().clone();
+            self.functions.execute(r.effects.call_requests, waker);
 
+            let effects = NetworkEffects {
+                particle: r.effects.particle,
+                next_peers: r.effects.next_peers,
+            };
             return Poll::Ready(FutResult { vm: r.vm, effects });
         }
 

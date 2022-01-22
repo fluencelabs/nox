@@ -24,7 +24,6 @@ use humantime::format_duration as pretty;
 use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
-use crate::error::AquamarineApiError;
 use crate::particle_effects::ParticleEffects;
 
 pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects>>;
@@ -61,7 +60,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             } else {
                 log::trace!(target: "network", "Particle {} executed in {} [{} bytes => {} bytes]", p.id, pretty(time), p.data.len(), result.as_ref().map(|e| e.data.len() as i32).unwrap_or(-1));
             }
-            let effects = Ok(Self::into_effects(result, p, time));
+            let effects = Self::into_effects(result, p, time);
 
             waker.wake();
 

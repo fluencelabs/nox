@@ -155,7 +155,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
         // Turn effects into events, and buffer them
         for effect in effects {
-            self.events.push_back(effect);
+            self.events.push_back(Ok(effect));
         }
 
         // Return a new event if there is some

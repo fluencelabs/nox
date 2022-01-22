@@ -1,6 +1,6 @@
 use open_metrics_client::metrics::counter::Counter;
 use open_metrics_client::metrics::gauge::Gauge;
-use open_metrics_client::metrics::histogram::Histogram;
+use open_metrics_client::metrics::histogram::{exponential_buckets, linear_buckets, Histogram};
 use open_metrics_client::registry::Registry;
 
 #[derive(Clone)]
@@ -22,7 +22,8 @@ impl ConnectionPoolMetrics {
             Box::new(received_particles.clone()),
         );
 
-        let particle_sizes = Histogram::default();
+        // from 100 bytes to 100 MB
+        let particle_sizes = Histogram::new(exponential_buckets(100.0, 10.0, 7));
         sub_registry.register(
             "particle_sizes",
             "Distribution of particle data sizes",
