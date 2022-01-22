@@ -23,14 +23,6 @@ use futures::FutureExt;
 use open_metrics_client::registry::Registry;
 use parking_lot::Mutex;
 
-const OUTPUT: &str = r#"
-# HELP particle_executor_service_call_success Number of succeeded service calls.
-# TYPE particle_executor_service_call_success counter
-particle_executor_service_call_success_total{Service} 26
-particle_executor_service_call_success_total{Builtin} 29
-# EOF
-"#;
-
 pub fn start_metrics_endpoint(
     registry: Registry,
     listen_addr: SocketAddr,
@@ -42,14 +34,14 @@ pub fn start_metrics_endpoint(
     let mut app = tide::with_state(registry);
     app.at("/metrics")
         .get(|req: tide::Request<Arc<Mutex<Registry>>>| async move {
-            // let mut encoded = Vec::new();
-            // encode(&mut encoded, &req.state().lock()).map_err(|e| {
-            //     let msg = format!("Error while text-encoding metrics: {}", e);
-            //     log::warn!("{}", msg);
-            //     Error::from_str(InternalServerError, msg)
-            // })?;
+            let mut encoded = Vec::new();
+            encode(&mut encoded, &req.state().lock()).map_err(|e| {
+                let msg = format!("Error while text-encoding metrics: {}", e);
+                log::warn!("{}", msg);
+                Error::from_str(InternalServerError, msg)
+            })?;
             let response = tide::Response::builder(200)
-                .body(OUTPUT.as_bytes())
+                .body(encoded)
                 .content_type("text/plain; version=1.0.0; charset=utf-8")
                 .build();
             Ok(response)
