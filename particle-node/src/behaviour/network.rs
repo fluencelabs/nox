@@ -51,7 +51,6 @@ impl NetworkBehaviour {
 
         let kad_config = KademliaConfig {
             peer_id: cfg.local_peer_id,
-            keypair: cfg.key_pair,
             kad_config: cfg.kademlia_config,
         };
 

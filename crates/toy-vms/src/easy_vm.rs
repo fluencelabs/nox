@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquaRuntime, InterpretationStats, ParticleEffects};
+use aquamarine::{AquaRuntime, ParticleEffects};
 use avm_server::{AVMOutcome, CallResults};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
@@ -39,19 +39,11 @@ impl AquaRuntime for EasyVM {
         futures::future::ok(EasyVM { delay }).boxed()
     }
 
-    fn into_effects(
-        outcome: Result<AVMOutcome, Self::Error>,
-        mut p: Particle,
-        interpretation_time: Duration,
-    ) -> ParticleEffects {
+    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, mut p: Particle) -> ParticleEffects {
         let outcome = outcome.unwrap();
         p.data = outcome.data;
 
         ParticleEffects {
-            stats: InterpretationStats {
-                interpretation_time,
-                new_data_len: Some(p.data.len()),
-            },
             particle: p,
             next_peers: outcome
                 .next_peer_pks

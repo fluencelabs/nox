@@ -60,7 +60,7 @@ impl Effectors {
                     }
                 }
                 // not exited yet, so either resolve or send failed. Report failure.
-                particle_failures.send(particle_id);
+                particle_failures.send(particle_id).await.ok();
             }
         })
         .await;

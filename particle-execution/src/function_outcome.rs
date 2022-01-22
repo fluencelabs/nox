@@ -32,6 +32,13 @@ pub enum FunctionOutcome {
     Err(JError),
 }
 
+impl FunctionOutcome {
+    /// Returns [false] if variant is [NotDefined]
+    pub fn is_defined(&self) -> bool {
+        !matches!(self, Self::NotDefined { .. })
+    }
+}
+
 impl<E: std::error::Error> From<E> for FunctionOutcome {
     fn from(err: E) -> Self {
         FunctionOutcome::Err(JError(err_as_value(err)))

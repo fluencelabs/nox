@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::ops::Div;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, VecDeque},
@@ -27,6 +28,7 @@ use futures::task::Waker;
 use mock_time::now_ms;
 use particle_execution::{ParticleFunctionStatic, ParticleParams};
 use particle_protocol::Particle;
+use peer_metrics::{ParticleExecutorMetrics, ServiceCall};
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
@@ -45,16 +47,18 @@ pub struct Plumber<RT: AquaRuntime, F> {
     vm_pool: VmPool<RT>,
     builtins: Arc<F>,
     waker: Option<Waker>,
+    metrics: Option<ParticleExecutorMetrics>,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
-    pub fn new(vm_pool: VmPool<RT>, builtins: F) -> Self {
+    pub fn new(vm_pool: VmPool<RT>, builtins: F, metrics: Option<ParticleExecutorMetrics>) -> Self {
         Self {
             vm_pool,
             builtins: Arc::new(builtins),
             events: <_>::default(),
             actors: <_>::default(),
             waker: <_>::default(),
+            metrics,
         }
     }
 
@@ -102,7 +106,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let mut mailbox_size = 0;
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
-                effects.push(result.effects);
+                effects.push((result.effects, result.stats));
                 self.vm_pool.put_vm(result.vm);
             }
             mailbox_size += actor.mailbox_size();
@@ -136,10 +140,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         // Execute next messages
+        let mut stats = vec![];
         for actor in self.actors.values_mut() {
             if let Some(vm) = self.vm_pool.get_vm() {
-                if let ActorPoll::Vm(vm) = actor.poll_next(vm, cx) {
-                    self.vm_pool.put_vm(vm)
+                match actor.poll_next(vm, cx) {
+                    ActorPoll::Vm(vm) => self.vm_pool.put_vm(vm),
+                    ActorPoll::Executing(mut s) => stats.append(&mut s),
                 }
             } else {
                 // TODO: calculate deviations from normal mailbox_size
@@ -153,8 +159,50 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             }
         }
 
+        self.meter(|m| {
+            for (_, stat) in &effects {
+                // count particle interpretations
+                if stat.success {
+                    m.interpretation_successes.inc();
+                } else {
+                    m.interpretation_failures.inc();
+                }
+
+                let time = stat.interpretation_time.as_secs_f64();
+                m.interpretation_time_sec.observe(time);
+                if let Some(new_data_len) = stat.new_data_len {
+                    // divide interpretation time by data size
+                    let normalized = time.div(new_data_len as f64);
+                    m.normalized_interpretation_time_sec.observe(normalized);
+                }
+
+                m.total_actors_mailbox.set(mailbox_size as u64);
+                m.alive_actors.set(self.actors.len() as u64);
+                m.free_interpreters.set(self.vm_pool.free_vms() as u64);
+            }
+
+            for stat in &stats {
+                let label = if stat.builtin {
+                    ServiceCall::Builtin
+                } else {
+                    ServiceCall::Service
+                };
+
+                if stat.success {
+                    m.service_call_success.get_or_create(&label).inc();
+                } else {
+                    m.service_call_failure.get_or_create(&label).inc();
+                }
+                if let Some(run_time) = stat.run_time {
+                    m.service_call_time_sec
+                        .get_or_create(&label)
+                        .observe(run_time.as_secs_f64())
+                }
+            }
+        });
+
         // Turn effects into events, and buffer them
-        for effect in effects {
+        for (effect, _) in effects {
             self.events.push_back(Ok(effect));
         }
 
@@ -170,6 +218,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         if let Some(waker) = &self.waker {
             waker.wake_by_ref();
         }
+    }
+
+    fn meter<U, FF: Fn(&ParticleExecutorMetrics) -> U>(&self, f: FF) {
+        self.metrics.as_ref().map(f);
     }
 }
 

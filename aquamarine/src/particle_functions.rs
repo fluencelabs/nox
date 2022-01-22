@@ -17,7 +17,7 @@
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::task::{Context, Poll, Waker};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use avm_server::{CallRequestParams, CallRequests, CallResults, CallServiceResult};
 use futures::future::BoxFuture;
@@ -36,11 +36,26 @@ use particle_execution::{
 pub type Function =
     Box<dyn FnMut(Args, ParticleParams) -> ParticleFunctionOutput<'static> + 'static + Send + Sync>;
 
+#[derive(Clone, Debug)]
+pub struct SingleCallStat {
+    pub run_time: Option<Duration>,
+    pub success: bool,
+    pub builtin: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct SingleCallResult {
+    call_id: u32,
+    result: CallServiceResult,
+    stat: SingleCallStat,
+}
+
 pub struct Functions<F> {
     particle: ParticleParams,
     builtins: Arc<F>,
-    function_calls: FuturesUnordered<BoxFuture<'static, (u32, CallServiceResult)>>,
+    function_calls: FuturesUnordered<BoxFuture<'static, SingleCallResult>>,
     call_results: CallResults,
+    call_stats: Vec<SingleCallStat>,
     particle_function: Option<Arc<Mutex<Function>>>,
 }
 
@@ -51,19 +66,21 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             builtins,
             function_calls: <_>::default(),
             call_results: <_>::default(),
+            call_stats: <_>::default(),
             particle_function: None,
         }
     }
 
     /// Advance call requests execution
     pub fn poll(&mut self, cx: &mut Context<'_>) {
-        while let Poll::Ready(Some((id, result))) = self.function_calls.poll_next_unpin(cx) {
-            let overwritten = self.call_results.insert(id, result);
+        while let Poll::Ready(Some(r)) = self.function_calls.poll_next_unpin(cx) {
+            let overwritten = self.call_results.insert(r.call_id, r.result);
+            self.call_stats.push(r.stat);
 
             debug_assert!(
                 overwritten.is_none(),
-                "unreachable: function call {} overwritten",
-                id
+                "unreachable: function call result {} was overwritten",
+                r.call_id
             );
         }
     }
@@ -78,8 +95,11 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     }
 
     /// Retrieve all existing call results
-    pub fn drain(&mut self) -> CallResults {
-        std::mem::take(&mut self.call_results)
+    pub fn drain(&mut self) -> (CallResults, Vec<SingleCallStat>) {
+        let call_results = std::mem::take(&mut self.call_results);
+        let stats = std::mem::take(&mut self.call_stats);
+
+        (call_results, stats)
     }
 
     pub fn set_function(&mut self, function: Function) {
@@ -95,10 +115,10 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     //       maybe it's a good option.
     fn call(
         &self,
-        id: u32,
+        call_id: u32,
         call: CallRequestParams,
         waker: Waker,
-    ) -> BoxFuture<'static, (u32, CallServiceResult)> {
+    ) -> BoxFuture<'static, SingleCallResult> {
         use async_std::task::{block_on, spawn_blocking};
 
         // Deserialize params
@@ -112,7 +132,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         err
                     )),
                 };
-                return async move { (id, result) }.boxed();
+                let result = SingleCallResult {
+                    call_id,
+                    result,
+                    stat: SingleCallStat {
+                        run_time: None,
+                        success: false,
+                        builtin: false,
+                    },
+                };
+                return async move { result }.boxed();
             }
         };
 
@@ -127,7 +156,9 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         let result = spawn_blocking(move || {
             block_on(async move {
                 let outcome = builtins.call(args, params).await;
-                match outcome {
+                // record whether call was handled by builtin or not. needed for stats.
+                let builtin = outcome.is_defined();
+                let outcome = match outcome {
                     // If particle_function isn't set, just return what we have
                     outcome if particle_function.is_none() => outcome,
                     // If builtins weren't defined over these args, try particle_function
@@ -141,14 +172,14 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                     }
                     // Builtins were called, return their outcome
                     outcome => outcome,
-                }
+                };
+                (outcome, builtin)
             })
         });
 
-        let elapsed = pretty(start.elapsed());
-
         async move {
-            let result: FunctionOutcome = result.await;
+            let (result, builtin): (FunctionOutcome, bool) = result.await;
+            let elapsed = start.elapsed();
 
             let result = match result {
                 FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
@@ -161,9 +192,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             };
 
             if let Err(err) = &result {
+                let elapsed = pretty(elapsed);
                 log::warn!("Failed host call {} ({}): {}", log_args, elapsed, err)
             } else {
-                log::info!("Executed host call {} ({})", log_args, elapsed);
+                log::info!("Executed host call {} ({})", log_args, pretty(elapsed));
+            };
+
+            let stats = SingleCallStat {
+                run_time: Some(elapsed),
+                success: result.is_ok(),
+                builtin,
             };
 
             let result = match result {
@@ -179,7 +217,11 @@ impl<F: ParticleFunctionStatic> Functions<F> {
 
             waker.wake();
 
-            (id, result)
+            SingleCallResult {
+                call_id,
+                result,
+                stat: stats,
+            }
         }
         .boxed()
     }

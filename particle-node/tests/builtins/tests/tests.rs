@@ -25,6 +25,7 @@ mod src {
         mod pubsub;
 
         #[derive(serde::Deserialize, Debug)]
+        #[allow(dead_code)]
         pub struct Record {
             value: String,
             peer_id: String,

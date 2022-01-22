@@ -49,6 +49,11 @@ impl<RT: AquaRuntime> VmPool<RT> {
         }
     }
 
+    /// Number of currently unused vms
+    pub fn free_vms(&self) -> usize {
+        self.runtimes.len()
+    }
+
     /// Takes VM from pool
     pub fn get_vm(&mut self) -> Option<RT> {
         self.runtimes.pop_front()

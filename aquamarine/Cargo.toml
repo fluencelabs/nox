@@ -14,6 +14,7 @@ config-utils = { path = "../crates/config-utils" }
 particle-args = { path = "../crates/particle-args" }
 control-macro = { path = "../crates/control-macro" }
 fs-utils = { path = "../crates/fs-utils" }
+peer-metrics = { path = "../crates/peer-metrics" }
 particle-execution = { path = "../particle-execution" }
 
 avm-server = "0.13.0"

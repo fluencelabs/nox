@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::convert::TryFrom;
 use std::{
     cmp::min,
     collections::HashMap,
@@ -25,12 +24,10 @@ use std::{
 
 use futures::FutureExt;
 use futures_timer::Delay;
-use libp2p::identity::PublicKey;
 use libp2p::kad::kbucket::Key;
 use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{
     core::Multiaddr,
-    identity,
     kad::{
         self, store::MemoryStore, BootstrapError, BootstrapOk, BootstrapResult,
         GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult, KademliaEvent, QueryId,
@@ -41,7 +38,6 @@ use libp2p::{
 };
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
-use open_metrics_client::registry::Registry;
 
 use control_macro::get_return;
 use fluence_libp2p::{generate_swarm_event_type, types::OneshotOutlet};
@@ -51,7 +47,6 @@ use crate::error::{KademliaError, Result};
 
 pub struct KademliaConfig {
     pub peer_id: PeerId,
-    pub keypair: identity::Keypair,
     // TODO: wonderful name clashing. I guess it is better to rename one of the KademliaConfig's to something else. You'll figure it out.
     pub kad_config: server_config::KademliaConfig,
 }
@@ -131,7 +126,7 @@ impl Kademlia {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
-        let mut kademlia = kad::Kademlia::with_config(config.peer_id, store, config.as_libp2p());
+        let kademlia = kad::Kademlia::with_config(config.peer_id, store, config.as_libp2p());
 
         Self {
             kademlia,
@@ -145,7 +140,7 @@ impl Kademlia {
         }
     }
 
-    pub fn add_kad_node(&mut self, peer: PeerId, addresses: Vec<Multiaddr>, public_key: PublicKey) {
+    pub fn add_kad_node(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
         for addr in addresses {
             self.kademlia.add_address(&peer, addr.clone());
         }
@@ -424,7 +419,7 @@ mod tests {
     use futures::channel::oneshot;
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
-    use libp2p::identity::{Keypair, PublicKey};
+    use libp2p::identity::Keypair;
     use libp2p::PeerId;
     use libp2p::Swarm;
 
@@ -435,14 +430,9 @@ mod tests {
 
     use super::Kademlia;
 
-    fn kad_config() -> KademliaConfig {
-        let keypair = Keypair::generate_ed25519();
-        let public_key = keypair.public();
-        let peer_id = PeerId::from(public_key);
-
+    fn kad_config(peer_id: PeerId) -> KademliaConfig {
         KademliaConfig {
             peer_id,
-            keypair,
             kad_config: server_config::KademliaConfig {
                 query_timeout: Duration::from_millis(100),
                 peer_fail_threshold: 1,
@@ -452,11 +442,11 @@ mod tests {
         }
     }
 
-    fn make_node() -> (Swarm<Kademlia>, Multiaddr, PublicKey) {
-        let config = kad_config();
-        let kp = config.keypair.clone();
-        let peer_id = config.peer_id.clone();
-        let pk = config.keypair.public();
+    fn make_node() -> (Swarm<Kademlia>, Multiaddr) {
+        let kp = Keypair::generate_ed25519();
+        let public_key = kp.public();
+        let peer_id = PeerId::from(public_key);
+        let config = kad_config(peer_id);
         let kad = Kademlia::new(config, None);
         let timeout = Duration::from_secs(20);
 
@@ -464,16 +454,16 @@ mod tests {
         let maddr = create_memory_maddr();
         Swarm::listen_on(&mut swarm, maddr.clone()).ok();
 
-        (swarm, maddr, pk)
+        (swarm, maddr)
     }
 
     #[test]
     fn discovery() {
-        let (mut a, a_addr, a_pk) = make_node();
-        let (mut b, b_addr, b_pk) = make_node();
-        let (c, c_addr, c_pk) = make_node();
-        let (d, d_addr, d_pk) = make_node();
-        let (e, e_addr, e_pk) = make_node();
+        let (mut a, a_addr) = make_node();
+        let (mut b, b_addr) = make_node();
+        let (c, c_addr) = make_node();
+        let (d, d_addr) = make_node();
+        let (e, e_addr) = make_node();
 
         // a knows everybody
         Swarm::dial(&mut a, b_addr.clone()).unwrap();
@@ -523,7 +513,7 @@ mod tests {
 
     #[test]
     fn dont_repeat_discovery() {
-        let (mut node, _, _) = make_node();
+        let (mut node, _) = make_node();
         let peer = RandomPeerId::random();
 
         node.behaviour_mut()
@@ -538,7 +528,7 @@ mod tests {
     fn ban() {
         use async_std::future::timeout;
 
-        let (mut node, _, _) = make_node();
+        let (mut node, _) = make_node();
         let peer = RandomPeerId::random();
 
         node.behaviour_mut()

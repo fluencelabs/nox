@@ -29,24 +29,24 @@ pub struct ParticleEffects {
     pub next_peers: Vec<PeerId>,
     /// Instruction to execute host calls
     pub call_requests: CallRequests,
-    pub stats: InterpretationStats,
 }
 
 impl ParticleEffects {
-    pub fn empty(particle: Particle, stats: InterpretationStats) -> Self {
+    pub fn empty(particle: Particle) -> Self {
         Self {
             particle,
             next_peers: vec![],
             call_requests: <_>::default(),
-            stats,
         }
     }
 }
 
 #[derive(Clone, Debug)]
+/// Performance stats about particle's interpretation
 pub struct InterpretationStats {
     pub interpretation_time: Duration,
     pub new_data_len: Option<usize>,
+    pub success: bool,
 }
 
 /// Network part of the [[ParticleEffects]. Can't be executed by Aquamarine layer,

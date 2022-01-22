@@ -46,7 +46,7 @@ fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch =
 fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "no-mem-limits" }
 fluence-faas = { git = "https://github.com/fluencelabs/marine", branch = "no-mem-limits" }
 
-libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "local_closest_peers" }
-libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "local_closest_peers" }
-libp2p-noise = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "local_closest_peers" }
-libp2p-metrics = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "local_closest_peers" }
+libp2p = { git = "https://github.com/libp2p/rust-libp2p", branch = "master" }
+libp2p-core = { git = "https://github.com/libp2p/rust-libp2p", branch = "master" }
+libp2p-noise = { git = "https://github.com/libp2p/rust-libp2p", branch = "master" }
+libp2p-metrics = { git = "https://github.com/libp2p/rust-libp2p", branch = "master" }

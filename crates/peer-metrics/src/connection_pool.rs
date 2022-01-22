@@ -1,6 +1,6 @@
 use open_metrics_client::metrics::counter::Counter;
 use open_metrics_client::metrics::gauge::Gauge;
-use open_metrics_client::metrics::histogram::{exponential_buckets, linear_buckets, Histogram};
+use open_metrics_client::metrics::histogram::{exponential_buckets, Histogram};
 use open_metrics_client::registry::Registry;
 
 #[derive(Clone)]
