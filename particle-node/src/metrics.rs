@@ -42,7 +42,7 @@ pub fn start_metrics_endpoint(
             })?;
             let response = tide::Response::builder(200)
                 .body(encoded)
-                .content_type("application/openmetrics-text; version=1.0.0; charset=utf-8")
+                .content_type("text/plain; version=1.0.0; charset=utf-8")
                 .build();
             Ok(response)
         });
