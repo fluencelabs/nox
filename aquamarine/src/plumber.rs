@@ -219,77 +219,165 @@ mod real_time {
 }
 
 #[cfg(test)]
-// mod tests {
-//     use crate::actor::Deadline;
-//     use crate::plumber::mock_time::set_mock_time;
-//     use crate::plumber::{is_expired, now, real_time};
-//     use crate::Plumber;
-//
-//     use particle_protocol::Particle;
-//
-//     use futures::task::noop_waker_ref;
-//     use std::{sync::Arc, task::Context};
-//
-//     fn plumber() -> Plumber {
-//         let config = <_>::default();
-//         let host_closure = Arc::new(|| panic!("no host_closure no no no"));
-//         Plumber::new(config, host_closure)
-//     }
-//
-//     fn particle(ts: u64, ttl: u32) -> Particle {
-//         let mut particle = Particle::default();
-//         particle.timestamp = ts;
-//         particle.ttl = ttl;
-//
-//         particle
-//     }
-//
-//     fn context() -> Context<'static> {
-//         Context::from_waker(noop_waker_ref())
-//     }
-//
-//     /// Checks that expired actor will be removed
-//     #[test]
-//     fn remove_expired() {
-//         set_mock_time(real_time::now());
-//
-//         let mut plumber = plumber();
-//
-//         let particle = particle(now(), 1);
-//         let deadline = Deadline::from(&particle);
-//         assert!(!deadline.is_expired(now()));
-//
-//         plumber.ingest(particle);
-//
-//         assert_eq!(plumber.actors.len(), 1);
-//         let mut cx = context();
-//         assert!(plumber.poll(&mut cx).is_pending());
-//         assert_eq!(plumber.actors.len(), 1);
-//
-//         set_mock_time(now() + 2);
-//         assert!(plumber.poll(&mut cx).is_pending());
-//         assert_eq!(plumber.actors.len(), 0);
-//     }
-//
-//     /// Checks that expired particle won't create an actor
-//     #[test]
-//     fn ignore_expired() {
-//         set_mock_time(real_time::now());
-//
-//         let mut plumber = plumber();
-//         let particle = particle(now() - 100, 99);
-//         assert!(is_expired(now(), &particle));
-//
-//         plumber.ingest(particle);
-//
-//         assert_eq!(plumber.actors.len(), 0);
-//
-//         // Check actor doesn't appear after poll somehow
-//         set_mock_time(now() + 1000);
-//         assert!(plumber.poll(&mut context()).is_pending());
-//         assert_eq!(plumber.actors.len(), 0);
-//     }
-// }
+mod tests {
+    use std::convert::Infallible;
+    use std::task::Waker;
+    use std::{sync::Arc, task::Context};
+
+    use avm_server::{AVMOutcome, CallResults};
+    use futures::future::BoxFuture;
+    use futures::task::noop_waker_ref;
+    use futures::FutureExt;
+
+    use fluence_libp2p::PeerId;
+    use particle_args::Args;
+    use particle_execution::{ParticleFunction, ParticleParams};
+    use particle_protocol::Particle;
+
+    use crate::deadline::Deadline;
+    use crate::plumber::mock_time::set_mock_time;
+    use crate::plumber::{now_ms, real_time};
+    use crate::vm_pool::VmPool;
+    use crate::AquamarineApiError::ParticleExpired;
+    use crate::{AquaRuntime, ParticleEffects, Plumber};
+
+    struct MockF;
+    impl ParticleFunction for MockF {
+        fn call(
+            &self,
+            _args: Args,
+            _particle: ParticleParams,
+        ) -> particle_execution::ParticleFunctionOutput<'_> {
+            panic!("no builtins in plumber tests!")
+        }
+    }
+
+    struct VMMock;
+    impl AquaRuntime for VMMock {
+        type Config = ();
+        type Error = Infallible;
+
+        fn create_runtime(
+            _config: Self::Config,
+            _waker: Waker,
+        ) -> BoxFuture<'static, Result<Self, Self::Error>> {
+            async { Ok(VMMock) }.boxed()
+        }
+
+        fn into_effects(
+            _outcome: Result<AVMOutcome, Self::Error>,
+            _p: Particle,
+        ) -> ParticleEffects {
+            ParticleEffects {
+                particle: Default::default(),
+                next_peers: vec![],
+                call_requests: Default::default(),
+            }
+        }
+
+        fn call(
+            &mut self,
+            _init_user_id: PeerId,
+            _aqua: String,
+            _data: Vec<u8>,
+            _particle_id: &str,
+            _call_results: CallResults,
+        ) -> Result<AVMOutcome, Self::Error> {
+            Ok(AVMOutcome {
+                data: vec![],
+                call_requests: Default::default(),
+                next_peer_pks: vec![],
+            })
+        }
+
+        fn cleanup(&mut self, _particle_id: &str) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    fn plumber() -> Plumber<VMMock, Arc<MockF>> {
+        // Pool is of size 1 so it's easier to control tests
+        let vm_pool = VmPool::new(1, ());
+        let builtin_mock = Arc::new(MockF);
+        Plumber::new(vm_pool, builtin_mock, None)
+    }
+
+    fn particle(ts: u64, ttl: u32) -> Particle {
+        let mut particle = Particle::default();
+        particle.timestamp = ts;
+        particle.ttl = ttl;
+
+        particle
+    }
+
+    fn context() -> Context<'static> {
+        Context::from_waker(noop_waker_ref())
+    }
+
+    /// Checks that expired actor will be removed
+    #[test]
+    fn remove_expired() {
+        set_mock_time(real_time::now_ms());
+
+        let mut plumber = plumber();
+
+        let particle = particle(now_ms(), 1);
+        let deadline = Deadline::from(&particle);
+        assert!(!deadline.is_expired(now_ms()));
+
+        plumber.ingest(particle, None);
+
+        assert_eq!(plumber.actors.len(), 1);
+        let mut cx = context();
+        assert!(plumber.poll(&mut cx).is_pending());
+        assert_eq!(plumber.actors.len(), 1);
+
+        assert_eq!(plumber.vm_pool.free_vms(), 0);
+        // pool is single VM, wait until VM is free
+        loop {
+            if plumber.vm_pool.free_vms() == 1 {
+                break;
+            };
+            // 'is_pending' is used to suppress "must use" warning
+            plumber.poll(&mut cx).is_pending();
+        }
+
+        set_mock_time(now_ms() + 2);
+        assert!(plumber.poll(&mut cx).is_pending());
+        assert_eq!(plumber.actors.len(), 0);
+    }
+
+    /// Checks that expired particle won't create an actor
+    #[test]
+    fn ignore_expired() {
+        set_mock_time(real_time::now_ms());
+        // set_mock_time(1000);
+
+        let mut plumber = plumber();
+        let particle = particle(now_ms() - 100, 99);
+        let deadline = Deadline::from(&particle);
+        assert!(deadline.is_expired(now_ms()));
+
+        plumber.ingest(particle.clone(), None);
+
+        assert_eq!(plumber.actors.len(), 0);
+
+        // Check actor doesn't appear after poll somehow
+        set_mock_time(now_ms() + 1000);
+        let poll = plumber.poll(&mut context());
+        assert!(poll.is_ready());
+        match poll {
+            std::task::Poll::Ready(Err(ParticleExpired { particle_id })) => {
+                assert_eq!(particle_id, particle.id)
+            }
+            unexpected => panic!(
+                "Expected Poll::Ready(Err(AquamarineApiError::ParticleExpired)), got {:?}",
+                unexpected
+            ),
+        }
+        assert_eq!(plumber.actors.len(), 0);
+    }
+}
 
 /// Code taken from https://blog.iany.me/2019/03/how-to-mock-time-in-rust-tests-and-cargo-gotchas-we-met/
 /// And then modified to use u64 instead of `SystemTime`
