@@ -52,18 +52,14 @@ pub struct Plumber<RT: AquaRuntime, F> {
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(vm_pool: VmPool<RT>, builtins: F, metrics: Option<ParticleExecutorMetrics>) -> Self {
-        let mut this = Self {
+        Self {
             vm_pool,
             builtins: Arc::new(builtins),
             events: <_>::default(),
             actors: <_>::default(),
             waker: <_>::default(),
             metrics,
-        };
-
-        this.meter(|m| m.total_interpreters.set(vm_pool.pool_size() as u64));
-
-        this
+        }
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
@@ -182,7 +178,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
                 m.total_actors_mailbox.set(mailbox_size as u64);
                 m.alive_actors.set(self.actors.len() as u64);
-                m.free_interpreters.set(self.vm_pool.free_vms() as u64);
             }
 
             for stat in &stats {
@@ -301,7 +296,7 @@ mod tests {
 
     fn plumber() -> Plumber<VMMock, Arc<MockF>> {
         // Pool is of size 1 so it's easier to control tests
-        let vm_pool = VmPool::new(1, ());
+        let vm_pool = VmPool::new(1, (), None);
         let builtin_mock = Arc::new(MockF);
         Plumber::new(vm_pool, builtin_mock, None)
     }

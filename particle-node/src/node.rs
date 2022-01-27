@@ -54,6 +54,7 @@ use particle_builtins::{Builtins, NodeInfo};
 use particle_protocol::Particle;
 use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, DispatcherMetrics, ParticleExecutorMetrics,
+    VmPoolMetrics,
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -122,7 +123,8 @@ impl<RT: AquaRuntime> Node<RT> {
         let libp2p_metrics = metrics_registry.as_mut().map(Metrics::new);
         let connectivity_metrics = metrics_registry.as_mut().map(ConnectivityMetrics::new);
         let connection_pool_metrics = metrics_registry.as_mut().map(ConnectionPoolMetrics::new);
-        let particle_executor_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
+        let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
+        let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
 
         let network_config = NetworkConfig::new(
             libp2p_metrics,
@@ -170,7 +172,8 @@ impl<RT: AquaRuntime> Node<RT> {
             vm_config,
             Arc::new(builtins),
             effects_out,
-            particle_executor_metrics,
+            plumber_metrics,
+            vm_pool_metrics,
         );
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
