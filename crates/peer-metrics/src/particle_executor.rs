@@ -23,6 +23,7 @@ pub struct ParticleExecutorMetrics {
     pub interpretation_successes: Counter,
     pub interpretation_failures: Counter,
     pub free_interpreters: Gauge,
+    pub total_interpreters: Gauge,
     pub total_actors_mailbox: Gauge,
     pub alive_actors: Gauge,
     service_call_time_sec: Family<ServiceCallLabel, Histogram>,
@@ -69,6 +70,14 @@ impl ParticleExecutorMetrics {
             "Number of currently free AquaVMs",
             Box::new(free_interpreters.clone()),
         );
+
+        let total_interpreters = Gauge::default();
+        sub_registry.register(
+            "total_interpreters",
+            "Number of currently free AquaVMs",
+            Box::new(total_interpreters.clone()),
+        );
+
         let total_actors_mailbox = Gauge::default();
         sub_registry.register(
             "total_actors_mailbox",
@@ -108,6 +117,7 @@ impl ParticleExecutorMetrics {
             interpretation_successes,
             interpretation_failures,
             free_interpreters,
+            total_interpreters,
             total_actors_mailbox,
             alive_actors,
             service_call_time_sec,

@@ -52,14 +52,18 @@ pub struct Plumber<RT: AquaRuntime, F> {
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(vm_pool: VmPool<RT>, builtins: F, metrics: Option<ParticleExecutorMetrics>) -> Self {
-        Self {
+        let mut this = Self {
             vm_pool,
             builtins: Arc::new(builtins),
             events: <_>::default(),
             actors: <_>::default(),
             waker: <_>::default(),
             metrics,
-        }
+        };
+
+        this.meter(|m| m.total_interpreters.set(vm_pool.pool_size() as u64));
+
+        this
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox

@@ -19,6 +19,7 @@ use created_swarm::make_swarms;
 use test_constants::KAD_TIMEOUT;
 
 use eyre::WrapErr;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::json;
 use std::thread::sleep;
@@ -64,7 +65,6 @@ fn identity() {
 #[test]
 fn init_peer_id() {
     let swarms = make_swarms(3);
-    sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -86,4 +86,56 @@ fn init_peer_id() {
     );
 
     client.receive().wrap_err("receive").unwrap();
+}
+
+#[test]
+fn join() {
+    enable_logs();
+    let swarms = make_swarms(3);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    println!("client {}", client.peer_id);
+    println!("swarm 0 {}", swarms[0].peer_id);
+    println!("swarm 1 {}", swarms[1].peer_id);
+    println!("swarm 2 {}", swarms[2].peer_id);
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("op" "noop") [])
+                (fold nodes n
+                    (par
+                        (seq
+                            (call n ("peer" "identify") [] $infos)
+                            (call relay ("op" "noop") [])
+                        )
+                        (next n)
+                    )
+                )
+            )
+            (seq
+                (call relay ("op" "noop") [])
+                (seq
+                    (call %init_peer_id% ("op" "noop") [$infos.$.[1]!])
+                    (call %init_peer_id% ("op" "return") [$infos])
+                )
+            )
+        )
+        "#,
+        hashmap! {
+            "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
+            "client" => json!(client.peer_id.to_string()),
+            "relay" => json!(client.node.to_string()),
+        },
+    );
+
+    let result1 = client.receive_args().wrap_err("receive");
+    dbg!(result1);
+
+    let result2 = client.receive_args().wrap_err("receive");
+    dbg!(result2);
 }

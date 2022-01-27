@@ -54,6 +54,10 @@ impl<RT: AquaRuntime> VmPool<RT> {
         self.runtimes.len()
     }
 
+    pub fn pool_size(&self) -> usize {
+        self.pool_size
+    }
+
     /// Takes VM from pool
     pub fn get_vm(&mut self) -> Option<RT> {
         self.runtimes.pop_front()
