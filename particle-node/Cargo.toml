@@ -23,7 +23,7 @@ fs-utils = { path = "../crates/fs-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
-air-interpreter-wasm = "=0.19.8"
+air-interpreter-wasm = "=0.20.2"
 avm-server = "0.13.0"
 
 libp2p = "0.42"
