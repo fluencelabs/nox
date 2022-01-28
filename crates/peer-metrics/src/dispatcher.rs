@@ -1,5 +1,4 @@
 use open_metrics_client::metrics::counter::Counter;
-use open_metrics_client::metrics::info::Info;
 use open_metrics_client::registry::Registry;
 
 #[derive(Clone)]
@@ -8,9 +7,11 @@ pub struct DispatcherMetrics {
 }
 
 impl DispatcherMetrics {
-    pub fn new(registry: &mut Registry, parallelism: Option<usize>) -> Self {
+    pub fn new(registry: &mut Registry, _parallelism: Option<usize>) -> Self {
         let sub_registry = registry.sub_registry_with_prefix("dispatcher");
 
+        // TODO: prometheus doesn't parse this Info metric. Find a way to make it work.
+        //       Gauge would work, but maybe it's possible to make Info work as well?
         // // NOTE: it MUST by a Vec of (String, String) or it would generate gibberish!
         // let parallelism: Info<Vec<(String, String)>> = Info::new(vec![(
         //     "particle_parallelism".to_string(),

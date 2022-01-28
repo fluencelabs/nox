@@ -17,7 +17,6 @@
 use crate::error::{KademliaError, Result};
 use crate::Kademlia;
 
-use fluence_libp2p::generate_swarm_event_type;
 use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
 use particle_protocol::Contact;
 

@@ -40,7 +40,7 @@ use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 
 use control_macro::get_return;
-use fluence_libp2p::{generate_swarm_event_type, types::OneshotOutlet};
+use fluence_libp2p::types::OneshotOutlet;
 use particle_protocol::Contact;
 
 use crate::error::{KademliaError, Result};

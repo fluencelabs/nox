@@ -19,9 +19,8 @@ use created_swarm::make_swarms;
 use test_constants::KAD_TIMEOUT;
 
 use eyre::WrapErr;
-use log_utils::enable_logs;
 use maplit::hashmap;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::thread::sleep;
 
 #[test]
@@ -90,17 +89,11 @@ fn init_peer_id() {
 
 #[test]
 fn join() {
-    enable_logs();
     let swarms = make_swarms(3);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
-
-    println!("client {}", client.peer_id);
-    println!("swarm 0 {}", swarms[0].peer_id);
-    println!("swarm 1 {}", swarms[1].peer_id);
-    println!("swarm 2 {}", swarms[2].peer_id);
 
     client.send_particle(
         r#"
@@ -110,19 +103,19 @@ fn join() {
                 (fold nodes n
                     (par
                         (seq
-                            (call n ("peer" "identify") [] $infos)
-                            (call relay ("op" "noop") [])
+                            (call n ("op" "identity") [n] $results)
+                            (seq
+                                (call relay ("op" "noop") [])
+                                (call %init_peer_id% ("op" "noop") [])
+                            )
                         )
                         (next n)
                     )
                 )
             )
             (seq
-                (call relay ("op" "noop") [])
-                (seq
-                    (call %init_peer_id% ("op" "noop") [$infos.$.[1]!])
-                    (call %init_peer_id% ("op" "return") [$infos])
-                )
+                (call %init_peer_id% ("op" "noop") [$results.$.[len]!])
+                (call %init_peer_id% ("op" "return") [$results])
             )
         )
         "#,
@@ -130,12 +123,22 @@ fn join() {
             "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
             "client" => json!(client.peer_id.to_string()),
             "relay" => json!(client.node.to_string()),
+            "len" => json!(swarms.len() - 1),
         },
     );
 
-    let result1 = client.receive_args().wrap_err("receive");
-    dbg!(result1);
-
-    let result2 = client.receive_args().wrap_err("receive");
-    dbg!(result2);
+    let received = client.listen_for_n(4, |peer_ids| {
+        match peer_ids.as_ref().map(|v| v.as_slice()) {
+            Ok(&[Value::Array(ref arr)]) => {
+                assert_eq!(arr.len(), swarms.len());
+                true
+            }
+            other => panic!(
+                "expected array of {} elements, got {:?}",
+                swarms.len(),
+                other
+            ),
+        }
+    });
+    assert!(received);
 }

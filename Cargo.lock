@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.19.8"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dd73d2a34c2734c41a9462240f5dd013d07d663ac2487d113fdefe0d3c1a38b"
+checksum = "f935d8b6bf2a3b8559cd8cc0e455e34f7d9f8d9af28f18c19fa3ac5c09f3cbe2"
 dependencies = [
  "built",
 ]
@@ -183,12 +183,13 @@ dependencies = [
  "humantime 2.1.0",
  "libp2p",
  "log",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "particle-args",
  "particle-builtins",
  "particle-execution",
  "particle-protocol",
  "particle-services",
+ "peer-metrics",
  "serde_json",
  "thiserror",
 ]
@@ -517,7 +518,7 @@ dependencies = [
  "fluence-faas",
  "log",
  "maplit",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "polyplets",
  "serde",
  "serde_json",
@@ -767,7 +768,7 @@ dependencies = [
  "log",
  "maplit",
  "now-millis",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "particle-args",
  "particle-execution",
  "particle-modules",
@@ -1026,7 +1027,7 @@ dependencies = [
  "libp2p",
  "local-vm",
  "log",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "particle-protocol",
  "rand 0.7.3",
  "serde",
@@ -1044,8 +1045,9 @@ dependencies = [
  "itertools 0.10.1",
  "libp2p",
  "log",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "particle-protocol",
+ "peer-metrics",
  "serde",
 ]
 
@@ -2533,11 +2535,12 @@ dependencies = [
  "futures",
  "futures-timer",
  "libp2p",
+ "libp2p-metrics",
  "log",
  "multihash",
  "once_cell",
+ "open-metrics-client",
  "particle-protocol",
- "prometheus",
  "prost 0.6.1",
  "serde_json",
  "server-config",
@@ -2630,7 +2633,7 @@ dependencies = [
  "libp2p-websocket",
  "libp2p-yamux",
  "multiaddr",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "pin-project 1.0.8",
  "rand 0.7.3",
  "smallvec",
@@ -2675,7 +2678,7 @@ dependencies = [
  "multiaddr",
  "multihash",
  "multistream-select",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "pin-project 1.0.8",
  "prost 0.9.0",
  "prost-build",
@@ -2856,7 +2859,7 @@ dependencies = [
  "libp2p-core",
  "log",
  "nohash-hasher",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "rand 0.7.3",
  "smallvec",
  "unsigned-varint",
@@ -3094,7 +3097,7 @@ checksum = "053d13ce0670d29f9c5a974cf371e6cc4d2d864da1c72bf6870ac5d5e45e2036"
 dependencies = [
  "futures",
  "libp2p-core",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "thiserror",
  "yamux",
 ]
@@ -3195,7 +3198,7 @@ dependencies = [
  "log",
  "maplit",
  "now-millis",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "particle-args",
  "particle-execution",
  "particle-protocol",
@@ -3214,9 +3217,9 @@ dependencies = [
 
 [[package]]
 name = "lock_api"
-version = "0.4.4"
+version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0382880606dff6d15c9476c416d18690b72742aa7b605bb6dd6ec9030fbf07eb"
+checksum = "712a4d093c9976e24e7dbca41db895dabcbac38eb5f4045393d17a95bdfb1109"
 dependencies = [
  "scopeguard",
 ]
@@ -3856,13 +3859,13 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-version = "0.11.1"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d7744ac029df22dca6284efe4e898991d28e3085c706c972bcd7da4a27a15eb"
+checksum = "7d17b78036a60663b797adeaee46f5c9dfebb86948d1255007a1d6be0271ff99"
 dependencies = [
  "instant",
- "lock_api 0.4.4",
- "parking_lot_core 0.8.3",
+ "lock_api 0.4.5",
+ "parking_lot_core 0.8.5",
 ]
 
 [[package]]
@@ -3881,9 +3884,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.8.3"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa7a782938e745763fe6907fc6ba86946d72f49fe7e21de074e08128a99fb018"
+checksum = "d76e8e1493bcac0d2766c42737f34458f1c8c50c0d23bcb24ea953affb273216"
 dependencies = [
  "cfg-if 1.0.0",
  "instant",
@@ -3924,7 +3927,7 @@ dependencies = [
  "log",
  "multihash",
  "now-millis",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "particle-args",
  "particle-execution",
  "particle-modules",
@@ -3967,7 +3970,7 @@ dependencies = [
  "log",
  "marine-it-parser 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "marine-utils 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "particle-args",
  "particle-execution",
  "serde",
@@ -4012,17 +4015,19 @@ dependencies = [
  "json-utils",
  "kademlia",
  "libp2p",
+ "libp2p-metrics",
  "local-vm",
  "log",
  "log-utils",
  "maplit",
  "multihash",
  "now-millis",
- "parking_lot 0.11.1",
+ "open-metrics-client",
+ "parking_lot 0.11.2",
  "particle-builtins",
  "particle-modules",
  "particle-protocol",
- "prometheus",
+ "peer-metrics",
  "rand 0.8.4",
  "script-storage",
  "serde",
@@ -4069,10 +4074,11 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fs-utils",
+ "humantime-serde",
  "json-utils",
  "libp2p-core",
  "log",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "particle-args",
  "particle-execution",
  "particle-modules",
@@ -4092,6 +4098,13 @@ name = "paste"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
+
+[[package]]
+name = "peer-metrics"
+version = "0.1.0"
+dependencies = [
+ "open-metrics-client",
+]
 
 [[package]]
 name = "percent-encoding"
@@ -4324,20 +4337,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prometheus"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd0ced56dee39a6e960c15c74dc48849d614586db2eaada6497477af7c7811cd"
-dependencies = [
- "cfg-if 0.1.10",
- "fnv",
- "lazy_static",
- "protobuf",
- "spin",
- "thiserror",
-]
-
-[[package]]
 name = "prost"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4412,12 +4411,6 @@ dependencies = [
  "bytes 1.0.1",
  "prost 0.9.0",
 ]
-
-[[package]]
-name = "protobuf"
-version = "2.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "020f86b07722c5c4291f7c723eac4676b3892d47d9a7708dc2779696407f039b"
 
 [[package]]
 name = "pwasm-utils"
@@ -4991,10 +4984,11 @@ dependencies = [
  "fs-utils",
  "humantime-serde",
  "libp2p",
+ "libp2p-metrics",
  "log",
  "num_cpus",
  "particle-protocol",
- "prometheus",
+ "peer-metrics",
  "rand 0.7.3",
  "serde",
  "serde_with",
@@ -5598,7 +5592,7 @@ dependencies = [
  "lazy_static",
  "log",
  "lru-cache",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "resolv-conf",
  "smallvec",
  "thiserror",
@@ -6270,7 +6264,7 @@ dependencies = [
  "futures",
  "log",
  "nohash-hasher",
- "parking_lot 0.11.1",
+ "parking_lot 0.11.2",
  "rand 0.8.4",
  "static_assertions",
 ]
