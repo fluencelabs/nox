@@ -19,7 +19,7 @@ air-interpreter-fs = { path = "../air-interpreter-fs" }
 builtins-deployer = { path = "../builtins-deployer" }
 toy-vms = { path = "../toy-vms" }
 
-fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
+fluence-keypair = "0.6.0"
 
 libp2p = "0.42"
 
