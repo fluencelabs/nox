@@ -535,7 +535,17 @@ mod tests {
             .discover_peer(peer, oneshot::channel().0);
         assert_eq!(node.behaviour_mut().queries.len(), 1);
 
-        task::block_on(timeout(Duration::from_millis(200), node.select_next_some())).ok();
+        // Wait until peer is banned
+        task::block_on(timeout(Duration::from_millis(200), async {
+            loop {
+                node.select_next_some().await;
+                if node.behaviour_mut().failed_peers.len() >= 1 {
+                    break;
+                }
+            }
+        }))
+        .ok();
+
         assert_eq!(node.behaviour_mut().failed_peers.len(), 1);
         assert!(node
             .behaviour_mut()
