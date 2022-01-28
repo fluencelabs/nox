@@ -1,15 +1,15 @@
 release:
-	cargo +nightly build --release
+	cargo build --release
 
 build: release
 
 test:
 	# run tests on release because current WASM runtime is too slow on debug
-	cargo +nightly test --release
+	cargo test --release
 
 server:
 	RUST_LOG="info,tide=off" \
-	cargo +nightly run --release -p particle-node
+	cargo run --release -p particle-node
 
 server-debug:
 	RUST_LOG="debug,\
@@ -34,6 +34,6 @@ server-debug:
     async_std=info,\
     async_io=info,\
     polling=info" \
-	cargo +nightly run --release -p particle-node -- -c ./deploy/Config.default.toml
+	cargo run --release -p particle-node -- -c ./deploy/Config.default.toml
 
 .PHONY: server server-debug test release build deploy
