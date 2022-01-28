@@ -420,6 +420,7 @@ mod tests {
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
     use libp2p::identity::Keypair;
+    use libp2p::multiaddr::Protocol;
     use libp2p::PeerId;
     use libp2p::Swarm;
 
@@ -451,7 +452,10 @@ mod tests {
         let timeout = Duration::from_secs(20);
 
         let mut swarm = Swarm::new(build_memory_transport(kp, timeout), kad, peer_id);
-        let maddr = create_memory_maddr();
+
+        let mut maddr = create_memory_maddr();
+        maddr.push(Protocol::P2p(peer_id.into()));
+
         Swarm::listen_on(&mut swarm, maddr.clone()).ok();
 
         (swarm, maddr)
@@ -459,6 +463,8 @@ mod tests {
 
     #[test]
     fn discovery() {
+        use async_std::future::timeout;
+
         let (mut a, a_addr) = make_node();
         let (mut b, b_addr) = make_node();
         let (c, c_addr) = make_node();
@@ -494,21 +500,22 @@ mod tests {
             .discover_peer(Swarm::local_peer_id(&c).clone(), out);
         let discover_fut = inlet;
 
-        let maddr = async_std::task::block_on(async move {
+        let maddr = async_std::task::block_on(timeout(Duration::from_millis(200), async move {
             let mut swarms = vec![a, b, c, d, e];
-            task::spawn(futures::future::poll_fn(move |ctx| {
+            let t = task::spawn(futures::future::poll_fn(move |ctx| {
                 for (_, swarm) in swarms.iter_mut().enumerate() {
-                    if let Poll::Ready(Some(_)) = swarm.poll_next_unpin(ctx) {
-                        return Poll::Ready(());
-                    }
+                    swarm.poll_next_unpin(ctx).is_ready();
                 }
-                Poll::Pending
+                ctx.waker().wake_by_ref();
+                Poll::Pending as Poll<()>
             }));
 
-            discover_fut.await
-        });
+            let maddr = discover_fut.await;
+            t.cancel().await;
+            maddr
+        }));
 
-        assert_eq!(maddr.unwrap().unwrap()[0], c_addr);
+        assert_eq!(maddr.unwrap().unwrap().unwrap()[0], c_addr);
     }
 
     #[test]
