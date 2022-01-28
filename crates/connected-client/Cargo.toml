@@ -13,7 +13,6 @@ local-vm = { path = "../local-vm"}
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
 libp2p = "0.42"
 
-
 async-std = "1.9.0"
 futures = "0.3.13"
 serde = { version = "1.0.118", features = ["derive"] }
@@ -21,7 +20,7 @@ serde_json = "1.0.64"
 log = "0.4.11"
 derivative = "2.1.1"
 eyre = "0.6.5"
-parking_lot = "0.11.2"
+parking_lot = "0.11.1"
 
 [dev-dependencies]
 rand = "0.7.3"

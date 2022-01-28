@@ -12,7 +12,6 @@ serde = "1.0.130"
 log = "0.4.11"
 libp2p = "0.42"
 
-
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
 
 test-utils = { path = "../../../crates/test-utils" }
