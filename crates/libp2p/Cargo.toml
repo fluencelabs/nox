@@ -5,9 +5,8 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-
-libp2p = "0.41.1"
-libp2p-noise = { version = "0.33.0" }
+libp2p = "0.42"
+libp2p-noise = "0.34"
 multihash = { version = "0.14", features = ["serde-codec"] }
 futures = "0.3.13"
 futures-util = "0.3.5"

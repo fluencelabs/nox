@@ -8,7 +8,7 @@ edition = "2018"
 particle-protocol = { path = "../particle-protocol"}
 fluence-libp2p = { path = "../crates/libp2p" }
 
-libp2p = "0.41.1"
+libp2p = "0.42"
 
 futures = "0.3.13"
 log = "0.4.13"

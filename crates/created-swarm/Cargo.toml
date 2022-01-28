@@ -21,7 +21,7 @@ toy-vms = { path = "../toy-vms" }
 
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_version" }
 
-libp2p = "0.41.1"
+libp2p = "0.42"
 
 async-std = "1.9.0"
 futures = "0.3.13"

@@ -111,7 +111,7 @@ impl NetworkBehaviour for ClientBehaviour {
         _failed_addresses: Option<&Vec<Multiaddr>>,
     ) {
         let multiaddr = match cp {
-            ConnectedPoint::Dialer { address } => address,
+            ConnectedPoint::Dialer { address, .. } => address,
             ConnectedPoint::Listener {
                 send_back_addr,
                 local_addr,
@@ -142,7 +142,7 @@ impl NetworkBehaviour for ClientBehaviour {
         _: <Self::ProtocolsHandler as IntoProtocolsHandler>::Handler,
     ) {
         match cp {
-            ConnectedPoint::Dialer { address } => {
+            ConnectedPoint::Dialer { address, .. } => {
                 log::warn!(
                     "Disconnected from {} @ {:?}, reconnecting",
                     peer_id,

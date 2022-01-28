@@ -206,7 +206,7 @@ impl Kademlia {
         outlet: OneshotOutlet<Result<Vec<PeerId>>>,
     ) {
         let key = key.into();
-        let peers = self.kademlia.local_closest_peers(&key);
+        let peers = self.kademlia.get_closest_local_peers(&key);
         let peers = peers.take(count);
         let peers = peers.map(|p| p.into_preimage());
         outlet.send(Ok(peers.collect())).ok();

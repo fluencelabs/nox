@@ -19,7 +19,7 @@ ivalue-utils = { path = "../crates/ivalue-utils" }
 now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 
-libp2p = "0.41.1"
+libp2p = "0.42"
 avm-server = "0.13.0"
 
 async-std = { version = "1.9.0", features = ["unstable"] }
