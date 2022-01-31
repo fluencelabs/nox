@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-use crate::error::{KademliaError, Result};
-use crate::Kademlia;
-
-use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
-use particle_protocol::Contact;
+use std::convert::identity;
 
 use futures::{
     channel::{mpsc::unbounded, oneshot},
@@ -28,7 +24,12 @@ use futures::{
 use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::Multihash;
-use std::convert::identity;
+
+use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
+use particle_protocol::Contact;
+
+use crate::error::{KademliaError, Result};
+use crate::Kademlia;
 
 type Future<T> = BoxFuture<'static, T>;
 
@@ -63,8 +64,6 @@ pub enum Command {
         out: OneshotOutlet<Result<Vec<PeerId>>>,
     },
 }
-
-// pub type SwarmEventType = generate_swarm_event_type!(KademliaApiInlet);
 
 pub type SwarmEventType = NetworkBehaviourAction<
     (),

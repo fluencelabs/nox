@@ -32,15 +32,19 @@ use particle_args::{Args, JError};
 use particle_execution::{
     FunctionOutcome, ParticleFunctionOutput, ParticleFunctionStatic, ParticleParams,
 };
+use peer_metrics::FunctionKind;
 
 pub type Function =
     Box<dyn FnMut(Args, ParticleParams) -> ParticleFunctionOutput<'static> + 'static + Send + Sync>;
 
 #[derive(Clone, Debug)]
+/// Performance statistics about executed function call
 pub struct SingleCallStat {
+    /// If execution happened, then how much time it took
     pub run_time: Option<Duration>,
     pub success: bool,
-    pub builtin: bool,
+    /// Whether function call was to builtin functions (like op noop) or to services
+    pub kind: FunctionKind,
 }
 
 #[derive(Clone, Debug)]
@@ -138,7 +142,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                     stat: SingleCallStat {
                         run_time: None,
                         success: false,
-                        builtin: false,
+                        kind: FunctionKind::NotHappened,
                     },
                 };
                 return async move { result }.boxed();
@@ -157,7 +161,11 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             block_on(async move {
                 let outcome = builtins.call(args, params).await;
                 // record whether call was handled by builtin or not. needed for stats.
-                let builtin = outcome.is_defined();
+                let call_kind = if outcome.is_defined() {
+                    FunctionKind::Builtin
+                } else {
+                    FunctionKind::Service
+                };
                 let outcome = match outcome {
                     // If particle_function isn't set, just return what we have
                     outcome if particle_function.is_none() => outcome,
@@ -173,12 +181,12 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                     // Builtins were called, return their outcome
                     outcome => outcome,
                 };
-                (outcome, builtin)
+                (outcome, call_kind)
             })
         });
 
         async move {
-            let (result, builtin): (FunctionOutcome, bool) = result.await;
+            let (result, call_kind) = result.await;
             let elapsed = start.elapsed();
 
             let result = match result {
@@ -201,7 +209,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             let stats = SingleCallStat {
                 run_time: Some(elapsed),
                 success: result.is_ok(),
-                builtin,
+                kind: call_kind,
             };
 
             let result = match result {

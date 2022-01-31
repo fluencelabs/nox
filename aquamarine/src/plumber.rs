@@ -181,7 +181,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             }
 
             for stat in &stats {
-                m.service_call(stat.success, stat.builtin, stat.run_time)
+                m.service_call(stat.success, stat.kind, stat.run_time)
             }
         });
 

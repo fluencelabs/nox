@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use crate::ClientEvent;
-
-use fluence_libp2p::generate_swarm_event_type;
-use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
+use std::collections::VecDeque;
+use std::error::Error;
+use std::task::{Context, Poll, Waker};
+use std::time::Duration;
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
@@ -36,12 +36,12 @@ use libp2p::{
     },
     PeerId,
 };
-use std::collections::VecDeque;
-use std::error::Error;
-use std::task::{Context, Poll, Waker};
-use std::time::Duration;
 
-// pub type SwarmEventType = generate_swarm_event_type!(ClientBehaviour);
+use fluence_libp2p::generate_swarm_event_type;
+use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
+
+use crate::ClientEvent;
+
 pub type SwarmEventType =
     NetworkBehaviourAction<ClientEvent, <ClientBehaviour as NetworkBehaviour>::ProtocolsHandler>;
 

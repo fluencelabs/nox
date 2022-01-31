@@ -14,15 +14,10 @@
  * limitations under the License.
  */
 
-use crate::api::ParticleApi;
-use crate::{behaviour::ClientBehaviour, ClientEvent};
+use std::{error::Error, ops::DerefMut, time::Duration};
+
 use async_std::{task, task::JoinHandle};
 use derivative::Derivative;
-use fluence_libp2p::{
-    build_memory_transport, build_transport,
-    types::{Inlet, OneshotOutlet, Outlet},
-    Transport,
-};
 use futures::{
     channel::{mpsc, mpsc::TrySendError, oneshot},
     future::FusedFuture,
@@ -34,8 +29,16 @@ use libp2p::core::either::EitherError;
 use libp2p::core::Multiaddr;
 use libp2p::swarm::{ProtocolsHandlerUpgrErr, SwarmEvent};
 use libp2p::{identity::Keypair, PeerId, Swarm};
+
+use fluence_libp2p::{
+    build_memory_transport, build_transport,
+    types::{Inlet, OneshotOutlet, Outlet},
+    Transport,
+};
 use particle_protocol::{Particle, ProtocolConfig};
-use std::{error::Error, ops::DerefMut, time::Duration};
+
+use crate::api::ParticleApi;
+use crate::{behaviour::ClientBehaviour, ClientEvent};
 
 #[derive(Debug)]
 struct Command {
@@ -158,7 +161,6 @@ impl Client {
                     // Messages that were scheduled via client.send() method
                     to_relay = relay_inlet.next() => {
                         if let Some(cmd) = to_relay {
-                            // Send to node
                             Self::send_to_node(swarm.behaviour_mut(), cmd)
                         }
                     }
