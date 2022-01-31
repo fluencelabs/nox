@@ -107,13 +107,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 effects.push((result.effects, result.stats));
-                self.vm_pool.put_vm(result.vm);
+                let (vm_id, vm) = result.vm;
+                self.vm_pool.put_vm(vm_id, vm);
             }
             mailbox_size += actor.mailbox_size();
         }
 
         // Remove expired actors
-        if let Some(mut vm) = self.vm_pool.get_vm() {
+        if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
             self.actors.retain(|particle_id, actor| {
                 // if actor hasn't yet expired or is still executing, keep it
@@ -136,15 +137,15 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 false // remove actor
             });
 
-            self.vm_pool.put_vm(vm);
+            self.vm_pool.put_vm(vm_id, vm);
         }
 
         // Execute next messages
         let mut stats = vec![];
         for actor in self.actors.values_mut() {
-            if let Some(vm) = self.vm_pool.get_vm() {
-                match actor.poll_next(vm, cx) {
-                    ActorPoll::Vm(vm) => self.vm_pool.put_vm(vm),
+            if let Some((vm_id, vm)) = self.vm_pool.get_vm() {
+                match actor.poll_next(vm_id, vm, cx) {
+                    ActorPoll::Vm(vm_id, vm) => self.vm_pool.put_vm(vm_id, vm),
                     ActorPoll::Executing(mut s) => stats.append(&mut s),
                 }
             } else {
@@ -291,6 +292,10 @@ mod tests {
 
         fn cleanup(&mut self, _particle_id: &str) -> Result<(), Self::Error> {
             Ok(())
+        }
+
+        fn memory_size(&self) -> usize {
+            0
         }
     }
 

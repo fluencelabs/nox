@@ -94,4 +94,8 @@ impl AquaRuntime for EasyVM {
         // Nothing to cleanup in EasyVM
         Ok(())
     }
+
+    fn memory_size(&self) -> usize {
+        0
+    }
 }
