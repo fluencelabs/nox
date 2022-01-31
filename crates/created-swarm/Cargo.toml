@@ -5,7 +5,6 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-trust-graph = "0.2.7"
 test-constants = { path = "../test-constants" }
 config-utils = { path = "../config-utils" }
 server-config = { path = "../server-config" }
@@ -20,9 +19,9 @@ air-interpreter-fs = { path = "../air-interpreter-fs" }
 builtins-deployer = { path = "../builtins-deployer" }
 toy-vms = { path = "../toy-vms" }
 
-fluence-identity = "0.3.0"
+fluence-keypair = "0.6.0"
 
-libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = "0.42"
 
 async-std = "1.9.0"
 futures = "0.3.13"

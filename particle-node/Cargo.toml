@@ -20,22 +20,25 @@ kademlia = { path = "../crates/kademlia" }
 air-interpreter-fs = { path = "../crates/air-interpreter-fs" }
 builtins-deployer = { path = "../crates/builtins-deployer" }
 fs-utils = { path = "../crates/fs-utils" }
+peer-metrics = { path = "../crates/peer-metrics" }
 
-trust-graph = "0.2.7"
-fluence-identity = "0.3.0"
-air-interpreter-wasm = "=0.19.8"
+fluence-keypair = "0.6.0"
+air-interpreter-wasm = "=0.20.2"
 avm-server = "0.13.0"
 
-libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = "0.42"
+libp2p-metrics = "0.3.0"
+open-metrics-client = "0.14.0"
+
 futures = "0.3.13"
 async-std = { version = "1.6.5", features = ["unstable"] }
+parking_lot = "0.11.2"
 
 humantime-serde = "1.0.1"
 
 log = "0.4.11"
 env_logger = "0.7.1"
 clap = "3.0.0-beta.2"
-prometheus = "0.9.0"
 tide = "0.16.0"
 bs58 = "0.3.1"
 itertools = "0.10.0"
@@ -57,12 +60,12 @@ control-macro = { path = "../crates/control-macro" }
 
 fluence-app-service = "0.11.1"
 
-parking_lot = "0.11.1"
+parking_lot = "0.11.2"
 maplit = "1.0.2"
 serde_json = "1.0.64"
 fstrings = "0.2.3"
 serde = "1.0.130"
-multihash = "0.13"
+multihash = "0.14"
 base64 = "0.13.0"
 blake3 = "0.3.7"
 criterion = { version = "0.3.4", features = ["async_std", "html_reports"] }

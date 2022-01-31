@@ -22,11 +22,15 @@ use async_std::task::{sleep, spawn};
 use futures::{stream::iter, FutureExt, SinkExt, StreamExt, TryFutureExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::Multiaddr;
+use open_metrics_client::metrics::counter::Counter;
+use open_metrics_client::metrics::info::Info;
+use open_metrics_client::registry::Registry;
 
 use aquamarine::{AquamarineApi, AquamarineApiError, NetworkEffects};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
+use peer_metrics::DispatcherMetrics;
 
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
@@ -42,9 +46,8 @@ pub struct Dispatcher {
     particle_parallelism: Option<usize>,
     aquamarine: AquamarineApi,
     particle_failures_sink: Outlet<String>,
-    /// Timeout for all particle execution
-    particle_timeout: Duration,
     effectors: Effectors,
+    metrics: Option<DispatcherMetrics>,
 }
 
 impl Dispatcher {
@@ -54,7 +57,7 @@ impl Dispatcher {
         effectors: Effectors,
         particle_failures_sink: Outlet<String>,
         particle_parallelism: Option<usize>,
-        particle_timeout: Duration,
+        registry: Option<&mut Registry>,
     ) -> Self {
         Self {
             peer_id,
@@ -62,7 +65,7 @@ impl Dispatcher {
             aquamarine,
             particle_failures_sink,
             particle_parallelism,
-            particle_timeout,
+            metrics: registry.map(|r| DispatcherMetrics::new(r, particle_parallelism)),
         }
     }
 }
@@ -84,14 +87,16 @@ impl Dispatcher {
     where
         Src: futures::Stream<Item = Particle> + Unpin + Send + Sync + 'static,
     {
-        let particle_timeout = self.particle_timeout;
         let parallelism = self.particle_parallelism;
         let aquamarine = self.aquamarine;
+        let metrics = self.metrics;
         particle_stream
             .for_each_concurrent(parallelism, move |particle| {
                 let mut aquamarine = aquamarine.clone();
+                let metrics = metrics.clone();
 
                 if particle.is_expired() {
+                    metrics.map(|m| m.expired_particles.inc());
                     log::info!("Particle {} expired", particle.id);
                     return async {}.boxed();
                 }
@@ -109,17 +114,12 @@ impl Dispatcher {
             .await;
 
         log::error!("Particle stream has ended");
-
-        // TODO: restore these logs
-        // log::info!(target: "network", "{} Will execute particle {}", self.peer_id, particle.id);
-        // log::trace!(target: "network", "Particle {} processing took {}", particle_id, pretty(start.elapsed()));
     }
 
     async fn process_effects<Src>(self, effects_stream: Src)
     where
         Src: futures::Stream<Item = Effects> + Unpin + Send + Sync + 'static,
     {
-        let particle_timeout = self.particle_timeout;
         let parallelism = self.particle_parallelism;
         let effectors = self.effectors;
         let particle_failures = self.particle_failures_sink;
@@ -132,7 +132,7 @@ impl Dispatcher {
                     match effects {
                         Ok(effects) => {
                             // perform effects as instructed by aquamarine
-                            effectors.execute(effects).await;
+                            effectors.execute(effects, particle_failures.clone()).await;
                         }
                         Err(err) => {
                             // particles are sent in fire and forget fashion, so

@@ -19,7 +19,7 @@ use libp2p::core::{connection::ConnectedPoint, Multiaddr};
 /// Retrieves multiaddr of the remote peer
 pub fn remote_multiaddr(cp: &ConnectedPoint) -> &Multiaddr {
     match cp {
-        ConnectedPoint::Dialer { address } => address,
+        ConnectedPoint::Dialer { address, .. } => address,
         ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
     }
 }

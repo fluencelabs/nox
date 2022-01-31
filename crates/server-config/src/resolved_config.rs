@@ -17,12 +17,14 @@
 use crate::defaults::default_config_path;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
+use std::convert::TryFrom;
 
 use fs_utils::to_abs_path;
 
 use clap::{ArgMatches, Values};
 use eyre::{eyre, WrapErr};
-use libp2p::core::{multiaddr::Protocol, Multiaddr};
+use libp2p::core::{multiaddr::Protocol, Multiaddr, PublicKey};
+use libp2p::{multihash, PeerId};
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
@@ -46,7 +48,7 @@ pub const MANAGEMENT_PEER_ID: &str = "management_peer_id";
 pub const SERVICES_WORKDIR: &str = "services_workdir";
 pub const LOCAL: &str = "local";
 pub const ALLOW_PRIVATE_IPS: &str = "allow_local_addresses";
-pub const PROMETHEUS_PORT: &str = "prometheus_port";
+pub const METRICS_PORT: &str = "metrics_port";
 pub const AQUA_VM_POOL_SIZE: &str = "aquavm_pool_size";
 
 const ARGS: &[&str] = &[
@@ -66,7 +68,7 @@ const ARGS: &[&str] = &[
     BLUEPRINT_DIR,
     MANAGEMENT_PEER_ID,
     ALLOW_PRIVATE_IPS,
-    PROMETHEUS_PORT,
+    METRICS_PORT,
     AQUA_VM_POOL_SIZE,
 ];
 
@@ -133,27 +135,10 @@ impl ResolvedConfig {
         addrs
     }
 
-    pub fn root_weights(&self) -> eyre::Result<Vec<(fluence_identity::PublicKey, u32)>> {
-        self.root_weights
-            .clone()
-            .into_iter()
-            .map(|(k, v)| {
-                Ok((
-                    k.as_public_key()
-                        .ok_or_else(|| {
-                            eyre!("invalid root_weights key: PeerId doesn't contain PublicKey")
-                        })?
-                        .into(),
-                    v,
-                ))
-            })
-            .collect()
-    }
-
     pub fn metrics_listen_addr(&self) -> SocketAddr {
         SocketAddr::new(
             self.listen_config.listen_ip,
-            self.prometheus_config.prometheus_port,
+            self.metrics_config.metrics_port,
         )
     }
 
@@ -204,7 +189,7 @@ fn insert_args_to_config(
 
         // Convert value to a type of the corresponding field in `FluenceConfig`
         let mut value = match k {
-            WEBSOCKET_PORT | TCP_PORT | PROMETHEUS_PORT | AQUA_VM_POOL_SIZE => {
+            WEBSOCKET_PORT | TCP_PORT | METRICS_PORT | AQUA_VM_POOL_SIZE => {
                 Integer(single(arg).parse()?)
             }
             BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => Array(multiple(arg).collect()),

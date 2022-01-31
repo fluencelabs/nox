@@ -21,11 +21,13 @@ use std::{
 };
 
 use futures::channel::mpsc;
+use libp2p::swarm::dial_opts::DialOpts;
+use libp2p::swarm::DialError;
 use libp2p::{
     core::{connection::ConnectionId, ConnectedPoint, Multiaddr},
     swarm::{
-        DialPeerCondition, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler,
-        PollParameters, ProtocolsHandler,
+        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
+        ProtocolsHandler,
     },
     PeerId,
 };
@@ -33,10 +35,17 @@ use libp2p::{
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
 use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
 use particle_protocol::{CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig};
+use peer_metrics::ConnectionPoolMetrics;
 
 use crate::connection_pool::LifecycleEvent;
 
-type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
+// type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
+
+// TODO: replace with generate_swarm_event_type
+type SwarmEventType = libp2p::swarm::NetworkBehaviourAction<
+    (),
+    OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>,
+>;
 
 #[derive(Debug)]
 enum Peer {
@@ -75,6 +84,8 @@ pub struct ConnectionPoolBehaviour {
     events: VecDeque<SwarmEventType>,
     waker: Option<Waker>,
     pub(super) protocol_config: ProtocolConfig,
+
+    metrics: Option<ConnectionPoolMetrics>,
 }
 
 impl ConnectionPoolBehaviour {
@@ -83,15 +94,23 @@ impl ConnectionPoolBehaviour {
     pub fn dial(&mut self, address: Multiaddr, out: OneshotOutlet<Option<Contact>>) {
         // TODO: return Contact immediately if that address is already connected
         self.dialing.entry(address.clone()).or_default().push(out);
-        self.push_event(NetworkBehaviourAction::DialAddress { address });
+
+        let handler = self.new_handler();
+        self.push_event(NetworkBehaviourAction::Dial {
+            opts: DialOpts::unknown_peer_id().address(address).build(),
+            handler,
+        });
     }
 
     /// Connect to the contact by all of its known addresses and return whether connection succeeded
     /// If contact is already connected, return `true` immediately
     pub fn connect(&mut self, contact: Contact, outlet: OneshotOutlet<bool>) {
-        self.push_event(NetworkBehaviourAction::DialPeer {
-            peer_id: contact.peer_id,
-            condition: DialPeerCondition::Always,
+        let handler = self.new_handler();
+        self.push_event(NetworkBehaviourAction::Dial {
+            opts: DialOpts::peer_id(contact.peer_id)
+                .addresses(contact.addresses.clone())
+                .build(),
+            handler,
         });
 
         match self.contacts.entry(contact.peer_id) {
@@ -167,6 +186,10 @@ impl ConnectionPoolBehaviour {
     pub fn add_subscriber(&mut self, outlet: Outlet<LifecycleEvent>) {
         self.subscribers.push(outlet);
     }
+
+    fn meter<U, F: Fn(&ConnectionPoolMetrics) -> U>(&self, f: F) {
+        self.metrics.as_ref().map(f);
+    }
 }
 
 impl ConnectionPoolBehaviour {
@@ -174,6 +197,7 @@ impl ConnectionPoolBehaviour {
         buffer: usize,
         protocol_config: ProtocolConfig,
         peer_id: PeerId,
+        metrics: Option<ConnectionPoolMetrics>,
     ) -> (Self, BackPressuredInlet<Particle>) {
         let (outlet, inlet) = mpsc::channel(buffer);
 
@@ -187,6 +211,7 @@ impl ConnectionPoolBehaviour {
             events: <_>::default(),
             waker: None,
             protocol_config,
+            metrics,
         };
 
         (this, inlet)
@@ -233,6 +258,8 @@ impl ConnectionPoolBehaviour {
                 out.send(contact.clone()).ok();
             }
         }
+
+        self.meter(|m| m.connected_peers.set(self.contacts.len() as u64));
     }
 
     fn lifecycle_event(&mut self, event: LifecycleEvent) {
@@ -265,7 +292,9 @@ impl ConnectionPoolBehaviour {
             self.lifecycle_event(LifecycleEvent::Disconnected(Contact::new(
                 *peer_id,
                 addresses.into_iter().collect(),
-            )))
+            )));
+
+            self.meter(|m| m.connected_peers.set(self.contacts.len() as u64));
         }
     }
 
@@ -275,6 +304,26 @@ impl ConnectionPoolBehaviour {
                 Some(Contact::new(peer_id, addrs.iter().cloned().collect()))
             }
             _ => None,
+        }
+    }
+
+    fn fail_address(&mut self, peer_id: &PeerId, addr: &Multiaddr) {
+        log::warn!("failed to connect to {} {}", addr, peer_id);
+
+        let contact = self.contacts.get_mut(peer_id);
+        // remove failed address
+        match contact {
+            Some(Peer::Connected(addrs)) | Some(Peer::Dialing(addrs, _)) => {
+                addrs.remove(addr);
+            }
+            None => {}
+        };
+
+        // Notify those who waits for address dial
+        if let Some(outs) = self.dialing.remove(addr) {
+            for out in outs {
+                out.send(None).ok();
+            }
         }
     }
 }
@@ -287,6 +336,9 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         self.protocol_config.clone().into()
     }
 
+    // TODO: seems like there's no need in that method anymore IFF it is used only for dialing
+    //       see https://github.com/libp2p/rust-libp2p/blob/master/swarm/CHANGELOG.md#0320-2021-11-16
+    //       ACTION: remove this method. ALSO: remove `self.contacts`?
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
         self.contacts
             .get(peer_id)
@@ -311,9 +363,17 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     fn inject_connection_established(
         &mut self,
         peer_id: &PeerId,
-        _: &ConnectionId,
+        _connection_id: &ConnectionId,
         cp: &ConnectedPoint,
+        failed_addresses: Option<&Vec<Multiaddr>>,
     ) {
+        // mark failed addresses as such
+        if let Some(failed_addresses) = failed_addresses {
+            for addr in failed_addresses {
+                self.fail_address(peer_id, addr)
+            }
+        }
+
         let multiaddr = remote_multiaddr(cp).clone();
 
         self.add_address(*peer_id, multiaddr.clone());
@@ -324,47 +384,18 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         )))
     }
 
-    fn inject_addr_reach_failure(
+    fn inject_dial_failure(
         &mut self,
-        peer_id: Option<&PeerId>,
-        addr: &Multiaddr,
-        error: &dyn Error,
+        peer_id: Option<PeerId>,
+        _handler: Self::ProtocolsHandler,
+        error: &DialError,
     ) {
-        let peer = peer_id
-            .map(|id| format!(" peer id {}", id))
-            .unwrap_or_default();
-        log::warn!("failed to connect to {}{}: {}", addr, peer, error);
-
-        if let Some(peer_id) = peer_id {
-            let empty = self.contacts.get_mut(peer_id).map_or(false, |contact| {
-                // remove failed address
-                match contact {
-                    Peer::Connected(addrs) => addrs.remove(addr),
-                    Peer::Dialing(addrs, _) => addrs.remove(addr),
-                };
-                contact.is_empty()
-            });
-
-            // if contact is empty (there are no addresses), remove it
-            if empty {
-                self.remove_contact(
-                    peer_id,
-                    format!("address {} reach failure {}", addr, error).as_str(),
-                );
-            }
-        }
-
-        // Notify those who waits for address dial
-        if let Some(outs) = self.dialing.remove(addr) {
-            for out in outs {
-                out.send(None).ok();
-            }
-        }
-    }
-
-    fn inject_dial_failure(&mut self, peer_id: &PeerId) {
         // remove failed contact
-        self.remove_contact(peer_id, "dial failure, no more addresses to try")
+        if let Some(peer_id) = peer_id {
+            self.remove_contact(&peer_id, format!("dial failure: {}", error).as_str())
+        } else {
+            log::warn!("Unknown peer dial failure: {}", error)
+        }
     }
 
     fn inject_event(
@@ -376,6 +407,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         match event {
             HandlerMessage::InParticle(particle) => {
                 log::trace!(target: "network", "received particle {} from {}; queue {}", particle.id, from, self.queue.len());
+                self.meter(|m| {
+                    m.particle_queue_size.set(self.queue.len() as u64 + 1);
+                    m.received_particles.inc();
+                    m.particle_sizes.observe(particle.data.len() as f64);
+                });
                 self.queue.push_back(particle);
                 self.wake();
             }
@@ -423,6 +459,8 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 }
             }
         }
+
+        self.meter(|m| m.particle_queue_size.set(self.queue.len() as u64));
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);

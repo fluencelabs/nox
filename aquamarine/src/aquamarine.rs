@@ -23,6 +23,7 @@ use futures::{channel::mpsc, SinkExt, StreamExt};
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, Outlet};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
+use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;
@@ -47,11 +48,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         runtime_config: RT::Config,
         builtins: F,
         out: EffectsChannel,
+        plumber_metrics: Option<ParticleExecutorMetrics>,
+        vm_pool_metrics: Option<VmPoolMetrics>,
     ) -> (Self, AquamarineApi) {
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
-        let vm_pool = VmPool::new(config.pool_size, runtime_config);
-        let plumber = Plumber::new(vm_pool, builtins);
+        let vm_pool = VmPool::new(config.pool_size, runtime_config, vm_pool_metrics);
+        let plumber = Plumber::new(vm_pool, builtins, plumber_metrics);
         let this = Self {
             inlet,
             plumber,

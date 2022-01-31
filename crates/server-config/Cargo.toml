@@ -10,16 +10,16 @@ fs-utils = { path = "../fs-utils" }
 particle-protocol = { path = "../../particle-protocol"}
 fluence-libp2p = { path = "../libp2p" }
 air-interpreter-fs = { path = "../air-interpreter-fs" }
+peer-metrics = { path = "../peer-metrics"}
 
-trust-graph = "0.2.7"
-fluence-identity = "0.3.0"
+fluence-keypair = "0.6.0"
 
-libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = "0.42"
+libp2p-metrics = "0.3.0"
 
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"
 
-prometheus = "0.9.0"
 log = "0.4.11"
 rand = "0.7.3"
 clap = "3.0.0-beta.2"

@@ -6,10 +6,10 @@ edition = "2018"
 
 [dependencies]
 particle-protocol = { path = "../particle-protocol"}
-trust-graph = "0.2.7"
 fluence-libp2p = { path = "../crates/libp2p" }
+peer-metrics = { path = "../crates/peer-metrics" }
 
-libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+libp2p = "0.42"
 
 futures = "0.3.13"
 log = "0.4.13"
@@ -18,4 +18,4 @@ async-std = "1.9.0"
 itertools = "0.10.0"
 
 [dev-dependencies]
-parking_lot = "0.11.1"
+parking_lot = "0.11.2"

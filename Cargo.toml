@@ -25,6 +25,7 @@ members = [
     "crates/toy-vms",
     "crates/connected-client",
     "crates/test-constants",
+    "crates/peer-metrics",
     "particle-node/tests/builtins",
     "particle-node",
     "aquamarine",
@@ -41,7 +42,5 @@ exclude = [
 ]
 
 [patch.crates-io]
-trust-graph = { git = "https://github.com/fluencelabs/trust-graph", branch = "remove_serde_version_lock" }
-fluence-identity = { git = "https://github.com/fluencelabs/trust-graph", branch = "remove_serde_version_lock" }
 fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "no-mem-limits" }
 fluence-faas = { git = "https://github.com/fluencelabs/marine", branch = "no-mem-limits" }

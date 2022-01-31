@@ -20,7 +20,7 @@ use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, sync::Arc, time::Dura
 use async_std::task;
 use eyre::Result;
 use eyre::{bail, eyre, WrapErr};
-use fluence_identity::KeyPair;
+use fluence_keypair::KeyPair;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use parking_lot::Mutex;
 use serde_json::Value as JValue;
@@ -253,18 +253,22 @@ impl ConnectedClient {
         }
     }
 
-    pub fn listen_for_n<F: Fn(Result<Vec<JValue>, Vec<JValue>>)>(&mut self, mut n: usize, f: F) {
+    pub fn listen_for_n<O: Default, F: Fn(Result<Vec<JValue>, Vec<JValue>>) -> O>(
+        &mut self,
+        mut n: usize,
+        f: F,
+    ) -> O {
         loop {
             n -= 1;
             if n <= 0 {
-                break;
+                return O::default();
             }
 
             let particle = self.receive().ok();
             if let Some(particle) = particle {
                 let args = read_args(particle, self.peer_id, &mut self.local_vm.lock());
                 if let Some(args) = args {
-                    f(args);
+                    return f(args);
                 }
             }
         }

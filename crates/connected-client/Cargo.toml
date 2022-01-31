@@ -10,8 +10,8 @@ fluence-libp2p = { path = "../libp2p" }
 test-constants = { path = "../test-constants"}
 local-vm = { path = "../local-vm"}
 
-fluence-identity = "0.3.0"
-libp2p = { version = "0.36.2", package = "fluence-fork-libp2p", features = ["tcp-tokio"] }
+fluence-keypair = "0.6.0"
+libp2p = "0.42"
 
 async-std = "1.9.0"
 futures = "0.3.13"

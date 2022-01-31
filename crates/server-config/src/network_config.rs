@@ -15,10 +15,11 @@
  */
 
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
-use prometheus::Registry;
+use libp2p_metrics::Metrics;
 
 use config_utils::to_peer_id;
 use particle_protocol::ProtocolConfig;
+use peer_metrics::{ConnectionPoolMetrics, ConnectivityMetrics, DispatcherMetrics};
 
 use crate::{BootstrapConfig, KademliaConfig, ResolvedConfig};
 
@@ -28,24 +29,28 @@ pub struct NetworkConfig {
     pub node_version: &'static str,
     pub bootstrap_nodes: Vec<Multiaddr>,
     pub bootstrap: BootstrapConfig,
-    pub registry: Option<Registry>,
+    pub libp2p_metrics: Option<Metrics>,
     pub protocol_config: ProtocolConfig,
     pub kademlia_config: KademliaConfig,
     pub particle_queue_buffer: usize,
     pub bootstrap_frequency: usize,
     pub allow_local_addresses: bool,
+    pub connectivity_metrics: Option<ConnectivityMetrics>,
+    pub connection_pool_metrics: Option<ConnectionPoolMetrics>,
 }
 
 impl NetworkConfig {
     pub fn new(
-        registry: Option<Registry>,
+        libp2p_metrics: Option<Metrics>,
+        connectivity_metrics: Option<ConnectivityMetrics>,
+        connection_pool_metrics: Option<ConnectionPoolMetrics>,
         key_pair: Keypair,
         config: &ResolvedConfig,
         node_version: &'static str,
     ) -> Self {
         Self {
             node_version,
-            registry,
+            libp2p_metrics,
             local_peer_id: to_peer_id(&key_pair),
             key_pair,
             bootstrap_nodes: config.bootstrap_nodes.clone(),
@@ -55,6 +60,8 @@ impl NetworkConfig {
             particle_queue_buffer: config.particle_queue_buffer,
             bootstrap_frequency: config.bootstrap_frequency,
             allow_local_addresses: config.allow_local_addresses,
+            connectivity_metrics,
+            connection_pool_metrics,
         }
     }
 }

@@ -20,7 +20,7 @@ use test_constants::KAD_TIMEOUT;
 
 use eyre::WrapErr;
 use maplit::hashmap;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::thread::sleep;
 
 #[test]
@@ -64,7 +64,6 @@ fn identity() {
 #[test]
 fn init_peer_id() {
     let swarms = make_swarms(3);
-    sleep(KAD_TIMEOUT);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -86,4 +85,60 @@ fn init_peer_id() {
     );
 
     client.receive().wrap_err("receive").unwrap();
+}
+
+#[test]
+fn join() {
+    let swarms = make_swarms(3);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("op" "noop") [])
+                (fold nodes n
+                    (par
+                        (seq
+                            (call n ("op" "identity") [n] $results)
+                            (seq
+                                (call relay ("op" "noop") [])
+                                (call %init_peer_id% ("op" "noop") [])
+                            )
+                        )
+                        (next n)
+                    )
+                )
+            )
+            (seq
+                (call %init_peer_id% ("op" "noop") [$results.$.[len]!])
+                (call %init_peer_id% ("op" "return") [$results])
+            )
+        )
+        "#,
+        hashmap! {
+            "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
+            "client" => json!(client.peer_id.to_string()),
+            "relay" => json!(client.node.to_string()),
+            "len" => json!(swarms.len() - 1),
+        },
+    );
+
+    let received = client.listen_for_n(4, |peer_ids| {
+        match peer_ids.as_ref().map(|v| v.as_slice()) {
+            Ok(&[Value::Array(ref arr)]) => {
+                assert_eq!(arr.len(), swarms.len());
+                true
+            }
+            other => panic!(
+                "expected array of {} elements, got {:?}",
+                swarms.len(),
+                other
+            ),
+        }
+    });
+    assert!(received);
 }

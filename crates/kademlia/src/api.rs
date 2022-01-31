@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-use crate::error::{KademliaError, Result};
-use crate::Kademlia;
-
-use fluence_libp2p::generate_swarm_event_type;
-use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
-use particle_protocol::Contact;
+use std::convert::identity;
 
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     future::BoxFuture,
     FutureExt, StreamExt,
 };
-use libp2p::{core::Multiaddr, identity::PublicKey, swarm::NetworkBehaviourEventProcess, PeerId};
+use libp2p::swarm::NetworkBehaviourAction;
+use libp2p::{core::Multiaddr, PeerId};
 use multihash::Multihash;
-use std::convert::identity;
+
+use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
+use particle_protocol::Contact;
+
+use crate::error::{KademliaError, Result};
+use crate::Kademlia;
 
 type Future<T> = BoxFuture<'static, T>;
 
@@ -64,14 +65,17 @@ pub enum Command {
     },
 }
 
-pub type SwarmEventType = generate_swarm_event_type!(KademliaApiInlet);
+pub type SwarmEventType = NetworkBehaviourAction<
+    (),
+    <KademliaApiInlet as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler,
+>;
 
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll")]
 pub struct KademliaApiInlet {
+    kademlia: Kademlia,
     #[behaviour(ignore)]
     inlet: Inlet<Command>,
-    kademlia: Kademlia,
 }
 
 impl KademliaApiInlet {
@@ -81,13 +85,8 @@ impl KademliaApiInlet {
         (outlet, Self { inlet, kademlia })
     }
 
-    pub fn add_addresses(
-        &mut self,
-        peer: PeerId,
-        addresses: Vec<Multiaddr>,
-        public_key: PublicKey,
-    ) {
-        self.kademlia.add_kad_node(peer, addresses, public_key)
+    pub fn add_addresses(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
+        self.kademlia.add_kad_node(peer, addresses)
     }
 
     fn execute(&mut self, cmd: Command) {
@@ -121,10 +120,6 @@ impl KademliaApiInlet {
 
         Poll::Pending
     }
-}
-
-impl NetworkBehaviourEventProcess<()> for KademliaApiInlet {
-    fn inject_event(&mut self, _: ()) {}
 }
 
 impl From<Kademlia> for (KademliaApi, KademliaApiInlet) {

@@ -2,7 +2,7 @@ use super::defaults::*;
 use crate::keys::{decode_key_pair, load_key_pair};
 use crate::{BootstrapConfig, KademliaConfig};
 
-use fluence_identity::KeyPair;
+use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
 use fluence_libp2p::{peerid_serializer, Transport};
 use fs_utils::to_abs_path;
@@ -66,7 +66,7 @@ pub struct NodeConfig {
     pub external_multiaddresses: Vec<Multiaddr>,
 
     #[serde(flatten)]
-    pub prometheus_config: PrometheusConfig,
+    pub metrics_config: MetricsConfig,
 
     #[serde(default)]
     pub bootstrap_config: BootstrapConfig,
@@ -128,10 +128,6 @@ pub struct NodeConfig {
     #[serde(with = "humantime_serde")]
     pub particle_execution_timeout: Duration,
 
-    #[serde(default = "default_processing_timeout")]
-    #[serde(with = "humantime_serde")]
-    pub particle_processing_timeout: Duration,
-
     #[serde(with = "peerid_serializer")]
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
@@ -151,13 +147,13 @@ pub struct TransportConfig {
 
 #[derive(Clone, Deserialize, Derivative)]
 #[derivative(Debug)]
-pub struct PrometheusConfig {
-    #[serde(default = "default_prometheus_enabled")]
-    pub prometheus_enabled: bool,
+pub struct MetricsConfig {
+    #[serde(default = "default_metrics_enabled")]
+    pub metrics_enabled: bool,
 
-    /// Prometheus port
-    #[serde(default = "default_prometheus_port")]
-    pub prometheus_port: u16,
+    /// Metrics port
+    #[serde(default = "default_metrics_port")]
+    pub metrics_port: u16,
 }
 
 #[derive(Clone, Deserialize, Derivative)]

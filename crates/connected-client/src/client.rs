@@ -14,15 +14,10 @@
  * limitations under the License.
  */
 
-use crate::api::ParticleApi;
-use crate::{behaviour::ClientBehaviour, ClientEvent};
+use std::{error::Error, ops::DerefMut, time::Duration};
+
 use async_std::{task, task::JoinHandle};
 use derivative::Derivative;
-use fluence_libp2p::{
-    build_memory_transport, build_transport,
-    types::{Inlet, OneshotOutlet, Outlet},
-    Transport,
-};
 use futures::{
     channel::{mpsc, mpsc::TrySendError, oneshot},
     future::FusedFuture,
@@ -30,10 +25,20 @@ use futures::{
     stream::{Fuse, StreamExt},
     FutureExt,
 };
+use libp2p::core::either::EitherError;
 use libp2p::core::Multiaddr;
+use libp2p::swarm::{ProtocolsHandlerUpgrErr, SwarmEvent};
 use libp2p::{identity::Keypair, PeerId, Swarm};
+
+use fluence_libp2p::{
+    build_memory_transport, build_transport,
+    types::{Inlet, OneshotOutlet, Outlet},
+    Transport,
+};
 use particle_protocol::{Particle, ProtocolConfig};
-use std::{error::Error, ops::DerefMut, time::Duration};
+
+use crate::api::ParticleApi;
+use crate::{behaviour::ClientBehaviour, ClientEvent};
 
 #[derive(Debug)]
 struct Command {
@@ -62,7 +67,7 @@ impl Client {
         key_pair: Option<Keypair>,
     ) -> Self {
         let key = key_pair.unwrap_or_else(Keypair::generate_ed25519);
-        let peer_id = key.public().into_peer_id();
+        let peer_id = key.public().to_peer_id();
 
         Client {
             key_pair: key,
@@ -109,7 +114,7 @@ impl Client {
             Swarm::new(transport, behaviour, self.peer_id)
         };
 
-        match Swarm::dial_addr(&mut swarm, node.clone()) {
+        match Swarm::dial(&mut swarm, node.clone()) {
             Ok(_) => log::info!("{} dialed to {:?}", self.peer_id, node),
             Err(e) => {
                 log::error!("Dial to {:?} failed with {:?}", node, e);
@@ -156,8 +161,7 @@ impl Client {
                     // Messages that were scheduled via client.send() method
                     to_relay = relay_inlet.next() => {
                         if let Some(cmd) = to_relay {
-                            // Send to node
-                            Self::send_to_node(&mut swarm, cmd)
+                            Self::send_to_node(swarm.behaviour_mut(), cmd)
                         }
                     }
 
@@ -181,16 +185,23 @@ impl Client {
         Ok((client, task))
     }
 
-    fn send_to_node<R: ParticleApi, S: DerefMut<Target = R>>(swarm: &mut S, cmd: Command) {
+    fn send_to_node<R: ParticleApi>(swarm: &mut R, cmd: Command) {
         let Command { node, particle } = cmd;
         swarm.send(node, particle)
     }
 
     fn receive_from_node(
-        msg: ClientEvent,
+        msg: SwarmEvent<
+            ClientEvent,
+            EitherError<ProtocolsHandlerUpgrErr<std::io::Error>, libp2p::ping::Failure>,
+        >,
         client_outlet: &Outlet<ClientEvent>,
     ) -> Result<(), TrySendError<ClientEvent>> {
-        // Message will be available through client.receive_one
-        client_outlet.unbounded_send(msg)
+        if let SwarmEvent::Behaviour(msg) = msg {
+            // Message will be available through client.receive_one
+            client_outlet.unbounded_send(msg)
+        } else {
+            Ok(())
+        }
     }
 }

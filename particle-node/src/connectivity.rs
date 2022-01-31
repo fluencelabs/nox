@@ -24,13 +24,15 @@ use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::Multiaddr;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
+use fluence_libp2p::types::Outlet;
 use fluence_libp2p::PeerId;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::{Contact, Particle};
+use peer_metrics::{ConnectivityMetrics, Resolution};
 
 use crate::tasks::Tasks;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 /// This structure is just a composition of Kademlia and ConnectionPool.
 /// It exists solely for code conciseness (i.e. avoid tuples);
 /// there's no architectural motivation behind
@@ -42,6 +44,7 @@ pub struct Connectivity {
     /// Bootstrap will be executed after [1, N, 2*N, 3*N, ...] bootstrap nodes connected
     /// This setting specify that N.
     pub bootstrap_frequency: usize,
+    pub metrics: Option<ConnectivityMetrics>,
 }
 
 impl Connectivity {
@@ -53,9 +56,11 @@ impl Connectivity {
     }
 
     pub async fn resolve_contact(&self, target: PeerId, particle_id: &str) -> Option<Contact> {
+        let metrics = self.metrics.as_ref();
         let contact = self.connection_pool.get_contact(target).await;
         if let Some(contact) = contact {
             // contact is connected directly to current node
+            metrics.map(|m| m.count_resolution(Resolution::Local));
             return Some(contact);
         } else {
             // contact isn't connected, have to discover it
@@ -63,10 +68,21 @@ impl Connectivity {
             match contact {
                 Ok(Some(contact)) => {
                     // connect to the discovered contact
-                    self.connection_pool.connect(contact.clone()).await;
-                    return Some(contact);
+                    let connected = self.connection_pool.connect(contact.clone()).await;
+                    if connected {
+                        metrics.map(|m| m.count_resolution(Resolution::Kademlia));
+                        return Some(contact);
+                    }
+                    metrics.map(|m| m.count_resolution(Resolution::ConnectionFailed));
+                    log::warn!(
+                        "{} Couldn't connect to {} for particle {}",
+                        self.peer_id,
+                        target,
+                        particle_id
+                    );
                 }
                 Ok(None) => {
+                    metrics.map(|m| m.count_resolution(Resolution::KademliaNotFound));
                     log::warn!(
                         "{} Couldn't discover {} for particle {}",
                         self.peer_id,
@@ -75,6 +91,7 @@ impl Connectivity {
                     );
                 }
                 Err(err) => {
+                    metrics.map(|m| m.count_resolution(Resolution::KademliaError));
                     let id = particle_id;
                     log::warn!(
                         "{} Failed to discover {} for particle {}: {}",
@@ -90,16 +107,21 @@ impl Connectivity {
         None
     }
 
-    pub async fn send(&self, contact: Contact, particle: Particle) {
+    pub async fn send(&self, contact: Contact, particle: Particle) -> bool {
         log::debug!("Sending particle {} to {}", particle.id, contact);
+        let metrics = self.metrics.as_ref();
         let id = particle.id.clone();
         let sent = self.connection_pool.send(contact.clone(), particle).await;
         if sent {
+            metrics.map(|m| m.particle_send_success.inc());
             log::info!("Sent particle {} to {}", id, contact);
         } else {
             // TODO: return & log error
+            metrics.map(|m| m.particle_send_failure.inc());
             log::info!("Failed to send particle {} to {}", id, contact);
         }
+
+        sent
     }
 
     /// Discover a peer via Kademlia
@@ -158,6 +180,7 @@ impl Connectivity {
         let pool = self.connection_pool;
         let kademlia = self.kademlia;
         let bootstrap_nodes = self.bootstrap_nodes;
+        let metrics = self.metrics.as_ref();
 
         let disconnections = {
             use async_std::stream::StreamExt as stream;
@@ -166,6 +189,7 @@ impl Connectivity {
             let events = pool.lifecycle_events();
             stream::filter_map(events, move |e| {
                 if let LifecycleEvent::Disconnected(Contact { addresses, .. }) = e {
+                    metrics.map(|m| m.bootstrap_disconnected.inc());
                     let addresses = addresses.into_iter();
                     let addresses = addresses.filter(|addr| bootstrap_nodes.contains(addr));
                     let addresses = iter(addresses.collect::<Vec<_>>());
@@ -188,6 +212,7 @@ impl Connectivity {
                     log::info!("Connected bootstrap {}", contact);
                     let ok = kademlia.add_contact(contact);
                     debug_assert!(ok, "kademlia.add_contact");
+                    metrics.map(|m| m.bootstrap_connected.inc());
                     break;
                 }
 

@@ -37,10 +37,7 @@ use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use ctrlc_adapter::block_until_ctrlc;
 use fs_utils::to_abs_path;
-use particle_node::{
-    config::{certificates, create_args},
-    Node,
-};
+use particle_node::{config::create_args, Node};
 use server_config::{load_config, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -105,9 +102,6 @@ fn main() -> eyre::Result<()> {
 // NOTE: to stop Fluence just call Stoppable::stop()
 fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
-
-    certificates::init(&config.dir_config.certificate_dir, &config.root_key_pair)
-        .wrap_err("failed to init certificates")?;
 
     let key_pair = config.root_key_pair.clone();
     let bs58_key_pair = bs58::encode(key_pair.public().to_vec()).into_string();

@@ -39,15 +39,15 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .value_name("PORT")
             .default_value("9999")
             .about("websocket port"),
-        Arg::new(PROMETHEUS_PORT)
+        Arg::new(METRICS_PORT)
             .display_order(3)
             .help_heading(Some("Networking"))
             .takes_value(true)
             .short('s')
-            .long("prometheus-port")
+            .long("metrics-port")
             .value_name("PORT")
             .default_value("18080")
-            .about("prometheus metrics port"),
+            .about("open metrics port"),
         Arg::new(EXTERNAL_ADDR)
             .display_order(4)
             .help_heading(Some("Networking"))

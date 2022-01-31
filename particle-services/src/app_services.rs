@@ -15,6 +15,7 @@
  */
 
 use std::ops::Deref;
+use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
@@ -24,6 +25,7 @@ use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::PeerId;
+use humantime_serde::re::humantime::format_duration as pretty;
 use particle_args::Args;
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
@@ -351,6 +353,7 @@ impl ParticleAppServices {
         });
 
         for s in services {
+            let start = Instant::now();
             let service = create_app_service(
                 self.config.clone(),
                 &self.modules,
@@ -386,7 +389,11 @@ impl ParticleAppServices {
                 "shouldn't replace any existing services"
             );
 
-            log::info!("Persisted service {} created", s.service_id);
+            log::info!(
+                "Persisted service {} created in {}",
+                s.service_id,
+                pretty(start.elapsed())
+            );
         }
     }
 

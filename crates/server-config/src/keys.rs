@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use fluence_identity::{key_pair::KeyFormat, KeyPair};
+use fluence_keypair::{key_pair::KeyFormat, KeyPair};
 use fs_utils::create_dirs;
 
 use log::info;

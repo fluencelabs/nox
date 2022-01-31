@@ -123,7 +123,7 @@ where
     fn upgrade_inbound(self, mut socket: Socket, info: Self::Info) -> Self::Future {
         async move {
             let process = async move |socket| -> Result<ProtocolMessage, Error> {
-                let packet = upgrade::read_one(socket, MAX_BUF_SIZE).await?;
+                let packet = upgrade::read_length_prefixed(socket, MAX_BUF_SIZE).await?;
                 serde_json::from_slice(&packet)
                     .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
             };
@@ -172,7 +172,7 @@ where
 
             let write = async move || -> Result<_, io::Error> {
                 let bytes = serde_json::to_vec(&msg)?;
-                upgrade::write_one(&mut socket, bytes).await?;
+                upgrade::write_length_prefixed(&mut socket, bytes).await?;
                 Ok(())
             };
 

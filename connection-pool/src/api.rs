@@ -14,15 +14,7 @@
  * limitations under the License.
  */
 
-use crate::connection_pool::LifecycleEvent;
-use crate::{ConnectionPoolBehaviour, ConnectionPoolT};
-use particle_protocol::Contact;
-
-use fluence_libp2p::{
-    generate_swarm_event_type,
-    types::{Inlet, OneshotOutlet, Outlet},
-};
-use particle_protocol::Particle;
+use std::time::Duration;
 
 use futures::{
     channel::{mpsc::unbounded, oneshot},
@@ -30,8 +22,18 @@ use futures::{
     stream::BoxStream,
     FutureExt, StreamExt,
 };
+use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::{core::Multiaddr, swarm::NetworkBehaviourEventProcess, PeerId};
-use std::time::Duration;
+
+use fluence_libp2p::{
+    generate_swarm_event_type,
+    types::{Inlet, OneshotOutlet, Outlet},
+};
+use particle_protocol::Contact;
+use particle_protocol::Particle;
+
+use crate::connection_pool::LifecycleEvent;
+use crate::{ConnectionPoolBehaviour, ConnectionPoolT};
 
 // marked `pub` to be available in benchmarks
 #[derive(Debug)]
@@ -70,14 +72,17 @@ pub enum Command {
     },
 }
 
-pub type SwarmEventType = generate_swarm_event_type!(ConnectionPoolInlet);
+pub type SwarmEventType = libp2p::swarm::NetworkBehaviourAction<
+    (),
+    <ConnectionPoolInlet as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler,
+>;
 
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll")]
 pub struct ConnectionPoolInlet {
+    connection_pool: ConnectionPoolBehaviour,
     #[behaviour(ignore)]
     inlet: Inlet<Command>,
-    connection_pool: ConnectionPoolBehaviour,
 }
 
 impl ConnectionPoolInlet {
@@ -122,10 +127,6 @@ impl ConnectionPoolInlet {
 
         Poll::Pending
     }
-}
-
-impl NetworkBehaviourEventProcess<()> for ConnectionPoolInlet {
-    fn inject_event(&mut self, _: ()) {}
 }
 
 #[derive(Clone, Debug)]

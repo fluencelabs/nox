@@ -5,4 +5,4 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p-core = { package = "fluence-fork-libp2p-core", version = "0.27.2" }
+libp2p-core = { version = "0.31", default-features = false, features = [ "secp256k1" ] }

@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-use crate::aqua_runtime::AquaRuntime;
-
-use futures::{future::BoxFuture, FutureExt};
 use std::{
     collections::VecDeque,
     task::{Context, Poll},
 };
+
+use futures::{future::BoxFuture, FutureExt};
+
+use peer_metrics::VmPoolMetrics;
+
+use crate::aqua_runtime::AquaRuntime;
 
 /// Pool that owns and manages aquamarine stepper VMs
 /// VMs are created asynchronously after `VmPool` creation
@@ -36,27 +39,63 @@ pub struct VmPool<RT: AquaRuntime> {
     creating_runtimes: Option<Vec<BoxFuture<'static, Result<RT, RT::Error>>>>,
     runtime_config: RT::Config,
     pool_size: usize,
+    metrics: Option<VmPoolMetrics>,
 }
 
 impl<RT: AquaRuntime> VmPool<RT> {
     /// Creates `VmPool` and starts background tasks creating `config.pool_size` number of VMs
-    pub fn new(pool_size: usize, runtime_config: RT::Config) -> Self {
-        Self {
+    pub fn new(
+        pool_size: usize,
+        runtime_config: RT::Config,
+        metrics: Option<VmPoolMetrics>,
+    ) -> Self {
+        let this = Self {
             runtimes: <_>::default(),
             creating_runtimes: None,
             runtime_config,
             pool_size,
-        }
+            metrics,
+        };
+
+        this.meter(|m| m.pool_size.set(pool_size as u64));
+
+        this
+    }
+
+    fn meter<U, FF: Fn(&VmPoolMetrics) -> U>(&self, f: FF) {
+        self.metrics.as_ref().map(f);
+    }
+
+    /// Number of currently unused vms
+    pub fn free_vms(&self) -> usize {
+        self.runtimes.len()
     }
 
     /// Takes VM from pool
     pub fn get_vm(&mut self) -> Option<RT> {
-        self.runtimes.pop_front()
+        let vm = self.runtimes.pop_front();
+
+        self.meter(|m| {
+            m.get_vm.inc();
+            m.free_vms.set(self.runtimes.len() as u64);
+            if vm.is_none() {
+                m.no_free_vm.inc();
+            }
+        });
+
+        vm
     }
 
     /// Puts VM back to the pool
     pub fn put_vm(&mut self, vm: RT) {
-        self.runtimes.push_front(vm)
+        let vm = self.runtimes.push_front(vm);
+
+        self.meter(|m| {
+            m.put_vm.inc();
+            m.free_vms.set(self.runtimes.len() as u64);
+        });
+
+        vm
     }
 
     /// Moves created VMs from `creating_vms` to `vms`

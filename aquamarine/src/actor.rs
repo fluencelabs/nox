@@ -28,8 +28,8 @@ use particle_protocol::Particle;
 use crate::deadline::Deadline;
 use crate::particle_effects::NetworkEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
-use crate::particle_functions::{Function, Functions};
-use crate::AquaRuntime;
+use crate::particle_functions::{Function, Functions, SingleCallStat};
+use crate::{AquaRuntime, InterpretationStats};
 
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
@@ -97,7 +97,10 @@ where
     }
 
     /// Polls actor for result on previously ingested particle
-    pub fn poll_completed(&mut self, cx: &mut Context<'_>) -> Poll<FutResult<RT, NetworkEffects>> {
+    pub fn poll_completed(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<FutResult<RT, NetworkEffects, InterpretationStats>> {
         self.waker = Some(cx.waker().clone());
 
         self.functions.poll(cx);
@@ -106,20 +109,19 @@ where
         if let Some(Poll::Ready(r)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
             self.future.take();
 
-            let effects = match r.effects {
-                Ok(effects) => {
-                    // Schedule execution of functions
-                    self.functions
-                        .execute(effects.call_requests, cx.waker().clone());
-                    Ok(NetworkEffects {
-                        particle: effects.particle,
-                        next_peers: effects.next_peers,
-                    })
-                }
-                Err(err) => Err(err),
-            };
+            let waker = cx.waker().clone();
+            // Schedule execution of functions
+            self.functions.execute(r.effects.call_requests, waker);
 
-            return Poll::Ready(FutResult { vm: r.vm, effects });
+            let effects = NetworkEffects {
+                particle: r.effects.particle,
+                next_peers: r.effects.next_peers,
+            };
+            return Poll::Ready(FutResult {
+                vm: r.vm,
+                effects,
+                stats: r.stats,
+            });
         }
 
         Poll::Pending
@@ -140,12 +142,13 @@ where
         }
 
         // Gather CallResults
-        let calls = self.functions.drain();
+        let (calls, stats) = self.functions.drain();
 
         // Take the next particle
         let particle = self.mailbox.pop_front();
 
         if particle.is_none() && calls.is_empty() {
+            debug_assert!(stats.is_empty(), "stats must be empty if calls are empty");
             // Nothing to execute, return vm
             return ActorPoll::Vm(vm);
         }
@@ -156,7 +159,7 @@ where
         // Take ownership of vm to process particle
         self.future = Some(vm.execute((particle, calls), waker));
 
-        ActorPoll::Executing
+        ActorPoll::Executing(stats)
     }
 
     fn wake(&self) {
@@ -167,6 +170,6 @@ where
 }
 
 pub enum ActorPoll<RT> {
-    Executing,
+    Executing(Vec<SingleCallStat>),
     Vm(RT),
 }

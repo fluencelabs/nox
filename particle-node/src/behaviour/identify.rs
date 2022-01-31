@@ -41,9 +41,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
 
                 if supports_kademlia {
                     let addresses = filter_addresses(info.listen_addrs, self.allow_local_addresses);
-                    // TODO: check that address is available before adding it? Or will kademlia check it?
-                    self.kademlia
-                        .add_addresses(peer_id, addresses, info.public_key);
+                    self.kademlia.add_addresses(peer_id, addresses);
                 }
             }
 
@@ -52,8 +50,8 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
                 log::debug!("Identify error on {}: {}", peer_id, error);
             }
 
-            // We don't care about Sent identification info
-            IdentifyEvent::Sent { .. } => {}
+            // We don't care about outgoing identification info
+            IdentifyEvent::Sent { .. } | IdentifyEvent::Pushed { .. } => {}
         }
     }
 }

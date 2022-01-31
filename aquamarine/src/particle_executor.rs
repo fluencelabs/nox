@@ -24,10 +24,10 @@ use humantime::format_duration as pretty;
 use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
-use crate::error::AquamarineApiError;
 use crate::particle_effects::ParticleEffects;
+use crate::InterpretationStats;
 
-pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects>>;
+pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects, InterpretationStats>>;
 
 pub trait ParticleExecutor {
     type Future;
@@ -36,11 +36,13 @@ pub trait ParticleExecutor {
 }
 
 /// Result of a particle execution along a VM that has just executed the particle
-pub struct FutResult<RT, Eff> {
+pub struct FutResult<RT, Eff, Stats> {
     /// AVM that just executed a particle
     pub vm: RT,
     /// Effects produced by particle execution
-    pub effects: Result<Eff, AquamarineApiError>,
+    pub effects: Eff,
+    /// Performance stats
+    pub stats: Stats,
 }
 
 impl<RT: AquaRuntime> ParticleExecutor for RT {
@@ -54,19 +56,24 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             log::info!("Executing particle {}", p.id);
 
             let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), &p.id, calls);
+            let interpretation_time = now.elapsed();
+            let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
+            let stats = InterpretationStats { interpretation_time, new_data_len, success: result.is_ok() };
 
             if let Err(err) = &result {
                 log::warn!("Error executing particle {:#?}: {}", p, err)
             } else {
-                log::trace!(target: "network", "Particle {} executed in {} [{} bytes => {} bytes]", p.id, pretty(now.elapsed()), p.data.len(), result.as_ref().map(|e| e.data.len() as i32).unwrap_or(-1));
+                let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
+                log::trace!(target: "network", "Particle {} interpreted in {} [{} bytes => {} bytes]", p.id, pretty(interpretation_time), p.data.len(), len);
             }
-            let effects = Ok(Self::into_effects(result, p));
+            let effects = Self::into_effects(result, p);
 
             waker.wake();
 
             FutResult {
                 vm: self,
                 effects,
+                stats
             }
         })
         .boxed()
