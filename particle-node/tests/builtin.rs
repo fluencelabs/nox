@@ -820,6 +820,47 @@ fn timeout_wait() {
     assert_eq!(&slow_result[0], "timed out");
 }
 
+#[test]
+fn debug_stringify() {
+    fn stringify(value: impl Into<JValue>) -> String {
+        let mut result = exec_script(
+            r#"(call relay ("debug" "stringify") [value] result)"#,
+            hashmap! {
+                "value" => value.into()
+            },
+            "result",
+            1,
+        );
+
+        result[0].take().as_str().unwrap().to_string()
+    }
+
+    assert_eq!(stringify("hello"), r#""hello""#);
+    assert_eq!(stringify(101), r#"101"#);
+    assert_eq!(stringify(json!({ "a": "b" })), r#"{"a":"b"}"#);
+    assert_eq!(stringify(json!(["a"])), r#"["a"]"#);
+    assert_eq!(stringify(json!(["a", "b"])), r#"["a","b"]"#);
+
+    let result = exec_script(
+        r#"(call relay ("debug" "stringify") [] result)"#,
+        <_>::default(),
+        "result",
+        1,
+    );
+    assert_eq!(
+        result[0].as_str().unwrap().to_string(),
+        "<empty argument list>"
+    );
+
+    let result = exec_script(
+        r#"(call relay ("debug" "stringify") ["a" "b"] result)"#,
+        <_>::default(),
+        "result",
+        1,
+    );
+    assert_eq!(result[0].as_str().unwrap().to_string(), r#"["a","b"]"#);
+}
+
 fn exec_script(
     script: &str,
     args: HashMap<&'static str, JValue>,
