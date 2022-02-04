@@ -23,11 +23,6 @@ pub struct VmPoolMetrics {
     pub vm_mem_cma: u64,
     pub vm_mem_measures: u64,
     pub vm_mem_avg: Gauge,
-    /*
-       общую сумму хипа, занятого под сервисы
-       общую сумму хипа, занятого под интерпретаторы
-       {минимум, максимум} занятого хипа на {сервис, интерпретатор, модуль}
-    */
 }
 
 impl VmPoolMetrics {
