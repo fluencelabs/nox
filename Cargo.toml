@@ -40,7 +40,3 @@ members = [
 exclude = [
     "particle-node/tests/tetraplets",
 ]
-
-[patch.crates-io]
-fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "no-mem-limits" }
-fluence-faas = { git = "https://github.com/fluencelabs/marine", branch = "no-mem-limits" }
