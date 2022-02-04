@@ -320,6 +320,7 @@ mod tests {
 
     /// Checks that expired actor will be removed
     #[ignore]
+    #[test]
     fn remove_expired() {
         set_mock_time(real_time::now_ms());
 
