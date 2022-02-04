@@ -849,7 +849,7 @@ fn debug_stringify() {
     );
     assert_eq!(
         result[0].as_str().unwrap().to_string(),
-        "<empty argument list>"
+        r#""<empty argument list>""#
     );
 
     let result = exec_script(

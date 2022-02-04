@@ -385,7 +385,8 @@ where
 
     fn stringify(&self, args: Vec<serde_json::Value>) -> FunctionOutcome {
         let debug = if args.is_empty() {
-            "<empty argument list>".to_string()
+            // return valid JSON string
+            r#""<empty argument list>""#.to_string()
         } else if args.len() == 1 {
             args[0].to_string()
         } else {
