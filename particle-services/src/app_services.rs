@@ -174,8 +174,7 @@ impl ParticleAppServices {
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)
                     .map_err(ServiceError::NoSuchService)?;
 
-            if service.owner_id != init_peer_id && self.builtins_management_peer_id != init_peer_id
-            {
+            if service.owner_id != init_peer_id && self.management_peer_id != init_peer_id {
                 return Err(ServiceError::Forbidden {
                     user: init_peer_id,
                     function: "remove_service",
