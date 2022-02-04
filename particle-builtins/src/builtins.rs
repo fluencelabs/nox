@@ -148,6 +148,8 @@ where
             ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
             ("op", "identity")                => self.identity(args.function_args),
 
+            ("debug", "stringify")            => self.stringify(args.function_args),
+
             _                                 => self.call_service(args, particle),
         }
     }
@@ -379,6 +381,19 @@ where
         } else {
             Try::from_output(args.into_iter().next())
         }
+    }
+
+    fn stringify(&self, args: Vec<serde_json::Value>) -> FunctionOutcome {
+        let debug = if args.is_empty() {
+            // return valid JSON string
+            r#""<empty argument list>""#.to_string()
+        } else if args.len() == 1 {
+            args[0].to_string()
+        } else {
+            JValue::Array(args).to_string()
+        };
+
+        FunctionOutcome::Ok(JValue::String(debug))
     }
 
     /// Flattens an array of arrays
