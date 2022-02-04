@@ -51,6 +51,9 @@ pub trait AquaRuntime: Sized + Send + 'static {
     ) -> Result<AVMOutcome, Self::Error>;
 
     fn cleanup(&mut self, particle_id: &str) -> Result<(), Self::Error>;
+
+    /// Return current size of memory. Use only for diagnostics purposes.
+    fn memory_size(&self) -> usize;
 }
 
 impl AquaRuntime for AVM<DataStoreError> {
@@ -140,5 +143,9 @@ impl AquaRuntime for AVM<DataStoreError> {
     #[inline]
     fn cleanup(&mut self, particle_id: &str) -> Result<(), Self::Error> {
         AVM::cleanup_data(self, particle_id)
+    }
+
+    fn memory_size(&self) -> usize {
+        self.memory_size()
     }
 }

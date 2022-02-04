@@ -15,6 +15,8 @@ pub use vm_pool::VmPoolMetrics;
 // TODO:
 // - service creation time
 // - number of services
-// - heap statistics
+// - service creation & removal counters
+// - service heap statistics
+// - interpreter heap histograms / summary
 // - individual actor mailbox size: max and histogram
 // - count 'Error processing inbound ProtocolMessage: unexpected end of file'

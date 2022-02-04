@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::VecDeque,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 
 use futures::{future::BoxFuture, FutureExt};
 
@@ -27,15 +24,15 @@ use crate::aqua_runtime::AquaRuntime;
 
 /// Pool that owns and manages aquamarine stepper VMs
 /// VMs are created asynchronously after `VmPool` creation
-/// Futures representing background VM creation are stored in `VmPool::creating_vms`
-/// Created vms are moved to `VmPool::vms`
+/// Futures representing background VM creation are stored in `VmPool::creating_runtimes`
+/// Created vms are moved to `VmPool::runtimes`
 ///
 /// Main API consists of `VmPool::get_vm` and `VmPool::put_vm`.
 /// API allows taking VM for execution (via `get_vm`), and then it is expected that VM is
 /// returned back via `put_vm`.
 /// It is also expected that `VmPool::poll` is called periodically.
 pub struct VmPool<RT: AquaRuntime> {
-    runtimes: VecDeque<RT>,
+    runtimes: Vec<Option<RT>>,
     creating_runtimes: Option<Vec<BoxFuture<'static, Result<RT, RT::Error>>>>,
     runtime_config: RT::Config,
     pool_size: usize,
@@ -49,21 +46,22 @@ impl<RT: AquaRuntime> VmPool<RT> {
         runtime_config: RT::Config,
         metrics: Option<VmPoolMetrics>,
     ) -> Self {
-        let this = Self {
-            runtimes: <_>::default(),
+        let mut this = Self {
+            runtimes: Vec::with_capacity(pool_size),
             creating_runtimes: None,
             runtime_config,
             pool_size,
             metrics,
         };
 
-        this.meter(|m| m.pool_size.set(pool_size as u64));
+        this.runtimes.resize_with(pool_size, || None);
+        this.meter(|m| m.set_pool_size(pool_size));
 
         this
     }
 
-    fn meter<U, FF: Fn(&VmPoolMetrics) -> U>(&self, f: FF) {
-        self.metrics.as_ref().map(f);
+    fn meter<U, FF: Fn(&mut VmPoolMetrics) -> U>(&mut self, f: FF) {
+        self.metrics.as_mut().map(f);
     }
 
     /// Number of currently unused vms
@@ -72,30 +70,41 @@ impl<RT: AquaRuntime> VmPool<RT> {
     }
 
     /// Takes VM from pool
-    pub fn get_vm(&mut self) -> Option<RT> {
-        let vm = self.runtimes.pop_front();
+    pub fn get_vm(&mut self) -> Option<(usize, RT)> {
+        let runtimes = self.runtimes.iter_mut();
+        let vm = runtimes
+            .enumerate()
+            .find_map(|(idx, vm)| vm.take().map(|vm| (idx, vm)));
 
+        let free_vms_count = self.runtimes.iter().filter(|vm| vm.is_some()).count();
         self.meter(|m| {
             m.get_vm.inc();
-            m.free_vms.set(self.runtimes.len() as u64);
+
             if vm.is_none() {
                 m.no_free_vm.inc();
             }
+
+            m.free_vms.set(free_vms_count as u64);
         });
 
         vm
     }
 
     /// Puts VM back to the pool
-    pub fn put_vm(&mut self, vm: RT) {
-        let vm = self.runtimes.push_front(vm);
+    pub fn put_vm(&mut self, id: usize, vm: RT) {
+        debug_assert!(
+            self.runtimes[id].is_none(),
+            "put_vm must never happen before get_vm"
+        );
+        let memory_size = vm.memory_size();
+        self.runtimes[id] = Some(vm);
 
+        let free_vms_count = self.runtimes.iter().filter(|vm| vm.is_some()).count();
         self.meter(|m| {
             m.put_vm.inc();
-            m.free_vms.set(self.runtimes.len() as u64);
+            m.free_vms.set(free_vms_count as u64);
+            m.measure_memory(id, memory_size as u64);
         });
-
-        vm
     }
 
     /// Moves created VMs from `creating_vms` to `vms`
@@ -132,7 +141,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
                 // Put created vm to self.vms
                 match vm {
-                    Ok(vm) => vms.push_back(vm),
+                    Ok(vm) => vms[i] = Some(vm),
                     Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
                 }
 
