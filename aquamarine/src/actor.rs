@@ -34,7 +34,7 @@ use crate::{AquaRuntime, InterpretationStats};
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
-    future: Option<Fut<RT>>,
+    future: Option<(usize, Fut<RT>)>,
     mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
     functions: Functions<F>,
@@ -100,13 +100,15 @@ where
     pub fn poll_completed(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<FutResult<RT, NetworkEffects, InterpretationStats>> {
+    ) -> Poll<FutResult<(usize, RT), NetworkEffects, InterpretationStats>> {
+        use Poll::Ready;
+
         self.waker = Some(cx.waker().clone());
 
         self.functions.poll(cx);
 
         // Poll AquaVM future
-        if let Some(Poll::Ready(r)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
+        if let Some((vm_id, Ready(r))) = self.future.as_mut().map(|(i, f)| (*i, f.poll_unpin(cx))) {
             self.future.take();
 
             let waker = cx.waker().clone();
@@ -118,7 +120,7 @@ where
                 next_peers: r.effects.next_peers,
             };
             return Poll::Ready(FutResult {
-                vm: r.vm,
+                vm: (vm_id, r.vm),
                 effects,
                 stats: r.stats,
             });
@@ -131,14 +133,14 @@ where
     ///
     /// If actor is in the middle of executing previous particle, vm is returned
     /// If actor's mailbox is empty, vm is returned
-    pub fn poll_next(&mut self, vm: RT, cx: &mut Context<'_>) -> ActorPoll<RT> {
+    pub fn poll_next(&mut self, vm_id: usize, vm: RT, cx: &mut Context<'_>) -> ActorPoll<RT> {
         self.waker = Some(cx.waker().clone());
 
         self.functions.poll(cx);
 
         // Return vm if previous particle is still executing
         if self.is_executing() {
-            return ActorPoll::Vm(vm);
+            return ActorPoll::Vm(vm_id, vm);
         }
 
         // Gather CallResults
@@ -150,14 +152,14 @@ where
         if particle.is_none() && calls.is_empty() {
             debug_assert!(stats.is_empty(), "stats must be empty if calls are empty");
             // Nothing to execute, return vm
-            return ActorPoll::Vm(vm);
+            return ActorPoll::Vm(vm_id, vm);
         }
 
         let particle = particle.unwrap_or_else(|| self.particle.clone());
         let waker = cx.waker().clone();
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         // Take ownership of vm to process particle
-        self.future = Some(vm.execute((particle, calls), waker));
+        self.future = Some((vm_id, vm.execute((particle, calls), waker)));
 
         ActorPoll::Executing(stats)
     }
@@ -171,5 +173,5 @@ where
 
 pub enum ActorPoll<RT> {
     Executing(Vec<SingleCallStat>),
-    Vm(RT),
+    Vm(usize, RT),
 }
