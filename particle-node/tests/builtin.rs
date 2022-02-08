@@ -861,6 +861,27 @@ fn debug_stringify() {
     assert_eq!(result[0].as_str().unwrap().to_string(), r#"["a","b"]"#);
 }
 
+#[test]
+fn xor_type_error() {
+    let result = exec_script(
+        r#"
+        (xor
+            (call relay ("dist" "make_module_config") [obj obj obj])
+            (call relay ("op" "identity") [%last_error%] error)
+        )
+        "#,
+        hashmap! {
+            "obj" => json!({"never valid": "ever"}),
+        },
+        "error",
+        1,
+    );
+    assert_eq!(
+        result[0].get("error_code"),
+        Some(JValue::Number(10000.into())).as_ref()
+    )
+}
+
 fn exec_script(
     script: &str,
     args: HashMap<&'static str, JValue>,

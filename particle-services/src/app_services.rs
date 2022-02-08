@@ -174,13 +174,14 @@ impl ParticleAppServices {
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)
                     .map_err(ServiceError::NoSuchService)?;
 
-            /// What a mess.
-            /// service.owner_id has created the service, so can remove. only naturel.
-            /// management_peer_id is the node admin, can remove any service.
-            /// builtins_management_peer_id is a HACKity hack:
-            ///     It needs to be able to remove only builtins (services deployed from FS on start),
-            ///     but there's no way to tell which one's are "builtins", so we allow it to remove
-            ///     all services.
+            // TODO: HACK:
+            //  What a mess.
+            //  service.owner_id has created the service, so can remove. that's OK.
+            //  management_peer_id is the node admin, can remove any service. that's OK.
+            //  builtins_management_peer_id is a HACKity hack:
+            //      It actually needs to be able to remove only builtins (services deployed from FS on start),
+            //      but there's no way to tell which one's are "builtins", so we allow it to remove
+            //      all services.
             if service.owner_id != init_peer_id
                 && self.management_peer_id != init_peer_id
                 && self.builtins_management_peer_id != init_peer_id
