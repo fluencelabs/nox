@@ -15,10 +15,11 @@
  */
 
 use std::borrow::{Borrow, Cow};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
+use std::iter::FromIterator;
 use std::num::ParseIntError;
-use std::ops::Try;
+use std::ops::{Mul, Try};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
@@ -26,8 +27,10 @@ use std::time::{Duration, Instant};
 use async_std::task;
 use avm_server::{CallRequestParams, CallServiceResult};
 use humantime_serde::re::humantime::format_duration as pretty;
+use itertools::Itertools;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
@@ -48,6 +51,7 @@ use server_config::ServicesConfig;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
+use crate::math;
 
 #[derive(Debug, Clone)]
 pub struct Builtins<C> {
@@ -150,7 +154,25 @@ where
 
             ("debug", "stringify")            => self.stringify(args.function_args),
 
-            _                                 => self.call_service(args, particle),
+            ("math", "add")        => binary::<i64, i64, i64, _>(args, math::add),
+            ("math", "sub")        => binary::<i64, i64, i64, _>(args, math::sub),
+            ("math", "mul")        => binary::<i64, i64, i64, _>(args, math::mul),
+            ("math", "fmul")       => binary::<f64, f64, i64, _>(args, math::fmul_floor),
+            ("math", "div")        => binary::<i64, i64, i64, _>(args, math::div),
+            ("math", "rem")        => binary::<i64, i64, i64, _>(args, math::rem),
+            ("math", "pow")        => binary::<i64, u32, i64, _>(args, math::pow),
+            ("math", "log")        => binary::<i64, i64, u32, _>(args, math::log),
+
+            ("cmp", "gt")          => binary::<i64, i64, bool, _>(args, math::gt),
+            ("cmp", "lt")          => binary::<i64, i64, bool, _>(args, math::lt),
+
+            ("array", "add")       => unary::<Vec<i64>, i64, _>(args, math::array_add),
+            ("array", "dedup")     => unary::<Vec<String>, Vec<String>, _>(args, math::dedup),
+            ("array", "intersect") => binary::<HashSet<String>, HashSet<String>, Vec<String>, _>(args, math::intersect),
+            ("array", "diff")      => binary::<HashSet<String>, HashSet<String>, Vec<String>, _>(args, math::diff),
+            ("array", "sdiff")     => binary::<HashSet<String>, HashSet<String>, Vec<String>, _>(args, math::sdiff),
+
+            _                      => self.call_service(args, particle),
         }
     }
 
@@ -731,4 +753,40 @@ fn get_delay(delay: Option<Duration>, interval: Option<Duration>) -> Duration {
         (None, Some(interval)) => Duration::from_secs(rng.gen_range(0..=interval.as_secs())),
         (None, None) => Duration::from_secs(0),
     }
+}
+
+fn unary<X, Out, F>(args: Args, f: F) -> FunctionOutcome
+where
+    X: for<'de> Deserialize<'de>,
+    Out: Serialize,
+    F: Fn(X) -> Result<Out, JError>,
+{
+    if args.function_args.len() != 1 {
+        let err = format!("expected 1 arguments, got {}", args.function_args.len());
+        return FunctionOutcome::Err(JError::new(err));
+    }
+    let mut args = args.function_args.into_iter();
+
+    let x: X = Args::next("x", &mut args)?;
+    let out = f(x)?;
+    FunctionOutcome::Ok(json!(out))
+}
+
+fn binary<X, Y, Out, F>(args: Args, f: F) -> FunctionOutcome
+where
+    X: for<'de> Deserialize<'de>,
+    Y: for<'de> Deserialize<'de>,
+    Out: Serialize,
+    F: Fn(X, Y) -> Result<Out, JError>,
+{
+    if args.function_args.len() != 2 {
+        let err = format!("expected 2 arguments, got {}", args.function_args.len());
+        return FunctionOutcome::Err(JError::new(err));
+    }
+    let mut args = args.function_args.into_iter();
+
+    let x: X = Args::next("x", &mut args)?;
+    let y: Y = Args::next("y", &mut args)?;
+    let out = f(x, y)?;
+    FunctionOutcome::Ok(json!(out))
 }
