@@ -14,8 +14,24 @@
  * limitations under the License.
  */
 
+#![feature(int_log)]
+
 #[macro_use]
 extern crate fstrings;
+
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::time::Duration;
+
+use eyre::{Report, WrapErr};
+use fluence_keypair::KeyPair;
+use itertools::Itertools;
+use libp2p::core::Multiaddr;
+use libp2p::kad::kbucket::Key;
+use libp2p::PeerId;
+use maplit::hashmap;
+use serde::Deserialize;
+use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
 use created_swarm::{
@@ -28,20 +44,6 @@ use now_millis::now_ms;
 use particle_protocol::Particle;
 use service_modules::load_module;
 use test_constants::PARTICLE_TTL;
-
-use libp2p::core::Multiaddr;
-use libp2p::kad::kbucket::Key;
-
-use eyre::WrapErr;
-use fluence_keypair::KeyPair;
-use itertools::Itertools;
-use libp2p::PeerId;
-use maplit::hashmap;
-use serde::Deserialize;
-use serde_json::{json, Value as JValue};
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::time::Duration;
 use test_utils::create_service;
 
 #[derive(Deserialize, Debug)]
@@ -504,7 +506,7 @@ fn base58_string_builtins() {
         "b58_string" => json!(b58_string),
     };
 
-    let result = exec_script(script, args, "b58_string_out string_out identity_string", 1);
+    let result = exec_script(script, args, "b58_string_out string_out identity_string", 1).unwrap();
     assert_eq!(result[0], JValue::String(b58_string));
     assert_eq!(result[1], JValue::String(string.into()));
     assert_eq!(result[2], JValue::String(string.into()));
@@ -529,7 +531,7 @@ fn base58_bytes_builtins() {
         "bytes" => json!(bytes),
     };
 
-    let result = exec_script(script, args, "b58_string_out bytes_out identity_bytes", 1);
+    let result = exec_script(script, args, "b58_string_out bytes_out identity_bytes", 1).unwrap();
     // let array = into_array(result).expect("must be an array");
     assert_eq!(result[0], json!(b58_string));
     assert_eq!(result[1], json!(bytes));
@@ -568,7 +570,8 @@ fn sha256() {
         args,
         "string_mhash string_digest bytes_mhash bytes_digest",
         1,
-    );
+    )
+    .unwrap();
 
     // multihash as base58
     assert_eq!(
@@ -612,7 +615,8 @@ fn neighborhood() {
         <_>::default(),
         "neighborhood_by_key neighborhood_by_mhash error",
         2,
-    );
+    )
+    .unwrap();
     let neighborhood_by_key = into_array(result[0].take())
         .expect("neighborhood is an array")
         .into_iter()
@@ -647,7 +651,7 @@ fn kad_merge() {
         "count" => json!(count),
     };
 
-    let result = exec_script(script, args, "merged", 1);
+    let result = exec_script(script, args, "merged", 1).unwrap();
     let merged = result.into_iter().next().expect("merged is defined");
     let merged = into_array(merged).expect("merged is an array");
     let merged = merged
@@ -674,7 +678,8 @@ fn noop() {
         <_>::default(),
         "result",
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(result, vec![json!("")])
 }
 
@@ -685,7 +690,8 @@ fn identity() {
         <_>::default(),
         "result",
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(result, vec![json!("hi")]);
 
     let error = exec_script(
@@ -698,7 +704,8 @@ fn identity() {
         <_>::default(),
         "error",
         1,
-    );
+    )
+    .unwrap();
     let error = error[0].as_str().unwrap();
     assert!(error.contains("identity accepts up to 1 arguments, received 2 arguments"));
 }
@@ -710,7 +717,8 @@ fn array() {
         <_>::default(),
         "result",
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(result, vec![json!(["hi"])])
 }
 
@@ -728,7 +736,8 @@ fn concat() {
         },
         "result",
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(result, vec![json!([0, 0, 1, 2, 3, 4, 5])])
 }
 
@@ -765,7 +774,8 @@ fn array_length() {
         },
         "zero five zero_error count_error type_error",
         1,
-    );
+    )
+    .unwrap();
 
     assert_eq!(result, vec![
         json!(0),
@@ -790,7 +800,8 @@ fn timeout_race() {
         <_>::default(),
         "$result.$[0]",
         1,
-    );
+    )
+    .unwrap();
 
     assert_eq!(&fast_result[0], "fast_result");
 }
@@ -815,7 +826,8 @@ fn timeout_wait() {
         <_>::default(),
         "$result.$[0]",
         1,
-    );
+    )
+    .unwrap();
 
     assert_eq!(&slow_result[0], "timed out");
 }
@@ -830,7 +842,8 @@ fn debug_stringify() {
             },
             "result",
             1,
-        );
+        )
+        .unwrap();
 
         result[0].take().as_str().unwrap().to_string()
     }
@@ -846,7 +859,8 @@ fn debug_stringify() {
         <_>::default(),
         "result",
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(
         result[0].as_str().unwrap().to_string(),
         r#""<empty argument list>""#
@@ -857,11 +871,13 @@ fn debug_stringify() {
         <_>::default(),
         "result",
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(result[0].as_str().unwrap().to_string(), r#"["a","b"]"#);
 }
 
 #[test]
+// checks that type errors are caught by XOR
 fn xor_type_error() {
     let result = exec_script(
         r#"
@@ -875,11 +891,165 @@ fn xor_type_error() {
         },
         "error",
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(
         result[0].get("error_code"),
         Some(JValue::Number(10000.into())).as_ref()
     )
+}
+
+#[test]
+fn math_cmp() {
+    assert_eq!(binary("math", "add", 2, 2).unwrap(), json!(4));
+
+    assert_eq!(binary("math", "sub", 2, 2).unwrap(), json!(0));
+    assert_eq!(binary("math", "sub", 2, 3).unwrap(), json!(-1));
+
+    assert_eq!(binary("math", "mul", 2, 2).unwrap(), json!(4));
+    assert_eq!(binary("math", "mul", 2, 0).unwrap(), json!(0));
+    assert_eq!(binary("math", "mul", 2, -1).unwrap(), json!(-2));
+
+    assert_eq!(binary("math", "fmul", 10, 0.66).unwrap(), json!(6));
+    assert_eq!(binary("math", "fmul", 0.5, 0.5).unwrap(), json!(0));
+    assert_eq!(binary("math", "fmul", 100.5, 0.5).unwrap(), json!(50));
+
+    assert_eq!(binary("math", "div", 2, 2).unwrap(), json!(1));
+    assert_eq!(binary("math", "div", 2, 3).unwrap(), json!(0));
+    assert_eq!(binary("math", "div", 10, 5).unwrap(), json!(2));
+
+    assert_eq!(binary("math", "rem", 10, 3).unwrap(), json!(1));
+
+    assert_eq!(binary("math", "pow", 2, 2).unwrap(), json!(4));
+    assert_eq!(binary("math", "pow", 2, 0).unwrap(), json!(1));
+
+    assert_eq!(binary("math", "log", 2, 2).unwrap(), json!(1));
+    assert_eq!(binary("math", "log", 2, 4).unwrap(), json!(2));
+
+    assert_eq!(binary("cmp", "gt", 2, 4).unwrap(), json!(false));
+    assert_eq!(binary("cmp", "lt", 2, 4).unwrap(), json!(true));
+
+    // overflow
+    assert!(format!(
+        "{:?}",
+        binary("math", "add", i64::MAX, i64::MAX).err().unwrap()
+    )
+    .contains("overflow"));
+    assert!(format!("{:?}", binary("math", "div", 2, 0).err().unwrap()).contains("overflow"));
+
+    // assert_eq!(binary("math", "div", 2, 0).unwrap(), json!(1));
+}
+
+#[test]
+fn array_ops() {
+    assert_eq!(unary("array", "add", vec![1, 2, 3]).unwrap(), json!(6));
+
+    match unary("array", "dedup", vec!["a", "a", "b", "c", "a", "b", "c"]) {
+        Ok(JValue::Array(arr)) => {
+            let mut arr: Vec<_> = arr
+                .into_iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect();
+            arr.sort();
+            assert_eq!(arr, vec!["a", "b", "c"]);
+        }
+        unexpected => panic!("expected array, got {:?}", unexpected),
+    };
+
+    match binary(
+        "array",
+        "intersect",
+        vec!["a", "b", "c"],
+        vec!["c", "b", "d"],
+    ) {
+        Ok(JValue::Array(arr)) => {
+            let mut arr: Vec<_> = arr
+                .into_iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect();
+            arr.sort();
+            assert_eq!(arr, vec!["b", "c"])
+        }
+        unexpected => panic!("expected array, got {:?}", unexpected),
+    };
+
+    match binary("array", "diff", vec!["a", "b", "c"], vec!["c", "b", "d"]) {
+        Ok(JValue::Array(arr)) => {
+            assert_eq!(arr, vec!["a"])
+        }
+        unexpected => panic!("expected array, got {:?}", unexpected),
+    }
+
+    match binary("array", "sdiff", vec!["a", "b", "c"], vec!["c", "b", "d"]) {
+        Ok(JValue::Array(arr)) => {
+            let mut arr: Vec<_> = arr
+                .into_iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect();
+            arr.sort();
+            assert_eq!(arr, vec!["a", "d"])
+        }
+        unexpected => panic!("expected array, got {:?}", unexpected),
+    }
+}
+
+#[test]
+// checks that it is possible to use math's results as array indexes
+fn index_by_math() {
+    let element = exec_script(
+        r#"
+    (seq
+        (call relay ("math" "add") [x y] idx)
+        (ap array.$[idx] element)
+    )
+    "#,
+        hashmap! {
+            "x" => json!(1),
+            "y" => json!(2),
+            "array" => json!(vec![1, 2, 3, 4, 5])
+        },
+        "element",
+        1,
+    )
+    .unwrap();
+
+    assert_eq!(element[0], json!(4));
+}
+
+fn binary(
+    service: &str,
+    func: &str,
+    x: impl Into<JValue>,
+    y: impl Into<JValue>,
+) -> Result<JValue, Report> {
+    let result = exec_script(
+        r#"(call relay (service func) [x y] result)"#,
+        hashmap! {
+            "service" => service.into(),
+            "func" => func.into(),
+            "x" => x.into(),
+            "y" => y.into()
+        },
+        "result",
+        1,
+    );
+
+    result.map(|mut r| r[0].take())
+}
+
+fn unary(service: &str, func: &str, x: impl Into<JValue>) -> Result<JValue, Report> {
+    let result = exec_script(
+        r#"(call relay (service func) [x] result)"#,
+        hashmap! {
+            "service" => service.into(),
+            "func" => func.into(),
+            "x" => x.into(),
+        },
+        "result",
+        1,
+    );
+
+    result.map(|mut r| r[0].take())
 }
 
 fn exec_script(
@@ -887,7 +1057,7 @@ fn exec_script(
     args: HashMap<&'static str, JValue>,
     result: &str,
     node_count: usize,
-) -> Vec<JValue> {
+) -> Result<Vec<JValue>, eyre::Report> {
     exec_script_as_admin(script, args, result, node_count, false)
 }
 
@@ -897,7 +1067,7 @@ fn exec_script_as_admin(
     result: &str,
     node_count: usize,
     as_admin: bool,
-) -> Vec<JValue> {
+) -> Result<Vec<JValue>, eyre::Report> {
     let swarms = make_swarms(node_count);
 
     let keypair = if as_admin {
@@ -921,7 +1091,7 @@ fn exec_script_as_admin(
         args,
     );
 
-    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = client.receive_args().wrap_err("receive args");
 
     result
 }
