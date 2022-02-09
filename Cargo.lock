@@ -4074,6 +4074,7 @@ checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
 name = "peer-metrics"
 version = "0.1.0"
 dependencies = [
+ "bytesize",
  "log",
  "open-metrics-client",
 ]

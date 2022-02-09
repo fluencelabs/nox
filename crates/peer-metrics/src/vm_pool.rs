@@ -1,7 +1,9 @@
 use std::cmp::{max, min};
 
+use bytesize::MIB;
 use open_metrics_client::metrics::counter::Counter;
 use open_metrics_client::metrics::gauge::Gauge;
+use open_metrics_client::metrics::histogram::Histogram;
 use open_metrics_client::registry::Registry;
 
 #[derive(Clone)]
@@ -23,6 +25,8 @@ pub struct VmPoolMetrics {
     pub vm_mem_cma: u64,
     pub vm_mem_measures: u64,
     pub vm_mem_avg: Gauge,
+    // histogram
+    pub vm_mem_histo: Histogram,
 }
 
 impl VmPoolMetrics {
@@ -88,6 +92,17 @@ impl VmPoolMetrics {
             "Average allocated memory of an interpreter",
             Box::new(vm_mem_avg.clone()),
         );
+        // 1mb, 5mb, 10mb, 25mb, 50mb, 100mb, 200mb
+        let vm_mem_histo = Histogram::new(
+            vec![1, 5, 10, 25, 50, 100, 200]
+                .into_iter()
+                .map(|n| (n * MIB) as f64),
+        );
+        sub_registry.register(
+            "vm_mem_histo",
+            "Interpreter memory size distribution",
+            Box::new(vm_mem_histo.clone()),
+        );
 
         Self {
             pool_size,
@@ -105,6 +120,7 @@ impl VmPoolMetrics {
             vm_mem_cma: 0,
             vm_mem_measures: 0,
             vm_mem_avg,
+            vm_mem_histo,
         }
     }
 
@@ -114,12 +130,16 @@ impl VmPoolMetrics {
     }
 
     pub fn measure_memory(&mut self, idx: usize, memory_size: u64) {
+        // Histogram
+        self.vm_mem_histo.observe(memory_size as f64);
+
         // Cumulative Moving Average
         // cma_n+1 = cma_n + ((x_n+1 - cma_n) / (n + 1))
         // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
         self.vm_mem_measures += 1;
-        let cma = self.vm_mem_cma;
-        self.vm_mem_cma = cma + ((memory_size as i64 - cma as i64) / self.vm_mem_measures);
+        let cma = self.vm_mem_cma as i64;
+        let next_cma = cma + ((memory_size as i64 - cma) / self.vm_mem_measures as i64);
+        self.vm_mem_cma = next_cma.abs() as u64;
         self.vm_mem_avg.set(self.vm_mem_cma);
 
         // Max mem
