@@ -119,7 +119,7 @@ impl VmPoolMetrics {
         // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
         self.vm_mem_measures += 1;
         let cma = self.vm_mem_cma;
-        self.vm_mem_cma = cma + ((memory_size - cma) / self.vm_mem_measures);
+        self.vm_mem_cma = cma + ((memory_size as i64 - cma as i64) / self.vm_mem_measures);
         self.vm_mem_avg.set(self.vm_mem_cma);
 
         // Max mem
