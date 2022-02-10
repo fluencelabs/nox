@@ -130,6 +130,13 @@ impl VmPoolMetrics {
     }
 
     pub fn measure_memory(&mut self, idx: usize, memory_size: u64) {
+        // TODO: this is a HACK until we stop using `get_vm` for cleaning up Actor resources.
+        //       Until then, intentionally ignore memory measurements for AquaVMs that haven't
+        //       yet processed any particles.
+        if memory_size == 0 {
+            return;
+        }
+
         // Histogram
         self.vm_mem_histo.observe(memory_size as f64);
 

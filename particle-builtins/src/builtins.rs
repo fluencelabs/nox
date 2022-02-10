@@ -104,6 +104,8 @@ where
 
     // TODO: get rid of all blocking methods (std::fs and such)
     pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
+        use Result as R;
+
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
@@ -154,23 +156,23 @@ where
 
             ("debug", "stringify")            => self.stringify(args.function_args),
 
-            ("math", "add")        => binary::<i64, i64, i64, _>(args, math::add),
-            ("math", "sub")        => binary::<i64, i64, i64, _>(args, math::sub),
-            ("math", "mul")        => binary::<i64, i64, i64, _>(args, math::mul),
-            ("math", "fmul")       => binary::<f64, f64, i64, _>(args, math::fmul_floor),
-            ("math", "div")        => binary::<i64, i64, i64, _>(args, math::div),
-            ("math", "rem")        => binary::<i64, i64, i64, _>(args, math::rem),
-            ("math", "pow")        => binary::<i64, u32, i64, _>(args, math::pow),
-            ("math", "log")        => binary::<i64, i64, u32, _>(args, math::log),
+            ("math", "add")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
+            ("math", "sub")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
+            ("math", "mul")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::mul(x, y) }),
+            ("math", "fmul")       => binary(args, |x: f64, y: f64| -> R<i64, _> { math::fmul_floor(x, y) }),
+            ("math", "div")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::div(x, y) }),
+            ("math", "rem")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::rem(x, y) }),
+            ("math", "pow")        => binary(args, |x: i64, y: u32| -> R<i64, _> { math::pow(x, y) }),
+            ("math", "log")        => binary(args, |x: i64, y: i64| -> R<u32, _> { math::log(x, y) }),
 
-            ("cmp", "gt")          => binary::<i64, i64, bool, _>(args, math::gt),
-            ("cmp", "lt")          => binary::<i64, i64, bool, _>(args, math::lt),
+            ("cmp", "gt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gt(x, y) }),
+            ("cmp", "lt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lt(x, y) }),
 
-            ("array", "add")       => unary::<Vec<i64>, i64, _>(args, math::array_add),
-            ("array", "dedup")     => unary::<Vec<String>, Vec<String>, _>(args, math::dedup),
-            ("array", "intersect") => binary::<HashSet<String>, HashSet<String>, Vec<String>, _>(args, math::intersect),
-            ("array", "diff")      => binary::<HashSet<String>, HashSet<String>, Vec<String>, _>(args, math::diff),
-            ("array", "sdiff")     => binary::<HashSet<String>, HashSet<String>, Vec<String>, _>(args, math::sdiff),
+            ("array", "add")       => unary(args, |xs: Vec<i64> | -> R<i64, _> { math::array_add(xs) }),
+            ("array", "dedup")     => unary(args, |xs: Vec<String>| -> R<Vec<String>, _> { math::dedup(xs) }),
+            ("array", "intersect") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::intersect(xs, ys) }),
+            ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
+            ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
 
             _                      => self.call_service(args, particle),
         }

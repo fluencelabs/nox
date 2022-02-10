@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::ops::Div;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, VecDeque},
@@ -171,11 +170,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
                 let time = stat.interpretation_time.as_secs_f64();
                 m.interpretation_time_sec.observe(time);
-                if let Some(new_data_len) = stat.new_data_len {
-                    // divide interpretation time by data size
-                    let normalized = time.div(new_data_len as f64);
-                    m.normalized_interpretation_time_sec.observe(normalized);
-                }
 
                 m.total_actors_mailbox.set(mailbox_size as u64);
                 m.alive_actors.set(self.actors.len() as u64);
