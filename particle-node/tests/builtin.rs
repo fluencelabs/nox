@@ -929,6 +929,10 @@ fn math_cmp() {
     assert_eq!(binary("cmp", "gt", 2, 4).unwrap(), json!(false));
     assert_eq!(binary("cmp", "lt", 2, 4).unwrap(), json!(true));
 
+    assert_eq!(binary("cmp", "cmp", 2, 4).unwrap(), json!(-1));
+    assert_eq!(binary("cmp", "cmp", 2, -4).unwrap(), json!(1));
+    assert_eq!(binary("cmp", "cmp", 2, 2).unwrap(), json!(0));
+
     // overflow
     assert!(format!(
         "{:?}",

@@ -65,6 +65,15 @@ pub fn lt(x: i64, y: i64) -> Result<bool, JError> {
     Ok(x.lt(&y))
 }
 
+/// compare x and y
+/// Less = -1
+/// Equal = 0
+/// Greater = 1
+pub fn cmp(x: i64, y: i64) -> Result<i8, JError> {
+    let ord = x.cmp(&y);
+    Ok(ord as i8)
+}
+
 /// fold(_ + _) (sum of all numbers in array)
 pub fn array_add(xs: Vec<i64>) -> Result<i64, JError> {
     xs.into_iter()

@@ -20,3 +20,4 @@ pub use vm_pool::VmPoolMetrics;
 // - interpreter heap histograms / summary
 // - individual actor mailbox size: max and histogram
 // - count 'Error processing inbound ProtocolMessage: unexpected end of file'
+// - number of scheduled script executions

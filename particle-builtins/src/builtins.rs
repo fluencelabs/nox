@@ -167,6 +167,7 @@ where
 
             ("cmp", "gt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gt(x, y) }),
             ("cmp", "lt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lt(x, y) }),
+            ("cmp", "cmp")         => binary(args, |x: i64, y: i64| -> R<i8, _> { math::cmp(x, y) }),
 
             ("array", "add")       => unary(args, |xs: Vec<i64> | -> R<i64, _> { math::array_add(xs) }),
             ("array", "dedup")     => unary(args, |xs: Vec<String>| -> R<Vec<String>, _> { math::dedup(xs) }),
