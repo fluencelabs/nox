@@ -166,7 +166,9 @@ where
             ("math", "log")        => binary(args, |x: i64, y: i64| -> R<u32, _> { math::log(x, y) }),
 
             ("cmp", "gt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gt(x, y) }),
+            ("cmp", "gte")         => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gte(x, y) }),
             ("cmp", "lt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lt(x, y) }),
+            ("cmp", "lte")         => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lte(x, y) }),
             ("cmp", "cmp")         => binary(args, |x: i64, y: i64| -> R<i8, _> { math::cmp(x, y) }),
 
             ("array", "sum")       => unary(args, |xs: Vec<i64> | -> R<i64, _> { math::array_sum(xs) }),

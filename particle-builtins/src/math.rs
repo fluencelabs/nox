@@ -60,9 +60,19 @@ pub fn gt(x: i64, y: i64) -> Result<bool, JError> {
     Ok(x.gt(&y))
 }
 
+/// x >= y
+pub fn gte(x: i64, y: i64) -> Result<bool, JError> {
+    Ok(x.ge(&y))
+}
+
 /// x < y
 pub fn lt(x: i64, y: i64) -> Result<bool, JError> {
     Ok(x.lt(&y))
+}
+
+/// x <= y
+pub fn lte(x: i64, y: i64) -> Result<bool, JError> {
+    Ok(x.le(&y))
 }
 
 /// compare x and y
