@@ -947,8 +947,6 @@ fn math_cmp() {
     )
     .contains("overflow"));
     assert!(format!("{:?}", binary("math", "div", 2, 0).err().unwrap()).contains("overflow"));
-
-    // assert_eq!(binary("math", "div", 2, 0).unwrap(), json!(1));
 }
 
 #[test]
