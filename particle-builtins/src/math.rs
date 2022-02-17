@@ -75,7 +75,7 @@ pub fn cmp(x: i64, y: i64) -> Result<i8, JError> {
 }
 
 /// fold(_ + _) (sum of all numbers in array)
-pub fn array_add(xs: Vec<i64>) -> Result<i64, JError> {
+pub fn array_sum(xs: Vec<i64>) -> Result<i64, JError> {
     xs.into_iter()
         .try_fold(0, i64::checked_add)
         .ok_or_else(|| JError::new("i64 add overflow"))

@@ -169,7 +169,7 @@ where
             ("cmp", "lt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lt(x, y) }),
             ("cmp", "cmp")         => binary(args, |x: i64, y: i64| -> R<i8, _> { math::cmp(x, y) }),
 
-            ("array", "add")       => unary(args, |xs: Vec<i64> | -> R<i64, _> { math::array_add(xs) }),
+            ("array", "sum")       => unary(args, |xs: Vec<i64> | -> R<i64, _> { math::array_sum(xs) }),
             ("array", "dedup")     => unary(args, |xs: Vec<String>| -> R<Vec<String>, _> { math::dedup(xs) }),
             ("array", "intersect") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::intersect(xs, ys) }),
             ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
