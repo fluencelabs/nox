@@ -951,7 +951,7 @@ fn math_cmp() {
 
 #[test]
 fn array_ops() {
-    assert_eq!(unary("array", "add", vec![1, 2, 3]).unwrap(), json!(6));
+    assert_eq!(unary("array", "sum", vec![1, 2, 3]).unwrap(), json!(6));
 
     match unary("array", "dedup", vec!["a", "a", "b", "c", "a", "b", "c"]) {
         Ok(JValue::Array(arr)) => {
