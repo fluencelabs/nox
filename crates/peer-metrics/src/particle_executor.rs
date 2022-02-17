@@ -22,7 +22,6 @@ pub struct FunctionKindLabel {
 #[derive(Clone)]
 pub struct ParticleExecutorMetrics {
     pub interpretation_time_sec: Histogram,
-    pub normalized_interpretation_time_sec: Histogram,
     pub interpretation_successes: Counter,
     pub interpretation_failures: Counter,
     pub total_actors_mailbox: Gauge,
@@ -41,14 +40,6 @@ impl ParticleExecutorMetrics {
             "interpretation_time_sec",
             "Distribution of time it took to run the interpreter once",
             Box::new(interpretation_time_sec.clone()),
-        );
-
-        let normalized_interpretation_time_sec =
-            Histogram::new(execution_time_buckets().into_iter());
-        sub_registry.register(
-            "normalized_interpretation_time_sec",
-            "Distribution of interpreter run time divided by resulting particle.data size",
-            Box::new(normalized_interpretation_time_sec.clone()),
         );
 
         let interpretation_successes = Counter::default();
@@ -100,7 +91,6 @@ impl ParticleExecutorMetrics {
 
         Self {
             interpretation_time_sec,
-            normalized_interpretation_time_sec,
             interpretation_successes,
             interpretation_failures,
             total_actors_mailbox,
@@ -129,9 +119,9 @@ impl ParticleExecutorMetrics {
     }
 }
 
-/// from 100 microseconds to 30 seconds
+/// from 100 microseconds to 120 seconds
 fn execution_time_buckets() -> Vec<f64> {
     vec![
-        0.0001, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 7.0, 15.0, 30.0,
+        0.0001, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 7.0, 15.0, 30.0, 60.0, 120.0,
     ]
 }

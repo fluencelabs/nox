@@ -15,10 +15,11 @@
  */
 
 use std::borrow::{Borrow, Cow};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
+use std::iter::FromIterator;
 use std::num::ParseIntError;
-use std::ops::Try;
+use std::ops::{Mul, Try};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
@@ -26,8 +27,10 @@ use std::time::{Duration, Instant};
 use async_std::task;
 use avm_server::{CallRequestParams, CallServiceResult};
 use humantime_serde::re::humantime::format_duration as pretty;
+use itertools::Itertools;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
@@ -48,6 +51,7 @@ use server_config::ServicesConfig;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
+use crate::math;
 
 #[derive(Debug, Clone)]
 pub struct Builtins<C> {
@@ -100,6 +104,8 @@ where
 
     // TODO: get rid of all blocking methods (std::fs and such)
     pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
+        use Result as R;
+
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
@@ -150,7 +156,28 @@ where
 
             ("debug", "stringify")            => self.stringify(args.function_args),
 
-            _                                 => self.call_service(args, particle),
+            ("math", "add")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
+            ("math", "sub")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
+            ("math", "mul")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::mul(x, y) }),
+            ("math", "fmul")       => binary(args, |x: f64, y: f64| -> R<i64, _> { math::fmul_floor(x, y) }),
+            ("math", "div")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::div(x, y) }),
+            ("math", "rem")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::rem(x, y) }),
+            ("math", "pow")        => binary(args, |x: i64, y: u32| -> R<i64, _> { math::pow(x, y) }),
+            ("math", "log")        => binary(args, |x: i64, y: i64| -> R<u32, _> { math::log(x, y) }),
+
+            ("cmp", "gt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gt(x, y) }),
+            ("cmp", "gte")         => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gte(x, y) }),
+            ("cmp", "lt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lt(x, y) }),
+            ("cmp", "lte")         => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lte(x, y) }),
+            ("cmp", "cmp")         => binary(args, |x: i64, y: i64| -> R<i8, _> { math::cmp(x, y) }),
+
+            ("array", "sum")       => unary(args, |xs: Vec<i64> | -> R<i64, _> { math::array_sum(xs) }),
+            ("array", "dedup")     => unary(args, |xs: Vec<String>| -> R<Vec<String>, _> { math::dedup(xs) }),
+            ("array", "intersect") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::intersect(xs, ys) }),
+            ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
+            ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
+
+            _                      => self.call_service(args, particle),
         }
     }
 
@@ -731,4 +758,40 @@ fn get_delay(delay: Option<Duration>, interval: Option<Duration>) -> Duration {
         (None, Some(interval)) => Duration::from_secs(rng.gen_range(0..=interval.as_secs())),
         (None, None) => Duration::from_secs(0),
     }
+}
+
+fn unary<X, Out, F>(args: Args, f: F) -> FunctionOutcome
+where
+    X: for<'de> Deserialize<'de>,
+    Out: Serialize,
+    F: Fn(X) -> Result<Out, JError>,
+{
+    if args.function_args.len() != 1 {
+        let err = format!("expected 1 arguments, got {}", args.function_args.len());
+        return FunctionOutcome::Err(JError::new(err));
+    }
+    let mut args = args.function_args.into_iter();
+
+    let x: X = Args::next("x", &mut args)?;
+    let out = f(x)?;
+    FunctionOutcome::Ok(json!(out))
+}
+
+fn binary<X, Y, Out, F>(args: Args, f: F) -> FunctionOutcome
+where
+    X: for<'de> Deserialize<'de>,
+    Y: for<'de> Deserialize<'de>,
+    Out: Serialize,
+    F: Fn(X, Y) -> Result<Out, JError>,
+{
+    if args.function_args.len() != 2 {
+        let err = format!("expected 2 arguments, got {}", args.function_args.len());
+        return FunctionOutcome::Err(JError::new(err));
+    }
+    let mut args = args.function_args.into_iter();
+
+    let x: X = Args::next("x", &mut args)?;
+    let y: Y = Args::next("y", &mut args)?;
+    let out = f(x, y)?;
+    FunctionOutcome::Ok(json!(out))
 }

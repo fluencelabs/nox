@@ -1042,7 +1042,7 @@ dependencies = [
  "async-std",
  "fluence-libp2p",
  "futures",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "libp2p",
  "log",
  "parking_lot 0.11.2",
@@ -1233,7 +1233,7 @@ dependencies = [
  "criterion-plot",
  "csv",
  "futures",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "lazy_static",
  "num-traits",
  "oorandom",
@@ -1255,7 +1255,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d00996de9f2f7559f7f4dc286073197f83e92256a59ed395f9aac01fe717da57"
 dependencies = [
  "cast",
- "itertools 0.10.1",
+ "itertools 0.10.3",
 ]
 
 [[package]]
@@ -1617,6 +1617,16 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
+dependencies = [
+ "log",
+ "regex",
 ]
 
 [[package]]
@@ -2482,9 +2492,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.10.1"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69ddb889f9d0d08a67338271fa9b62996bc788c7796a5c18cf057420aaed5eaf"
+checksum = "a9a9d19fa1e79b6215ff29b9d6880b706147f16e9b1dbb1e4e5947b5b02bc5e3"
 dependencies = [
  "either",
 ]
@@ -3242,7 +3252,7 @@ dependencies = [
 name = "log-utils"
 version = "0.1.0"
 dependencies = [
- "env_logger",
+ "env_logger 0.7.1",
  "log",
 ]
 
@@ -3305,7 +3315,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd97bd85072fc540763769be153a7c8ee83391e668b37ef96d6c48decec2cd5"
 dependencies = [
  "anyhow",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "marine-it-interfaces",
  "marine-module-interface",
  "nom",
@@ -3364,7 +3374,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06bc36ef268bf7436916f1fa9b0c84104692a717ea5eef3c90b9f25c3407f6b7"
 dependencies = [
  "anyhow",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "marine-it-interfaces",
  "nom",
  "semver 0.11.0",
@@ -3879,6 +3889,7 @@ dependencies = [
  "connection-pool",
  "futures",
  "humantime-serde",
+ "itertools 0.10.3",
  "ivalue-utils",
  "kademlia",
  "libp2p",
@@ -3960,7 +3971,7 @@ dependencies = [
  "created-swarm",
  "criterion",
  "ctrlc-adapter",
- "env_logger",
+ "env_logger 0.7.1",
  "eyre",
  "fluence-app-service",
  "fluence-keypair",
@@ -3969,7 +3980,7 @@ dependencies = [
  "fstrings",
  "futures",
  "humantime-serde",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "json-utils",
  "kademlia",
  "libp2p",
@@ -3986,6 +3997,8 @@ dependencies = [
  "particle-modules",
  "particle-protocol",
  "peer-metrics",
+ "quickcheck",
+ "quickcheck_macros",
  "rand 0.8.4",
  "script-storage",
  "serde",
@@ -4010,7 +4023,7 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "humantime-serde",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "json-utils",
  "libp2p",
  "log",
@@ -4061,6 +4074,7 @@ checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
 name = "peer-metrics"
 version = "0.1.0"
 dependencies = [
+ "bytesize",
  "log",
  "open-metrics-client",
 ]
@@ -4323,7 +4337,7 @@ checksum = "62941722fb675d463659e49c4f3fe1fe792ff24fe5bbaa9c08cd3b98a1c354f5"
 dependencies = [
  "bytes 1.0.1",
  "heck",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "lazy_static",
  "log",
  "multimap",
@@ -4355,7 +4369,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9cc1a3263e07e0bf68e96268f37665207b49560d98739662cdfaae215c720fe"
 dependencies = [
  "anyhow",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "proc-macro2",
  "quote",
  "syn",
@@ -4387,6 +4401,28 @@ name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
+
+[[package]]
+name = "quickcheck"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
+dependencies = [
+ "env_logger 0.8.4",
+ "log",
+ "rand 0.8.4",
+]
+
+[[package]]
+name = "quickcheck_macros"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b22a693222d716a9587786f37ac3f6b4faedb5b80c23914e7303ff5a1d8016e9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "quicksink"
@@ -5510,7 +5546,7 @@ dependencies = [
  "avm-server",
  "fluence-libp2p",
  "futures",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "particle-protocol",
  "serde_json",
 ]
@@ -5929,7 +5965,7 @@ dependencies = [
  "fluence-it-types",
  "it-lilo",
  "it-to-bytes",
- "itertools 0.10.1",
+ "itertools 0.10.3",
  "log",
  "nom",
  "safe-transmute",
