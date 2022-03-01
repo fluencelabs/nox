@@ -54,7 +54,7 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
     "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
-            "alias" => json!("aqua-dht"),
+            "alias" => json!("registry"),
             "key" => json!("some_key"),
             "pin" => json!(false),
             "weight" => json!(1u32),
@@ -97,7 +97,7 @@ fn builtins_replace_old() {
     .wrap_err("connect client")
     .unwrap();
 
-    // use tetraplets as aqua-dht to emulate old builtin being replaced by a new version
+    // use tetraplets as registry to emulate old builtin being replaced by a new version
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
@@ -117,7 +117,7 @@ fn builtins_replace_old() {
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "service" => json!(tetraplets_service.id),
-            "alias" => json!("aqua-dht".to_string()),
+            "alias" => json!("registry".to_string()),
         },
     );
 
@@ -164,7 +164,7 @@ fn builtins_scheduled_scripts() {
     let result = result[0].as_array().unwrap();
     assert_eq!(
         result.len(),
-        list_files(&Path::new(SERVICES).join("aqua-dht/scheduled"))
+        list_files(&Path::new(SERVICES).join("registry/scheduled"))
             .unwrap()
             .count()
     )
@@ -179,19 +179,19 @@ fn builtins_resolving_env_variables() {
         (seq
             (seq
                 (call relay ("peer" "timestamp_sec") [] timestamp0)
-                (call relay ("aqua-dht" "register_key") [key timestamp0 false 0])
+                (call relay ("registry" "register_key") [key timestamp0 false 0])
             )
             (call relay ("op" "return") ["ok"])
         )
         (call relay ("op" "return") [%last_error%.$.instruction])
     )
     "#);
-    let env_variable_name = format!("{}_AQUA_DHT_{}", ALLOWED_ENV_PREFIX, "KEY");
+    let env_variable_name = format!("{}_REGISTRY_{}", ALLOWED_ENV_PREFIX, "KEY");
     let on_start_data = json!({ "key": env_variable_name.clone() });
     env::set_var(&env_variable_name[1..], key.clone());
-    fs::write("./builtins_test_env/aqua-dht/on_start.air", on_start_script).unwrap();
+    fs::write("./builtins_test_env/registry/on_start.air", on_start_script).unwrap();
     fs::write(
-        "./builtins_test_env/aqua-dht/on_start.json",
+        "./builtins_test_env/registry/on_start.json",
         on_start_data.to_string(),
     )
     .unwrap();
@@ -207,7 +207,7 @@ fn builtins_resolving_env_variables() {
             (seq
                 (seq
                     (call relay ("peer" "timestamp_sec") [] timestamp1)
-                    (call relay ("aqua-dht" "get_key_metadata") ["{key}" timestamp1] result)
+                    (call relay ("registry" "get_key_metadata") ["{key}" timestamp1] result)
                 )
                 (call %init_peer_id% ("op" "return") [result])
             )

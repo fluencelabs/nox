@@ -20,9 +20,9 @@ extern crate fstrings;
 pub const SERVICES: &'static str = "./services";
 
 mod src {
-    mod aqua_dht {
-        mod aqua_dht;
+    mod registry {
         mod pubsub;
+        mod registry;
 
         #[derive(serde::Deserialize, Debug)]
         #[allow(dead_code)]
@@ -41,5 +41,5 @@ mod src {
 }
 
 pub fn load_script(name: &str) -> String {
-    std::fs::read_to_string(format!("./tests/src/aqua_dht/aqua/{}", name)).unwrap()
+    std::fs::read_to_string(format!("./tests/src/registry/aqua/{}", name)).unwrap()
 }
