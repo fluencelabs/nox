@@ -7,7 +7,7 @@ SERVICES_DIR="${BUILTINS_DIR}/services"
 TAR="aqua-dht.tar.gz"
 
 echo "*** downloading $TAR ***"
-URL="https://github.com/fluencelabs/aqua-dht/releases/latest/download/aqua-dht.tar.gz"
+URL="https://github.com/fluencelabs/registry/releases/download/v0.2.5/aqua-dht.tar.gz"
 curl --fail -L "$URL" -o "$TAR"
 
 echo "*** extracting $TAR ***"
