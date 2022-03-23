@@ -48,20 +48,35 @@ impl Borrow<String> for ScriptId {
 
 #[derive(Clone, Debug)]
 pub struct Script {
+    /// AIR script source code
     pub src: String,
+    /// How many particles sent by this script have failed
     pub failures: u8,
     /// Interval at which to execute this script.
     /// If None, that means the script will be executed only once
     pub interval: Option<Duration>,
+    /// Delay before the first execution
     pub delay: Duration,
+    /// When script was executed last time
     pub executed_at: Option<Instant>,
+    /// Timestamp after which script will be executed next
     pub next_execution: Instant,
-    pub owner: PeerId,
+    /// Script creator
+    pub creator: PeerId,
+    /// How many times script has been executed
     pub executions: u32,
+    /// How many times to execute the script. None - till the end of this world.
+    pub times: Option<u32>,
 }
 
 impl Script {
-    pub fn new(src: String, interval: Option<Duration>, delay: Duration, owner: PeerId) -> Self {
+    pub fn new(
+        src: String,
+        interval: Option<Duration>,
+        delay: Duration,
+        creator: PeerId,
+        times: Option<u32>,
+    ) -> Self {
         Self {
             src,
             interval,
@@ -69,12 +84,14 @@ impl Script {
             failures: 0,
             executed_at: None,
             next_execution: Instant::now() + delay,
-            owner,
+            creator,
             executions: 0,
+            times,
         }
     }
 
-    pub fn deadline(&self) -> Instant {
+    /// Timestamp when script should be executed
+    pub fn next_execution(&self) -> Instant {
         self.next_execution
     }
 }
@@ -93,13 +110,15 @@ pub enum Command {
         script: String,
         interval: Option<Duration>,
         delay: Duration,
-        owner: PeerId,
+        creator: PeerId,
+        /// How many times the script should be executed
+        times: Option<u32>,
     },
     RemoveScript {
         uuid: String,
         outlet: OneshotOutlet<Result<bool, ScriptStorageError>>,
         actor: PeerId,
-        force: bool,
+        by_admin: bool,
     },
     ListScripts {
         outlet: OneshotOutlet<HashMap<ScriptId, Script>>,
@@ -178,7 +197,7 @@ async fn execute_scripts(
     // Remove all ready scripts without interval, they will be executing only once
     let ready_single_shots: Vec<_> = unlock(scripts, |scripts| {
         scripts
-            .drain_filter(|_, s| s.interval.is_none() && s.deadline() <= now)
+            .drain_filter(|_, s| s.interval.is_none() && s.next_execution() <= now)
             .collect()
     })
     .await;
@@ -187,7 +206,7 @@ async fn execute_scripts(
     let scripts: HashMap<ScriptId, Script> = unlock(scripts, |scripts| {
         scripts
             .iter_mut()
-            .filter(|(_, script)| script.deadline() <= now)
+            .filter(|(_, script)| script.next_execution() <= now)
             .map(|(id, s)| {
                 s.executions += 1;
                 // mark script as executed at the current timestamp and schedule next
@@ -203,7 +222,8 @@ async fn execute_scripts(
     let scripts = ready_single_shots.into_iter().chain(scripts);
 
     for (script_id, script) in scripts {
-        let particle_id = format!("auto_{}_{}", script_id.borrow(), script.executions);
+        let id: &String = script_id.borrow();
+        let particle_id = format!("auto_{}_{}", id, script.executions);
 
         // Save info about sent particle to account for failures
         let info = SentParticle {
@@ -237,22 +257,23 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             script,
             interval,
             delay,
-            owner,
+            creator,
+            times,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
-            let script = Script::new(script, interval, delay, owner);
+            let script = Script::new(script, interval, delay, creator, times);
             unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
         }
         Command::RemoveScript {
             uuid,
             outlet,
             actor,
-            force,
+            by_admin,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
             let removed = unlock(scripts, |scripts| match scripts.entry(uuid) {
                 Entry::Vacant(_) => Ok(false),
-                Entry::Occupied(e) if force || e.get().owner == actor => {
+                Entry::Occupied(e) if by_admin || e.get().creator == actor => {
                     e.remove();
                     Ok(true)
                 }
@@ -279,7 +300,7 @@ async fn remove_failed_scripts(
         unlock(scripts, |scripts| {
             if let Entry::Occupied(entry) = scripts.entry(script_id) {
                 let failures = entry.get().failures + 1;
-                let id = (*entry.key()).borrow();
+                let id: &String = (*entry.key()).borrow();
                 log::debug!("Script {} failures {} max {}", id, failures, max_failures);
                 if failures < max_failures {
                     entry.into_mut().failures += 1;
@@ -318,9 +339,7 @@ pub enum ScriptStorageError {
     OutletError,
     #[error("ScriptStorageError::InletError: can't receive response from script storage")]
     InletError,
-    #[error(
-        "ScriptStorageError::PermissionDenied: only the owner (creator) of a script can remove it"
-    )]
+    #[error("ScriptStorageError::PermissionDenied: only the creator of a script can remove it")]
     PermissionDenied,
 }
 
@@ -336,7 +355,8 @@ impl ScriptStorageApi {
         script: String,
         interval: Option<Duration>,
         delay: Duration,
-        owner: PeerId,
+        creator: PeerId,
+        times: Option<u32>,
     ) -> Result<String, ScriptStorageError> {
         let uuid = uuid::Uuid::new_v4().to_string();
 
@@ -345,7 +365,8 @@ impl ScriptStorageApi {
             script,
             interval,
             delay,
-            owner,
+            creator,
+            times,
         })?;
 
         Ok(uuid)
@@ -355,7 +376,7 @@ impl ScriptStorageApi {
         &self,
         uuid: String,
         actor: PeerId,
-        force: bool,
+        by_admin: bool,
     ) -> BoxFuture<'static, Result<bool, ScriptStorageError>> {
         use ScriptStorageError::InletError;
 
@@ -364,7 +385,7 @@ impl ScriptStorageApi {
             uuid,
             outlet,
             actor,
-            force,
+            by_admin,
         };
         if let Err(err) = self.send(command) {
             return futures::future::err(err).boxed();

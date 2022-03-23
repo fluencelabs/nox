@@ -17,6 +17,7 @@
 use std::borrow::{Borrow, Cow};
 use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
+use std::fmt::Debug;
 use std::iter::FromIterator;
 use std::num::ParseIntError;
 use std::ops::{Mul, Try};
@@ -235,17 +236,29 @@ where
 
         let script: String = Args::next("script", &mut args)?;
 
-        let interval = parse_u64("interval_sec", &mut args)?;
+        let interval = parse_from_str("interval_sec", &mut args)?;
         let interval = interval.map(Duration::from_secs);
 
-        let delay = parse_u64("delay_sec", &mut args)?;
+        let delay = parse_from_str("delay_sec", &mut args)?;
         let delay = delay.map(Duration::from_secs);
         let delay = get_delay(delay, interval);
 
+        let mut times = parse_from_str("times", &mut args)?;
+        // Check that `interval` doesn't conflict with `times`
+        if interval.is_none() {
+            if times.is_none() || times <= Some(1) {
+                times = Some(1);
+            } else {
+                let err = JError::new("You must specify interval to run script more than once");
+                Err(err)?;
+            }
+        }
+
         let creator = params.init_peer_id;
+
         let id = self
             .script_storage
-            .add_script(script, interval, delay, creator)?;
+            .add_script(script, interval, delay, creator, times)?;
 
         Ok(json!(id))
     }
@@ -279,7 +292,7 @@ where
                         "src": script.src,
                         "failures": script.failures,
                         "interval": script.interval.map(|i| pretty(i).to_string()),
-                        "owner": script.owner.to_string(),
+                        "owner": script.creator.to_string(),
                     })
                 })
                 .collect(),
@@ -293,7 +306,7 @@ where
         let mut args = args.function_args.into_iter();
 
         let dur_field = "duration_ms";
-        let duration = parse_u64(dur_field, &mut args)?;
+        let duration = parse_from_str(dur_field, &mut args)?;
         let duration = duration.ok_or(ArgsError::MissingField(dur_field))?;
         let duration = Duration::from_millis(duration);
 
@@ -710,26 +723,30 @@ fn wrap_unit(r: Result<(), JError>) -> FunctionOutcome {
     }
 }
 
-fn parse_u64(
+fn parse_from_str<T>(
     field: &'static str,
     mut args: &mut impl Iterator<Item = JValue>,
-) -> Result<Option<u64>, JError> {
+) -> Result<Option<T>, JError>
+where
+    T: FromStr + for<'a> Deserialize<'a>,
+    <T as FromStr>::Err: std::error::Error + 'static,
+{
     #[derive(thiserror::Error, Debug)]
-    #[error("Error while deserializing field {field_name}: not a valid u64")]
-    struct Error {
+    #[error("Error while deserializing field {field_name}")]
+    struct Error<E: std::error::Error> {
         field_name: String,
         #[source]
-        err: ParseIntError,
+        err: E,
     }
 
     #[derive(serde::Deserialize, Debug)]
     #[serde(untagged)]
-    pub enum Period {
+    pub enum Either<T> {
         String(String),
-        Number(u64),
+        Target(T),
     }
 
-    let number: Option<Period> = Args::next_opt(field, &mut args)?;
+    let number: Option<Either<T>> = Args::next_opt(field, &mut args)?;
 
     if number.is_none() {
         return Ok(None);
@@ -737,11 +754,11 @@ fn parse_u64(
 
     number
         .map(|i| match i {
-            Period::String(s) => Ok(s.parse::<u64>()?),
-            Period::Number(n) => Ok(n),
+            Either::String(s) => Ok(s.parse::<T>()?),
+            Either::Target(n) => Ok(n),
         })
         .transpose()
-        .map_err(|err| {
+        .map_err(|err: T::Err| {
             Error {
                 field_name: field.to_string(),
                 err,
