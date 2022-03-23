@@ -90,9 +90,9 @@ impl Script {
         }
     }
 
-    /// Timestamp when script should be executed
-    pub fn next_execution(&self) -> Instant {
-        self.next_execution
+    /// Whether script is ready to be executed
+    pub fn ready(&self, now: Instant) -> bool {
+        self.next_execution <= now
     }
 }
 
@@ -194,32 +194,38 @@ async fn execute_scripts(
     let now = Instant::now();
     let now_u64 = now_ms() as u64;
 
-    // Remove all ready scripts without interval, they will be executing only once
-    let ready_single_shots: Vec<_> = unlock(scripts, |scripts| {
-        scripts
-            .drain_filter(|_, s| s.interval.is_none() && s.next_execution() <= now)
-            .collect()
+    // Update scripts metadata
+    unlock(scripts, |scripts| {
+        for (_, mut script) in scripts.iter_mut() {
+            script.executions += 1;
+            // mark script as executed at the current timestamp and schedule next
+            script.executed_at = Some(now);
+            script.next_execution = now + script.interval.unwrap_or_default();
+        }
     })
     .await;
 
-    // Take and clone all scripts that are ready to be executed
-    let scripts: HashMap<ScriptId, Script> = unlock(scripts, |scripts| {
-        scripts
-            .iter_mut()
-            .filter(|(_, script)| script.next_execution() <= now)
-            .map(|(id, s)| {
-                s.executions += 1;
-                // mark script as executed at the current timestamp and schedule next
-                s.executed_at = Some(now);
-                // SAFETY: safe to call unwrap because all scripts without interval already removed
-                s.next_execution = now + s.interval.unwrap();
-                (id.clone(), s.clone())
+    // Take all scripts that are ready to be executed
+    let scripts: Vec<_> = unlock(scripts, |scripts| {
+        // Remove all scripts that will be executed last time
+        let last_timers: Vec<_> = scripts
+            .drain_filter(|_, s| {
+                let oneshot = s.interval.is_none();
+                let enough = s.times.map(|limit| s.executions >= limit).unwrap_or(false);
+                s.ready(now) && (oneshot || enough)
             })
-            .collect()
+            .collect();
+
+        // Take scripts that are ready to be executed
+        let remaining = scripts
+            .iter()
+            .filter(|(_, script)| script.ready(now))
+            // clone
+            .map(|(id, s)| (id.clone(), s.clone()));
+
+        remaining.chain(last_timers).collect()
     })
     .await;
-    // concatenate single shots with other scripts
-    let scripts = ready_single_shots.into_iter().chain(scripts);
 
     for (script_id, script) in scripts {
         let id: &String = script_id.borrow();
