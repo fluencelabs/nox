@@ -6,7 +6,7 @@ orbs:
 jobs:
   Publish Branch Binary:
     docker:
-      - image: circleci/rust:latest
+      - image: cimg/rust:latest
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: 1
@@ -69,7 +69,7 @@ jobs:
 
   Rust Tests:
     docker:
-      - image: circleci/rust:latest
+      - image: cimg/rust:latest
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: full
@@ -83,7 +83,7 @@ jobs:
 
   NexTest:
     docker:
-      - image: circleci/rust:latest
+      - image: cimg/rust:latest
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: full
