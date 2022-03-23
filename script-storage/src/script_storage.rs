@@ -57,6 +57,7 @@ pub struct Script {
     pub executed_at: Option<Instant>,
     pub next_execution: Instant,
     pub owner: PeerId,
+    pub executions: u32,
 }
 
 impl Script {
@@ -69,6 +70,7 @@ impl Script {
             executed_at: None,
             next_execution: Instant::now() + delay,
             owner,
+            executions: 0,
         }
     }
 
@@ -187,6 +189,7 @@ async fn execute_scripts(
             .iter_mut()
             .filter(|(_, script)| script.deadline() <= now)
             .map(|(id, s)| {
+                s.executions += 1;
                 // mark script as executed at the current timestamp and schedule next
                 s.executed_at = Some(now);
                 // SAFETY: safe to call unwrap because all scripts without interval already removed
@@ -200,7 +203,7 @@ async fn execute_scripts(
     let scripts = ready_single_shots.into_iter().chain(scripts);
 
     for (script_id, script) in scripts {
-        let particle_id = format!("auto_{}", uuid::Uuid::new_v4());
+        let particle_id = format!("auto_{}_{}", script_id.borrow(), script.executions);
 
         // Save info about sent particle to account for failures
         let info = SentParticle {
@@ -275,8 +278,10 @@ async fn remove_failed_scripts(
     if let Some(SentParticle { script_id, .. }) = sent {
         unlock(scripts, |scripts| {
             if let Entry::Occupied(entry) = scripts.entry(script_id) {
-                let failures = entry.get().failures;
-                if failures + 1 < max_failures {
+                let failures = entry.get().failures + 1;
+                let id = (*entry.key()).borrow();
+                log::debug!("Script {} failures {} max {}", id, failures, max_failures);
+                if failures < max_failures {
                     entry.into_mut().failures += 1;
                 } else {
                     entry.remove();
@@ -284,6 +289,13 @@ async fn remove_failed_scripts(
             }
         })
         .await;
+    } else {
+        if particle_id.starts_with("auto") {
+            log::warn!(
+                "Reported auto particle {} as failed, but no scheduled script found",
+                particle_id
+            );
+        }
     }
 }
 
