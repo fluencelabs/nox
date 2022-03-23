@@ -87,12 +87,15 @@ jobs:
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: full
+    parallelism: 4
     steps:
       - checkout
       - run: |
           cargo install cargo-nextest
       - run: |
-          cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10
+          set -x
+          echo "$CIRCLE_NODE_INDEX/$CIRCLE_NODE_TOTAL"
+          cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10 --partition count:$CIRCLE_NODE_INDEX/$CIRCLE_NODE_TOTAL
 #          cargo test --release --all-features --no-fail-fast -- --test-threads=10
 
 workflows:
