@@ -107,3 +107,4 @@ workflows:
                 - master
                 - main
       - Rust Tests
+      - NexTest
