@@ -87,17 +87,17 @@ jobs:
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: full
-    parallelism: 4
     steps:
       - checkout
       - run: |
           cargo install cargo-nextest
       - run: |
-          set -x
-          IDX=$((CIRCLE_NODE_INDEX + 1))
-          echo "$IDX/$CIRCLE_NODE_TOTAL"
-          cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10 --partition count:$IDX/$CIRCLE_NODE_TOTAL
-#          cargo test --release --all-features --no-fail-fast -- --test-threads=10
+          cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10
+
+## To enable parallelism:
+## parallelism: 4
+## IDX=$((CIRCLE_NODE_INDEX + 1))
+##  --partition count:$IDX/$CIRCLE_NODE_TOTAL
 
 workflows:
   version: 2
