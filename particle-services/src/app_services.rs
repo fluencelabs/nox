@@ -196,7 +196,13 @@ impl ParticleAppServices {
             service_id
         };
 
-        remove_persisted_service(&self.config.services_dir, service_id.clone()).unwrap();
+        if let Err(err) = remove_persisted_service(&self.config.services_dir, service_id.clone()) {
+            log::warn!(
+                "Error while removing persisted service for {}: {:?}",
+                service_id,
+                err
+            )
+        }
         let service = self.services.write().remove(&service_id).unwrap();
         let mut aliases = self.aliases.write();
         for alias in service.aliases.iter() {
