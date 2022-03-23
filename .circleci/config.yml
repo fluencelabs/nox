@@ -6,7 +6,7 @@ orbs:
 jobs:
   Publish Branch Binary:
     docker:
-      - image: circleci/rust:latest
+      - image: cimg/rust:1.59
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: 1
@@ -69,7 +69,7 @@ jobs:
 
   Rust Tests:
     docker:
-      - image: circleci/rust:latest
+      - image: cimg/rust:1.59
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: full
@@ -80,6 +80,24 @@ jobs:
       - checkout
       - run: |
           cargo test --release --all-features --no-fail-fast -- --test-threads=10
+
+  NexTest:
+    docker:
+      - image: cimg/rust:1.59
+    resource_class: xlarge
+    environment:
+      RUST_BACKTRACE: full
+    steps:
+      - checkout
+      - run: |
+          cargo install cargo-nextest
+      - run: |
+          cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10
+
+## To enable parallelism:
+## parallelism: 4
+## IDX=$((CIRCLE_NODE_INDEX + 1))
+##  --partition count:$IDX/$CIRCLE_NODE_TOTAL
 
 workflows:
   version: 2
@@ -93,3 +111,4 @@ workflows:
                 - master
                 - main
       - Rust Tests
+      - NexTest
