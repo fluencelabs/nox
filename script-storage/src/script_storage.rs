@@ -39,10 +39,16 @@ use std::{
 use thiserror::Error;
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
-pub struct ScriptId(Arc<String>);
+pub struct ScriptId(pub Arc<String>);
 impl Borrow<String> for ScriptId {
     fn borrow(&self) -> &String {
         self.0.borrow()
+    }
+}
+
+impl AsRef<str> for ScriptId {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref().as_str()
     }
 }
 
@@ -194,40 +200,27 @@ async fn execute_scripts(
     let now = Instant::now();
     let now_u64 = now_ms() as u64;
 
-    // Update scripts metadata
-    unlock(scripts, |scripts| {
-        for (_, mut script) in scripts.iter_mut() {
-            script.executions += 1;
-            // mark script as executed at the current timestamp and schedule next
-            script.executed_at = Some(now);
-            script.next_execution = now + script.interval.unwrap_or_default();
-        }
-    })
-    .await;
+    // Take scripts that are ready to be executed
+    let ready_scripts: Vec<_> = unlock(scripts, |scripts| {
+        scripts
+            .iter_mut()
+            .filter(|(_, s)| s.ready(now))
+            // Update scripts metadata
+            .map(|(id, s)| {
+                s.executions += 1;
+                log::debug!("{} executions {}", id.as_ref(), s.executions);
+                // mark script as executed at the current timestamp and schedule next
+                s.executed_at = Some(now);
+                s.next_execution = now + s.interval.unwrap_or_default();
 
-    // Take all scripts that are ready to be executed
-    let scripts: Vec<_> = unlock(scripts, |scripts| {
-        // Remove all scripts that will be executed last time
-        let last_timers: Vec<_> = scripts
-            .drain_filter(|_, s| {
-                let oneshot = s.interval.is_none();
-                let enough = s.times.map(|limit| s.executions >= limit).unwrap_or(false);
-                s.ready(now) && (oneshot || enough)
+                (id.clone(), s.clone())
             })
-            .collect();
-
-        // Take scripts that are ready to be executed
-        let remaining = scripts
-            .iter()
-            .filter(|(_, script)| script.ready(now))
-            // clone
-            .map(|(id, s)| (id.clone(), s.clone()));
-
-        remaining.chain(last_timers).collect()
+            .collect()
     })
     .await;
 
-    for (script_id, script) in scripts {
+    for (script_id, script) in ready_scripts {
+        log::debug!("executing {}", script_id.as_ref());
         let id: &String = script_id.borrow();
         let particle_id = format!("auto_{}_{}", id, script.executions);
 
@@ -254,6 +247,12 @@ async fn execute_scripts(
         let contact = Contact::new(config.peer_id, vec![]);
         pool.send(contact, particle).await;
     }
+
+    // Remove scripts that have been executed enough times
+    unlock(scripts, |scripts| {
+        scripts.drain_filter(|_, s| s.times.map(|limit| s.executions >= limit).unwrap_or(false));
+    })
+    .await;
 }
 
 async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Script>>) {
@@ -268,7 +267,9 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
         } => {
             let uuid = ScriptId(Arc::new(uuid));
             let script = Script::new(script, interval, delay, creator, times);
+            log::info!("adding script {:?}", script);
             unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
+            log::info!("done");
         }
         Command::RemoveScript {
             uuid,

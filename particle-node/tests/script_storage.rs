@@ -610,6 +610,7 @@ fn add_script_random_delay() {
     let res = client.wait_particle_args(now_id).unwrap().pop().unwrap();
     let now = res.as_u64().unwrap();
 
+    // client.timeout = Duration::from_secs(120);
     let res = client.receive_args().wrap_err("receive").unwrap();
     let res = res.into_iter().next().unwrap().as_u64().unwrap();
     let eps = 2u64;
