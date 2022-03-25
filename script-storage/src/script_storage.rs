@@ -266,9 +266,7 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             // If interval isn't set, script should be executed only once
             let times = if interval.is_none() { Some(1) } else { None };
             let script = Script::new(script, interval, delay, creator, times);
-            log::info!("adding script {:?}", script);
             unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
-            log::info!("done");
         }
         Command::RemoveScript {
             uuid,
