@@ -243,22 +243,11 @@ where
         let delay = delay.map(Duration::from_secs);
         let delay = get_delay(delay, interval);
 
-        let mut times = parse_from_str("times", &mut args)?;
-        // Check that `interval` doesn't conflict with `times`
-        if interval.is_none() {
-            if times.is_none() || times <= Some(1) {
-                times = Some(1);
-            } else {
-                let err = JError::new("You must specify interval to run script more than once");
-                Err(err)?;
-            }
-        }
-
         let creator = params.init_peer_id;
 
         let id = self
             .script_storage
-            .add_script(script, interval, delay, creator, times)?;
+            .add_script(script, interval, delay, creator)?;
 
         Ok(json!(id))
     }

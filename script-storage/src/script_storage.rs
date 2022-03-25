@@ -117,8 +117,6 @@ pub enum Command {
         interval: Option<Duration>,
         delay: Duration,
         creator: PeerId,
-        /// How many times the script should be executed
-        times: Option<u32>,
     },
     RemoveScript {
         uuid: String,
@@ -263,9 +261,10 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             interval,
             delay,
             creator,
-            times,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
+            // If interval isn't set, script should be executed only once
+            let times = if interval.is_none() { Some(1) } else { None };
             let script = Script::new(script, interval, delay, creator, times);
             log::info!("adding script {:?}", script);
             unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
@@ -363,7 +362,6 @@ impl ScriptStorageApi {
         interval: Option<Duration>,
         delay: Duration,
         creator: PeerId,
-        times: Option<u32>,
     ) -> Result<String, ScriptStorageError> {
         let uuid = uuid::Uuid::new_v4().to_string();
 
@@ -373,7 +371,6 @@ impl ScriptStorageApi {
             interval,
             delay,
             creator,
-            times,
         })?;
 
         Ok(uuid)
