@@ -6,7 +6,7 @@ on:
 jobs:
   check:
     name: cargo check
-    runs-on: [self-hosted, linux]
+    runs-on: [self-hosted]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -32,7 +32,7 @@ jobs:
 
   lints:
     name: Lints
-    runs-on: [self-hosted, linux]
+    runs-on: [self-hosted]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
