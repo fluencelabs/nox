@@ -3,6 +3,7 @@ on:
   push:
   workflow_dispatch:
 
+
 jobs:
   check:
     name: cargo check
