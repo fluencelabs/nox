@@ -3,10 +3,11 @@ on:
   push:
   workflow_dispatch:
 
+
 jobs:
   check:
-    name: cargo check
-    runs-on: ubuntu-latest
+    name: cargo nextest
+    runs-on: self-hosted
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -25,10 +26,14 @@ jobs:
           toolchain: nightly-2022-01-16
           override: true
 
-      - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+      - run: cargo install cargo-nextest
+
+#      - name: Run cargo check
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: check
+
+      - run: cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10
 
   lints:
     name: Lints
