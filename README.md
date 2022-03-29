@@ -1,8 +1,8 @@
 # Fluence Project
 
-**Fluence is a peer-to-peer computing protocol and a software licensing system.** 
+**Fluence is a peer-to-peer computing protocol and a software licensing system.**
 
-*The project is a work in progress!* 
+*The project is a work in progress!*
 
 [fluence.network](https://fluence.network)
 
