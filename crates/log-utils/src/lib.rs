@@ -24,6 +24,7 @@ pub fn enable_logs() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
+        .filter(Some("script_storage"), Trace)
         .filter(Some("aquamarine"), Trace)
         .filter(Some("network"), Trace)
         .filter(Some("network_api"), Trace)

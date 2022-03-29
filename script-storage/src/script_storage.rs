@@ -39,28 +39,50 @@ use std::{
 use thiserror::Error;
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
-pub struct ScriptId(Arc<String>);
+pub struct ScriptId(pub Arc<String>);
 impl Borrow<String> for ScriptId {
     fn borrow(&self) -> &String {
         self.0.borrow()
     }
 }
 
+impl AsRef<str> for ScriptId {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref().as_str()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Script {
+    /// AIR script source code
     pub src: String,
+    /// How many particles sent by this script have failed
     pub failures: u8,
     /// Interval at which to execute this script.
     /// If None, that means the script will be executed only once
     pub interval: Option<Duration>,
+    /// Delay before the first execution
     pub delay: Duration,
+    /// When script was executed last time
     pub executed_at: Option<Instant>,
+    /// Timestamp after which script will be executed next
     pub next_execution: Instant,
-    pub owner: PeerId,
+    /// Script creator
+    pub creator: PeerId,
+    /// How many times script has been executed
+    pub executions: u32,
+    /// How many times to execute the script. None - till the end of this world.
+    pub times: Option<u32>,
 }
 
 impl Script {
-    pub fn new(src: String, interval: Option<Duration>, delay: Duration, owner: PeerId) -> Self {
+    pub fn new(
+        src: String,
+        interval: Option<Duration>,
+        delay: Duration,
+        creator: PeerId,
+        times: Option<u32>,
+    ) -> Self {
         Self {
             src,
             interval,
@@ -68,12 +90,15 @@ impl Script {
             failures: 0,
             executed_at: None,
             next_execution: Instant::now() + delay,
-            owner,
+            creator,
+            executions: 0,
+            times,
         }
     }
 
-    pub fn deadline(&self) -> Instant {
-        self.next_execution
+    /// Whether script is ready to be executed
+    pub fn ready(&self, now: Instant) -> bool {
+        self.next_execution <= now
     }
 }
 
@@ -91,13 +116,13 @@ pub enum Command {
         script: String,
         interval: Option<Duration>,
         delay: Duration,
-        owner: PeerId,
+        creator: PeerId,
     },
     RemoveScript {
         uuid: String,
         outlet: OneshotOutlet<Result<bool, ScriptStorageError>>,
         actor: PeerId,
-        force: bool,
+        by_admin: bool,
     },
     ListScripts {
         outlet: OneshotOutlet<HashMap<ScriptId, Script>>,
@@ -173,34 +198,29 @@ async fn execute_scripts(
     let now = Instant::now();
     let now_u64 = now_ms() as u64;
 
-    // Remove all ready scripts without interval, they will be executing only once
-    let ready_single_shots: Vec<_> = unlock(scripts, |scripts| {
-        scripts
-            .drain_filter(|_, s| s.interval.is_none() && s.deadline() <= now)
-            .collect()
-    })
-    .await;
-
-    // Take and clone all scripts that are ready to be executed
-    let scripts: HashMap<ScriptId, Script> = unlock(scripts, |scripts| {
+    // Take scripts that are ready to be executed
+    let ready_scripts: Vec<_> = unlock(scripts, |scripts| {
         scripts
             .iter_mut()
-            .filter(|(_, script)| script.deadline() <= now)
+            .filter(|(_, s)| s.ready(now))
+            // Update scripts metadata
             .map(|(id, s)| {
+                s.executions += 1;
+                log::debug!("{} executions {}", id.as_ref(), s.executions);
                 // mark script as executed at the current timestamp and schedule next
                 s.executed_at = Some(now);
-                // SAFETY: safe to call unwrap because all scripts without interval already removed
-                s.next_execution = now + s.interval.unwrap();
+                s.next_execution = now + s.interval.unwrap_or_default();
+
                 (id.clone(), s.clone())
             })
             .collect()
     })
     .await;
-    // concatenate single shots with other scripts
-    let scripts = ready_single_shots.into_iter().chain(scripts);
 
-    for (script_id, script) in scripts {
-        let particle_id = format!("auto_{}", uuid::Uuid::new_v4());
+    for (script_id, script) in ready_scripts {
+        log::debug!("executing {}", script_id.as_ref());
+        let id: &String = script_id.borrow();
+        let particle_id = format!("auto_{}_{}", id, script.executions);
 
         // Save info about sent particle to account for failures
         let info = SentParticle {
@@ -225,6 +245,12 @@ async fn execute_scripts(
         let contact = Contact::new(config.peer_id, vec![]);
         pool.send(contact, particle).await;
     }
+
+    // Remove scripts that have been executed enough times
+    unlock(scripts, |scripts| {
+        scripts.drain_filter(|_, s| s.times.map(|limit| s.executions >= limit).unwrap_or(false));
+    })
+    .await;
 }
 
 async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Script>>) {
@@ -234,22 +260,24 @@ async fn execute_command(command: Command, scripts: &Mutex<HashMap<ScriptId, Scr
             script,
             interval,
             delay,
-            owner,
+            creator,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
-            let script = Script::new(script, interval, delay, owner);
+            // If interval isn't set, script should be executed only once
+            let times = if interval.is_none() { Some(1) } else { None };
+            let script = Script::new(script, interval, delay, creator, times);
             unlock(scripts, |scripts| scripts.insert(uuid, script)).await;
         }
         Command::RemoveScript {
             uuid,
             outlet,
             actor,
-            force,
+            by_admin,
         } => {
             let uuid = ScriptId(Arc::new(uuid));
             let removed = unlock(scripts, |scripts| match scripts.entry(uuid) {
                 Entry::Vacant(_) => Ok(false),
-                Entry::Occupied(e) if force || e.get().owner == actor => {
+                Entry::Occupied(e) if by_admin || e.get().creator == actor => {
                     e.remove();
                     Ok(true)
                 }
@@ -275,8 +303,10 @@ async fn remove_failed_scripts(
     if let Some(SentParticle { script_id, .. }) = sent {
         unlock(scripts, |scripts| {
             if let Entry::Occupied(entry) = scripts.entry(script_id) {
-                let failures = entry.get().failures;
-                if failures + 1 < max_failures {
+                let failures = entry.get().failures + 1;
+                let id: &String = (*entry.key()).borrow();
+                log::debug!("Script {} failures {} max {}", id, failures, max_failures);
+                if failures < max_failures {
                     entry.into_mut().failures += 1;
                 } else {
                     entry.remove();
@@ -284,6 +314,13 @@ async fn remove_failed_scripts(
             }
         })
         .await;
+    } else {
+        if particle_id.starts_with("auto") {
+            log::warn!(
+                "Reported auto particle {} as failed, but no scheduled script found",
+                particle_id
+            );
+        }
     }
 }
 
@@ -306,9 +343,7 @@ pub enum ScriptStorageError {
     OutletError,
     #[error("ScriptStorageError::InletError: can't receive response from script storage")]
     InletError,
-    #[error(
-        "ScriptStorageError::PermissionDenied: only the owner (creator) of a script can remove it"
-    )]
+    #[error("ScriptStorageError::PermissionDenied: only the creator of a script can remove it")]
     PermissionDenied,
 }
 
@@ -324,7 +359,7 @@ impl ScriptStorageApi {
         script: String,
         interval: Option<Duration>,
         delay: Duration,
-        owner: PeerId,
+        creator: PeerId,
     ) -> Result<String, ScriptStorageError> {
         let uuid = uuid::Uuid::new_v4().to_string();
 
@@ -333,7 +368,7 @@ impl ScriptStorageApi {
             script,
             interval,
             delay,
-            owner,
+            creator,
         })?;
 
         Ok(uuid)
@@ -343,7 +378,7 @@ impl ScriptStorageApi {
         &self,
         uuid: String,
         actor: PeerId,
-        force: bool,
+        by_admin: bool,
     ) -> BoxFuture<'static, Result<bool, ScriptStorageError>> {
         use ScriptStorageError::InletError;
 
@@ -352,7 +387,7 @@ impl ScriptStorageApi {
             uuid,
             outlet,
             actor,
-            force,
+            by_admin,
         };
         if let Err(err) = self.send(command) {
             return futures::future::err(err).boxed();
