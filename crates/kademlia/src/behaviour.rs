@@ -97,7 +97,7 @@ impl FailedPeer {
 
 // type SwarmEventType = generate_swarm_event_type!(Kademlia);
 type SwarmEventType =
-    NetworkBehaviourAction<(), <Kademlia as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler>;
+    NetworkBehaviourAction<(), <Kademlia as libp2p::swarm::NetworkBehaviour>::ConnectionHandler>;
 
 #[derive(::libp2p::NetworkBehaviour)]
 #[behaviour(poll_method = "custom_poll", event_process = true)]

@@ -540,7 +540,7 @@ fn base58_bytes_builtins() {
 
 #[test]
 fn sha256() {
-    use multihash::{Code, MultihashDigest, MultihashGeneric};
+    use multihash::{Code, MultihashDigest};
 
     let script = r#"
     (seq
@@ -560,7 +560,7 @@ fn sha256() {
     "#;
 
     let string = "hello, как слышно? ХОРОШО!";
-    let sha_256: MultihashGeneric<_> = Code::Sha2_256.digest(string.as_bytes());
+    let sha_256 = Code::Sha2_256.digest(string.as_bytes());
     let args = hashmap! {
         "string" => json!(string),
     };

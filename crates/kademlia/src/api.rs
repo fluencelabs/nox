@@ -67,7 +67,7 @@ pub enum Command {
 
 pub type SwarmEventType = NetworkBehaviourAction<
     (),
-    <KademliaApiInlet as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler,
+    <KademliaApiInlet as libp2p::swarm::NetworkBehaviour>::ConnectionHandler,
 >;
 
 #[derive(::libp2p::NetworkBehaviour)]

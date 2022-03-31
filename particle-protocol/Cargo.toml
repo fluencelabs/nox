@@ -5,7 +5,7 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p = "0.42"
+libp2p = "0.43"
 fluence-libp2p = { path = "../crates/libp2p" }
 json-utils = { path = "../crates/json-utils" }
 now-millis = { path = "../crates/now-millis" }

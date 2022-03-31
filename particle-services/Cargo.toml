@@ -31,6 +31,6 @@ humantime-serde = "1.0.1"
 
 [dev-dependencies]
 tempdir = "0.3.7"
-libp2p-core = { version = "0.31", default-features = false, features = [ "secp256k1" ] }
+libp2p-core = { version = "0.32.0", default-features = false, features = [ "secp256k1" ] }
 base64 = "0.13.0"
 config-utils = { path = "../crates/config-utils" }

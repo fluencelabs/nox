@@ -350,7 +350,7 @@ where
         let string: String = Args::next("string", &mut args)?;
         let digest_only: Option<bool> = Args::next_opt("digest_only", &mut args)?;
         let as_bytes: Option<bool> = Args::next_opt("as_bytes", &mut args)?;
-        let multihash: MultihashGeneric<_> = Code::Sha2_256.digest(string.as_bytes());
+        let multihash = Code::Sha2_256.digest(string.as_bytes());
 
         let result = if digest_only == Some(true) {
             multihash.digest().to_vec()

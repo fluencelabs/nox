@@ -19,11 +19,11 @@ ivalue-utils = { path = "../crates/ivalue-utils" }
 now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 
-libp2p = "0.42"
+libp2p = "0.43"
 avm-server = "0.15.0"
 
 async-std = { version = "1.9.0", features = ["unstable"] }
-multihash = "0.14"
+multihash = "0.16.2"
 serde_json = "1.0.64"
 serde = "1.0.130"
 log = "0.4.11"

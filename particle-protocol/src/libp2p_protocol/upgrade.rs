@@ -19,7 +19,7 @@ use crate::{HandlerMessage, PROTOCOL_NAME};
 use futures::{future::BoxFuture, AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt};
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
-    swarm::{protocols_handler, OneShotHandler},
+    swarm::OneShotHandler,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -75,12 +75,12 @@ impl ProtocolConfig {
     }
 }
 
-impl<OutProto: protocols_handler::OutboundUpgradeSend, OutEvent> From<ProtocolConfig>
+impl<OutProto: libp2p::swarm::handler::OutboundUpgradeSend, OutEvent> From<ProtocolConfig>
     for OneShotHandler<ProtocolConfig, OutProto, OutEvent>
 {
     fn from(item: ProtocolConfig) -> OneShotHandler<ProtocolConfig, OutProto, OutEvent> {
         OneShotHandler::new(
-            protocols_handler::SubstreamProtocol::new(item.clone(), ())
+            libp2p::swarm::handler::SubstreamProtocol::new(item.clone(), ())
                 .with_timeout(item.upgrade_timeout),
             OneShotHandlerConfig {
                 keep_alive_timeout: item.keep_alive_timeout,

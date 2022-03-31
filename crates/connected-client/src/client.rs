@@ -27,7 +27,7 @@ use futures::{
 };
 use libp2p::core::either::EitherError;
 use libp2p::core::Multiaddr;
-use libp2p::swarm::{ProtocolsHandlerUpgrErr, SwarmEvent};
+use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmEvent};
 use libp2p::{identity::Keypair, PeerId, Swarm};
 
 use fluence_libp2p::{
@@ -193,7 +193,7 @@ impl Client {
     fn receive_from_node(
         msg: SwarmEvent<
             ClientEvent,
-            EitherError<ProtocolsHandlerUpgrErr<std::io::Error>, libp2p::ping::Failure>,
+            EitherError<ConnectionHandlerUpgrErr<std::io::Error>, libp2p::ping::Failure>,
         >,
         client_outlet: &Outlet<ClientEvent>,
     ) -> Result<(), TrySendError<ClientEvent>> {

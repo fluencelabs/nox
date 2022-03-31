@@ -22,9 +22,9 @@ use async_std::task::{sleep, spawn};
 use futures::{stream::iter, FutureExt, SinkExt, StreamExt, TryFutureExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::Multiaddr;
-use open_metrics_client::metrics::counter::Counter;
-use open_metrics_client::metrics::info::Info;
-use open_metrics_client::registry::Registry;
+use prometheus_client::metrics::counter::Counter;
+use prometheus_client::metrics::info::Info;
+use prometheus_client::registry::Registry;
 
 use aquamarine::{AquamarineApi, AquamarineApiError, NetworkEffects};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};

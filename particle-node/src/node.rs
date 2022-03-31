@@ -28,7 +28,7 @@ use futures::{
 };
 use libp2p::core::either::EitherError;
 use libp2p::ping::Failure;
-use libp2p::swarm::{ProtocolsHandlerUpgrErr, SwarmEvent};
+use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmEvent};
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
@@ -36,7 +36,7 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use libp2p_metrics::{Metrics, Recorder};
-use open_metrics_client::registry::Registry;
+use prometheus_client::registry::Registry;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreError,

@@ -22,12 +22,12 @@ use std::{
 
 use futures::channel::mpsc;
 use libp2p::swarm::dial_opts::DialOpts;
-use libp2p::swarm::DialError;
+use libp2p::swarm::{DialError, IntoConnectionHandler};
 use libp2p::{
     core::{connection::ConnectionId, ConnectedPoint, Multiaddr},
     swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
-        ProtocolsHandler,
+        ConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler,
+        PollParameters,
     },
     PeerId,
 };
@@ -329,10 +329,10 @@ impl ConnectionPoolBehaviour {
 }
 
 impl NetworkBehaviour for ConnectionPoolBehaviour {
-    type ProtocolsHandler = OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>;
+    type ConnectionHandler = OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>;
     type OutEvent = ();
 
-    fn new_handler(&mut self) -> Self::ProtocolsHandler {
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
         self.protocol_config.clone().into()
     }
 
@@ -347,25 +347,13 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             .collect()
     }
 
-    fn inject_connected(&mut self, peer_id: &PeerId) {
-        // NOTE: `addresses_of_peer` at this point must be filled
-        // with addresses through inject_connection_established
-        let contact = Contact::new(*peer_id, self.addresses_of_peer(peer_id));
-        debug_assert!(!contact.addresses.is_empty());
-        // Signal a new peer connected
-        self.lifecycle_event(LifecycleEvent::Connected(contact));
-    }
-
-    fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        self.remove_contact(peer_id, "disconnected");
-    }
-
     fn inject_connection_established(
         &mut self,
         peer_id: &PeerId,
         _connection_id: &ConnectionId,
         cp: &ConnectedPoint,
         failed_addresses: Option<&Vec<Multiaddr>>,
+        _: usize,
     ) {
         // mark failed addresses as such
         if let Some(failed_addresses) = failed_addresses {
@@ -384,10 +372,23 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         )))
     }
 
+    fn inject_connection_closed(
+        &mut self,
+        peer_id: &PeerId,
+        _: &ConnectionId,
+        _: &ConnectedPoint,
+        _: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
+        remaining_established: usize,
+    ) {
+        if remaining_established == 0 {
+            self.remove_contact(peer_id, "disconnected");
+        }
+    }
+
     fn inject_dial_failure(
         &mut self,
         peer_id: Option<PeerId>,
-        _handler: Self::ProtocolsHandler,
+        _handler: Self::ConnectionHandler,
         error: &DialError,
     ) {
         // remove failed contact
@@ -402,7 +403,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         &mut self,
         from: PeerId,
         _: ConnectionId,
-        event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent,
+        event: <Self::ConnectionHandler as ConnectionHandler>::OutEvent,
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {

@@ -11,11 +11,11 @@ control-macro = { path = "../control-macro" }
 fluence-libp2p = { path = "../libp2p" }
 server-config = { path = "../server-config" }
 
-libp2p = "0.42"
-libp2p-metrics = { version = "0.3.0", features = ["kad"] }
-open-metrics-client = "0.14.0"
+libp2p = "0.43"
+libp2p-metrics = { version = "0.4.0", features = ["kad"] }
+prometheus-client = "0.15.0"
 
-multihash = "0.14"
+multihash = "0.16.2"
 once_cell = "1.4.1"
 prost = "0.6.1"
 smallvec = "1.4.2"
