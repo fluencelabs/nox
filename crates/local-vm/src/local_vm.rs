@@ -84,7 +84,7 @@ pub struct ClientFunctionsResult {
 }
 
 pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFunctionsResult {
-    let result = match (args.service_id.as_str(), args.function_name.as_str()) {
+    match (args.service_id.as_str(), args.function_name.as_str()) {
         ("load", _) | ("getDataSrv", _) => {
             let value = data.get(args.function_name.as_str()).cloned();
             let outcome = match value {
@@ -133,10 +133,7 @@ pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFun
                 returned: None,
             }
         }
-    };
-
-    log::debug!(target: "network", "client function {} {} result {:?}\n{:?}", args.service_id, args.function_name, result, args.tetraplets);
-    result
+    }
 }
 
 pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResult, Returned) {
