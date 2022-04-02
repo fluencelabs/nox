@@ -40,6 +40,7 @@ use created_swarm::{
 use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
 use json_utils::into_array;
+use log_utils::enable_logs;
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use service_modules::load_module;
@@ -54,6 +55,8 @@ struct NodeInfo {
 
 #[test]
 fn identify() {
+    enable_logs();
+
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
