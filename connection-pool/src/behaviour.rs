@@ -365,6 +365,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
 
         let multiaddr = remote_multiaddr(cp).clone();
         log::debug!(
+            target: "network",
             "{}: connection established with {} @ {}",
             self.peer_id,
             peer_id,
