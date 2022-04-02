@@ -161,6 +161,7 @@ impl ConnectionPoolBehaviour {
             outlet.send(true).ok();
             self.wake();
         } else if self.contacts.contains_key(&to.peer_id) {
+            log::debug!(target: "network", "{}: Sending particle {} to {}", self.peer_id, particle.id, to.peer_id);
             // Send particle to remote peer
             self.push_event(NetworkBehaviourAction::NotifyHandler {
                 peer_id: to.peer_id,
@@ -363,6 +364,12 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
 
         let multiaddr = remote_multiaddr(cp).clone();
+        log::debug!(
+            "{}: connection established with {} @ {}",
+            self.peer_id,
+            peer_id,
+            multiaddr
+        );
 
         self.add_address(*peer_id, multiaddr.clone());
 
@@ -376,12 +383,29 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         &mut self,
         peer_id: &PeerId,
         _: &ConnectionId,
-        _: &ConnectedPoint,
+        cp: &ConnectedPoint,
         _: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
         remaining_established: usize,
     ) {
+        let multiaddr = remote_multiaddr(cp);
         if remaining_established == 0 {
             self.remove_contact(peer_id, "disconnected");
+            log::debug!(
+                target: "network",
+                "{}: connection lost with {} @ {}",
+                self.peer_id,
+                peer_id,
+                multiaddr
+            );
+        } else {
+            log::debug!(
+                target: "network",
+                "{}: {} connections remaining established with {}. {} has just closed.",
+                self.peer_id,
+                remaining_established,
+                peer_id,
+                multiaddr
+            )
         }
     }
 
@@ -407,7 +431,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {
-                log::trace!(target: "network", "received particle {} from {}; queue {}", particle.id, from, self.queue.len());
+                log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
                 self.meter(|m| {
                     m.particle_queue_size.set(self.queue.len() as u64 + 1);
                     m.received_particles.inc();
@@ -435,7 +459,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                         if let Err(err) = self.outlet.start_send(particle) {
                             log::error!("Failed to send particle to outlet: {}", err)
                         } else {
-                            log::trace!(target: "network", "Sent particle {} to execution", particle_id);
+                            log::trace!(target: "execution", "Sent particle {} to execution", particle_id);
                         }
                     } else {
                         break;

@@ -19,14 +19,18 @@ use created_swarm::make_swarms;
 use test_constants::KAD_TIMEOUT;
 
 use eyre::WrapErr;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::{json, Value};
 use std::thread::sleep;
 
 #[test]
 fn identity() {
+    enable_logs();
+
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
+
     let mut a = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -34,8 +38,9 @@ fn identity() {
         .wrap_err("connect client")
         .unwrap();
 
-    a.send_particle(
-        r#"
+    loop {
+        a.send_particle(
+            r#"
         (seq
             (call node_a ("op" "noop") [])
             (seq
@@ -50,15 +55,16 @@ fn identity() {
             )
         )
         "#,
-        hashmap! {
-            "node_a" => json!(swarms[0].peer_id.to_string()),
-            "node_b" => json!(swarms[1].peer_id.to_string()),
-            "node_c" => json!(swarms[2].peer_id.to_string()),
-            "client_b" => json!(b.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "node_a" => json!(swarms[0].peer_id.to_string()),
+                "node_b" => json!(swarms[1].peer_id.to_string()),
+                "node_c" => json!(swarms[2].peer_id.to_string()),
+                "client_b" => json!(b.peer_id.to_string()),
+            },
+        );
 
-    b.receive().wrap_err("receive").unwrap();
+        b.receive().wrap_err("receive").unwrap();
+    }
 }
 
 #[test]
