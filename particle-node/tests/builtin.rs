@@ -780,6 +780,8 @@ fn array_length() {
     )
     .unwrap();
 
+    //
+
     assert_eq!(result, vec![
         json!(0),
         json!(5),
