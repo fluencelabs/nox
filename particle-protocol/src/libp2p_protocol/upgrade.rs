@@ -194,8 +194,9 @@ where
                 if bytes.len() < 16500 && bytes.len() > 16000 {
                     log::debug!(target: "network", "sending ({}) bytes {:?}", info, buffer);
                 }
-                socket.write_all(&buffer).await?;
-                socket.flush().await?;
+                upgrade::write_length_prefixed(&mut socket, &bytes).await?;
+                // socket.write_all(&buffer).await?;
+                // socket.flush().await?;
 
                 Ok(())
             };
