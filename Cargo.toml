@@ -40,3 +40,6 @@ members = [
 exclude = [
     "particle-node/tests/tetraplets",
 ]
+
+[patch.crates-io]
+yamux = { version = "0.10.1", git = "https://github.com/libp2p/rust-yamux" }
