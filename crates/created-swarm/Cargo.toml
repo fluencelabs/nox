@@ -21,7 +21,7 @@ toy-vms = { path = "../toy-vms" }
 
 fluence-keypair = "0.7.0"
 
-libp2p = "0.43"
+libp2p = "0.44"
 
 async-std = "1.9.0"
 futures = "0.3.13"

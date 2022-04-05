@@ -26,8 +26,8 @@ fluence-keypair = "0.7.0"
 air-interpreter-wasm = "=0.21.3"
 avm-server = "0.15.0"
 
-libp2p = "0.43"
-libp2p-metrics = "0.4.0"
+libp2p = "0.44"
+libp2p-metrics = "0.5.0"
 prometheus-client = "0.15.0"
 
 futures = "0.3.13"

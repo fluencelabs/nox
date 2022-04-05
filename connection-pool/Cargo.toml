@@ -9,7 +9,7 @@ particle-protocol = { path = "../particle-protocol"}
 fluence-libp2p = { path = "../crates/libp2p" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
-libp2p = "0.43"
+libp2p = "0.44"
 
 futures = "0.3.13"
 log = "0.4.13"

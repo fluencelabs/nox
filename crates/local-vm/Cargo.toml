@@ -18,7 +18,7 @@ air-interpreter-fs = { path = "../air-interpreter-fs" }
 air-interpreter-wasm = "=0.21.3"
 avm-server = "0.15.0"
 
-libp2p = "0.43"
+libp2p = "0.44"
 
 fstrings = "0.2.3"
 serde_json = "1.0.64"
