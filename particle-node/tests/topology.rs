@@ -38,9 +38,8 @@ fn identity() {
         .wrap_err("connect client")
         .unwrap();
 
-    loop {
-        a.send_particle(
-            r#"
+    a.send_particle(
+        r#"
         (seq
             (call node_a ("op" "noop") [])
             (seq
@@ -55,16 +54,15 @@ fn identity() {
             )
         )
         "#,
-            hashmap! {
-                "node_a" => json!(swarms[0].peer_id.to_string()),
-                "node_b" => json!(swarms[1].peer_id.to_string()),
-                "node_c" => json!(swarms[2].peer_id.to_string()),
-                "client_b" => json!(b.peer_id.to_string()),
-            },
-        );
+        hashmap! {
+            "node_a" => json!(swarms[0].peer_id.to_string()),
+            "node_b" => json!(swarms[1].peer_id.to_string()),
+            "node_c" => json!(swarms[2].peer_id.to_string()),
+            "client_b" => json!(b.peer_id.to_string()),
+        },
+    );
 
-        b.receive().wrap_err("receive").unwrap();
-    }
+    b.receive().wrap_err("receive").unwrap();
 }
 
 #[test]
