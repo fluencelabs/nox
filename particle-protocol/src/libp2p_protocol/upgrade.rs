@@ -195,6 +195,7 @@ where
                     log::debug!(target: "network", "sending ({}) bytes {:?}", info, buffer);
                 }
                 socket.write_all(&buffer).await?;
+                socket.flush().await?;
 
                 Ok(())
             };
