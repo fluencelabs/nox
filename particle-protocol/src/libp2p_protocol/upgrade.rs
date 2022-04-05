@@ -115,11 +115,11 @@ where
     type Error = Error;
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
-    fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
+    fn upgrade_inbound(self, socket: Socket, _: Self::Info) -> Self::Future {
         async move {
-            let process = async move |socket: &mut (impl AsyncRead + Unpin),| -> Result<ProtocolMessage, Error> {
+            let process = async move |mut socket: Socket| -> Result<ProtocolMessage, Error> {
                 let mut packet = Vec::new();
-                let read_result = socket.read_to_end(&mut buf).await;
+                let read_result = socket.read_to_end(&mut packet).await;
                 if let Err(err) = read_result {
                     log::warn!(target: "network", "read_to_end error: {:?}, buffer {:?}", err, packet);
                 }
@@ -128,7 +128,7 @@ where
                     .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
             };
 
-            match process(&mut socket).await {
+            match process(socket).await {
                 Ok(msg) => {
                     if log::log_enabled!(log::Level::Debug) {
                         log::debug!("Got inbound ProtocolMessage: {:?}", msg);
