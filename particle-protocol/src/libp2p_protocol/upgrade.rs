@@ -68,10 +68,6 @@ impl ProtocolConfig {
             outbound_substream_timeout,
         }
     }
-
-    // fn gen_error(&self, err: impl Debug) -> HandlerMessage {
-    //     HandlerMessage::InboundUpgradeError(json!({ "error": format!("{:?}", err) }))
-    // }
 }
 
 impl<OutProto: libp2p::swarm::handler::OutboundUpgradeSend, OutEvent> From<ProtocolConfig>
