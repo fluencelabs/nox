@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-use crate::{HandlerMessage, PROTOCOL_NAME};
+use std::fmt::Debug;
+use std::{io, iter, time::Duration};
 
+pub use eyre::Error;
+use eyre::WrapErr;
 use futures::{future::BoxFuture, AsyncRead, AsyncWrite, FutureExt};
+use libp2p::swarm::OneShotHandlerConfig;
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     swarm::OneShotHandler,
 };
+use log::LevelFilter;
 use serde::Deserialize;
-use std::{io, iter, time::Duration};
 
 use crate::libp2p_protocol::message::ProtocolMessage;
-pub use eyre::Error;
-use eyre::WrapErr;
-use libp2p::swarm::OneShotHandlerConfig;
-use log::LevelFilter;
-use std::fmt::Debug;
+use crate::{HandlerMessage, PROTOCOL_NAME};
 
 // TODO: embed pings into the protocol?
 // TODO: embed identify into the protocol?
@@ -191,10 +191,10 @@ mod tests {
         transport::{memory::MemoryTransport, ListenerEvent, Transport},
         upgrade,
     };
+    use rand::{thread_rng, Rng};
 
     use crate::libp2p_protocol::message::ProtocolMessage;
     use crate::{HandlerMessage, ProtocolConfig};
-    use rand::{thread_rng, Rng};
 
     const BYTES: [u8; 175] = [
         123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105, 99, 108, 101, 34,
