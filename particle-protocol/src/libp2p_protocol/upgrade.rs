@@ -19,7 +19,7 @@ use std::{io, iter, time::Duration};
 
 pub use eyre::Error;
 use eyre::WrapErr;
-use futures::{future::BoxFuture, AsyncRead, AsyncWrite, FutureExt};
+use futures::{future::BoxFuture, AsyncRead, AsyncReadExt, AsyncWrite, FutureExt};
 use libp2p::swarm::OneShotHandlerConfig;
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
@@ -117,8 +117,13 @@ where
 
     fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         async move {
-            let process = async move |socket| -> Result<ProtocolMessage, Error> {
-                let packet = upgrade::read_length_prefixed(socket, MAX_BUF_SIZE).await?;
+            let process = async move |socket: &mut (impl AsyncRead + Unpin),| -> Result<ProtocolMessage, Error> {
+                let mut packet = Vec::new();
+                let read_result = socket.read_to_end(&mut buf).await;
+                if let Err(err) = read_result {
+                    log::warn!(target: "network", "read_to_end error: {:?}, buffer {:?}", err, packet);
+                }
+                // let packet = upgrade::read_length_prefixed(socket, MAX_BUF_SIZE).await?;
                 serde_json::from_slice(&packet)
                     .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
             };
