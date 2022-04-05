@@ -139,9 +139,6 @@ where
                 }
                 Err(err) => {
                     log::warn!("Error processing inbound ProtocolMessage: {:?}", err);
-                    // Generate and send error back through socket
-                    // let err_msg = self.gen_error(&err);
-                    // err_msg.upgrade_outbound(socket, info).await?;
                     Err(err)
                 }
             }
