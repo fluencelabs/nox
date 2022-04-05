@@ -191,7 +191,7 @@ where
 
                 let mut buffer = Vec::new();
                 upgrade::write_length_prefixed(&mut buffer, &bytes).await?;
-                if bytes.len() < 16500 && bytes.len() > 16000 {
+                if bytes.len() > 16000 {
                     log::debug!(target: "network", "sending ({}) bytes {:?}", info, buffer);
                 }
                 upgrade::write_length_prefixed(&mut socket, &bytes).await?;
