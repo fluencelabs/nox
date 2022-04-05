@@ -124,8 +124,7 @@ where
                     log::warn!(target: "network", "read_to_end error: {:?}, buffer {:?}", err, packet);
                 }
 
-                let bytes = packet.clone();
-                let decoded = upgrade::read_length_prefixed(&mut bytes.as_slice(), MAX_BUF_SIZE).await;
+                let decoded = upgrade::read_length_prefixed(&mut packet.as_slice(), MAX_BUF_SIZE).await;
 
                 match decoded {
                     Ok(decoded) => {
@@ -133,7 +132,8 @@ where
                             .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
                     },
                     Err(err) => {
-                        log::warn!(target: "network", "read_length_prefixed error: {:?}, original buffer {:?}", err, packet);
+                        let expected_len = upgrade::read_varint(&mut packet.as_slice()).await?;
+                        log::warn!(target: "network", "read_length_prefixed error: {:?}, original buffer {:?}\nexpected length {}, len with prefix {}", err, packet, expected_len, packet.len());
                         Err(err.into())
                     }
                 }
