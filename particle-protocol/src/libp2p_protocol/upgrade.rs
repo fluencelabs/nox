@@ -124,10 +124,12 @@ where
                     log::warn!(target: "network", "read_to_end error: {:?}, buffer {:?}", err, packet);
                 }
 
+
                 let decoded = upgrade::read_length_prefixed(&mut packet.as_slice(), MAX_BUF_SIZE).await;
 
                 match decoded {
                     Ok(decoded) => {
+                        log::debug!(target: "network", "success read {} bytes", decoded.len());
                         serde_json::from_slice(&decoded)
                             .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
                     },
