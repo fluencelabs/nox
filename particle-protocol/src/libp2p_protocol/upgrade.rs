@@ -120,10 +120,14 @@ where
             let process = async move |mut socket: Socket| -> Result<ProtocolMessage, Error> {
                 let mut packet = Vec::new();
                 let read_result = socket.read_to_end(&mut packet).await;
-                if let Err(err) = read_result {
-                    log::warn!(target: "network", "read_to_end error: {:?}, buffer {:?}", err, packet);
+                match read_result {
+                    Err(err) => {
+                        log::warn!(target: "network", "read_to_end error: {:?}, buffer {:?}", err, packet)
+                    },
+                    Ok(len) => {
+                        log::debug!(target: "network", "read_to_end success {} bytes", len)
+                    }
                 }
-
 
                 let decoded = upgrade::read_length_prefixed(&mut packet.as_slice(), MAX_BUF_SIZE).await;
 
