@@ -19,7 +19,7 @@ use std::{io, iter, time::Duration};
 
 pub use eyre::Error;
 use eyre::WrapErr;
-use futures::{future::BoxFuture, AsyncRead, AsyncReadExt, AsyncWrite, FutureExt};
+use futures::{future::BoxFuture, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, FutureExt};
 use libp2p::swarm::OneShotHandlerConfig;
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
@@ -186,8 +186,16 @@ where
                     }
                     ProtocolMessage::Upgrade => "Upgrade".to_string(),
                 };
+                // log::debug!(target: "network", "sending ({}) bytes {:?}", info, bytes);
                 log::debug!(target: "network", "sending {} bytes ({})", bytes.len(), info);
-                upgrade::write_length_prefixed(&mut socket, bytes).await?;
+
+                let mut buffer = Vec::new();
+                upgrade::write_length_prefixed(&mut buffer, bytes).await?;
+                if bytes.len() < 16500 && bytes.len() > 16000 {
+                    log::debug!(target: "network", "sending ({}) bytes {:?}", info, buffer);
+                }
+                socket.write_all(&buffer).await?;
+
                 Ok(())
             };
 
@@ -287,7 +295,7 @@ mod tests {
 
     #[test]
     fn length_prefixed() {
-        let mut array: &[u8] = &[
+        let array: &[u8] = &[
             232, 137, 2, 123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105,
             99, 108, 101, 34, 44, 34, 105, 100, 34, 58, 34, 57, 54, 57, 56, 53, 98, 101, 51, 45,
             57, 97, 99, 100, 45, 52, 50, 57, 55, 45, 98, 52, 48, 48, 45, 97, 50, 52, 102, 99, 102,
@@ -1109,7 +1117,7 @@ mod tests {
             115, 79, 84, 69, 115, 77, 106, 85, 122, 76, 68, 73, 121, 78, 83, 119, 121, 77, 122, 77,
             115, 77, 84,
         ];
-        let mut array2: &[u8] = &[
+        let array2: &[u8] = &[
             164, 196, 1, 123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105,
             99, 108, 101, 34, 44, 34, 105, 100, 34, 58, 34, 52, 102, 50, 102, 53, 50, 99, 51, 45,
             51, 57, 50, 50, 45, 52, 54, 51, 48, 45, 56, 101, 49, 56, 45, 98, 55, 53, 52, 48, 56,
@@ -1930,10 +1938,32 @@ mod tests {
             68, 69, 53, 76, 68, 69, 48, 77, 121, 119, 121, 77, 122, 73, 115, 77, 106, 77, 121, 76,
             68, 85, 120, 76, 68, 69, 51, 77, 105,
         ];
-        let expected = async_std::task::block_on(upgrade::read_varint(&mut array));
+        use async_std::task::block_on;
+
+        let mut packet1 = array.clone();
+        let expected = block_on(upgrade::read_varint(&mut packet1));
         println!("array1: expected len {:?}, len {}", expected, array.len());
 
-        let expected = async_std::task::block_on(upgrade::read_varint(&mut array2));
+        let mut packet2 = array2.clone();
+        let expected = block_on(upgrade::read_varint(&mut packet2));
         println!("array2: expected len {:?}, len {}", expected, array2.len());
+
+        let out_packet = [array, &['}' as u8]].concat();
+
+        let mut output = Vec::new();
+        block_on(upgrade::write_length_prefixed(&mut output, &out_packet)).unwrap();
+
+        let length = block_on(upgrade::read_varint(&mut output.as_slice()));
+        println!(
+            "array1: output length {:?}, packet length {}",
+            length,
+            out_packet.len()
+        );
+
+        println!("encoded with length {:?}", &output[..10]);
+
+        let mut varlength = Vec::new();
+        block_on(upgrade::write_varint(&mut varlength, 16387 - 3)).unwrap();
+        println!("varlength {:?}", varlength);
     }
 }
