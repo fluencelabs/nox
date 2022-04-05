@@ -16,13 +16,12 @@
 
 use crate::{HandlerMessage, PROTOCOL_NAME};
 
-use futures::{future::BoxFuture, AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt};
+use futures::{future::BoxFuture, AsyncRead, AsyncWrite, FutureExt};
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     swarm::OneShotHandler,
 };
 use serde::Deserialize;
-use serde_json::json;
 use std::{io, iter, time::Duration};
 
 use crate::libp2p_protocol::message::ProtocolMessage;
@@ -70,9 +69,9 @@ impl ProtocolConfig {
         }
     }
 
-    fn gen_error(&self, err: impl Debug) -> HandlerMessage {
-        HandlerMessage::InboundUpgradeError(json!({ "error": format!("{:?}", err) }))
-    }
+    // fn gen_error(&self, err: impl Debug) -> HandlerMessage {
+    //     HandlerMessage::InboundUpgradeError(json!({ "error": format!("{:?}", err) }))
+    // }
 }
 
 impl<OutProto: libp2p::swarm::handler::OutboundUpgradeSend, OutEvent> From<ProtocolConfig>
@@ -120,7 +119,7 @@ where
     type Error = Error;
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
-    fn upgrade_inbound(self, mut socket: Socket, info: Self::Info) -> Self::Future {
+    fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         async move {
             let process = async move |socket| -> Result<ProtocolMessage, Error> {
                 let packet = upgrade::read_length_prefixed(socket, MAX_BUF_SIZE).await?;
