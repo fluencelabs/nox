@@ -123,9 +123,20 @@ where
                 if let Err(err) = read_result {
                     log::warn!(target: "network", "read_to_end error: {:?}, buffer {:?}", err, packet);
                 }
-                // let packet = upgrade::read_length_prefixed(socket, MAX_BUF_SIZE).await?;
-                serde_json::from_slice(&packet)
-                    .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
+
+                let bytes = packet.clone();
+                let decoded = upgrade::read_length_prefixed(&mut bytes.as_slice(), MAX_BUF_SIZE).await;
+
+                match decoded {
+                    Ok(decoded) => {
+                        serde_json::from_slice(&decoded)
+                            .wrap_err_with(|| format!("unable to deserialize: '{:?}'", packet))
+                    },
+                    Err(err) => {
+                        log::warn!(target: "network", "read_length_prefixed error: {:?}, original buffer {:?}", err, packet);
+                        Err(err.into())
+                    }
+                }
             };
 
             match process(socket).await {
