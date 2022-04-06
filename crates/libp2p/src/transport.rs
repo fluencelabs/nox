@@ -75,11 +75,12 @@ where
         // 1MB
         mplex.set_split_send_size(split_size);
         mplex.set_max_num_streams(1024 * 1024);
-        let mut yamux = libp2p::yamux::YamuxConfig::default();
+        let mut yamux = libp2p::yamux::YamuxConfig::server();
         // 1MB
         yamux.set_split_send_size(split_size);
         yamux.set_max_num_streams(1024 * 1024);
 
+        log::debug!(target: "network", "split_size should be {:?}", split_size);
         log::debug!(target: "network", "mplex config\n{:?}", mplex);
         log::debug!(target: "network", "yamux config\n{:?}", yamux);
 
