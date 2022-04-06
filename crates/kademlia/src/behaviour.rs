@@ -451,7 +451,7 @@ mod tests {
         let kad = Kademlia::new(config, None);
         let timeout = Duration::from_secs(20);
 
-        let mut swarm = Swarm::new(build_memory_transport(kp, timeout), kad, peer_id);
+        let mut swarm = Swarm::new(build_memory_transport(kp, timeout, 16384), kad, peer_id);
 
         let mut maddr = create_memory_maddr();
         maddr.push(Protocol::P2p(peer_id.into()));
