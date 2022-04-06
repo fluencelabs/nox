@@ -204,6 +204,8 @@ where
                 //     log::debug!(target: "network", "sending ({}) bytes {:?}", info, buffer);
                 // }
                 upgrade::write_length_prefixed(&mut socket, &bytes).await?;
+
+                socket.close().await?;
                 // socket.write_all(&buffer).await?;
                 // socket.flush().await?;
 
