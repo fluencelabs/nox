@@ -69,13 +69,13 @@ where
 {
     let multiplex = {
         let mut mplex = libp2p::mplex::MplexConfig::default();
-        mplex.set_max_num_streams(1024 * 1024);
         // 1MB
         mplex.set_split_send_size(1024 * 1024);
+        mplex.set_max_num_streams(1024 * 1024);
         let mut yamux = libp2p::yamux::YamuxConfig::default();
-        yamux.set_max_num_streams(1024 * 1024);
         // 1MB
         yamux.set_split_send_size(1024 * 1024);
+        yamux.set_max_num_streams(1024 * 1024);
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
 
