@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use particle_protocol::{Contact, Particle};
+use std::fmt::{Display, Formatter};
 
 use futures::{future::BoxFuture, stream::BoxStream};
 use libp2p::{core::Multiaddr, PeerId};
-use std::fmt::{Display, Formatter};
+
+use particle_protocol::{Contact, Particle};
 
 #[derive(Debug, Clone)]
 pub enum LifecycleEvent {
