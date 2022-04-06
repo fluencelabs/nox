@@ -79,6 +79,10 @@ where
         // 1MB
         yamux.set_split_send_size(split_size);
         yamux.set_max_num_streams(1024 * 1024);
+
+        log::debug!(target: "network", "mplex config\n{:?}", mplex);
+        log::debug!(target: "network", "yamux config\n{:?}", yamux);
+
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
 
