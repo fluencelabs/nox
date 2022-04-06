@@ -14,16 +14,19 @@
  * limitations under the License.
  */
 
-use crate::node_config::{KeypairConfig, PathOrValue};
-use fluence_keypair::KeyPair;
-use fluence_libp2p::Transport;
-
-use libp2p::core::Multiaddr;
-use libp2p::identity::ed25519::Keypair;
-use libp2p::PeerId;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+use bytesize::KIB;
+use fluence_keypair::KeyPair;
+use libp2p::core::Multiaddr;
+use libp2p::identity::ed25519::Keypair;
+use libp2p::PeerId;
+
+use fluence_libp2p::Transport;
+
+use crate::node_config::{KeypairConfig, PathOrValue};
 
 const CONFIG_VERSION: usize = 1;
 
@@ -43,6 +46,9 @@ pub fn default_listen_ip() -> IpAddr {
 }
 pub fn default_socket_timeout() -> Duration {
     Duration::from_secs(20)
+}
+pub fn default_packet_split_size() -> usize {
+    16 * KIB as usize
 }
 pub fn default_particle_ttl() -> Duration {
     Duration::from_secs(20)

@@ -106,11 +106,17 @@ impl Client {
         transport: Transport,
         transport_timeout: Duration,
         protocol_config: ProtocolConfig,
+        split_size: usize,
     ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let behaviour = ClientBehaviour::new(protocol_config);
 
-            let transport = build_transport(transport, self.key_pair.clone(), transport_timeout);
+            let transport = build_transport(
+                transport,
+                self.key_pair.clone(),
+                transport_timeout,
+                split_size,
+            );
             Swarm::new(transport, behaviour, self.peer_id)
         };
 
@@ -128,8 +134,16 @@ impl Client {
     pub async fn connect(
         relay: Multiaddr,
         transport_timeout: Duration,
+        split_size: usize,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        Self::connect_with(relay, Transport::Network, None, transport_timeout).await
+        Self::connect_with(
+            relay,
+            Transport::Network,
+            None,
+            transport_timeout,
+            split_size,
+        )
+        .await
     }
 
     pub async fn connect_with(
@@ -137,6 +151,7 @@ impl Client {
         transport: Transport,
         key_pair: Option<Keypair>,
         transport_timeout: Duration,
+        split_size: usize,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::unbounded();
         let (relay_outlet, relay_inlet) = mpsc::unbounded();
@@ -150,7 +165,13 @@ impl Client {
             transport_timeout,
         );
         let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
-        let mut swarm = client.dial(relay, transport, transport_timeout, protocol_config)?;
+        let mut swarm = client.dial(
+            relay,
+            transport,
+            transport_timeout,
+            protocol_config,
+            split_size,
+        )?;
 
         let mut relay_inlet = relay_inlet.fuse();
         let mut stop = stop_inlet.into_stream().fuse();

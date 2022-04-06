@@ -28,10 +28,11 @@ pub fn build_transport(
     transport: Transport,
     key_pair: Keypair,
     timeout: Duration,
+    split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     match transport {
-        Transport::Network => build_network_transport(key_pair, timeout),
-        Transport::Memory => build_memory_transport(key_pair, timeout),
+        Transport::Network => build_network_transport(key_pair, timeout, split_size),
+        Transport::Memory => build_memory_transport(key_pair, timeout, split_size),
     }
 }
 
@@ -42,6 +43,7 @@ pub fn build_transport(
 pub fn build_network_transport(
     key_pair: Keypair,
     socket_timeout: Duration,
+    split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = {
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
@@ -51,13 +53,14 @@ pub fn build_network_transport(
         tcp.or_transport(websocket)
     };
 
-    configure_transport(transport, key_pair, socket_timeout)
+    configure_transport(transport, key_pair, socket_timeout, split_size)
 }
 
 pub fn configure_transport<T, C>(
     transport: T,
     key_pair: Keypair,
     transport_timeout: Duration,
+    split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)>
 where
     T: NetworkTransport<Output = C> + Clone + Send + Sync + 'static,
@@ -70,11 +73,11 @@ where
     let multiplex = {
         let mut mplex = libp2p::mplex::MplexConfig::default();
         // 1MB
-        mplex.set_split_send_size(1024 * 1024);
+        mplex.set_split_send_size(split_size);
         mplex.set_max_num_streams(1024 * 1024);
         let mut yamux = libp2p::yamux::YamuxConfig::default();
         // 1MB
-        yamux.set_split_send_size(1024 * 1024);
+        yamux.set_split_send_size(split_size);
         yamux.set_max_num_streams(1024 * 1024);
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
@@ -95,10 +98,11 @@ where
 pub fn build_memory_transport(
     key_pair: Keypair,
     transport_timeout: Duration,
+    split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = MemoryTransport::default();
 
-    configure_transport(transport, key_pair, transport_timeout)
+    configure_transport(transport, key_pair, transport_timeout, split_size)
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Copy)]
