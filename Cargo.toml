@@ -43,8 +43,8 @@ exclude = [
 
 [patch.crates-io]
 #yamux = { version = "0.10.1", git = "https://github.com/libp2p/rust-yamux" }
-libp2p-yamux = { version = "0.36.0", git = "https://github.com/libp2p/rust-libp2p", branch = "master" }
-libp2p = { git = "https://github.com/libp2p/rust-libp2p", branch = "master" }
-libp2p-core = { git = "https://github.com/libp2p/rust-libp2p", branch = "master" }
-libp2p-noise = { git = "https://github.com/libp2p/rust-libp2p", branch = "master" }
-libp2p-metrics = { git = "https://github.com/libp2p/rust-libp2p", branch = "master" }
+libp2p-yamux = { version = "0.36.0", git = "https://github.com/fluencelabs/rust-libp2p", branch = "0.44" }
+libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "0.44" }
+libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "0.44" }
+libp2p-noise = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "0.44" }
+libp2p-metrics = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "0.44" }
