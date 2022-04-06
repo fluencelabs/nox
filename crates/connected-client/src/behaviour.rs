@@ -15,13 +15,11 @@
  */
 
 use std::collections::VecDeque;
-use std::error::Error;
 use std::task::{Context, Poll, Waker};
 use std::time::Duration;
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::DialError;
 use libp2p::{
     core::{
@@ -37,7 +35,6 @@ use libp2p::{
     PeerId,
 };
 
-use fluence_libp2p::generate_swarm_event_type;
 use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 
 use crate::ClientEvent;

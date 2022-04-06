@@ -19,15 +19,12 @@ use created_swarm::make_swarms;
 use test_constants::KAD_TIMEOUT;
 
 use eyre::WrapErr;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::{json, Value};
 use std::thread::sleep;
 
 #[test]
 fn identity() {
-    enable_logs();
-
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
 

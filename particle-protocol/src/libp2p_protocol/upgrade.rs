@@ -18,8 +18,8 @@ use std::fmt::Debug;
 use std::{io, iter, time::Duration};
 
 pub use eyre::Error;
-use eyre::{Report, WrapErr};
-use futures::{future::BoxFuture, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, FutureExt};
+use eyre::WrapErr;
+use futures::{future::BoxFuture, AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt};
 use libp2p::swarm::OneShotHandlerConfig;
 use libp2p::{
     core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},

@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-use avm_server::{CallRequests, CallResults};
-use futures::stream::FuturesUnordered;
-use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
+use futures::{stream::iter, SinkExt, StreamExt};
 
-use aquamarine::{NetworkEffects, ParticleEffects};
-use fluence_libp2p::types::{Inlet, Outlet};
+use aquamarine::NetworkEffects;
+use fluence_libp2p::types::Outlet;
 
 use crate::connectivity::Connectivity;
 
@@ -34,7 +32,7 @@ impl Effectors {
     }
 
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute(mut self, effects: NetworkEffects, particle_failures: Outlet<String>) {
+    pub async fn execute(self, effects: NetworkEffects, particle_failures: Outlet<String>) {
         if effects.particle.is_expired() {
             log::info!("Particle {} is expired", effects.particle.id);
             return;

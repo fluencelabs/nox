@@ -17,15 +17,12 @@
 use std::convert::TryFrom;
 use std::ops::Try;
 use std::path::PathBuf;
-use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
-use avm_server::{
-    AVMConfig, AVMOutcome, CallRequestParams, CallResults, CallServiceResult, IValue, AVM,
-};
+use avm_server::{AVMConfig, AVMOutcome, CallResults, CallServiceResult, AVM};
 use fstrings::f;
 use libp2p::PeerId;
-use parking_lot::Mutex;
-use serde_json::{Value as JValue, Value};
+use serde_json::Value as JValue;
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{DataStoreError, ParticleDataStore};
@@ -253,8 +250,8 @@ pub fn make_particle(
     loop {
         let AVMOutcome {
             data,
-            next_peer_pks,
             call_requests,
+            ..
         } = local_vm
             .call(
                 script.clone(),
@@ -293,7 +290,7 @@ pub fn make_particle(
 
 pub fn read_args(
     particle: Particle,
-    peer_id: PeerId,
+    _peer_id: PeerId,
     local_vm: &mut AVM<DataStoreError>,
 ) -> Option<Result<Vec<JValue>, Vec<JValue>>> {
     let mut call_results: CallResults = <_>::default();
@@ -301,8 +298,8 @@ pub fn read_args(
     loop {
         let AVMOutcome {
             data,
-            next_peer_pks,
             call_requests,
+            ..
         } = local_vm
             .call(
                 &particle.script,

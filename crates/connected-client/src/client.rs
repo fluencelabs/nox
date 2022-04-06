@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::{error::Error, ops::DerefMut, time::Duration};
+use std::{error::Error, time::Duration};
 
 use async_std::{task, task::JoinHandle};
 use derivative::Derivative;
@@ -31,7 +31,7 @@ use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmEvent};
 use libp2p::{identity::Keypair, PeerId, Swarm};
 
 use fluence_libp2p::{
-    build_memory_transport, build_transport,
+    build_transport,
     types::{Inlet, OneshotOutlet, Outlet},
     Transport,
 };

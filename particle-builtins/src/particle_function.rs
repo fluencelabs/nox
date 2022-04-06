@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
-
 use futures::FutureExt;
 
 use connection_pool::ConnectionPoolApi;
@@ -24,8 +22,6 @@ use particle_args::Args;
 use particle_execution::{ParticleFunction, ParticleFunctionOutput, ParticleParams};
 
 use crate::Builtins;
-
-pub struct ArcBuiltins<C>(Arc<Builtins<C>>);
 
 impl<C> ParticleFunction for Builtins<C>
 where

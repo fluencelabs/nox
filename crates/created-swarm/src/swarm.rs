@@ -21,30 +21,23 @@ use std::{path::PathBuf, time::Duration};
 use async_std::task;
 use derivative::Derivative;
 use fluence_keypair::KeyPair;
-use futures::channel::mpsc::unbounded;
 use futures::{stream::iter, StreamExt};
 use libp2p::core::multiaddr::Protocol;
-use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
+use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
+use aquamarine::DataStoreError;
 use aquamarine::{AquaRuntime, VmConfig};
-use aquamarine::{DataStoreError, VmPoolConfig};
-use builtins_deployer::BuiltinsDeployer;
-use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::types::OneshotOutlet;
-use fluence_libp2p::{build_memory_transport, build_transport, RandomPeerId, Transport};
+use fluence_libp2p::Transport;
 use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
 use particle_node::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use script_storage::ScriptStorageConfig;
-use script_storage::{ScriptStorageApi, ScriptStorageBackend};
-use server_config::{
-    BootstrapConfig, NetworkConfig, NodeConfig, ResolvedConfig, ServicesConfig, UnresolvedConfig,
-};
-use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, PARTICLE_TTL, TRANSPORT_TIMEOUT};
+use server_config::{BootstrapConfig, UnresolvedConfig};
+use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
 use toy_vms::EasyVM;
 
 type AVM = aquamarine::AVM<DataStoreError>;
@@ -188,8 +181,6 @@ where
         .into_iter()
         .map(|((peer_id, management_keypair, config), node, _)| {
             let connectivity = node.connectivity.clone();
-            let startup_peer_id = node.builtins_management_peer_id;
-            let local_peer_id = node.local_peer_id;
             let outlet = node.start().expect("node start");
 
             CreatedSwarm {
@@ -256,10 +247,7 @@ pub fn aqua_vm_config(
     // startup_peer_id: PeerId,
 ) -> <AVM as AquaRuntime>::Config {
     let BaseVmConfig {
-        peer_id,
-        tmp_dir,
-        listen_on,
-        manager,
+        peer_id, tmp_dir, ..
     } = vm_config;
 
     let air_interpreter = air_interpreter_path(&tmp_dir);

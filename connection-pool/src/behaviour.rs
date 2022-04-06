@@ -16,7 +16,6 @@
 
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
-    error::Error,
     task::{Context, Poll, Waker},
 };
 
@@ -32,8 +31,8 @@ use libp2p::{
     PeerId,
 };
 
+use fluence_libp2p::remote_multiaddr;
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
-use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
 use particle_protocol::{CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig};
 use peer_metrics::ConnectionPoolMetrics;
 
@@ -60,13 +59,6 @@ impl Peer {
         match self {
             Peer::Connected(addrs) => addrs.iter(),
             Peer::Dialing(addrs, _) => addrs.iter(),
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        match self {
-            Peer::Connected(addrs) => addrs.is_empty(),
-            Peer::Dialing(addrs, _) => addrs.is_empty(),
         }
     }
 }

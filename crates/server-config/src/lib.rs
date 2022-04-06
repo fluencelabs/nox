@@ -18,7 +18,7 @@
 #![feature(try_trait_v2)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
-#![allow(
+#![deny(
     dead_code,
     nonstandard_style,
     unused_imports,

@@ -20,7 +20,6 @@ use serde_json::json;
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
-use log_utils::enable_logs;
 use service_modules::load_module;
 use test_utils::{create_service, CreatedService};
 
@@ -34,8 +33,6 @@ fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
 
 #[test]
 fn share_file() {
-    enable_logs();
-
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())

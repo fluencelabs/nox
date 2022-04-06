@@ -17,14 +17,12 @@
 use crate::defaults::default_config_path;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
-use std::convert::TryFrom;
 
 use fs_utils::to_abs_path;
 
 use clap::{ArgMatches, Values};
 use eyre::{eyre, WrapErr};
-use libp2p::core::{multiaddr::Protocol, Multiaddr, PublicKey};
-use libp2p::{multihash, PeerId};
+use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
