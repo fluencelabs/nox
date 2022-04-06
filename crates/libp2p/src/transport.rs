@@ -60,7 +60,7 @@ pub fn configure_transport<T, C>(
     transport: T,
     key_pair: Keypair,
     transport_timeout: Duration,
-    split_size: usize,
+    _split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)>
 where
     T: NetworkTransport<Output = C> + Clone + Send + Sync + 'static,
@@ -72,15 +72,14 @@ where
 {
     let multiplex = {
         let mut mplex = libp2p::mplex::MplexConfig::default();
-        // 1MB
-        mplex.set_split_send_size(split_size);
         mplex.set_max_num_streams(1024 * 1024);
         let mut yamux = libp2p::yamux::YamuxConfig::server();
-        // 1MB
-        yamux.set_split_send_size(split_size);
         yamux.set_max_num_streams(1024 * 1024);
 
-        log::debug!(target: "network", "split_size should be {:?}", split_size);
+        // // 1MB
+        // mplex.set_split_send_size(split_size);
+        // yamux.set_split_send_size(split_size);
+        // log::debug!(target: "network", "split_size should be {:?}", split_size);
         log::debug!(target: "network", "mplex config\n{:?}", mplex);
         log::debug!(target: "network", "yamux config\n{:?}", yamux);
 

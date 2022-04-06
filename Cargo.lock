@@ -2649,7 +2649,7 @@ checksum = "efaa7b300f3b5fe8eb6bf21ce3895e1751d9665086af2d64b42f19701015ff4f"
 [[package]]
 name = "libp2p"
 version = "0.44.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "atomic",
  "bytes 1.0.1",
@@ -2693,7 +2693,7 @@ dependencies = [
 [[package]]
 name = "libp2p-autonat"
 version = "0.3.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "async-trait",
  "futures",
@@ -2711,7 +2711,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core"
 version = "0.32.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "asn1_der 0.7.5",
  "bs58 0.4.0",
@@ -2745,7 +2745,7 @@ dependencies = [
 [[package]]
 name = "libp2p-deflate"
 version = "0.32.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "flate2",
  "futures",
@@ -2755,7 +2755,7 @@ dependencies = [
 [[package]]
 name = "libp2p-dns"
 version = "0.32.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "async-std-resolver",
  "futures",
@@ -2768,7 +2768,7 @@ dependencies = [
 [[package]]
 name = "libp2p-floodsub"
 version = "0.35.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "cuckoofilter",
  "fnv",
@@ -2785,7 +2785,7 @@ dependencies = [
 [[package]]
 name = "libp2p-gossipsub"
 version = "0.37.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "asynchronous-codec",
  "base64 0.13.0",
@@ -2812,7 +2812,7 @@ dependencies = [
 [[package]]
 name = "libp2p-identify"
 version = "0.35.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "futures",
  "futures-timer",
@@ -2828,7 +2828,7 @@ dependencies = [
 [[package]]
 name = "libp2p-kad"
 version = "0.36.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "arrayvec 0.5.2",
  "asynchronous-codec",
@@ -2855,7 +2855,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mdns"
 version = "0.36.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "async-io",
  "data-encoding",
@@ -2875,7 +2875,7 @@ dependencies = [
 [[package]]
 name = "libp2p-metrics"
 version = "0.5.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "libp2p-core",
  "libp2p-gossipsub",
@@ -2890,7 +2890,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mplex"
 version = "0.32.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.0.1",
@@ -2907,7 +2907,7 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.35.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "bytes 1.0.1",
  "curve25519-dalek 3.2.0",
@@ -2928,7 +2928,7 @@ dependencies = [
 [[package]]
 name = "libp2p-ping"
 version = "0.35.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "futures",
  "futures-timer",
@@ -2943,7 +2943,7 @@ dependencies = [
 [[package]]
 name = "libp2p-plaintext"
 version = "0.32.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.0.1",
@@ -2959,7 +2959,7 @@ dependencies = [
 [[package]]
 name = "libp2p-pnet"
 version = "0.22.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "futures",
  "log",
@@ -2972,7 +2972,7 @@ dependencies = [
 [[package]]
 name = "libp2p-relay"
 version = "0.8.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.0.1",
@@ -2997,7 +2997,7 @@ dependencies = [
 [[package]]
 name = "libp2p-rendezvous"
 version = "0.5.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "asynchronous-codec",
  "bimap",
@@ -3019,7 +3019,7 @@ dependencies = [
 [[package]]
 name = "libp2p-request-response"
 version = "0.17.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "async-trait",
  "bytes 1.0.1",
@@ -3036,7 +3036,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm"
 version = "0.35.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "either",
  "fnv",
@@ -3055,7 +3055,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm-derive"
 version = "0.27.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "quote",
  "syn",
@@ -3064,7 +3064,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.32.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "async-io",
  "futures",
@@ -3080,7 +3080,7 @@ dependencies = [
 [[package]]
 name = "libp2p-uds"
 version = "0.32.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "async-std",
  "futures",
@@ -3091,7 +3091,7 @@ dependencies = [
 [[package]]
 name = "libp2p-wasm-ext"
 version = "0.32.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "futures",
  "js-sys",
@@ -3104,7 +3104,7 @@ dependencies = [
 [[package]]
 name = "libp2p-websocket"
 version = "0.34.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "either",
  "futures",
@@ -3120,8 +3120,8 @@ dependencies = [
 
 [[package]]
 name = "libp2p-yamux"
-version = "0.36.1"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+version = "0.36.0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -3581,7 +3581,7 @@ dependencies = [
 [[package]]
 name = "multistream-select"
 version = "0.11.0"
-source = "git+https://github.com/fluencelabs/rust-libp2p?branch=yamux_set_split_send_size#2467dbf33c8f7a40a1ca0c5a131ceaa5bbe3d1b0"
+source = "git+https://github.com/libp2p/rust-libp2p?branch=master#90140a6eafd8a500e654b14040941f9f5074474d"
 dependencies = [
  "bytes 1.0.1",
  "futures",
@@ -6359,7 +6359,8 @@ dependencies = [
 [[package]]
 name = "yamux"
 version = "0.10.1"
-source = "git+https://github.com/libp2p/rust-yamux#dcf87521e84a75d4914ec23819fbe880c929a844"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c0608f53c1dc0bad505d03a34bbd49fbf2ad7b51eb036123e896365532745a1"
 dependencies = [
  "futures",
  "log",
