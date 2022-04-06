@@ -47,5 +47,3 @@ libp2p = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_s
 libp2p-core = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
 libp2p-noise = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
 libp2p-metrics = { git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
-
-avm-server = { git = "https://github.com/fluencelabs/aquavm", branch = "log_data" }

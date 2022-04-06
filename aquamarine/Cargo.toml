@@ -17,7 +17,7 @@ fs-utils = { path = "../crates/fs-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 particle-execution = { path = "../particle-execution" }
 
-avm-server = "0.16.1"
+avm-server = "0.15.0"
 libp2p = "0.44"
 
 futures = "0.3.13"

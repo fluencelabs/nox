@@ -9,7 +9,7 @@ aquamarine = { path = "../../aquamarine" }
 particle-protocol = { path = "../../particle-protocol" }
 fluence-libp2p = { path = "../libp2p" }
 
-avm-server = "0.16.1"
+avm-server = "0.15.0"
 
 futures = "0.3.15"
 itertools = "0.10.1"
