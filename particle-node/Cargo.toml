@@ -45,8 +45,8 @@ itertools = "0.10.0"
 eyre = "0.6.5"
 
 [dev-dependencies]
-test-utils = { path = "../crates/test-utils" }
 log-utils = { path = "../crates/log-utils" }
+test-utils = { path = "../crates/test-utils" }
 service-modules = { path = "../crates/service-modules" }
 particle-modules = { path = "../particle-modules" }
 created-swarm = { path = "../crates/created-swarm" }
