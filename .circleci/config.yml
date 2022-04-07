@@ -92,7 +92,7 @@ jobs:
       - run: |
           cargo install cargo-nextest
       - run: |
-          cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10
+          cargo nextest run --release --all-features --no-fail-fast --retries 2 --test-threads 10
 
 ## To enable parallelism:
 ## parallelism: 4
