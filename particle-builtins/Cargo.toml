@@ -19,7 +19,7 @@ ivalue-utils = { path = "../crates/ivalue-utils" }
 now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 
-libp2p = "0.44"
+libp2p = "0.45"
 avm-server = "0.17.0"
 multihash = "0.16.2"
 

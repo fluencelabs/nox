@@ -63,7 +63,7 @@ pub fn configure_transport<T, C>(
     split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)>
 where
-    T: NetworkTransport<Output = C> + Clone + Send + Sync + 'static,
+    T: NetworkTransport<Output = C> + Send + Sync + 'static,
     C: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     T::Dial: Send + 'static,
     T::Listener: Send + 'static,
