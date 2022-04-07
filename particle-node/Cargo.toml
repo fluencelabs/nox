@@ -55,8 +55,8 @@ test-constants = { path = "../crates/test-constants" }
 toy-vms = { path = "../crates/toy-vms" }
 now-millis = { path = "../crates/now-millis" }
 local-vm = { path = "../crates/local-vm" }
-json-utils = { path = "../crates/json-utils" }
 control-macro = { path = "../crates/control-macro" }
+json-utils = { path = "../crates/json-utils" }
 
 fluence-app-service = "0.17.0"
 
