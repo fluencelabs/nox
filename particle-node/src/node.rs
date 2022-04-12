@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::io::Error;
 use std::sync::Arc;
 use std::{io, iter::once, net::SocketAddr};
 
@@ -26,9 +25,6 @@ use futures::{
     stream::{self, StreamExt},
     FutureExt,
 };
-use libp2p::core::either::EitherError;
-use libp2p::ping::Failure;
-use libp2p::swarm::{ProtocolsHandlerUpgrErr, SwarmEvent};
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
@@ -36,25 +32,20 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use libp2p_metrics::{Metrics, Recorder};
-use open_metrics_client::registry::Registry;
+use prometheus_client::registry::Registry;
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreError,
-    NetworkEffects, VmConfig, VmPoolConfig, AVM,
+    AquaRuntime, AquamarineApiError, AquamarineBackend, NetworkEffects, VmPoolConfig,
 };
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
-use fluence_libp2p::{
-    build_transport,
-    types::{OneshotOutlet, Outlet},
-};
+use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use particle_builtins::{Builtins, NodeInfo};
 use particle_protocol::Particle;
 use peer_metrics::{
-    ConnectionPoolMetrics, ConnectivityMetrics, DispatcherMetrics, ParticleExecutorMetrics,
-    VmPoolMetrics,
+    ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, VmPoolMetrics,
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -99,6 +90,7 @@ impl<RT: AquaRuntime> Node<RT> {
             transport,
             key_pair.clone(),
             config.transport_config.socket_timeout,
+            config.transport_config.packet_split_size,
         );
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
@@ -304,10 +296,8 @@ impl<RT: AquaRuntime> Node<RT> {
         let dispatcher = self.dispatcher;
         let aquavm_pool = self.aquavm_pool;
         let script_storage = self.script_storage;
-        let mut registry = self.registry;
+        let registry = self.registry;
         let metrics_listen_addr = self.metrics_listen_addr;
-        let local_peer_id = self.local_peer_id;
-        let builtins_management_peer_id = self.builtins_management_peer_id;
 
         task::spawn(async move {
             let (metrics_fut, libp2p_metrics) = if let Some(mut registry) = registry {
@@ -399,7 +389,6 @@ mod tests {
     use aquamarine::{VmConfig, AVM};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
-    use fluence_libp2p::RandomPeerId;
     use server_config::{builtins_base_dir, default_base_dir, deserialize_config};
 
     use crate::Node;

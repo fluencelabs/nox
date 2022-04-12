@@ -14,29 +14,21 @@
  * limitations under the License.
  */
 
-use std::borrow::{Borrow, Cow};
-use std::collections::{HashMap, HashSet};
-use std::convert::{TryFrom, TryInto};
+use std::borrow::Borrow;
+use std::collections::HashSet;
 use std::fmt::Debug;
-use std::iter::FromIterator;
-use std::num::ParseIntError;
-use std::ops::{Mul, Try};
-use std::path::PathBuf;
+use std::ops::Try;
 use std::str::FromStr;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use async_std::task;
-use avm_server::{CallRequestParams, CallServiceResult};
 use humantime_serde::re::humantime::format_duration as pretty;
-use itertools::Itertools;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value as JValue, Value};
+use serde_json::{json, Value as JValue};
 use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use ivalue_utils::{error, into_record, into_record_opt, unit, IValue};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
@@ -44,7 +36,7 @@ use particle_execution::{FunctionOutcome, ParticleParams};
 use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
-use particle_protocol::{Contact, Particle};
+use particle_protocol::Contact;
 use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -350,7 +342,7 @@ where
         let string: String = Args::next("string", &mut args)?;
         let digest_only: Option<bool> = Args::next_opt("digest_only", &mut args)?;
         let as_bytes: Option<bool> = Args::next_opt("as_bytes", &mut args)?;
-        let multihash: MultihashGeneric<_> = Code::Sha2_256.digest(string.as_bytes());
+        let multihash = Code::Sha2_256.digest(string.as_bytes());
 
         let result = if digest_only == Some(true) {
             multihash.digest().to_vec()

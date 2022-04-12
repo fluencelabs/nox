@@ -42,9 +42,9 @@ macro_rules! event_polling {
 macro_rules! generate_swarm_event_type {
     ($swarm_type_name:ty) => {
         ::libp2p::swarm::NetworkBehaviourAction<
-                <<<$swarm_type_name as ::libp2p::swarm::NetworkBehaviour>::ProtocolsHandler
-                    as ::libp2p::swarm::IntoProtocolsHandler>::Handler
-                    as ::libp2p::swarm::protocols_handler::ProtocolsHandler>::InEvent, // InEvent
+                <<<$swarm_type_name as ::libp2p::swarm::NetworkBehaviour>::ConnectionHandler
+                    as ::libp2p::swarm::IntoConnectionHandler>::Handler
+                    as ::libp2p::swarm::protocols_handler::ConnectionHandler>::InEvent, // InEvent
                 <$swarm_type_name as ::libp2p::swarm::NetworkBehaviour>::OutEvent // OutEvent
             >
     }

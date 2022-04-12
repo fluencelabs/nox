@@ -20,14 +20,14 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use open_metrics_client::registry::Registry;
 use parking_lot::Mutex;
+use prometheus_client::registry::Registry;
 
 pub fn start_metrics_endpoint(
     registry: Registry,
     listen_addr: SocketAddr,
 ) -> BoxFuture<'static, io::Result<()>> {
-    use open_metrics_client::encoding::text::encode;
+    use prometheus_client::encoding::text::encode;
     use tide::{Error, StatusCode::InternalServerError};
 
     let registry = Arc::new(Mutex::new(registry));

@@ -93,7 +93,7 @@ impl BuiltinsDeployer {
                 if let Some(outlet) = outlet.take() {
                     outlet.send(returned).expect("send response back")
                 } else {
-                    log::info!("WTF!")
+                    log::info!("outlet is None")
                 }
             }
 
@@ -216,7 +216,7 @@ impl BuiltinsDeployer {
 
             let res = self
                 .send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)
-                .wrap_err("on_start call failed")?;
+                .wrap_err("on_start send_particle failed")?;
             return assert_ok(res, "on_start call failed");
         }
 

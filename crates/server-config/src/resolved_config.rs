@@ -17,14 +17,12 @@
 use crate::defaults::default_config_path;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
-use std::convert::TryFrom;
 
 use fs_utils::to_abs_path;
 
 use clap::{ArgMatches, Values};
 use eyre::{eyre, WrapErr};
-use libp2p::core::{multiaddr::Protocol, Multiaddr, PublicKey};
-use libp2p::{multihash, PeerId};
+use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
@@ -289,12 +287,19 @@ mod tests {
             builtins_key_pair.value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
             avm_base_dir = "/stepper"
             stepper_module_name = "aquamarine"
+            packet_split_size = 123456789
 
             [root_weights]
             12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
+            
         "#;
 
-        deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
+        let config =
+            deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
+        assert_eq!(
+            config.node_config.transport_config.packet_split_size,
+            123456789
+        );
     }
 
     #[test]

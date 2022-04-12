@@ -15,13 +15,11 @@
  */
 
 use std::collections::VecDeque;
-use std::error::Error;
 use std::task::{Context, Poll, Waker};
 use std::time::Duration;
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::DialError;
 use libp2p::{
     core::{
@@ -31,19 +29,18 @@ use libp2p::{
     },
     ping::{Ping, PingConfig, PingResult},
     swarm::{
-        IntoProtocolsHandler, IntoProtocolsHandlerSelect, NetworkBehaviour, NetworkBehaviourAction,
-        NotifyHandler, OneShotHandler, PollParameters,
+        IntoConnectionHandler, IntoConnectionHandlerSelect, NetworkBehaviour,
+        NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
     },
     PeerId,
 };
 
-use fluence_libp2p::generate_swarm_event_type;
 use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 
 use crate::ClientEvent;
 
 pub type SwarmEventType =
-    NetworkBehaviourAction<ClientEvent, <ClientBehaviour as NetworkBehaviour>::ProtocolsHandler>;
+    NetworkBehaviourAction<ClientEvent, <ClientBehaviour as NetworkBehaviour>::ConnectionHandler>;
 
 pub struct ClientBehaviour {
     protocol_config: ProtocolConfig,
@@ -84,24 +81,20 @@ impl ClientBehaviour {
 }
 
 impl NetworkBehaviour for ClientBehaviour {
-    type ProtocolsHandler = IntoProtocolsHandlerSelect<
-        <OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> as IntoProtocolsHandler>::Handler,
-        <Ping as NetworkBehaviour>::ProtocolsHandler,
+    type ConnectionHandler = IntoConnectionHandlerSelect<
+        <OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> as IntoConnectionHandler>::Handler,
+        <Ping as NetworkBehaviour>::ConnectionHandler,
     >;
 
     type OutEvent = ClientEvent;
 
-    fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        IntoProtocolsHandler::select(self.protocol_config.clone().into(), self.ping.new_handler())
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
+        IntoConnectionHandler::select(self.protocol_config.clone().into(), self.ping.new_handler())
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
         vec![]
     }
-
-    fn inject_connected(&mut self, _: &PeerId) {}
-
-    fn inject_disconnected(&mut self, _: &PeerId) {}
 
     fn inject_connection_established(
         &mut self,
@@ -109,6 +102,7 @@ impl NetworkBehaviour for ClientBehaviour {
         _: &ConnectionId,
         cp: &ConnectedPoint,
         _failed_addresses: Option<&Vec<Multiaddr>>,
+        _: usize,
     ) {
         let multiaddr = match cp {
             ConnectedPoint::Dialer { address, .. } => address,
@@ -139,8 +133,14 @@ impl NetworkBehaviour for ClientBehaviour {
         peer_id: &PeerId,
         _: &ConnectionId,
         cp: &ConnectedPoint,
-        _: <Self::ProtocolsHandler as IntoProtocolsHandler>::Handler,
+        _: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
+        remaining_established: usize,
     ) {
+        if remaining_established != 0 {
+            // not disconnected, we don't care
+            return;
+        }
+
         match cp {
             ConnectedPoint::Dialer { address, .. } => {
                 log::warn!(
@@ -193,7 +193,7 @@ impl NetworkBehaviour for ClientBehaviour {
     fn inject_dial_failure(
         &mut self,
         peer_id: Option<PeerId>,
-        _handler: Self::ProtocolsHandler,
+        _handler: Self::ConnectionHandler,
         error: &DialError,
     ) {
         log::warn!(

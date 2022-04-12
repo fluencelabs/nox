@@ -22,13 +22,13 @@ builtins-deployer = { path = "../crates/builtins-deployer" }
 fs-utils = { path = "../crates/fs-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
-fluence-keypair = "0.6.0"
+fluence-keypair = "0.7.0"
 air-interpreter-wasm = "=0.21.8"
 avm-server = "0.17.0"
 
-libp2p = "0.42"
-libp2p-metrics = "0.3.0"
-open-metrics-client = "0.14.0"
+libp2p = "0.45"
+libp2p-metrics = "0.6.0"
+prometheus-client = "0.15.1"
 
 futures = "0.3.13"
 async-std = { version = "1.6.5", features = ["unstable"] }
@@ -45,8 +45,8 @@ itertools = "0.10.0"
 eyre = "0.6.5"
 
 [dev-dependencies]
-test-utils = { path = "../crates/test-utils" }
 log-utils = { path = "../crates/log-utils" }
+test-utils = { path = "../crates/test-utils" }
 service-modules = { path = "../crates/service-modules" }
 particle-modules = { path = "../particle-modules" }
 created-swarm = { path = "../crates/created-swarm" }
@@ -55,8 +55,8 @@ test-constants = { path = "../crates/test-constants" }
 toy-vms = { path = "../crates/toy-vms" }
 now-millis = { path = "../crates/now-millis" }
 local-vm = { path = "../crates/local-vm" }
-json-utils = { path = "../crates/json-utils" }
 control-macro = { path = "../crates/control-macro" }
+json-utils = { path = "../crates/json-utils" }
 
 fluence-app-service = "0.17.0"
 
@@ -65,7 +65,7 @@ maplit = "1.0.2"
 serde_json = "1.0.64"
 fstrings = "0.2.3"
 serde = "1.0.130"
-multihash = "0.14"
+multihash = "0.16.2"
 base64 = "0.13.0"
 blake3 = "0.3.7"
 criterion = { version = "0.3.4", features = ["async_std", "html_reports"] }

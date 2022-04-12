@@ -1,5 +1,5 @@
-use open_metrics_client::metrics::counter::Counter;
-use open_metrics_client::registry::Registry;
+use prometheus_client::metrics::counter::Counter;
+use prometheus_client::registry::Registry;
 
 #[derive(Clone)]
 pub struct DispatcherMetrics {

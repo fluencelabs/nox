@@ -1,5 +1,5 @@
 #![warn(rust_2018_idioms)]
-#![allow(
+#![deny(
     dead_code,
     nonstandard_style,
     unused_imports,

@@ -16,24 +16,23 @@
 
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
-    error::Error,
     task::{Context, Poll, Waker},
 };
 
 use futures::channel::mpsc;
 use libp2p::swarm::dial_opts::DialOpts;
-use libp2p::swarm::DialError;
+use libp2p::swarm::{DialError, IntoConnectionHandler};
 use libp2p::{
     core::{connection::ConnectionId, ConnectedPoint, Multiaddr},
     swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
-        ProtocolsHandler,
+        ConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler,
+        PollParameters,
     },
     PeerId,
 };
 
+use fluence_libp2p::remote_multiaddr;
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
-use fluence_libp2p::{generate_swarm_event_type, remote_multiaddr};
 use particle_protocol::{CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig};
 use peer_metrics::ConnectionPoolMetrics;
 
@@ -60,13 +59,6 @@ impl Peer {
         match self {
             Peer::Connected(addrs) => addrs.iter(),
             Peer::Dialing(addrs, _) => addrs.iter(),
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        match self {
-            Peer::Connected(addrs) => addrs.is_empty(),
-            Peer::Dialing(addrs, _) => addrs.is_empty(),
         }
     }
 }
@@ -161,6 +153,7 @@ impl ConnectionPoolBehaviour {
             outlet.send(true).ok();
             self.wake();
         } else if self.contacts.contains_key(&to.peer_id) {
+            log::debug!(target: "network", "{}: Sending particle {} to {}", self.peer_id, particle.id, to.peer_id);
             // Send particle to remote peer
             self.push_event(NetworkBehaviourAction::NotifyHandler {
                 peer_id: to.peer_id,
@@ -329,10 +322,10 @@ impl ConnectionPoolBehaviour {
 }
 
 impl NetworkBehaviour for ConnectionPoolBehaviour {
-    type ProtocolsHandler = OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>;
+    type ConnectionHandler = OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>;
     type OutEvent = ();
 
-    fn new_handler(&mut self) -> Self::ProtocolsHandler {
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
         self.protocol_config.clone().into()
     }
 
@@ -347,25 +340,13 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             .collect()
     }
 
-    fn inject_connected(&mut self, peer_id: &PeerId) {
-        // NOTE: `addresses_of_peer` at this point must be filled
-        // with addresses through inject_connection_established
-        let contact = Contact::new(*peer_id, self.addresses_of_peer(peer_id));
-        debug_assert!(!contact.addresses.is_empty());
-        // Signal a new peer connected
-        self.lifecycle_event(LifecycleEvent::Connected(contact));
-    }
-
-    fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        self.remove_contact(peer_id, "disconnected");
-    }
-
     fn inject_connection_established(
         &mut self,
         peer_id: &PeerId,
         _connection_id: &ConnectionId,
         cp: &ConnectedPoint,
         failed_addresses: Option<&Vec<Multiaddr>>,
+        _: usize,
     ) {
         // mark failed addresses as such
         if let Some(failed_addresses) = failed_addresses {
@@ -375,6 +356,13 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
 
         let multiaddr = remote_multiaddr(cp).clone();
+        log::debug!(
+            target: "network",
+            "{}: connection established with {} @ {}",
+            self.peer_id,
+            peer_id,
+            multiaddr
+        );
 
         self.add_address(*peer_id, multiaddr.clone());
 
@@ -384,10 +372,40 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         )))
     }
 
+    fn inject_connection_closed(
+        &mut self,
+        peer_id: &PeerId,
+        _: &ConnectionId,
+        cp: &ConnectedPoint,
+        _: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
+        remaining_established: usize,
+    ) {
+        let multiaddr = remote_multiaddr(cp);
+        if remaining_established == 0 {
+            self.remove_contact(peer_id, "disconnected");
+            log::debug!(
+                target: "network",
+                "{}: connection lost with {} @ {}",
+                self.peer_id,
+                peer_id,
+                multiaddr
+            );
+        } else {
+            log::debug!(
+                target: "network",
+                "{}: {} connections remaining established with {}. {} has just closed.",
+                self.peer_id,
+                remaining_established,
+                peer_id,
+                multiaddr
+            )
+        }
+    }
+
     fn inject_dial_failure(
         &mut self,
         peer_id: Option<PeerId>,
-        _handler: Self::ProtocolsHandler,
+        _handler: Self::ConnectionHandler,
         error: &DialError,
     ) {
         // remove failed contact
@@ -402,11 +420,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         &mut self,
         from: PeerId,
         _: ConnectionId,
-        event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent,
+        event: <Self::ConnectionHandler as ConnectionHandler>::OutEvent,
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {
-                log::trace!(target: "network", "received particle {} from {}; queue {}", particle.id, from, self.queue.len());
+                log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
                 self.meter(|m| {
                     m.particle_queue_size.set(self.queue.len() as u64 + 1);
                     m.received_particles.inc();
@@ -434,7 +452,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                         if let Err(err) = self.outlet.start_send(particle) {
                             log::error!("Failed to send particle to outlet: {}", err)
                         } else {
-                            log::trace!(target: "network", "Sent particle {} to execution", particle_id);
+                            log::trace!(target: "execution", "Sent particle {} to execution", particle_id);
                         }
                     } else {
                         break;

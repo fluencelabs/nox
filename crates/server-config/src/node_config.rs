@@ -133,7 +133,7 @@ pub struct NodeConfig {
     pub management_peer_id: PeerId,
 }
 
-#[derive(Clone, Deserialize, Derivative)]
+#[derive(Clone, Deserialize, Derivative, Copy)]
 #[derivative(Debug)]
 pub struct TransportConfig {
     #[serde(default = "default_transport")]
@@ -143,6 +143,10 @@ pub struct TransportConfig {
     #[serde(default = "default_socket_timeout")]
     #[serde(with = "humantime_serde")]
     pub socket_timeout: Duration,
+
+    /// Threshold to split network message into chunks, done by Yamux and Mplex
+    #[serde(default = "default_packet_split_size")]
+    pub packet_split_size: usize,
 }
 
 #[derive(Clone, Deserialize, Derivative)]

@@ -27,6 +27,7 @@ use std::thread::sleep;
 fn identity() {
     let swarms = make_swarms(3);
     sleep(KAD_TIMEOUT);
+
     let mut a = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();

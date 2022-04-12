@@ -10,9 +10,9 @@ maplit = "1.0.2"
 serde_json = "1.0.64"
 serde = "1.0.130"
 log = "0.4.11"
-libp2p = "0.42"
+libp2p = "0.45"
 
-fluence-keypair = "0.6.0"
+fluence-keypair = "0.7.0"
 
 test-utils = { path = "../../../crates/test-utils" }
 fs-utils = { path = "../../../crates/fs-utils" }

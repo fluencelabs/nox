@@ -19,12 +19,11 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use async_std::task::{sleep, spawn};
-use futures::{stream::iter, FutureExt, SinkExt, StreamExt};
+use futures::{stream::iter, StreamExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::Multiaddr;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
-use fluence_libp2p::types::Outlet;
 use fluence_libp2p::PeerId;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
 use particle_protocol::{Contact, Particle};

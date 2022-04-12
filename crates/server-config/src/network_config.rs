@@ -19,7 +19,7 @@ use libp2p_metrics::Metrics;
 
 use config_utils::to_peer_id;
 use particle_protocol::ProtocolConfig;
-use peer_metrics::{ConnectionPoolMetrics, ConnectivityMetrics, DispatcherMetrics};
+use peer_metrics::{ConnectionPoolMetrics, ConnectivityMetrics};
 
 use crate::{BootstrapConfig, KademliaConfig, ResolvedConfig};
 

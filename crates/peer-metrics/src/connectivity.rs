@@ -1,7 +1,7 @@
-use open_metrics_client::encoding::text::Encode;
-use open_metrics_client::metrics::counter::Counter;
-use open_metrics_client::metrics::family::Family;
-use open_metrics_client::registry::Registry;
+use prometheus_client::encoding::text::Encode;
+use prometheus_client::metrics::counter::Counter;
+use prometheus_client::metrics::family::Family;
+use prometheus_client::registry::Registry;
 
 #[derive(Encode, Hash, Clone, Eq, PartialEq)]
 pub enum Resolution {

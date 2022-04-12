@@ -12,10 +12,10 @@ fluence-libp2p = { path = "../libp2p" }
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 peer-metrics = { path = "../peer-metrics"}
 
-fluence-keypair = "0.6.0"
+fluence-keypair = "0.7.0"
 
-libp2p = "0.42"
-libp2p-metrics = "0.3.0"
+libp2p = "0.45"
+libp2p-metrics = "0.6.0"
 
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"

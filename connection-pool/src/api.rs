@@ -22,13 +22,9 @@ use futures::{
     stream::BoxStream,
     FutureExt, StreamExt,
 };
-use libp2p::swarm::NetworkBehaviourAction;
-use libp2p::{core::Multiaddr, swarm::NetworkBehaviourEventProcess, PeerId};
+use libp2p::{core::Multiaddr, PeerId};
 
-use fluence_libp2p::{
-    generate_swarm_event_type,
-    types::{Inlet, OneshotOutlet, Outlet},
-};
+use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
 use particle_protocol::Contact;
 use particle_protocol::Particle;
 
@@ -74,7 +70,7 @@ pub enum Command {
 
 pub type SwarmEventType = libp2p::swarm::NetworkBehaviourAction<
     (),
-    <ConnectionPoolInlet as libp2p::swarm::NetworkBehaviour>::ProtocolsHandler,
+    <ConnectionPoolInlet as libp2p::swarm::NetworkBehaviour>::ConnectionHandler,
 >;
 
 #[derive(::libp2p::NetworkBehaviour)]

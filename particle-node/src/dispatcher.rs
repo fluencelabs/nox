@@ -14,17 +14,9 @@
  * limitations under the License.
  */
 
-use std::cmp::min;
-use std::collections::HashSet;
-use std::time::{Duration, Instant};
-
-use async_std::task::{sleep, spawn};
-use futures::{stream::iter, FutureExt, SinkExt, StreamExt, TryFutureExt};
-use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::Multiaddr;
-use open_metrics_client::metrics::counter::Counter;
-use open_metrics_client::metrics::info::Info;
-use open_metrics_client::registry::Registry;
+use async_std::task::spawn;
+use futures::{FutureExt, SinkExt, StreamExt};
+use prometheus_client::registry::Registry;
 
 use aquamarine::{AquamarineApi, AquamarineApiError, NetworkEffects};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};
@@ -34,13 +26,13 @@ use peer_metrics::DispatcherMetrics;
 
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
-use crate::Connectivity;
 
 // TODO: move error into NetworkEffects
 type Effects = Result<NetworkEffects, AquamarineApiError>;
 
 #[derive(Clone)]
 pub struct Dispatcher {
+    #[allow(unused)]
     peer_id: PeerId,
     /// Number of concurrently processed particles
     particle_parallelism: Option<usize>,
@@ -92,7 +84,7 @@ impl Dispatcher {
         let metrics = self.metrics;
         particle_stream
             .for_each_concurrent(parallelism, move |particle| {
-                let mut aquamarine = aquamarine.clone();
+                let aquamarine = aquamarine.clone();
                 let metrics = metrics.clone();
 
                 if particle.is_expired() {
@@ -101,7 +93,6 @@ impl Dispatcher {
                     return async {}.boxed();
                 }
 
-                let particle_id = particle.id.clone();
                 async move {
                     aquamarine
                         .execute(particle, None)

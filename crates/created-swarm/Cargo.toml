@@ -19,9 +19,9 @@ air-interpreter-fs = { path = "../air-interpreter-fs" }
 builtins-deployer = { path = "../builtins-deployer" }
 toy-vms = { path = "../toy-vms" }
 
-fluence-keypair = "0.6.0"
+fluence-keypair = "0.7.0"
 
-libp2p = "0.42"
+libp2p = "0.45"
 
 async-std = "1.9.0"
 futures = "0.3.13"

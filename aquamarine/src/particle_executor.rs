@@ -64,7 +64,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                 log::warn!("Error executing particle {:#?}: {}", p, err)
             } else {
                 let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
-                log::trace!(target: "network", "Particle {} interpreted in {} [{} bytes => {} bytes]", p.id, pretty(interpretation_time), p.data.len(), len);
+                log::trace!(target: "execution", "Particle {} interpreted in {} [{} bytes => {} bytes]", p.id, pretty(interpretation_time), p.data.len(), len);
             }
             let effects = Self::into_effects(result, p);
 

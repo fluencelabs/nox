@@ -1,10 +1,10 @@
 use std::cmp::{max, min};
 
 use bytesize::MIB;
-use open_metrics_client::metrics::counter::Counter;
-use open_metrics_client::metrics::gauge::Gauge;
-use open_metrics_client::metrics::histogram::Histogram;
-use open_metrics_client::registry::Registry;
+use prometheus_client::metrics::counter::Counter;
+use prometheus_client::metrics::gauge::Gauge;
+use prometheus_client::metrics::histogram::Histogram;
+use prometheus_client::registry::Registry;
 
 #[derive(Clone)]
 pub struct VmPoolMetrics {
