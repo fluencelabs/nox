@@ -49,7 +49,8 @@ pub fn build_network_transport(
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
         // TODO: expose async?
         let tcp = async_std::task::block_on(dns::DnsConfig::system(tcp)).expect("Can't build DNS");
-        let websocket = libp2p::websocket::WsConfig::new(tcp.clone());
+        let mut websocket = libp2p::websocket::WsConfig::new(tcp.clone());
+        websocket.set_tls_config(libp2p::websocket::tls::Config::client());
         tcp.or_transport(websocket)
     };
 
