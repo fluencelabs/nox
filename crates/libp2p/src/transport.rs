@@ -49,8 +49,9 @@ pub fn build_network_transport(
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
         // TODO: expose async?
         let tcp = async_std::task::block_on(dns::DnsConfig::system(tcp)).expect("Can't build DNS");
-        let websocket = libp2p::websocket::WsConfig::new(tcp.clone());
-        tcp.or_transport(websocket)
+        let mut websocket = libp2p::websocket::WsConfig::new(tcp.clone());
+        websocket.set_tls_config(libp2p::websocket::tls::Config::client());
+        websocket.or_transport(tcp)
     };
 
     configure_transport(transport, key_pair, socket_timeout, split_size)
@@ -72,12 +73,12 @@ where
 {
     let multiplex = {
         let mut mplex = libp2p::mplex::MplexConfig::default();
-        mplex.set_max_num_streams(1024 * 1024);
         mplex.set_split_send_size(split_size);
+        mplex.set_max_num_streams(1024 * 1024);
 
         let mut yamux = libp2p::yamux::YamuxConfig::default();
-        yamux.set_max_num_streams(1024 * 1024);
         yamux.set_split_send_size(split_size);
+        yamux.set_max_num_streams(1024 * 1024);
 
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
