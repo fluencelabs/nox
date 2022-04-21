@@ -218,12 +218,11 @@ mod tests {
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
 
-    use avm_server::{AVMOutcome, CallResults};
+    use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
     use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
     use futures::FutureExt;
 
-    use fluence_libp2p::PeerId;
     use particle_args::Args;
     use particle_execution::{ParticleFunction, ParticleParams};
     use particle_protocol::Particle;
@@ -271,10 +270,9 @@ mod tests {
 
         fn call(
             &mut self,
-            _init_user_id: PeerId,
             _aqua: String,
             _data: Vec<u8>,
-            _particle_id: &str,
+            _particle: ParticleParameters<'_, '_>,
             _call_results: CallResults,
         ) -> Result<AVMOutcome, Self::Error> {
             Ok(AVMOutcome {
@@ -288,8 +286,11 @@ mod tests {
             Ok(())
         }
 
-        fn memory_size(&self) -> usize {
-            0
+        fn memory_stats(&self) -> AVMMemoryStats {
+            AVMMemoryStats {
+                memory_size: 0,
+                max_memory_size: None,
+            }
         }
     }
 

@@ -15,7 +15,7 @@
  */
 
 use aquamarine::{AquaRuntime, ParticleEffects};
-use avm_server::{AVMOutcome, CallResults};
+use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
@@ -56,10 +56,9 @@ impl AquaRuntime for EasyVM {
 
     fn call(
         &mut self,
-        init_user_id: PeerId,
         script: String,
         data: Vec<u8>,
-        _particle_id: &str,
+        particle: ParticleParameters,
         _call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
         if let Some(delay) = self.delay {
@@ -78,7 +77,7 @@ impl AquaRuntime for EasyVM {
 
             (next_peer, next_peers.join(",").into_bytes())
         } else {
-            (init_user_id.to_string(), data)
+            (particle.init_peer_id.to_string(), data)
         };
 
         println!("next peer = {}", next_peer);
@@ -95,7 +94,10 @@ impl AquaRuntime for EasyVM {
         Ok(())
     }
 
-    fn memory_size(&self) -> usize {
-        0
+    fn memory_stats(&self) -> AVMMemoryStats {
+        AVMMemoryStats {
+            memory_size: 0,
+            max_memory_size: None,
+        }
     }
 }

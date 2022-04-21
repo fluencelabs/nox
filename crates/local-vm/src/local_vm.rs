@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::ops::Try;
 use std::path::PathBuf;
 use std::{collections::HashMap, time::Duration};
 
-use avm_server::{AVMConfig, AVMOutcome, CallResults, CallServiceResult, AVM};
+use avm_server::{AVMConfig, AVMOutcome, CallResults, CallServiceResult, ParticleParameters, AVM};
 use fstrings::f;
 use libp2p::PeerId;
 use serde_json::Value as JValue;
@@ -244,22 +245,25 @@ pub fn make_particle(
     let script = wrap_script(script, service_in, relay, generated, None);
 
     let id = uuid();
+    let timestamp = now_ms() as u64;
+    let ttl = particle_ttl.as_millis() as u32;
 
     let mut call_results: CallResults = <_>::default();
     let mut particle_data = vec![];
     loop {
+        let particle = ParticleParameters {
+            init_peer_id: Cow::Owned(peer_id.to_string()),
+            particle_id: Cow::Owned(id.clone()),
+            timestamp,
+            ttl,
+        };
+
         let AVMOutcome {
             data,
             call_requests,
             ..
         } = local_vm
-            .call(
-                script.clone(),
-                particle_data,
-                peer_id.to_string(),
-                &id,
-                call_results,
-            )
+            .call(script.clone(), particle_data, particle, call_results)
             .expect("execute & make particle");
 
         particle_data = data;
@@ -280,8 +284,8 @@ pub fn make_particle(
     Particle {
         id,
         init_peer_id: peer_id,
-        timestamp: now_ms() as u64,
-        ttl: particle_ttl.as_millis() as u32,
+        timestamp,
+        ttl,
         script,
         signature: vec![],
         data: particle_data,
@@ -296,18 +300,18 @@ pub fn read_args(
     let mut call_results: CallResults = <_>::default();
     let mut particle_data = particle.data;
     loop {
+        let params = ParticleParameters {
+            particle_id: Cow::Owned(particle.id.clone()),
+            init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
+            timestamp: particle.timestamp,
+            ttl: particle.ttl,
+        };
         let AVMOutcome {
             data,
             call_requests,
             ..
         } = local_vm
-            .call(
-                &particle.script,
-                particle_data,
-                particle.init_peer_id.to_string(),
-                &particle.id,
-                call_results,
-            )
+            .call(&particle.script, particle_data, params, call_results)
             .expect("execute & make particle");
 
         particle_data = data;
