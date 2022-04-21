@@ -140,9 +140,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-interface"
-version = "0.8.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c7e3897c2200bf9f36f571f93b40412dc35730ded82ec55c027dd32891a73ae"
+checksum = "6131102597b7fce0c8a89cab73e1c4a2b8683e6a0d6f3eea275883a7760d708f"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -515,9 +515,9 @@ checksum = "dac8b9b7b7f1739169079c382581679b1466cfcb807fb3f7a9723c7a7f78f373"
 
 [[package]]
 name = "avm-server"
-version = "0.17.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29b5787b704121390631848262293704e07a657004f34dee5b00a60efed01d40"
+checksum = "20c4062005350490e1c7394ea268f9703a3c662f2258eec1457bd66f25649863"
 dependencies = [
  "air-interpreter-interface",
  "avm-data-store",
