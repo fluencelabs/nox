@@ -15,7 +15,7 @@ fs-utils = { path = "../fs-utils"}
 aquamarine = { path = "../../aquamarine"}
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 
-air-interpreter-wasm = "=0.22.2"
+air-interpreter-wasm = "=0.24.0"
 avm-server = "0.17.0"
 
 libp2p = "0.45"
