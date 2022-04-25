@@ -408,12 +408,30 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         _handler: Self::ConnectionHandler,
         error: &DialError,
     ) {
+        log::warn!(
+            "Error dialing peer {}: {:?}",
+            peer_id.map_or("unknown".to_string(), |id| id.to_string()),
+            error
+        );
         // remove failed contact
         if let Some(peer_id) = peer_id {
             self.remove_contact(&peer_id, format!("dial failure: {}", error).as_str())
         } else {
             log::warn!("Unknown peer dial failure: {}", error)
         }
+    }
+
+    fn inject_listen_failure(
+        &mut self,
+        local_addr: &Multiaddr,
+        send_back_addr: &Multiaddr,
+        _handler: Self::ConnectionHandler,
+    ) {
+        log::warn!(
+            "Error accepting incoming connection from {} to our local address {}",
+            send_back_addr,
+            local_addr
+        );
     }
 
     fn inject_event(
