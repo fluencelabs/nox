@@ -96,14 +96,15 @@ impl<RT: AquaRuntime> VmPool<RT> {
             self.runtimes[id].is_none(),
             "put_vm must never happen before get_vm"
         );
-        let memory_size = vm.memory_size();
+        let memory_stats = vm.memory_stats();
         self.runtimes[id] = Some(vm);
 
         let free_vms_count = self.runtimes.iter().filter(|vm| vm.is_some()).count();
         self.meter(|m| {
             m.put_vm.inc();
             m.free_vms.set(free_vms_count as u64);
-            m.measure_memory(id, memory_size as u64);
+            m.measure_memory(id, memory_stats.memory_size as u64);
+            // TODO: measure max memory
         });
     }
 

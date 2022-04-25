@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+use std::borrow::Cow;
 use std::{task::Waker, time::Instant};
 
 use async_std::task;
-use avm_server::CallResults;
+use avm_server::{CallResults, ParticleParameters};
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
 
@@ -55,7 +56,13 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             let (p, calls) = p;
             log::info!("Executing particle {}", p.id);
 
-            let result = self.call(p.init_peer_id, p.script.clone(), p.data.clone(), &p.id, calls);
+            let particle = ParticleParameters {
+                init_peer_id: Cow::Owned(p.init_peer_id.to_string()),
+                particle_id: Cow::Borrowed(&p.id),
+                timestamp: p.timestamp,
+                ttl: p.ttl
+            };
+            let result = self.call(p.script.clone(), p.data.clone(), particle, calls);
             let interpretation_time = now.elapsed();
             let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
             let stats = InterpretationStats { interpretation_time, new_data_len, success: result.is_ok() };

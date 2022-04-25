@@ -17,9 +17,10 @@
 use std::{error::Error, task::Waker};
 
 use async_std::task;
-use avm_server::{AVMConfig, AVMError, AVMOutcome, CallResults, AVM};
+use avm_server::{
+    AVMConfig, AVMError, AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters, AVM,
+};
 use futures::{future::BoxFuture, FutureExt};
-use libp2p::PeerId;
 use log::LevelFilter;
 
 use particle_protocol::Particle;
@@ -43,17 +44,16 @@ pub trait AquaRuntime: Sized + Send + 'static {
 
     fn call(
         &mut self,
-        init_user_id: PeerId,
         aqua: String,
         data: Vec<u8>,
-        particle_id: &str,
+        particle: ParticleParameters<'_, '_>,
         call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error>;
 
     fn cleanup(&mut self, particle_id: &str) -> Result<(), Self::Error>;
 
     /// Return current size of memory. Use only for diagnostics purposes.
-    fn memory_size(&self) -> usize;
+    fn memory_stats(&self) -> AVMMemoryStats;
 }
 
 impl AquaRuntime for AVM<DataStoreError> {
@@ -124,20 +124,12 @@ impl AquaRuntime for AVM<DataStoreError> {
     #[inline]
     fn call(
         &mut self,
-        init_user_id: PeerId,
         aqua: String,
         data: Vec<u8>,
-        particle_id: &str,
+        particle: ParticleParameters<'_, '_>,
         call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
-        AVM::call(
-            self,
-            aqua,
-            data,
-            init_user_id.to_string(),
-            particle_id,
-            call_results,
-        )
+        AVM::call(self, aqua, data, particle, call_results)
     }
 
     #[inline]
@@ -145,7 +137,7 @@ impl AquaRuntime for AVM<DataStoreError> {
         AVM::cleanup_data(self, particle_id)
     }
 
-    fn memory_size(&self) -> usize {
-        self.memory_size()
+    fn memory_stats(&self) -> AVMMemoryStats {
+        self.memory_stats()
     }
 }

@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-use connected_client::ConnectedClient;
-use created_swarm::make_swarms;
-use test_constants::KAD_TIMEOUT;
+use std::thread::sleep;
 
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::{json, Value};
-use std::thread::sleep;
+
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
+use test_constants::KAD_TIMEOUT;
 
 #[test]
 fn identity() {
