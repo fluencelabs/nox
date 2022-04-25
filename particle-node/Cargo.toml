@@ -1,6 +1,6 @@
 [package]
 name = "particle-node"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Fluence Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2018"
