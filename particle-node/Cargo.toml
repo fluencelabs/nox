@@ -1,6 +1,6 @@
 [package]
 name = "particle-node"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["Fluence Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2018"
@@ -24,7 +24,7 @@ peer-metrics = { path = "../crates/peer-metrics" }
 
 fluence-keypair = "0.7.0"
 air-interpreter-wasm = "=0.24.1"
-avm-server = "0.20.0"
+avm-server = "0.20.1"
 
 libp2p = "0.45"
 libp2p-metrics = "0.6.0"
@@ -58,7 +58,7 @@ local-vm = { path = "../crates/local-vm" }
 control-macro = { path = "../crates/control-macro" }
 json-utils = { path = "../crates/json-utils" }
 
-fluence-app-service = "0.17.0"
+fluence-app-service = "0.17.1"
 
 parking_lot = "0.11.2"
 maplit = "1.0.2"
