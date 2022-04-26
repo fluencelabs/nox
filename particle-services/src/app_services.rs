@@ -20,12 +20,12 @@ use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
 use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface};
+use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::PeerId;
-use humantime_serde::re::humantime::format_duration as pretty;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
