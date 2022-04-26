@@ -20,13 +20,13 @@ use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
 use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface};
+use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::PeerId;
-use humantime_serde::re::humantime::format_duration as pretty;
-use particle_args::Args;
+use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
@@ -356,6 +356,29 @@ impl ParticleAppServices {
             .collect();
 
         services
+    }
+
+    pub fn get_service_mem_stats(&self, service_id: String) -> Result<Vec<JValue>, JError> {
+        let services = self.services.read();
+        let (service, _) = get_service(&services, &self.aliases.read(), service_id)
+            .map_err(ServiceError::NoSuchService)?;
+
+        let lock = service.service.lock();
+        let stats = lock.module_memory_stats();
+
+        let stats = stats
+            .0
+            .into_iter()
+            .map(|stat| {
+                json!({
+                    "name": stat.name,
+                    "memory_size_bytes": stat.memory_size,
+                    "max_memory_size_bytes": stat.max_memory_size
+                })
+            })
+            .collect();
+
+        Ok(stats)
     }
 
     fn create_persisted_services(&self) {
