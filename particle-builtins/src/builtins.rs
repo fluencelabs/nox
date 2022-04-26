@@ -149,6 +149,8 @@ where
 
             ("debug", "stringify")            => self.stringify(args.function_args),
 
+            ("stat", "service_memory") => unary(args, |id: String| -> R<Vec<JValue>, _> { self.services.get_service_mem_stats(id) }),
+
             ("math", "add")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
             ("math", "sub")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
             ("math", "mul")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::mul(x, y) }),
@@ -169,7 +171,6 @@ where
             ("array", "intersect") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::intersect(xs, ys) }),
             ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
             ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
-
             _                      => self.call_service(args, particle),
         }
     }
