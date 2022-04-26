@@ -1057,7 +1057,7 @@ fn service_mem() {
     use serde_json::Value::Array;
 
     if let [Array(stats)] = client.receive_args().unwrap().as_slice() {
-        println!("{:?}", stats);
+        assert_eq!(stats[0].get("name"), Some(&json!("tetraplets")));
     } else {
         panic!("incorrect args: expected single arrays of module memory stats")
     }
