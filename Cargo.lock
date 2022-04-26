@@ -141,7 +141,8 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.10.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=update-faas#516de771f14341dd300caef48225edb604eabb63"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6131102597b7fce0c8a89cab73e1c4a2b8683e6a0d6f3eea275883a7760d708f"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -509,12 +510,14 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avm-data-store"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=update-faas#516de771f14341dd300caef48225edb604eabb63"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dac8b9b7b7f1739169079c382581679b1466cfcb807fb3f7a9723c7a7f78f373"
 
 [[package]]
 name = "avm-server"
-version = "0.20.1"
-source = "git+https://github.com/fluencelabs/aquavm?branch=update-faas#516de771f14341dd300caef48225edb604eabb63"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9894119a2d749ff3c8d3a728bb912d8ef2d4ba69c09d3815994f810795120722"
 dependencies = [
  "air-interpreter-interface",
  "avm-data-store",
@@ -523,7 +526,7 @@ dependencies = [
  "log",
  "maplit",
  "parking_lot 0.11.2",
- "polyplets 0.2.0 (git+https://github.com/fluencelabs/aquavm?branch=update-faas)",
+ "polyplets",
  "serde",
  "serde_json",
  "thiserror",
@@ -1795,8 +1798,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.17.1"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+version = "0.17.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8057f761b34a5bfb840e9062c9228306c8c8dd72f7bccf1c311d03f0ece13966"
 dependencies = [
  "fluence-faas",
  "log",
@@ -1811,19 +1815,20 @@ dependencies = [
 
 [[package]]
 name = "fluence-faas"
-version = "0.16.1"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc936ee9f17ecd8f0cf10f9364c17fe76cbf6a07299f1d35c649e9415bc8821c"
 dependencies = [
  "bytesize",
  "cmd_lib",
  "it-json-serde",
  "itertools 0.9.0",
  "log",
- "marine-module-interface 0.4.1",
+ "marine-module-interface",
  "marine-rs-sdk",
  "marine-rs-sdk-main",
  "marine-runtime",
- "marine-utils 0.4.0 (git+https://github.com/fluencelabs/marine?branch=update-it)",
+ "marine-utils",
  "safe-transmute",
  "serde",
  "serde_derive",
@@ -1840,7 +1845,8 @@ dependencies = [
 [[package]]
 name = "fluence-it-types"
 version = "0.3.1"
-source = "git+https://github.com/fluencelabs/interface-types?branch=bug/allocating-more-than-2gb#dd4d6b7a248e00d94eb9b6ec85d01bc53359833d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "047f670b4807cab8872550a607b1515daff08b3e3bb7576ce8f45971fd811a4e"
 dependencies = [
  "it-to-bytes",
  "nom",
@@ -2500,7 +2506,8 @@ checksum = "68f2d64f2edebec4ce84ad108148e67e1064789bee435edc5b60ad398714a3a9"
 [[package]]
 name = "it-json-serde"
 version = "0.3.1"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e3b7efb8eeb6892a947928c10ac963e5d5101c173924453466314bf004306b4"
 dependencies = [
  "serde",
  "serde_derive",
@@ -2513,7 +2520,8 @@ dependencies = [
 [[package]]
 name = "it-lilo"
 version = "0.4.0"
-source = "git+https://github.com/fluencelabs/interface-types?branch=bug/allocating-more-than-2gb#dd4d6b7a248e00d94eb9b6ec85d01bc53359833d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a39dffcc610873b4c39b0fe04acac5ea77cf2eda9ed3d8a3b970b536d4e24c8"
 dependencies = [
  "fluence-it-types",
  "it-memory-traits",
@@ -2525,7 +2533,8 @@ dependencies = [
 [[package]]
 name = "it-memory-traits"
 version = "0.3.0"
-source = "git+https://github.com/fluencelabs/interface-types?branch=bug/allocating-more-than-2gb#dd4d6b7a248e00d94eb9b6ec85d01bc53359833d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca1799ed89e51a192e80a14ab14589044de9e58f0be86087ae8699cbe59f5c40"
 dependencies = [
  "thiserror",
 ]
@@ -2533,7 +2542,8 @@ dependencies = [
 [[package]]
 name = "it-to-bytes"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/interface-types?branch=bug/allocating-more-than-2gb#dd4d6b7a248e00d94eb9b6ec85d01bc53359833d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "729c74bb4236418898a219c6d96f14cba77456dd7c04a2e99e65e9c643709b56"
 
 [[package]]
 name = "itertools"
@@ -3325,11 +3335,12 @@ checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 [[package]]
 name = "marine-it-generator"
 version = "0.8.1"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25eea53765b0886afd41197861c9a2a6a2d09dbd5f723833df35f38a71affa2a"
 dependencies = [
  "cargo_toml",
  "it-lilo",
- "marine-it-parser 0.9.1",
+ "marine-it-parser",
  "marine-macro-impl",
  "once_cell",
  "serde",
@@ -3341,51 +3352,24 @@ dependencies = [
 
 [[package]]
 name = "marine-it-interfaces"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96669170af512d5e204ac3e7ce73691805120b95abfe9e7d247379128be5d9c7"
-dependencies = [
- "multimap",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-it-interfaces"
 version = "0.7.1"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3236d1068eaa0f1a07ab74b098b777c150c0c354a16d8869cd69ae3ff847014"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-it-parser"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07385efa5f6779143db076da84fcc786db6060815f828a050a83687d7c58e71f"
-dependencies = [
- "anyhow",
- "itertools 0.10.3",
- "marine-it-interfaces 0.7.0",
- "marine-module-interface 0.4.0",
- "nom",
- "semver 0.11.0",
- "serde",
- "thiserror",
- "walrus",
- "wasmer-interface-types-fl",
- "wasmer-runtime-core-fl",
 ]
 
 [[package]]
 name = "marine-it-parser"
 version = "0.9.1"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edea8966aa56f373e3b2db95432b023e20137c7d58798f74a67ee5749370d289"
 dependencies = [
  "anyhow",
  "itertools 0.10.3",
- "marine-it-interfaces 0.7.1",
- "marine-module-interface 0.4.1",
+ "marine-it-interfaces",
+ "marine-module-interface",
  "nom",
  "semver 0.11.0",
  "serde",
@@ -3422,7 +3406,8 @@ dependencies = [
 [[package]]
 name = "marine-min-it-version"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "890269754a531810b8c16cf00e6161e01c1183ef7ff4ff20117656316e9fdbd1"
 dependencies = [
  "once_cell",
  "semver 0.11.0",
@@ -3431,7 +3416,8 @@ dependencies = [
 [[package]]
 name = "marine-module-info-parser"
 version = "0.2.2"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ec8f4ab2eeeb5c1d66d9b56fe6b0b5bf39820aa8cc2f1d7be42bdf95654d529"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3445,29 +3431,13 @@ dependencies = [
 
 [[package]]
 name = "marine-module-interface"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d8b91a2c8d7905bad5d8a787a5aaab8fe9ec9efabead2ed031259c385d0b787"
-dependencies = [
- "anyhow",
- "itertools 0.10.3",
- "marine-it-interfaces 0.7.0",
- "nom",
- "semver 0.11.0",
- "serde",
- "thiserror",
- "walrus",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-module-interface"
 version = "0.4.1"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb284ad998636d64bfad9fef2849d8a02127ce9c094b4a3e53b2eb62c14e5e5f"
 dependencies = [
  "anyhow",
  "itertools 0.10.3",
- "marine-it-interfaces 0.7.1",
+ "marine-it-interfaces",
  "nom",
  "semver 0.11.0",
  "serde",
@@ -3485,7 +3455,7 @@ dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
  "marine-timestamp-macro",
- "polyplets 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "polyplets",
  "serde",
 ]
 
@@ -3501,8 +3471,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.14.1"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d36a361cb7ce770c78c979d784d877982042a16fef97043cb3bec1a4eaff5935"
 dependencies = [
  "anyhow",
  "boolinator",
@@ -3511,12 +3482,12 @@ dependencies = [
  "it-memory-traits",
  "log",
  "marine-it-generator",
- "marine-it-interfaces 0.7.1",
- "marine-it-parser 0.9.1",
+ "marine-it-interfaces",
+ "marine-it-parser",
  "marine-min-it-version",
  "marine-module-info-parser",
- "marine-module-interface 0.4.1",
- "marine-utils 0.4.0 (git+https://github.com/fluencelabs/marine?branch=update-it)",
+ "marine-module-interface",
+ "marine-utils",
  "multimap",
  "once_cell",
  "parity-wasm",
@@ -3546,11 +3517,6 @@ name = "marine-utils"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1cff7a23a7f3925a712c34dfb9cd87994012d7743f016fd1533e12ab5a8335ca"
-
-[[package]]
-name = "marine-utils"
-version = "0.4.0"
-source = "git+https://github.com/fluencelabs/marine?branch=update-it#2c920a1fe9aaeda5f4ef288f073973b685269506"
 
 [[package]]
 name = "match_cfg"
@@ -4034,8 +4000,8 @@ dependencies = [
  "fstrings",
  "json-utils",
  "log",
- "marine-it-parser 0.9.0",
- "marine-utils 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-it-parser",
+ "marine-utils",
  "parking_lot 0.11.2",
  "particle-args",
  "particle-execution",
@@ -4322,16 +4288,6 @@ name = "polyplets"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cc56e7803860fa903c27675a17215e1cfb39fb26e111c0b93f6c049f9cf8d8e"
-dependencies = [
- "marine-macro",
- "marine-rs-sdk-main",
- "serde",
-]
-
-[[package]]
-name = "polyplets"
-version = "0.2.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=update-faas#516de771f14341dd300caef48225edb604eabb63"
 dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
@@ -6092,7 +6048,8 @@ dependencies = [
 [[package]]
 name = "wasmer-interface-types-fl"
 version = "0.23.1"
-source = "git+https://github.com/fluencelabs/interface-types?branch=bug/allocating-more-than-2gb#dd4d6b7a248e00d94eb9b6ec85d01bc53359833d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb2da50f3cdfee8539f69c34427cef5d66dba0c0c2596db9dbefb5aceaa7f798"
 dependencies = [
  "fluence-it-types",
  "it-lilo",
