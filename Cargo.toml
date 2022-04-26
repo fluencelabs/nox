@@ -48,15 +48,4 @@ libp2p-core = { version = "0.33.0", git = "https://github.com/fluencelabs/rust-l
 libp2p-metrics = { version = "0.6.0", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
 libp2p-noise = { version = "0.36", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
 
-it-lilo = {version = "0.4.0", git = "https://github.com/fluencelabs/interface-types", branch = "bug/allocating-more-than-2gb"}
-fluence-it-types = {version = "0.3.1", git = "https://github.com/fluencelabs/interface-types", branch = "bug/allocating-more-than-2gb"}
-it-memory-traits = {version = "0.3.0", git = "https://github.com/fluencelabs/interface-types", branch = "bug/allocating-more-than-2gb"}
-wasmer-interface-types-fl = {version = "0.23.1", git = "https://github.com/fluencelabs/interface-types", branch = "bug/allocating-more-than-2gb"}
-marine-runtime = {version = "0.14.1", git = "https://github.com/fluencelabs/marine", branch = "update-it"}
-fluence-faas = {version = "0.16.1", git = "https://github.com/fluencelabs/marine", branch = "update-it"}
-fluence-app-service = {version = "0.17.1", git = "https://github.com/fluencelabs/marine", branch = "update-it"}
-avm-server = {version = "0.20.1", git = "https://github.com/fluencelabs/aquavm", branch = "update-faas"}
-
-
-
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "update_libp2p" }
