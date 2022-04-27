@@ -12,8 +12,8 @@ json-utils = { path = "../crates/json-utils" }
 fs-utils = { path = "../crates/fs-utils" }
 service-modules = { path = "../crates/service-modules" }
 
-marine-it-parser = "0.9.0"
-fluence-app-service = "0.17.0"
+marine-it-parser = "0.9.1"
+fluence-app-service = "0.17.2"
 marine-utils = "0.4.0"
 
 serde = { version = "1.0.118", features = ["derive"] }

@@ -16,7 +16,7 @@ aquamarine = { path = "../../aquamarine"}
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 
 air-interpreter-wasm = "=0.24.1"
-avm-server = "0.20.0"
+avm-server = "0.20.2"
 
 libp2p = "0.45"
 
