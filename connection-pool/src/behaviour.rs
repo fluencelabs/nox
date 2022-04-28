@@ -21,7 +21,7 @@ use std::{
 
 use futures::channel::mpsc;
 use libp2p::swarm::dial_opts::DialOpts;
-use libp2p::swarm::{DialError, IntoConnectionHandler};
+use libp2p::swarm::{dial_opts, DialError, IntoConnectionHandler};
 use libp2p::{
     core::{connection::ConnectionId, ConnectedPoint, Multiaddr},
     swarm::{
@@ -96,33 +96,47 @@ impl ConnectionPoolBehaviour {
 
     /// Connect to the contact by all of its known addresses and return whether connection succeeded
     /// If contact is already connected, return `true` immediately
+    /// If contact is already being dialed and there are no new addresses in Contact, don't dial
     pub fn connect(&mut self, contact: Contact, outlet: OneshotOutlet<bool>) {
-        let handler = self.new_handler();
-        self.push_event(NetworkBehaviourAction::Dial {
-            opts: DialOpts::peer_id(contact.peer_id)
-                .addresses(contact.addresses.clone())
-                .build(),
-            handler,
-        });
-
-        match self.contacts.entry(contact.peer_id) {
+        let dial = match self.contacts.entry(contact.peer_id) {
             Entry::Occupied(mut entry) => match entry.get_mut() {
                 // TODO: add/replace multiaddr? if yes, do not forget to check connectivity
                 Peer::Connected(_) => {
                     outlet.send(true).ok();
+                    // don't dial if peer is already connected
+                    false
                 }
                 Peer::Dialing(addrs, outlets) => {
-                    addrs.extend(contact.addresses);
-                    outlets.push(outlet)
+                    // we always push outlet to list so everyone is notified when connection succeeds
+                    outlets.push(outlet);
+
+                    let before = addrs.len();
+                    addrs.extend(contact.addresses.clone());
+                    // if addrs's length increased, then we had new addresses and should dial
+                    let got_new_addrs = before != addrs.len();
+
+                    got_new_addrs
                 }
             },
             Entry::Vacant(slot) => {
                 slot.insert(Peer::Dialing(
-                    contact.addresses.into_iter().collect(),
+                    contact.addresses.iter().cloned().collect(),
                     vec![outlet],
                 ));
+                // always dial unknown peer
+                true
             }
         };
+
+        if dial {
+            let handler = self.new_handler();
+            self.push_event(NetworkBehaviourAction::Dial {
+                opts: DialOpts::peer_id(contact.peer_id)
+                    .addresses(contact.addresses)
+                    .build(),
+                handler,
+            });
+        }
     }
 
     // TODO: implement
@@ -408,6 +422,22 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         _handler: Self::ConnectionHandler,
         error: &DialError,
     ) {
+        use dial_opts::PeerCondition::{Disconnected, NotDialing};
+        if let DialError::DialPeerConditionFalse(Disconnected | NotDialing) = error {
+            // So, if you tell libp2p to dial a peer, there's an option dial_opts::PeerCondition
+            // The default one is Disconnected.
+            // So, if you asked libp2p to connect to a peer, and the peer IS ALREADY CONNECTED,
+            // libp2p will tell you that dial has failed.
+            // We need to ignore this "failure" in case condition is Disconnected or NotDialing.
+            // Because this basically means that peer has already connected while our Dial was processed.
+            // That could happen in several cases:
+            //  1. `dial` was called by multiaddress of an already-connected peer
+            //  2. `connect` was called with new multiaddresses, but target peer is already connected
+            //  3. unknown data race
+            log::info!("Dialing attempt to an already connected peer {:?}", peer_id);
+            return;
+        }
+
         log::warn!(
             "Error dialing peer {}: {:?}",
             peer_id.map_or("unknown".to_string(), |id| id.to_string()),
