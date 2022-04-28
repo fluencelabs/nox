@@ -95,8 +95,8 @@ impl ConnectionPoolBehaviour {
     }
 
     /// Connect to the contact by all of its known addresses and return whether connection succeeded
-    /// If contact is already connected, return `true` immediately
     /// If contact is already being dialed and there are no new addresses in Contact, don't dial
+    /// If contact is already connected, return `true` immediately
     pub fn connect(&mut self, contact: Contact, outlet: OneshotOutlet<bool>) {
         let dial = match self.contacts.entry(contact.peer_id) {
             Entry::Occupied(mut entry) => match entry.get_mut() {
