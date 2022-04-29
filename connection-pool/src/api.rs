@@ -86,7 +86,7 @@ impl ConnectionPoolInlet {
         let (outlet, inlet) = unbounded();
         let api = ConnectionPoolApi {
             outlet,
-            send_timeout: connection_pool.protocol_config.upgrade_timeout,
+            send_timeout: connection_pool.protocol_config.upgrade_timeout * 2,
         };
         let inlet = Self {
             inlet,
