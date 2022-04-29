@@ -14,18 +14,40 @@
  * limitations under the License.
  */
 
-use crate::Particle;
-use fluence_libp2p::types::OneshotOutlet;
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
+
+use fluence_libp2p::types::OneshotOutlet;
+
+use crate::Particle;
+
+#[derive(Debug)]
+pub enum SendStatus {
+    Ok,
+    TimedOut {
+        after: Duration,
+        error: std::io::Error,
+    },
+    ProtocolError(String),
+    NotConnected,
+    ConnectionPoolDied,
+}
+
+impl Default for SendStatus {
+    fn default() -> Self {
+        SendStatus::ConnectionPoolDied
+    }
+}
 
 #[derive(Debug)]
 pub enum CompletionChannel {
     Ignore,
-    Oneshot(OneshotOutlet<bool>),
+    Oneshot(OneshotOutlet<SendStatus>),
 }
 
 impl CompletionChannel {
-    pub fn outlet(self) -> Option<OneshotOutlet<bool>> {
+    pub fn outlet(self) -> Option<OneshotOutlet<SendStatus>> {
         match self {
             CompletionChannel::Ignore => None,
             CompletionChannel::Oneshot(outlet) => Some(outlet),
@@ -54,7 +76,7 @@ pub enum HandlerMessage {
 }
 
 impl HandlerMessage {
-    pub fn into_protocol_message(self) -> (ProtocolMessage, Option<OneshotOutlet<bool>>) {
+    pub fn into_protocol_message(self) -> (ProtocolMessage, Option<OneshotOutlet<SendStatus>>) {
         match self {
             HandlerMessage::OutParticle(particle, channel) => {
                 (ProtocolMessage::Particle(particle), channel.outlet())

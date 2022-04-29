@@ -26,7 +26,7 @@ use libp2p::Multiaddr;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
 use fluence_libp2p::PeerId;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
-use particle_protocol::{Contact, Particle};
+use particle_protocol::{Contact, Particle, SendStatus};
 use peer_metrics::{ConnectivityMetrics, Resolution};
 
 use crate::tasks::Tasks;
@@ -111,16 +111,23 @@ impl Connectivity {
         let metrics = self.metrics.as_ref();
         let id = particle.id.clone();
         let sent = self.connection_pool.send(contact.clone(), particle).await;
-        if sent {
-            metrics.map(|m| m.particle_send_success.inc());
-            log::info!("Sent particle {} to {}", id, contact);
-        } else {
-            // TODO: return & log error
-            metrics.map(|m| m.particle_send_failure.inc());
-            log::info!("Failed to send particle {} to {}", id, contact);
+        match &sent {
+            SendStatus::Ok => {
+                metrics.map(|m| m.particle_send_success.inc());
+                log::info!("Sent particle {} to {}", id, contact);
+            }
+            err => {
+                metrics.map(|m| m.particle_send_failure.inc());
+                log::warn!(
+                    "Failed to send particle {} to {}, reason: {:?}",
+                    id,
+                    contact,
+                    err
+                )
+            }
         }
 
-        sent
+        matches!(sent, SendStatus::Ok)
     }
 
     /// Discover a peer via Kademlia

@@ -29,7 +29,7 @@ use log::LevelFilter;
 use serde::Deserialize;
 
 use crate::libp2p_protocol::message::ProtocolMessage;
-use crate::{HandlerMessage, PROTOCOL_NAME};
+use crate::{HandlerMessage, SendStatus, PROTOCOL_NAME};
 
 // TODO: embed pings into the protocol?
 // TODO: embed identify into the protocol?
@@ -180,7 +180,11 @@ where
 
             if let Some(channel) = channel {
                 // it's ok to ignore error here: inlet might be dropped any time
-                channel.send(result.is_ok()).ok();
+                let result = match &result {
+                    Ok(_) => SendStatus::Ok,
+                    Err(err) => SendStatus::ProtocolError(format!("{:?}", err)),
+                };
+                channel.send(result).ok();
             }
 
             result

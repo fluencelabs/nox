@@ -19,7 +19,7 @@ use std::fmt::{Display, Formatter};
 use futures::{future::BoxFuture, stream::BoxStream};
 use libp2p::{core::Multiaddr, PeerId};
 
-use particle_protocol::{Contact, Particle};
+use particle_protocol::{Contact, Particle, SendStatus};
 
 #[derive(Debug, Clone)]
 pub enum LifecycleEvent {
@@ -42,7 +42,7 @@ pub trait ConnectionPoolT {
     fn disconnect(&self, contact: Contact) -> BoxFuture<'static, bool>;
     fn is_connected(&self, peer_id: PeerId) -> BoxFuture<'static, bool>;
     fn get_contact(&self, peer_id: PeerId) -> BoxFuture<'static, Option<Contact>>;
-    fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, bool>;
+    fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, SendStatus>;
     fn count_connections(&self) -> BoxFuture<'static, usize>;
     fn lifecycle_events(&self) -> BoxStream<'static, LifecycleEvent>;
 }

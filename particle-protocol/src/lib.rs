@@ -37,6 +37,7 @@ mod particle;
 
 pub use contact::Contact;
 pub use libp2p_protocol::message::CompletionChannel;
+pub use libp2p_protocol::message::SendStatus;
 pub use libp2p_protocol::message::{HandlerMessage, ProtocolMessage};
 pub use libp2p_protocol::upgrade::ProtocolConfig;
 pub use particle::Particle;
