@@ -25,8 +25,8 @@ use futures::{
 use libp2p::{core::Multiaddr, PeerId};
 
 use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
-use particle_protocol::Contact;
 use particle_protocol::Particle;
+use particle_protocol::{Contact, SendStatus};
 
 use crate::connection_pool::LifecycleEvent;
 use crate::{ConnectionPoolBehaviour, ConnectionPoolT};
@@ -41,7 +41,7 @@ pub enum Command {
     Send {
         to: Contact,
         particle: Particle,
-        out: OneshotOutlet<bool>,
+        out: OneshotOutlet<SendStatus>,
     },
     Dial {
         addr: Multiaddr,
@@ -172,12 +172,19 @@ impl ConnectionPoolT for ConnectionPoolApi {
         self.execute(|out| Command::GetContact { peer_id, out })
     }
 
-    fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, bool> {
+    fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, SendStatus> {
         let fut = self.execute(|out| Command::Send { to, particle, out });
         // timeout on send is required because libp2p can silently drop outbound events
+        let timeout = self.send_timeout;
         async_std::io::timeout(self.send_timeout, fut.map(Ok))
             // convert timeout to false
-            .map(|r| r.unwrap_or(false))
+            .map(move |r| match r {
+                Ok(status) => status,
+                Err(error) => SendStatus::TimedOut {
+                    after: timeout,
+                    error,
+                },
+            })
             .boxed()
     }
 

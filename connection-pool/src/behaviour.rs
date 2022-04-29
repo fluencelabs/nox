@@ -33,7 +33,9 @@ use libp2p::{
 
 use fluence_libp2p::remote_multiaddr;
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
-use particle_protocol::{CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig};
+use particle_protocol::{
+    CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig, SendStatus,
+};
 use peer_metrics::ConnectionPoolMetrics;
 
 use crate::connection_pool::LifecycleEvent;
@@ -160,11 +162,11 @@ impl ConnectionPoolBehaviour {
 
     /// Sends a particle to a connected contact. Returns whether sending succeeded or not
     /// Result is sent to channel inside `upgrade_outbound` in ProtocolHandler
-    pub fn send(&mut self, to: Contact, particle: Particle, outlet: OneshotOutlet<bool>) {
+    pub fn send(&mut self, to: Contact, particle: Particle, outlet: OneshotOutlet<SendStatus>) {
         if to.peer_id == self.peer_id {
             // If particle is sent to the current node, process it locally
             self.queue.push_back(particle);
-            outlet.send(true).ok();
+            outlet.send(SendStatus::Ok).ok();
             self.wake();
         } else if self.contacts.contains_key(&to.peer_id) {
             log::debug!(target: "network", "{}: Sending particle {} to {}", self.peer_id, particle.id, to.peer_id);
@@ -180,7 +182,7 @@ impl ConnectionPoolBehaviour {
                 particle.id,
                 to.peer_id
             );
-            outlet.send(false).ok();
+            outlet.send(SendStatus::NotConnected).ok();
         }
     }
 
