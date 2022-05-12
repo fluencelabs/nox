@@ -18,6 +18,7 @@ particle-args = { path = "../crates/particle-args" }
 ivalue-utils = { path = "../crates/ivalue-utils" }
 now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
+peer-metrics = { path = "../crates/peer-metrics" }
 
 libp2p = "0.45"
 avm-server = "0.20.2"

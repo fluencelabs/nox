@@ -15,6 +15,7 @@ particle-args = { path = "../crates/particle-args" }
 server-config = { path = "../crates/server-config" }
 fluence-libp2p = { path = "../crates/libp2p" }
 particle-execution = { path = "../particle-execution" }
+peer-metrics = { path = "../crates/peer-metrics" }
 
 fluence-app-service = "0.17.2"
 

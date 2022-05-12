@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use std::ops::Deref;
 use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface};
+use fluence_app_service::{
+    AppService, CallParameters, SecurityTetraplet, ServiceInterface,
+};
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -29,6 +30,7 @@ use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
+use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
 
 use crate::app_service::create_app_service;
@@ -94,6 +96,7 @@ pub struct ParticleAppServices {
     aliases: Aliases,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
+    pub metrics: Option<ServicesMetrics>,
 }
 
 pub fn get_service<'l>(
@@ -117,7 +120,11 @@ pub fn get_service<'l>(
 }
 
 impl ParticleAppServices {
-    pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
+    pub fn new(
+        config: ServicesConfig,
+        modules: ModuleRepository,
+        metrics: Option<ServicesMetrics>,
+    ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
@@ -129,6 +136,7 @@ impl ParticleAppServices {
             aliases: <_>::default(),
             management_peer_id,
             builtins_management_peer_id,
+            metrics,
         };
 
         this.create_persisted_services();
@@ -141,6 +149,7 @@ impl ParticleAppServices {
         blueprint_id: String,
         init_peer_id: PeerId,
     ) -> Result<String, ServiceError> {
+        let metrics = self.metrics.as_ref();
         let service_id = uuid::Uuid::new_v4().to_string();
 
         let service = create_app_service(
@@ -150,7 +159,11 @@ impl ParticleAppServices {
             service_id.clone(),
             vec![],
             init_peer_id,
-        )?;
+            metrics,
+        )
+        .inspect_err(|_| {
+            metrics.map(|m| m.creation_failure_count.inc());
+        })?;
         let service = Service {
             service: Mutex::new(service),
             blueprint_id,
@@ -159,6 +172,8 @@ impl ParticleAppServices {
         };
 
         self.services.write().insert(service_id.clone(), service);
+
+        metrics.map(|m| m.creation_count.inc());
 
         Ok(service_id)
     }
@@ -209,6 +224,8 @@ impl ParticleAppServices {
             aliases.remove(alias);
         }
 
+        self.metrics.as_ref().map(|m| m.removal_count.inc());
+
         Ok(())
     }
 
@@ -237,7 +254,6 @@ impl ParticleAppServices {
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         self.create_vault(&particle.id)?;
-
         let params = CallParameters {
             host_id,
             particle_id: particle.id,
@@ -270,6 +286,17 @@ impl ParticleAppServices {
                 params,
             )
             .map_err(ServiceError::Engine)?;
+
+        if let Some(metrics) = &self.metrics {
+            // TODO: where to place this constant?
+            const MAX_HEAP_SIZE: usize = 4 * 1024 * 1024 * 1024 - 1; // 4 GiB - 1
+            for stat in service.module_memory_stats().0 {
+                let free_size = stat.max_memory_size.unwrap_or(MAX_HEAP_SIZE) - stat.memory_size;
+                let used_size = stat.memory_size;
+                metrics.mem_used_bytes.observe(used_size as f64);
+                metrics.mem_free_bytes.observe(free_size as f64);
+            }
+        }
 
         FunctionOutcome::Ok(result)
     }
@@ -365,7 +392,6 @@ impl ParticleAppServices {
 
         let lock = service.service.lock();
         let stats = lock.module_memory_stats();
-
         let stats = stats
             .0
             .into_iter()
@@ -400,6 +426,7 @@ impl ParticleAppServices {
                 s.service_id.clone(),
                 s.aliases.clone(),
                 s.owner_id,
+                self.metrics.as_ref(),
             );
             let service = match service {
                 Ok(service) => service,

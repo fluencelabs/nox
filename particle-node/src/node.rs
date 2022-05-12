@@ -45,7 +45,7 @@ use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use particle_builtins::{Builtins, NodeInfo};
 use particle_protocol::Particle;
 use peer_metrics::{
-    ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, VmPoolMetrics,
+    ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, VmPoolMetrics, ServicesMetrics,
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -117,6 +117,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let connection_pool_metrics = metrics_registry.as_mut().map(ConnectionPoolMetrics::new);
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
+        let services_metrics = metrics_registry.as_mut().map(ServicesMetrics::new);
 
         let network_config = NetworkConfig::new(
             libp2p_metrics,
@@ -153,6 +154,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.external_addresses(),
             services_config,
             script_storage_api,
+            services_metrics,
         );
 
         let (effects_out, effects_in) = unbounded();
@@ -233,6 +235,7 @@ impl<RT: AquaRuntime> Node<RT> {
         external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
+        services_metrics: Option<ServicesMetrics>,
     ) -> Builtins<Connectivity> {
         let node_info = NodeInfo {
             external_addresses,
@@ -240,7 +243,7 @@ impl<RT: AquaRuntime> Node<RT> {
             air_version: air_interpreter_wasm::VERSION,
         };
 
-        Builtins::new(connectivity, script_storage_api, node_info, services_config)
+        Builtins::new(connectivity, script_storage_api, node_info, services_config, services_metrics)
     }
 }
 

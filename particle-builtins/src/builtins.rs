@@ -40,6 +40,7 @@ use particle_protocol::Contact;
 use particle_services::ParticleAppServices;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
+use peer_metrics::ServicesMetrics;
 
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
@@ -68,6 +69,7 @@ where
         script_storage: ScriptStorageApi,
         node_info: NodeInfo,
         config: ServicesConfig,
+        services_metrics: Option<ServicesMetrics>,
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -82,7 +84,7 @@ where
 
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
-        let services = ParticleAppServices::new(config, modules.clone());
+        let services = ParticleAppServices::new(config, modules.clone(), services_metrics);
 
         Self {
             connectivity,

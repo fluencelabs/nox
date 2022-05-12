@@ -24,6 +24,7 @@ use fluence_app_service::{
 use fluence_libp2p::PeerId;
 use particle_modules::ModuleRepository;
 use server_config::ServicesConfig;
+use peer_metrics::ServicesMetrics;
 
 use std::path::Path;
 
@@ -34,12 +35,23 @@ pub fn create_app_service(
     service_id: String,
     aliases: Vec<String>,
     owner_id: PeerId,
+    metrics: Option<&ServicesMetrics>,
 ) -> Result<AppService> {
     try {
         let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;
         modules_config
             .iter_mut()
             .for_each(|module| inject_vault(&config.particles_vault_dir, module));
+
+        if let Some(metrics) = metrics {
+            let mut size = 0;
+            for cfg in &modules_config {
+                // TODO: where to place this constant?
+                const MAX_HEAP_SIZE: u64 = 4 * 1024 * 1024 * 1024 - 1; // 4 GiB - 1
+                size += cfg.config.max_heap_size.unwrap_or(MAX_HEAP_SIZE); //as f64;
+            }
+            metrics.mem_max_bytes.observe(size as f64)
+        }
 
         let modules = AppServiceConfig {
             service_base_dir: config.workdir,
@@ -58,6 +70,8 @@ pub fn create_app_service(
         // Save created service to disk, so it is recreated on restart
         let persisted = PersistedService::new(service_id, blueprint_id, aliases, owner_id);
         persist_service(&config.services_dir, persisted)?;
+
+        metrics.as_ref().map(|m| m.services_count.inc());
 
         service
     }
