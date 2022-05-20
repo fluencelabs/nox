@@ -68,10 +68,14 @@ pub fn create_app_service(
             .map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
-        let persisted = PersistedService::new(service_id, blueprint_id, aliases, owner_id);
+        let persisted = PersistedService::new(service_id.clone(), blueprint_id, aliases, owner_id);
         persist_service(&config.services_dir, persisted)?;
 
-        metrics.as_ref().map(|m| m.services_count.inc());
+        if let Some(metrics) = metrics {
+            metrics.services_count.inc();
+            let init_memory = service.module_memory_stats().0.into_iter().fold(0, |acc, x| acc + x.memory_size);
+            metrics.monitor_service_mem(service_id, init_memory);
+        }
 
         service
     }

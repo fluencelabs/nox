@@ -36,7 +36,7 @@ pub(self) fn execution_time_buckets() -> std::vec::IntoIter<f64> {
 pub(self) fn mem_buckets() -> std::vec::IntoIter<f64> {
     vec![1, 5, 10, 25, 50, 100, 200, 500, 1024]
         .into_iter()
-        .map(|n| bytesize::mib(n) as f64)
+        .map(|n| (n * bytesize::MIB) as f64)
         .collect::<Vec<_>>()
         .into_iter()
 }
@@ -45,7 +45,7 @@ pub(self) fn mem_buckets() -> std::vec::IntoIter<f64> {
 pub(self) fn mem_buckets_extended() -> std::vec::IntoIter<f64> {
     vec![1, 5, 10, 25, 50, 100, 200, 500, 1024, 2048, 3072, 4096]
         .into_iter()
-        .map(|n| bytesize::mib(n) as f64)
+        .map(|n| (n * bytesize::MIB) as f64)
         .collect::<Vec<_>>()
         .into_iter()
 }

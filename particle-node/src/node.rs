@@ -15,7 +15,7 @@
  */
 
 use std::sync::Arc;
-use std::{io, iter::once, net::SocketAddr};
+use std::{io, iter::once, net::SocketAddr, time, thread::sleep};
 
 use async_std::task;
 use eyre::WrapErr;
@@ -57,6 +57,30 @@ use crate::Connectivity;
 
 use super::behaviour::NetworkBehaviour;
 
+pub struct ServicesMetricsBackend {
+    interval: time::Duration,
+    metrics: ServicesMetrics,
+}
+
+impl ServicesMetricsBackend {
+    pub fn new(interval: time::Duration, metrics: ServicesMetrics) -> Self {
+        Self {
+            interval,
+            metrics,
+        }
+    }
+
+    pub fn start(self) -> task::JoinHandle<()> {
+        task::spawn(async move {
+            loop {
+                // store the current services memory sizes to a histogram
+                self.metrics.store_service_mem();
+                sleep(self.interval);
+            }
+        })
+    }
+}
+
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: BackPressuredInlet<Particle>,
@@ -70,6 +94,7 @@ pub struct Node<RT: AquaRuntime> {
     builtins_deployer: BuiltinsDeployer,
 
     registry: Option<Registry>,
+    services_metrics_backend: Option<ServicesMetricsBackend>,
 
     metrics_listen_addr: SocketAddr,
 
@@ -149,6 +174,10 @@ impl<RT: AquaRuntime> Node<RT> {
             ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
         };
 
+        // This is fine to clone the services metrics because every field has a mutex or is atomic.
+        let services_metrics_backend =
+                services_metrics.as_ref().map(|m| ServicesMetricsBackend::new(time::Duration::from_secs(60), m.clone()));
+
         let builtins = Self::builtins(
             connectivity.clone(),
             config.external_addresses(),
@@ -203,6 +232,7 @@ impl<RT: AquaRuntime> Node<RT> {
             script_storage_backend,
             builtins_deployer,
             metrics_registry,
+            services_metrics_backend,
             config.metrics_listen_addr(),
             local_peer_id,
             builtins_peer_id,
@@ -261,6 +291,7 @@ impl<RT: AquaRuntime> Node<RT> {
         builtins_deployer: BuiltinsDeployer,
 
         registry: Option<Registry>,
+        services_metrics_backend: Option<ServicesMetricsBackend>,
         metrics_listen_addr: SocketAddr,
 
         local_peer_id: PeerId,
@@ -278,6 +309,7 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins_deployer,
 
             registry,
+            services_metrics_backend,
             metrics_listen_addr,
 
             local_peer_id,
@@ -300,6 +332,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let aquavm_pool = self.aquavm_pool;
         let script_storage = self.script_storage;
         let registry = self.registry;
+        let services_metrics_backend = self.services_metrics_backend;
         let metrics_listen_addr = self.metrics_listen_addr;
 
         task::spawn(async move {
@@ -312,6 +345,7 @@ impl<RT: AquaRuntime> Node<RT> {
             };
             let mut metrics_fut = metrics_fut.fuse();
 
+            let services_metrics_backend = services_metrics_backend.map(|m| m.start());
             let script_storage = script_storage.start();
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
@@ -351,6 +385,9 @@ impl<RT: AquaRuntime> Node<RT> {
             }
 
             log::info!("Stopping node");
+            if let Some(m) = services_metrics_backend {
+                m.cancel().await;
+            }
             script_storage.cancel().await;
             dispatcher.cancel().await;
             connectivity.cancel().await;

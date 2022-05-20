@@ -149,6 +149,8 @@ impl ParticleAppServices {
         blueprint_id: String,
         init_peer_id: PeerId,
     ) -> Result<String, ServiceError> {
+        let creation_start_time = Instant::now();
+
         let metrics = self.metrics.as_ref();
         let service_id = uuid::Uuid::new_v4().to_string();
 
@@ -173,7 +175,11 @@ impl ParticleAppServices {
 
         self.services.write().insert(service_id.clone(), service);
 
-        metrics.map(|m| m.creation_count.inc());
+        let creation_end_time = creation_start_time.elapsed().as_millis();
+        if let Some(m) = metrics {
+            m.creation_count.inc();
+            m.creation_time_msec.observe(creation_end_time as f64);
+        }
 
         Ok(service_id)
     }
@@ -183,6 +189,7 @@ impl ParticleAppServices {
         service_id_or_alias: String,
         init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
+        let removal_start_time = Instant::now();
         let service_id = {
             let services_read = self.services.read();
             let (service, service_id) =
@@ -224,7 +231,12 @@ impl ParticleAppServices {
             aliases.remove(alias);
         }
 
-        self.metrics.as_ref().map(|m| m.removal_count.inc());
+        let removal_end_time = removal_start_time.elapsed().as_millis();
+        if let Some(m) = self.metrics.as_ref() {
+            m.removal_count.inc();
+            m.services_count.dec();
+            m.removal_time_msec.observe(removal_end_time as f64);
+        }
 
         Ok(())
     }
@@ -272,7 +284,7 @@ impl ParticleAppServices {
                         .collect()
                 })
                 .collect(),
-            service_id,
+            service_id: service_id.clone(),
             service_creator_peer_id: service.owner_id.to_string(),
         };
         let function_name = function_args.function_name;
@@ -288,14 +300,8 @@ impl ParticleAppServices {
             .map_err(ServiceError::Engine)?;
 
         if let Some(metrics) = &self.metrics {
-            // TODO: where to place this constant?
-            const MAX_HEAP_SIZE: usize = 4 * 1024 * 1024 * 1024 - 1; // 4 GiB - 1
-            for stat in service.module_memory_stats().0 {
-                let free_size = stat.max_memory_size.unwrap_or(MAX_HEAP_SIZE) - stat.memory_size;
-                let used_size = stat.memory_size;
-                metrics.mem_used_bytes.observe(used_size as f64);
-                metrics.mem_free_bytes.observe(free_size as f64);
-            }
+            let used_size = service.module_memory_stats().0.into_iter().fold(0, |acc, x| acc + x.memory_size);
+            metrics.monitor_service_mem(service_id, used_size);
         }
 
         FunctionOutcome::Ok(result)
