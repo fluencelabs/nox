@@ -1,5 +1,5 @@
-use std::fmt;
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::{Arc, Mutex};
 
 use prometheus_client::metrics::counter::Counter;
@@ -35,7 +35,6 @@ pub struct ServicesMetrics {
 
     /// Used memory per services
     pub services_memory_state: Arc<Mutex<HashMap<ServiceId, MemorySize>>>,
-
 }
 
 impl fmt::Debug for ServicesMetrics {
@@ -130,7 +129,8 @@ impl ServicesMetrics {
     pub fn monitor_service_mem(&self, service_id: String, memory: usize) {
         let mut state = self.services_memory_state.lock().unwrap();
         let old = state.insert(service_id, memory as f64);
-        self.mem_used_total_bytes.inc_by(memory as u64 - old.unwrap_or(0.0) as u64);
+        self.mem_used_total_bytes
+            .inc_by(memory as u64 - old.unwrap_or(0.0) as u64);
     }
 
     pub fn store_service_mem(&self) {

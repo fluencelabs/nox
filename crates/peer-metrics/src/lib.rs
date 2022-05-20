@@ -3,16 +3,16 @@ mod connectivity;
 mod dispatcher;
 mod network_protocol;
 mod particle_executor;
-mod vm_pool;
 mod services_metrics;
+mod vm_pool;
 
 pub use connection_pool::ConnectionPoolMetrics;
 pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
-pub use vm_pool::VmPoolMetrics;
 pub use services_metrics::ServicesMetrics;
+pub use vm_pool::VmPoolMetrics;
 
 // TODO:
 // - service creation time
@@ -24,7 +24,7 @@ pub use services_metrics::ServicesMetrics;
 // - count 'Error processing inbound ProtocolMessage: unexpected end of file'
 // - number of scheduled script executions
 
- /// from 100 microseconds to 120 seconds
+/// from 100 microseconds to 120 seconds
 pub(self) fn execution_time_buckets() -> std::vec::IntoIter<f64> {
     vec![
         0.0001, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 7.0, 15.0, 30.0, 60.0, 120.0,

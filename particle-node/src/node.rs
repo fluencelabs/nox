@@ -15,7 +15,7 @@
  */
 
 use std::sync::Arc;
-use std::{io, iter::once, net::SocketAddr, time, thread::sleep};
+use std::{io, iter::once, net::SocketAddr, thread::sleep, time};
 
 use async_std::task;
 use eyre::WrapErr;
@@ -45,7 +45,8 @@ use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use particle_builtins::{Builtins, NodeInfo};
 use particle_protocol::Particle;
 use peer_metrics::{
-    ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, VmPoolMetrics, ServicesMetrics,
+    ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
+    VmPoolMetrics,
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -64,10 +65,7 @@ pub struct ServicesMetricsBackend {
 
 impl ServicesMetricsBackend {
     pub fn new(interval: time::Duration, metrics: ServicesMetrics) -> Self {
-        Self {
-            interval,
-            metrics,
-        }
+        Self { interval, metrics }
     }
 
     pub fn start(self) -> task::JoinHandle<()> {
@@ -175,8 +173,9 @@ impl<RT: AquaRuntime> Node<RT> {
         };
 
         // This is fine to clone the services metrics because every field has a mutex or is atomic.
-        let services_metrics_backend =
-                services_metrics.as_ref().map(|m| ServicesMetricsBackend::new(time::Duration::from_secs(60), m.clone()));
+        let services_metrics_backend = services_metrics
+            .as_ref()
+            .map(|m| ServicesMetricsBackend::new(time::Duration::from_secs(60), m.clone()));
 
         let builtins = Self::builtins(
             connectivity.clone(),
@@ -273,7 +272,13 @@ impl<RT: AquaRuntime> Node<RT> {
             air_version: air_interpreter_wasm::VERSION,
         };
 
-        Builtins::new(connectivity, script_storage_api, node_info, services_config, services_metrics)
+        Builtins::new(
+            connectivity,
+            script_storage_api,
+            node_info,
+            services_config,
+            services_metrics,
+        )
     }
 }
 

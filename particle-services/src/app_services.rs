@@ -18,9 +18,7 @@ use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{
-    AppService, CallParameters, SecurityTetraplet, ServiceInterface,
-};
+use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface};
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -300,7 +298,11 @@ impl ParticleAppServices {
             .map_err(ServiceError::Engine)?;
 
         if let Some(metrics) = &self.metrics {
-            let used_size = service.module_memory_stats().0.into_iter().fold(0, |acc, x| acc + x.memory_size);
+            let used_size = service
+                .module_memory_stats()
+                .0
+                .into_iter()
+                .fold(0, |acc, x| acc + x.memory_size);
             metrics.monitor_service_mem(service_id, used_size);
         }
 

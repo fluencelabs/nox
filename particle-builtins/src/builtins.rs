@@ -38,9 +38,9 @@ use particle_modules::{
 };
 use particle_protocol::Contact;
 use particle_services::ParticleAppServices;
+use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
-use peer_metrics::ServicesMetrics;
 
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};

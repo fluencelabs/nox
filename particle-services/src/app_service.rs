@@ -23,8 +23,8 @@ use fluence_app_service::{
 };
 use fluence_libp2p::PeerId;
 use particle_modules::ModuleRepository;
-use server_config::ServicesConfig;
 use peer_metrics::ServicesMetrics;
+use server_config::ServicesConfig;
 
 use std::path::Path;
 
@@ -73,7 +73,11 @@ pub fn create_app_service(
 
         if let Some(metrics) = metrics {
             metrics.services_count.inc();
-            let init_memory = service.module_memory_stats().0.into_iter().fold(0, |acc, x| acc + x.memory_size);
+            let init_memory = service
+                .module_memory_stats()
+                .0
+                .into_iter()
+                .fold(0, |acc, x| acc + x.memory_size);
             metrics.monitor_service_mem(service_id, init_memory);
         }
 
