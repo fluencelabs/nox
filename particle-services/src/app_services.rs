@@ -529,7 +529,7 @@ mod tests {
             None,
         );
 
-        ParticleAppServices::new(config, repo)
+        ParticleAppServices::new(config, repo, None)
     }
 
     fn call_add_alias_raw(
