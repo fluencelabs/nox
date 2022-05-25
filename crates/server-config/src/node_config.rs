@@ -158,6 +158,9 @@ pub struct MetricsConfig {
     /// Metrics port
     #[serde(default = "default_metrics_port")]
     pub metrics_port: u16,
+
+    #[serde(default = "default_services_metrics_timer_resolution")]
+    pub metrics_timer_resolution: Duration,
 }
 
 #[derive(Clone, Deserialize, Derivative)]

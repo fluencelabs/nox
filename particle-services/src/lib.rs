@@ -38,3 +38,5 @@ mod error;
 mod persistence;
 
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
+
+pub(crate) const MAX_HEAP_SIZE: u64 = 4 * 1024 * 1024 * 1024 - 1; // 4 GiB - 1

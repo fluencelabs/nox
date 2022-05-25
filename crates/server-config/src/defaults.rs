@@ -67,6 +67,10 @@ pub fn default_metrics_enabled() -> bool {
     true
 }
 
+pub fn default_services_metrics_timer_resolution() -> Duration {
+    Duration::from_secs(60)
+}
+
 pub fn default_base_dir() -> PathBuf {
     format!(".fluence/v{}", CONFIG_VERSION).into()
 }

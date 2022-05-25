@@ -4157,6 +4157,7 @@ name = "peer-metrics"
 version = "0.1.0"
 dependencies = [
  "bytesize",
+ "fluence-app-service",
  "log",
  "prometheus-client",
 ]

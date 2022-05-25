@@ -298,12 +298,7 @@ impl ParticleAppServices {
             .map_err(ServiceError::Engine)?;
 
         if let Some(metrics) = &self.metrics {
-            let used_size = service
-                .module_memory_stats()
-                .0
-                .into_iter()
-                .fold(0, |acc, x| acc + x.memory_size);
-            metrics.monitor_service_mem(service_id, used_size);
+            metrics.observe_service_mem(service_id, &service.module_memory_stats());
         }
 
         FunctionOutcome::Ok(result)

@@ -46,11 +46,9 @@ pub fn create_app_service(
         if let Some(metrics) = metrics {
             let mut size = 0;
             for cfg in &modules_config {
-                // TODO: where to place this constant?
-                const MAX_HEAP_SIZE: u64 = 4 * 1024 * 1024 * 1024 - 1; // 4 GiB - 1
-                size += cfg.config.max_heap_size.unwrap_or(MAX_HEAP_SIZE); //as f64;
+                size += cfg.config.max_heap_size.unwrap_or(crate::MAX_HEAP_SIZE);
             }
-            metrics.mem_max_bytes.observe(size as f64)
+            metrics.mem_max_bytes.observe(size as f64);
         }
 
         let modules = AppServiceConfig {
@@ -73,12 +71,7 @@ pub fn create_app_service(
 
         if let Some(metrics) = metrics {
             metrics.services_count.inc();
-            let init_memory = service
-                .module_memory_stats()
-                .0
-                .into_iter()
-                .fold(0, |acc, x| acc + x.memory_size);
-            metrics.monitor_service_mem(service_id, init_memory);
+            metrics.observe_service_mem(service_id, &service.module_memory_stats());
         }
 
         service

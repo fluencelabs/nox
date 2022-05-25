@@ -15,7 +15,7 @@
  */
 
 use std::sync::Arc;
-use std::{io, iter::once, net::SocketAddr, thread::sleep, time};
+use std::{io, iter::once, net::SocketAddr, time};
 
 use async_std::task;
 use eyre::WrapErr;
@@ -59,21 +59,22 @@ use crate::Connectivity;
 use super::behaviour::NetworkBehaviour;
 
 pub struct ServicesMetricsBackend {
-    interval: time::Duration,
+    timer_resolution: time::Duration,
     metrics: ServicesMetrics,
 }
 
 impl ServicesMetricsBackend {
-    pub fn new(interval: time::Duration, metrics: ServicesMetrics) -> Self {
-        Self { interval, metrics }
+    pub fn new(timer_resolution: time::Duration, metrics: ServicesMetrics) -> Self {
+        Self { timer_resolution, metrics }
     }
 
     pub fn start(self) -> task::JoinHandle<()> {
         task::spawn(async move {
+            let mut timer = async_std::stream::interval(self.timer_resolution).fuse();
             loop {
                 // store the current services memory sizes to a histogram
                 self.metrics.store_service_mem();
-                sleep(self.interval);
+                timer.next().await;
             }
         })
     }
@@ -175,7 +176,7 @@ impl<RT: AquaRuntime> Node<RT> {
         // This is fine to clone the services metrics because every field has a mutex or is atomic.
         let services_metrics_backend = services_metrics
             .as_ref()
-            .map(|m| ServicesMetricsBackend::new(time::Duration::from_secs(60), m.clone()));
+            .map(|m| ServicesMetricsBackend::new(config.metrics_config.metrics_timer_resolution, m.clone()));
 
         let builtins = Self::builtins(
             connectivity.clone(),

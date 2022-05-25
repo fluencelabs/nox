@@ -7,6 +7,8 @@ use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::registry::Registry;
 
+use fluence_app_service::MemoryStats;
+
 use crate::{execution_time_buckets, mem_buckets_extended};
 
 type ServiceId = String;
@@ -126,7 +128,8 @@ impl ServicesMetrics {
         }
     }
 
-    pub fn monitor_service_mem(&self, service_id: String, memory: usize) {
+    pub fn observe_service_mem(&self, service_id: String, stats: &MemoryStats) {
+        let memory = stats.0.iter().fold(0, |acc, x| acc + x.memory_size);
         let mut state = self.services_memory_state.lock().unwrap();
         let old = state.insert(service_id, memory as f64);
         self.mem_used_total_bytes
