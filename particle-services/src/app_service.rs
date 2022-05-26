@@ -44,11 +44,11 @@ pub fn create_app_service(
             .for_each(|module| inject_vault(&config.particles_vault_dir, module));
 
         if let Some(metrics) = metrics {
-            let mut size = 0;
-            for cfg in &modules_config {
-                size += cfg.config.max_heap_size.unwrap_or(crate::MAX_HEAP_SIZE);
-            }
-            metrics.mem_max_bytes.observe(size as f64);
+            let sizes = modules_config
+                .iter()
+                .map(|cfg| cfg.config.max_heap_size.unwrap_or(crate::MAX_HEAP_SIZE))
+                .collect();
+            metrics.observe_service_max_mem(&sizes);
         }
 
         let modules = AppServiceConfig {
@@ -71,7 +71,11 @@ pub fn create_app_service(
 
         if let Some(metrics) = metrics {
             metrics.services_count.inc();
-            metrics.observe_service_mem(service_id, &service.module_memory_stats());
+            let stats = service.module_memory_stats();
+            metrics
+                .modules_in_services_count
+                .observe(stats.0.len() as f64);
+            metrics.observe_service_mem(service_id, stats);
         }
 
         service

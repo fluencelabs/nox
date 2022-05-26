@@ -298,7 +298,7 @@ impl ParticleAppServices {
             .map_err(ServiceError::Engine)?;
 
         if let Some(metrics) = &self.metrics {
-            metrics.observe_service_mem(service_id, &service.module_memory_stats());
+            metrics.observe_service_mem(service_id, service.module_memory_stats());
         }
 
         FunctionOutcome::Ok(result)

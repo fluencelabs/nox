@@ -34,18 +34,19 @@ pub(self) fn execution_time_buckets() -> std::vec::IntoIter<f64> {
 
 /// 1mib, 5mib, 10mib, 25mib, 50mib, 100mib, 200mib, 500mib, 1gib
 pub(self) fn mem_buckets() -> std::vec::IntoIter<f64> {
-    vec![1, 5, 10, 25, 50, 100, 200, 500, 1024]
-        .into_iter()
-        .map(|n| (n * bytesize::MIB) as f64)
-        .collect::<Vec<_>>()
-        .into_iter()
+    to_bytes(vec![1, 5, 10, 25, 50, 100, 200, 500, 1024].into_iter())
 }
 
 /// 1mib, 5mib, 10mib, 25mib, 50mib, 100mib, 200mib, 500mib, 1gib, 2gib, 3,gib, 4,gib
-pub(self) fn mem_buckets_extended() -> std::vec::IntoIter<f64> {
-    vec![1, 5, 10, 25, 50, 100, 200, 500, 1024, 2048, 3072, 4096]
-        .into_iter()
-        .map(|n| (n * bytesize::MIB) as f64)
-        .collect::<Vec<_>>()
-        .into_iter()
+pub(self) fn mem_buckets_4gib() -> std::vec::IntoIter<f64> {
+    to_bytes(vec![1, 5, 10, 25, 50, 100, 200, 500, 1024, 2048, 3072, 4096].into_iter())
+}
+
+/// 1mib, 5mib, 10mib, 25mib, 50mib, 100mib, 200mib, 500mib, 1gib, 2gib, 3,gib, 4,gib, 8gib
+pub(self) fn mem_buckets_8gib() -> std::vec::IntoIter<f64> {
+    to_bytes(vec![1, 5, 10, 25, 50, 100, 200, 500, 1024, 2048, 3072, 4096, 8192].into_iter())
+}
+
+fn to_bytes(values: std::vec::IntoIter<u64>) -> std::vec::IntoIter<f64> {
+    values.map(|n| bytesize::mib(n) as f64).collect::<Vec<_>>().into_iter()
 }

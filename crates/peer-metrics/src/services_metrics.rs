@@ -4,15 +4,21 @@ use std::sync::{Arc, Mutex};
 
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::gauge::Gauge;
-use prometheus_client::metrics::histogram::Histogram;
+use prometheus_client::metrics::histogram::{linear_buckets, Histogram};
 use prometheus_client::registry::Registry;
 
 use fluence_app_service::MemoryStats;
 
-use crate::{execution_time_buckets, mem_buckets_extended};
+use crate::{execution_time_buckets, mem_buckets_4gib, mem_buckets_8gib};
 
 type ServiceId = String;
-type MemorySize = f64;
+type ModuleName = String;
+type MemorySize = u64;
+
+struct ServiceMemoryStat {
+    total: MemorySize,
+    modules_stats: HashMap<ModuleName, MemorySize>,
+}
 
 #[derive(Clone)]
 pub struct ServicesMetrics {
@@ -28,15 +34,22 @@ pub struct ServicesMetrics {
     pub removal_count: Counter,
     /// Maximum memory set in module config
     pub mem_max_bytes: Histogram,
-    /// Actual memory used by service
+    /// Actual memory used by a module
+    pub mem_max_per_module_bytes: Histogram,
+    /// Actual memory used by a service
     pub mem_used_bytes: Histogram,
+    /// Actual memory used by a module
+    pub mem_used_per_module_bytes: Histogram,
     /// Total memory used
     pub mem_used_total_bytes: Gauge,
     /// Number of (srv create) failures
     pub creation_failure_count: Counter,
 
+    /// How many modules a service includes.
+    pub modules_in_services_count: Histogram,
+
     /// Used memory per services
-    pub services_memory_state: Arc<Mutex<HashMap<ServiceId, MemorySize>>>,
+    services_memory_state: Arc<Mutex<HashMap<ServiceId, ServiceMemoryStat>>>,
 }
 
 impl fmt::Debug for ServicesMetrics {
@@ -84,17 +97,31 @@ impl ServicesMetrics {
             Box::new(removal_count.clone()),
         );
 
-        let mem_max_bytes = Histogram::new(mem_buckets_extended());
+        let mem_max_bytes = Histogram::new(mem_buckets_8gib());
         sub_registry.register(
             "mem_max_bytes",
+            "maximum memory set in module config per service",
+            Box::new(mem_max_bytes.clone()),
+        );
+
+        let mem_max_per_module_bytes = Histogram::new(mem_buckets_4gib());
+        sub_registry.register(
+            "mem_max_per_module_bytes",
             "maximum memory set in module config",
             Box::new(mem_max_bytes.clone()),
         );
 
-        let mem_used_bytes = Histogram::new(mem_buckets_extended());
+        let mem_used_bytes = Histogram::new(mem_buckets_8gib());
         sub_registry.register(
             "mem_used_bytes",
             "actual memory used by a service",
+            Box::new(mem_used_bytes.clone()),
+        );
+
+        let mem_used_per_module_bytes = Histogram::new(mem_buckets_4gib());
+        sub_registry.register(
+            "mem_used_per_module_bytes",
+            "actual memory used by a service per module",
             Box::new(mem_used_bytes.clone()),
         );
 
@@ -112,6 +139,13 @@ impl ServicesMetrics {
             Box::new(creation_failure_count.clone()),
         );
 
+        let modules_in_services_count = Histogram::new(linear_buckets(1.0, 1.0, 10));
+        sub_registry.register(
+            "modules_in_services_count",
+            "number of modules per services",
+            Box::new(modules_in_services_count.clone()),
+        );
+
         let services_memory_state = Arc::new(Mutex::new(HashMap::new()));
 
         ServicesMetrics {
@@ -121,25 +155,66 @@ impl ServicesMetrics {
             creation_count,
             removal_count,
             mem_max_bytes,
+            mem_max_per_module_bytes,
             mem_used_bytes,
+            mem_used_per_module_bytes,
             mem_used_total_bytes,
             creation_failure_count,
+            modules_in_services_count,
             services_memory_state,
         }
     }
 
-    pub fn observe_service_mem(&self, service_id: String, stats: &MemoryStats) {
-        let memory = stats.0.iter().fold(0, |acc, x| acc + x.memory_size);
+    pub fn observe_service_mem(&self, service_id: String, stats: MemoryStats) {
         let mut state = self.services_memory_state.lock().unwrap();
-        let old = state.insert(service_id, memory as f64);
-        self.mem_used_total_bytes
-            .inc_by(memory as u64 - old.unwrap_or(0.0) as u64);
+
+        // Update or create a service stats including corresponding modules' stats.
+        if let Some(service_stat) = state.get_mut(&service_id) {
+            // Count total used memory by a service and update services' modules' memory stats.
+            let mut total: MemorySize = 0;
+            for module_stat in stats.0 {
+                if let Some(current_size) = service_stat.modules_stats.get_mut(module_stat.name) {
+                    *current_size = module_stat.memory_size as MemorySize;
+                    total += *current_size;
+                }
+            }
+            service_stat.total = total;
+        } else {
+            let total = stats.0.iter().fold(0, |acc, x| acc + x.memory_size) as MemorySize;
+            let modules_stats = stats
+                .0
+                .into_iter()
+                .map(|stat| (stat.name.to_string(), stat.memory_size as MemorySize))
+                .collect::<_>();
+            state.insert(
+                service_id,
+                ServiceMemoryStat {
+                    total,
+                    modules_stats,
+                },
+            );
+        }
     }
 
     pub fn store_service_mem(&self) {
         let state = self.services_memory_state.lock().unwrap();
-        for (_, metric) in state.iter() {
-            self.mem_used_bytes.observe(*metric);
+        let mut total = 0;
+        for (_, service_stat) in state.iter() {
+            self.mem_used_bytes.observe(service_stat.total as f64);
+            for stat in &service_stat.modules_stats {
+                self.mem_used_per_module_bytes.observe(*stat.1 as f64)
+            }
+            total += service_stat.total;
         }
+        self.mem_used_total_bytes.set(total);
+    }
+
+    pub fn observe_service_max_mem(&self, memory: &Vec<u64>) {
+        let mut size = 0;
+        for m in memory {
+            self.mem_max_per_module_bytes.observe(*m as f64);
+            size += m;
+        }
+        self.mem_max_bytes.observe(size as f64);
     }
 }

@@ -72,7 +72,6 @@ impl ServicesMetricsBackend {
         task::spawn(async move {
             let mut timer = async_std::stream::interval(self.timer_resolution).fuse();
             loop {
-                // store the current services memory sizes to a histogram
                 self.metrics.store_service_mem();
                 timer.next().await;
             }
