@@ -209,7 +209,7 @@ impl ServicesMetrics {
         self.mem_used_total_bytes.set(total);
     }
 
-    pub fn observe_service_max_mem(&self, memory: &Vec<u64>) {
+    pub fn observe_service_max_mem(&self, memory: &[u64]) {
         let mut size = 0;
         for m in memory {
             self.mem_max_per_module_bytes.observe(*m as f64);

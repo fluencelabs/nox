@@ -37,7 +37,7 @@ impl ParticleExecutorMetrics {
     pub fn new(registry: &mut Registry) -> Self {
         let sub_registry = registry.sub_registry_with_prefix("particle_executor");
 
-        let interpretation_time_sec = Histogram::new(execution_time_buckets().into_iter());
+        let interpretation_time_sec = Histogram::new(execution_time_buckets());
         sub_registry.register(
             "interpretation_time_sec",
             "Distribution of time it took to run the interpreter once",
@@ -72,7 +72,7 @@ impl ParticleExecutorMetrics {
         );
 
         let service_call_time_sec: Family<_, _> =
-            Family::new_with_constructor(|| Histogram::new(execution_time_buckets().into_iter()));
+            Family::new_with_constructor(|| Histogram::new(execution_time_buckets()));
         sub_registry.register(
             "service_call_time_sec",
             "Distribution of time it took to execute a single service or builtin call",

@@ -47,7 +47,7 @@ pub fn create_app_service(
             let sizes = modules_config
                 .iter()
                 .map(|cfg| cfg.config.max_heap_size.unwrap_or(crate::MAX_HEAP_SIZE))
-                .collect();
+                .collect::<Vec<_>>();
             metrics.observe_service_max_mem(&sizes);
         }
 
