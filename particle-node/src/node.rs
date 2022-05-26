@@ -65,7 +65,10 @@ pub struct ServicesMetricsBackend {
 
 impl ServicesMetricsBackend {
     pub fn new(timer_resolution: time::Duration, metrics: ServicesMetrics) -> Self {
-        Self { timer_resolution, metrics }
+        Self {
+            timer_resolution,
+            metrics,
+        }
     }
 
     pub fn start(self) -> task::JoinHandle<()> {
@@ -173,9 +176,9 @@ impl<RT: AquaRuntime> Node<RT> {
         };
 
         // This is fine to clone the services metrics because every field has a mutex or is atomic.
-        let services_metrics_backend = services_metrics
-            .as_ref()
-            .map(|m| ServicesMetricsBackend::new(config.metrics_config.metrics_timer_resolution, m.clone()));
+        let services_metrics_backend = services_metrics.as_ref().map(|m| {
+            ServicesMetricsBackend::new(config.metrics_config.metrics_timer_resolution, m.clone())
+        });
 
         let builtins = Self::builtins(
             connectivity.clone(),
