@@ -173,7 +173,7 @@ impl ParticleAppServices {
 
         self.services.write().insert(service_id.clone(), service);
 
-        let creation_end_time = creation_start_time.elapsed().as_millis();
+        let creation_end_time = creation_start_time.elapsed().as_secs();
         if let Some(m) = metrics {
             m.creation_count.inc();
             m.creation_time_msec.observe(creation_end_time as f64);
@@ -229,7 +229,7 @@ impl ParticleAppServices {
             aliases.remove(alias);
         }
 
-        let removal_end_time = removal_start_time.elapsed().as_millis();
+        let removal_end_time = removal_start_time.elapsed().as_secs();
         if let Some(m) = self.metrics.as_ref() {
             m.removal_count.inc();
             m.services_count.dec();
