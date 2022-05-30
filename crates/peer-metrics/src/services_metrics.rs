@@ -108,7 +108,7 @@ impl ServicesMetrics {
         sub_registry.register(
             "mem_max_per_module_bytes",
             "maximum memory set in module config",
-            Box::new(mem_max_bytes.clone()),
+            Box::new(mem_max_per_module_bytes.clone()),
         );
 
         let mem_used_bytes = Histogram::new(mem_buckets_8gib());
