@@ -11,13 +11,12 @@ pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
+use prometheus_client::encoding::text::SendEncodeMetric;
+use prometheus_client::registry::Registry;
 pub use services_metrics::ServicesMetrics;
 pub use vm_pool::VmPoolMetrics;
 
 // TODO:
-// - service creation time
-// - number of services
-// - service creation & removal counters
 // - service heap statistics
 // - interpreter heap histograms / summary
 // - individual actor mailbox size: max and histogram
@@ -57,4 +56,13 @@ fn to_bytes(values: std::vec::IntoIter<u64>) -> std::vec::IntoIter<f64> {
         .map(|n| bytesize::mib(n) as f64)
         .collect::<Vec<_>>()
         .into_iter()
+}
+
+pub(self) fn registered<M>(registry: &mut Registry, build: fn() -> M, name: &str, help: &str) -> M
+where
+    M: 'static + SendEncodeMetric + Clone,
+{
+    let metric = build();
+    registry.register(name, help, Box::new(metric.clone()));
+    metric
 }

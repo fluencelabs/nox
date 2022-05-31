@@ -9,7 +9,7 @@ use prometheus_client::registry::Registry;
 
 use fluence_app_service::MemoryStats;
 
-use crate::{execution_time_buckets, mem_buckets_4gib, mem_buckets_8gib};
+use crate::{execution_time_buckets, mem_buckets_4gib, mem_buckets_8gib, registered};
 
 type ServiceId = String;
 type ModuleName = String;
@@ -62,88 +62,88 @@ impl ServicesMetrics {
     pub fn new(registry: &mut Registry) -> Self {
         let sub_registry = registry.sub_registry_with_prefix("services");
 
-        let services_count = Gauge::default();
-        sub_registry.register(
-            "services_count",
-            "number of currently running services on a node",
-            Box::new(services_count.clone()),
+        let services_count = registered(
+            sub_registry,
+            Gauge::default,
+            "serivces_count",
+            "number of currently running services",
         );
 
-        let creation_time_msec = Histogram::new(execution_time_buckets());
-        sub_registry.register(
+        let creation_time_msec = registered(
+            sub_registry,
+            || Histogram::new(execution_time_buckets()),
             "creation_time_msec",
             "how long it took to create a service",
-            Box::new(creation_time_msec.clone()),
         );
 
-        let removal_time_msec = Histogram::new(execution_time_buckets());
-        sub_registry.register(
+        let removal_time_msec = registered(
+            sub_registry,
+            || Histogram::new(execution_time_buckets()),
             "removal_time_msec",
             "how long it took to remove a service",
-            Box::new(removal_time_msec.clone()),
         );
 
-        let creation_count = Counter::default();
-        sub_registry.register(
+        let creation_count = registered(
+            sub_registry,
+            Counter::default,
             "creation_count",
             "number of srv create calls",
-            Box::new(creation_count.clone()),
         );
 
-        let removal_count = Counter::default();
-        sub_registry.register(
+        let removal_count = registered(
+            sub_registry,
+            Counter::default,
             "removal_count",
             "number of srv remove calls",
-            Box::new(removal_count.clone()),
         );
 
-        let mem_max_bytes = Histogram::new(mem_buckets_8gib());
-        sub_registry.register(
+        let mem_max_bytes = registered(
+            sub_registry,
+            || Histogram::new(mem_buckets_8gib()),
             "mem_max_bytes",
             "maximum memory set in module config per service",
-            Box::new(mem_max_bytes.clone()),
         );
 
-        let mem_max_per_module_bytes = Histogram::new(mem_buckets_4gib());
-        sub_registry.register(
+        let mem_max_per_module_bytes = registered(
+            sub_registry,
+            || Histogram::new(mem_buckets_4gib()),
             "mem_max_per_module_bytes",
             "maximum memory set in module config",
-            Box::new(mem_max_per_module_bytes.clone()),
         );
 
-        let mem_used_bytes = Histogram::new(mem_buckets_8gib());
-        sub_registry.register(
+        let mem_used_bytes = registered(
+            sub_registry,
+            || Histogram::new(mem_buckets_8gib()),
             "mem_used_bytes",
             "actual memory used by a service",
-            Box::new(mem_used_bytes.clone()),
         );
 
-        let mem_used_per_module_bytes = Histogram::new(mem_buckets_4gib());
-        sub_registry.register(
+        let mem_used_per_module_bytes = registered(
+            sub_registry,
+            || Histogram::new(mem_buckets_4gib()),
             "mem_used_per_module_bytes",
             "actual memory used by a service per module",
-            Box::new(mem_used_bytes.clone()),
         );
 
-        let mem_used_total_bytes = Gauge::default();
-        sub_registry.register(
+        let mem_used_total_bytes = registered(
+            sub_registry,
+            Gauge::default,
             "mem_used_total_bytes",
             "total size of used memory by services",
-            Box::new(mem_used_total_bytes.clone()),
         );
 
-        let creation_failure_count = Counter::default();
-        sub_registry.register(
+        let creation_failure_count = registered(
+            sub_registry,
+            Counter::default,
             "creation_failure_count",
             "number of srv remove calls",
-            Box::new(creation_failure_count.clone()),
         );
 
-        let modules_in_services_count = Histogram::new(linear_buckets(1.0, 1.0, 10));
-        sub_registry.register(
+        let modules_in_services_count = registered(
+            sub_registry,
+            || Histogram::new(linear_buckets(1.0, 1.0, 10)),
             "modules_in_services_count",
             "number of modules per services",
-            Box::new(modules_in_services_count.clone()),
         );
 
         let services_memory_state = Arc::new(Mutex::new(HashMap::new()));
