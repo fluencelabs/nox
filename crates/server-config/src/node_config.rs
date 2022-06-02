@@ -160,6 +160,7 @@ pub struct MetricsConfig {
     pub metrics_port: u16,
 
     #[serde(default = "default_services_metrics_timer_resolution")]
+    #[serde(with = "humantime_serde")]
     pub metrics_timer_resolution: Duration,
 }
 
