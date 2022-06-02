@@ -184,3 +184,7 @@ pub fn default_management_peer_id() -> PeerId {
 pub fn default_keypair_format() -> String {
     "ed25519".to_string()
 }
+
+pub fn default_module_max_heap_size() -> bytesize::ByteSize {
+    bytesize::ByteSize::b(bytesize::gib(4 as u64) - 1)
+}

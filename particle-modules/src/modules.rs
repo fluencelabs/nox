@@ -65,7 +65,7 @@ pub struct ModuleRepository {
     modules_by_name: Arc<Mutex<HashMap<ModuleName, Hash>>>,
     module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
-    max_heap_size: Option<ByteSize>,
+    max_heap_size: ByteSize,
     default_heap_size: Option<ByteSize>,
 }
 
@@ -74,7 +74,7 @@ impl ModuleRepository {
         modules_dir: &Path,
         blueprints_dir: &Path,
         particles_vault_dir: &Path,
-        max_heap_size: Option<ByteSize>,
+        max_heap_size: ByteSize,
         default_heap_size: Option<ByteSize>,
     ) -> Self {
         let modules_by_name: HashMap<_, _> = files::list_files(modules_dir)
@@ -154,11 +154,11 @@ impl ModuleRepository {
 
         config.config.max_heap_size = heap_size;
 
-        if let (Some(heap_size), Some(max_heap_size)) = (heap_size, self.max_heap_size) {
-            if heap_size > max_heap_size {
+        if let Some(heap_size) = heap_size {
+            if heap_size > self.max_heap_size {
                 return Err(MaxHeapSizeOverflow {
                     max_heap_size_wanted: heap_size.as_u64(),
-                    max_heap_size_allowed: max_heap_size.as_u64(),
+                    max_heap_size_allowed: self.max_heap_size.as_u64(),
                 });
             }
         }

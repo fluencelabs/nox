@@ -65,7 +65,7 @@ impl ServicesMetrics {
         let services_count = registered(
             sub_registry,
             Gauge::default,
-            "serivces_count",
+            "services_count",
             "number of currently running services",
         );
 

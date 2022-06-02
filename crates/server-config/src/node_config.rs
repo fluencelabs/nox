@@ -91,9 +91,9 @@ pub struct NodeConfig {
     pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
 
     /// Maximum heap size in bytes available for a WASM module.
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    #[serde(default)]
-    pub module_max_heap_size: Option<bytesize::ByteSize>,
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default = "default_module_max_heap_size")]
+    pub module_max_heap_size: bytesize::ByteSize,
 
     /// Default heap size in bytes available for a WASM module unless otherwise specified.
     #[serde_as(as = "Option<DisplayFromStr>")]
