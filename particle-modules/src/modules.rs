@@ -512,11 +512,12 @@ mod tests {
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test").unwrap();
         let vault_dir = TempDir::new("test").unwrap();
+        let max_heap_size = server_config::default_module_max_heap_size();
         let repo = ModuleRepository::new(
             module_dir.path(),
             bp_dir.path(),
             vault_dir.path(),
-            None,
+            max_heap_size,
             None,
         );
 
@@ -553,11 +554,12 @@ mod tests {
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test2").unwrap();
         let vault_dir = TempDir::new("test3").unwrap();
+        let max_heap_size = server_config::default_module_max_heap_size();
         let repo = ModuleRepository::new(
             module_dir.path(),
             bp_dir.path(),
             vault_dir.path(),
-            None,
+            max_heap_size,
             None,
         );
 
@@ -611,7 +613,7 @@ mod tests {
             module_dir.path(),
             bp_dir.path(),
             vault_dir.path(),
-            Some(max_heap_size),
+            max_heap_size,
             None,
         );
 

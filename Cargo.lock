@@ -4025,6 +4025,7 @@ dependencies = [
  "particle-execution",
  "serde",
  "serde_json",
+ "server-config",
  "service-modules",
  "tempdir",
  "thiserror",

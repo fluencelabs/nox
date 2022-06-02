@@ -504,6 +504,7 @@ mod tests {
     ) -> ParticleAppServices {
         let startup_kp = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
+        let max_heap_size = server_config::default_module_max_heap_size();
         let config = ServicesConfig::new(
             local_pid,
             base_dir.clone(),
@@ -511,7 +512,7 @@ mod tests {
             HashMap::new(),
             management_pid,
             to_peer_id(&startup_kp),
-            None,
+            max_heap_size,
             None,
         )
         .unwrap();
@@ -520,7 +521,7 @@ mod tests {
             &config.modules_dir,
             &config.blueprint_dir,
             &config.particles_vault_dir,
-            None,
+            max_heap_size,
             None,
         );
 
