@@ -806,12 +806,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::builtins::make_module_config;
-    use particle_args::Args;
+    use std::str::FromStr;
+
     use prop::collection::vec;
     use proptest::prelude::*;
     use serde_json::json;
-    use std::str::FromStr;
+
+    use particle_args::Args;
+
+    use crate::builtins::make_module_config;
 
     prop_compose! {
       fn heap_size
