@@ -850,7 +850,7 @@ mod tests {
     proptest! {
         #[test]
         fn module_config(
-            name in "[a-z]",
+            name in any::<String>(),
             mem_pages in vec(any::<u32>(), 0..1),
             logger_enabled in vec(proptest::bool::ANY, 0..1),
             heap in heap_size(),
