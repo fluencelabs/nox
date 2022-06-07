@@ -813,30 +813,6 @@ mod tests {
     use serde_json::json;
     use std::str::FromStr;
 
-    #[test]
-    fn module_config_fixed() {
-        // println!("name {:?}, mem_pages {:?}", name, mem_pages);
-
-        let args = vec![
-            json!(""),          // required: name
-            json!([123u32]),    // mem_pages_count = optional: None
-            json!(["100 MiB"]), // optional: max_heap_size
-            json!([true]),      // optional: logger_enabled
-            json!([]),          // optional: preopened_files
-            json!([]),          // optional: envs
-            json!([]),          // optional: mapped_dirs
-            json!([]),          // optional: mounted_binaries
-            json!([]),          // optional: logging_mask
-        ];
-        let args = Args {
-            service_id: "".to_string(),
-            function_name: "".to_string(),
-            function_args: args,
-            tetraplets: vec![],
-        };
-        make_module_config(args).expect("parse config via make_module_config");
-    }
-
     prop_compose! {
       fn heap_size
         ()
@@ -848,18 +824,22 @@ mod tests {
       }
     }
 
+    pub fn air_opt<T: Strategy>(element: T) -> proptest::collection::VecStrategy<T> {
+        vec(element, 0..1)
+    }
+
     proptest! {
         #[test]
         fn module_config(
             name in any::<String>(),
-            mem_pages in vec(any::<u32>(), 0..1),
-            logger_enabled in vec(proptest::bool::ANY, 0..1),
+            mem_pages in air_opt(any::<u32>()),
+            logger_enabled in air_opt(proptest::bool::ANY),
             heap in heap_size(),
-            preopened_files in vec(any::<String>(), 0..10),
-            envs in vec(vec(vec(any::<String>(), 2..=2), 0..10), 0..1),
-            mapped_dirs in vec(vec(vec(any::<String>(), 2..=2), 0..10), 0..1),
-            mounted_binaries in vec(vec(vec(any::<String>(), 2..=2), 0..10), 0..1),
-            logging_mask in vec(any::<i32>(), 0..1),
+            preopened_files in air_opt(any::<String>()),
+            envs in air_opt(vec(vec(any::<String>(), 2..=2), 0..10)),
+            mapped_dirs in air_opt(vec(vec(any::<String>(), 2..=2), 0..10)),
+            mounted_binaries in air_opt(vec(vec(any::<String>(), 2..=2), 0..10)),
+            logging_mask in air_opt(any::<i32>()),
         ) {
             let mem_pages: Vec<u32> = mem_pages;
             let heap: Vec<String> = heap;
