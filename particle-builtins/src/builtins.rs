@@ -887,7 +887,6 @@ mod tests {
             };
 
             let config = make_module_config(args).expect("parse config via make_module_config");
-            println!("{}", config);
             let prop_heap = heap.get(0).map(|h| bytesize::ByteSize::from_str(h).unwrap().to_string());
             let config_heap = config.get("max_heap_size").map(|h| bytesize::ByteSize::from_str(h.as_str().unwrap()).unwrap().to_string());
             prop_assert_eq!(prop_heap, config_heap);
