@@ -835,13 +835,12 @@ mod tests {
             tetraplets: vec![],
         };
         make_module_config(args).expect("parse config via make_module_config");
-        //
     }
 
     prop_compose! {
       fn heap_size
         ()
-        (n in prop::option::of(any::<u32>()), si in "(?i)([kmgtp]i)?B")
+        (n in prop::option::of(0..100_000), si in "(?i)([kmg]i)?B")
         -> Vec<String>
       {
         n.map(|n| vec![format!("{} {}", n, si)]).unwrap_or_default()
@@ -854,23 +853,31 @@ mod tests {
             name in "[a-z]",
             mem_pages in vec(any::<u32>(), 0..1),
             logger_enabled in vec(proptest::bool::ANY, 0..1),
-            heap in heap_size()
+            heap in heap_size(),
+            preopened_files in vec(any::<String>(), 0..10),
+            envs in vec(vec(vec(any::<String>(), 2..=2), 0..10), 0..1),
+            mapped_dirs in vec(vec(vec(any::<String>(), 2..=2), 0..10), 0..1),
+            mounted_binaries in vec(vec(vec(any::<String>(), 2..=2), 0..10), 0..1),
+            logging_mask in vec(any::<i32>(), 0..1),
         ) {
-            // println!("name {:?}, mem_pages {:?}", name, mem_pages);
-
             let mem_pages: Vec<u32> = mem_pages;
             let heap: Vec<String> = heap;
+            let preopened_files: Vec<String> = preopened_files;
+            let envs: Vec<Vec<Vec<String>>> = envs;
+            let mapped_dirs: Vec<Vec<Vec<String>>> =mapped_dirs;
+            let mounted_binaries: Vec<Vec<Vec<String>>> = mounted_binaries;
+            let logging_mask: Vec<i32> = logging_mask;
 
             let args = vec![
-                json!(name),      // required: name
-                json!(mem_pages),          // mem_pages_count = optional: None
-                json!(heap.clone()), // optional: max_heap_size
-                json!(logger_enabled),      // optional: logger_enabled
-                json!([]),          // optional: preopened_files
-                json!([]),          // optional: envs
-                json!([]),          // optional: mapped_dirs
-                json!([]),          // optional: mounted_binaries
-                json!([]),          // optional: logging_mask
+                json!(name),              // required: name
+                json!(mem_pages),         // mem_pages_count = optional: None
+                json!(heap.clone()),      // optional: max_heap_size
+                json!(logger_enabled),    // optional: logger_enabled
+                json!(preopened_files),   // optional: preopened_files
+                json!(envs),              // optional: envs
+                json!(mapped_dirs),       // optional: mapped_dirs
+                json!(mounted_binaries),  // optional: mounted_binaries
+                json!(logging_mask),      // optional: logging_mask
             ];
             let args = Args {
                 service_id: "".to_string(),
@@ -879,11 +886,10 @@ mod tests {
                 tetraplets: vec![],
             };
 
-
             let config = make_module_config(args).expect("parse config via make_module_config");
-            let prop_heap = heap.get(0).map(|h| bytesize::ByteSize::from_str(h).unwrap());
-            let config_heap = config.get("max_heap_size").map(|h| bytesize::ByteSize::from_str(h.as_str().unwrap()).unwrap());
-            println!("arg_heap {:?} => prop_heap {:?} {:?} => config_heap {:?} {:?}", heap, prop_heap.unwrap_or_default().as_u64(), prop_heap, config_heap.unwrap_or_default().as_u64(), config_heap);
+            println!("{}", config);
+            let prop_heap = heap.get(0).map(|h| bytesize::ByteSize::from_str(h).unwrap().to_string());
+            let config_heap = config.get("max_heap_size").map(|h| bytesize::ByteSize::from_str(h.as_str().unwrap()).unwrap().to_string());
             prop_assert_eq!(prop_heap, config_heap);
         }
     }
