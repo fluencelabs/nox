@@ -840,6 +840,7 @@ mod tests {
     prop_compose! {
       fn heap_size
         ()
+        // FIXME: limit is 100k GB because ByteSize can't handle exabytes. terabytes and petabytes are missing for the same reason.
         (n in prop::option::of(0..100_000), si in "(?i)([kmg]i)?B")
         -> Vec<String>
       {
