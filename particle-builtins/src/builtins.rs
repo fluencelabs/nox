@@ -809,6 +809,8 @@ mod tests {
     use std::str::FromStr;
 
     use prop::collection::vec;
+    use proptest::arbitrary::StrategyFor;
+    use proptest::collection::{SizeRange, VecStrategy};
     use proptest::prelude::*;
     use serde_json::json;
 
@@ -817,6 +819,7 @@ mod tests {
     use crate::builtins::make_module_config;
 
     prop_compose! {
+      /// Generates ByteSize strings
       fn heap_size
         ()
         // FIXME: limit is 100k GB because ByteSize can't handle exabytes. terabytes and petabytes are missing for the same reason.
@@ -827,8 +830,14 @@ mod tests {
       }
     }
 
+    /// Wraps value into AIR-style option (vec of length 0 or 1)
     pub fn air_opt<T: Strategy>(element: T) -> proptest::collection::VecStrategy<T> {
         vec(element, 0..1)
+    }
+
+    /// Generates an associative array of strings of a given size
+    pub fn assoc_vec(size: impl Into<SizeRange>) -> VecStrategy<VecStrategy<StrategyFor<String>>> {
+        vec(vec(any::<String>(), 2..=2), size)
     }
 
     proptest! {
@@ -839,9 +848,9 @@ mod tests {
             logger_enabled in air_opt(proptest::bool::ANY),
             heap in heap_size(),
             preopened_files in air_opt(any::<String>()),
-            envs in air_opt(vec(vec(any::<String>(), 2..=2), 0..10)),
-            mapped_dirs in air_opt(vec(vec(any::<String>(), 2..=2), 0..10)),
-            mounted_binaries in air_opt(vec(vec(any::<String>(), 2..=2), 0..10)),
+            envs in air_opt(assoc_vec(0..10)),
+            mapped_dirs in air_opt(assoc_vec(0..10)),
+            mounted_binaries in air_opt(assoc_vec(0..10)),
             logging_mask in air_opt(any::<i32>()),
         ) {
             let mem_pages: Vec<u32> = mem_pages;
