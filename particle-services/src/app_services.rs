@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use std::ops::Deref;
 use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
@@ -29,6 +28,7 @@ use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
+use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
 
 use crate::app_service::create_app_service;
@@ -94,6 +94,7 @@ pub struct ParticleAppServices {
     aliases: Aliases,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
+    pub metrics: Option<ServicesMetrics>,
 }
 
 pub fn get_service<'l>(
@@ -117,7 +118,11 @@ pub fn get_service<'l>(
 }
 
 impl ParticleAppServices {
-    pub fn new(config: ServicesConfig, modules: ModuleRepository) -> Self {
+    pub fn new(
+        config: ServicesConfig,
+        modules: ModuleRepository,
+        metrics: Option<ServicesMetrics>,
+    ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
@@ -129,6 +134,7 @@ impl ParticleAppServices {
             aliases: <_>::default(),
             management_peer_id,
             builtins_management_peer_id,
+            metrics,
         };
 
         this.create_persisted_services();
@@ -141,6 +147,9 @@ impl ParticleAppServices {
         blueprint_id: String,
         init_peer_id: PeerId,
     ) -> Result<String, ServiceError> {
+        let creation_start_time = Instant::now();
+
+        let metrics = self.metrics.as_ref();
         let service_id = uuid::Uuid::new_v4().to_string();
 
         let service = create_app_service(
@@ -150,7 +159,11 @@ impl ParticleAppServices {
             service_id.clone(),
             vec![],
             init_peer_id,
-        )?;
+            metrics,
+        )
+        .inspect_err(|_| {
+            metrics.map(|m| m.creation_failure_count.inc());
+        })?;
         let service = Service {
             service: Mutex::new(service),
             blueprint_id,
@@ -160,6 +173,12 @@ impl ParticleAppServices {
 
         self.services.write().insert(service_id.clone(), service);
 
+        let creation_end_time = creation_start_time.elapsed().as_secs();
+        if let Some(m) = metrics {
+            m.creation_count.inc();
+            m.creation_time_msec.observe(creation_end_time as f64);
+        }
+
         Ok(service_id)
     }
 
@@ -168,6 +187,7 @@ impl ParticleAppServices {
         service_id_or_alias: String,
         init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
+        let removal_start_time = Instant::now();
         let service_id = {
             let services_read = self.services.read();
             let (service, service_id) =
@@ -209,6 +229,11 @@ impl ParticleAppServices {
             aliases.remove(alias);
         }
 
+        let removal_end_time = removal_start_time.elapsed().as_secs();
+        if let Some(m) = self.metrics.as_ref() {
+            m.observe_removed(removal_end_time as f64);
+        }
+
         Ok(())
     }
 
@@ -237,7 +262,6 @@ impl ParticleAppServices {
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         self.create_vault(&particle.id)?;
-
         let params = CallParameters {
             host_id,
             particle_id: particle.id,
@@ -256,7 +280,7 @@ impl ParticleAppServices {
                         .collect()
                 })
                 .collect(),
-            service_id,
+            service_id: service_id.clone(),
             service_creator_peer_id: service.owner_id.to_string(),
         };
         let function_name = function_args.function_name;
@@ -270,6 +294,10 @@ impl ParticleAppServices {
                 params,
             )
             .map_err(ServiceError::Engine)?;
+
+        if let Some(metrics) = &self.metrics {
+            metrics.observe_service_mem(service_id, service.module_memory_stats());
+        }
 
         FunctionOutcome::Ok(result)
     }
@@ -365,7 +393,6 @@ impl ParticleAppServices {
 
         let lock = service.service.lock();
         let stats = lock.module_memory_stats();
-
         let stats = stats
             .0
             .into_iter()
@@ -400,6 +427,7 @@ impl ParticleAppServices {
                 s.service_id.clone(),
                 s.aliases.clone(),
                 s.owner_id,
+                self.metrics.as_ref(),
             );
             let service = match service {
                 Ok(service) => service,
@@ -474,6 +502,7 @@ mod tests {
     ) -> ParticleAppServices {
         let startup_kp = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
+        let max_heap_size = server_config::default_module_max_heap_size();
         let config = ServicesConfig::new(
             local_pid,
             base_dir.clone(),
@@ -481,7 +510,7 @@ mod tests {
             HashMap::new(),
             management_pid,
             to_peer_id(&startup_kp),
-            None,
+            max_heap_size,
             None,
         )
         .unwrap();
@@ -490,11 +519,11 @@ mod tests {
             &config.modules_dir,
             &config.blueprint_dir,
             &config.particles_vault_dir,
-            None,
+            max_heap_size,
             None,
         );
 
-        ParticleAppServices::new(config, repo)
+        ParticleAppServices::new(config, repo, None)
     }
 
     fn call_add_alias_raw(

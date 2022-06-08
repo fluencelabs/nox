@@ -67,6 +67,10 @@ pub fn default_metrics_enabled() -> bool {
     true
 }
 
+pub fn default_services_metrics_timer_resolution() -> Duration {
+    Duration::from_secs(60)
+}
+
 pub fn default_base_dir() -> PathBuf {
     format!(".fluence/v{}", CONFIG_VERSION).into()
 }
@@ -179,4 +183,8 @@ pub fn default_management_peer_id() -> PeerId {
 
 pub fn default_keypair_format() -> String {
     "ed25519".to_string()
+}
+
+pub fn default_module_max_heap_size() -> bytesize::ByteSize {
+    bytesize::ByteSize::b(bytesize::gib(4 as u64) - 1)
 }

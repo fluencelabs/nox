@@ -45,7 +45,8 @@ use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use particle_builtins::{Builtins, NodeInfo};
 use particle_protocol::Particle;
 use peer_metrics::{
-    ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, VmPoolMetrics,
+    ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
+    ServicesMetricsBackend, VmPoolMetrics,
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -70,6 +71,7 @@ pub struct Node<RT: AquaRuntime> {
     builtins_deployer: BuiltinsDeployer,
 
     registry: Option<Registry>,
+    services_metrics_backend: Option<ServicesMetricsBackend>,
 
     metrics_listen_addr: SocketAddr,
 
@@ -117,6 +119,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let connection_pool_metrics = metrics_registry.as_mut().map(ConnectionPoolMetrics::new);
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
+        let services_metrics = metrics_registry.as_mut().map(ServicesMetrics::new);
 
         let network_config = NetworkConfig::new(
             libp2p_metrics,
@@ -148,11 +151,17 @@ impl<RT: AquaRuntime> Node<RT> {
             ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
         };
 
+        // This is fine to clone the services metrics because every field has a mutex or is atomic.
+        let services_metrics_backend = services_metrics.as_ref().map(|m| {
+            ServicesMetricsBackend::new(config.metrics_config.metrics_timer_resolution, m.clone())
+        });
+
         let builtins = Self::builtins(
             connectivity.clone(),
             config.external_addresses(),
             services_config,
             script_storage_api,
+            services_metrics,
         );
 
         let (effects_out, effects_in) = unbounded();
@@ -201,6 +210,7 @@ impl<RT: AquaRuntime> Node<RT> {
             script_storage_backend,
             builtins_deployer,
             metrics_registry,
+            services_metrics_backend,
             config.metrics_listen_addr(),
             local_peer_id,
             builtins_peer_id,
@@ -233,6 +243,7 @@ impl<RT: AquaRuntime> Node<RT> {
         external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
+        services_metrics: Option<ServicesMetrics>,
     ) -> Builtins<Connectivity> {
         let node_info = NodeInfo {
             external_addresses,
@@ -240,7 +251,13 @@ impl<RT: AquaRuntime> Node<RT> {
             air_version: air_interpreter_wasm::VERSION,
         };
 
-        Builtins::new(connectivity, script_storage_api, node_info, services_config)
+        Builtins::new(
+            connectivity,
+            script_storage_api,
+            node_info,
+            services_config,
+            services_metrics,
+        )
     }
 }
 
@@ -258,6 +275,7 @@ impl<RT: AquaRuntime> Node<RT> {
         builtins_deployer: BuiltinsDeployer,
 
         registry: Option<Registry>,
+        services_metrics_backend: Option<ServicesMetricsBackend>,
         metrics_listen_addr: SocketAddr,
 
         local_peer_id: PeerId,
@@ -275,6 +293,7 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins_deployer,
 
             registry,
+            services_metrics_backend,
             metrics_listen_addr,
 
             local_peer_id,
@@ -297,6 +316,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let aquavm_pool = self.aquavm_pool;
         let script_storage = self.script_storage;
         let registry = self.registry;
+        let services_metrics_backend = self.services_metrics_backend;
         let metrics_listen_addr = self.metrics_listen_addr;
 
         task::spawn(async move {
@@ -309,6 +329,7 @@ impl<RT: AquaRuntime> Node<RT> {
             };
             let mut metrics_fut = metrics_fut.fuse();
 
+            let services_metrics_backend = services_metrics_backend.map(|m| m.start());
             let script_storage = script_storage.start();
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
@@ -348,6 +369,9 @@ impl<RT: AquaRuntime> Node<RT> {
             }
 
             log::info!("Stopping node");
+            if let Some(m) = services_metrics_backend {
+                m.cancel().await;
+            }
             script_storage.cancel().await;
             dispatcher.cancel().await;
             connectivity.cancel().await;

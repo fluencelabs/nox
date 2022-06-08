@@ -6,6 +6,8 @@ use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::registry::Registry;
 use std::time::Duration;
 
+use crate::execution_time_buckets;
+
 #[derive(Copy, Clone, Debug, Encode, Hash, Eq, PartialEq)]
 pub enum FunctionKind {
     Builtin,
@@ -35,7 +37,7 @@ impl ParticleExecutorMetrics {
     pub fn new(registry: &mut Registry) -> Self {
         let sub_registry = registry.sub_registry_with_prefix("particle_executor");
 
-        let interpretation_time_sec = Histogram::new(execution_time_buckets().into_iter());
+        let interpretation_time_sec = Histogram::new(execution_time_buckets());
         sub_registry.register(
             "interpretation_time_sec",
             "Distribution of time it took to run the interpreter once",
@@ -70,7 +72,7 @@ impl ParticleExecutorMetrics {
         );
 
         let service_call_time_sec: Family<_, _> =
-            Family::new_with_constructor(|| Histogram::new(execution_time_buckets().into_iter()));
+            Family::new_with_constructor(|| Histogram::new(execution_time_buckets()));
         sub_registry.register(
             "service_call_time_sec",
             "Distribution of time it took to execute a single service or builtin call",
@@ -117,11 +119,4 @@ impl ParticleExecutorMetrics {
                 .observe(run_time.as_secs_f64())
         }
     }
-}
-
-/// from 100 microseconds to 120 seconds
-fn execution_time_buckets() -> Vec<f64> {
-    vec![
-        0.0001, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 7.0, 15.0, 30.0, 60.0, 120.0,
-    ]
 }

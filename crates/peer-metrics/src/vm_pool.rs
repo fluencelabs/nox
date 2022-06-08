@@ -1,10 +1,11 @@
 use std::cmp::{max, min};
 
-use bytesize::MIB;
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::registry::Registry;
+
+use crate::mem_buckets;
 
 #[derive(Clone)]
 pub struct VmPoolMetrics {
@@ -93,11 +94,7 @@ impl VmPoolMetrics {
             Box::new(vm_mem_avg.clone()),
         );
         // 1mb, 5mb, 10mb, 25mb, 50mb, 100mb, 200mb
-        let vm_mem_histo = Histogram::new(
-            vec![1, 5, 10, 25, 50, 100, 200]
-                .into_iter()
-                .map(|n| (n * MIB) as f64),
-        );
+        let vm_mem_histo = Histogram::new(mem_buckets());
         sub_registry.register(
             "vm_mem_histo",
             "Interpreter memory size distribution",

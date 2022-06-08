@@ -3981,6 +3981,7 @@ dependencies = [
  "particle-modules",
  "particle-protocol",
  "particle-services",
+ "peer-metrics",
  "proptest",
  "rand 0.8.4",
  "script-storage",
@@ -4024,6 +4025,7 @@ dependencies = [
  "particle-execution",
  "serde",
  "serde_json",
+ "server-config",
  "service-modules",
  "tempdir",
  "thiserror",
@@ -4134,6 +4136,7 @@ dependencies = [
  "particle-execution",
  "particle-modules",
  "particle-protocol",
+ "peer-metrics",
  "serde",
  "serde_json",
  "server-config",
@@ -4154,7 +4157,10 @@ checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
 name = "peer-metrics"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "bytesize",
+ "fluence-app-service",
+ "futures",
  "log",
  "prometheus-client",
 ]

@@ -29,3 +29,4 @@ bytesize = "1.1.0"
 
 [dev-dependencies]
 tempdir = "0.3.7"
+server-config = { path = "../crates/server-config" }

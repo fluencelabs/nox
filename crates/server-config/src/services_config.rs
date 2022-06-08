@@ -44,7 +44,7 @@ pub struct ServicesConfig {
     /// key to manage builtins services initialization
     pub builtins_management_peer_id: PeerId,
     /// Maximum heap size in bytes available for the module.
-    pub max_heap_size: Option<ByteSize>,
+    pub max_heap_size: ByteSize,
     /// Default heap size in bytes available for the module unless otherwise specified.
     pub default_heap_size: Option<ByteSize>,
 }
@@ -57,7 +57,7 @@ impl ServicesConfig {
         envs: HashMap<Vec<u8>, Vec<u8>>,
         management_peer_id: PeerId,
         builtins_management_peer_id: PeerId,
-        max_heap_size: Option<ByteSize>,
+        max_heap_size: ByteSize,
         default_heap_size: Option<ByteSize>,
     ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
