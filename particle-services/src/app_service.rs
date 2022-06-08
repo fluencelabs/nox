@@ -44,15 +44,7 @@ pub fn create_app_service(
             .for_each(|module| inject_vault(&config.particles_vault_dir, module));
 
         if let Some(metrics) = metrics {
-            let sizes = modules_config
-                .iter()
-                .map(|cfg| {
-                    cfg.config
-                        .max_heap_size
-                        .unwrap_or(config.max_heap_size.as_u64())
-                })
-                .collect::<Vec<_>>();
-            metrics.observe_service_max_mem(&sizes);
+            metrics.observe_service_max_mem(config.max_heap_size.as_u64(), &modules_config);
         }
 
         let modules = AppServiceConfig {
@@ -74,12 +66,7 @@ pub fn create_app_service(
         persist_service(&config.services_dir, persisted)?;
 
         if let Some(metrics) = metrics {
-            metrics.services_count.inc();
-            let stats = service.module_memory_stats();
-            metrics
-                .modules_in_services_count
-                .observe(stats.0.len() as f64);
-            metrics.observe_service_mem(service_id, stats);
+            metrics.observe_created(service_id, service.module_memory_stats());
         }
 
         service

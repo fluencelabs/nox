@@ -15,7 +15,7 @@
  */
 
 use std::sync::Arc;
-use std::{io, iter::once, net::SocketAddr, time};
+use std::{io, iter::once, net::SocketAddr};
 
 use async_std::task;
 use eyre::WrapErr;
@@ -46,7 +46,7 @@ use particle_builtins::{Builtins, NodeInfo};
 use particle_protocol::Particle;
 use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
-    VmPoolMetrics,
+    ServicesMetricsBackend, VmPoolMetrics,
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -57,30 +57,6 @@ use crate::metrics::start_metrics_endpoint;
 use crate::Connectivity;
 
 use super::behaviour::NetworkBehaviour;
-
-pub struct ServicesMetricsBackend {
-    timer_resolution: time::Duration,
-    metrics: ServicesMetrics,
-}
-
-impl ServicesMetricsBackend {
-    pub fn new(timer_resolution: time::Duration, metrics: ServicesMetrics) -> Self {
-        Self {
-            timer_resolution,
-            metrics,
-        }
-    }
-
-    pub fn start(self) -> task::JoinHandle<()> {
-        task::spawn(async move {
-            let mut timer = async_std::stream::interval(self.timer_resolution).fuse();
-            loop {
-                self.metrics.store_service_mem();
-                timer.next().await;
-            }
-        })
-    }
-}
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {

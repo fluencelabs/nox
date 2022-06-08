@@ -13,7 +13,7 @@ pub use dispatcher::DispatcherMetrics;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
 use prometheus_client::encoding::text::SendEncodeMetric;
 use prometheus_client::registry::Registry;
-pub use services_metrics::ServicesMetrics;
+pub use services_metrics::{ServicesMetrics, ServicesMetricsBackend};
 pub use vm_pool::VmPoolMetrics;
 
 // TODO:
@@ -33,17 +33,17 @@ pub(self) fn execution_time_buckets() -> std::vec::IntoIter<f64> {
 
 /// 1mib, 5mib, 10mib, 25mib, 50mib, 100mib, 200mib, 500mib, 1gib
 pub(self) fn mem_buckets() -> std::vec::IntoIter<f64> {
-    to_bytes(vec![1, 5, 10, 25, 50, 100, 200, 500, 1024].into_iter())
+    to_mib(vec![1, 5, 10, 25, 50, 100, 200, 500, 1024].into_iter())
 }
 
-/// 1mib, 5mib, 10mib, 25mib, 50mib, 100mib, 200mib, 500mib, 1gib, 2gib, 3,gib, 4,gib
+/// 1mib, 5mib, 10mib, 25mib, 50mib, 100mib, 200mib, 500mib, 1gib, 2gib, 3gib, 4gib
 pub(self) fn mem_buckets_4gib() -> std::vec::IntoIter<f64> {
-    to_bytes(vec![1, 5, 10, 25, 50, 100, 200, 500, 1024, 2048, 3072, 4096].into_iter())
+    to_mib(vec![1, 5, 10, 25, 50, 100, 200, 500, 1024, 2048, 3072, 4096].into_iter())
 }
 
-/// 1mib, 5mib, 10mib, 25mib, 50mib, 100mib, 200mib, 500mib, 1gib, 2gib, 3,gib, 4,gib, 8gib
+/// 1mib, 5mib, 10mib, 25mib, 50mib, 100mib, 200mib, 500mib, 1gib, 2gib, 3gib, 4gib, 8gib
 pub(self) fn mem_buckets_8gib() -> std::vec::IntoIter<f64> {
-    to_bytes(
+    to_mib(
         vec![
             1, 5, 10, 25, 50, 100, 200, 500, 1024, 2048, 3072, 4096, 8192,
         ]
@@ -51,18 +51,17 @@ pub(self) fn mem_buckets_8gib() -> std::vec::IntoIter<f64> {
     )
 }
 
-fn to_bytes(values: std::vec::IntoIter<u64>) -> std::vec::IntoIter<f64> {
+fn to_mib(values: std::vec::IntoIter<u64>) -> std::vec::IntoIter<f64> {
     values
         .map(|n| bytesize::mib(n) as f64)
         .collect::<Vec<_>>()
         .into_iter()
 }
 
-pub(self) fn registered<M>(registry: &mut Registry, build: fn() -> M, name: &str, help: &str) -> M
+pub(self) fn register<M>(registry: &mut Registry, metric: M, name: &str, help: &str) -> M
 where
     M: 'static + SendEncodeMetric + Clone,
 {
-    let metric = build();
     registry.register(name, help, Box::new(metric.clone()));
     metric
 }

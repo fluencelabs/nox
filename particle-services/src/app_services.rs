@@ -231,9 +231,7 @@ impl ParticleAppServices {
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
         if let Some(m) = self.metrics.as_ref() {
-            m.removal_count.inc();
-            m.services_count.dec();
-            m.removal_time_msec.observe(removal_end_time as f64);
+            m.observe_removed(removal_end_time as f64);
         }
 
         Ok(())
