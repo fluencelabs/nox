@@ -122,7 +122,7 @@ where
             ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
             ("dist", "add_module")            => wrap(self.add_module(args)),
             ("dist", "add_blueprint")         => wrap(self.add_blueprint(args)),
-            ("dist", "make_module_config")    => wrap(self.make_module_config(args)),
+            ("dist", "make_module_config")    => wrap(make_module_config(args)),
             ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(args, particle)),
             ("dist", "default_module_config") => wrap(self.default_module_config(args)),
             ("dist", "make_blueprint")        => wrap(self.make_blueprint(args)),
@@ -497,44 +497,6 @@ where
         Ok(JValue::String(blueprint_id))
     }
 
-    fn make_module_config(&self, args: Args) -> Result<JValue, JError> {
-        use toml_utils::table;
-
-        let mut args = args.function_args.into_iter();
-
-        let name = Args::next("name", &mut args)?;
-        let mem_pages_count = Args::next_opt("mem_pages_count", &mut args)?;
-        let max_heap_size = Args::next_opt("max_heap_size", &mut args)?;
-        let logger_enabled = Args::next_opt("logger_enabled", &mut args)?;
-        let preopened_files = Args::next_opt("preopened_files", &mut args)?;
-        let envs = Args::next_opt("envs", &mut args)?.map(table);
-        let mapped_dirs = Args::next_opt("mapped_dirs", &mut args)?.map(table);
-        let mounted_binaries = Args::next_opt("mounted_binaries", &mut args)?.map(table);
-        let logging_mask = Args::next_opt("logging_mask", &mut args)?;
-
-        let config = NamedModuleConfig {
-            name,
-            file_name: None,
-            config: ModuleConfig {
-                mem_pages_count,
-                max_heap_size,
-                logger_enabled,
-                wasi: Some(WASIConfig {
-                    preopened_files,
-                    envs,
-                    mapped_dirs,
-                }),
-                mounted_binaries,
-                logging_mask,
-            },
-        };
-
-        let config = serde_json::to_value(config)
-            .map_err(|err| JError::new(format!("Error serializing config to JSON: {}", err)))?;
-
-        Ok(config)
-    }
-
     fn load_module_config_from_vault(
         &self,
         args: Args,
@@ -687,6 +649,53 @@ where
     }
 }
 
+fn make_module_config(args: Args) -> Result<JValue, JError> {
+    use toml_utils::table;
+
+    let mut args = args.function_args.into_iter();
+
+    let name = Args::next("name", &mut args)?;
+    let mem_pages_count = Args::next_opt("mem_pages_count", &mut args)?;
+    let max_heap_size: Option<String> = Args::next_opt("max_heap_size", &mut args)?;
+    let max_heap_size = match max_heap_size {
+        Some(s) => Some(bytesize::ByteSize::from_str(&s).map_err(|err| {
+            JError::new(format!(
+                "error parsing max_heap_size from String to ByteSize: {}",
+                err
+            ))
+        })?),
+        None => None,
+    };
+    let logger_enabled = Args::next_opt("logger_enabled", &mut args)?;
+    let preopened_files = Args::next_opt("preopened_files", &mut args)?;
+    let envs = Args::next_opt("envs", &mut args)?.map(table);
+    let mapped_dirs = Args::next_opt("mapped_dirs", &mut args)?.map(table);
+    let mounted_binaries = Args::next_opt("mounted_binaries", &mut args)?.map(table);
+    let logging_mask = Args::next_opt("logging_mask", &mut args)?;
+
+    let config = NamedModuleConfig {
+        name,
+        file_name: None,
+        config: ModuleConfig {
+            mem_pages_count,
+            max_heap_size,
+            logger_enabled,
+            wasi: Some(WASIConfig {
+                preopened_files,
+                envs,
+                mapped_dirs,
+            }),
+            mounted_binaries,
+            logging_mask,
+        },
+    };
+
+    let config = serde_json::to_value(config)
+        .map_err(|err| JError::new(format!("Error serializing config to JSON: {}", err)))?;
+
+    Ok(config)
+}
+
 fn ok(v: JValue) -> FunctionOutcome {
     FunctionOutcome::Ok(v)
 }
@@ -793,4 +802,87 @@ where
     let y: Y = Args::next("y", &mut args)?;
     let out = f(x, y)?;
     FunctionOutcome::Ok(json!(out))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use prop::collection::vec;
+    use proptest::arbitrary::StrategyFor;
+    use proptest::collection::{SizeRange, VecStrategy};
+    use proptest::prelude::*;
+    use serde_json::json;
+
+    use particle_args::Args;
+
+    use crate::builtins::make_module_config;
+
+    prop_compose! {
+      /// Generates ByteSize strings
+      fn heap_size
+        ()
+        // FIXME: limit is 100k GB because ByteSize can't handle exabytes. terabytes and petabytes are missing for the same reason.
+        (n in prop::option::of(0..100_000), si in "(?i)([kmg]i)?B")
+        -> Vec<String>
+      {
+        n.map(|n| vec![format!("{} {}", n, si)]).unwrap_or_default()
+      }
+    }
+
+    /// Wraps value into AIR-style option (vec of length 0 or 1)
+    pub fn air_opt<T: Strategy>(element: T) -> proptest::collection::VecStrategy<T> {
+        vec(element, 0..1)
+    }
+
+    /// Generates an associative array of strings of a given size
+    pub fn assoc_vec(size: impl Into<SizeRange>) -> VecStrategy<VecStrategy<StrategyFor<String>>> {
+        vec(vec(any::<String>(), 2..=2), size)
+    }
+
+    proptest! {
+        #[test]
+        fn module_config(
+            name in any::<String>(),
+            mem_pages in air_opt(any::<u32>()),
+            logger_enabled in air_opt(proptest::bool::ANY),
+            heap in heap_size(),
+            preopened_files in air_opt(any::<String>()),
+            envs in air_opt(assoc_vec(0..10)),
+            mapped_dirs in air_opt(assoc_vec(0..10)),
+            mounted_binaries in air_opt(assoc_vec(0..10)),
+            logging_mask in air_opt(any::<i32>()),
+        ) {
+            let mem_pages: Vec<u32> = mem_pages;
+            let heap: Vec<String> = heap;
+            let preopened_files: Vec<String> = preopened_files;
+            let envs: Vec<Vec<Vec<String>>> = envs;
+            let mapped_dirs: Vec<Vec<Vec<String>>> =mapped_dirs;
+            let mounted_binaries: Vec<Vec<Vec<String>>> = mounted_binaries;
+            let logging_mask: Vec<i32> = logging_mask;
+
+            let args = vec![
+                json!(name),              // required: name
+                json!(mem_pages),         // mem_pages_count = optional: None
+                json!(heap.clone()),      // optional: max_heap_size
+                json!(logger_enabled),    // optional: logger_enabled
+                json!(preopened_files),   // optional: preopened_files
+                json!(envs),              // optional: envs
+                json!(mapped_dirs),       // optional: mapped_dirs
+                json!(mounted_binaries),  // optional: mounted_binaries
+                json!(logging_mask),      // optional: logging_mask
+            ];
+            let args = Args {
+                service_id: "".to_string(),
+                function_name: "".to_string(),
+                function_args: args,
+                tetraplets: vec![],
+            };
+
+            let config = make_module_config(args).expect("parse config via make_module_config");
+            let prop_heap = heap.get(0).map(|h| bytesize::ByteSize::from_str(h).unwrap().to_string());
+            let config_heap = config.get("max_heap_size").map(|h| bytesize::ByteSize::from_str(h.as_str().unwrap()).unwrap().to_string());
+            prop_assert_eq!(prop_heap, config_heap);
+        }
+    }
 }
