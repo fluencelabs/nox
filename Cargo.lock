@@ -4019,7 +4019,6 @@ dependencies = [
  "json-utils",
  "log",
  "marine-it-parser",
- "marine-utils",
  "parking_lot 0.11.2",
  "particle-args",
  "particle-execution",

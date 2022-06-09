@@ -75,7 +75,10 @@ pub fn persist_service(
     use ModuleError::*;
 
     let path = services_dir.join(service_file_name(&persisted_service.service_id));
-    let bytes = toml::to_vec(&persisted_service).map_err(|err| SerializeConfig { err })?;
+    let bytes = toml::to_vec(&persisted_service).map_err(|err| SerializePersistedService {
+        err,
+        config: Box::new(persisted_service.clone()),
+    })?;
     std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
 }
 

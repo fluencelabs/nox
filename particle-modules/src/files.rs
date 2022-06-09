@@ -84,7 +84,10 @@ pub fn add_module(
     // TODO HACK: use custom structure for API; TomlFaaSNamedModuleConfig is too powerful and clumsy.
     // Set file_name = ${hash}.wasm
     config.file_name = Some(module_config_name_hash(module_hash));
-    let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig { err })?;
+    let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig {
+        err,
+        config: config.clone(),
+    })?;
     let path = modules_dir.join(module_config_name_hash(module_hash));
     std::fs::write(&path, toml).map_err(|err| WriteConfig { path, err })?;
 
@@ -103,7 +106,10 @@ pub fn add_blueprint(blueprint_dir: &Path, blueprint: &Blueprint) -> Result<()> 
     let path = blueprint_dir.join(blueprint_file_name(blueprint));
 
     // Save blueprint to disk
-    let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeConfig { err })?;
+    let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeBlueprint {
+        err,
+        blueprint: blueprint.clone(),
+    })?;
     std::fs::write(&path, bytes).map_err(|err| WriteBlueprint { path, err })?;
 
     // TODO: check dependencies are satisfied?
