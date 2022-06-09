@@ -19,7 +19,7 @@ use crate::persistence::{persist_service, PersistedService};
 use crate::Result;
 
 use fluence_app_service::{
-    AppService, AppServiceConfig, FaaSConfig, FaaSWASIConfig, ModuleDescriptor,
+    AppService, AppServiceConfig, MarineConfig, MarineWASIConfig, ModuleDescriptor,
 };
 use fluence_libp2p::PeerId;
 use particle_modules::ModuleRepository;
@@ -49,7 +49,7 @@ pub fn create_app_service(
 
         let modules = AppServiceConfig {
             service_base_dir: config.workdir,
-            faas_config: FaaSConfig {
+            marine_config: MarineConfig {
                 modules_dir: Some(config.modules_dir),
                 modules_config,
                 default_modules_config: None,
@@ -78,7 +78,7 @@ pub fn create_app_service(
 fn inject_vault(vault_dir: &Path, module: &mut ModuleDescriptor) {
     let wasi = &mut module.config.wasi;
     if let None = *wasi {
-        *wasi = Some(FaaSWASIConfig::default());
+        *wasi = Some(MarineWASIConfig::default());
     }
     // SAFETY: set wasi to Some in the code above
     let wasi = wasi.as_mut().unwrap();

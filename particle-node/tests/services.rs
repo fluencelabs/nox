@@ -23,7 +23,6 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use log_utils::enable_logs;
 use service_modules::load_module;
-use test_utils::{create_service, CreatedService};
 
 #[test]
 fn create_service_from_config() {
@@ -35,12 +34,6 @@ fn create_service_from_config() {
         .wrap_err("connect client")
         .unwrap();
 
-    // let tetraplets_service = create_service(
-    //     &mut client,
-    //     "tetraplets",
-    //     load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    // );
-
     let module = load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module");
 
     let config = json!({
@@ -49,8 +42,7 @@ fn create_service_from_config() {
           "name": "pure_base64",
           "preopened_files": [
             [
-              "preop1",
-              "preop2"
+              "/tmp"
             ]
           ],
           "mem_pages_count": [
@@ -165,13 +157,14 @@ fn create_service_from_config() {
         "config" => config,
         "module_bytes" => json!(base64::encode(module)),
     };
-    let particle_id = client.send_particle_ext(script, data, true);
+    client.send_particle_ext(script, data, true);
     let result = client.receive_args().expect("receive");
-    if let [JValue::String(service_id)] = result {
+    if let [JValue::String(service_id)] = &result[..] {
         client.send_particle(
             r#"
             (seq
                 (call relay ("srv" "list") [] list)
+                (call %init_peer_id% ("op" "return") [list])
             )
             "#,
             hashmap! {
@@ -182,8 +175,9 @@ fn create_service_from_config() {
 
         use serde_json::Value::Array;
 
-        if let [Array([JValue::String(sid)])] = client.receive_args().unwrap().as_slice() {
-            assert_eq!(sid, service_id)
+        if let [Array(sids)] = client.receive_args().unwrap().as_slice() {
+            let sid = sids.first().unwrap().get("id").unwrap();
+            assert_eq!(sid, &json!(service_id))
         } else {
             panic!("incorrect args: expected vec of single string")
         }

@@ -475,7 +475,7 @@ mod tests {
     use std::fs::remove_file;
     use std::path::PathBuf;
 
-    use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
+    use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
     use libp2p_core::identity::Keypair;
     use libp2p_core::PeerId;
     use tempdir::TempDir;
@@ -596,10 +596,10 @@ mod tests {
             .expect("load module");
 
         let module_name = "tetra".to_string();
-        let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
+        let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
             name: module_name.clone(),
             file_name: None,
-            config: TomlFaaSModuleConfig {
+            config: TomlMarineModuleConfig {
                 mem_pages_count: None,
                 max_heap_size: None,
                 logger_enabled: None,

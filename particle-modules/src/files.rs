@@ -16,7 +16,7 @@
 
 use crate::error::{ModuleError::*, Result};
 
-use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
+use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
 use service_modules::{
     blueprint_file_name, blueprint_fname, module_config_name_hash, module_file_name_hash,
     Blueprint, Hash,
@@ -45,19 +45,19 @@ pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<
         .map_err(|err| ModuleConvertError { err })?;
 
     // TODO HACK: This is required because by default file_name is set to be same as import_name
-    //            That behavior is defined in TomlFaaSNamedModuleConfig. Would be nice to refactor that behavior.
+    //            That behavior is defined in TomlMarineNamedModuleConfig. Would be nice to refactor that behavior.
     config.file_name = module_file_name_hash(module_hash);
 
     Ok(config)
 }
 
-/// Load TomlFaaSNamedModuleConfig from disk from a given path
-pub fn load_config_by_path(path: &Path) -> Result<TomlFaaSNamedModuleConfig> {
+/// Load TomlMarineNamedModuleConfig from disk from a given path
+pub fn load_config_by_path(path: &Path) -> Result<TomlMarineNamedModuleConfig> {
     let config = std::fs::read(&path).map_err(|err| NoModuleConfig {
         path: path.to_path_buf(),
         err,
     })?;
-    let config: TomlFaaSNamedModuleConfig =
+    let config: TomlMarineNamedModuleConfig =
         toml::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
 
     Ok(config)
@@ -70,18 +70,18 @@ pub fn list_files(dir: &Path) -> Option<impl Iterator<Item = PathBuf>> {
 }
 
 /// Adds a module to the filesystem, overwriting existing module.
-/// Also adds module config to the TomlFaaSNamedModuleConfig
+/// Also adds module config to the TomlMarineNamedModuleConfig
 pub fn add_module(
     modules_dir: &Path,
     module_hash: &Hash,
     bytes: &[u8],
-    mut config: TomlFaaSNamedModuleConfig,
-) -> Result<TomlFaaSNamedModuleConfig> {
+    mut config: TomlMarineNamedModuleConfig,
+) -> Result<TomlMarineNamedModuleConfig> {
     let wasm = modules_dir.join(module_file_name_hash(module_hash));
     std::fs::write(&wasm, bytes).map_err(|err| AddModule { path: wasm, err })?;
 
     // replace existing configuration with a new one
-    // TODO HACK: use custom structure for API; TomlFaaSNamedModuleConfig is too powerful and clumsy.
+    // TODO HACK: use custom structure for API; TomlMarineNamedModuleConfig is too powerful and clumsy.
     // Set file_name = ${hash}.wasm
     config.file_name = Some(module_config_name_hash(module_hash));
     let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig {

@@ -18,7 +18,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use base64::DecodeError;
-use fluence_app_service::{FaaSError, TomlFaaSNamedModuleConfig};
+use fluence_app_service::{MarineError, TomlMarineNamedModuleConfig};
 use marine_it_parser::ITParserError;
 use serde_json::Value as JValue;
 use thiserror::Error;
@@ -40,7 +40,7 @@ pub enum ModuleError {
     SerializeConfig {
         #[source]
         err: toml::ser::Error,
-        config: TomlFaaSNamedModuleConfig,
+        config: TomlMarineNamedModuleConfig,
     },
     #[error("Error serializing blueprint to toml: {err} {blueprint:?}")]
     SerializeBlueprint {
@@ -94,10 +94,10 @@ pub enum ModuleError {
         #[source]
         err: std::io::Error,
     },
-    #[error("Error converting TomlFaaSNamedModuleConfig to FaaSModuleConfig: {err}")]
+    #[error("Error converting TomlMarineNamedModuleConfig to FaaSModuleConfig: {err}")]
     ModuleConvertError {
         #[source]
-        err: FaaSError,
+        err: MarineError,
     },
     #[error("Module wasn't found on path {path:?}: {err}")]
     ModuleNotFound {

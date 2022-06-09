@@ -7,6 +7,6 @@ edition = "2021"
 prometheus-client = "0.15.0"
 log = "0.4.11"
 bytesize = "1.1.0"
-fluence-app-service = "0.17.2"
+fluence-app-service = "0.17.5"
 async-std = { version = "1.6.5", features = ["unstable"] }
 futures = "0.3.13"
