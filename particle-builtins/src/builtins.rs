@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use std::ops::Try;
 use std::str::FromStr;
 use std::time::Duration;
+use std::path;
 
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
@@ -58,6 +59,7 @@ pub struct Builtins<C> {
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
+    particles_vault_dir: path::PathBuf,
 }
 
 impl<C> Builtins<C>
@@ -81,7 +83,7 @@ where
             config.max_heap_size,
             config.default_heap_size,
         );
-
+        let particles_vault_dir = vault_dir.to_path_buf();
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
         let services = ParticleAppServices::new(config, modules.clone(), services_metrics);
@@ -94,13 +96,13 @@ where
             modules,
             services,
             node_info,
+            particles_vault_dir,
         }
     }
 
     // TODO: get rid of all blocking methods (std::fs and such)
     pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         use Result as R;
-
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
@@ -110,6 +112,7 @@ where
             ("peer", "connect")               => wrap(self.connect(args).await),
             ("peer", "get_contact")           => self.get_contact(args).await,
             ("peer", "timeout")               => self.timeout(args).await,
+            ("console", "debug_print")        => wrap_unit(self.console_debug_print(args)),
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args).await),
             ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
@@ -134,6 +137,7 @@ where
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
             ("script", "add")                 => wrap(self.add_script(args, particle)),
+            ("script", "add_from_vault")      => wrap(self.add_script_from_vault(args, particle)),
             ("script", "remove")              => wrap(self.remove_script(args, particle).await),
             ("script", "list")                => wrap(self.list_scripts().await),
 
@@ -175,6 +179,13 @@ where
             ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
             _                      => self.call_service(args, particle),
         }
+    }
+
+    fn console_debug_print(&self, args: Args) -> Result<(), JError> {
+        let mut args = args.function_args.into_iter();
+        let msg: String = Args::next("message", &mut args)?;
+        log::info!("Message from a service: {}", msg);
+        Ok(())
     }
 
     async fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
@@ -245,6 +256,34 @@ where
             .add_script(script, interval, delay, creator)?;
 
         Ok(json!(id))
+    }
+
+    fn add_script_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+
+        let path: String = Args::next("path", &mut args)?;
+        log::warn!("Script path: {}", path);
+        let script = self.read_script_from_vault(&path)?;
+        log::warn!("Script: {}", script);
+
+        let interval = parse_from_str("interval_sec", &mut args)?;
+        let interval = interval.map(Duration::from_secs);
+
+        let delay = parse_from_str("delay_sec", &mut args)?;
+        let delay = delay.map(Duration::from_secs);
+        let delay = get_delay(delay, interval);
+
+        let creator = params.init_peer_id;
+        let id = self.script_storage.add_script(script, interval, delay, creator)?;
+        Ok(json!(id))
+    }
+
+    fn read_script_from_vault(&self, path: &str) -> Result<String, JError> {
+        let path = path::Path::new(path).canonicalize()?;
+        if path.as_path().starts_with(&self.particles_vault_dir) {
+            return Err(JError::new(format!("the file with path `{}` doesn't belong to the particle vault", path.to_string_lossy())));
+        }
+        Ok(std::fs::read_to_string(path)?)
     }
 
     async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
