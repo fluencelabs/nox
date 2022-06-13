@@ -38,7 +38,7 @@ use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_services::ParticleAppServices;
+use particle_services::{ParticleAppServices, VIRTUAL_PARTICLE_VAULT_PREFIX};
 use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -271,7 +271,7 @@ where
         path: &path::Path,
         particle_id: &str,
     ) -> Result<String, JError> {
-        let resolved_path = resolve_path(&self.particles_vault_dir, path, particle_id)?;
+        let resolved_path = resolve_vault_path(&self.particles_vault_dir, path, particle_id)?;
         Ok(std::fs::read_to_string(resolved_path)
             .map_err(|_| JError::new(format!("Error reading script file `{}`", path.display())))?)
     }
@@ -844,12 +844,12 @@ enum ResolveVaultError {
 }
 
 /// Map the given virtual path to the real one from the file system of the node.
-fn resolve_path(
+fn resolve_vault_path(
     particles_vault_dir: &path::Path,
     path: &path::Path,
     particle_id: &str,
 ) -> Result<path::PathBuf, ResolveVaultError> {
-    let vault_prefix = path::Path::new("/tmp/vault").join(particle_id);
+    let vault_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
     let real_prefix = particles_vault_dir.join(particle_id);
     let rest = path
         .strip_prefix(&vault_prefix)

@@ -38,3 +38,5 @@ mod error;
 mod persistence;
 
 pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
+
+pub const VIRTUAL_PARTICLE_VAULT_PREFIX: &str = "/tmp/vault";

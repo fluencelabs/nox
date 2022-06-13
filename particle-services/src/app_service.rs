@@ -16,7 +16,7 @@
 
 use crate::error::ServiceError;
 use crate::persistence::{persist_service, PersistedService};
-use crate::Result;
+use crate::{Result, VIRTUAL_PARTICLE_VAULT_PREFIX};
 
 use fluence_app_service::{
     AppService, AppServiceConfig, MarineConfig, MarineWASIConfig, ModuleDescriptor,
@@ -86,5 +86,5 @@ fn inject_vault(vault_dir: &Path, module: &mut ModuleDescriptor) {
     let vault_dir = vault_dir.to_path_buf();
 
     wasi.preopened_files.insert(vault_dir.clone());
-    wasi.mapped_dirs.insert("/tmp/vault".into(), vault_dir);
+    wasi.mapped_dirs.insert(VIRTUAL_PARTICLE_VAULT_PREFIX.into(), vault_dir);
 }
