@@ -244,7 +244,12 @@ where
         self.add_script(args, params, script)
     }
 
-    fn add_script(&self, mut args: std::vec::IntoIter<JValue>, params: ParticleParams, script: String) -> Result<JValue, JError> {
+    fn add_script(
+        &self,
+        mut args: std::vec::IntoIter<JValue>,
+        params: ParticleParams,
+        script: String,
+    ) -> Result<JValue, JError> {
         let interval = parse_from_str("interval_sec", &mut args)?;
         let interval = interval.map(Duration::from_secs);
 
@@ -266,39 +271,9 @@ where
         path: &path::Path,
         particle_id: &str,
     ) -> Result<String, JError> {
-        let resolved_path = self.resolve_path(path, particle_id)?;
+        let resolved_path = resolve_path(&self.particles_vault_dir, path, particle_id)?;
         Ok(std::fs::read_to_string(resolved_path)
             .map_err(|_| JError::new(format!("Error reading script file `{}`", path.display())))?)
-    }
-
-    /// Map the given virtual path to the real one from the file system of the node.
-    fn resolve_path(&self, path: &path::Path, particle_id: &str) -> Result<path::PathBuf, JError> {
-        fn no_vault_error(path: &path::Path, vault: &path::Path) -> JError {
-            JError::new(format!(
-                "Incorrect script path `{}`: doesn't belong to vault (`{}`)",
-                path.display(),
-                vault.display()
-            ))
-        }
-        fn no_path_error(path: &path::Path) -> JError {
-            JError::new(format!(
-                "Incorrect script path `{}`: doesn't exists",
-                path.display()
-            ))
-        }
-        let vault_prefix = path::Path::new("/tmp/vault").join(particle_id);
-        let real_prefix = self.particles_vault_dir.join(particle_id);
-        let rest = path
-            .strip_prefix(&vault_prefix)
-            .map_err(|_| no_vault_error(path, &vault_prefix))?;
-        let real_path = real_prefix.join(rest);
-        let resolved_path = real_path.canonicalize().map_err(|_| no_path_error(path))?;
-        // Check again after normalization that the path leads to the real particle vault
-        if resolved_path.starts_with(real_prefix) {
-            Ok(resolved_path)
-        } else {
-            Err(no_vault_error(path, &vault_prefix))
-        }
     }
 
     async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
@@ -858,6 +833,40 @@ where
     let y: Y = Args::next("y", &mut args)?;
     let out = f(x, y)?;
     FunctionOutcome::Ok(json!(out))
+}
+
+#[derive(thiserror::Error, Debug, PartialEq)]
+enum ResolveVaultError {
+    #[error("Incorrect vault path `{0}`: doesn't belong to vault (`{1}`)")]
+    WrongVault(path::PathBuf, path::PathBuf),
+    #[error("Incorrect vault  path `{0}`: doesn't exist")]
+    NotFound(path::PathBuf),
+}
+
+/// Map the given virtual path to the real one from the file system of the node.
+fn resolve_path(
+    particles_vault_dir: &path::Path,
+    path: &path::Path,
+    particle_id: &str,
+) -> Result<path::PathBuf, ResolveVaultError> {
+    let vault_prefix = path::Path::new("/tmp/vault").join(particle_id);
+    let real_prefix = particles_vault_dir.join(particle_id);
+    let rest = path
+        .strip_prefix(&vault_prefix)
+        .map_err(|_| ResolveVaultError::WrongVault(path.to_path_buf(), vault_prefix.clone()))?;
+    let real_path = real_prefix.join(rest);
+    let resolved_path = real_path
+        .canonicalize()
+        .map_err(|_| ResolveVaultError::NotFound(path.to_path_buf()))?;
+    // Check again after normalization that the path leads to the real particle vault
+    if resolved_path.starts_with(real_prefix) {
+        Ok(resolved_path)
+    } else {
+        Err(ResolveVaultError::WrongVault(
+            path.to_path_buf(),
+            vault_prefix,
+        ))
+    }
 }
 
 #[cfg(test)]
