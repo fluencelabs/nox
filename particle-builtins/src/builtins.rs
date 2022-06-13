@@ -18,9 +18,9 @@ use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::Try;
+use std::path;
 use std::str::FromStr;
 use std::time::Duration;
-use std::path;
 
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
@@ -59,6 +59,7 @@ pub struct Builtins<C> {
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
+
     particles_vault_dir: path::PathBuf,
 }
 
@@ -112,7 +113,6 @@ where
             ("peer", "connect")               => wrap(self.connect(args).await),
             ("peer", "get_contact")           => self.get_contact(args).await,
             ("peer", "timeout")               => self.timeout(args).await,
-            ("console", "debug_print")        => wrap_unit(self.console_debug_print(args)),
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args).await),
             ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
@@ -136,7 +136,7 @@ where
             ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
-            ("script", "add")                 => wrap(self.add_script(args, particle)),
+            ("script", "add")                 => wrap(self.add_script_from_arg(args, particle)),
             ("script", "add_from_vault")      => wrap(self.add_script_from_vault(args, particle)),
             ("script", "remove")              => wrap(self.remove_script(args, particle).await),
             ("script", "list")                => wrap(self.list_scripts().await),
@@ -179,13 +179,6 @@ where
             ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
             _                      => self.call_service(args, particle),
         }
-    }
-
-    fn console_debug_print(&self, args: Args) -> Result<(), JError> {
-        let mut args = args.function_args.into_iter();
-        let msg: String = Args::next("message", &mut args)?;
-        log::info!("Message from a service: {}", msg);
-        Ok(())
     }
 
     async fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
@@ -237,11 +230,21 @@ where
         }
     }
 
-    fn add_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    fn add_script_from_arg(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let script: String = Args::next("script", &mut args)?;
+        self.add_script(args, params, script)
+    }
+
+    fn add_script_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
-        let script: String = Args::next("script", &mut args)?;
+        let path: String = Args::next("path", &mut args)?;
+        let script = self.read_script_from_vault(path::Path::new(&path), &params.id)?;
+        self.add_script(args, params, script)
+    }
 
+    fn add_script(&self, mut args: std::vec::IntoIter<JValue>, params: ParticleParams, script: String) -> Result<JValue, JError> {
         let interval = parse_from_str("interval_sec", &mut args)?;
         let interval = interval.map(Duration::from_secs);
 
@@ -258,32 +261,44 @@ where
         Ok(json!(id))
     }
 
-    fn add_script_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-
-        let path: String = Args::next("path", &mut args)?;
-        log::warn!("Script path: {}", path);
-        let script = self.read_script_from_vault(&path)?;
-        log::warn!("Script: {}", script);
-
-        let interval = parse_from_str("interval_sec", &mut args)?;
-        let interval = interval.map(Duration::from_secs);
-
-        let delay = parse_from_str("delay_sec", &mut args)?;
-        let delay = delay.map(Duration::from_secs);
-        let delay = get_delay(delay, interval);
-
-        let creator = params.init_peer_id;
-        let id = self.script_storage.add_script(script, interval, delay, creator)?;
-        Ok(json!(id))
+    fn read_script_from_vault(
+        &self,
+        path: &path::Path,
+        particle_id: &str,
+    ) -> Result<String, JError> {
+        let resolved_path = self.resolve_path(path, particle_id)?;
+        Ok(std::fs::read_to_string(resolved_path)
+            .map_err(|_| JError::new(format!("Error reading script file `{}`", path.display())))?)
     }
 
-    fn read_script_from_vault(&self, path: &str) -> Result<String, JError> {
-        let path = path::Path::new(path).canonicalize()?;
-        if path.as_path().starts_with(&self.particles_vault_dir) {
-            return Err(JError::new(format!("the file with path `{}` doesn't belong to the particle vault", path.to_string_lossy())));
+    /// Map the given virtual path to the real one from the file system of the node.
+    fn resolve_path(&self, path: &path::Path, particle_id: &str) -> Result<path::PathBuf, JError> {
+        fn no_vault_error(path: &path::Path, vault: &path::Path) -> JError {
+            JError::new(format!(
+                "Incorrect script path `{}`: doesn't belong to vault (`{}`)",
+                path.display(),
+                vault.display()
+            ))
         }
-        Ok(std::fs::read_to_string(path)?)
+        fn no_path_error(path: &path::Path) -> JError {
+            JError::new(format!(
+                "Incorrect script path `{}`: doesn't exists",
+                path.display()
+            ))
+        }
+        let vault_prefix = path::Path::new("/tmp/vault").join(particle_id);
+        let real_prefix = self.particles_vault_dir.join(particle_id);
+        let rest = path
+            .strip_prefix(&vault_prefix)
+            .map_err(|_| no_vault_error(path, &vault_prefix))?;
+        let real_path = real_prefix.join(rest);
+        let resolved_path = real_path.canonicalize().map_err(|_| no_path_error(path))?;
+        // Check again after normalization that the path leads to the real particle vault
+        if resolved_path.starts_with(real_prefix) {
+            Ok(resolved_path)
+        } else {
+            Err(no_vault_error(path, &vault_prefix))
+        }
     }
 
     async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
