@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-use fluence_app_service::FaaSError;
-use json_utils::err_as_value;
+use std::fmt::Debug;
+use std::path::PathBuf;
 
 use base64::DecodeError;
+use fluence_app_service::{MarineError, TomlMarineNamedModuleConfig};
 use marine_it_parser::ITParserError;
 use serde_json::Value as JValue;
-use std::path::PathBuf;
 use thiserror::Error;
+
+use json_utils::err_as_value;
+use service_modules::Blueprint;
 
 pub(super) type Result<T> = std::result::Result<T, ModuleError>;
 
@@ -33,10 +36,23 @@ pub enum ModuleError {
         #[source]
         err: std::io::Error,
     },
-    #[error("Error serializing config to toml: {err}")]
+    #[error("Error serializing config to toml: {err} {config:?}")]
     SerializeConfig {
         #[source]
         err: toml::ser::Error,
+        config: TomlMarineNamedModuleConfig,
+    },
+    #[error("Error serializing blueprint to toml: {err} {blueprint:?}")]
+    SerializeBlueprint {
+        #[source]
+        err: toml::ser::Error,
+        blueprint: Blueprint,
+    },
+    #[error("Error serializing persisted service config to toml: {err} {config:?}")]
+    SerializePersistedService {
+        #[source]
+        err: toml::ser::Error,
+        config: Box<dyn Debug + Send + Sync>,
     },
     #[error("Error saving config to {path:?}: {err}")]
     WriteConfig {
@@ -78,10 +94,10 @@ pub enum ModuleError {
         #[source]
         err: std::io::Error,
     },
-    #[error("Error converting TomlFaaSNamedModuleConfig to FaaSModuleConfig: {err}")]
+    #[error("Error converting TomlMarineNamedModuleConfig to FaaSModuleConfig: {err}")]
     ModuleConvertError {
         #[source]
-        err: FaaSError,
+        err: MarineError,
     },
     #[error("Module wasn't found on path {path:?}: {err}")]
     ModuleNotFound {

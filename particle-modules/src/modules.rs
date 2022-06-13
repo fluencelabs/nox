@@ -18,7 +18,7 @@ use bytesize::ByteSize;
 use std::{collections::HashMap, iter, path::Path, path::PathBuf, sync::Arc};
 
 use eyre::WrapErr;
-use fluence_app_service::{ModuleDescriptor, TomlFaaSNamedModuleConfig};
+use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
 use fstrings::f;
 use marine_it_parser::module_interface;
 use parking_lot::{Mutex, RwLock};
@@ -143,7 +143,7 @@ impl ModuleRepository {
     }
 
     // set default if max_heap_size and mem_pages_count are not specified
-    fn check_module_heap_size(&self, config: &mut TomlFaaSNamedModuleConfig) -> Result<()> {
+    fn check_module_heap_size(&self, config: &mut TomlMarineNamedModuleConfig) -> Result<()> {
         let heap_size = match (config.config.max_heap_size, config.config.mem_pages_count) {
             (Some(heap_size), _) => Some(heap_size),
             (None, Some(pages_count)) => {
@@ -165,7 +165,7 @@ impl ModuleRepository {
 
         Ok(())
     }
-    fn add_module(&self, module: Vec<u8>, config: TomlFaaSNamedModuleConfig) -> Result<String> {
+    fn add_module(&self, module: Vec<u8>, config: TomlMarineNamedModuleConfig) -> Result<String> {
         let hash = Hash::hash(&module);
 
         let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
@@ -188,7 +188,7 @@ impl ModuleRepository {
         &self,
         config_path: String,
         particle: ParticleParams,
-    ) -> Result<TomlFaaSNamedModuleConfig> {
+    ) -> Result<TomlMarineNamedModuleConfig> {
         let vault_path = self.check_vault_exists(&particle.id)?;
         // load & deserialize module config from vault
         let config_fname =
@@ -234,7 +234,7 @@ impl ModuleRepository {
     pub fn add_module_base64(
         &self,
         module: String,
-        config: TomlFaaSNamedModuleConfig,
+        config: TomlMarineNamedModuleConfig,
     ) -> Result<String> {
         let module = base64::decode(&module)?;
         self.add_module(module, config)
@@ -243,7 +243,7 @@ impl ModuleRepository {
     pub fn add_module_from_vault(
         &self,
         module_path: String,
-        config: TomlFaaSNamedModuleConfig,
+        config: TomlMarineNamedModuleConfig,
         particle: ParticleParams,
     ) -> Result<String> {
         let vault_path = self.check_vault_exists(&particle.id)?;
@@ -497,7 +497,7 @@ fn resolve_hash(
 #[cfg(test)]
 mod tests {
     use bytesize::ByteSize;
-    use fluence_app_service::{TomlFaaSModuleConfig, TomlFaaSNamedModuleConfig};
+    use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
     use std::str::FromStr;
     use tempdir::TempDir;
 
@@ -566,10 +566,10 @@ mod tests {
         let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
             .expect("load module");
 
-        let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
+        let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
             name: "tetra".to_string(),
             file_name: None,
-            config: TomlFaaSModuleConfig {
+            config: TomlMarineModuleConfig {
                 mem_pages_count: None,
                 max_heap_size: None,
                 logger_enabled: None,
@@ -620,10 +620,10 @@ mod tests {
         let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
             .expect("load module");
 
-        let config: TomlFaaSNamedModuleConfig = TomlFaaSNamedModuleConfig {
+        let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
             name: "tetra".to_string(),
             file_name: None,
-            config: TomlFaaSModuleConfig {
+            config: TomlMarineModuleConfig {
                 mem_pages_count: None,
                 max_heap_size: Some(ByteSize::b(max_heap_size.as_u64() + 10)),
                 logger_enabled: None,
