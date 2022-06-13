@@ -86,5 +86,6 @@ fn inject_vault(vault_dir: &Path, module: &mut ModuleDescriptor) {
     let vault_dir = vault_dir.to_path_buf();
 
     wasi.preopened_files.insert(vault_dir.clone());
-    wasi.mapped_dirs.insert(VIRTUAL_PARTICLE_VAULT_PREFIX.into(), vault_dir);
+    wasi.mapped_dirs
+        .insert(VIRTUAL_PARTICLE_VAULT_PREFIX.into(), vault_dir);
 }
