@@ -119,7 +119,6 @@ impl<RT: AquaRuntime> Node<RT> {
         let connection_pool_metrics = metrics_registry.as_mut().map(ConnectionPoolMetrics::new);
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
-        let services_metrics = metrics_registry.as_mut().map(ServicesMetrics::new);
 
         let network_config = NetworkConfig::new(
             libp2p_metrics,
@@ -151,10 +150,16 @@ impl<RT: AquaRuntime> Node<RT> {
             ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
         };
 
-        // This is fine to clone the services metrics because every field has a mutex or is atomic.
-        let services_metrics_backend = services_metrics.as_ref().map(|m| {
-            ServicesMetricsBackend::new(config.metrics_config.metrics_timer_resolution, m.clone())
-        });
+        let (services_metrics_backend, services_metrics) = if let Some(registry) = metrics_registry.as_mut()
+        {
+            let (backend, metrics) = ServicesMetricsBackend::init_service_metrics(
+                config.metrics_config.metrics_timer_resolution,
+                registry,
+            );
+            (Some(backend), Some(metrics))
+        } else {
+            (None, None)
+        };
 
         let builtins = Self::builtins(
             connectivity.clone(),
