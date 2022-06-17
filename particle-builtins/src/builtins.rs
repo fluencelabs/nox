@@ -835,12 +835,16 @@ where
     FunctionOutcome::Ok(json!(out))
 }
 
-#[derive(thiserror::Error, Debug, PartialEq)]
+#[derive(thiserror::Error, Debug)]
 enum ResolveVaultError {
-    #[error("Incorrect vault path `{0}`: doesn't belong to vault (`{1}`)")]
-    WrongVault(path::PathBuf, path::PathBuf),
-    #[error("Incorrect vault  path `{0}`: doesn't exist")]
-    NotFound(path::PathBuf),
+    #[error("Incorrect vault path `{1}`: doesn't belong to vault (`{2}`)")]
+    WrongVault(
+        #[source] Option<path::StripPrefixError>,
+        path::PathBuf,
+        path::PathBuf,
+    ),
+    #[error("Incorrect vault  path `{1}`: doesn't exist")]
+    NotFound(#[source] std::io::Error, path::PathBuf),
 }
 
 /// Map the given virtual path to the real one from the file system of the node.
@@ -849,22 +853,23 @@ fn resolve_vault_path(
     path: &path::Path,
     particle_id: &str,
 ) -> Result<path::PathBuf, ResolveVaultError> {
-    let vault_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
+    let virtual_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
     let real_prefix = particles_vault_dir.join(particle_id);
-    let rest = path
-        .strip_prefix(&vault_prefix)
-        .map_err(|_| ResolveVaultError::WrongVault(path.to_path_buf(), vault_prefix.clone()))?;
+    let rest = path.strip_prefix(&virtual_prefix).map_err(|e| {
+        ResolveVaultError::WrongVault(Some(e), path.to_path_buf(), virtual_prefix.clone())
+    })?;
     let real_path = real_prefix.join(rest);
     let resolved_path = real_path
         .canonicalize()
-        .map_err(|_| ResolveVaultError::NotFound(real_path.to_path_buf()))?;
+        .map_err(|e| ResolveVaultError::NotFound(e, path.to_path_buf()))?;
     // Check again after normalization that the path leads to the real particle vault
     if resolved_path.starts_with(real_prefix) {
         Ok(resolved_path)
     } else {
         Err(ResolveVaultError::WrongVault(
+            None,
             path.to_path_buf(),
-            vault_prefix,
+            virtual_prefix,
         ))
     }
 }
@@ -963,17 +968,17 @@ mod resolve_path_tests {
     fn with_env(callback: fn(&str, &Path, &str, &Path) -> ()) {
         let particle_id = "particle_id";
         let dir = tempfile::tempdir().expect("can't create temp dir");
-        let vault_prefix = dir.path().join("vault");
-        let vault_dir = vault_prefix.join(particle_id);
-        std::fs::create_dir_all(&vault_dir).expect("can't create dirs");
+        let real_vault_prefix = dir.path().join("vault");
+        let real_vault_dir = real_vault_prefix.join(particle_id);
+        std::fs::create_dir_all(&real_vault_dir).expect("can't create dirs");
 
         let filename = "file";
-        let real_path = vault_dir.join(filename);
+        let real_path = real_vault_dir.join(filename);
         File::create(&real_path).expect("can't create a file");
 
         callback(
             particle_id,
-            vault_prefix.as_path(),
+            real_vault_prefix.as_path(),
             filename,
             real_path.as_path(),
         );
@@ -983,41 +988,41 @@ mod resolve_path_tests {
 
     #[test]
     fn test_resolve_path_ok() {
-        with_env(|particle_id, prefix, filename, path| {
+        with_env(|particle_id, real_prefix, filename, path| {
             let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
                 .join(particle_id)
                 .join(filename);
-            let result = resolve_vault_path(&prefix, &virtual_path, particle_id).unwrap();
+            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id).unwrap();
             assert_eq!(result, path);
         });
     }
 
     #[test]
     fn test_resolve_path_wrong_vault() {
-        with_env(|particle_id, prefix, filename, _path| {
+        with_env(|particle_id, real_prefix, filename, _path| {
             let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
                 .join("other-particle-id")
                 .join(filename);
-            let result = resolve_vault_path(&prefix, &virtual_path, particle_id);
+            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id);
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
-                ResolveVaultError::WrongVault(_, _)
+                ResolveVaultError::WrongVault(_, _, _)
             ));
         });
     }
 
     #[test]
     fn test_resolve_path_not_found() {
-        with_env(|particle_id, prefix, _filename, _path| {
+        with_env(|particle_id, real_prefix, _filename, _path| {
             let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
                 .join(particle_id)
                 .join("other-file");
-            let result = resolve_vault_path(&prefix, &virtual_path, particle_id);
+            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id);
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
-                ResolveVaultError::NotFound(_)
+                ResolveVaultError::NotFound(_, _)
             ));
         });
     }

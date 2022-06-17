@@ -674,7 +674,10 @@ fn add_script_from_vault_wrong_vault() {
     let fileshare = create_file_share(&mut client);
     client.send_particle(
         r#"
-           (call relay ("script" "add_from_vault") ["/tmp/vault/another-particle-id/script" "0"])
+           (xor
+               (call relay ("script" "add_from_vault") ["/tmp/vault/another-particle-id/script" "0"])
+               (call %init_peer_id% ("op" "return") ["failed"])
+           )
         "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
@@ -683,6 +686,6 @@ fn add_script_from_vault_wrong_vault() {
         },
     );
 
-    let res = client.receive_args().wrap_err("receive");
-    assert!(res.is_err());
+    let res = client.receive_args().wrap_err("receive").unwrap();
+    assert_eq!(res, vec![serde_json::Value::String("failed".to_string())]);
 }
