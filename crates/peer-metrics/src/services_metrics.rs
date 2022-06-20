@@ -63,11 +63,7 @@ pub struct ServicesMemoryMetrics {
 
 impl ServicesMemoryMetrics {
     /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(
-        &self,
-        default_max: u64,
-        modules_config: &[ModuleDescriptor],
-    ) {
+    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor]) {
         let mut max_service_size = 0;
         for module_config in modules_config {
             let module_max = module_config.config.max_heap_size.unwrap_or(default_max);
