@@ -4223,6 +4223,7 @@ dependencies = [
  "async-std",
  "bytesize",
  "fluence-app-service",
+ "fluence-libp2p",
  "futures",
  "log",
  "prometheus-client",
