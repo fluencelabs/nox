@@ -66,7 +66,7 @@ impl ServicesMemoryMetrics {
     pub fn observe_service_max_mem(
         &self,
         default_max: u64,
-        modules_config: &Vec<ModuleDescriptor>,
+        modules_config: &[ModuleDescriptor],
     ) {
         let mut max_service_size = 0;
         for module_config in modules_config {
