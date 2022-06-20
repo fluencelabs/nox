@@ -150,16 +150,16 @@ impl<RT: AquaRuntime> Node<RT> {
             ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
         };
 
-        let (services_metrics_backend, services_metrics) = if let Some(registry) = metrics_registry.as_mut()
-        {
-            let (backend, metrics) = ServicesMetricsBackend::init_service_metrics(
-                config.metrics_config.metrics_timer_resolution,
-                registry,
-            );
-            (Some(backend), Some(metrics))
-        } else {
-            (None, None)
-        };
+        let (services_metrics_backend, services_metrics) =
+            if let Some(registry) = metrics_registry.as_mut() {
+                let (backend, metrics) = ServicesMetricsBackend::init_service_metrics(
+                    config.metrics_config.metrics_timer_resolution,
+                    registry,
+                );
+                (Some(backend), Some(metrics))
+            } else {
+                (None, None)
+            };
 
         let builtins = Self::builtins(
             connectivity.clone(),
