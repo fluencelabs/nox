@@ -25,7 +25,12 @@ pub fn main() {}
 
 #[marine]
 pub fn create_vault_file(contents: String) -> String {
-    store_file(&contents)
+    store_file_name(&contents)
+}
+
+#[marine]
+pub fn create_vault_file_path(contents: String) -> String {
+    store_file_path(&contents)
 }
 
 #[marine]
@@ -47,19 +52,27 @@ pub fn read_base64_vault_file(filename: String) -> String {
 #[marine]
 pub fn create_base64_vault_file(data: String) -> String {
     let bytes = base64::decode(data).expect("correct base64");
-    store_file(bytes)
+    store_file_name(bytes)
 }
 
-fn store_file(contents: impl AsRef<[u8]>) -> String {
+fn store_file_name(contents: impl AsRef<[u8]>) -> String {
+    store_file(contents).0
+}
+
+fn store_file_path(contents: impl AsRef<[u8]>) -> String {
+    store_file(contents).1
+}
+
+fn store_file(contents: impl AsRef<[u8]>) -> (String, String) {
     let name: String = rand::thread_rng()
         .sample_iter(Alphanumeric)
         .take(16)
         .map(char::from)
         .collect();
     let file = vault_dir().join(&name);
-    std::fs::write(file, contents).expect("write");
+    std::fs::write(&file, contents).expect("write");
 
-    name
+    (name, String::from(file.to_string_lossy()))
 }
 
 fn vault_dir() -> PathBuf {

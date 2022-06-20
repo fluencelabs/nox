@@ -27,7 +27,9 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use humantime_serde::re::humantime::format_duration;
 use now_millis::now;
+use service_modules::load_module;
 use std::time::Duration;
+use test_utils::{create_service, CreatedService};
 
 #[test]
 fn stream_hello() {
@@ -615,4 +617,82 @@ fn add_script_random_delay() {
     let eps = 2u64;
     let expected = now + interval + eps;
     assert!((now..=expected).contains(&res));
+}
+
+fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
+    create_service(
+        client,
+        "file_share",
+        load_module("tests/file_share/artifacts", "file_share").expect("load module"),
+    )
+}
+
+#[test]
+fn add_script_from_vault_ok() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = f!(r#"
+        (call "{client.peer_id}" ("op" "return") ["hello"])
+    "#);
+    let fileshare = create_file_share(&mut client);
+    client.send_particle(
+        r#"
+            (seq
+                (call relay (fileshare "create_vault_file_path") [script] filepath)
+                (call relay ("script" "add_from_vault") [filepath "0"])
+            )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "script" => json!(script),
+            "fileshare" => json!(fileshare.id),
+        },
+    );
+
+    for _ in 1..10 {
+        let res = client.receive_args().wrap_err("receive").unwrap();
+        let res = res.into_iter().next().unwrap();
+        assert_eq!(res, "hello");
+    }
+}
+
+#[test]
+fn add_script_from_vault_wrong_vault() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = f!(r#"
+        (call "{client.peer_id}" ("op" "return") ["hello"])
+    "#);
+    let fileshare = create_file_share(&mut client);
+    client.send_particle(
+        r#"
+           (xor
+               (call relay ("script" "add_from_vault") ["/tmp/vault/another-particle-id/script" "0"])
+               (call %init_peer_id% ("op" "return") [%last_error%.$.message])
+           )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "script" => json!(script),
+            "fileshare" => json!(fileshare.id),
+        },
+    );
+
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let expected_error_prefix = "Local service error, ret_code is 1, error message is '\"Error: Incorrect vault path `/tmp/vault/another-particle-id/script";
+        assert!(error_msg.starts_with(expected_error_prefix));
+    }
 }

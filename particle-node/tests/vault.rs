@@ -54,7 +54,7 @@ fn share_file() {
                     )
                     (call %init_peer_id% ("op" "return") [output_content])
                 )
-                (call %init_peer_id% ("op" "return") [%last_error%.$.msg interface])
+                (call %init_peer_id% ("op" "return") [%last_error%.$.message interface])
             )
         )
         "#,

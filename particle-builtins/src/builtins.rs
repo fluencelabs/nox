@@ -18,6 +18,7 @@ use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::Try;
+use std::path;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -37,7 +38,7 @@ use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_services::ParticleAppServices;
+use particle_services::{ParticleAppServices, VIRTUAL_PARTICLE_VAULT_PREFIX};
 use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -58,6 +59,8 @@ pub struct Builtins<C> {
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
+
+    particles_vault_dir: path::PathBuf,
 }
 
 impl<C> Builtins<C>
@@ -81,7 +84,7 @@ where
             config.max_heap_size,
             config.default_heap_size,
         );
-
+        let particles_vault_dir = vault_dir.to_path_buf();
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
         let services = ParticleAppServices::new(config, modules.clone(), services_metrics);
@@ -94,13 +97,13 @@ where
             modules,
             services,
             node_info,
+            particles_vault_dir,
         }
     }
 
     // TODO: get rid of all blocking methods (std::fs and such)
     pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         use Result as R;
-
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
@@ -133,7 +136,8 @@ where
             ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
 
-            ("script", "add")                 => wrap(self.add_script(args, particle)),
+            ("script", "add")                 => wrap(self.add_script_from_arg(args, particle)),
+            ("script", "add_from_vault")      => wrap(self.add_script_from_vault(args, particle)),
             ("script", "remove")              => wrap(self.remove_script(args, particle).await),
             ("script", "list")                => wrap(self.list_scripts().await),
 
@@ -226,11 +230,26 @@ where
         }
     }
 
-    fn add_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    fn add_script_from_arg(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let script: String = Args::next("script", &mut args)?;
+        self.add_script(args, params, script)
+    }
+
+    fn add_script_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
-        let script: String = Args::next("script", &mut args)?;
+        let path: String = Args::next("path", &mut args)?;
+        let script = self.read_script_from_vault(path::Path::new(&path), &params.id)?;
+        self.add_script(args, params, script)
+    }
 
+    fn add_script(
+        &self,
+        mut args: std::vec::IntoIter<JValue>,
+        params: ParticleParams,
+        script: String,
+    ) -> Result<JValue, JError> {
         let interval = parse_from_str("interval_sec", &mut args)?;
         let interval = interval.map(Duration::from_secs);
 
@@ -245,6 +264,16 @@ where
             .add_script(script, interval, delay, creator)?;
 
         Ok(json!(id))
+    }
+
+    fn read_script_from_vault(
+        &self,
+        path: &path::Path,
+        particle_id: &str,
+    ) -> Result<String, JError> {
+        let resolved_path = resolve_vault_path(&self.particles_vault_dir, path, particle_id)?;
+        Ok(std::fs::read_to_string(resolved_path)
+            .map_err(|_| JError::new(format!("Error reading script file `{}`", path.display())))?)
     }
 
     async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
@@ -806,8 +835,47 @@ where
     FunctionOutcome::Ok(json!(out))
 }
 
+#[derive(thiserror::Error, Debug)]
+enum ResolveVaultError {
+    #[error("Incorrect vault path `{1}`: doesn't belong to vault (`{2}`)")]
+    WrongVault(
+        #[source] Option<path::StripPrefixError>,
+        path::PathBuf,
+        path::PathBuf,
+    ),
+    #[error("Incorrect vault  path `{1}`: doesn't exist")]
+    NotFound(#[source] std::io::Error, path::PathBuf),
+}
+
+/// Map the given virtual path to the real one from the file system of the node.
+fn resolve_vault_path(
+    particles_vault_dir: &path::Path,
+    path: &path::Path,
+    particle_id: &str,
+) -> Result<path::PathBuf, ResolveVaultError> {
+    let virtual_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
+    let real_prefix = particles_vault_dir.join(particle_id);
+    let rest = path.strip_prefix(&virtual_prefix).map_err(|e| {
+        ResolveVaultError::WrongVault(Some(e), path.to_path_buf(), virtual_prefix.clone())
+    })?;
+    let real_path = real_prefix.join(rest);
+    let resolved_path = real_path
+        .canonicalize()
+        .map_err(|e| ResolveVaultError::NotFound(e, path.to_path_buf()))?;
+    // Check again after normalization that the path leads to the real particle vault
+    if resolved_path.starts_with(real_prefix) {
+        Ok(resolved_path)
+    } else {
+        Err(ResolveVaultError::WrongVault(
+            None,
+            path.to_path_buf(),
+            virtual_prefix,
+        ))
+    }
+}
+
 #[cfg(test)]
-mod tests {
+mod prop_tests {
     use std::str::FromStr;
 
     use prop::collection::vec;
@@ -886,5 +954,76 @@ mod tests {
             let config_heap = config.get("max_heap_size").map(|h| bytesize::ByteSize::from_str(h.as_str().unwrap()).unwrap().to_string());
             prop_assert_eq!(prop_heap, config_heap);
         }
+    }
+}
+
+#[cfg(test)]
+mod resolve_path_tests {
+    use crate::builtins::{resolve_vault_path, ResolveVaultError};
+    use particle_services::VIRTUAL_PARTICLE_VAULT_PREFIX;
+    use std::fs::File;
+    use std::path::Path;
+    use tempfile;
+
+    fn with_env(callback: fn(&str, &Path, &str, &Path) -> ()) {
+        let particle_id = "particle_id";
+        let dir = tempfile::tempdir().expect("can't create temp dir");
+        let real_vault_prefix = dir.path().join("vault");
+        let real_vault_dir = real_vault_prefix.join(particle_id);
+        std::fs::create_dir_all(&real_vault_dir).expect("can't create dirs");
+
+        let filename = "file";
+        let real_path = real_vault_dir.join(filename);
+        File::create(&real_path).expect("can't create a file");
+
+        callback(
+            particle_id,
+            real_vault_prefix.as_path(),
+            filename,
+            real_path.as_path(),
+        );
+
+        dir.close();
+    }
+
+    #[test]
+    fn test_resolve_path_ok() {
+        with_env(|particle_id, real_prefix, filename, path| {
+            let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
+                .join(particle_id)
+                .join(filename);
+            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id).unwrap();
+            assert_eq!(result, path);
+        });
+    }
+
+    #[test]
+    fn test_resolve_path_wrong_vault() {
+        with_env(|particle_id, real_prefix, filename, _path| {
+            let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
+                .join("other-particle-id")
+                .join(filename);
+            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id);
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                ResolveVaultError::WrongVault(_, _, _)
+            ));
+        });
+    }
+
+    #[test]
+    fn test_resolve_path_not_found() {
+        with_env(|particle_id, real_prefix, _filename, _path| {
+            let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
+                .join(particle_id)
+                .join("other-file");
+            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id);
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                ResolveVaultError::NotFound(_, _)
+            ));
+        });
     }
 }
