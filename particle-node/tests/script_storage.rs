@@ -676,7 +676,7 @@ fn add_script_from_vault_wrong_vault() {
         r#"
            (xor
                (call relay ("script" "add_from_vault") ["/tmp/vault/another-particle-id/script" "0"])
-               (call %init_peer_id% ("op" "return") ["failed"])
+               (call %init_peer_id% ("op" "return") [%last_error%.$.message])
            )
         "#,
         hashmap! {
@@ -686,6 +686,13 @@ fn add_script_from_vault_wrong_vault() {
         },
     );
 
-    let res = client.receive_args().wrap_err("receive").unwrap();
-    assert_eq!(res, vec![serde_json::Value::String("failed".to_string())]);
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let expected_error_prefix = "Local service error, ret_code is 1, error message is '\"Error: Incorrect vault path `/tmp/vault/another-particle-id/script";
+        assert!(error_msg.starts_with(expected_error_prefix));
+    }
 }
