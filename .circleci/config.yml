@@ -90,7 +90,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          cargo install cargo-nextest
+          cargo install --locked cargo-nextest@0.9.22
       - run: |
           cargo nextest run --release --all-features --no-fail-fast --retries 2 --test-threads 10
 
