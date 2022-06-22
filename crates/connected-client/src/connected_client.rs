@@ -15,7 +15,7 @@
  */
 
 use core::ops::Deref;
-use std::{collections::HashMap, lazy::Lazy, ops::DerefMut, time::Duration};
+use std::{cell::LazyCell, collections::HashMap, ops::DerefMut, time::Duration};
 
 use async_std::task;
 use eyre::Result;
@@ -44,7 +44,7 @@ pub struct ConnectedClient {
     pub timeout: Duration,
     pub short_timeout: Duration,
     pub kad_timeout: Duration,
-    pub local_vm: Lazy<Mutex<AVM>, Box<dyn FnOnce() -> Mutex<AVM>>>,
+    pub local_vm: LazyCell<Mutex<AVM>, Box<dyn FnOnce() -> Mutex<AVM>>>,
     pub particle_ttl: Duration,
 }
 
@@ -153,7 +153,7 @@ impl ConnectedClient {
     ) -> Self {
         let peer_id = client.peer_id;
         let f: Box<dyn FnOnce() -> Mutex<AVM>> = Box::new(move || Mutex::new(make_vm(peer_id)));
-        let local_vm = Lazy::new(f);
+        let local_vm = LazyCell::new(f);
 
         Self {
             client,

@@ -983,7 +983,7 @@ mod resolve_path_tests {
             real_path.as_path(),
         );
 
-        dir.close();
+        dir.close().ok();
     }
 
     #[test]
