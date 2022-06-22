@@ -23,7 +23,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2022-01-16
+          toolchain: nightly
           override: true
 
       - run: cargo install cargo-nextest
@@ -54,7 +54,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2022-01-16
+          toolchain: nightly
           override: true
           components: rustfmt, clippy
 

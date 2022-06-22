@@ -6,7 +6,7 @@ orbs:
 jobs:
   Publish Branch Binary:
     docker:
-      - image: cimg/rust:1.59
+      - image: cimg/rust:1.61
     resource_class: xlarge
     environment:
       RUST_BACKTRACE: 1
