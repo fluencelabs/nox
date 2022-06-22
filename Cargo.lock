@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.24.1"
+version = "0.24.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d30c28692535bd948cc4b54785c486e672bf93bb8283e61bee37e612a9e8705b"
+checksum = "6df90790898f26e91357b03568b40eb92bc4245a497f96bf18a7d7a689ce86d6"
 dependencies = [
  "built",
 ]
@@ -1830,9 +1830,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-faas"
-version = "0.16.2"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc936ee9f17ecd8f0cf10f9364c17fe76cbf6a07299f1d35c649e9415bc8821c"
+checksum = "5c5f8ae44950b3b96716ed2ce6c7a99edb5b50472da64db2076fd0cf634b1b94"
 dependencies = [
  "bytesize",
  "cmd_lib",
@@ -1842,7 +1842,7 @@ dependencies = [
  "marine-module-interface",
  "marine-rs-sdk",
  "marine-rs-sdk-main",
- "marine-runtime 0.14.2",
+ "marine-runtime 0.14.3",
  "marine-utils",
  "safe-transmute",
  "serde",
@@ -3519,9 +3519,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d36a361cb7ce770c78c979d784d877982042a16fef97043cb3bec1a4eaff5935"
+checksum = "995f31dd3fffa20bb124c6ccdd0a93de2682b3effc4f4e4fd14810ee96176f05"
 dependencies = [
  "anyhow",
  "boolinator",

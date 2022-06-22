@@ -23,10 +23,10 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2022-01-16
+          toolchain: nightly
           override: true
 
-      - run: cargo install cargo-nextest
+      - run: cargo install --locked cargo-nextest@0.9.22
 
 #      - name: Run cargo check
 #        uses: actions-rs/cargo@v1
@@ -54,7 +54,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2022-01-16
+          toolchain: nightly
           override: true
           components: rustfmt, clippy
 
