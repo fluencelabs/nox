@@ -37,6 +37,10 @@ pub fn particles_vault_dir(base_dir: &Path) -> PathBuf {
     particles_dir(base_dir).join("vault")
 }
 
+pub fn particles_anomaly_dir(base_dir: &Path) -> PathBuf {
+    particles_dir(base_dir).join("anomalies")
+}
+
 pub fn blueprint_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("blueprint")
 }

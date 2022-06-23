@@ -69,6 +69,7 @@ impl AquaRuntime for AVM<DataStoreError> {
             let data_store = Box::new(ParticleDataStore::new(
                 config.particles_dir,
                 config.particles_vault_dir,
+                config.particles_anomaly_dir,
             ));
             let config = AVMConfig {
                 data_store,

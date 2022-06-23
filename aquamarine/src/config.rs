@@ -39,6 +39,8 @@ pub struct VmConfig {
     /// Dir to store directories shared between services
     /// in the span of a single particle execution
     pub particles_vault_dir: PathBuf,
+    /// Dir to store particles data of AquaVM performance anomalies
+    pub particles_anomaly_dir: PathBuf,
     /// Maximum heap size in bytes available for the interpreter.
     pub max_heap_size: Option<u64>,
 }
@@ -64,6 +66,7 @@ impl VmConfig {
             current_peer_id,
             particles_dir: config_utils::particles_dir(&base_dir),
             particles_vault_dir: config_utils::particles_vault_dir(&base_dir),
+            particles_anomaly_dir: config_utils::particles_anomaly_dir(&base_dir),
             air_interpreter,
             max_heap_size,
         }
