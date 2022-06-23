@@ -60,7 +60,7 @@ While the project is a still in the early stage of development, you are welcome
 to track progress and contribute. At the current moment we don't have detailed
 instructions on how to join development or which code guidelines to follow.
 However, you can expect more info to appear soon enough. In the meanwhile, check
-out the [basic contributing rules](CONTRIBUTING.md).
+out the [basic contributing rules](CONTRIBUTING.md).
 
 ## **License**
 
