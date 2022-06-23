@@ -141,7 +141,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.10.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-114-add-api-to-save-spikes#743cc3ea0d6ec7e0d777e77f6ac6115105227c43"
+source = "git+https://github.com/fluencelabs/aquavm?branch=master#3a84ceb863a2660224d4e24b4a6836c3531fabb5"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -511,7 +511,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avm-data-store"
 version = "0.2.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-114-add-api-to-save-spikes#743cc3ea0d6ec7e0d777e77f6ac6115105227c43"
+source = "git+https://github.com/fluencelabs/aquavm?branch=master#3a84ceb863a2660224d4e24b4a6836c3531fabb5"
 dependencies = [
  "serde",
 ]
@@ -519,7 +519,7 @@ dependencies = [
 [[package]]
 name = "avm-server"
 version = "0.21.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-114-add-api-to-save-spikes#743cc3ea0d6ec7e0d777e77f6ac6115105227c43"
+source = "git+https://github.com/fluencelabs/aquavm?branch=master#3a84ceb863a2660224d4e24b4a6836c3531fabb5"
 dependencies = [
  "air-interpreter-interface",
  "avm-data-store",
@@ -528,7 +528,7 @@ dependencies = [
  "log",
  "maplit",
  "parking_lot 0.11.2",
- "polyplets 0.2.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/VM-114-add-api-to-save-spikes)",
+ "polyplets 0.2.0 (git+https://github.com/fluencelabs/aquavm?branch=master)",
  "serde",
  "serde_json",
  "thiserror",
@@ -4386,7 +4386,7 @@ dependencies = [
 [[package]]
 name = "polyplets"
 version = "0.2.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-114-add-api-to-save-spikes#743cc3ea0d6ec7e0d777e77f6ac6115105227c43"
+source = "git+https://github.com/fluencelabs/aquavm?branch=master#3a84ceb863a2660224d4e24b4a6836c3531fabb5"
 dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
