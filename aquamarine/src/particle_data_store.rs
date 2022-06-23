@@ -17,8 +17,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use avm_server::DataStore;
-// use humantime::format_duration as pretty;
+use avm_server::{AnomalyData, DataStore};
 use thiserror::Error;
 
 use fs_utils::{create_dir, remove_file};
@@ -26,7 +25,7 @@ use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
 use DataStoreError::{CleanupData, CreateDataStore, StoreData};
 
-use crate::DataStoreError::WriteAnomaly;
+use crate::DataStoreError::{SerializeAnomaly, WriteAnomaly};
 
 type Result<T> = std::result::Result<T, DataStoreError>;
 
@@ -113,26 +112,15 @@ impl DataStore for ParticleDataStore {
 
     fn collect_anomaly_data(
         &mut self,
-        particle_id: &str,
-        particle: &[u8],
-        prev_data: &[u8],
-        current_data: &[u8],
-        avm_outcome: &[u8],
+        key: &str,
+        anomaly_data: AnomalyData<'_>,
     ) -> std::result::Result<(), Self::Error> {
-        let path = self.anomaly_dir(particle_id);
+        let path = self.anomaly_dir(key);
         create_dir(&path).map_err(DataStoreError::CreateAnomalyDir)?;
 
-        let file = path.join("particle");
-        std::fs::write(&file, particle).map_err(|err| WriteAnomaly(err, file))?;
-        let file = path.join("prev_data");
-        std::fs::write(&file, prev_data).map_err(|err| WriteAnomaly(err, file))?;
-        let file = path.join("current_data");
-        std::fs::write(&file, current_data).map_err(|err| WriteAnomaly(err, file))?;
-        let file = path.join("avm_outcome");
-        std::fs::write(&file, avm_outcome).map_err(|err| WriteAnomaly(err, file))?;
-        // let file = path.join("stats");
-        // let data = format!("{}\n{}", pretty(execution_time), memory_delta);
-        // std::fs::write(&file, data).map_err(|err| WriteAnomaly(err, file))?;
+        let file = path.join("data");
+        let data = serde_json::to_vec(&anomaly_data).map_err(SerializeAnomaly)?;
+        std::fs::write(&file, data).map_err(|err| WriteAnomaly(err, file))?;
 
         Ok(())
     }
@@ -152,4 +140,6 @@ pub enum DataStoreError {
     CreateAnomalyDir(#[source] std::io::Error),
     #[error("error writing anomaly data to {1:?}")]
     WriteAnomaly(#[source] std::io::Error, PathBuf),
+    #[error("error serializing anomaly data")]
+    SerializeAnomaly(#[source] serde_json::error::Error),
 }
