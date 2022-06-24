@@ -7,7 +7,7 @@ on:
 jobs:
   check:
     name: cargo nextest
-    runs-on: ubuntu-latest
+    runs-on: xlarge
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
