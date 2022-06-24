@@ -9,7 +9,7 @@ on:
 jobs:
   publish:
     name: "Publish branch"
-    runs-on: xlarge
+    runs-on: builder
     container: rust
     defaults:
       run:
