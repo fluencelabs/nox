@@ -3,6 +3,9 @@ on:
   push:
   workflow_dispatch:
 
+concurrency:
+  group: "rust-ci-${{ github.run_id }}"
+  cancel-in-progress: true
 
 jobs:
   check:

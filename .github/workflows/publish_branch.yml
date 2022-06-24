@@ -6,6 +6,10 @@ on:
       - master
       - main
 
+concurrency:
+  group: "publish-branch-${{ github.run_id }}"
+  cancel-in-progress: true
+
 jobs:
   publish:
     name: "Publish branch"
