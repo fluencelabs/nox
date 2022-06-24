@@ -7,7 +7,7 @@ on:
 jobs:
   check:
     name: cargo nextest
-    runs-on: xlarge
+    runs-on: builder
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
