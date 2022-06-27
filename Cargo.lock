@@ -141,8 +141,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6131102597b7fce0c8a89cab73e1c4a2b8683e6a0d6f3eea275883a7760d708f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=master#3a84ceb863a2660224d4e24b4a6836c3531fabb5"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -173,6 +172,7 @@ dependencies = [
  "async-std",
  "avm-server",
  "base64 0.13.0",
+ "bytesize",
  "chrono",
  "config-utils",
  "control-macro",
@@ -183,6 +183,7 @@ dependencies = [
  "humantime 2.1.0",
  "libp2p",
  "log",
+ "now-millis",
  "parking_lot 0.11.2",
  "particle-args",
  "particle-builtins",
@@ -509,15 +510,16 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "avm-data-store"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dac8b9b7b7f1739169079c382581679b1466cfcb807fb3f7a9723c7a7f78f373"
+version = "0.2.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=master#3a84ceb863a2660224d4e24b4a6836c3531fabb5"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "avm-server"
-version = "0.20.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9894119a2d749ff3c8d3a728bb912d8ef2d4ba69c09d3815994f810795120722"
+version = "0.21.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=master#3a84ceb863a2660224d4e24b4a6836c3531fabb5"
 dependencies = [
  "air-interpreter-interface",
  "avm-data-store",
@@ -526,7 +528,7 @@ dependencies = [
  "log",
  "maplit",
  "parking_lot 0.11.2",
- "polyplets",
+ "polyplets 0.2.0 (git+https://github.com/fluencelabs/aquavm?branch=master)",
  "serde",
  "serde_json",
  "thiserror",
@@ -3503,7 +3505,7 @@ dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
  "marine-timestamp-macro",
- "polyplets",
+ "polyplets 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
@@ -4375,6 +4377,16 @@ name = "polyplets"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cc56e7803860fa903c27675a17215e1cfb39fb26e111c0b93f6c049f9cf8d8e"
+dependencies = [
+ "marine-macro",
+ "marine-rs-sdk-main",
+ "serde",
+]
+
+[[package]]
+name = "polyplets"
+version = "0.2.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=master#3a84ceb863a2660224d4e24b4a6836c3531fabb5"
 dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",

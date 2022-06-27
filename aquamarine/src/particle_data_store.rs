@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use avm_server::DataStore;
+use avm_server::{AnomalyData, DataStore};
 use thiserror::Error;
 
 use fs_utils::{create_dir, remove_file};
+use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
 use DataStoreError::{CleanupData, CreateDataStore, StoreData};
+
+use crate::DataStoreError::{SerializeAnomaly, WriteAnomaly};
 
 type Result<T> = std::result::Result<T, DataStoreError>;
 
@@ -29,18 +33,35 @@ type Result<T> = std::result::Result<T, DataStoreError>;
 pub struct ParticleDataStore {
     pub particle_data_store: PathBuf,
     pub vault: ParticleVault,
+    pub anomaly_data_store: PathBuf,
 }
 
 impl ParticleDataStore {
-    pub fn new(particle_data_store: PathBuf, vault_dir: PathBuf) -> Self {
+    pub fn new(
+        particle_data_store: PathBuf,
+        vault_dir: PathBuf,
+        anomaly_data_store: PathBuf,
+    ) -> Self {
         Self {
             particle_data_store,
             vault: ParticleVault::new(vault_dir),
+            anomaly_data_store,
         }
     }
 
     pub fn data_file(&self, key: &str) -> PathBuf {
         self.particle_data_store.join(key)
+    }
+
+    /// Returns $ANOMALY_DATA_STORE/$particle_id/$timestamp
+    pub fn anomaly_dir(&self, key: &str) -> PathBuf {
+        [
+            self.anomaly_data_store.as_path(),
+            Path::new(key),
+            Path::new(&now_ms().to_string()),
+        ]
+        .iter()
+        .collect()
     }
 
     pub fn create_particle_vault(&self, key: &str) -> Result<()> {
@@ -50,7 +71,12 @@ impl ParticleDataStore {
     }
 }
 
-impl DataStore<DataStoreError> for ParticleDataStore {
+const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(500);
+const MEMORY_DELTA_BYTES_THRESHOLD: usize = 10 * bytesize::MB as usize;
+
+impl DataStore for ParticleDataStore {
+    type Error = DataStoreError;
+
     fn initialize(&mut self) -> Result<()> {
         create_dir(&self.particle_data_store).map_err(CreateDataStore)?;
 
@@ -79,6 +105,25 @@ impl DataStore<DataStoreError> for ParticleDataStore {
 
         Ok(())
     }
+
+    fn detect_anomaly(&self, execution_time: Duration, memory_delta: usize) -> bool {
+        execution_time > EXECUTION_TIME_THRESHOLD || memory_delta > MEMORY_DELTA_BYTES_THRESHOLD
+    }
+
+    fn collect_anomaly_data(
+        &mut self,
+        key: &str,
+        anomaly_data: AnomalyData<'_>,
+    ) -> std::result::Result<(), Self::Error> {
+        let path = self.anomaly_dir(key);
+        create_dir(&path).map_err(DataStoreError::CreateAnomalyDir)?;
+
+        let file = path.join("data");
+        let data = serde_json::to_vec(&anomaly_data).map_err(SerializeAnomaly)?;
+        std::fs::write(&file, data).map_err(|err| WriteAnomaly(err, file))?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Error)]
@@ -91,4 +136,10 @@ pub enum DataStoreError {
     StoreData(#[source] std::io::Error, PathBuf),
     #[error("error cleaning up data")]
     CleanupData(#[source] std::io::Error),
+    #[error("error creating anomaly dir")]
+    CreateAnomalyDir(#[source] std::io::Error),
+    #[error("error writing anomaly data to {1:?}")]
+    WriteAnomaly(#[source] std::io::Error, PathBuf),
+    #[error("error serializing anomaly data")]
+    SerializeAnomaly(#[source] serde_json::error::Error),
 }

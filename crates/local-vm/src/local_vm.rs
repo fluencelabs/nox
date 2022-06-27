@@ -168,7 +168,12 @@ pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
 
     let particle_data_store: PathBuf = format!("/tmp/{}", peer_id.to_string()).into();
     let vault_dir = particle_data_store.join("vault");
-    let data_store = Box::new(ParticleDataStore::new(particle_data_store, vault_dir));
+    let anomaly_dir = particle_data_store.join("anomalies");
+    let data_store = Box::new(ParticleDataStore::new(
+        particle_data_store,
+        vault_dir,
+        anomaly_dir,
+    ));
     let config = AVMConfig {
         data_store,
         current_peer_id: peer_id.to_base58(),
