@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use crate::args_error::ArgsError::{self, MissingField, SerdeJson};
+use crate::args_error::ArgsError::{self, MissingField};
 
 use control_macro::ok_get;
 
+use crate::ArgsError::DeserializeError;
 use avm_server::{CallRequestParams, SecurityTetraplet};
 use serde::Deserialize;
 use serde_json::Value as JValue;
@@ -60,6 +61,7 @@ impl Args {
     ) -> Result<Option<T>, ArgsError> {
         let value = ok_get!(args.next());
 
+        // TODO: get rid of untagged enum, and always deserialize to Vec<T> of one element.
         #[derive(serde::Deserialize, Debug)]
         #[serde(untagged)]
         pub enum Opt<T> {
@@ -85,9 +87,21 @@ impl Args {
     /// `field` is to generate a more accurate error message
     fn deserialize<T: for<'de> Deserialize<'de>>(
         field: &'static str,
-        v: JValue,
+        value: JValue,
     ) -> Result<T, ArgsError> {
-        serde_json::from_value(v).map_err(|err| SerdeJson { err, field })
+        serde_json::from_value(value.clone()).map_err(|_| {
+            let expected_type = std::any::type_name::<T>();
+            let expected_type = expected_type.replace("alloc::vec::", "");
+            let expected_type = expected_type.replace("alloc::string::", "");
+            let expected_type =
+                expected_type.replace("particle_args::args::Args::next_opt::Opt", "Option");
+
+            DeserializeError {
+                field,
+                value,
+                expected_type,
+            }
+        })
     }
 }
 
@@ -113,15 +127,16 @@ mod tests {
     fn test_next_opt() {
         #[rustfmt::skip]
         let mut args = vec![
-            json!([]),           // as String => None
-            json!(["hi"]),       // as String => Some
-            json!(["hi", "hi"]), // as Vec    => Some
-            json!([]),           // as Vec    => None
-            json!(["hi", "hi"]), // as String => Error
-            json!("hi"),         // as String => Some
-            json!(["hi"])        // as Vec    => Some
-            /* absence */        // as String => None
-            /* absence */        // as Vec    => None
+            json!([]),                    // as String => None
+            json!(["hi"]),                // as String => Some
+            json!(["hi", "hi"]),          // as Vec    => Some
+            json!([]),                    // as Vec    => None
+            json!(["hi", "hi"]),          // as String => Error
+            json!("hi"),                  // as String => Some
+            json!(["hi"]),                // as Vec    => Some
+            json!([[[[ "hi", "bye" ]]]])  // as String => Error
+            /* absence */                 // as String => None
+            /* absence */                 // as Vec    => None
         ]
         .into_iter();
 
@@ -144,7 +159,7 @@ mod tests {
         let scalar_err: Result<Option<String>, _> = Args::next_opt("scalar", &mut args);
         assert!(scalar_err.is_err());
         assert_eq!(
-            "Option's array must contain at most 1 element, scalar was of 2 elements",
+            "Option's array must contain at most 1 element, 'scalar' was of 2 elements",
             scalar_err.err().unwrap().to_string()
         );
 
@@ -153,6 +168,13 @@ mod tests {
 
         let some_vec: Result<Option<Vec<String>>, _> = Args::next_opt("", &mut args);
         assert_eq!(some_vec.unwrap(), Some(vec![hi()]));
+
+        let incorrect_type: Result<Option<Vec<(String, String)>>, _> =
+            Args::next_opt("field", &mut args);
+        assert_eq!(
+            r#"Error deserializing field 'field': expected Option<Vec<(String, String)>>, got [[[["hi","bye"]]]]"#,
+            incorrect_type.err().unwrap().to_string()
+        );
 
         let none: Result<Option<String>, _> = Args::next_opt("", &mut args);
         assert_eq!(none.unwrap(), None);
