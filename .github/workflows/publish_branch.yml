@@ -52,12 +52,6 @@ jobs:
           command: build
           args: --release -p particle-node
 
-      - name: Setup tmate session
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        with:
-          sudo: false
-
 ### Update version in node-distro
       - name: Get binary URL
         id: package-url
