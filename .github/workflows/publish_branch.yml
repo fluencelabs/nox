@@ -33,6 +33,28 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - run: echo azaza > /tmp/folex_artifact
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: folex-artifact
+          path: /tmp/folex_artifact
+
+      - name: Get binary URL
+        id: package-url
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          result-encoding: string
+          script: |
+            const list = octokit.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId
+            });
+            console.dir(list);
+            throw list;
+
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -55,11 +77,11 @@ jobs:
 ### Update version in node-distro
       - name: Get binary URL
         id: package-url
-        uses: actions/github-script@v4
+        uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
-          script: |
+          script: |  
             try {
                 let assets = await github.repos.listReleaseAssets({
                   owner: context.repo.owner,
