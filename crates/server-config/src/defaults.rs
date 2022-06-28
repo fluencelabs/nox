@@ -50,8 +50,8 @@ pub fn default_socket_timeout() -> Duration {
 pub fn default_packet_split_size() -> usize {
     16 * KIB as usize
 }
-pub fn default_particle_ttl() -> Duration {
-    Duration::from_secs(20)
+pub fn default_auto_particle_ttl() -> Duration {
+    Duration::from_secs(200)
 }
 
 pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
