@@ -24,6 +24,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Set branch name
         run: echo "BRANCH_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
