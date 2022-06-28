@@ -41,7 +41,6 @@ jobs:
           path: /tmp/folex_artifact
 
       - name: Get binary URL
-        id: package-url
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
