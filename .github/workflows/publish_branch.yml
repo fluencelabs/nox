@@ -24,11 +24,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-        with:
-          sudo: false
-
       - name: Set branch name
         run: echo "BRANCH_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
@@ -57,6 +52,12 @@ jobs:
         with:
           command: build
           args: --release -p particle-node
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        with:
+          sudo: false
 
 ### Update version in node-distro
       - name: Get binary URL
