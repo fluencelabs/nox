@@ -16,3 +16,6 @@ serde = "1.0.130"
 bs58 = "0.4.0"
 thiserror = "1.0.23"
 eyre = "0.6.5"
+
+[dev-dependencies]
+toml = "0.5.9"

@@ -23,20 +23,26 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ArgsError {
-    #[error("Field {0} is missing from args to call_service")]
+    #[error("Field '{0}' is missing from args to call_service")]
     MissingField(&'static str),
-    #[error("Error while deserializing field {field}: {err}")]
+    #[error("Error while deserializing field '{field}': {err}")]
     SerdeJson {
         field: &'static str,
         err: serde_json::Error,
     },
-    #[error("Error while deserializing field {field}: {err}")]
+    #[error("Error while deserializing field '{field}': {err}")]
     InvalidFormat {
         field: &'static str,
         err: Cow<'static, str>,
     },
-    #[error("Option's array must contain at most 1 element, {field} was of {length} elements")]
+    #[error("Option's array must contain at most 1 element, '{field}' was of {length} elements")]
     NonUnaryOption { field: &'static str, length: usize },
+    #[error("Error deserializing field '{field}': expected {expected_type}, got {value}")]
+    DeserializeError {
+        field: &'static str,
+        value: JValue,
+        expected_type: String,
+    },
 }
 
 impl From<ArgsError> for JValue {
