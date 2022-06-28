@@ -44,7 +44,7 @@ jobs:
 ### Build
       - name: Set version in particle-node/Cargo.toml to ${{ env.BRANCH_NAME }}_${{ github.run_number }}
         run: |
-          VERSION="0.0.0-" "$(echo ${{ env.BRANCH_NAME }}_${{ github.run_number }} | tr -d v)"
+          VERSION="0.0.${{ github.run_number }}"-"$(echo ${{ env.BRANCH_NAME }} | sed -e 's/[^a-zA-Z0-9-]/-/g')"
           sed -i 's/^version = ".*"/version = "'${VERSION}'"/' ./particle-node/Cargo.toml
 
       - name: Build particle-node
