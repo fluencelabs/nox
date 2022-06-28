@@ -14,7 +14,6 @@ jobs:
   publish:
     name: "Publish branch"
     runs-on: builder
-    container: rust
     defaults:
       run:
         shell: bash
