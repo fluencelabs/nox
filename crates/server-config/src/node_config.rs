@@ -35,7 +35,7 @@ pub struct NodeConfig {
     pub builtins_key_pair: KeyPair,
 
     /// Particle ttl for autodeploy
-    #[serde(default = "default_particle_ttl")]
+    #[serde(default = "default_auto_particle_ttl")]
     #[serde(with = "humantime_serde")]
     pub autodeploy_particle_ttl: Duration,
 
