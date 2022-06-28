@@ -42,9 +42,9 @@ jobs:
           override: true
 
 ### Build
-      - name: Set version in particle-node/Cargo.toml to ${{ env.RELEASE_VERSION }}
+      - name: Set version in particle-node/Cargo.toml to ${{ env.BRANCH_NAME }}_${{ github.run_number }}
         run: |
-          VERSION=$(echo ${{ env.RELEASE_VERSION }} | tr -d v)
+          VERSION=$(echo ${{ env.BRANCH_NAME }}_${{ github.run_number }} | tr -d v)
           sed -i 's/^version = ".*"/version = "'${VERSION}'"/' ./particle-node/Cargo.toml
 
       - name: Build particle-node
