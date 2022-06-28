@@ -279,6 +279,8 @@ mod tests {
                 data: vec![],
                 call_requests: Default::default(),
                 next_peer_pks: vec![],
+                memory_delta: 0,
+                execution_time: Default::default(),
             })
         }
 

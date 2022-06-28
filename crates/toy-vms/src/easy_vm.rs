@@ -86,6 +86,8 @@ impl AquaRuntime for EasyVM {
             data,
             call_requests: Default::default(),
             next_peer_pks: vec![next_peer],
+            memory_delta: 0,
+            execution_time: Default::default(),
         })
     }
 

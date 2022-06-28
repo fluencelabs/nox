@@ -9,6 +9,7 @@ particle-protocol = { path = "../particle-protocol"}
 particle-services = { path = "../particle-services"}
 particle-builtins = { path = "../particle-builtins" }
 
+now-millis = { path = "../crates/now-millis" }
 fluence-libp2p = { path = "../crates/libp2p" }
 config-utils = { path = "../crates/config-utils" }
 particle-args = { path = "../crates/particle-args" }
@@ -17,7 +18,7 @@ fs-utils = { path = "../crates/fs-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 particle-execution = { path = "../particle-execution" }
 
-avm-server = "0.20.2"
+avm-server = "0.21.0"
 libp2p = "0.45"
 
 futures = "0.3.13"
@@ -31,3 +32,4 @@ thiserror = "1.0.24"
 humantime = "2.1.0"
 anyhow = "1.0.44"
 eyre = "0.6.5"
+bytesize = "1.1.0"
