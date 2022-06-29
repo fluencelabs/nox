@@ -1,0 +1,92 @@
+name: "publish-branch"
+
+on:
+  push:
+    branches-ignore:
+      - master
+      - main
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: "Publish branch"
+    runs-on: builder
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+### Setup
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set branch name
+        run: echo "BRANCH_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+### Build
+      - name: Set version in particle-node/Cargo.toml to ${{ env.BRANCH_NAME }}_${{ github.run_number }}
+        run: |
+          VERSION="0.0.${{ github.run_number }}"-"$(echo ${{ env.BRANCH_NAME }} | sed -e 's/[^a-zA-Z0-9-]/-/g')"
+          sed -i 's/^version = ".*"/version = "'${VERSION}'"/' ./particle-node/Cargo.toml
+
+      - name: Build particle-node
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release -p particle-node
+
+### Upload
+      - name: Calculate SHA256
+        run: |
+          BINARY="./target/release/particle-node"
+          du -hs $BINARY
+          echo $(sha256sum $BINARY)
+          echo "SHA256=$(sha256sum $BINARY | awk '{ print $1 }')" >> $GITHUB_ENV
+
+      - name: Copy Fluence binary
+        run: |
+          mkdir -p ./target/release/binary/
+          mv ./target/release/particle-node ./target/release/binary
+
+      - name: Upload Fluence binary
+        if: always()
+        uses: shallwefootball/s3-upload-action@v1.1.3
+        id: S3
+        with:
+          aws_key_id: ${{ secrets.AWS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+          aws_bucket: ${{ secrets.AWS_BUCKET }}
+          source_dir: './target/release/binary'
+
+### Update version in node-distro
+      - name: Update version in node-distro
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "Publish Container"
+          repo: fluencelabs/node-distro
+          ref: 'main'
+          token: ${{ secrets.PERSONAL_TOKEN }}
+          inputs: '{ 
+            "container_tag": "${{ env.BRANCH_NAME }}_${{ github.run_number }}",
+            "version": "${{ env.BRANCH_NAME }}_${{ github.run_number }}",
+            "url": "${{ fromJson(steps.S3.outputs.object_locations)[0] }}",
+            "sha256": "${{ env.SHA256 }}",
+            "update_fluence": "true"
+          }'

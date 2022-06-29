@@ -8,7 +8,7 @@ on:
 jobs:
   npm-publish:
     name: "Publish"
-    runs-on: ubuntu-latest
+    runs-on: builder
     container: rust
     defaults:
       run:
@@ -35,12 +35,6 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-
-      - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@v1.12
-        with:
-          cmake-version: '3.16.x'
-
 
 ### Build
       - name: Set version in particle-node/Cargo.toml to ${{ env.RELEASE_VERSION }}

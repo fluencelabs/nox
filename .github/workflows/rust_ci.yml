@@ -3,11 +3,14 @@ on:
   push:
   workflow_dispatch:
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   check:
     name: cargo nextest
-    runs-on: ubuntu-latest
+    runs-on: builder
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
