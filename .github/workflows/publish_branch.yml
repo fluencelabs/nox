@@ -26,22 +26,6 @@ jobs:
       - name: Set branch name
         run: echo "BRANCH_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
-      - run: |
-          mkdir -p ./tmp/
-          echo azaza > ./tmp/azaza
-
-      - name: Upload Fluence binary
-        if: always()
-        uses: shallwefootball/s3-upload-action@v1.1.3
-        id: S3azaza
-        with:
-          aws_key_id: ${{ secrets.AWS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
-          aws_bucket: ${{ secrets.AWS_BUCKET }}
-          source_dir: './tmp/'
-
-      - run: echo ${{steps.S3azaza.outputs.object_key}} ${{fromJson(steps.S3azaza.outputs.object_locations)[0]}}
-
       - uses: actions/cache@v2
         with:
           path: |
@@ -90,8 +74,6 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
           aws_bucket: ${{ secrets.AWS_BUCKET }}
           source_dir: './target/release/binary'
-
-      - run: echo ${{steps.S3.outputs.object_key}} ${{fromJson(steps.S3.outputs.object_locations)[0]}}
 
 ### Update version in node-distro
       - name: Update version in node-distro
