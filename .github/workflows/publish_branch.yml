@@ -102,7 +102,6 @@ jobs:
           ref: 'main'
           token: ${{ secrets.PERSONAL_TOKEN }}
           inputs: '{ 
-            "container_tag": "${{ env.BRANCH_NAME }}",
             "version": "${{ env.BRANCH_NAME }}_${{ github.run_number }}",
             "url": "${{ fromJson(steps.S3.outputs.object_locations)[0] }}",
             "sha256": "${{ env.SHA256 }}"
