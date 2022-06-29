@@ -27,7 +27,7 @@ jobs:
         run: echo "BRANCH_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - run: |
-          mkdir /tmp/bugbugbug/
+          mkdir -p /tmp/bugbugbug/
           echo azaza > /tmp/bugbugbug/azaza
       - name: Upload Fluence binary
         uses: shallwefootball/s3-upload-action@v1.1.3
