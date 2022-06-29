@@ -26,33 +26,25 @@ jobs:
       - name: Set branch name
         run: echo "BRANCH_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
-#      - uses: actions/cache@v2
-#        with:
-#          path: |
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - run: echo azaza > /tmp/folex_artifact
-
-      - uses: actions/upload-artifact@v3
+      - run: echo azaza > /tmp/azaza
+      - name: Upload Fluence binary
+        uses: shallwefootball/s3-upload-action@v1.1.3
+        id: S3azaza
         with:
-          name: folex-artifact
-          path: /tmp/folex_artifact
+          aws_key_id: ${{ secrets.AWS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+          aws_bucket: ${{ secrets.AWS_BUCKET }}
+          source_dir: '/tmp/azaza'
 
-      - name: Get binary URL
-        uses: actions/github-script@v6
+      - run: echo ${{steps.S3azaza.outputs.object_key}} ${{steps.S3azaza.outputs.object_locations}}
+      - run: exit 1
+
+      - uses: actions/cache@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          result-encoding: string
-          script: |
-            const list = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: context.runId
-            });
-            console.dir(list);
-            throw list;
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
@@ -73,30 +65,28 @@ jobs:
           command: build
           args: --release -p particle-node
 
-### Update version in node-distro
-      - name: Get binary URL
-        id: package-url
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          result-encoding: string
-          script: |  
-            try {
-                let assets = await github.repos.listReleaseAssets({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  release_id: "${{ steps.release.outputs.id }}",
-                });
-                console.dir(assets);
-                let package = assets.data.find((a) => a.name === 'particle-node');
-                let url = package.browser_download_url;
-                console.log("URL: " + url);
-                return url;
-            } catch (e) {
-              console.log("Err: " + e);
-              throw e;
-            }
+### Upload
+      - name: Calculate SHA256
+        run: |
+          BINARY="./target/release/particle-node"
+          du -hs $BINARY
+          echo $(sha256sum $BINARY)
+          echo "SHA256=$(sha256sum $BINARY | awk '{ print $1 }')" >> $GITHUB_ENV
 
+      - name: Upload Fluence binary
+        uses: shallwefootball/s3-upload-action@v1.1.3
+        id: S3
+        with:
+          aws_key_id: ${{ secrets.AWS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+          aws_bucket: ${{ secrets.AWS_BUCKET }}
+          source_dir: './target/release/particle-node'
+
+      - run: echo ${{steps.S3.outputs.object_key}} ${{steps.S3.outputs.object_locations}}
+
+        # https://aws-bucket.s3.ap-northeast-2.amazonaws.com/${{steps.S3.outputs.object_key}}/index.html
+
+### Update version in node-distro
       - name: Update version in node-distro
         uses: benc-uk/workflow-dispatch@v1
         with:
