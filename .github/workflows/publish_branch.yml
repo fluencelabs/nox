@@ -27,8 +27,8 @@ jobs:
         run: echo "BRANCH_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - run: |
-          mkdir -p /tmp/bugbugbug/
-          echo azaza > /tmp/bugbugbug/azaza
+          mkdir -p ./tmp/
+          echo azaza > ./tmp/azaza
 
       - name: Save cache
         uses: leroy-merlin-br/action-s3-cache@v1
@@ -43,7 +43,7 @@ jobs:
           # REDUCED_REDUDANCY, ONEZONE_IA, INTELLIGENT_TIERING, GLACIER, DEEP_ARCHIVE or STANDARD_IA.
           key: ${{ github.workflow }}-${{ github.ref }}-${{ github.run_number }}
           artifacts: |
-            /tmp/bugbugbug/azaza
+            ./tmp/azaza
 
       - run: echo ${{ steps.S31.outputs }}
 
@@ -52,7 +52,7 @@ jobs:
         if: always()
         with:
           command: cp
-          source: /tmp/bugbugbug/azaza
+          source: ./tmp/azaza
           destination: s3://${{ secrets.AWS_BUCKET }}/azaza
           aws_access_key_id: ${{ secrets.AWS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -67,7 +67,7 @@ jobs:
         with:
           args: --acl public-read
         env:
-          FILE: /tmp/bugbugbug/azaza
+          FILE: ./tmp/azaza
           AWS_REGION: 'us-west-1'
           S3_BUCKET: ${{ secrets.AWS_BUCKET }}
           S3_KEY: azaza
