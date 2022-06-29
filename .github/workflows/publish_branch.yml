@@ -97,12 +97,14 @@ jobs:
       - name: Update version in node-distro
         uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: update_fluence
+          workflow: "Publish Container"
           repo: fluencelabs/node-distro
           ref: 'main'
           token: ${{ secrets.PERSONAL_TOKEN }}
           inputs: '{ 
+            "container_tag": "${{ env.BRANCH_NAME }}_${{ github.run_number }}",
             "version": "${{ env.BRANCH_NAME }}_${{ github.run_number }}",
             "url": "${{ fromJson(steps.S3.outputs.object_locations)[0] }}",
-            "sha256": "${{ env.SHA256 }}"
+            "sha256": "${{ env.SHA256 }}",
+            "update_fluence": "true"
           }'
