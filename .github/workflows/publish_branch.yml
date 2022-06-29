@@ -37,7 +37,7 @@ jobs:
           action: put
           aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-1 # Or whatever region your bucket was created
+          aws-region: eu-west-1 # Or whatever region your bucket was created
           bucket: ${{ secrets.AWS_BUCKET }}
           s3-class: ONEZONE_IA # It's STANDARD by default. It can be either STANDARD,
           # REDUCED_REDUDANCY, ONEZONE_IA, INTELLIGENT_TIERING, GLACIER, DEEP_ARCHIVE or STANDARD_IA.
@@ -56,7 +56,7 @@ jobs:
           destination: s3://${{ secrets.AWS_BUCKET }}/azaza
           aws_access_key_id: ${{ secrets.AWS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: us-west-1
+          aws_region: eu-west-1
 
       - run: echo ${{ steps.S32.outputs }}
 
@@ -68,7 +68,7 @@ jobs:
           args: --acl public-read
         env:
           FILE: ./tmp/azaza
-          AWS_REGION: 'us-west-1'
+          AWS_REGION: 'eu-west-1'
           S3_BUCKET: ${{ secrets.AWS_BUCKET }}
           S3_KEY: azaza
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_KEY_ID }}
