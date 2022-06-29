@@ -30,52 +30,6 @@ jobs:
           mkdir -p ./tmp/
           echo azaza > ./tmp/azaza
 
-      - name: Save cache
-        uses: leroy-merlin-br/action-s3-cache@v1
-        id: S31
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-1 # Or whatever region your bucket was created
-          bucket: ${{ secrets.AWS_BUCKET }}
-          s3-class: ONEZONE_IA # It's STANDARD by default. It can be either STANDARD,
-          # REDUCED_REDUDANCY, ONEZONE_IA, INTELLIGENT_TIERING, GLACIER, DEEP_ARCHIVE or STANDARD_IA.
-          key: ${{ github.workflow }}-${{ github.run_number }}
-          artifacts: |
-            ./tmp/azaza
-
-      - run: echo ${{ steps.S31.outputs }}
-
-      - uses: keithweaver/aws-s3-github-action@v1.0.0
-        id: S32
-        if: always()
-        with:
-          command: cp
-          source: ./tmp/azaza
-          destination: s3://${{ secrets.AWS_BUCKET }}/azaza
-          aws_access_key_id: ${{ secrets.AWS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: eu-west-1
-
-      - run: echo ${{ steps.S32.outputs }}
-
-      - name: Upload file to bucket
-        id: S33
-        if: always()
-        uses: zdurham/s3-upload-github-action@master
-        with:
-          args: --acl public-read
-        env:
-          FILE: ./tmp/azaza
-          AWS_REGION: 'eu-west-1'
-          S3_BUCKET: ${{ secrets.AWS_BUCKET }}
-          S3_KEY: azaza
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-      - run: echo ${{ steps.S33.outputs }}
-
       - name: Upload Fluence binary
         if: always()
         uses: shallwefootball/s3-upload-action@v1.1.3
@@ -86,8 +40,7 @@ jobs:
           aws_bucket: ${{ secrets.AWS_BUCKET }}
           source_dir: './tmp/'
 
-      - run: echo ${{steps.S3azaza.outputs.object_key}} ${{steps.S3azaza.outputs.object_locations}}
-      - run: exit 1
+      - run: echo ${{steps.S3azaza.outputs.object_key}} ${{steps.S3azaza.outputs.object_locations[0]}}
 
       - uses: actions/cache@v2
         with:
@@ -124,6 +77,7 @@ jobs:
           echo "SHA256=$(sha256sum $BINARY | awk '{ print $1 }')" >> $GITHUB_ENV
 
       - name: Upload Fluence binary
+        if: always()
         uses: shallwefootball/s3-upload-action@v1.1.3
         id: S3
         with:
@@ -132,9 +86,7 @@ jobs:
           aws_bucket: ${{ secrets.AWS_BUCKET }}
           source_dir: './target/release/particle-node'
 
-      - run: echo ${{steps.S3.outputs.object_key}} ${{steps.S3.outputs.object_locations}}
-
-        # https://aws-bucket.s3.ap-northeast-2.amazonaws.com/${{steps.S3.outputs.object_key}}/index.html
+      - run: echo ${{steps.S3.outputs.object_key}} ${{steps.S3.outputs.object_locations[0]}}
 
 ### Update version in node-distro
       - name: Update version in node-distro
@@ -147,8 +99,6 @@ jobs:
           inputs: '{ 
             "container_tag": "${{ env.BRANCH_NAME }}",
             "version": "${{ env.BRANCH_NAME }}_${{ github.run_number }}",
-            "url": "${{ steps.package-url.outputs.result }}",
+            "url": "${{ steps.S3.outputs.object_locations[0] }}",
             "sha256": "${{ env.SHA256 }}"
           }'
-
-
