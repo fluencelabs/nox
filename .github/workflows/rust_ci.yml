@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: "rust-ci-${{ github.run_id }}"
+  group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
