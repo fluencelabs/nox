@@ -9,7 +9,6 @@ jobs:
   npm-publish:
     name: "Publish"
     runs-on: builder
-    container: rust
     defaults:
       run:
         shell: bash
