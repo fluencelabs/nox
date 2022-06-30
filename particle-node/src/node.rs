@@ -160,6 +160,7 @@ impl<RT: AquaRuntime> Node<RT> {
             } else {
                 (None, None)
             };
+        let services_metrics = ServicesMetrics::new(services_metrics);
 
         let builtins = Self::builtins(
             connectivity.clone(),
@@ -248,7 +249,7 @@ impl<RT: AquaRuntime> Node<RT> {
         external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
-        services_metrics: Option<ServicesMetrics>,
+        services_metrics: ServicesMetrics,
     ) -> Builtins<Connectivity> {
         let node_info = NodeInfo {
             external_addresses,

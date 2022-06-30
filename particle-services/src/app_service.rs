@@ -23,7 +23,7 @@ use fluence_app_service::{
 };
 use fluence_libp2p::PeerId;
 use particle_modules::ModuleRepository;
-use peer_metrics::ServicesMetrics;
+use peer_metrics::ServicesMetricsInstant;
 use server_config::ServicesConfig;
 
 use std::path::Path;
@@ -35,7 +35,7 @@ pub fn create_app_service(
     service_id: String,
     aliases: Vec<String>,
     owner_id: PeerId,
-    metrics: Option<&ServicesMetrics>,
+    metrics: Option<&ServicesMetricsInstant>,
 ) -> Result<AppService> {
     try {
         let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;

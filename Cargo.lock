@@ -4180,6 +4180,8 @@ dependencies = [
  "futures",
  "log",
  "prometheus-client",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

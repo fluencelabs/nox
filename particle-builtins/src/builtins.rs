@@ -72,7 +72,7 @@ where
         script_storage: ScriptStorageApi,
         node_info: NodeInfo,
         config: ServicesConfig,
-        services_metrics: Option<ServicesMetrics>,
+        services_metrics: ServicesMetrics,
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -156,6 +156,7 @@ where
             ("debug", "stringify")            => self.stringify(args.function_args),
 
             ("stat", "service_memory") => unary(args, |id: String| -> R<Vec<JValue>, _> { self.services.get_service_mem_stats(id) }),
+            ("stat", "service_stat")   => wrap(self.service_stat(args)),
 
             ("math", "add")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
             ("math", "sub")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
@@ -677,6 +678,25 @@ where
 
     fn connection_pool(&self) -> &ConnectionPoolApi {
         self.connectivity.as_ref()
+    }
+
+    fn service_stat(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let service_id: String = Args::next("service_id", &mut args)?;
+        if let Some(result) = self.services.metrics.builtin.read(&service_id) {
+            let result = result?;
+            Ok(json!({
+                "status": true,
+                "error": "",
+                "result": vec![result],
+            }))
+        } else {
+            Ok(json!({
+                "status": false,
+                "error": format!("No saved stats for service {}", service_id),
+                "result": [],
+            }))
+        }
     }
 }
 

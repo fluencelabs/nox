@@ -28,7 +28,7 @@ use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
-use peer_metrics::ServicesMetrics;
+use peer_metrics::{ServicesMetrics, ServicesMetricsBuiltin};
 use server_config::ServicesConfig;
 
 use crate::app_service::create_app_service;
@@ -94,7 +94,7 @@ pub struct ParticleAppServices {
     aliases: Aliases,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
-    pub metrics: Option<ServicesMetrics>,
+    pub metrics: ServicesMetrics,
 }
 
 pub fn get_service<'l>(
@@ -121,7 +121,7 @@ impl ParticleAppServices {
     pub fn new(
         config: ServicesConfig,
         modules: ModuleRepository,
-        metrics: Option<ServicesMetrics>,
+        metrics: ServicesMetrics,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
         let management_peer_id = config.management_peer_id;
@@ -149,7 +149,7 @@ impl ParticleAppServices {
     ) -> Result<String, ServiceError> {
         let creation_start_time = Instant::now();
 
-        let metrics = self.metrics.as_ref();
+        let metrics = self.metrics.instant.as_ref();
         let service_id = uuid::Uuid::new_v4().to_string();
 
         let service = create_app_service(
@@ -230,7 +230,7 @@ impl ParticleAppServices {
         }
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
-        if let Some(m) = self.metrics.as_ref() {
+        if let Some(m) = self.metrics.instant.as_ref() {
             m.observe_removed(removal_end_time as f64);
         }
 
@@ -286,17 +286,25 @@ impl ParticleAppServices {
         let function_name = function_args.function_name;
 
         let mut service = service.lock();
+        let old_memory = ServicesMetricsBuiltin::get_used_memory(&service.module_memory_stats());
         // TODO: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
         let result = service
             .call(
-                function_name,
+                function_name.clone(),
                 JValue::Array(function_args.function_args),
                 params,
             )
             .map_err(ServiceError::Engine)?;
 
-        if let Some(metrics) = &self.metrics {
-            metrics.observe_service_mem(service_id, service.module_memory_stats());
+        let stats = service.module_memory_stats();
+        // TODO: move updating to a separate thread
+        let new_memory = ServicesMetricsBuiltin::get_used_memory(&stats);
+        self.metrics
+            .builtin
+            .update(service_id.clone(), function_name, new_memory - old_memory);
+        self.metrics.builtin.debug_print();
+        if let Some(metrics) = &self.metrics.instant {
+            metrics.observe_service_mem(service_id, stats);
         }
 
         FunctionOutcome::Ok(result)
@@ -427,7 +435,7 @@ impl ParticleAppServices {
                 s.service_id.clone(),
                 s.aliases.clone(),
                 s.owner_id,
-                self.metrics.as_ref(),
+                self.metrics.instant.as_ref(),
             );
             let service = match service {
                 Ok(service) => service,

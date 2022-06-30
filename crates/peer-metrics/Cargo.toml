@@ -11,3 +11,5 @@ fluence-app-service = "0.18.1"
 fluence-libp2p = { path = "../libp2p" }
 async-std = { version = "1.6.5", features = ["unstable"] }
 futures = "0.3.13"
+serde = { version = "1.0.118", features = ["derive"] }
+serde_json = "1.0.64"

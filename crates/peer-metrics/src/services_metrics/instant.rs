@@ -1,5 +1,8 @@
+/**
+ * Services metrics for instant delivery to monitoring boards.
+ */
 use std::collections::HashMap;
-use std::{fmt, time};
+use std::time;
 
 use async_std::task;
 use futures::channel::mpsc::unbounded;
@@ -100,12 +103,6 @@ pub struct ServicesMetrics {
     memory_update_outlet: Outlet<ServiceMemoryMsg>,
 }
 
-impl fmt::Debug for ServicesMetrics {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ServicesMetrics").finish()
-    }
-}
-
 impl ServicesMetrics {
     pub fn new(registry: &mut Registry, memory_update_outlet: Outlet<ServiceMemoryMsg>) -> Self {
         let sub_registry = registry.sub_registry_with_prefix("services");
@@ -202,7 +199,7 @@ impl ServicesMetrics {
             mem_used_total_bytes,
         };
 
-        ServicesMetrics {
+        Self {
             services_count,
             creation_time_msec,
             removal_time_msec,
