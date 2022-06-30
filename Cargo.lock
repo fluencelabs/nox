@@ -511,18 +511,18 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "avm-data-store"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78e9d7fba194aaf13b603afff8e5d9bee32c583cb49d84165a30030813beeef8"
+checksum = "917343b19a520cdaf4813f38aa6318e9a61fd58c5912b6bbf74d2a58a00bba8b"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "avm-server"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "119e3810d9a26ba84f4c76c90937d8122b9a5bd0dbf4b534a89bc5696c0fbb3a"
+checksum = "3e0a39c84da0e6cbb0c7b9da04ed83a5ae205968c5026a35b4e8f7f3fea663da"
 dependencies = [
  "air-interpreter-interface",
  "avm-data-store",
