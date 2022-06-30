@@ -15,7 +15,7 @@
  */
 
 use std::path::PathBuf;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{collections::HashMap, fs};
 
 use eyre::{eyre, ErrReport, Result, WrapErr};
@@ -28,6 +28,7 @@ use serde_json::{json, Value as JValue};
 use aquamarine::AquamarineApi;
 use fluence_libp2p::PeerId;
 use fs_utils::{file_name, to_abs_path};
+use humantime::format_duration as pretty;
 use local_vm::{client_functions, wrap_script};
 use now_millis::now_ms;
 use particle_modules::list_files;
@@ -111,6 +112,7 @@ impl BuiltinsDeployer {
             signature: vec![],
             data: vec![],
         };
+        let sent = Instant::now();
 
         let future = async move {
             try {
@@ -120,12 +122,23 @@ impl BuiltinsDeployer {
 
                 let result = inlet.await;
                 result
-                    .map_err(|err| eyre!("error reading from inlet: {:?}", err))?
+                    .map_err(|err| {
+                        let failed = sent.elapsed();
+                        eyre!(
+                            "error reading from inlet: {:?} (TTL = {}, duration = {})",
+                            err,
+                            pretty(self.particle_ttl),
+                            pretty(failed)
+                        )
+                    })?
                     .map_err(|args| eyre!("AIR caught an error on args: {:?}", args))?
             }
         };
 
-        block_on(future)
+        let result = block_on(future);
+        let finished = sent.elapsed();
+        log::debug!(target: "execution", "sending particle took {}", pretty(finished));
+        result
     }
 
     fn add_module(&mut self, module: &Module) -> eyre::Result<()> {

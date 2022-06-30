@@ -795,6 +795,7 @@ dependencies = [
  "fs-utils",
  "fstrings",
  "futures",
+ "humantime 2.1.0",
  "local-vm",
  "log",
  "maplit",
