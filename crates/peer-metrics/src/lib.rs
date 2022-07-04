@@ -14,7 +14,7 @@ pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
 use prometheus_client::encoding::text::SendEncodeMetric;
 use prometheus_client::registry::Registry;
 pub use services_metrics::{
-    ServicesMetrics, ServicesMetricsBackend, ServicesMetricsBuiltin, ServicesMetricsInstant,
+    ServicesMetrics, ServicesMetricsBackend, ServicesMetricsBuiltin, ServicesMetricsInstant, Observation,
 };
 pub use vm_pool::VmPoolMetrics;
 

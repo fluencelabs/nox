@@ -1,7 +1,7 @@
 pub mod builtin;
 pub mod instant;
 
-pub use crate::services_metrics::builtin::ServicesMetricsBuiltin;
+pub use crate::services_metrics::builtin::{ServicesMetricsBuiltin, Observation};
 pub use crate::services_metrics::instant::{
     ServicesMetrics as ServicesMetricsInstant, ServicesMetricsBackend,
 };

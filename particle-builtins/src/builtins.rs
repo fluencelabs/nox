@@ -682,7 +682,8 @@ where
 
     fn service_stat(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
-        let service_id: String = Args::next("service_id", &mut args)?;
+        let service_id_or_alias: String = Args::next("service_id", &mut args)?;
+        let service_id = self.services.to_service_id(service_id_or_alias)?;
         if let Some(result) = self.services.metrics.builtin.read(&service_id) {
             let result = result?;
             Ok(json!({

@@ -28,7 +28,7 @@ use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
-use peer_metrics::{ServicesMetrics, ServicesMetricsBuiltin};
+use peer_metrics::{ServicesMetrics, ServicesMetricsBuiltin, Observation};
 use server_config::ServicesConfig;
 
 use crate::app_service::create_app_service;
@@ -242,6 +242,7 @@ impl ParticleAppServices {
         mut function_args: Args,
         particle: ParticleParams,
     ) -> FunctionOutcome {
+        let call_time_start = Instant::now();
         let services = self.services.read();
         let aliases = self.aliases.read();
         let host_id = self.config.local_peer_id.to_string();
@@ -296,13 +297,17 @@ impl ParticleAppServices {
             )
             .map_err(ServiceError::Engine)?;
 
+
+        // Metrics gathering
+        let call_time_sec = call_time_start.elapsed().as_secs_f64();
         let stats = service.module_memory_stats();
         // TODO: move updating to a separate thread
-        let new_memory = ServicesMetricsBuiltin::get_used_memory(&stats);
+        let memory_delta_bytes = ServicesMetricsBuiltin::get_used_memory(&stats) - old_memory;
+        let observation = Observation { memory_delta_bytes: memory_delta_bytes as f64, call_time_sec };
         self.metrics
             .builtin
-            .update(service_id.clone(), function_name, new_memory - old_memory);
-        self.metrics.builtin.debug_print();
+            .update(service_id.clone(), function_name, observation);
+
         if let Some(metrics) = &self.metrics.instant {
             metrics.observe_service_mem(service_id, stats);
         }
@@ -367,6 +372,13 @@ impl ParticleAppServices {
         let service_id = aliases.get(&alias);
 
         service_id.cloned().ok_or(NoSuchAlias(alias))
+    }
+
+    pub fn to_service_id(&self, service_id_or_alias: String) -> Result<String, ServiceError> {
+        let services = self.services.read();
+        let (_, service_id) = get_service(&services, &self.aliases.read(), service_id_or_alias)
+            .map_err(ServiceError::NoSuchService)?;
+        Ok(service_id)
     }
 
     pub fn get_interface(&self, service_id: String) -> Result<JValue, ServiceError> {

@@ -9,46 +9,70 @@ use fluence_app_service::MemoryStats;
 type ServiceId = String;
 type Name = String;
 
+/// Store a part of series of numeric observations and some parameters that desribe the series.
+/// The number of stored observations is now a constant Self::MAX_METRICS_STORAGE_SIZE.
 #[derive(Default, Debug, Clone, Serialize)]
-struct Stat {
-    // Count of request to the entity
-    req_count: u64,
-    // Last N memory incearses
-    deltas_bytes: VecDeque<u64>,
-    // Total memory increases
-    total_delta_bytes: u64,
-    // Average memory increases per request to the entity
-    delta_avg_bytes: u64,
+struct NumericSeriesStat {
+    /// Last N observations
+    series: VecDeque<f64>,
+    /// Sum of all observations
+    total: f64,
+    /// Average number of observations
+    avg: f64,
 }
 
-impl Stat {
+impl NumericSeriesStat {
     const MAX_METRICS_STORAGE_SIZE: usize = 5;
-    fn update(&mut self, delta: u64) {
-        if self.deltas_bytes.len() >= Self::MAX_METRICS_STORAGE_SIZE {
-            self.deltas_bytes.pop_front();
-        }
-        self.deltas_bytes.push_back(delta);
-        self.total_delta_bytes += delta;
-        self.delta_avg_bytes =
-            (self.delta_avg_bytes * self.req_count + delta) / (self.req_count + 1);
 
+    /// Update the stat with new `value`.
+    /// `req_count` is a total number of obserations that is stored outside.
+    fn update(&mut self, value: f64, req_count: f64) {
+        if self.series.len() >= Self::MAX_METRICS_STORAGE_SIZE {
+            self.series.pop_front();
+        }
+        self.series.push_back(value);
+        self.total += value;
+        self.avg = (self.avg * req_count + value) / (req_count + 1.0);
+    }
+}
+
+/// The current stats to store.
+pub struct Observation {
+    pub memory_delta_bytes: f64,
+    pub call_time_sec: f64,
+}
+
+/// All stats of the observed entity (service/function).
+#[derive(Default, Debug, Clone, Serialize)]
+struct Stats {
+    /// Count of request to the entity
+    req_count: u64,
+    /// Memory increasing rate
+    memory_deltas_bytes: NumericSeriesStat,
+    call_time_sec: NumericSeriesStat,
+}
+
+impl Stats {
+    fn update(&mut self, observation: &Observation) {
+        self.memory_deltas_bytes.update(observation.memory_delta_bytes, self.req_count as f64);
+        self.call_time_sec.update(observation.call_time_sec, self.req_count as f64);
         self.req_count += 1;
     }
 }
 
 #[derive(Default, Debug, Clone, Serialize)]
 struct ServiceStat {
-    total_stat: Stat,
+    total_stats: Stats,
     #[serde(serialize_with = "function_stats_ser")]
-    functions_stats: HashMap<Name, Stat>,
+    functions_stats: HashMap<Name, Stats>,
 }
 
-fn function_stats_ser<S>(stats: &HashMap<Name, Stat>, serializer: S) -> Result<S::Ok, S::Error>
+fn function_stats_ser<S>(stats: &HashMap<Name, Stats>, serializer: S) -> Result<S::Ok, S::Error>
 where S: Serializer,
 {
     let mut seq = serializer.serialize_seq(Some(stats.len()))?;
     for (k, v) in stats {
-        seq.serialize_element(&serde_json::json!({"name": k, "stat": v}))?;
+        seq.serialize_element(&serde_json::json!({"name": k, "stats": v}))?;
     }
     seq.end()
 }
@@ -65,7 +89,7 @@ impl ServicesMetricsBuiltin {
         }
     }
 
-    pub fn update(&self, service_id: ServiceId, function_name: Name, delta: u64) {
+    pub fn update(&self, service_id: ServiceId, function_name: Name, observation: Observation) {
         let mut content = self.content.write().unwrap();
         let service_stat = content.entry(service_id).or_default();
         let function_stat = service_stat
@@ -73,8 +97,8 @@ impl ServicesMetricsBuiltin {
             .entry(function_name)
             .or_default();
 
-        function_stat.update(delta);
-        service_stat.total_stat.update(delta);
+        function_stat.update(&observation);
+        service_stat.total_stat.update(&observation);
     }
 
     pub fn read(&self, service_id: &ServiceId) -> Option<serde_json::Result<serde_json::Value>> {
