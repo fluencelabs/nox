@@ -35,7 +35,7 @@ pub fn create_app_service(
     service_id: String,
     aliases: Vec<String>,
     owner_id: PeerId,
-    metrics: &ServicesMetrics,
+    metrics: Option<&ServicesMetrics>,
 ) -> Result<AppService> {
     try {
         let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;
@@ -43,8 +43,11 @@ pub fn create_app_service(
             .iter_mut()
             .for_each(|module| inject_vault(&config.particles_vault_dir, module));
 
-        if let Some(metrics) = metrics.instant.as_ref() {
-            metrics.observe_service_max_mem(config.max_heap_size.as_u64(), &modules_config);
+        if let Some(metrics) = metrics.as_ref() {
+            metrics
+                .instant
+                .as_ref()
+                .map(|m| m.observe_service_max_mem(config.max_heap_size.as_u64(), &modules_config));
         }
 
         let modules = AppServiceConfig {
@@ -65,7 +68,9 @@ pub fn create_app_service(
         let persisted = PersistedService::new(service_id.clone(), blueprint_id, aliases, owner_id);
         persist_service(&config.services_dir, persisted)?;
 
-        metrics.observe_created(service_id, service.module_memory_stats());
+        if let Some(metrics) = metrics.as_ref() {
+            metrics.observe_created(service_id, service.module_memory_stats());
+        }
 
         service
     }

@@ -94,7 +94,7 @@ pub struct ParticleAppServices {
     aliases: Aliases,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
-    pub metrics: ServicesMetrics,
+    pub metrics: Option<ServicesMetrics>,
 }
 
 pub fn get_service<'l>(
@@ -121,7 +121,7 @@ impl ParticleAppServices {
     pub fn new(
         config: ServicesConfig,
         modules: ModuleRepository,
-        metrics: ServicesMetrics,
+        metrics: Option<ServicesMetrics>,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
         let management_peer_id = config.management_peer_id;
@@ -149,7 +149,7 @@ impl ParticleAppServices {
     ) -> Result<String, ServiceError> {
         let creation_start_time = Instant::now();
 
-        let instant_metrics = self.metrics.instant.as_ref();
+        let metrics = self.metrics.as_ref();
         let service_id = uuid::Uuid::new_v4().to_string();
 
         let service = create_app_service(
@@ -159,10 +159,10 @@ impl ParticleAppServices {
             service_id.clone(),
             vec![],
             init_peer_id,
-            &self.metrics,
+            metrics,
         )
         .inspect_err(|_| {
-            instant_metrics.map(|m| m.creation_failure_count.inc());
+            metrics.map(|m| m.instant.as_ref().map(|m| m.creation_failure_count.inc()));
         })?;
         let service = Service {
             service: Mutex::new(service),
@@ -174,9 +174,11 @@ impl ParticleAppServices {
         self.services.write().insert(service_id.clone(), service);
 
         let creation_end_time = creation_start_time.elapsed().as_secs();
-        if let Some(m) = instant_metrics {
-            m.creation_count.inc();
-            m.creation_time_msec.observe(creation_end_time as f64);
+        if let Some(m) = metrics.as_ref() {
+            m.instant.as_ref().map(|m| m.creation_count.inc());
+            m.instant
+                .as_ref()
+                .map(|m| m.creation_time_msec.observe(creation_end_time as f64));
         }
 
         Ok(service_id)
@@ -230,8 +232,10 @@ impl ParticleAppServices {
         }
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
-        if let Some(m) = self.metrics.instant.as_ref() {
-            m.observe_removed(removal_end_time as f64);
+        if let Some(m) = self.metrics.as_ref() {
+            m.instant
+                .as_ref()
+                .map(|m| m.observe_removed(removal_end_time as f64));
         }
 
         Ok(())
@@ -307,7 +311,8 @@ impl ParticleAppServices {
         };
 
         self.metrics
-            .observe_service_state(service_id, function_name, new_memory, stats);
+            .as_ref()
+            .map(|m| m.observe_service_state(service_id, function_name, new_memory, stats));
 
         FunctionOutcome::Ok(result)
     }
@@ -444,7 +449,7 @@ impl ParticleAppServices {
                 s.service_id.clone(),
                 s.aliases.clone(),
                 s.owner_id,
-                &self.metrics,
+                self.metrics.as_ref(),
             );
             let service = match service {
                 Ok(service) => service,

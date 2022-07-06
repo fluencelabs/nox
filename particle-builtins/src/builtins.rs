@@ -87,7 +87,7 @@ where
         let particles_vault_dir = vault_dir.to_path_buf();
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
-        let services = ParticleAppServices::new(config, modules.clone(), services_metrics);
+        let services = ParticleAppServices::new(config, modules.clone(), Some(services_metrics));
 
         Self {
             connectivity,
@@ -684,7 +684,14 @@ where
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
         let service_id = self.services.to_service_id(service_id_or_alias)?;
-        if let Some(result) = self.services.metrics.builtin.read(&service_id) {
+        if let Some(result) = self
+            .services
+            .metrics
+            .as_ref()
+            .unwrap()
+            .builtin
+            .read(&service_id)
+        {
             let result = result?;
             Ok(json!({
                 "status": true,
