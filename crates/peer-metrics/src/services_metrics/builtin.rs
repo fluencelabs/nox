@@ -1,10 +1,15 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 
-use serde::{Serialize, ser::{Serializer, SerializeSeq}};
+use serde::{
+    ser::{SerializeSeq, Serializer},
+    Serialize,
+};
 use serde_json;
 
 use fluence_app_service::MemoryStats;
+
+use crate::services_metrics::message::ServiceCallStats;
 
 type ServiceId = String;
 type Name = String;
@@ -36,12 +41,6 @@ impl NumericSeriesStat {
     }
 }
 
-/// The current stats to store.
-pub struct Observation {
-    pub memory_delta_bytes: f64,
-    pub call_time_sec: f64,
-}
-
 /// All stats of the observed entity (service/function).
 #[derive(Default, Debug, Clone, Serialize)]
 struct Stats {
@@ -53,9 +52,11 @@ struct Stats {
 }
 
 impl Stats {
-    fn update(&mut self, observation: &Observation) {
-        self.memory_deltas_bytes.update(observation.memory_delta_bytes, self.req_count as f64);
-        self.call_time_sec.update(observation.call_time_sec, self.req_count as f64);
+    fn update(&mut self, stats: &ServiceCallStats) {
+        self.memory_deltas_bytes
+            .update(stats.memory_delta_bytes, self.req_count as f64);
+        self.call_time_sec
+            .update(stats.call_time_sec, self.req_count as f64);
         self.req_count += 1;
     }
 }
@@ -68,7 +69,8 @@ struct ServiceStat {
 }
 
 fn function_stats_ser<S>(stats: &HashMap<Name, Stats>, serializer: S) -> Result<S::Ok, S::Error>
-where S: Serializer,
+where
+    S: Serializer,
 {
     let mut seq = serializer.serialize_seq(Some(stats.len()))?;
     for (k, v) in stats {
@@ -89,7 +91,7 @@ impl ServicesMetricsBuiltin {
         }
     }
 
-    pub fn update(&self, service_id: ServiceId, function_name: Name, observation: Observation) {
+    pub fn update(&self, service_id: ServiceId, function_name: Name, stats: ServiceCallStats) {
         let mut content = self.content.write().unwrap();
         let service_stat = content.entry(service_id).or_default();
         let function_stat = service_stat
@@ -97,8 +99,8 @@ impl ServicesMetricsBuiltin {
             .entry(function_name)
             .or_default();
 
-        function_stat.update(&observation);
-        service_stat.total_stat.update(&observation);
+        function_stat.update(&stats);
+        service_stat.total_stats.update(&stats);
     }
 
     pub fn read(&self, service_id: &ServiceId) -> Option<serde_json::Result<serde_json::Value>> {
@@ -109,10 +111,5 @@ impl ServicesMetricsBuiltin {
 
     pub fn get_used_memory(stats: &MemoryStats) -> u64 {
         stats.0.iter().fold(0, |acc, x| acc + x.memory_size as u64)
-    }
-
-    pub fn debug_print(&self) {
-        let content = self.content.read().unwrap();
-        println!("SERVICES METRICS: {:?}", content);
     }
 }

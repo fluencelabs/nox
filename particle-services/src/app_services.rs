@@ -28,7 +28,7 @@ use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
-use peer_metrics::{ServicesMetrics, ServicesMetricsBuiltin, Observation};
+use peer_metrics::{ServiceCallStats, ServicesMetrics, ServicesMetricsBuiltin};
 use server_config::ServicesConfig;
 
 use crate::app_service::create_app_service;
@@ -149,7 +149,7 @@ impl ParticleAppServices {
     ) -> Result<String, ServiceError> {
         let creation_start_time = Instant::now();
 
-        let metrics = self.metrics.instant.as_ref();
+        let instant_metrics = self.metrics.instant.as_ref();
         let service_id = uuid::Uuid::new_v4().to_string();
 
         let service = create_app_service(
@@ -159,10 +159,10 @@ impl ParticleAppServices {
             service_id.clone(),
             vec![],
             init_peer_id,
-            metrics,
+            &self.metrics,
         )
         .inspect_err(|_| {
-            metrics.map(|m| m.creation_failure_count.inc());
+            instant_metrics.map(|m| m.creation_failure_count.inc());
         })?;
         let service = Service {
             service: Mutex::new(service),
@@ -174,7 +174,7 @@ impl ParticleAppServices {
         self.services.write().insert(service_id.clone(), service);
 
         let creation_end_time = creation_start_time.elapsed().as_secs();
-        if let Some(m) = metrics {
+        if let Some(m) = instant_metrics {
             m.creation_count.inc();
             m.creation_time_msec.observe(creation_end_time as f64);
         }
@@ -297,20 +297,17 @@ impl ParticleAppServices {
             )
             .map_err(ServiceError::Engine)?;
 
-
-        // Metrics gathering
         let call_time_sec = call_time_start.elapsed().as_secs_f64();
-        let stats = service.module_memory_stats();
-        // TODO: move updating to a separate thread
-        let memory_delta_bytes = ServicesMetricsBuiltin::get_used_memory(&stats) - old_memory;
-        let observation = Observation { memory_delta_bytes: memory_delta_bytes as f64, call_time_sec };
-        self.metrics
-            .builtin
-            .update(service_id.clone(), function_name, observation);
+        let new_memory = service.module_memory_stats();
 
-        if let Some(metrics) = &self.metrics.instant {
-            metrics.observe_service_mem(service_id, stats);
-        }
+        let memory_delta_bytes = ServicesMetricsBuiltin::get_used_memory(&new_memory) - old_memory;
+        let stats = ServiceCallStats {
+            memory_delta_bytes: memory_delta_bytes as f64,
+            call_time_sec,
+        };
+
+        self.metrics
+            .observe_service_state(service_id, function_name, new_memory, stats);
 
         FunctionOutcome::Ok(result)
     }
@@ -447,7 +444,7 @@ impl ParticleAppServices {
                 s.service_id.clone(),
                 s.aliases.clone(),
                 s.owner_id,
-                self.metrics.instant.as_ref(),
+                &self.metrics,
             );
             let service = match service {
                 Ok(service) => service,
