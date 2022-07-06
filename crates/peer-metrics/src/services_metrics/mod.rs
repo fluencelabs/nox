@@ -99,6 +99,15 @@ impl ServicesMetrics {
         }
     }
 
+    pub fn observe_instant<F>(&self, callback: F)
+    where
+        F: Fn(&ServicesMetricsInstant) -> (),
+    {
+        if let Some(instant) = self.instant.as_ref() {
+            callback(instant);
+        }
+    }
+
     fn observe_service_mem(&self, service_id: String, stats: MemoryStats) {
         let msg = ServiceMetricsMsg::Memory {
             service_id,

@@ -162,7 +162,11 @@ impl ParticleAppServices {
             metrics,
         )
         .inspect_err(|_| {
-            metrics.map(|m| m.instant.as_ref().map(|m| m.creation_failure_count.inc()));
+            if let Some(metrics) = metrics.as_ref() {
+                metrics.observe_instant(|instant| {
+                    instant.creation_failure_count.inc();
+                })
+            }
         })?;
         let service = Service {
             service: Mutex::new(service),
@@ -175,10 +179,10 @@ impl ParticleAppServices {
 
         let creation_end_time = creation_start_time.elapsed().as_secs();
         if let Some(m) = metrics.as_ref() {
-            m.instant.as_ref().map(|m| m.creation_count.inc());
-            m.instant
-                .as_ref()
-                .map(|m| m.creation_time_msec.observe(creation_end_time as f64));
+            m.observe_instant(|instant| {
+                instant.creation_count.inc();
+                instant.creation_time_msec.observe(creation_end_time as f64);
+            });
         }
 
         Ok(service_id)
@@ -232,10 +236,10 @@ impl ParticleAppServices {
         }
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
-        if let Some(m) = self.metrics.as_ref() {
-            m.instant
-                .as_ref()
-                .map(|m| m.observe_removed(removal_end_time as f64));
+        if let Some(metrics) = self.metrics.as_ref() {
+            metrics.observe_instant(|instant| {
+                instant.observe_removed(removal_end_time as f64);
+            });
         }
 
         Ok(())
@@ -310,9 +314,9 @@ impl ParticleAppServices {
             call_time_sec,
         };
 
-        self.metrics
-            .as_ref()
-            .map(|m| m.observe_service_state(service_id, function_name, new_memory, stats));
+        if let Some(metrics) = self.metrics.as_ref() {
+            metrics.observe_service_state(service_id, function_name, new_memory, stats);
+        }
 
         FunctionOutcome::Ok(result)
     }
