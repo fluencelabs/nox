@@ -684,9 +684,12 @@ where
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
         let service_id = self.services.to_service_id(service_id_or_alias)?;
-        let metrics = self.services.metrics.as_ref().ok_or(JError::new(format!("Service stats collection is disabled")))?;
-        if let Some(result) = metrics.builtin.read(&service_id)
-        {
+        let metrics = self
+            .services
+            .metrics
+            .as_ref()
+            .ok_or(JError::new(format!("Service stats collection is disabled")))?;
+        if let Some(result) = metrics.builtin.read(&service_id) {
             let result = result?;
             Ok(json!({
                 "status": true,

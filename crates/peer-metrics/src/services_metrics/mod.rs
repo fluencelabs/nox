@@ -90,13 +90,21 @@ impl ServicesMetrics {
 
     pub fn observe_failed_call(&self, service_id: String, function_name: String) {
         let stats = ServiceCallStats::Fail;
-        self.send(ServiceMetricsMsg::CallStats { service_id, function_name, stats });
+        self.send(ServiceMetricsMsg::CallStats {
+            service_id,
+            function_name,
+            stats,
+        });
     }
 
     pub fn observe_failed_call_unknown(&self, service_id: String) {
         let stats = ServiceCallStats::Fail;
         let function_name = "<unknown>".to_string();
-        self.send(ServiceMetricsMsg::CallStats { service_id, function_name, stats });
+        self.send(ServiceMetricsMsg::CallStats {
+            service_id,
+            function_name,
+            stats,
+        });
     }
 
     /// Collect all metrics that are relevant on service creation.

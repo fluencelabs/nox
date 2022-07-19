@@ -18,9 +18,11 @@ use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface, AppServiceError};
-use marine::MarineError;
+use fluence_app_service::{
+    AppService, AppServiceError, CallParameters, SecurityTetraplet, ServiceInterface,
+};
 use humantime_serde::re::humantime::format_duration as pretty;
+use marine::MarineError;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
@@ -508,8 +510,9 @@ impl ParticleAppServices {
 }
 
 fn is_unknown_function(err: &AppServiceError) -> bool {
-    matches!(err,
-       AppServiceError::MarineError(MarineError::MissingFunctionError(_))
+    matches!(
+        err,
+        AppServiceError::MarineError(MarineError::MissingFunctionError(_))
     )
 }
 
