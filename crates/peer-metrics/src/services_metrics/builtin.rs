@@ -30,22 +30,24 @@ impl NumericSeriesStat {
     const MAX_METRICS_STORAGE_SIZE: usize = 5;
 
     /// Update the stat with new `value`.
-    /// `req_count` is a total number of obserations that is stored outside.
-    fn update(&mut self, value: f64, req_count: f64) {
+    /// `count` is a total number of obserations that is stored outside.
+    fn update(&mut self, value: f64, count: f64) {
         if self.series.len() >= Self::MAX_METRICS_STORAGE_SIZE {
             self.series.pop_front();
         }
         self.series.push_back(value);
         self.total += value;
-        self.avg = (self.avg * req_count + value) / (req_count + 1.0);
+        self.avg = (self.avg * count + value) / (count + 1.0);
     }
 }
 
 /// All stats of the observed entity (service/function).
 #[derive(Default, Debug, Clone, Serialize)]
 struct Stats {
-    /// Count of request to the entity
-    req_count: u64,
+    /// Count of sucessful requests to the entity
+    success_req_count: u64,
+    /// Count of failed requests
+    failed_req_count: u64,
     /// Memory increasing rate
     memory_deltas_bytes: NumericSeriesStat,
     call_time_sec: NumericSeriesStat,
@@ -53,11 +55,21 @@ struct Stats {
 
 impl Stats {
     fn update(&mut self, stats: &ServiceCallStats) {
-        self.memory_deltas_bytes
-            .update(stats.memory_delta_bytes, self.req_count as f64);
-        self.call_time_sec
-            .update(stats.call_time_sec, self.req_count as f64);
-        self.req_count += 1;
+        match stats {
+            ServiceCallStats::Success {
+                memory_delta_bytes,
+                call_time_sec,
+            } => {
+                self.memory_deltas_bytes
+                    .update(*memory_delta_bytes, self.success_req_count as f64);
+                self.call_time_sec
+                    .update(*call_time_sec, self.success_req_count as f64);
+                self.success_req_count += 1;
+            }
+            ServiceCallStats::Fail => {
+                self.failed_req_count += 1;
+            }
+        }
     }
 }
 

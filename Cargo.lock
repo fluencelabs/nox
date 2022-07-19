@@ -4147,6 +4147,7 @@ dependencies = [
  "json-utils",
  "libp2p-core",
  "log",
+ "marine-runtime 0.17.2",
  "parking_lot 0.11.2",
  "particle-args",
  "particle-execution",

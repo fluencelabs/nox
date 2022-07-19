@@ -18,7 +18,8 @@ use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface};
+use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface, AppServiceError};
+use marine::MarineError;
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -303,13 +304,24 @@ impl ParticleAppServices {
                 JValue::Array(function_args.function_args),
                 params,
             )
-            .map_err(ServiceError::Engine)?;
+            .map_err(|e| {
+                if let Some(metrics) = self.metrics.as_ref() {
+                    // If the called function is unknown we don't want to save info
+                    // about it in a separate entry.
+                    if is_unknown_function(&e) {
+                        metrics.observe_failed_call_unknown(service_id.clone());
+                    } else {
+                        metrics.observe_failed_call(service_id.clone(), function_name.clone());
+                    }
+                }
+                ServiceError::Engine(e)
+            })?;
 
         let call_time_sec = call_time_start.elapsed().as_secs_f64();
         let new_memory = service.module_memory_stats();
 
         let memory_delta_bytes = ServicesMetricsBuiltin::get_used_memory(&new_memory) - old_memory;
-        let stats = ServiceCallStats {
+        let stats = ServiceCallStats::Success {
             memory_delta_bytes: memory_delta_bytes as f64,
             call_time_sec,
         };
@@ -493,6 +505,12 @@ impl ParticleAppServices {
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
         self.vault.create(particle_id)
     }
+}
+
+fn is_unknown_function(err: &AppServiceError) -> bool {
+    matches!(err,
+       AppServiceError::MarineError(MarineError::MissingFunctionError(_))
+    )
 }
 
 #[cfg(test)]

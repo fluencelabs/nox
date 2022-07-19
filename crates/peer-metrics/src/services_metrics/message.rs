@@ -5,9 +5,12 @@ pub type ModuleName = String;
 pub type MemorySize = u64;
 
 /// The current stats to store locally.
-pub struct ServiceCallStats {
-    pub memory_delta_bytes: f64,
-    pub call_time_sec: f64,
+pub enum ServiceCallStats {
+    Success {
+        memory_delta_bytes: f64,
+        call_time_sec: f64,
+    },
+    Fail,
 }
 
 /// Messages to the metrics backend
