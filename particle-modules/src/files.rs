@@ -16,7 +16,7 @@
 
 use crate::error::{ModuleError::*, Result};
 
-use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
+use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig, ConfigContext};
 use service_modules::{
     blueprint_file_name, blueprint_fname, module_config_name_hash, module_file_name_hash,
     Blueprint, Hash,
@@ -40,7 +40,11 @@ pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
 pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<ModuleDescriptor> {
     let config = modules_dir.join(module_config_name_hash(module_hash));
     let config = load_config_by_path(&config)?;
-    let mut config: ModuleDescriptor = config
+    // TODO CHECK: Is "." right? Maybe we need different path?
+    let context = ConfigContext { base_path: PathBuf::from(".") };
+
+    let mut config: ModuleDescriptor = context
+        .wrapped(config)
         .try_into()
         .map_err(|err| ModuleConvertError { err })?;
 

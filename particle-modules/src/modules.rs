@@ -569,6 +569,7 @@ mod tests {
         let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
             name: "tetra".to_string(),
             file_name: None,
+            load_from: None,
             config: TomlMarineModuleConfig {
                 mem_pages_count: None,
                 max_heap_size: None,
@@ -623,6 +624,7 @@ mod tests {
         let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
             name: "tetra".to_string(),
             file_name: None,
+            load_from: None,
             config: TomlMarineModuleConfig {
                 mem_pages_count: None,
                 max_heap_size: Some(ByteSize::b(max_heap_size.as_u64() + 10)),

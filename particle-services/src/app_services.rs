@@ -656,6 +656,7 @@ mod tests {
         let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
             name: module_name.clone(),
             file_name: None,
+            load_from: None,
             config: TomlMarineModuleConfig {
                 mem_pages_count: None,
                 max_heap_size: None,
