@@ -79,7 +79,7 @@ jobs:
       - name: Update version in node-distro
         uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: "Publish Container"
+          workflow: "Publish Containers"
           repo: fluencelabs/node-distro
           ref: 'main'
           token: ${{ secrets.PERSONAL_TOKEN }}
