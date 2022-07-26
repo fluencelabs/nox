@@ -1100,48 +1100,11 @@ fn service_stats() {
         },
     );
 
-    use serde_json::Value::{Object};
+    use serde_json::Value::Object;
 
     if let Ok([Object(result)]) = client.receive_args().as_deref() {
         assert_eq!(result.get("error"), Some(&json!("")));
         assert_eq!(result.get("status"), Some(&json!(true)));
-    } else {
-        panic!("incorrect args: expected single arrays of module memory stats")
-    }
-}
-
-#[test]
-fn service_stats_uninitialized() {
-    let swarms = make_swarms(1);
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .wrap_err("connect client")
-        .unwrap();
-
-    let tetraplets_service = create_service(
-        &mut client,
-        "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
-
-    client.send_particle(
-        r#"
-        (seq
-            (call relay ("stat" "service_stat") [service] stat)
-            (call %init_peer_id% ("op" "return") [stat])
-        )
-        "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
-
-    use serde_json::Value::{Object};
-
-    if let Ok([Object(result)]) = client.receive_args().as_deref() {
-        assert_eq!(result.get("error"), Some(&json!(format!("No saved stats for service {}", tetraplets_service.id))));
-        assert_eq!(result.get("status"), Some(&json!(false)));
     } else {
         panic!("incorrect args: expected single arrays of module memory stats")
     }

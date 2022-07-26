@@ -315,7 +315,11 @@ impl ParticleAppServices {
                     if is_unknown_function(&e) {
                         metrics.observe_service_call_unknown(service_id.clone(), stats);
                     } else {
-                        metrics.observe_service_call(service_id.clone(), function_name.clone(), stats);
+                        metrics.observe_service_call(
+                            service_id.clone(),
+                            function_name.clone(),
+                            stats,
+                        );
                     }
                 }
                 ServiceError::Engine(e)

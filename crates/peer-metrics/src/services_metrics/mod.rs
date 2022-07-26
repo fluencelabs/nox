@@ -83,7 +83,12 @@ impl ServicesMetrics {
         }
     }
 
-    pub fn observe_service_call(&self, service_id: String, function_name: String, stats: ServiceCallStats) {
+    pub fn observe_service_call(
+        &self,
+        service_id: String,
+        function_name: String,
+        stats: ServiceCallStats,
+    ) {
         self.send(ServiceMetricsMsg::CallStats {
             service_id,
             function_name,

@@ -12,7 +12,7 @@ pub enum ServiceCallStats {
         timestamp: u64,
     },
     Fail {
-        timestamp: u64
+        timestamp: u64,
     },
 }
 

@@ -69,7 +69,7 @@ struct Stats {
     call_time_sec: NumericSeriesStat,
     #[serde(flatten)]
     /// Timestamps of last several calls
-    timestamps: TimestampSeries
+    timestamps: TimestampSeries,
 }
 
 impl Stats {
@@ -146,7 +146,6 @@ impl ServicesMetricsBuiltin {
         } else {
             serde_json::to_value(ServiceStat::default())
         }
-
     }
 
     pub fn get_used_memory(stats: &MemoryStats) -> u64 {
