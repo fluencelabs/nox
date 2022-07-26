@@ -1,0 +1,9 @@
+[package]
+name = "v8-executor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+v8 = "0.44.3"

@@ -26,6 +26,7 @@ members = [
     "crates/connected-client",
     "crates/test-constants",
     "crates/peer-metrics",
+    "crates/v8-executor",
     "particle-node/tests/builtins",
     "particle-node",
     "aquamarine",
