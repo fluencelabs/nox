@@ -257,6 +257,7 @@ impl ParticleAppServices {
         let services = self.services.read();
         let aliases = self.aliases.read();
         let host_id = self.config.local_peer_id.to_string();
+        let timestamp = particle.timestamp;
 
         let service = get_service(&services, &aliases, function_args.service_id);
         let (service, service_id) = match service {
@@ -308,12 +309,13 @@ impl ParticleAppServices {
             )
             .map_err(|e| {
                 if let Some(metrics) = self.metrics.as_ref() {
+                    let stats = ServiceCallStats::Fail { timestamp };
                     // If the called function is unknown we don't want to save info
                     // about it in a separate entry.
                     if is_unknown_function(&e) {
-                        metrics.observe_failed_call_unknown(service_id.clone());
+                        metrics.observe_service_call_unknown(service_id.clone(), stats);
                     } else {
-                        metrics.observe_failed_call(service_id.clone(), function_name.clone());
+                        metrics.observe_service_call(service_id.clone(), function_name.clone(), stats);
                     }
                 }
                 ServiceError::Engine(e)
@@ -326,6 +328,7 @@ impl ParticleAppServices {
         let stats = ServiceCallStats::Success {
             memory_delta_bytes: memory_delta_bytes as f64,
             call_time_sec,
+            timestamp,
         };
 
         if let Some(metrics) = self.metrics.as_ref() {

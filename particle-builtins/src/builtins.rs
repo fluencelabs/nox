@@ -683,26 +683,20 @@ where
     fn service_stat(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
+        // Resolve aliases; also checks that the requested service exists.
         let service_id = self.services.to_service_id(service_id_or_alias)?;
         let metrics = self
             .services
             .metrics
             .as_ref()
-            .ok_or(JError::new(format!("Service stats collection is disabled")))?;
-        if let Some(result) = metrics.builtin.read(&service_id) {
-            let result = result?;
-            Ok(json!({
-                "status": true,
-                "error": "",
-                "result": vec![result],
-            }))
-        } else {
-            Ok(json!({
-                "status": false,
-                "error": format!("No saved stats for service {}", service_id),
-                "result": [],
-            }))
-        }
+            .ok_or_else(|| JError::new(format!("Service stats collection is disabled")))?;
+        let result = metrics.builtin.read(&service_id)?;
+        // TODO: should we catch errors and wrap it in aqua result type?
+        Ok(json!({
+            "status": true,
+            "error": "",
+            "result": vec![result],
+        }))
     }
 }
 

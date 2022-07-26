@@ -14,8 +14,10 @@ use crate::services_metrics::message::ServiceCallStats;
 type ServiceId = String;
 type Name = String;
 
+const MAX_METRICS_STORAGE_SIZE: usize = 5;
+
 /// Store a part of series of numeric observations and some parameters that desribe the series.
-/// The number of stored observations is now a constant Self::MAX_METRICS_STORAGE_SIZE.
+/// The number of stored observations is now a constant MAX_METRICS_STORAGE_SIZE.
 #[derive(Default, Debug, Clone, Serialize)]
 struct NumericSeriesStat {
     /// Last N observations
@@ -27,17 +29,30 @@ struct NumericSeriesStat {
 }
 
 impl NumericSeriesStat {
-    const MAX_METRICS_STORAGE_SIZE: usize = 5;
-
     /// Update the stat with new `value`.
     /// `count` is a total number of obserations that is stored outside.
     fn update(&mut self, value: f64, count: f64) {
-        if self.series.len() >= Self::MAX_METRICS_STORAGE_SIZE {
+        if self.series.len() >= MAX_METRICS_STORAGE_SIZE {
             self.series.pop_front();
         }
         self.series.push_back(value);
         self.total += value;
         self.avg = (self.avg * count + value) / (count + 1.0);
+    }
+}
+
+#[derive(Default, Debug, Clone, Serialize)]
+struct TimestampSeries {
+    #[serde(rename = "timestamps")]
+    series: VecDeque<u64>,
+}
+
+impl TimestampSeries {
+    fn update(&mut self, value: u64) {
+        if self.series.len() >= MAX_METRICS_STORAGE_SIZE {
+            self.series.pop_front();
+        }
+        self.series.push_back(value);
     }
 }
 
@@ -50,7 +65,11 @@ struct Stats {
     failed_req_count: u64,
     /// Memory increasing rate
     memory_deltas_bytes: NumericSeriesStat,
+    /// Call execution time
     call_time_sec: NumericSeriesStat,
+    #[serde(flatten)]
+    /// Timestamps of last several calls
+    timestamps: TimestampSeries
 }
 
 impl Stats {
@@ -59,14 +78,17 @@ impl Stats {
             ServiceCallStats::Success {
                 memory_delta_bytes,
                 call_time_sec,
+                timestamp,
             } => {
                 self.memory_deltas_bytes
                     .update(*memory_delta_bytes, self.success_req_count as f64);
                 self.call_time_sec
                     .update(*call_time_sec, self.success_req_count as f64);
                 self.success_req_count += 1;
+                self.timestamps.update(*timestamp);
             }
-            ServiceCallStats::Fail => {
+            ServiceCallStats::Fail { timestamp } => {
+                self.timestamps.update(*timestamp);
                 self.failed_req_count += 1;
             }
         }
@@ -75,7 +97,9 @@ impl Stats {
 
 #[derive(Default, Debug, Clone, Serialize)]
 struct ServiceStat {
+    /// Stats for the whole service
     total_stats: Stats,
+    /// Stats for each interface function of the service.
     #[serde(serialize_with = "function_stats_ser")]
     functions_stats: HashMap<Name, Stats>,
 }
@@ -115,10 +139,14 @@ impl ServicesMetricsBuiltin {
         service_stat.total_stats.update(&stats);
     }
 
-    pub fn read(&self, service_id: &ServiceId) -> Option<serde_json::Result<serde_json::Value>> {
+    pub fn read(&self, service_id: &ServiceId) -> serde_json::Result<serde_json::Value> {
         let content = self.content.write().unwrap();
-        let stat = content.get(service_id)?;
-        Some(serde_json::to_value(stat))
+        if let Some(stat) = content.get(service_id) {
+            serde_json::to_value(stat)
+        } else {
+            serde_json::to_value(ServiceStat::default())
+        }
+
     }
 
     pub fn get_used_memory(stats: &MemoryStats) -> u64 {

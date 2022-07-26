@@ -77,19 +77,13 @@ impl ServicesMetrics {
         memory: MemoryStats,
         stats: ServiceCallStats,
     ) {
-        let msg = ServiceMetricsMsg::CallStats {
-            service_id: service_id.clone(),
-            function_name,
-            stats,
-        };
-        self.send(msg);
+        self.observe_service_call(service_id.clone(), function_name, stats);
         if self.instant.is_some() {
             self.observe_service_mem(service_id, memory);
         }
     }
 
-    pub fn observe_failed_call(&self, service_id: String, function_name: String) {
-        let stats = ServiceCallStats::Fail;
+    pub fn observe_service_call(&self, service_id: String, function_name: String, stats: ServiceCallStats) {
         self.send(ServiceMetricsMsg::CallStats {
             service_id,
             function_name,
@@ -97,8 +91,7 @@ impl ServicesMetrics {
         });
     }
 
-    pub fn observe_failed_call_unknown(&self, service_id: String) {
-        let stats = ServiceCallStats::Fail;
+    pub fn observe_service_call_unknown(&self, service_id: String, stats: ServiceCallStats) {
         let function_name = "<unknown>".to_string();
         self.send(ServiceMetricsMsg::CallStats {
             service_id,

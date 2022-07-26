@@ -9,8 +9,11 @@ pub enum ServiceCallStats {
     Success {
         memory_delta_bytes: f64,
         call_time_sec: f64,
+        timestamp: u64,
     },
-    Fail,
+    Fail {
+        timestamp: u64
+    },
 }
 
 /// Messages to the metrics backend
