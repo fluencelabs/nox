@@ -49,17 +49,3 @@ libp2p-noise = { version = "0.36", git = "https://github.com/fluencelabs/rust-li
 libp2p-metrics = { version = "0.6.0", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
 
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "update_libp2p" }
-
-# marine temporary deps
-fluence-app-service = { version = "0.18.0", git = "https://github.com/fluencelabs/marine", branch = "feat/support-handmade-reactors" }
-marine-runtime = { version = "0.18.0", git = "https://github.com/fluencelabs/marine", branch = "feat/support-handmade-reactors" }
-
-# marine-rs-sdk temporary deps
-marine-rs-sdk = {version = "0.7.0", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "feat/VM-115-wasm_ctors_workaround"}
-marine-rs-sdk-main = {version = "0.7.0", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "feat/VM-115-wasm_ctors_workaround"}
-marine-macro = {version = "0.7.0", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "feat/VM-115-wasm_ctors_workaround"}
-marine-macro-impl = {version = "0.7.0", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "feat/VM-115-wasm_ctors_workaround"}
-
-# avm temporary deps
-polyplets = { version = "0.3.0", git = "https://github.com/fluencelabs/aquavm", branch = "bug/wasm_memory_leak" }
-avm-server = { version = "0.24.0",git = "https://github.com/fluencelabs/aquavm", branch = "bug/wasm_memory_leak"  }
