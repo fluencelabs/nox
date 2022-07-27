@@ -21,7 +21,7 @@ toml-utils = { path = "../crates/toml-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
 libp2p = "0.45"
-avm-server = "0.23.0"
+avm-server = "0.24.0"
 multihash = "0.16.2"
 
 async-std = { version = "1.9.0", features = ["unstable"] }

@@ -61,5 +61,5 @@ marine-macro = {version = "0.7.0", git = "https://github.com/fluencelabs/marine-
 marine-macro-impl = {version = "0.7.0", git = "https://github.com/fluencelabs/marine-rs-sdk", branch = "feat/VM-115-wasm_ctors_workaround"}
 
 # avm temporary deps
-polyplets = { version = "0.2.0", git = "https://github.com/fluencelabs/aquavm", branch = "bug/wasm_memory_leak" }
-avm-server = { version = "0.23.0",git = "https://github.com/fluencelabs/aquavm", branch = "bug/wasm_memory_leak"  }
+polyplets = { version = "0.3.0", git = "https://github.com/fluencelabs/aquavm", branch = "bug/wasm_memory_leak" }
+avm-server = { version = "0.24.0",git = "https://github.com/fluencelabs/aquavm", branch = "bug/wasm_memory_leak"  }
