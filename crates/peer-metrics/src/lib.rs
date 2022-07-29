@@ -15,7 +15,7 @@ use prometheus_client::encoding::text::SendEncodeMetric;
 use prometheus_client::registry::Registry;
 pub use services_metrics::{
     ServiceCallStats, ServicesMetrics, ServicesMetricsBackend, ServicesMetricsBuiltin,
-    ServicesMetricsInstant,
+    ServicesMetricsExternal
 };
 pub use vm_pool::VmPoolMetrics;
 

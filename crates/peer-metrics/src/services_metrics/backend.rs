@@ -8,19 +8,19 @@ use futures::stream::StreamExt;
 use fluence_libp2p::types::Inlet;
 
 use crate::services_metrics::builtin::ServicesMetricsBuiltin;
-use crate::services_metrics::instant::ServicesMemoryMetrics;
+use crate::services_metrics::external::ServicesMemoryMetrics;
 use crate::services_metrics::message::{ServiceMemoryStat, ServiceMetricsMsg};
 
 type ServiceId = String;
 
-/// Data that is used for instant metrics when they're enabled.
-struct InstantBackend {
+/// Metrics that are meant to be written to an external metrics storage like Prometheus
+struct ExternalMetricsBackend {
     /// How often to send memory data to prometheus
     timer_resolution: time::Duration,
     /// Collection of prometheus handlers
     memory_metrics: ServicesMemoryMetrics,
     /// Used memory per services
-    services_memory_state: HashMap<ServiceId, ServiceMemoryStat>,
+    services_memory_stats: HashMap<ServiceId, ServiceMemoryStat>,
 }
 
 /// The backend creates a separate threads that processes
@@ -28,26 +28,26 @@ struct InstantBackend {
 /// to store some metrics.
 pub struct ServicesMetricsBackend {
     inlet: Inlet<ServiceMetricsMsg>,
-    instant_data: Option<InstantBackend>,
+    external_metrics: Option<ExternalMetricsBackend>,
     builtin_metrics: ServicesMetricsBuiltin,
 }
 
 impl ServicesMetricsBackend {
-    /// Create fully a functional backend for both instant and builtin metrics.
-    pub fn with_instant_metrics(
+    /// Create fully a functional backend for both external and builtin metrics.
+    pub fn with_external_metrics(
         timer_resolution: time::Duration,
         memory_metrics: ServicesMemoryMetrics,
         builtin_metrics: ServicesMetricsBuiltin,
         inlet: Inlet<ServiceMetricsMsg>,
     ) -> Self {
-        let instant_data = InstantBackend {
+        let external_metrics = ExternalMetricsBackend {
             timer_resolution,
             memory_metrics,
-            services_memory_state: HashMap::new(),
+            services_memory_stats: HashMap::new(),
         };
         Self {
             inlet,
-            instant_data: Some(instant_data),
+            external_metrics: Some(external_metrics),
             builtin_metrics,
         }
     }
@@ -56,36 +56,36 @@ impl ServicesMetricsBackend {
     pub fn new(builtin_metrics: ServicesMetricsBuiltin, inlet: Inlet<ServiceMetricsMsg>) -> Self {
         Self {
             inlet,
-            instant_data: None,
+            external_metrics: None,
             builtin_metrics,
         }
     }
 
     pub fn start(self) -> task::JoinHandle<()> {
-        if let Some(instant) = self.instant_data {
-            Self::start_with_instant(self.inlet, self.builtin_metrics, instant)
+        if let Some(external_metrics) = self.external_metrics {
+            Self::start_with_external(self.inlet, self.builtin_metrics, external_metrics)
         } else {
             Self::start_builtin_only(self.inlet, self.builtin_metrics)
         }
     }
 
-    fn start_with_instant(
+    fn start_with_external(
         inlet: Inlet<ServiceMetricsMsg>,
         builtin_metrics: ServicesMetricsBuiltin,
-        instant_data: InstantBackend,
+        external_metrics: ExternalMetricsBackend,
     ) -> task::JoinHandle<()> {
         task::spawn(async move {
             let mut inlet = inlet.fuse();
-            let mut timer = async_std::stream::interval(instant_data.timer_resolution).fuse();
-            let mut services_memory_state = instant_data.services_memory_state;
-            let memory_metrics = instant_data.memory_metrics;
+            let mut timer = async_std::stream::interval(external_metrics.timer_resolution).fuse();
+            let mut services_memory_stats = external_metrics.services_memory_stats;
+            let memory_metrics = external_metrics.memory_metrics;
             loop {
                 select! {
                     msg = inlet.select_next_some() => {
                         match msg {
                             // save data to the map
                             ServiceMetricsMsg::Memory { service_id, memory_stat } => {
-                                Self::observe_service_mem(&mut services_memory_state, service_id, memory_stat);
+                                Self::observe_service_mem(&mut services_memory_stats, service_id, memory_stat);
                             },
                             ServiceMetricsMsg::CallStats { service_id, function_name, stats } => {
                                 builtin_metrics.update(service_id, function_name, stats);
@@ -94,7 +94,7 @@ impl ServicesMetricsBackend {
                     },
                     _ = timer.select_next_some() => {
                         // send data to prometheus
-                        Self::store_service_mem(&memory_metrics, &services_memory_state);
+                        Self::store_service_mem(&memory_metrics, &services_memory_stats);
                     }
                 }
             }
@@ -111,10 +111,7 @@ impl ServicesMetricsBackend {
                 select! {
                     msg = inlet.select_next_some() => {
                         match msg {
-                            // save data to the map
-                            ServiceMetricsMsg::Memory{..} => {
-                                log::warn!("Can't collect memory metrics: instant metrics are disabled.");
-                            },
+                            ServiceMetricsMsg::Memory{..} => {},
                             ServiceMetricsMsg::CallStats { service_id, function_name, stats } => {
                                 builtin_metrics.update(service_id, function_name, stats);
                             },
@@ -128,21 +125,21 @@ impl ServicesMetricsBackend {
     /// Collect the current service memory metrics including memory metrics of the modules
     /// that belongs to the service.
     fn observe_service_mem(
-        state: &mut HashMap<ServiceId, ServiceMemoryStat>,
+        all_stats: &mut HashMap<ServiceId, ServiceMemoryStat>,
         service_id: String,
-        stats: ServiceMemoryStat,
+        service_stat: ServiceMemoryStat,
     ) {
-        state.insert(service_id, stats);
+        all_stats.insert(service_id, service_stat);
     }
 
     /// Actually send all collected memory memory_metrics to Prometheus.
     fn store_service_mem(
         memory_metrics: &ServicesMemoryMetrics,
-        state: &HashMap<ServiceId, ServiceMemoryStat>,
+        all_stats: &HashMap<ServiceId, ServiceMemoryStat>,
     ) {
         // Total memory used by all the services of the node.
         let mut total = 0;
-        for (_, service_stat) in state.iter() {
+        for (_, service_stat) in all_stats.iter() {
             memory_metrics
                 .mem_used_bytes
                 .observe(service_stat.used_mem as f64);

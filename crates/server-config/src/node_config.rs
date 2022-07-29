@@ -162,6 +162,9 @@ pub struct MetricsConfig {
     #[serde(default = "default_services_metrics_timer_resolution")]
     #[serde(with = "humantime_serde")]
     pub metrics_timer_resolution: Duration,
+
+    #[serde(default = "default_max_builtin_metrics_storage_size")]
+    pub max_builtin_metrics_storage_size: usize,
 }
 
 #[derive(Clone, Deserialize, Derivative)]

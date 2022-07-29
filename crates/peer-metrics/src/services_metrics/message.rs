@@ -4,7 +4,7 @@ use std::collections::HashMap;
 pub type ModuleName = String;
 pub type MemorySize = u64;
 
-/// The current stats to store locally.
+/// Service function call stats to store in memory
 pub enum ServiceCallStats {
     Success {
         memory_delta_bytes: f64,

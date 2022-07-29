@@ -152,12 +152,15 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let (services_metrics_backend, services_metrics) =
             if let Some(registry) = metrics_registry.as_mut() {
-                ServicesMetrics::with_instant_backend(
+                ServicesMetrics::with_external_backend(
                     config.metrics_config.metrics_timer_resolution,
+                    config.metrics_config.max_builtin_metrics_storage_size,
                     registry,
                 )
             } else {
-                ServicesMetrics::with_simple_backend()
+                ServicesMetrics::with_simple_backend(
+                    config.metrics_config.max_builtin_metrics_storage_size
+                )
             };
 
         let builtins = Self::builtins(

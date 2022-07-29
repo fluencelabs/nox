@@ -188,3 +188,7 @@ pub fn default_keypair_format() -> String {
 pub fn default_module_max_heap_size() -> bytesize::ByteSize {
     bytesize::ByteSize::b(bytesize::gib(4 as u64) - 1)
 }
+
+pub fn default_max_builtin_metrics_storage_size() -> usize {
+    5
+}

@@ -44,8 +44,8 @@ pub fn create_app_service(
             .for_each(|module| inject_vault(&config.particles_vault_dir, module));
 
         if let Some(metrics) = metrics.as_ref() {
-            metrics.observe_instant(|instant| {
-                instant.observe_service_max_mem(config.max_heap_size.as_u64(), &modules_config);
+            metrics.observe_external(|external| {
+                external.observe_service_max_mem(config.max_heap_size.as_u64(), &modules_config);
             });
         }
 

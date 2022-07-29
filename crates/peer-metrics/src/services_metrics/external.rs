@@ -1,5 +1,5 @@
 /**
- * Services metrics for instant delivery to monitoring boards.
+ * Services metrics that are meant to be written to an external metrics storage like Prometheus
  */
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::gauge::Gauge;
@@ -38,7 +38,7 @@ impl ServicesMemoryMetrics {
 }
 
 #[derive(Clone)]
-pub struct ServicesMetricsInstant {
+pub struct ServicesMetricsExternal {
     /// Number of currently running services
     pub services_count: Gauge,
     /// How long it took to create a service
@@ -60,7 +60,7 @@ pub struct ServicesMetricsInstant {
     pub memory_metrics: ServicesMemoryMetrics,
 }
 
-impl ServicesMetricsInstant {
+impl ServicesMetricsExternal {
     pub fn new(registry: &mut Registry) -> Self {
         let sub_registry = registry.sub_registry_with_prefix("services");
 

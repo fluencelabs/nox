@@ -4180,6 +4180,7 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "log",
+ "parking_lot 0.11.2",
  "prometheus-client",
  "serde",
  "serde_json",

@@ -690,13 +690,19 @@ where
             .metrics
             .as_ref()
             .ok_or_else(|| JError::new(format!("Service stats collection is disabled")))?;
-        let result = metrics.builtin.read(&service_id)?;
-        // TODO: should we catch errors and wrap it in aqua result type?
-        Ok(json!({
-            "status": true,
-            "error": "",
-            "result": vec![result],
-        }))
+        if let Some(result) = metrics.builtin.read(&service_id) {
+            Ok(json!({
+                "status": true,
+                "error": "",
+                "result": vec![result],
+            }))
+        } else {
+            Ok(json!({
+                "status": false,
+                "error": format!("No stats were collected for the `{}` service", service_id),
+                "result": [],
+            }))
+        }
     }
 }
 

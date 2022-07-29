@@ -166,8 +166,8 @@ impl ParticleAppServices {
         )
         .inspect_err(|_| {
             if let Some(metrics) = metrics.as_ref() {
-                metrics.observe_instant(|instant| {
-                    instant.creation_failure_count.inc();
+                metrics.observe_external(|external| {
+                    external.creation_failure_count.inc();
                 })
             }
         })?;
@@ -182,9 +182,11 @@ impl ParticleAppServices {
 
         let creation_end_time = creation_start_time.elapsed().as_secs();
         if let Some(m) = metrics.as_ref() {
-            m.observe_instant(|instant| {
-                instant.creation_count.inc();
-                instant.creation_time_msec.observe(creation_end_time as f64);
+            m.observe_external(|external| {
+                external.creation_count.inc();
+                external
+                    .creation_time_msec
+                    .observe(creation_end_time as f64);
             });
         }
 
@@ -240,8 +242,8 @@ impl ParticleAppServices {
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
         if let Some(metrics) = self.metrics.as_ref() {
-            metrics.observe_instant(|instant| {
-                instant.observe_removed(removal_end_time as f64);
+            metrics.observe_external(|external| {
+                external.observe_removed(removal_end_time as f64);
             });
         }
 
