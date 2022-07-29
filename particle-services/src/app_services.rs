@@ -19,7 +19,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
 use fluence_app_service::{
-    AppService, AppServiceError, MarineError, CallParameters, SecurityTetraplet, ServiceInterface,
+    AppService, AppServiceError, CallParameters, MarineError, SecurityTetraplet, ServiceInterface,
 };
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};

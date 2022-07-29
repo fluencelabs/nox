@@ -159,7 +159,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 )
             } else {
                 ServicesMetrics::with_simple_backend(
-                    config.metrics_config.max_builtin_metrics_storage_size
+                    config.metrics_config.max_builtin_metrics_storage_size,
                 )
             };
 

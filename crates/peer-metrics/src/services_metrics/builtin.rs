@@ -80,10 +80,16 @@ impl Stats {
                 call_time_sec,
                 timestamp,
             } => {
-                self.memory_deltas_bytes
-                    .update(max_metrics_storage_size, *memory_delta_bytes, self.success_req_count);
-                self.call_time_sec
-                    .update(max_metrics_storage_size, *call_time_sec, self.success_req_count);
+                self.memory_deltas_bytes.update(
+                    max_metrics_storage_size,
+                    *memory_delta_bytes,
+                    self.success_req_count,
+                );
+                self.call_time_sec.update(
+                    max_metrics_storage_size,
+                    *call_time_sec,
+                    self.success_req_count,
+                );
                 self.success_req_count += 1;
                 self.timestamps.update(max_metrics_storage_size, *timestamp);
             }
@@ -138,7 +144,9 @@ impl ServicesMetricsBuiltin {
             .or_default();
 
         function_stat.update(self.max_metrics_storage_size, &stats);
-        service_stat.total_stats.update(self.max_metrics_storage_size, &stats);
+        service_stat
+            .total_stats
+            .update(self.max_metrics_storage_size, &stats);
     }
 
     pub fn read(&self, service_id: &ServiceId) -> Option<ServiceStat> {

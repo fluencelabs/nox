@@ -65,9 +65,7 @@ impl ServicesMetrics {
         (backend, metrics)
     }
 
-    pub fn with_simple_backend(
-        max_builtin_storage_size: usize,
-    ) -> (ServicesMetricsBackend, Self) {
+    pub fn with_simple_backend(max_builtin_storage_size: usize) -> (ServicesMetricsBackend, Self) {
         let (outlet, inlet) = unbounded();
         let metrics = Self::new(None, outlet, max_builtin_storage_size);
         let backend = ServicesMetricsBackend::new(metrics.builtin.clone(), inlet);
