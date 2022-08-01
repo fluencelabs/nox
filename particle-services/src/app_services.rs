@@ -18,7 +18,9 @@ use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{AppService, CallParameters, SecurityTetraplet, ServiceInterface};
+use fluence_app_service::{
+    AppService, AppServiceError, CallParameters, MarineError, SecurityTetraplet, ServiceInterface,
+};
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -28,7 +30,7 @@ use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
-use peer_metrics::ServicesMetrics;
+use peer_metrics::{ServiceCallStats, ServicesMetrics, ServicesMetricsBuiltin};
 use server_config::ServicesConfig;
 
 use crate::app_service::create_app_service;
@@ -162,7 +164,11 @@ impl ParticleAppServices {
             metrics,
         )
         .inspect_err(|_| {
-            metrics.map(|m| m.creation_failure_count.inc());
+            if let Some(metrics) = metrics.as_ref() {
+                metrics.observe_external(|external| {
+                    external.creation_failure_count.inc();
+                })
+            }
         })?;
         let service = Service {
             service: Mutex::new(service),
@@ -174,9 +180,13 @@ impl ParticleAppServices {
         self.services.write().insert(service_id.clone(), service);
 
         let creation_end_time = creation_start_time.elapsed().as_secs();
-        if let Some(m) = metrics {
-            m.creation_count.inc();
-            m.creation_time_msec.observe(creation_end_time as f64);
+        if let Some(m) = metrics.as_ref() {
+            m.observe_external(|external| {
+                external.creation_count.inc();
+                external
+                    .creation_time_msec
+                    .observe(creation_end_time as f64);
+            });
         }
 
         Ok(service_id)
@@ -230,8 +240,10 @@ impl ParticleAppServices {
         }
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
-        if let Some(m) = self.metrics.as_ref() {
-            m.observe_removed(removal_end_time as f64);
+        if let Some(metrics) = self.metrics.as_ref() {
+            metrics.observe_external(|external| {
+                external.observe_removed(removal_end_time as f64);
+            });
         }
 
         Ok(())
@@ -242,9 +254,11 @@ impl ParticleAppServices {
         mut function_args: Args,
         particle: ParticleParams,
     ) -> FunctionOutcome {
+        let call_time_start = Instant::now();
         let services = self.services.read();
         let aliases = self.aliases.read();
         let host_id = self.config.local_peer_id.to_string();
+        let timestamp = particle.timestamp;
 
         let service = get_service(&services, &aliases, function_args.service_id);
         let (service, service_id) = match service {
@@ -286,17 +300,44 @@ impl ParticleAppServices {
         let function_name = function_args.function_name;
 
         let mut service = service.lock();
+        let old_memory = ServicesMetricsBuiltin::get_used_memory(&service.module_memory_stats());
         // TODO: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
         let result = service
             .call(
-                function_name,
+                function_name.clone(),
                 JValue::Array(function_args.function_args),
                 params,
             )
-            .map_err(ServiceError::Engine)?;
+            .map_err(|e| {
+                if let Some(metrics) = self.metrics.as_ref() {
+                    let stats = ServiceCallStats::Fail { timestamp };
+                    // If the called function is unknown we don't want to save info
+                    // about it in a separate entry.
+                    if is_unknown_function(&e) {
+                        metrics.observe_service_call_unknown(service_id.clone(), stats);
+                    } else {
+                        metrics.observe_service_call(
+                            service_id.clone(),
+                            function_name.clone(),
+                            stats,
+                        );
+                    }
+                }
+                ServiceError::Engine(e)
+            })?;
 
-        if let Some(metrics) = &self.metrics {
-            metrics.observe_service_mem(service_id, service.module_memory_stats());
+        let call_time_sec = call_time_start.elapsed().as_secs_f64();
+        let new_memory = service.module_memory_stats();
+
+        let memory_delta_bytes = ServicesMetricsBuiltin::get_used_memory(&new_memory) - old_memory;
+        let stats = ServiceCallStats::Success {
+            memory_delta_bytes: memory_delta_bytes as f64,
+            call_time_sec,
+            timestamp,
+        };
+
+        if let Some(metrics) = self.metrics.as_ref() {
+            metrics.observe_service_state(service_id, function_name, new_memory, stats);
         }
 
         FunctionOutcome::Ok(result)
@@ -359,6 +400,13 @@ impl ParticleAppServices {
         let service_id = aliases.get(&alias);
 
         service_id.cloned().ok_or(NoSuchAlias(alias))
+    }
+
+    pub fn to_service_id(&self, service_id_or_alias: String) -> Result<String, ServiceError> {
+        let services = self.services.read();
+        let (_, service_id) = get_service(&services, &self.aliases.read(), service_id_or_alias)
+            .map_err(ServiceError::NoSuchService)?;
+        Ok(service_id)
     }
 
     pub fn get_interface(&self, service_id: String) -> Result<JValue, ServiceError> {
@@ -467,6 +515,13 @@ impl ParticleAppServices {
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
         self.vault.create(particle_id)
     }
+}
+
+fn is_unknown_function(err: &AppServiceError) -> bool {
+    matches!(
+        err,
+        AppServiceError::MarineError(MarineError::MissingFunctionError(_))
+    )
 }
 
 #[cfg(test)]

@@ -43,8 +43,10 @@ pub fn create_app_service(
             .iter_mut()
             .for_each(|module| inject_vault(&config.particles_vault_dir, module));
 
-        if let Some(metrics) = metrics {
-            metrics.observe_service_max_mem(config.max_heap_size.as_u64(), &modules_config);
+        if let Some(metrics) = metrics.as_ref() {
+            metrics.observe_external(|external| {
+                external.observe_service_max_mem(config.max_heap_size.as_u64(), &modules_config);
+            });
         }
 
         let modules = AppServiceConfig {
@@ -65,7 +67,7 @@ pub fn create_app_service(
         let persisted = PersistedService::new(service_id.clone(), blueprint_id, aliases, owner_id);
         persist_service(&config.services_dir, persisted)?;
 
-        if let Some(metrics) = metrics {
+        if let Some(metrics) = metrics.as_ref() {
             metrics.observe_created(service_id, service.module_memory_stats());
         }
 

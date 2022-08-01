@@ -72,7 +72,7 @@ where
         script_storage: ScriptStorageApi,
         node_info: NodeInfo,
         config: ServicesConfig,
-        services_metrics: Option<ServicesMetrics>,
+        services_metrics: ServicesMetrics,
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -87,7 +87,7 @@ where
         let particles_vault_dir = vault_dir.to_path_buf();
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
-        let services = ParticleAppServices::new(config, modules.clone(), services_metrics);
+        let services = ParticleAppServices::new(config, modules.clone(), Some(services_metrics));
 
         Self {
             connectivity,
@@ -156,6 +156,7 @@ where
             ("debug", "stringify")            => self.stringify(args.function_args),
 
             ("stat", "service_memory") => unary(args, |id: String| -> R<Vec<JValue>, _> { self.services.get_service_mem_stats(id) }),
+            ("stat", "service_stat")   => wrap(self.service_stat(args)),
 
             ("math", "add")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
             ("math", "sub")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
@@ -677,6 +678,31 @@ where
 
     fn connection_pool(&self) -> &ConnectionPoolApi {
         self.connectivity.as_ref()
+    }
+
+    fn service_stat(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let service_id_or_alias: String = Args::next("service_id", &mut args)?;
+        // Resolve aliases; also checks that the requested service exists.
+        let service_id = self.services.to_service_id(service_id_or_alias)?;
+        let metrics = self
+            .services
+            .metrics
+            .as_ref()
+            .ok_or_else(|| JError::new(format!("Service stats collection is disabled")))?;
+        if let Some(result) = metrics.builtin.read(&service_id) {
+            Ok(json!({
+                "status": true,
+                "error": "",
+                "result": vec![result],
+            }))
+        } else {
+            Ok(json!({
+                "status": false,
+                "error": format!("No stats were collected for the `{}` service", service_id),
+                "result": [],
+            }))
+        }
     }
 }
 

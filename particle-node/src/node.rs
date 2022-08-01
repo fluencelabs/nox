@@ -71,7 +71,7 @@ pub struct Node<RT: AquaRuntime> {
     builtins_deployer: BuiltinsDeployer,
 
     registry: Option<Registry>,
-    services_metrics_backend: Option<ServicesMetricsBackend>,
+    services_metrics_backend: ServicesMetricsBackend,
 
     metrics_listen_addr: SocketAddr,
 
@@ -152,13 +152,15 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let (services_metrics_backend, services_metrics) =
             if let Some(registry) = metrics_registry.as_mut() {
-                let (backend, metrics) = ServicesMetricsBackend::init_service_metrics(
+                ServicesMetrics::with_external_backend(
                     config.metrics_config.metrics_timer_resolution,
+                    config.metrics_config.max_builtin_metrics_storage_size,
                     registry,
-                );
-                (Some(backend), Some(metrics))
+                )
             } else {
-                (None, None)
+                ServicesMetrics::with_simple_backend(
+                    config.metrics_config.max_builtin_metrics_storage_size,
+                )
             };
 
         let builtins = Self::builtins(
@@ -248,7 +250,7 @@ impl<RT: AquaRuntime> Node<RT> {
         external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
-        services_metrics: Option<ServicesMetrics>,
+        services_metrics: ServicesMetrics,
     ) -> Builtins<Connectivity> {
         let node_info = NodeInfo {
             external_addresses,
@@ -280,7 +282,7 @@ impl<RT: AquaRuntime> Node<RT> {
         builtins_deployer: BuiltinsDeployer,
 
         registry: Option<Registry>,
-        services_metrics_backend: Option<ServicesMetricsBackend>,
+        services_metrics_backend: ServicesMetricsBackend,
         metrics_listen_addr: SocketAddr,
 
         local_peer_id: PeerId,
@@ -334,7 +336,7 @@ impl<RT: AquaRuntime> Node<RT> {
             };
             let mut metrics_fut = metrics_fut.fuse();
 
-            let services_metrics_backend = services_metrics_backend.map(|m| m.start());
+            let services_metrics_backend = services_metrics_backend.start();
             let script_storage = script_storage.start();
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
@@ -374,9 +376,7 @@ impl<RT: AquaRuntime> Node<RT> {
             }
 
             log::info!("Stopping node");
-            if let Some(m) = services_metrics_backend {
-                m.cancel().await;
-            }
+            services_metrics_backend.cancel().await;
             script_storage.cancel().await;
             dispatcher.cancel().await;
             connectivity.cancel().await;
