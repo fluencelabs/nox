@@ -1100,21 +1100,22 @@ fn service_stats() {
         },
     );
 
-    use serde_json::Value::Object;
-
-    if let Ok([Object(result)]) = client.receive_args().as_deref() {
+    if let Ok([result]) = client.receive_args().as_deref() {
         assert_eq!(result.get("error"), Some(&json!("")));
         assert_eq!(result.get("status"), Some(&json!(true)));
-        // assert_eq!(result.get("result").unwrap().get("functions_stats").unwrap().get(0).unwrap())
-        let stat = result.get("result").unwrap().get(0).unwrap();
-        let f_stat = stat.get("functions_stats").unwrap().get(0).unwrap();
-        assert_eq!(f_stat.get("name"), Some(&json!("not")));
+
         assert_eq!(
-            f_stat.get("stats").unwrap().get("success_req_count"),
+            result.pointer("/result/0/functions_stats/0/name"),
+            Some(&json!("not"))
+        );
+        assert_eq!(
+            result.pointer("/result/0/functions_stats/0/stats/success_req_count"),
             Some(&json!(1))
         );
-        let total_stat = stat.get("total_stats").unwrap();
-        assert_eq!(total_stat.get("success_req_count"), Some(&json!(1)));
+        assert_eq!(
+            result.pointer("/result/0/total_stats/success_req_count"),
+            Some(&json!(1))
+        );
     } else {
         panic!("incorrect args: expected single arrays of module memory stats")
     }
