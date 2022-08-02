@@ -40,6 +40,7 @@ use created_swarm::{
 use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
 use json_utils::into_array;
+use log_utils::enable_logs;
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use service_modules::load_module;
@@ -1065,6 +1066,8 @@ fn service_mem() {
 
 #[test]
 fn service_stats() {
+    enable_logs();
+
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -1077,15 +1080,29 @@ fn service_stats() {
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     );
 
-    client.send_particle(
+    let particle_id = client.send_particle(
         r#"
-            (call relay (service "not") [true] result)
+            (seq
+                (seq
+                    (call relay (service "not") [true] result)
+                    (seq
+                        (call relay (service "store") [key bigstring])
+                        (call relay (service "delete") [key])
+                    )
+                )
+                (call %init_peer_id% ("op" "return") [])
+            )
         "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "service" => json!(tetraplets_service.id),
+            "key" => json!("keeeyyy"),
+            "bigstring" => json!("a".repeat(100_000)),
         },
     );
+    client
+        .wait_particle_args(particle_id)
+        .expect("receive particle");
 
     client.send_particle(
         r#"
@@ -1105,16 +1122,41 @@ fn service_stats() {
         assert_eq!(result.get("status"), Some(&json!(true)));
 
         assert_eq!(
-            result.pointer("/result/0/functions_stats/0/name"),
-            Some(&json!("not"))
-        );
-        assert_eq!(
-            result.pointer("/result/0/functions_stats/0/stats/success_req_count"),
-            Some(&json!(1))
-        );
-        assert_eq!(
             result.pointer("/result/0/total_stats/success_req_count"),
-            Some(&json!(1))
+            Some(&json!(3))
+        );
+
+        let function_stats = result
+            .pointer("/result/0/functions_stats")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let get_func = |name| {
+            function_stats
+                .iter()
+                .find(|v| v.get("name") == Some(&json!(name)))
+                .expect(&format!("'{}' function not found", name))
+        };
+
+        let not = get_func("not");
+        assert_eq!(not.pointer("/stats/success_req_count"), Some(&json!(1)));
+        assert_eq!(
+            not.pointer("/stats/memory_deltas_bytes/total"),
+            Some(&json!(0.0))
+        );
+
+        let store = get_func("store");
+        assert_eq!(store.pointer("/stats/success_req_count"), Some(&json!(1)));
+        assert_eq!(
+            store.pointer("/stats/memory_deltas_bytes/total"),
+            Some(&json!(65536.0))
+        );
+
+        let delete = get_func("delete");
+        assert_eq!(delete.pointer("/stats/success_req_count"), Some(&json!(1)));
+        assert_eq!(
+            delete.pointer("/stats/memory_deltas_bytes/total"),
+            Some(&json!(0.0))
         );
     } else {
         panic!("incorrect args: expected single arrays of module memory stats")
