@@ -181,7 +181,6 @@ fn create_service_from_config() {
     }
 }
 
-
 #[test]
 fn create_service_from_confi_ipfs_adapter() {
     enable_logs();
@@ -192,9 +191,9 @@ fn create_service_from_confi_ipfs_adapter() {
         .wrap_err("connect client")
         .unwrap();
 
-
     let ipfs_cli = load_module("tests/ipfs-adapter/artifacts", "ipfs_cli").expect("load module");
-    let ipfs_adapter = load_module("tests/ipfs-adapter/artifacts", "ipfs_adapter").expect("load module");
+    let ipfs_adapter =
+        load_module("tests/ipfs-adapter/artifacts", "ipfs_adapter").expect("load module");
 
     let config = json!({
     "modules": [
@@ -372,4 +371,3 @@ fn create_service_from_confi_ipfs_adapter() {
         }
     }
 }
-

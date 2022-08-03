@@ -16,7 +16,7 @@
 
 use crate::error::{ModuleError::*, Result};
 
-use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig, ConfigContext};
+use fluence_app_service::{ConfigContext, ModuleDescriptor, TomlMarineNamedModuleConfig};
 use service_modules::{
     blueprint_file_name, blueprint_fname, module_config_name_hash, module_file_name_hash,
     Blueprint, Hash,
@@ -41,7 +41,9 @@ pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<
     let config = modules_dir.join(module_config_name_hash(module_hash));
     let config = load_config_by_path(&config)?;
     // TODO CHECK: Is "." right? Maybe we need different path?
-    let context = ConfigContext { base_path: PathBuf::from(".") };
+    let context = ConfigContext {
+        base_path: PathBuf::from("."),
+    };
 
     let mut config: ModuleDescriptor = context
         .wrapped(config)
@@ -51,6 +53,9 @@ pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<
     // TODO HACK: This is required because by default file_name is set to be same as import_name
     //            That behavior is defined in TomlMarineNamedModuleConfig. Would be nice to refactor that behavior.
     config.file_name = module_file_name_hash(module_hash);
+
+    // Node stores its modules in a cernain directory, and it does not need effect of load_from field
+    config.load_from = None;
 
     Ok(config)
 }
@@ -88,6 +93,8 @@ pub fn add_module(
     // TODO HACK: use custom structure for API; TomlMarineNamedModuleConfig is too powerful and clumsy.
     // Set file_name = ${hash}.wasm
     config.file_name = Some(module_config_name_hash(module_hash));
+    // Node stores its modules in a cernain directory, and it does not need effect of load_from field
+    config.load_from = None;
     let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig {
         err,
         config: config.clone(),
