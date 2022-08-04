@@ -62,11 +62,11 @@ fn create_service_from_config() {
             [
               [
                 "abc",
-                "sadf"
+                "/tmp"
               ],
               [
                 "2222",
-                "fefe"
+                "/tmp"
               ]
             ]
           ]
