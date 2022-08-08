@@ -1066,8 +1066,6 @@ fn service_mem() {
 
 #[test]
 fn service_stats() {
-    enable_logs();
-
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())

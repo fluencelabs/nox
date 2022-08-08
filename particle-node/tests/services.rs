@@ -26,8 +26,6 @@ use service_modules::load_module;
 
 #[test]
 fn create_service_from_config() {
-    enable_logs();
-
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
