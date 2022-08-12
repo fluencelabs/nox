@@ -1,3 +1,4 @@
+#![feature(once_cell)]
 /*
  * Copyright 2021 Fluence Labs Limited
  *
@@ -14,18 +15,38 @@
  * limitations under the License.
  */
 
-use fluence::{marine, module_manifest, SecurityTetraplet};
+use marine_rs_sdk::get_call_parameters;
+use marine_rs_sdk::marine;
+use marine_rs_sdk::module_manifest;
+use marine_rs_sdk::SecurityTetraplet;
+use once_cell::sync::OnceCell;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 module_manifest!();
 
-pub fn main() {}
+static KV: OnceCell<Mutex<HashMap<String, String>>> = OnceCell::new();
+
+pub fn main() {
+    KV.set(<_>::default()).ok();
+}
 
 #[marine]
 pub fn get_tetraplets(_: String) -> Vec<Vec<SecurityTetraplet>> {
-    fluence::get_call_parameters().tetraplets
+    get_call_parameters().tetraplets
 }
 
 #[marine]
 pub fn not(b: bool) -> bool {
     !b
+}
+
+#[marine]
+pub fn store(key: String, value: String) {
+    KV.get().unwrap().lock().unwrap().insert(key, value);
+}
+
+#[marine]
+pub fn delete(key: String) {
+    KV.get().unwrap().lock().unwrap().remove(&key);
 }

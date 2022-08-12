@@ -300,7 +300,8 @@ impl ParticleAppServices {
         let function_name = function_args.function_name;
 
         let mut service = service.lock();
-        let old_memory = ServicesMetricsBuiltin::get_used_memory(&service.module_memory_stats());
+        let old_memory = service.module_memory_stats();
+        let old_mem_usage = ServicesMetricsBuiltin::get_used_memory(&old_memory);
         // TODO: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
         let result = service
             .call(
@@ -328,8 +329,9 @@ impl ParticleAppServices {
 
         let call_time_sec = call_time_start.elapsed().as_secs_f64();
         let new_memory = service.module_memory_stats();
+        let new_memory_usage = ServicesMetricsBuiltin::get_used_memory(&new_memory);
 
-        let memory_delta_bytes = ServicesMetricsBuiltin::get_used_memory(&new_memory) - old_memory;
+        let memory_delta_bytes = new_memory_usage - old_mem_usage;
         let stats = ServiceCallStats::Success {
             memory_delta_bytes: memory_delta_bytes as f64,
             call_time_sec,
