@@ -1,0 +1,9 @@
+aquavm_pool_size = 16
+
+[root_key_pair]
+format = "ed25519"
+generate_on_absence = true
+
+[builtins_key_pair]
+format = "ed25519"
+generate_on_absence = true
