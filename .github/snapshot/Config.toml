@@ -3,8 +3,6 @@ aquavm_pool_size = 16
 [root_key_pair]
 format = "ed25519"
 generate_on_absence = true
-# 12D3KooWBM3SdXWqGaawQDGQ6JprtwswEg3FWGvGhmgmMez1vRbR
-value = "hK62afickoeP2uZbmSkAYXxxqP8ozq16VRN7qfTP719EHC5V5tjrtW57BSjUr8GvsEXmJRbtejUWyPZ2rZMyQdq"
 
 [builtins_key_pair]
 format = "ed25519"
