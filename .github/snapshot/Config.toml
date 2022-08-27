@@ -1,4 +1,4 @@
-aquavm_pool_size = 16
+aquavm_pool_size = 2
 
 [root_key_pair]
 format = "ed25519"
