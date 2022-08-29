@@ -21,7 +21,7 @@ use crate::node_config::NodeConfig;
 use fs_utils::to_abs_path;
 
 use clap::{ArgMatches, Values};
-use eyre::{eyre, WrapErr};
+use eyre::{eyre, ContextCompat, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
 use std::net::SocketAddr;
@@ -161,8 +161,8 @@ fn insert_args_to_config(
 ) -> eyre::Result<()> {
     use toml::Value::*;
 
-    fn single(mut value: Values<'_>) -> &str {
-        value.next().unwrap()
+    fn single(mut value: Values<'_>) -> eyre::Result<&str> {
+        value.next().wrap_err("no more arguments")
     }
 
     fn multiple(value: Values<'_>) -> impl Iterator<Item = toml::Value> + '_ {
@@ -185,44 +185,49 @@ fn insert_args_to_config(
             None => continue,
         };
 
-        // Convert value to a type of the corresponding field in `FluenceConfig`
-        let mut value = match k {
-            WEBSOCKET_PORT | TCP_PORT | METRICS_PORT | AQUA_VM_POOL_SIZE => {
-                Integer(single(arg).parse()?)
+        let result: eyre::Result<()> = try {
+            // Convert value to a type of the corresponding field in `FluenceConfig`
+            let mut value = match k {
+                WEBSOCKET_PORT | TCP_PORT | METRICS_PORT | AQUA_VM_POOL_SIZE => {
+                    Integer(single(arg)?.parse()?)
+                }
+                BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => {
+                    Array(multiple(arg).collect())
+                }
+                ROOT_KEY_PAIR_VALUE => {
+                    check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
+                    make_table(k, single(arg)?)
+                }
+                ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_GENERATE => make_table(k, single(arg)?),
+                ROOT_KEY_PAIR_PATH => {
+                    check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_VALUE);
+                    make_table(k, single(arg)?)
+                }
+                _ => String(single(arg)?.into()),
+            };
+
+            let key = match k {
+                ROOT_KEY_PAIR_VALUE
+                | ROOT_KEY_PAIR_FORMAT
+                | ROOT_KEY_PAIR_PATH
+                | ROOT_KEY_PAIR_GENERATE => ROOT_KEY_PAIR,
+
+                k => k,
+            };
+
+            if value.is_table() && config.contains_key(key) {
+                let mut previous = config.remove(key).unwrap();
+
+                previous
+                    .as_table_mut()
+                    .unwrap()
+                    .extend(value.as_table_mut().unwrap().clone());
+                config.insert(key.to_string(), previous);
+            } else {
+                config.insert(key.to_string(), value);
             }
-            BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => Array(multiple(arg).collect()),
-            ROOT_KEY_PAIR_VALUE => {
-                check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
-                make_table(k, single(arg))
-            }
-            ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_GENERATE => make_table(k, single(arg)),
-            ROOT_KEY_PAIR_PATH => {
-                check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_VALUE);
-                make_table(k, single(arg))
-            }
-            _ => String(single(arg).into()),
         };
-
-        let key = match k {
-            ROOT_KEY_PAIR_VALUE
-            | ROOT_KEY_PAIR_FORMAT
-            | ROOT_KEY_PAIR_PATH
-            | ROOT_KEY_PAIR_GENERATE => ROOT_KEY_PAIR,
-
-            k => k,
-        };
-
-        if value.is_table() && config.contains_key(key) {
-            let mut previous = config.remove(key).unwrap();
-
-            previous
-                .as_table_mut()
-                .unwrap()
-                .extend(value.as_table_mut().unwrap().clone());
-            config.insert(key.to_string(), previous);
-        } else {
-            config.insert(key.to_string(), value);
-        }
+        result.context(format!("error processing argument '{}'", k))?
     }
 
     Ok(())
