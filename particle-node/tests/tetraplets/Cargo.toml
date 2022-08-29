@@ -5,7 +5,8 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-fluence = "0.6.9"
+marine-rs-sdk = "0.7.0"
+once_cell = "1.13.0"
 
 [[bin]]
 name = "tetraplets"

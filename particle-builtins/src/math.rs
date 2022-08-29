@@ -51,7 +51,7 @@ pub fn pow(x: i64, y: u32) -> Result<i64, JError> {
 
 /// log_x(y) (logarithm of base x)
 pub fn log(x: i64, y: i64) -> Result<u32, JError> {
-    y.checked_log(x)
+    y.checked_ilog(x)
         .ok_or_else(|| JError::new("i64 log overflow"))
 }
 
