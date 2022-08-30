@@ -154,6 +154,7 @@ impl Connectivity {
 
             let events = pool.lifecycle_events();
             stream::filter_map(events, move |e| {
+                log::trace!(target: "network", "Connection pool event: {:?}", e);
                 if let LifecycleEvent::Connected(c) = e {
                     let mut addresses = c.addresses.iter();
                     addresses.find(|addr| bootstrap_nodes.contains(addr))?;
@@ -214,6 +215,7 @@ impl Connectivity {
         let reconnect = move |kademlia: KademliaApi, pool: ConnectionPoolApi, addr: Multiaddr| async move {
             let mut delay = Duration::from_secs(0);
             loop {
+                log::info!("Will reconnect bootstrap {}", addr);
                 if let Some(contact) = pool.dial(addr.clone()).await {
                     log::info!("Connected bootstrap {}", contact);
                     let ok = kademlia.add_contact(contact);
