@@ -373,7 +373,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         // mark failed addresses as such
         if let Some(failed_addresses) = failed_addresses {
             for addr in failed_addresses {
-                self.fail_address(peer_id, addr)
+                self.fail_address(Some(peer_id), addr)
             }
         }
 
