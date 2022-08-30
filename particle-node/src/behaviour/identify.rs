@@ -56,21 +56,23 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
     }
 }
 
-fn filter_addresses(addresses: Vec<Multiaddr>, allow_local: bool) -> Vec<Multiaddr> {
+fn filter_addresses(addresses: Vec<Multiaddr>, _allow_local: bool) -> Vec<Multiaddr> {
     // Deduplicate addresses
     let addresses: Vec<_> = addresses.into_iter().unique().collect();
 
-    // Check if there's at least single global IP address
-    let exists_global = addresses.iter().any(is_global_maddr);
+    // // Check if there's at least single global IP address
+    // let exists_global = addresses.iter().any(is_global_maddr);
+    //
+    // if !exists_global && allow_local {
+    //     // If there are no global addresses, we are most likely running locally
+    //     // So take loopback address, and go with it.
+    //     addresses.into_iter().filter(is_local_maddr).collect()
+    // } else {
+    //     // Keep only global addresses
+    //     addresses.into_iter().filter(is_global_maddr).collect()
+    // }
 
-    if !exists_global && allow_local {
-        // If there are no global addresses, we are most likely running locally
-        // So take loopback address, and go with it.
-        addresses.into_iter().filter(is_local_maddr).collect()
-    } else {
-        // Keep only global addresses
-        addresses.into_iter().filter(is_global_maddr).collect()
-    }
+    addresses
 }
 
 fn is_global(ip: IpAddr) -> bool {
