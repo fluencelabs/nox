@@ -75,6 +75,7 @@ fn filter_addresses(addresses: Vec<Multiaddr>, _allow_local: bool) -> Vec<Multia
     addresses
 }
 
+#[allow(dead_code)]
 fn is_global(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(addr) => {
@@ -89,6 +90,7 @@ fn is_global(ip: IpAddr) -> bool {
     }
 }
 
+#[allow(dead_code)]
 fn is_global_maddr(maddr: &Multiaddr) -> bool {
     maddr.iter().any(|p| match p {
         Protocol::Ip4(addr) => is_global(addr.into()),
@@ -96,6 +98,7 @@ fn is_global_maddr(maddr: &Multiaddr) -> bool {
     })
 }
 
+#[allow(dead_code)]
 fn is_local_maddr(maddr: &Multiaddr) -> bool {
     maddr.iter().any(|p| match p {
         Protocol::Ip4(addr) if addr.is_loopback() => true,
