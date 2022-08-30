@@ -36,7 +36,7 @@ pub struct NetworkBehaviour {
     pub(crate) connection_pool: ConnectionPoolInlet,
     pub(crate) kademlia: KademliaApiInlet,
     #[behaviour(ignore)]
-    /// Whether to allow local (127.0.0.1) addresses in identify
+    /// Whether to allow private IP addresses in identify
     pub(super) allow_local_addresses: bool,
 }
 
