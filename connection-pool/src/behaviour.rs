@@ -316,17 +316,23 @@ impl ConnectionPoolBehaviour {
         }
     }
 
-    fn fail_address(&mut self, peer_id: &PeerId, addr: &Multiaddr) {
-        log::warn!("failed to connect to {} {}", addr, peer_id);
+    fn fail_address(&mut self, peer_id: Option<&PeerId>, addr: &Multiaddr) {
+        log::warn!(
+            "failed to connect to {} {}",
+            addr,
+            peer_id.map_or("unknown".to_string(), |id| id.to_string())
+        );
 
-        let contact = self.contacts.get_mut(peer_id);
-        // remove failed address
-        match contact {
-            Some(Peer::Connected(addrs)) | Some(Peer::Dialing(addrs, _)) => {
-                addrs.remove(addr);
-            }
-            None => {}
-        };
+        if let Some(peer_id) = peer_id {
+            let contact = self.contacts.get_mut(peer_id);
+            // remove failed address
+            match contact {
+                Some(Peer::Connected(addrs)) | Some(Peer::Dialing(addrs, _)) => {
+                    addrs.remove(addr);
+                }
+                None => {}
+            };
+        }
 
         // Notify those who waits for address dial
         if let Some(outs) = self.dialing.remove(addr) {
@@ -445,6 +451,21 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             peer_id.map_or("unknown".to_string(), |id| id.to_string()),
             error
         );
+        match error {
+            DialError::WrongPeerId { endpoint, .. } => {
+                let addr = match endpoint {
+                    ConnectedPoint::Dialer { address, .. } => address,
+                    ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
+                };
+                self.fail_address(peer_id.as_ref(), addr);
+            }
+            DialError::Transport(addrs) => {
+                for (addr, _) in addrs {
+                    self.fail_address(peer_id.as_ref(), addr);
+                }
+            }
+            _ => {}
+        };
         // remove failed contact
         if let Some(peer_id) = peer_id {
             self.remove_contact(&peer_id, format!("dial failure: {}", error).as_str())
