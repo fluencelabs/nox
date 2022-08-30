@@ -154,6 +154,7 @@ impl Connectivity {
 
             let events = pool.lifecycle_events();
             stream::filter_map(events, move |e| {
+                log::trace!(target: "network", "Connection pool event: {:?}", e);
                 if let LifecycleEvent::Connected(c) = e {
                     let mut addresses = c.addresses.iter();
                     addresses.find(|addr| bootstrap_nodes.contains(addr))?;
