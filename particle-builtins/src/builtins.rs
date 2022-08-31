@@ -224,7 +224,7 @@ where
             .map(|(peer_id, contact)| {
                 json!({
                     "peer_id": peer_id.to_string(),
-                    "addresses": contact.map(|c| c.addresses)
+                    "addresses": contact.map(|c| c.addresses).unwrap_or_default()
                 })
             })
             .collect::<Vec<_>>()
