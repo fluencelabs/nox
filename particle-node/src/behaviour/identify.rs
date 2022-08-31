@@ -65,7 +65,10 @@ fn filter_addresses(addresses: Vec<Multiaddr>, allow_local: bool) -> Vec<Multiad
         addresses
     } else {
         // Keep only global addresses
-        addresses.into_iter().filter(is_global_maddr).collect()
+        addresses
+            .into_iter()
+            .filter(|maddr| !is_local_maddr(maddr))
+            .collect()
     }
 }
 
