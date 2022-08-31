@@ -60,13 +60,9 @@ fn filter_addresses(addresses: Vec<Multiaddr>, allow_local: bool) -> Vec<Multiad
     // Deduplicate addresses
     let addresses: Vec<_> = addresses.into_iter().unique().collect();
 
-    // Check if there's at least single global IP address
-    let exists_global = addresses.iter().any(is_global_maddr);
-
-    if !exists_global && allow_local {
-        // If there are no global addresses, we are most likely running locally
-        // So take loopback address, and go with it.
-        addresses.into_iter().filter(is_local_maddr).collect()
+    if allow_local {
+        // Return all addresses
+        addresses
     } else {
         // Keep only global addresses
         addresses.into_iter().filter(is_global_maddr).collect()
