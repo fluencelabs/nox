@@ -41,7 +41,7 @@ pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<
     let config = modules_dir.join(module_config_name_hash(module_hash));
     let config = load_config_by_path(&config)?;
     let context = ConfigContext {
-        base_path: PathBuf::from("."),
+        base_path: None,
     };
 
     let mut config: ModuleDescriptor = context
