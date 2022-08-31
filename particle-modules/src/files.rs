@@ -40,7 +40,7 @@ pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
 pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<ModuleDescriptor> {
     let config = modules_dir.join(module_config_name_hash(module_hash));
     let config = load_config_by_path(&config)?;
-    // None makes marine use the old behaviour, interpreting all paths as relative to $CURRENT_DIR
+    // `base_path: None` tells Marine to resolve non-absolute paths relative to the current directory
     let context = ConfigContext { base_path: None };
 
     let mut config: ModuleDescriptor = context
