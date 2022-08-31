@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-use super::NetworkBehaviour;
 use itertools::Itertools;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
     identify::IdentifyEvent,
     swarm::NetworkBehaviourEventProcess,
 };
-use std::net::IpAddr;
+
+use super::NetworkBehaviour;
 
 /// Network address information is exchanged via Identify protocol.
 /// That information is passed to relay, so nodes know each other's addresses
@@ -72,31 +72,10 @@ fn filter_addresses(addresses: Vec<Multiaddr>, allow_local: bool) -> Vec<Multiad
     }
 }
 
-fn is_global(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(addr) => {
-            !addr.is_private()
-                && !addr.is_loopback()
-                && !addr.is_link_local()
-                && !addr.is_broadcast()
-                && !addr.is_documentation()
-                && !addr.is_unspecified()
-        }
-        IpAddr::V6(addr) => !addr.is_loopback() && !addr.is_unspecified(),
-    }
-}
-
-fn is_global_maddr(maddr: &Multiaddr) -> bool {
-    maddr.iter().any(|p| match p {
-        Protocol::Ip4(addr) => is_global(addr.into()),
-        _ => false,
-    })
-}
-
-#[allow(dead_code)]
 fn is_local_maddr(maddr: &Multiaddr) -> bool {
     maddr.iter().any(|p| match p {
-        Protocol::Ip4(addr) if addr.is_loopback() => true,
+        Protocol::Ip4(addr) => !addr.is_global(),
+        Protocol::Ip6(addr) => !addr.is_global(),
         Protocol::Memory(_) => true,
         _ => false,
     })
