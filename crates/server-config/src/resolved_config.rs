@@ -264,17 +264,12 @@ pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Resul
     let mut config: toml::value::Table =
         toml::from_slice(content).wrap_err("deserializing config")?;
 
-    println!("arguments {:?}", arguments);
-    println!("config before: {:?}", config);
     insert_args_to_config(arguments, &mut config)?;
-    println!("config after: {:?}", config);
 
     let config = toml::value::Value::Table(config);
     let mut config = UnresolvedConfig::deserialize(config)?.resolve();
-    println!("parsed config: {:?}", config);
 
     if arguments.is_present(LOCAL) {
-        println!("LOCAL!");
         // if --local is passed, clear bootstrap nodes
         config.bootstrap_nodes = vec![];
     }
