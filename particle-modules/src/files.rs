@@ -89,7 +89,7 @@ pub fn add_module(
     // Set file_name = ${hash}.wasm
     config.file_name = Some(module_config_name_hash(module_hash));
     // The `load_from` field overrides `modules_dir` for a single module,
-    // so we ignore `load_from` because modules are always stored next to config files
+    // so we set `load_from` to `None`, telling Marine to load modules from the `modules_dir`
     config.load_from = None;
     let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig {
         err,
