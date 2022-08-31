@@ -22,9 +22,9 @@ pub enum AquamarineApiError {
     #[error("AquamarineApiError::ParticleExpired: particle_id = {particle_id}")]
     ParticleExpired { particle_id: String },
     #[error(
-        r#"AquamarineApiError::OneshotCancelled: particle_id = {}.
+        r#"AquamarineApiError::OneshotCancelled: particle_id = {particle_id}.
         Aquamarine dropped particle processing before sending effects back.
-        This is unexpected and shouldn't happen {particle_id}"#
+        This is unexpected and shouldn't happen"#
     )]
     OneshotCancelled { particle_id: String },
     #[error(
