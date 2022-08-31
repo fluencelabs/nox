@@ -40,6 +40,7 @@ pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
 pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<ModuleDescriptor> {
     let config = modules_dir.join(module_config_name_hash(module_hash));
     let config = load_config_by_path(&config)?;
+    // None makes marine use the old behaviour, interpreting all paths as relative to $CURRENT_DIR
     let context = ConfigContext { base_path: None };
 
     let mut config: ModuleDescriptor = context
@@ -87,7 +88,8 @@ pub fn add_module(
     // TODO HACK: use custom structure for API; TomlMarineNamedModuleConfig is too powerful and clumsy.
     // Set file_name = ${hash}.wasm
     config.file_name = Some(module_config_name_hash(module_hash));
-    // Ignore `load_from` because modules are always stored next to config files
+    // The `load_from` field overrides `modules_dir` for a single module,
+    // so we ignore `load_from` because modules are always stored next to config files
     config.load_from = None;
     let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig {
         err,
