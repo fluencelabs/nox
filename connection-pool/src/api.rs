@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 
 use futures::{
@@ -207,5 +208,19 @@ impl ConnectionPoolT for ConnectionPoolApi {
 impl From<ConnectionPoolBehaviour> for (ConnectionPoolApi, ConnectionPoolInlet) {
     fn from(cpb: ConnectionPoolBehaviour) -> Self {
         ConnectionPoolInlet::new(cpb)
+    }
+}
+
+impl Deref for ConnectionPoolInlet {
+    type Target = ConnectionPoolBehaviour;
+
+    fn deref(&self) -> &Self::Target {
+        &self.connection_pool
+    }
+}
+
+impl DerefMut for ConnectionPoolInlet {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.connection_pool
     }
 }

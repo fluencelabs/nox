@@ -22,6 +22,8 @@ use std::path;
 use std::str::FromStr;
 use std::time::Duration;
 
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
@@ -115,6 +117,7 @@ where
             ("peer", "timeout")               => self.timeout(args).await,
 
             ("kad", "neighborhood")           => wrap(self.neighborhood(args).await),
+            ("kad", "neigh_with_addrs")       => wrap(self.neighborhood_with_addresses(args).await),
             ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
 
             ("srv", "list")                   => ok(self.list_services()),
@@ -182,7 +185,7 @@ where
         }
     }
 
-    async fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
+    async fn neighbor_peers(&self, args: Args) -> Result<Vec<PeerId>, JError> {
         let mut args = args.function_args.into_iter();
         let key = from_base58("key", &mut args)?;
         let already_hashed: Option<bool> = Args::next_opt("already_hashed", &mut args)?;
@@ -194,9 +197,39 @@ where
         } else {
             Code::Sha2_256.digest(&key)
         };
-        let neighbors = self.kademlia().neighborhood(key, count).await;
+        let neighbors = self.kademlia().neighborhood(key, count).await?;
+
+        Ok(neighbors)
+    }
+
+    async fn neighborhood(&self, args: Args) -> Result<JValue, JError> {
+        let neighbors = self.neighbor_peers(args).await?;
+        let neighbors = json!(neighbors
+            .into_iter()
+            .map(|id| id.to_string())
+            .collect::<Vec<_>>());
+
+        Ok(neighbors)
+    }
+
+    async fn neighborhood_with_addresses(&self, args: Args) -> Result<JValue, JError> {
+        let neighbors = self.neighbor_peers(args).await?;
         let neighbors = neighbors
-            .map(|vs| json!(vs.into_iter().map(|id| id.to_string()).collect::<Vec<_>>()))?;
+            .into_iter()
+            .map(|peer| async move {
+                let contact = self.connection_pool().get_contact(peer).await;
+                (peer, contact)
+            })
+            .collect::<FuturesUnordered<_>>()
+            .map(|(peer_id, contact)| {
+                json!({
+                    "peer_id": peer_id.to_string(),
+                    "addresses": contact.map(|c| c.addresses).unwrap_or_default()
+                })
+            })
+            .collect::<Vec<_>>()
+            .await;
+        let neighbors = json!(neighbors);
 
         Ok(neighbors)
     }
@@ -987,11 +1020,14 @@ mod prop_tests {
 
 #[cfg(test)]
 mod resolve_path_tests {
-    use crate::builtins::{resolve_vault_path, ResolveVaultError};
-    use particle_services::VIRTUAL_PARTICLE_VAULT_PREFIX;
     use std::fs::File;
     use std::path::Path;
+
     use tempfile;
+
+    use particle_services::VIRTUAL_PARTICLE_VAULT_PREFIX;
+
+    use crate::builtins::{resolve_vault_path, ResolveVaultError};
 
     fn with_env(callback: fn(&str, &Path, &str, &Path) -> ()) {
         let particle_id = "particle_id";
