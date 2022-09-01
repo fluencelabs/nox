@@ -552,6 +552,7 @@ where
 
         let config = NamedModuleConfig {
             name: module_name,
+            load_from: None,
             file_name: None,
             config: <_>::default(),
         };
@@ -732,6 +733,7 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
 
     let config = NamedModuleConfig {
         name,
+        load_from: None,
         file_name: None,
         config: ModuleConfig {
             mem_pages_count,
