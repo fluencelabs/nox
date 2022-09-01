@@ -48,16 +48,8 @@ type SwarmEventType = libp2p::swarm::NetworkBehaviourAction<
     OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>,
 >;
 
-// #[derive(Debug)]
-// enum Peer {
-//     Connected(HashSet<Multiaddr>),
-//     /// Storing addresses of connecting peers to return them in `addresses_of_peer`, so libp2p
-//     /// can ask ConnectionPool about these addresses after `DialPeer` is issued
-//     Dialing(HashSet<Multiaddr>, Vec<OneshotOutlet<bool>>),
-// }
-
 #[derive(Debug, Default)]
-/// [Peer] is almost the same as [Contact], but extended with precise connectivity information
+/// [Peer] is the representation of [Contact] extended with precise connectivity information
 struct Peer {
     /// Current peer has active connections with that list of addresses
     connected: HashSet<Multiaddr>,
@@ -292,7 +284,7 @@ impl ConnectionPoolBehaviour {
                 peer.discovered.remove(&maddr);
                 peer.connected.insert(maddr.clone());
 
-                let dial_promises = std::mem::replace(&mut peer.dial_promises, <_>::default());
+                let dial_promises = std::mem::take(&mut peer.dial_promises);
 
                 for out in dial_promises {
                     out.send(true).ok();
@@ -373,7 +365,7 @@ impl ConnectionPoolBehaviour {
             contact.discovered.remove(addr);
             contact.dialing.remove(addr);
             if contact.dialing.is_empty() {
-                let dial_promises = std::mem::replace(&mut contact.dial_promises, <_>::default());
+                let dial_promises = std::mem::take(&mut contact.dial_promises);
                 for out in dial_promises {
                     out.send(false).ok();
                 }
