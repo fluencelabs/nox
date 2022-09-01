@@ -41,6 +41,10 @@ exclude = [
     "particle-node/tests/tetraplets",
 ]
 
+[workspace.dependencies]
+  fluence-app-service = "0.18.1"
+  avm-server = "0.24.0"
+
 [patch.crates-io]
 libp2p = { version = "0.45", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
 libp2p-yamux = { version = "0.37", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
