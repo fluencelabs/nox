@@ -45,7 +45,7 @@ pub const BLUEPRINT_DIR: &str = "blueprint_dir";
 pub const MANAGEMENT_PEER_ID: &str = "management_peer_id";
 pub const SERVICES_WORKDIR: &str = "services_workdir";
 pub const LOCAL: &str = "local";
-pub const ALLOW_PRIVATE_IPS: &str = "allow_private_ips";
+pub const ALLOW_PRIVATE_IPS: &str = "allow_local_addresses";
 pub const METRICS_PORT: &str = "metrics_port";
 pub const AQUA_VM_POOL_SIZE: &str = "aquavm_pool_size";
 
