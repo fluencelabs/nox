@@ -36,11 +36,17 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
                     info.protocol_version,
                     info.listen_addrs
                 );
+
+                let addresses = filter_addresses(info.listen_addrs, self.allow_local_addresses);
+
+                // Add addresses to connection pool disregarding whether it supports kademlia or not
+                // we want to have full info on non-kademlia peers as well
+                self.connection_pool
+                    .add_discovered_addresses(peer_id, addresses.clone());
+
                 let supports_kademlia =
                     info.protocols.iter().any(|p| p.contains("/ipfs/kad/1.0.0"));
-
                 if supports_kademlia {
-                    let addresses = filter_addresses(info.listen_addrs, self.allow_local_addresses);
                     self.kademlia.add_addresses(peer_id, addresses);
                 }
             }

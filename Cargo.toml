@@ -42,7 +42,7 @@ exclude = [
 ]
 
 [workspace.dependencies]
-  fluence-app-service = "0.18.1"
+  fluence-app-service = "0.20.0"
   avm-server = "0.24.0"
 
 [patch.crates-io]
