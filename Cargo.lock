@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.24.16"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6df90790898f26e91357b03568b40eb92bc4245a497f96bf18a7d7a689ce86d6"
+checksum = "d096a01050c08dcdab3c3e235650fb5b6d18fa9e03666e72eb79e316aaebea2d"
 dependencies = [
  "built",
 ]
@@ -537,7 +537,7 @@ dependencies = [
  "eyre",
  "log",
  "maplit",
- "marine-runtime",
+ "marine-runtime 0.18.1",
  "parking_lot 0.11.2",
  "polyplets",
  "serde",
@@ -1828,14 +1828,14 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.18.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1519a1ece5d14a54046ed5e88155bfea47d209f73a05b32a18cf82e2d8ac5c43"
+checksum = "95e126fb1126604dbd8a233ac15efeadb5b6fac79eb9f28b34cfe5ceb9020a43"
 dependencies = [
  "log",
  "maplit",
  "marine-min-it-version",
- "marine-runtime",
+ "marine-runtime 0.20.0",
  "serde",
  "serde_derive",
  "serde_json",
@@ -3508,6 +3508,35 @@ name = "marine-runtime"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7ed0ecac893ecc26c925cbe00c6a1eb8ac9f8d9e60ebc9c0bd390fba08617f2"
+dependencies = [
+ "bytesize",
+ "cmd_lib",
+ "it-json-serde",
+ "itertools 0.9.0",
+ "log",
+ "marine-core",
+ "marine-module-interface",
+ "marine-rs-sdk",
+ "marine-rs-sdk-main",
+ "marine-utils",
+ "safe-transmute",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_with",
+ "thiserror",
+ "toml",
+ "wasmer-interface-types-fl",
+ "wasmer-runtime-core-fl",
+ "wasmer-runtime-fl",
+ "wasmer-wasi-fl",
+]
+
+[[package]]
+name = "marine-runtime"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24f103b4f74e7cb5cf5c5d4b7d4d73e128c96e84c86074e0fa34ca2b8450e075"
 dependencies = [
  "bytesize",
  "cmd_lib",
