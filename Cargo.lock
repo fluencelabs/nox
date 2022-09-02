@@ -4091,6 +4091,7 @@ dependencies = [
  "base64 0.13.0",
  "blake3 0.3.8",
  "bs58 0.3.1",
+ "builtins",
  "builtins-deployer",
  "clap 3.0.0-beta.4",
  "config-utils",
