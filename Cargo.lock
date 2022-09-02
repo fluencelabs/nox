@@ -4010,6 +4010,8 @@ dependencies = [
  "bs58 0.3.1",
  "bytesize",
  "connection-pool",
+ "derivative",
+ "fluence-keypair",
  "futures",
  "humantime-serde",
  "itertools 0.10.3",
