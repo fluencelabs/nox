@@ -96,7 +96,7 @@ where
         let particles_vault_dir = vault_dir.to_path_buf();
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
-        let local_peer_id = config.local_peer_id.clone();
+        let local_peer_id = config.local_peer_id;
         let services = ParticleAppServices::new(config, modules.clone(), Some(services_metrics));
 
         Self {
@@ -757,30 +757,43 @@ where
     fn sign(&self, args: Args) -> Result<JValue, JError> {
         let tetraplets = args.tetraplets;
         let mut args = args.function_args.into_iter();
-        let data: Vec<u8> = Args::next("data", &mut args)?;
+        let result: Result<JValue, JError> = try {
+            let data: Vec<u8> = Args::next("data", &mut args)?;
 
-        let error = "data should be passed from local registry.get_record_bytes()";
-        let tetraplet = tetraplets
-            .get(0)
-            .ok_or_else(|| JError::new(error.to_string()))?
-            .get(0)
-            .ok_or_else(|| JError::new(error.to_string()))?;
+            let error = format!(
+                "data should be passed from local registry.get_record_bytes(), provided: {:?}",
+                tetraplets
+            );
 
-        if tetraplet.peer_pk != self.local_peer_id.to_base58()
-            || tetraplet.service_id != "registry"
-            || tetraplet.function_name != "get_record_bytes"
-        {
-            return Err(JError::new(error.to_string()));
+            let tetraplet = tetraplets
+                .get(0)
+                .ok_or_else(|| JError::new(error.to_string()))?
+                .get(0)
+                .ok_or_else(|| JError::new(error.to_string()))?;
+
+            if tetraplet.peer_pk != self.local_peer_id.to_base58()
+                || tetraplet.service_id != "registry"
+                || tetraplet.function_name != "get_record_bytes"
+            {
+                return Err(JError::new(error.to_string()));
+            }
+
+            json!(self.root_keypair.sign(&data)?.to_vec())
+        };
+
+        match result {
+            Ok(sig) => Ok(json!({
+                "success": true,
+                "error": [],
+                "signature": vec![sig]
+            })),
+
+            Err(error) => Ok(json!({
+                "success": false,
+                "error": vec![error],
+                "signature": []
+            })),
         }
-
-        Ok(JValue::Array(
-            self.root_keypair
-                .sign(&data)?
-                .to_vec()
-                .into_iter()
-                .map(|n| json!(n))
-                .collect(),
-        ))
     }
 
     fn verify(&self, args: Args) -> Result<JValue, JError> {
