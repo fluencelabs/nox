@@ -1312,10 +1312,11 @@ fn sign_invalid_tetraplets() {
     if let [String(host_error), String(srv_error), String(func_error)] =
         client.receive_args().unwrap().as_slice()
     {
-        let err_msg = "Local service error, ret_code is 1, error message is '\"data should be passed from local registry.get_record_bytes()\"'";
-        assert_eq!(host_error, err_msg);
-        assert_eq!(srv_error, err_msg);
-        assert_eq!(func_error, err_msg);
+        let err_msg = "Local service error, ret_code is 1, error message is '\"data should be passed from local registry.get_record_bytes()";
+        println!("{}", host_error);
+        assert!(host_error.starts_with(err_msg));
+        assert!(srv_error.starts_with(err_msg));
+        assert!(func_error.starts_with(err_msg));
     } else {
         panic!("incorrect args: expected three arguments")
     }
