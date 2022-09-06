@@ -23,8 +23,9 @@ fs-utils = { path = "../crates/fs-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
 fluence-keypair = "0.7.0"
+
 avm-server = { workspace = true }
-air-interpreter-wasm = "=0.27.0"
+air-interpreter-wasm = "=0.27.7"
 
 libp2p = "0.45"
 libp2p-metrics = "0.6.0"
