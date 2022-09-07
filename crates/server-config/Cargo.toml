@@ -27,7 +27,7 @@ toml = "0.5.6"
 bs58 = "0.3.1"
 base64 = "0.13.0"
 num_cpus = "1.13.0"
-eyre = "0.6.5"
+eyre = { workspace = true }
 derivative = "2.2.0"
 bytesize = {version = "1.1.0", features = ["serde"]}
 serde_with = "1.11.0"
