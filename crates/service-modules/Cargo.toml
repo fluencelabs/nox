@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 fs-utils = { path = "../fs-utils" }
 
-eyre = "0.6.5"
+eyre = { workspace = true }
 serde = { version = "1.0.118", features = ["derive"] }
 blake3 = "0.3.8"
 faster-hex = "0.6.0"

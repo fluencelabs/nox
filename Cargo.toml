@@ -45,13 +45,13 @@ exclude = [
 
 [workspace.dependencies]
 fluence-app-service = "0.20.0"
-avm-server = "0.24.0"
+avm-server = "0.25.0"
+libp2p = "0.45.1"
+libp2p-core = { version = "0.33.0", default-features = false, features = [ "secp256k1" ] }
+libp2p-metrics = { version = "0.6.0", features = ["kad"] }
+libp2p-noise = "0.36.0"
+prometheus-client = "0.16.0"
+eyre = "0.6.8"
 
 [patch.crates-io]
-#libp2p = { version = "0.45", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
-#libp2p-yamux = { version = "0.37", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
-#libp2p-core = { version = "0.33.0", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
-#libp2p-noise = { version = "0.36", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
-#libp2p-metrics = { version = "0.6.0", git = "https://github.com/fluencelabs/rust-libp2p", branch = "yamux_set_split_send_size" }
-
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p-core_0.33" }
