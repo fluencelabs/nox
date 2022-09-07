@@ -20,7 +20,9 @@ use futures::{AsyncRead, AsyncWrite};
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::{Boxed, MemoryTransport};
 use libp2p::core::Multiaddr;
+use libp2p::dns::DnsConfig;
 use libp2p::noise;
+use libp2p::tcp::GenTcpConfig;
 use libp2p::{core, dns, identity::Keypair, PeerId, Transport as NetworkTransport};
 use serde::{Deserialize, Serialize};
 
@@ -45,13 +47,17 @@ pub fn build_network_transport(
     socket_timeout: Duration,
     split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
-    let transport = {
+    let tcp = || {
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
-        // TODO: expose async?
-        let tcp = async_std::task::block_on(dns::DnsConfig::system(tcp)).expect("Can't build DNS");
-        let mut websocket = libp2p::websocket::WsConfig::new(tcp.clone());
+        let tcp: DnsConfig<GenTcpConfig<libp2p::tcp::async_io::Tcp>> =
+            async_std::task::block_on(dns::DnsConfig::system(tcp)).expect("Can't build DNS");
+        tcp
+    };
+
+    let transport = {
+        let mut websocket = libp2p::websocket::WsConfig::new(tcp());
         websocket.set_tls_config(libp2p::websocket::tls::Config::client());
-        websocket.or_transport(tcp)
+        websocket.or_transport(tcp())
     };
 
     configure_transport(transport, key_pair, socket_timeout, split_size)
@@ -61,7 +67,7 @@ pub fn configure_transport<T, C>(
     transport: T,
     key_pair: Keypair,
     transport_timeout: Duration,
-    split_size: usize,
+    _split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)>
 where
     T: NetworkTransport<Output = C> + Send + Sync + 'static,
@@ -73,11 +79,9 @@ where
 {
     let multiplex = {
         let mut mplex = libp2p::mplex::MplexConfig::default();
-        mplex.set_split_send_size(split_size);
         mplex.set_max_num_streams(1024 * 1024);
 
         let mut yamux = libp2p::yamux::YamuxConfig::default();
-        yamux.set_split_send_size(split_size);
         yamux.set_max_num_streams(1024 * 1024);
 
         core::upgrade::SelectUpgrade::new(yamux, mplex)

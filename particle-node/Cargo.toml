@@ -29,7 +29,7 @@ air-interpreter-wasm = "=0.27.7"
 
 libp2p = "0.45"
 libp2p-metrics = "0.6.0"
-prometheus-client = "0.15.1"
+prometheus-client = "0.16.0"
 
 futures = "0.3.13"
 async-std = { version = "1.6.5", features = ["unstable"] }
