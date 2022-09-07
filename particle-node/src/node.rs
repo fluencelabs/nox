@@ -92,7 +92,6 @@ impl<RT: AquaRuntime> Node<RT> {
             transport,
             key_pair.clone(),
             config.transport_config.socket_timeout,
-            config.transport_config.packet_split_size,
         );
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());

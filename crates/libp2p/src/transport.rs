@@ -30,11 +30,10 @@ pub fn build_transport(
     transport: Transport,
     key_pair: Keypair,
     timeout: Duration,
-    split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     match transport {
-        Transport::Network => build_network_transport(key_pair, timeout, split_size),
-        Transport::Memory => build_memory_transport(key_pair, timeout, split_size),
+        Transport::Network => build_network_transport(key_pair, timeout),
+        Transport::Memory => build_memory_transport(key_pair, timeout),
     }
 }
 
@@ -45,7 +44,6 @@ pub fn build_transport(
 pub fn build_network_transport(
     key_pair: Keypair,
     socket_timeout: Duration,
-    split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp = || {
         let tcp = libp2p::tcp::TcpConfig::new().nodelay(true);
@@ -60,14 +58,13 @@ pub fn build_network_transport(
         websocket.or_transport(tcp())
     };
 
-    configure_transport(transport, key_pair, socket_timeout, split_size)
+    configure_transport(transport, key_pair, socket_timeout)
 }
 
 pub fn configure_transport<T, C>(
     transport: T,
     key_pair: Keypair,
     transport_timeout: Duration,
-    _split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)>
 where
     T: NetworkTransport<Output = C> + Send + Sync + 'static,
@@ -103,11 +100,10 @@ where
 pub fn build_memory_transport(
     key_pair: Keypair,
     transport_timeout: Duration,
-    split_size: usize,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = MemoryTransport::default();
 
-    configure_transport(transport, key_pair, transport_timeout, split_size)
+    configure_transport(transport, key_pair, transport_timeout)
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Copy)]
