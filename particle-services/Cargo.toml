@@ -27,7 +27,7 @@ uuid = "0.8.1"
 toml = "0.5.6"
 thiserror = "1.0.23"
 derivative = "2.2.0"
-eyre = "0.6.5"
+eyre = { workspace = true }
 humantime-serde = "1.0.1"
 
 [dev-dependencies]

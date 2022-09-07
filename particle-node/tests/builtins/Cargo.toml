@@ -5,7 +5,7 @@ edition = "2018"
 
 [dev-dependencies]
 fstrings = "0.2.3"
-eyre = "0.6.5"
+eyre = { workspace = true }
 maplit = "1.0.2"
 serde_json = "1.0.64"
 serde = "1.0.130"

@@ -23,7 +23,7 @@ log = "0.4.11"
 base64 = "0.13.0"
 thiserror = "1.0.23"
 parking_lot = "0.11.2"
-eyre = "0.6.5"
+eyre = { workspace = true }
 fstrings = "0.2.3"
 bytesize = "1.1.0"
 

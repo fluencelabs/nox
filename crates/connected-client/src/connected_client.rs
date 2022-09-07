@@ -28,9 +28,7 @@ use serde_json::Value as JValue;
 use fluence_libp2p::Transport;
 use local_vm::{make_particle, make_vm, read_args, DataStoreError};
 use particle_protocol::Particle;
-use test_constants::{
-    KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, SPLIT_SIZE, TIMEOUT, TRANSPORT_TIMEOUT,
-};
+use test_constants::{KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
 
 use crate::client::Client;
 use crate::event::ClientEvent;
@@ -93,16 +91,15 @@ impl ConnectedClient {
         node_address: Multiaddr,
         timeout: Duration,
         particle_ttl: Option<Duration>,
-        split_size: usize,
     ) -> Result<Self> {
-        Self::connect_with_timeout(node_address, None, timeout, particle_ttl, split_size)
+        Self::connect_with_timeout(node_address, None, timeout, particle_ttl)
     }
 
     pub fn connect_with_keypair(
         node_address: Multiaddr,
         key_pair: Option<KeyPair>,
     ) -> Result<Self> {
-        Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT, None, SPLIT_SIZE)
+        Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT, None)
     }
 
     pub fn connect_with_timeout(
@@ -110,7 +107,6 @@ impl ConnectedClient {
         key_pair: Option<KeyPair>,
         timeout: Duration,
         particle_ttl: Option<Duration>,
-        split_size: usize,
     ) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
@@ -122,7 +118,6 @@ impl ConnectedClient {
                 transport,
                 key_pair.map(Into::into),
                 timeout,
-                split_size,
             )
             .await
             .expect("sender connected");
