@@ -23,8 +23,9 @@ fs-utils = { path = "../crates/fs-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
 fluence-keypair = "0.7.0"
+
+avm-server = { workspace = true }
 air-interpreter-wasm = "=0.27.7"
-avm-server = "0.24.0"
 
 libp2p = "0.45"
 libp2p-metrics = "0.6.0"
@@ -58,7 +59,7 @@ local-vm = { path = "../crates/local-vm" }
 control-macro = { path = "../crates/control-macro" }
 json-utils = { path = "../crates/json-utils" }
 
-fluence-app-service = "0.20.0"
+fluence-app-service = { workspace = true }
 
 parking_lot = "0.11.2"
 maplit = "1.0.2"
