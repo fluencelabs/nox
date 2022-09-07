@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-prometheus-client = "0.16.0"
+prometheus-client = { workspace = true }
 log = "0.4.11"
 bytesize = "1.1.0"
 fluence-app-service = { workspace = true }

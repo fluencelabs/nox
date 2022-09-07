@@ -27,9 +27,9 @@ fluence-keypair = "0.7.0"
 avm-server = { workspace = true }
 air-interpreter-wasm = "=0.27.7"
 
-libp2p = "0.45"
-libp2p-metrics = "0.6.0"
-prometheus-client = "0.16.0"
+libp2p = { workspace = true }
+libp2p-metrics = { workspace = true }
+prometheus-client = { workspace = true }
 
 futures = "0.3.13"
 async-std = { version = "1.6.5", features = ["unstable"] }

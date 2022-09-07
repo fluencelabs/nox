@@ -5,4 +5,4 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-libp2p-core = { version = "0.33", default-features = false, features = [ "secp256k1" ] }
+libp2p-core = { workspace = true }

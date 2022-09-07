@@ -14,8 +14,8 @@ peer-metrics = { path = "../peer-metrics"}
 
 fluence-keypair = "0.7.0"
 
-libp2p = "0.45"
-libp2p-metrics = "0.6.0"
+libp2p = { workspace = true }
+libp2p-metrics = { workspace = true }
 
 serde = { version = "1.0.118", features = ["derive"] }
 humantime-serde = "1.0.1"
