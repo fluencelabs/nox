@@ -16,7 +16,6 @@
 
 use json_utils::err_as_value;
 
-use serde::Serialize;
 use serde_json::{json, Value as JValue};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -52,7 +51,7 @@ impl From<ArgsError> for JValue {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 /// An error that can be created from any other error
 /// Simplifies life by converting errors to be returnable from host closures
 pub struct JError(pub JValue);

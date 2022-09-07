@@ -790,7 +790,7 @@ where
 
             Err(error) => Ok(json!({
                 "success": false,
-                "error": vec![error],
+                "error": vec![JValue::from(error)],
                 "signature": []
             })),
         }
