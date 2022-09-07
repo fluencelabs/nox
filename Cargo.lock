@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.27.0"
+version = "0.27.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d096a01050c08dcdab3c3e235650fb5b6d18fa9e03666e72eb79e316aaebea2d"
+checksum = "3ef86ee41a1659d6138ef5dbe68bfefcd71020f8ba40c27242a1c481580a32c0"
 dependencies = [
  "built",
 ]
