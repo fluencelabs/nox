@@ -760,22 +760,31 @@ where
         let result: Result<JValue, JError> = try {
             let data: Vec<u8> = Args::next("data", &mut args)?;
 
-            let error = format!(
-                "data should be passed from local registry.get_record_bytes(), provided: {:?}",
-                tetraplets
-            );
+            let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
+            if let Some([t]) = tetraplet {
+                if t.peer_pk != self.local_peer_id.to_base58() {
+                    return Err(JError::new(format!(
+                        "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
+                        self.local_peer_id, t.peer_pk
+                    )));
+                }
 
-            let tetraplet = tetraplets
-                .get(0)
-                .ok_or_else(|| JError::new(error.to_string()))?
-                .get(0)
-                .ok_or_else(|| JError::new(error.to_string()))?;
+                if (t.service_id.as_str(), t.function_name.as_str())
+                    != ("registry", "get_record_bytes")
+                {
+                    return Err(JError::new(format!(
+                        "data is expected to result from a call to 'registry.get_record_bytes', was from '{}.{}'",
+                        t.service_id, t.function_name
+                    )));
+                }
 
-            if tetraplet.peer_pk != self.local_peer_id.to_base58()
-                || tetraplet.service_id != "registry"
-                || tetraplet.function_name != "get_record_bytes"
-            {
-                return Err(JError::new(error.to_string()));
+                if !t.json_path.is_empty() {
+                    return Err(JError::new(format!(
+                        "json_path for data tetraplet is expected to be empty"
+                    )));
+                }
+            } else {
+                return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {:?}, tetraplets", tetraplet)));
             }
 
             json!(self.root_keypair.sign(&data)?.to_vec())

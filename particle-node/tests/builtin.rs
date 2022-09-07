@@ -1266,6 +1266,8 @@ fn sign_invalid_tetraplets() {
         .wrap_err("connect client")
         .unwrap();
 
+    let relay = client.node.to_string();
+    let wrong_peer = swarms[1].peer_id.to_base58();
     client.send_particle(
         r#"
             (seq
@@ -1301,8 +1303,8 @@ fn sign_invalid_tetraplets() {
             )
         "#,
         hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "wrong_peer" => json!(swarms[1].peer_id.to_base58()),
+            "relay" => json!(relay),
+            "wrong_peer" => json!(wrong_peer),
             "array" => json!(vec![1u8, 2u8, 3u8])
         },
     );
@@ -1312,11 +1314,9 @@ fn sign_invalid_tetraplets() {
     if let [String(host_error), String(srv_error), String(func_error)] =
         client.receive_args().unwrap().as_slice()
     {
-        let err_msg = "Local service error, ret_code is 1, error message is '\"data should be passed from local registry.get_record_bytes()";
-        println!("{}", host_error);
-        assert!(host_error.starts_with(err_msg));
-        assert!(srv_error.starts_with(err_msg));
-        assert!(func_error.starts_with(err_msg));
+        assert!(host_error.contains(&format!("data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'", relay, wrong_peer)));
+        assert!(srv_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'op.identity'"));
+        assert!(func_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'registry.get_key_bytes'"));
     } else {
         panic!("incorrect args: expected three arguments")
     }
@@ -1357,8 +1357,14 @@ fn sig_verify_invalid_signature() {
     use serde_json::Value::Bool;
 
     if let [Bool(result1), Bool(result2)] = client.receive_args().unwrap().as_slice() {
-        assert!(!result1);
-        assert!(!result2);
+        assert!(
+            !result1,
+            "verification of invalid signature should be failed"
+        );
+        assert!(
+            !result2,
+            "signature verification of different data should be failed"
+        );
     } else {
         panic!("incorrect args: expected three arguments")
     }
