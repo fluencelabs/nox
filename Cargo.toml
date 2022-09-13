@@ -44,7 +44,7 @@ exclude = [
 ]
 
 [workspace.dependencies]
-fluence-app-service = "0.20.0"
+fluence-app-service = "0.22.0"
 avm-server = "0.25.0"
 air-interpreter-wasm = "=0.28.5"
 libp2p = "0.45.1"
