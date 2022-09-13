@@ -25,7 +25,7 @@ peer-metrics = { path = "../crates/peer-metrics" }
 fluence-keypair = "0.7.0"
 
 avm-server = { workspace = true }
-air-interpreter-wasm = "=0.27.7"
+air-interpreter-wasm = { workspace = true }
 
 libp2p = "0.45"
 libp2p-metrics = "0.6.0"
