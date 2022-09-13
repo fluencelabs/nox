@@ -44,7 +44,7 @@ exclude = [
 ]
 
 [workspace.dependencies]
-fluence-app-service = "0.21.0"
+fluence-app-service = "0.22.0"
 avm-server = "0.25.0"
 libp2p = "0.45.1"
 libp2p-core = { version = "0.33.0", default-features = false, features = [ "secp256k1" ] }
