@@ -129,6 +129,6 @@ fn test_tetraplets() {
     let tetraplet = &second_tetraplets[0][0];
     assert_eq!(tetraplet.function_name, "get_tetraplets");
     assert_eq!(tetraplet.peer_pk, client.node.to_base58());
-    assert_eq!(tetraplet.json_path, "$.[0].[0].peer_pk");
+    assert_eq!(tetraplet.json_path, ".$.[0].[0].peer_pk");
     assert_eq!(tetraplet.service_id, tetraplets_service.id.as_str());
 }
