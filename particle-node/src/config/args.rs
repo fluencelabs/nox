@@ -29,7 +29,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .long("tcp-port")
             .value_name("PORT")
             .default_value("7777")
-            .about("tcp port"),
+            .help("tcp port"),
         Arg::new(WEBSOCKET_PORT)
             .display_order(2)
             .help_heading(Some("Networking"))
@@ -38,7 +38,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .long("ws-port")
             .value_name("PORT")
             .default_value("9999")
-            .about("websocket port"),
+            .help("websocket port"),
         Arg::new(METRICS_PORT)
             .display_order(3)
             .help_heading(Some("Networking"))
@@ -47,7 +47,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .long("metrics-port")
             .value_name("PORT")
             .default_value("18080")
-            .about("open metrics port"),
+            .help("open metrics port"),
         Arg::new(EXTERNAL_ADDR)
             .display_order(4)
             .help_heading(Some("Networking"))
@@ -55,7 +55,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('x')
             .long("external-ip")
             .value_name("IP")
-            .about("node external IP address to advertise to other peers"),
+            .help("node external IP address to advertise to other peers"),
         Arg::new(EXTERNAL_MULTIADDRS)
             .display_order(5)
             .help_heading(Some("Networking"))
@@ -64,14 +64,14 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('z')
             .long("external-maddrs")
             .value_name("MULTIADDR")
-            .about("external multiaddresses to advertize"),
+            .help("external multiaddresses to advertize"),
         Arg::new(ALLOW_PRIVATE_IPS)
             .display_order(6)
             .help_heading(Some("Networking"))
             .short('a')
             .long("allow-private-ips")
             .takes_value(false)
-            .about("allow private IP addresses from other nodes"),
+            .help("allow private IP addresses from other nodes"),
         Arg::new(BOOTSTRAP_NODE)
             .display_order(7)
             .help_heading(Some("Networking"))
@@ -80,7 +80,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('b')
             .long("bootstraps")
             .multiple_values(true)
-            .about("bootstrap nodes of the Fluence network"),
+            .help("bootstrap nodes of the Fluence network"),
         Arg::new(BOOTSTRAP_FREQ)
             .display_order(8)
             .help_heading(Some("Networking"))
@@ -88,7 +88,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .short('q')
             .long("bootstrap-freq")
-            .about("bootstrap kademlia each time N bootstraps (re)connect"),
+            .help("bootstrap kademlia each time N bootstraps (re)connect"),
         Arg::new(LOCAL)
             .display_order(9)
             .help_heading(Some("Networking"))
@@ -96,7 +96,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .long("local")
             .takes_value(false)
             .conflicts_with(BOOTSTRAP_NODE)
-            .about("if passed, bootstrap nodes aren't used"),
+            .help("if passed, bootstrap nodes aren't used"),
         // keypair
         Arg::new(ROOT_KEY_PAIR_VALUE)
             .display_order(10)
@@ -105,7 +105,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('k')
             .long("keypair-value")
             .value_name("BYTES")
-            .about("keypair in base58 (conflicts with --keypair-path)")
+            .help("keypair in base58 (conflicts with --keypair-path)")
             .conflicts_with(ROOT_KEY_PAIR_PATH),
         Arg::new(ROOT_KEY_PAIR_PATH)
             .display_order(11)
@@ -113,7 +113,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .short('p')
             .long("keypair-path")
-            .about("keypair path (conflicts with --keypair-value)")
+            .help("keypair path (conflicts with --keypair-value)")
             .conflicts_with(ROOT_KEY_PAIR_VALUE),
         Arg::new(ROOT_KEY_PAIR_FORMAT)
             .display_order(12)
@@ -128,7 +128,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .short('g')
             .long("gen-keypair")
-            .about("generate keypair on absence"),
+            .help("generate keypair on absence"),
         // node configuration
         Arg::new(CONFIG_FILE)
             .display_order(14)
@@ -137,7 +137,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('c')
             .long("config")
             .value_name("PATH")
-            .about("TOML configuration file"),
+            .help("TOML configuration file"),
         Arg::new(CERTIFICATE_DIR)
             .display_order(15)
             .help_heading(Some("Node configuration"))
@@ -145,7 +145,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('d')
             .long("cert-dir")
             .value_name("PATH")
-            .about("certificate dir"),
+            .help("certificate dir"),
         Arg::new(MANAGEMENT_PEER_ID)
             .display_order(16)
             .help_heading(Some("Node configuration"))
@@ -153,7 +153,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .long("management-key")
             .short('m')
             .value_name("PEER ID")
-            .about("PeerId of the node's administrator"),
+            .help("PeerId of the node's administrator"),
         // services
         Arg::new(SERVICE_ENVS)
             .display_order(17)
@@ -163,7 +163,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('e')
             .long("service-envs")
             .multiple_values(true)
-            .about("envs to pass to core modules"),
+            .help("envs to pass to core modules"),
         Arg::new(BLUEPRINT_DIR)
             .display_order(18)
             .help_heading(Some("Services configuration"))
@@ -171,7 +171,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('u')
             .long("blueprint-dir")
             .value_name("PATH")
-            .about("directory containing blueprints and wasm modules"),
+            .help("directory containing blueprints and wasm modules"),
         Arg::new(SERVICES_WORKDIR)
             .display_order(19)
             .help_heading(Some("Services configuration"))
@@ -179,7 +179,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('r')
             .long("services-workdir")
             .value_name("PATH")
-            .about("directory where all services will store their data"),
+            .help("directory where all services will store their data"),
         // AIR
         Arg::new(AQUA_VM_POOL_SIZE)
             .display_order(20)
@@ -187,6 +187,6 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .long("aqua-pool-size")
             .value_name("NUM")
-            .about("Number of AquaVM instances (particle script execution parallelism)"),
+            .help("Number of AquaVM instances (particle script execution parallelism)"),
     ]
 }
