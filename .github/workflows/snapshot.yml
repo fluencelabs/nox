@@ -21,10 +21,6 @@ on:
         description: "rust-peer snapshot image"
         value: ${{ jobs.publish-snapshot.outputs.rust-peer-image }}
 
-concurrency:
-  group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: true
-
 env:
   FORCE_COLOR: true
   RUST_PEER_IMAGE: "${{ inputs.image-name }}:${{ github.head_ref }}"
