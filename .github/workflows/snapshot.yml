@@ -50,15 +50,15 @@ jobs:
 
       - name: Set fluence-app-service version from branch
         if: inputs.fluece-app-service-version != ''
-        run: sed -i 's#\(fluence-app-servie =\) .*#\1 { ${{ inputs.fluence-app-service-version }} }#g' Cargo.toml
+        run: sed -i 's#\(fluence-app-servie =\) .*#\1 ${{ inputs.fluence-app-service-version }}#g' Cargo.toml
 
       - name: Set avm-server version from branch
         if: inputs.avm-server-version != ''
-        run: sed -i 's#\(avm-server =\) .*#\1 { ${{ inputs.avm-server-version }} }#g' Cargo.toml
+        run: sed -i 's#\(avm-server =\) .*#\1 ${{ inputs.avm-server-version }}#g' Cargo.toml
 
       - name: Set air-interpreter-wasm version from branch
         if: inputs.air-interpreter-wasm-version != ''
-        run: sed -i 's#\(air-interpreter-wasm =\) .*#\1 { ${{ inputs.air-interpreter-wasm-version }} }#g' Cargo.toml
+        run: sed -i 's#\(air-interpreter-wasm =\) .*#\1 ${{ inputs.air-interpreter-wasm-version }}#g' Cargo.toml
 
       - name: Run cargo build
         run: cargo build --release -p particle-node
