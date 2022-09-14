@@ -19,7 +19,7 @@ on:
     outputs:
       rust-peer-image:
         description: "rust-peer snapshot image"
-        value: ${{ jobs.publish-snapshot.outputs.rust-peer-image }}
+        value: ${{ jobs.publish-snapshot.outputs.image }}
 
 env:
   FORCE_COLOR: true
