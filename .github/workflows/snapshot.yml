@@ -47,6 +47,19 @@ jobs:
       - name: Setup rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
+      - name: Import secrets
+        uses: hashicorp/vault-action@v2.4.1
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          secrets: |
+            kv/docker-registry/basicauth/ci username | DOCKER_USERNAME ;
+            kv/docker-registry/basicauth/ci password | DOCKER_PASSWORD
+
       - name: Set fluence-app-service version from branch
         if: inputs.fluece-app-service-version != ''
         run: sed -i 's#\(fluence-app-servie =\) .*#\1 ${{ inputs.fluence-app-service-version }}#g' Cargo.toml
@@ -70,19 +83,6 @@ jobs:
 
       - name: Run cargo nextest
         run: cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10
-
-      - name: Import secrets
-        uses: hashicorp/vault-action@v2.4.1
-        with:
-          url: https://vault.fluence.dev
-          path: jwt/github
-          role: ci
-          method: jwt
-          jwtGithubAudience: "https://github.com/fluencelabs"
-          jwtTtl: 300
-          secrets: |
-            kv/docker-registry/basicauth/ci username | DOCKER_USERNAME ;
-            kv/docker-registry/basicauth/ci password | DOCKER_PASSWORD
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
