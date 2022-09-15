@@ -24,7 +24,6 @@ on:
 env:
   FORCE_COLOR: true
   RUST_PEER_IMAGE: "${{ inputs.image-name }}:${{ github.head_ref }}"
-  CARGO_HOME: "${{ github.workspace }}/cargo"
 
 jobs:
   publish-snapshot:
