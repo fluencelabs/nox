@@ -49,7 +49,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Setup rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: nahsi/setup-rust-toolchain@fix-path
 
       - name: Import secrets
         uses: hashicorp/vault-action@v2.4.1
