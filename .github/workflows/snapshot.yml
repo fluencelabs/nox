@@ -127,7 +127,7 @@ jobs:
           body: |
             ## rust-peer
             Docker snapshot digest is `${{ env.RUST_PEER_IMAGE_SHA }}`
-            To user it run:
+            To use it run:
             ```shell
             docker login docker.fluence.dev
             docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
