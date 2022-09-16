@@ -16,9 +16,6 @@ on:
       air-interpreter-wasm-version:
         description: "air-interpreter-wasm version"
         type: string
-      ref:
-        type: string
-        default: master
     outputs:
       rust-peer-image:
         description: "rust-peer snapshot image"
@@ -46,10 +43,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: fluencelabs/rust-peer
-          ref: ${{ inputs.ref }}
 
       - name: Setup rust toolchain
-        uses: nahsi/setup-rust-toolchain@fix-path
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Import secrets
         uses: hashicorp/vault-action@v2.4.1
