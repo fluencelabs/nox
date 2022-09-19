@@ -25,7 +25,7 @@ peer-metrics = { path = "../crates/peer-metrics" }
 fluence-keypair = "0.7.0"
 
 avm-server = { workspace = true }
-air-interpreter-wasm = "=0.27.7"
+air-interpreter-wasm = { workspace = true }
 
 libp2p = "0.45"
 libp2p-metrics = "0.6.0"
@@ -39,7 +39,7 @@ humantime-serde = "1.0.1"
 
 log = "0.4.11"
 env_logger = "0.7.1"
-clap = "3.0.0-beta.2"
+clap = "3.2.21"
 tide = "0.17.0-beta.1"
 bs58 = "0.3.1"
 itertools = "0.10.0"
