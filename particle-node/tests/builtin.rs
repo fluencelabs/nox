@@ -24,7 +24,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use eyre::{Report, WrapErr};
-use fluence_keypair::KeyPair;
+use fluence_keypair::{KeyPair, Signature};
 use itertools::Itertools;
 use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
@@ -35,7 +35,8 @@ use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
 use created_swarm::{
-    make_swarms, make_swarms_with_keypair, make_swarms_with_transport_and_mocked_vm,
+    make_swarms, make_swarms_with_builtins, make_swarms_with_keypair,
+    make_swarms_with_transport_and_mocked_vm,
 };
 use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
@@ -1200,6 +1201,172 @@ fn service_stats_uninitialized() {
         assert_eq!(result.get("status"), Some(&json!(false)));
     } else {
         panic!("incorrect args: expected single arrays of module memory stats")
+    }
+}
+
+#[test]
+fn sign_verify() {
+    let kp = KeyPair::generate_ed25519();
+    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), Some(kp.clone()));
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+            (seq
+                (seq
+                    (call relay ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (seq
+                        (call relay ("sig" "sign") [data] sig_result)
+                        (call relay ("sig" "verify") [sig_result.$.signature.[0]! data] result)
+                    )
+                )
+                (call %init_peer_id% ("op" "return") [data sig_result result])
+            )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+        },
+    );
+
+    use serde_json::Value::Array;
+    use serde_json::Value::Bool;
+    use serde_json::Value::Object;
+
+    if let [Array(data), Object(sig_result), Bool(result)] =
+        client.receive_args().unwrap().as_slice()
+    {
+        let data: Vec<_> = data
+            .into_iter()
+            .map(|n| n.as_u64().unwrap() as u8)
+            .collect();
+
+        assert!(sig_result["success"].as_bool().unwrap());
+        let signature = sig_result["signature"].as_array().unwrap()[0]
+            .as_array()
+            .unwrap()
+            .into_iter()
+            .map(|n| n.as_u64().unwrap() as u8)
+            .collect();
+        let signature = Signature::from_bytes(kp.public().get_key_format(), signature);
+        assert!(result);
+        assert!(kp.public().verify(&data, &signature).is_ok());
+    } else {
+        panic!("incorrect args: expected three arguments")
+    }
+}
+
+#[test]
+fn sign_invalid_tetraplets() {
+    let swarms = make_swarms_with_builtins(2, "tests/builtins/services".as_ref(), None);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let relay = client.node.to_string();
+    let wrong_peer = swarms[1].peer_id.to_base58();
+    client.send_particle(
+        r#"
+            (seq
+                (seq
+                    (seq
+                        (seq
+                            (call relay ("op" "noop") [])
+                            (call wrong_peer ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data1)
+                        )
+                        (xor
+                            (call relay ("sig" "sign") [data1] sig_result1)
+                            (ap %last_error%.$.message host_error)
+                        )
+                    )
+                    (seq
+                        (seq
+                            (call relay ("op" "identity") [array] data2)
+                            (xor
+                                (call relay ("sig" "sign") [data2] sig_result2)
+                                (ap %last_error%.$.message srv_error)
+                            )
+                        )
+                        (seq
+                            (call relay ("registry" "get_key_bytes") ["label" [] 1 [] ""] data3)
+                            (xor
+                                (call relay ("sig" "sign") [data3] sig_result3)
+                                (ap %last_error%.$.message func_error)
+                            )
+                        )
+                    )
+                )
+                (call %init_peer_id% ("op" "return") [host_error srv_error func_error])
+            )
+        "#,
+        hashmap! {
+            "relay" => json!(relay),
+            "wrong_peer" => json!(wrong_peer),
+            "array" => json!(vec![1u8, 2u8, 3u8])
+        },
+    );
+
+    use serde_json::Value::String;
+
+    if let [String(host_error), String(srv_error), String(func_error)] =
+        client.receive_args().unwrap().as_slice()
+    {
+        assert!(host_error.contains(&format!("data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'", relay, wrong_peer)));
+        assert!(srv_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'op.identity'"));
+        assert!(func_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'registry.get_key_bytes'"));
+    } else {
+        panic!("incorrect args: expected three arguments")
+    }
+}
+
+#[test]
+fn sig_verify_invalid_signature() {
+    let kp = KeyPair::generate_ed25519();
+    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), Some(kp.clone()));
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+            (seq
+                (seq
+                    (call relay ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (seq
+                        (call relay ("sig" "sign") [data] sig_result)
+                        (seq
+                            (call relay ("sig" "verify") [invalid_signature data] result1)
+                            (call relay ("sig" "verify") [sig_result.$.signature.[0]! invalid_data] result2)
+                        )
+                    )
+                )
+                (call %init_peer_id% ("op" "return") [result1 result2])
+            )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "invalid_signature" => json!(vec![1u8, 2u8, 3u8]),
+            "invalid_data" => json!(vec![3u8, 2u8, 1u8])
+        },
+    );
+
+    use serde_json::Value::Bool;
+
+    if let [Bool(result1), Bool(result2)] = client.receive_args().unwrap().as_slice() {
+        assert!(
+            !result1,
+            "verification of invalid signature should be failed"
+        );
+        assert!(
+            !result2,
+            "signature verification of different data should be failed"
+        );
+    } else {
+        panic!("incorrect args: expected three arguments")
     }
 }
 

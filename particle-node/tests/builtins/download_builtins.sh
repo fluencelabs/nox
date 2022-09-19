@@ -16,4 +16,15 @@ tar -C "$SERVICES_DIR" -xf "$TAR"
 
 rm "$TAR"
 
+TAR="registry.tar.gz"
+echo "*** downloading $TAR ***"
+URL="https://github.com/fluencelabs/registry/releases/download/v0.5.5/registry.tar.gz"
+curl --fail -L "$URL" -o "$TAR"
+
+echo "*** extracting $TAR ***"
+mkdir -p "$SERVICES_DIR"
+tar -C "$SERVICES_DIR" -xf "$TAR"
+
+rm "$TAR"
+
 echo "*** done ***"
