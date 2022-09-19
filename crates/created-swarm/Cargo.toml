@@ -19,7 +19,7 @@ air-interpreter-fs = { path = "../air-interpreter-fs" }
 builtins-deployer = { path = "../builtins-deployer" }
 toy-vms = { path = "../toy-vms" }
 
-fluence-keypair = "0.7.0"
+fluence-keypair = { workspace = true }
 
 libp2p = "0.45"
 

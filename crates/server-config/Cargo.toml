@@ -12,7 +12,7 @@ fluence-libp2p = { path = "../libp2p" }
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 peer-metrics = { path = "../peer-metrics"}
 
-fluence-keypair = "0.7.0"
+fluence-keypair = { workspace = true }
 
 libp2p = "0.45"
 libp2p-metrics = "0.6.0"

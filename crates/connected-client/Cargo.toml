@@ -10,7 +10,7 @@ fluence-libp2p = { path = "../libp2p" }
 test-constants = { path = "../test-constants"}
 local-vm = { path = "../local-vm"}
 
-fluence-keypair = "0.7.0"
+fluence-keypair = { workspace = true }
 libp2p = "0.45"
 
 async-std = "1.9.0"

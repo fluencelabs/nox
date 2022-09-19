@@ -45,6 +45,7 @@ exclude = [
 
 [workspace.dependencies]
 fluence-app-service = "0.22.0"
+fluence-keypair = "0.8.0"
 avm-server = "0.26.1"
 air-interpreter-wasm = "=0.28.5"
 libp2p = "0.45.1"
@@ -53,6 +54,3 @@ libp2p-metrics = { version = "0.6.0", features = ["kad"] }
 libp2p-noise = "0.36.0"
 prometheus-client = "0.16.0"
 eyre = "0.6.8"
-
-[patch.crates-io]
-fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p-core_0.33" }

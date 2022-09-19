@@ -22,7 +22,7 @@ builtins-deployer = { path = "../crates/builtins-deployer" }
 fs-utils = { path = "../crates/fs-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
-fluence-keypair = "0.7.0"
+fluence-keypair = { workspace = true }
 
 avm-server = { workspace = true }
 air-interpreter-wasm = { workspace = true }
