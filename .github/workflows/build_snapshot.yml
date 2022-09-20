@@ -9,6 +9,6 @@ concurrency:
 
 jobs:
   snapshot:
-    - uses: ./.github/snapshot.yml
-      with:
-        avm-server-version: '{ git = "https://github.com/fluencelabs/aquavm", branch = "e2e" }'
+    uses: ./.github/snapshot.yml
+    with:
+      avm-server-version: '{ git = "https://github.com/fluencelabs/aquavm", branch = "e2e" }'
