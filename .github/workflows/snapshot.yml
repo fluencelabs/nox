@@ -13,7 +13,6 @@ on:
       avm-server-version:
         description: "avm-server version"
         type: string
-        default: '{ git = "https://github.com/fluencelabs/aquavm", branch = "e2e" }'
       air-interpreter-wasm-version:
         description: "air-interpreter-wasm version"
         type: string

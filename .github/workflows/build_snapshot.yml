@@ -1,0 +1,15 @@
+name: Test workflow
+
+on:
+  pull_request:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    steps:
+      - uses: ./.github/snapshot.yml
+        with:
+          avm-server-version: '{ git = "https://github.com/fluencelabs/aquavm", branch = "e2e" }'
