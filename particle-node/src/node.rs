@@ -26,6 +26,7 @@ use futures::{
     stream::{self, StreamExt},
     FutureExt,
 };
+use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
@@ -393,6 +394,8 @@ impl<RT: AquaRuntime> Node<RT> {
 
         Ok(exit_outlet)
     }
+
+    // fn route_events(swarm: &mut Swarm<NetworkBehaviour>, event: SwarmEvent) {}
 
     /// Starts node service listener.
     #[inline]

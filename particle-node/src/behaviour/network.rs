@@ -19,9 +19,9 @@ use libp2p::{
     ping::{Ping, PingConfig, PingEvent},
 };
 
-use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet};
+use connection_pool::ConnectionPoolBehaviour;
 use fluence_libp2p::types::BackPressuredInlet;
-use kademlia::{Kademlia, KademliaApiInlet, KademliaConfig};
+use kademlia::{Kademlia, KademliaConfig};
 use particle_protocol::{Particle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
 
@@ -29,15 +29,14 @@ use crate::connectivity::Connectivity;
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
-#[behaviour(event_process = true)]
 pub struct NetworkBehaviour {
     identify: Identify,
     ping: Ping,
-    pub(crate) connection_pool: ConnectionPoolInlet,
-    pub(crate) kademlia: KademliaApiInlet,
-    #[behaviour(ignore)]
-    /// Whether to allow private IP addresses in identify
-    pub(super) allow_local_addresses: bool,
+    pub(crate) connection_pool: ConnectionPoolBehaviour,
+    pub(crate) kademlia: Kademlia,
+    // #[behaviour(ignore)]
+    // /// Whether to allow private IP addresses in identify
+    // pub(super) allow_local_addresses: bool,
 }
 
 impl NetworkBehaviour {
@@ -54,22 +53,19 @@ impl NetworkBehaviour {
             kad_config: cfg.kademlia_config,
         };
 
-        let kademlia = Kademlia::new(kad_config, cfg.libp2p_metrics);
-        let (kademlia_api, kademlia) = kademlia.into();
-        let (connection_pool, particle_stream) = ConnectionPoolBehaviour::new(
+        let (kademlia, kademlia_api) = Kademlia::new(kad_config, cfg.libp2p_metrics);
+        let (connection_pool, particle_stream, connection_pool_api) = ConnectionPoolBehaviour::new(
             cfg.particle_queue_buffer,
             cfg.protocol_config,
             cfg.local_peer_id,
             cfg.connection_pool_metrics,
         );
-        let (connection_pool_api, connection_pool) = connection_pool.into();
 
         let this = Self {
             kademlia,
             connection_pool,
             identify,
             ping,
-            allow_local_addresses: cfg.allow_local_addresses,
         };
 
         let connectivity = Connectivity {
@@ -83,12 +79,4 @@ impl NetworkBehaviour {
 
         (this, connectivity, particle_stream)
     }
-}
-
-impl libp2p::swarm::NetworkBehaviourEventProcess<()> for NetworkBehaviour {
-    fn inject_event(&mut self, _: ()) {}
-}
-
-impl libp2p::swarm::NetworkBehaviourEventProcess<PingEvent> for NetworkBehaviour {
-    fn inject_event(&mut self, _: PingEvent) {}
 }

@@ -18,15 +18,14 @@ use itertools::Itertools;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
     identify::IdentifyEvent,
-    swarm::NetworkBehaviourEventProcess,
 };
 
 use super::NetworkBehaviour;
 
 /// Network address information is exchanged via Identify protocol.
 /// That information is passed to relay, so nodes know each other's addresses
-impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
-    fn inject_event(&mut self, event: IdentifyEvent) {
+impl NetworkBehaviour {
+    fn inject_identify_event(&mut self, event: IdentifyEvent, allow_local_addresses: bool) {
         match event {
             IdentifyEvent::Received { peer_id, info, .. } => {
                 log::trace!(
@@ -37,7 +36,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
                     info.listen_addrs
                 );
 
-                let addresses = filter_addresses(info.listen_addrs, self.allow_local_addresses);
+                let addresses = filter_addresses(info.listen_addrs, allow_local_addresses);
 
                 // Add addresses to connection pool disregarding whether it supports kademlia or not
                 // we want to have full info on non-kademlia peers as well
@@ -47,7 +46,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkBehaviour {
                 let supports_kademlia =
                     info.protocols.iter().any(|p| p.contains("/ipfs/kad/1.0.0"));
                 if supports_kademlia {
-                    self.kademlia.add_addresses(peer_id, addresses);
+                    self.kademlia.add_kad_node(peer_id, addresses);
                 }
             }
 
