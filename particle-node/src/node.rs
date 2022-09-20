@@ -19,6 +19,7 @@ use std::{io, iter::once, net::SocketAddr};
 
 use async_std::task;
 use eyre::WrapErr;
+use fluence_keypair::KeyPair;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     select,
@@ -168,6 +169,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             script_storage_api,
             services_metrics,
+            config.node_config.root_key_pair.clone(),
         );
 
         let (effects_out, effects_in) = unbounded();
@@ -250,6 +252,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
         services_metrics: ServicesMetrics,
+        root_keypair: KeyPair,
     ) -> Builtins<Connectivity> {
         let node_info = NodeInfo {
             external_addresses,
@@ -263,6 +266,7 @@ impl<RT: AquaRuntime> Node<RT> {
             node_info,
             services_config,
             services_metrics,
+            root_keypair,
         )
     }
 }

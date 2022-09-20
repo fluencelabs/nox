@@ -162,12 +162,12 @@ fn builtins_scheduled_scripts() {
 
     let result = client.receive_args().wrap_err("receive args").unwrap();
     let result = result[0].as_array().unwrap();
-    assert_eq!(
-        result.len(),
-        list_files(&Path::new(SERVICES).join("aqua-dht/scheduled"))
-            .unwrap()
-            .count()
-    )
+
+    let mut scripts_count = 0;
+    for dir in list_files(&Path::new(SERVICES)).unwrap() {
+        scripts_count += list_files(&dir.join("scheduled")).unwrap().count();
+    }
+    assert_eq!(result.len(), scripts_count)
 }
 
 #[test]

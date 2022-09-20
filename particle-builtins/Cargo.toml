@@ -23,6 +23,7 @@ peer-metrics = { path = "../crates/peer-metrics" }
 libp2p = { workspace = true }
 avm-server = { workspace = true }
 multihash = "0.16.2"
+fluence-keypair = { workspace = true }
 
 async-std = { version = "1.9.0", features = ["unstable"] }
 serde_json = "1.0.64"
@@ -36,6 +37,7 @@ rand = "0.8.4"
 futures = "0.3.15"
 itertools = "0.10.3"
 bytesize = "1.1.0"
+derivative = "2.2.0"
 
 [dev-dependencies]
 proptest = "1.0.0"

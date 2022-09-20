@@ -1,0 +1,134 @@
+name: Publish snapshot
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: "Docker image name"
+        type: string
+        default: "docker.fluence.dev/rust-peer"
+      fluence-app-service-version:
+        description: "fluence-app-servie version"
+        type: string
+      avm-server-version:
+        description: "avm-server version"
+        type: string
+      air-interpreter-wasm-version:
+        description: "air-interpreter-wasm version"
+        type: string
+    outputs:
+      rust-peer-image:
+        description: "rust-peer snapshot image"
+        value: ${{ jobs.publish-snapshot.outputs.image }}
+
+env:
+  FORCE_COLOR: true
+  RUST_PEER_IMAGE: "${{ inputs.image-name }}:${{ github.head_ref }}"
+
+jobs:
+  publish-snapshot:
+    name: "Publish snapshot"
+    runs-on: builder
+
+    outputs:
+      image: "${{ inputs.image-name }}@${{ steps.build.outputs.digest }}"
+
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout rust-peer
+        uses: actions/checkout@v3
+        with:
+          repository: fluencelabs/rust-peer
+
+      - name: Setup rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Import secrets
+        uses: hashicorp/vault-action@v2.4.1
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          secrets: |
+            kv/docker-registry/basicauth/ci username | DOCKER_USERNAME ;
+            kv/docker-registry/basicauth/ci password | DOCKER_PASSWORD
+
+      - name: Set fluence-app-service version from branch
+        if: inputs.fluece-app-service-version != ''
+        run: sed -i 's#\(fluence-app-servie =\) .*#\1 ${{ inputs.fluence-app-service-version }}#g' Cargo.toml
+
+      - name: Set avm-server version from branch
+        if: inputs.avm-server-version != ''
+        run: sed -i 's#\(avm-server =\) .*#\1 ${{ inputs.avm-server-version }}#g' Cargo.toml
+
+      - name: Set air-interpreter-wasm version from branch
+        if: inputs.air-interpreter-wasm-version != ''
+        run: sed -i 's#\(air-interpreter-wasm =\) .*#\1 ${{ inputs.air-interpreter-wasm-version }}#g' Cargo.toml
+
+      - name: Run cargo build
+        run: cargo build --release -p particle-node
+
+      - name: Install cargo-nextest
+        uses: baptiste0928/cargo-install@v1
+        with:
+          crate: cargo-nextest
+          version: "0.9"
+
+      - name: Run cargo nextest
+        run: cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          registry: docker.fluence.dev
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Build and push snapshot
+        id: build
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          file: .github/snapshot/Dockerfile
+          tags: |
+            ${{ inputs.image-name }}:${{ github.head_ref }}
+          labels: |
+            sha=${{ github.event.pull_request.head.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Find comment in PR
+        uses: peter-evans/find-comment@v1
+        id: comment
+        with:
+          issue-number: "${{ github.event.pull_request.number }}"
+          comment-author: github-actions[bot]
+          body-includes: "## rust-peer"
+
+      - name: Update comment in PR
+        uses: peter-evans/create-or-update-comment@v1
+        env:
+          RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
+        with:
+          comment-id: "${{ steps.comment.outputs.comment-id }}"
+          issue-number: "${{ github.event.pull_request.number }}"
+          edit-mode: replace
+          body: |
+            ## rust-peer
+            Docker snapshot digest is `${{ env.RUST_PEER_IMAGE_SHA }}`
+            To use it run:
+            ```shell
+            docker login docker.fluence.dev
+            docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
+            ```

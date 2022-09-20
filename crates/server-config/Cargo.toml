@@ -12,7 +12,7 @@ fluence-libp2p = { path = "../libp2p" }
 air-interpreter-fs = { path = "../air-interpreter-fs" }
 peer-metrics = { path = "../peer-metrics"}
 
-fluence-keypair = "0.7.0"
+fluence-keypair = { workspace = true }
 
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true }
@@ -22,7 +22,7 @@ humantime-serde = "1.0.1"
 
 log = "0.4.11"
 rand = "0.7.3"
-clap = "3.0.0-beta.2"
+clap = "3.2.21"
 toml = "0.5.6"
 bs58 = "0.3.1"
 base64 = "0.13.0"

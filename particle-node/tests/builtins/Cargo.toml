@@ -12,7 +12,7 @@ serde = "1.0.130"
 log = "0.4.11"
 libp2p = { workspace = true }
 
-fluence-keypair = "0.7.0"
+fluence-keypair = { workspace = true }
 
 test-utils = { path = "../../../crates/test-utils" }
 fs-utils = { path = "../../../crates/fs-utils" }

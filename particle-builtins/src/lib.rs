@@ -17,6 +17,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(try_trait_v2)]
 #![feature(int_log)]
+#![feature(try_blocks)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(

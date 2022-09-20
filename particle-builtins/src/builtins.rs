@@ -22,6 +22,8 @@ use std::path;
 use std::str::FromStr;
 use std::time::Duration;
 
+use derivative::Derivative;
+use fluence_keypair::{KeyPair, Signature};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use humantime_serde::re::humantime::format_duration as pretty;
@@ -50,13 +52,17 @@ use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
 use crate::math;
 
-#[derive(Debug, Clone)]
+#[derive(Derivative)]
+#[derivative(Debug, Clone)]
 pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
     pub management_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
+    pub local_peer_id: PeerId,
+    #[derivative(Debug = "ignore")]
+    pub root_keypair: KeyPair,
 
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
@@ -75,6 +81,7 @@ where
         node_info: NodeInfo,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
+        root_keypair: KeyPair,
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -89,6 +96,7 @@ where
         let particles_vault_dir = vault_dir.to_path_buf();
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
+        let local_peer_id = config.local_peer_id;
         let services = ParticleAppServices::new(config, modules.clone(), Some(services_metrics));
 
         Self {
@@ -96,6 +104,8 @@ where
             script_storage,
             management_peer_id,
             builtins_management_peer_id,
+            local_peer_id,
+            root_keypair,
             modules,
             services,
             node_info,
@@ -181,6 +191,11 @@ where
             ("array", "intersect") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::intersect(xs, ys) }),
             ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
             ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
+
+            ("sig", "sign")        => wrap(self.sign(args)),
+            ("sig", "verify")      => wrap(self.verify(args)),
+            ("sig", "get_peer_id") => wrap(self.get_peer_id()),
+
             _                      => self.call_service(args, particle),
         }
     }
@@ -738,6 +753,73 @@ where
             }))
         }
     }
+
+    fn sign(&self, args: Args) -> Result<JValue, JError> {
+        let tetraplets = args.tetraplets;
+        let mut args = args.function_args.into_iter();
+        let result: Result<JValue, JError> = try {
+            let data: Vec<u8> = Args::next("data", &mut args)?;
+
+            let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
+            if let Some([t]) = tetraplet {
+                if t.peer_pk != self.local_peer_id.to_base58() {
+                    return Err(JError::new(format!(
+                        "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
+                        self.local_peer_id, t.peer_pk
+                    )));
+                }
+
+                if (t.service_id.as_str(), t.function_name.as_str())
+                    != ("registry", "get_record_bytes")
+                {
+                    return Err(JError::new(format!(
+                        "data is expected to result from a call to 'registry.get_record_bytes', was from '{}.{}'",
+                        t.service_id, t.function_name
+                    )));
+                }
+
+                if !t.json_path.is_empty() {
+                    return Err(JError::new(format!(
+                        "json_path for data tetraplet is expected to be empty"
+                    )));
+                }
+            } else {
+                return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {:?}, tetraplets", tetraplet)));
+            }
+
+            json!(self.root_keypair.sign(&data)?.to_vec())
+        };
+
+        match result {
+            Ok(sig) => Ok(json!({
+                "success": true,
+                "error": [],
+                "signature": vec![sig]
+            })),
+
+            Err(error) => Ok(json!({
+                "success": false,
+                "error": vec![JValue::from(error)],
+                "signature": []
+            })),
+        }
+    }
+
+    fn verify(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let signature: Vec<u8> = Args::next("signature", &mut args)?;
+        let data: Vec<u8> = Args::next("data", &mut args)?;
+        let signature =
+            Signature::from_bytes(self.root_keypair.public().get_key_format(), signature);
+
+        Ok(JValue::Bool(
+            self.root_keypair.public().verify(&data, &signature).is_ok(),
+        ))
+    }
+
+    fn get_peer_id(&self) -> Result<JValue, JError> {
+        Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
+    }
 }
 
 fn make_module_config(args: Args) -> Result<JValue, JError> {
@@ -988,7 +1070,7 @@ mod prop_tests {
             let heap: Vec<String> = heap;
             let preopened_files: Vec<String> = preopened_files;
             let envs: Vec<Vec<Vec<String>>> = envs;
-            let mapped_dirs: Vec<Vec<Vec<String>>> =mapped_dirs;
+            let mapped_dirs: Vec<Vec<Vec<String>>> = mapped_dirs;
             let mounted_binaries: Vec<Vec<Vec<String>>> = mounted_binaries;
             let logging_mask: Vec<i32> = logging_mask;
 
