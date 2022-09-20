@@ -81,9 +81,6 @@ jobs:
           package: air-interpreter-wasm
           substitute: ${{ inputs.air-interpreter-wasm-version }}
 
-      - name: Run cargo build
-        run: cargo build --release -p particle-node
-
       - name: Install cargo-nextest
         uses: baptiste0928/cargo-install@v1
         with:
@@ -91,7 +88,10 @@ jobs:
           version: "0.9"
 
       - name: Run cargo nextest
-        run: cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10
+        env:
+          NEXTEST_RETRIES: 10
+          NEXTEST_TEST_THREADS: 16
+        run: cargo nextest run --release --all-features --no-fail-fast
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
