@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use libp2p::identify::IdentifyConfig;
+use libp2p::identify::{IdentifyConfig, IdentifyEvent};
 use libp2p::{
     identify::Identify,
     ping::{Ping, PingConfig, PingEvent},
+    swarm::NetworkBehaviour,
 };
 
 use connection_pool::ConnectionPoolBehaviour;
@@ -29,7 +30,7 @@ use crate::connectivity::Connectivity;
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
-pub struct NetworkBehaviour {
+pub struct FluenceNetworkBehaviour {
     identify: Identify,
     ping: Ping,
     pub(crate) connection_pool: ConnectionPoolBehaviour,
@@ -39,7 +40,7 @@ pub struct NetworkBehaviour {
     // pub(super) allow_local_addresses: bool,
 }
 
-impl NetworkBehaviour {
+impl FluenceNetworkBehaviour {
     pub fn new(cfg: NetworkConfig) -> (Self, Connectivity, BackPressuredInlet<Particle>) {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(

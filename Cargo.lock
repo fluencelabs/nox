@@ -4027,6 +4027,7 @@ dependencies = [
  "kademlia",
  "libp2p",
  "libp2p-metrics",
+ "libp2p-swarm",
  "local-vm",
  "log",
  "log-utils",

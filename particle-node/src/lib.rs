@@ -39,7 +39,7 @@ mod behaviour {
     mod identify;
     mod network;
 
-    pub use network::NetworkBehaviour;
+    pub use network::FluenceNetworkBehaviour;
 }
 
 pub mod config {
@@ -48,7 +48,7 @@ pub mod config {
     pub use args::create_args;
 }
 
-pub use behaviour::NetworkBehaviour;
+pub use behaviour::FluenceNetworkBehaviour;
 pub use node::Node;
 
 // to be available in benchmarks

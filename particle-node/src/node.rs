@@ -58,13 +58,13 @@ use crate::effectors::Effectors;
 use crate::metrics::start_metrics_endpoint;
 use crate::Connectivity;
 
-use super::behaviour::NetworkBehaviour;
+use super::behaviour::FluenceNetworkBehaviour;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: BackPressuredInlet<Particle>,
     effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
-    pub swarm: Swarm<NetworkBehaviour>,
+    pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
     pub dispatcher: Dispatcher,
@@ -232,11 +232,12 @@ impl<RT: AquaRuntime> Node<RT> {
         transport: Boxed<(PeerId, StreamMuxerBox)>,
         external_addresses: Vec<Multiaddr>,
     ) -> (
-        Swarm<NetworkBehaviour>,
+        Swarm<FluenceNetworkBehaviour>,
         Connectivity,
         BackPressuredInlet<Particle>,
     ) {
-        let (behaviour, connectivity, particle_stream) = NetworkBehaviour::new(network_config);
+        let (behaviour, connectivity, particle_stream) =
+            FluenceNetworkBehaviour::new(network_config);
         let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
 
         // Add external addresses to Swarm
@@ -277,7 +278,7 @@ impl<RT: AquaRuntime> Node<RT> {
     pub fn with(
         particle_stream: BackPressuredInlet<Particle>,
         effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
-        swarm: Swarm<NetworkBehaviour>,
+        swarm: Swarm<FluenceNetworkBehaviour>,
 
         connectivity: Connectivity,
         dispatcher: Dispatcher,
