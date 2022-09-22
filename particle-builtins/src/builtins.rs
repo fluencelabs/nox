@@ -555,52 +555,44 @@ where
             )));
         }
 
-        let data = match args.get(0) {
-            Some(arr) => match arr.as_array() {
-                Some(arr) => arr,
-                None => {
-                    return Err(JError::new(format!("invalid array")));
-                }
-            },
-            None => {
-                return Err(JError::new(format!("unable to deserialize array")));
+        let mut args = args.into_iter();
+
+        let data = match args.next() {
+            Some(JValue::Array(arr)) if arr.is_empty() => return Ok(json!([])),
+            Some(JValue::Array(arr)) => arr,
+            e => {
+                return Err(JError::new(format!(
+                    "first argument (data) must be an array, was {:?}",
+                    e
+                )));
             }
         };
 
-        let n_arr = data.len();
-        if n_arr == 0 {
-            return Ok(JValue::Array(vec![]));
-        }
+        let s_idx = args.next();
+        let e_idx = args.next();
 
-        let s_idx = args.get(1);
-        let e_idx = args.get(2);
-
-        let s_idx = match s_idx {
-            Some(val) => match serde_json::from_value::<usize>(val.clone()) {
-                Ok(res) => res as usize,
-                Err(e) => {
-                    return Err(JError::new(format!("invalid start index {}", e)));
-                }
-            },
-            None => {
-                return Err(JError::new(format!("invalid start index.")));
+        let s_idx = match s_idx.and_then(|n| n.as_u64()) {
+            Some(n) => n as usize,
+            e => {
+                return Err(JError::new(format!(
+                    "second argument (start index) must be an unsigned integer, was {:?}",
+                    e
+                )));
             }
         };
 
-        let e_idx = match e_idx {
-            Some(val) => match serde_json::from_value::<usize>(val.clone()) {
-                Ok(res) => res as usize,
-                Err(e) => {
-                    return Err(JError::new(format!("invalid end index {}", e)));
-                }
-            },
-            None => {
-                return Err(JError::new(format!("invalid end index.")));
+        let e_idx = match e_idx.and_then(|n| n.as_u64()) {
+            Some(n) => n as usize,
+            e => {
+                return Err(JError::new(format!(
+                    "third argument (end index) must be an unsigned integer, was {:?}",
+                    e
+                )));
             }
         };
 
-        if s_idx >= n_arr || e_idx <= s_idx || e_idx >= n_arr {
-            return Err(JError::new(format!("slice indexes out of bound. start index: {:?}, end index: {:?}, array length: {:?}", s_idx, e_idx, n_arr)));
+        if s_idx >= data.len() || e_idx <= s_idx || e_idx >= data.len() {
+            return Err(JError::new(format!("slice indexes out of bound. start index: {:?}, end index: {:?}, array length: {:?}", s_idx, e_idx, data.len())));
         }
 
         let res: Vec<JValue> = data[s_idx..e_idx].to_vec();
