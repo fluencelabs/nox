@@ -794,20 +794,18 @@ fn array_slice() {
     let result: Vec<JValue> = exec_script(
         r#"(call relay ("op" "array_slice") [ data sidx eidx ] result)"#,
         hashmap! {
-            "data" => json!(vec![1,2,3,4]), 
+            "data" => json!(vec![1,2,3,4]),
             "sidx" => json!(0),
             "eidx" => json!(2),
         },
         "result",
-        1
+        1,
     )
     .unwrap();
 
-    let expected = json!(vec![1, 2]); 
+    let expected = json!(vec![1, 2]);
     assert_eq!(result, vec![expected]);
 }
-
-
 
 #[test]
 fn timeout_race() {
