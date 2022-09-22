@@ -157,6 +157,7 @@ where
             ("op", "noop")                    => FunctionOutcome::Empty,
             ("op", "array")                   => ok(Array(args.function_args)),
             ("op", "array_length")            => wrap(self.array_length(args.function_args)),
+            ("op", "array_slice")             => ok(Array(args.function_args)),
             ("op", "concat")                  => wrap(self.concat(args.function_args)),
             ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
             ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
@@ -165,6 +166,7 @@ where
             ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
             ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
             ("op", "identity")                => self.identity(args.function_args),
+            
 
             ("debug", "stringify")            => self.stringify(args.function_args),
 
@@ -546,6 +548,33 @@ where
             ))),
         }
     }
+
+    fn array_slice(&self, args: Vec<serde_json::Value>, s_idx:serde_json::Value, e_idx: serde_json::Value ) -> Result<Vec<JValue>, JError> {
+        let arr_len = match &args[..] {
+            [JValue::Array(array)] => json!(array.len()),
+            [_] => { return Err(JError::new("op array_length's argument must be an array"));},
+            arr => { return Err(JError::new(format!(
+                "op array_length accepts exactly 1 argument: {} found",
+                arr.len()
+            )));},
+        };
+    
+        if arr_len == 0 {
+            return Ok(Vec::<JValue>::new());
+        }
+    
+        let start_idx = serde_json::from_value::<u32>(s_idx.clone()).unwrap();
+        let end_idx = serde_json::from_value::<u32>(e_idx.clone()).unwrap();
+        let n_arr = serde_json::from_value::<u32>(arr_len.clone()).unwrap();
+
+        if start_idx >= n_arr || end_idx <= start_idx || end_idx >= n_arr {
+            return Err(JError::new(format!("slice indexes out of bound. start index: {:?}, end index: {:?}, array length: {:?}", s_idx, e_idx, arr_len)));
+        }
+
+        Ok(args[serde_json::from_value(s_idx).unwrap()..serde_json::from_value(e_idx).unwrap()].to_vec())
+        
+    }
+
 
     fn add_module(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();

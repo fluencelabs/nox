@@ -790,6 +790,25 @@ fn array_length() {
 }
 
 #[test]
+fn array_slice() {
+    let result: Vec<Value> = exec_script(
+        r#"(call relay ("op" "array_slice" [data s_idx e_idx) result"#,
+        hashmap! {
+            "data" => vec![serde_json::Value(1), serde_json::Value(2), serde_json::Value(3), serde_json::Value(4)], 
+            "s_idx" => serde_json::Value(0), 
+            "e_idx" => serde_json::Value(2),
+        },
+        "result",
+        1
+    )
+    .unwrap();
+
+    assert_eq!(result, vec![serde_json::Value(1), serde_json::Value(2)]);
+}
+
+
+
+#[test]
 fn timeout_race() {
     let fast_result = exec_script(
         r#"
