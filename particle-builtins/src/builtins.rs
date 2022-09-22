@@ -549,38 +549,54 @@ where
         }
     }
 
-    // fn array_slice(&self, args: Vec<serde_json::Value>, s_idx:serde_json::Value, e_idx: serde_json::Value ) -> Result<JValue, JError> {
-    fn array_slice(&self, args: Vec<Vec<serde_json::Value>>) -> Result<JValue, JError> {
+    fn array_slice(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+
         if args.len() != 3 {
-            return Err(JError::new(format!("invalid number of arguments. Need data array, starting and end index params.")));
+            return Err(JError::new(format!("invalid number of parameters. need array, start index and end index")));
         }
 
-        let data = args[0];
+        let data = match args.get(0) {
+            Some(arr) => {
+                match arr.as_array() {
+                    Some(arr) => arr,
+                    None => { return Err(JError::new(format!("invalid array"))); },
+                }
+            },
+            None => { return Err(JError::new(format!("unable to deserialize array")));},
+        };
+        
         let n_arr = data.len();
         if n_arr == 0 {
             return Ok(JValue::Array(vec!()));
         }
 
-        let s_idx = serde_json::from_value::<u32>(args[1][0]);
-        let e_idx = serde_json::from_value::<u32>(args[2][0]);
-        if s_idx.is_err() || e_idx.is_err() {
-            return Err(JError::new(format!("invalid index params. start: {}, end: {}", args[1][0], args[2][0])));
-        }
-        let s_idx:usize  = match s_idx {
-            Ok(res) => res as usize,
-            Err(e) => {return Err(JError::new(format!("invalid index params. start: {}, end: {}", args[1][0], args[2][0]))); }, 
+        let s_idx = args.get(1);
+        let e_idx = args.get(2);
+
+        let s_idx = match s_idx {
+            Some(val) => {
+                match serde_json::from_value::<usize>(val.clone()) {
+                    Ok(res) => res as usize,
+                    Err(e) => { return Err(JError::new(format!("invalid start index {}", e))); }, 
+                }
+            },
+            None => { return Err(JError::new(format!("invalid start index.")));}
         };
 
-        let e_idx: usize = match e_idx {
-            Ok(res) => res as usize,
-            Err(e) => {return Err(JError::new(format!("invalid index params. start: {}, end: {}", args[1][0], args[2][0]))); }, 
+        let e_idx = match e_idx {
+            Some(val) => {
+                match serde_json::from_value::<usize>(val.clone()) {
+                    Ok(res) => res as usize,
+                    Err(e) => { return Err(JError::new(format!("invalid end index {}", e))); }, 
+                }
+            },
+            None => { return Err(JError::new(format!("invalid end index.")));}
         };
 
         if s_idx >= n_arr || e_idx <= s_idx || e_idx >= n_arr {
             return Err(JError::new(format!("slice indexes out of bound. start index: {:?}, end index: {:?}, array length: {:?}", s_idx, e_idx, n_arr)));
         }
 
-        // let res = args[serde_json::from_value(s_idx).unwrap()..serde_json::from_value(e_idx).unwrap()].to_vec();
         let res: Vec<JValue> = data[s_idx..e_idx].to_vec();
         Ok(JValue::Array(res))
         
