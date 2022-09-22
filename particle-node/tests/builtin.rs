@@ -791,19 +791,20 @@ fn array_length() {
 
 #[test]
 fn array_slice() {
-    let result: Vec<Value> = exec_script(
-        r#"(call relay ("op" "array_slice" [data s_idx e_idx) result"#,
+    let result: Vec<JValue> = exec_script(
+        r#"(call relay ("op" "array_slice") [ data sidx eidx ] result)"#,
         hashmap! {
-            "data" => vec![serde_json::Value(1), serde_json::Value(2), serde_json::Value(3), serde_json::Value(4)], 
-            "s_idx" => serde_json::Value(0), 
-            "e_idx" => serde_json::Value(2),
+            "data" => json!(vec![1,2,3,4]), 
+            "sidx" => json!(0),
+            "eidx" => json!(2),
         },
         "result",
         1
     )
     .unwrap();
 
-    assert_eq!(result, vec![serde_json::Value(1), serde_json::Value(2)]);
+    let expected = json!(vec![1, 2]); 
+    assert_eq!(result, vec![expected]);
 }
 
 
