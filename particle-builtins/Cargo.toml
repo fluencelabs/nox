@@ -20,22 +20,22 @@ now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
-libp2p = "0.45"
+libp2p = "0.48"
 avm-server = { workspace = true }
-multihash = "0.16.2"
+multihash = "0.16.3"
 fluence-keypair = { workspace = true }
 
-async-std = { version = "1.9.0", features = ["unstable"] }
-serde_json = "1.0.64"
-serde = "1.0.130"
-log = "0.4.11"
-bs58 = "0.3.1"
-parking_lot = "0.11.2"
-thiserror = "1.0.23"
-humantime-serde = "1.0.1"
-rand = "0.8.4"
-futures = "0.3.15"
-itertools = "0.10.3"
+async-std = { version = "1.12.0", features = ["unstable"] }
+serde_json = "1.0.85"
+serde = "1.0.145"
+log = "0.4.17"
+bs58 = "0.4.0"
+parking_lot = "0.12.1"
+thiserror = "1.0.36"
+humantime-serde = "1.1.1"
+rand = "0.8.5"
+futures = "0.3.24"
+itertools = "0.10.5"
 bytesize = "1.1.0"
 derivative = "2.2.0"
 

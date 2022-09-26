@@ -9,13 +9,13 @@ particle-protocol = { path = "../particle-protocol"}
 fluence-libp2p = { path = "../crates/libp2p" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
-libp2p = "0.45"
+libp2p = "0.48"
 
-futures = "0.3.13"
-log = "0.4.13"
-serde = "1.0.130"
-async-std = "1.9.0"
-itertools = "0.10.0"
+futures = "0.3.24"
+log = "0.4.17"
+serde = "1.0.145"
+async-std = "1.12.0"
+itertools = "0.10.5"
 
 [dev-dependencies]
-parking_lot = "0.11.2"
+parking_lot = "0.12.1"

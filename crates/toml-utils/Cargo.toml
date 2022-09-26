@@ -5,4 +5,4 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-toml = "0.5.8"
+toml = "0.5.9"

@@ -8,8 +8,8 @@ edition = "2018"
 fs-utils = { path = "../fs-utils" }
 
 eyre = { workspace = true }
-serde = { version = "1.0.118", features = ["derive"] }
+serde = { version = "1.0.145", features = ["derive"] }
 blake3 = "0.3.8"
-faster-hex = "0.6.0"
+faster-hex = "0.6.1"
 maplit = "1.0.2"
-serde_json = "1.0.64"
+serde_json = "1.0.85"
