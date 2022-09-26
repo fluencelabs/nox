@@ -15,6 +15,9 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
+      - name: Install protoc
+        run: sudo apt install protobuf-compiler -y
+
       - uses: actions/cache@v2
         with:
           path: |
