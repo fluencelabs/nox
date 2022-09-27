@@ -791,20 +791,52 @@ fn array_length() {
 
 #[test]
 fn array_slice() {
-    let result: Vec<JValue> = exec_script(
-        r#"(call relay ("op" "array_slice") [ data sidx eidx ] result)"#,
+    let result = exec_script(
+        r#"
+        (seq
+            (seq
+                (call relay ("op" "array_slice") [ data sidx eidx ] result)
+                (call relay ("op" "array_slice") [ data empty_idx eidx ] err_1)
+            )
+            (seq
+                (xor
+                    (call relay ("op" "array_slice") [ data bad_idx eidx] err_2)
+                    (call relay ("op" "array_slice") [ data sidx bad_idx_2] err_3)
+                )
+                (seq
+                    (xor
+                        (call relay ("op" "array_slice") [ data bad_idx eidx] err_4)
+                        (call relay ("op" "array_slice") [ data sidx_bad eidx] err_5)
+                    )
+                    (xor
+                        (call relay ("op" "array_slice") [ data eidx sidx] err_6)
+                        (call relay ("op" "array_slice") [ data sidx_bad eidx] err_7)
+                    )
+                )
+            )
+        )
+        "#,
         hashmap! {
-            "data" => json!(vec![1,2,3,4]),
-            "sidx" => json!(0),
-            "eidx" => json!(2),
+            "data"      => json!(vec![1,2,3,4]),
+            "sidx"      => json!(0),
+            "eidx"      => json!(2),
+            "empty_idx" => json!(Vec::<JValue>::new()),
+            "bad_idx"   => json!(-1),
+            "bad_idx_2" => json!("a"),
+            "sidx_bad"  => json!(10)
         },
-        "result",
+        "result err_1 err_2 err_3 err_4 err_5 err_6 err_7",
         1,
     )
     .unwrap();
 
+    /*
     let expected = json!(vec![1, 2]);
-    assert_eq!(result, vec![expected]);
+    assert_eq!(result, vec![
+        expected,
+        json!("Local service error, ret_code is 1, error message is '\"slice indexes out of bound. start index: 2, end index: 0, array length: 4\"'"),
+    ]);
+    */
 }
 
 #[test]
