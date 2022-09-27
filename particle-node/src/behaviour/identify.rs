@@ -25,7 +25,7 @@ use super::FluenceNetworkBehaviour;
 /// Network address information is exchanged via Identify protocol.
 /// That information is passed to relay, so nodes know each other's addresses
 impl FluenceNetworkBehaviour {
-    fn inject_identify_event(&mut self, event: IdentifyEvent, allow_local_addresses: bool) {
+    pub fn inject_identify_event(&mut self, event: IdentifyEvent, allow_local_addresses: bool) {
         match event {
             IdentifyEvent::Received { peer_id, info, .. } => {
                 log::trace!(

@@ -16,20 +16,14 @@
 
 use std::convert::identity;
 
-use futures::{
-    channel::{mpsc::unbounded, oneshot},
-    future::BoxFuture,
-    FutureExt, StreamExt,
-};
-use libp2p::swarm::NetworkBehaviourAction;
+use futures::{channel::oneshot, future::BoxFuture, FutureExt};
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::Multihash;
 
-use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
+use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use particle_protocol::Contact;
 
 use crate::error::{KademliaError, Result};
-use crate::Kademlia;
 
 type Future<T> = BoxFuture<'static, T>;
 

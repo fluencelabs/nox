@@ -27,7 +27,6 @@ use futures::channel::mpsc;
 use futures::{FutureExt, StreamExt};
 use futures_timer::Delay;
 use libp2p::core::connection::ConnectionId;
-use libp2p::kad::handler::KademliaHandlerProto;
 use libp2p::kad::kbucket::Key;
 use libp2p::swarm::{
     ConnectionHandler, IntoConnectionHandler, NetworkBehaviourAction, PollParameters,
@@ -101,10 +100,6 @@ impl FailedPeer {
         self.count += 1;
     }
 }
-
-// type SwarmEventType = generate_swarm_event_type!(Kademlia);
-type SwarmEventType =
-    NetworkBehaviourAction<(), <Kademlia as libp2p::swarm::NetworkBehaviour>::ConnectionHandler>;
 
 pub struct Kademlia {
     kademlia: kad::Kademlia<MemoryStore>,
@@ -301,8 +296,6 @@ impl Kademlia {
     }
 
     fn poll(&mut self, cx: &mut std::task::Context) -> std::task::Poll<()> {
-        use std::task::Poll;
-
         self.waker = Some(cx.waker().clone());
 
         // Ingest and execute new commands

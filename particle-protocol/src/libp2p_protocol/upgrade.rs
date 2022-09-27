@@ -195,18 +195,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::future::poll_fn;
-    use std::pin::Pin;
-    use std::task::Poll;
-
     use futures::prelude::*;
     use libp2p::core::transport::TransportEvent;
     use libp2p::core::{
-        multiaddr::multiaddr,
         transport::{memory::MemoryTransport, Transport},
         upgrade,
     };
-    use rand::{thread_rng, Rng};
 
     use crate::libp2p_protocol::message::ProtocolMessage;
     use crate::{HandlerMessage, ProtocolConfig};
@@ -225,9 +219,7 @@ mod tests {
 
     #[test]
     fn oneshot_channel_test() {
-        let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
         let mut transport = MemoryTransport::new().boxed();
-        let mut listener = transport.listen_on(mem_addr.clone()).unwrap();
 
         let listener_addr = match transport.select_next_some().now_or_never() {
             Some(TransportEvent::NewAddress { listen_addr, .. }) => listen_addr,
