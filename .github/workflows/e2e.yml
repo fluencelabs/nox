@@ -1,14 +1,11 @@
 name: "e2e"
 
 on:
-  pull_request:
-    paths-ignore:
-      - "!**.md"
   push:
 
-#concurrency:
-#  group: "${{ github.workflow }}-${{ github.ref }}"
-#  cancel-in-progress: true
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   rust-peer:
