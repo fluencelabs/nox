@@ -11,4 +11,9 @@ jobs:
   snapshot:
     uses: ./.github/workflows/snapshot.yml
     with:
-      avm-server-version: '{ git = "https://github.com/fluencelabs/aquavm", branch = "e2e" }'
+      avm-server-version: |
+        {
+          git = "https://github.com/fluencelabs/aquavm",
+          branch = "master"
+        }
+
