@@ -7,19 +7,19 @@ edition = "2018"
 [dependencies]
 libp2p = { workspace = true }
 libp2p-noise = { workspace = true }
-multihash = { version = "0.16.2", features = ["serde-codec"] }
-futures = "0.3.13"
-futures-util = "0.3.5"
-async-std = "1.9.0"
+multihash = { version = "0.16.3", features = ["serde-codec"] }
+futures = "0.3.24"
+futures-util = "0.3.24"
+async-std = "1.12.0"
 
-serde = { version = "1.0.118", features = ["derive"] }
-serde_json = "1.0.64"
-bs58 = "0.3.1"
+serde = { version = "1.0.145", features = ["derive"] }
+serde_json = "1.0.85"
+bs58 = "0.4.0"
 
-failure = "0.1.6"
+failure = "0.1.8"
 base64 = "0.13.0"
-log = "0.4.11"
-rand = "0.7.3"
+log = "0.4.17"
+rand = "0.8.5"
 
 [dev-dependencies]
-rand = "0.7.3"
+rand = "0.8.5"
