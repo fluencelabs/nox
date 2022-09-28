@@ -674,7 +674,7 @@ mod tests {
             maddr
         }));
 
-        assert_eq!(maddr.unwrap().unwrap()[0], c_addr);
+        assert_eq!(maddr.unwrap().unwrap().unwrap()[0], c_addr);
     }
 
     #[test]
