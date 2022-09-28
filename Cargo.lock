@@ -5020,7 +5020,7 @@ dependencies = [
  "peer-metrics",
  "rand 0.8.5",
  "serde",
- "serde_with 1.14.0",
+ "serde_with 2.0.1",
  "toml",
 ]
 
