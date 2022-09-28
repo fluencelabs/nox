@@ -14,6 +14,6 @@ now-millis = { path = "../crates/now-millis" }
 async-std = "1.9.0"
 futures = "0.3.13"
 thiserror = "1.0.23"
-uuid = "0.8.2"
+uuid = "1.1.2"
 chrono = "0.4.19"
 log = "0.4.11"
