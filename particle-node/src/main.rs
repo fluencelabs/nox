@@ -50,7 +50,7 @@ trait Stoppable {
 
 fn main() -> eyre::Result<()> {
     // TODO: maybe set log level via flag?
-    env_logger::from_env(Env::default().default_filter_or("INFO"))
+    env_logger::Builder::from_env(Env::default().default_filter_or("INFO"))
         .format_timestamp_micros()
         // Disable most spamming modules
         .filter_module("cranelift_codegen", LevelFilter::Off)
