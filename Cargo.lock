@@ -131,7 +131,7 @@ name = "air-interpreter-fs"
 version = "0.1.0"
 dependencies = [
  "air-interpreter-wasm",
- "blake3 0.3.8",
+ "blake3 1.3.1",
  "eyre",
  "faster-hex",
  "serde",
@@ -674,6 +674,7 @@ dependencies = [
  "cc",
  "cfg-if 1.0.0",
  "constant_time_eq",
+ "digest 0.10.5",
 ]
 
 [[package]]
@@ -4139,7 +4140,7 @@ dependencies = [
  "async-std",
  "avm-server",
  "base64",
- "blake3 0.3.8",
+ "blake3 1.3.1",
  "bs58 0.3.1",
  "builtins",
  "builtins-deployer",
@@ -5331,7 +5332,7 @@ dependencies = [
 name = "service-modules"
 version = "0.1.0"
 dependencies = [
- "blake3 0.3.8",
+ "blake3 1.3.1",
  "eyre",
  "faster-hex",
  "fs-utils",
