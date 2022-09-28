@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+use std::future::Future;
 use std::sync::Arc;
+use std::task::Poll;
 use std::{io, iter::once, net::SocketAddr};
 
 use async_std::task;
@@ -26,6 +28,8 @@ use futures::{
     stream::{self, StreamExt},
     FutureExt,
 };
+use libp2p::identify::IdentifyEvent;
+use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
@@ -57,13 +61,14 @@ use crate::effectors::Effectors;
 use crate::metrics::start_metrics_endpoint;
 use crate::Connectivity;
 
-use super::behaviour::NetworkBehaviour;
+use super::behaviour::FluenceNetworkBehaviour;
+use crate::behaviour::FluenceNetworkBehaviourEvent;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: BackPressuredInlet<Particle>,
     effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
-    pub swarm: Swarm<NetworkBehaviour>,
+    pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
     pub dispatcher: Dispatcher,
@@ -231,11 +236,12 @@ impl<RT: AquaRuntime> Node<RT> {
         transport: Boxed<(PeerId, StreamMuxerBox)>,
         external_addresses: Vec<Multiaddr>,
     ) -> (
-        Swarm<NetworkBehaviour>,
+        Swarm<FluenceNetworkBehaviour>,
         Connectivity,
         BackPressuredInlet<Particle>,
     ) {
-        let (behaviour, connectivity, particle_stream) = NetworkBehaviour::new(network_config);
+        let (behaviour, connectivity, particle_stream) =
+            FluenceNetworkBehaviour::new(network_config);
         let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
 
         // Add external addresses to Swarm
@@ -276,7 +282,7 @@ impl<RT: AquaRuntime> Node<RT> {
     pub fn with(
         particle_stream: BackPressuredInlet<Particle>,
         effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
-        swarm: Swarm<NetworkBehaviour>,
+        swarm: Swarm<FluenceNetworkBehaviour>,
 
         connectivity: Connectivity,
         dispatcher: Dispatcher,
@@ -320,7 +326,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let particle_stream = self.particle_stream;
         let effects_stream = self.effects_stream;
-        let swarm = self.swarm;
+        let mut swarm = self.swarm;
         let connectivity = self.connectivity;
         let dispatcher = self.dispatcher;
         let aquavm_pool = self.aquavm_pool;
@@ -344,22 +350,13 @@ impl<RT: AquaRuntime> Node<RT> {
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
-            let stopped = stream::iter(once(Err(())));
-
-            let mut swarm = swarm
-                .map(|e| {
-                    libp2p_metrics.as_ref().map(|m| m.record(&e));
-                    Ok(())
-                })
-                .chain(stopped)
-                .fuse();
 
             loop {
                 select!(
                     e = swarm.select_next_some() => {
-                        if e.is_err() {
-                            log::error!("Swarm has terminated");
-                            break;
+                        libp2p_metrics.as_ref().map(|m| m.record(&e));
+                        if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
+                            swarm.behaviour_mut().inject_identify_event(i, true)
                         }
                     },
                     e = metrics_fut => {

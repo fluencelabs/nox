@@ -11,8 +11,8 @@ control-macro = { path = "../control-macro" }
 fluence-libp2p = { path = "../libp2p" }
 server-config = { path = "../server-config" }
 
-libp2p = "0.45"
-libp2p-metrics = { version = "0.6.0", features = ["kad"] }
+libp2p = { workspace = true }
+libp2p-metrics = { workspace = true, features = ["kad"] }
 prometheus-client = { workspace = true }
 multihash = "0.16.3"
 

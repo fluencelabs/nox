@@ -22,8 +22,10 @@ pub(crate) type Result<T> = std::result::Result<T, KademliaError>;
 pub enum KademliaError {
     #[error("KademliaError::NoPeersFound")]
     NoPeersFound,
-    #[error("KademliaError::Timeout")]
-    Timeout,
+    #[error("KademliaError::PeerTimedOut")]
+    PeerTimedOut,
+    #[error("KademliaError::QueryTimedOut")]
+    QueryTimedOut,
     #[error("KademliaError::Cancelled")]
     Cancelled,
     #[error("KademliaError::NoKnownPeers")]

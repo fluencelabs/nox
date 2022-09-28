@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+use std::error::Error;
+use std::ops::Mul;
+use std::task::{Context, Poll};
 use std::{
     cmp::min,
     collections::HashMap,
@@ -22,10 +25,16 @@ use std::{
     time::{Duration, Instant},
 };
 
-use futures::FutureExt;
+use futures::channel::mpsc;
+use futures::{FutureExt, StreamExt};
 use futures_timer::Delay;
+use libp2p::core::connection::ConnectionId;
+use libp2p::core::transport::ListenerId;
+use libp2p::core::ConnectedPoint;
 use libp2p::kad::kbucket::Key;
-use libp2p::swarm::NetworkBehaviourAction;
+use libp2p::swarm::{
+    ConnectionHandler, DialError, IntoConnectionHandler, NetworkBehaviourAction, PollParameters,
+};
 use libp2p::{
     core::Multiaddr,
     kad::{
@@ -33,17 +42,18 @@ use libp2p::{
         GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult, KademliaEvent, QueryId,
         QueryResult,
     },
-    swarm::{NetworkBehaviour, NetworkBehaviourEventProcess},
+    swarm::NetworkBehaviour,
     PeerId,
 };
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 
 use control_macro::get_return;
-use fluence_libp2p::types::OneshotOutlet;
+use fluence_libp2p::types::{Inlet, OneshotOutlet};
 use particle_protocol::Contact;
 
 use crate::error::{KademliaError, Result};
+use crate::{Command, KademliaApi};
 
 pub struct KademliaConfig {
     pub peer_id: PeerId,
@@ -95,41 +105,33 @@ impl FailedPeer {
     }
 }
 
-// type SwarmEventType = generate_swarm_event_type!(Kademlia);
-type SwarmEventType =
-    NetworkBehaviourAction<(), <Kademlia as libp2p::swarm::NetworkBehaviour>::ConnectionHandler>;
-
-#[derive(::libp2p::NetworkBehaviour)]
-#[behaviour(poll_method = "custom_poll", event_process = true)]
 pub struct Kademlia {
     kademlia: kad::Kademlia<MemoryStore>,
+    commands: Inlet<Command>,
 
-    #[behaviour(ignore)]
     queries: HashMap<QueryId, PendingQuery>,
-    #[behaviour(ignore)]
     pending_peers: HashMap<PeerId, Vec<PendingPeer>>,
-    #[behaviour(ignore)]
     failed_peers: HashMap<PeerId, FailedPeer>,
-    #[behaviour(ignore)]
     config: KademliaConfig,
-    #[behaviour(ignore)]
     waker: Option<Waker>,
-    #[behaviour(ignore)]
     // Timer to track timed out requests, and return errors ASAP
     timer: Delay,
-    #[behaviour(ignore)]
     metrics: Option<Metrics>,
 }
 
 impl Kademlia {
-    pub fn new(config: KademliaConfig, metrics: Option<Metrics>) -> Self {
+    pub fn new(config: KademliaConfig, metrics: Option<Metrics>) -> (Self, KademliaApi) {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
         let kademlia = kad::Kademlia::with_config(config.peer_id, store, config.as_libp2p());
 
-        Self {
+        let (outlet, commands) = mpsc::unbounded();
+        let api = KademliaApi { outlet };
+
+        let behaviour = Self {
             kademlia,
+            commands,
             queries: <_>::default(),
             pending_peers: <_>::default(),
             failed_peers: <_>::default(),
@@ -137,6 +139,18 @@ impl Kademlia {
             waker: None,
             timer,
             metrics,
+        };
+
+        (behaviour, api)
+    }
+
+    fn execute(&mut self, cmd: Command) {
+        match cmd {
+            Command::AddContact { contact } => self.add_contact(contact),
+            Command::Bootstrap { out } => self.bootstrap(out),
+            Command::LocalLookup { peer, out } => self.local_lookup(&peer, out),
+            Command::DiscoverPeer { peer, out } => self.discover_peer(peer, out),
+            Command::Neighborhood { key, count, out } => self.neighborhood(key, count, out),
         }
     }
 
@@ -258,7 +272,7 @@ impl Kademlia {
                     Ok(GetClosestPeersOk { peers, .. }) if !peers.is_empty() => Ok(peers),
                     Ok(GetClosestPeersOk { .. }) => Err(KademliaError::NoPeersFound),
                     Err(Timeout { peers, .. }) if !peers.is_empty() => Ok(peers),
-                    Err(Timeout { .. }) => Err(KademliaError::Timeout),
+                    Err(Timeout { .. }) => Err(KademliaError::QueryTimedOut),
                 };
                 outlet.send(result).ok();
             }
@@ -285,14 +299,18 @@ impl Kademlia {
         }
     }
 
-    fn custom_poll(
-        &mut self,
-        cx: &mut std::task::Context,
-        _: &mut impl libp2p::swarm::PollParameters,
-    ) -> std::task::Poll<SwarmEventType> {
-        use std::task::Poll;
-
+    fn poll(&mut self, cx: &mut std::task::Context) -> std::task::Poll<()> {
         self.waker = Some(cx.waker().clone());
+
+        // Ingest and execute new commands
+        let mut wake = false;
+        while let Poll::Ready(Some(cmd)) = self.commands.poll_next_unpin(cx) {
+            wake = true;
+            self.execute(cmd)
+        }
+        if wake {
+            cx.waker().wake_by_ref()
+        }
 
         // Exit early to avoid Instant::now calculation
         if self.pending_peers.is_empty() && self.failed_peers.is_empty() {
@@ -309,14 +327,14 @@ impl Kademlia {
         self.pending_peers.retain(|id, peers| {
             // remove expired
             let expired = peers.drain_filter(|p| {
-                has_timed_out(now, p.created, config.query_timeout, &mut next_wake)
+                has_timed_out(now, p.created, config.query_timeout.mul(2), &mut next_wake)
             });
 
             let mut timed_out = false;
             for p in expired {
                 timed_out = true;
                 // notify expired
-                p.out.send(Err(KademliaError::Timeout)).ok();
+                p.out.send(Err(KademliaError::PeerTimedOut)).ok();
             }
             // count failure if there was at least 1 timeout
             if timed_out {
@@ -363,6 +381,29 @@ impl Kademlia {
             .get(peer)
             .map_or(false, |f| f.ban.is_some())
     }
+
+    fn inject_kad_event(&mut self, event: KademliaEvent) {
+        if let Some(metrics) = &self.metrics {
+            metrics.record(&event);
+        }
+
+        match event {
+            KademliaEvent::OutboundQueryCompleted { id, result, .. } => match result {
+                QueryResult::GetClosestPeers(result) => self.closest_finished(id, result),
+                QueryResult::Bootstrap(result) => self.bootstrap_finished(id, result),
+                _ => {}
+            },
+            KademliaEvent::UnroutablePeer { .. } => {}
+            KademliaEvent::RoutingUpdated {
+                peer, addresses, ..
+            } => self.peer_discovered(peer, addresses.into_vec()),
+            KademliaEvent::RoutablePeer { peer, address }
+            | KademliaEvent::PendingRoutablePeer { peer, address } => {
+                self.peer_discovered(peer, vec![address])
+            }
+            KademliaEvent::InboundRequest { .. } => {}
+        }
+    }
 }
 
 /// Calculate whether some entity has reached its timeout.
@@ -385,27 +426,141 @@ fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut
     }
 }
 
-impl NetworkBehaviourEventProcess<KademliaEvent> for Kademlia {
-    fn inject_event(&mut self, event: KademliaEvent) {
-        if let Some(metrics) = &self.metrics {
-            metrics.record(&event);
+impl NetworkBehaviour for Kademlia {
+    type ConnectionHandler = <kad::Kademlia<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
+    type OutEvent = ();
+
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
+        self.kademlia.new_handler()
+    }
+
+    fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+        self.kademlia.addresses_of_peer(peer_id)
+    }
+
+    fn inject_connection_established(
+        &mut self,
+        peer_id: &PeerId,
+        connection_id: &ConnectionId,
+        endpoint: &ConnectedPoint,
+        failed_addresses: Option<&Vec<Multiaddr>>,
+        other_established: usize,
+    ) {
+        self.kademlia.inject_connection_established(
+            peer_id,
+            connection_id,
+            endpoint,
+            failed_addresses,
+            other_established,
+        )
+    }
+
+    fn inject_connection_closed(
+        &mut self,
+        peer_id: &PeerId,
+        cid: &ConnectionId,
+        cp: &ConnectedPoint,
+        handler: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
+        remaining_established: usize,
+    ) {
+        self.kademlia
+            .inject_connection_closed(peer_id, cid, cp, handler, remaining_established)
+    }
+
+    fn inject_address_change(
+        &mut self,
+        peer_id: &PeerId,
+        ci: &ConnectionId,
+        old: &ConnectedPoint,
+        new: &ConnectedPoint,
+    ) {
+        self.kademlia.inject_address_change(peer_id, ci, old, new)
+    }
+
+    fn inject_event(
+        &mut self,
+        peer_id: PeerId,
+        connection: ConnectionId,
+        event: <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::OutEvent,
+    ) {
+        self.kademlia.inject_event(peer_id, connection, event)
+    }
+
+    fn inject_dial_failure(
+        &mut self,
+        peer_id: Option<PeerId>,
+        handler: Self::ConnectionHandler,
+        error: &DialError,
+    ) {
+        self.kademlia.inject_dial_failure(peer_id, handler, error)
+    }
+
+    fn inject_listen_failure(
+        &mut self,
+        local_addr: &Multiaddr,
+        send_back_addr: &Multiaddr,
+        handler: Self::ConnectionHandler,
+    ) {
+        self.kademlia
+            .inject_listen_failure(local_addr, send_back_addr, handler)
+    }
+
+    fn inject_new_listener(&mut self, id: ListenerId) {
+        self.kademlia.inject_new_listener(id)
+    }
+
+    fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
+        self.kademlia.inject_new_listen_addr(id, addr)
+    }
+
+    fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
+        self.kademlia.inject_expired_listen_addr(id, addr)
+    }
+
+    fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn Error + 'static)) {
+        self.kademlia.inject_listener_error(id, err)
+    }
+
+    fn inject_listener_closed(
+        &mut self,
+        id: ListenerId,
+        reason: std::result::Result<(), &std::io::Error>,
+    ) {
+        self.kademlia.inject_listener_closed(id, reason)
+    }
+
+    fn inject_new_external_addr(&mut self, addr: &Multiaddr) {
+        self.kademlia.inject_new_external_addr(addr)
+    }
+
+    fn inject_expired_external_addr(&mut self, addr: &Multiaddr) {
+        self.kademlia.inject_expired_external_addr(addr)
+    }
+
+    fn poll(
+        &mut self,
+        cx: &mut Context<'_>,
+        params: &mut impl PollParameters,
+    ) -> Poll<NetworkBehaviourAction<(), Self::ConnectionHandler>> {
+        use NetworkBehaviourAction::*;
+        use Poll::{Pending, Ready};
+
+        loop {
+            if self.poll(cx).is_pending() {
+                break;
+            }
         }
 
-        match event {
-            KademliaEvent::OutboundQueryCompleted { id, result, .. } => match result {
-                QueryResult::GetClosestPeers(result) => self.closest_finished(id, result),
-                QueryResult::Bootstrap(result) => self.bootstrap_finished(id, result),
-                _ => {}
-            },
-            KademliaEvent::UnroutablePeer { .. } => {}
-            KademliaEvent::RoutingUpdated {
-                peer, addresses, ..
-            } => self.peer_discovered(peer, addresses.into_vec()),
-            KademliaEvent::RoutablePeer { peer, address }
-            | KademliaEvent::PendingRoutablePeer { peer, address } => {
-                self.peer_discovered(peer, vec![address])
+        #[rustfmt::skip]
+        loop {
+            match self.kademlia.poll(cx, params) {
+                Pending => return Pending,
+                Ready(GenerateEvent(e)) => self.inject_kad_event(e),
+                Ready(Dial { opts, handler }) => return Ready(Dial { opts, handler }),
+                Ready(NotifyHandler { peer_id, handler, event }) => return Ready(NotifyHandler { peer_id, handler, event }),
+                Ready(ReportObservedAddr { address, score }) => return Ready(ReportObservedAddr { address, score }),
+                Ready(CloseConnection { peer_id, connection }) => return Ready(CloseConnection { peer_id, connection })
             }
-            KademliaEvent::InboundRequest { .. } => {}
         }
     }
 }
@@ -448,7 +603,7 @@ mod tests {
         let public_key = kp.public();
         let peer_id = PeerId::from(public_key);
         let config = kad_config(peer_id);
-        let kad = Kademlia::new(config, None);
+        let (kad, _) = Kademlia::new(config, None);
         let timeout = Duration::from_secs(20);
 
         let mut swarm = Swarm::new(build_memory_transport(kp, timeout), kad, peer_id);
@@ -504,7 +659,11 @@ mod tests {
             let mut swarms = vec![a, b, c, d, e];
             let t = task::spawn(futures::future::poll_fn(move |ctx| {
                 for (_, swarm) in swarms.iter_mut().enumerate() {
-                    swarm.poll_next_unpin(ctx).is_ready();
+                    loop {
+                        if !swarm.poll_next_unpin(ctx).is_ready() {
+                            break;
+                        }
+                    }
                 }
                 ctx.waker().wake_by_ref();
                 Poll::Pending as Poll<()>

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 
 use futures::{
@@ -25,12 +24,12 @@ use futures::{
 };
 use libp2p::{core::Multiaddr, PeerId};
 
-use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
+use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use particle_protocol::Particle;
 use particle_protocol::{Contact, SendStatus};
 
 use crate::connection_pool::LifecycleEvent;
-use crate::{ConnectionPoolBehaviour, ConnectionPoolT};
+use crate::ConnectionPoolT;
 
 // marked `pub` to be available in benchmarks
 #[derive(Debug)]
@@ -67,63 +66,6 @@ pub enum Command {
     LifecycleEvents {
         out: Outlet<LifecycleEvent>,
     },
-}
-
-pub type SwarmEventType = libp2p::swarm::NetworkBehaviourAction<
-    (),
-    <ConnectionPoolInlet as libp2p::swarm::NetworkBehaviour>::ConnectionHandler,
->;
-
-#[derive(::libp2p::NetworkBehaviour)]
-#[behaviour(poll_method = "custom_poll")]
-pub struct ConnectionPoolInlet {
-    connection_pool: ConnectionPoolBehaviour,
-    #[behaviour(ignore)]
-    inlet: Inlet<Command>,
-}
-
-impl ConnectionPoolInlet {
-    pub fn new(connection_pool: ConnectionPoolBehaviour) -> (ConnectionPoolApi, Self) {
-        let (outlet, inlet) = unbounded();
-        let api = ConnectionPoolApi {
-            outlet,
-            send_timeout: connection_pool.protocol_config.upgrade_timeout * 2,
-        };
-        let inlet = Self {
-            inlet,
-            connection_pool,
-        };
-        (api, inlet)
-    }
-
-    fn execute(&mut self, cmd: Command) {
-        match cmd {
-            Command::Dial { addr, out } => self.connection_pool.dial(addr, out),
-            Command::Connect { contact, out } => self.connection_pool.connect(contact, out),
-            Command::Disconnect { contact, out } => self.connection_pool.disconnect(contact, out),
-            Command::IsConnected { peer_id, out } => {
-                self.connection_pool.is_connected(peer_id, out)
-            }
-            Command::GetContact { peer_id, out } => self.connection_pool.get_contact(peer_id, out),
-            Command::Send { to, particle, out } => self.connection_pool.send(to, particle, out),
-            Command::CountConnections { out } => self.connection_pool.count_connections(out),
-            Command::LifecycleEvents { out } => self.connection_pool.add_subscriber(out),
-        }
-    }
-
-    fn custom_poll(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-        _: &mut impl libp2p::swarm::PollParameters,
-    ) -> std::task::Poll<SwarmEventType> {
-        use std::task::Poll;
-
-        while let Poll::Ready(Some(cmd)) = self.inlet.poll_next_unpin(cx) {
-            self.execute(cmd)
-        }
-
-        Poll::Pending
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -202,25 +144,5 @@ impl ConnectionPoolT for ConnectionPoolApi {
         };
 
         inlet.boxed()
-    }
-}
-
-impl From<ConnectionPoolBehaviour> for (ConnectionPoolApi, ConnectionPoolInlet) {
-    fn from(cpb: ConnectionPoolBehaviour) -> Self {
-        ConnectionPoolInlet::new(cpb)
-    }
-}
-
-impl Deref for ConnectionPoolInlet {
-    type Target = ConnectionPoolBehaviour;
-
-    fn deref(&self) -> &Self::Target {
-        &self.connection_pool
-    }
-}
-
-impl DerefMut for ConnectionPoolInlet {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.connection_pool
     }
 }

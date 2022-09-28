@@ -1,0 +1,26 @@
+name: "e2e"
+
+on:
+  push:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  rust-peer:
+    name: "rust-peer"
+    needs:
+      - snapshot
+
+    uses: fluencelabs/rust-peer/.github/workflows/snapshot.yml@master
+    with:
+      image-name: "docker.fluence.dev/rust_peer_e2e"
+
+  aqua-playground:
+    needs:
+      - rust-peer
+
+    uses: fluencelabs/aqua-playground/.github/workflows/tests.yml@master
+    with:
+      rust-peer-image: ${{ needs.rust-peer.outputs.rust-peer-image }}
