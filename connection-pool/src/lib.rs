@@ -11,7 +11,7 @@
 )]
 #![feature(try_blocks)]
 
-pub use api::{ConnectionPoolApi, ConnectionPoolInlet};
+pub use api::ConnectionPoolApi;
 // to be available in benchmarks
 pub use api::Command;
 pub use behaviour::ConnectionPoolBehaviour;

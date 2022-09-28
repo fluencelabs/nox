@@ -27,8 +27,9 @@ fluence-keypair = { workspace = true }
 avm-server = { workspace = true }
 air-interpreter-wasm = { workspace = true }
 
-libp2p = "0.45"
-libp2p-metrics = "0.6.0"
+libp2p = { workspace = true }
+libp2p-metrics = { workspace = true }
+libp2p-swarm = { workspace = true }
 prometheus-client = { workspace = true }
 
 futures = "0.3.24"

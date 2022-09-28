@@ -196,9 +196,10 @@ where
 #[cfg(test)]
 mod tests {
     use futures::prelude::*;
+    use libp2p::core::transport::TransportEvent;
     use libp2p::core::{
         multiaddr::multiaddr,
-        transport::{memory::MemoryTransport, ListenerEvent, Transport},
+        transport::{memory::MemoryTransport, Transport},
         upgrade,
     };
     use rand::{thread_rng, Rng};
@@ -221,17 +222,19 @@ mod tests {
     #[test]
     fn oneshot_channel_test() {
         let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
-        let mut listener = MemoryTransport.listen_on(mem_addr).unwrap();
-        let listener_addr =
-            if let Some(Some(Ok(ListenerEvent::NewAddress(a)))) = listener.next().now_or_never() {
-                a
-            } else {
-                panic!("MemoryTransport not listening on an address!");
-            };
+        let mut transport = MemoryTransport::new().boxed();
+        transport.listen_on(mem_addr.clone()).unwrap();
+
+        let listener_addr = match transport.select_next_some().now_or_never() {
+            Some(TransportEvent::NewAddress { listen_addr, .. }) => listen_addr,
+            p => panic!("MemoryTransport not listening on an address!: {:?}", p),
+        };
 
         let inbound = async_std::task::spawn(async move {
-            let listener_event = listener.next().await.unwrap();
-            let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
+            let (listener_upgrade, _) = transport.select_next_some().await.into_incoming().unwrap();
+            // let listener_event = poll_fn(|ctx| Pin::new(&mut transport).poll(ctx)).await;
+            // let listener_event = listener.next().await.unwrap();
+            // let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
             let conn = listener_upgrade.await.unwrap();
             let config = ProtocolConfig::default();
             upgrade::apply_inbound(conn, config).await.unwrap()
@@ -244,7 +247,8 @@ mod tests {
                 _ => unreachable!("must be particle"),
             };
             let msg = HandlerMessage::OutParticle(particle.clone(), <_>::default());
-            let c = MemoryTransport.dial(listener_addr).unwrap().await.unwrap();
+            let mut transport = MemoryTransport::new();
+            let c = transport.dial(listener_addr).unwrap().await.unwrap();
             upgrade::apply_outbound(c, msg, upgrade::Version::V1)
                 .await
                 .unwrap();

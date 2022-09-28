@@ -11,7 +11,7 @@ test-constants = { path = "../test-constants"}
 local-vm = { path = "../local-vm"}
 
 fluence-keypair = { workspace = true }
-libp2p = "0.45"
+libp2p = { workspace = true }
 
 async-std = "1.12.0"
 futures = "0.3.24"
