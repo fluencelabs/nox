@@ -12,6 +12,10 @@
         "patch"
       ],
       "groupName": "all non-major Rust dependencies"
+    },
+    {
+      "matchPackagePatterns": ["^libp2p.*"],
+      "groupName": "libp2p"
     }
   ]
 }
