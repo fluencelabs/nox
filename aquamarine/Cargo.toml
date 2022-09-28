@@ -19,7 +19,7 @@ peer-metrics = { path = "../crates/peer-metrics" }
 particle-execution = { path = "../particle-execution" }
 
 avm-server = { workspace = true }
-libp2p = "0.45"
+libp2p = "0.48"
 
 futures = "0.3.24"
 log = "0.4.17"

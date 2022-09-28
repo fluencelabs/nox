@@ -20,7 +20,7 @@ now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 
-libp2p = "0.45"
+libp2p = "0.48"
 avm-server = { workspace = true }
 multihash = "0.16.3"
 fluence-keypair = { workspace = true }
