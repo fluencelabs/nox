@@ -8,7 +8,7 @@ on:
         type: string
         default: "docker.fluence.dev/rust-peer"
       fluence-app-service-version:
-        description: "fluence-app-servie version"
+        description: "fluence-app-service version"
         type: string
       avm-server-version:
         description: "avm-server version"
@@ -61,18 +61,24 @@ jobs:
 
       - name: Set fluence-app-service version from branch
         if: inputs.fluece-app-service-version != ''
-        run: sed -i 's#\(fluence-app-servie =\) .*#\1 ${{ inputs.fluence-app-service-version }}#g' Cargo.toml
+        uses: fluencelabs/github-actions/cargo-set-dependency@main
+        with:
+          package: fluence-app-service
+          version: ${{ inputs.fluence-app-service-version }}
 
       - name: Set avm-server version from branch
         if: inputs.avm-server-version != ''
-        run: sed -i 's#\(avm-server =\) .*#\1 ${{ inputs.avm-server-version }}#g' Cargo.toml
+        uses: fluencelabs/github-actions/cargo-set-dependency@main
+        with:
+          package: avm-server
+          version: ${{ inputs.avm-server-version }}
 
       - name: Set air-interpreter-wasm version from branch
         if: inputs.air-interpreter-wasm-version != ''
-        run: sed -i 's#\(air-interpreter-wasm =\) .*#\1 ${{ inputs.air-interpreter-wasm-version }}#g' Cargo.toml
-
-      - name: Run cargo build
-        run: cargo build --release -p particle-node
+        uses: fluencelabs/github-actions/cargo-set-dependency@main
+        with:
+          package: air-interpreter-wasm
+          version: ${{ inputs.air-interpreter-wasm-version }}
 
       - name: Install cargo-nextest
         uses: baptiste0928/cargo-install@v1
@@ -81,7 +87,10 @@ jobs:
           version: "0.9"
 
       - name: Run cargo nextest
-        run: cargo nextest run --release --all-features --no-fail-fast --retries 10 --test-threads 10
+        env:
+          NEXTEST_RETRIES: 10
+          NEXTEST_TEST_THREADS: 10
+        run: cargo nextest run --release --all-features --no-fail-fast
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
