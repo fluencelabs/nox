@@ -15,7 +15,8 @@ jobs:
     uses: ./.github/workflows/snapshot.yml
     with:
       image-name: "docker.fluence.dev/rust-peer"
-      avm-server-version: >-
+      avm-server-version: |
+        >-
         {
           "git": "https://github.com/fluencelabs/aquavm",
           "branch": "master"
