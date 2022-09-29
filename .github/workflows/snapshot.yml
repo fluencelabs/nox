@@ -66,14 +66,14 @@ jobs:
           package: fluence-app-service
           version: ${{ inputs.fluence-app-service-version }}
 
-      - run: echo ${{ inputs.avm-server-version }} | jq
+      - run: echo ${{ fromJson(inputs.avm-server-version) }} | jq
 
       - name: Set avm-server version from branch
         if: inputs.avm-server-version != ''
         uses: fluencelabs/github-actions/cargo-set-dependency@add-cargo-set-dependency
         with:
           package: avm-server
-          version: ${{ inputs.avm-server-version }}
+          version: ${{ fromJson(inputs.avm-server-version) }}
 
       - name: Set air-interpreter-wasm version from branch
         if: inputs.air-interpreter-wasm-version != ''
