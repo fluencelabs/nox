@@ -66,6 +66,8 @@ jobs:
           package: fluence-app-service
           version: ${{ inputs.fluence-app-service-version }}
 
+      - run: echo ${{ inputs.avm-server-version }} | jq
+
       - name: Set avm-server version from branch
         if: inputs.avm-server-version != ''
         uses: fluencelabs/github-actions/cargo-set-dependency@add-cargo-set-dependency
