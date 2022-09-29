@@ -68,14 +68,14 @@ jobs:
 
       - name: Set avm-server version from branch
         if: inputs.avm-server-version != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@main
+        uses: fluencelabs/github-actions/cargo-set-dependency@fix-using-registry
         with:
           package: avm-server
           version: ${{ inputs.avm-server-version }}
 
       - name: Set air-interpreter-wasm version from branch
         if: inputs.air-interpreter-wasm-version != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@main
+        uses: fluencelabs/github-actions/cargo-set-dependency@fix-using-registry
         with:
           package: air-interpreter-wasm
           version: ${{ inputs.air-interpreter-wasm-version }}
