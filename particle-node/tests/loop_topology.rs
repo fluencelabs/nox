@@ -14,14 +14,19 @@
  * limitations under the License.
  */
 
-use connected_client::ConnectedClient;
-use created_swarm::{make_swarms, CreatedSwarm};
+#[macro_use]
+extern crate fstrings;
+
+use std::time::Duration;
 
 use eyre::WrapErr;
+use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 use serde_json::Value as JValue;
-use std::time::Duration;
+
+use connected_client::ConnectedClient;
+use created_swarm::{make_swarms, CreatedSwarm};
 
 fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
     use itertools::*;
@@ -31,15 +36,19 @@ fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
     pids
 }
 
-#[test]
-fn fold_fold_fold() {
+pub struct Abuse {
+    input: Vec<(String, Vec<Vec<String>>)>,
+    output: Vec<JValue>,
+}
+
+fn abuse_fold(air: &str) -> Abuse {
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
-    let nums: Vec<String> = (1..10).map(|i| i.to_string()).collect();
+    let nums: Vec<String> = (1..2).map(|i| i.to_string()).collect();
     let vec = vec![nums.clone(), nums.clone(), nums.clone()];
     let elems: Vec<(String, Vec<Vec<String>>)> = vec![
         ("a".into(), vec.clone()),
@@ -49,10 +58,110 @@ fn fold_fold_fold() {
         ("a".into(), vec.clone()),
     ];
 
+    println!("elems {}", json!(elems));
+
     client.send_particle(
+        air,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+            "permutations" => json!(elems),
+        },
+    );
+
+    client.timeout = Duration::from_secs(1);
+
+    let args = client.receive_args().wrap_err("receive args");
+    let args = args.expect(format!("{} failed", json!(elems)).as_str());
+    println!("args {}", json!(args));
+    let output = match args.into_iter().next() {
+        Some(JValue::Array(output)) => output,
+        Some(wrong) => panic!("expected output to be array, got {}", json!(wrong)),
+        None => panic!("empty result on {}", json!(elems)),
+    };
+
+    println!("output {}", json!(output));
+
+    Abuse {
+        input: elems,
+        output,
+    }
+}
+
+fn join_stream(stream: &str, relay: &str, length: &str, result: &str) -> String {
+    f!(r#"
+        (new $monotonic_stream
+            (seq
+                (fold ${stream} elem
+                    (seq
+                        (ap elem $monotonic_stream)
+                        (seq
+                            (canon relay $monotonic_stream #result)
+                            (xor
+                                (match #result.length {length} 
+                                    (null) ;; fold ends if there's no `next`
+                                )
+                                (next elem)
+                            )
+                        )
+                    )
+                )
+                (canon {relay} ${stream} #{result})
+            )
+        )
+    "#)
+}
+
+#[test]
+fn fold_fold_fold_par_null() {
+    let Abuse { input, output } = abuse_fold(
         r#"
+        (new $inner
+            (seq
+                (seq
+                    (fold permutations pair
+                        (seq
+                            (fold pair.$.[1]! peer_ids
+                                (seq
+                                    (ap peer_ids $inner)
+                                    (next peer_ids)
+                                )
+                            )
+                            (next pair)
+                        )
+                    )
+                    (par
+                        (fold $inner ns
+                            (next ns)
+                        )
+                        (null)
+                    )
+                )
+                (seq
+                    (call relay ("op" "noop") [])
+                    (call client ("return" "") [$inner])
+                )
+            )
+        )
+        "#,
+    );
+
+    let flat: Vec<Vec<String>> = input
+        .into_iter()
+        .map(|(_, arr)| arr.into_iter())
+        .flatten()
+        .collect();
+
+    assert_eq!(json!(flat), json!(output));
+}
+
+#[test]
+fn fold_fold_fold_par_null_join() {
+    let Abuse { input, output } = abuse_fold(
+        format!(
+            r#"
         (seq
-            (par
+            (seq
                 (fold permutations pair
                     (seq
                         (fold pair.$.[1]! peer_ids
@@ -64,29 +173,96 @@ fn fold_fold_fold() {
                         (next pair)
                     )
                 )
-                (fold $inner ns
-                    (next ns)
+                (par
+                    (fold $inner ns
+                        (seq
+                            (ap ns $result)
+                            (next ns)
+                        )
+                    )
+                    (null)
                 )
             )
             (seq
-                (call relay ("op" "noop") [])
-                (call client ("return" "") [$inner])
+                (seq
+                    (canon relay $inner #inner)
+                    {} ;; join $result stream
+                )
+                (call client ("return" "") [#joined_result])
             )
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "permutations" => json!(elems),
-        },
+            join_stream("result", "relay", "#inner.length", "joined_result"),
+        )
+        .as_str(),
     );
 
-    client.timeout = Duration::from_secs(1);
+    let flat: Vec<Vec<String>> = input
+        .into_iter()
+        .map(|(_, arr)| arr.into_iter())
+        .flatten()
+        .collect();
 
-    let args = client.receive_args().wrap_err("receive args");
-    if args.is_err() {
-        panic!("{} failed", json!(elems));
-    }
+    assert_eq!(json!(flat), json!(output));
+}
+
+#[test]
+fn fold_fold_fold_seq_two_par_null_folds() {
+    let Abuse { input, output } = abuse_fold(
+        format!(
+            r#"
+        (seq
+            (seq
+                (fold permutations pair
+                    (seq
+                        (fold pair.$.[1]! peer_ids
+                            (seq
+                                (ap peer_ids $inner)
+                                (next peer_ids)
+                            )
+                        )
+                        (next pair)
+                    )
+                )
+                (seq
+                    (par
+                        (fold $inner ns
+                            (seq
+                                (ap ns $result)
+                                (next ns)
+                            )
+                        )
+                        (null)
+                    )
+                    (par
+                        (fold $inner ns
+                            (next ns)
+                        )
+                        (null)
+                    )
+                )
+            )
+            (seq
+                (seq
+                    (canon relay $inner #inner)
+                    {} ;; join $result stream
+                )
+                (call client ("return" "") [#joined_result])
+            )
+        )
+        "#,
+            join_stream("result", "relay", "#inner.length", "joined_result")
+        )
+        .as_str(),
+    );
+
+    let flat: Vec<Vec<String>> = input
+        .into_iter()
+        .map(|(_, arr)| arr.into_iter())
+        .flatten()
+        .collect();
+
+    assert_eq!(json!(flat), json!(output));
 }
 
 #[test]
