@@ -8,7 +8,7 @@ on:
         type: string
         default: "docker.fluence.dev/rust-peer"
       fluence-app-service-version:
-        description: "fluence-app-servie version"
+        description: "fluence-app-service version"
         type: string
       avm-server-version:
         description: "avm-server version"
@@ -61,21 +61,21 @@ jobs:
 
       - name: Set fluence-app-service version from branch
         if: inputs.fluece-app-service-version != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@add-cargo-set-dependency
+        uses: fluencelabs/github-actions/cargo-set-dependency@main
         with:
           package: fluence-app-service
           version: ${{ inputs.fluence-app-service-version }}
 
       - name: Set avm-server version from branch
         if: inputs.avm-server-version != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@add-cargo-set-dependency
+        uses: fluencelabs/github-actions/cargo-set-dependency@main
         with:
           package: avm-server
           version: ${{ inputs.avm-server-version }}
 
       - name: Set air-interpreter-wasm version from branch
         if: inputs.air-interpreter-wasm-version != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@add-cargo-set-dependency
+        uses: fluencelabs/github-actions/cargo-set-dependency@main
         with:
           package: air-interpreter-wasm
           version: ${{ inputs.air-interpreter-wasm-version }}
