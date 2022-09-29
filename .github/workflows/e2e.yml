@@ -12,8 +12,6 @@ concurrency:
 jobs:
   snapshot:
     name: "rust-peer"
-    needs:
-
     uses: ./.github/workflows/snapshot.yml
     with:
       image-name: "docker.fluence.dev/rust-peer"
@@ -24,4 +22,4 @@ jobs:
 
     uses: fluencelabs/aqua-playground/.github/workflows/tests.yml@master
     with:
-      rust-peer-image: ${{ needs.rust-peer.outputs.rust-peer-image }}
+      rust-peer-image: ${{ needs.snapshot.outputs.rust-peer-image }}
