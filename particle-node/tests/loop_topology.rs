@@ -293,10 +293,11 @@ fn fold_same_node_stream() {
     });
 
     client.timeout = Duration::from_secs(200);
-    client.particle_ttl = Duration::from_secs(200);
+    client.particle_ttl = Duration::from_secs(400);
 
     client.send_particle(
-        r#"
+        format!(
+            r#"
         (seq
             (seq
                 (null)
@@ -315,28 +316,34 @@ fn fold_same_node_stream() {
                             (next pair)
                         )
                     )
-                    (fold $inner ns
-                        (seq
-                            (fold ns n
-                                (seq
-                                    (seq
-                                        (call n ("op" "noop") [])
-                                        (ap n $result)
+                    (seq
+                        (canon relay $inner #inner)
+                        (fold $inner ns
+                            (par
+                                (fold ns n
+                                    (seq     ;; change to par and it works
+                                        (seq
+                                            (call n ("op" "noop") [])
+                                            (ap n $result)
+                                        )
+                                        (next n)
                                     )
-                                    (next n)
                                 )
+                                (next ns)
                             )
-                            (next ns)
                         )
                     )
                 )
             )
-            (seq
+            (seq                
                 (call relay ("op" "noop") [])
-                (call client ("return" "") [$inner $result])
+                (call client ("return" "") [#inner])
             )
         )
         "#,
+            // join_stream("result", "relay", "#inner.length", "joined_result")
+        )
+        .as_str(),
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
@@ -344,7 +351,7 @@ fn fold_same_node_stream() {
         },
     );
 
-    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let args = dbg!(client.receive_args().wrap_err("receive args").unwrap());
     if let [JValue::Array(inner), JValue::Array(result)] = args.as_slice() {
         let inner: Vec<_> = inner
             .iter()
