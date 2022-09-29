@@ -89,7 +89,7 @@ jobs:
       - name: Run cargo nextest
         env:
           NEXTEST_RETRIES: 10
-          NEXTEST_TEST_THREADS: 16
+          NEXTEST_TEST_THREADS: 10
         run: cargo nextest run --release --all-features --no-fail-fast
 
       - name: Set up Docker Buildx
