@@ -23,7 +23,6 @@ on:
 
 env:
   FORCE_COLOR: true
-  RUST_PEER_IMAGE: "${{ inputs.image-name }}:${{ github.head_ref }}"
 
 jobs:
   publish-snapshot:
@@ -103,6 +102,12 @@ jobs:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
+      - name: Prepare image name
+        id: image
+        run: |
+          branch=${{ github.head_ref }}
+          echo "::set-output name=name::${{ inputs.image-name }}:${branch//[^a-zA-Z0-9-]/-}"
+
       - name: Build and push snapshot
         id: build
         uses: docker/build-push-action@v3
@@ -111,7 +116,7 @@ jobs:
           push: true
           file: .github/snapshot/Dockerfile
           tags: |
-            ${{ inputs.image-name }}:${{ github.head_ref }}
+            ${{ steps.image.outputs.name }}
           labels: |
             sha=${{ github.event.pull_request.head.sha }}
           cache-from: type=gha

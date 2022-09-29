@@ -20,6 +20,7 @@ use std::{
 };
 
 use futures::channel::mpsc;
+use futures::StreamExt;
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{dial_opts, DialError, IntoConnectionHandler};
 use libp2p::{
@@ -32,13 +33,16 @@ use libp2p::{
 };
 
 use fluence_libp2p::remote_multiaddr;
-use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, OneshotOutlet, Outlet};
+use fluence_libp2p::types::{
+    BackPressuredInlet, BackPressuredOutlet, Inlet, OneshotOutlet, Outlet,
+};
 use particle_protocol::{
     CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig, SendStatus,
 };
 use peer_metrics::ConnectionPoolMetrics;
 
 use crate::connection_pool::LifecycleEvent;
+use crate::{Command, ConnectionPoolApi};
 
 // type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
@@ -99,6 +103,8 @@ impl Peer {
 pub struct ConnectionPoolBehaviour {
     peer_id: PeerId,
 
+    commands: Inlet<Command>,
+
     outlet: BackPressuredOutlet<Particle>,
     subscribers: Vec<Outlet<LifecycleEvent>>,
 
@@ -114,6 +120,19 @@ pub struct ConnectionPoolBehaviour {
 }
 
 impl ConnectionPoolBehaviour {
+    fn execute(&mut self, cmd: Command) {
+        match cmd {
+            Command::Dial { addr, out } => self.dial(addr, out),
+            Command::Connect { contact, out } => self.connect(contact, out),
+            Command::Disconnect { contact, out } => self.disconnect(contact, out),
+            Command::IsConnected { peer_id, out } => self.is_connected(peer_id, out),
+            Command::GetContact { peer_id, out } => self.get_contact(peer_id, out),
+            Command::Send { to, particle, out } => self.send(to, particle, out),
+            Command::CountConnections { out } => self.count_connections(out),
+            Command::LifecycleEvents { out } => self.add_subscriber(out),
+        }
+    }
+
     /// Dial `address`, and send contact back on success
     /// `None` means something prevented us from connecting - dial reach failure or something else
     pub fn dial(&mut self, address: Multiaddr, out: OneshotOutlet<Option<Contact>>) {
@@ -250,12 +269,18 @@ impl ConnectionPoolBehaviour {
         protocol_config: ProtocolConfig,
         peer_id: PeerId,
         metrics: Option<ConnectionPoolMetrics>,
-    ) -> (Self, BackPressuredInlet<Particle>) {
+    ) -> (Self, BackPressuredInlet<Particle>, ConnectionPoolApi) {
         let (outlet, inlet) = mpsc::channel(buffer);
+        let (command_outlet, command_inlet) = mpsc::unbounded();
+        let api = ConnectionPoolApi {
+            outlet: command_outlet,
+            send_timeout: protocol_config.upgrade_timeout * 2,
+        };
 
         let this = Self {
             peer_id,
             outlet,
+            commands: command_inlet,
             subscribers: <_>::default(),
             queue: <_>::default(),
             contacts: <_>::default(),
@@ -266,7 +291,7 @@ impl ConnectionPoolBehaviour {
             metrics,
         };
 
-        (this, inlet)
+        (this, inlet, api)
     }
 
     fn wake(&self) {
@@ -589,6 +614,10 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
 
         self.meter(|m| m.particle_queue_size.set(self.queue.len() as u64));
+
+        while let Poll::Ready(Some(cmd)) = self.commands.poll_next_unpin(cx) {
+            self.execute(cmd)
+        }
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);

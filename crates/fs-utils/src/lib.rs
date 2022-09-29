@@ -27,7 +27,6 @@
 )]
 
 use eyre::eyre;
-use rand::Rng;
 use std::fmt::Debug;
 use std::fs;
 use std::fs::Permissions;
@@ -43,13 +42,11 @@ pub fn to_abs_path(path: PathBuf) -> PathBuf {
 
 pub fn make_tmp_dir() -> PathBuf {
     use rand::distributions::Alphanumeric;
+    use rand::distributions::DistString;
 
     let mut tmp = std::env::temp_dir();
     tmp.push("fluence_test/");
-    let dir: String = rand::thread_rng()
-        .sample_iter(Alphanumeric)
-        .take(16)
-        .collect();
+    let dir: String = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
     tmp.push(dir);
 
     create_dir(&tmp).expect("create tmp dir");

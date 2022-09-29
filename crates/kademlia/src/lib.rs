@@ -1,4 +1,5 @@
 #![feature(drain_filter)]
+#![feature(stmt_expr_attributes)]
 /*
  * Copyright 2020 Fluence Labs Limited
  *
@@ -19,8 +20,8 @@ mod api;
 mod behaviour;
 mod error;
 
+pub use api::KademliaApi;
 pub use api::KademliaApiT;
-pub use api::{KademliaApi, KademliaApiInlet};
 pub use behaviour::Kademlia;
 pub use behaviour::KademliaConfig;
 pub use error::KademliaError;

@@ -1,0 +1,25 @@
+name: "e2e"
+
+on:
+  pull_request:
+    paths-ignore:
+      - "!**.md"
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    name: "rust-peer"
+    uses: ./.github/workflows/snapshot.yml
+    with:
+      image-name: "docker.fluence.dev/rust-peer"
+
+  aqua-playground:
+    needs:
+      - snapshot
+
+    uses: fluencelabs/aqua-playground/.github/workflows/tests.yml@master
+    with:
+      rust-peer-image: ${{ needs.snapshot.outputs.rust-peer-image }}

@@ -14,20 +14,20 @@ peer-metrics = { path = "../peer-metrics"}
 
 fluence-keypair = { workspace = true }
 
-libp2p = "0.45"
-libp2p-metrics = "0.6.0"
+libp2p = { workspace = true }
+libp2p-metrics = { workspace = true }
 
-serde = { version = "1.0.118", features = ["derive"] }
-humantime-serde = "1.0.1"
+serde = { version = "1.0.145", features = ["derive"] }
+humantime-serde = "1.1.1"
 
-log = "0.4.11"
-rand = "0.7.3"
-clap = "3.2.21"
-toml = "0.5.6"
-bs58 = "0.3.1"
+log = "0.4.17"
+rand = "0.8.5"
+clap = "3.2.22"
+toml = "0.5.9"
+bs58 = "0.4.0"
 base64 = "0.13.0"
-num_cpus = "1.13.0"
+num_cpus = "1.13.1"
 eyre = { workspace = true }
 derivative = "2.2.0"
 bytesize = {version = "1.1.0", features = ["serde"]}
-serde_with = "1.11.0"
+serde_with = "2.0.1"
