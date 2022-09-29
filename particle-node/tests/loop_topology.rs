@@ -52,7 +52,7 @@ fn fold_fold_fold() {
     client.send_particle(
         r#"
         (seq
-            (seq
+            (par
                 (fold permutations pair
                     (seq
                         (fold pair.$.[1]! peer_ids
