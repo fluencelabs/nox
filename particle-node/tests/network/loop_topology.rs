@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
-#[macro_use]
-extern crate fstrings;
-
 use std::time::Duration;
 
 use eyre::WrapErr;
-use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 use serde_json::Value as JValue;
 
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, CreatedSwarm};
+
+use super::join_stream;
 
 fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
     use itertools::*;
@@ -86,30 +84,6 @@ fn abuse_fold(air: &str) -> Abuse {
         input: elems,
         output,
     }
-}
-
-fn join_stream(stream: &str, relay: &str, length: &str, result: &str) -> String {
-    f!(r#"
-        (new $monotonic_stream
-            (seq
-                (fold ${stream} elem
-                    (seq
-                        (ap elem $monotonic_stream)
-                        (seq
-                            (canon relay $monotonic_stream #result)
-                            (xor
-                                (match #result.length {length} 
-                                    (null) ;; fold ends if there's no `next`
-                                )
-                                (next elem)
-                            )
-                        )
-                    )
-                )
-                (canon {relay} ${stream} #{result})
-            )
-        )
-    "#)
 }
 
 #[test]
@@ -267,7 +241,7 @@ fn fold_fold_fold_seq_two_par_null_folds() {
 
 #[test]
 fn fold_same_node_stream() {
-    let swarms = make_swarms(4);
+    let swarms = make_swarms(3);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
