@@ -9,15 +9,15 @@ use prometheus_client::registry::Registry;
 
 use futures::channel::mpsc::unbounded;
 
-use fluence_app_service::MemoryStats;
+use fluence_app_service::ModuleDescriptor;
 use fluence_libp2p::types::Outlet;
 
 pub use crate::services_metrics::backend::ServicesMetricsBackend;
 pub use crate::services_metrics::builtin::ServicesMetricsBuiltin;
 pub use crate::services_metrics::external::ServicesMetricsExternal;
-pub use crate::services_metrics::message::ServiceCallStats;
+pub use crate::services_metrics::message::{ServiceCallStats, ServiceMemoryStat};
 
-use crate::services_metrics::message::{ServiceMemoryStat, ServiceMetricsMsg};
+use crate::services_metrics::message::ServiceMetricsMsg;
 
 #[derive(Clone)]
 pub struct ServicesMetrics {
@@ -76,10 +76,10 @@ impl ServicesMetrics {
         &self,
         service_id: String,
         function_name: String,
-        memory: MemoryStats,
+        memory: ServiceMemoryStat,
         stats: ServiceCallStats,
     ) {
-        self.observe_service_call(service_id.clone(), function_name, stats);
+        self.observe_service_call(service_id.clone(), Some(function_name), stats);
         if self.external.is_some() {
             self.observe_service_mem(service_id, memory);
         }
@@ -88,18 +88,10 @@ impl ServicesMetrics {
     pub fn observe_service_call(
         &self,
         service_id: String,
-        function_name: String,
+        function_name: Option<String>,
         stats: ServiceCallStats,
     ) {
-        self.send(ServiceMetricsMsg::CallStats {
-            service_id,
-            function_name,
-            stats,
-        });
-    }
-
-    pub fn observe_service_call_unknown(&self, service_id: String, stats: ServiceCallStats) {
-        let function_name = "<unknown>".to_string();
+        let function_name = function_name.unwrap_or("<unknown>".to_string());
         self.send(ServiceMetricsMsg::CallStats {
             service_id,
             function_name,
@@ -108,29 +100,43 @@ impl ServicesMetrics {
     }
 
     /// Collect all metrics that are relevant on service creation.
-    pub fn observe_created(&self, service_id: String, stats: MemoryStats) {
-        if let Some(external) = self.external.as_ref() {
-            external.services_count.inc();
-            external
-                .modules_in_services_count
-                .observe(stats.0.len() as f64);
+    pub fn observe_created(
+        &self,
+        service_id: String,
+        stats: ServiceMemoryStat,
+        creation_time: f64,
+    ) {
+        self.observe_external(move |external| {
+            external.observe_created(stats.modules_stats.len() as f64, creation_time);
             self.observe_service_mem(service_id, stats);
-        }
+        });
+    }
+
+    pub fn observe_removed(&self, removal_time: f64) {
+        self.observe_external(|external| {
+            external.observe_removed(removal_time);
+        });
+    }
+
+    pub fn observe_service_config(&self, max_heap_size: u64, modules_config: &[ModuleDescriptor]) {
+        self.observe_external(|external| {
+            external.observe_service_max_mem(max_heap_size, modules_config);
+        });
     }
 
     pub fn observe_external<F>(&self, callback: F)
     where
-        F: Fn(&ServicesMetricsExternal),
+        F: FnOnce(&ServicesMetricsExternal),
     {
         if let Some(external) = self.external.as_ref() {
             callback(external);
         }
     }
 
-    fn observe_service_mem(&self, service_id: String, stats: MemoryStats) {
+    fn observe_service_mem(&self, service_id: String, stats: ServiceMemoryStat) {
         let msg = ServiceMetricsMsg::Memory {
             service_id,
-            memory_stat: ServiceMemoryStat::new(stats),
+            memory_stat: stats,
         };
         self.send(msg);
     }

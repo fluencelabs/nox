@@ -169,11 +169,7 @@ impl ServicesMetricsExternal {
     }
 
     /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(
-        &self,
-        default_max: u64,
-        modules_config: &Vec<ModuleDescriptor>,
-    ) {
+    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor]) {
         self.memory_metrics
             .observe_service_max_mem(default_max, modules_config);
     }
@@ -183,5 +179,12 @@ impl ServicesMetricsExternal {
         self.removal_count.inc();
         self.services_count.dec();
         self.removal_time_msec.observe(removal_time);
+    }
+
+    pub fn observe_created(&self, modules_num: f64, creation_time: f64) {
+        self.services_count.inc();
+        self.modules_in_services_count.observe(modules_num);
+        self.creation_count.inc();
+        self.creation_time_msec.observe(creation_time);
     }
 }
