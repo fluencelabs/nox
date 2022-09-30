@@ -75,6 +75,23 @@ impl ServicesMetrics {
         (backend, metrics)
     }
 
+    pub fn observe_builtins(&self, is_ok: bool, call_time: f64) {
+        self.observe_external(|external| {
+            let label = ServiceTypeLabel {
+                service_type: ServiceType::Builtin,
+            };
+            external
+                .call_time_msec
+                .get_or_create(&label)
+                .observe(call_time);
+            if is_ok {
+                external.call_success_count.get_or_create(&label).inc();
+            } else {
+                external.call_failed_count.get_or_create(&label).inc();
+            }
+        });
+    }
+
     pub fn observe_service_state(
         &self,
         service_id: String,
