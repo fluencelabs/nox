@@ -1,3 +1,4 @@
+use crate::ServiceType;
 use fluence_app_service::MemoryStats;
 use std::collections::HashMap;
 
@@ -20,6 +21,7 @@ pub enum ServiceCallStats {
 pub enum ServiceMetricsMsg {
     Memory {
         service_id: String,
+        service_type: ServiceType,
         memory_stat: ServiceMemoryStat,
     },
     CallStats {

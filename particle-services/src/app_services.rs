@@ -30,7 +30,9 @@ use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
-use peer_metrics::{ServiceCallStats, ServiceMemoryStat, ServicesMetrics, ServicesMetricsBuiltin};
+use peer_metrics::{
+    ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBuiltin,
+};
 use server_config::ServicesConfig;
 
 use crate::app_service::create_app_service;
@@ -197,13 +199,14 @@ impl ParticleAppServices {
         }
         let service = self.services.write().remove(&service_id).unwrap();
         let mut aliases = self.aliases.write();
+        let service_type = ServiceType::Service(service.aliases.first().cloned());
         for alias in service.aliases.iter() {
             aliases.remove(alias);
         }
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
         if let Some(metrics) = self.metrics.as_ref() {
-            metrics.observe_removed(removal_end_time as f64);
+            metrics.observe_removed(service_type, removal_end_time as f64);
         }
 
         Ok(())
@@ -233,6 +236,8 @@ impl ParticleAppServices {
                 };
             }
         };
+
+        let service_type = ServiceType::Service(service.aliases.first().cloned());
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         self.create_vault(&particle.id)?;
@@ -279,7 +284,12 @@ impl ParticleAppServices {
                     } else {
                         Some(function_name.clone())
                     };
-                    metrics.observe_service_call(service_id.clone(), function_name, stats);
+                    metrics.observe_service_state_failed(
+                        service_id.clone(),
+                        function_name,
+                        service_type.clone(),
+                        stats,
+                    );
                 }
                 ServiceError::Engine(e)
             })?;
@@ -299,6 +309,7 @@ impl ParticleAppServices {
             metrics.observe_service_state(
                 service_id,
                 function_name,
+                service_type,
                 ServiceMemoryStat::new(&new_memory),
                 stats,
             );
@@ -490,6 +501,7 @@ impl ParticleAppServices {
         })?;
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
+        let service_type = ServiceType::Service(aliases.first().cloned());
         let service = Service {
             service: Mutex::new(service),
             blueprint_id,
@@ -500,7 +512,7 @@ impl ParticleAppServices {
         let replaced = self.services.write().insert(service_id.clone(), service);
         let creation_end_time = creation_start_time.elapsed().as_secs();
         if let Some(m) = self.metrics.as_ref() {
-            m.observe_created(service_id, stats, creation_end_time as f64);
+            m.observe_created(service_id, service_type, stats, creation_end_time as f64);
         }
 
         Ok(replaced)

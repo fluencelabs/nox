@@ -9,11 +9,14 @@ use prometheus_client::registry::Registry;
 
 use futures::channel::mpsc::unbounded;
 
+use crate::ServiceCallStats::Success;
 use fluence_app_service::ModuleDescriptor;
 use fluence_libp2p::types::Outlet;
 
 pub use crate::services_metrics::backend::ServicesMetricsBackend;
 pub use crate::services_metrics::builtin::ServicesMetricsBuiltin;
+pub use crate::services_metrics::external::ServiceType;
+use crate::services_metrics::external::ServiceTypeLabel;
 pub use crate::services_metrics::external::ServicesMetricsExternal;
 pub use crate::services_metrics::message::{ServiceCallStats, ServiceMemoryStat};
 
@@ -76,16 +79,41 @@ impl ServicesMetrics {
         &self,
         service_id: String,
         function_name: String,
+        service_type: ServiceType,
         memory: ServiceMemoryStat,
         stats: ServiceCallStats,
     ) {
-        self.observe_service_call(service_id.clone(), Some(function_name), stats);
-        if self.external.is_some() {
-            self.observe_service_mem(service_id, memory);
-        }
+        self.observe_external(|external| {
+            let label = ServiceTypeLabel { service_type };
+            if let Success { call_time_sec, .. } = &stats {
+                external
+                    .call_time_msec
+                    .get_or_create(&label)
+                    .observe(*call_time_sec);
+            }
+            external.call_success_count.get_or_create(&label).inc();
+            self.observe_service_mem(service_id.clone(), label.service_type, memory);
+        });
+        self.observe_service_call(service_id, Some(function_name), stats);
     }
 
-    pub fn observe_service_call(
+    pub fn observe_service_state_failed(
+        &self,
+        service_id: String,
+        function_name: Option<String>,
+        service_type: ServiceType,
+        stats: ServiceCallStats,
+    ) {
+        self.observe_service_call(service_id, function_name, stats);
+        self.observe_external(|external| {
+            external
+                .call_failed_count
+                .get_or_create(&ServiceTypeLabel { service_type })
+                .inc();
+        });
+    }
+
+    fn observe_service_call(
         &self,
         service_id: String,
         function_name: Option<String>,
@@ -103,18 +131,23 @@ impl ServicesMetrics {
     pub fn observe_created(
         &self,
         service_id: String,
+        service_type: ServiceType,
         stats: ServiceMemoryStat,
         creation_time: f64,
     ) {
-        self.observe_external(move |external| {
-            external.observe_created(stats.modules_stats.len() as f64, creation_time);
-            self.observe_service_mem(service_id, stats);
+        self.observe_external(|external| {
+            external.observe_created(
+                service_type.clone(),
+                stats.modules_stats.len() as f64,
+                creation_time,
+            );
+            self.observe_service_mem(service_id, service_type, stats);
         });
     }
 
-    pub fn observe_removed(&self, removal_time: f64) {
+    pub fn observe_removed(&self, service_type: ServiceType, removal_time: f64) {
         self.observe_external(|external| {
-            external.observe_removed(removal_time);
+            external.observe_removed(service_type, removal_time);
         });
     }
 
@@ -133,9 +166,15 @@ impl ServicesMetrics {
         }
     }
 
-    fn observe_service_mem(&self, service_id: String, stats: ServiceMemoryStat) {
+    fn observe_service_mem(
+        &self,
+        service_id: String,
+        service_type: ServiceType,
+        stats: ServiceMemoryStat,
+    ) {
         let msg = ServiceMetricsMsg::Memory {
             service_id,
+            service_type,
             memory_stat: stats,
         };
         self.send(msg);
