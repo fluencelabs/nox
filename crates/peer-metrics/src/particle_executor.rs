@@ -12,6 +12,7 @@ use crate::execution_time_buckets;
 pub enum FunctionKind {
     Builtin,
     Service,
+    Function,
     // Function call failed early
     NotHappened,
 }
